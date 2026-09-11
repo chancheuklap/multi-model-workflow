@@ -48,15 +48,11 @@ That is the whole vocabulary, and the "exactly one state role" invariant is what
 
 `.out-of-scope/` is one markdown file per rejected **concept**, not per issue, written as a short design document rather than a database row: what was rejected, why, and every issue that has asked for it. `triage` reads the whole directory before it evaluates anything, and matches by concept rather than keyword, so "night theme" matches `dark-mode.md`. When it hits a match it surfaces the old decision and asks whether you still feel the same way, instead of re-litigating the request from scratch.
 
-## Tickets handed back by the landing pipeline
-
-A `needs-triage` ticket whose newest result is `ticket.returned` or `ticket.bounced` already carries the evidence triage needs. `ticket.returned` records why the worker could not finish. `ticket.bounced` records a passed ticket that could not merge into the base commit because the merge conflicted or repository checks failed.
-
-Read the event trail instead of reproducing from reporter steps. For `ticket.returned`, use the check, review, and verification events. For `ticket.bounced`, use the attempted base `commit`, target branch, sibling tickets that landed after work started, and the attached conflicted files or failed commands. Use that evidence to recommend one of the same four outcomes: `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`.
-
 ## Verify before you brief
 
 Before any [grilling](https://www.aihero.dev/ai-coding-dictionary/grilling), `triage` checks that the claim actually holds. For a bug, it reproduces it from the reporter's steps. For a PR, it checks the branch out and runs the relevant tests. Then it reports which of three things happened: confirmed, with the code path; failed to reproduce; or not enough detail to try, which is itself the strongest `needs-info` signal there is.
+
+A ticket handed back by this repository's own pipeline already carries that evidence. For `ticket.returned`, use its check, review, and verification events. For `ticket.bounced`, use the `origin/<base branch>` commit the merge tried to build on (`commit`), the base branch in `into`, sibling tickets that landed after work started, and the attached conflicted files or failed commands. Do not reproduce it from reporter steps or search `.out-of-scope/`; use the event trail to recommend `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`.
 
 It runs two more checks against the codebase in the same pass: **redundancy** (is this already implemented, searched by domain concept rather than by the reporter's wording?) and **prior rejection** (does `.out-of-scope/` already say no?). Both are cheap, and both produce a `wontfix` when they hit.
 

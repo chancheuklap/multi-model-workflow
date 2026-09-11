@@ -1058,8 +1058,14 @@ state = os.environ.get("MMW_FAKE_PASEO_STATE")
 found = next((t for t in rows if t.get("number") == want), {})
 store = Path(state or ".") / "gh-comments.json"
 posted = json.loads(store.read_text()).get(str(want), []) if state and store.is_file() else []
+reads = Path(state or ".") / "comment_reads"
+count = int(reads.read_text()) + 1 if reads.is_file() else 1
+reads.write_text(str(count))
+comments = list(found.get("comments", [])) + posted
+if count == int(os.environ.get("FAKE_GH_UNREADABLE_ON_COMMENT_READ", "0")):
+    comments.append("unreadable event\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.passed\",\"commit\": -->")
 print(json.dumps({
-    "comments": [{"body": b} for b in list(found.get("comments", [])) + posted],
+    "comments": [{"body": b} for b in comments],
 }))
 ' ;;
   *"--json assignees"*)
@@ -1547,13 +1553,18 @@ make_branch() {
 }
 
 write_batch() {
+  local commit61="" commit62="" event61 event62
+  commit61="$(git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-61 2>/dev/null)" || true
+  commit62="$(git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-62 2>/dev/null)" || true
+  event61="$(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field into=main ${commit61:+--field "commit=$commit61"})"
+  event62="$(ev ticket.passed 62 "ALL MET" --field branch=issue-62 --field into=main ${commit62:+--field "commit=$commit62"})"
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 61, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T01:00:00Z",
-   "comments": ["self-run\\n3 met", $(ev ticket.passed 61 "ALL MET" --field branch=issue-61)]},
+   "comments": ["self-run\\n3 met", $event61]},
   {"number": 62, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T02:00:00Z",
    "assignees": ["alice"],
-   "comments": [$(ev ticket.passed 62 "ALL MET" --field branch=issue-62)]},
+   "comments": [$event62]},
   {"number": 63, "state": "OPEN", "labels": ["ready-for-agent"],
    "body": "## Parent\\n\\n#76\\n", "title": "frontier ticket"}
 ]
@@ -1846,18 +1857,23 @@ JSON
 # Tickets outside any batch: what `land` was built for. #64 is finished, #65 was
 # handed back, #66 is still being worked, #67 closed with its branch unmerged.
 write_landable() {
+  local commit64="" commit67="" event64 event67
+  commit64="$(git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-64 2>/dev/null)" || true
+  commit67="$(git -C "$TMP/repo" rev-parse --verify --quiet refs/heads/issue-67 2>/dev/null)" || true
+  event64="$(ev ticket.passed 64 "ALL MET" --field branch=issue-64 --field into=main ${commit64:+--field "commit=$commit64"})"
+  event67="$(ev ticket.passed 67 "ALL MET" --field branch=issue-67 --field into=main ${commit67:+--field "commit=$commit67"})"
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 64, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T01:00:00Z",
    "assignees": ["mmw-bot"], "parent": null,
-   "comments": ["reverify\\nALL MET (1 met)", $(ev ticket.passed 64 "ALL MET" --field branch=issue-64)]},
+   "comments": ["reverify\\nALL MET (1 met)", $event64]},
   {"number": 65, "state": "OPEN", "labels": ["needs-triage"], "parent": null,
    "assignees": ["mmw-bot"],
    "comments": [$(ev ticket.returned 65 "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1")]},
   {"number": 66, "state": "OPEN", "labels": ["ready-for-agent"], "parent": null,
    "assignees": ["mmw-bot"], "comments": ["self-run\\nUNMET: 1 (met: 0)"]},
   {"number": 67, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T02:00:00Z",
-   "parent": null, "comments": [$(ev ticket.passed 67 "ALL MET" --field branch=issue-67)]},
+   "parent": null, "comments": [$event67]},
   {"number": 68, "state": "CLOSED", "labels": [], "closedAt": "2026-09-07T03:00:00Z",
    "parent": null, "comments": ["voided: superseded by the spec"]},
   {"number": 69, "state": "OPEN", "labels": ["needs-triage"], "parent": null,
@@ -1867,11 +1883,12 @@ JSON
 }
 
 scenario_land() {
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
   reset_log
   fresh_repo
-  write_landable
   make_branch issue-64 four.txt "from 64"
   make_branch issue-67 seven.txt "from 67"
+  write_landable
   seed_workspace 64
   seed_workspace 65
   seed_workspace 66
@@ -1915,7 +1932,7 @@ scenario_land() {
   assert_wt 65
   hasnt_runner_worktree
 
-  echo "--- a closed ticket whose branch is not in HEAD is reported, not archived"
+  echo "--- a closed ticket's passed commit is merged before its workspace is archived"
   reset_log
   seed_workspace 67
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -1954,16 +1971,16 @@ scenario_land() {
     || fail "a ticket that did not close ALL MET must not be merged"
   assert_wt 68
   hasnt_runner_worktree
-  grep -q "not in origin/main" "$TMP/err" \
-    || fail "the refusal should name what is unmerged: $(cat "$TMP/err")"
+  grep -q "no base branch in its events; not archiving" "$TMP/err" \
+    || fail "the refusal should name the missing landing authority: $(cat "$TMP/err")"
 }
 
 scenario_advance() {
   reset_log
   fresh_repo
-  write_batch
   make_branch issue-61 one.txt "from 61"
   make_branch issue-62 two.txt "from 62"
+  write_batch
   seed_workspace 61
   seed_workspace 62
   seed_foreign_workspace
@@ -2883,7 +2900,7 @@ PY
 [
   {"number": 61, "state": "CLOSED", "labels": [], "closedAt": "$when",
    "createdAt": "2026-08-29T00:00:00Z",
-   "comments": [$(ev ticket.passed 61 "ALL MET" --field branch=issue-61),
+   "comments": [$(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field into=main),
                 $(ev ticket.landed 61 "Landed issue-61 into main")]}
 ]
 JSON
@@ -2910,9 +2927,11 @@ JSON
   [ "$code" = 0 ] || fail "reverify expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "reverify #76: 1 green, 0 red" "$TMP/out" \
     || fail "reverify should report 1 green: $(cat "$TMP/out")"
+  git -C "$TMP/repo" worktree add -q --detach "$TMP/linked-summary" HEAD
   reset_log
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+  code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76) \
+          > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
     || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
@@ -3127,12 +3146,13 @@ JSON
 LEASE_PY="$(dirname "$SKILL")/drive-target/scripts/lease.py"
 
 scenario_slotatclaim() {
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
   echo "--- a product capped at one run still has every frontier ticket started: code takes no slot"
   reset_log
   fresh_repo
-  write_batch
   make_branch issue-61 one.txt "from 61"
   make_branch issue-62 two.txt "from 62"
+  write_batch
   mkdir -p "$TMP/repo/.mmw"
   printf '%s\n' '{"start":"true","discover":"true","reach":"true","instance":{"max":1,"why":"fixed host ports"}}' \
     > "$TMP/repo/.mmw/target.json"
@@ -4389,8 +4409,8 @@ scenario_openticket() {
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 90, "state": "CLOSED", "labels": [], "parent": null,
-   "comments": [$(ev ticket.passed 90 "ALL MET" --field branch=issue-90),
-                $(ev ticket.landed 90 "Landed issue-90 into main")]},
+   "comments": [$(ev ticket.passed 90 "ALL MET" --field branch=issue-90 --field into=main),
+                $(ev ticket.landed 90 "Landed issue-90 into main" --field into=main)]},
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}
 ]
 JSON
@@ -4721,11 +4741,12 @@ PY
 
 scenario_worktreeremove() {
   local code
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
   echo "--- land removes the worktree with git and leaves the branch"
   reset_log
   fresh_repo
-  write_landable
   make_branch issue-64 four.txt "from 64"
+  write_landable
   seed_workspace 64
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" land 64)"
@@ -5262,11 +5283,12 @@ JSON
 
 scenario_landarchivesagents() {
   local code left
+  rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
   echo "--- land takes the ticket's Paseo agents off the list and leaves another ticket's"
   reset_log
   fresh_repo
-  write_landable
   make_branch issue-64 four.txt "from 64"
+  write_landable
   seed_workspace 64
   seed_agent 64 worker
   seed_agent 64 reviewer
@@ -6036,6 +6058,41 @@ scenario_advancepassedcommit() {
     || fail "the merge subject is not fixed"
 }
 
+scenario_advanceunreadableinto() {
+  reset_log
+  fresh_repo
+  make_branch issue-61 ticket.txt ticket
+  local passed before code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  write_one_passed 61 "$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          FAKE_GH_UNREADABLE_ON_COMMENT_READ=2 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 2 ] || fail "an unreadable base-branch event expected exit 2, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] \
+    || fail "an unreadable event fell back to the caller branch and moved origin/main"
+}
+
+scenario_advancewithoutpassedcommit() {
+  reset_log
+  fresh_repo
+  make_branch issue-61 ticket.txt ticket
+  local before code
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "CLOSED", "labels": [], "closedAt": "2026-09-11T01:00:00Z",
+   "comments": [$(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field into=main)]}
+]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 2 ] || fail "ticket.passed without commit expected exit 2, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] \
+    || fail "the unverified issue-61 tip moved origin/main"
+}
+
 setup_bounced_conflict() {
   reset_log
   fresh_repo
@@ -6078,6 +6135,7 @@ PY
   has "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage :: --remove-assignee :: @me"
   posted_events 61 reason files | grep -q "ticket.bounced reason=conflict files=\['shared.txt'\]" \
     || fail "ticket.bounced does not name the conflict: $(posted_events 61 reason files)"
+  [ -d "$TMP/repo/.worktrees/merge-main" ] || fail "the detached merge worktree was not kept"
   assert_wt 61
 }
 
@@ -6092,7 +6150,10 @@ scenario_advancenohalfmerge() {
     || fail "the caller checkout has MERGE_HEAD"
   ! git -C "$TMP/repo/.worktrees/merge-main" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 \
     || fail "the merge worktree has MERGE_HEAD"
+  [ -d "$TMP/repo/.worktrees/merge-main" ] || fail "the merge worktree was not created"
   [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "origin/main moved"
+  posted_events 61 reason | grep -qx 'ticket.bounced reason=conflict' \
+    || fail "the conflict was not recorded: $(posted_events 61 reason)"
 }
 
 setup_checked_ticket() {
@@ -6113,7 +6174,7 @@ setup_checked_ticket() {
 }
 
 scenario_advancebouncedchecks() {
-  setup_checked_ticket "echo red-tail; exit 1"
+  setup_checked_ticket "printf 'red-%s\\n' tail; exit 1"
   local before code
   before="$(git -C "$TMP/origin.git" rev-parse main)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -6137,14 +6198,36 @@ scenario_advanceskipsecondcheck() {
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "the proven tree should land without a second check: $(cat "$TMP/err")"
   [ ! -e "$TMP/check-ran" ] || fail "the repository check ran a second time"
+
+  setup_checked_ticket "printf 'reran\\n' > '$TMP/check-ran'"
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  checked="$(ev ticket.checked 61 "Repository checks passed" --field run=repo-checks \
+    --field "commit=$passed" --field result=met)"
+  write_one_passed 61 "$passed" "$checked"
+  local other
+  other="$(other_clone)"
+  commit_file "$other" sibling.txt sibling sibling
+  git -C "$other" push -q origin main
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a changed origin base should be rechecked: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/check-ran" 2>/dev/null)" = reran ] \
+    || fail "the repository check was reused after origin/main advanced"
 }
 
 scenario_advancebaseref() {
-  setup_checked_ticket 'test "$MMW_BASE_REF" = origin/main'
-  local code
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+  setup_checked_ticket 'printf "%s\\n" "$MMW_BASE_REF" > "$MMW_BASE_REF_FILE"'
+  local passed code
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_BASE_REF_FILE="$TMP/base-ref" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "MMW_BASE_REF was not origin/main: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/base-ref" 2>/dev/null)" = origin/main ] \
+    || fail "the check did not receive literal origin/main"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main \
+    || fail "the ticket did not land after the base-ref check"
+  [ -z "$(posted_events 61 reason | grep '^ticket.bounced')" ] \
+    || fail "the green base-ref check bounced the ticket"
 }
 
 scenario_advancenochecks() {
@@ -6159,6 +6242,28 @@ scenario_advancenochecks() {
   [ "$code" = 0 ] || fail "a repository without checks should land: $(cat "$TMP/err")"
   grep -q '没有检查：.mmw/target.json 没声明 checks' "$TMP/err" \
     || fail "the absence of checks was silent: $(cat "$TMP/err")"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$passed" main \
+    || fail "the ticket did not land without repository checks"
+
+  reset_log
+  fresh_repo
+  mkdir -p "$TMP/repo/.mmw"
+  printf '%s\n' '[]' > "$TMP/repo/.mmw/target.json"
+  git -C "$TMP/repo" add .mmw/target.json
+  git -C "$TMP/repo" -c user.email=t@t -c user.name=t commit -q -m malformed-target
+  git -C "$TMP/repo" push -q origin main
+  make_branch issue-61 ticket.txt ticket
+  local before
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  before="$(git -C "$TMP/origin.git" rev-parse main)"
+  write_one_passed 61 "$passed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "an unreadable checks declaration should bounce: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] \
+    || fail "a top-level non-object target.json moved origin/main"
+  posted_events 61 reason commands | grep -q 'ticket.bounced reason=checks' \
+    || fail "the malformed target.json was treated as no checks"
 }
 
 scenario_advanceraced() {
@@ -6205,15 +6310,15 @@ scenario_advancelandedfields() {
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "advance expected 0: $(cat "$TMP/err")"
   merge="$(git -C "$TMP/origin.git" rev-parse main)"
+  [ "$merge" != "$passed" ] || fail "a non-ancestor ticket was not kept as its own merge commit"
   posted_events 61 commit into merge | grep -qx \
     "ticket.landed commit=$passed into=main merge=$merge" \
     || fail "ticket.landed fields are wrong: $(posted_events 61 commit into merge)"
 }
 
 scenario_advancealreadyin() {
-  reset_log
-  fresh_repo
-  make_branch issue-61 ticket.txt ticket
+  rm -f "$TMP/check-ran"
+  setup_checked_ticket "printf 'ran\\n' > '$TMP/check-ran'; exit 1"
   local passed before code
   passed="$(git -C "$TMP/repo" rev-parse issue-61)"
   git -C "$TMP/repo" push -q origin "$passed:main"
@@ -6225,6 +6330,11 @@ scenario_advancealreadyin() {
   [ "$code" = 0 ] || fail "an already-present commit should be recorded: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse main)" = "$before" ] || fail "a new merge was made"
   grep -q 'already in 1' "$TMP/err" || fail "the tally did not count already in"
+  [ ! -e "$TMP/check-ran" ] || fail "checks ran after the passed commit was already in origin/main"
+  [ -z "$(posted_events 61 reason | grep '^ticket.bounced')" ] \
+    || fail "an already-present ticket was bounced"
+  posted_events 61 commit merge | grep -qx "ticket.landed commit=$passed merge=$before" \
+    || fail "the already-present ticket was not recorded as landed"
   assert_no_wt 61
 }
 
@@ -6265,12 +6375,25 @@ scenario_bouncednotretried() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "first advance expected 0: $(cat "$TMP/err")"
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+rows = json.loads(path.read_text())
+rows[0]["state"] = "OPEN"
+rows[0]["labels"] = ["needs-triage"]
+rows[0]["assignees"] = []
+path.write_text(json.dumps(rows))
+PY
   : > "$MMW_TEST_LOG"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "second advance expected 0: $(cat "$TMP/err")"
   grep -q 'merged 0, already in 0, bounced 0' "$TMP/err" \
     || fail "the bounced ticket was tried again: $(cat "$TMP/err")"
+  grep -q 'started 0' "$TMP/err" || fail "the bounced ticket was dispatched again: $(cat "$TMP/err")"
+  never_ran
   [ "$(posted_events 61 reason | grep -c ticket.bounced | tr -d ' ')" = 1 ] \
     || fail "a second ticket.bounced was written"
 }
@@ -6363,9 +6486,11 @@ JSON
   [ "$code" = 0 ] || fail "summary expected 0: $(cat "$TMP/err")"
   grep -q '^Bounced: #61 (conflict)$' "$MMW_GH_LAST_BODY" \
     || fail "NIGHT SUMMARY omits the bounced ticket: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q '^Handed back to needs-triage: None$' "$MMW_GH_LAST_BODY" \
+    || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields advancealreadyin advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields advancealreadyin advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openrefusesahead openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -6388,6 +6513,8 @@ banner_for() {
     advancedirty) echo DISPATCH-ADVANCE-DIRTY-OK ;;
     advancemergeworktree) echo ADVANCE-MERGE-WORKTREE-OK ;;
     advancepassedcommit) echo ADVANCE-PASSED-COMMIT-OK ;;
+    advanceunreadableinto) echo ADVANCE-UNREADABLE-INTO-OK ;;
+    advancewithoutpassedcommit) echo ADVANCE-WITHOUT-PASSED-COMMIT-OK ;;
     advancebouncedconflict) echo ADVANCE-BOUNCED-CONFLICT-OK ;;
     advancenohalfmerge) echo ADVANCE-NO-HALF-MERGE-OK ;;
     advancebouncedchecks) echo ADVANCE-BOUNCED-CHECKS-OK ;;

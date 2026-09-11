@@ -82,6 +82,7 @@ else
 fi
 STATUS="$SKILL_ROOT/scripts/status.py"
 RELAY="$SKILL_ROOT/scripts/relay.py"
+STATEDIR="$SKILL_ROOT/scripts/statedir.py"
 RUNNER=""
 RUNNER_NAME=""
 # The skill lives under mmw-v2/skills/<name> of the toolbox checkout, so `install.sh`
@@ -1655,80 +1656,83 @@ ticket_title() {
   gh_ issue view "$1" --json title -q .title 2>/dev/null | head -n 1
 }
 
-# Everything needed to resolve the merge sitting in the tree, in the order the
-# `resolving-merge-conflicts` skill asks for it: the state of the merge first, then the
-# primary source behind each side. Both sides are tickets — the branch being merged is
-# one ticket's work, and the merge commits already on this branch name the others — so
-# they are printed rather than left to be hunted for.
-conflict_report() {
-  local root="$1" remaining="${2:-}"
-  local git_dir branch number title line
-  git_dir="$(git -C "$root" rev-parse --git-dir)"
-  branch="$(sed -n "s/^Merge branch '\([^']*\)'.*/\1/p" "$git_dir/MERGE_MSG" 2>/dev/null | head -n 1)"
-  [ -n "$branch" ] || branch="(unknown)"
-
-  echo "CONFLICT merging $branch into $(git -C "$root" rev-parse --abbrev-ref HEAD)"
-  echo
-
-  number="${branch#issue-}"
-  case "$number" in
-    *[!0-9]* | "") echo "  MERGE_HEAD  $branch" ;;
-    *) title="$(ticket_title "$number")"
-       echo "  MERGE_HEAD  $branch  ← $title (#$number)" ;;
-  esac
-
-  echo "  HEAD        already merged, most recent first:"
-  git -C "$root" log --merges --first-parent -3 --format='%s' 2>/dev/null \
-    | sed -n "s/^Merge branch '\([^']*\)'.*/\1/p" \
-    | while read -r line; do
-        number="${line#issue-}"
-        case "$number" in
-          *[!0-9]* | "") echo "                $line" ;;
-          *) echo "                $line  ← $(ticket_title "$number") (#$number)" ;;
-        esac
-      done
-
-  echo
-  echo "  conflicted files:"
-  git -C "$root" diff --name-only --diff-filter=U | sed 's/^/    /'
-
-  if [ -n "$remaining" ]; then
-    echo
-    printf '  not merged yet: %s\n' "$(printf '%s' "$remaining" | tr '\n' ' ')"
-  fi
-
-  echo
-  echo "  Resolve it with the resolving-merge-conflicts skill — never --abort — run this"
-  echo "  repository's own checks, commit the merge, then run:"
-  echo "    bash $SELF advance $MMW_ADVANCE_SPEC"
-}
-
-merge_slug() { printf '%s\n' "$1" | tr '/' '-'; }
+merge_slug() { printf '%s\n' "${1//\//-}"; }
 
 MERGE_LOCK=""
+MERGE_LOCK_PID=""
+MERGE_LOCK_READY=""
 MERGE_ROOT=""
 release_merge_lock() {
-  [ -z "$MERGE_LOCK" ] || rmdir "$MERGE_LOCK" 2>/dev/null || true
+  if [ -n "$MERGE_LOCK_PID" ]; then
+    kill "$MERGE_LOCK_PID" 2>/dev/null || true
+    wait "$MERGE_LOCK_PID" 2>/dev/null || true
+  fi
+  [ -z "$MERGE_LOCK_READY" ] || rm -f "$MERGE_LOCK_READY"
   MERGE_LOCK=""
+  MERGE_LOCK_PID=""
+  MERGE_LOCK_READY=""
+}
+
+acquire_merge_lock() {
+  local into="$1" repo slug state answer i
+  repo="$(repo_slug)" || return 2
+  slug="$(merge_slug "$into")"
+  state="$(python3 - "$STATEDIR" "$repo" <<'PY'
+import importlib.util, sys
+from pathlib import Path
+
+script, repo = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("mmw_statedir", script)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+print(mod.state_dir(repo))
+PY
+)" || return 2
+  MERGE_LOCK="$state/merge-$slug.lock"
+  MERGE_LOCK_READY="$(mktemp)"
+  python3 - "$STATEDIR" "$MERGE_LOCK" "$into" "$$" <<'PY' >"$MERGE_LOCK_READY" 2>&1 &
+import importlib.util, os, sys, time
+from pathlib import Path
+
+script, lock, into, parent = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("mmw_statedir", script)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+try:
+    with mod.locked(Path(lock), wait=6.0, purpose=f"landing into origin/{into}"):
+        print("LOCKED", flush=True)
+        while os.getppid() == int(parent):
+            time.sleep(0.1)
+except mod.LockHeld as exc:
+    print(f"dispatch: another merge into {into} still holds {exc}", flush=True)
+    raise SystemExit(2)
+PY
+  MERGE_LOCK_PID=$!
+  for ((i = 1; i <= 70; i++)); do
+    [ -s "$MERGE_LOCK_READY" ] && break
+    kill -0 "$MERGE_LOCK_PID" 2>/dev/null || break
+    sleep 0.1
+  done
+  answer="$(cat "$MERGE_LOCK_READY")"
+  case "$answer" in
+    LOCKED) trap release_merge_lock EXIT; return 0 ;;
+    "") echo "dispatch: the merge lock helper for origin/$into did not answer" >&2 ;;
+    *) printf '%s\n' "$answer" >&2 ;;
+  esac
+  release_merge_lock
+  return 2
 }
 
 # One detached, persistent worktree per base branch. Reset changes tracked files only:
 # ignored dependency directories and caches stay warm between landings.
 prepare_merge_worktree() {
-  local root="$1" into="$2" main slug dest common i acquired=0
-  main="$(main_checkout)" \
+  local root="$1" into="$2" main slug dest
+  main="$(main_checkout)"
+  [ -n "$main" ] \
     || { echo "dispatch: could not resolve the main checkout from $root" >&2; return 2; }
   slug="$(merge_slug "$into")"
   dest="$main/.worktrees/merge-$slug"
-  common="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)"
-  MERGE_LOCK="$common/mmw-merge-$slug.lock"
-  for ((i = 1; i <= MERGE_TRIES; i++)); do
-    if mkdir "$MERGE_LOCK" 2>/dev/null; then acquired=1; break; fi
-    sleep 2
-  done
-  [ "$acquired" -eq 1 ] \
-    || { echo "dispatch: another merge into $into still holds $MERGE_LOCK" >&2; return 2; }
-  trap release_merge_lock EXIT INT TERM
+  acquire_merge_lock "$into" || return 2
 
   fetch_origin "$root" || { release_merge_lock; return 2; }
   require_origin_branch "$root" "$into" || { release_merge_lock; return 2; }
@@ -1752,24 +1756,41 @@ ticket_passed_commit() {
   rc=$?
   case "$rc" in
     0) printf '%s\n' "$commit" ;;
-    3 | 4)
-      commit="$(git rev-parse --verify --quiet "refs/heads/issue-$number" 2>/dev/null)" \
-        || commit="$(git rev-parse --verify --quiet "refs/remotes/origin/issue-$number" 2>/dev/null)" \
-        || return 1
-      printf '%s\n' "$commit"
-      ;;
-    *) return 1 ;;
+    2) echo "dispatch: could not read #$number's events, so its passed commit is unknown" >&2; return 2 ;;
+    3) echo "dispatch: #$number carries no active ticket.passed event" >&2; return 2 ;;
+    4) echo "dispatch: #$number's ticket.passed event carries no commit" >&2; return 2 ;;
+    *) echo "dispatch: could not resolve #$number's passed commit" >&2; return 2 ;;
   esac
 }
 
 ticket_into() {
-  local number="$1" fallback="$2" into rc
+  local number="$1" spec="$2" into rc
   into="$(newest_field "$number" into ticket.passed)"; rc=$?
-  [ "$rc" -ne 0 ] || { printf '%s\n' "$into"; return 0; }
+  case "$rc" in
+    0) printf '%s\n' "$into"; return 0 ;;
+    2) echo "dispatch: could not read #$number's events, so its base branch is unknown" >&2; return 2 ;;
+    3 | 4) ;;
+    *) return 2 ;;
+  esac
   into="$(newest_worker_field "$number" into)"; rc=$?
-  [ "$rc" -ne 0 ] || { printf '%s\n' "$into"; return 0; }
-  [ -n "$fallback" ] || return 1
-  printf '%s\n' "$fallback"
+  case "$rc" in
+    0) printf '%s\n' "$into"; return 0 ;;
+    2) return 2 ;;
+    3) ;;
+    *) return 2 ;;
+  esac
+  if [ -n "$spec" ]; then
+    into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)"; rc=$?
+    case "$rc" in
+      0) printf '%s\n' "$into"; return 0 ;;
+      2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
+      3) ;;
+      4) echo "dispatch: the open night on #$spec carries no spec.opened.into" >&2; return 2 ;;
+      *) return 2 ;;
+    esac
+  fi
+  echo "dispatch: #$number carries no base branch in ticket.passed, worker.started, or its open night" >&2
+  return 2
 }
 
 repo_checks_met() {
@@ -1786,24 +1807,6 @@ repo_checks_met() {
 MERGE_CHECKS_JSON=""
 run_merge_checks() {
   local root="$1" into="$2"
-  local declared
-  declared="$(python3 - "$root/.mmw/target.json" <<'PY'
-import json, sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-if not path.is_file():
-    print("absent")
-else:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        print("present")
-    else:
-        print("present" if isinstance(value, dict) and "checks" in value else "absent")
-PY
-)" || return 2
-  [ "$declared" = present ] || { MERGE_CHECKS_JSON="null"; return 3; }
   MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" <<'PY'
 import importlib.util, json, sys
 from pathlib import Path
@@ -1826,11 +1829,11 @@ sys.exit(0 if not value.get("failed") and not value.get("problem") else 1)
 }
 
 bounce_ticket() {
-  local number="$1" spec="$2" into="$3" base="$4" reason="$5" detail="$6"
+  local root="$1" number="$2" spec="$3" into="$4" base="$5" reason="$6" detail="$7"
   local started siblings="" text failed_text fields=()
   started="$(newest_worker_field "$number" base 2>/dev/null)" || started=""
-  if [ -n "$started" ] && git cat-file -e "$started^{commit}" 2>/dev/null; then
-    siblings="$(integrated_ticket_numbers "$PWD" "$started..origin/$into" | awk -v n="$number" '$0 != n')"
+  if [ -n "$started" ] && git -C "$root" cat-file -e "$started^{commit}" 2>/dev/null; then
+    siblings="$(integrated_ticket_numbers "$root" "$started..origin/$into" | awk -v n="$number" '$0 != n')"
   fi
   text="Tried to merge issue-$number into origin/$into at $base and handed it to triage."
   if [ -n "$siblings" ]; then
@@ -1865,7 +1868,7 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
 }
 
 # Merge the exact ticket.passed commit, check the result, then fast-forward origin.
-# 0 landed, 1 bounced, 2 could not complete after the bounded push retries.
+# 0 merged, 1 bounced, 2 could not complete, 3 was already in origin.
 land_one_via_origin() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5" mode="${6:-advance}"
   local attempt merge_root base merge_commit rc files failed push_error=""
@@ -1874,15 +1877,25 @@ land_one_via_origin() {
     merge_root="$MERGE_ROOT"
     base="$(git -C "$merge_root" rev-parse "origin/$into")"
     if git -C "$merge_root" merge-base --is-ancestor "$passed" "origin/$into"; then
-      merge_commit="$base"
-    else
-      if ! git -C "$merge_root" merge --no-ff -m "Merge branch 'issue-$number'" "$passed" >/dev/null 2>&1; then
+      if [ "$mode" = land ]; then
+        gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 \
+          || echo "land: could not give #$number's claim back" >&2
+        post_event "$number" ticket.released --ticket "$number" --spec "$spec" \
+            --line "Gave the claim on #$number back: its work is over" --field reason=landed \
+          || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
+      fi
+      archive_workspace "$number"
+      record_landed "$number" "$spec" "$into" "$passed" "$base"
+      release_merge_lock
+      return 3
+    fi
+    if ! git -C "$merge_root" merge --no-ff -m "Merge branch 'issue-$number'" "$passed" >/dev/null 2>&1; then
         if git -C "$merge_root" rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
           files="$(git -C "$merge_root" diff --name-only --diff-filter=U \
             | python3 -c 'import json, sys; print(json.dumps([l.rstrip("\n") for l in sys.stdin if l.strip()]))')"
           git -C "$merge_root" merge --abort >/dev/null 2>&1 || true
           git -C "$merge_root" reset --hard "origin/$into" >/dev/null
-          if ! (cd "$merge_root" && bounce_ticket "$number" "$spec" "$into" "$base" conflict "$files"); then
+          if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" conflict "$files"; then
             release_merge_lock
             return 2
           fi
@@ -1893,9 +1906,8 @@ land_one_via_origin() {
         [ "$attempt" -lt "$MERGE_TRIES" ] && { sleep 2; continue; }
         echo "dispatch: could not merge ticket.passed commit $passed for #$number after $MERGE_TRIES tries" >&2
         return 2
-      fi
-      merge_commit="$(git -C "$merge_root" rev-parse HEAD)"
     fi
+    merge_commit="$(git -C "$merge_root" rev-parse HEAD)"
 
     if git -C "$merge_root" merge-base --is-ancestor "origin/$into" "$passed" \
        && repo_checks_met "$number" "$passed"; then
@@ -1903,7 +1915,7 @@ land_one_via_origin() {
     else
       run_merge_checks "$merge_root" "$into"; rc=$?
       if [ "$rc" -eq 3 ]; then
-        echo "没有检查：.mmw/target.json 没声明 checks" >&2
+        echo "dispatch: 没有检查：.mmw/target.json 没声明 checks" >&2
       elif [ "$rc" -eq 1 ]; then
         failed="$(MMW_CHECKS_JSON="$MERGE_CHECKS_JSON" python3 -c '
 import json, os
@@ -1914,7 +1926,7 @@ if value.get("problem"):
 print(json.dumps(rows, separators=(",", ":")))
 ')"
         git -C "$merge_root" reset --hard "origin/$into" >/dev/null
-        if ! (cd "$merge_root" && bounce_ticket "$number" "$spec" "$into" "$base" checks "$failed"); then
+        if ! bounce_ticket "$merge_root" "$number" "$spec" "$into" "$base" checks "$failed"; then
           release_merge_lock
           return 2
         fi
@@ -1937,7 +1949,7 @@ print(json.dumps(rows, separators=(",", ":")))
           || echo "land: #$number's claim is given back, but its ticket.released event was not written" >&2
       fi
       archive_workspace "$number"
-      record_landed "$number" "$root" "$spec" "$into" "$passed" "$merge_commit"
+      record_landed "$number" "$spec" "$into" "$passed" "$merge_commit"
       release_merge_lock
       return 0
     fi
@@ -1948,17 +1960,17 @@ print(json.dumps(rows, separators=(",", ":")))
   return 2
 }
 
-# Record on ticket <n> that its branch is in the base branch now. Its events then show it
+# Record on ticket <n> that its passed commit is in the base branch now. Its events then show it
 # landed, and that — not its closing — is what lets the tickets it blocks start: a
 # ticket is cut from the base branch and has to find its blockers' work there.
 record_landed() {
-  local number="$1" root="$2" spec="${3:-}" into="$4" commit="$5" merge="$6" branch
+  local number="$1" spec="${2:-}" into="$3" commit="$4" merge="$5" branch
   branch="$(ticket_branch "$number")"
   post_event "$number" ticket.landed --ticket "$number" --spec "$spec" \
       --line "Landed $branch into $into" \
       --field "branch=$branch" --field "into=$into" \
       --field "commit=$commit" --field "merge=$merge" \
-    || echo "dispatch: $branch is in $into, but the ticket.landed event on #$number was not written; the tickets it blocks stay blocked until the next advance or land writes it" >&2
+    || echo "dispatch: $commit is in origin/$into, but the ticket.landed event on #$number was not written; the tickets it blocks stay blocked until the next advance or land writes it" >&2
 }
 
 advance() {
@@ -1985,31 +1997,21 @@ advance() {
     || { cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec"; }
   rm -f "$plan_err"
 
-  local merged=0 skipped=0 bounced=0 number passed into rc fallback already
-  fallback="$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  [ "$fallback" = HEAD ] && fallback=""
+  local merged=0 skipped=0 bounced=0 number passed into rc
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
     passed="$(ticket_passed_commit "$number")" \
       || refuse "#${number}'s ticket.passed event carries no usable commit"
-    into="$(ticket_into "$number" "$fallback")" \
-      || refuse "#${number}'s ticket.passed and worker.started events carry no base branch"
-    fetch_origin "$root" || refuse "could not fetch origin before landing #$number"
-    require_origin_branch "$root" "$into" || exit 2
-    already=0
-    git -C "$root" merge-base --is-ancestor "$passed" "origin/$into" 2>/dev/null \
-      && already=1
+    into="$(ticket_into "$number" "$spec")" \
+      || refuse "#${number}'s events carry no usable base branch"
     land_one_via_origin "$root" "$number" "$spec" "$into" "$passed"
     rc=$?
     case "$rc" in
       0)
-        if [ "$already" -eq 1 ]; then
-          skipped=$((skipped + 1))
-        else
-          merged=$((merged + 1))
-          echo "merged issue-$number into origin/$into" >&2
-        fi
+        merged=$((merged + 1))
+        echo "merged issue-$number into origin/$into" >&2
         ;;
       1) bounced=$((bounced + 1)) ;;
+      3) skipped=$((skipped + 1)) ;;
       *) refuse "could not land #$number into origin/$into after $MERGE_TRIES tries" ;;
     esac
   done
@@ -2038,7 +2040,7 @@ advance() {
   done
 
   # What to start is read again, now that the merges above are recorded as landed and
-  # the claims given back: a merge that could not happen — no branch here to merge —
+  # the claims given back: a merge that could not happen and wrote no `ticket.landed`
   # left no `ticket.landed`, so the tickets it blocks stay blocked.
   plan="$(python3 "$STATUS" --advance-plan "$spec")" \
     || refuse "could not read the batch under #$spec again after its merges, so nothing was started"
@@ -2067,7 +2069,7 @@ advance() {
 
 # Land one ticket.
 #
-# Landing is what closing a ticket does not do: merge the branch and record
+# Landing is what closing a ticket does not do: merge the passed commit and record
 # `ticket.landed` on it, end every session its events name through that session's
 # runner, remove the worktree with git, give the slot back, and give the claim back
 # (`ticket.released`, reason `landed`). `advance` does it for a
@@ -2078,8 +2080,8 @@ advance() {
 # noticed.
 #
 # Order is fixed: the worktree directory is where the product's stop command
-# lives, so a branch not yet in HEAD has to be merged first or the work has to
-# be rebuilt from the branch to get it back. Agents are archived in the same
+# lives, so a passed commit not yet in origin has to be merged first or the work has to
+# be rebuilt from the ticket branch to get it back. Agents are archived in the same
 # step as the worktree, after that merge.
 land_tickets() {
   local root
@@ -2092,28 +2094,24 @@ land_tickets() {
   plan="$(python3 "$STATUS" --land-plan "${numbers[@]}")" \
     || refuse "could not read $(printf '#%s ' "${numbers[@]}")from the tracker"
 
-  local merged=0 already=0 bounced=0 kept=0 failed=0 number passed into archive_into rc fallback was_already
+  local merged=0 already=0 bounced=0 kept=0 failed=0 number passed into archive_into rc spec
   local -a landed_numbers=() bounced_numbers=()
-  fallback="$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  [ "$fallback" = HEAD ] && fallback=""
   while IFS= read -r number; do
     [ -n "$number" ] || continue
     passed="$(ticket_passed_commit "$number")" \
       || { echo "land: #$number has no usable ticket.passed commit" >&2; failed=$((failed + 1)); continue; }
-    into="$(ticket_into "$number" "$fallback")" \
+    spec="$(ticket_spec "$number")"
+    into="$(ticket_into "$number" "$spec")" \
       || { echo "land: #$number has no base branch in its events" >&2; failed=$((failed + 1)); continue; }
-    fetch_origin "$root" || { failed=$((failed + 1)); continue; }
-    was_already=0
-    git -C "$root" merge-base --is-ancestor "$passed" "origin/$into" 2>/dev/null \
-      && was_already=1
-    land_one_via_origin "$root" "$number" "$(ticket_spec "$number")" "$into" "$passed" land
+    land_one_via_origin "$root" "$number" "$spec" "$into" "$passed" land
     rc=$?
     case "$rc" in
       0)
         landed_numbers+=("$number")
-        [ "$was_already" -eq 1 ] && already=$((already + 1)) || merged=$((merged + 1))
+        merged=$((merged + 1))
         ;;
       1) bounced=$((bounced + 1)); bounced_numbers+=("$number") ;;
+      3) already=$((already + 1)); landed_numbers+=("$number") ;;
       *) failed=$((failed + 1)) ;;
     esac
   done < <(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }')
@@ -2121,7 +2119,7 @@ land_tickets() {
   # A handed-back ticket has no MERGE line, but land still gives back a claim left on
   # it and preserves its standing worktree for the next start.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "RELEASE" { print $2 }'); do
-    case " ${landed_numbers[*]-} " in *" $number "*) continue ;; esac
+    case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
     if gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1; then
       give_ticket_slot_back "$number" || true
       post_event "$number" ticket.released --ticket "$number" --spec "$(ticket_spec "$number")" \
@@ -2136,7 +2134,7 @@ land_tickets() {
   # work that origin/<into> does not contain.
   for number in $(printf '%s\n' "$plan" | awk '$1 == "ARCHIVE" { print $2 }'); do
     case " ${landed_numbers[*]-} ${bounced_numbers[*]-} " in *" $number "*) continue ;; esac
-    archive_into="$(ticket_into "$number" "$fallback")" \
+    archive_into="$(ticket_into "$number" "$(ticket_spec "$number")")" \
       || { echo "land: #$number has no base branch in its events; not archiving it" >&2; failed=$((failed + 1)); continue; }
     fetch_origin "$root" \
       || { echo "land: could not fetch origin before deciding whether to archive #$number" >&2; failed=$((failed + 1)); continue; }
@@ -2390,7 +2388,7 @@ reverify_spec() {
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
   [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
 
-  local caller_root root git_dir commit plan number rc printed ids login into first fallback
+  local caller_root root git_dir commit plan number rc printed ids login into first
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$caller_root" ] || refuse "not inside a git repository"
   git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
@@ -2398,16 +2396,14 @@ reverify_spec() {
   plan="$(python3 "$STATUS" --reverify-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
   first="$(printf '%s\n' "$plan" | awk '$1 == "REVERIFY" { print $2; exit }')"
-  fallback="$(git -C "$caller_root" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  [ "$fallback" = HEAD ] && fallback=""
   if [ -n "$first" ]; then
-    into="$(ticket_into "$first" "$fallback")" \
+    into="$(ticket_into "$first" "$spec")" \
       || refuse "#${first}'s events carry no base branch for reverify"
     prepare_merge_worktree "$caller_root" "$into" || exit 2
     root="$MERGE_ROOT"
   else
     root="$caller_root"
-    into="$fallback"
+    into=""
   fi
   commit="$(git -C "$root" rev-parse HEAD)"
 
@@ -2475,7 +2471,7 @@ summary_spec() {
 
   local body extra git_dir
   body="$(python3 "$STATUS" --summary "$spec")"
-  git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+  git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
   extra=""
   if [ -n "$git_dir" ] && [ -f "$git_dir/mmw-reverify-$spec" ]; then
     extra="$(awk '{ printf "Reverify: %s/%s\n", $1, $2 }' "$git_dir/mmw-reverify-$spec")"
@@ -2541,7 +2537,7 @@ print(number if isinstance(number, int) else "")
 # on the ticket it came from. That event is the one record of where the child went;
 # the night summary counts findings by it.
 #
-#   fixed               the main agent fixed it on this branch; closed as completed
+#   fixed               the main agent fixed it in the recorded commit; closed as completed
 #   stale               what it states no longer holds at HEAD; closed as not planned
 #   became-ticket <m>   it is now ticket #<m>. When <m> is the child itself it stays open,
 #                       its layer label goes from mmw:child to mmw:ticket, and its parent

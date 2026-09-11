@@ -526,7 +526,7 @@ _Avoid_: phase inference, state file, incremental state
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **held**:
-What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. A ticket is held from its `ticket.claimed` or any `worker.started`, `reviewer.started` or `verifier.started` until an event ends the hold. `ticket.landed`, `ticket.returned`, `ticket.released` and `spec.suspended` end every hold on it; `worker.retracted`, `worker.lost`, `worker.replaced`, `reviewer.lost`, `verifier.lost` and a `ticket.refused` that names its session end the one session they name, matched by its (runner, session) pair and never by the id alone, since two runners can hand out the same id; a retraction also ends a claim no started session has taken over; `worker.resumed` makes the session it names live again. A result ends the hold of the session that produced it: `reviewer.reported` that reviewer's, `verifier.passed` or `verifier.failed` that verifier's (the one it names, else the newest live one of that kind), so a finished reviewer never keeps a ticket whose worker is gone. `ticket.passed` ends none — the close after a pass can fail and leave the worker retrying — and no label ends one. It is the same answer whichever runner and machine the worker runs on. A worker that died with nothing ending its hold keeps its ticket held until the **watchdog** writes `worker.lost` — once the worker's own runner says its session has stopped — or `retract` writes `worker.retracted`; one whose runner cannot say stays held; a claim that no event ever showed held — one assigned by hand, say — is never given back by `advance`, since nothing shows its worker gone. A hold is not a product slot, which a worktree keeps until its ticket's work ends, past a replaced or lost worker (see **lease**).
+What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. A ticket is held from its `ticket.claimed` or any `worker.started`, `reviewer.started` or `verifier.started` until an event ends the hold. `ticket.landed`, `ticket.returned`, `ticket.bounced`, `ticket.released` and `spec.suspended` end every hold on it; `worker.retracted`, `worker.lost`, `worker.replaced`, `reviewer.lost`, `verifier.lost` and a `ticket.refused` that names its session end the one session they name, matched by its (runner, session) pair and never by the id alone, since two runners can hand out the same id; a retraction also ends a claim no started session has taken over; `worker.resumed` makes the session it names live again. A result ends the hold of the session that produced it: `reviewer.reported` that reviewer's, `verifier.passed` or `verifier.failed` that verifier's (the one it names, else the newest live one of that kind), so a finished reviewer never keeps a ticket whose worker is gone. `ticket.passed` ends none — the close after a pass can fail and leave the worker retrying — and no label ends one. It is the same answer whichever runner and machine the worker runs on. A worker that died with nothing ending its hold keeps its ticket held until the **watchdog** writes `worker.lost` — once the worker's own runner says its session has stopped — or `retract` writes `worker.retracted`; one whose runner cannot say stays held; a claim that no event ever showed held — one assigned by hand, say — is never given back by `advance`, since nothing shows its worker gone. A hold is not a product slot, which a worktree keeps until its ticket's work ends, past a replaced or lost worker (see **lease**).
 _Admitted_: hold (the noun)
 _Avoid_: live worker (as what keeps a ticket off the frontier), occupied, 占用 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
@@ -536,7 +536,7 @@ A comment carrying an `<!-- mmw` block the fold cannot read: never closed, two b
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **landed**:
-A ticket whose `ticket.passed.commit` is an ancestor of `origin/<base branch>`, recorded by the `ticket.landed` event `advance` or `land` writes after the fast-forward push, or once it finds that commit already there. The event's `commit` is the passed commit and `merge` is the pushed merge commit. It is not **closed**: `--closeout` closes the ticket before landing. A blocked ticket is let go when its blocker has landed; a blocker that closed without `ticket.passed` lets go on closing. `reverify` re-runs landed tickets only, and `ticket.regressed` or `ticket.bounced` takes back both pass and landing.
+A passed ticket whose accepted commit is present in `origin/<base branch>` and whose events record `ticket.landed`. It is distinct from **closed**: closeout closes before landing, while blockers and reverify use landing state. `ticket.regressed` or `ticket.bounced` takes the state back.
 _Avoid_: closed (for this), merged (as the state of a ticket), done
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
@@ -569,7 +569,7 @@ The event `dispatch.sh reverify` posts on a landed ticket whose criteria went re
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.bounced`**:
-The event `advance` or `land` posts after a merge conflict or red repository check prevents a passed ticket from reaching `origin/<base branch>`. It carries `reason` (`conflict` or `checks`), the attempted base `commit`, `into`, and either conflicted `files` or failed `commands`; the tracker is reopened and labelled `needs-triage` first. It takes back the pass and landing, ends every hold and product slot, leaves the workspace standing, wakes nobody, and keeps the ticket off later advances until triage acts.
+The event that hands a passed ticket to triage when its landing merge conflicts or its repository checks fail. It records the failed attempt's evidence, takes back pass and landing, ends the ticket's holds, and leaves its workspace standing.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`worker.resumed`, `worker.retracted`, `worker.replaced`, `worker.lost`**:
@@ -979,12 +979,12 @@ The line `status.py --advance-plan` prints for a ticket whose claim is to be giv
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **advance**:
-`dispatch.sh advance <spec>`: in closing order, fetches `origin/<base branch>`, resets that branch's detached merge worktree, merges the exact `ticket.passed.commit` with subject `Merge branch 'issue-<n>'`, runs repository checks with `MMW_BASE_REF`, then fast-forward pushes `HEAD:<base branch>`. A non-fast-forward push rebuilds and retries up to `MERGE_TRIES`; conflict or red checks write `ticket.bounced` and continue. A prior green `repo-checks` run is reused only when the fetched base is an ancestor of the passed commit. After each successful push it archives the workspace and writes `ticket.landed`, then releases lost claims and dispatches the frontier. It never moves the caller checkout or a local base branch. Its summary is `advance #<spec>: merged <m>, already in <s>, bounced <b>, released <g>, started <k>, refused <r>`.
+`dispatch.sh advance <spec>`: lands the batch's passed tickets onto their recorded branch on origin, gives back claims whose holds ended, then starts the frontier. A landing conflict or red repository checks writes `ticket.bounced` and does not stop independent tickets.
 _Avoid_: 并回来 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **land**:
-`dispatch.sh land <n>`: takes `into` from the ticket's events and uses the same detached merge, checks, fast-forward push, bounded race retry and `ticket.bounced` path as `advance`; it need not run from a checkout of the base branch and moves no local branch. After a successful push it gives back the claim and product slot, archives the workspace, stops its sessions, writes `ticket.landed`, and closes the one-ticket watch. A bounced ticket keeps its workspace and loses the watch. A ticket closed without `ticket.passed` is never merged.
+`dispatch.sh land <n>`: the one-ticket form of **advance**. It lands only the commit recorded by `ticket.passed`, releases the ticket's resources on success, and closes its one-ticket watch.
 _Avoid_: 落地 (as a term), 收尾 (that is the worker's closing steps), archive the ticket, finish (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 

@@ -523,11 +523,8 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
     back = [f"#{r['ticket']} {r['outcome'][:80]}".strip()
             for r in rows if r["state"] == "OPEN" and "needs-triage" in r["labels"]
             and not r.get("bounced_reason")]
-    bounced = []
-    for row in rows:
-        if not row.get("bounced_reason"):
-            continue
-        bounced.append(f"#{row['ticket']} ({row['bounced_reason']})")
+    bounced = [f"#{r['ticket']} ({r['bounced_reason']})"
+               for r in rows if r.get("bounced_reason")]
     waiting = [f"#{r['ticket']} blocked by " + blocking_text(r["blocking"])
                for r in rows if r["state"] == "OPEN" and r["blocking"]]
     fresh = [f"#{c['number']} {(c.get('title') or '')[:80]}".strip()
@@ -576,7 +573,7 @@ def advance_plan(spec: int) -> int:
     whose events cannot be read is neither merged nor released nor dispatched, and says
     why.
 
-    Whether a branch exists and whether it is already in the base branch are git's
+    Whether a commit exists and whether it is already in `origin/<base branch>` are git's
     questions, and git is not this program's source. `dispatch.sh` asks them.
 
     What no line accounts for goes to stderr: an empty frontier with tickets still in
@@ -635,7 +632,7 @@ def reverify_plan(spec: int) -> int:
 
         REVERIFY <ticket>   closed with a pass, and landed
 
-    A ticket that passed and has not landed is not on the base branch, so running its
+    A ticket that passed and has not landed is not recorded in `origin/<base branch>`, so running its
     criteria there would fail it for work that is not there yet; it is named on stderr
     instead.
     """
@@ -657,8 +654,8 @@ def land_plan(numbers: list[int]) -> int:
 
     Five kinds of line and nothing else on stdout, because a script reads this:
 
-        MERGE <ticket>        closed with a pass that has not landed: its branch belongs
-                              in the base branch
+        MERGE <ticket>        closed with a pass that has not landed: its passed commit
+                              belongs in `origin/<base branch>`
         RELEASE <ticket>      this pipeline still holds the claim, and the work is over
         ARCHIVE <ticket>      its workspace, the agents inside it and its slot may all go
         HOLD <ticket> <why>   still being worked, or its events cannot be read: nothing

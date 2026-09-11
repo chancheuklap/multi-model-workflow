@@ -1,6 +1,6 @@
 ---
 date: 2026-09-11
-amends: []
+amends: [0012]
 ---
 
 # base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage
