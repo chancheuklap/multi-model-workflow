@@ -58,7 +58,10 @@ CLASS_LABELS = {
 }
 # The scripts of the drive-target skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
-PRODUCT_JUDGES = ("story-parity.py", "journey.py", "screen_driver.py", "lease.py")
+# A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
+# is not one: it starts the story page service, which has no backend behind it and takes
+# a port of its own.
+PRODUCT_JUDGES = ("journey.py", "screen_driver.py", "lease.py")
 # How long a reverify waits for a product slot before it hands back exit 3, and how often
 # it asks again in between. The bound stays under the time a host lets a command run
 # before it moves it to the background; a reverify given back 3 is run again, and the wait
@@ -98,6 +101,9 @@ STATEFUL_COMMAND_RE = re.compile(
     r"\bgit (checkout|switch|branch\s+-[Dd]|reset|stash|merge|rebase)\b"
     r"|\bgh issue (close|reopen|edit|create|delete)\b"
     r"|\bgh pr (create|close|merge)\b")
+# The two git config keys the pipeline retired with #341. Nothing writes them, so a
+# criterion reading one compares against an empty string instead of a base commit.
+RETIRED_BASE_RE = re.compile(r"branch\.[A-Za-z0-9._/-]*\.mmw-base(-branch)?\b")
 
 
 # ----------------------------------------------------------------- ticket text
@@ -2310,6 +2316,30 @@ def lint_timeouts(body: str) -> list[str]:
     return findings
 
 
+def lint_retired_base(body: str) -> list[str]:
+    """A `CHECK:` reading a git config key the pipeline stopped writing.
+
+    `dispatch` wrote the ticket's base commit into `branch.issue-<n>.mmw-base` and its
+    branch into `branch.issue-<n>.mmw-base-branch` until #339/#341 moved landing onto
+    `origin/<base branch>`. Neither is written now, so `git config --get` prints nothing
+    and exits 1, and a command built around it degrades instead of failing: `git diff
+    --name-only $(git config branch.issue-713.mmw-base)..HEAD -- <dir>` becomes `git diff
+    ..HEAD`, which compares HEAD with itself, reports nothing changed, and passes. The
+    base the pipeline supplies is `$MMW_BASE_REF`, set on every run of the criteria that
+    has one.
+    """
+    findings = []
+    for gate_id, check, _ in criteria_lines(body):
+        m = RETIRED_BASE_RE.search(check)
+        if m:
+            findings.append(
+                f"{gate_id}: CHECK reads `{m.group(0)}`, which no run writes since #341. "
+                f"It resolves to nothing and the command around it passes without "
+                f"comparing anything. Use `$MMW_BASE_REF` (for a diff, "
+                f"`$MMW_BASE_REF...HEAD`).")
+    return findings
+
+
 def lint_check_effects(body: str) -> list[str]:
     """Which criteria leave the repository or the ticket somewhere new.
 
@@ -2769,6 +2799,10 @@ def lint_criteria(number: int, body: str, labels: list[str]) -> int:
     for finding in contract_findings:
         print("  ERROR " + finding + "  [screen-contract]")
     broken = broken + contract_findings
+    retired_base = lint_retired_base(body)
+    for finding in retired_base:
+        print("  ERROR " + finding + "  [retired-base]")
+    broken = broken + retired_base
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
     report_worker()

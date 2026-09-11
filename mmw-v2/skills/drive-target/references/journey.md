@@ -6,7 +6,8 @@ Whether one end-to-end path still works against the real product is
 runs `.mmw/target.json`'s `start`, runs `discover`, puts every printed address into the
 environment under its uppercase key alongside the lease variables, runs the script, and
 runs `stop` whether the script succeeded or not. Then it runs the script once more, with
-the product stopped, as the negative control.
+the product stopped, as the negative control, and last runs `stop` again and checks that
+nothing is left listening on this run's lease ports.
 
 A journey is the only judge in this skill that starts the whole product. There are few
 of them on purpose: the owner names which paths are worth one, and the default three are
@@ -77,6 +78,14 @@ variable: that one makes the product test suite's shared interaction helper do n
 and a journey sharing code with those tests would answer it by doing nothing at all,
 which is the one result this pass must not reward.
 
+**A journey script starts nothing itself**, least of all in this pass: everything it
+needs is brought up by `start` and ended by `stop`. A helper that starts the stack when
+it finds nothing answering — the shape of "make sure the product is up" that reads as
+defensive — brings the whole stack back inside the one pass whose premise is that the
+product is down, and it stays up after the run. So `stop` runs once more when the
+control pass ends and this run's lease ports must all be quiet; whatever still answers
+is named with its port and pid on a `JOURNEY LEFT THE PRODUCT UP` line.
+
 **What it does not catch:** a journey that really drives the product but asserts
 something thin — the page title, an element that is present before anything happens.
 That pass goes red with the product down, so the control is satisfied. Whether a journey
@@ -95,6 +104,12 @@ named the journey.
 - **`1`**, `JOURNEY GREEN WITHOUT PRODUCT <name> at <last line> — …`: the script passed
   both times. Nothing is known about the product from this run. Fix the script, not the
   product: make it assert something the product has to be up to satisfy.
+- **`1`**, `JOURNEY LEFT THE PRODUCT UP <name> — …`: the two passes went as they should,
+  and something was still listening on this run's lease ports after the last `stop`; the
+  line names each port, its pid and that process's directory. The next run given this
+  slot would start onto occupied ports and could report only blocked. Either the journey
+  script started something (see above), or `stop` does not end everything `start`
+  brought up — containers included.
 - **`2`**: the run could not get as far as the script. `start`'s own refusal is passed
   through unchanged — read it and do what its last sentence says; every instance slot on
   this machine already claimed, a `.mmw/target.json` with no `start` command or no `stop`

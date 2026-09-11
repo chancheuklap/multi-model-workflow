@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Serve the fixture story page and print origin=http://127.0.0.1:<port>.
 
-Reads MMW_PORT_BASE from the lease. STORY_MUTATE=copy|color patches the bytes
-this process serves, so the product side can be made to differ from the design.
+Takes a port of the machine's choosing, as a story service does: it has no backend
+behind it and nothing has to reach it at an agreed address. STORY_MUTATE=copy|color
+patches the bytes this process serves, so the product side can be made to differ from
+the design.
 """
 from __future__ import annotations
 
@@ -55,27 +57,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    raw = os.environ.get("MMW_PORT_BASE")
-    if not raw:
-        sys.stderr.write(
-            "stories/serve.py has no MMW_PORT_BASE.\n"
-            "story-parity.py puts the lease in the environment of this command.\n"
-            "Run story-parity.py --contract … --pages … from the repository; "
-            "do not start this script by hand.\n"
-        )
-        return 2
-    try:
-        port = int(raw)
-    except ValueError:
-        sys.stderr.write(f"MMW_PORT_BASE is not an int: {raw!r}\n")
-        return 2
     Handler.html = body_for(os.environ.get("STORY_MUTATE", ""))
     http.server.ThreadingHTTPServer.allow_reuse_address = True
     try:
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     except OSError as exc:
-        sys.stderr.write(f"could not bind 127.0.0.1:{port}: {exc}\n")
+        sys.stderr.write(f"could not bind 127.0.0.1: {exc}\n")
         return 2
+    port = server.server_address[1]
     print(f"origin=http://127.0.0.1:{port}", flush=True)
     try:
         server.serve_forever()

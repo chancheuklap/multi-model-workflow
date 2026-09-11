@@ -194,8 +194,10 @@ class TestStoryFixture(unittest.TestCase):
     def run_story(self, extra_env=None, timeout=180, cwd=None, pages="demo",
                   contract=None, extra_args=None):
         env = dict(os.environ)
+        # The story judge takes no lease — the story service picks its own port — and
+        # this home is here so that a run which did take one could not reach the
+        # machine's registry.
         env["MMW_HOME"] = self.home
-        env["MMW_LEASE_PORT_BASE"] = "28000"
         env.pop("STORY_MUTATE", None)
         if extra_env:
             env.update(extra_env)
@@ -215,10 +217,7 @@ class TestStoryFixture(unittest.TestCase):
             shutil.rmtree(out, ignore_errors=True)
 
     def copied_fixture(self) -> Path:
-        """A writable copy of the fixture repository, removed when the test ends.
-
-        The copy is not a git repository, so it takes a lease slot of its own and can
-        share the class home."""
+        """A writable copy of the fixture repository, removed when the test ends."""
         tmp = Path(tempfile.mkdtemp(prefix="story-copy-"))
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         shutil.copytree(REPO, tmp / "repo", dirs_exist_ok=True)

@@ -58,7 +58,6 @@ def _load(name: str, modname: str):
 
 vp = _load("visual-parity.py", "visual_parity")
 sd = vp.sd
-from lease import judge_run  # noqa: E402
 
 # Reused from visual-parity.py: do not copy.
 pixel_diff = vp.pixel_diff
@@ -156,7 +155,16 @@ def story_url(origin: str, mount: str, scene: str, viewport: tuple[int, int]) ->
 
 
 class Stories:
-    """The `stories` command, started under this run's lease, stopped when we finish."""
+    """The `stories` command, started for this run alone, stopped when we finish.
+
+    It takes no lease. A story page is the product's presentational components rendered
+    from scene data, with no backend, no seed and no route behind it, so the one thing
+    this service needs is a port, and a port it picks for itself is free of every other
+    run on the machine. A lease would instead cost the run one of the product's
+    `instance.max` slots — the count of how many copies of a product whose ports cannot
+    move may run at once — and hold it for the rest of the ticket, which is how
+    agentflow spent a night with two interface tickets in acceptance and six free slots.
+    """
 
     def __init__(self, root: Path, cfg: dict):
         self.root = root
@@ -166,7 +174,8 @@ class Stories:
 
     def __enter__(self) -> "Stories":
         command = self.cfg["stories"]
-        env = sd.command_env(self.root)
+        env = dict(os.environ)
+        env["MMW_AUTOMATION"] = "1"
         env["PYTHONUNBUFFERED"] = "1"
         self.proc = subprocess.Popen(
             shlex.split(command), cwd=self.root, env=env,
@@ -459,10 +468,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _ensure_script_env()
     try:
-        if args.render_only:
-            return run(args)
-        with judge_run(product_root()):
-            return run(args)
+        return run(args)
     except SystemExit as exc:
         if isinstance(exc.code, int):
             return exc.code

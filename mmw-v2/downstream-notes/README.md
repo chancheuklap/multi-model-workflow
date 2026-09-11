@@ -29,3 +29,5 @@
 - [341-origin-base-branch.md](341-origin-base-branch.md) — mmw #341
 - [344-quoted-accessible-names.md](344-quoted-accessible-names.md) — mmw #344
 - [359-landed-ticket-branch-deleted.md](359-landed-ticket-branch-deleted.md) — mmw #359
+- [370-lease-held-per-ticket.md](370-lease-held-per-ticket.md) — mmw #370
+- [373-truthful-ports-and-story-service.md](373-truthful-ports-and-story-service.md) — mmw #373

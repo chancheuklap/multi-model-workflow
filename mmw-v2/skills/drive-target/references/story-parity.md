@@ -25,7 +25,9 @@ judge can read, and none of them is visible from a `DIFF` line months later.
   one line, and when it finishes ends the command together with every process under it,
   so a server the command starts as a child or grandchild (`uv run` → python → pnpm →
   vite) goes too. The command stays in the foreground for the whole run. Nothing else
-  tells it where the pages are.
+  tells it where the pages are. It runs under no lease — `MMW_AUTOMATION=1` is the only
+  variable this judge adds — so the port is one it asks the machine for, and a story
+  criterion costs no instance slot.
 - **The address carries the whole request.** The judge opens
   `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>` and nothing else: `page` is the
   screen contract's `pages.<page>.mount`, `scene` is a name from `scenes.json`,

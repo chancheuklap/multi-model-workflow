@@ -17,9 +17,14 @@ product, passes it — and a judge that cannot go red is not a judge
 (`docs/adr/0008-silence-is-never-a-pass.md`). Two independent reasons make the pass
 red for a real journey: the product is down, and the addresses point nowhere.
 
+Then `stop` runs once more and this run's slot must be quiet: a journey ends leaving the
+machine as it found it, and anything still listening on the slot outlives the run and
+blocks whichever run is given the slot next.
+
     JOURNEY OK <name>                                 exit 0
     JOURNEY FAILED <name> at <last line>              exit 1
     JOURNEY GREEN WITHOUT PRODUCT <name> — <line>     exit 1
+    JOURNEY LEFT THE PRODUCT UP <name> — <listeners>  exit 1
     the run never got as far as the script            exit 2
 """
 
@@ -38,7 +43,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from screen_driver import command_env, discover, repo_root, run_command, target_config  # noqa: E402
-from lease import judge_run  # noqa: E402
+from lease import holder, judge_run, listener, ports_of, registered, worktree_of  # noqa: E402
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
 
@@ -53,6 +58,29 @@ def stop(cfg: dict, root: Path, env: dict[str, str]) -> None:
     if not command:
         return
     run_command(command, root, env=env, check=False)
+
+
+def still_up(root: Path) -> list[str]:
+    """What still listens on this run's slot, once its `stop` has been run for the last
+    time: one `port <n> pid <pid> cwd <dir>` line each, empty when the slot is quiet.
+
+    A journey's last act is to leave the machine as it found it. The negative control
+    runs with the product down, so a script that starts anything to reach the product —
+    the very thing that pass exists to make impossible — leaves that behind on this
+    slot, and the run still reads as `JOURNEY OK`. The next run given this slot then
+    starts onto live ports and can report nothing but blocked, far from the journey that
+    caused it, which is how agentflow spent a night in 2026-09-11. The run that left
+    them says so itself instead.
+    """
+    record = registered(worktree_of(root))
+    if record is None:
+        return []
+    left = []
+    for port in ports_of(record["slot"]):
+        pid = listener(port)
+        if pid is not None:
+            left.append(f"port {port} pid {pid} cwd {holder(pid)}")
+    return left
 
 
 def journey_command(dest: Path) -> list[str] | str | None:
@@ -196,6 +224,15 @@ def _run_named(name: str, root: Path) -> int:
               f"{last_line(control.stdout + control.stderr)} — it passed again with the "
               f"product stopped and its addresses pointing nowhere. Make the journey "
               f"assert something only the running product can satisfy.")
+        return 1
+    stop(cfg, root, env)
+    left = still_up(root)
+    if left:
+        print(f"JOURNEY LEFT THE PRODUCT UP {name} — this run's slot still has "
+              f"{len(left)} listener(s) after `stop`: {'; '.join(left)}. Whatever started "
+              f"them outlives this run and blocks the next run given this slot. A journey "
+              f"script starts nothing itself, least of all in the negative control pass; "
+              f"everything it needs is started by `start` and ended by `stop`.")
         return 1
     print(f"JOURNEY OK {name}")
     return 0

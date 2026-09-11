@@ -13,5 +13,5 @@ This repository's own acceptance runtime: `target.json` names the local task boa
 ## Gotchas
 
 - An unregistered call makes the fake `gh` exit 2 with `no gh response …; add that exact call before rerunning`: one changed argument order, flag or GraphQL string in how the board calls `gh` breaks every journey until `responses.json` is updated. It also refuses without `MMW_DATA_DIR`, since every call is appended to `$MMW_DATA_DIR/gh-calls` first.
-- `stories/serve.py` exits 2 without `MMW_PORT_BASE` ("run through story-parity.py") and always listens on `MMW_PORT_BASE + 1`, one above the board. A `?page=` with no `stories/adapters/<page>.mjs` is a 404: the adapters are `topbar`, `tasks`, `canvas`, `detail`, `settings`, and the App page has none.
+- `stories/serve.py` listens on a port the machine hands out and prints it as `origin`; it takes no lease, so a story criterion costs no instance slot. A `?page=` with no `stories/adapters/<page>.mjs` is a 404: the adapters are `topbar`, `tasks`, `canvas`, `detail`, `settings`, and the App page has none.
 - `target.json` has no `checks` key, and its `leaves_machine` declares the one thing that leaves the machine: the board reading GitHub through `gh`.

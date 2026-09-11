@@ -138,10 +138,11 @@ class JourneyOrder(unittest.TestCase):
         code, out, _ = self.repo.run("demo")
         self.assertEqual(code, 0, out)
         self.assertEqual(out, "JOURNEY OK demo\n")
-        # The control pass is the trailing `script`: it runs after `stop`, so the product
-        # is already down when it runs.
+        # The control pass is the `script` after the first `stop`: the product is already
+        # down when it runs. The second `stop` is the run's last act, before it looks at
+        # whether anything is still listening on its slot.
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
-                         ["start", "discover", "script", "stop", "script"])
+                         ["start", "discover", "script", "stop", "script", "stop"])
         env = (self.repo.root / ".mmw" / "env").read_text(encoding="utf-8")
         self.assertIn("ORIGIN=http://127.0.0.1:9", env)
         self.assertIn("origin=[]", env)
@@ -162,6 +163,44 @@ class JourneyOrder(unittest.TestCase):
         env = stop_env.read_text(encoding="utf-8")
         self.assertIn("ORIGIN=http://127.0.0.1:9", env)
         self.assertRegex(env, r"MMW_INSTANCE=\S+")
+
+    def test_a_run_that_leaves_something_listening_on_its_slot_is_not_ok(self):
+        """The control pass runs with the product down, so a script that starts anything
+        to reach it leaves that on the slot. Whoever is given the slot next starts onto
+        occupied ports, and the only thing they can report is blocked."""
+        pidfile = self.repo.root / ".mmw" / "leftover.pid"
+        write_exec(self.repo.root / ".mmw" / "leftover.py", "\n".join([
+            "#!/usr/bin/env python3",
+            "import os, socket, sys, time",
+            "sock = socket.socket()",
+            "sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)",
+            # Every address, which is where a container engine publishes a port.
+            "sock.bind(('0.0.0.0', int(os.environ['MMW_PORT_BASE'])))",
+            "sock.listen(1)",
+            "open(sys.argv[1], 'w').write(str(os.getpid()))",
+            "time.sleep(60)",
+        ]))
+
+        def kill_leftover():
+            try:
+                os.kill(int(pidfile.read_text(encoding="utf-8")), 9)
+            except (OSError, ValueError):
+                pass
+        self.addCleanup(kill_leftover)
+        self.repo.write_journey("demo", "\n".join([
+            f"echo script >> '{self.repo.log}'",
+            'if [ "$MMW_JOURNEY_NEGATIVE" = 1 ]; then',
+            f"  python3 '{self.repo.root / '.mmw' / 'leftover.py'}' '{pidfile}' "
+            f">/dev/null 2>&1 &",
+            f"  for _ in $(seq 1 100); do [ -f '{pidfile}' ] && break; sleep 0.05; done",
+            "fi",
+            f'[ "$ORIGIN" = "{self.ADDRESS}" ] || exit 9',
+        ]))
+        code, out, _ = self.repo.run("demo")
+        self.assertEqual(code, 1, out)
+        self.assertTrue(out.startswith("JOURNEY LEFT THE PRODUCT UP demo"), out)
+        self.assertIn(pidfile.read_text(encoding="utf-8").strip(), out, "no pid to go to")
+        self.assertNotIn("JOURNEY OK", out)
 
     def test_stop_runs_when_the_script_fails(self):
         self.repo.write_journey(
@@ -210,7 +249,7 @@ class JourneyOrder(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(out, "JOURNEY OK via-npm\n")
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
-                         ["start", "discover", "script", "stop", "script"])
+                         ["start", "discover", "script", "stop", "script", "stop"])
 
     def test_a_full_machine_is_exit_2_and_nothing_is_started(self):
         held = tempfile.TemporaryDirectory()
@@ -424,6 +463,62 @@ class HarnessGuard(unittest.TestCase):
             code = hg.main([str(FIXTURE / "repo")])
         self.assertEqual(code, 0)
         self.assertEqual(out.getvalue(), "HARNESS OK\n")
+
+
+class WhatTheGuardReads(unittest.TestCase):
+    """What the repository keeps, not what happens to be lying in the directory."""
+
+    LEAK = 'const port = process.env.MMW_PORT_BASE;\n'
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / "repo"
+        (self.root / "src").mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+
+    def write(self, relative: str, text: str) -> None:
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def guard(self) -> tuple[int, str]:
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = hg.main([str(self.root)])
+        return code, out.getvalue()
+
+    def test_a_file_git_ignores_is_not_judged(self):
+        """A log the product wrote while the criteria ran, a scratch copy of a ticket.
+        Read, they make the same commit green or red by how recently anyone ran the
+        product — which is what agentflow #703 and #704 hit on 2026-09-08."""
+        self.write(".gitignore", "logs/\n")
+        self.write("logs/app.log", self.LEAK)
+        self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
+
+    def test_a_file_that_is_there_and_not_committed_yet_is_judged(self):
+        """It is the work the ticket is being judged on."""
+        self.write("src/app.js", self.LEAK)
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        self.assertIn("HARNESS LEAK src/app.js:1", text)
+
+    def test_a_test_file_beside_the_code_it_tests_may_read_the_names(self):
+        """No release carries it, and `leaves_machine` would say it reaches past this
+        machine, which it does not. A repository left with no way to say so writes the
+        variable name in pieces to get past the check, and that hides the real leaks."""
+        self.write("src/__tests__/support/interact.ts", self.LEAK)
+        self.write("src/widget.spec.ts", self.LEAK)
+        self.write("src/widget.test.tsx", self.LEAK)
+        self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
+
+    def test_the_code_beside_those_tests_is_still_judged(self):
+        self.write("src/__tests__/support/interact.ts", self.LEAK)
+        self.write("src/widget.ts", self.LEAK)
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        self.assertIn("src/widget.ts:1", text)
+        self.assertNotIn("interact.ts", text)
 
 
 if __name__ == "__main__":

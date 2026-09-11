@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-import socket
 import subprocess
 from pathlib import Path
 
@@ -12,16 +11,11 @@ ROOT = Path(__file__).resolve().parents[3]
 SERVER = ROOT / ".mmw" / "stories" / "serve.py"
 
 
-def free_base() -> int:
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        return probe.getsockname()[1] - 1
-
-
 @contextlib.contextmanager
 def story_page(browser, mount: str, scene: str, before_goto=None):
+    # The story server takes a port of the machine's choosing and prints it; the origin
+    # read back below is the only place its address comes from.
     env = os.environ.copy()
-    env["MMW_PORT_BASE"] = str(free_base())
     process = subprocess.Popen(["python3", "-u", str(SERVER)], cwd=ROOT, env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:

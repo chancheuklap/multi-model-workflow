@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""Serve component stories at the lease port and print their origin."""
+"""Serve component stories on a port of their own and print their origin.
+
+The port is whatever the machine hands out (`127.0.0.1:0`), because a story page renders
+presentational components from scene data and has no backend, no seed and no route
+behind it: nothing here has to be reachable at an address anyone agreed in advance, and
+a port picked this way collides with no other run. Taking one from the lease instead
+would spend one of the product's `instance.max` slots for the length of a ticket.
+"""
 
 from __future__ import annotations
 
 import http.server
-import os
 import sys
 import urllib.parse
 from pathlib import Path
@@ -62,12 +68,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    raw = os.environ.get("MMW_PORT_BASE")
-    if not raw:
-        sys.stderr.write("MMW_PORT_BASE is missing; run through story-parity.py\n")
-        return 2
-    port = int(raw) + 1
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    port = server.server_address[1]
     print(f"origin=http://127.0.0.1:{port}", flush=True)
     try:
         server.serve_forever()

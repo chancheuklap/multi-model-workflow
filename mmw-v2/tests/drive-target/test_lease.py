@@ -73,6 +73,67 @@ class Base(unittest.TestCase):
         self.addCleanup(sock.close)
         return sock
 
+    def bind_at(self, port: int, address: str) -> socket.socket:
+        """Listen on `port` at one address, in the family that address belongs to.
+
+        Every listener a test bound used to be `127.0.0.1`, which is the one address the
+        old check could see; a product bound to every address, which is where a
+        container engine publishes a port, went unseen.
+        """
+        family = socket.AF_INET6 if ":" in address else socket.AF_INET
+        sock = socket.socket(family, socket.SOCK_STREAM)
+        if family == socket.AF_INET6:
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        sock.bind((address, port))
+        sock.listen(1)
+        self.addCleanup(sock.close)
+        return sock
+
+
+class SeeingWhatListens(Base):
+    """Whether a port is held is asked of the port, not of one address on it.
+
+    A product publishes its ports where it likes: a container engine on macOS publishes
+    on every address, and a server told to listen on `localhost` under Node listens on
+    `::1` alone. A slot read as quiet under a live stack is given to the next run, which
+    then starts onto occupied ports and can report only blocked.
+    """
+
+    def free_port(self) -> int:
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            return int(probe.getsockname()[1])
+
+    def test_a_listener_on_every_address_is_seen(self):
+        port = self.free_port()
+        self.bind_at(port, "0.0.0.0")
+        self.assertIsNotNone(self.lease.listener(port))
+
+    def test_a_listener_on_the_ipv6_loopback_alone_is_seen(self):
+        port = self.free_port()
+        self.bind_at(port, "::1")
+        self.assertIsNotNone(self.lease.listener(port))
+
+    def test_a_port_nothing_listens_on_is_free(self):
+        self.assertIsNone(self.lease.listener(self.free_port()))
+
+    def test_a_slot_held_by_a_listener_on_every_address_is_not_given_back(self):
+        tree = self.tree("issue-640")
+        record = self.lease.claim(tree)
+        self.bind_at(record["port_base"] + 1, "0.0.0.0")
+        with self.assertRaises(SystemExit) as caught:
+            self.lease.release(tree)
+        self.assertIn(str(record["port_base"] + 1), str(caught.exception))
+        self.assertEqual(len(self.lease.claimed()), 1, "a live stack lost its slot")
+
+    def test_a_gone_worktree_with_a_listener_on_every_address_is_not_swept(self):
+        tree = self.tree("issue-640")
+        record = self.lease.claim(tree)
+        self.bind_at(record["port_base"], "0.0.0.0")
+        tree.rmdir()
+        self.assertEqual(self.lease.sweep(), [])
+        self.assertEqual(len(self.lease.claimed()), 1)
+
 
 class Claiming(Base):
     def test_a_worktree_keeps_the_slot_it_was_given(self):
@@ -186,6 +247,22 @@ class Releasing(Base):
                     break
                 time.sleep(0.05)
             self.lease.release(tree.resolve())
+
+    def test_a_judge_leaves_a_slot_it_found_already_held(self):
+        """The slot was somebody's before this judge started — a product left running
+        under `lease.py run`, a journey going in the same checkout. Ending it is ending a
+        process this run never started."""
+        tree = self.tree("main-checkout")
+        (tree / ".mmw").mkdir(exist_ok=True)
+        stopped = self.trees / "stopped"
+        (tree / ".mmw" / "target.json").write_text(
+            json.dumps({"stop": f"touch '{stopped}'"}), encoding="utf-8")
+        self.lease.claim(self.lease.worktree_of(tree))
+        with self.lease.judge_run(tree, stop=True):
+            self.lease.leased_environment(tree)
+        self.assertEqual([r["worktree"] for r in self.lease.claimed()],
+                         [str(tree.resolve())], "a slot this run never claimed was taken")
+        self.assertFalse(stopped.exists(), "a product this run never started was stopped")
 
     def test_a_ticket_judge_run_keeps_the_slot_for_its_later_runs(self):
         tree = self.trees / ".worktrees" / "issue-640"

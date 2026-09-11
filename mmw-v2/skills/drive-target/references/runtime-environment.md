@@ -31,7 +31,10 @@ field. This section says why each one is shaped the way it is.
 - **`stop`.** The only way a run ends a process. It ends only what this run
   recorded as its own, leaves a neighbour's product alone, exits 0 with nothing to
   end, and does not release the lease. It ends the containers of this run's stack
-  as well as its processes.
+  as well as its processes. When it returns, nothing listens on any port of this
+  run's lease — that is what "stopped" means here, and it is checked: `release`
+  refuses a slot something still answers on, whatever address or family it is
+  bound to, and `journey.py` says so rather than printing `JOURNEY OK`.
 
 - **`discover`.** Prints one JSON object: an origin-class address (where the
   product is served), `instance` (a readable name for this run), and
@@ -40,7 +43,12 @@ field. This section says why each one is shaped the way it is.
 
 - **`stories`.** Brings up the story page service and prints its `origin`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
-  pages themselves live in `.mmw/stories/`.
+  pages themselves live in `.mmw/stories/`. It takes **no lease**: a story page
+  renders presentational components from scene data, with no backend, no seed and
+  no route behind it, so the one thing it needs is a port, and it asks the machine
+  for a free one (bind port `0`, then print the port that came back) rather than
+  deriving one from `MMW_PORT_BASE`. Its environment carries `MMW_AUTOMATION=1`
+  and nothing else of the lease.
 
 - **`journeys`.** The directory of journey scripts, default `.mmw/journeys`. Each
   `<name>` is a directory with an executable `run`, or a `package.json` that
@@ -66,9 +74,12 @@ field. This section says why each one is shaped the way it is.
   criteria alike. A ticket takes its slot at the first run of its criteria that runs
   the product and keeps it until its work ends — landed, handed back, released,
   suspended or retracted — so `max` bounds how many tickets are past that point at
-  once; how many workers write code at once is not bounded by it. A criterion or judge
-  run outside a ticket worktree gives its slot back as that run ends; `lease.py run`
-  starts a product for a person or agent and keeps its slot. `MMW_DATA_DIR` remains
+  once; how many workers write code at once is not bounded by it, and neither is how
+  many story criteria run at once, since those start no product. A criterion or judge
+  run outside a ticket worktree gives back the slot **it claimed** as that run ends,
+  and leaves alone one the worktree already held: that slot is somebody's — a product
+  started under `lease.py run`, a journey going in the same checkout — and ending it is
+  ending a process this run never started. `MMW_DATA_DIR` remains
   while its ticket worktree remains and is removed after that worktree is archived.
   A run that finds `max` reached waits, and its ticket says so.
 

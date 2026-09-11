@@ -16,8 +16,9 @@ and lives until the ticket's work ends — landed, handed back, released, suspen
 start retracted: a worktree runs its criteria many times in a night — the worker's own
 run, the verifier's reverify, the closeout checks — and they all want the same
 application, so the lease cannot be per run. Writing code takes no slot. A criterion or
-judge run outside a ticket worktree gives its slot back when that run ends; `lease.py
-run` starts a product for a person or agent and leaves its lease in place.
+judge run outside a ticket worktree gives back the slot **it claimed** when that run
+ends, and leaves a slot that was already held to whoever claimed it; `lease.py run`
+starts a product for a person or agent and leaves its lease in place.
 
     lease.py claim [<worktree>]           claim (or return) this worktree's slot; 4 none free
     lease.py env [<worktree>]             print the claim as KEY=VALUE lines
@@ -104,6 +105,10 @@ SLOTS = int(os.environ.get("MMW_LEASE_SLOTS", "8"))
 # Seconds the product's `stop` gets before `release --stop` ends it and asks for the slot
 # anyway.
 STOP_TIMEOUT_S = int(os.environ.get("MMW_STOP_TIMEOUT_S", "300"))
+# Seconds a connection to one loopback address of one port waits before the port counts
+# as unanswered. A listener on this machine answers in well under a millisecond; the wait
+# is for the one that has stopped accepting, which is held, not free.
+PROBE_TIMEOUT_S = 0.5
 
 
 # Where the registry and the instance directories live. Read at the moment one is
@@ -189,6 +194,16 @@ def read_slot(slot: int) -> dict | None:
         return None
 
 
+def registered(worktree: Path) -> dict | None:
+    """This worktree's claim as the registry has it, or None when it holds none."""
+    target = str(worktree)
+    for slot in range(SLOTS):
+        record = read_slot(slot)
+        if record and record.get("worktree") == target:
+            return record
+    return None
+
+
 def claimed() -> list[dict]:
     """Every live claim, slot order."""
     out = []
@@ -204,17 +219,53 @@ def ports_of(slot: int) -> range:
     return range(first, first + PORT_STRIDE)
 
 
+def answers(port: int) -> bool:
+    """Whether anything accepts a connection on `port`, on either loopback address.
+
+    Both families are asked because a listener answers on the one it chose: a server
+    told to listen on `localhost` under Node answers on `::1` and nothing else, and one
+    told `0.0.0.0`, or a container engine publishing a port, answers on both.
+    """
+    for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+        probe = socket.socket(family, socket.SOCK_STREAM)
+        probe.settimeout(PROBE_TIMEOUT_S)
+        try:
+            if probe.connect_ex((host, port)) == 0:
+                return True
+        except OSError:
+            continue
+        finally:
+            probe.close()
+    return False
+
+
 def listener(port: int) -> int | None:
-    """The pid listening on `port`, or `None`. A port nothing answers on binds."""
-    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        probe.bind(("127.0.0.1", port))
-        return None
-    except OSError:
-        pass
-    finally:
-        probe.close()
+    """The pid listening on `port`, or `None`.
+
+    Two questions, because neither alone is the whole answer. *Does anything answer?* —
+    `answers`, which sees a listener whatever address and family it is bound to. *Can
+    this machine still hand the port out?* — a bind, which sees the one a connection
+    cannot reach: a listener whose backlog is full, or one bound to this machine's
+    network address and not to loopback.
+
+    The bind alone was the whole check until 2026-09-12. With `SO_REUSEADDR` a bind of
+    the specific `127.0.0.1` succeeds while something holds the wildcard `0.0.0.0`,
+    which is where a container engine publishes a port on macOS, so a slot carrying a
+    live Docker stack read as quiet and `release` and `sweep` took it back under the run
+    using it. The bind keeps its `SO_REUSEADDR`: without it a port left in `TIME_WAIT`
+    by a connection that has already closed reads as held, which would refuse a slot
+    nobody is using.
+    """
+    if not answers(port):
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind(("127.0.0.1", port))
+            return None
+        except OSError:
+            pass
+        finally:
+            probe.close()
     try:
         out = subprocess.run(["lsof", "-tnP", f"-iTCP:{port}", "-sTCP:LISTEN"],
                              capture_output=True, text=True, timeout=10).stdout.split()
@@ -377,10 +428,9 @@ def try_claim(worktree: Path) -> dict:
     """
     target = str(worktree)
     with _Locked():
-        for slot in range(SLOTS):
-            record = read_slot(slot)
-            if record and record.get("worktree") == target:
-                return record
+        held = registered(worktree)
+        if held:
+            return held
         sweep()
 
         cap = product_cap(worktree)
@@ -496,26 +546,25 @@ def release(worktree: Path, stop: bool = False) -> dict:
     learn it, and the sentence can be reworded without breaking a caller.
     """
     target = str(worktree)
-    for slot in range(SLOTS):
-        record = read_slot(slot)
-        if not record or record.get("worktree") != target:
-            continue
-        if stop:
-            problem = stop_product(worktree, record)
-            if problem:
-                sys.stderr.write(f"lease.py: the product of {target} did not stop cleanly "
-                                 f"({problem}); giving slot {slot} back is still tried\n")
-        held = busy(slot)
-        if held:
-            port, pid = held
-            raise SystemExit(refusal(
-                f"Slot {slot} still has a listener: port {port}, pid {pid}, cwd {holder(pid)}.",
-                "Reclaiming a slot from a live process is the same act as killing it.",
-                "Stop that process where it was started, then release again.",
-            ))
-        slot_file(slot).unlink(missing_ok=True)
-        return {"released": True, "worktree": target, "slot": slot, "reason": None}
-    return {"released": False, "worktree": target, "slot": None, "reason": "no-lease"}
+    record = registered(worktree)
+    if record is None:
+        return {"released": False, "worktree": target, "slot": None, "reason": "no-lease"}
+    slot = record["slot"]
+    if stop:
+        problem = stop_product(worktree, record)
+        if problem:
+            sys.stderr.write(f"lease.py: the product of {target} did not stop cleanly "
+                             f"({problem}); giving slot {slot} back is still tried\n")
+    held = busy(slot)
+    if held:
+        port, pid = held
+        raise SystemExit(refusal(
+            f"Slot {slot} still has a listener: port {port}, pid {pid}, cwd {holder(pid)}.",
+            "Reclaiming a slot from a live process is the same act as killing it.",
+            "Stop that process where it was started, then release again.",
+        ))
+    slot_file(slot).unlink(missing_ok=True)
+    return {"released": True, "worktree": target, "slot": slot, "reason": None}
 
 
 def count_under(prefix: Path) -> int:
@@ -569,15 +618,20 @@ def leased_environment(worktree: Path | None = None) -> dict[str, str]:
 
 @contextmanager
 def judge_run(worktree: Path | None = None, *, stop: bool = False):
-    """Release a judge's non-ticket lease after its own product cleanup.
+    """Release the non-ticket lease this judge claimed, and no other.
 
     Ticket worktrees keep one lease across the worker's, reviewer's and verifier's runs.
-    A judge in any other checkout owns its lease only for this context. `stop=True` is
-    for an outer criteria runner that must also clean up a product its check left up.
+    A judge in any other checkout owns the lease it claimed itself, for this context
+    only. A lease the worktree already held when the judge started belongs to whoever
+    claimed it — a product a person left running under `lease.py run`, a journey running
+    from the same checkout — and giving that one back, with or without running the
+    product's `stop`, ends a process this run never started. `stop=True` is for an outer
+    criteria runner that must also clean up a product its own check left up.
     """
     tree = worktree_of(worktree)
     scope = "MMW_JUDGE_LEASE_OWNER"
     outer = scope not in os.environ
+    ours = outer and registered(tree) is None
     if outer:
         os.environ[scope] = str(tree)
     try:
@@ -585,7 +639,7 @@ def judge_run(worktree: Path | None = None, *, stop: bool = False):
     finally:
         if outer:
             os.environ.pop(scope, None)
-            if not is_ticket_worktree(tree):
+            if ours and not is_ticket_worktree(tree):
                 release(tree, stop=stop)
 
 
