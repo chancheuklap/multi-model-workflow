@@ -85,25 +85,27 @@ Two things a gap list does not carry: an implementation that today does less tha
 1. Write `docs/specs/<effort>/screen-contract.yaml`.
 2. Render once more with the contract in hand so the retired controls are hidden, writing the target trees beside it:
 
-```
-uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
-```
+   ```
+   uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
+   ```
 
-The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale.
+   The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale.
+
 3. Lint to zero errors:
 
-```
-uv run python <scripts>/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
-```
+   ```
+   uv run python <scripts>/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
+   ```
 
-The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
+   The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
+
 4. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
 
 ## Re-runs
 
 - The handoff package was re-downloaded: run steps 1 and 6. Triggers whose accessible name changed appear as lint errors on both sides; rebind them by hand, keep the row ids. Step 6 regenerates the target trees, and the lint's hash check is what tells you when this re-run is overdue.
 - A spec decision changed: edit the rows that cite it, rerun step 6, and put the changed rows through step 5 again.
-- Row ids are never renumbered or reused. A retired behaviour loses its row; the id goes in `retired_ids` with one line saying when, and with its trigger when the handoff still shows the control — the lint then stops asking for a row, prints the retirement on every run, and the judges hide the control on the design side.
+- Row ids are never renumbered or reused. A retired behaviour loses its row; the id goes in `retired_ids` with a `note` carrying the date and the verdict, and with its trigger when the handoff still shows the control — the lint then stops asking for a row, prints the retirement on every run, and the judges hide the control on the design side.
 
 ## Done when
 

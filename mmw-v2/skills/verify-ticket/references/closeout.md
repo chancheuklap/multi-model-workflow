@@ -34,11 +34,11 @@ Nothing lands on the ticket. The closing-comment skeleton is written to `<out-fi
 <engine> <n> --closeout <draft>
 ```
 
-For an `ALL MET` draft it pushes the verdict commit to `origin/issue-<n>` without force, confirms the remote branch names that commit, takes `ready-for-agent` off, closes the ticket, and then posts the draft as the `ticket.passed` event. A rejected or unconfirmed push leaves the ticket open and says why.
+The draft's first line is the input this run reads to tell the two apart; on the ticket it is a line for a person, and the event is what every program reads. For an `ALL MET` draft it pushes the verdict commit to `origin/issue-<n>` without force, confirms the remote branch names that commit, takes `ready-for-agent` off, closes the ticket, and then posts the draft as the `ticket.passed` event. A rejected or unconfirmed push leaves the ticket open and says why.
 
 A draft whose first line is `HANDOFF REQUIRED` swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh, and then posts as the `ticket.returned` event, carrying each `ABANDON:` line.
 
-The event comes after the change it announces: it wakes the main agent and is what `advance` merges on. If the tracker does not make the change, no event is posted. If the change is made and the event cannot be posted, the run exits 1: run `--closeout` again with the same draft. That run finds the ticket closed as completed (or handed back to `needs-triage`) since your newest `ticket.claimed`, with no `ticket.passed` or `ticket.returned` after it, posts the missing event and changes nothing. A ticket that already carries its event, was closed as anything but completed, or was claimed last by somebody else is refused. The first line is for a person; the event is what every program reads.
+The event comes after the change it announces: it wakes the main agent and is what `advance` merges on. If the tracker does not make the change, no event is posted and the run is refused, saying so. If the change is made and the event cannot be posted, the run says so and exits 1: run `--closeout` again with the same draft. That run finds the ticket closed as completed (or handed back to `needs-triage`) since your newest `ticket.claimed`, with no `ticket.passed` or `ticket.returned` after it, posts the missing event and changes nothing else. A ticket that already carries its event, was closed as anything but completed, or was claimed last by somebody else is refused.
 
 ## What `--closeout` reads the draft against
 
@@ -66,4 +66,4 @@ One gate comes after the draft: an accepted `ALL MET` draft still has to pass th
 
 - `--decisions` and `--touched`: `0` posted (or, for `--touched`, nothing to post), `2` refused, with the reason on stderr and nothing posted.
 - `--draft`: `0` the file was written, `2` refused because the newest `worker.started` carries no `into`, with the restart instruction on stderr and no file written.
-- `--closeout`: `0` the ticket is closed (or handed back) and its event posted, `1` refused — by one of the conditions above, by a `ticket.checked` event of run `repo-checks` with result `unmet` (the ticket stays open; fix the code and run `--closeout` again), by a rejected or unconfirmed push, or by the tracker not closing or handing back the ticket, in which case no event was posted and stderr says what to resolve before running it again.
+- `--closeout`: `0` the ticket is closed (or handed back) and its event posted, `1` refused — by one of the conditions above, by a `ticket.checked` event of run `repo-checks` with result `unmet`, by a rejected or unconfirmed push, or by the tracker not closing or handing back the ticket, in which case no event was posted and stderr says what to resolve before running it again.
