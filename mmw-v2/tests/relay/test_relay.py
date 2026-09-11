@@ -14,6 +14,7 @@ queue, their order and recipients, what was sent to whom, and what is left after
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -78,8 +79,7 @@ def comment(cid: int, event: str | None, ticket: int | None = None,
 
 
 class FakeGh:
-    """`gh_list` over a dict {ticket: [comments]}: pages already flattened, as `gh_list`
-    hands them on. Honours `since` the way GitHub does (updated_at at or after it)."""
+    """The list and conditional-comment calls over a dict {ticket: [comments]}."""
 
     def __init__(self, board: dict[int, list[dict]], spec_children: dict[int, list[int]] | None = None):
         self.board = board
@@ -90,7 +90,8 @@ class FakeGh:
 
     def __call__(self, args: list[str]) -> list:
         self.calls.append(args)
-        url = args[-1]
+        conditional = args[:2] == ["api", "-i"]
+        url = args[2] if conditional else args[-1]
         path, _, query = url.partition("?")
         parts = path.split("/")
         number = int(parts[4])
@@ -99,17 +100,25 @@ class FakeGh:
                 raise relay.PollError("gh exited 1: HTTP 502: Bad Gateway")
             return [{"number": n, "state": "open"} for n in self.spec_children.get(number, [])]
         if number in self.failing:
+            if conditional:
+                return 1, "HTTP/2 502 Bad Gateway\n\n", "HTTP 502: Bad Gateway"
             raise relay.PollError("gh exited 1: HTTP 502: Bad Gateway")
         if self.during_read:
             self.during_read()
         since = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("since")
         rows = [c for c in self.board.get(number, []) if not since or c["updated_at"] >= since]
+        if conditional:
+            payload = json.dumps(rows, sort_keys=True).encode()
+            etag = '"' + hashlib.sha1(payload).hexdigest() + '"'
+            if f"If-None-Match: {etag}" in args:
+                return 1, "HTTP/2 304 Not Modified\n\n", "gh: HTTP 304"
+            return 0, f"HTTP/2 200 OK\nETag: {etag}\n\n{json.dumps(rows)}", ""
         return rows
 
     def sinces(self, ticket: int) -> list[str | None]:
         out = []
         for args in self.calls:
-            url = args[-1]
+            url = args[2] if args[:2] == ["api", "-i"] else args[-1]
             if f"/issues/{ticket}/comments" in url:
                 query = url.partition("?")[2]
                 out.append(dict(p.split("=", 1) for p in query.split("&")).get("since"))
@@ -176,7 +185,8 @@ class RelayCase(unittest.TestCase):
     def fresh(self):
         """A relay as a newly started process would be: same state directory, nothing in memory."""
         self.out, self.err = io.StringIO(), io.StringIO()
-        return relay.Relay(self.state, relay.Board("o/r", self.gh), send=self.send,
+        reader = relay.ghlist.ConditionalListReader(self.gh)
+        return relay.Relay(self.state, relay.Board("o/r", self.gh, reader), send=self.send,
                            clock=self.clock, ask=self.ask, out=self.out, err=self.err)
 
     def poll(self, grace=90):
@@ -585,6 +595,50 @@ class DeliveryTest(RelayCase):
 
 
 class PollingTest(RelayCase):
+    def test_second_poll_reads_comments_conditionally(self):
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        # Reconciliation establishes the mark; the two polls under test use the same
+        # `since` address, as two normal relay rounds do while no comment changes.
+        self.poll()
+        self.gh.calls.clear()
+        self.assertTrue(self.poll())
+        rows = list(self.rows())
+        before = self.relay.board.reads["not_modified"]
+        self.assertTrue(self.poll())
+        comment_calls = [call for call in self.gh.calls if call[:2] == ["api", "-i"]
+                         and "/issues/61/comments" in call[2]]
+        expected = '"' + hashlib.sha1(
+            json.dumps(self.board[61], sort_keys=True).encode()).hexdigest() + '"'
+        self.assertIn(f"If-None-Match: {expected}", comment_calls[-1])
+        self.assertEqual(self.relay.board.reads["not_modified"], before + 2)
+        self.assertEqual(self.rows(), rows)
+
+    def test_new_since_address_is_read_without_an_etag(self):
+        self.board[61].append(comment(101, "ticket.claimed", 61))
+        self.poll()
+        self.clock.moment = T0 + timedelta(seconds=30)
+        self.board[61].append(comment(102, "ticket.passed", 61, updated=self.clock.moment))
+        self.assertTrue(self.poll())
+        calls = [call for call in self.gh.calls if call[:2] == ["api", "-i"]
+                 and "/issues/61/comments" in call[2]]
+        second_url = calls[-1][2]
+        self.assertTrue(self.poll())
+        calls = [call for call in self.gh.calls if call[:2] == ["api", "-i"]
+                 and "/issues/61/comments" in call[2]]
+        third = calls[-1]
+        expected_since = stamp(T0 + timedelta(seconds=30) - timedelta(seconds=120))
+        self.assertIn("since=" + expected_since, third[2])
+        self.assertNotEqual(third[2], second_url)
+        self.assertNotIn("If-None-Match:", " ".join(third))
+
+    def test_beat_records_read_counts(self):
+        self.relay.close_watch(None)
+        self.relay.open_watch({"tickets": [61]}, "paseo", "main-a")
+        self.poll()
+        self.poll()
+        beat = json.loads((self.state / "beat.json").read_text())
+        self.assertEqual(beat["reads"], {"billed": 1, "not_modified": 1})
+
     def test_start_reads_in_full_then_since_the_mark_less_the_overlap(self):
         self.board[61].append(comment(101, "ticket.passed", 61, updated=T0))
         self.poll()
