@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
 import threading
 import unittest
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
@@ -19,6 +16,7 @@ SERVER = ROOT / "mmw-v2" / "board" / "server.py"
 CATALOG = ROOT / "mmw-v2" / "tests" / "dispatch" / "catalogs" / "all.json"
 sys.path.insert(0, str(SERVER.parent))
 import settings_api  # noqa: E402
+from board_process import RunningBoard  # noqa: E402
 
 
 def config(version=1):
@@ -30,32 +28,10 @@ def config(version=1):
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"}}}
 
 
-class Board:
-    def __init__(self, home, catalog=CATALOG, extra_env=None):
-        self.home, self.catalog, self.extra_env = home, catalog, extra_env or {}
-    def __enter__(self):
-        env = dict(os.environ, MMW_HOME=str(self.home), MMW_HOST_CATALOG=str(self.catalog),
-                   **self.extra_env)
-        self.process = subprocess.Popen(["python3", "-u", str(SERVER), "--port", "0"], cwd=ROOT,
-            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        self.origin = self.process.stdout.readline().strip()
-        if not self.origin.startswith("http://127.0.0.1:"): raise RuntimeError(self.process.stderr.read())
-        body = self.request("GET", "/")[1]
-        self.token = re.search(r'name="mmw-page-token" content="([^"]+)"', body).group(1)
-        return self
-    def __exit__(self, *args):
-        self.process.terminate(); self.process.wait(timeout=5)
-        self.process.stdout.close(); self.process.stderr.close()
-    def request(self, method, path, payload=None, headers=None):
-        data = None if payload is None else json.dumps(payload).encode()
-        hdrs = dict(headers or {})
-        if data is not None: hdrs["Content-Type"] = "application/json"
-        request = urllib.request.Request(self.origin + path, data=data, headers=hdrs, method=method)
-        try: response = urllib.request.urlopen(request, timeout=5)
-        except urllib.error.HTTPError as error: response = error
-        with response: return response.status, response.read().decode()
-    def write(self, method, path, payload=None):
-        return self.request(method, path, payload, {"Origin": self.origin, "X-MMW-Token": self.token})
+def Board(home, catalog=CATALOG, extra_env=None):
+    environment = dict(extra_env or {})
+    environment.update(MMW_HOME=str(home), MMW_HOST_CATALOG=str(catalog))
+    return RunningBoard(environment=environment)
 
 
 class SettingsApiTest(unittest.TestCase):
@@ -82,7 +58,7 @@ class SettingsApiTest(unittest.TestCase):
     def test_put_saves_with_the_read_version(self):
         proposed = config(); proposed["rows"]["reviewer"]["model"] = "sonnet 5"
         with Board(self.home) as board:
-            status, raw = board.write("PUT", "/api/settings", proposed)
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
         self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["version"], 2)
         self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["reviewer"]["model"], "sonnet 5")
 
@@ -92,7 +68,7 @@ class SettingsApiTest(unittest.TestCase):
             (self.home / "models.json").write_text(json.dumps(elsewhere) + "\n")
             stamp = 1_700_000_000
             os.utime(self.home / "models.json", (stamp, stamp))
-            status, raw = board.write("PUT", "/api/settings", config())
+            status, raw = board.request("PUT", "/api/settings", config(), board.write_headers)
         self.assertEqual(status, 409)
         self.assertEqual(json.loads(raw)["modified_at"],
                          datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
@@ -101,7 +77,8 @@ class SettingsApiTest(unittest.TestCase):
     def test_put_invalid_cell_is_422(self):
         proposed = config(); proposed["rows"]["reviewer"]["model"] = "missing"
         before = (self.home / "models.json").read_bytes()
-        with Board(self.home) as board: status, raw = board.write("PUT", "/api/settings", proposed)
+        with Board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
         self.assertEqual(status, 422); self.assertEqual(json.loads(raw)["errors"][0]["cell"], "reviewer.model")
         self.assertEqual((self.home / "models.json").read_bytes(), before)
 
@@ -111,7 +88,8 @@ class SettingsApiTest(unittest.TestCase):
         holder = subprocess.Popen(["python3", "-c", code, str(scripts), str(self.home / "models.lock")], stdout=subprocess.PIPE, text=True)
         self.assertEqual(holder.stdout.readline().strip(), "ready")
         try:
-            with Board(self.home) as board: status, raw = board.write("PUT", "/api/settings", config())
+            with Board(self.home) as board:
+                status, raw = board.request("PUT", "/api/settings", config(), board.write_headers)
             self.assertEqual(status, 423)
             payload = json.loads(raw)
             self.assertEqual(payload["holder"]["pid"], holder.pid)
@@ -122,7 +100,9 @@ class SettingsApiTest(unittest.TestCase):
     def test_scan_answers_the_new_catalog(self):
         down = ROOT / "mmw-v2" / "tests" / "dispatch" / "catalogs" / "cli.json"
         with Board(self.home, down) as board:
-            status, raw = board.write("POST", "/api/settings/scan", {"source": "paseo"})
+            status, raw = board.request(
+                "POST", "/api/settings/scan", {"source": "paseo"}, board.write_headers,
+            )
         data = json.loads(raw); self.assertEqual(status, 200); self.assertEqual(data["source"], "paseo")
         self.assertEqual({v["state"] for v in data["hosts"].values()}, {"down"})
         self.assertEqual({v["label"] for v in data["hosts"].values()}, {"Paseo 没开"})

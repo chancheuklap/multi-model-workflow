@@ -2,27 +2,10 @@ import {Board, defaultExpanded} from "./board-logic.mjs";
 import {render as topbar, fromBoard as topbarFromBoard} from "./topbar.mjs";
 import {render as tasks} from "./tasks.mjs";
 import {render as canvas} from "./canvas.mjs";
-import {render as detail, fromBoard as detailFromBoard} from "./detail.mjs";
+import {find, render as detail, fromBoard as detailFromBoard} from "./detail.mjs";
 import {render as settings, fromPayload as settingsFromPayload, unmount as unmountSettings} from "./settings.mjs";
 import {api} from "./api.mjs";
 import {startBoardFeed} from "./board-feed.mjs";
-
-function find(tasks, n) {
-  if (n == null) return null;
-  for (const task of tasks) {
-    if (task.n === n) return {type: "map", ref: task, task};
-    for (const decision of task.decisions || []) {
-      if (decision.n === n) return {type: "decision", ref: decision, task};
-    }
-    for (const spec of task.specs || []) {
-      if (spec.n === n) return {type: "spec", ref: spec, task};
-      for (const ticket of spec.tickets || []) {
-        if (ticket.n === n) return {type: "ticket", ref: ticket, task, spec};
-      }
-    }
-  }
-  return null;
-}
 
 function nextOrange(tasks, current) {
   const list = [];

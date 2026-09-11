@@ -1,3 +1,5 @@
+import {hhmm} from "./shared.mjs";
+
 export const CATALOG = {
   store: "~/.mmw/models.json",
   agents: ["junior-worker", "senior-worker", "reviewer", "verifier", "advisor"],
@@ -158,10 +160,6 @@ export const LocalConfig = {
     });
   },
 };
-
-const hhmm = value => new Date(value).toLocaleTimeString("en-GB", {
-  hour: "2-digit", minute: "2-digit", hour12: false,
-});
 
 export function catalogFromPayload(payload) {
   const hosts = [];

@@ -1,31 +1,11 @@
 import {Board} from "./board-logic.mjs";
+import {el, hand, hhmm} from "./shared.mjs";
 
 const REFRESH_ICON = '<svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>';
 const GEAR_ICON = '<svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
 
-const hhmm = value => new Date(value).toLocaleTimeString("en-GB", {
-  hour: "2-digit", minute: "2-digit", hour12: false,
-});
 const minutesAgo = (from, to = new Date()) =>
   Math.max(0, Math.round((new Date(to) - new Date(from)) / 60000));
-
-function el(tag, attrs = {}, ...kids) {
-  const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs)) {
-    if (value == null || value === false) continue;
-    if (key === "class") node.className = value;
-    else if (key === "disabled") node.disabled = true;
-    else if (key === "html") node.innerHTML = value;
-    else if (key.startsWith("on") && typeof value === "function") {
-      node.addEventListener(key.slice(2).toLowerCase(), value);
-    } else node.setAttribute(key, value === true ? "" : String(value));
-  }
-  for (const kid of kids.flat(Infinity)) {
-    if (kid == null || kid === false) continue;
-    node.append(typeof kid === "object" ? kid : String(kid));
-  }
-  return node;
-}
 
 function clockFrom(text) {
   return (text || "").match(/(\d{2}:\d{2})/)?.[1] || "";
@@ -69,11 +49,9 @@ export function fromBoard(payload = {}, now = new Date()) {
   };
 }
 
-async function hand(method, hook) {
-  try {
-    const response = await method();
-    if (response.ok) hook?.(await response.json());
-  } catch {}
+async function notify(method, hook) {
+  const response = await hand(method);
+  if (response?.ok) hook?.(await response.json());
 }
 
 export function render(host, view = {}, api, hooks = {}) {
@@ -117,14 +95,14 @@ export function render(host, view = {}, api, hooks = {}) {
       "aria-label": "立刻重读 GitHub",
       title: "立刻重读 GitHub（页面开着时每分钟自动读一次）",
       html: REFRESH_ICON,
-      onClick: () => { void hand(() => api.refresh(), hooks.onRefresh); },
+      onClick: () => { void notify(() => api.refresh(), hooks.onRefresh); },
     }),
     el("button", {
       type: "button", class: view.settingsOpen ? "gear on" : "gear",
       "aria-label": "本机配置",
       title: "本机配置：每个角色跑在哪个 host、model、effort",
       html: GEAR_ICON,
-      onClick: () => { void hand(() => api.settings(), hooks.onOpenSettings); },
+      onClick: () => { void notify(() => api.settings(), hooks.onOpenSettings); },
     }),
   );
   host.replaceChildren(root);
