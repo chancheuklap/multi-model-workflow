@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# 把七样东西装到本机，让每个 host 都读得到：
+# 把八样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   hook              drive-target 的 hook.py 与 dispatch 的 turn-guard.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
+#   task board        一个 com.mmw.board LaunchAgent，按 ~/.mmw/boards.json 为每个仓库守住本机服务
 #   Paseo 侧配置      ~/.local/bin/paseo 软链；~/.paseo/config.json 里 grok/cursor 两条 provider、
 #                     worktrees.root。不写 Agent profile。~/.mmw/models.json 缺席时写入默认值，
 #                     或把同目录遗留的 models.md 一次性导入后删除；已有 JSON 不覆盖。
@@ -994,6 +995,59 @@ XML
     echo "已装  提示词：~/.claude 两条软链，Codex、Pi、Grok 各一份生成的 AGENTS.md"
   fi
   [ "$prompt_rc" -eq 0 ] || rc=1
+fi
+
+# ---------------- task board LaunchAgent ----------------
+#
+# MMW_V2_HOME 下只写或核 plist，绝不调用 launchctl；这让测试能验证同一份定义而不改变本机服务。
+# 真家目录下由 launchd 守住 supervisor.py，后者再按 MMW_HOME/boards.json 守住各仓库的 board。
+
+BOARD_PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.board.plist"
+BOARD_SUPERVISOR="$ROOT/board/supervisor.py"
+board_plist="$(cat <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.mmw.board</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$(command -v python3)</string>
+    <string>$BOARD_SUPERVISOR</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$HOME_DIR/Library/Logs/mmw-board.log</string>
+  <key>StandardErrorPath</key><string>$HOME_DIR/Library/Logs/mmw-board.log</string>
+</dict>
+</plist>
+XML
+)"
+
+if [ "$mode" = check ]; then
+  if [ ! -f "$BOARD_PLIST" ] || [ "$(cat "$BOARD_PLIST")" != "$board_plist" ]; then
+    echo "缺    $BOARD_PLIST 不存在或指向别的 checkout，跑一次 install.sh" >&2
+    rc=1
+  elif [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
+       && ! launchctl print "gui/$(id -u)/com.mmw.board" >/dev/null 2>&1; then
+    echo "缺    launchd 任务 com.mmw.board 没在跑，跑一次 install.sh" >&2
+    rc=1
+  fi
+else
+  if [ ! -f "$BOARD_PLIST" ] || [ "$(cat "$BOARD_PLIST")" != "$board_plist" ]; then
+    mkdir -p "$(dirname "$BOARD_PLIST")" "$HOME_DIR/Library/Logs"
+    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
+      launchctl bootout "gui/$(id -u)/com.mmw.board" >/dev/null 2>&1 || true
+    fi
+    printf '%s\n' "$board_plist" > "$BOARD_PLIST"
+  fi
+  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
+    if ! launchctl print "gui/$(id -u)/com.mmw.board" >/dev/null 2>&1; then
+      launchctl bootstrap "gui/$(id -u)" "$BOARD_PLIST" \
+        || { echo "缺    launchd 任务装不上：$BOARD_PLIST" >&2; rc=1; }
+    fi
+  fi
+  echo "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR"
 fi
 
 # ---------------- Paseo 侧配置 ----------------

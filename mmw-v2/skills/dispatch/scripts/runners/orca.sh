@@ -8,6 +8,7 @@
 #   runners/orca.sh stop <session-id>
 #   runners/orca.sh self
 #   runners/orca.sh attach --cwd DIR --issue N
+#   runners/orca.sh open-url --cwd DIR --url URL
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses with exit 1 and the reason on stderr. The worktree is
@@ -67,6 +68,7 @@
 # MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
 # MMW_USES: worktree set --worktree --issue
+# MMW_USES: tab create --url --worktree --json
 
 set -uo pipefail
 
@@ -87,6 +89,7 @@ usage() {
   echo "       runners/orca.sh stop <session-id>" >&2
   echo "       runners/orca.sh self" >&2
   echo "       runners/orca.sh attach --cwd DIR --issue N" >&2
+  echo "       runners/orca.sh open-url --cwd DIR --url URL" >&2
   exit 2
 }
 
@@ -103,6 +106,21 @@ attach() {
   local abs
   abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || return 1
   orca_ worktree set --worktree "path:$abs" --issue "$issue" >/dev/null
+}
+
+open_url() {
+  local cwd="" url=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --cwd) [ "$#" -ge 2 ] || usage; cwd="$2"; shift 2 ;;
+      --url) [ "$#" -ge 2 ] || usage; url="$2"; shift 2 ;;
+      *) usage ;;
+    esac
+  done
+  [ -d "$cwd" ] && [ -n "$url" ] || usage
+  local abs
+  abs="$(CDPATH='' cd -- "$cwd" && pwd -P)" || return 1
+  orca_ tab create --url "$url" --worktree "path:$abs" --json >/dev/null
 }
 
 # Prints "connected writable" when list named the handle. Exit 0 found, 1 listed
@@ -474,5 +492,6 @@ case "$verb" in
   stop) stop "$@" ;;
   self) self_ ;;
   attach) attach "$@" ;;
+  open-url) open_url "$@" ;;
   *) usage ;;
 esac

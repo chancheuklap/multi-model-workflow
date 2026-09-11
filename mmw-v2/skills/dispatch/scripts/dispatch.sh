@@ -5,6 +5,7 @@
 #   dispatch.sh check <spec>
 #   dispatch.sh open <spec>
 #   dispatch.sh open-ticket <n>
+#   dispatch.sh board
 #   dispatch.sh adopt <n>
 #   dispatch.sh self
 #   dispatch.sh advance <spec>
@@ -86,6 +87,8 @@ REPO_URL=""
 # their own skills one directory over. A `--tools` directory given on the command line
 # is searched before those.
 INSTALLER="$(dirname "$(dirname "$SKILL_ROOT")")/install.sh"
+BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
+BOARD_SERVER="$(dirname "$(dirname "$SKILL_ROOT")")/board/server.py"
 # `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
@@ -336,6 +339,7 @@ usage() {
 usage: dispatch.sh check <spec>
        dispatch.sh open <spec>
        dispatch.sh open-ticket <n>
+       dispatch.sh board
        dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
        dispatch.sh advance <spec>
@@ -354,6 +358,68 @@ usage: dispatch.sh check <spec>
        dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
 USAGE
   exit 2
+}
+
+# ------------------------------------------------------------------ task board
+
+board_port_answers() {
+  MMW_BOARD_PORT="$1" python3 -c '
+import os, socket
+try:
+    with socket.create_connection(("127.0.0.1", int(os.environ["MMW_BOARD_PORT"])), timeout=0.2):
+        pass
+except OSError:
+    raise SystemExit(1)
+'
+}
+
+start_board_process() {
+  local repository="$1" port="$2" log
+  log="${MMW_HOME:-$HOME/.mmw}/board-$port.log"
+  MMW_BOARD_CWD="$repository" MMW_BOARD_PORT="$port" MMW_BOARD_SERVER="$BOARD_SERVER" \
+    MMW_BOARD_LOG="$log" python3 -c '
+import os, subprocess, sys
+log = open(os.environ["MMW_BOARD_LOG"], "ab", buffering=0)
+subprocess.Popen(
+    [sys.executable, "-u", os.environ["MMW_BOARD_SERVER"], "--port", os.environ["MMW_BOARD_PORT"]],
+    cwd=os.environ["MMW_BOARD_CWD"], stdin=subprocess.DEVNULL, stdout=log,
+    stderr=subprocess.STDOUT, start_new_session=True,
+)
+'
+}
+
+open_board() {
+  [ -f "$BOARD_SUPERVISOR" ] || refuse "no task board supervisor at $BOARD_SUPERVISOR"
+  [ -f "$BOARD_SERVER" ] || refuse "no task board server at $BOARD_SERVER"
+  local repository current port url answer rc
+  repository="$(main_checkout)"
+  [ -n "$repository" ] || refuse "not inside a git repository, so there is no main checkout to register"
+  repository="$(CDPATH='' cd -- "$repository" && pwd -P)"
+  current="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$current" ] || refuse "not inside a git repository, so there is no workspace for the task board tab"
+  current="$(CDPATH='' cd -- "$current" && pwd -P)"
+  port="$(python3 "$BOARD_SUPERVISOR" --register "$repository")" \
+    || refuse "could not register $repository in ${MMW_HOME:-$HOME/.mmw}/boards.json"
+  if ! board_port_answers "$port"; then
+    start_board_process "$repository" "$port" \
+      || refuse "could not start the task board for $repository on 127.0.0.1:$port"
+  fi
+  local attempt
+  for attempt in {1..100}; do
+    board_port_answers "$port" && break
+    sleep 0.1
+  done
+  board_port_answers "$port" \
+    || refuse "the task board for $repository did not answer on 127.0.0.1:$port after 10 seconds; see ${MMW_HOME:-$HOME/.mmw}/board-$port.log"
+  url="http://127.0.0.1:$port"
+  use_runner "$(tonight_runner)"
+  answer="$(runner open-url --cwd "$current" --url "$url" 2>&1)"
+  rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    2) printf '%s\n' "$url"; return 0 ;;
+    *) refuse "$RUNNER_NAME could not open $url in $current: ${answer:-the adapter gave no reason}" ;;
+  esac
 }
 
 # ------------------------------------------------------------------ the relay
@@ -3306,6 +3372,10 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
+  board)
+    [ "$#" -eq 1 ] || usage
+    open_board
+    ;;
   check)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
