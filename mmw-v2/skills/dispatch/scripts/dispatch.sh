@@ -67,7 +67,9 @@
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
 # how a woken session says it handled the wake it read. `adopt` makes a session that
 # picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
-# runner and session this process runs in.
+# runner and session this process runs in. `open` also makes sure this repository's task
+# board is registered and answering and names its URL on the line it prints: everything
+# else a night starts is read by the main agent, and the board is what a person reads.
 #
 # Each pipeline command's exit codes are written beside that command, in the door that
 # carries it. `board` is the one command documented directly in SKILL.md; that file is
@@ -364,16 +366,34 @@ USAGE
 
 # ------------------------------------------------------------------ task board
 
-open_board() {
-  [ -f "$BOARD_SUPERVISOR" ] || refuse "no task board supervisor at $BOARD_SUPERVISOR"
-  local repository current port url answer rc
+# Register this repository's task board and make sure it answers, without opening it
+# anywhere. Prints its URL. Non-zero, with the reason on stderr, when it could not be
+# registered or started; the caller decides what that means to it. The board is a
+# read-only view of the tracker, so making sure one runs takes nothing away from a
+# command that fails to do it.
+ensure_board() {
+  local repository port
+  if [ ! -f "$BOARD_SUPERVISOR" ]; then
+    echo "dispatch: no task board supervisor at $BOARD_SUPERVISOR" >&2
+    return 2
+  fi
   repository="$(main_checkout)"
-  [ -n "$repository" ] || refuse "not inside a git repository, so there is no main checkout to register"
+  if [ -z "$repository" ]; then
+    echo "dispatch: not inside a git repository, so there is no main checkout to register a task board for" >&2
+    return 2
+  fi
+  if ! port="$(python3 "$BOARD_SUPERVISOR" --ensure "$repository")"; then
+    echo "dispatch: could not register and start the task board for $repository" >&2
+    return 2
+  fi
+  printf 'http://127.0.0.1:%s\n' "$port"
+}
+
+open_board() {
+  local current url answer rc
   current="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$current" ] || refuse "not inside a git repository, so there is no workspace for the task board tab"
-  port="$(python3 "$BOARD_SUPERVISOR" --ensure "$repository")" \
-    || refuse "could not register and start the task board for $repository"
-  url="http://127.0.0.1:$port"
+  url="$(ensure_board)" || exit 2
   use_runner "$(tonight_runner)"
   answer="$(runner open-url --cwd "$current" --url "$url" 2>&1)"
   rc=$?
@@ -644,7 +664,7 @@ check_open_pushes() {
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
-  local spec="$1" root into opened runner session how rows project
+  local spec="$1" root into opened runner session how rows project board
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
@@ -662,7 +682,17 @@ open_night() {
     [ "$how" = started ] && stop_relay --spec "$spec"
     refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
   fi
-  echo "opened #$spec: wake-ups go to $runner session $session"
+  # Every other process a night needs starts itself: `open` starts the relay, and the
+  # turn guard arms the watchdog. The task board was the one thing somebody had to
+  # remember, and it is the only one of the three whose output is for a person — the
+  # relay's and the watchdog's are for the main agent. A board that will not start is
+  # said so on stderr and takes nothing else with it: the night is open either way.
+  if board="$(ensure_board)"; then
+    echo "opened #$spec: wake-ups go to $runner session $session; task board $board"
+  else
+    echo "opened #$spec: wake-ups go to $runner session $session"
+    echo "dispatch: the night is open and its task board is not, so tonight's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
+  fi
 }
 
 # `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
@@ -2910,6 +2940,28 @@ summary_spec() {
 
   local body extra git_dir
   body="$(python3 "$STATUS" --summary "$spec")"
+
+  # The last slot of the summary's `Findings routed:` line is the findings of this batch
+  # that no `child.closed` accounts for: the closing pass has not been through them. That
+  # number is computed here, and until now it reached the main agent only inside the
+  # comment this command posts — after the pass it judges is over and after the watch that
+  # would have carried the work is closed. So it is read before anything is posted, and a
+  # night that still holds unrouted findings is refused with nothing written. A summary
+  # that carries no such line says so rather than pass silently: a count that could not be
+  # read is not a count of zero.
+  local routed open_findings
+  routed="$(printf '%s\n' "$body" | sed -n 's/^Findings routed: \([0-9][0-9/]*\).*$/\1/p' | head -1)"
+  open_findings="${routed##*/}"
+  case "$routed" in
+    "") echo "dispatch: this summary of #$spec carries no 'Findings routed:' line, so whether the closing pass left findings unrouted was not checked" >&2 ;;
+    *) case "$open_findings" in
+         "" | *[!0-9]*)
+           echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
+         0) ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+       esac ;;
+  esac
+
   git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
   extra=""
   if [ -n "$git_dir" ] && [ -f "$git_dir/mmw-reverify-$spec" ]; then

@@ -1445,8 +1445,21 @@ PY
   return 1
 }
 
+# Every board server this run started: the ports a scenario recorded, plus every port in
+# the registry, since `dispatch.sh open` makes sure this repository's board answers and a
+# scenario that only meant to open a night has one too.
 stop_test_boards() {
-  [ -n "${BOARD_TEST_PORTS:-}" ] || return 0
+  local registered
+  registered="$(python3 - "$MMW_HOME/boards.json" <<'PY'
+import json, sys
+try:
+    print(" ".join(str(p) for p in json.load(open(sys.argv[1])).values()))
+except (OSError, ValueError):
+    pass
+PY
+)"
+  BOARD_TEST_PORTS="${BOARD_TEST_PORTS:-} $registered"
+  [ -n "${BOARD_TEST_PORTS// /}" ] || return 0
   MMW_PORTS="$BOARD_TEST_PORTS" MMW_SERVER="$(dirname "$(dirname "$HERE")")/board/server.py" \
     python3 -c '
 import os, signal, subprocess, time
@@ -3209,6 +3222,54 @@ JSON
   no_relay
 }
 
+scenario_summaryholdsfindings() {
+  local when code
+  when="$(python3 -c 'from datetime import datetime, timezone, timedelta; print((datetime.now(timezone.utc)-timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))')"
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "CLOSED", "labels": [], "closedAt": "$when",
+   "createdAt": "2026-08-29T00:00:00Z", "children": [90, 91],
+   "comments": [$(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field into=main),
+                $(ev ticket.landed 61 "Landed issue-61 into main"),
+                $(ev child.opened 61 "Opened #90 (finding)" --spec 76 --field child=90 --field kind=finding),
+                $(ev child.opened 61 "Opened #91 (finding)" --spec 76 --field child=91 --field kind=finding),
+                $(ev child.closed 61 "Fixed #90" --spec 76 --field child=90 --field resolution=fixed)]},
+  {"number": 90, "state": "CLOSED", "labels": ["mmw:child"], "parent": {"number": 61}},
+  {"number": 91, "state": "OPEN", "labels": ["mmw:child"], "parent": {"number": 61}}
+]
+JSON
+  reset_log
+  fresh_repo
+  echo "--- a finding no route reached refuses the summary: nothing posted, the watch still open"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "#76 still holds 1 finding(s) that no route reached" "$TMP/err" \
+    || fail "the refusal should count them: $(cat "$TMP/err")"
+  grep -q "Findings routed: 2/1/0/0/0/1" "$TMP/err" \
+    || fail "the refusal should quote the line it read: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: comment :: 76"
+  case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a refused summary must leave the watch open: $(relay_now)" ;; esac
+
+  echo "--- once every finding carries a route, the summary is posted and the watch closes"
+  python3 - "$TMP/tickets.json" "$(ev child.closed 61 "Closed #91" --spec 76 --field child=91 --field resolution=stale)" <<'PY'
+import json, sys
+rows = json.load(open(sys.argv[1]))
+rows[0]["comments"].append(json.loads(sys.argv[2]))
+rows[2]["state"] = "CLOSED"
+json.dump(rows, open(sys.argv[1], "w"))
+PY
+  reset_log
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  has "gh :: issue :: comment :: 76 :: --body"
+  grep -q "Findings routed: 2/1/0/1/0/0" "$MMW_GH_LAST_BODY" \
+    || fail "every finding should be routed now: $(cat "$MMW_GH_LAST_BODY")"
+  [ -z "$(relay_now)" ] || fail "summary should have closed the watch: $(relay_now)"
+  no_relay
+}
+
 # ------------------------------------------------------------------ orphaned claims
 
 # #63 is claimed by <login>; its worker, started on Orca, has been reported lost.
@@ -4550,7 +4611,7 @@ scenario_open() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #76: wake-ups go to paseo session agt_main" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -qx "opened #76: wake-ups go to paseo session agt_main; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's main agent should be agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
   posted_events 76 runner session | grep -qx "spec.opened runner=paseo session=agt_main" \
@@ -4575,7 +4636,7 @@ scenario_open() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 77)"
   [ "$code" = 0 ] || fail "open 77 expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #77: wake-ups go to paseo session agt_other" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -qx "opened #77: wake-ups go to paseo session agt_other; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the second night should join relay $pid: $(relay_now)"
   [ "$(watch_main spec:77)" = "paseo agt_other" ] || fail "spec 77's main agent should be agt_other: $(cat "$STATE_DIR/watches.json")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's main agent should still be agt_main: $(cat "$STATE_DIR/watches.json")"
@@ -5245,6 +5306,51 @@ scenario_boardprintsurl() {
     || fail "stdout is not the exact board URL: $(cat "$TMP/out")"
   hasnt "paseo :: tab :: create"
   hasnt "orca :: tab :: create"
+}
+
+scenario_openstartsboard() {
+  local code port copy
+  echo "--- open registers this repository's board, starts it, and names its URL on the line that opens the night"
+  fresh_board_registry
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+  port="$(board_registry_port)"
+  BOARD_TEST_PORTS="$port"
+  [ "$(cat "$TMP/out")" = "opened #76: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port" ] \
+    || fail "open should name the board it started: $(cat "$TMP/out")"
+  MMW_PORT="$port" python3 - <<'PY' || fail "the board open started does not answer"
+import os, socket
+socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=2).close()
+PY
+  python3 - "$MMW_HOME/boards.json" "$(cd "$TMP/repo" && pwd -P)" <<'PY' \
+    || fail "open should register the main checkout: $(cat "$MMW_HOME/boards.json")"
+import json, sys
+registry = json.load(open(sys.argv[1]))
+assert list(registry) == [sys.argv[2]], registry
+PY
+
+  echo "--- a board that cannot be started is said so and does not stop the night"
+  no_relay
+  copy="$(skill_copy_for open-no-board)"
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "a board that will not start must not fail the night, got $code: $(cat "$TMP/err")"
+  grep -qx "opened #76: wake-ups go to paseo session agt_main" "$TMP/out" \
+    || fail "the night still opens, without a board URL: $(cat "$TMP/out")"
+  grep -q "no task board supervisor at" "$TMP/err" || fail "the reason should be named: $(cat "$TMP/err")"
+  grep -q "the night is open and its task board is not" "$TMP/err" \
+    || fail "stderr should say the night has no board: $(cat "$TMP/err")"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] \
+    || fail "the watch should be open all the same: $(cat "$STATE_DIR/watches.json" 2>&1)"
+  no_relay
 }
 
 scenario_installboardagent() {
@@ -8092,8 +8198,8 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
-ALL="$ALL openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -8110,6 +8216,7 @@ banner_for() {
     boardsameport) echo BOARD-SAME-PORT-OK ;;
     boardopenstab) echo BOARD-OPENS-TAB-OK ;;
     boardprintsurl) echo BOARD-PRINTS-URL-OK ;;
+    openstartsboard) echo OPEN-STARTS-BOARD-OK ;;
     installboardagent) echo INSTALL-BOARD-AGENT-OK ;;
     installcheckboardagent) echo INSTALL-CHECK-BOARD-AGENT-OK ;;
     startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;
@@ -8197,6 +8304,7 @@ banner_for() {
     wait) echo DISPATCH-WAIT-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;
     summary) echo DISPATCH-SUMMARY-OK ;;
+    summaryholdsfindings) echo SUMMARY-HOLDS-FINDINGS-OK ;;
     release) echo DISPATCH-RELEASE-OK ;;
     releaseother) echo DISPATCH-RELEASE-OTHER-OK ;;
     releaselive) echo RELEASE-LIVE-OK ;;
