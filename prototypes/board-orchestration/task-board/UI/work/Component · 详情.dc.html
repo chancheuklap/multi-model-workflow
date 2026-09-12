@@ -52,14 +52,15 @@
                 <sc-if value="{{ noWorker }}" hint-placeholder-val="{{ false }}"><p class="rel-none">not dispatched yet</p></sc-if>
               </section>
               <section class="dp-section">
-                <div class="dp-section-title"><span>Blocked by</span></div>
-                <div class="rel-label">Blocked by</div>
+                <div class="dp-section-title"><span>Blocked by</span><span>{{ d.blockerCount }}</span></div>
                 <sc-for list="{{ blockers }}" as="r" hint-placeholder-count="1">
                   <sc-if value="{{ r.known }}" hint-placeholder-val="{{ true }}"><button type="button" class="rel" onClick="{{ r.go }}"><span class="{{ r.lampCls }}"></span><span class="rel-num">{{ r.num }}</span><span class="rel-title">{{ r.title }} <span class="rel-where">{{ r.where }}</span></span><span class="{{ r.stateCls }}">{{ r.state }}</span></button></sc-if>
                   <sc-if value="{{ r.unknown }}" hint-placeholder-val="{{ false }}"><div class="rel-static"><span class="{{ r.lampCls }}"></span><span class="rel-num">{{ r.num }}</span><span class="rel-title">{{ r.title }}</span><span class="{{ r.stateCls }}">{{ r.state }}</span></div></sc-if>
                 </sc-for>
                 <sc-if value="{{ d.noBlockers }}" hint-placeholder-val="{{ false }}"><p class="rel-none">none</p></sc-if>
-                <div class="rel-label">Blocking</div>
+                </section>
+              <section class="dp-section">
+                <div class="dp-section-title"><span>Blocking</span><span>{{ d.blocksCount }}</span></div>
                 <sc-for list="{{ blocks }}" as="r" hint-placeholder-count="1">
                   <button type="button" class="rel" onClick="{{ r.go }}"><span class="{{ r.lampCls }}"></span><span class="rel-num">{{ r.num }}</span><span class="rel-title">{{ r.title }} <span class="rel-where">{{ r.where }}</span></span><span class="{{ r.stateCls }}">{{ r.state }}</span></button>
                 </sc-for>
@@ -114,11 +115,12 @@
 
             <sc-if value="{{ d.isDecision }}" hint-placeholder-val="{{ false }}">
               <section class="dp-section">
-                <div class="dp-section-title"><span>Blocked by</span></div>
-                <div class="rel-label">Blocked by</div>
+                <div class="dp-section-title"><span>Blocked by</span><span>{{ d.blockerCount }}</span></div>
                 <sc-for list="{{ blockers }}" as="r" hint-placeholder-count="1"><button type="button" class="rel" onClick="{{ r.go }}"><span class="{{ r.lampCls }}"></span><span class="rel-num">{{ r.num }}</span><span class="rel-title">{{ r.title }}</span><span class="{{ r.stateCls }}">{{ r.state }}</span></button></sc-for>
                 <sc-if value="{{ d.noBlockers }}" hint-placeholder-val="{{ false }}"><p class="rel-none">none</p></sc-if>
-                <div class="rel-label">Blocking</div>
+                </section>
+              <section class="dp-section">
+                <div class="dp-section-title"><span>Blocking</span><span>{{ d.blocksCount }}</span></div>
                 <sc-for list="{{ blocks }}" as="r" hint-placeholder-count="1"><button type="button" class="rel" onClick="{{ r.go }}"><span class="{{ r.lampCls }}"></span><span class="rel-num">{{ r.num }}</span><span class="rel-title">{{ r.title }}</span><span class="{{ r.stateCls }}">{{ r.state }}</span></button></sc-for>
                 <sc-if value="{{ d.noBlocks }}" hint-placeholder-val="{{ false }}"><p class="rel-none">none</p></sc-if>
               </section>
@@ -225,7 +227,7 @@
             toast: this.state.toast, d,
             emptyTitle: d.hasTasks === false ? "这里是详情" : "点一张卡",
             emptyText: d.hasTasks === false ? "The Night 开起来之后，点画布上的卡，它的细节显示在这一栏。" : "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
-            runtimeNote: d.hasWorker ? "取自 worker.started" : "",
+            runtimeNote: d.hasWorker ? "from worker.started" : "",
             noWorker: !!d.isTicket && !d.hasWorker,
             links: (d.links || []).map(l => Object.assign({}, l, { go: () => this.goTo(l.n) })),
             blockers: withGo(d.blockers), blocks: withGo(d.blocks),

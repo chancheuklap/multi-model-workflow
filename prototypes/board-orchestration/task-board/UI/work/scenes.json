@@ -834,7 +834,7 @@
                 "left": "272px",
                 "top": "22px"
               },
-              "text": "这次讨论自己的票 · 6 张"
+              "text": "decision tickets · 6"
             },
             {
               "cls": "lane-label",
@@ -842,7 +842,7 @@
                 "left": "52px",
                 "top": "246px"
               },
-              "text": "讨论产出的 spec · 3 个"
+              "text": "spec · 3"
             }
           ],
           "worldSize": {
@@ -1846,7 +1846,7 @@
                 "left": "272px",
                 "top": "22px"
               },
-              "text": "这次讨论自己的票 · 2 张"
+              "text": "decision tickets · 2"
             },
             {
               "cls": "lane-label",
@@ -1854,7 +1854,7 @@
                 "left": "52px",
                 "top": "142px"
               },
-              "text": "讨论产出的 spec · 1 个"
+              "text": "spec · 1"
             }
           ],
           "worldSize": {
@@ -2689,7 +2689,7 @@
                 "left": "52px",
                 "top": "142px"
               },
-              "text": "讨论产出的 spec · 1 个"
+              "text": "spec · 1"
             },
             {
               "cls": "lane-label warn",
@@ -2697,7 +2697,7 @@
                 "left": "808px",
                 "top": "142px"
               },
-              "text": "阻塞成环 · #304 · 排不出先后"
+              "text": "blocking cycle · #304"
             }
           ],
           "worldSize": {
@@ -3358,7 +3358,7 @@
                 "left": "272px",
                 "top": "22px"
               },
-              "text": "这次讨论自己的票 · 6 张"
+              "text": "decision tickets · 6"
             },
             {
               "cls": "lane-label",
@@ -3366,7 +3366,7 @@
                 "left": "52px",
                 "top": "246px"
               },
-              "text": "讨论产出的 spec · 3 个"
+              "text": "spec · 3"
             }
           ],
           "worldSize": {
@@ -4039,6 +4039,7 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [
             {
               "n": 135,
@@ -4052,6 +4053,7 @@
             }
           ],
           "noBlocks": false,
+          "blocksCount": 1,
           "kidCount": 3,
           "noKids": false,
           "kids": [
@@ -4135,8 +4137,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -4357,6 +4359,7 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 2,
           "blocks": [
             {
               "n": 221,
@@ -4370,6 +4373,7 @@
             }
           ],
           "noBlocks": false,
+          "blocksCount": 1,
           "kidCount": 1,
           "noKids": false,
           "kids": [
@@ -4417,8 +4421,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -4613,8 +4617,10 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [],
           "noBlocks": true,
+          "blocksCount": null,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -4643,8 +4649,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -4697,7 +4703,7 @@
           "hasCard": false
         },
         "emptyTitle": "这里是详情",
-        "emptyText": "有了任务之后，点画布上的卡，它的细节显示在这一栏。",
+        "emptyText": "The Night 开起来之后，点画布上的卡，它的细节显示在这一栏。",
         "runtimeNote": "",
         "noWorker": false,
         "links": [],
@@ -4786,7 +4792,7 @@
           "why": [
             {
               "head": "",
-              "body": "交回：AC3 放弃（stuck）。离线投递要一个真的 main 会话来收，夜里起不来"
+              "body": "handed back: AC3 放弃（stuck）。离线投递要一个真的 main 会话来收，夜里起不来"
             }
           ],
           "hasWorker": true,
@@ -4854,8 +4860,10 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [],
           "noBlocks": true,
+          "blocksCount": null,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -4948,8 +4956,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -5126,8 +5134,10 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [],
           "noBlocks": true,
+          "blocksCount": null,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -5236,8 +5246,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -5413,8 +5423,10 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [],
           "noBlocks": true,
+          "blocksCount": null,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -5483,8 +5495,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -5623,7 +5635,7 @@
             },
             {
               "k": "slot",
-              "v": "07:32 : every instance of the product is held (max 2). Until the next ticket.checked, the relay's wake and the criteria run included"
+              "v": "queueing since 07:32: every instance of the product is held (max 2). Until the next ticket.checked, the relay's wake and the criteria run included"
             }
           ],
           "manySessions": false,
@@ -5648,8 +5660,10 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [],
           "noBlocks": true,
+          "blocksCount": null,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -5686,8 +5700,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -5857,6 +5871,7 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [
             {
               "n": 135,
@@ -5870,6 +5885,7 @@
             }
           ],
           "noBlocks": false,
+          "blocksCount": 1,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -5914,8 +5930,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -6061,6 +6077,7 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 2,
           "blocks": [
             {
               "n": 137,
@@ -6074,6 +6091,7 @@
             }
           ],
           "noBlocks": false,
+          "blocksCount": 1,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -6085,7 +6103,7 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
         "runtimeNote": "",
         "noWorker": true,
         "links": [
@@ -6270,6 +6288,7 @@
           ],
           "blockers": [],
           "noBlockers": true,
+          "blockerCount": null,
           "blocks": [
             {
               "n": 133,
@@ -6343,6 +6362,7 @@
             }
           ],
           "noBlocks": false,
+          "blocksCount": 7,
           "kidCount": 2,
           "noKids": false,
           "kids": [
@@ -6504,8 +6524,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -6759,8 +6779,10 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [],
           "noBlocks": true,
+          "blocksCount": null,
           "kidCount": 1,
           "noKids": false,
           "kids": [
@@ -6808,8 +6830,8 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-        "runtimeNote": "取自 worker.started",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "runtimeNote": "from worker.started",
         "noWorker": false,
         "links": [
           {
@@ -6945,8 +6967,10 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 1,
           "blocks": [],
           "noBlocks": true,
+          "blocksCount": null,
           "kidCount": 0,
           "noKids": true,
           "kids": [],
@@ -6958,7 +6982,7 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
         "runtimeNote": "",
         "noWorker": true,
         "links": [
@@ -7165,7 +7189,7 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
         "runtimeNote": "",
         "noWorker": false,
         "links": [
@@ -7453,7 +7477,7 @@
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
         "runtimeNote": "",
         "noWorker": false,
         "links": [],
@@ -7618,6 +7642,7 @@
             }
           ],
           "noBlockers": false,
+          "blockerCount": 2,
           "blocks": [
             {
               "n": 106,
@@ -7641,12 +7666,13 @@
             }
           ],
           "noBlocks": false,
+          "blocksCount": 2,
           "ghLabel": "在 GitHub 打开 #105 ↗",
           "gh": 105,
           "hasCard": true
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
         "runtimeNote": "",
         "noWorker": false,
         "links": [
@@ -7730,7 +7756,7 @@
           "hasCard": false
         },
         "emptyTitle": "点一张卡",
-        "emptyText": "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
+        "emptyText": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
         "runtimeNote": "",
         "noWorker": false,
         "links": [],

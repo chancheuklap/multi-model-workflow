@@ -60,11 +60,11 @@
             <span class="legend-item"><span class="legend-bar"></span>closing pass</span>
           </div>
           <div class="zoom">
-            <button type="button" class="zoom-btn" aria-label="缩小" onClick="{{ zoomOut }}">−</button>
+            <button type="button" class="zoom-btn" aria-label="zoom out" onClick="{{ zoomOut }}">−</button>
             <span class="zoom-level" ref="{{ rf.zoom }}">100%</span>
-            <button type="button" class="zoom-btn" aria-label="放大" onClick="{{ zoomIn }}">+</button>
+            <button type="button" class="zoom-btn" aria-label="zoom in" onClick="{{ zoomIn }}">+</button>
             <span class="zoom-sep"></span>
-            <button type="button" class="zoom-btn text" onClick="{{ fit }}">适配</button>
+            <button type="button" class="zoom-btn text" onClick="{{ fit }}">fit</button>
           </div>
         </sc-if>
         <sc-if value="{{ v.noTask }}" hint-placeholder-val="{{ false }}">

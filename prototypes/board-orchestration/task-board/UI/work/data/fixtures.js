@@ -17,8 +17,8 @@ const SCENES = ["morning", "twenty-tickets", "bad-data", "empty"];
    events.py's (mmw-v2/skills/verify-ticket/scripts/events.py); every field
    read below is one it computes.
    ════════════════════════════════════════════════════════════════════════ */
-const STEPS = ['queued', 'working', 'waiting', 'review', 'verify', 'landed'];
-const LIGHT_WORD = { orange: '需要你', green: '在跑', ink: '好了', hollow: '待派' };
+const PHASES = ['queued', 'working', 'waiting', 'review', 'verify', 'landed'];
+const LAMP_WORD = { orange: 'needs you', green: 'running', ink: 'done', hollow: 'queued' };
 // Child kinds only a person can answer (#315 §3). A `finding` waits for the closing pass and a
 // `deferred` for a later ticket (verify-ticket's references/sub-issues.md), not for you.
 const NEEDS_YOU_KIND = {
@@ -27,16 +27,16 @@ const NEEDS_YOU_KIND = {
   contract: 'spec 本身不成立，要回到写 spec 的人',
 };
 // events.py QUEUE_REASONS, as a person reads them.
-const QUEUE_REASON = { 'product-full': '本产品的实例都占着', 'machine-full': '这台机器的槽位都占着' };
+const QUEUE_REASON = { 'product-full': 'every instance of the product is held', 'machine-full': 'every slot on this machine is held' };
 // How a session's hold ended (events.py `ended_by`), as a person reads it.
 const ENDED_BY = {
-  'reviewer.reported': '已交评审', 'verifier.passed': '复验通过', 'verifier.failed': '复验没过',
-  'ticket.landed': '已结束', 'ticket.returned': '已交回', 'ticket.bounced': '合不进去', 'ticket.released': '认领已退',
-  'spec.suspended': '这一夜暂停了', 'worker.retracted': '已撤回', 'worker.replaced': '已换人',
-  'ticket.refused': '拒绝认领', 'worker.lost': '会话没了', 'reviewer.lost': '会话没了', 'verifier.lost': '会话没了',
+  'reviewer.reported': 'review posted', 'verifier.passed': 'verifier passed', 'verifier.failed': 'verifier failed',
+  'ticket.landed': 'ended', 'ticket.returned': 'handed back', 'ticket.bounced': 'bounced', 'ticket.released': 'claim released',
+  'spec.suspended': 'night suspended', 'worker.retracted': 'retracted', 'worker.replaced': 'replaced',
+  'ticket.refused': 'preflight refused', 'worker.lost': 'session lost', 'reviewer.lost': 'session lost', 'verifier.lost': 'session lost',
 };
 const minutes = (a, b = NOW) => Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000));
-const dur = m => (m < 60 ? `${m} 分钟` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`);
+const dur = m => (m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`);
 // Events carry UTC (events.now()); the board shows the local wall-clock time of the machine it runs on.
 const hhmm = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
 const short = sha => String(sha || '').slice(0, 7);
@@ -69,12 +69,12 @@ const Board = {
   // Stopped where it stood: handed back, not landed, or halted by a fault.
   stopped: t => Board.handedBack(t) || !!Board.bounce(t) || Board.stoppedByFault(t),
   running: t => t.fold.sessions.some(s => s.live) && !Board.stoppedByFault(t),
-  // The step, from what still holds the ticket. A reviewer's report and a verifier's
+  // The phase, from what still holds the ticket. A reviewer's report and a verifier's
   // verdict end their own hold (events.py ENDS_OWN_HOLD), so a live reviewer is a review
   // in progress and a live verifier a verification; a passing verdict keeps the ticket at
   // `verify` until it lands. `waiting` is the fold's own: a `worker.queued` whose wait
   // nothing has ended yet.
-  step(t) {
+  phase(t) {
     const f = t.fold;
     if (f.landed) return 'landed';
     const live = f.sessions.filter(s => s.live);
@@ -101,7 +101,7 @@ const Board = {
     }
     if (Board.handedBack(t)) {
       const abandoned = f.outcome.payload.abandoned || [];
-      out.push({ text: abandoned.length ? abandoned.map(a => `交回：${a.ac} 放弃（${a.kind}）。${a.reason}`).join('；') : f.outcome.line });
+      out.push({ text: abandoned.length ? abandoned.map(a => `handed back: ${a.ac} 放弃（${a.kind}）。${a.reason}`).join('；') : f.outcome.line });
     }
     const b = Board.bounce(t);
     if (b) {
@@ -112,7 +112,7 @@ const Board = {
     }
     return out;
   },
-  light(t) {
+  lamp(t) {
     const f = t.fold;
     if (Board.why(t).length) return 'orange';
     if (f.landed) return 'ink';
@@ -127,11 +127,11 @@ const Board = {
   runLine(t) {
     const f = t.fold;
     const live = f.sessions.filter(s => s.live);
-    if (!f.sessions.length) return { text: '尚未派发' };
+    if (!f.sessions.length) return { text: 'not dispatched' };
     const since = Board.waitingSince(t);
-    if (since) return { text: `等槽位 · ${hhmm(since)} 起` };
+    if (since) return { text: `waiting for a slot · since ${hhmm(since)}` };
     const s = live.length ? live[live.length - 1] : f.worker;
-    if (live.length && Board.stoppedByFault(t)) return { text: `已停下 · ${s.host} · ${s.model}`, flag: true };
+    if (live.length && Board.stoppedByFault(t)) return { text: `stopped · ${s.host} · ${s.model}`, flag: true };
     return { text: `${s.host} · ${s.model} · ${s.effort}` };
   },
   // The runtime rows of a ticket's detail: its newest worker session, and its slot.
@@ -141,31 +141,31 @@ const Board = {
     const rows = [
       ['host', `${w.host} · ${w.model} · ${w.effort}`],
       ['runner', `${w.runner} · ${w.session}`],
-      ['机器', w.machine],
-      ['分支', `${w.branch} @ ${short(w.base)}`],
-      ...(w.into ? [['合进', w.into]] : []),
-      ['工作树', '…/.worktrees/' + String(w.worktree).split('/.worktrees/')[1]],
-      ['档位', w.grade],
+      ['machine', w.machine],
+      ['ticket branch', `${w.branch} @ ${short(w.base)}`],
+      ...(w.into ? [['base branch', w.into]] : []),
+      ['worktree', '…/.worktrees/' + String(w.worktree).split('/.worktrees/')[1]],
+      ['worker grade', w.grade],
     ];
     const since = Board.waitingSince(t);
     if (since) {
       const q = f.waiting.payload;
-      rows.push(['槽位', `${hhmm(since)} 起排队：${QUEUE_REASON[q.reason]}（上限 ${q.limit}）。到下一条 ticket.checked 为止，其中含等中继叫醒与跑判据的时间`]);
+      rows.push(['slot', `queueing since ${hhmm(since)}: ${QUEUE_REASON[q.reason]} (max ${q.limit}). Until the next ticket.checked, the relay's wake and the criteria run included`]);
     } else if (f.slot != null) {
-      rows.push(['槽位', `${f.slot} 号，持有到这张票落地、交回或合不进去`]);
+      rows.push(['slot', `${f.slot}, held until this ticket lands, is handed back or bounces`]);
     }
     return rows;
   },
-  sessionState: (s, t) => (!s.live ? (ENDED_BY[s.ended_by] || '已结束') : Board.stoppedByFault(t) ? '开了 fault 后停下' : '在跑'),
+  sessionState: (s, t) => (!s.live ? (ENDED_BY[s.ended_by] || 'ended') : Board.stoppedByFault(t) ? 'stopped on a fault' : 'live'),
   elapsed(t) {
     const f = t.fold, first = f.sessions[0] && f.sessions[0].started_at;
     if (!first) return '';
     const landed = t.events.find(e => e.event === 'ticket.landed');
-    if (f.landed && landed) return `用时 ${dur(minutes(first, landed.at))}`;
-    if (Board.handedBack(t)) return `跑了 ${dur(minutes(first, f.outcome.at))} 后交回`;
+    if (f.landed && landed) return `${dur(minutes(first, landed.at))}`;
+    if (Board.handedBack(t)) return dur(minutes(first, f.outcome.at));
     const b = Board.bounce(t);
-    if (b) return `跑了 ${dur(minutes(first, b.at))} 后合不进去`;
-    return `已跑 ${dur(minutes(first))}`;
+    if (b) return dur(minutes(first, b.at));
+    return `${dur(minutes(first))}`;
   },
   // One event row of the replay: its lamp and its key fields, read off its payload.
   evLight(e) {
@@ -192,13 +192,13 @@ const Board = {
     return '';
   },
   aggregate(tickets) {
-    const ls = tickets.map(Board.light);
+    const ls = tickets.map(Board.lamp);
     if (ls.includes('orange')) return 'orange';
     if (ls.includes('green')) return 'green';
     if (ls.length && ls.every(l => l === 'ink')) return 'ink';
     return 'hollow';
   },
-  decisionLight: d => (d.state === 'closed' ? 'ink' : 'hollow'),
+  decisionLamp: d => (d.state === 'closed' ? 'ink' : 'hollow'),
   // Whether a blocker has let go of the ticket it blocks — events.py `blocker_hold`, the rule
   // `advance` and `--preflight` use: its work is on the base branch (`ticket.landed`), or it
   // closed without a pass, by a person or as not planned, so nothing of it will ever land. A
@@ -327,7 +327,7 @@ const Board = {
       }
       if (r.g.cyclic.size) {
         const first = placed.get([...r.g.cyclic][0]);
-        labels.push({ x: first.x, y: top - 18, text: `阻塞成环 · ${[...r.g.cyclic].map(n => '#' + n).join(' ⇄ ')} · 排不出先后`, warn: true });
+        labels.push({ x: first.x, y: top - 18, text: `blocking cycle · ${[...r.g.cyclic].map(n => '#' + n).join(' ⇄ ')}`, warn: true });
       }
       return r.height;
     };
@@ -337,11 +337,11 @@ const Board = {
     nodes.push(mapNode);
     let mapBand = G.cH;
     if (task.decisions.length && expanded.has(task.n)) {
-      labels.push({ x: G.x0, y: y - 18, text: `这次讨论自己的票 · ${task.decisions.length} 张` });
+      labels.push({ x: G.x0, y: y - 18, text: `decision tickets · ${task.decisions.length}` });
       mapBand = Math.max(G.cH, place(task.decisions, 'decision', G.dW, G.dH, y, task.n, y + G.cH / 2));
     }
     y += mapBand + 48;
-    labels.push({ x: G.specX, y: y - 18, text: `讨论产出的 spec · ${task.specs.length} 个` });
+    labels.push({ x: G.specX, y: y - 18, text: `spec · ${task.specs.length}` });
     let lastMid = y;
     for (const spec of task.specs) {
       const sNode = { id: spec.n, type: 'spec', ref: spec, x: G.specX, y, w: G.contR - G.specX, h: G.cH };
@@ -379,10 +379,10 @@ const SETTINGS = {"store":"~/.mmw/models.json","agents":["junior-worker","senior
 const LocalConfig = {
   CELLS: ['host', 'model', 'effort'],
   ROLE_WHAT: {
-    'junior-worker': '贴 junior-worker label 的票',
-    'senior-worker': '贴 senior-worker label 的票',
-    reviewer: '评审每张票的改动',
-    verifier: '复验每张票的判据',
+    'junior-worker': '贴 junior-worker label 的 ticket',
+    'senior-worker': '贴 senior-worker label 的 ticket',
+    reviewer: 'review 每张 ticket 的改动',
+    verifier: 'reverify 每张 ticket 的 acceptance criteria',
     advisor: '被问到时给第二意见',
   },
   // Which place the options are asked of: Paseo when the runner is paseo, each host's own
@@ -412,7 +412,7 @@ const LocalConfig = {
   // the model on that host, then the effort of that model.
   problems(scan, d) {
     const L = LocalConfig, out = [];
-    if (d.runner !== 'auto' && !SETTINGS.runners.includes(d.runner)) out.push({ key: 'runner', cell: 'runner', text: `${d.runner} 没有适配器，start 起不了会话` });
+    if (d.runner !== 'auto' && !SETTINGS.runners.includes(d.runner)) out.push({ key: 'runner', cell: 'runner', text: `${d.runner} 没有适配器，start 起不了 session` });
     for (const a of SETTINGS.agents) {
       const r = d.rows[a];
       if (!SETTINGS.hosts.includes(r.host)) { out.push({ key: a, cell: 'host', text: `${r.host} 不是 MMW 认识的 host` }); continue; }
@@ -564,7 +564,7 @@ function containerOf(key, n) {
 function nextOrange(key, current) {
   const list = [];
   for (const task of scene(key).tasks) for (const s of task.specs) for (const t of s.tickets) {
-    if (Board.light(t) === 'orange') list.push({ task: task.n, spec: s.n, node: t.n });
+    if (Board.lamp(t) === 'orange') list.push({ task: task.n, spec: s.n, node: t.n });
   }
   if (!list.length) return null;
   const i = list.findIndex(x => x.node === current);
@@ -575,16 +575,16 @@ function nextOrange(key, current) {
 function topbarView(key, refreshed) {
   const sc = scene(key);
   const all = sc.tasks.flatMap(Board.allTickets);
-  const count = l => all.filter(t => Board.light(t) === l).length;
-  const waiting = all.filter(t => Board.step(t) === 'waiting').length;
+  const count = l => all.filter(t => Board.lamp(t) === l).length;
+  const waiting = all.filter(t => Board.phase(t) === 'waiting').length;
   const orange = count('orange');
   return {
     orangeN: orange, greenN: count('green'), hollowN: count('hollow'), inkN: count('ink'),
     hot: orange > 0,
     needCls: orange ? 'counter hot' : 'counter',
     needNCls: orange ? 'counter-n hot' : 'counter-n',
-    needLightCls: orange ? 'light orange' : 'light hollow',
-    waitingSub: waiting ? `其中等槽位 ${waiting}` : '',
+    needLightCls: orange ? 'lamp orange' : 'lamp hollow',
+    waitingSub: waiting ? `waiting for a slot ${waiting}` : '',
     readCls: sc.readFailed ? 'readstate failed' : 'readstate',
     readText: sc.readFailed
       ? `读 GitHub 失败 · 下面是 ${hhmm(sc.readAt)} 的数据（${minutes(sc.readAt)} 分钟前）`
@@ -603,8 +603,8 @@ function taskListView(key, taskN) {
       const on = task.n === taskN;
       return {
         n: task.n, cls: on ? 'task on' : 'task', titleCls: on ? 'task-title on' : 'task-title',
-        lightCls: 'light ' + l, lightWord: LIGHT_WORD[l], meta: `#${task.n} · ${task.kind}`, title: task.title,
-        barStyle: { width: (p.total ? (100 * p.done / p.total) : 0) + '%' }, count: `${p.done}/${p.total} 落地`,
+        lampCls: 'lamp ' + l, lampWord: LAMP_WORD[l], meta: `#${task.n} · ${task.kind}`, title: task.title,
+        barStyle: { width: (p.total ? (100 * p.done / p.total) : 0) + '%' }, count: `${p.done}/${p.total} landed`,
       };
     }),
   };
@@ -670,17 +670,17 @@ function canvasView(key, taskN, sel, expandedList, reduced) {
   for (const node of L.nodes) {
     const on = node.id === sel;
     if (node.type === 'ticket') {
-      const t = node.ref, l = Board.light(t), st = Board.step(t), run = Board.runLine(t);
+      const t = node.ref, l = Board.lamp(t), st = Board.phase(t), run = Board.runLine(t);
       tickets.push({
-        n: t.n, pos: pos(node), title: t.title, num: '#' + t.n, step: st, pillCls: 'pill ' + st,
+        n: t.n, pos: pos(node), title: t.title, num: '#' + t.n, phase: st, pillCls: 'pill ' + st,
         cls: 'card' + (on ? ' on' : '') + (t.closeout ? ' closeout' : '') + (node.cyclic ? ' cycle' : ''),
-        lightCls: 'light ' + l, lightWord: LIGHT_WORD[l], run: run.text, runCls: run.flag ? 'card-run flag' : 'card-run',
+        lampCls: 'lamp ' + l, lampWord: LAMP_WORD[l], run: run.text, runCls: run.flag ? 'card-run flag' : 'card-run',
       });
     } else if (node.type === 'decision') {
       const d = node.ref;
       decisions.push({
         n: d.n, pos: pos(node), title: d.title, num: '#' + d.n, kind: d.kind,
-        cls: 'card' + (on ? ' on' : ''), lightCls: 'light small ' + Board.decisionLight(d),
+        cls: 'card' + (on ? ' on' : ''), lampCls: 'lamp small ' + Board.decisionLamp(d),
       });
     } else {
       const c = node.ref, isMap = node.type === 'map';
@@ -692,8 +692,8 @@ function canvasView(key, taskN, sel, expandedList, reduced) {
       containers.push({
         n: c.n, pos: pos(node), title: c.title, num: '#' + c.n + (isMap ? ' · ' + c.kind : ''),
         cls: 'card' + (on ? ' on' : ''), titleCls: isMap ? 'card-title map' : 'card-title',
-        lightCls: 'light ' + l, lightWord: LIGHT_WORD[l], count: `${done}/${list.length}`,
-        canExpand, chev: open ? '▾' : '▸', toggleLabel: (open ? '收起 #' : '展开 #') + c.n,
+        lampCls: 'lamp ' + l, lampWord: LAMP_WORD[l], count: `${done}/${list.length}`,
+        canExpand, chev: open ? '▾' : '▸', toggleLabel: (open ? 'collapse #' : 'expand #') + c.n,
         barStyle: { width: (list.length ? 100 * done / list.length : 0) + '%' },
       });
     }
@@ -711,40 +711,40 @@ function canvasView(key, taskN, sel, expandedList, reduced) {
 // One related issue as a row: its lamp, title, where it lives, and how it stands.
 function relRow(key, n, role, hereSpec) {
   const f = find(key, n);
-  if (!f) return { n, known: false, num: '#' + n, lightCls: 'light none', title: '不在这棵树里，读不到它的状态', where: '', state: '未知', stateCls: 'rel-state open' };
-  let light, state;
+  if (!f) return { n, known: false, num: '#' + n, lampCls: 'lamp none', title: '不在这棵树里，读不到它的状态', where: '', state: 'unknown', stateCls: 'rel-state open' };
+  let lamp, state;
   if (f.type === 'ticket') {
-    light = Board.light(f.ref);
-    state = f.ref.fold.landed ? '已合入' : role !== 'blocker' ? LIGHT_WORD[light] : Board.released(f.ref) ? '没过就关了，已放行' : '未合入';
+    lamp = Board.lamp(f.ref);
+    state = f.ref.fold.landed ? 'landed' : role !== 'blocker' ? LAMP_WORD[lamp] : Board.released(f.ref) ? 'closed unpassed · released' : 'not landed';
   } else if (f.type === 'spec') {
-    light = Board.aggregate(f.ref.tickets);
+    lamp = Board.aggregate(f.ref.tickets);
     state = `${f.ref.tickets.filter(t => t.fold.landed).length}/${f.ref.tickets.length}`;
   } else {
-    light = Board.decisionLight(f.ref);
-    state = f.ref.state === 'closed' ? '已关闭' : '开着';
+    lamp = Board.decisionLamp(f.ref);
+    state = f.ref.state === 'closed' ? 'closed' : 'open';
   }
   return {
-    n, known: true, num: '#' + n, lightCls: 'light ' + light, title: f.ref.title,
+    n, known: true, num: '#' + n, lampCls: 'lamp ' + lamp, title: f.ref.title,
     where: f.spec && f.spec.n !== hereSpec ? `spec #${f.spec.n}` : '',
-    state, stateCls: state === '未合入' ? 'rel-state open' : 'rel-state',
+    state, stateCls: state === 'not landed' ? 'rel-state open' : 'rel-state',
   };
 }
 
-// The current step's class on the step path, written out so every class the stylesheet
+// The current phase's class on the phase path, written out so every class the stylesheet
 // carries is findable by name.
 const NOW_CLASS = { queued: 'now-queued', working: 'now-working', waiting: 'now-waiting', review: 'now-review', verify: 'now-verify', landed: 'now-landed' };
 
 function ticketView(key, found) {
-  const t = found.ref, f = t.fold, l = Board.light(t), st = Board.step(t);
+  const t = found.ref, f = t.fold, l = Board.lamp(t), st = Board.phase(t);
   const w = f.worker, elapsed = Board.elapsed(t);
   const stopped = Board.stopped(t);
-  const i = STEPS.indexOf(st);
+  const i = PHASES.indexOf(st);
   const kidTo = k => {
-    if (k.resolution === 'fixed') return { to: '已修' };
-    if (k.resolution === 'stale') return { to: '条件已不成立' };
-    if (k.resolution === 'became-ticket') return { to: `变成了 #${k.ticket}`, goto: k.ticket };
-    if (NEEDS_YOU_KIND[k.kind]) return { to: '等你', toCls: 'kid-to orange' };
-    return { to: k.kind === 'deferred' ? '留给以后的票' : '等收口那一轮' };
+    if (k.resolution === 'fixed') return { to: 'fixed' };
+    if (k.resolution === 'stale') return { to: 'stale' };
+    if (k.resolution === 'became-ticket') return { to: `became #${k.ticket}`, goto: k.ticket };
+    if (NEEDS_YOU_KIND[k.kind]) return { to: 'needs you', toCls: 'kid-to orange' };
+    return { to: k.kind === 'deferred' ? 'deferred' : 'for the closing pass' };
   };
   const facts = Board.facts(t).map(([k, v]) => ({ k, v }));
   const blocks = found.spec.tickets.filter(x => x.blocked.includes(t.n)).map(x => x.n);
@@ -753,10 +753,10 @@ function ticketView(key, found) {
     links: [{ label: `spec #${found.spec.n}`, n: found.spec.n }, { label: `map #${found.task.n}`, n: found.task.n }],
     closeout: !!t.closeout, closeoutFrom: t.closeout ? t.closeout.from : null,
     closeoutFromLabel: t.closeout ? '#' + t.closeout.from : '', closeoutChild: t.closeout ? `的 finding #${t.closeout.child}` : '',
-    title: t.title, lightCls: 'light big ' + l, statusWord: LIGHT_WORD[l], statusCls: 'status-word ' + l, elapsed,
-    pillCls: 'pill big ' + st, step: st,
-    hint: st === 'landed' ? '走完了' : stopped ? '停在这一步' : st === 'queued' ? '还没开始' : '现在在这一步',
-    path: STEPS.map((s, j) => ({ name: s, cls: 'path-step' + (j < i ? ' done' : j === i ? ' ' + NOW_CLASS[s] : ''), sep: j < STEPS.length - 1 })),
+    title: t.title, lampCls: 'lamp big ' + l, statusWord: LAMP_WORD[l], statusCls: 'status-word ' + l, elapsed,
+    pillCls: 'pill big ' + st, phase: st,
+    hint: st === 'landed' ? 'done' : stopped ? 'stopped here' : st === 'queued' ? 'not started' : 'here now',
+    path: PHASES.map((s, j) => ({ name: s, cls: 'path-phase' + (j < i ? ' done' : j === i ? ' ' + NOW_CLASS[s] : ''), sep: j < PHASES.length - 1 })),
     hasWhy: Board.why(t).length > 0,
     why: Board.why(t).map(x => x.child ? { head: `#${x.child} ${x.kind}`, body: `${x.title}。${x.text}` } : { head: '', body: x.text }),
     hasWorker: !!w, facts,
@@ -766,19 +766,21 @@ function ticketView(key, found) {
       stateCls: s.live && !Board.stoppedByFault(t) ? 'session-state live' : 'session-state',
     })),
     blockers: t.blocked.map(n => relRow(key, n, 'blocker', found.spec.n)), noBlockers: !t.blocked.length,
+    blockerCount: t.blocked.length || null,
     blocks: blocks.map(n => relRow(key, n, 'blocked', found.spec.n)), noBlocks: !blocks.length,
+    blocksCount: blocks.length || null,
     kidCount: Object.keys(f.children).length, noKids: !Object.keys(f.children).length,
     kids: Object.values(f.children).map(k => {
       const to = kidTo(k);
       return {
         num: '#' + k.child, kind: k.kind, title: k.title, to: to.to, toCls: to.toCls || 'kid-to', goto: to.goto || null, hasGoto: !!to.goto,
-        lightCls: 'light ' + (k.resolution ? 'ink' : NEEDS_YOU_KIND[k.kind] ? 'orange' : 'hollow'),
+        lampCls: 'lamp ' + (k.resolution ? 'ink' : NEEDS_YOU_KIND[k.kind] ? 'orange' : 'hollow'),
       };
     }),
     eventCount: `${t.events.length} 条评论`, noEvents: !t.events.length,
     events: t.events.map(e => {
       const el = Board.evLight(e);
-      return { time: hhmm(e.at), name: e.event, nameCls: el === 'orange' ? 'ev-name orange' : 'ev-name', field: Board.evFields(e), line: e.line, dotCls: `light ${el} ev-dot` };
+      return { time: hhmm(e.at), name: e.event, nameCls: el === 'orange' ? 'ev-name orange' : 'ev-name', field: Board.evFields(e), line: e.line, dotCls: `lamp ${el} ev-dot` };
     }),
     ghLabel: `在 GitHub 打开 #${t.n} ↗`, gh: t.n,
   };
@@ -788,39 +790,41 @@ function containerView(key, found) {
   const c = found.ref, isMap = found.type === 'map';
   const list = isMap ? Board.allTickets(c) : c.tickets;
   const l = Board.aggregate(list);
-  const lc = k => list.filter(t => Board.light(t) === k).length;
-  const sc = s => list.filter(t => Board.step(t) === s).length;
+  const lc = k => list.filter(t => Board.lamp(t) === k).length;
+  const sc = s => list.filter(t => Board.phase(t) === s).length;
   const done = list.filter(t => t.fold.landed).length;
   return {
-    isContainer: true, isMap, isSpec: !isMap, eyebrow: isMap ? 'Map · 任务' : 'Spec',
+    isContainer: true, isMap, isSpec: !isMap, eyebrow: isMap ? 'The Night' : 'Spec',
     num: '#' + c.n + (isMap ? ' · ' + c.kind : ''),
     links: isMap ? [] : [{ label: `map #${found.task.n}`, n: found.task.n }],
-    title: c.title, lightCls: 'light big ' + l, statusWord: LIGHT_WORD[l], statusCls: 'status-word ' + l,
-    elapsed: `${done}/${list.length} 落地`,
-    listTitle: isMap ? '全部 ticket' : '它的 ticket', listCount: list.length,
-    lights: ['orange', 'green', 'hollow', 'ink'].filter(k => lc(k)).map(k => ({ cls: 'light ' + k, word: LIGHT_WORD[k], n: lc(k) })),
-    steps: STEPS.filter(s => sc(s)).map(s => ({ cls: 'pill ' + s, label: `${s} · ${sc(s)}` })),
+    title: c.title, lampCls: 'lamp big ' + l, statusWord: LAMP_WORD[l], statusCls: 'status-word ' + l,
+    elapsed: `${done}/${list.length} landed`,
+    listTitle: isMap ? 'All tickets' : 'Its tickets', listCount: list.length,
+    lamps: ['orange', 'green', 'hollow', 'ink'].filter(k => lc(k)).map(k => ({ cls: 'lamp ' + k, word: LAMP_WORD[k], n: lc(k) })),
+    phases: PHASES.filter(s => sc(s)).map(s => ({ cls: 'pill ' + s, label: `${s} · ${sc(s)}` })),
     specRows: isMap ? c.specs.map(s => relRow(key, s.n, 'spec', null)) : [],
     specCount: isMap ? c.specs.length : 0,
     hasDecisions: isMap && c.decisions.length > 0, decisionCount: isMap ? c.decisions.length : 0,
     decisionRows: isMap ? c.decisions.map(d => relRow(key, d.n, 'decision', null)) : [],
     ticketRows: isMap ? [] : c.tickets.map(t => {
-      const st = Board.step(t);
-      return { n: t.n, num: '#' + t.n, lightCls: 'light ' + Board.light(t), title: t.title, pillCls: 'pill ' + st, step: st };
+      const st = Board.phase(t);
+      return { n: t.n, num: '#' + t.n, lampCls: 'lamp ' + Board.lamp(t), title: t.title, pillCls: 'pill ' + st, phase: st };
     }),
     ghLabel: `在 GitHub 打开 #${c.n} ↗`, gh: c.n,
   };
 }
 
 function decisionView(key, found) {
-  const d = found.ref, l = Board.decisionLight(d);
+  const d = found.ref, l = Board.decisionLamp(d);
   const blocks = found.task.decisions.filter(x => x.blocked.includes(d.n)).map(x => x.n);
   return {
-    isDecision: true, eyebrow: '决策票 · ' + d.kind, num: '#' + d.n,
+    isDecision: true, eyebrow: 'Decision ticket · ' + d.kind, num: '#' + d.n,
     links: [{ label: `map #${found.task.n}`, n: found.task.n }],
-    title: d.title, lightCls: 'light big ' + l, statusWord: d.state === 'closed' ? '已定' : '还开着', statusCls: 'status-word ' + l,
+    title: d.title, lampCls: 'lamp big ' + l, statusWord: d.state === 'closed' ? 'settled' : '还开着', statusCls: 'status-word ' + l,
     blockers: d.blocked.map(n => relRow(key, n, 'decision', null)), noBlockers: !d.blocked.length,
+    blockerCount: d.blocked.length || null,
     blocks: blocks.map(n => relRow(key, n, 'decision', null)), noBlocks: !blocks.length,
+    blocksCount: blocks.length || null,
     ghLabel: `在 GitHub 打开 #${d.n} ↗`, gh: d.n,
   };
 }
@@ -912,7 +916,7 @@ function settingsView(st) {
 
 window.FIXTURES = FIXTURES;
 window.MMWBoard = {
-  NOW, STEPS, LIGHT_WORD, SCENES, CANVAS_SCENES, DETAIL_SCENES, Board,
+  NOW, PHASES, LAMP_WORD, SCENES, CANVAS_SCENES, DETAIL_SCENES, Board,
   scene, find, containerOf, defaultExpanded, nextOrange,
   topbarView, taskListView, canvasView, detailView,
   SETTINGS, SETTINGS_SCENES, LocalConfig, settingsState, settingsView, laterBy,

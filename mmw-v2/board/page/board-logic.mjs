@@ -105,7 +105,7 @@ export const Board = {
     if (this.handedBack(ticket)) {
       const abandoned = ticket.fold.outcome.payload?.abandoned || [];
       reasons.push({kind: "returned", text: abandoned.length
-        ? abandoned.map(item => `交回：${item.ac} 放弃（${item.kind}）。${item.reason}`).join("；")
+        ? abandoned.map(item => `handed back: ${item.ac} 放弃（${item.kind}）。${item.reason}`).join("；")
         : ticket.fold.outcome.line});
     }
     const bounce = this.bounce(ticket);
