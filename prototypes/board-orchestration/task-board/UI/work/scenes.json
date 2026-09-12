@@ -4088,7 +4088,7 @@
               "lampCls": "lamp hollow"
             }
           ],
-          "eventCount": "5 条评论",
+          "eventCount": 5,
           "noEvents": false,
           "events": [
             {
@@ -4388,7 +4388,7 @@
               "lampCls": "lamp orange"
             }
           ],
-          "eventCount": "3 条评论",
+          "eventCount": 3,
           "noEvents": false,
           "events": [
             {
@@ -4624,7 +4624,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "2 条评论",
+          "eventCount": 2,
           "noEvents": false,
           "events": [
             {
@@ -4867,7 +4867,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "10 条评论",
+          "eventCount": 10,
           "noEvents": false,
           "events": [
             {
@@ -5141,7 +5141,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "12 条评论",
+          "eventCount": 12,
           "noEvents": false,
           "events": [
             {
@@ -5430,7 +5430,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "7 条评论",
+          "eventCount": 7,
           "noEvents": false,
           "events": [
             {
@@ -5667,7 +5667,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "3 条评论",
+          "eventCount": 3,
           "noEvents": false,
           "events": [
             {
@@ -5889,7 +5889,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "4 条评论",
+          "eventCount": 4,
           "noEvents": false,
           "events": [
             {
@@ -6095,7 +6095,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "0 条评论",
+          "eventCount": 0,
           "noEvents": true,
           "events": [],
           "ghLabel": "在 GitHub 打开 #135 ↗",
@@ -6387,7 +6387,7 @@
               "lampCls": "lamp ink"
             }
           ],
-          "eventCount": "16 条评论",
+          "eventCount": 16,
           "noEvents": false,
           "events": [
             {
@@ -6797,7 +6797,7 @@
               "lampCls": "lamp orange"
             }
           ],
-          "eventCount": "3 条评论",
+          "eventCount": 3,
           "noEvents": false,
           "events": [
             {
@@ -6974,7 +6974,7 @@
           "kidCount": 0,
           "noKids": true,
           "kids": [],
-          "eventCount": "0 条评论",
+          "eventCount": 0,
           "noEvents": true,
           "events": [],
           "ghLabel": "在 GitHub 打开 #305 ↗",

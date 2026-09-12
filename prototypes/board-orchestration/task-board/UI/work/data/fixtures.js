@@ -777,7 +777,7 @@ function ticketView(key, found) {
         lampCls: 'lamp ' + (k.resolution ? 'ink' : NEEDS_YOU_KIND[k.kind] ? 'orange' : 'hollow'),
       };
     }),
-    eventCount: `${t.events.length} 条评论`, noEvents: !t.events.length,
+    eventCount: t.events.length, noEvents: !t.events.length,
     events: t.events.map(e => {
       const el = Board.evLight(e);
       return { time: hhmm(e.at), name: e.event, nameCls: el === 'orange' ? 'ev-name orange' : 'ev-name', field: Board.evFields(e), line: e.line, dotCls: `lamp ${el} ev-dot` };
