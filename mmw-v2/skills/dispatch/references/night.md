@@ -26,24 +26,38 @@ That URL is the night's task board: the one view of tonight a person can open, w
 
 ## 1b. Before the batch: what the batch cannot be run on
 
-When the spec's tickets drive a screen contract, run this once, before the first
-`advance`:
+Run this once, before the first `advance`, on every spec:
 
 ```bash
 <engine> <spec> --lint
 ```
 
-It starts nothing and runs no product. It reads the batch's tickets and the contract they
-name, and prints one finding per line: a `--pages` mount that is not a page of that
-contract, a `boundary-check.py --run` with an empty command, a `journey.py run <name>`
-with no directory under `.mmw/journeys/`, a `CHECK:` that stubs the application's own
-network, an interface ticket that names no contract rows. Only `ERROR` moves the exit
-code. Answer the findings in one sitting rather than one per ticket per night: on
-2026-09-07 the same class of defect arrived three at a time, hours apart, each costing a
-whole ticket.
+It starts nothing and runs no product. It reads every ticket of the batch and prints one
+finding per line. Most of what it checks holds for every ticket, whether or not the batch
+has a screen contract: a criterion written as prose with no `CHECK:` under it
+(`[manual-gate]`), a `CHECK:` or `EXPECT:` line attached to no criterion, criteria that
+produce no gate at all (`ledger contains zero live gates`), a missing or doubled
+worker-grade label, and a batch that is not a startable graph; a ticket dispatched with
+one of those costs its worker the round it was dispatched for. The criterion shapes of an
+interface ticket are reported only where a criterion uses them: a `boundary-check.py
+--run` with an empty command, a `journey.py run <name>` with no directory under
+`.mmw/journeys/`, a `CHECK:` that stubs the application's own network, an interface
+ticket that names no contract rows, and — read against the contract the ticket names — a
+`--pages` mount that is not a page of that contract. A batch with no screen contract gets
+none of the contract findings and all of the others.
 
-Whether the consuming repository can be driven at all is a separate question, answered
-there by `python3 <drive-target scripts>/screen_driver.py target --check`, which prints
+Exit 0: no `ERROR`. Exit 2: a criterion names a judge this run cannot reach, and nothing
+was read. Exit 1 is either of two things that call for opposite handling, so read the
+lines before acting on it: `ERROR` lines about a ticket or the graph, which you fix on the
+ticket; or a tracker that did not answer — an `ERROR` tagged `[parent-unreadable]` or
+`[sub-issues-unreadable]`, or the run ending in a traceback from a `gh` call — where
+nothing about the tickets was established and the same command is run again once the
+tracker answers. Answer the findings in one sitting rather than one per ticket per night:
+on 2026-09-07 the same class of defect arrived three at a time, hours apart, each costing
+a whole ticket.
+
+When the batch drives a screen contract, whether the consuming repository can be driven
+at all is a separate question, answered there by `python3 <drive-target scripts>/screen_driver.py target --check`, which prints
 every `.mmw/target.json` field still to answer and exits 0 once the file is complete.
 
 **A clean lint is not a finished contract.** It reads text, not a running product: a story
@@ -155,7 +169,7 @@ Then lint each ticket you wrote or rewrote, before you dispatch it:
 <engine> <n> --lint
 ```
 
-It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. This is what step 1b does for the published batch, and this pass writes tickets the same way, so it gets the same pass. A ticket dispatched with criteria that produce no gate (`ledger contains zero live gates`) stops its worker at its first `--preflight`, and the worker does the right thing — opens a `fault` child and waits for you — which costs the ticket the whole round it was dispatched for.
+It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. An exit 1 whose `ERROR` lines are all tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or that ends in a traceback from a `gh` call, is the tracker not answering rather than the ticket being wrong: run the same command again once it answers. This is what step 1b does for the published batch, and this pass writes tickets the same way, so it gets the same pass. A ticket dispatched with criteria that produce no gate (`ledger contains zero live gates`) stops its worker at its first `--preflight`, and the worker does the right thing — opens a `fault` child and waits for you — which costs the ticket the whole round it was dispatched for.
 
 Then:
 
