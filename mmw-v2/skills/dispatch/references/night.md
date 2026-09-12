@@ -20,7 +20,9 @@ Then, from this session — the one the night's wakes must reach:
 <dispatch> open <spec>
 ```
 
-**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>`; end with an open watch whose main agent is this session. **Exit 2:** fix stderr's named condition and run `open` again. `advance` refuses a night that is not open. The branch inference, pushes and watch mechanics are in [how-it-works.md](how-it-works.md) under **Opening a night**.
+**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>; task board <url>`; end with an open watch whose main agent is this session. **Exit 2:** fix stderr's named condition and run `open` again. `advance` refuses a night that is not open. The branch inference, pushes and watch mechanics are in [how-it-works.md](how-it-works.md) under **Opening a night**.
+
+That URL is the night's task board: the one view of tonight a person can open, where the relay's and the watchdog's work reaches you and nobody else. `open` registers and starts it, so hand the user the URL in your first message of the night. A board that would not start is one stderr line and holds nothing up; `<dispatch> board` starts it and opens it whenever you or the user want it.
 
 ## 1b. Before the batch: what the batch cannot be run on
 
