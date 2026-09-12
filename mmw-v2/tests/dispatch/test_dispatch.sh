@@ -1932,7 +1932,7 @@ JSON
   [ "$(wc -l < "$TMP/err" | tr -d ' ')" -ge 2 ] \
     || fail "expected one line per failing check: $(cat "$TMP/err")"
 
-  echo "--- install.sh --check failing is a refusal, exit 2"
+  echo "--- install.sh --check failing is a warning, not a refusal, and a checkout that is not the installed one is not installed from"
   copy="$(skill_copy_for check 1)"
   reset_log
   cat > "$TMP/tickets.json" <<'JSON'
@@ -1940,11 +1940,28 @@ JSON
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker"]}
 ]
 JSON
+  printf '#!/usr/bin/env bash\necho "$*" >> "%s/install-calls"\n[ "${1:-}" = --check ] && { echo "缺 something"; exit 1; }\nexit 0\n' "$TMP" > "$TMP/fake/install.sh"
+  rm -f "$TMP/install-calls"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 2 ] || fail "expected exit 2 when install.sh --check fails, got $code: $(cat "$TMP/err")"
-  grep -q 'install.sh --check' "$TMP/err" \
-    || fail "the reason should name install.sh --check: $(cat "$TMP/err")"
+  [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
+  grep -q 'install.sh --check still finds this' "$TMP/err" && grep -q '缺 something' "$TMP/err" \
+    || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
+  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check --check " ] \
+    || fail "a checkout that is not the installed one should only check: $(cat "$TMP/install-calls")"
+
+  echo "--- the installed checkout repairs itself with install.sh before it warns"
+  printf '#!/usr/bin/env bash\necho "run ${1:-install}" >> "%s/install-calls"\n[ "${1:-}" = --check ] && [ ! -f "%s/installed" ] && exit 1\ntouch "%s/installed"\nexit 0\n' "$TMP" "$TMP" "$TMP" > "$TMP/fake/install.sh"
+  rm -f "$TMP/install-calls" "$TMP/installed"
+  mkdir -p "$MMW_HOME"
+  printf '%s\n' "$TMP/fake" > "$MMW_HOME/installed-root"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  rm -f "$MMW_HOME/installed-root"
+  [ "$code" = 0 ] || fail "expected exit 0 after the repair, got $code: $(cat "$TMP/err")"
+  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "run --check run install run --check " ] \
+    || fail "expected check, install, check: $(cat "$TMP/install-calls")"
+  grep -q 'still finds' "$TMP/err" && fail "a repaired install should not warn: $(cat "$TMP/err")"
 
   echo "--- a row that does not resolve on tonight's runner is refused in the resolver's words, whatever the tickets carry"
   copy="$(skill_copy_for check)"
@@ -5058,6 +5075,26 @@ scenario_unopened() {
   no_relay
 }
 
+# A reboot or a crash ends the relay and leaves the night open: advance restores the watch
+# for the main agent spec.opened names instead of reading the night as never opened.
+scenario_advancerestoreswatch() {
+  local code
+  fresh_repo
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=main --field project=proj
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  grep -q "the night on #76 is open and nothing watched it; the watch is restored with paseo session agt_main" "$TMP/err" \
+    || fail "advance did not restore the watch: exit $code: $(cat "$TMP/err")"
+  grep -q "is not open" "$TMP/err" && fail "advance still read the night as not open: $(cat "$TMP/err")"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76 should be watched for agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
+  case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
+  no_relay
+}
+
 scenario_orcaclosed() {
   local code
   RUNNER="$ORCA_RUNNER"
@@ -6668,8 +6705,43 @@ scenario_openrefusesfromdefault() {
   open_project_fixture
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "base from default expected 2, got $code"
-  grep -q 'default branch main' "$TMP/err" || fail "from-default refusal missing: $(cat "$TMP/err")"
+  grep -q 'project branch for night could not be inferred' "$TMP/err" || fail "from-default refusal missing: $(cat "$TMP/err")"
   [ -z "$(posted_events 76)" ] || fail "from-default open wrote spec.opened"
+}
+
+# A base cut from origin/main records main in its reflog. main is never the project branch:
+# the configured branch wins over the reflog, and without one the history decides, main
+# left out even where the project branch has no commits of its own.
+scenario_openprojectpastdefault() {
+  local code
+  fresh_repo
+  git -C "$TMP/repo" branch proj main
+  git -C "$TMP/repo" push -q origin proj
+  git -C "$TMP/repo" checkout -q -b night main
+  commit_file "$TMP/repo" night.txt night night
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "a base cut from main with proj on origin expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] \
+    || fail "history should pick proj past main: $(posted_events 76 project)"
+  no_relay
+
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" project.txt project project
+  git -C "$TMP/repo" push -q origin proj
+  git -C "$TMP/repo" checkout -q -b alt main
+  commit_file "$TMP/repo" alt.txt alt alt
+  git -C "$TMP/repo" push -q origin alt
+  git -C "$TMP/repo" checkout -q -b night main
+  git -C "$TMP/repo" merge -q proj
+  git -C "$TMP/repo" config branch.night.vscode-merge-base origin/proj
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "config over a main reflog expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] \
+    || fail "config should win over the reflog: $(posted_events 76 project)"
+  no_relay
 }
 
 scenario_openpushes() {
@@ -7218,10 +7290,41 @@ scenario_startwithoutinto() {
     --field session=old --field runner=paseo \
     $(start_facts "$(wt 61)" 61 worker) --field into=
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
-  [ "$code" = 2 ] || fail "old worker.started without into expected 2, got $code"
-  grep -q "carries no into; re-start the worker" "$TMP/err" \
-    || fail "the migration refusal was not actionable: $(cat "$TMP/err")"
-  never_ran
+  [ "$code" = 0 ] || fail "an old worker.started without into should fall back to the next source, got $code: $(cat "$TMP/err")"
+  posted_events 61 into | tail -1 | grep -qx "worker.started into=main" \
+    || fail "the new worker.started should record the fallback base branch: $(posted_events 61 into)"
+}
+
+# What is left at a ticket's workspace path when a worktree was deleted by hand.
+scenario_startstrayworkspace() {
+  local code
+  echo "--- a worktree deleted by hand is still registered with git, and start makes it again"
+  fresh_repo
+  reset_log
+  mkdir -p "$TMP/repo/.worktrees"
+  git -C "$TMP/repo" worktree add -q -b issue-61 "$(wt 61)" main
+  rm -rf "$(wt 61)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "start over a pruned registration expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$(wt 61)" rev-parse --abbrev-ref HEAD)" = issue-61 ] || fail "the workspace was not made again"
+
+  echo "--- an empty directory there is removed and the worktree made"
+  fresh_repo
+  reset_log
+  mkdir -p "$(wt 62)"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 62 worker)"
+  [ "$code" = 0 ] || fail "start over an empty directory expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$(wt 62)" rev-parse --abbrev-ref HEAD)" = issue-62 ] || fail "the workspace was not made"
+
+  echo "--- a directory holding files is refused as what it is, and kept"
+  fresh_repo
+  reset_log
+  mkdir -p "$(wt 63)"
+  printf 'keep\n' > "$(wt 63)/notes.txt"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 63 worker)"
+  [ "$code" = 2 ] || fail "start over a directory with files expected 2, got $code: $(cat "$TMP/err")"
+  grep -q "holds files and is not a git worktree" "$TMP/err" || fail "the refusal should say what is there: $(cat "$TMP/err")"
+  [ -f "$(wt 63)/notes.txt" ] || fail "the files were not kept"
 }
 
 scenario_replacepushes() {
@@ -8462,7 +8565,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openbasefollowsproject openbaseprojectconflict openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto startstrayworkspace replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openprojectpastdefault openpushes openrefusesdiverged openbasefollowsproject openbaseprojectconflict openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused advancerestoreswatch catalogbyrunner startunlandedblocker"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8563,6 +8666,7 @@ banner_for() {
     startintofromnight) echo START-INTO-FROM-NIGHT-OK ;;
     startintooutside) echo START-INTO-OUTSIDE-OK ;;
     startwithoutinto) echo START-WITHOUT-INTO-OK ;;
+    startstrayworkspace) echo START-STRAY-WORKSPACE-OK ;;
     replacepushes) echo REPLACE-PUSHES-OK ;;
     retract) echo DISPATCH-RETRACT-OK ;;
     retractpushes) echo RETRACT-PUSHES-OK ;;
@@ -8632,6 +8736,7 @@ banner_for() {
     mergewithoutbranch) echo MERGE-WITHOUT-BRANCH-OK ;;
     retractunreadable) echo RETRACT-UNREADABLE-OK ;;
     open) echo OPEN-OK ;;
+    advancerestoreswatch) echo ADVANCE-RESTORES-WATCH-OK ;;
     openinto) echo OPEN-INTO-OK ;;
     openpushesahead) echo OPEN-PUSHES-AHEAD-OK ;;
     openprojectreflog) echo OPEN-PROJECT-REFLOG-OK ;;
@@ -8641,6 +8746,7 @@ banner_for() {
     openrefusesdefault) echo OPEN-REFUSES-DEFAULT-OK ;;
     openrefusesfromdefault) echo OPEN-REFUSES-FROM-DEFAULT-OK ;;
     openpushes) echo OPEN-PUSHES-OK ;;
+    openprojectpastdefault) echo OPEN-PROJECT-PAST-DEFAULT-OK ;;
     openrefusesdiverged) echo OPEN-REFUSES-DIVERGED-OK ;;
     openbasefollowsproject) echo OPEN-BASE-FOLLOWS-PROJECT-OK ;;
     openbaseprojectconflict) echo OPEN-BASE-PROJECT-CONFLICT-OK ;;

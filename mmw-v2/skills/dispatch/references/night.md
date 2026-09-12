@@ -20,7 +20,7 @@ Then, from this session — the one the night's wakes must reach:
 <dispatch> open <spec>
 ```
 
-**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>; task board <url>`; end with an open watch whose main agent is this session. **Exit 2:** fix stderr's named condition and run `open` again. `advance` refuses a night that is not open. The branch inference, pushes and watch mechanics are in [how-it-works.md](how-it-works.md) under **Opening a night**.
+**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>; task board <url>`; end with an open watch whose main agent is this session. **Exit 2:** fix stderr's named condition and run `open` again. `advance` refuses a night that is not open. A night whose newest spec event is `spec.opened` stays open when the relay process has ended; `advance` and `start` open its watch again for the recorded main agent and say so on stderr. The branch inference, pushes and watch mechanics are in [how-it-works.md](how-it-works.md) under **Opening a night**.
 
 That URL is the night's task board: the one view of tonight a person can open, where the relay's and the watchdog's work reaches you and nobody else. `open` registers and starts it, so hand the user the URL in your first message of the night. A board that would not start is one stderr line and holds nothing up; `<dispatch> board` starts it and opens it whenever you or the user want it.
 
@@ -36,9 +36,11 @@ It starts nothing and runs no product. It reads every ticket of the batch and pr
 finding per line. Most of what it checks holds for every ticket, whether or not the batch
 has a screen contract: a criterion written as prose with no `CHECK:` under it
 (`[manual-gate]`), a `CHECK:` or `EXPECT:` line attached to no criterion, criteria that
-produce no gate at all (`ledger contains zero live gates`), a missing or doubled
-worker-grade label, and a batch that is not a startable graph; a ticket dispatched with
-one of those costs its worker the round it was dispatched for. The criterion shapes of an
+produce no gate at all (`ledger contains zero live gates`), a doubled worker-grade
+label, and a batch that is not a startable graph; a ticket dispatched with one of those
+costs its worker the round it was dispatched for. A missing worker-grade label is a `WARN`:
+the ticket starts on the default row. A closed ticket's findings are printed and do not
+count, because it is never started again. The criterion shapes of an
 interface ticket are reported only where a criterion uses them: a `boundary-check.py
 --run` with an empty command, a `journey.py run <name>` with no directory under
 `.mmw/journeys/`, a `CHECK:` that stubs the application's own network, an interface
@@ -73,7 +75,7 @@ After `open` records `into`, `advance` may run from any checkout in this reposit
 <dispatch> advance <spec>
 ```
 
-**Exit 0:** stdout is one session id per ticket it started. Stderr ends with `advance #<spec>: merged <m>, already in <s>, bounced <b>, released <g>, started <k>, refused <r>`. A bounced ticket was reopened for triage and its workspace remains; it is not tried or dispatched again that night. End your turn after exit 0. **Exit 4:** landing and release finished, but at least one runner refused a start; each refusal is named and is not retried. Fix what each refusal names, then run `advance` again. End your turn only while another worker of the night remains live; if none does, tell the user which tickets were refused and why. **Exit 2:** if the night is not open, run `open <spec>` and then `advance <spec>` again. Otherwise stderr names unreadable tracker state, merge lock, fetch, merge or push failure; fix the named condition and retry. A merge conflict and red repository checks are not exit codes: that ticket gets `ticket.bounced`, the merge worktree is reset, and the command continues.
+**Exit 0:** stdout is one session id per ticket it started. Stderr ends with `advance #<spec>: merged <m>, already in <s>, bounced <b>, released <g>, started <k>, refused <r>`. A bounced ticket was reopened for triage and its workspace remains; it is not tried or dispatched again that night. End your turn after exit 0. **Exit 4:** landing and release finished, but at least one runner refused a start; each refusal is named and is not retried. Fix what each refusal names, then run `advance` again. End your turn only while another worker of the night remains live; if none does, tell the user which tickets were refused and why. **Exit 2:** if the night is not open (no `spec.opened`, or the recorded main agent is stopped), run `open <spec>` and then `advance <spec>` again. Otherwise stderr names unreadable tracker state, merge lock, fetch, merge or push failure; fix the named condition and retry. A merge conflict and red repository checks are not exit codes: that ticket gets `ticket.bounced`, the merge worktree is reset, and the command continues.
 
 The merge, checks, archive, claim and frontier sequence is in [how-it-works.md](how-it-works.md) under **How `advance` processes a batch**.
 

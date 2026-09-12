@@ -257,8 +257,9 @@ print(value)
 '
 }
 
-# Read a field from the newest worker.started while preserving "there is no event" as
-# exit 3 for callers that have another source. Every other failure is explained here.
+# Read a field from the newest worker.started. Exit 3 when there is no such event or it
+# carries no such field (an event written before the field existed), for callers that
+# have another source. Every other failure is explained here.
 newest_worker_field() {
   local number="$1" field="$2" value rc
   value="$(newest_field "$number" "$field" worker.started)"
@@ -266,8 +267,7 @@ newest_worker_field() {
   case "$rc" in
     0) printf '%s\n' "$value" ;;
     2) echo "dispatch: could not read #$number's events, so its $field is unknown" >&2; return 2 ;;
-    3) return 3 ;;
-    4) echo "dispatch: #$number's latest worker.started carries no $field; re-start the worker so it is recorded" >&2; return 2 ;;
+    3 | 4) return 3 ;;
     *) echo "dispatch: could not resolve #$number's $field from its worker.started event" >&2; return 2 ;;
   esac
 }
@@ -292,7 +292,12 @@ worker_base() {
   local number="$1" root="$2" into="$3" head="$4"
   newest_field "$number" event worker.started ticket.landed >/dev/null
   case "$?" in
-    0) newest_worker_field "$number" base ;;
+    0) newest_worker_field "$number" base
+       case "$?" in
+         0) ;;
+         3) base_commit "$root" "$into" "$head" || true ;;
+         *) return 2 ;;
+       esac ;;
     3) base_commit "$root" "$into" "$head" || true ;;
     *) echo "dispatch: could not read #$number's events, so whether its earlier work has landed, and with it the base to record, is unknown; run this again once the tracker answers" >&2; return 2 ;;
   esac
@@ -300,8 +305,7 @@ worker_base() {
 
 # Resolve worker.started.into first, then an open night's spec.opened.into, then the
 # caller's explicit fallback. `start` supplies its current branch as that fallback;
-# `adopt` supplies only --into. A worker.started with no into is refused; a new start
-# records the base branch.
+# `adopt` supplies only --into. A worker.started with no into counts as none.
 resolve_into() {
   local number="$1" spec="$2" fallback="$3" into rc
   into="$(newest_worker_field "$number" into)"
@@ -494,6 +498,22 @@ relay_watches() {
   python3 "$RELAY" watching --repo "$repo" "${which[@]}" >/dev/null
 }
 
+# A night whose newest spec event is `spec.opened` is open, whatever became of the relay
+# process: a reboot or a crash ends the relay and leaves the night. This opens the spec's
+# watch again for the main agent `spec.opened` names and starts the relay when none runs.
+# Exit 0 when the spec is watched afterwards; 1 when the night is not open or the relay
+# refused (a main agent the runner shows stopped), with nothing changed.
+revive_night_watch() {
+  local spec="$1" repo runner session out
+  [ -n "$spec" ] || return 1
+  runner="$(newest_field "$spec" runner spec.opened spec.suspended spec.closed 2>/dev/null)" || return 1
+  session="$(newest_field "$spec" session spec.opened spec.suspended spec.closed 2>/dev/null)" || return 1
+  repo="$(repo_slug)" || return 1
+  out="$(python3 "$RELAY" start --repo "$repo" --spec "$spec" --runner "$runner" --session "$session" 2>&1)" \
+    || { echo "dispatch: the night on #$spec is open and its watch could not be restored: ${out#relay: }" >&2; return 1; }
+  echo "dispatch: the night on #$spec is open and nothing watched it; the watch is restored with $runner session $session as its main agent" >&2
+}
+
 # Close the watch the arguments name (`--spec N` or `--tickets N`); the relay process ends
 # with its last watch. Exit 0 closed, or nothing was watched; 3 that watch is not open, and
 # the relay's other watches were left alone; 1 the relay did not end, the reason on stderr.
@@ -551,24 +571,16 @@ project_remedy() {
   printf 'git config branch.%s.vscode-merge-base <project branch>' "$1"
 }
 
-# Print "project<TAB>source". The recorded event wins; otherwise the three sources are
-# tried in the order fixed by #337 section 13.
+# Print "project<TAB>source". The recorded event wins, then the branch the user named in
+# config, then the branch the base was created from, then the closest origin history. The
+# default branch is never a project branch, so a reflog naming it (a worktree cut from
+# origin/main) and a history candidate that is it are passed over rather than refused.
 project_for_night() {
-  local root="$1" spec="$2" into="$3" project configured
+  local root="$1" spec="$2" into="$3" project configured default
+  default="$(default_branch "$root")" || default=""
   project="$(newest_field "$spec" project spec.opened 2>/dev/null)" || project=""
   if [ -n "$project" ]; then
     printf '%s\tevent\n' "$project"
-    return 0
-  fi
-
-  project="$(git -C "$root" reflog show --format='%gs' "refs/heads/$into" 2>/dev/null \
-    | sed -n 's/^branch: Created from //p' | tail -1)"
-  project="${project#origin/}"
-  project="${project#refs/heads/}"
-  if [ -n "$project" ] && [ "$project" != HEAD ] \
-     && { git -C "$root" show-ref --verify --quiet "refs/heads/$project" \
-          || git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$project"; }; then
-    printf '%s\treflog\n' "$project"
     return 0
   fi
 
@@ -579,10 +591,21 @@ project_for_night() {
     return 0
   fi
 
+  project="$(git -C "$root" reflog show --format='%gs' "refs/heads/$into" 2>/dev/null \
+    | sed -n 's/^branch: Created from //p' | tail -1)"
+  project="${project#origin/}"
+  project="${project#refs/heads/}"
+  if [ -n "$project" ] && [ "$project" != HEAD ] && [ "$project" != "$default" ] \
+     && { git -C "$root" show-ref --verify --quiet "refs/heads/$project" \
+          || git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$project"; }; then
+    printf '%s\treflog\n' "$project"
+    return 0
+  fi
+
   local candidate name merge_base distance best="" best_distance="" ties=""
   while IFS= read -r candidate; do
     name="${candidate#refs/remotes/origin/}"
-    case "$name" in HEAD|"$into"|issue-*) continue ;; esac
+    case "$name" in HEAD|"$into"|"$default"|issue-*) continue ;; esac
     merge_base="$(git -C "$root" merge-base "refs/heads/$into" "$candidate" 2>/dev/null)" || continue
     distance="$(git -C "$root" rev-list --count "$merge_base..refs/heads/$into" 2>/dev/null)" || continue
     if [ -z "$best_distance" ] || [ "$distance" -lt "$best_distance" ]; then
@@ -630,7 +653,7 @@ inspect_open_branches() {
   local root="$1" spec="$2" into="$3" default project source line ahead behind presence branch base_ref
   default="$(default_branch "$root")" || { echo "dispatch: origin did not advertise a default branch" >&2; return 2; }
   [ "$into" != "$default" ] \
-    || { echo "dispatch: $into is the repository default branch; open a base branch cut from a project branch; run $(project_remedy "$into")" >&2; return 2; }
+    || { echo "dispatch: $into is the repository default branch, and a night never lands on it; check out the night's base branch (cut from its project branch) and run this again" >&2; return 2; }
   line="$(project_for_night "$root" "$spec" "$into")" || return 2
   IFS=$'\t' read -r project source <<<"$line"
   [ "$project" != "$default" ] \
@@ -1038,6 +1061,23 @@ workspace_cwd_for() {
   [ -d "$dest" ] && printf '%s\n' "$dest"
 }
 
+# A ticket's workspace path that is not a worktree of its own: git reads a plain directory
+# there as part of the main checkout, and a worktree deleted by hand stays registered and
+# refuses `worktree add`. Registrations whose directory is gone are pruned, an empty
+# directory is removed, and a directory holding files is refused, because they may be work.
+clear_stray_workspace() {
+  local root="$1" dest="$2" top
+  git -C "$root" worktree prune >/dev/null 2>&1 || true
+  [ -d "$dest" ] || return 0
+  top="$(git -C "$dest" rev-parse --show-toplevel 2>/dev/null)" || top=""
+  [ "$top" = "$(cd "$dest" && pwd -P)" ] && return 0
+  if rmdir "$dest" 2>/dev/null; then
+    return 0
+  fi
+  echo "dispatch: $dest holds files and is not a git worktree; move what is in it elsewhere, then run the command again" >&2
+  return 1
+}
+
 # Read-only checks that must pass before a replacement stops the worker holding the
 # ticket. `ensure_workspace` repeats them after the stop because origin may move between
 # the check and the worktree update.
@@ -1047,6 +1087,7 @@ workspace_origin_ready() {
   branch="issue-$number"
   fetch_origin "$root" || return 1
   require_origin_branch "$root" "$into" || return 1
+  clear_stray_workspace "$root" "$dest" || return 1
   if [ -d "$dest" ]; then
     local on
     on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
@@ -1214,6 +1255,7 @@ ensure_workspace() {
   branch="issue-$number"
   fetch_origin "$root" || return 1
   require_origin_branch "$root" "$into" || return 1
+  clear_stray_workspace "$root" "$dest" || return 1
   if [ -d "$dest" ]; then
     local on
     on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
@@ -1430,6 +1472,7 @@ start_one() {
   # land and wake nobody, and the night would stop there without a word.
   local watched
   watched="$(relay_watches "$number" "$spec" 2>&1)" \
+    || revive_night_watch "$spec" \
     || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The main agent opens the night with open <spec>, or open-ticket <n> for a ticket outside a night; nothing was started"
 
   local profile
@@ -1874,12 +1917,23 @@ check_machine() {
     fi
   fi
 
+  # What install.sh checks is this machine's whole toolbox, most of it nothing tonight
+  # uses, and what tonight does use is checked below by what reads it. So an incomplete
+  # install does not stop the night: when this checkout is the installed one, install.sh
+  # runs to repair it; whatever is still missing after that is said and left.
   if [ ! -f "$INSTALLER" ]; then
-    echo "dispatch: no install.sh at $INSTALLER" >&2
-    failed=1
-  elif ! bash "$INSTALLER" --check; then
-    echo "dispatch: install.sh --check found something missing" >&2
-    failed=1
+    echo "dispatch: warning: no install.sh at $INSTALLER, so the install was not checked" >&2
+  elif ! bash "$INSTALLER" --check >/dev/null 2>&1; then
+    local installed_root_file="${MMW_HOME:-$HOME/.mmw}/installed-root" install_out
+    if [ -f "$installed_root_file" ] \
+       && [ "$(cd "$(cat "$installed_root_file")" 2>/dev/null && pwd -P)" = "$(cd "$(dirname "$INSTALLER")" && pwd -P)" ]; then
+      install_out="$(bash "$INSTALLER" 2>&1)" \
+        || echo "dispatch: warning: install.sh did not finish: $(printf '%s' "$install_out" | tail -2 | tr '\n' ' ')" >&2
+    fi
+    if ! install_out="$(bash "$INSTALLER" --check 2>&1)"; then
+      echo "dispatch: warning: install.sh --check still finds this, which tonight does not wait on:" >&2
+      printf '%s\n' "$install_out" | grep -E '缺|残留|不齐|不一致|没查|不是|没在跑' | sed 's/^/  /' >&2
+    fi
   fi
 
   # Tonight's runner has to be one this skill has an adapter for, and every row `start`
@@ -2037,12 +2091,7 @@ integrate_ticket() {
   [ -z "$(git -C "$root" status --porcelain --untracked-files=no)" ] \
     || refuse "issue-$number has uncommitted tracked changes; commit them before integrating the base branch"
 
-  into="$(newest_worker_field "$number" into)"
-  case "$?" in
-    0) ;;
-    3) refuse "#${number} has no worker.started event, so its base branch is unknown" ;;
-    *) exit 2 ;;
-  esac
+  into="$(resolve_into "$number" "$(ticket_spec "$number")" "")" || exit 2
 
   fetch_origin "$root" || exit 2
   require_origin_branch "$root" "$into" || exit 2
@@ -2214,10 +2263,8 @@ prepare_merge_worktree() {
   fetch_origin "$root" || { release_merge_lock; return 2; }
   require_origin_branch "$root" "$into" || { release_merge_lock; return 2; }
   mkdir -p "$(dirname "$dest")"
-  if [ -e "$dest" ]; then
-    git -C "$dest" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
-      || { echo "dispatch: $dest exists and is not a git worktree" >&2; release_merge_lock; return 2; }
-  else
+  clear_stray_workspace "$root" "$dest" || { release_merge_lock; return 2; }
+  if [ ! -e "$dest" ]; then
     git -C "$root" worktree add --detach "$dest" "origin/$into" >/dev/null \
       || { echo "dispatch: could not create the merge worktree $dest" >&2; release_merge_lock; return 2; }
   fi
@@ -2576,6 +2623,7 @@ advance() {
   # A night that is not open has no relay, so a ticket landing would wake nobody.
   local watched
   watched="$(relay_watches "" "$spec" 2>&1)" \
+    || revive_night_watch "$spec" \
     || refuse "the night on #$spec is not open: ${watched#relay: }. Nothing would wake you when a ticket lands, so nothing was merged or started; run open $spec first"
 
   # A reviewer can return a ticket while its worker session is still present. The

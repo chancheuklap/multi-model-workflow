@@ -2298,25 +2298,25 @@ def criteria_lines(body: str) -> list[tuple[str, str, str]]:
             for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))]
 
 
-def lint_worker(labels: list[str]) -> list[str]:
-    """Which worker this ticket gets, as the tracker's labels say.
+def lint_worker(labels: list[str]) -> tuple[list[str], list[str]]:
+    """Which worker this ticket gets, as the tracker's labels say: (errors, warnings).
 
-    `dispatch.sh` reads the label and nothing else, so a ticket carrying none is worked by
-    whichever worker the default is rather than the one it was written for, and one carrying
-    both is a ticket no start can place.
+    `dispatch.sh` reads the label and nothing else. A ticket carrying both is one no start
+    can place, an error. A ticket carrying none starts on the default row, which runs; it
+    is a warning, because that row may not be the one the ticket was written for.
 
     A ticket outside the agent queue is clean either way: what it holds is one thing for the
     user to look at, and no worker is started on it.
     """
     if "ready-for-agent" not in labels:
-        return []
+        return [], []
     marked = sorted(name for name in labels if WORKER_LABEL_RE.match(name or ""))
     if len(marked) > 1:
-        return [f"carries {len(marked)} worker labels ({', '.join(marked)}), and it takes one"]
+        return [f"carries {len(marked)} worker labels ({', '.join(marked)}), and it takes one"], []
     if not marked:
-        return ["carries no worker label: add `junior-worker` or `senior-worker`, so "
-                "every start puts it on the row it was written for"]
-    return []
+        return [], ["carries no worker label, so it starts on the default row: add "
+                    "`junior-worker` or `senior-worker` if it was written for another"]
+    return [], []
 
 
 def lint_expectations(body: str) -> list[str]:
@@ -2801,11 +2801,13 @@ def lint_criteria(number: int, body: str, labels: list[str]) -> int:
     criteria are written, and the three criterion shapes. The batch graph is not here;
     `run_lint` checks that once per batch."""
     require_judges(body)
-    worker_errors = lint_worker(labels)
+    worker_errors, worker_warnings = lint_worker(labels)
 
     def report_worker() -> None:
         for finding in worker_errors:
             print(f"  ERROR #{number} " + finding + "  [worker-label]")
+        for finding in worker_warnings:
+            print(f"  WARN  #{number} " + finding + "  [worker-label]")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
@@ -2906,15 +2908,20 @@ def run_lint(number: int) -> int:
 
 def lint_spec(spec: int) -> int:
     """Every sub-issue of the spec through `lint_criteria`, each under a line naming
-    it, then the batch graph once. Exit 1 if any ticket or the graph has an ERROR."""
+    it, then the batch graph once. Exit 1 if an open ticket or the graph has an ERROR: a
+    closed ticket is never started again, so its findings are printed and count for nothing."""
     numbers = fetch_sub_issues(spec)
     print(f"#{spec} is a spec with {len(numbers)} sub-issues; linting each, then the graph")
     failed: list[int] = []
     for child in numbers:
         ticket = fetch_ticket(child)
-        print(f"\n## #{child} ({ticket.get('state') or 'state unknown'})")
+        state = ticket.get('state') or 'state unknown'
+        print(f"\n## #{child} ({state})")
         if lint_criteria(child, fetch_body(child), labels_of(ticket)):
-            failed.append(child)
+            if state == "CLOSED":
+                print(f"  WARN  #{child} is closed, so the ERROR above does not stop the batch  [closed-ticket]")
+            else:
+                failed.append(child)
     print("\n## ticket graph")
     graph = lint_batch_graph(spec, numbers)
     if failed:
