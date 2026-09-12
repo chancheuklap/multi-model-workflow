@@ -7,7 +7,7 @@ description: Break a plan, spec, or the current conversation into a set of trace
 
 Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
-The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
 
 ## Process
 
@@ -57,7 +57,7 @@ Three rules bind how each one is worded:
    - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach* — see [references/person-ticket.md](references/person-ticket.md).
 5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. The user is here now, so ask them: carry the choice into the quiz of step 6, with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own. The worker then reads it as the ticket's decision and not as one it made on its own; nothing the ticket writer chose is left for the night.
 
-If no command exists because the spec never decided how this is verified, stop and return to `/to-spec`. Do not invent it.
+If no command exists because the spec never decided how this is verified, stop and return to the `to-spec` skill. Do not invent it.
 
 Every criterion is four lines, and carries a number you assign as you write it and never renumber. A criterion whose premise later disappears is taken out of the section rather than left there without a command; the number is not reused, and the closing comment says what became of it.
 
@@ -72,7 +72,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 - `CHECK:` comes from Testing Decisions — its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds.
 - `EXPECT:` is a **success-only marker**: the line the precedent prints only when it passed. Run the precedent once and copy that line. `ok`, `passed` or `done` on their own also appear in failing output; take the whole counted line.
-- **A layer with no precedent yet** — a project from zero — gets one from the contract ticket: the adapter, the interaction helper and the journey skeleton it lands *are* the precedents. Cut that ticket first; the criteria of the tickets behind it copy their `CHECK:` and `EXPECT:` from what it lands. Nothing here sends you back to `/to-spec` for a precedent the spec cannot have.
+- **A layer with no precedent yet** — a project from zero — gets one from the contract ticket: the adapter, the interaction helper and the journey skeleton it lands *are* the precedents. Cut that ticket first; the criteria of the tickets behind it copy their `CHECK:` and `EXPECT:` from what it lands. Nothing here sends you back to the `to-spec` skill for a precedent the spec cannot have.
 - A criterion that compares an interface against a downloaded handoff package is written in one fixed shape in the `drive-target` skill's `references/story-parity.md` § The criterion, in one shape. Copy it from there rather than composing it.
 - An interface ticket owns by design page. One story criterion covers the pages it owns: `story-parity.py --contract … --pages <mount,…>`, the `pages` mounts of those design pages, `App · ` pages excluded. Each owned row whose `calls` is not `none` gets one boundary criterion (`boundary-check.py --run "<the product test>"`); rows that share a test file may share one `--run`. **Read first** lists the target trees and `scenes.json`. A `CHECK:` that stubs the application's own network (`vi.stubGlobal('fetch')`, msw, nock, fetch-mock) is refused; mocking the product's API client module is the boundary test.
 
@@ -127,7 +127,7 @@ Iterate until the user approves the breakdown. Write each answered choice into t
 
 ### 7. Publish the tickets to the configured tracker
 
-Publish the approved tickets to the issue tracker `/setup-matt-pocock-skills` configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`, which tells the board that this issue is a ticket without its counting how deep it is nested; a repository that lacks the label gets it first, with `gh label create mmw:ticket --color 0e8a16 --description "MMW layer: a ticket, one unit of work"`. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`, which tells the board that this issue is a ticket without its counting how deep it is nested; a repository that lacks the label gets it first, with `gh label create mmw:ticket --color 0e8a16 --description "MMW layer: a ticket, one unit of work"`. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
 Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker landed (merged into the base branch, not merely closed), and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
 
