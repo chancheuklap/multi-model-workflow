@@ -92,7 +92,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
 | `watchdog: relay down (…)` | Nothing is relaying, so `<dispatch> open <spec>` starts one; use `open-ticket <n>` for one ticket. Nothing to ack |
 | `watchdog: relay not reading (…)` | Nothing. The relay is there and cycling; what it cannot do is read the board, and the first read that works clears it on its own, so `open` would replace a running process with nothing. Several of these in a row without it clearing is a network or credential fault worth looking into — the finding names the last cycle and the failing read. Nothing to ack |
-| `watchdog: #<n> liveness unknown: …` | `<dispatch> resume <n> "Say in one line where you are, then continue"`; exit 0 confirms it, exit 2 means `<dispatch> retract <n>`, otherwise leave it for the user |
+| `watchdog: #<n> liveness unknown: …` | `<dispatch> resume <n> "Say in one line where you are, then continue"`; exit 0 confirms it; exit 2 because the runner has no such session means `<dispatch> retract <n>`, and exit 2 naming the event that ended the worker's hold means the command that refusal names; otherwise leave it for the user |
 | `watchdog: #<n> is held with no session to ask, …` | Read `status`; when nothing works the ticket, `<dispatch> retract <n>`. Nothing to ack |
 | `watchdog: cannot read the board since <time>: …` | Run the named `gh issue view <n>`; wait for tracker or network recovery, or leave credential repair to the user. Nothing to ack |
 | `watchdog: #<n> events unreadable` | Leave the named comment for the user. Nothing to ack |

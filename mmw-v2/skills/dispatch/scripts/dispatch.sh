@@ -55,8 +55,8 @@
 # the ticket before the new `worker.started`. A worker started in a standing worktree
 # that an earlier worker of the ticket left with uncommitted edits first commits them on
 # the ticket branch (`keep_unfinished_work`). `resume`, `retract`, `land` and `suspend`
-# find the session in those events and ask the runner the event names; `wait` only reads
-# the ticket.
+# find the session in those events and ask the runner the event names — `resume` only a
+# worker whose hold no event has ended; `wait` only reads the ticket.
 #
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
 # the board and wakes the session waiting on each result event through that session's
@@ -1652,13 +1652,23 @@ retract_one() {
 # documented meaning is "read status, do not send again", turns a three-minute wait into
 # a permanent answer. On 2026-09-07 (#211) a worker was left unreachable that way and a
 # five-hour session with 16 commits on its branch had to be killed.
+#
+# The session it sends to is the newest worker whose hold no event has ended — the fold's
+# holders, the one answer this pipeline has to "who works this ticket", and the one the
+# watchdog asks before it reports a ticket held with no session to ask. The newest
+# `worker.started` alone is not that answer: a runner can go on listing a session after
+# `worker.lost`, a refusal, a hand-back or a landing ended its hold, and a message typed
+# into it would post `worker.resumed`, which makes that hold live again beside whatever
+# starts next. On agentflow #754 the watchdog found no session to ask and `resume` found
+# one and typed into it.
 resume_one() {
   local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
-  local line
-  line="$(session_on_ticket "$number" worker)" \
-    || refuse "could not read #$number's events, so there is no session to send to"
-  [ -n "$line" ] || refuse "#$number has no worker.started event, so there is no session to send to"
+  local live line
+  live="$(live_workers_on_ticket "$number")" \
+    || refuse "could not read #$number's events, so whether a worker still holds it is unknown and nothing was sent; run resume again once the tracker answers, or fix the comment named above"
+  line="$(printf '%s\n' "$live" | sed '/^$/d' | tail -n 1)"
+  [ -n "$line" ] || refuse "$(ended_worker_hold "$number")"
   use_runner "$(printf '%s\n' "$line" | cut -f1)"
   ident="$(printf '%s\n' "$line" | cut -f2)"
   out="$(runner send "$ident" "$text" 2>&1)"
@@ -1678,6 +1688,57 @@ resume_one() {
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
   echo "dispatch: it is most likely in a turn — wait, then run resume again. A worker that keeps refusing while nothing on its ticket moves is replaced with start $number worker, which stops it through its runner first" >&2
   exit 3
+}
+
+# Why ticket <n> has no worker to resume, as one refusal: which event ended the newest
+# worker's hold, why that means nothing is sent, and the command that goes on from there.
+# Read off the fold, never worked out here.
+ended_worker_hold() {
+  local number="$1" spec
+  spec="$(ticket_spec "$number")"
+  ticket_events "$number" fold 2>/dev/null \
+    | MMW_N="$number" MMW_SPEC_N="$spec" python3 -c "$(cat <<'PY'
+import json, os, sys
+n, spec = os.environ["MMW_N"], os.environ["MMW_SPEC_N"]
+state = json.load(sys.stdin)
+workers = [r for r in state.get("sessions") or [] if r.get("kind") == "worker"]
+start = f"dispatch.sh start {n} worker"
+if not workers:
+    print(f"#{n} has no worker.started event, so there is no session to send to. "
+          f"Nothing was ever started on it to resume. Start a worker with {start}.")
+    raise SystemExit(0)
+last = workers[-1]
+by = last.get("ended_by") or "an event"
+comment = next((e.get("comment") for e in reversed(state.get("events") or [])
+                if e.get("event") == by), None)
+where = f" (comment {comment})" if comment is not None else ""
+what = (f"#{n} has no worker holding it: {by}{where} ended the hold of its newest worker, "
+        f"{last.get('session')} on {last.get('runner')}, so nothing was sent.")
+why = ("A session whose hold an event ended is no longer the ticket's worker to the watchdog, "
+       "advance or status, and typing into it would post worker.resumed and make that hold "
+       "live again beside whatever starts next.")
+restart = (f"{start}, or inside the night on #{spec} dispatch.sh advance {spec}, which gives "
+           f"the claim back and starts it") if spec else start
+if by == "ticket.refused":
+    reason = (state.get("refused") or {}).get("reason") or "the reason on that event"
+    step = f"Fix what the refusal names ({reason}), then {restart}."
+elif by in ("ticket.returned", "ticket.bounced"):
+    step = ("It is in needs-triage for a person to judge: leave its workspace for triage, and "
+            f"once triage puts it back in the agent queue, start it with {restart}.")
+elif by == "ticket.landed":
+    look = f"dispatch.sh status {spec}" if spec else f"gh issue view {n}"
+    step = (f"Its work is on the base branch: read {look}; a landed ticket that needs more "
+            "work is reopened and started again, not resumed.")
+elif by == "spec.suspended":
+    step = (f"The night was suspended: once what suspended it is fixed, dispatch.sh open {spec} "
+            f"and then dispatch.sh advance {spec} take it up again." if spec else
+            "The night was suspended: once what suspended it is fixed, open that night again "
+            "and advance it.")
+else:
+    step = f"Start a worker again with {restart}."
+print(" ".join((what, why, step)))
+PY
+)" || printf '#%s has no worker holding it, and which event ended the hold could not be read, so nothing was sent. Sending into a session no event shows holding the ticket would make its hold live again. Read python3 <events.py> fold %s before starting a worker with dispatch.sh start %s worker.\n' "$number" "$number" "$number"
 }
 
 # ------------------------------------------------------------------ wait

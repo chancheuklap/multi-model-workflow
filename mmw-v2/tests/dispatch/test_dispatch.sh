@@ -6,7 +6,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|advise|retract
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|wait|reverify|summary
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh slotatclaim|route|specfield|stopproduct|suspend|suspendbusy|status
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh runnerstart|runnersend|runnerliveness
@@ -2962,6 +2962,78 @@ path.write_text(json.dumps([{
     || fail "the caller must be told not to send it again: $(cat "$TMP/err")"
   posted_events 61 session | grep -q "^worker.resumed session=term_w61" \
     || fail "the hand-over is recorded as worker.resumed: $(posted_events 61 session)"
+}
+
+# `resume` types into a worker only while no event on the ticket has ended its hold: the
+# fold's holders, which is also what the watchdog reads when it says a ticket is held with
+# no session to ask. The case that matters is a worker session its runner still lists
+# after its hold ended, because the newest worker.started alone names it all the same
+# (agentflow #754, where the watchdog found no session to ask and resume typed into one).
+resume_after() {
+  local ending="$1"
+  shift
+  reset_log
+  seed_agent 61 worker
+  post_ev 61 "$ending" --ticket 61 --spec 76 --line "$ending" "$@"
+  run_dispatch env MMW_SPEC=76 bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue
+}
+
+refused_resume_names() {
+  local ending="$1" next="$2" code="$3"
+  [ "$code" = 2 ] || fail "resume after $ending expected exit 2, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: send"
+  posted_events 61 | grep -q "^worker.resumed" \
+    && fail "a refused resume must not post worker.resumed, which would make the ended hold live again: $(posted_events 61)"
+  grep -q "$ending" "$TMP/err" || fail "the refusal should name $ending: $(cat "$TMP/err")"
+  grep -qF -- "$next" "$TMP/err" || fail "the refusal after $ending should name $next: $(cat "$TMP/err")"
+  nothing_printed
+}
+
+scenario_resumeendedhold() {
+  local code
+  echo "--- worker.lost ended the worker's hold: nothing is typed into the session, and start is named"
+  code="$(resume_after worker.lost --actor judge --field session=agt_61_worker --field runner=paseo)"
+  refused_resume_names worker.lost "dispatch.sh start 61 worker" "$code"
+  grep -qF "dispatch.sh advance 76" "$TMP/err" || fail "inside a night the refusal should name advance: $(cat "$TMP/err")"
+
+  echo "--- worker.retracted ended it the same way"
+  code="$(resume_after worker.retracted --field session=agt_61_worker --field runner=paseo)"
+  refused_resume_names worker.retracted "dispatch.sh start 61 worker" "$code"
+
+  echo "--- a ticket.refused naming the worker ended it: fix the reason, then start"
+  code="$(resume_after ticket.refused --field reason=dirty-tree --field session=agt_61_worker --field runner=paseo)"
+  refused_resume_names ticket.refused "dispatch.sh start 61 worker" "$code"
+  grep -q "dirty-tree" "$TMP/err" || fail "the refusal should carry the refusal's reason: $(cat "$TMP/err")"
+
+  echo "--- ticket.returned ended every hold: the ticket is triage's, not a worker's to continue"
+  code="$(resume_after ticket.returned)"
+  refused_resume_names ticket.returned "needs-triage" "$code"
+
+  echo "--- ticket.landed ended every hold: the work is on the base branch"
+  code="$(resume_after ticket.landed)"
+  refused_resume_names ticket.landed "dispatch.sh status 76" "$code"
+
+  echo "--- spec.suspended ended every hold: the night is taken up again with open, then advance"
+  code="$(resume_after spec.suspended)"
+  refused_resume_names spec.suspended "dispatch.sh open 76" "$code"
+
+  echo "--- a worker replaced by a live one: the text goes to the live one"
+  reset_log
+  runner_line 61 paseo agt_old worker
+  post_ev 61 worker.replaced --ticket 61 --spec 76 --line "replaced" --field session=agt_old --field runner=paseo
+  seed_agent 61 worker
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 0 ] || fail "resume of the live replacement expected 0, got $code: $(cat "$TMP/err")"
+  has "paseo :: send :: --no-wait :: agt_61_worker :: continue"
+  hasnt "agt_old :: continue"
+
+  echo "--- a ticket whose events cannot be read sends nothing"
+  reset_log
+  seed_agent 61 worker
+  post_raw_comment 61 "broken <!-- mmw {not json -->"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 2 ] || fail "unreadable events expected exit 2, got $code: $(cat "$TMP/err")"
+  hasnt "paseo :: send"
 }
 
 scenario_wait() {
@@ -8271,7 +8343,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8375,6 +8447,7 @@ banner_for() {
     retract) echo DISPATCH-RETRACT-OK ;;
     retractpushes) echo RETRACT-PUSHES-OK ;;
     resume) echo DISPATCH-RESUME-OK ;;
+    resumeendedhold) echo RESUME-ENDED-HOLD-OK ;;
     wait) echo DISPATCH-WAIT-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;
     summary) echo DISPATCH-SUMMARY-OK ;;
