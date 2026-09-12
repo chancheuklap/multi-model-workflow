@@ -113,7 +113,9 @@ export function fromScene(data = {}) {
 export function find(tasks, n) {
   if (n == null) return null;
   for (const task of tasks) {
-    if (task.n === n) return {type: "map", ref: task, task};
+    if (task.n === n) {
+      return task.kind === "spec" ? {type: "spec", ref: task.specs[0], task} : {type: "map", ref: task, task};
+    }
     for (const decision of task.decisions || []) {
       if (decision.n === n) return {type: "decision", ref: decision, task};
     }
@@ -219,7 +221,7 @@ function containerView(tasks, found) {
     empty: false, kind: isMap ? "map" : "spec",
     eyebrow: isMap ? "Map · 任务" : "Spec",
     num: `#${container.n}` + (isMap ? ` · ${container.kind}` : ""),
-    links: isMap ? [] : [{label: `map #${found.task.n}`, n: found.task.n}],
+    links: isMap || found.task.n === container.n ? [] : [{label: `map #${found.task.n}`, n: found.task.n}],
     title: container.title, light, statusWord: LIGHT_WORD[light],
     elapsed: `${done}/${list.length} 落地`,
     listTitle: isMap ? "全部 ticket" : "它的 ticket", listCount: list.length,

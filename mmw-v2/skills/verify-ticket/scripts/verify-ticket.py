@@ -2168,7 +2168,7 @@ def run_verdict(number: int, line: str, model: str) -> int:
     if not line:
         return refuse("--verdict needs the one line that says what the run proved")
     if not (model or "").strip():
-        return refuse("--verdict needs --model, the model this verifier runs on")
+        return refuse("--verdict needs --model, the model field of the ticket's newest verifier.started event")
     commit = git("rev-parse", "HEAD")
     if not re.fullmatch(r"[0-9a-f]{40}", commit or ""):
         return refuse("could not read HEAD, so there is no commit for the verdict to cover")
@@ -2855,7 +2855,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="post the review report on the ticket")
     parser.add_argument("--verdict", metavar="LINE",
                         help="post the verifier's verdict on HEAD, read off its newest reverify")
-    parser.add_argument("--model", help="with --verdict: the model this verifier runs on")
+    parser.add_argument("--model", help="with --verdict: the model field of the ticket's newest verifier.started event")
     parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
                         help="a directory holding scripts of other skills (the drive-target "
                              "skill's scripts/); put on the PATH of every CHECK; repeatable")

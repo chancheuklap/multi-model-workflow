@@ -12,6 +12,7 @@
 #   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer|verifier
+#   dispatch.sh advise <packet file>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer|verifier
 #   dispatch.sh ack <n> <event> | relay.recovered
@@ -346,6 +347,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh integrate <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer|verifier
+       dispatch.sh advise <packet file>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer|verifier
        dispatch.sh ack <n> <event> | relay.recovered
@@ -1275,6 +1277,20 @@ archive_workspace() {
 
 # ------------------------------------------------------------------ start
 
+# Prints the last line of the adapter's start answer. Exit 0 with a session id,
+# 1 when the adapter failed or answered empty. The caller writes its own refusal
+# and, for `start`, any worktree it created.
+start_session() {
+  local host="$1" model="$2" effort="$3" cwd="$4" prompt="$5" title="$6"
+  local session
+  if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
+       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "$title")" \
+     || [ -z "$session" ]; then
+    return 1
+  fi
+  printf '%s\n' "$session" | tail -n 1
+}
+
 start_one() {
   local number="$1" kind="$2"
   use_runner "$(tonight_runner)"
@@ -1415,16 +1431,13 @@ start_one() {
   fi
 
   local session
-  if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
-       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "#$number $kind")" \
-     || [ -z "$session" ]; then
+  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind")"; then
     if [ "$created" = 1 ] && [ -n "$cwd" ]; then
       remove_worktree "$root" "$cwd" \
         || echo "dispatch: could not remove the worktree for #$number" >&2
     fi
     refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then start again"
   fi
-  session="$(printf '%s\n' "$session" | tail -n 1)"
 
   if ! runner attach --cwd "$cwd" --issue "$number" 2>/dev/null; then
     echo "dispatch: $RUNNER_NAME started session $session for #$number, but did not attach the worktree to that issue; the session continues" >&2
@@ -1460,6 +1473,40 @@ start_one() {
       refuse "could not write the $kind.started event on #$number, so session $session on $RUNNER_NAME was stopped again rather than left running where no command can find it; start again once the tracker takes comments"
     fi
     refuse "could not write the $kind.started event on #$number, and session $session on $RUNNER_NAME could not be stopped either: it is running and no command can find it. End it on $RUNNER_NAME by hand"
+  fi
+  printf '%s\n' "$session"
+}
+
+# `advise <packet file>`: resolve the advisor row against tonight's runner, start a
+# session in the current worktree with `Use the advisor skill.` followed by the file,
+# and print the session id. An advisor is not a ticket's agent, so this writes no
+# event. A start the runner refuses is refused once: no retry, no other runner.
+advise_one() {
+  local packet="$1"
+  [ -n "$packet" ] || usage
+  [ -f "$packet" ] || refuse "no packet file at $packet; write the packet to a file, then advise again"
+  [ -s "$packet" ] || refuse "the packet file $packet is empty, and the advisor sees the packet and nothing else; write the five parts consulting.md lists, then advise again"
+
+  use_runner "$(tonight_runner)"
+  use_catalog_of "$RUNNER_NAME"
+
+  local row host model effort
+  row="$(row_for_role advisor)" || exit 2
+  [ -n "$row" ] || refuse "the advisor row is missing from $MODELS_JSON; add it as the dispatch skill's references/editing-models.md says, then advise again"
+  IFS=$'\t' read -r host model effort <<<"$row"
+
+  local cwd body prompt session
+  cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$cwd" ] \
+    || refuse "not inside a git repository, so there is no worktree to start the advisor in; run advise from a worktree"
+  body="$(cat -- "$packet")" \
+    || refuse "could not read the packet file $packet; make it readable, then advise again"
+  prompt="Use the advisor skill."$'\n'"$body"
+
+  # Herdr's session id is basename(cwd) plus the title's last word; a constant
+  # last word would collide on a second consultation in the same worktree.
+  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "advisor $$")"; then
+    refuse "$RUNNER_NAME did not start $host as advisor (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then advise again"
   fi
   printf '%s\n' "$session"
 }
@@ -3393,6 +3440,10 @@ case "${1:-}" in
     [ "$#" -eq 3 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     start_one "$2" "$3"
+    ;;
+  advise)
+    [ "$#" -eq 2 ] || usage
+    advise_one "$2"
     ;;
   retract)
     [ "$#" -eq 2 ] || usage

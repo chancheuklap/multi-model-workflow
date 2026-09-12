@@ -33,6 +33,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | The five triage roles and this repository's label strings | `docs/agents/triage-labels.md` |
 | How to read the contexts and the ADRs before exploring code | `docs/agents/domain.md` |
 | The night runbook: `check`, `open`, `advance`, the closing pass, `reverify`, `summary`, `finish`, `suspend`, each with its exit codes | `mmw-v2/skills/dispatch/references/night.md` |
+| How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard | `mmw-v2/skills/dispatch/references/how-it-works.md` |
 | The eight installed items, the two modes, what the previous generation installed and install now removes | `mmw-v2/install.sh` header comment |
 | Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v2/prompt/README.md` |
 | Pulling an upstream subtree, resolving conflicts, the `disable-model-invocation` pairing rule, the three host-neutral rewrites | `mmw-v2/merge-notes/README.md` |

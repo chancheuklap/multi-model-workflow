@@ -44,7 +44,7 @@ It renders every scene in `scenes.json` offline, through the same driver the sto
 
 ### 2. Declare pages, name components and split preconditions
 
-Top level first: `target.kind`, and `viewports`. `viewports` is your declaration, the way `mount` is: the design size the handoff pages were built at, and a second, narrower one only when the package `README.md` declares a minimum width. Claude Design generates that README and does not promise either number, so read it, take what it gives, and write the design size alone when it gives nothing else. Never a breakpoint of the package's stylesheets: a viewport equal to one compares two reflows and verifies nothing, and the lint refuses it.
+Top level first: `target.kind`, and `viewports`. `viewports` is your declaration, the way `mount` is: the design size the handoff pages were built at, and a second, narrower one only when the package `README.md` declares a minimum width. That README is written by whoever ran the handoff and promises neither number, so read it, take what it gives, and write the design size alone when it gives nothing else. Never a breakpoint of the package's stylesheets: a viewport equal to one compares two reflows and verifies nothing, and the lint refuses it.
 
 Then, for each page in `scenes.json`, one `pages` entry: its **`mount`** — the short stable id the product will serve as the story page (`?page=<mount>`), and carry as `data-screen` on the one element that *is* this page. `mount` is your declaration, not a derivation: a page holds several components' rows, and the one with most rows can be a shared control borrowed from another page. For a `Component · ` page also name the **`component`** the implementation will own it under — the repository's existing feature directory when there is one, otherwise the page name; every row of that page's controls uses the same value. An `App · ` page is a whole-surface root and names no component; only an `App · ` page may also name its **`route`**, the address journeys compare.
 
@@ -74,7 +74,7 @@ Walk the map's decisions and the backend contract the other way: every decision 
 
 ### 5. Write the gap list and stop for the person
 
-Collect every row whose `gap` is `design-only` or `backend-only`, and every scene a person has judged cannot be captured (record that as a dated `retired_ids`-style entry after the verdict; there is no exemption field, and the lint prints every retirement on every run). Write them to `<scratch>/gap-list.md`: one entry each, with the row id, what the design shows, what the backend decides, the options, and the one you would take. Then hand the list to the person — this is the one judgement in this skill that is theirs, and it is a grilling, not a form. Expect a handful of entries, not dozens; dozens means a decision ticket was skipped upstream, and that goes back to the wayfinder map.
+Collect every row whose `gap` is `design-only` or `backend-only`, and every scene a person has judged cannot be captured (record that as a `retired_ids` entry whose `note` carries the date and the verdict, as `contract-format.md` shows; there is no exemption field, and the lint prints every retirement on every run). Write them to `<scratch>/gap-list.md`: one entry each, with the row id, what the design shows, what the backend decides, the options, and the one you would take. Then hand the list to the person — this is the one judgement in this skill that is theirs, and it is a grilling, not a form. Expect a handful of entries, not dozens; dozens means a decision ticket was skipped upstream, and that goes back to the wayfinder map.
 
 When the person is not reachable in this run (a batch, a test run), write the gap list and stop. The contract stays in the run's scratch directory with its `gap` values as they are; the lint reports each unresolved gap as an error, and that is the intended state. Nothing is written under `docs/specs/` until every gap is `aligned`.
 
@@ -82,20 +82,30 @@ Two things a gap list does not carry: an implementation that today does less tha
 
 ### 6. Publish, write the target trees, and lint
 
-Write `docs/specs/<effort>/screen-contract.yaml`, then render once more with the contract in hand so the retired controls are hidden, writing the target trees beside it:
+1. Write `docs/specs/<effort>/screen-contract.yaml`.
+2. Render once more with the contract in hand so the retired controls are hidden, writing the target trees beside it:
 
-```
-uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
-uv run python <scripts>/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
-```
+   ```
+   uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
+   ```
 
-The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file. Then write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
+   The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale.
+
+3. Lint to zero errors:
+
+   ```
+   uv run python <scripts>/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
+   ```
+
+   The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
+
+4. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
 
 ## Re-runs
 
 - The handoff package was re-downloaded: run steps 1 and 6. Triggers whose accessible name changed appear as lint errors on both sides; rebind them by hand, keep the row ids. Step 6 regenerates the target trees, and the lint's hash check is what tells you when this re-run is overdue.
 - A spec decision changed: edit the rows that cite it, rerun step 6, and put the changed rows through step 5 again.
-- Row ids are never renumbered or reused. A retired behaviour loses its row; the id goes in `retired_ids` with one line saying when, and with its trigger when the handoff still shows the control — the lint then stops asking for a row, prints the retirement on every run, and the judges hide the control on the design side.
+- Row ids are never renumbered or reused. A retired behaviour loses its row; the id goes in `retired_ids` with a `note` carrying the date and the verdict, and with its trigger when the handoff still shows the control — the lint then stops asking for a row, prints the retirement on every run, and the judges hide the control on the design side.
 
 ## Done when
 
