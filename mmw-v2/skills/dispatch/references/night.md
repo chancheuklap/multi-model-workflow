@@ -133,6 +133,25 @@ pass is auditable from `git log` in the morning, with no second agent.
 
 The ones that become tickets: open as few tickets as possible. A ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that live ticket. A finding that is a ticket on its own becomes one in place — rewrite its body into a ticket, label it for the agent queue, then `<dispatch> route <n> <child> became-ticket <child>`; findings folded into one new ticket each get `<dispatch> route <n> <child> became-ticket <that ticket>`.
 
+A ticket you write here is dispatched tonight, and it has had none of the reading the published batch had. Write it to the `<issue-template>` of the `to-tickets` skill's `SKILL.md`: the sections it names, and the four lines of every criterion —
+
+```
+- [ ] AC1: <what must be true, in the spec's exact values>
+  CHECK: <the command that decides it>
+  EXPECT: <the line only a passing run prints>
+  EVIDENCE: pending
+```
+
+What may be a criterion at all is that same file's **4. Write each acceptance criterion**, the five questions. Two shapes come back from a night's findings and neither is a criterion: prose that states a rule with no command under it, and the repository's own whole-tree checker — a `lint.sh`, a full type-check — put in a `CHECK:`, which fails on files this ticket never touched and blocks it on somebody else's work.
+
+Then lint each ticket you wrote or rewrote, before you dispatch it:
+
+```bash
+<engine> <n> --lint
+```
+
+It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. This is what step 1b does for the published batch, and this pass writes tickets the same way, so it gets the same pass. A ticket dispatched with criteria that produce no gate (`ledger contains zero live gates`) stops its worker at its first `--preflight`, and the worker does the right thing — opens a `fault` child and waits for you — which costs the ticket the whole round it was dispatched for.
+
 Then:
 
 ```bash
