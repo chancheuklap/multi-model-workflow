@@ -31,7 +31,17 @@ def ticket(state="OPEN", labels=("ready-for-agent",), assignees=(), blockers=())
 
 
 def preflight(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
-    """Run --preflight against a made-up ticket; return (exit code, what it posted).
+    """A run of `run_preflight`, as `(exit code, what it posted, stderr, the assign mock)`.
+
+    `stdout` says the same thing again for the runs that print there: `run` returns it as
+    a fifth value, and everything else about the two is the same.
+    """
+    return run(number=number, branch=branch, dirty=dirty, history=history, **kwargs)[:4]
+
+
+def run(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
+    """Run --preflight against a made-up ticket; return (exit code, what it posted,
+    stderr, the assign mock, stdout).
 
     `history` is each blocker's comments by number, read when that blocker is closed; a
     blocker it does not name has none, and one it maps to an exception is a blocker the
@@ -53,9 +63,9 @@ def preflight(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
          mock.patch.object(vt, "repo_root", return_value=None), \
          mock.patch.object(vt, "assign_self") as assign, \
          mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append((n, b))):
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+        with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
             code = vt.run_preflight(number)
-    return code, posted, err.getvalue(), assign
+    return code, posted, err.getvalue(), assign, out.getvalue()
 
 
 class TestBranch(unittest.TestCase):
@@ -83,7 +93,7 @@ class TestRefusals(unittest.TestCase):
     def test_uncommitted_changes_to_tracked_files_are_refused(self):
         code, posted, err, assign = preflight(dirty=[" M src/app.py", " M src/other.py"])
         self.assertEqual(code, 2)
-        self.assertIn("2 tracked files already have uncommitted changes", err)
+        self.assertIn("2 tracked files have uncommitted changes", err)
         assign.assert_not_called()
 
     def test_untracked_files_alone_do_not_refuse(self):
@@ -168,11 +178,12 @@ class TestABlockerLetsGoOnceItHasLanded(unittest.TestCase):
 
 
 class TestEveryRefusalSaysStop(unittest.TestCase):
-    """Each of the six conditions is set up before a worker exists — the host opens the
-    worktree on `issue-<n>`, `dispatch.sh` checks state, labels and blockers — so every
-    refusal is a fault upstream of the worker, and the only correct next move is to stop.
-    A refusal that reads like a repair invites the worker to switch branches, commit
-    someone else's work, or take someone else's ticket."""
+    """Each of the six conditions, once it refuses, is a fault upstream of the worker —
+    the host opens the worktree on `issue-<n>`, `dispatch.sh` checks state, labels and
+    blockers, and a tree the worker's own claim does not account for was dirty before it
+    arrived — so the only correct next move is to stop. A refusal that reads like a repair
+    invites the worker to switch branches, commit someone else's work, or take someone
+    else's ticket."""
 
     ALL_SIX = (
         {"branch": "main"},
@@ -209,6 +220,39 @@ class TestEveryRefusalSaysStop(unittest.TestCase):
     def test_each_refusal_names_its_own_reason_on_the_event(self):
         reasons = [event_of(preflight(**case)[1][0][1])[1]["reason"] for case in self.ALL_SIX]
         self.assertEqual(reasons, list(vt.events.REFUSALS))
+
+
+class TestTheTreeOnATicketThisAccountAlreadyHolds(unittest.TestCase):
+    """A worker enters the ticket through `--preflight` every time, the turn it is
+    prompted back into after a review included (`references/claiming.md`). On that turn
+    the uncommitted tracked changes are its own work from an earlier turn, so refusing
+    them as `dirty-tree` ends a live worker's hold: the ticket then reads `live: false`
+    while the session goes on posting events, and `advance` offers to retract a worker
+    that is working. The claim is what tells the two trees apart."""
+
+    def test_a_dirty_tree_is_claimed_again_when_this_account_already_holds_the_ticket(self):
+        code, posted, err, assign = preflight(
+            assignees=(ME,), dirty=[" M src/app.py", " M src/other.py"])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
+        assign.assert_called_once_with(77)
+
+    def test_it_says_the_changes_are_the_worker_s_own_and_have_to_be_committed(self):
+        _, _, _, _, out = run(assignees=(ME,), dirty=[" M src/app.py", " M src/other.py"])
+        self.assertIn("2 tracked files", out)
+        self.assertIn("commit", out.lower())
+        self.assertIn("--closeout", out)
+
+    def test_a_dirty_tree_on_a_ticket_nobody_holds_is_still_refused(self):
+        code, posted, err, assign = preflight(dirty=[" M src/app.py"])
+        self.assertEqual(code, 2)
+        self.assertEqual(event_of(posted[0][1])[1]["reason"], "dirty-tree")
+        self.assertIn("#77 is claimed by nobody", err)
+        assign.assert_not_called()
+
+    def test_a_clean_tree_says_nothing_about_uncommitted_changes(self):
+        _, _, _, _, out = run(assignees=(ME,), dirty=[])
+        self.assertNotIn("uncommitted", out)
 
 
 class TestIdempotence(unittest.TestCase):
