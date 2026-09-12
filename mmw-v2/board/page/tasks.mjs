@@ -1,4 +1,4 @@
-import {Board, LIGHT_WORD} from "./board-logic.mjs";
+import {Board, LAMP_WORD} from "./board-logic.mjs";
 
 function markOn(row, selectedTask) {
   const on = row.n === selectedTask;
@@ -11,15 +11,15 @@ export function taskListView(tasks, selectedTask) {
     empty: !tasks.length,
     rows: tasks.map(task => {
       const progress = Board.progress(task);
-      const light = Board.aggregate(Board.allTickets(task));
+      const lamp = Board.aggregate(Board.allTickets(task));
       return markOn({
         n: task.n,
-        lightCls: "light " + light,
-        lightWord: LIGHT_WORD[light],
+        lampCls: "lamp " + lamp,
+        lampWord: LAMP_WORD[lamp],
         meta: `#${task.n} · ${task.kind}`,
         title: task.title,
         barStyle: {width: (progress.total ? 100 * progress.done / progress.total : 0) + "%"},
-        count: `${progress.done}/${progress.total} 落地`,
+        count: `${progress.done}/${progress.total} landed`,
       }, selectedTask);
     }),
   };
@@ -43,9 +43,9 @@ function rowButton(row, onPick) {
   button.className = row.cls;
   button.addEventListener("click", () => onPick(row.n));
 
-  const light = document.createElement("span");
-  light.className = row.lightCls;
-  light.title = row.lightWord;
+  const lamp = document.createElement("span");
+  lamp.className = row.lampCls;
+  lamp.title = row.lampWord;
 
   const meta = document.createElement("span");
   meta.className = "task-meta";
@@ -68,7 +68,7 @@ function rowButton(row, onPick) {
   progress.className = "task-progress";
   progress.append(bar, count);
 
-  button.append(light, meta, title, progress);
+  button.append(lamp, meta, title, progress);
   return button;
 }
 
@@ -76,14 +76,14 @@ export function render(host, data = {}, api = undefined) {
   const root = document.createElement("nav");
   root.dataset.screen = "tasks";
   root.className = "tasks board";
-  root.setAttribute("aria-label", "任务");
+  root.setAttribute("aria-label", "The Night");
 
   const paint = (selectedTask) => {
     const next = rowsFor(data, selectedTask);
     const eyebrow = document.createElement("div");
     eyebrow.className = "col-eyebrow";
     const label = document.createElement("span");
-    label.textContent = "任务";
+    label.textContent = "The Night";
     const count = document.createElement("span");
     count.textContent = String(next.count);
     eyebrow.append(label, count);
@@ -91,7 +91,7 @@ export function render(host, data = {}, api = undefined) {
     if (next.empty) {
       const empty = document.createElement("p");
       empty.className = "tasks-empty";
-      empty.textContent = "没有带 mmw:map label 的票。";
+      empty.textContent = "没有带 mmw:map label 的 ticket。";
       kids.push(empty);
     }
     for (const row of next.rows) {

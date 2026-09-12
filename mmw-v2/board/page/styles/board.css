@@ -2,16 +2,16 @@
 .board { font: 13px/1.45 var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
 
 /* ── the lamp: one dot, four colours ─────────────────────── */
-.light { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
-.light.orange { background: var(--orange); box-shadow: 0 0 0 3px rgba(235, 108, 54, 0.18); }
-.light.green { background: var(--led-green); }
-.light.ink { background: var(--ink); }
-.light.hollow { background: transparent; border: 1.5px solid rgba(45, 49, 66, 0.30); }
-.light.big { width: 12px; height: 12px; }
-.light.small { width: 8px; height: 8px; }
-.light.none { visibility: hidden; }
+.lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.lamp.orange { background: var(--orange); box-shadow: 0 0 0 3px rgba(235, 108, 54, 0.18); }
+.lamp.green { background: var(--led-green); }
+.lamp.ink { background: var(--ink); }
+.lamp.hollow { background: transparent; border: 1.5px solid rgba(45, 49, 66, 0.30); }
+.lamp.big { width: 12px; height: 12px; }
+.lamp.small { width: 8px; height: 8px; }
+.lamp.none { visibility: hidden; }
 
-/* ── the pill: the name of the current step ─────────────── */
+/* ── the pill: the name of the current phase ─────────────── */
 .pill {
   display: inline-flex; align-items: center; gap: 6px; height: 18px; padding-inline: 8px;
   border-radius: 9px; border: 1px solid; font: 500 9.5px/1 var(--mono); letter-spacing: 0.02em;
@@ -195,16 +195,16 @@
 .status-word.green { color: var(--led-green-ink); }
 .status-word.ink { color: var(--ink); }
 .dp-elapsed { margin-left: auto; font: 10.5px var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
-.dp-step { display: flex; align-items: center; gap: 10px; }
+.dp-phase { display: flex; align-items: center; gap: 10px; }
 .dp-hint { font-size: 11px; color: var(--faint); }
 .path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font: 10px var(--mono); color: var(--ghost); }
-.path-step.done { color: rgba(45, 49, 66, 0.42); }
-.path-step.now-queued { color: var(--muted); font-weight: 600; }
-.path-step.now-working { color: var(--s-working-ink); font-weight: 600; }
-.path-step.now-waiting { color: var(--s-waiting-ink); font-weight: 600; }
-.path-step.now-review { color: var(--s-review-ink); font-weight: 600; }
-.path-step.now-verify { color: var(--s-verify-ink); font-weight: 600; }
-.path-step.now-landed { color: var(--ink); font-weight: 600; }
+.path-phase.done { color: rgba(45, 49, 66, 0.42); }
+.path-phase.now-queued { color: var(--muted); font-weight: 600; }
+.path-phase.now-working { color: var(--s-working-ink); font-weight: 600; }
+.path-phase.now-waiting { color: var(--s-waiting-ink); font-weight: 600; }
+.path-phase.now-review { color: var(--s-review-ink); font-weight: 600; }
+.path-phase.now-verify { color: var(--s-verify-ink); font-weight: 600; }
+.path-phase.now-landed { color: var(--ink); font-weight: 600; }
 .path-sep { color: rgba(45, 49, 66, 0.20); }
 .why { border-left: 2px solid var(--orange); background: var(--orange-tint); padding: 9px 12px; border-radius: 0 6px 6px 0; font-size: 12px; color: var(--ink); display: flex; flex-direction: column; gap: 5px; }
 .why-title { font: 500 9px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--orange-ink); }
@@ -250,8 +250,8 @@
 .dp-gh:hover { border-color: rgba(45, 49, 66, 0.3); color: var(--ink); }
 .dp-empty { padding: 40px 26px; color: var(--soft); font-size: 12.5px; line-height: 1.6; }
 .dp-empty-title { font-family: var(--serif); font-size: 22px; color: var(--muted); margin: 0 0 6px; font-weight: 400; }
-.steps-count { display: flex; flex-wrap: wrap; gap: 6px; }
-.lights-count { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); }
+.phases-count { display: flex; flex-wrap: wrap; gap: 6px; }
+.lamps-count { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); }
 .lc-item { display: inline-flex; align-items: center; gap: 6px; }
 .lc-n { font-family: var(--mono); font-weight: 600; color: var(--ink); }
 

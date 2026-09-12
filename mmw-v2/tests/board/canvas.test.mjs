@@ -23,7 +23,7 @@ test("no task is the empty canvas", () => {
   assert.equal(view.svg, "");
 });
 
-test("a ticket card shows its lamp, step pill and run line", () => {
+test("a ticket card shows its lamp, phase pill and run line", () => {
   const running = ticket({
     n: 2, title: "折叠接入中继",
     fold: {sessions: [{...worker(), host: "grok", model: "grok 4.6", effort: "xhigh"}]},
@@ -38,30 +38,30 @@ test("a ticket card shows its lamp, step pill and run line", () => {
     children: [{number: 8, state: "OPEN"}],
     events: [{event: "worker.started", payload: {}}, {event: "child.opened", payload: {kind: "fault", child: 8}}],
   });
-  const queued = ticket({n: 5, title: "尚未派发的票"});
+  const queued = ticket({n: 5, title: "not dispatched的票"});
   const closeout = ticket({n: 6, title: "中继日志轮转", closeout: {from: 1, child: 9}, fold: {landed: true}});
   const task = {
-    n: 1, kind: "wayfinder", title: "落地流水线改造", decisions: [],
+    n: 1, kind: "wayfinder", title: "landed流水线改造", decisions: [],
     specs: [{n: 10, title: "唤醒回路", tickets: [running, landed, stopped, queued, closeout]}],
   };
   const view = canvasView(task, 2, [1, 10], true);
   const byN = Object.fromEntries(view.tickets.map(item => [item.n, item]));
-  assert.equal(byN[2].lightCls, "light green");
+  assert.equal(byN[2].lampCls, "lamp green");
   assert.equal(byN[2].pillCls, "pill working");
   assert.equal(byN[2].cls, "card on");
   assert.equal(byN[2].run, "grok · grok 4.6 · xhigh");
-  assert.equal(byN[3].lightCls, "light ink");
-  assert.equal(byN[3].step, "landed");
-  assert.equal(byN[4].lightCls, "light orange");
+  assert.equal(byN[3].lampCls, "lamp ink");
+  assert.equal(byN[3].phase, "landed");
+  assert.equal(byN[4].lampCls, "lamp orange");
   assert.equal(byN[4].runCls, "card-run flag");
-  assert.match(byN[4].run, /已停下/);
-  assert.equal(byN[5].step, "queued");
-  assert.equal(byN[5].run, "尚未派发");
+  assert.match(byN[4].run, /stopped/);
+  assert.equal(byN[5].phase, "queued");
+  assert.equal(byN[5].run, "not dispatched");
   assert.match(byN[6].cls, /\bcloseout\b/);
   const spec = view.containers.find(item => item.n === 10);
-  assert.equal(spec.lightCls, "light orange");
+  assert.equal(spec.lampCls, "lamp orange");
   assert.equal(spec.chev, "▾");
-  assert.equal(spec.toggleLabel, "收起 #10");
+  assert.equal(spec.toggleLabel, "collapse #10");
   const map = view.containers.find(item => item.n === 1);
   assert.equal(map.titleCls, "card-title map container");
   assert.equal(map.num, "#1 · wayfinder");
@@ -75,7 +75,7 @@ test("a collapsed spec hides its tickets and the chevron says expand", () => {
   const closed = canvasView(task, null, [1], true);
   assert.equal(closed.tickets.length, 0);
   assert.equal(closed.containers.find(item => item.n === 10).chev, "▸");
-  assert.equal(closed.containers.find(item => item.n === 10).toggleLabel, "展开 #10");
+  assert.equal(closed.containers.find(item => item.n === 10).toggleLabel, "expand #10");
   const open = canvasView(task, null, [1, 10], true);
   assert.equal(open.tickets.length, 2);
   assert.equal(open.containers.find(item => item.n === 10).chev, "▾");
@@ -120,7 +120,7 @@ test("reduced motion draws a still beam on a flow edge", () => {
   assert.doesNotMatch(converted, /e-pulse/);
 });
 
-test("a selected issue lights the blocking curve that touches it", () => {
+test("a selected issue lamps the blocking curve that touches it", () => {
   const blocker = ticket({n: 2, fold: {landed: true}, blocker_hold: ""});
   const running = ticket({n: 3, blocked: [2], fold: {sessions: [worker()]}});
   const other = ticket({n: 4, fold: {sessions: [worker()]}});

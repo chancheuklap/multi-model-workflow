@@ -1,4 +1,4 @@
-import {Board} from "./board-logic.mjs";
+import {Board, LAMP_WORD} from "./board-logic.mjs";
 import {el, hand, hhmm, minutes} from "./shared.mjs";
 
 const REFRESH_ICON = '<svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>';
@@ -30,8 +30,8 @@ export function fromScene(data = {}) {
 export function fromBoard(payload = {}, now = new Date()) {
   const tasks = payload.tasks || [];
   const all = tasks.flatMap(task => Board.allTickets(task));
-  const count = light => all.filter(ticket => Board.light(ticket) === light).length;
-  const waiting = all.filter(ticket => Board.step(ticket) === "waiting").length;
+  const count = lamp => all.filter(ticket => Board.lamp(ticket) === lamp).length;
+  const waiting = all.filter(ticket => Board.phase(ticket) === "waiting").length;
   const readAt = payload.read_failed?.at || payload.read_at;
   return {
     orangeN: count("orange"),
@@ -73,19 +73,19 @@ export function render(host, view = {}, api, hooks = {}) {
         type: "button",
         class: hot ? "counter hot" : "counter",
         disabled: !hot,
-        title: "跳到下一张需要你的票",
+        title: "跳到下一张 needs you 的 ticket",
         onClick: () => hooks.onJumpNeedYou?.(),
-      }, el("span", {class: hot ? "light orange" : "light hollow"}),
-        "需要你", el("span", {class: hot ? "counter-n hot" : "counter-n"}, String(orangeN))),
+      }, el("span", {class: hot ? "lamp orange" : "lamp hollow"}),
+        LAMP_WORD.orange, el("span", {class: hot ? "counter-n hot" : "counter-n"}, String(orangeN))),
       el("span", {class: "counter"},
-        el("span", {class: "light green"}), "在跑",
+        el("span", {class: "lamp green"}), LAMP_WORD.green,
         el("span", {class: "counter-n"}, String(view.greenN ?? 0)),
-        waiting ? el("span", {class: "counter-sub"}, `其中等槽位 ${waiting}`) : null),
+        waiting ? el("span", {class: "counter-sub"}, `waiting for a slot ${waiting}`) : null),
       el("span", {class: "counter"},
-        el("span", {class: "light hollow"}), "待派",
+        el("span", {class: "lamp hollow"}), LAMP_WORD.hollow,
         el("span", {class: "counter-n"}, String(view.hollowN ?? 0))),
       el("span", {class: "counter"},
-        el("span", {class: "light ink"}), "好了",
+        el("span", {class: "lamp ink"}), LAMP_WORD.ink,
         el("span", {class: "counter-n"}, String(view.inkN ?? 0))),
     ),
     el("div", {class: read.cls}, read.text),
@@ -99,7 +99,7 @@ export function render(host, view = {}, api, hooks = {}) {
     el("button", {
       type: "button", class: view.settingsOpen ? "gear on" : "gear",
       "aria-label": "本机配置",
-      title: "本机配置：每个角色跑在哪个 host、model、effort",
+      title: "本机配置：每个 agent 跑在哪个 host、model、effort",
       html: GEAR_ICON,
       onClick: () => { void notify(() => api.settings(), hooks.onOpenSettings); },
     }),

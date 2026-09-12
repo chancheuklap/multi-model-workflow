@@ -7,11 +7,19 @@ import {render as settings, fromPayload as settingsFromPayload, unmount as unmou
 import {api} from "./api.mjs";
 import {startBoardFeed} from "./board-feed.mjs";
 
+// PROTOTYPE scaffolding — prototypes/board-orchestration/sidebar-events/UI.
+// `?variant=A|B|C` hands the detail column to a prototype variant, `?sel=<n>` opens a card
+// on load. Nothing runs without the parameter; the import is served only by that
+// prototype's own serve.py. It all comes down when a winner is folded in.
+const protoQuery = typeof location === "undefined" ? null : new URLSearchParams(location.search);
+const protoKey = protoQuery?.get("variant") || null;
+const proto = protoKey ? await import("./proto/mount.mjs").catch(() => null) : null;
+
 function nextOrange(tasks, current) {
   const list = [];
   for (const task of tasks) {
     for (const ticket of Board.allTickets(task)) {
-      if (Board.light(ticket) === "orange") list.push({task: task.n, node: ticket.n});
+      if (Board.lamp(ticket) === "orange") list.push({task: task.n, node: ticket.n});
     }
   }
   if (!list.length) return null;
@@ -38,6 +46,10 @@ export function mountPage(doc = document) {
 
   const taskOf = n => (state.payload.tasks || []).find(task => task.n === n) || null;
 
+  // PROTOTYPE scaffolding: `?sel=<n>` opens that card as soon as the first payload lands.
+  const protoSel = proto ? Number(protoQuery.get("sel")) : NaN;
+  let protoSelPending = Number.isFinite(protoSel) && protoSel > 0;
+
   const setTask = n => {
     if (state.task === n) return;
     state.task = n;
@@ -56,7 +68,7 @@ export function mountPage(doc = document) {
   // going in it: the canvas viewport, the detail column's scroll, an edge animation
   // mid-flight. So a column is redrawn only when what it shows differs from what is on
   // screen. A signature is the data that column reads, which includes text derived from the
-  // clock (a ticket's 已跑 N 分钟), so that keeps ticking.
+  // clock (a ticket's elapsed time), so that keeps ticking.
   const shown = {};
   const changed = (column, signature) => {
     if (shown[column] === signature) return false;
@@ -67,6 +79,14 @@ export function mountPage(doc = document) {
   const paint = () => {
     const list = state.payload.tasks || [];
     if (state.task == null && list[0]) setTask(list[0].n);
+    if (protoSelPending && list.length) {
+      protoSelPending = false;
+      const found = find(list, protoSel);
+      if (found) {
+        setTask(found.task.n);
+        state.sel = protoSel;
+      }
+    }
     const listSign = JSON.stringify(list);
     const topbarView = topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen});
     if (changed("topbar", JSON.stringify(topbarView))) {
@@ -118,24 +138,32 @@ export function mountPage(doc = document) {
     // Nothing picked, nothing to show: the column comes off the page rather than standing
     // there empty, and the canvas takes the width back. The stylesheet follows the slot.
     const detailView = detailFromBoard(state.payload, state.sel);
-    if (changed("detail", JSON.stringify(detailView))) {
-      if (detailView.empty) {
+    const detailHooks = {
+      onGoto(n) {
+        const found = find(list, n);
+        if (found) {
+          setTask(found.task.n);
+          state.sel = n;
+          paint();
+        }
+      },
+      onClose() {
+        state.sel = null;
+        paint();
+      },
+    };
+    // A prototype variant reads the whole payload, not the view the real column reads, so
+    // its signature is the payload it is handed.
+    const detailSign = proto
+      ? `${protoKey}|${state.sel}|${JSON.stringify(state.payload)}`
+      : JSON.stringify(detailView);
+    if (changed("detail", detailSign)) {
+      if (proto) {
+        proto.mount(slots.detail, {payload: state.payload, sel: state.sel, variant: protoKey}, api, detailHooks);
+      } else if (detailView.empty) {
         unmountDetail(slots.detail);
       } else {
-        detail(slots.detail, detailView, api, {
-          onGoto(n) {
-            const found = find(list, n);
-            if (found) {
-              setTask(found.task.n);
-              state.sel = n;
-              paint();
-            }
-          },
-          onClose() {
-            state.sel = null;
-            paint();
-          },
-        });
+        detail(slots.detail, detailView, api, detailHooks);
       }
     }
     if (!slots.settings) return;

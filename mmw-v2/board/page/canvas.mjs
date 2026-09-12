@@ -1,4 +1,4 @@
-import {Board, LIGHT_WORD, defaultExpanded} from "./board-logic.mjs";
+import {Board, LAMP_WORD, defaultExpanded} from "./board-logic.mjs";
 
 const BEAM_SPEED = 170; // px per second
 const COMET = [ // length px, stroke width, colour, opacity — tail first, head last
@@ -88,12 +88,12 @@ export function canvasView(task, sel, expandedList, reduced) {
   for (const node of layout.nodes) {
     const on = node.id === sel;
     if (node.type === "ticket") {
-      const ticket = node.ref, light = Board.light(ticket), step = Board.step(ticket), run = Board.runLine(ticket);
+      const ticket = node.ref, lamp = Board.lamp(ticket), phase = Board.phase(ticket), run = Board.runLine(ticket);
       tickets.push({
-        n: ticket.n, pos: pos(node), title: ticket.title, num: "#" + ticket.n, step,
-        pillCls: "pill " + step,
+        n: ticket.n, pos: pos(node), title: ticket.title, num: "#" + ticket.n, phase,
+        pillCls: "pill " + phase,
         cls: "card" + (on ? " on" : "") + (ticket.closeout ? " closeout" : "") + (node.cyclic ? " cycle" : ""),
-        lightCls: "light " + light, lightWord: LIGHT_WORD[light],
+        lampCls: "lamp " + lamp, lampWord: LAMP_WORD[lamp],
         run: run.text, runCls: run.flag ? "card-run flag" : "card-run",
       });
     } else if (node.type === "decision") {
@@ -101,12 +101,12 @@ export function canvasView(task, sel, expandedList, reduced) {
       decisions.push({
         n: decision.n, pos: pos(node), title: decision.title, num: "#" + decision.n, kind: decision.kind,
         cls: "card" + (on ? " on" : "") + (node.cyclic ? " cycle" : ""),
-        lightCls: "light small " + Board.decisionLight(decision),
+        lampCls: "lamp small " + Board.decisionLamp(decision),
       });
     } else {
       const container = node.ref, isMap = node.type === "map";
       const list = isMap ? Board.allTickets(container) : container.tickets;
-      const light = Board.aggregate(list);
+      const lamp = Board.aggregate(list);
       const done = list.filter(ticket => Board.done(ticket)).length;
       const canExpand = isMap ? container.decisions.length > 0 : container.tickets.length > 0;
       const open = expanded.has(container.n);
@@ -114,8 +114,8 @@ export function canvasView(task, sel, expandedList, reduced) {
         n: container.n, pos: pos(node), title: container.title,
         num: "#" + container.n + (isMap ? " · " + container.kind : ""),
         cls: "card" + (on ? " on" : ""), titleCls: isMap ? "card-title map container" : "card-title container",
-        lightCls: "light " + light, lightWord: LIGHT_WORD[light], count: `${done}/${list.length}`,
-        canExpand, chev: open ? "▾" : "▸", toggleLabel: (open ? "收起 #" : "展开 #") + container.n,
+        lampCls: "lamp " + lamp, lampWord: LAMP_WORD[lamp], count: `${done}/${list.length}`,
+        canExpand, chev: open ? "▾" : "▸", toggleLabel: (open ? "collapse #" : "expand #") + container.n,
         barStyle: {width: (list.length ? 100 * done / list.length : 0) + "%"},
       });
     }
@@ -164,14 +164,14 @@ function cardHit(n, title, onPick) {
   return button;
 }
 
-function cardShell(item, onPick, {lightTitle, titled, titleCls, right, after}) {
+function cardShell(item, onPick, {lampTitle, titled, titleCls, right, after}) {
   const card = document.createElement("div");
   card.className = item.cls;
   Object.assign(card.style, item.pos);
   if (titled) card.title = item.title;
-  const light = document.createElement("span");
-  light.className = item.lightCls;
-  if (lightTitle) light.title = item.lightWord;
+  const lamp = document.createElement("span");
+  lamp.className = item.lampCls;
+  if (lampTitle) lamp.title = item.lampWord;
   const num = document.createElement("span");
   num.className = "card-num";
   num.textContent = item.num;
@@ -180,7 +180,7 @@ function cardShell(item, onPick, {lightTitle, titled, titleCls, right, after}) {
   rightEl.append(...right);
   const top = document.createElement("div");
   top.className = "card-top";
-  top.append(light, num, rightEl);
+  top.append(lamp, num, rightEl);
   const title = document.createElement("div");
   title.className = titleCls;
   title.textContent = item.title;
@@ -211,7 +211,7 @@ function containerCard(item, onPick, onToggle) {
   const bar = document.createElement("div");
   bar.className = "card-bar";
   bar.append(fill);
-  return cardShell(item, onPick, {lightTitle: true, titled: true, titleCls: item.titleCls, right, after: [bar]});
+  return cardShell(item, onPick, {lampTitle: true, titled: true, titleCls: item.titleCls, right, after: [bar]});
 }
 
 function decisionCard(item, onPick) {
@@ -219,19 +219,19 @@ function decisionCard(item, onPick) {
   kind.className = "card-kind";
   kind.textContent = item.kind;
   return cardShell(item, onPick, {
-    lightTitle: false, titled: true, titleCls: "card-title decision", right: [kind], after: [],
+    lampTitle: false, titled: true, titleCls: "card-title decision", right: [kind], after: [],
   });
 }
 
 function ticketCard(item, onPick) {
   const pill = document.createElement("span");
   pill.className = item.pillCls;
-  pill.textContent = item.step;
+  pill.textContent = item.phase;
   const run = document.createElement("div");
   run.className = item.runCls;
   run.textContent = item.run;
   return cardShell(item, onPick, {
-    lightTitle: true, titled: true, titleCls: "card-title", right: [pill], after: [run],
+    lampTitle: true, titled: true, titleCls: "card-title", right: [pill], after: [run],
   });
 }
 
@@ -250,11 +250,11 @@ function legend() {
   bar.className = "legend-item";
   const mark = document.createElement("span");
   mark.className = "legend-bar";
-  bar.append(mark, "收口新开");
+  bar.append(mark, "closing pass");
   root.append(
-    item("legend-line", "展开 · 走过"),
-    item("legend-line flow", "在走"),
-    item("legend-line blocked", "被挡"),
+    item("legend-line", "contains · released"),
+    item("legend-line flow", "released · working"),
+    item("legend-line blocked", "blocked"),
     bar,
   );
   return root;
@@ -266,7 +266,7 @@ function zoomBar(onOut, onIn, onFit, level) {
   const out = document.createElement("button");
   out.type = "button";
   out.className = "zoom-btn";
-  out.setAttribute("aria-label", "缩小");
+  out.setAttribute("aria-label", "zoom out");
   out.textContent = "−";
   out.addEventListener("click", onOut);
   const zoomLevel = document.createElement("span");
@@ -275,7 +275,7 @@ function zoomBar(onOut, onIn, onFit, level) {
   const inn = document.createElement("button");
   inn.type = "button";
   inn.className = "zoom-btn";
-  inn.setAttribute("aria-label", "放大");
+  inn.setAttribute("aria-label", "zoom in");
   inn.textContent = "+";
   inn.addEventListener("click", onIn);
   const sep = document.createElement("span");
@@ -283,7 +283,7 @@ function zoomBar(onOut, onIn, onFit, level) {
   const fit = document.createElement("button");
   fit.type = "button";
   fit.className = "zoom-btn text";
-  fit.textContent = "适配";
+  fit.textContent = "fit";
   fit.addEventListener("click", onFit);
   root.append(out, zoomLevel, inn, sep, fit);
   return {root, zoomLevel};
@@ -295,10 +295,10 @@ function emptyState() {
   const wrap = document.createElement("div");
   const title = document.createElement("p");
   title.className = "canvas-empty-title";
-  title.textContent = "还没有任务";
+  title.textContent = "The Night 还没开始";
   const text = document.createElement("p");
   text.className = "canvas-empty-text";
-  text.append("一个任务就是一次讨论开出的那张票。给它打上 ");
+  text.append("The Night 是一次讨论开出的那张 ticket。给它打上 ");
   const code = document.createElement("span");
   code.className = "code";
   code.textContent = "mmw:map";

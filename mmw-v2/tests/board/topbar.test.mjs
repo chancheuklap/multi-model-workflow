@@ -9,8 +9,8 @@ const morningScene = {
   vals: {
     v: {
       orangeN: 3, greenN: 3, hollowN: 9, inkN: 9, hot: true,
-      needCls: "counter hot", needNCls: "counter-n hot", needLightCls: "light orange",
-      waitingSub: "其中等槽位 1", readCls: "readstate", readText: "只读 · 07:39 读取",
+      needCls: "counter hot", needNCls: "counter-n hot", needLightCls: "lamp orange",
+      waitingSub: "waiting for a slot 1", readCls: "readstate", readText: "只读 · 07:39 读取",
       noNeed: false, hasWaiting: true,
     },
     gearCls: "gear",
@@ -21,7 +21,7 @@ const emptyScene = {
   vals: {
     v: {
       orangeN: 0, greenN: 0, hollowN: 0, inkN: 0, hot: false,
-      needCls: "counter", needNCls: "counter-n", needLightCls: "light hollow",
+      needCls: "counter", needNCls: "counter-n", needLightCls: "lamp hollow",
       waitingSub: "", readCls: "readstate", readText: "只读 · 07:39 读取",
       noNeed: true, hasWaiting: false,
     },
@@ -45,14 +45,14 @@ test("morning vals show the four counts and the waiting sub-line", () => {
   const {root} = mount(fromScene(morningScene));
   assert.equal(root.dataset.screen, "topbar");
   assert.deepEqual(counterNs(root), ["3", "3", "9", "9"]);
-  assert.match(root.textContent, /其中等槽位 1/);
+  assert.match(root.textContent, /waiting for a slot 1/);
   assert.match(root.textContent, /只读 · 07:39 读取/);
-  assert.equal(namedButton(root, "需要你 3").disabled, false);
+  assert.equal(namedButton(root, "needs you 3").disabled, false);
 });
 
-test("empty vals disable 需要你 and hide the waiting sub-line", () => {
+test("empty vals disable needs you and hide the waiting sub-line", () => {
   const {root} = mount(fromScene(emptyScene));
-  assert.equal(namedButton(root, "需要你 0").disabled, true);
+  assert.equal(namedButton(root, "needs you 0").disabled, true);
   assert.deepEqual(counterNs(root), ["0", "0", "0", "0"]);
   assert.equal(walk(root).some(node => (node.className || "").includes("counter-sub")), false);
 });
@@ -108,14 +108,14 @@ test("topbar actions keep parse and hook failures silent", async () => {
   await new Promise(resolve => setTimeout(resolve, 0));
 });
 
-test("需要你 fires onJumpNeedYou only when some ticket is orange", () => {
+test("needs you fires onJumpNeedYou only when some ticket is orange", () => {
   let jumps = 0;
   const hooks = {onJumpNeedYou: () => { jumps += 1; }};
   const {root: hot} = mount(fromScene(morningScene), undefined, hooks);
-  namedButton(hot, "需要你 3").click();
+  namedButton(hot, "needs you 3").click();
   assert.equal(jumps, 1);
   const {root: cold} = mount(fromScene(emptyScene), undefined, hooks);
-  namedButton(cold, "需要你 0").click();
+  namedButton(cold, "needs you 0").click();
   assert.equal(jumps, 1);
 });
 
@@ -138,5 +138,5 @@ test("fromBoard maps GET /api/board lamps and a failed read onto the top bar", (
   assert.equal(view.readAgo, 28);
   const {root} = mount(view);
   assert.match(root.textContent, /读 GitHub 失败 · 下面是 \d{2}:\d{2} 的数据（28 分钟前）/);
-  assert.equal(namedButton(root, "需要你 1").disabled, false);
+  assert.equal(namedButton(root, "needs you 1").disabled, false);
 });
