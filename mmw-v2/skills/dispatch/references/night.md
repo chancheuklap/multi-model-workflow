@@ -90,7 +90,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `ticket.refused` | Fix the event's `reason`; step 4 starts it if the frontier permits |
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
 | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
-| `watchdog: relay down (…)` | `<dispatch> open <spec>`; use `open-ticket <n>` for one ticket. Nothing to ack |
+| `watchdog: relay down (…)` | Read which case the reason names. **No relay is running** → `<dispatch> open <spec>` starts one (`open-ticket <n>` for one ticket outside a night). **A relay that is running** — the reason names its pid and when it last polled — is not started again by `open`, which starts one only when none runs, so reopening the night on it costs a command and recovers nothing: wait, and take the `relay.recovered` wake and the events behind it when it catches up. Nothing to ack |
 | `watchdog: #<n> liveness unknown: …` | `<dispatch> resume <n> "Say in one line where you are, then continue"`; exit 0 confirms it, exit 2 means `<dispatch> retract <n>`, otherwise leave it for the user |
 | `watchdog: #<n> is held with no session to ask, …` | Read `status`; when nothing works the ticket, `<dispatch> retract <n>`. Nothing to ack |
 | `watchdog: cannot read the board since <time>: …` | Run the named `gh issue view <n>`; wait for tracker or network recovery, or leave credential repair to the user. Nothing to ack |
