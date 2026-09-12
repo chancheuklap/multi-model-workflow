@@ -109,8 +109,8 @@
           "hot": true,
           "needCls": "counter hot",
           "needNCls": "counter-n hot",
-          "needLightCls": "light orange",
-          "waitingSub": "其中等槽位 1",
+          "needLightCls": "lamp orange",
+          "waitingSub": "waiting for a slot 1",
           "readCls": "readstate",
           "readText": "只读 · 07:39 读取",
           "noNeed": false,
@@ -142,8 +142,8 @@
           "hot": true,
           "needCls": "counter hot",
           "needNCls": "counter-n hot",
-          "needLightCls": "light orange",
-          "waitingSub": "其中等槽位 1",
+          "needLightCls": "lamp orange",
+          "waitingSub": "waiting for a slot 1",
           "readCls": "readstate",
           "readText": "只读 · 07:39 读取",
           "noNeed": false,
@@ -175,7 +175,7 @@
           "hot": true,
           "needCls": "counter hot",
           "needNCls": "counter-n hot",
-          "needLightCls": "light orange",
+          "needLightCls": "lamp orange",
           "waitingSub": "",
           "readCls": "readstate failed",
           "readText": "读 GitHub 失败 · 下面是 07:12 的数据（28 分钟前）",
@@ -208,7 +208,7 @@
           "hot": false,
           "needCls": "counter",
           "needNCls": "counter-n",
-          "needLightCls": "light hollow",
+          "needLightCls": "lamp hollow",
           "waitingSub": "",
           "readCls": "readstate",
           "readText": "只读 · 07:39 读取",
@@ -241,40 +241,40 @@
               "n": 98,
               "cls": "task on",
               "titleCls": "task-title on",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "meta": "#98 · wayfinder",
               "title": "落地流水线改造",
               "barStyle": {
                 "width": "33.333333333333336%"
               },
-              "count": "6/18 落地"
+              "count": "6/18 landed"
             },
             {
               "n": 77,
               "cls": "task",
               "titleCls": "task-title",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "meta": "#77 · grilling",
               "title": "交接包比对",
               "barStyle": {
                 "width": "100%"
               },
-              "count": "3/3 落地"
+              "count": "3/3 landed"
             },
             {
               "n": 101,
               "cls": "task",
               "titleCls": "task-title",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
               "meta": "#101 · grilling",
               "title": "子 issue 五种改名",
               "barStyle": {
                 "width": "0%"
               },
-              "count": "0/3 落地"
+              "count": "0/3 landed"
             }
           ]
         },
@@ -283,40 +283,40 @@
             "n": 98,
             "cls": "task on",
             "titleCls": "task-title on",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "meta": "#98 · wayfinder",
             "title": "落地流水线改造",
             "barStyle": {
               "width": "33.333333333333336%"
             },
-            "count": "6/18 落地"
+            "count": "6/18 landed"
           },
           {
             "n": 77,
             "cls": "task",
             "titleCls": "task-title",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "meta": "#77 · grilling",
             "title": "交接包比对",
             "barStyle": {
               "width": "100%"
             },
-            "count": "3/3 落地"
+            "count": "3/3 landed"
           },
           {
             "n": 101,
             "cls": "task",
             "titleCls": "task-title",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
             "meta": "#101 · grilling",
             "title": "子 issue 五种改名",
             "barStyle": {
               "width": "0%"
             },
-            "count": "0/3 落地"
+            "count": "0/3 landed"
           }
         ]
       }
@@ -344,14 +344,14 @@
               "n": 210,
               "cls": "task on",
               "titleCls": "task-title on",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "meta": "#210 · wayfinder",
               "title": "判活三层落地",
               "barStyle": {
                 "width": "35%"
               },
-              "count": "7/20 落地"
+              "count": "7/20 landed"
             }
           ]
         },
@@ -360,14 +360,14 @@
             "n": 210,
             "cls": "task on",
             "titleCls": "task-title on",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "meta": "#210 · wayfinder",
             "title": "判活三层落地",
             "barStyle": {
               "width": "35%"
             },
-            "count": "7/20 落地"
+            "count": "7/20 landed"
           }
         ]
       }
@@ -395,14 +395,14 @@
               "n": 300,
               "cls": "task on",
               "titleCls": "task-title on",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "meta": "#300 · grilling",
               "title": "端口租约回收",
               "barStyle": {
                 "width": "16.666666666666668%"
               },
-              "count": "1/6 落地"
+              "count": "1/6 landed"
             }
           ]
         },
@@ -411,14 +411,14 @@
             "n": 300,
             "cls": "task on",
             "titleCls": "task-title on",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "meta": "#300 · grilling",
             "title": "端口租约回收",
             "barStyle": {
               "width": "16.666666666666668%"
             },
-            "count": "1/6 落地"
+            "count": "1/6 landed"
           }
         ]
       }
@@ -482,12 +482,12 @@
               "num": "#98 · wayfinder",
               "cls": "card",
               "titleCls": "card-title map",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "6/18",
               "canExpand": true,
               "chev": "▾",
-              "toggleLabel": "收起 #98",
+              "toggleLabel": "collapse #98",
               "barStyle": {
                 "width": "33.333333333333336%"
               }
@@ -504,12 +504,12 @@
               "num": "#123",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "count": "4/4",
               "canExpand": true,
               "chev": "▸",
-              "toggleLabel": "展开 #123",
+              "toggleLabel": "expand #123",
               "barStyle": {
                 "width": "100%"
               }
@@ -526,12 +526,12 @@
               "num": "#131",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "2/10",
               "canExpand": true,
               "chev": "▾",
-              "toggleLabel": "收起 #131",
+              "toggleLabel": "collapse #131",
               "barStyle": {
                 "width": "20%"
               }
@@ -548,12 +548,12 @@
               "num": "#140",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
               "count": "0/4",
               "canExpand": true,
               "chev": "▸",
-              "toggleLabel": "展开 #140",
+              "toggleLabel": "expand #140",
               "barStyle": {
                 "width": "0%"
               }
@@ -572,7 +572,7 @@
               "num": "#99",
               "kind": "grilling",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 100,
@@ -586,7 +586,7 @@
               "num": "#100",
               "kind": "research",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 104,
@@ -600,7 +600,7 @@
               "num": "#104",
               "kind": "prototype",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 105,
@@ -614,7 +614,7 @@
               "num": "#105",
               "kind": "grilling",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 106,
@@ -628,7 +628,7 @@
               "num": "#106",
               "kind": "task",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 107,
@@ -642,7 +642,7 @@
               "num": "#107",
               "kind": "grilling",
               "cls": "card",
-              "lightCls": "light small hollow"
+              "lampCls": "lamp small hollow"
             }
           ],
           "tickets": [
@@ -656,11 +656,11 @@
               },
               "title": "中继进程骨架",
               "num": "#132",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -674,11 +674,11 @@
               },
               "title": "折叠接入中继",
               "num": "#133",
-              "step": "working",
+              "phase": "working",
               "pillCls": "pill working",
               "cls": "card on",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "grok · grok 4.6 · xhigh",
               "runCls": "card-run"
             },
@@ -692,11 +692,11 @@
               },
               "title": "唤醒队列持久化",
               "num": "#134",
-              "step": "review",
+              "phase": "review",
               "pillCls": "pill review",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "codex · gpt-5.5 · medium",
               "runCls": "card-run"
             },
@@ -710,11 +710,11 @@
               },
               "title": "唤醒日志落盘",
               "num": "#142",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "codex · gpt 5.6 sol · medium",
               "runCls": "card-run"
             },
@@ -728,11 +728,11 @@
               },
               "title": "槽位交还后叫醒",
               "num": "#139",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -746,11 +746,11 @@
               },
               "title": "离线时唤醒去向",
               "num": "#138",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "grok · grok 4.6 · high",
               "runCls": "card-run"
             },
@@ -764,11 +764,11 @@
               },
               "title": "中继日志轮转",
               "num": "#141",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card closeout",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "claude · sonnet 5 · medium",
               "runCls": "card-run"
             },
@@ -782,12 +782,12 @@
               },
               "title": "重试与退避",
               "num": "#136",
-              "step": "waiting",
+              "phase": "waiting",
               "pillCls": "pill waiting",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
-              "run": "等槽位 · 07:32 起",
+              "lampCls": "lamp green",
+              "lampWord": "running",
+              "run": "waiting for a slot · since 07:32",
               "runCls": "card-run"
             },
             {
@@ -800,12 +800,12 @@
               },
               "title": "投递回执",
               "num": "#135",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -818,12 +818,12 @@
               },
               "title": "中继自检命令",
               "num": "#137",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             }
           ],
@@ -1011,12 +1011,12 @@
             "num": "#98 · wayfinder",
             "cls": "card",
             "titleCls": "card-title map",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "6/18",
             "canExpand": true,
             "chev": "▾",
-            "toggleLabel": "收起 #98",
+            "toggleLabel": "collapse #98",
             "barStyle": {
               "width": "33.333333333333336%"
             },
@@ -1034,12 +1034,12 @@
             "num": "#123",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "count": "4/4",
             "canExpand": true,
             "chev": "▸",
-            "toggleLabel": "展开 #123",
+            "toggleLabel": "expand #123",
             "barStyle": {
               "width": "100%"
             },
@@ -1057,12 +1057,12 @@
             "num": "#131",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "2/10",
             "canExpand": true,
             "chev": "▾",
-            "toggleLabel": "收起 #131",
+            "toggleLabel": "collapse #131",
             "barStyle": {
               "width": "20%"
             },
@@ -1080,12 +1080,12 @@
             "num": "#140",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
             "count": "0/4",
             "canExpand": true,
             "chev": "▸",
-            "toggleLabel": "展开 #140",
+            "toggleLabel": "expand #140",
             "barStyle": {
               "width": "0%"
             },
@@ -1105,7 +1105,7 @@
             "num": "#99",
             "kind": "grilling",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#99 事件格式怎么定"
           },
           {
@@ -1120,7 +1120,7 @@
             "num": "#100",
             "kind": "research",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#100 读票用什么"
           },
           {
@@ -1135,7 +1135,7 @@
             "num": "#104",
             "kind": "prototype",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#104 唤醒要不要队列"
           },
           {
@@ -1150,7 +1150,7 @@
             "num": "#105",
             "kind": "grilling",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#105 槽位推到哪一步"
           },
           {
@@ -1165,7 +1165,7 @@
             "num": "#106",
             "kind": "task",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#106 判活放哪一层"
           },
           {
@@ -1180,7 +1180,7 @@
             "num": "#107",
             "kind": "grilling",
             "cls": "card",
-            "lightCls": "light small hollow",
+            "lampCls": "lamp small hollow",
             "label": "#107 团队版什么时候做"
           }
         ],
@@ -1195,11 +1195,11 @@
             },
             "title": "中继进程骨架",
             "num": "#132",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#132 中继进程骨架"
@@ -1214,11 +1214,11 @@
             },
             "title": "折叠接入中继",
             "num": "#133",
-            "step": "working",
+            "phase": "working",
             "pillCls": "pill working",
             "cls": "card on",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "grok · grok 4.6 · xhigh",
             "runCls": "card-run",
             "label": "#133 折叠接入中继"
@@ -1233,11 +1233,11 @@
             },
             "title": "唤醒队列持久化",
             "num": "#134",
-            "step": "review",
+            "phase": "review",
             "pillCls": "pill review",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "codex · gpt-5.5 · medium",
             "runCls": "card-run",
             "label": "#134 唤醒队列持久化"
@@ -1252,11 +1252,11 @@
             },
             "title": "唤醒日志落盘",
             "num": "#142",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "codex · gpt 5.6 sol · medium",
             "runCls": "card-run",
             "label": "#142 唤醒日志落盘"
@@ -1271,11 +1271,11 @@
             },
             "title": "槽位交还后叫醒",
             "num": "#139",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#139 槽位交还后叫醒"
@@ -1290,11 +1290,11 @@
             },
             "title": "离线时唤醒去向",
             "num": "#138",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "grok · grok 4.6 · high",
             "runCls": "card-run",
             "label": "#138 离线时唤醒去向"
@@ -1309,11 +1309,11 @@
             },
             "title": "中继日志轮转",
             "num": "#141",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card closeout",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "claude · sonnet 5 · medium",
             "runCls": "card-run",
             "label": "#141 中继日志轮转"
@@ -1328,12 +1328,12 @@
             },
             "title": "重试与退避",
             "num": "#136",
-            "step": "waiting",
+            "phase": "waiting",
             "pillCls": "pill waiting",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
-            "run": "等槽位 · 07:32 起",
+            "lampCls": "lamp green",
+            "lampWord": "running",
+            "run": "waiting for a slot · since 07:32",
             "runCls": "card-run",
             "label": "#136 重试与退避"
           },
@@ -1347,12 +1347,12 @@
             },
             "title": "投递回执",
             "num": "#135",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#135 投递回执"
           },
@@ -1366,12 +1366,12 @@
             },
             "title": "中继自检命令",
             "num": "#137",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#137 中继自检命令"
           }
@@ -1414,12 +1414,12 @@
               "num": "#210 · wayfinder",
               "cls": "card",
               "titleCls": "card-title map",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "7/20",
               "canExpand": true,
               "chev": "▾",
-              "toggleLabel": "收起 #210",
+              "toggleLabel": "collapse #210",
               "barStyle": {
                 "width": "35%"
               }
@@ -1436,12 +1436,12 @@
               "num": "#211",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "7/20",
               "canExpand": true,
               "chev": "▾",
-              "toggleLabel": "收起 #211",
+              "toggleLabel": "collapse #211",
               "barStyle": {
                 "width": "35%"
               }
@@ -1460,7 +1460,7 @@
               "num": "#208",
               "kind": "grilling",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 209,
@@ -1474,7 +1474,7 @@
               "num": "#209",
               "kind": "research",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             }
           ],
           "tickets": [
@@ -1488,11 +1488,11 @@
               },
               "title": "心跳文件格式",
               "num": "#212",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -1506,11 +1506,11 @@
               },
               "title": "心跳写入钩子",
               "num": "#213",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "codex · gpt-5.5 · high",
               "runCls": "card-run"
             },
@@ -1524,11 +1524,11 @@
               },
               "title": "回合守卫骨架",
               "num": "#214",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "grok · grok 4.6 · xhigh",
               "runCls": "card-run"
             },
@@ -1542,11 +1542,11 @@
               },
               "title": "Paseo 回合字段读取",
               "num": "#216",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "cursor · grok 4.6 · high",
               "runCls": "card-run"
             },
@@ -1560,11 +1560,11 @@
               },
               "title": "Herdr 状态读取",
               "num": "#217",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "codex · gpt-5.5 · high",
               "runCls": "card-run"
             },
@@ -1578,11 +1578,11 @@
               },
               "title": "Orca tui-idle 等待",
               "num": "#218",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "claude · sonnet 5 · medium",
               "runCls": "card-run"
             },
@@ -1596,11 +1596,11 @@
               },
               "title": "tmux pane 探活",
               "num": "#219",
-              "step": "working",
+              "phase": "working",
               "pillCls": "pill working",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "grok · grok 4.6 · high",
               "runCls": "card-run"
             },
@@ -1614,11 +1614,11 @@
               },
               "title": "远程 --on 探活",
               "num": "#229",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "grok · grok 4.6 · xhigh",
               "runCls": "card-run"
             },
@@ -1632,11 +1632,11 @@
               },
               "title": "Stop hook 叠挂",
               "num": "#215",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -1650,11 +1650,11 @@
               },
               "title": "判活扫描循环",
               "num": "#220",
-              "step": "working",
+              "phase": "working",
               "pillCls": "pill working",
               "cls": "card on",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -1668,11 +1668,11 @@
               },
               "title": "扫描间隔配置",
               "num": "#223",
-              "step": "review",
+              "phase": "review",
               "pillCls": "pill review",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "codex · gpt-5.5 · medium",
               "runCls": "card-run"
             },
@@ -1686,12 +1686,12 @@
               },
               "title": "陈旧绑定检测",
               "num": "#225",
-              "step": "waiting",
+              "phase": "waiting",
               "pillCls": "pill waiting",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
-              "run": "等槽位 · 07:26 起",
+              "lampCls": "lamp green",
+              "lampWord": "running",
+              "run": "waiting for a slot · since 07:26",
               "runCls": "card-run"
             },
             {
@@ -1704,11 +1704,11 @@
               },
               "title": "install --check 覆盖叠挂",
               "num": "#228",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card closeout",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "grok · grok 4.6 · high",
               "runCls": "card-run"
             },
@@ -1722,12 +1722,12 @@
               },
               "title": "worker.lost 写入",
               "num": "#221",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -1740,12 +1740,12 @@
               },
               "title": "「不知道」与「死了」分开",
               "num": "#222",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -1758,12 +1758,12 @@
               },
               "title": "误判回放测试",
               "num": "#224",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -1776,12 +1776,12 @@
               },
               "title": "retract 联动",
               "num": "#226",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -1794,12 +1794,12 @@
               },
               "title": "夜间摘要一行",
               "num": "#227",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -1812,12 +1812,12 @@
               },
               "title": "判活文档",
               "num": "#230",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -1830,12 +1830,12 @@
               },
               "title": "端到端夜跑",
               "num": "#231",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             }
           ],
@@ -2051,12 +2051,12 @@
             "num": "#210 · wayfinder",
             "cls": "card",
             "titleCls": "card-title map",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "7/20",
             "canExpand": true,
             "chev": "▾",
-            "toggleLabel": "收起 #210",
+            "toggleLabel": "collapse #210",
             "barStyle": {
               "width": "35%"
             },
@@ -2074,12 +2074,12 @@
             "num": "#211",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "7/20",
             "canExpand": true,
             "chev": "▾",
-            "toggleLabel": "收起 #211",
+            "toggleLabel": "collapse #211",
             "barStyle": {
               "width": "35%"
             },
@@ -2099,7 +2099,7 @@
             "num": "#208",
             "kind": "grilling",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#208 三层各看什么"
           },
           {
@@ -2114,7 +2114,7 @@
             "num": "#209",
             "kind": "research",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#209 runner 能不能证明它停了"
           }
         ],
@@ -2129,11 +2129,11 @@
             },
             "title": "心跳文件格式",
             "num": "#212",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#212 心跳文件格式"
@@ -2148,11 +2148,11 @@
             },
             "title": "心跳写入钩子",
             "num": "#213",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "codex · gpt-5.5 · high",
             "runCls": "card-run",
             "label": "#213 心跳写入钩子"
@@ -2167,11 +2167,11 @@
             },
             "title": "回合守卫骨架",
             "num": "#214",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "grok · grok 4.6 · xhigh",
             "runCls": "card-run",
             "label": "#214 回合守卫骨架"
@@ -2186,11 +2186,11 @@
             },
             "title": "Paseo 回合字段读取",
             "num": "#216",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "cursor · grok 4.6 · high",
             "runCls": "card-run",
             "label": "#216 Paseo 回合字段读取"
@@ -2205,11 +2205,11 @@
             },
             "title": "Herdr 状态读取",
             "num": "#217",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "codex · gpt-5.5 · high",
             "runCls": "card-run",
             "label": "#217 Herdr 状态读取"
@@ -2224,11 +2224,11 @@
             },
             "title": "Orca tui-idle 等待",
             "num": "#218",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "claude · sonnet 5 · medium",
             "runCls": "card-run",
             "label": "#218 Orca tui-idle 等待"
@@ -2243,11 +2243,11 @@
             },
             "title": "tmux pane 探活",
             "num": "#219",
-            "step": "working",
+            "phase": "working",
             "pillCls": "pill working",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "grok · grok 4.6 · high",
             "runCls": "card-run",
             "label": "#219 tmux pane 探活"
@@ -2262,11 +2262,11 @@
             },
             "title": "远程 --on 探活",
             "num": "#229",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "grok · grok 4.6 · xhigh",
             "runCls": "card-run",
             "label": "#229 远程 --on 探活"
@@ -2281,11 +2281,11 @@
             },
             "title": "Stop hook 叠挂",
             "num": "#215",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#215 Stop hook 叠挂"
@@ -2300,11 +2300,11 @@
             },
             "title": "判活扫描循环",
             "num": "#220",
-            "step": "working",
+            "phase": "working",
             "pillCls": "pill working",
             "cls": "card on",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#220 判活扫描循环"
@@ -2319,11 +2319,11 @@
             },
             "title": "扫描间隔配置",
             "num": "#223",
-            "step": "review",
+            "phase": "review",
             "pillCls": "pill review",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "codex · gpt-5.5 · medium",
             "runCls": "card-run",
             "label": "#223 扫描间隔配置"
@@ -2338,12 +2338,12 @@
             },
             "title": "陈旧绑定检测",
             "num": "#225",
-            "step": "waiting",
+            "phase": "waiting",
             "pillCls": "pill waiting",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
-            "run": "等槽位 · 07:26 起",
+            "lampCls": "lamp green",
+            "lampWord": "running",
+            "run": "waiting for a slot · since 07:26",
             "runCls": "card-run",
             "label": "#225 陈旧绑定检测"
           },
@@ -2357,11 +2357,11 @@
             },
             "title": "install --check 覆盖叠挂",
             "num": "#228",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card closeout",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "grok · grok 4.6 · high",
             "runCls": "card-run",
             "label": "#228 install --check 覆盖叠挂"
@@ -2376,12 +2376,12 @@
             },
             "title": "worker.lost 写入",
             "num": "#221",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#221 worker.lost 写入"
           },
@@ -2395,12 +2395,12 @@
             },
             "title": "「不知道」与「死了」分开",
             "num": "#222",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#222 「不知道」与「死了」分开"
           },
@@ -2414,12 +2414,12 @@
             },
             "title": "误判回放测试",
             "num": "#224",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#224 误判回放测试"
           },
@@ -2433,12 +2433,12 @@
             },
             "title": "retract 联动",
             "num": "#226",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#226 retract 联动"
           },
@@ -2452,12 +2452,12 @@
             },
             "title": "夜间摘要一行",
             "num": "#227",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#227 夜间摘要一行"
           },
@@ -2471,12 +2471,12 @@
             },
             "title": "判活文档",
             "num": "#230",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#230 判活文档"
           },
@@ -2490,12 +2490,12 @@
             },
             "title": "端到端夜跑",
             "num": "#231",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#231 端到端夜跑"
           }
@@ -2538,12 +2538,12 @@
               "num": "#300 · grilling",
               "cls": "card",
               "titleCls": "card-title map",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "1/6",
               "canExpand": false,
               "chev": "▾",
-              "toggleLabel": "收起 #300",
+              "toggleLabel": "collapse #300",
               "barStyle": {
                 "width": "16.666666666666668%"
               }
@@ -2560,12 +2560,12 @@
               "num": "#301",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "1/6",
               "canExpand": true,
               "chev": "▾",
-              "toggleLabel": "收起 #301",
+              "toggleLabel": "collapse #301",
               "barStyle": {
                 "width": "16.666666666666668%"
               }
@@ -2583,11 +2583,11 @@
               },
               "title": "租约登记表",
               "num": "#302",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -2601,12 +2601,12 @@
               },
               "title": "回收脚本",
               "num": "#303",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -2619,12 +2619,12 @@
               },
               "title": "占用探测",
               "num": "#304",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card cycle",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -2637,12 +2637,12 @@
               },
               "title": "回收日志",
               "num": "#305",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -2655,12 +2655,12 @@
               },
               "title": "回收冲突告警",
               "num": "#307",
-              "step": "working",
+              "phase": "working",
               "pillCls": "pill working",
               "cls": "card",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
-              "run": "已停下 · grok · grok 4.6",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
+              "run": "stopped · grok · grok 4.6",
               "runCls": "card-run flag"
             },
             {
@@ -2673,11 +2673,11 @@
               },
               "title": "lease --check",
               "num": "#306",
-              "step": "working",
+              "phase": "working",
               "pillCls": "pill working",
               "cls": "card on",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "codex · gpt-5.5 · high",
               "runCls": "card-run"
             }
@@ -2782,12 +2782,12 @@
             "num": "#300 · grilling",
             "cls": "card",
             "titleCls": "card-title map",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "1/6",
             "canExpand": false,
             "chev": "▾",
-            "toggleLabel": "收起 #300",
+            "toggleLabel": "collapse #300",
             "barStyle": {
               "width": "16.666666666666668%"
             },
@@ -2805,12 +2805,12 @@
             "num": "#301",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "1/6",
             "canExpand": true,
             "chev": "▾",
-            "toggleLabel": "收起 #301",
+            "toggleLabel": "collapse #301",
             "barStyle": {
               "width": "16.666666666666668%"
             },
@@ -2829,11 +2829,11 @@
             },
             "title": "租约登记表",
             "num": "#302",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#302 租约登记表"
@@ -2848,12 +2848,12 @@
             },
             "title": "回收脚本",
             "num": "#303",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#303 回收脚本"
           },
@@ -2867,12 +2867,12 @@
             },
             "title": "占用探测",
             "num": "#304",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card cycle",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#304 占用探测"
           },
@@ -2886,12 +2886,12 @@
             },
             "title": "回收日志",
             "num": "#305",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#305 回收日志"
           },
@@ -2905,12 +2905,12 @@
             },
             "title": "回收冲突告警",
             "num": "#307",
-            "step": "working",
+            "phase": "working",
             "pillCls": "pill working",
             "cls": "card",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
-            "run": "已停下 · grok · grok 4.6",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
+            "run": "stopped · grok · grok 4.6",
             "runCls": "card-run flag",
             "label": "#307 回收冲突告警"
           },
@@ -2924,11 +2924,11 @@
             },
             "title": "lease --check",
             "num": "#306",
-            "step": "working",
+            "phase": "working",
             "pillCls": "pill working",
             "cls": "card on",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "codex · gpt-5.5 · high",
             "runCls": "card-run",
             "label": "#306 lease --check"
@@ -3006,12 +3006,12 @@
               "num": "#98 · wayfinder",
               "cls": "card",
               "titleCls": "card-title map",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "6/18",
               "canExpand": true,
               "chev": "▾",
-              "toggleLabel": "收起 #98",
+              "toggleLabel": "collapse #98",
               "barStyle": {
                 "width": "33.333333333333336%"
               }
@@ -3028,12 +3028,12 @@
               "num": "#123",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "count": "4/4",
               "canExpand": true,
               "chev": "▸",
-              "toggleLabel": "展开 #123",
+              "toggleLabel": "expand #123",
               "barStyle": {
                 "width": "100%"
               }
@@ -3050,12 +3050,12 @@
               "num": "#131",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "count": "2/10",
               "canExpand": true,
               "chev": "▾",
-              "toggleLabel": "收起 #131",
+              "toggleLabel": "collapse #131",
               "barStyle": {
                 "width": "20%"
               }
@@ -3072,12 +3072,12 @@
               "num": "#140",
               "cls": "card",
               "titleCls": "card-title",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
               "count": "0/4",
               "canExpand": true,
               "chev": "▸",
-              "toggleLabel": "展开 #140",
+              "toggleLabel": "expand #140",
               "barStyle": {
                 "width": "0%"
               }
@@ -3096,7 +3096,7 @@
               "num": "#99",
               "kind": "grilling",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 100,
@@ -3110,7 +3110,7 @@
               "num": "#100",
               "kind": "research",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 104,
@@ -3124,7 +3124,7 @@
               "num": "#104",
               "kind": "prototype",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 105,
@@ -3138,7 +3138,7 @@
               "num": "#105",
               "kind": "grilling",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 106,
@@ -3152,7 +3152,7 @@
               "num": "#106",
               "kind": "task",
               "cls": "card",
-              "lightCls": "light small ink"
+              "lampCls": "lamp small ink"
             },
             {
               "n": 107,
@@ -3166,7 +3166,7 @@
               "num": "#107",
               "kind": "grilling",
               "cls": "card",
-              "lightCls": "light small hollow"
+              "lampCls": "lamp small hollow"
             }
           ],
           "tickets": [
@@ -3180,11 +3180,11 @@
               },
               "title": "中继进程骨架",
               "num": "#132",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -3198,11 +3198,11 @@
               },
               "title": "折叠接入中继",
               "num": "#133",
-              "step": "working",
+              "phase": "working",
               "pillCls": "pill working",
               "cls": "card",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "grok · grok 4.6 · xhigh",
               "runCls": "card-run"
             },
@@ -3216,11 +3216,11 @@
               },
               "title": "唤醒队列持久化",
               "num": "#134",
-              "step": "review",
+              "phase": "review",
               "pillCls": "pill review",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "codex · gpt-5.5 · medium",
               "runCls": "card-run"
             },
@@ -3234,11 +3234,11 @@
               },
               "title": "唤醒日志落盘",
               "num": "#142",
-              "step": "landed",
+              "phase": "landed",
               "pillCls": "pill landed",
               "cls": "card",
-              "lightCls": "light ink",
-              "lightWord": "好了",
+              "lampCls": "lamp ink",
+              "lampWord": "done",
               "run": "codex · gpt 5.6 sol · medium",
               "runCls": "card-run"
             },
@@ -3252,11 +3252,11 @@
               },
               "title": "槽位交还后叫醒",
               "num": "#139",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "claude · opus 5 · high",
               "runCls": "card-run"
             },
@@ -3270,11 +3270,11 @@
               },
               "title": "离线时唤醒去向",
               "num": "#138",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card",
-              "lightCls": "light orange",
-              "lightWord": "需要你",
+              "lampCls": "lamp orange",
+              "lampWord": "needs you",
               "run": "grok · grok 4.6 · high",
               "runCls": "card-run"
             },
@@ -3288,11 +3288,11 @@
               },
               "title": "中继日志轮转",
               "num": "#141",
-              "step": "verify",
+              "phase": "verify",
               "pillCls": "pill verify",
               "cls": "card closeout",
-              "lightCls": "light green",
-              "lightWord": "在跑",
+              "lampCls": "lamp green",
+              "lampWord": "running",
               "run": "claude · sonnet 5 · medium",
               "runCls": "card-run"
             },
@@ -3306,12 +3306,12 @@
               },
               "title": "重试与退避",
               "num": "#136",
-              "step": "waiting",
+              "phase": "waiting",
               "pillCls": "pill waiting",
               "cls": "card",
-              "lightCls": "light green",
-              "lightWord": "在跑",
-              "run": "等槽位 · 07:32 起",
+              "lampCls": "lamp green",
+              "lampWord": "running",
+              "run": "waiting for a slot · since 07:32",
               "runCls": "card-run"
             },
             {
@@ -3324,12 +3324,12 @@
               },
               "title": "投递回执",
               "num": "#135",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             },
             {
@@ -3342,12 +3342,12 @@
               },
               "title": "中继自检命令",
               "num": "#137",
-              "step": "queued",
+              "phase": "queued",
               "pillCls": "pill queued",
               "cls": "card",
-              "lightCls": "light hollow",
-              "lightWord": "待派",
-              "run": "尚未派发",
+              "lampCls": "lamp hollow",
+              "lampWord": "queued",
+              "run": "not dispatched",
               "runCls": "card-run"
             }
           ],
@@ -3535,12 +3535,12 @@
             "num": "#98 · wayfinder",
             "cls": "card",
             "titleCls": "card-title map",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "6/18",
             "canExpand": true,
             "chev": "▾",
-            "toggleLabel": "收起 #98",
+            "toggleLabel": "collapse #98",
             "barStyle": {
               "width": "33.333333333333336%"
             },
@@ -3558,12 +3558,12 @@
             "num": "#123",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "count": "4/4",
             "canExpand": true,
             "chev": "▸",
-            "toggleLabel": "展开 #123",
+            "toggleLabel": "expand #123",
             "barStyle": {
               "width": "100%"
             },
@@ -3581,12 +3581,12 @@
             "num": "#131",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "count": "2/10",
             "canExpand": true,
             "chev": "▾",
-            "toggleLabel": "收起 #131",
+            "toggleLabel": "collapse #131",
             "barStyle": {
               "width": "20%"
             },
@@ -3604,12 +3604,12 @@
             "num": "#140",
             "cls": "card",
             "titleCls": "card-title",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
             "count": "0/4",
             "canExpand": true,
             "chev": "▸",
-            "toggleLabel": "展开 #140",
+            "toggleLabel": "expand #140",
             "barStyle": {
               "width": "0%"
             },
@@ -3629,7 +3629,7 @@
             "num": "#99",
             "kind": "grilling",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#99 事件格式怎么定"
           },
           {
@@ -3644,7 +3644,7 @@
             "num": "#100",
             "kind": "research",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#100 读票用什么"
           },
           {
@@ -3659,7 +3659,7 @@
             "num": "#104",
             "kind": "prototype",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#104 唤醒要不要队列"
           },
           {
@@ -3674,7 +3674,7 @@
             "num": "#105",
             "kind": "grilling",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#105 槽位推到哪一步"
           },
           {
@@ -3689,7 +3689,7 @@
             "num": "#106",
             "kind": "task",
             "cls": "card",
-            "lightCls": "light small ink",
+            "lampCls": "lamp small ink",
             "label": "#106 判活放哪一层"
           },
           {
@@ -3704,7 +3704,7 @@
             "num": "#107",
             "kind": "grilling",
             "cls": "card",
-            "lightCls": "light small hollow",
+            "lampCls": "lamp small hollow",
             "label": "#107 团队版什么时候做"
           }
         ],
@@ -3719,11 +3719,11 @@
             },
             "title": "中继进程骨架",
             "num": "#132",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#132 中继进程骨架"
@@ -3738,11 +3738,11 @@
             },
             "title": "折叠接入中继",
             "num": "#133",
-            "step": "working",
+            "phase": "working",
             "pillCls": "pill working",
             "cls": "card",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "grok · grok 4.6 · xhigh",
             "runCls": "card-run",
             "label": "#133 折叠接入中继"
@@ -3757,11 +3757,11 @@
             },
             "title": "唤醒队列持久化",
             "num": "#134",
-            "step": "review",
+            "phase": "review",
             "pillCls": "pill review",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "codex · gpt-5.5 · medium",
             "runCls": "card-run",
             "label": "#134 唤醒队列持久化"
@@ -3776,11 +3776,11 @@
             },
             "title": "唤醒日志落盘",
             "num": "#142",
-            "step": "landed",
+            "phase": "landed",
             "pillCls": "pill landed",
             "cls": "card",
-            "lightCls": "light ink",
-            "lightWord": "好了",
+            "lampCls": "lamp ink",
+            "lampWord": "done",
             "run": "codex · gpt 5.6 sol · medium",
             "runCls": "card-run",
             "label": "#142 唤醒日志落盘"
@@ -3795,11 +3795,11 @@
             },
             "title": "槽位交还后叫醒",
             "num": "#139",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "claude · opus 5 · high",
             "runCls": "card-run",
             "label": "#139 槽位交还后叫醒"
@@ -3814,11 +3814,11 @@
             },
             "title": "离线时唤醒去向",
             "num": "#138",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card",
-            "lightCls": "light orange",
-            "lightWord": "需要你",
+            "lampCls": "lamp orange",
+            "lampWord": "needs you",
             "run": "grok · grok 4.6 · high",
             "runCls": "card-run",
             "label": "#138 离线时唤醒去向"
@@ -3833,11 +3833,11 @@
             },
             "title": "中继日志轮转",
             "num": "#141",
-            "step": "verify",
+            "phase": "verify",
             "pillCls": "pill verify",
             "cls": "card closeout",
-            "lightCls": "light green",
-            "lightWord": "在跑",
+            "lampCls": "lamp green",
+            "lampWord": "running",
             "run": "claude · sonnet 5 · medium",
             "runCls": "card-run",
             "label": "#141 中继日志轮转"
@@ -3852,12 +3852,12 @@
             },
             "title": "重试与退避",
             "num": "#136",
-            "step": "waiting",
+            "phase": "waiting",
             "pillCls": "pill waiting",
             "cls": "card",
-            "lightCls": "light green",
-            "lightWord": "在跑",
-            "run": "等槽位 · 07:32 起",
+            "lampCls": "lamp green",
+            "lampWord": "running",
+            "run": "waiting for a slot · since 07:32",
             "runCls": "card-run",
             "label": "#136 重试与退避"
           },
@@ -3871,12 +3871,12 @@
             },
             "title": "投递回执",
             "num": "#135",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#135 投递回执"
           },
@@ -3890,12 +3890,12 @@
             },
             "title": "中继自检命令",
             "num": "#137",
-            "step": "queued",
+            "phase": "queued",
             "pillCls": "pill queued",
             "cls": "card",
-            "lightCls": "light hollow",
-            "lightWord": "待派",
-            "run": "尚未派发",
+            "lampCls": "lamp hollow",
+            "lampWord": "queued",
+            "run": "not dispatched",
             "runCls": "card-run",
             "label": "#137 中继自检命令"
           }
@@ -3936,42 +3936,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "折叠接入中继",
-          "lightCls": "light big orange",
-          "statusWord": "需要你",
+          "lampCls": "lamp big orange",
+          "statusWord": "needs you",
           "statusCls": "status-word orange",
-          "elapsed": "已跑 1h02m",
+          "elapsed": "1h02m",
           "pillCls": "pill big working",
-          "step": "working",
-          "hint": "现在在这一步",
+          "phase": "working",
+          "hint": "here now",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step now-working",
+              "cls": "path-phase now-working",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -3997,23 +3997,23 @@
               "v": "herdr · w94b8"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-133 @ 38f8f22"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "wake-relay"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/133-fold-relay"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             }
           ],
@@ -4022,7 +4022,7 @@
             {
               "kind": "worker",
               "what": "grok · grok 4.6 · xhigh",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             }
           ],
@@ -4031,10 +4031,10 @@
               "n": 132,
               "known": true,
               "num": "#132",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "中继进程骨架",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -4044,10 +4044,10 @@
               "n": 135,
               "known": true,
               "num": "#135",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "投递回执",
               "where": "",
-              "state": "待派",
+              "state": "queued",
               "stateCls": "rel-state"
             }
           ],
@@ -4059,31 +4059,31 @@
               "num": "#150",
               "kind": "contract",
               "title": "spec 没写队列为空时中继读什么",
-              "to": "等你",
+              "to": "needs you",
               "toCls": "kid-to orange",
               "goto": null,
               "hasGoto": false,
-              "lightCls": "light orange"
+              "lampCls": "lamp orange"
             },
             {
               "num": "#151",
               "kind": "decision",
               "title": "唤醒要不要跨过已暂停的 spec",
-              "to": "等你",
+              "to": "needs you",
               "toCls": "kid-to orange",
               "goto": null,
               "hasGoto": false,
-              "lightCls": "light orange"
+              "lampCls": "lamp orange"
             },
             {
               "num": "#152",
               "kind": "deferred",
               "title": "status.py 的表头还是旧词",
-              "to": "留给以后的票",
+              "to": "deferred",
               "toCls": "kid-to",
               "goto": null,
               "hasGoto": false,
-              "lightCls": "light hollow"
+              "lampCls": "lamp hollow"
             }
           ],
           "eventCount": "5 条评论",
@@ -4095,7 +4095,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w94b8 · cheuk-mbp",
               "line": "worker started on herdr: session w94b8, grok grok 4.6 (xhigh)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:38",
@@ -4103,7 +4103,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #133 on issue-133 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:51",
@@ -4111,7 +4111,7 @@
               "nameCls": "ev-name orange",
               "field": "kind=contract #150",
               "line": "Opened #150 (contract): spec 没写队列为空时中继读什么",
-              "dotCls": "light orange ev-dot"
+              "dotCls": "lamp orange ev-dot"
             },
             {
               "time": "07:10",
@@ -4119,7 +4119,7 @@
               "nameCls": "ev-name",
               "field": "kind=deferred #152",
               "line": "Opened #152 (deferred): status.py 的表头还是旧词",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:31",
@@ -4127,7 +4127,7 @@
               "nameCls": "ev-name orange",
               "field": "kind=decision #151",
               "line": "Opened #151 (decision): 唤醒要不要跨过已暂停的 spec",
-              "dotCls": "light orange ev-dot"
+              "dotCls": "lamp orange ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #133 ↗",
@@ -4153,10 +4153,10 @@
             "n": 132,
             "known": true,
             "num": "#132",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "中继进程骨架",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -4166,10 +4166,10 @@
             "n": 135,
             "known": true,
             "num": "#135",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "投递回执",
             "where": "",
-            "state": "待派",
+            "state": "queued",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -4182,33 +4182,33 @@
             "num": "#150",
             "kind": "contract",
             "title": "spec 没写队列为空时中继读什么",
-            "to": "等你",
+            "to": "needs you",
             "toCls": "kid-to orange",
             "goto": null,
             "hasGoto": false,
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "noGoto": true
           },
           {
             "num": "#151",
             "kind": "decision",
             "title": "唤醒要不要跨过已暂停的 spec",
-            "to": "等你",
+            "to": "needs you",
             "toCls": "kid-to orange",
             "goto": null,
             "hasGoto": false,
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "noGoto": true
           },
           {
             "num": "#152",
             "kind": "deferred",
             "title": "status.py 的表头还是旧词",
-            "to": "留给以后的票",
+            "to": "deferred",
             "toCls": "kid-to",
             "goto": null,
             "hasGoto": false,
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "noGoto": true
           }
         ]
@@ -4248,42 +4248,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "判活扫描循环",
-          "lightCls": "light big orange",
-          "statusWord": "需要你",
+          "lampCls": "lamp big orange",
+          "statusWord": "needs you",
           "statusCls": "status-word orange",
-          "elapsed": "已跑 3h34m",
+          "elapsed": "3h34m",
           "pillCls": "pill big working",
-          "step": "working",
-          "hint": "现在在这一步",
+          "phase": "working",
+          "hint": "here now",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step now-working",
+              "cls": "path-phase now-working",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -4305,23 +4305,23 @@
               "v": "herdr · w2ce4"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-220 @ 0af724c"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "main"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/220-work"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             }
           ],
@@ -4330,7 +4330,7 @@
             {
               "kind": "worker",
               "what": "claude · opus 5 · high",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             }
           ],
@@ -4339,20 +4339,20 @@
               "n": 213,
               "known": true,
               "num": "#213",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "心跳写入钩子",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             },
             {
               "n": 214,
               "known": true,
               "num": "#214",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "回合守卫骨架",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -4362,10 +4362,10 @@
               "n": 221,
               "known": true,
               "num": "#221",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "worker.lost 写入",
               "where": "",
-              "state": "待派",
+              "state": "queued",
               "stateCls": "rel-state"
             }
           ],
@@ -4377,11 +4377,11 @@
               "num": "#241",
               "kind": "decision",
               "title": "扫描发现心跳停了 5 分钟，算死还是算不知道",
-              "to": "等你",
+              "to": "needs you",
               "toCls": "kid-to orange",
               "goto": null,
               "hasGoto": false,
-              "lightCls": "light orange"
+              "lampCls": "lamp orange"
             }
           ],
           "eventCount": "3 条评论",
@@ -4393,7 +4393,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w2ce4 · cheuk-mbp",
               "line": "worker started on herdr: session w2ce4, claude opus 5 (high)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "04:06",
@@ -4401,7 +4401,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #220 on issue-220 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:47",
@@ -4409,7 +4409,7 @@
               "nameCls": "ev-name orange",
               "field": "kind=decision #241",
               "line": "Opened #241 (decision): 扫描发现心跳停了 5 分钟，算死还是算不知道",
-              "dotCls": "light orange ev-dot"
+              "dotCls": "lamp orange ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #220 ↗",
@@ -4435,10 +4435,10 @@
             "n": 213,
             "known": true,
             "num": "#213",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "心跳写入钩子",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -4446,10 +4446,10 @@
             "n": 214,
             "known": true,
             "num": "#214",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "回合守卫骨架",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -4459,10 +4459,10 @@
             "n": 221,
             "known": true,
             "num": "#221",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "worker.lost 写入",
             "where": "",
-            "state": "待派",
+            "state": "queued",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -4475,11 +4475,11 @@
             "num": "#241",
             "kind": "decision",
             "title": "扫描发现心跳停了 5 分钟，算死还是算不知道",
-            "to": "等你",
+            "to": "needs you",
             "toCls": "kid-to orange",
             "goto": null,
             "hasGoto": false,
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "noGoto": true
           }
         ]
@@ -4519,42 +4519,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "lease --check",
-          "lightCls": "light big green",
-          "statusWord": "在跑",
+          "lampCls": "lamp big green",
+          "statusWord": "running",
           "statusCls": "status-word green",
-          "elapsed": "已跑 1h41m",
+          "elapsed": "1h41m",
           "pillCls": "pill big working",
-          "step": "working",
-          "hint": "现在在这一步",
+          "phase": "working",
+          "hint": "here now",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step now-working",
+              "cls": "path-phase now-working",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -4571,23 +4571,23 @@
               "v": "herdr · wb263"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-306 @ 1a9eeff"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "main"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/306-work"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             }
           ],
@@ -4596,7 +4596,7 @@
             {
               "kind": "worker",
               "what": "codex · gpt-5.5 · high",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             }
           ],
@@ -4605,10 +4605,10 @@
               "n": 302,
               "known": true,
               "num": "#302",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "租约登记表",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -4627,7 +4627,7 @@
               "nameCls": "ev-name",
               "field": "herdr · wb263 · cheuk-mbp",
               "line": "worker started on herdr: session wb263, codex gpt-5.5 (high)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "05:59",
@@ -4635,7 +4635,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #306 on issue-306 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #306 ↗",
@@ -4661,10 +4661,10 @@
             "n": 302,
             "known": true,
             "num": "#302",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "租约登记表",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -4743,42 +4743,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "离线时唤醒去向",
-          "lightCls": "light big orange",
-          "statusWord": "需要你",
+          "lampCls": "lamp big orange",
+          "statusWord": "needs you",
           "statusCls": "status-word orange",
-          "elapsed": "跑了 48 分钟 后交回",
+          "elapsed": "48m",
           "pillCls": "pill big verify",
-          "step": "verify",
-          "hint": "停在这一步",
+          "phase": "verify",
+          "hint": "stopped here",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step now-verify",
+              "cls": "path-phase now-verify",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -4800,23 +4800,23 @@
               "v": "herdr · we7c5"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-138 @ 3d82cd1"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "wake-relay"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/138-work"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             }
           ],
@@ -4825,19 +4825,19 @@
             {
               "kind": "worker",
               "what": "grok · grok 4.6 · high",
-              "state": "已交回",
+              "state": "handed back",
               "stateCls": "session-state"
             },
             {
               "kind": "reviewer",
               "what": "codex · gpt-5.5 · medium",
-              "state": "已交评审",
+              "state": "review posted",
               "stateCls": "session-state"
             },
             {
               "kind": "verifier",
               "what": "claude · sonnet 5 · medium",
-              "state": "复验没过",
+              "state": "verifier failed",
               "stateCls": "session-state"
             }
           ],
@@ -4846,10 +4846,10 @@
               "n": 132,
               "known": true,
               "num": "#132",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "中继进程骨架",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -4868,7 +4868,7 @@
               "nameCls": "ev-name",
               "field": "herdr · we7c5 · cheuk-mbp",
               "line": "worker started on herdr: session we7c5, grok grok 4.6 (high)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:38",
@@ -4876,7 +4876,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #138 on issue-138 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:58",
@@ -4884,7 +4884,7 @@
               "nameCls": "ev-name",
               "field": "run=self result=handoff slot=1",
               "line": "Own run on 47e282b29080: HANDOFF REQUIRED: AC3 stuck",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:00",
@@ -4892,7 +4892,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w709a · cheuk-mbp",
               "line": "reviewer started on herdr: session w709a, codex gpt-5.5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:14",
@@ -4900,7 +4900,7 @@
               "nameCls": "ev-name",
               "field": "3d82cd1..47e282b",
               "line": "REVIEW 3d82cd10637f3d66d0a93d3d072bb2d245fd4089..47e282b2908040aafb0c4f5601876073ea90929a",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "07:16",
@@ -4908,7 +4908,7 @@
               "nameCls": "ev-name",
               "field": "",
               "line": "DECISIONS",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:18",
@@ -4916,7 +4916,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w72bf · cheuk-mbp",
               "line": "verifier started on herdr: session w72bf, claude sonnet 5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:22",
@@ -4924,7 +4924,7 @@
               "nameCls": "ev-name",
               "field": "run=reverify result=handoff",
               "line": "Reverify on 47e282b29080: HANDOFF REQUIRED: AC3 stuck",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:24",
@@ -4932,7 +4932,7 @@
               "nameCls": "ev-name",
               "field": "commit=47e282b",
               "line": "VERDICT 47e282b2908040aafb0c4f5601876073ea90929a by sonnet 5 — AC3 abandoned (stuck); the rest met on HEAD",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:26",
@@ -4940,7 +4940,7 @@
               "nameCls": "ev-name orange",
               "field": "AC3=stuck",
               "line": "HANDOFF REQUIRED: AC3 stuck",
-              "dotCls": "light orange ev-dot"
+              "dotCls": "lamp orange ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #138 ↗",
@@ -4966,10 +4966,10 @@
             "n": 132,
             "known": true,
             "num": "#132",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "中继进程骨架",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -5015,42 +5015,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "槽位交还后叫醒",
-          "lightCls": "light big orange",
-          "statusWord": "需要你",
+          "lampCls": "lamp big orange",
+          "statusWord": "needs you",
           "statusCls": "status-word orange",
-          "elapsed": "跑了 51 分钟 后合不进去",
+          "elapsed": "51m",
           "pillCls": "pill big verify",
-          "step": "verify",
-          "hint": "停在这一步",
+          "phase": "verify",
+          "hint": "stopped here",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step now-verify",
+              "cls": "path-phase now-verify",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -5072,23 +5072,23 @@
               "v": "herdr · w0871"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-139 @ 524c928"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "wake-relay"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/139-work"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             }
           ],
@@ -5097,19 +5097,19 @@
             {
               "kind": "worker",
               "what": "claude · opus 5 · high",
-              "state": "合不进去",
+              "state": "bounced",
               "stateCls": "session-state"
             },
             {
               "kind": "reviewer",
               "what": "codex · gpt-5.5 · medium",
-              "state": "已交评审",
+              "state": "review posted",
               "stateCls": "session-state"
             },
             {
               "kind": "verifier",
               "what": "claude · sonnet 5 · medium",
-              "state": "复验通过",
+              "state": "verifier passed",
               "stateCls": "session-state"
             }
           ],
@@ -5118,10 +5118,10 @@
               "n": 132,
               "known": true,
               "num": "#132",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "中继进程骨架",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -5140,7 +5140,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w0871 · cheuk-mbp",
               "line": "worker started on herdr: session w0871, claude opus 5 (high)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:38",
@@ -5148,7 +5148,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #139 on issue-139 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:00",
@@ -5156,7 +5156,7 @@
               "nameCls": "ev-name",
               "field": "run=self result=met slot=2",
               "line": "Own run on 51159e38b9e6: ALL MET",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:02",
@@ -5164,7 +5164,7 @@
               "nameCls": "ev-name",
               "field": "herdr · wb28e · cheuk-mbp",
               "line": "reviewer started on herdr: session wb28e, codex gpt-5.5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:15",
@@ -5172,7 +5172,7 @@
               "nameCls": "ev-name",
               "field": "524c928..51159e3",
               "line": "REVIEW 524c928981e6cb134fe1dfd637f1e19ed8543de5..51159e38b9e618fbd0ba0a5150f98362d4db163a",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "07:17",
@@ -5180,7 +5180,7 @@
               "nameCls": "ev-name",
               "field": "",
               "line": "DECISIONS",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:18",
@@ -5188,7 +5188,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w2f09 · cheuk-mbp",
               "line": "verifier started on herdr: session w2f09, claude sonnet 5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:24",
@@ -5196,7 +5196,7 @@
               "nameCls": "ev-name",
               "field": "run=reverify result=met",
               "line": "Reverify on 51159e38b9e6: ALL MET",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:26",
@@ -5204,7 +5204,7 @@
               "nameCls": "ev-name",
               "field": "commit=51159e3",
               "line": "VERDICT 51159e38b9e618fbd0ba0a5150f98362d4db163a by sonnet 5 — every criterion met on HEAD",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "07:27",
@@ -5212,7 +5212,7 @@
               "nameCls": "ev-name",
               "field": "run=repo-checks result=met",
               "line": "Repository checks on 51159e38b9e6: 3/3 passed",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:28",
@@ -5220,7 +5220,7 @@
               "nameCls": "ev-name",
               "field": "commit=51159e3",
               "line": "ALL MET",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "07:29",
@@ -5228,7 +5228,7 @@
               "nameCls": "ev-name orange",
               "field": "reason=conflict onto=f3bebc0",
               "line": "Did not land issue-139 into wake-relay: 2 files conflict",
-              "dotCls": "light orange ev-dot"
+              "dotCls": "lamp orange ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #139 ↗",
@@ -5254,10 +5254,10 @@
             "n": 132,
             "known": true,
             "num": "#132",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "中继进程骨架",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -5303,42 +5303,42 @@
           "closeoutFromLabel": "#132",
           "closeoutChild": "的 finding #147",
           "title": "中继日志轮转",
-          "lightCls": "light big green",
-          "statusWord": "在跑",
+          "lampCls": "lamp big green",
+          "statusWord": "running",
           "statusCls": "status-word green",
-          "elapsed": "已跑 1h02m",
+          "elapsed": "1h02m",
           "pillCls": "pill big verify",
-          "step": "verify",
-          "hint": "现在在这一步",
+          "phase": "verify",
+          "hint": "here now",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step now-verify",
+              "cls": "path-phase now-verify",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -5355,28 +5355,28 @@
               "v": "orca · term_5666"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-141 @ ae0a1c6"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "wake-relay"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/141-work"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             },
             {
-              "k": "槽位",
-              "v": "1 号，持有到这张票落地、交回或合不进去"
+              "k": "slot",
+              "v": "1, held until this ticket lands, is handed back or bounces"
             }
           ],
           "manySessions": true,
@@ -5384,19 +5384,19 @@
             {
               "kind": "worker",
               "what": "cursor · composer 2.5 · —",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             },
             {
               "kind": "reviewer",
               "what": "codex · gpt-5.5 · medium",
-              "state": "已交评审",
+              "state": "review posted",
               "stateCls": "session-state"
             },
             {
               "kind": "verifier",
               "what": "claude · sonnet 5 · medium",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             }
           ],
@@ -5405,10 +5405,10 @@
               "n": 132,
               "known": true,
               "num": "#132",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "中继进程骨架",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -5427,7 +5427,7 @@
               "nameCls": "ev-name",
               "field": "orca · term_5666 · cheuk-mbp",
               "line": "worker started on orca: session term_5666, cursor composer 2.5 (—)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:38",
@@ -5435,7 +5435,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #141 on issue-141 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:02",
@@ -5443,7 +5443,7 @@
               "nameCls": "ev-name",
               "field": "run=self result=met slot=1",
               "line": "Own run on d1fc16755a5e: ALL MET",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:04",
@@ -5451,7 +5451,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w4a5a · cheuk-mbp",
               "line": "reviewer started on herdr: session w4a5a, codex gpt-5.5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:24",
@@ -5459,7 +5459,7 @@
               "nameCls": "ev-name",
               "field": "ae0a1c6..d1fc167",
               "line": "REVIEW ae0a1c6e5d86efc074539319b3f5dd21c2b71880..d1fc16755a5e6b6a258774dbcb2b75aa9bd77183",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "07:28",
@@ -5467,7 +5467,7 @@
               "nameCls": "ev-name",
               "field": "",
               "line": "DECISIONS",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:32",
@@ -5475,7 +5475,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w13b1 · cheuk-mbp",
               "line": "verifier started on herdr: session w13b1, claude sonnet 5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #141 ↗",
@@ -5501,10 +5501,10 @@
             "n": 132,
             "known": true,
             "num": "#132",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "中继进程骨架",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -5550,42 +5550,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "重试与退避",
-          "lightCls": "light big green",
-          "statusWord": "在跑",
+          "lampCls": "lamp big green",
+          "statusWord": "running",
           "statusCls": "status-word green",
-          "elapsed": "已跑 1h02m",
+          "elapsed": "1h02m",
           "pillCls": "pill big waiting",
-          "step": "waiting",
-          "hint": "现在在这一步",
+          "phase": "waiting",
+          "hint": "here now",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step now-waiting",
+              "cls": "path-phase now-waiting",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -5602,28 +5602,28 @@
               "v": "herdr · wa0be"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-136 @ 3893a19"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "wake-relay"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/136-work"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             },
             {
-              "k": "槽位",
-              "v": "07:32 起排队：本产品的实例都占着（上限 2）。到下一条 ticket.checked 为止，其中含等中继叫醒与跑判据的时间"
+              "k": "slot",
+              "v": "07:32 : every instance of the product is held (max 2). Until the next ticket.checked, the relay's wake and the criteria run included"
             }
           ],
           "manySessions": false,
@@ -5631,7 +5631,7 @@
             {
               "kind": "worker",
               "what": "claude · opus 5 · high",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             }
           ],
@@ -5640,10 +5640,10 @@
               "n": 132,
               "known": true,
               "num": "#132",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "中继进程骨架",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -5662,7 +5662,7 @@
               "nameCls": "ev-name",
               "field": "herdr · wa0be · cheuk-mbp",
               "line": "worker started on herdr: session wa0be, claude opus 5 (high)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:38",
@@ -5670,7 +5670,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #136 on issue-136 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:32",
@@ -5678,7 +5678,7 @@
               "nameCls": "ev-name",
               "field": "reason=product-full run=self",
               "line": "Waiting for a product slot: this product's instance.max (2) is held",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #136 ↗",
@@ -5704,10 +5704,10 @@
             "n": 132,
             "known": true,
             "num": "#132",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "中继进程骨架",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -5753,42 +5753,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "唤醒队列持久化",
-          "lightCls": "light big green",
-          "statusWord": "在跑",
+          "lampCls": "lamp big green",
+          "statusWord": "running",
           "statusCls": "status-word green",
-          "elapsed": "已跑 1h02m",
+          "elapsed": "1h02m",
           "pillCls": "pill big review",
-          "step": "review",
-          "hint": "现在在这一步",
+          "phase": "review",
+          "hint": "here now",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step now-review",
+              "cls": "path-phase now-review",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -5805,28 +5805,28 @@
               "v": "herdr · w5d14"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-134 @ a581acf"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "wake-relay"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/134-work"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             },
             {
-              "k": "槽位",
-              "v": "2 号，持有到这张票落地、交回或合不进去"
+              "k": "slot",
+              "v": "2, held until this ticket lands, is handed back or bounces"
             }
           ],
           "manySessions": true,
@@ -5834,13 +5834,13 @@
             {
               "kind": "worker",
               "what": "codex · gpt-5.5 · high",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             },
             {
               "kind": "reviewer",
               "what": "codex · gpt-5.5 · medium",
-              "state": "在跑",
+              "state": "live",
               "stateCls": "session-state live"
             }
           ],
@@ -5849,10 +5849,10 @@
               "n": 132,
               "known": true,
               "num": "#132",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "中继进程骨架",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -5862,10 +5862,10 @@
               "n": 135,
               "known": true,
               "num": "#135",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "投递回执",
               "where": "",
-              "state": "待派",
+              "state": "queued",
               "stateCls": "rel-state"
             }
           ],
@@ -5882,7 +5882,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w5d14 · cheuk-mbp",
               "line": "worker started on herdr: session w5d14, codex gpt-5.5 (high)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:38",
@@ -5890,7 +5890,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #134 on issue-134 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "07:18",
@@ -5898,7 +5898,7 @@
               "nameCls": "ev-name",
               "field": "run=self result=met slot=2",
               "line": "Own run on b04d79f94420: ALL MET",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "07:22",
@@ -5906,7 +5906,7 @@
               "nameCls": "ev-name",
               "field": "herdr · we7e3 · cheuk-mbp",
               "line": "reviewer started on herdr: session we7e3, codex gpt-5.5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #134 ↗",
@@ -5932,10 +5932,10 @@
             "n": 132,
             "known": true,
             "num": "#132",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "中继进程骨架",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -5945,10 +5945,10 @@
             "n": 135,
             "known": true,
             "num": "#135",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "投递回执",
             "where": "",
-            "state": "待派",
+            "state": "queued",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -5993,42 +5993,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "投递回执",
-          "lightCls": "light big hollow",
-          "statusWord": "待派",
+          "lampCls": "lamp big hollow",
+          "statusWord": "queued",
           "statusCls": "status-word hollow",
           "elapsed": "",
           "pillCls": "pill big queued",
-          "step": "queued",
-          "hint": "还没开始",
+          "phase": "queued",
+          "hint": "not started",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step now-queued",
+              "cls": "path-phase now-queued",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -6043,20 +6043,20 @@
               "n": 133,
               "known": true,
               "num": "#133",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "折叠接入中继",
               "where": "",
-              "state": "未合入",
+              "state": "not landed",
               "stateCls": "rel-state open"
             },
             {
               "n": 134,
               "known": true,
               "num": "#134",
-              "lightCls": "light green",
+              "lampCls": "lamp green",
               "title": "唤醒队列持久化",
               "where": "",
-              "state": "未合入",
+              "state": "not landed",
               "stateCls": "rel-state open"
             }
           ],
@@ -6066,10 +6066,10 @@
               "n": 137,
               "known": true,
               "num": "#137",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "中继自检命令",
               "where": "",
-              "state": "待派",
+              "state": "queued",
               "stateCls": "rel-state"
             }
           ],
@@ -6103,10 +6103,10 @@
             "n": 133,
             "known": true,
             "num": "#133",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "折叠接入中继",
             "where": "",
-            "state": "未合入",
+            "state": "not landed",
             "stateCls": "rel-state open",
             "unknown": false
           },
@@ -6114,10 +6114,10 @@
             "n": 134,
             "known": true,
             "num": "#134",
-            "lightCls": "light green",
+            "lampCls": "lamp green",
             "title": "唤醒队列持久化",
             "where": "",
-            "state": "未合入",
+            "state": "not landed",
             "stateCls": "rel-state open",
             "unknown": false
           }
@@ -6127,10 +6127,10 @@
             "n": 137,
             "known": true,
             "num": "#137",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "中继自检命令",
             "where": "",
-            "state": "待派",
+            "state": "queued",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -6175,42 +6175,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "中继进程骨架",
-          "lightCls": "light big ink",
-          "statusWord": "好了",
+          "lampCls": "lamp big ink",
+          "statusWord": "done",
           "statusCls": "status-word ink",
-          "elapsed": "用时 2h06m",
+          "elapsed": "2h06m",
           "pillCls": "pill big landed",
-          "step": "landed",
-          "hint": "走完了",
+          "phase": "landed",
+          "hint": "done",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step now-landed",
+              "cls": "path-phase now-landed",
               "sep": false
             }
           ],
@@ -6227,23 +6227,23 @@
               "v": "herdr · wc257"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-132 @ 44aaf05"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "wake-relay"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/132-relay-skeleton"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             }
           ],
@@ -6252,19 +6252,19 @@
             {
               "kind": "worker",
               "what": "claude · opus 5 · high",
-              "state": "已结束",
+              "state": "ended",
               "stateCls": "session-state"
             },
             {
               "kind": "reviewer",
               "what": "codex · gpt-5.5 · medium",
-              "state": "已交评审",
+              "state": "review posted",
               "stateCls": "session-state"
             },
             {
               "kind": "verifier",
               "what": "claude · sonnet 5 · medium",
-              "state": "复验通过",
+              "state": "verifier passed",
               "stateCls": "session-state"
             }
           ],
@@ -6275,70 +6275,70 @@
               "n": 133,
               "known": true,
               "num": "#133",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "折叠接入中继",
               "where": "",
-              "state": "需要你",
+              "state": "needs you",
               "stateCls": "rel-state"
             },
             {
               "n": 134,
               "known": true,
               "num": "#134",
-              "lightCls": "light green",
+              "lampCls": "lamp green",
               "title": "唤醒队列持久化",
               "where": "",
-              "state": "在跑",
+              "state": "running",
               "stateCls": "rel-state"
             },
             {
               "n": 142,
               "known": true,
               "num": "#142",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "唤醒日志落盘",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             },
             {
               "n": 139,
               "known": true,
               "num": "#139",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "槽位交还后叫醒",
               "where": "",
-              "state": "需要你",
+              "state": "needs you",
               "stateCls": "rel-state"
             },
             {
               "n": 138,
               "known": true,
               "num": "#138",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "离线时唤醒去向",
               "where": "",
-              "state": "需要你",
+              "state": "needs you",
               "stateCls": "rel-state"
             },
             {
               "n": 141,
               "known": true,
               "num": "#141",
-              "lightCls": "light green",
+              "lampCls": "lamp green",
               "title": "中继日志轮转",
               "where": "",
-              "state": "在跑",
+              "state": "running",
               "stateCls": "rel-state"
             },
             {
               "n": 136,
               "known": true,
               "num": "#136",
-              "lightCls": "light green",
+              "lampCls": "lamp green",
               "title": "重试与退避",
               "where": "",
-              "state": "在跑",
+              "state": "running",
               "stateCls": "rel-state"
             }
           ],
@@ -6350,21 +6350,21 @@
               "num": "#147",
               "kind": "finding",
               "title": "中继日志不轮转，一夜能写满磁盘",
-              "to": "变成了 #141",
+              "to": "became #141",
               "toCls": "kid-to",
               "goto": 141,
               "hasGoto": true,
-              "lightCls": "light ink"
+              "lampCls": "lamp ink"
             },
             {
               "num": "#148",
               "kind": "deferred",
               "title": "status 表头少一列 runner",
-              "to": "已修",
+              "to": "fixed",
               "toCls": "kid-to",
               "goto": null,
               "hasGoto": false,
-              "lightCls": "light ink"
+              "lampCls": "lamp ink"
             }
           ],
           "eventCount": "16 条评论",
@@ -6376,7 +6376,7 @@
               "nameCls": "ev-name",
               "field": "herdr · wc257 · cheuk-mbp",
               "line": "worker started on herdr: session wc257, claude opus 5 (high)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "04:30",
@@ -6384,7 +6384,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #132 on issue-132 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "05:05",
@@ -6392,7 +6392,7 @@
               "nameCls": "ev-name",
               "field": "kind=deferred #148",
               "line": "Opened #148 (deferred): status 表头少一列 runner",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "05:18",
@@ -6400,7 +6400,7 @@
               "nameCls": "ev-name",
               "field": "run=self result=met slot=1",
               "line": "Own run on d1aa5a2a1955: ALL MET",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "05:20",
@@ -6408,7 +6408,7 @@
               "nameCls": "ev-name",
               "field": "herdr · wada4 · cheuk-mbp",
               "line": "reviewer started on herdr: session wada4, codex gpt-5.5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "05:48",
@@ -6416,7 +6416,7 @@
               "nameCls": "ev-name",
               "field": "44aaf05..d1aa5a2",
               "line": "REVIEW 44aaf05df78c69da95e8b522dbaef7b22b5260dd..d1aa5a2a1955154cb7b1e656f89738daff02fe3e",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "05:50",
@@ -6424,7 +6424,7 @@
               "nameCls": "ev-name",
               "field": "kind=finding #147",
               "line": "Opened #147 (finding): 中继日志不轮转，一夜能写满磁盘",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "05:52",
@@ -6432,7 +6432,7 @@
               "nameCls": "ev-name",
               "field": "",
               "line": "DECISIONS",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "05:55",
@@ -6440,7 +6440,7 @@
               "nameCls": "ev-name",
               "field": "herdr · wf7c9 · cheuk-mbp",
               "line": "verifier started on herdr: session wf7c9, claude sonnet 5 (medium)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:10",
@@ -6448,7 +6448,7 @@
               "nameCls": "ev-name",
               "field": "run=reverify result=met",
               "line": "Reverify on d1aa5a2a1955: ALL MET",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "06:15",
@@ -6456,7 +6456,7 @@
               "nameCls": "ev-name",
               "field": "commit=d1aa5a2",
               "line": "VERDICT d1aa5a2a1955154cb7b1e656f89738daff02fe3e by sonnet 5 — every criterion met on HEAD",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "06:18",
@@ -6464,7 +6464,7 @@
               "nameCls": "ev-name",
               "field": "run=repo-checks result=met",
               "line": "Repository checks on d1aa5a2a1955: 3/3 passed",
-              "dotCls": "light hollow ev-dot"
+              "dotCls": "lamp hollow ev-dot"
             },
             {
               "time": "06:20",
@@ -6472,7 +6472,7 @@
               "nameCls": "ev-name",
               "field": "commit=d1aa5a2",
               "line": "ALL MET",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "06:36",
@@ -6480,7 +6480,7 @@
               "nameCls": "ev-name",
               "field": "#148 → fixed",
               "line": "Fixed #148 on the closing pass",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "06:36",
@@ -6488,7 +6488,7 @@
               "nameCls": "ev-name",
               "field": "#147 → became-ticket #141",
               "line": "#147 became ticket #141 under #131",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             },
             {
               "time": "06:36",
@@ -6496,7 +6496,7 @@
               "nameCls": "ev-name",
               "field": "commit=d1aa5a2",
               "line": "Landed issue-132 into wake-relay",
-              "dotCls": "light ink ev-dot"
+              "dotCls": "lamp ink ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #132 ↗",
@@ -6523,10 +6523,10 @@
             "n": 133,
             "known": true,
             "num": "#133",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "折叠接入中继",
             "where": "",
-            "state": "需要你",
+            "state": "needs you",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -6534,10 +6534,10 @@
             "n": 134,
             "known": true,
             "num": "#134",
-            "lightCls": "light green",
+            "lampCls": "lamp green",
             "title": "唤醒队列持久化",
             "where": "",
-            "state": "在跑",
+            "state": "running",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -6545,10 +6545,10 @@
             "n": 142,
             "known": true,
             "num": "#142",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "唤醒日志落盘",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -6556,10 +6556,10 @@
             "n": 139,
             "known": true,
             "num": "#139",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "槽位交还后叫醒",
             "where": "",
-            "state": "需要你",
+            "state": "needs you",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -6567,10 +6567,10 @@
             "n": 138,
             "known": true,
             "num": "#138",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "离线时唤醒去向",
             "where": "",
-            "state": "需要你",
+            "state": "needs you",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -6578,10 +6578,10 @@
             "n": 141,
             "known": true,
             "num": "#141",
-            "lightCls": "light green",
+            "lampCls": "lamp green",
             "title": "中继日志轮转",
             "where": "",
-            "state": "在跑",
+            "state": "running",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -6589,10 +6589,10 @@
             "n": 136,
             "known": true,
             "num": "#136",
-            "lightCls": "light green",
+            "lampCls": "lamp green",
             "title": "重试与退避",
             "where": "",
-            "state": "在跑",
+            "state": "running",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -6605,22 +6605,22 @@
             "num": "#147",
             "kind": "finding",
             "title": "中继日志不轮转，一夜能写满磁盘",
-            "to": "变成了 #141",
+            "to": "became #141",
             "toCls": "kid-to",
             "goto": 141,
             "hasGoto": true,
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "noGoto": false
           },
           {
             "num": "#148",
             "kind": "deferred",
             "title": "status 表头少一列 runner",
-            "to": "已修",
+            "to": "fixed",
             "toCls": "kid-to",
             "goto": null,
             "hasGoto": false,
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "noGoto": true
           }
         ]
@@ -6660,42 +6660,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "回收冲突告警",
-          "lightCls": "light big orange",
-          "statusWord": "需要你",
+          "lampCls": "lamp big orange",
+          "statusWord": "needs you",
           "statusCls": "status-word orange",
-          "elapsed": "已跑 1h41m",
+          "elapsed": "1h41m",
           "pillCls": "pill big working",
-          "step": "working",
-          "hint": "停在这一步",
+          "phase": "working",
+          "hint": "stopped here",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step done",
+              "cls": "path-phase done",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step now-working",
+              "cls": "path-phase now-working",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -6717,23 +6717,23 @@
               "v": "herdr · w04d8"
             },
             {
-              "k": "机器",
+              "k": "machine",
               "v": "cheuk-mbp"
             },
             {
-              "k": "分支",
+              "k": "ticket branch",
               "v": "issue-307 @ e415162"
             },
             {
-              "k": "合进",
+              "k": "base branch",
               "v": "main"
             },
             {
-              "k": "工作树",
+              "k": "worktree",
               "v": "…/.worktrees/307-reclaim-alert"
             },
             {
-              "k": "档位",
+              "k": "worker grade",
               "v": "senior-worker"
             }
           ],
@@ -6742,7 +6742,7 @@
             {
               "kind": "worker",
               "what": "grok · grok 4.6 · xhigh",
-              "state": "开了 fault 后停下",
+              "state": "stopped on a fault",
               "stateCls": "session-state"
             }
           ],
@@ -6751,10 +6751,10 @@
               "n": 302,
               "known": true,
               "num": "#302",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "租约登记表",
               "where": "",
-              "state": "已合入",
+              "state": "landed",
               "stateCls": "rel-state"
             }
           ],
@@ -6768,11 +6768,11 @@
               "num": "#310",
               "kind": "fault",
               "title": "verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了",
-              "to": "等你",
+              "to": "needs you",
               "toCls": "kid-to orange",
               "goto": null,
               "hasGoto": false,
-              "lightCls": "light orange"
+              "lampCls": "lamp orange"
             }
           ],
           "eventCount": "3 条评论",
@@ -6784,7 +6784,7 @@
               "nameCls": "ev-name",
               "field": "herdr · w04d8 · cheuk-mbp",
               "line": "worker started on herdr: session w04d8, grok grok 4.6 (xhigh)",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "05:59",
@@ -6792,7 +6792,7 @@
               "nameCls": "ev-name",
               "field": "login=chancheuklap",
               "line": "Claimed #307 on issue-307 as chancheuklap",
-              "dotCls": "light green ev-dot"
+              "dotCls": "lamp green ev-dot"
             },
             {
               "time": "06:34",
@@ -6800,7 +6800,7 @@
               "nameCls": "ev-name orange",
               "field": "kind=fault #310",
               "line": "Opened #310 (fault): verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了",
-              "dotCls": "light orange ev-dot"
+              "dotCls": "lamp orange ev-dot"
             }
           ],
           "ghLabel": "在 GitHub 打开 #307 ↗",
@@ -6826,10 +6826,10 @@
             "n": 302,
             "known": true,
             "num": "#302",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "租约登记表",
             "where": "",
-            "state": "已合入",
+            "state": "landed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -6843,11 +6843,11 @@
             "num": "#310",
             "kind": "fault",
             "title": "verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了",
-            "to": "等你",
+            "to": "needs you",
             "toCls": "kid-to orange",
             "goto": null,
             "hasGoto": false,
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "noGoto": true
           }
         ]
@@ -6887,42 +6887,42 @@
           "closeoutFromLabel": "",
           "closeoutChild": "",
           "title": "回收日志",
-          "lightCls": "light big hollow",
-          "statusWord": "待派",
+          "lampCls": "lamp big hollow",
+          "statusWord": "queued",
           "statusCls": "status-word hollow",
           "elapsed": "",
           "pillCls": "pill big queued",
-          "step": "queued",
-          "hint": "还没开始",
+          "phase": "queued",
+          "hint": "not started",
           "path": [
             {
               "name": "queued",
-              "cls": "path-step now-queued",
+              "cls": "path-phase now-queued",
               "sep": true
             },
             {
               "name": "working",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "waiting",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "review",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "verify",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": true
             },
             {
               "name": "landed",
-              "cls": "path-step",
+              "cls": "path-phase",
               "sep": false
             }
           ],
@@ -6937,10 +6937,10 @@
               "n": 399,
               "known": false,
               "num": "#399",
-              "lightCls": "light none",
+              "lampCls": "lamp none",
               "title": "不在这棵树里，读不到它的状态",
               "where": "",
-              "state": "未知",
+              "state": "unknown",
               "stateCls": "rel-state open"
             }
           ],
@@ -6976,10 +6976,10 @@
             "n": 399,
             "known": false,
             "num": "#399",
-            "lightCls": "light none",
+            "lampCls": "lamp none",
             "title": "不在这棵树里，读不到它的状态",
             "where": "",
-            "state": "未知",
+            "state": "unknown",
             "stateCls": "rel-state open",
             "unknown": true
           }
@@ -7019,35 +7019,35 @@
             }
           ],
           "title": "唤醒回路",
-          "lightCls": "light big orange",
-          "statusWord": "需要你",
+          "lampCls": "lamp big orange",
+          "statusWord": "needs you",
           "statusCls": "status-word orange",
-          "elapsed": "2/10 落地",
-          "listTitle": "它的 ticket",
+          "elapsed": "2/10 landed",
+          "listTitle": "Its tickets",
           "listCount": 10,
-          "lights": [
+          "lamps": [
             {
-              "cls": "light orange",
-              "word": "需要你",
+              "cls": "lamp orange",
+              "word": "needs you",
               "n": 3
             },
             {
-              "cls": "light green",
-              "word": "在跑",
+              "cls": "lamp green",
+              "word": "running",
               "n": 3
             },
             {
-              "cls": "light hollow",
-              "word": "待派",
+              "cls": "lamp hollow",
+              "word": "queued",
               "n": 2
             },
             {
-              "cls": "light ink",
-              "word": "好了",
+              "cls": "lamp ink",
+              "word": "done",
               "n": 2
             }
           ],
-          "steps": [
+          "phases": [
             {
               "cls": "pill queued",
               "label": "queued · 2"
@@ -7082,82 +7082,82 @@
             {
               "n": 132,
               "num": "#132",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "中继进程骨架",
               "pillCls": "pill landed",
-              "step": "landed"
+              "phase": "landed"
             },
             {
               "n": 133,
               "num": "#133",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "折叠接入中继",
               "pillCls": "pill working",
-              "step": "working"
+              "phase": "working"
             },
             {
               "n": 134,
               "num": "#134",
-              "lightCls": "light green",
+              "lampCls": "lamp green",
               "title": "唤醒队列持久化",
               "pillCls": "pill review",
-              "step": "review"
+              "phase": "review"
             },
             {
               "n": 142,
               "num": "#142",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "唤醒日志落盘",
               "pillCls": "pill landed",
-              "step": "landed"
+              "phase": "landed"
             },
             {
               "n": 139,
               "num": "#139",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "槽位交还后叫醒",
               "pillCls": "pill verify",
-              "step": "verify"
+              "phase": "verify"
             },
             {
               "n": 138,
               "num": "#138",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "离线时唤醒去向",
               "pillCls": "pill verify",
-              "step": "verify"
+              "phase": "verify"
             },
             {
               "n": 141,
               "num": "#141",
-              "lightCls": "light green",
+              "lampCls": "lamp green",
               "title": "中继日志轮转",
               "pillCls": "pill verify",
-              "step": "verify"
+              "phase": "verify"
             },
             {
               "n": 136,
               "num": "#136",
-              "lightCls": "light green",
+              "lampCls": "lamp green",
               "title": "重试与退避",
               "pillCls": "pill waiting",
-              "step": "waiting"
+              "phase": "waiting"
             },
             {
               "n": 135,
               "num": "#135",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "投递回执",
               "pillCls": "pill queued",
-              "step": "queued"
+              "phase": "queued"
             },
             {
               "n": 137,
               "num": "#137",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "中继自检命令",
               "pillCls": "pill queued",
-              "step": "queued"
+              "phase": "queued"
             }
           ],
           "ghLabel": "在 GitHub 打开 #131 ↗",
@@ -7180,91 +7180,91 @@
           {
             "n": 132,
             "num": "#132",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "中继进程骨架",
             "pillCls": "pill landed",
-            "step": "landed",
+            "phase": "landed",
             "unknown": false
           },
           {
             "n": 133,
             "num": "#133",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "折叠接入中继",
             "pillCls": "pill working",
-            "step": "working",
+            "phase": "working",
             "unknown": false
           },
           {
             "n": 134,
             "num": "#134",
-            "lightCls": "light green",
+            "lampCls": "lamp green",
             "title": "唤醒队列持久化",
             "pillCls": "pill review",
-            "step": "review",
+            "phase": "review",
             "unknown": false
           },
           {
             "n": 142,
             "num": "#142",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "唤醒日志落盘",
             "pillCls": "pill landed",
-            "step": "landed",
+            "phase": "landed",
             "unknown": false
           },
           {
             "n": 139,
             "num": "#139",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "槽位交还后叫醒",
             "pillCls": "pill verify",
-            "step": "verify",
+            "phase": "verify",
             "unknown": false
           },
           {
             "n": 138,
             "num": "#138",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "离线时唤醒去向",
             "pillCls": "pill verify",
-            "step": "verify",
+            "phase": "verify",
             "unknown": false
           },
           {
             "n": 141,
             "num": "#141",
-            "lightCls": "light green",
+            "lampCls": "lamp green",
             "title": "中继日志轮转",
             "pillCls": "pill verify",
-            "step": "verify",
+            "phase": "verify",
             "unknown": false
           },
           {
             "n": 136,
             "num": "#136",
-            "lightCls": "light green",
+            "lampCls": "lamp green",
             "title": "重试与退避",
             "pillCls": "pill waiting",
-            "step": "waiting",
+            "phase": "waiting",
             "unknown": false
           },
           {
             "n": 135,
             "num": "#135",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "投递回执",
             "pillCls": "pill queued",
-            "step": "queued",
+            "phase": "queued",
             "unknown": false
           },
           {
             "n": 137,
             "num": "#137",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "中继自检命令",
             "pillCls": "pill queued",
-            "step": "queued",
+            "phase": "queued",
             "unknown": false
           }
         ],
@@ -7292,39 +7292,39 @@
           "isContainer": true,
           "isMap": true,
           "isSpec": false,
-          "eyebrow": "Map · 任务",
+          "eyebrow": "The Night",
           "num": "#98 · wayfinder",
           "links": [],
           "title": "落地流水线改造",
-          "lightCls": "light big orange",
-          "statusWord": "需要你",
+          "lampCls": "lamp big orange",
+          "statusWord": "needs you",
           "statusCls": "status-word orange",
-          "elapsed": "6/18 落地",
-          "listTitle": "全部 ticket",
+          "elapsed": "6/18 landed",
+          "listTitle": "All tickets",
           "listCount": 18,
-          "lights": [
+          "lamps": [
             {
-              "cls": "light orange",
-              "word": "需要你",
+              "cls": "lamp orange",
+              "word": "needs you",
               "n": 3
             },
             {
-              "cls": "light green",
-              "word": "在跑",
+              "cls": "lamp green",
+              "word": "running",
               "n": 3
             },
             {
-              "cls": "light hollow",
-              "word": "待派",
+              "cls": "lamp hollow",
+              "word": "queued",
               "n": 6
             },
             {
-              "cls": "light ink",
-              "word": "好了",
+              "cls": "lamp ink",
+              "word": "done",
               "n": 6
             }
           ],
-          "steps": [
+          "phases": [
             {
               "cls": "pill queued",
               "label": "queued · 6"
@@ -7355,7 +7355,7 @@
               "n": 123,
               "known": true,
               "num": "#123",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "事件评论格式",
               "where": "",
               "state": "4/4",
@@ -7365,7 +7365,7 @@
               "n": 131,
               "known": true,
               "num": "#131",
-              "lightCls": "light orange",
+              "lampCls": "lamp orange",
               "title": "唤醒回路",
               "where": "",
               "state": "2/10",
@@ -7375,7 +7375,7 @@
               "n": 140,
               "known": true,
               "num": "#140",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "判活三层",
               "where": "",
               "state": "0/4",
@@ -7390,60 +7390,60 @@
               "n": 99,
               "known": true,
               "num": "#99",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "事件格式怎么定",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             },
             {
               "n": 100,
               "known": true,
               "num": "#100",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "读票用什么",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             },
             {
               "n": 104,
               "known": true,
               "num": "#104",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "唤醒要不要队列",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             },
             {
               "n": 105,
               "known": true,
               "num": "#105",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "槽位推到哪一步",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             },
             {
               "n": 106,
               "known": true,
               "num": "#106",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "判活放哪一层",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             },
             {
               "n": 107,
               "known": true,
               "num": "#107",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "团队版什么时候做",
               "where": "",
-              "state": "开着",
+              "state": "open",
               "stateCls": "rel-state"
             }
           ],
@@ -7465,7 +7465,7 @@
             "n": 123,
             "known": true,
             "num": "#123",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "事件评论格式",
             "where": "",
             "state": "4/4",
@@ -7476,7 +7476,7 @@
             "n": 131,
             "known": true,
             "num": "#131",
-            "lightCls": "light orange",
+            "lampCls": "lamp orange",
             "title": "唤醒回路",
             "where": "",
             "state": "2/10",
@@ -7487,7 +7487,7 @@
             "n": 140,
             "known": true,
             "num": "#140",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "判活三层",
             "where": "",
             "state": "0/4",
@@ -7500,10 +7500,10 @@
             "n": 99,
             "known": true,
             "num": "#99",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "事件格式怎么定",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -7511,10 +7511,10 @@
             "n": 100,
             "known": true,
             "num": "#100",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "读票用什么",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -7522,10 +7522,10 @@
             "n": 104,
             "known": true,
             "num": "#104",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "唤醒要不要队列",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -7533,10 +7533,10 @@
             "n": 105,
             "known": true,
             "num": "#105",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "槽位推到哪一步",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -7544,10 +7544,10 @@
             "n": 106,
             "known": true,
             "num": "#106",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "判活放哪一层",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -7555,10 +7555,10 @@
             "n": 107,
             "known": true,
             "num": "#107",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "团队版什么时候做",
             "where": "",
-            "state": "开着",
+            "state": "open",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -7583,7 +7583,7 @@
         "toast": "",
         "d": {
           "isDecision": true,
-          "eyebrow": "决策票 · grilling",
+          "eyebrow": "Decision ticket · grilling",
           "num": "#105",
           "links": [
             {
@@ -7592,28 +7592,28 @@
             }
           ],
           "title": "槽位推到哪一步",
-          "lightCls": "light big ink",
-          "statusWord": "已定",
+          "lampCls": "lamp big ink",
+          "statusWord": "settled",
           "statusCls": "status-word ink",
           "blockers": [
             {
               "n": 100,
               "known": true,
               "num": "#100",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "读票用什么",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             },
             {
               "n": 104,
               "known": true,
               "num": "#104",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "唤醒要不要队列",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             }
           ],
@@ -7623,20 +7623,20 @@
               "n": 106,
               "known": true,
               "num": "#106",
-              "lightCls": "light ink",
+              "lampCls": "lamp ink",
               "title": "判活放哪一层",
               "where": "",
-              "state": "已关闭",
+              "state": "closed",
               "stateCls": "rel-state"
             },
             {
               "n": 107,
               "known": true,
               "num": "#107",
-              "lightCls": "light hollow",
+              "lampCls": "lamp hollow",
               "title": "团队版什么时候做",
               "where": "",
-              "state": "开着",
+              "state": "open",
               "stateCls": "rel-state"
             }
           ],
@@ -7660,10 +7660,10 @@
             "n": 100,
             "known": true,
             "num": "#100",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "读票用什么",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -7671,10 +7671,10 @@
             "n": 104,
             "known": true,
             "num": "#104",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "唤醒要不要队列",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -7684,10 +7684,10 @@
             "n": 106,
             "known": true,
             "num": "#106",
-            "lightCls": "light ink",
+            "lampCls": "lamp ink",
             "title": "判活放哪一层",
             "where": "",
-            "state": "已关闭",
+            "state": "closed",
             "stateCls": "rel-state",
             "unknown": false
           },
@@ -7695,10 +7695,10 @@
             "n": 107,
             "known": true,
             "num": "#107",
-            "lightCls": "light hollow",
+            "lampCls": "lamp hollow",
             "title": "团队版什么时候做",
             "where": "",
-            "state": "开着",
+            "state": "open",
             "stateCls": "rel-state",
             "unknown": false
           }
@@ -7830,7 +7830,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -7920,7 +7920,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -8034,7 +8034,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -8142,7 +8142,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -8432,7 +8432,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -8522,7 +8522,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -8636,7 +8636,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -8744,7 +8744,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -9049,7 +9049,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -9119,7 +9119,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -9233,7 +9233,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -9341,7 +9341,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -9631,7 +9631,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -9701,7 +9701,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -9815,7 +9815,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -9923,7 +9923,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -10228,7 +10228,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -10318,7 +10318,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -10432,7 +10432,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -10534,7 +10534,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -10798,7 +10798,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -10888,7 +10888,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -11002,7 +11002,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -11104,7 +11104,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -11383,7 +11383,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -11453,7 +11453,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -11523,7 +11523,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -11593,7 +11593,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -11807,7 +11807,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -11877,7 +11877,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -11947,7 +11947,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -12017,7 +12017,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -12246,7 +12246,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -12336,7 +12336,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -12450,7 +12450,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -12558,7 +12558,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -12848,7 +12848,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -12938,7 +12938,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -13052,7 +13052,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -13160,7 +13160,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -13465,7 +13465,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -13555,7 +13555,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -13663,7 +13663,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -13771,7 +13771,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -14061,7 +14061,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -14151,7 +14151,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -14259,7 +14259,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -14367,7 +14367,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -14672,7 +14672,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -14762,7 +14762,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "claude",
               "model": "",
               "effort": "",
@@ -14856,7 +14856,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -14964,7 +14964,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -15254,7 +15254,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -15344,7 +15344,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "claude",
             "model": "",
             "effort": "",
@@ -15438,7 +15438,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -15546,7 +15546,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -15851,7 +15851,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -15941,7 +15941,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -16055,7 +16055,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -16163,7 +16163,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -16453,7 +16453,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -16543,7 +16543,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -16657,7 +16657,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -16765,7 +16765,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -17070,7 +17070,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -17160,7 +17160,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -17274,7 +17274,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -17382,7 +17382,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "high",
@@ -17672,7 +17672,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -17762,7 +17762,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -17876,7 +17876,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -17984,7 +17984,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "high",
@@ -18289,7 +18289,7 @@
           "rows": [
             {
               "agent": "junior-worker",
-              "what": "贴 junior-worker label 的票",
+              "what": "贴 junior-worker label 的 ticket",
               "host": "grok",
               "model": "grok 4.6",
               "effort": "high",
@@ -18379,7 +18379,7 @@
             },
             {
               "agent": "senior-worker",
-              "what": "贴 senior-worker label 的票",
+              "what": "贴 senior-worker label 的 ticket",
               "host": "codex",
               "model": "gpt 5.6 sol",
               "effort": "high",
@@ -18493,7 +18493,7 @@
             },
             {
               "agent": "reviewer",
-              "what": "评审每张票的改动",
+              "what": "review 每张 ticket 的改动",
               "host": "claude",
               "model": "opus 5",
               "effort": "high",
@@ -18601,7 +18601,7 @@
             },
             {
               "agent": "verifier",
-              "what": "复验每张票的判据",
+              "what": "reverify 每张 ticket 的 acceptance criteria",
               "host": "claude",
               "model": "sonnet 5",
               "effort": "max",
@@ -18891,7 +18891,7 @@
         "rows": [
           {
             "agent": "junior-worker",
-            "what": "贴 junior-worker label 的票",
+            "what": "贴 junior-worker label 的 ticket",
             "host": "grok",
             "model": "grok 4.6",
             "effort": "high",
@@ -18981,7 +18981,7 @@
           },
           {
             "agent": "senior-worker",
-            "what": "贴 senior-worker label 的票",
+            "what": "贴 senior-worker label 的 ticket",
             "host": "codex",
             "model": "gpt 5.6 sol",
             "effort": "high",
@@ -19095,7 +19095,7 @@
           },
           {
             "agent": "reviewer",
-            "what": "评审每张票的改动",
+            "what": "review 每张 ticket 的改动",
             "host": "claude",
             "model": "opus 5",
             "effort": "high",
@@ -19203,7 +19203,7 @@
           },
           {
             "agent": "verifier",
-            "what": "复验每张票的判据",
+            "what": "reverify 每张 ticket 的 acceptance criteria",
             "host": "claude",
             "model": "sonnet 5",
             "effort": "max",

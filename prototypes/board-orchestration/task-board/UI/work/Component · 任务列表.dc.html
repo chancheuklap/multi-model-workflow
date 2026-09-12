@@ -21,12 +21,12 @@
           .sc-host { height: 100%; }
         </style>
       </helmet>
-      <nav class="tasks board" data-screen-label="任务" aria-label="任务">
-        <div class="col-eyebrow"><span>任务</span><span>{{ v.count }}</span></div>
-        <sc-if value="{{ v.empty }}" hint-placeholder-val="{{ false }}"><p class="tasks-empty">没有带 mmw:map label 的票。</p></sc-if>
+      <nav class="tasks board" data-screen-label="任务" aria-label="The Night">
+        <div class="col-eyebrow"><span>The Night</span><span>{{ v.count }}</span></div>
+        <sc-if value="{{ v.empty }}" hint-placeholder-val="{{ false }}"><p class="tasks-empty">没有带 mmw:map label 的 ticket。</p></sc-if>
         <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
           <button type="button" class="{{ r.cls }}" onClick="{{ r.pick }}">
-            <span class="{{ r.lightCls }}" title="{{ r.lightWord }}"></span><span class="task-meta">{{ r.meta }}</span>
+            <span class="{{ r.lampCls }}" title="{{ r.lampWord }}"></span><span class="task-meta">{{ r.meta }}</span>
             <span class="{{ r.titleCls }}">{{ r.title }}</span>
             <span class="task-progress"><span class="bar"><span class="bar-fill" style="{{ r.barStyle }}"></span></span><span class="task-count">{{ r.count }}</span></span>
           </button>
@@ -103,7 +103,7 @@
           return {
             toast: this.state.toast, v,
             rows: v.rows.map(r => Object.assign({}, r, {
-              pick: () => { this.setState({ task: r.n }); this.emit("onSelectTask", r.n, "→ 画布换成任务 #" + r.n); },
+              pick: () => { this.setState({ task: r.n }); this.emit("onSelectTask", r.n, "→ 画布换成 The Night #" + r.n); },
             })),
           };
         }

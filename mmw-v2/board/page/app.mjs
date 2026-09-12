@@ -11,7 +11,7 @@ function nextOrange(tasks, current) {
   const list = [];
   for (const task of tasks) {
     for (const ticket of Board.allTickets(task)) {
-      if (Board.light(ticket) === "orange") list.push({task: task.n, node: ticket.n});
+      if (Board.lamp(ticket) === "orange") list.push({task: task.n, node: ticket.n});
     }
   }
   if (!list.length) return null;

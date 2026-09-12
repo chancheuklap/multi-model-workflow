@@ -18,10 +18,10 @@ export const CATALOG = {
 export const LocalConfig = {
   CELLS: ["host", "model", "effort"],
   ROLE_WHAT: {
-    "junior-worker": "贴 junior-worker label 的票",
-    "senior-worker": "贴 senior-worker label 的票",
-    reviewer: "评审每张票的改动",
-    verifier: "复验每张票的判据",
+    "junior-worker": "贴 junior-worker label 的 ticket",
+    "senior-worker": "贴 senior-worker label 的 ticket",
+    reviewer: "review 每张 ticket 的改动",
+    verifier: "reverify 每张 ticket 的 acceptance criteria",
     advisor: "被问到时给第二意见",
   },
   source: d => (d.runner === "paseo" ? "paseo" : "cli"),
@@ -50,7 +50,7 @@ export const LocalConfig = {
   problems(scan, d, catalog = CATALOG) {
     const L = LocalConfig, out = [];
     if (d.runner !== "auto" && !catalog.runners.includes(d.runner)) {
-      out.push({key: "runner", cell: "runner", text: `${d.runner} 没有适配器，start 起不了会话`});
+      out.push({key: "runner", cell: "runner", text: `${d.runner} 没有适配器，start 起不了 session`});
     }
     for (const a of catalog.agents) {
       const r = d.rows[a];

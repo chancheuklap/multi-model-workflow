@@ -1,22 +1,29 @@
 import {hhmm, minutes} from "./shared.mjs";
 
-export const STEPS = ["queued", "working", "waiting", "review", "verify", "landed"];
-export const LIGHT_WORD = {orange: "需要你", green: "在跑", ink: "好了", hollow: "待派"};
+// The two axes a ticket is read on, both defined in `docs/contexts/task-board/CONTEXT.md`:
+// the phase is where the ticket stands inside itself, the lamp is what it wants from the
+// outside. A ticket can be `working` and still want nothing, or `landed` and still need a
+// person, so neither word can be read off the other.
+export const PHASES = ["queued", "working", "waiting", "review", "verify", "landed"];
+export const LAMP_WORD = {orange: "needs you", green: "running", ink: "done", hollow: "queued"};
 const NEEDS_YOU_KIND = {
   decision: "只有你能拍板；worker 先按默认值继续",
   fault: "MMW 自己坏了，开它的 agent 已停下",
   contract: "spec 本身不成立，要回到写 spec 的人",
 };
 const NEEDS_YOU = new Set(Object.keys(NEEDS_YOU_KIND));
-const QUEUE_REASON = {"product-full": "本产品的实例都占着", "machine-full": "这台机器的槽位都占着"};
+const QUEUE_REASON = {"product-full": "every instance of the product is held",
+  "machine-full": "every slot on this machine is held"};
 const ENDED_BY = {
-  "reviewer.reported": "已交评审", "verifier.passed": "复验通过", "verifier.failed": "复验没过",
-  "ticket.landed": "已结束", "ticket.returned": "已交回", "ticket.bounced": "合不进去",
-  "ticket.released": "认领已退", "spec.suspended": "这一夜暂停了", "worker.retracted": "已撤回",
-  "worker.replaced": "已换人", "ticket.refused": "拒绝认领", "worker.lost": "会话没了",
-  "reviewer.lost": "会话没了", "verifier.lost": "会话没了",
+  "reviewer.reported": "review posted", "verifier.passed": "verifier passed",
+  "verifier.failed": "verifier failed", "ticket.landed": "landed",
+  "ticket.returned": "handed back", "ticket.bounced": "bounced",
+  "ticket.released": "claim released", "spec.suspended": "night suspended",
+  "worker.retracted": "retracted", "worker.replaced": "replaced",
+  "ticket.refused": "preflight refused", "worker.lost": "session lost",
+  "reviewer.lost": "session lost", "verifier.lost": "session lost",
 };
-const duration = value => value < 60 ? `${value} 分钟` : `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}m`;
+const duration = value => value < 60 ? `${value}m` : `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}m`;
 const short = value => String(value || "").slice(0, 7);
 const workerStartedAfter = (fold, at) => fold.sessions.some(session =>
   session.kind === "worker" && session.started_at > at);
@@ -73,7 +80,7 @@ export const Board = {
     return Boolean(ticket.fold.landed) || this.released(ticket);
   },
 
-  step(ticket) {
+  phase(ticket) {
     const fold = ticket.fold;
     if (this.done(ticket)) return "landed";
     const live = fold.sessions.filter(session => session.live);
@@ -115,14 +122,14 @@ export const Board = {
     return reasons;
   },
 
-  light(ticket) {
+  lamp(ticket) {
     if (this.why(ticket).length) return "orange";
     if (this.running(ticket)) return "green";
     if (this.done(ticket)) return "ink";
     return "hollow";
   },
 
-  eventLight(event) {
+  eventLamp(event) {
     if (event.event === "child.opened" && NEEDS_YOU.has(event.payload?.kind)) return "orange";
     if (event.event === "ticket.returned" || event.event === "ticket.bounced") return "orange";
     if (/\.started$|^worker\.resumed$|^ticket\.claimed$/.test(event.event)) return "green";
@@ -153,15 +160,16 @@ export const Board = {
   runLine(ticket) {
     const live = ticket.fold.sessions.filter(session => session.live);
     if (!ticket.fold.sessions.length) {
-      // Finished with no session at all: it was taken through outside the pipeline, so
-      // there is no runner to name and "尚未派发" would read as work still to come.
-      if (this.done(ticket)) return {text: "没派发过就关了"};
-      return {text: ticket.fold.claim_hold || ticket.fold.held ? "已认领 · 待派发" : "尚未派发"};
+      // Finished with no session at all: it was taken through by hand, so there is no
+      // runner to name and "not dispatched" would read as work still to come.
+      if (this.done(ticket)) return {text: "closed, never dispatched"};
+      return {text: ticket.fold.claim_hold || ticket.fold.held
+        ? "claimed · no session yet" : "not dispatched"};
     }
     const since = this.waitingSince(ticket);
-    if (since) return {text: `等槽位 · ${hhmm(since)} 起`};
+    if (since) return {text: `waiting for a slot · since ${hhmm(since)}`};
     const session = live.length ? live[live.length - 1] : ticket.fold.worker;
-    if (live.length && this.stoppedByFault(ticket)) return {text: `已停下 · ${session.host} · ${session.model}`, flag: true};
+    if (live.length && this.stoppedByFault(ticket)) return {text: `stopped · ${session.host} · ${session.model}`, flag: true};
     return {text: `${session.host} · ${session.model} · ${session.effort}`};
   },
 
@@ -171,43 +179,46 @@ export const Board = {
     if (!workerSession) return [];
     const rows = [
       ["host", `${workerSession.host} · ${workerSession.model} · ${workerSession.effort}`],
-      ["runner", `${workerSession.runner} · ${workerSession.session}`], ["机器", workerSession.machine],
-      ["分支", `${workerSession.branch} @ ${short(workerSession.base)}`],
-      ...(workerSession.into ? [["合进", workerSession.into]] : []),
-      ["工作树", `…/.worktrees/${String(workerSession.worktree).split("/.worktrees/")[1]}`], ["档位", workerSession.grade],
+      ["runner", `${workerSession.runner} · ${workerSession.session}`],
+      ["machine", workerSession.machine],
+      ["ticket branch", `${workerSession.branch} @ ${short(workerSession.base)}`],
+      ...(workerSession.into ? [["base branch", workerSession.into]] : []),
+      ["worktree", `…/.worktrees/${String(workerSession.worktree).split("/.worktrees/")[1]}`],
+      ["worker grade", workerSession.grade],
     ];
     const since = this.waitingSince(ticket);
     if (since) {
       const queued = fold.waiting.payload;
-      rows.push(["槽位", `${hhmm(since)} 起排队：${QUEUE_REASON[queued.reason]}（上限 ${queued.limit}）。到下一条 ticket.checked 为止，其中含等中继叫醒与跑判据的时间`]);
-    } else if (fold.slot != null) rows.push(["槽位", `${fold.slot} 号，持有到这张票落地、交回或合不进去`]);
+      rows.push(["slot", `queueing since ${hhmm(since)}: ${QUEUE_REASON[queued.reason]} (max ${queued.limit}). Until the next ticket.checked, the relay's wake and the criteria run included`]);
+    } else if (fold.slot != null) rows.push(["slot", `${fold.slot}, held until this ticket lands, is handed back or bounces`]);
     return rows;
   },
 
   sessionState(session, ticket) {
-    return !session.live ? (ENDED_BY[session.ended_by] || "已结束") : this.stoppedByFault(ticket) ? "开了 fault 后停下" : "在跑";
+    return !session.live ? (ENDED_BY[session.ended_by] || "ended")
+      : this.stoppedByFault(ticket) ? "stopped on a fault" : "live";
   },
 
   elapsed(ticket) {
     const first = ticket.fold.sessions[0]?.started_at;
     if (!first) return "";
     const landed = ticket.events.find(event => event.event === "ticket.landed");
-    if (ticket.fold.landed && landed) return `用时 ${duration(minutes(first, landed.at))}`;
-    if (this.handedBack(ticket)) return `跑了 ${duration(minutes(first, ticket.fold.outcome.at))} 后交回`;
+    if (ticket.fold.landed && landed) return duration(minutes(first, landed.at));
+    if (this.handedBack(ticket)) return duration(minutes(first, ticket.fold.outcome.at));
     const bounce = this.bounce(ticket);
-    if (bounce) return `跑了 ${duration(minutes(first, bounce.at))} 后合不进去`;
-    return `已跑 ${duration(minutes(first))}`;
+    if (bounce) return duration(minutes(first, bounce.at));
+    return duration(minutes(first));
   },
 
   aggregate(tickets) {
-    const lights = tickets.map(ticket => this.light(ticket));
-    if (lights.includes("orange")) return "orange";
-    if (lights.includes("green")) return "green";
-    if (lights.length && lights.every(light => light === "ink")) return "ink";
+    const lamps = tickets.map(ticket => this.lamp(ticket));
+    if (lamps.includes("orange")) return "orange";
+    if (lamps.includes("green")) return "green";
+    if (lamps.length && lamps.every(lamp => lamp === "ink")) return "ink";
     return "hollow";
   },
 
-  decisionLight(decision) {
+  decisionLamp(decision) {
     return String(decision.state).toLowerCase() === "closed" ? "ink" : "hollow";
   },
 
@@ -365,7 +376,7 @@ export const Board = {
       if (result.graph.cyclic.size) {
         const first = placed.get([...result.graph.cyclic][0]);
         labels.push({x: first.x, y: top - 18,
-          text: `阻塞成环 · ${[...result.graph.cyclic].map(number => `#${number}`).join(" ⇄ ")} · 排不出先后`, warn: true});
+          text: `blocking cycle · ${[...result.graph.cyclic].map(number => `#${number}`).join(" ⇄ ")}`, warn: true});
       }
       return result.height;
     };
@@ -392,13 +403,13 @@ export const Board = {
     let mapBand = geometry.containerHeight;
     if (task.decisions.length && expanded.has(task.n)) {
       labels.push({x: geometry.firstIssueX, y: y - 18,
-        text: `这次讨论自己的票 · ${task.decisions.length} 张`});
+        text: `decision tickets · ${task.decisions.length}`});
       mapBand = Math.max(geometry.containerHeight,
         place(task.decisions, "decision", geometry.decisionWidth, geometry.decisionHeight,
           y, task.n, y + geometry.containerHeight / 2));
     }
     y += mapBand + 48;
-    labels.push({x: geometry.specX, y: y - 18, text: `讨论产出的 spec · ${task.specs.length} 个`});
+    labels.push({x: geometry.specX, y: y - 18, text: `spec · ${task.specs.length}`});
     let lastMiddle = y;
     for (const spec of task.specs) {
       const specNode = {id: spec.n, type: "spec", ref: spec, x: geometry.specX, y,
@@ -424,8 +435,8 @@ export const Board = {
 export function defaultExpanded(task) {
   const expanded = new Set([task.n]);
   for (const spec of task.specs) {
-    const light = Board.aggregate(spec.tickets);
-    if (light === "orange" || light === "green") expanded.add(spec.n);
+    const lamp = Board.aggregate(spec.tickets);
+    if (lamp === "orange" || lamp === "green") expanded.add(spec.n);
   }
   return expanded;
 }

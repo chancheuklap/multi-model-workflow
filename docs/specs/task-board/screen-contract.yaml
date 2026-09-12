@@ -140,7 +140,7 @@ rows:
   # jumps to the next orange ticket after the selected one, opens its spec, selects it (the name embeds the count; one row per count the handoff shows)
   - id: topbar.jump-need-you-3
     component: "顶栏"
-    trigger: {role: button, name: "需要你 3"}
+    trigger: {role: button, name: "needs you 3"}
     precondition: {orange_tickets: "some"}
     scenes: ["任务板.morning", "顶栏.morning"]
     calls: ["none"]
@@ -151,7 +151,7 @@ rows:
   # jumps to the next orange ticket after the selected one, opens its spec, selects it (the name embeds the count; one row per count the handoff shows)
   - id: topbar.jump-need-you-2
     component: "顶栏"
-    trigger: {role: button, name: "需要你 2"}
+    trigger: {role: button, name: "needs you 2"}
     precondition: {orange_tickets: "some"}
     scenes: ["任务板.twenty-tickets", "顶栏.twenty-tickets"]
     calls: ["none"]
@@ -162,7 +162,7 @@ rows:
   # jumps to the next orange ticket after the selected one, opens its spec, selects it (the name embeds the count; one row per count the handoff shows)
   - id: topbar.jump-need-you-1
     component: "顶栏"
-    trigger: {role: button, name: "需要你 1"}
+    trigger: {role: button, name: "needs you 1"}
     precondition: {orange_tickets: "some"}
     scenes: ["任务板.bad-data", "顶栏.bad-data"]
     calls: ["none"]
@@ -173,7 +173,7 @@ rows:
   # disabled: no ticket has an orange lamp, so there is nothing to jump to
   - id: topbar.need-you-none
     component: "顶栏"
-    trigger: {role: button, name: "需要你 0"}
+    trigger: {role: button, name: "needs you 0"}
     precondition: {orange_tickets: "none"}
     scenes: ["任务板.empty", "顶栏.empty"]
     calls: ["none"]
@@ -219,8 +219,8 @@ rows:
   # puts this task's tree on the canvas; nothing is fetched
   - id: tasks.pick-77
     component: "任务列表"
-    trigger: {role: button, name: "好了 #77 · grilling 交接包比对 3/3 落地"}
-    precondition: {lamp: "好了"}
+    trigger: {role: button, name: "done #77 · grilling 交接包比对 3/3 landed"}
+    precondition: {lamp: "done"}
     scenes: ["任务板.morning", "任务列表.morning"]
     calls: ["none"]
     shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
@@ -230,8 +230,8 @@ rows:
   # puts this task's tree on the canvas; nothing is fetched
   - id: tasks.pick-101
     component: "任务列表"
-    trigger: {role: button, name: "待派 #101 · grilling 子 issue 五种改名 0/3 落地"}
-    precondition: {lamp: "待派"}
+    trigger: {role: button, name: "queued #101 · grilling 子 issue 五种改名 0/3 landed"}
+    precondition: {lamp: "queued"}
     scenes: ["任务板.morning", "任务列表.morning"]
     calls: ["none"]
     shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
@@ -241,8 +241,8 @@ rows:
   # puts this task's tree on the canvas; nothing is fetched
   - id: tasks.pick-210
     component: "任务列表"
-    trigger: {role: button, name: "需要你 #210 · wayfinder 判活三层落地 7/20 落地"}
-    precondition: {lamp: "需要你"}
+    trigger: {role: button, name: "needs you #210 · wayfinder 判活三层落地 7/20 landed"}
+    precondition: {lamp: "needs you"}
     scenes: ["任务板.twenty-tickets", "任务列表.twenty-tickets"]
     calls: ["none"]
     shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
@@ -252,8 +252,8 @@ rows:
   # puts this task's tree on the canvas; nothing is fetched
   - id: tasks.pick-300
     component: "任务列表"
-    trigger: {role: button, name: "需要你 #300 · grilling 端口租约回收 1/6 落地"}
-    precondition: {lamp: "需要你"}
+    trigger: {role: button, name: "needs you #300 · grilling 端口租约回收 1/6 landed"}
+    precondition: {lamp: "needs you"}
     scenes: ["任务板.bad-data", "任务列表.bad-data"]
     calls: ["none"]
     shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
@@ -263,8 +263,8 @@ rows:
   # puts this task's tree on the canvas; nothing is fetched
   - id: tasks.pick-98
     component: "任务列表"
-    trigger: {role: button, name: "需要你 #98 · wayfinder 落地流水线改造 6/18 落地"}
-    precondition: {lamp: "需要你"}
+    trigger: {role: button, name: "needs you #98 · wayfinder 落地流水线改造 6/18 landed"}
+    precondition: {lamp: "needs you"}
     scenes: ["任务板.morning", "任务列表.morning"]
     calls: ["none"]
     shows: {lamp: "aggregate_lamp(task.specs[].tickets[].fold)@GET /api/board", number: "task.number@GET /api/board", kind: "task.kind@GET /api/board", title: "task.title@GET /api/board", progress: "count(landed)/count(tickets)@GET /api/board"}
@@ -274,7 +274,7 @@ rows:
   # also ⌘ + wheel and pinch (§3.3); no control for those
   - id: canvas.zoom-in
     component: "画布"
-    trigger: {role: button, name: "放大"}
+    trigger: {role: button, name: "zoom in"}
     precondition: {}
     scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "画布.morning", "画布.twenty-tickets", "画布.bad-data", "画布.nothing-selected"]
     calls: ["none"]
@@ -284,7 +284,7 @@ rows:
     gap: aligned
   - id: canvas.zoom-out
     component: "画布"
-    trigger: {role: button, name: "缩小"}
+    trigger: {role: button, name: "zoom out"}
     precondition: {}
     scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "画布.morning", "画布.twenty-tickets", "画布.bad-data", "画布.nothing-selected"]
     calls: ["none"]
@@ -295,7 +295,7 @@ rows:
   # the F key does the same (§3.3); dragging pans, no control
   - id: canvas.fit
     component: "画布"
-    trigger: {role: button, name: "适配"}
+    trigger: {role: button, name: "fit"}
     precondition: {}
     scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "画布.morning", "画布.twenty-tickets", "画布.bad-data", "画布.nothing-selected"]
     calls: ["none"]
@@ -306,7 +306,7 @@ rows:
   # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
   - id: canvas.expand-123
     component: "画布"
-    trigger: {role: button, name: "展开 #123"}
+    trigger: {role: button, name: "expand #123"}
     precondition: {container: "collapsed"}
     scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
     calls: ["none"]
@@ -317,7 +317,7 @@ rows:
   # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
   - id: canvas.expand-140
     component: "画布"
-    trigger: {role: button, name: "展开 #140"}
+    trigger: {role: button, name: "expand #140"}
     precondition: {container: "collapsed"}
     scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
     calls: ["none"]
@@ -328,7 +328,7 @@ rows:
   # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
   - id: canvas.collapse-131
     component: "画布"
-    trigger: {role: button, name: "收起 #131"}
+    trigger: {role: button, name: "collapse #131"}
     precondition: {container: "expanded"}
     scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
     calls: ["none"]
@@ -339,7 +339,7 @@ rows:
   # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
   - id: canvas.collapse-210
     component: "画布"
-    trigger: {role: button, name: "收起 #210"}
+    trigger: {role: button, name: "collapse #210"}
     precondition: {container: "expanded"}
     scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
     calls: ["none"]
@@ -350,7 +350,7 @@ rows:
   # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
   - id: canvas.collapse-211
     component: "画布"
-    trigger: {role: button, name: "收起 #211"}
+    trigger: {role: button, name: "collapse #211"}
     precondition: {container: "expanded"}
     scenes: ["任务板.twenty-tickets", "画布.twenty-tickets"]
     calls: ["none"]
@@ -361,7 +361,7 @@ rows:
   # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
   - id: canvas.collapse-301
     component: "画布"
-    trigger: {role: button, name: "收起 #301"}
+    trigger: {role: button, name: "collapse #301"}
     precondition: {container: "expanded"}
     scenes: ["任务板.bad-data", "画布.bad-data"]
     calls: ["none"]
@@ -372,7 +372,7 @@ rows:
   # opens or closes a map (its decision tickets) or a spec (its tickets); other cards keep their place (§3.2)
   - id: canvas.collapse-98
     component: "画布"
-    trigger: {role: button, name: "收起 #98"}
+    trigger: {role: button, name: "collapse #98"}
     precondition: {container: "expanded"}
     scenes: ["任务板.morning", "画布.morning", "画布.nothing-selected"]
     calls: ["none"]
@@ -904,7 +904,7 @@ rows:
   # Esc does the same (§7); the canvas deselects
   - id: detail.close
     component: "详情"
-    trigger: {role: button, name: "关闭详情"}
+    trigger: {role: button, name: "close"}
     precondition: {}
     scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "详情.morning", "详情.twenty-tickets", "详情.bad-data", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed", "ticket-fault", "ticket-missing-blocker", "spec", "map", "decision"]
     calls: ["none"]
@@ -915,7 +915,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-132-landed
     component: "详情"
-    trigger: {role: button, name: "#132 中继进程骨架 已合入"}
+    trigger: {role: button, name: "#132 中继进程骨架 landed"}
     precondition: {panel: "ticket", related: "landed"}
     scenes: ["任务板.morning", "详情.morning", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review"]
     calls: ["none"]
@@ -926,7 +926,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-135-not-dispatched
     component: "详情"
-    trigger: {role: button, name: "#135 投递回执 待派"}
+    trigger: {role: button, name: "#135 投递回执 queued"}
     precondition: {panel: "ticket", related: "not-dispatched"}
     scenes: ["任务板.morning", "详情.morning", "ticket-review"]
     calls: ["none"]
@@ -937,7 +937,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-213-landed
     component: "详情"
-    trigger: {role: button, name: "#213 心跳写入钩子 已合入"}
+    trigger: {role: button, name: "#213 心跳写入钩子 landed"}
     precondition: {panel: "ticket", related: "landed"}
     scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
     calls: ["none"]
@@ -948,7 +948,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-214-landed
     component: "详情"
-    trigger: {role: button, name: "#214 回合守卫骨架 已合入"}
+    trigger: {role: button, name: "#214 回合守卫骨架 landed"}
     precondition: {panel: "ticket", related: "landed"}
     scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
     calls: ["none"]
@@ -959,7 +959,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-221-not-dispatched
     component: "详情"
-    trigger: {role: button, name: "#221 worker.lost 写入 待派"}
+    trigger: {role: button, name: "#221 worker.lost 写入 queued"}
     precondition: {panel: "ticket", related: "not-dispatched"}
     scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
     calls: ["none"]
@@ -970,7 +970,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-302-landed
     component: "详情"
-    trigger: {role: button, name: "#302 租约登记表 已合入"}
+    trigger: {role: button, name: "#302 租约登记表 landed"}
     precondition: {panel: "ticket", related: "landed"}
     scenes: ["任务板.bad-data", "详情.bad-data", "ticket-fault"]
     calls: ["none"]
@@ -1079,7 +1079,7 @@ rows:
     gap: aligned
   - id: detail.decision-100-closed
     component: "详情"
-    trigger: {role: button, name: "#100 读票用什么 已关闭"}
+    trigger: {role: button, name: "#100 读票用什么 closed"}
     precondition: {panel: "map | decision", decision: "closed"}
     scenes: ["map", "decision"]
     calls: ["none"]
@@ -1089,7 +1089,7 @@ rows:
     gap: aligned
   - id: detail.decision-104-closed
     component: "详情"
-    trigger: {role: button, name: "#104 唤醒要不要队列 已关闭"}
+    trigger: {role: button, name: "#104 唤醒要不要队列 closed"}
     precondition: {panel: "map | decision", decision: "closed"}
     scenes: ["map", "decision"]
     calls: ["none"]
@@ -1099,7 +1099,7 @@ rows:
     gap: aligned
   - id: detail.decision-105-closed
     component: "详情"
-    trigger: {role: button, name: "#105 槽位推到哪一步 已关闭"}
+    trigger: {role: button, name: "#105 槽位推到哪一步 closed"}
     precondition: {panel: "map | decision", decision: "closed"}
     scenes: ["map"]
     calls: ["none"]
@@ -1109,7 +1109,7 @@ rows:
     gap: aligned
   - id: detail.decision-106-closed
     component: "详情"
-    trigger: {role: button, name: "#106 判活放哪一层 已关闭"}
+    trigger: {role: button, name: "#106 判活放哪一层 closed"}
     precondition: {panel: "map | decision", decision: "closed"}
     scenes: ["map", "decision"]
     calls: ["none"]
@@ -1119,7 +1119,7 @@ rows:
     gap: aligned
   - id: detail.decision-107-open
     component: "详情"
-    trigger: {role: button, name: "#107 团队版什么时候做 开着"}
+    trigger: {role: button, name: "#107 团队版什么时候做 open"}
     precondition: {panel: "map | decision", decision: "open"}
     scenes: ["map", "decision"]
     calls: ["none"]
@@ -1181,7 +1181,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-133-not-landed
     component: "详情"
-    trigger: {role: button, name: "#133 折叠接入中继 未合入"}
+    trigger: {role: button, name: "#133 折叠接入中继 not landed"}
     precondition: {panel: "ticket", related: "not-landed"}
     scenes: ["ticket-queued"]
     calls: ["none"]
@@ -1192,7 +1192,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-133-needs-you
     component: "详情"
-    trigger: {role: button, name: "#133 折叠接入中继 需要你"}
+    trigger: {role: button, name: "#133 折叠接入中继 needs you"}
     precondition: {panel: "ticket", related: "needs-you"}
     scenes: ["ticket-landed"]
     calls: ["none"]
@@ -1213,7 +1213,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-134-running
     component: "详情"
-    trigger: {role: button, name: "#134 唤醒队列持久化 在跑"}
+    trigger: {role: button, name: "#134 唤醒队列持久化 running"}
     precondition: {panel: "ticket", related: "running"}
     scenes: ["ticket-landed"]
     calls: ["none"]
@@ -1224,7 +1224,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-134-not-landed
     component: "详情"
-    trigger: {role: button, name: "#134 唤醒队列持久化 未合入"}
+    trigger: {role: button, name: "#134 唤醒队列持久化 not landed"}
     precondition: {panel: "ticket", related: "not-landed"}
     scenes: ["ticket-queued"]
     calls: ["none"]
@@ -1255,7 +1255,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-136-running
     component: "详情"
-    trigger: {role: button, name: "#136 重试与退避 在跑"}
+    trigger: {role: button, name: "#136 重试与退避 running"}
     precondition: {panel: "ticket", related: "running"}
     scenes: ["ticket-landed"]
     calls: ["none"]
@@ -1276,7 +1276,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-137-not-dispatched
     component: "详情"
-    trigger: {role: button, name: "#137 中继自检命令 待派"}
+    trigger: {role: button, name: "#137 中继自检命令 queued"}
     precondition: {panel: "ticket", related: "not-dispatched"}
     scenes: ["ticket-queued"]
     calls: ["none"]
@@ -1297,7 +1297,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-138-needs-you
     component: "详情"
-    trigger: {role: button, name: "#138 离线时唤醒去向 需要你"}
+    trigger: {role: button, name: "#138 离线时唤醒去向 needs you"}
     precondition: {panel: "ticket", related: "needs-you"}
     scenes: ["ticket-landed"]
     calls: ["none"]
@@ -1318,7 +1318,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-139-needs-you
     component: "详情"
-    trigger: {role: button, name: "#139 槽位交还后叫醒 需要你"}
+    trigger: {role: button, name: "#139 槽位交还后叫醒 needs you"}
     precondition: {panel: "ticket", related: "needs-you"}
     scenes: ["ticket-landed"]
     calls: ["none"]
@@ -1349,7 +1349,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-141-running
     component: "详情"
-    trigger: {role: button, name: "#141 中继日志轮转 在跑"}
+    trigger: {role: button, name: "#141 中继日志轮转 running"}
     precondition: {panel: "ticket", related: "running"}
     scenes: ["ticket-landed"]
     calls: ["none"]
@@ -1370,7 +1370,7 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-142-landed
     component: "详情"
-    trigger: {role: button, name: "#142 唤醒日志落盘 已合入"}
+    trigger: {role: button, name: "#142 唤醒日志落盘 landed"}
     precondition: {panel: "ticket", related: "landed"}
     scenes: ["ticket-landed"]
     calls: ["none"]
@@ -1380,7 +1380,7 @@ rows:
     gap: aligned
   - id: detail.decision-99-closed
     component: "详情"
-    trigger: {role: button, name: "#99 事件格式怎么定 已关闭"}
+    trigger: {role: button, name: "#99 事件格式怎么定 closed"}
     precondition: {panel: "map | decision", decision: "closed"}
     scenes: ["map"]
     calls: ["none"]
@@ -1391,7 +1391,7 @@ rows:
   # a finding the closing pass turned into a ticket
   - id: detail.goto-became-141
     component: "详情"
-    trigger: {role: button, name: "变成了 #141"}
+    trigger: {role: button, name: "became #141"}
     precondition: {child: "became-ticket"}
     scenes: ["ticket-landed"]
     calls: ["none"]

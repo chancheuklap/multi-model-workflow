@@ -9,16 +9,16 @@ const ticketScene = {
     repo: "chancheuklap/multi-model-workflow",
     d: {
       isTicket: true, hasCard: true, eyebrow: "Ticket", num: "#133",
-      title: "折叠接入中继", lightCls: "light big orange", statusWord: "需要你",
+      title: "折叠接入中继", lampCls: "lamp big orange", statusWord: "needs you",
       statusCls: "status-word orange", elapsed: "已跑 1h02m", pillCls: "pill big working",
-      step: "working", hint: "现在在这一步",
+      phase: "working", hint: "here now",
       path: [
-        {name: "queued", cls: "path-step done", sep: true},
-        {name: "working", cls: "path-step now-working", sep: true},
-        {name: "waiting", cls: "path-step", sep: true},
-        {name: "review", cls: "path-step", sep: true},
-        {name: "verify", cls: "path-step", sep: true},
-        {name: "landed", cls: "path-step", sep: false},
+        {name: "queued", cls: "path-phase done", sep: true},
+        {name: "working", cls: "path-phase now-working", sep: true},
+        {name: "waiting", cls: "path-phase", sep: true},
+        {name: "review", cls: "path-phase", sep: true},
+        {name: "verify", cls: "path-phase", sep: true},
+        {name: "landed", cls: "path-phase", sep: false},
       ],
       hasWhy: true,
       why: [{head: "#150 contract", body: "spec 本身不成立，要回到写 spec 的人"}],
@@ -27,19 +27,19 @@ const ticketScene = {
       noBlockers: false, noBlocks: false, noKids: false, noEvents: false,
       kidCount: 1, eventCount: "1 条评论",
       events: [{time: "06:38", name: "worker.started", nameCls: "ev-name",
-        field: "herdr · w94b8 · cheuk-mbp", line: "worker started", dotCls: "light green ev-dot"}],
+        field: "herdr · w94b8 · cheuk-mbp", line: "worker started", dotCls: "lamp green ev-dot"}],
     },
     emptyTitle: "点一张卡",
-    emptyText: "画布上任意一张卡——map、spec、ticket 或决策票——点一下，它的全部细节就在这一栏。",
-    runtimeNote: "取自 worker.started",
+    emptyText: "画布上任意一张卡——map、spec、ticket 或Decision ticket——点一下，它的全部细节就在这一栏。",
+    runtimeNote: "from worker.started",
     noWorker: false,
     links: [{label: "spec #131", n: 131}, {label: "map #98", n: 98}],
-    blockers: [{n: 132, known: true, unknown: false, num: "#132", lightCls: "light ink",
-      title: "中继进程骨架", where: "", state: "已合入", stateCls: "rel-state"}],
-    blocks: [{n: 135, known: true, unknown: false, num: "#135", lightCls: "light hollow",
-      title: "投递回执", where: "", state: "待派", stateCls: "rel-state"}],
+    blockers: [{n: 132, known: true, unknown: false, num: "#132", lampCls: "lamp ink",
+      title: "中继进程骨架", where: "", state: "landed", stateCls: "rel-state"}],
+    blocks: [{n: 135, known: true, unknown: false, num: "#135", lampCls: "lamp hollow",
+      title: "投递回执", where: "", state: "queued", stateCls: "rel-state"}],
     kids: [{num: "#150", kind: "contract", title: "spec 没写队列为空时中继读什么",
-      to: "等你", toCls: "kid-to orange", hasGoto: false, noGoto: true, lightCls: "light orange"}],
+      to: "needs you", toCls: "kid-to orange", hasGoto: false, noGoto: true, lampCls: "lamp orange"}],
     ticketRows: [], specRows: [], decisionRows: [],
   },
 };
@@ -62,7 +62,7 @@ function mount(view, api, hooks) {
 test("empty scene shows the empty copy and no GitHub button", () => {
   const {root} = mount(fromScene(emptyScene));
   assert.equal(root.dataset.screen, "detail");
-  assert.equal(root.getAttribute("aria-label"), "详情");
+  assert.equal(root.getAttribute("aria-label"), "detail");
   assert.match(root.textContent, /这里是详情/);
   assert.equal(
     walk(root).some(node => node.tagName === "BUTTON" && (node.className || "").split(/\s+/).includes("dp-gh")),
@@ -73,22 +73,22 @@ test("empty scene shows the empty copy and no GitHub button", () => {
 
 test("a ticket scene shows origin, status, why-orange, and GitHub", () => {
   const {root} = mount(fromScene(ticketScene));
-  assert.ok(namedButton(root, "关闭详情"));
+  assert.ok(namedButton(root, "close"));
   assert.ok(namedButton(root, "spec #131"));
   assert.ok(namedButton(root, "map #98"));
   assert.match(root.textContent, /折叠接入中继/);
-  assert.match(root.textContent, /为什么是橙的/);
-  assert.match(root.textContent, /取自 worker.started/);
-  assert.ok(namedButton(root, "#132 中继进程骨架 已合入"));
+  assert.match(root.textContent, /Needs you/);
+  assert.match(root.textContent, /from worker.started/);
+  assert.ok(namedButton(root, "#132 中继进程骨架 landed"));
   assert.ok(namedButton(root, "在 GitHub 打开 #133 ↗"));
   const heading = walk(root).find(node => node.tagName === "H2");
   assert.equal(accessibleName(heading), "折叠接入中继");
 });
 
-test("关闭详情 and Escape call onClose", () => {
+test("close and Escape call onClose", () => {
   let closed = 0;
   const {root, document} = mount(fromScene(ticketScene), undefined, {onClose: () => { closed += 1; }});
-  namedButton(root, "关闭详情").click();
+  namedButton(root, "close").click();
   assert.equal(closed, 1);
   document.dispatchEvent({type: "keydown", key: "Escape", preventDefault() {}});
   assert.equal(closed, 2);
@@ -98,8 +98,8 @@ test("ticket numbers in the panel call onGoto", () => {
   const seen = [];
   const {root} = mount(fromScene(ticketScene), undefined, {onGoto: n => seen.push(n)});
   namedButton(root, "spec #131").click();
-  namedButton(root, "#132 中继进程骨架 已合入").click();
-  namedButton(root, "#135 投递回执 待派").click();
+  namedButton(root, "#132 中继进程骨架 landed").click();
+  namedButton(root, "#135 投递回执 queued").click();
   assert.deepEqual(seen, [131, 132, 135]);
 });
 
@@ -130,13 +130,13 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
   const view = fromBoard({
     repo: "example/board",
     tasks: [{
-      n: 98, kind: "wayfinder", title: "落地流水线改造", decisions: [],
+      n: 98, kind: "wayfinder", title: "landed流水线改造", decisions: [],
       specs: [{n: 131, title: "唤醒回路", tickets: [landed, ticket]}],
     }],
   }, 133);
   assert.equal(view.kind, "ticket");
   assert.equal(view.title, "折叠接入中继");
-  assert.equal(view.light, "hollow");
+  assert.equal(view.lamp, "hollow");
   assert.equal(view.repo, "example/board");
   const {root} = mount(view);
   assert.ok(namedButton(root, "在 GitHub 打开 #133 ↗"));

@@ -27,8 +27,8 @@
           <div class="sheet-head">
             <div class="sheet-head-text">
               <span class="dp-eyebrow">本机配置</span>
-              <h2 class="sheet-title">这台机器上，每个角色跑在哪</h2>
-              <p class="sheet-sub">下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 <span class="sheet-code">start</span> 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 <span class="sheet-code">{{ v.store }}</span>；这一页不写 GitHub。</p>
+              <h2 class="sheet-title">这台机器上，每个 agent 跑在哪</h2>
+              <p class="sheet-sub">下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 <span class="sheet-code">start</span> 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 <span class="sheet-code">{{ v.store }}</span>；这一页不写 GitHub。</p>
             </div>
             <button type="button" class="dp-close" aria-label="关闭本机配置" onClick="{{ close }}">×</button>
           </div>
@@ -49,7 +49,7 @@
             </section>
             <section class="set-block ruled">
               <div class="runner-row">
-                <div class="role-name"><span class="role-agent">runner</span><span class="role-what">用什么起会话</span></div>
+                <div class="role-name"><span class="role-agent">runner</span><span class="role-what">用什么起 session</span></div>
                 <select class="{{ v.runnerCls }}" value="{{ v.runner }}" disabled="{{ v.runnerOff }}" onChange="{{ onRunner }}" aria-label="runner">
                   <sc-for list="{{ v.runnerOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.value }}" disabled="{{ o.disabled }}" label="{{ o.text }}">{{ o.text }}</option></sc-for>
                 </select>
@@ -58,7 +58,7 @@
               <p class="set-note">环境变量 <span class="sheet-code">MMW_RUNNER</span> 设了时，它优先于这一格。「按所在环境判断」让 <span class="sheet-code">start</span> 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，<span class="sheet-code">start</span> 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。</p>
             </section>
             <section class="set-block ruled">
-              <div class="set-block-head"><span class="dp-section-title">一个角色一行</span></div>
+              <div class="set-block-head"><span class="dp-section-title">一个 agent 一行</span></div>
               <div class="roles">
                 <div class="roles-head"><span>agent</span><span>host</span><span>model</span><span>effort</span></div>
                 <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">

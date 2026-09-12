@@ -31,7 +31,7 @@
             <sc-for list="{{ containers }}" as="c" hint-placeholder-count="3">
               <div class="{{ c.cls }}" style="{{ c.pos }}">
                 <button type="button" class="card-hit" onClick="{{ c.pick }}" aria-label="{{ c.label }}"></button>
-                <div class="card-top"><span class="{{ c.lightCls }}" title="{{ c.lightWord }}"></span><span class="card-num">{{ c.num }}</span>
+                <div class="card-top"><span class="{{ c.lampCls }}" title="{{ c.lampWord }}"></span><span class="card-num">{{ c.num }}</span>
                   <span class="card-right"><span class="card-count">{{ c.count }}</span><sc-if value="{{ c.canExpand }}" hint-placeholder-val="{{ true }}"><button type="button" class="chev" onClick="{{ c.toggle }}" aria-label="{{ c.toggleLabel }}">{{ c.chev }}</button></sc-if></span></div>
                 <div class="{{ c.titleCls }}">{{ c.title }}</div>
                 <div class="card-bar"><div class="card-bar-fill" style="{{ c.barStyle }}"></div></div>
@@ -40,24 +40,24 @@
             <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="3">
               <div class="{{ d.cls }}" style="{{ d.pos }}" title="{{ d.title }}">
                 <button type="button" class="card-hit" onClick="{{ d.pick }}" aria-label="{{ d.label }}"></button>
-                <div class="card-top"><span class="{{ d.lightCls }}"></span><span class="card-num">{{ d.num }}</span><span class="card-right"><span class="card-kind">{{ d.kind }}</span></span></div>
+                <div class="card-top"><span class="{{ d.lampCls }}"></span><span class="card-num">{{ d.num }}</span><span class="card-right"><span class="card-kind">{{ d.kind }}</span></span></div>
                 <div class="card-title decision">{{ d.title }}</div>
               </div>
             </sc-for>
             <sc-for list="{{ tickets }}" as="t" hint-placeholder-count="5">
               <div class="{{ t.cls }}" style="{{ t.pos }}" title="{{ t.title }}">
                 <button type="button" class="card-hit" onClick="{{ t.pick }}" aria-label="{{ t.label }}"></button>
-                <div class="card-top"><span class="{{ t.lightCls }}" title="{{ t.lightWord }}"></span><span class="card-num">{{ t.num }}</span><span class="card-right"><span class="{{ t.pillCls }}">{{ t.step }}</span></span></div>
+                <div class="card-top"><span class="{{ t.lampCls }}" title="{{ t.lampWord }}"></span><span class="card-num">{{ t.num }}</span><span class="card-right"><span class="{{ t.pillCls }}">{{ t.phase }}</span></span></div>
                 <div class="card-title">{{ t.title }}</div>
                 <div class="{{ t.runCls }}">{{ t.run }}</div>
               </div>
             </sc-for>
           </div>
           <div class="legend">
-            <span class="legend-item"><span class="legend-line"></span>展开 · 走过</span>
-            <span class="legend-item"><span class="legend-line flow"></span>在走</span>
-            <span class="legend-item"><span class="legend-line blocked"></span>被挡</span>
-            <span class="legend-item"><span class="legend-bar"></span>收口新开</span>
+            <span class="legend-item"><span class="legend-line"></span>contains · released</span>
+            <span class="legend-item"><span class="legend-line flow"></span>released · working</span>
+            <span class="legend-item"><span class="legend-line blocked"></span>blocked</span>
+            <span class="legend-item"><span class="legend-bar"></span>closing pass</span>
           </div>
           <div class="zoom">
             <button type="button" class="zoom-btn" aria-label="缩小" onClick="{{ zoomOut }}">−</button>
@@ -69,8 +69,8 @@
         </sc-if>
         <sc-if value="{{ v.noTask }}" hint-placeholder-val="{{ false }}">
           <div class="canvas-empty"><div>
-            <p class="canvas-empty-title">还没有任务</p>
-            <p class="canvas-empty-text">一个任务就是一次讨论开出的那张票。给它打上 <span class="code">mmw:map</span> label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。</p>
+            <p class="canvas-empty-title">The Night 还没开始</p>
+            <p class="canvas-empty-text">The Night 是一次讨论开出的那张 ticket。给它打上 <span class="code">mmw:map</span> label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。</p>
           </div></div>
         </sc-if>
       </main>

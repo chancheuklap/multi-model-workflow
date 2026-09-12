@@ -1,6 +1,6 @@
 # Task board
 
-The local browser surface over a night: one small HTTP server per registered consuming repository, reading that repository's ticket state from GitHub and reading or writing this machine's agent configuration. It exists so a person can watch a night and change which host, model and effort each role runs on without a command line, and it fixes only the words the server and its registry invent — the command that opens it, `dispatch.sh board`, is defined in the dispatch-and-the-night context.
+The local browser surface over a night: one small HTTP server per registered consuming repository, reading that repository's ticket state from GitHub and reading or writing this machine's agent configuration. It exists so a person can watch a night and change which host, model and effort each role runs on without a command line, and it fixes the words the server, its registry and its page invent — the command that opens it, `dispatch.sh board`, is defined in the dispatch-and-the-night context. Everything else the page shows is named by the term the other five contexts already give it, in English, so that a word read off the screen can be typed into a search of this repository and land on its definition.
 
 How to read an entry: the bold line is the term's only name; a term whose name is a literal string that appears in a file, a command, or a comment is named by that string exactly (case, colon, and all). The definition says what the thing is and what sets it apart from its neighbours. `_Admitted_` lists the one other wording that may appear in prose. `_Avoid_` lists dead words: a sentence in this repository that uses one is wrong; an item followed by a note in parentheses says in which sense the word is dead. `_Home_` is the file whose text or code the definition is taken from; when this file and that one disagree, that one is right and this file is rewritten. An attribute that can be had by reading that file — a field list, an exit code, a command's switches, the branches of a behaviour — is not repeated here: an entry says what the term is and how it differs from its neighbours, and points at `_Home_` for the rest.
 
@@ -25,3 +25,20 @@ _Home_: `mmw-v2/board/supervisor.py`
 The secret `server.py` mints afresh at every start. It is substituted for the literal `__MMW_PAGE_TOKEN__` when `index.html` is served, and the page reads it back out of `<meta name="mmw-page-token">` and sends it as the `X-MMW-Token` header on every non-`GET` request. `gates.py` refuses any such request whose `Host`, `Origin` and `X-MMW-Token` do not all match this process's own address and this start's token, so a write from another origin, from a stale page, or from a bare `curl` gets `403`. Because it is new per start, the meta tag is also the evidence that the board answering is the one this run started.
 _Avoid_: CSRF token, session token, API key
 _Home_: `mmw-v2/board/server.py`
+
+### What the page shows
+
+**The Night**:
+What the board calls one row of its left column and the tree that row opens on the canvas: one top-level **map**, or a **spec** no open map holds, with every spec and ticket under it. It is the body of work the pipeline is landing automatically right now, which is why the board names it for the run rather than for the issue it is read from. A **night** is one run of `dispatch.sh` over one spec of it; The Night is the whole of what those nights are landing, and it outlives any one of them.
+_Avoid_: 任务, task (for this), map (as the name of the column), 地图
+_Home_: `mmw-v2/board/page/tasks.mjs`
+
+**lamp**:
+The dot in front of every ticket, spec, map and relation row, and the four counters in the top bar: what this issue wants from outside it. `needs you` (orange) — a person has to answer something before it can go on; `running` (green) — something is holding it and nothing is asked of anybody; `done` (ink) — nothing more is coming from it; `queued` (hollow) — nothing holds it and nobody is asked. It is not the **phase pill** and neither can be read off the other: a ticket can be `landed` and still be `needs you` because a `decision` child of it is open, and one at `working` can be `needs you` the moment a `fault` is opened on it. The screen contract names it in the same word, as the `lamp` of a row's `precondition` and of its `shows` expressions.
+_Avoid_: light (as a term), 灯 (as a term), status (for this), attention, traffic light
+_Home_: `mmw-v2/board/page/board-logic.mjs`
+
+**phase pill**:
+The capsule on every ticket card and at the head of the detail column: where the ticket stands inside its own run, one of `queued`, `working`, `waiting`, `review`, `verify`, `landed`, in that order. It is computed from the fold — which sessions are live, whether the ticket is held, waiting for a slot, verified or landed — and never from the name of an event. Three neighbours it is not: the **phase** column of `status`, which is the name of the ticket's newest event; the `stage` field every event carries, which has nine values and says which part of the pipeline wrote that event; and the **lamp**, which is the same ticket's relation to the outside.
+_Avoid_: step, stage (for this), state (for this), 药丸, status pill
+_Home_: `mmw-v2/board/page/board-logic.mjs`

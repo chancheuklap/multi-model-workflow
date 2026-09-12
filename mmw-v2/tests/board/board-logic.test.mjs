@@ -16,39 +16,39 @@ const worker = (started_at = "2026-01-01T00:00:00Z") => ({kind: "worker", live: 
 test("lamp is orange for an open decision, fault or contract child", () => {
   for (const kind of ["decision", "fault", "contract"]) {
     const value = ticket({fold: {children: {2: {child: 2, kind}}}, children: [{number: 2, state: "OPEN"}]});
-    assert.equal(Board.light(value), "orange");
+    assert.equal(Board.lamp(value), "orange");
   }
   for (const kind of ["finding", "deferred"]) {
     const value = ticket({fold: {children: {2: {child: 2, kind}}}, children: [{number: 2, state: "OPEN"}]});
-    assert.equal(Board.light(value), "hollow");
+    assert.equal(Board.lamp(value), "hollow");
   }
   const closed = ticket({fold: {children: {2: {child: 2, kind: "decision"}}}, children: [{number: 2, state: "CLOSED"}]});
-  assert.equal(Board.light(closed), "hollow");
+  assert.equal(Board.lamp(closed), "hollow");
 });
 
 test("lamp is orange for a returned or bounced ticket until a worker starts again", () => {
   const earlier = {...worker(), live: false, ended_by: "ticket.returned"};
   const returned = ticket({fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}, sessions: [earlier]}});
-  assert.equal(Board.light(returned), "orange");
+  assert.equal(Board.lamp(returned), "orange");
   returned.fold.sessions.push(worker("2026-01-01T02:00:00Z"));
-  assert.equal(Board.light(returned), "green");
+  assert.equal(Board.lamp(returned), "green");
 
   const bounced = ticket({fold: {bounced: true, sessions: [{...earlier, ended_by: "ticket.bounced"}]},
     events: [{event: "ticket.bounced", at: "2026-01-01T01:00:00Z",
       payload: {reason: "checks", into: "main", commit: "abcdef012345",
         commands: [{command: "bash checks.sh", output: ["first line", "last line"]}]}}]});
-  assert.equal(Board.light(bounced), "orange");
+  assert.equal(Board.lamp(bounced), "orange");
   assert.match(Board.why(bounced)[0].text, /bash checks\.sh：first line \/ last line/);
   bounced.fold.sessions.push(worker("2026-01-01T02:00:00Z"));
-  assert.equal(Board.light(bounced), "green");
+  assert.equal(Board.lamp(bounced), "green");
 });
 
 test("lamp is green while held, ink when landed, hollow otherwise", () => {
-  assert.equal(Board.light(ticket({fold: {sessions: [worker()]}})), "green");
-  assert.equal(Board.light(ticket({fold: {claim_hold: true, held: true}})), "green");
-  assert.equal(Board.runLine(ticket({fold: {claim_hold: true, held: true}})).text, "已认领 · 待派发");
-  assert.equal(Board.light(ticket({fold: {landed: true}})), "ink");
-  assert.equal(Board.light(ticket()), "hollow");
+  assert.equal(Board.lamp(ticket({fold: {sessions: [worker()]}})), "green");
+  assert.equal(Board.lamp(ticket({fold: {claim_hold: true, held: true}})), "green");
+  assert.equal(Board.runLine(ticket({fold: {claim_hold: true, held: true}})).text, "claimed · no session yet");
+  assert.equal(Board.lamp(ticket({fold: {landed: true}})), "ink");
+  assert.equal(Board.lamp(ticket()), "hollow");
 });
 
 test("a fault opened after the newest start or resume stops the ticket", () => {
@@ -62,7 +62,7 @@ test("a fault opened after the newest start or resume stops the ticket", () => {
     ],
   });
   assert.equal(Board.running(stopped), false);
-  assert.equal(Board.light(stopped), "orange");
+  assert.equal(Board.lamp(stopped), "orange");
   assert.equal(Board.edgeState(blocker, stopped), "done");
 
   stopped.events.push({event: "worker.resumed", payload: {}});
@@ -70,14 +70,14 @@ test("a fault opened after the newest start or resume stops the ticket", () => {
   assert.equal(Board.edgeState(blocker, stopped), "flow");
 });
 
-test("step follows who still holds the ticket", () => {
-  assert.equal(Board.step(ticket()), "queued");
-  assert.equal(Board.step(ticket({fold: {sessions: [worker()]}})), "working");
-  assert.equal(Board.step(ticket({fold: {sessions: [worker()], waiting: {at: "2026-01-01T00:00:00Z"}}})), "waiting");
-  assert.equal(Board.step(ticket({fold: {sessions: [worker(), {kind: "reviewer", live: true}]}})), "review");
-  assert.equal(Board.step(ticket({fold: {sessions: [worker(), {kind: "verifier", live: true}]}})), "verify");
-  assert.equal(Board.step(ticket({fold: {sessions: [worker()], verdict: {event: "verifier.passed"}}})), "verify");
-  assert.equal(Board.step(ticket({fold: {landed: true}})), "landed");
+test("phase follows who still holds the ticket", () => {
+  assert.equal(Board.phase(ticket()), "queued");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}})), "working");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()], waiting: {at: "2026-01-01T00:00:00Z"}}})), "waiting");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker(), {kind: "reviewer", live: true}]}})), "review");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker(), {kind: "verifier", live: true}]}})), "verify");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()], verdict: {event: "verifier.passed"}}})), "verify");
+  assert.equal(Board.phase(ticket({fold: {landed: true}})), "landed");
 });
 
 test("a ticket closed by hand is finished even with an empty ledger", () => {
@@ -85,21 +85,21 @@ test("a ticket closed by hand is finished even with an empty ledger", () => {
   // ever land — which is what an empty blocker_hold says.
   const byHand = ticket({state: "closed", blocker_hold: ""});
   assert.equal(Board.done(byHand), true);
-  assert.equal(Board.step(byHand), "landed");
-  assert.equal(Board.light(byHand), "ink");
+  assert.equal(Board.phase(byHand), "landed");
+  assert.equal(Board.lamp(byHand), "ink");
   assert.deepEqual(Board.progress({specs: [{tickets: [byHand, ticket()]}]}), {done: 1, total: 2});
 });
 
 test("a ticket closed by hand names no runner and does not read as still to come", () => {
-  assert.equal(Board.runLine(ticket({state: "closed", blocker_hold: ""})).text, "没派发过就关了");
-  assert.equal(Board.runLine(ticket()).text, "尚未派发");
+  assert.equal(Board.runLine(ticket({state: "closed", blocker_hold: ""})).text, "closed, never dispatched");
+  assert.equal(Board.runLine(ticket()).text, "not dispatched");
 });
 
 test("a closed ticket whose work has not landed yet is not finished", () => {
   const passed = ticket({state: "closed", blocker_hold: "passed, not landed",
     fold: {sessions: [{kind: "verifier", live: false}], verdict: {event: "verifier.passed"}}});
   assert.equal(Board.done(passed), false);
-  assert.equal(Board.light(passed), "hollow");
+  assert.equal(Board.lamp(passed), "hollow");
   const unreadable = ticket({state: "closed", blocker_hold: "its events cannot be read"});
   assert.equal(Board.done(unreadable), false);
 });
@@ -107,20 +107,20 @@ test("a closed ticket whose work has not landed yet is not finished", () => {
 test("a closed ticket that still needs you stays orange", () => {
   const openChild = ticket({state: "closed", blocker_hold: "",
     fold: {children: {2: {child: 2, kind: "fault"}}}, children: [{number: 2, state: "OPEN"}]});
-  assert.equal(Board.light(openChild), "orange");
+  assert.equal(Board.lamp(openChild), "orange");
 });
 
-test("a stopped ticket keeps the step it stopped at", () => {
+test("a stopped ticket keeps the phase it stopped at", () => {
   const returned = ticket({fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}}});
-  assert.equal(Board.step(returned), "working");
+  assert.equal(Board.phase(returned), "working");
   const fault = ticket({
     fold: {sessions: [{kind: "reviewer", live: true}], children: {8: {child: 8, kind: "fault"}}},
     children: [{number: 8, state: "OPEN"}],
     events: [{event: "worker.started", payload: {}}, {event: "child.opened", payload: {kind: "fault", child: 8}}],
   });
-  assert.equal(Board.step(fault), "review");
+  assert.equal(Board.phase(fault), "review");
   const bounced = ticket({fold: {bounced: true}, events: [{event: "ticket.bounced", at: "2026-01-01T01:00:00Z"}]});
-  assert.equal(Board.step(bounced), "verify");
+  assert.equal(Board.phase(bounced), "verify");
 });
 
 test("edge is blocked, flow or done", () => {
@@ -163,7 +163,7 @@ test("a blocking cycle goes to the last column with its label", () => {
     [[3, 2, "blocked"], [2, 3, "blocked"]]);
   assert.equal(tickets.find(node => node.id === 6).cyclic, false);
   assert.equal(layout.edges.find(edge => edge.from === 3 && edge.to === 6).cyc, false);
-  assert.equal(layout.labels.find(label => label.warn).text, "阻塞成环 · #2 ⇄ #3 · 排不出先后");
+  assert.equal(layout.labels.find(label => label.warn).text, "blocking cycle · #2 ⇄ #3");
 });
 
 test("a blocker outside the container draws no line", () => {
@@ -180,8 +180,8 @@ test("container and decision lamps", () => {
   assert.equal(Board.aggregate([hollow, ink]), "hollow");
   assert.equal(Board.aggregate([green, ink]), "green");
   assert.equal(Board.aggregate([orange, green]), "orange");
-  assert.equal(Board.decisionLight({state: "closed"}), "ink");
-  assert.equal(Board.decisionLight({state: "open"}), "hollow");
+  assert.equal(Board.decisionLamp({state: "closed"}), "ink");
+  assert.equal(Board.decisionLamp({state: "open"}), "hollow");
 });
 
 test("default expansion", () => {
