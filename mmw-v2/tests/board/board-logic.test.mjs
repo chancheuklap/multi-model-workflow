@@ -125,7 +125,10 @@ test("a blocking cycle goes to the last column with its label", () => {
   ];
   const layout = Board.layout({n: 100, decisions: [], specs: [{n: 10, tickets: items}]}, new Set([10]));
   const tickets = layout.nodes.filter(node => node.type === "ticket");
-  assert.equal(tickets.find(node => node.id === 2).x, tickets.find(node => node.id === 5).x + 268);
+  const at = number => tickets.find(node => node.id === number).x;
+  // One column to the right of #5, the last ticket the chain could order.
+  const column = at(4) - at(1);
+  assert.equal(at(2), at(5) + column);
   assert.deepEqual(layout.edges.filter(edge => edge.cyc).map(edge => [edge.from, edge.to, edge.state]),
     [[3, 2, "blocked"], [2, 3, "blocked"]]);
   assert.equal(tickets.find(node => node.id === 6).cyclic, false);

@@ -262,9 +262,12 @@ export const Board = {
   },
 
   layout(task, expanded) {
+    // Card sizes are the width two title lines need plus the card's own padding, and the
+    // height that title and the run line under it take: measured on a live board, not chosen.
+    // An ellipsis is the fallback for a title past that width, not the everyday case.
     const geometry = {mapX: 12, trunkX: 30, specX: 52, containerRight: 220,
-      firstIssueX: 272, ticketWidth: 184, ticketHeight: 94, decisionWidth: 164,
-      decisionHeight: 62, columnGap: 84, rowGap: 14, containerHeight: 72};
+      firstIssueX: 272, ticketWidth: 328, ticketHeight: 100, decisionWidth: 298,
+      decisionHeight: 74, columnGap: 84, rowGap: 14, containerHeight: 72};
     const nodes = [];
     const edges = [];
     const labels = [];
