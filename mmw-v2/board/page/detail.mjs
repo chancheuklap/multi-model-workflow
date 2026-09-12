@@ -445,6 +445,13 @@ function card(hooks, view) {
   return el("div", {class: "dp"}, ...parts);
 }
 
+export function unmount(host) {
+  if (!host) return;
+  if (host._detailEsc) document.removeEventListener("keydown", host._detailEsc);
+  host._detailEsc = null;
+  host.replaceChildren();
+}
+
 export function render(host, view = {}, api, hooks = {}) {
   const root = el("aside", {class: "detail board", "aria-label": "详情"});
   root.dataset.screen = "detail";

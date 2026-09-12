@@ -13,6 +13,9 @@
       .app-shell { position: relative; height: 100%; display: grid; grid-template-rows: 52px minmax(0, 1fr); grid-template-columns: 236px minmax(0, 1fr) 340px; background: var(--panel); }
       .app-top { grid-column: 1 / -1; min-width: 0; }
       .app-slot { min-width: 0; min-height: 0; overflow: hidden; }
+      /* No card picked: app.mjs leaves the detail slot empty, and the canvas has that width. */
+      .app-slot[data-mount="detail"]:empty { display: none; }
+      .app-shell:has([data-mount="detail"]:empty) { grid-template-columns: 236px minmax(0, 1fr); }
       .app-sheet { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
       .app-sheet:has([data-screen="settings"]) { pointer-events: auto; }
     </style>

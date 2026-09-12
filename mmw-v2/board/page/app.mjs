@@ -2,7 +2,7 @@ import {Board, defaultExpanded} from "./board-logic.mjs";
 import {render as topbar, fromBoard as topbarFromBoard} from "./topbar.mjs";
 import {render as tasks} from "./tasks.mjs";
 import {render as canvas} from "./canvas.mjs";
-import {find, render as detail, fromBoard as detailFromBoard} from "./detail.mjs";
+import {find, render as detail, unmount as unmountDetail, fromBoard as detailFromBoard} from "./detail.mjs";
 import {render as settings, fromPayload as settingsFromPayload, unmount as unmountSettings} from "./settings.mjs";
 import {api} from "./api.mjs";
 import {startBoardFeed} from "./board-feed.mjs";
@@ -95,20 +95,27 @@ export function mountPage(doc = document) {
         state.expanded = expanded;
       },
     });
-    detail(slots.detail, detailFromBoard(state.payload, state.sel), api, {
-      onGoto(n) {
-        const found = find(list, n);
-        if (found) {
-          setTask(found.task.n);
-          state.sel = n;
+    // Nothing picked, nothing to show: the column comes off the page rather than standing
+    // there empty, and the canvas takes the width back. The stylesheet follows the slot.
+    const detailView = detailFromBoard(state.payload, state.sel);
+    if (detailView.empty) {
+      unmountDetail(slots.detail);
+    } else {
+      detail(slots.detail, detailView, api, {
+        onGoto(n) {
+          const found = find(list, n);
+          if (found) {
+            setTask(found.task.n);
+            state.sel = n;
+            paint();
+          }
+        },
+        onClose() {
+          state.sel = null;
           paint();
-        }
-      },
-      onClose() {
-        state.sel = null;
-        paint();
-      },
-    });
+        },
+      });
+    }
     if (!slots.settings) return;
     const open = slots.settings.querySelector('[data-screen="settings"]');
     if (state.settingsOpen && state.settingsPayload && !open) {
