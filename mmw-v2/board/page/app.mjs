@@ -64,6 +64,18 @@ export function mountPage(doc = document) {
     paint();
   };
 
+  // Each column's render rebuilds it from nothing, which costs the reader whatever they had
+  // going in it: the canvas viewport, the detail column's scroll, an edge animation
+  // mid-flight. So a column is redrawn only when what it shows differs from what is on
+  // screen. A signature is the data that column reads, which includes text derived from the
+  // clock (a ticket's elapsed time), so that keeps ticking.
+  const shown = {};
+  const changed = (column, signature) => {
+    if (shown[column] === signature) return false;
+    shown[column] = signature;
+    return true;
+  };
+
   const paint = () => {
     const list = state.payload.tasks || [];
     if (state.task == null && list[0]) setTask(list[0].n);
@@ -75,46 +87,54 @@ export function mountPage(doc = document) {
         state.sel = protoSel;
       }
     }
-    topbar(slots.topbar, topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen}), api, {
-      onJumpNeedYou() {
-        const next = nextOrange(list, state.sel);
-        if (next) {
-          setTask(next.task);
-          state.sel = next.node;
+    const listSign = JSON.stringify(list);
+    const topbarView = topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen});
+    if (changed("topbar", JSON.stringify(topbarView))) {
+      topbar(slots.topbar, topbarView, api, {
+        onJumpNeedYou() {
+          const next = nextOrange(list, state.sel);
+          if (next) {
+            setTask(next.task);
+            state.sel = next.node;
+            paint();
+          }
+        },
+        onRefresh(data) {
+          state.payload = data;
           paint();
-        }
-      },
-      onRefresh(data) {
-        state.payload = data;
-        paint();
-      },
-      onOpenSettings(data) {
-        state.settingsPayload = data;
-        state.settingsOpen = true;
-        paint();
-      },
-    });
-    tasks(slots.tasks, {
-      tasks: list,
-      selectedTask: state.task,
-      onSelectTask(n) {
-        setTask(n);
-        state.sel = null;
-        paint();
-      },
-    });
-    canvas(slots.canvas, {
-      task: taskOf(state.task),
-      sel: state.sel,
-      expanded: state.expanded,
-      onSelectNode(n) {
-        state.sel = n;
-        paint();
-      },
-      onToggle(_n, expanded) {
-        state.expanded = expanded;
-      },
-    });
+        },
+        onOpenSettings(data) {
+          state.settingsPayload = data;
+          state.settingsOpen = true;
+          paint();
+        },
+      });
+    }
+    if (changed("tasks", `${state.task}|${listSign}`)) {
+      tasks(slots.tasks, {
+        tasks: list,
+        selectedTask: state.task,
+        onSelectTask(n) {
+          setTask(n);
+          state.sel = null;
+          paint();
+        },
+      });
+    }
+    if (changed("canvas", `${state.task}|${state.sel}|${(state.expanded || []).join(",")}|${listSign}`)) {
+      canvas(slots.canvas, {
+        task: taskOf(state.task),
+        sel: state.sel,
+        expanded: state.expanded,
+        onSelectNode(n) {
+          state.sel = n;
+          paint();
+        },
+        onToggle(_n, expanded) {
+          state.expanded = expanded;
+        },
+      });
+    }
     // Nothing picked, nothing to show: the column comes off the page rather than standing
     // there empty, and the canvas takes the width back. The stylesheet follows the slot.
     const detailView = detailFromBoard(state.payload, state.sel);
@@ -132,12 +152,19 @@ export function mountPage(doc = document) {
         paint();
       },
     };
-    if (proto) {
-      proto.mount(slots.detail, {payload: state.payload, sel: state.sel, variant: protoKey}, api, detailHooks);
-    } else if (detailView.empty) {
-      unmountDetail(slots.detail);
-    } else {
-      detail(slots.detail, detailView, api, detailHooks);
+    // A prototype variant reads the whole payload, not the view the real column reads, so
+    // its signature is the payload it is handed.
+    const detailSign = proto
+      ? `${protoKey}|${state.sel}|${JSON.stringify(state.payload)}`
+      : JSON.stringify(detailView);
+    if (changed("detail", detailSign)) {
+      if (proto) {
+        proto.mount(slots.detail, {payload: state.payload, sel: state.sel, variant: protoKey}, api, detailHooks);
+      } else if (detailView.empty) {
+        unmountDetail(slots.detail);
+      } else {
+        detail(slots.detail, detailView, api, detailHooks);
+      }
     }
     if (!slots.settings) return;
     const open = slots.settings.querySelector('[data-screen="settings"]');

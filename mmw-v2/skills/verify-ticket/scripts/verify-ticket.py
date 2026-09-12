@@ -1403,8 +1403,24 @@ def run_touched(number: int) -> int:
     return 0
 
 
-def run_draft(number: int, out_file: Path) -> int:
-    """Write the closing-comment skeleton to `out_file`."""
+def default_draft_path(number: int) -> Path:
+    """A file of this run's own making, in a fresh directory outside every repository.
+
+    The skeleton recounts the ticket, so it carries every path and file name the ticket
+    names — that is what a closing comment says. `--closeout` then runs the repository's
+    own `checks` over the working tree, and a draft written into that tree is one more
+    file those checks read: on 2026-09-11 agentflow-hq/agentflow #831 had every criterion
+    met and its verifier through, and stayed open because a guard of that repository found
+    two reference file names in `.mmw/closeout-831.md` — the draft it had written a minute
+    earlier. Every consuming repository with a guard over its own Markdown would meet the
+    same wall, so the default landing place is outside all of them.
+    """
+    return Path(tempfile.mkdtemp(prefix=f"mmw-closeout-{number}-")) / f"closeout-{number}.md"
+
+
+def run_draft(number: int, out_file: Path | None) -> int:
+    """Write the closing-comment skeleton to `out_file`, or to a path of this run's own
+    when it is None, printing the path either way."""
     body = fetch_body(number)
     comments = fetch_comments(number)
     into, problem = worker_started_field(number, comments, "into")
@@ -1459,6 +1475,8 @@ def run_draft(number: int, out_file: Path) -> int:
         "Decisions I made on my own", "",
         FILL, "",
     ]
+    # After every refusal, so a run that writes nothing leaves no directory behind either.
+    out_file = out_file or default_draft_path(number)
     out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text("\n".join(parts) + "\n", encoding="utf-8")
     print(f"DRAFT: wrote {out_file}")
@@ -1790,13 +1808,22 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
     blocker's own events — the same answer the dispatch skill's frontier gives, so a
     ticket that skill starts is never refused here for a blocker it had let go.
 
-    Every one of these ends in `stop`. The six conditions are set up before a worker
-    exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state, the
-    labels and the blockers before it starts anyone — so a worker that sees one of these
-    has found a fault upstream of itself, not a task. Working around it (switching
-    branches, committing whatever is in the tree, taking someone else's ticket) does more
-    damage than stopping. The comment this posts on the ticket is what the user reads in
-    the morning.
+    Every one of these ends in `stop`. Five of the six conditions are set up before a
+    worker exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state,
+    the labels and the blockers before it starts anyone — so a worker that sees one of
+    them has found a fault upstream of itself, not a task. Working around it (switching
+    branches, taking someone else's ticket) does more damage than stopping.
+
+    The sixth, the tree, is the one whose answer depends on who holds the ticket, because
+    a worker comes through this run every time it enters the ticket — the turn it is
+    prompted back into after a review included (`references/claiming.md`). On that turn
+    the uncommitted tracked changes are its own work from an earlier turn, so the tree
+    refuses only while the claim is not this account's: read as an upstream fault they
+    end a live worker's hold, and the ticket then says `live: false` of a session that
+    goes on posting events. What keeps them from reaching the base branch uncommitted is
+    the closeout, which refuses a draft while a tracked file is uncommitted.
+
+    The comment this posts on the ticket is what the user reads in the morning.
     """
     out = []
     if branch != f"issue-{number}":
@@ -1804,11 +1831,13 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
                     f"NOT_READY: branch is {branch or '(detached)'}, not issue-{number}; "
                     f"dispatch opens this worktree on issue-{number}, so you were started "
                     f"somewhere else — stop, do not switch branches yourself"))
-    if dirty:
+    holders = [a.get("login", "") for a in ticket.get("assignees", []) if a.get("login")]
+    if dirty and me not in holders:
         out.append(("dirty-tree",
-                    f"NOT_READY: {len(dirty)} tracked files already have uncommitted changes "
-                    f"before any work started; they are not yours to commit or discard — "
-                    f"stop and leave the tree as you found it"))
+                    f"NOT_READY: {len(dirty)} tracked files have uncommitted changes and "
+                    f"#{number} is claimed by {', '.join(holders) or 'nobody'}, not by you "
+                    f"({me}); they were left here before your claim, and are not yours to "
+                    f"commit or discard — stop and leave the tree as you found it"))
     state = ticket.get("state", "")
     if state != "OPEN":
         out.append(("not-open",
@@ -1831,7 +1860,6 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
                     f"NOT_READY: #{number} is blocked by {', '.join(holding)}; stop — "
                     f"`dispatch.sh` starts this ticket again once those land, so do not "
                     f"wait or retry"))
-    holders = [a.get("login", "") for a in ticket.get("assignees", [])]
     others = [h for h in holders if h != me]
     if others:
         out.append(("claimed-by-other",
@@ -1851,7 +1879,8 @@ def run_preflight(number: int) -> int:
     ticket = fetch_ticket(number)
     me = gh_login()
     branch = current_branch(root)
-    problems = refusals(number, ticket, me, branch, dirty_tracked(root))
+    dirty = dirty_tracked(root)
+    problems = refusals(number, ticket, me, branch, dirty)
     if problems:
         reason, sentence = problems[0]
         # The refusing session is named so its own hold ends with this event and the
@@ -1870,6 +1899,14 @@ def run_preflight(number: int) -> int:
         sys.stderr.write(f"#{number} is claimed, but its ticket.claimed event was not "
                          f"written ({exc})\n")
     print(f"READY: #{number} claimed on issue-{number}")
+    # Getting here with a dirty tree means the claim was already this account's, so the
+    # changes came in under it: this is a worker back on its own work, and the only thing
+    # left to say is where they have to be by the closing steps.
+    if dirty:
+        print(f"CARRIED: {len(dirty)} tracked files have uncommitted changes, made under "
+              f"the claim you already held on #{number}; commit them on issue-{number} "
+              f"before the closing steps — --closeout refuses a draft while a tracked "
+              f"file is uncommitted.")
     return 0
 
 
@@ -2903,8 +2940,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="post the two-section file as a DECISIONS comment")
     parser.add_argument("--touched", action="store_true",
                         help="post worker.touched on open siblings whose Owns covers a file")
-    parser.add_argument("--draft", type=Path, metavar="OUT",
-                        help="write the closing-comment skeleton to this file")
+    # The path is optional, and an empty string is what argparse leaves when the flag came
+    # without one — a file of the run's own, outside the repository the checks read.
+    parser.add_argument("--draft", nargs="?", const="", metavar="OUT",
+                        help="write the closing-comment skeleton to this file; with no "
+                             "path, to one of its own outside the repository, printed as "
+                             "`DRAFT: wrote <path>`")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage child under this ticket; KIND is one of "
                              + ", ".join(SUB_ISSUE_KINDS))
@@ -2956,7 +2997,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.touched:
         return run_touched(args.ticket)
     if args.draft is not None:
-        return run_draft(args.ticket, args.draft)
+        return run_draft(args.ticket, Path(args.draft) if args.draft else None)
     if args.sub_issue is not None:
         kind, file = args.sub_issue
         return run_sub_issue(args.ticket, kind, Path(file))

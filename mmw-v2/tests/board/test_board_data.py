@@ -4,7 +4,9 @@ import datetime as dt
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -108,6 +110,31 @@ def read_board(board, method="GET", path="/api/board"):
 def tickets(answer):
     return {ticket["n"]: ticket for task in answer["tasks"] for spec in task["specs"]
             for ticket in spec["tickets"]}
+
+
+def closing(tree, number):
+    """The same tree with `number` closed on the tracker."""
+    changed = json.loads(json.dumps(tree))
+    pending = [changed]
+    while pending:
+        node = pending.pop()
+        if node.get("number") == number:
+            node["state"] = "CLOSED"
+        pending.extend(node.get("subIssues", {}).get("nodes", []))
+    return changed
+
+
+def fixture_store(directory, data, clock):
+    """A store reading the fixture GitHub in `directory`, on a clock the test moves."""
+    (directory / "scenario.json").write_text(json.dumps(data))
+    environment = dict(os.environ, MMW_BOARD_FAKE_DIR=str(directory))
+
+    def gh(args):
+        run = subprocess.run([str(FAKE_BIN / "gh"), *args], capture_output=True,
+                             text=True, env=environment)
+        return run.returncode, run.stdout, run.stderr
+
+    return board_data.BoardStore(gh=gh, clock=clock)
 
 
 def prepared_store(gh):
@@ -292,6 +319,52 @@ class BoardDataTest(unittest.TestCase):
                          {"tree": False, "comments": [25, 26]})
         self.assertEqual([board_data.finished(row) for row in (by_hand, passed, unreadable)],
                          [True, False, False])
+
+    def test_a_ticket_that_closed_between_polls_is_read_once_more(self):
+        # `finished` weighs a ticket's state on the tracker against its own ledger, so the
+        # two have to be read at the same poll. The comments of a ticket that closed since
+        # the last one were read while it was still open: the poll that first sees it
+        # closed must read them again, or the board keeps drawing a landed ticket from a
+        # ledger in which its worker is still at work.
+        data = scenario()
+        data["trees"] = [tree_fixture(), closing(tree_fixture(), 12)]
+        data["comments"]["12"] = [
+            {"etag": '"mid-flight"', "comments": [event("ticket.claimed", 12)]},
+            {"etag": '"landed"', "comments": [event("ticket.claimed", 12),
+                                              event("ticket.landed", 12, id=1299)]},
+        ]
+        start = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
+        clock = {"at": start}
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            store = fixture_store(directory, data, lambda: clock["at"])
+
+            def reads_of_twelve():
+                return sum("/issues/12/comments" in line for line
+                           in (directory / "calls.jsonl").read_text().splitlines())
+
+            first = tickets(store.answer())[12]
+            polls = [reads_of_twelve()]
+
+            data["tree_active"] = 1
+            data["comment_active"]["12"] = 1
+            (directory / "scenario.json").write_text(json.dumps(data))
+            clock["at"] = start + dt.timedelta(seconds=600)
+            second = tickets(store.answer())[12]
+            polls.append(reads_of_twelve())
+
+            clock["at"] = start + dt.timedelta(seconds=1200)
+            third = tickets(store.answer())[12]
+            polls.append(reads_of_twelve())
+
+        self.assertEqual((first["state"], first["blocker_hold"]), ("open", "open"))
+        self.assertTrue(first["fold"]["held"], "the ledger read while it was open")
+        self.assertEqual((second["state"], second["blocker_hold"]), ("closed", ""))
+        self.assertEqual([row["event"] for row in second["events"]][-1], "ticket.landed")
+        self.assertEqual((second["fold"]["landed"], second["fold"]["held"]), (True, False))
+        self.assertTrue(board_data.finished(second))
+        self.assertEqual(third["fold"], second["fold"])
+        self.assertEqual(polls, [1, 2, 2], "read once more when it closed, then never again")
 
     def test_failed_read_keeps_the_last_data(self):
         data = scenario()

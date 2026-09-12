@@ -16,7 +16,18 @@
 | writing rules 里 `data-screen` 那条之后加一句：写展示组件的同时写它的 story adapter 与边界测试 | 我们加的，来自 mmw #216 第 8 节。上游改 writing rules → 收上游措辞，这一句保留 |
 | `Run typechecking regularly` 之后、「Once done」之前的测试范围段 | 我们加的：验证手段随意、scratch 脚本不必保留；只在票要求或仓库本来就为这类改动留测试时提交测试，规模比照相邻测试文件（每条声明的行为约一个测试），不把临时检查变成永久测试文件；这段只管多出来的东西，票要的每个行为仍要完整实现。来源是 Anthropic 的 `Prompting Claude Fable 5.1` 指南 `Keep changes and tests to what the task asks for` 一节：`Owns two grades` 管改动范围，这段补上测试文件数量。上游若加了同类约束 → 收上游措辞 |
 | 「Once done」之后的 closing steps | 我们改的：八步，顺序是自跑（`ticket.checked`，run `self`）→ reviewer → DECISIONS → verifier → Audit → `--touched` → `--draft` → `--closeout`。**verifier 排在 reviewer 之后**，因为 closeout 要求 `VERDICT` 指向将被合并的那个 commit，而 reviewer 的票内 finding 一修就会产生新 commit；上游的顺序（verifier 在前）下这个条件永远不成立。verifier 只跑一轮：判定失败就直接写 `ABANDON: AC<n> failed` 并以 `HANDOFF REQUIRED` 收尾，不再起第二个 verifier——重起的重验是这一步唯一可能永不结束的地方，而这样也没有一张票会烧掉两个 verifier 会话。第 1 步自跑（`<engine> <n>`，写完码那一条 run；一条 acceptance criterion 试几轮由 worker 自己判断，closeout 不数轮次，`ABANDON: AC<n> failed` 那一行写清每轮试了什么）。第 2、4 步都是 `<dispatch> start <n> <kind>` 之后结束回合，由 `dispatch` 技能的 relay 在结果事件落到票上时叫醒（唤醒只带票号与事件名），读票上的那条事件（`wait` 把它打成一行名字与关键字段：`reviewer.reported` / `verifier.passed`、`verifier.failed`），照事件名走，然后 `<dispatch> ack <n> <event>`；reviewer 与 verifier 各只起一次，都不复跑。`start` 是唯一起法，host 的 `spawn_subagent` / `Agent` 不能替代（换不了 provider，票上也不会有它的 `verifier.started` 事件）；start 退出 2 是流水线故障，`<engine> <n> --sub-issue fault <file>` 然后停。第 3 步 `<engine> <n> --decisions <file>` 留一条 `DECISIONS`，排在 verifier 之前、只贴一次。四个子命令（`--decisions`、`--touched`、`--draft`、`--closeout`）各自的行为与 exit code 不在这里，写在 `verify-ticket` 技能的 `references/closeout.md`；`implement` 只留次序与每一步为什么在那个位置。续跑表之前另有一句前置：先跑 `--preflight` 重新认领，因为 `advance` 会把 claim 收走而第 8 步拒绝不属于自己的票。第 2、4 两步指进 `dispatch` 技能 reviewer 行与 verifier 行的写法不依赖任何节名，路径由读者从那份技能自己的 `SKILL.md` 解析。第 2 步原有的半句「stderr 会点名兜底」随两道守卫一起退场：reviewer 停了没留评论时票上什么都没发生，relay 也就不叫醒 worker（board 只送好消息），这个缺口归判活（spec #317），这里不补任何替代出路。第 8 步 closeout 不 archive 任何 agent：**landing 是另一个动作，由 main agent 跑**（单票 `land <n>`，成批 `advance`），它连 workspace 带里面的 agent 一起收；票分支由 `--closeout` 在关票前推送，worker 不自行 push。三个 `ABANDON` kind：`failed` 与 `stuck` 都不看轮次、都把票交回；`decision` 开 sub-issue 不挡 `ALL MET`。理由：关票是一道门不是一个动作；idle sessions 不花钱，所以没有关 pane 那一步；pull request 整步退场，见下方 `Closeout pushes the ticket branch, no pull request`。`Branch: … Commit: … PR: …` 三个值写一行、没有 pull request 时把理由接在 `PR: none` 后面。上游改收尾 → 收上游措辞，但下列必须保留：八步顺序（**verifier 在 reviewer 之后**）、verifier 只跑一轮、四个子命令、`start <n> reviewer` 与 `start <n> verifier` 不带开关、`start` 之后结束回合由 relay 叫醒、读完事件再 `ack`、第 4 步的 `spawn_subagent` 禁令、`--sub-issue fault` 然后停、closeout 不 archive 而由 `land` / `advance` 收、没有关 pane 那一步、`failed` 与 `stuck` 都不看轮次、`--closeout`、`Closeout pushes the ticket branch, no pull request`、第 2 步内部 in-ticket round 在前（按文末那一节取舍）。frontmatter 的 `description` 补了「什么时候用我」并去掉引号（值里没有冒号加空格，去了仍然合法） |
+| 第 7 步的 `--draft` 那一句 | 我们改的：不给路径。见 `## 草稿落在仓库之外`。 |
 | frontmatter 的 `disable-model-invocation` 与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation` | 我们删的：上游两处都设了只许人触发，我们要模型自己就能调用 implement，所以两处一起删。上游若再带回来 → 仍然删 |
+
+## 草稿落在仓库之外
+
+第 7 步只写 `<engine> <n> --draft`，不带 out-file，并接一句说明为什么不要自己挑路径：草稿把票点名的每个文件名都写进去（收尾评论本来就该这么写），而第 8 步的 `--closeout` 会拿消费仓库自己的 `checks` 扫整个工作树——草稿落在树里就成了那些检查要读的又一个文件。
+
+2026-09-11 `agentflow-hq/agentflow` 的 #831 撞上了：产品判据全绿、验收员也过了，票关不掉，挡住它的是它自己一分钟前写出的 `.mmw/closeout-831.md`——该仓库一条「文档不许提 reference 文件名」的守卫在草稿里读到了票中提到的两个文件名。只要消费仓库有任何一条扫自己 Markdown 的守卫，每一张这样的票都会被自己的草稿挡一次。
+
+落点由 `verify-ticket.py` 自己选（`mktemp` 造的目录，不是 `/tmp` 下的固定名），并打印 `DRAFT: wrote <path>`；不落 `MMW_HOME` 的 state 目录，因为根 `AGENTS.md` 写明那里「不放一个字节的 ticket state」，而收尾草稿正是 ticket state。
+
+上游改第 7 步 → 收上游措辞，但 `--draft` 后面不带 out-file 这一点保留。
 
 ## Reaching the two scripts
 

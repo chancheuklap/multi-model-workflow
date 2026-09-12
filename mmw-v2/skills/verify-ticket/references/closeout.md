@@ -23,10 +23,12 @@ It lands one `worker.touched` event on each open sibling whose `## Owns` covers 
 ## `--draft`
 
 ```
-<engine> <n> --draft <out-file>
+<engine> <n> --draft
 ```
 
-Nothing lands on the ticket. The closing-comment skeleton is written to `<out-file>`, recounted from the ticket and your newest own run, with `skipped:` and `Decisions I made on my own` left as `<fill>`; its `Sub-issues opened:` is this ticket's sub-issues. Fill those two before the next run — `--closeout` refuses the skeleton until they are.
+Nothing lands on the ticket. The closing-comment skeleton is written to a file of the run's own, outside every repository, and the run prints where: `DRAFT: wrote <path>`. That path is what you fill in and hand to `--closeout`. It is recounted from the ticket and your newest own run, with `skipped:` and `Decisions I made on my own` left as `<fill>`; its `Sub-issues opened:` is this ticket's sub-issues. Fill those two before the next run — `--closeout` refuses the skeleton until they are.
+
+`<engine> <n> --draft <out-file>` writes it exactly where you say instead. Do not choose a path inside the repository: the skeleton names every file and path the ticket names, `--closeout` runs the repository's own `checks` over the working tree, and a draft sitting in that tree is one more file those checks read.
 
 ## `--closeout`
 
@@ -65,5 +67,5 @@ One gate comes after the draft: an accepted `ALL MET` draft still has to pass th
 ## Exit codes
 
 - `--decisions` and `--touched`: `0` posted (or, for `--touched`, nothing to post), `2` refused, with the reason on stderr and nothing posted.
-- `--draft`: `0` the file was written, `2` refused because the newest `worker.started` carries no `into`, with the restart instruction on stderr and no file written.
+- `--draft`: `0` the file was written and its path printed, `2` refused because the newest `worker.started` carries no `into`, with the restart instruction on stderr and no file written anywhere.
 - `--closeout`: `0` the ticket is closed (or handed back) and its event posted, `1` refused — by one of the conditions above, by a `ticket.checked` event of run `repo-checks` with result `unmet`, by a rejected or unconfirmed push, or by the tracker not closing or handing back the ticket, in which case no event was posted and stderr says what to resolve before running it again.

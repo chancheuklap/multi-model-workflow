@@ -88,6 +88,21 @@ This step is done when every criterion on every ticket carries a number, a `CHEC
 
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
+**What a ticket creates is put in service by an edit to something it did not create.** Until an existing file names the new one, it renders for nobody and no criterion of that ticket can see it. Those edits land in files the slice was never about, so every ticket of one frontier makes them, and all but the first to land is bounced on a merge conflict with working code.
+
+Derive them; do not recall them. For each path a ticket marks `(new)`:
+
+1. Name the nearest file of its kind: the partial, route module, migration, fixture or plugin already in the repository, or, in a batch that starts from zero, the first of that kind, which another ticket in this batch lands.
+2. `grep` that sibling twice, and every file that answers is one the new path needs too. Its **file name** answers from the registry or manifest that lists it, the router that maps a request to it, the parent template or module that includes or imports it, the index that exports it, the story adapter that gives it its scenes. The **one identifier it declares for others to use** — its root class name, its exported symbol, its route path — answers from the stylesheet, bundle or table that has to carry an entry of its own for the new file, and which the file name alone never reaches. Where that sibling is still to be built, its ticket's **Owns** is the same list.
+3. Put every file that answered under this ticket's **Owns**, whoever created it. A ticket whose **Owns** holds only what it creates cannot finish its own work.
+
+What overlaps there now decides the shape of the batch:
+
+- **Two tickets on one frontier**: the **Blocked by** edge the **Owns** section already calls for.
+- **Three or more on the same files**: a chain that long works the night one ticket at a time. Cut a **prefactor ticket** ahead of them — prefactoring goes first in any case — which owns those files and lands in one pass every entry, route, include and export, each naming a placeholder the ticket behind it fills; and where a shared file is only a list of independent entries, a stylesheet or a registry or a bundle index, splits it into one file per ticket that the shared one includes once. Each of them is then blocked by that ticket alone, and they run together. Where the spec has a screen contract this is the contract ticket of step 3, which registers the scenes and routes of every design page in the contract and not only of the page it makes the precedent from.
+
+A shared file that is one body of logic — a route module several tickets add handlers to — is neither pre-landed nor split, because what each ticket writes there is the ticket's own work. Those tickets keep their chain.
+
 ### 6. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
@@ -128,7 +143,7 @@ After publishing, fetch each ticket again and check every one:
 Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
-- **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there. A change a ticket needs in a tool skill outside the repository is not a ticket and not an **Owns** entry: the toolbox is improved in use, the change is made there at once.
+- **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there. Every path marked `(new)` has, on the same ticket, the existing file that puts it in service. A change a ticket needs in a tool skill outside the repository is not a ticket and not an **Owns** entry: the toolbox is improved in use, the change is made there at once.
 - Every thing a criterion needs to reach its state — the ones the spec's Testing Decisions names under **How a test arrives at a state** — is under some ticket's **Owns**, and is the `built_by` of that mechanism in the contract. That the builder truly builds it is yours to check: a criterion that assumes a mechanism nobody builds fails on the night it first runs, and by then the batch is out.
 - The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. What that run reads and what it reports is that skill's `references/linting.md`.
 
@@ -167,7 +182,7 @@ Where this ticket is verified: the test layer and directory from the spec's Test
 
 ## Owns
 
-The repository-relative paths this ticket may write, one per line, the test directory or test file from **Seam** included. Mark what this ticket creates with "(new)". No absolute path, no `..`, no bare `**`. Match the granularity to the split: a directory glob where this ticket owns the directory alone, file paths where several tickets divide one directory. Two tickets on the same frontier must not overlap here; where they cannot be pulled apart because both must edit one file, add a **Blocked by** edge instead. Everything outside these paths is read-only for this ticket.
+The repository-relative paths this ticket may write, one per line, the test directory or test file from **Seam** included. Mark what this ticket creates with "(new)". A file this ticket must edit to put what it creates in service — the registry, router, stylesheet, parent template or index that has to name it — belongs here as well, though another ticket created it: this section says where this ticket may write, not where its own code lives. No absolute path, no `..`, no bare `**`. Match the granularity to the split: a directory glob where this ticket owns the directory alone, file paths where several tickets divide one directory. Two tickets on the same frontier must not overlap here; where they cannot be pulled apart because both must edit one file, add a **Blocked by** edge instead. Everything outside these paths is read-only for this ticket.
 
 A ticket that deletes or renames a file, a script, a contract field, or a criterion word takes every place `grep` finds that name into its own **Owns**. Find those places by grepping the name, not by listing from memory. When both tickets in this batch must edit the same file, add the **Blocked by** edge the sentence above already names. When a hit is only a stale reference another ticket already owns, leave it off this ticket and open a ticket **Blocked by** that other ticket.
 
