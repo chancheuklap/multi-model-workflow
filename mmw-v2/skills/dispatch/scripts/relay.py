@@ -82,7 +82,14 @@ and a cycle with a failed read is never recorded as a good poll
 **A row's life.** Queued: `seq` (monotonic across all recipients, never reused, even after
 the queue empties), `ticket`, `event`, `to` (worker or main), `watch` (the key of the
 watch its ticket belongs to; none on relay.recovered), the recipient's `runner` and
-`session`, `at`. Delivered: the relay ran `runners/<runner>.sh send <session> "#<ticket>
+`session`, `at`. An event whose recipient, ticket and event name are those of a row in the
+queue that has not been sent yet queues no row of its own: the two wakes read `#<n>
+<event>` alike, and an unacked row is the only record that something has not been handled,
+so a second one asks for a second ack for one reading of one ticket. The event is recorded
+as translated all the same — what handles it is the wake it folded into, which is still to
+be sent and which has its recipient read that ticket — and `folded ...` says so in the log.
+Once a wake has been sent its recipient may have acted on it already, so an event that
+lands after it queues a wake of its own. Delivered: the relay ran `runners/<runner>.sh send <session> "#<ticket>
 <event>"` — the text carries the ticket number and the event name and nothing else; what
 happened is read on the board. What `send` answered decides what happens to the row:
 
@@ -583,6 +590,13 @@ def ask_liveness(runner: str, session: str) -> str:
 
 # ----------------------------------------------------------------- the relay
 
+def _addressed(row: dict) -> tuple:
+    """What two rows have to share to be the same wake: the recipient, and the wake's own
+    words. `#<ticket> <event>` is all a recipient is told, so two rows alike in these four
+    say the same thing to the same session."""
+    return (row.get("runner"), row.get("session"), row.get("ticket"), row.get("event"))
+
+
 def _slot(per_ticket: dict, ticket: int) -> dict:
     slot = per_ticket.setdefault(str(ticket), {})
     slot.setdefault("keys", [])
@@ -985,6 +999,7 @@ class Relay:
 
         now = self.clock()
         added: list[dict] = []
+        folded: list[dict] = []
         unaddressed: list[dict] = []
         reported: list[tuple[int, object, str]] = []
         with self.queue_lock():
@@ -1041,6 +1056,25 @@ class Relay:
                 queued.add(item["key"])
                 added.append(item)
 
+            # One wake per recipient, ticket and event while an undelivered one of the
+            # three is in the queue. A wake says where to look and nothing else, so a
+            # second copy of one nobody has even been sent yet tells its recipient nothing,
+            # and — an unacked row being the only record that something is unhandled —
+            # costs it a second ack for one reading of one ticket. The event itself is
+            # recorded as translated: what handles it is the wake it folded into, which
+            # has still to be sent and which makes the recipient read that ticket. Once
+            # that wake is sent, the recipient may already have acted on it, so an event
+            # landing after it queues a wake of its own.
+            standing = {_addressed(r) for r in rows if r.get("ticket") and not r.get("delivered")}
+            keeping = []
+            for item in added:
+                if item.get("ticket") and _addressed(item) in standing:
+                    folded.append(item)
+                    continue
+                standing.add(_addressed(item))
+                keeping.append(item)
+            added = keeping
+
             seq = self._last_seq(rows)
             for row in added:
                 seq += 1
@@ -1057,7 +1091,7 @@ class Relay:
                 slot = _slot(per_ticket, number)
                 if newest:
                     slot["mark"] = newest
-            for row in added:
+            for row in added + folded:
                 if row.get("home") is not None:
                     _slot(per_ticket, row["home"])["keys"].append(row["key"])
             # A comment the relay could not translate, or a wake-up with nobody to go to, is
@@ -1100,6 +1134,9 @@ class Relay:
         self.reconciled.update(read)
         for row in added:
             self.out.write(f"queued {row['seq']} {wake_text(row)} for {row['to']} {row['session']}\n")
+        for row in folded:
+            self.out.write(f"folded {wake_text(row)} for {row['to']} {row['session']}: that wake "
+                           f"is queued and not acked, and says the same thing\n")
         for number, cid, why in reported:
             self.err.write(f"relay: comment {cid} on #{number} was not translated: {why}. "
                            f"Read it on the ticket; the relay will not report it again.\n")
