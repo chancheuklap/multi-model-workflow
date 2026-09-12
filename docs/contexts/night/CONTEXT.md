@@ -126,7 +126,7 @@ _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
 **`dispatch.sh board`**:
-The task board entry command, run from any checkout or worktree: it makes sure the consuming repository's task board is registered in `boards.json` and answering, then has tonight's runner's `open-url` open it in the current worktree, or prints its URL when that adapter does not implement `open-url`.
+The task board entry command, run from any checkout or worktree: it makes sure the consuming repository's task board is registered in `boards.json` and answering, then has tonight's runner's `open-url` open it in the current worktree, or prints its URL when that adapter does not implement `open-url`. `open` does the first half of this on its own, so a night's board answers without anybody running this command; what this command adds is the tab.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -141,7 +141,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
 **open**:
-`dispatch.sh open <spec>`: the night begins. It infers the project branch from an earlier `spec.opened.project`, the base branch's creation reflog, `branch.<base branch>.vscode-merge-base`, or the uniquely closest eligible origin history, in that order. Before opening it rejects a default base or project branch and any local/origin divergence, then fast-forward pushes local-only or locally ahead project and base branches. The relay opens a **watch** on the spec with the calling session as its main agent, named by the runner and session its adapter's `self` reads (`relay.py start --repo <owner/name> --spec <spec> --runner <runner> --session <session>`), starting the relay when none runs, and `spec.opened` is written on the spec naming that runner, session, `into` and `project`. Opening the same night again keeps that project branch, makes the calling session its main agent and touches no other watch. `advance` refuses a night that is not open, and `summary` and `suspend` close its watch. Exit 0 opened; exit 2 refused, the reason on stderr.
+`dispatch.sh open <spec>`: the night begins. It infers the project branch from an earlier `spec.opened.project`, the base branch's creation reflog, `branch.<base branch>.vscode-merge-base`, or the uniquely closest eligible origin history, in that order. Before opening it rejects a default base or project branch and any local/origin divergence, then fast-forward pushes local-only or locally ahead project and base branches. The relay opens a **watch** on the spec with the calling session as its main agent, named by the runner and session its adapter's `self` reads (`relay.py start --repo <owner/name> --spec <spec> --runner <runner> --session <session>`), starting the relay when none runs, and `spec.opened` is written on the spec naming that runner, session, `into` and `project`. It then makes sure the repository's task board is registered and answering, and its stdout line carries the board's URL: the relay and the watchdog start themselves, and the board is the one thing of a night that is for a person rather than an agent. A board that will not start is one line on stderr and does not stop the night. Opening the same night again keeps that project branch, makes the calling session its main agent and touches no other watch. `advance` refuses a night that is not open, and `summary` and `suspend` close its watch. Exit 0 opened; exit 2 refused, the reason on stderr.
 _Avoid_: register (as the name of this), 开夜 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
@@ -178,7 +178,7 @@ _Avoid_: paseo wait (in skill text, for this), 等待 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
 
 **resume**:
-`dispatch.sh resume <n> "<text>"`: finds the worker session in the ticket's newest `worker.started` event and has the runner it names deliver the text (the adapter's `send`), then writes `worker.resumed`. Exit 0 the text was delivered; exit 4 the session was handed the text and its runner cannot show a turn starting — the text is in the session and is not sent again; exit 3 the worker is there and did not take it, or the runner could not tell — most likely a turn in progress, and so a reason to wait and run the same command again; exit 2 no `worker.started` event, the ticket's events could not be read, or the runner has no such session, nothing sent. Which of these it is, is the adapter's answer, never a reading of the runner's error sentence.
+`dispatch.sh resume <n> "<text>"`: finds the worker session in the ticket's newest `worker.started` event and has the runner it names deliver the text (the adapter's `send`), then writes `worker.resumed`. Exit 0 the text was delivered; exit 4 the session was handed the text and its runner cannot show a turn starting — the text is in the session and is not sent again. A runner that cannot observe the program inside its session has no turn to report, so on it exit 4 is the normal answer to every send it accepts and exit 0 never comes; no handling may turn on telling the two apart; exit 3 the worker is there and did not take it, or the runner could not tell — most likely a turn in progress, and so a reason to wait and run the same command again; exit 2 no `worker.started` event, the ticket's events could not be read, or the runner has no such session, nothing sent. Which of these it is, is the adapter's answer, never a reading of the runner's error sentence.
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
 **status**:
@@ -190,7 +190,7 @@ _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
 **summary**:
-`dispatch.sh summary <spec>`: posts the `spec.closed` event on the spec, first line `NIGHT SUMMARY <date>`, then closes the spec's watch, and the relay ends with its last. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended. Exit 0 posted and no relay watches the spec; exit 1 posted and the watch closed, but the relay, which watched nothing else, did not end (its pid on stderr); exit 2 it could not be posted.
+`dispatch.sh summary <spec>`: first reads its own `Findings routed:` line, and while that line's last count, the findings still open, is above zero it posts nothing, leaves the watch open and quotes the line — a `finding` child wakes nobody, so the night's wakes are no list of them, and a summary already posted is too late to find one it missed. Otherwise it posts the `spec.closed` event on the spec, first line `NIGHT SUMMARY <date>`, then closes the spec's watch, and the relay ends with its last. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended. Exit 0 posted and no relay watches the spec; exit 1 posted and the watch closed, but the relay, which watched nothing else, did not end (its pid on stderr); exit 2 it could not be posted, or findings are still unrouted.
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
 **status.py**:
