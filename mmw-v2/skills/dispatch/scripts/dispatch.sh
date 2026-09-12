@@ -682,6 +682,61 @@ check_open_pushes() {
   [ "$failed" -eq 0 ]
 }
 
+# Commits of the project branch the base branch does not hold yet, counted on the tips
+# `open` will have on origin once its pushes are done.
+project_commits_missing_from_base() {
+  local root="$1" rows="$2" project into tip base_tip project_tip branch ahead presence
+  project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
+  while IFS=$'\t' read -r _ _ branch ahead presence _; do
+    [ -n "$branch" ] || continue
+    if [ "$presence" = missing ] || [ "$ahead" -gt 0 ]; then
+      tip="refs/heads/$branch"
+    else
+      tip="refs/remotes/origin/$branch"
+    fi
+    if [ "$branch" = "$project" ]; then project_tip="$tip"; else base_tip="$tip"; fi
+  done <<<"$rows"
+  git -C "$root" rev-list --count "$base_tip..$project_tip"
+}
+
+# The night runs on the base branch, so the base branch takes every commit the project
+# branch has gained since it was cut: a fast-forward when the base has nothing of its
+# own, otherwise a merge in the base branch's merge worktree. Only a conflict stops it.
+# The checkout then fast-forwards to the result when git lets it.
+sync_base_with_project() {
+  local root="$1" into="$2" project="$3" missing out files rc
+  fetch_origin "$root" || return 2
+  missing="$(git -C "$root" rev-list --count "origin/$into..origin/$project")" \
+    || { echo "dispatch: could not compare origin/$into with origin/$project" >&2; return 2; }
+  if [ "$missing" -gt 0 ]; then
+    if git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project"; then
+      out="$(git -C "$root" push origin "refs/remotes/origin/$project:refs/heads/$into" 2>&1)" \
+        || { echo "dispatch: could not fast-forward origin/$into to origin/$project: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')" >&2; return 2; }
+    else
+      prepare_merge_worktree "$root" "$into" || return 2
+      if ! git -C "$MERGE_ROOT" merge --no-ff -m "Merge branch '$project' into $into" "origin/$project" >/dev/null 2>&1; then
+        files="$(git -C "$MERGE_ROOT" diff --name-only --diff-filter=U | paste -sd, -)"
+        git -C "$MERGE_ROOT" merge --abort >/dev/null 2>&1 || true
+        git -C "$MERGE_ROOT" reset --hard "origin/$into" >/dev/null
+        release_merge_lock
+        echo "dispatch: origin/$into lacks $missing commit(s) of origin/$project and merging them conflicts in ${files:-unknown files}; nothing was pushed. Merge origin/$project into $into by hand, push it, then run open again" >&2
+        return 2
+      fi
+      out="$(git -C "$MERGE_ROOT" push origin "HEAD:refs/heads/$into" 2>&1)"; rc=$?
+      release_merge_lock
+      [ "$rc" -eq 0 ] \
+        || { echo "dispatch: could not push the merge of origin/$project into origin/$into: $(printf '%s' "$out" | tail -2 | tr '\n' ' '); run open again" >&2; return 2; }
+    fi
+    git -C "$root" fetch -q origin 2>/dev/null || true
+    echo "dispatch: $into took $missing commit(s) from origin/$project before the night opened" >&2
+  fi
+  if ! git -C "$root" merge-base --is-ancestor "origin/$into" HEAD \
+     && ! git -C "$root" merge --ff-only --quiet "origin/$into" >/dev/null 2>&1; then
+    echo "dispatch: this checkout stays behind origin/$into (git would not fast-forward it); the night runs on origin/$into either way" >&2
+  fi
+  return 0
+}
+
 # `open <spec>`: the night begins. The relay watches the spec's tickets with this session
 # as the night's main agent, and `spec.opened` on the spec records who is woken. A
 # spec.opened that could not be written closes the watch this call opened: a night that
@@ -696,6 +751,7 @@ open_night() {
   rows="$(inspect_open_branches "$root" "$spec" "$into")" || exit 2
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
   push_open_branches "$root" "$rows" || exit 2
+  sync_base_with_project "$root" "$into" "$project" || exit 2
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
@@ -1812,7 +1868,7 @@ check_machine() {
         [ "$branch" = "$into" ] && base_push="$ahead"
       done <<<"$rows"
       check_open_pushes "$root" "$rows" || failed=1
-      echo "project branch: $project (source: $source); open would push $project: $project_push commit(s), $into: $base_push commit(s)"
+      echo "project branch: $project (source: $source); open would push $project: $project_push commit(s), $into: $base_push commit(s); $into would take $(project_commits_missing_from_base "$root" "$rows") commit(s) from $project"
     else
       failed=1
     fi

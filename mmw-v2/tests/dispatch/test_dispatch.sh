@@ -6710,6 +6710,81 @@ scenario_openrefusesdiverged() {
   [ -z "$(posted_events 76)" ] || fail "diverged open wrote spec.opened"
 }
 
+# The project branch moved on after the base branch was cut from it.
+scenario_openbasefollowsproject() {
+  local code other proj_tip merge
+  echo "--- a base branch with nothing of its own is fast-forwarded to the project branch, and so is the checkout"
+  fresh_repo
+  git -C "$TMP/repo" checkout -q -b proj main
+  commit_file "$TMP/repo" project.txt project project
+  git -C "$TMP/repo" push -q -u origin proj
+  git -C "$TMP/repo" checkout -q -b night proj
+  git -C "$TMP/repo" push -q -u origin night
+  other="$(other_clone)"
+  git -C "$other" fetch -q origin
+  git -C "$other" checkout -q proj
+  commit_file "$other" later.txt later later
+  git -C "$other" push -q origin proj
+  proj_tip="$(git -C "$other" rev-parse proj)"
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$proj_tip" ] || fail "origin/night was not fast-forwarded to proj"
+  [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$proj_tip" ] || fail "the checkout was not fast-forwarded: $(cat "$TMP/err"); $(git -C "$TMP/repo" status --short)"
+  grep -q "night took 1 commit(s) from origin/proj" "$TMP/err" || fail "stderr did not say what the base took: $(cat "$TMP/err")"
+  no_relay
+
+  echo "--- a base branch with commits of its own merges the project branch"
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  rm -rf "$TMP/other-clone"
+  other="$(other_clone)"
+  git -C "$other" checkout -q proj
+  commit_file "$other" later.txt later later
+  git -C "$other" push -q origin proj
+  proj_tip="$(git -C "$other" rev-parse proj)"
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+  merge="$(git -C "$TMP/origin.git" rev-parse night)"
+  git -C "$TMP/origin.git" merge-base --is-ancestor "$proj_tip" "$merge" || fail "origin/night does not contain proj"
+  [ "$(git -C "$TMP/origin.git" show -s --format=%s "$merge")" = "Merge branch 'proj' into night" ] || fail "wrong merge subject"
+  [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$merge" ] || fail "the checkout was not fast-forwarded to the merge"
+  posted_events 76 | grep -q '^spec.opened' || fail "open did not write spec.opened"
+  no_relay
+
+  echo "--- check reports what the base would take and changes nothing"
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  rm -rf "$TMP/other-clone"
+  other="$(other_clone)"
+  git -C "$other" checkout -q proj
+  commit_file "$other" later.txt later later
+  git -C "$other" push -q origin proj
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" check 76)"
+  grep -q "night would take 1 commit(s) from proj" "$TMP/out" || fail "check did not report the commits: $(cat "$TMP/out") $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$(git -C "$TMP/repo" rev-parse night)" ] || fail "check changed origin/night"
+}
+
+scenario_openbaseprojectconflict() {
+  local code other night_remote
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  other="$(other_clone)"
+  git -C "$other" checkout -q proj
+  commit_file "$other" night.txt other clash
+  git -C "$other" push -q origin proj
+  night_remote="$(git -C "$TMP/origin.git" rev-parse night)"
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 2 ] || fail "a conflicting project branch expected 2, got $code: $(cat "$TMP/err")"
+  grep -q "conflicts in night.txt; nothing was pushed" "$TMP/err" || fail "the conflict was not named: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_remote" ] || fail "origin/night changed on conflict"
+  [ -z "$(posted_events 76)" ] || fail "a conflicted open wrote spec.opened"
+  no_relay
+}
+
 scenario_openkeepsproject() {
   local code
   fresh_project_night
@@ -8387,7 +8462,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openbasefollowsproject openbaseprojectconflict openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8567,6 +8642,8 @@ banner_for() {
     openrefusesfromdefault) echo OPEN-REFUSES-FROM-DEFAULT-OK ;;
     openpushes) echo OPEN-PUSHES-OK ;;
     openrefusesdiverged) echo OPEN-REFUSES-DIVERGED-OK ;;
+    openbasefollowsproject) echo OPEN-BASE-FOLLOWS-PROJECT-OK ;;
+    openbaseprojectconflict) echo OPEN-BASE-PROJECT-CONFLICT-OK ;;
     openkeepsproject) echo OPEN-KEEPS-PROJECT-OK ;;
     checkproject) echo CHECK-PROJECT-OK ;;
     openprojecthead) echo OPEN-PROJECT-HEAD-OK ;;
