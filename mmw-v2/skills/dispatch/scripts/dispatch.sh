@@ -2910,6 +2910,28 @@ summary_spec() {
 
   local body extra git_dir
   body="$(python3 "$STATUS" --summary "$spec")"
+
+  # The last slot of the summary's `Findings routed:` line is the findings of this batch
+  # that no `child.closed` accounts for: the closing pass has not been through them. That
+  # number is computed here, and until now it reached the main agent only inside the
+  # comment this command posts — after the pass it judges is over and after the watch that
+  # would have carried the work is closed. So it is read before anything is posted, and a
+  # night that still holds unrouted findings is refused with nothing written. A summary
+  # that carries no such line says so rather than pass silently: a count that could not be
+  # read is not a count of zero.
+  local routed open_findings
+  routed="$(printf '%s\n' "$body" | sed -n 's/^Findings routed: \([0-9][0-9/]*\).*$/\1/p' | head -1)"
+  open_findings="${routed##*/}"
+  case "$routed" in
+    "") echo "dispatch: this summary of #$spec carries no 'Findings routed:' line, so whether the closing pass left findings unrouted was not checked" >&2 ;;
+    *) case "$open_findings" in
+         "" | *[!0-9]*)
+           echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
+         0) ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+       esac ;;
+  esac
+
   git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
   extra=""
   if [ -n "$git_dir" ] && [ -f "$git_dir/mmw-reverify-$spec" ]; then

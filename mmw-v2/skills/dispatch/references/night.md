@@ -104,6 +104,8 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 
 The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `python3 <events.py> fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go to step 5.
 
+**Read every ticket of the batch, not the ones you heard about.** A `child.opened` of kind `finding` wakes nobody: the only two kinds that wake you are `fault` and `decision`, as [how-it-works.md](how-it-works.md) under **Results, watches and wakes** says. So the findings you were woken for during the night are no measure of the findings that exist, and a pass built on your wakes reads a fraction of them. Take the ticket list from `<dispatch> status <spec>` — every row of that table is a ticket of this batch — and run the `fold` above on each one, one ticket at a time. `summary` in step 5 refuses to post while any finding is still unrouted and prints the count it read, so a batch read short is caught before the night is closed; it is caught after the pass is over, though, which is why the list comes from the table and not from memory.
+
 Every route is carried out by one command, run once per finding, and it is the only way a finding leaves this pass:
 
 ```bash
@@ -171,7 +173,7 @@ Step 4 left no open finding. From any checkout in this repository:
 
 `reverify` exit 0 means every landed ticket is green. Exit 1 means each red ticket is already reopened in `needs-triage`, unassigned and carrying `ticket.regressed`; do not close it. Exit 2 means one ticket established no result, so no ticket was changed and the remainder was skipped; fix stderr's named condition and run `reverify` again.
 
-`summary` exit 0 means `NIGHT SUMMARY` was posted and the spec watch is closed. Exit 1 means the comment was posted and the watch closed, but an otherwise unused relay remains; end the pid stderr names. Exit 2 means no comment was posted and the watch remains; fix stderr's named condition and run `summary` again. Its event and counting mechanics are in [how-it-works.md](how-it-works.md) under **Reverify and summary**.
+`summary` exit 0 means `NIGHT SUMMARY` was posted and the spec watch is closed. Exit 1 means the comment was posted and the watch closed, but an otherwise unused relay remains; end the pid stderr names. Exit 2 means no comment was posted and the watch remains; fix stderr's named condition and run `summary` again. One of those conditions is step 4 itself: a batch with findings no route reached is refused here, with the `Findings routed:` counts on stderr and its last number the ones left. Go back to step 4, route them, and run `summary` again. Its event and counting mechanics are in [how-it-works.md](how-it-works.md) under **Reverify and summary**.
 
 Tell the user the night finished, point them at that comment, and say that after they accept the result the main agent will run `finish` to close the night.
 

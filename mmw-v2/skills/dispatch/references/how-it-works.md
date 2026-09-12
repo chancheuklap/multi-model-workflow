@@ -32,6 +32,8 @@ The relay watches a night's spec from `open` to `summary` or `suspend`, and tick
 
 A wake is `#<n> <event>`, with `relay.recovered since <time>` as the relay-wide form. The worker receives `reviewer.reported`, `verifier.passed`, `verifier.failed`, `reviewer.lost`, `verifier.lost`, and `worker.queued` after a slot is given back. The main agent receives `ticket.passed`, `ticket.returned`, `ticket.refused`, `child.opened` of kind `fault` or `decision`, `worker.lost`, and `relay.recovered`. A recovered relay reads every ticket again and queues the events it found after the recovery wake.
 
+Those two kinds are the whole of what a `child.opened` wakes anyone for. A `finding`, a `contract` or a `deferred` child is written on its ticket and wakes nobody, by design — nothing is expected of the main agent until the batch comes to rest. The consequence is for whoever counts them: the children a main agent was woken about are not the children its batch opened, so the closing pass reads every ticket of the batch and never its own wakes.
+
 ## The watchdog and turn guard
 
 A dead session writes no event. The watchdog covers that gap: one process per repository, restarted when necessary by the turn guard at the end of a main agent's turn while a watch is open.
@@ -87,5 +89,7 @@ For a gone session with a workspace, slot or claim still held, `retract` commits
 ## Reverify and summary
 
 `reverify` fetches origin, resets the detached merge worktree to `origin/<into>`, and runs every passed-and-landed ticket through `<engine> <n> --reverify --actor main` with `MMW_BASE_REF=origin/<into>`. Each run posts `ticket.checked` with run `reverify`, actor `main`. A passed but unlanded ticket is named and skipped. A red ticket is reopened in triage, unassigned and given `ticket.regressed`; a ticket that establishes no result is not treated as red and leaves the remaining tickets unrun.
+
+`summary` refuses, with nothing posted and the watch still open, while the batch holds a finding no `child.closed` accounts for — the last count of the `Findings routed:` line — and names that count on stderr. That number is what says the closing pass is unfinished, and it is computed inside the comment `summary` posts; read only there, it would reach the main agent after the pass it judges was over and after the watch that would have carried the work was closed. A summary carrying no `Findings routed:` line at all is said so on stderr and posted: a count that could not be read is not a count of zero.
 
 `summary` posts `spec.closed` with `NIGHT SUMMARY <date>` and the six lines `Closed:`, `Handed back to needs-triage:`, `Bounced:`, `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` and `Findings routed: <opened>/<fixed>/<became>/<skipped>/<unread>/<open>`, then closes the spec watch. It counts `finding` children through `child.opened` and `child.closed`; other child kinds appear on the sub-issues line, and a closed finding with no `child.closed` is `unread`. A reverify run in this checkout adds `Reverify: <green>/<red>`. The relay continues for other watches and ends with the last.
