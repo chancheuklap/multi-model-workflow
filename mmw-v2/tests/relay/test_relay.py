@@ -225,8 +225,10 @@ class QueueTest(RelayCase):
         self.assertEqual(self.summary(), [(3, 61, "ticket.refused")])
 
     def test_ack_through_removes_rows_up_to_that_seq_and_no_further(self):
-        for cid in (101, 102, 103):
-            self.board[61].append(comment(cid, "ticket.passed", 61))
+        # Three wakes for one recipient, each saying something of its own: two alike would
+        # be one row, since a wake carries the ticket and the event name and nothing else.
+        self.board[61] += [comment(101, "ticket.passed", 61), comment(103, "ticket.refused", 61)]
+        self.board[62].append(comment(102, "ticket.returned", 62))
         self.poll()
         self.assertEqual(self.relay.ack(MAIN_A, 2), (2, 1))
         self.assertEqual([r["seq"] for r in self.rows()], [3])
@@ -250,6 +252,40 @@ class QueueTest(RelayCase):
         self.relay = self.fresh()
         self.poll()
         self.assertEqual(self.rows(), [])
+
+    def test_two_events_of_one_name_in_a_cycle_queue_one_wake(self):
+        """2026-09-12 (#411): #746 was closed twice, its two `ticket.passed` events queued
+        rows 42 and 43 in one cycle, and the main agent was woken twice about one ticket
+        and acked twice. A wake carries the ticket and the event name and nothing else, so
+        the second copy said nothing the first had not."""
+        self.board[61] += [comment(101, "ticket.passed", 61),
+                           comment(102, "ticket.passed", 61)]
+        self.poll()
+        self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
+        self.assertIn("folded #61 ticket.passed", self.out.getvalue())
+
+    def test_a_later_event_of_one_name_folds_into_the_wake_still_queued(self):
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.poll()
+        self.board[61].append(comment(102, "ticket.passed", 61))
+        self.poll()
+        self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
+
+    def test_the_same_event_wakes_again_once_the_first_wake_was_acked(self):
+        """Folding is only while the wake is unacked: an acked wake was handled, and the
+        next event of that name has to be looked at again."""
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.poll()
+        self.relay.ack(MAIN_A, 1)
+        self.board[61].append(comment(102, "ticket.passed", 61))
+        self.poll()
+        self.assertEqual(self.summary(), [(2, 61, "ticket.passed")])
+
+    def test_the_same_event_on_another_ticket_is_its_own_wake(self):
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.board[62].append(comment(102, "ticket.passed", 62))
+        self.poll()
+        self.assertEqual(self.summary(), [(1, 61, "ticket.passed"), (2, 62, "ticket.passed")])
 
     def test_a_lost_reviewer_or_verifier_wakes_the_worker_that_started_it(self):
         self.board[61] += [
@@ -278,13 +314,16 @@ class QueueTest(RelayCase):
             comment(108, "child.opened", 61, kind="finding"),
             comment(109, "child.opened", 61, kind="deferred"),
             comment(110, "child.opened", 61, kind="fault"),
-            comment(111, "child.opened", 61, kind="decision"),
             comment(112, "child.opened", 61, kind="contract"),
             comment(113, "ticket.passed", 61),
             comment(114, "ticket.landed", 61),
             comment(115, "worker.lost", 61),
         ]
-        self.board[62] += [comment(116, "ticket.returned", 62), comment(117, "ticket.refused", 62)]
+        # The decision child sits on the other ticket: two `child.opened` wakes about one
+        # ticket read alike, so the second would fold into the first and this is about
+        # which events wake whom.
+        self.board[62] += [comment(111, "child.opened", 62, kind="decision"),
+                           comment(116, "ticket.returned", 62), comment(117, "ticket.refused", 62)]
         self.poll()
         self.assertEqual(self.addressed(), [
             (1, "reviewer.reported", "worker", "wk-61"),
@@ -674,6 +713,20 @@ class PollingTest(RelayCase):
         beat = json.loads((self.state / "beat.json").read_text())
         self.assertEqual((beat["at"], beat["failure"]), (stamp(T0 + timedelta(seconds=30)), None))
 
+    def test_a_failed_read_still_stamps_the_cycle_it_ran(self):
+        """Whether the relay is running and whether it read anything are two facts, and
+        the watchdog reads one of each: `cycle_at` says the cycle ran, `at` says it read
+        the board. Written as one, a single failed read reads exactly like a dead relay
+        (#406)."""
+        self.poll()
+        self.gh.failing.add(62)
+        self.clock.moment = T0 + timedelta(seconds=30)
+        self.assertFalse(self.poll())
+        beat = json.loads((self.state / "beat.json").read_text())
+        self.assertEqual(beat["at"], stamp(T0), "a failed read is no good poll")
+        self.assertEqual(beat["cycle_at"], stamp(T0 + timedelta(seconds=30)),
+                         "and the cycle it ran is stamped all the same")
+
     def test_a_ticket_whose_read_on_start_failed_is_read_in_full_when_it_works(self):
         self.board[62].append(comment(102, "ticket.claimed", 62))
         self.poll()
@@ -983,18 +1036,23 @@ class SlotWakeTest(RelayCase):
         self.assertEqual(self.woken(), [])
 
     def test_a_slot_wake_not_yet_sent_when_the_wait_ends_is_dropped(self):
-        """Two slots given back before the worker's turn ends queue two wakes; the first
-        gets it a slot, and its run ends the wait before the second is sent. The runner
-        takes the first and cannot show a turn starting (4), which holds the second back
-        for that pass."""
+        """A slot given back queues the wake; the runner takes it and cannot show a turn
+        starting (4), so it is delivered and stays. A second slot given back queues a
+        second wake — the first has been sent, so nothing folds into it — and the run that
+        got a slot ends the wait before that second wake is sent."""
         self.board[62].append(self.queued(110))
-        self.board[61] += [comment(120, "ticket.landed", 61), comment(121, "ticket.released", 61)]
+        self.board[61].append(comment(120, "ticket.landed", 61))
         self.poll()
-        self.assertEqual(self.woken(), [(62, "wk-62"), (62, "wk-62")])
+        self.assertEqual(self.woken(), [(62, "wk-62")])
         self.send.code = 4
         self.relay.deliver()
         self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
-        later = T0 + timedelta(seconds=30)
+        second = T0 + timedelta(seconds=30)
+        self.clock.moment = second
+        self.board[61].append(comment(121, "ticket.released", 61, updated=second))
+        self.poll()
+        self.assertEqual(self.woken(), [(62, "wk-62"), (62, "wk-62")])
+        later = T0 + timedelta(seconds=60)
         self.clock.moment = later
         self.board[62].append(comment(130, "ticket.checked", 62, updated=later, run="self",
                                       commit="a" * 40, result="met"))
