@@ -322,15 +322,23 @@ export function render(host, data = {}, api = undefined) {
   const prior = mounted.get(host);
   if (prior) prior.cleanup();
 
+  // Pan and zoom belong to the person looking at the canvas, not to the data behind it: a
+  // redraw of the same task carries the viewport over, and only a different task is fitted
+  // afresh.
+  const taskKey = data.task && typeof data.task === "object" ? data.task.n : null;
+  const kept = prior && prior.taskKey === taskKey ? prior.state : null;
   const reduced = prefersReduced();
   const state = {
     sel: data.sel ?? null,
     expanded: startingExpanded(data),
-    view: {x: 20, y: 12, k: 1},
-    didInit: false,
+    view: kept ? kept.view : {x: 20, y: 12, k: 1},
+    didInit: Boolean(kept && kept.didInit),
     drag: null,
     suppress: false,
   };
+  // A card picked anywhere but here (the topbar's jump, a link in the detail column) can
+  // land outside the viewport; one the user clicked on the canvas is already inside it.
+  const toReveal = kept && state.sel != null && state.sel !== kept.sel;
 
   const root = document.createElement("main");
   root.dataset.screen = "canvas";
@@ -380,6 +388,26 @@ export function render(host, data = {}, api = undefined) {
     const r = size();
     const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
     state.view = {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
+    applyView();
+  };
+
+  // The smallest pan that puts the selected card inside the viewport; zoom is left alone.
+  const revealSel = () => {
+    const b = box(state.sel);
+    if (!b) return;
+    const r = size();
+    if (!r.width || !r.height) return;
+    const v = state.view, pad = 24, foot = 60; // foot: the zoom bar's own strip
+    const left = b.x * v.k + v.x, right = (b.x + b.w) * v.k + v.x;
+    const top = b.y * v.k + v.y, bottom = (b.y + b.h) * v.k + v.y;
+    let dx = 0, dy = 0;
+    if (right > r.width - pad) dx = r.width - pad - right;
+    if (left + dx < pad) dx = pad - left;
+    if (bottom > r.height - foot) dy = r.height - foot - bottom;
+    if (top + dy < pad) dy = pad - top;
+    if (!dx && !dy) return;
+    v.x += dx;
+    v.y += dy;
     applyView();
   };
 
@@ -499,6 +527,7 @@ export function render(host, data = {}, api = undefined) {
   paint();
   host.replaceChildren(root);
   if (!state.didInit) queueMicrotask(initialView);
+  else if (toReveal) queueMicrotask(revealSel);
 
   let observer;
   if (typeof ResizeObserver === "function") {
@@ -509,6 +538,8 @@ export function render(host, data = {}, api = undefined) {
   }
 
   mounted.set(host, {
+    taskKey,
+    state,
     cleanup() {
       root.removeEventListener("pointerdown", onPointerDown);
       root.removeEventListener("wheel", onWheel);
