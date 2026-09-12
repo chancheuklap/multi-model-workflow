@@ -7,6 +7,14 @@ import {render as settings, fromPayload as settingsFromPayload, unmount as unmou
 import {api} from "./api.mjs";
 import {startBoardFeed} from "./board-feed.mjs";
 
+// PROTOTYPE scaffolding — prototypes/board-orchestration/sidebar-events/UI.
+// `?variant=A|B|C` hands the detail column to a prototype variant, `?sel=<n>` opens a card
+// on load. Nothing runs without the parameter; the import is served only by that
+// prototype's own serve.py. It all comes down when a winner is folded in.
+const protoQuery = typeof location === "undefined" ? null : new URLSearchParams(location.search);
+const protoKey = protoQuery?.get("variant") || null;
+const proto = protoKey ? await import("./proto/mount.mjs").catch(() => null) : null;
+
 function nextOrange(tasks, current) {
   const list = [];
   for (const task of tasks) {
@@ -38,6 +46,10 @@ export function mountPage(doc = document) {
 
   const taskOf = n => (state.payload.tasks || []).find(task => task.n === n) || null;
 
+  // PROTOTYPE scaffolding: `?sel=<n>` opens that card as soon as the first payload lands.
+  const protoSel = proto ? Number(protoQuery.get("sel")) : NaN;
+  let protoSelPending = Number.isFinite(protoSel) && protoSel > 0;
+
   const setTask = n => {
     if (state.task === n) return;
     state.task = n;
@@ -55,6 +67,14 @@ export function mountPage(doc = document) {
   const paint = () => {
     const list = state.payload.tasks || [];
     if (state.task == null && list[0]) setTask(list[0].n);
+    if (protoSelPending && list.length) {
+      protoSelPending = false;
+      const found = find(list, protoSel);
+      if (found) {
+        setTask(found.task.n);
+        state.sel = protoSel;
+      }
+    }
     topbar(slots.topbar, topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen}), api, {
       onJumpNeedYou() {
         const next = nextOrange(list, state.sel);
@@ -98,23 +118,26 @@ export function mountPage(doc = document) {
     // Nothing picked, nothing to show: the column comes off the page rather than standing
     // there empty, and the canvas takes the width back. The stylesheet follows the slot.
     const detailView = detailFromBoard(state.payload, state.sel);
-    if (detailView.empty) {
+    const detailHooks = {
+      onGoto(n) {
+        const found = find(list, n);
+        if (found) {
+          setTask(found.task.n);
+          state.sel = n;
+          paint();
+        }
+      },
+      onClose() {
+        state.sel = null;
+        paint();
+      },
+    };
+    if (proto) {
+      proto.mount(slots.detail, {payload: state.payload, sel: state.sel, variant: protoKey}, api, detailHooks);
+    } else if (detailView.empty) {
       unmountDetail(slots.detail);
     } else {
-      detail(slots.detail, detailView, api, {
-        onGoto(n) {
-          const found = find(list, n);
-          if (found) {
-            setTask(found.task.n);
-            state.sel = n;
-            paint();
-          }
-        },
-        onClose() {
-          state.sel = null;
-          paint();
-        },
-      });
+      detail(slots.detail, detailView, api, detailHooks);
     }
     if (!slots.settings) return;
     const open = slots.settings.querySelector('[data-screen="settings"]');
