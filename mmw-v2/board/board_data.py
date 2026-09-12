@@ -116,25 +116,56 @@ class BoardStore:
             raise GitHubReadFailed(_last_error(err, out, "GitHub did not name the repository"))
         return out.strip()
 
+    def _list_open(self, label: str) -> list[dict]:
+        items = self._json(["issue", "list", "--state", "open", "--label", label,
+                            "--limit", "1000", "--json", "number,title,state,labels"])
+        if not isinstance(items, list):
+            raise GitHubReadFailed(f"the {label} list was not an array")
+        return items
+
     def _read_trees(self) -> list[dict]:
-        maps = self._json(["issue", "list", "--state", "open", "--label", "mmw:map",
-                           "--limit", "1000", "--json", "number,title,state,labels"])
-        if not isinstance(maps, list):
-            raise GitHubReadFailed("the map list was not an array")
+        """One tree per top-level task: every open map, then every open spec that no open
+        map holds as a child. A spec with no map above it is a task of its own, so a spec
+        published straight from a conversation is on the board like any other."""
         result = []
-        for item in maps:
+        under_a_map: set[int] = set()
+        for item in self._list_open("mmw:map"):
             try:
                 read = tree.read(int(item["number"]), "map", gh=self.gh)
             except (KeyError, TypeError, ValueError, tree.TreeUnreadable) as exc:
                 raise GitHubReadFailed(str(exc)) from exc
             read["labels"] = _labels(item)
             result.append(read)
+            under_a_map.update(child["number"] for child in read.get("children", [])
+                               if "number" in child)
+        for item in self._list_open("mmw:spec"):
+            try:
+                number = int(item["number"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise GitHubReadFailed(str(exc)) from exc
+            if number in under_a_map:
+                continue
+            try:
+                read = tree.read(number, "spec", gh=self.gh)
+            except tree.TreeUnreadable as exc:
+                raise GitHubReadFailed(str(exc)) from exc
+            read["labels"] = _labels(item)
+            read["top_spec"] = True
+            result.append(read)
         return result
 
     @staticmethod
-    def _ticket_nodes(map_trees: list[dict]) -> list[dict]:
-        return [ticket for task in map_trees for spec in task.get("children", [])
-                if "mmw:spec" in spec.get("labels", [])
+    def _spec_trees(task_tree: dict) -> list[dict]:
+        """The spec nodes a task holds: the tree itself for a top-level spec, else the
+        map's spec children."""
+        if task_tree.get("top_spec"):
+            return [task_tree]
+        return [spec for spec in task_tree.get("children", [])
+                if "mmw:spec" in spec.get("labels", [])]
+
+    @classmethod
+    def _ticket_nodes(cls, map_trees: list[dict]) -> list[dict]:
+        return [ticket for task in map_trees for spec in cls._spec_trees(task)
                 for ticket in spec.get("children", [])
                 if "mmw:ticket" in ticket.get("labels", [])]
 
@@ -143,24 +174,25 @@ class BoardStore:
         specs_by_ticket = {}
         tasks = []
         for raw_map in map_trees:
+            top_spec = bool(raw_map.get("top_spec"))
             task = {
                 "n": raw_map["number"],
-                "kind": _wayfinder_kind(raw_map.get("labels", []), "map"),
+                "kind": "spec" if top_spec else _wayfinder_kind(raw_map.get("labels", []), "map"),
                 "title": raw_map["title"],
                 "state": raw_map["state"].lower(),
                 "decisions": [],
                 "specs": [],
             }
-            for child in raw_map.get("children", []):
+            for child in ([raw_map] if top_spec else raw_map.get("children", [])):
                 labels = child.get("labels", [])
                 blockers = [item["number"] for item in child.get("blockedBy", [])]
-                decision_kind = _wayfinder_kind(labels)
+                decision_kind = None if top_spec else _wayfinder_kind(labels)
                 if decision_kind:
                     task["decisions"].append({"n": child["number"], "kind": decision_kind,
                                               "title": child["title"],
                                               "state": child["state"].lower(), "blocked": blockers})
                     continue
-                if "mmw:spec" not in labels:
+                if not top_spec and "mmw:spec" not in labels:
                     continue
                 spec = {"n": child["number"], "title": child["title"], "tickets": []}
                 for raw_ticket in child.get("children", []):
@@ -189,7 +221,7 @@ class BoardStore:
             tasks.append(task)
 
         raw_blockers = {node["number"]: node for raw_map in map_trees
-                        for spec in raw_map.get("children", [])
+                        for spec in self._spec_trees(raw_map)
                         for node in spec.get("children", [])}
         for ticket in tickets_by_number.values():
             for reference in ticket.pop("_blocked_by"):

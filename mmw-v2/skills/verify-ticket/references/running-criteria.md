@@ -19,9 +19,9 @@ The worker's run takes the criteria not yet met. `--reverify` reads the ticket a
 
 ## A criterion that runs the product
 
-Writing code takes no product slot, and neither does a story criterion: `story-parity.py` starts the story page service, which has no backend behind it and takes a port the machine hands out. The first run whose criteria run the product — a `CHECK:` naming `journey.py`, `screen_driver.py` or `lease.py` — claims this worktree's slot from `lease.py` of the `drive-target` skill before anything runs, and the worktree keeps it until the ticket's work ends — landed, handed back (the closeout gives it back then), released, suspended or retracted — so the verifier's `--reverify` and the closeout's checks find it already held. The slot is in that run's `ticket.checked` event. A `--reverify --actor main`, the main agent's re-run in the main checkout, gives its slot back when it ends.
+Before running a `CHECK:` that names `journey.py`, `screen_driver.py` or `lease.py`, this run asks the `drive-target` skill's `lease.py` for the worktree's product slot. A `CHECK:` naming `story-parity.py` asks for none: the story page service it starts has no backend behind it and takes a port the machine hands out. The slot is in that run's `ticket.checked` event. Its lifecycle and limits are in that skill's `references/runtime-environment.md` under **`instance`**.
 
-A slot is claimed only while one is free: the product's `instance.max` in `.mmw/target.json` counts every slot this repository holds, the main checkout's included, and the machine has its own limit. When none is free the run posts one `worker.queued` event — the ticket is queued, not dead, and `status` says since when — and runs nothing; the ticket gets no second `worker.queued` for the same wait. What happens next depends on whose run it is.
+When no product slot is free, the run posts one `worker.queued` event and runs nothing; the ticket gets no second `worker.queued` for the same wait. What happens next depends on whose run it is.
 
 The worker's own run exits `3` at once. End your turn. A slot comes back only when another ticket's work ends, and at that moment the relay of the `dispatch` skill wakes you with `#<n> worker.queued`. Run the same command again, then acknowledge that wake with the `dispatch` skill's `ack <n> worker.queued`. A run that finds every slot still held exits `3` again, and you are woken again when the next slot is given back.
 
@@ -30,7 +30,7 @@ The verifier's `--reverify`, and the main agent's `--reverify --actor main`, wai
 ## The verifier's verdict
 
 ```bash
-<engine> <n> --verdict "<one line>" --model <the model you run on>
+<engine> <n> --verdict "<one line>" --model <the model field of the ticket's newest verifier.started event>
 ```
 
 The verifier runs this after its `--reverify`. It posts one event on the ticket, first line `VERDICT <commit> by <model> — <one line>`: `verifier.passed` when the newest reverify `ticket.checked` has the result `met`, `verifier.failed` otherwise, naming the criteria it left unmet. The commit is `HEAD`, all 40 characters, read by the script, and that reverify must be a run of it: a newest reverify on an older commit is refused, and `--reverify` on this commit comes first. A line that opens `could not start` is a `verifier.failed` whose criteria never ran. Which of the two it is comes from the run, never from the words of the line, so a verdict cannot say more than the run it reports. Exit `0` posted; `2` refused and nothing posted — no `--model`, no `HEAD`, or no reverify `ticket.checked` of `HEAD` on the ticket for a line that does not open `could not start`.
@@ -53,4 +53,4 @@ A `CHECK:` is a shell command. One that needs more than a line carries it in a f
 
 A criterion passes only when its `CHECK` exits `0` **and** its output matches `EXPECT`. Expected text in the output of a failed process is still a failure.
 
-`0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start — no readable `HEAD`, no `lease.py` for a criterion that runs the product, an unreadable `.mmw/target.json` — the reason is on stderr, and nothing is posted. `3` no product slot was free: nothing ran, and the ticket carries its `worker.queued`. For the worker's own run this comes at once: end your turn, and when the relay wakes you with `#<n> worker.queued`, run the same command again, then `ack <n> worker.queued` with the `dispatch` skill. For a `--reverify` it comes after 90 seconds of waiting, and the same command run again goes on waiting. `4` the criteria ran and the `ticket.checked` recording them could not be written: the ticket records no run, so treat it as a run that did not happen and run it again.
+`0` every criterion met, `1` something unmet or abandoned, `2` the ticket could not be read or the run could not start — no readable `HEAD`, no `lease.py` for a criterion that runs the product, an unreadable `.mmw/target.json` — the reason is on stderr, and nothing is posted. `3` no product slot was free: follow **A criterion that runs the product** above. `4` the criteria ran and the `ticket.checked` recording them could not be written: the ticket records no run, so treat it as a run that did not happen and run it again.
