@@ -13,7 +13,7 @@ You are publishing a batch of tickets, or opening a night on a spec before its f
 
 ## `--lint` on a batch
 
-Given a ticket, `--lint` checks that ticket and the graph of the batch it sits under. Given the spec — an issue with no `## Acceptance criteria`, no parent, and sub-issues — it checks every sub-issue the same way, each under a line naming the ticket and its state, then the graph once, and ends with the list of tickets that had an `ERROR`. Closed tickets are included: a finding on one is stale text on the tracker, not a reason to stop, and the reader can see the state on the line above it.
+Given a ticket, `--lint` checks that ticket and the graph of the batch it sits under. Given the spec — an issue with no `## Acceptance criteria` carrying the layer label `mmw:spec`, or, when it carries no layer label at all, one with no parent and sub-issues of its own — it checks every sub-issue the same way, each under a line naming the ticket and its state, then the graph once, and ends with the list of tickets that had an `ERROR`. Closed tickets are included: a finding on one is stale text on the tracker, not a reason to stop, and the reader can see the state on the line above it.
 
 Three things at once: how the criteria are written, which worker the ticket asks for, and whether the batch under the same spec is a startable graph — every ticket the spec lists as a sub-issue, the blocking links between them, and which of them nothing blocks. The graph comes from the tracker's blocking links, the same ones `--preflight` refuses on and `advance` dispatches from.
 

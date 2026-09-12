@@ -56,6 +56,8 @@ CLASS_LABELS = {
     "mmw:ticket": ("0e8a16", "MMW layer: a ticket, one unit of work"),
     "mmw:child": ("c5def5", "MMW layer: a child issue a ticket opened"),
 }
+# The one of them `--lint` asks after by name: which number is a batch's container.
+CLASS_SPEC = "mmw:spec"
 # The scripts of the drive-target skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
 # A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
@@ -2774,6 +2776,11 @@ def lint_criteria(number: int, body: str, labels: list[str]) -> int:
     if not section(body, "Acceptance criteria"):
         print(f"#{number} carries no `## Acceptance criteria`, so only its worker label "
               f"and its place in the batch are checked")
+        if not any(label in CLASS_LABELS for label in labels):
+            print(f"  WARN  #{number} carries no layer label, so its layer was read off "
+                  f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
+                  f"without it a spec attached to a map leaves its batch unlinted here  "
+                  f"[layer-label]")
         report_worker()
         return 1 if worker_errors else 0
 
@@ -2817,15 +2824,36 @@ def labels_of(ticket: dict) -> list[str]:
     return [label.get("name") or "" for label in ticket.get("labels") or []]
 
 
+def reads_as_spec(number: int, labels: list[str]) -> bool:
+    """Whether `--lint` reads `number` as a spec — the container of a batch — rather
+    than as a ticket that carries nothing to check.
+
+    The layer label answers it, and its answer does not move when the spec is attached
+    to its wayfinder map as a sub-issue, which is what `docs/agents/issue-tracker.md`
+    asks for. Only an issue carrying no layer label at all falls back to the shape of
+    the tree — no parent, and children of its own — which is what an issue opened
+    before the layer labels existed is. That fallback cannot tell such a spec, once it is
+    attached to a map, from a criteria-less ticket; `lint_criteria` names the missing
+    label rather than let the answer pass for a read one.
+    """
+    if CLASS_SPEC in labels:
+        return True
+    if any(label in CLASS_LABELS for label in labels):
+        return False
+    return spec_of(number) is None and bool(fetch_sub_issues(number))
+
+
 def run_lint(number: int) -> int:
     """`--lint` on a ticket lints that ticket and the graph of the batch it sits under.
-    `--lint` on a spec — an issue with no `## Acceptance criteria`, no parent, and
-    sub-issues — lints every one of those sub-issues, then the graph once. The night's
+    `--lint` on a spec — an issue with no `## Acceptance criteria` that `reads_as_spec`
+    answers for — lints every one of its sub-issues, then the graph once. The night's
     pre-batch pass names the spec, so a spec number must not come back as a quiet 0."""
     body = fetch_body(number)
+    labels = ticket_labels(number)
     if not section(body, "Acceptance criteria"):
         try:
-            is_spec = spec_of(number) is None and bool(fetch_sub_issues(number))
+            if reads_as_spec(number, labels):
+                return lint_spec(number)
         except ParentUnreadable as exc:
             print(f"  ERROR the tracker could not say whether #{number} sits under a spec "
                   f"({exc})  [parent-unreadable]")
@@ -2834,9 +2862,7 @@ def run_lint(number: int) -> int:
             print(f"  ERROR the tracker could not list the children of #{number} "
                   f"({exc})  [sub-issues-unreadable]")
             return 1
-        if is_spec:
-            return lint_spec(number)
-    ticket_rc = lint_criteria(number, body, ticket_labels(number))
+    ticket_rc = lint_criteria(number, body, labels)
     graph = lint_ticket_graph(number, body)
     return 1 if (ticket_rc or graph) else 0
 
