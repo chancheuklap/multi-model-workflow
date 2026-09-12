@@ -8046,6 +8046,79 @@ PY
     || fail "the restarted branch lost the original passed commit"
 }
 
+# The shape of agentflow #731: a ticket lands, the base branch moves on — a sibling
+# ticket's merge and a commit the main agent made straight on it — `reverify` finds the
+# ticket red and reopens it, and it is started again. Its first run's work is in the base
+# branch now, so the new worker's base is where the new branch leaves origin/main, and the
+# `Outside Owns:` its own run computes from that base names none of the commits other
+# hands put on the base branch in between.
+scenario_regressedrestartbase() {
+  reset_log
+  fresh_repo
+  local first_base passed code tip base owns other
+  first_base="$(git -C "$TMP/repo" rev-parse main)"
+  make_branch issue-61 ticket.txt ticket
+  git -C "$TMP/repo" push -q -u origin issue-61
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "CLOSED", "labels": [],
+   "closedAt": "2026-09-11T01:00:00Z", "assignees": ["mmw-bot"],
+   "comments": [$(ev worker.started 61 "worker started" --field session=agt_first --field runner=paseo \
+     --field "machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
+     --field host=grok --field model=grok-4.6 --field effort=high --field grade=junior-worker \
+     --field "worktree=$(wt 61)" --field branch=issue-61 --field "base=$first_base" --field into=main),
+     $(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field "commit=$passed" --field into=main)]}
+]
+JSON
+  seed_workspace 61
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "initial landing failed: $(cat "$TMP/err")"
+  assert_no_branch 61
+
+  merge_sibling_to_origin 62 sibling.txt sibling "sibling landed after #61"
+  other="$(other_clone)"
+  git -C "$other" pull -q --ff-only origin main
+  commit_file "$other" hotfix.txt hotfix "main agent's fix straight on the base branch"
+  git -C "$other" push -q origin main
+  tip="$(git -C "$TMP/origin.git" rev-parse main)"
+
+  post_ev 61 ticket.regressed --ticket 61 --line "REGRESSED" \
+    --field "commit=$tip" --json-field 'failed=["AC2"]'
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+rows = json.load(open(path))
+row = next(r for r in rows if r["number"] == 61)
+row["state"] = "OPEN"
+row["labels"] = ["ready-for-agent"]
+row["assignees"] = []
+json.dump(rows, open(path, "w"))
+PY
+  : > "$MMW_TEST_LOG"
+  : > "$MMW_GH_LAST_BODY"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "regressed ticket did not restart: $(cat "$TMP/err")"
+  base="$(posted_events 61 base | grep '^worker.started ' | tail -n 1)"
+  [ "$base" = "worker.started base=$tip" ] \
+    || fail "the restarted worker should record origin/main's tip $tip as its base, not the first run's $first_base: $base"
+  base="${base#worker.started base=}"
+  owns="$(MMW_VT="$(dirname "$SKILL")/verify-ticket/scripts/verify-ticket.py" \
+          python3 - "$(wt 61)" "$base" <<'PY'
+import importlib.util, os, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("verify_ticket", os.environ["MMW_VT"])
+vt = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(vt)
+print(",".join(vt.outside_owns(["ticket.txt"], Path(sys.argv[1]), sys.argv[2])) or "None")
+PY
+)"
+  [ "$owns" = None ] \
+    || fail "the restarted worker's Outside Owns names files other hands put on the base branch: $owns"
+}
+
 scenario_advancesummaryline() {
   reset_log
   fresh_repo
@@ -8198,7 +8271,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8272,6 +8345,7 @@ banner_for() {
     archiveunlandedkeepsbranch) echo ARCHIVE-UNLANDED-KEEPS-BRANCH-OK ;;
     landedworktreekept) echo LANDED-WORKTREE-KEPT-OK ;;
     regressedrestart) echo REGRESSED-RESTART-OK ;;
+    regressedrestartbase) echo REGRESSED-RESTART-BASE-OK ;;
     parallelbases) echo PARALLEL-BASES-OK ;;
     advancesummaryline) echo ADVANCE-SUMMARY-LINE-OK ;;
     bouncednotretried) echo BOUNCED-NOT-RETRIED-OK ;;

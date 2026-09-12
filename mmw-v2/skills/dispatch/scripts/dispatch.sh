@@ -275,6 +275,28 @@ base_commit() {
   git -C "$1" merge-base "origin/$2" "$3" 2>/dev/null
 }
 
+# The base commit a worker's `worker.started` records: `worker_base <n> <root> <into> <head>`.
+# A worker started after an earlier one keeps that one's base, because the ticket branch
+# goes on from where it was left: after `integrate` the merge-base is the integrated tip,
+# and a base moved there would drop the earlier worker's commits from the ticket's own
+# run of `Outside Owns:`. A `ticket.landed` newer than the newest `worker.started` ends
+# that: the earlier work is in `origin/<into>` now, the branch a restart works on leaves
+# the base branch at the merge-base, and a base kept from before the landing puts every
+# commit others made on the base branch in between into this ticket's own range. Seen on
+# agentflow #731, 2026-09-12: landed, reopened by `reverify`, started again with its first
+# base, and its `Outside Owns:` listed nine files that three commits by the main agent had
+# written straight on the base branch. Prints nothing, exit 0, when the two share no commit;
+# exit 2 when the ticket's events could not be read, with the reason on stderr.
+worker_base() {
+  local number="$1" root="$2" into="$3" head="$4"
+  newest_field "$number" event worker.started ticket.landed >/dev/null
+  case "$?" in
+    0) newest_worker_field "$number" base ;;
+    3) base_commit "$root" "$into" "$head" || true ;;
+    *) echo "dispatch: could not read #$number's events, so whether its earlier work has landed, and with it the base to record, is unknown; run this again once the tracker answers" >&2; return 2 ;;
+  esac
+}
+
 # Resolve worker.started.into first, then an open night's spec.opened.into, then the
 # caller's explicit fallback. `start` supplies its current branch as that fallback;
 # `adopt` supplies only --into. A worker.started with no into is refused; a new start
@@ -756,12 +778,7 @@ adopt_ticket() {
   into="$(resolve_into "$number" "$spec" "$explicit_into")" || exit 2
   fetch_origin "$tree" || exit 2
   require_origin_branch "$tree" "$into" || exit 2
-  base="$(newest_worker_field "$number" base)"
-  case "$?" in
-    0) ;;
-    3) base="$(base_commit "$tree" "$into" HEAD)" ;;
-    *) exit 2 ;;
-  esac
+  base="$(worker_base "$number" "$tree" "$into" HEAD)" || exit 2
   [ -n "$base" ] || refuse "issue-$number and origin/$into share no commit, so there is no base to review from"
 
   local -a marked
@@ -1413,12 +1430,7 @@ start_one() {
   local base="" prompt
   case "$kind" in
     worker)
-      base="$(newest_worker_field "$number" base)"
-      case "$?" in
-        0) ;;
-        3) base="$(base_commit "$root" "$into" "issue-$number")" ;;
-        *) exit 2 ;;
-      esac
+      base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
       prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT" ;;
