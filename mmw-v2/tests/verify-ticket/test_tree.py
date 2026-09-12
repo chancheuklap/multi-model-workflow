@@ -1,11 +1,17 @@
-"""The tree of issues under a map, a spec or a ticket, read with one GraphQL query.
+"""The tree of issues under a map, a spec or a ticket, read at the size that tree is.
 
-The page sizes are the decision: 50 specs under a map, 100 tickets under a spec, 50
+The largest pages are the decision: 50 specs under a map, 100 tickets under a spec, 50
 children under a ticket. Read against the real repository on 2026-09-10: a list over 100
 is refused per list (EXCESSIVE_PAGINATION), 100 at every layer asks for a million nodes
 and is refused whole (MAX_NODE_LIMIT_EXCEEDED, limit 500,000), and 50 × 100 × 50 is
 255,050 structural nodes at a cost of 51 points. Specs and tickets each add labels and
-blockers capped at ten items, taking the worst case to 356,050 nodes and 152 points.
+blockers capped at ten items, taking the largest map to 356,050 nodes and 152 points.
+
+The tracker priced those queries itself, through `rateLimit { cost }`, against
+agentflow-hq/agentflow on 2026-09-12: a map at the largest pages is 152 points, and the
+same map read in two questions — its counts, then its tree at the size those counts give
+— is 1 + 10. Both answers were byte-identical. `cost()` is that price computed from the
+query, and the numbers below are what the tracker charged.
 """
 
 import importlib.util
@@ -130,7 +136,7 @@ class TheAnswer(unittest.TestCase):
                                         for n in range(100)]}}))
         self.assertIn("101 sub-issues and 100 came back", str(caught.exception))
 
-    def test_the_query_goes_out_once_with_the_repository_placeholders(self):
+    def test_the_query_goes_out_with_the_repository_placeholders(self):
         asked = []
 
         def gh(args):
@@ -143,6 +149,148 @@ class TheAnswer(unittest.TestCase):
         self.assertEqual(len(asked), 1)
         self.assertEqual(asked[0][:6], ["api", "graphql", "-F", "o={owner}", "-F", "n={repo}"])
         self.assertIn("root=76", asked[0])
+
+
+class ThePrice(unittest.TestCase):
+    """What the tracker charges: every list counted as though it came back full, added up
+    and divided by a hundred. The three numbers below are what it charged when asked."""
+
+    def test_the_largest_pages_cost_what_the_tracker_charged_for_them(self):
+        self.assertEqual(tree.cost("map"), 152)
+        self.assertEqual(tree.cost("spec"), 3)
+        self.assertEqual(tree.cost("ticket"), 1)
+
+    def test_a_tree_read_at_its_own_size_costs_a_fraction_of_that(self):
+        self.assertEqual(tree.cost("map", {"spec": 24, "ticket": 13, "child": 1}), 10)
+
+    def test_only_a_read_over_the_sizing_price_is_worth_a_second_question(self):
+        self.assertGreater(tree.cost("map"), tree.SIZING_WORTH)
+        self.assertLessEqual(tree.cost("spec"), tree.SIZING_WORTH)
+        self.assertLessEqual(tree.cost("ticket"), tree.SIZING_WORTH)
+
+
+class TheSizingQuery(unittest.TestCase):
+    def test_it_enumerates_every_layer_above_the_last_and_no_further(self):
+        self.assertEqual(pages(tree.sizing_query("map")), [50, 100])
+        self.assertEqual(pages(tree.sizing_query("spec")), [100])
+
+    def test_it_carries_counts_and_nothing_else(self):
+        query = tree.sizing_query("map")
+        self.assertEqual(query.count("subIssuesSummary { total }"), 3)
+        for field in ("title", "labels(", "blockedBy(", "completed"):
+            self.assertNotIn(field, query)
+
+    def test_the_page_of_a_layer_is_the_largest_count_above_it(self):
+        counts = {"subIssuesSummary": {"total": 2}, "subIssues": {"nodes": [
+            {"subIssuesSummary": {"total": 3}, "subIssues": {"nodes": [
+                {"subIssuesSummary": {"total": 7}}]}},
+            {"subIssuesSummary": {"total": 1}, "subIssues": {"nodes": [
+                {"subIssuesSummary": {"total": 4}}]}}]}}
+        self.assertEqual(tree._sizes(counts, ["spec", "ticket", "child"]),
+                         {"spec": 2, "ticket": 3, "child": 7})
+
+    def test_a_count_the_tracker_did_not_give_leaves_that_layer_at_its_largest(self):
+        counts = {"subIssuesSummary": {"total": 2},
+                  "subIssues": {"nodes": [{"subIssues": {"nodes": []}}]}}
+        self.assertEqual(tree._sizes(counts, ["spec", "ticket", "child"]), {"spec": 2})
+        self.assertEqual(pages(tree.query("map", {"spec": 2})), [2, 100, 50])
+
+    def test_a_size_is_held_between_one_and_the_layers_largest_page(self):
+        self.assertEqual(pages(tree.query("map", {"spec": 0, "ticket": 900, "child": 3})),
+                         [1, 100, 3])
+
+
+def two_answers(counts, tree_payload, *rest):
+    """A `gh` that answers each call with the next payload, and keeps the queries asked."""
+    payloads = [counts, tree_payload, *rest]
+    asked = []
+
+    def gh(args):
+        asked.append(next(value for value in args if value.startswith("query="))[len("query="):])
+        payload = payloads[min(len(asked) - 1, len(payloads) - 1)]
+        return 0, json.dumps({"data": {"repository": {"issue": payload}}}), ""
+
+    return gh, asked
+
+
+def spec_node(number, tickets):
+    return {"number": number, "title": "spec", "state": "OPEN",
+            "subIssuesSummary": {"total": len(tickets), "completed": 0},
+            "subIssues": {"nodes": [
+                {"number": n, "title": "ticket", "state": "OPEN",
+                 "subIssuesSummary": {"total": 0, "completed": 0},
+                 "subIssues": {"nodes": []}} for n in tickets]}}
+
+
+class TwoQuestions(unittest.TestCase):
+    """A map is read twice: its counts, then its tree at the size those counts give. A
+    spec is read once — its largest pages already cost less than asking twice."""
+
+    def test_a_map_is_asked_for_its_counts_and_then_at_that_size(self):
+        counts = {"subIssuesSummary": {"total": 2}, "subIssues": {"nodes": [
+            {"subIssuesSummary": {"total": 3}, "subIssues": {"nodes": [
+                {"subIssuesSummary": {"total": 0}}] * 3}},
+            {"subIssuesSummary": {"total": 1}, "subIssues": {"nodes": [
+                {"subIssuesSummary": {"total": 0}}]}}]}}
+        whole = {"number": 18, "title": "map", "state": "OPEN",
+                 "subIssuesSummary": {"total": 2, "completed": 0},
+                 "subIssues": {"nodes": [spec_node(76, [1, 2, 3]), spec_node(77, [4])]}}
+        gh, asked = two_answers(counts, whole)
+
+        got = tree.read(18, "map", gh=gh)
+        self.assertEqual(len(asked), 2)
+        self.assertEqual(pages(asked[0]), [50, 100])
+        self.assertEqual(pages(asked[1]), [2, 3, 1])
+        self.assertEqual([spec["number"] for spec in got["children"]], [76, 77])
+
+    def test_a_spec_is_asked_once_at_its_largest_pages(self):
+        whole = {"number": 76, "title": "spec", "state": "OPEN",
+                 "subIssuesSummary": {"total": 0, "completed": 0},
+                 "subIssues": {"nodes": []}}
+        gh, asked = two_answers(whole, whole)
+
+        tree.read(76, "spec", gh=gh)
+        self.assertEqual(len(asked), 1)
+        self.assertEqual(pages(asked[0]), [100, 50])
+
+    def test_a_tree_that_grew_between_the_two_questions_is_read_at_the_largest_pages(self):
+        counts = {"subIssuesSummary": {"total": 1},
+                  "subIssues": {"nodes": [{"subIssuesSummary": {"total": 0},
+                                           "subIssues": {"nodes": []}}]}}
+        grown = {"number": 18, "title": "map", "state": "OPEN",
+                 "subIssuesSummary": {"total": 2, "completed": 0},
+                 "subIssues": {"nodes": [spec_node(76, [])]}}
+        whole = {"number": 18, "title": "map", "state": "OPEN",
+                 "subIssuesSummary": {"total": 2, "completed": 0},
+                 "subIssues": {"nodes": [spec_node(76, []), spec_node(77, [])]}}
+        gh, asked = two_answers(counts, grown, whole)
+
+        got = tree.read(18, "map", gh=gh)
+        self.assertEqual(len(asked), 3)
+        self.assertEqual(pages(asked[2]), [50, 100, 50])
+        self.assertEqual([spec["number"] for spec in got["children"]], [76, 77])
+
+    def test_a_tree_still_short_at_the_largest_pages_is_a_refusal(self):
+        counts = {"subIssuesSummary": {"total": 1},
+                  "subIssues": {"nodes": [{"subIssuesSummary": {"total": 0},
+                                           "subIssues": {"nodes": []}}]}}
+        short = {"number": 18, "title": "map", "state": "OPEN",
+                 "subIssuesSummary": {"total": 2, "completed": 0},
+                 "subIssues": {"nodes": [spec_node(76, [])]}}
+        gh, asked = two_answers(counts, short, short)
+
+        with self.assertRaises(tree.TreeUnreadable) as caught:
+            tree.read(18, "map", gh=gh)
+        self.assertIn("2 sub-issues and 1 came back", str(caught.exception))
+        self.assertEqual(len(asked), 3)
+
+    def test_counts_that_cannot_be_read_are_a_refusal_not_a_second_question(self):
+        def gh(args):
+            return 1, "", "gh: Could not resolve to a Repository\n"
+
+        with self.assertRaises(tree.TreeUnreadable) as caught:
+            tree.read(18, "map", gh=gh)
+        self.assertIn("Could not resolve", str(caught.exception))
 
 
 if __name__ == "__main__":

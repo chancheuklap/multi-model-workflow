@@ -32,7 +32,11 @@ elif args[:2] == ["api", "graphql"]:
     if root is not None and root in scenario.get("tree_by_root", {}):
         index = int(scenario["tree_by_root"][root])
     print(json.dumps({"data": {"repository": {"issue": trees[index]}}}))
-    state["tree_reads"] = state.get("tree_reads", 0) + 1
+    # A tree is read in two questions: the counts of the layers below, which ask for no
+    # title, and then the tree itself. Only the second one is a tree read.
+    query = next((value for value in args if value.startswith("query=")), "")
+    key = "tree_reads" if "title" in query else "sizing_reads"
+    state[key] = state.get(key, 0) + 1
 elif args[:2] == ["api", "-i"]:
     match = re.search(r"/issues/(\d+)/comments", args[2])
     if not match:

@@ -26,16 +26,26 @@ Infer the repo from `git remote -v` — `gh` does this automatically when run in
 
 The work is four layers deep — a map, its specs, each spec's tickets, each ticket's children —
 joined by GitHub's sub-issue link. Read over REST that is one request per issue per layer, and a
-page left unread raises no error. So the tree below an issue is read in one GraphQL query, by
+page left unread raises no error. So the tree below an issue is read in GraphQL, by
 `scripts/tree.py` of the `verify-ticket` skill (`python3 <that script> <issue> --root map|spec|ticket`,
-default `spec`), which `status.py` and `verify-ticket.py --lint` use too. Each layer is read at a fixed
-page size wherever the tree is entered: 50 specs under a map, 100 tickets under a spec (GitHub's own cap
-on one issue's children), 50 children under a ticket; each issue comes back with its number, title and
-state, and each issue with a layer below it with GitHub's `total` / `completed` count of that layer.
-Entered at a map, that is 255,050 possible nodes against GitHub's limit of 500,000 per query; a
-fourth list at 100 would ask for a million and GitHub refuses the query outright. `tree.py` exits 2,
-and answers nothing, when any list comes back shorter than the count GitHub gives for it, or the
-answer carries `errors`.
+default `spec`), which `status.py` and `verify-ticket.py --lint` use too. Each layer has a largest
+page: 50 specs under a map, 100 tickets under a spec (GitHub's own cap on one issue's children), 50
+children under a ticket; each issue comes back with its number, title and state, and each issue with a
+layer below it with GitHub's `total` / `completed` count of that layer. Entered at a map, those pages
+are 255,050 possible nodes against GitHub's limit of 500,000 per query; a fourth list at 100 would ask
+for a million and GitHub refuses the query outright.
+
+GitHub prices a query by what it asks for, never by what comes back: each list is charged as though it
+came back full, the charges are added up and divided by a hundred. A map at the largest pages is 152 of
+the 5,000 points an hour one user has, the same 152 whether the map holds three specs or fifty. So a
+read priced over `SIZING_WORTH` asks a cheaper question first — the counts of the layers below, one
+point — and then asks for the tree with every list at the size those counts give; a map that way is
+about eleven points. Entered at a spec or a ticket the largest pages already cost three points or one,
+and the read stays a single query. A list that comes back short of its count is read again at the
+largest pages, so an answer is never smaller than the largest pages alone would have given.
+
+`tree.py` exits 2, and answers nothing, when a list comes back shorter than the count GitHub gives for
+it even at the largest pages, or the answer carries `errors`.
 
 ## Three label sets
 
