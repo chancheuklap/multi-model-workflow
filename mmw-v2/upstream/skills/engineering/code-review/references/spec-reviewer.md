@@ -30,7 +30,7 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ### Read tickets already integrated into the base branch
 
-Read the first `worker.started.base` from this ticket's events. Between that commit and the base commit from your prompt, follow the base branch's first-parent history and select commits whose subject is exactly `Merge branch 'issue-<n>'`. For each ticket those commits name, read the whole ticket and the closeout comment that carries `ticket.passed` or `ticket.returned`; do not trust its verdict as proof that the combined result is correct.
+Read the newest `worker.started.base` from this ticket's events: a replacement worker records the same base as the one before it, and a ticket started again after it landed records where its new run leaves the base branch, so its own earlier landing is not among the tickets you read. Between that commit and the base commit from your prompt, follow the base branch's first-parent history and select commits whose subject is exactly `Merge branch 'issue-<n>'`. For each ticket those commits name, read the whole ticket and the closeout comment that carries `ticket.passed` or `ticket.returned`; do not trust its verdict as proof that the combined result is correct.
 
 Review the current ticket together with those tickets from four angles:
 

@@ -113,7 +113,7 @@ If upstream rewrites section 3 → take its wording and put the sixth condition 
 
 ## The Spec axis reviews tickets integrated into the base branch
 
-`references/spec-reviewer.md` reads the first `worker.started.base`, then the first-parent
+`references/spec-reviewer.md` reads the newest `worker.started.base` — not the first: a ticket landed, reopened by `reverify` and started again carries its first run's base in its first `worker.started`, and from there the range holds this ticket's own `Merge branch 'issue-<n>'`, so the Spec axis would read the ticket's earlier self as a sibling (mmw #413; a replacement worker copies the base before it, so on every other ticket newest and first are one commit) — then the first-parent
 `Merge branch 'issue-<n>'` commits through the base commit. It reads each ticket those
 commits name and its closeout evidence and checks four interactions: combination behavior,
 contract consistency, migration completeness and shared state. Another ticket's verdict
