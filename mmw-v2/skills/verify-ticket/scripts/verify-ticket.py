@@ -1403,8 +1403,24 @@ def run_touched(number: int) -> int:
     return 0
 
 
-def run_draft(number: int, out_file: Path) -> int:
-    """Write the closing-comment skeleton to `out_file`."""
+def default_draft_path(number: int) -> Path:
+    """A file of this run's own making, in a fresh directory outside every repository.
+
+    The skeleton recounts the ticket, so it carries every path and file name the ticket
+    names — that is what a closing comment says. `--closeout` then runs the repository's
+    own `checks` over the working tree, and a draft written into that tree is one more
+    file those checks read: on 2026-09-11 agentflow-hq/agentflow #831 had every criterion
+    met and its verifier through, and stayed open because a guard of that repository found
+    two reference file names in `.mmw/closeout-831.md` — the draft it had written a minute
+    earlier. Every consuming repository with a guard over its own Markdown would meet the
+    same wall, so the default landing place is outside all of them.
+    """
+    return Path(tempfile.mkdtemp(prefix=f"mmw-closeout-{number}-")) / f"closeout-{number}.md"
+
+
+def run_draft(number: int, out_file: Path | None) -> int:
+    """Write the closing-comment skeleton to `out_file`, or to a path of this run's own
+    when it is None, printing the path either way."""
     body = fetch_body(number)
     comments = fetch_comments(number)
     into, problem = worker_started_field(number, comments, "into")
@@ -1459,6 +1475,8 @@ def run_draft(number: int, out_file: Path) -> int:
         "Decisions I made on my own", "",
         FILL, "",
     ]
+    # After every refusal, so a run that writes nothing leaves no directory behind either.
+    out_file = out_file or default_draft_path(number)
     out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text("\n".join(parts) + "\n", encoding="utf-8")
     print(f"DRAFT: wrote {out_file}")
@@ -2922,8 +2940,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="post the two-section file as a DECISIONS comment")
     parser.add_argument("--touched", action="store_true",
                         help="post worker.touched on open siblings whose Owns covers a file")
-    parser.add_argument("--draft", type=Path, metavar="OUT",
-                        help="write the closing-comment skeleton to this file")
+    # The path is optional, and an empty string is what argparse leaves when the flag came
+    # without one — a file of the run's own, outside the repository the checks read.
+    parser.add_argument("--draft", nargs="?", const="", metavar="OUT",
+                        help="write the closing-comment skeleton to this file; with no "
+                             "path, to one of its own outside the repository, printed as "
+                             "`DRAFT: wrote <path>`")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage child under this ticket; KIND is one of "
                              + ", ".join(SUB_ISSUE_KINDS))
@@ -2975,7 +2997,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.touched:
         return run_touched(args.ticket)
     if args.draft is not None:
-        return run_draft(args.ticket, args.draft)
+        return run_draft(args.ticket, Path(args.draft) if args.draft else None)
     if args.sub_issue is not None:
         kind, file = args.sub_issue
         return run_sub_issue(args.ticket, kind, Path(file))

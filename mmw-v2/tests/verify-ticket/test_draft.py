@@ -3,6 +3,8 @@
 import io
 import json
 import re
+import shutil
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -169,16 +171,61 @@ class FakeGh:
 
 
 def run_draft(comments, body=BODY, sub_issues=(), started_event=STARTED):
-    """Write a skeleton for ticket 77; return (exit, stderr, text, fake)."""
+    """Write a skeleton for ticket 77 to a named file; return (exit, stderr, text, fake)."""
+    with TemporaryDirectory() as tmp:
+        code, _, err, text, _, fake = draft_run(
+            comments, Path(tmp) / "draft.md", body=body, sub_issues=sub_issues,
+            started_event=started_event)
+        return code, err, text, fake
+
+
+def draft_run(comments, out_file, body=BODY, sub_issues=(), started_event=STARTED):
+    """One `--draft` run for ticket 77, with `out_file` as its path argument (None asks
+    the run to pick one); return (exit, stdout, stderr, text, path written, fake)."""
     starts = started_event if isinstance(started_event, tuple) else (started_event,)
     fake = FakeGh((*starts, *comments), body=body, sub_issues=sub_issues)
-    with TemporaryDirectory() as tmp:
-        path = Path(tmp) / "draft.md"
-        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
-                code = vt.run_draft(77, path)
-            text = path.read_text(encoding="utf-8") if path.is_file() else ""
-            return code, err.getvalue(), text, fake
+    with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
+        with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+            code = vt.run_draft(77, out_file)
+    printed = out.getvalue()
+    found = re.search(r"^DRAFT: wrote (.+)$", printed, flags=re.M)
+    path = Path(found.group(1)) if found else out_file
+    text = path.read_text(encoding="utf-8") if path and path.is_file() else ""
+    return code, printed, err.getvalue(), text, path, fake
+
+
+class TestWhereTheDraftLands(unittest.TestCase):
+    """The skeleton names every path and file name the ticket names — that is what a
+    closing comment says — and `--closeout` runs the repository's own `checks` over the
+    tree straight after. A draft written into the repository is content those checks read:
+    agentflow-hq/agentflow #831 was held open by a guard that found two reference file
+    names in `.mmw/closeout-831.md`, the draft it had just written. So a run given no path
+    picks one outside every repository and prints it."""
+
+    def test_no_path_writes_outside_the_repository_and_prints_where(self):
+        code, out, err, text, path, _ = draft_run((MET_RUN, VERDICT), None)
+        self.addCleanup(shutil.rmtree, path.parent, ignore_errors=True)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(text.splitlines()[0], "ALL MET")
+        self.assertIn(f"DRAFT: wrote {path}", out)
+        resolved = path.resolve()
+        self.assertIn(Path(tempfile.gettempdir()).resolve(), resolved.parents)
+        self.assertNotIn(Path.cwd().resolve(), resolved.parents)
+
+    def test_a_path_given_is_the_path_written(self):
+        with TemporaryDirectory() as tmp:
+            asked = Path(tmp) / "mine" / "closeout-77.md"
+            code, out, err, text, path, _ = draft_run((MET_RUN, VERDICT), asked)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(path, asked)
+            self.assertEqual(text.splitlines()[0], "ALL MET")
+
+    def test_a_refused_run_makes_no_file_anywhere(self):
+        code, out, err, text, path, _ = draft_run(
+            (MET_RUN, VERDICT), None, started_event=STARTED_BEFORE_SWITCH)
+        self.assertNotEqual(code, 0)
+        self.assertEqual(out, "")
+        self.assertIn("newest worker.started carries no `into`", err)
 
 
 class TestFirstLine(unittest.TestCase):
