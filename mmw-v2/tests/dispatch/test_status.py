@@ -127,14 +127,14 @@ class WhoHoldsATicket(unittest.TestCase):
 
     def test_a_started_worker_holds_its_ticket_and_the_row_names_it(self):
         row = self.row(started(61, "term_7"))
-        self.assertEqual(row["worker"]["session"], "term_7")
+        self.assertEqual(row["holder"]["session"], "term_7")
         self.assertEqual((row["runner"], row["session"], row["held"]),
                          ("orca", "term_7", "live"))
         self.assertEqual(status.held([row]), [row])
 
     def test_any_started_session_holds_the_ticket_a_reviewer_s_too(self):
         row = self.row(started(61, "rev_1", kind="reviewer"))
-        self.assertEqual(row["worker"]["session"], "rev_1")
+        self.assertEqual(row["holder"]["session"], "rev_1")
 
     def test_each_closing_event_ends_the_hold(self):
         closers = {
@@ -151,37 +151,77 @@ class WhoHoldsATicket(unittest.TestCase):
         for name, closer in closers.items():
             with self.subTest(closer=name):
                 row = self.row(started(61, "term_7"), closer)
-                self.assertIsNone(row["worker"], name)
+                self.assertIsNone(row["holder"], name)
 
     def test_a_loss_of_another_session_leaves_this_one_holding(self):
         row = self.row(started(61, "term_7"), lost(61, "term_2"))
-        self.assertEqual(row["worker"]["session"], "term_7")
+        self.assertEqual(row["holder"]["session"], "term_7")
 
     def test_a_claim_with_no_start_recorded_holds_the_ticket(self):
         row = self.row(claimed(61), assignees=("mmw-bot",))
-        self.assertTrue(row["worker"]["claim"])
+        self.assertTrue(row["holder"]["claim"])
         self.assertEqual(status.frontier([row]), [])
         self.assertIn("held by its ticket.claimed", status.why_not_on_frontier(row))
 
     def test_a_pass_on_a_ticket_still_open_does_not_end_the_hold(self):
         """The close after the pass failed: the worker is retrying on an open ticket."""
         row = self.row(started(61, "term_7"), claimed(61), passed(61))
-        self.assertEqual(row["worker"]["session"], "term_7")
+        self.assertEqual(row["holder"]["session"], "term_7")
 
     def test_a_resumed_worker_holds_again(self):
         row = self.row(started(61, "term_7"), returned(61),
                        ev("worker.resumed", "resumed", session="term_7", runner="orca"))
-        self.assertEqual(row["worker"]["session"], "term_7")
+        self.assertEqual(row["holder"]["session"], "term_7")
 
     def test_labels_never_hide_a_hold(self):
         for labels in (("ready-for-agent", "needs-triage"), ("needs-triage",), ()):
             with self.subTest(labels=labels):
                 row = self.row(started(61, "term_7"), labels=labels)
-                self.assertEqual(row["worker"]["session"], "term_7")
+                self.assertEqual(row["holder"]["session"], "term_7")
 
     def test_two_live_workers_are_named_on_the_note(self):
         row = self.row(started(61, "term_7"), started(61, "term_8"))
         self.assertEqual(row["note"], "2 live workers: term_7, term_8")
+
+
+class NamingWhatHoldsIt(unittest.TestCase):
+    """How a ticket's live sessions are named where a plan says why it cannot start.
+
+    2026-09-12: three times in one night the line read `held by the worker <session> …;
+    if that session is gone, retract it` about a reviewer or a verifier, because the
+    newest live session was printed as a worker whatever it was. `retract` takes back a
+    worker's start; run on that advice it stops a session reading a diff or running
+    criteria, and that round's work goes with it.
+    """
+
+    def row(self, *comments, **kwargs):
+        return rows_of({61: ticket(61, comments=comments, **kwargs)})[0]
+
+    def test_a_live_reviewer_is_named_a_reviewer_beside_its_worker(self):
+        row = self.row(started(61, "term_7"), started(61, "rv_1", kind="reviewer"))
+        why = status.why_not_on_frontier(row)
+        self.assertIn("the worker term_7 on orca", why)
+        self.assertIn("the reviewer rv_1 on orca", why)
+        self.assertNotIn("the worker rv_1", why)
+
+    def test_a_verifier_holding_it_alone_gets_no_retract_advice(self):
+        row = self.row(started(61, "term_7"), started(61, "vf_1", kind="verifier"),
+                       ev("worker.retracted", "retracted", session="term_7", runner="orca"))
+        why = status.why_not_on_frontier(row)
+        self.assertIn("the verifier vf_1 on orca", why)
+        self.assertNotIn("retract", why)
+
+    def test_the_retract_advice_names_the_one_live_worker(self):
+        row = self.row(started(61, "term_7"))
+        self.assertIn("; if the worker term_7 is gone, retract it",
+                      status.why_not_on_frontier(row))
+
+    def test_two_live_workers_are_both_named_and_neither_is_retracted(self):
+        row = self.row(started(61, "term_7"), started(61, "term_8"))
+        why = status.why_not_on_frontier(row)
+        self.assertIn("the worker term_7 on orca", why)
+        self.assertIn("the worker term_8 on orca", why)
+        self.assertNotIn("retract", why)
 
 
 class Rows(unittest.TestCase):
@@ -501,6 +541,18 @@ class AdvancePlan(Plans):
         self.assertIn("#61 keeps its claim: the worker term_7 on orca is live on its events",
                       joined)
         self.assertIn("held by the worker term_7 on orca", joined)
+
+    def test_a_claim_a_live_reviewer_keeps_says_it_is_the_reviewer(self):
+        """The claim is kept because a session still holds the ticket; which kind of
+        session that is decides whether `retract` is the answer, so the line says it."""
+        status.own_login = lambda: self.LOGIN
+        self.tickets = {61: ticket(61, assignees=(self.LOGIN,), comments=[
+            started(61, "term_7"), claimed(61), started(61, "rv_1", kind="reviewer"),
+            ev("worker.retracted", "retracted", session="term_7", runner="orca")])}
+        out, err = self.plan()
+        self.assertEqual(out, [])
+        self.assertIn("#61 keeps its claim: the reviewer rv_1 on orca is live on its events",
+                      "\n".join(err))
 
     def test_a_claim_whose_start_was_retracted_is_released_and_dispatched(self):
         status.own_login = lambda: self.LOGIN

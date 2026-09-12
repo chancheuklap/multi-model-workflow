@@ -245,12 +245,35 @@ def cached(read):
 
 def holder_of(fold: dict) -> dict | None:
     """What holds the ticket: its newest live session, or the claim no session has taken
-    over yet, or None when nothing does."""
+    over yet, or None when nothing does. A live session carries the `kind` of agent it
+    is — `worker`, `reviewer` or `verifier` — and every sentence about it says which."""
     if fold["holders"]:
         return fold["holders"][-1]
     if fold["claim_hold"]:
         return {"session": None, "runner": None, "started_at": None, "claim": True}
     return None
+
+
+def holder_text(record: dict) -> str:
+    """One live session: which kind of agent it is, its id, its runner, and since when."""
+    return (f"the {record.get('kind') or 'session'} {record.get('session') or '?'} on "
+            f"{record.get('runner') or '?'}, started "
+            f"{record.get('started_at') or 'at an unrecorded time'}")
+
+
+def retract_advice(holders: list[dict]) -> str:
+    """The sentence offering `retract`, or empty when it does not apply.
+
+    `retract` takes back one worker's start. Offered about a reviewer or a verifier it
+    tells the reader to stop a session that is reading a diff or running criteria, and
+    offered about a ticket two workers hold it does not say which one to take back — so
+    it is printed only when exactly one worker is among the live sessions, and it names
+    that worker.
+    """
+    workers = [r for r in holders if r.get("kind") == "worker"]
+    if len(workers) != 1:
+        return ""
+    return f"; if the worker {workers[0].get('session') or '?'} is gone, retract it"
 
 
 def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> list[dict]:
@@ -268,7 +291,8 @@ def build_rows(numbers: list[int], tickets: dict[int, dict], *, lookup=None) -> 
         shown = fold["worker"]
         rows.append({
             "ticket": number,
-            "worker": holder_of(fold),
+            "holder": holder_of(fold),
+            "holders": fold["holders"],
             "live_workers": fold["live_workers"],
             "state": ticket["state"],
             "labels": ticket["labels"],
@@ -311,14 +335,14 @@ def note_of(ticket: dict, row: dict) -> str:
     if len(row["live_workers"]) > 1:
         return (f"{len(row['live_workers'])} live workers: "
                 + ", ".join(r.get("session") or "?" for r in row["live_workers"]))
-    if row["worker"] and row["worker"].get("claim"):
+    if row["holder"] and row["holder"].get("claim"):
         return "claimed, no session started yet"
     if row["waiting"]:
         payload = row["waiting"]["payload"]
         return (f"waiting for a product slot since {row['waiting'].get('at') or '?'} "
                 f"({payload.get('reason')}, {len(payload.get('holders') or [])} of "
                 f"{payload.get('limit')} held)")
-    if row["worker"]:
+    if row["holder"]:
         return ""
     if ticket.get("state") == "CLOSED":
         return head[:60]
@@ -332,8 +356,8 @@ def note_of(ticket: dict, row: dict) -> str:
 
 
 def held(rows: list[dict]) -> list[dict]:
-    """The rows a live worker holds."""
-    return [r for r in rows if r["worker"]]
+    """The rows a live session — of any kind — or an untaken claim holds."""
+    return [r for r in rows if r["holder"]]
 
 # --------------------------------------------------------------------- the frontier
 
@@ -350,15 +374,14 @@ def off_frontier_reasons(row: dict) -> list[str]:
         reasons.append("blocked by " + blocking_text(row["blocking"]))
     if row["assignees"]:
         reasons.append("claimed by " + ", ".join(row["assignees"]))
-    worker = row["worker"]
-    if worker is not None and worker.get("claim"):
+    holder = row["holder"]
+    holders = row.get("holders") or []
+    if holder is not None and holder.get("claim"):
         reasons.append("held by its ticket.claimed, which no started session has taken "
                        "over; if the worker that claimed it is gone, retract it")
-    elif worker is not None:
-        reasons.append(f"held by the worker {worker.get('session') or '?'} on "
-                       f"{worker.get('runner') or '?'}, started "
-                       f"{worker.get('started_at') or 'at an unrecorded time'}; if that "
-                       f"session is gone, retract it")
+    elif holders:
+        reasons.append("held by " + ", and by ".join(holder_text(r) for r in holders)
+                       + retract_advice(holders))
     return reasons
 
 
@@ -603,14 +626,15 @@ def advance_plan(spec: int) -> int:
             print(f"#{row['ticket']} keeps its claim: its events cannot be read "
                   f"({row['unreadable']})", file=sys.stderr)
             continue
-        worker = row["worker"]
-        if worker is not None and worker.get("claim"):
+        holder = row["holder"]
+        if holder is not None and holder.get("claim"):
             print(f"#{row['ticket']} keeps its claim: its ticket.claimed is still a hold, "
                   f"and no event has ended it", file=sys.stderr)
             continue
-        if worker is not None:
-            print(f"#{row['ticket']} keeps its claim: the worker "
-                  f"{worker.get('session')} on {worker.get('runner')} "
+        if holder is not None:
+            print(f"#{row['ticket']} keeps its claim: the "
+                  f"{holder.get('kind') or 'session'} "
+                  f"{holder.get('session')} on {holder.get('runner')} "
                   f"is live on its events", file=sys.stderr)
             continue
         if not tickets[row["ticket"]]["fold"]["hold_ended"]:
