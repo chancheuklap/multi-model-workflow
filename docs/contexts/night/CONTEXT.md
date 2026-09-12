@@ -126,7 +126,7 @@ _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
 **`dispatch.sh board`**:
-The task board entry command, run from any checkout or worktree: it makes sure the consuming repository's task board is registered in `boards.json` and answering, then has tonight's runner's `open-url` open it in the current worktree, or prints its URL when that adapter does not implement `open-url`. `open` does the first half of this on its own, so a night's board answers without anybody running this command; what this command adds is the tab.
+The task board entry command, run from any checkout or worktree: it makes sure the consuming repository's task board is registered in `boards.json` and answering, then has tonight's runner's `open-url` open it in the current worktree, or prints its URL when that adapter does not implement `open-url`. `open` and `open-ticket` do the first half of this on their own, so a watched ticket's board answers without anybody running this command; what this command adds is the tab.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **dispatch line**:
@@ -151,7 +151,7 @@ _Avoid_: finish (bare), summary (for this)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open-ticket**:
-`dispatch.sh open-ticket <n>`: what `open` is for one ticket outside a night. The relay opens a watch on ticket `<n>` alone with the calling session as its main agent; nothing is written on the ticket. A ticket a night's watch already covers is refused. `land <n>` closes that watch once nothing works the ticket any more. Exit 0 opened; exit 2 nothing opened.
+`dispatch.sh open-ticket <n>`: what `open` is for one ticket outside a night. The relay opens a watch on ticket `<n>` alone with the calling session as its main agent; nothing is written on the ticket. It then makes sure the repository's task board is registered and answering, and its stdout line carries the board's URL, as `open` does; a board that will not start is one line on stderr and the watch stays open. A ticket a night's watch already covers is refused. `land <n>` closes that watch once nothing works the ticket any more. Exit 0 opened; exit 2 nothing opened.
 _Home_: `mmw-v2/skills/dispatch/references/one-ticket.md`
 
 **start**:
@@ -178,7 +178,7 @@ _Avoid_: paseo wait (in skill text, for this), 等待 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
 
 **resume**:
-`dispatch.sh resume <n> "<text>"`: finds the worker session in the ticket's newest `worker.started` event and has the runner it names deliver the text (the adapter's `send`), then writes `worker.resumed`. Exit 0 the text was delivered; exit 4 the session was handed the text and its runner cannot show a turn starting — the text is in the session and is not sent again. A runner that cannot observe the program inside its session has no turn to report, so on it exit 4 is the normal answer to every send it accepts and exit 0 never comes; no handling may turn on telling the two apart; exit 3 the worker is there and did not take it, or the runner could not tell — most likely a turn in progress, and so a reason to wait and run the same command again; exit 2 no `worker.started` event, the ticket's events could not be read, or the runner has no such session, nothing sent. Which of these it is, is the adapter's answer, never a reading of the runner's error sentence.
+`dispatch.sh resume <n> "<text>"`: finds the worker still holding the ticket — the newest live worker session of the fold, the same holder the watchdog asks — and has the runner it names deliver the text (the adapter's `send`), then writes `worker.resumed`. Exit 0 the text was delivered; exit 4 the session was handed the text and its runner cannot show a turn starting — the text is in the session and is not sent again. A runner that cannot observe the program inside its session has no turn to report, so on it exit 4 is the normal answer to every send it accepts and exit 0 never comes; no handling may turn on telling the two apart; exit 3 the worker is there and did not take it, or the runner could not tell — most likely a turn in progress, and so a reason to wait and run the same command again; exit 2 no `worker.started` event, an event ended the newest worker's hold — named with its comment and the command that goes on from there, because a session no event shows holding the ticket is no longer its worker — the ticket's events could not be read, or the runner has no such session, nothing sent. Which of these it is, is the adapter's answer, never a reading of the runner's error sentence.
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
 **status**:
@@ -225,7 +225,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 ### The night
 
 **night**:
-Everything between the last ticket published and the morning: the user says it starts, the main agent runs `check`, then `open`, then — once, before the first `advance`, when the batch drives a screen contract — the batch lint, then `advance`, and ends its turn; on each **wake** it reads `status`, decides — `resume`, `retract`, or reading a stopped session on the runner its `worker.started` event names — runs `advance` once, and acks the wake. A ticket leaves the night by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and `status` shows no live agent: then the **收口轮** if open `finding` children remain, then `reverify`, then `summary`, which closes the night's watch — and, only after the user accepts the result, `finish`.
+Everything between the last ticket published and the morning: the user says it starts, the main agent runs `check`, then `open`, then — once, before the first `advance` — the batch lint, which checks every ticket's criteria whether or not the batch drives a screen contract, then `advance`, and ends its turn; on each **wake** it reads `status`, decides — `resume`, `retract`, or reading a stopped session on the runner its `worker.started` event names — runs `advance` once, and acks the wake. A ticket leaves the night by its worker's closing comment, or by staying in the agent queue behind an open blocker all night, which the `Not dispatched, a blocker stayed open:` line of `NIGHT SUMMARY` lists. The night ends when the frontier is empty and `status` shows no live agent: then the **收口轮** if open `finding` children remain, then `reverify`, then `summary`, which closes the night's watch — and, only after the user accepts the result, `finish`.
 _Avoid_: 夜间编排主循环, night orchestration loop, 夜里 (as a term), 夜间 (as a term), run (as the command that opens a night)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
