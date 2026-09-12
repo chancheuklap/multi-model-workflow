@@ -268,6 +268,11 @@ class BoardStore:
             repo = self.repo
             first_read = last_tree_at is None
             try:
+                # Which tickets to read is decided once, from the tree and the comments
+                # of one snapshot, both the same age: `finished` weighs a ticket's state
+                # on the tracker against its own ledger, and this poll's fresh tree read
+                # would judge a ticket that closed since the last poll on a ledger that
+                # has not seen its landing yet — dropping it from the read for good.
                 cached_tasks = self._shape(map_trees, comments) if map_trees else []
                 flat = [ticket for task in cached_tasks for spec in task["specs"]
                         for ticket in spec["tickets"]]
@@ -276,11 +281,6 @@ class BoardStore:
                     repo = repo or self._read_repo()
                     map_trees = self._read_trees()
                     last_tree_at = now
-                    current = self._shape(map_trees, comments)
-                    flat = [ticket for task in current for spec in task["specs"]
-                            for ticket in spec["tickets"]]
-                    plan["comments"] = [ticket["n"] for ticket in flat
-                                        if not finished(ticket)]
 
                 structural = False
                 for number in plan["comments"]:
