@@ -176,9 +176,13 @@ Files in the state directory:
     relay.json      the running relay's pid, process identity, interval, grace, start
                     time, and `ending` once it has no watch left and is on its way out
     relay.log       what every started relay printed, appended
-    beat.json       the last good poll, seconds spent delivering since it, the pass under way,
-                    the last failed poll and why, the run's interval and grace, and `reads`:
-                    billed and not-modified comment-list reads since this process started
+    beat.json       the last good poll (`at`), the end of the last cycle whether its reads
+                    worked or not (`cycle_at`), seconds spent delivering since the last good
+                    poll, the pass under way, the last failed poll and why, the run's
+                    interval and grace, and `reads`: billed and not-modified comment-list
+                    reads since this process started. `at` is progress — the board was read
+                    — and `cycle_at` is running; the watchdog reads one of each, because a
+                    single failed read stops the first and not the second
     gap.json        the latest unattended stretch announced
     relay.lock      held for as long as a `run` runs: one relay per repository
 
@@ -699,7 +703,8 @@ class Relay:
         every ticket in full on start all the same."""
         beat = self._read_state("beat.json", {})
         if beat:
-            beat.update(at=None, delivering=0, delivery_started=None, stopped=iso(self.clock()))
+            beat.update(at=None, cycle_at=None, delivering=0, delivery_started=None,
+                        stopped=iso(self.clock()))
             statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
 
     def _children_for(self, want: dict, watches: dict[str, dict]) -> dict[int, list[int]]:
@@ -1086,7 +1091,10 @@ class Relay:
                 beat.update(failed_at=iso(now), failure="; ".join(failures))
             else:
                 beat.update(at=iso(now), delivering=0, failed_at=None, failure=None)
-            beat.update(interval=interval, grace=grace, reads=self.board.reads)
+            # Written whether the reads worked or not: this says the cycle ran, which is
+            # what running means, while `at` says the board was read, which is progress.
+            beat.update(cycle_at=iso(now), interval=interval, grace=grace,
+                        reads=self.board.reads)
             statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
 
         self.reconciled.update(read)
@@ -1168,6 +1176,16 @@ class Relay:
             self.out.write(f"dropped {row['seq']} {wake_text(row)}\n")
 
     @staticmethod
+    def _delivering(beat: dict, now: datetime) -> float:
+        """Seconds spent in delivery passes since the last good poll, the pass under way
+        included. A slow send delays the next cycle, and the relay was attending all the
+        while."""
+        spent = float(beat.get("delivering") or 0)
+        if beat.get("delivery_started"):
+            spent += max(0.0, (now - parse_iso(beat["delivery_started"])).total_seconds())
+        return spent
+
+    @staticmethod
     def _unattended(beat: dict, now: datetime) -> float:
         """Seconds since the last good poll that the relay spent neither delivering nor able
         to poll: down, or its reads failing. Time in delivery passes does not count — a slow
@@ -1175,10 +1193,26 @@ class Relay:
         last = beat.get("at")
         if not last:
             return 0.0
-        spent = float(beat.get("delivering") or 0)
-        if beat.get("delivery_started"):
-            spent += max(0.0, (now - parse_iso(beat["delivery_started"])).total_seconds())
-        return (now - parse_iso(last)).total_seconds() - spent
+        return (now - parse_iso(last)).total_seconds() - Relay._delivering(beat, now)
+
+    @staticmethod
+    def _since_cycle(beat: dict, now: datetime) -> float | None:
+        """Seconds since the relay last finished a cycle, delivery time not counted, or
+        None when the beat carries no cycle stamp — a relay older than that field, whose
+        last good poll is then the only evidence it ran.
+
+        A cycle whose reads failed counts: the process ran, marked nothing read, and reads
+        the same tickets again next cycle. That is what running means, and it is a
+        different question from whether anything was read (`at`). The delivery seconds
+        subtracted are those since the last good poll, so a run of failed cycles can
+        subtract a little more than belongs to this one; the error only ever makes the
+        relay look attended for longer, and it is bounded by the time really spent
+        delivering.
+        """
+        last = beat.get("cycle_at")
+        if not last:
+            return None
+        return (now - parse_iso(last)).total_seconds() - Relay._delivering(beat, now)
 
     def _note_delivery(self, begun: datetime, ended: datetime | None) -> None:
         """Record a delivery pass in beat.json: its start while it runs, its length after."""

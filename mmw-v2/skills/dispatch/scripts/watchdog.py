@@ -31,10 +31,16 @@ watch is open this process writes a last heartbeat saying so and exits.
 
 **Each round**, every `--poll` seconds (default 60):
 
-1. The relay. Its lock record (`relay.lock`: pid and process identity, statedir.py) must
-   name a live process, and its last good poll must be within its grace, less the time it
-   spent delivering. A relay that has not polled yet is given its grace from the moment it
-   started. Otherwise that is a finding: `relay down`.
+1. The relay, two questions with an answer each. Is it running: its lock record
+   (`relay.lock`: pid and process identity, statedir.py) names a live process, and it
+   finished a cycle (`cycle_at` in `beat.json`, written by every cycle, a failed one
+   included) within its grace; otherwise the finding `relay down`. Is it reading: its last
+   good poll (`at`) is within its grace too; otherwise the finding `relay not reading` —
+   the process is there and cannot see the board, which is not the same thing and does not
+   call for another `open`. Both are measured less the time spent delivering, which delays
+   a cycle without stopping it, and a relay that has not cycled or polled yet is given its
+   grace from the moment it started. A beat with no cycle stamp was written by a relay
+   older than that field, and its last good poll then answers both questions.
 2. Every watched ticket is read in full and folded (`events.py` of the verify-ticket
    skill). A ticket not held is skipped. A held ticket in the waiting step — the fold's
    `waiting`: a `worker.queued` its run still waits under, because no product slot was
@@ -71,11 +77,12 @@ watch is open this process writes a last heartbeat saying so and exits.
 **Findings wake the main agent directly**, through the `send` of the runner that main
 agent runs in, one message on one line, each finding in it beginning `watchdog:`. Not
 through the relay's queue: the relay may be the thing that is down. A finding about a
-ticket goes to the main agent of the watch the ticket belongs to; `relay down` and
-`cannot read the board` go to every watch's main agent. Each finding is sent to each of
-its main agents once — keyed by that main agent, what the finding is about, and the
-ticket's newest event or the relay's last good poll — and never again for the same
-stretch, across restarts of this process. What `send` answered decides what happens next:
+ticket goes to the main agent of the watch the ticket belongs to; `relay down`, `relay not
+reading` and `cannot read the board` go to every watch's main agent. Each finding is sent
+to each of its main agents once — keyed by that main agent, what the finding is about, and
+the ticket's newest event or the relay's last good poll — and never again for the same
+stretch, across restarts of this process. A relay that goes from not reading to down is a
+finding of its own: the key carries which of the two it is. What `send` answered decides what happens next:
 
     0      delivered and a turn started. This process exits once the round's sends are
            done: that main agent is now in a turn, and that turn's end re-arms it
@@ -87,6 +94,9 @@ stretch, across restarts of this process. What `send` answered decides what happ
 The findings exactly:
 
     watchdog: relay down (<what is wrong>); details: python3 <this file> status --repo <repo>
+    watchdog: relay not reading (<what is wrong>); the process is there and cycling, and it
+              recovers on its own with the first read that works, so opening the night
+              again replaces nothing; details: python3 <this file> status --repo <repo>
     watchdog: #<n> events unreadable
     watchdog: #<n> is held with no session to ask, silent since <time>
     watchdog: #<n> liveness unknown: <runner> could not say whether the <kind> session
@@ -329,37 +339,94 @@ def night_open(state: Path) -> bool:
         return True
 
 
-def relay_problem(state: Path, now: datetime) -> str | None:
-    """What is wrong with the relay of an open night, or None when it polls.
+DOWN = "down"
+NOT_READING = "not reading"
+# What to do next differs between the two, so the finding says it: a relay that is not
+# there has to be started again; one that is there and cannot read recovers by itself on
+# its next successful read, and a second `open` would put nothing new in its place.
+NEXT = {NOT_READING: "the process is there and cycling, and it recovers on its own with "
+                     "the first read that works, so opening the night again replaces "
+                     "nothing; "}
 
-    Its lock must name a live process (pid and identity), and its last good poll must be
-    within its grace less the time it spent delivering. A relay that has not polled yet is
-    given its grace from the moment it started.
+
+def relay_problem(state: Path, now: datetime) -> dict | None:
+    """What is wrong with the relay of an open night, or None when it runs and reads.
+
+    Two facts, which one threshold used to answer as one (#406):
+
+        down          nothing is relaying. Its lock names no live process, or it has
+                      finished no cycle within its grace: whatever lands on a ticket now
+                      wakes nobody until a relay runs again.
+        not reading   it is cycling, and its reads of the board have been failing for
+                      longer than its grace. The process is alive; what it is missing is
+                      the board.
+
+    Its lock record (`relay.lock`: pid and process identity, statedir.py) has to name a
+    live process for either. Running is then `cycle_at`, which every cycle writes, a
+    failed one included; reading is `at`, the last cycle that read the board. Both are
+    measured less the time spent delivering, which delays a cycle without stopping it. A
+    relay that has not read yet, or has not cycled yet, is given its grace from the moment
+    it started. A beat with no cycle stamp was written by a relay older than that field,
+    and its last good poll then answers both questions, as it did before.
+
+    Returns the finding's `kind` (one of the two above), `why` — one checkable fact each
+    time — and the `key` that makes one report per stretch.
     """
     holder = statedir.holder(state / "relay.lock")
     try:
         beat = statedir.read_json(state / "beat.json", {})
         record = statedir.read_json(state / "relay.json", {})
     except ValueError as exc:
-        return f"the relay's state cannot be read ({exc})"
+        return {"kind": DOWN, "why": f"the relay's state cannot be read ({exc})",
+                "key": f"relay:{DOWN}:unreadable"}
     beat = beat if isinstance(beat, dict) else {}
     record = record if isinstance(record, dict) else {}
     last = beat.get("at")
+    cycled = beat.get("cycle_at")
     grace = beat.get("grace") if isinstance(beat.get("grace"), (int, float)) else record.get("grace")
     if not isinstance(grace, (int, float)):
         grace = 3 * relay_mod.DEFAULT_INTERVAL
     failure = f"; its last failed poll: {beat.get('failure')}" if beat.get("failure") else ""
+    started = record.get("started") or ""
+
+    def finding(kind: str, why: str) -> dict:
+        return {"kind": kind, "why": why, "key": f"relay:{kind}:{last or 'never'}:{started}"}
+
     if holder is None:
-        return f"no relay is running (last good poll: {last or 'never'}){failure}"
-    if not last:
-        began = parse_iso(record.get("started"))
-        if began is not None and (now - began).total_seconds() <= grace:
-            return None
-        return f"the relay (pid {holder.get('pid')}) has made no good poll since it started{failure}"
+        return finding(DOWN, f"no relay is running (last good poll: {last or 'never'}){failure}")
+    pid = holder.get("pid")
+    began = parse_iso(record.get("started"))
+    within_start_grace = began is not None and (now - began).total_seconds() <= grace
     unattended = relay_mod.Relay._unattended(beat, now)
+    since_cycle = relay_mod.Relay._since_cycle(beat, now)
+
+    if since_cycle is None:
+        # A beat an older relay wrote: its last good poll is all there is to judge by,
+        # and it answers both questions, as it did before the cycle stamp existed.
+        if not last:
+            if within_start_grace:
+                return None
+            return finding(DOWN, f"the relay (pid {pid}) has made no good poll since it "
+                                 f"started{failure}")
+        if unattended > grace:
+            return finding(DOWN, f"the relay (pid {pid}) last polled at {last}, "
+                                 f"{int(unattended)}s ago, past its grace of "
+                                 f"{int(grace)}s{failure}")
+        return None
+
+    if since_cycle > grace:
+        return finding(DOWN, f"the relay (pid {pid}) last finished a cycle at {cycled}, "
+                             f"{int(since_cycle)}s ago, past its grace of {int(grace)}s "
+                             f"(last good poll: {last or 'never'}){failure}")
+    cycling = f"the relay (pid {pid}) is cycling (last cycle at {cycled}, {int(since_cycle)}s ago)"
+    if not last:
+        if within_start_grace:
+            return None
+        return finding(NOT_READING, f"{cycling} and has made no good poll since it "
+                                    f"started{failure}")
     if unattended > grace:
-        return (f"the relay (pid {holder.get('pid')}) last polled at {last}, {int(unattended)}s "
-                f"ago, past its grace of {int(grace)}s{failure}")
+        return finding(NOT_READING, f"{cycling} and last polled at {last}, {int(unattended)}s "
+                                    f"ago, past its grace of {int(grace)}s{failure}")
     return None
 
 
@@ -555,13 +622,13 @@ class Watchdog:
         watches = self.watches(failures)
         everyone = sorted({relay_mod.main_of(entry) for entry in watches.values()})
         problem = relay_problem(self.state, now)
-        self.beat["relay"] = problem
+        self.beat["relay"] = f"relay {problem['kind']}: {problem['why']}" if problem else None
         if problem:
-            beat = self._read_quiet("beat.json")
-            record = self._read_quiet("relay.json")
             findings.append({
-                "key": f"relay:{beat.get('at') or 'never'}:{record.get('started') or ''}",
-                "text": f"watchdog: relay down ({problem}); details: python3 {Path(__file__).resolve()} "
+                "key": problem["key"],
+                "text": f"watchdog: relay {problem['kind']} ({problem['why']}); "
+                        f"{NEXT.get(problem['kind'], '')}"
+                        f"details: python3 {Path(__file__).resolve()} "
                         f"status --repo {self.repo}",
                 "to": everyone,
             })

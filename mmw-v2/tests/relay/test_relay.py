@@ -674,6 +674,20 @@ class PollingTest(RelayCase):
         beat = json.loads((self.state / "beat.json").read_text())
         self.assertEqual((beat["at"], beat["failure"]), (stamp(T0 + timedelta(seconds=30)), None))
 
+    def test_a_failed_read_still_stamps_the_cycle_it_ran(self):
+        """Whether the relay is running and whether it read anything are two facts, and
+        the watchdog reads one of each: `cycle_at` says the cycle ran, `at` says it read
+        the board. Written as one, a single failed read reads exactly like a dead relay
+        (#406)."""
+        self.poll()
+        self.gh.failing.add(62)
+        self.clock.moment = T0 + timedelta(seconds=30)
+        self.assertFalse(self.poll())
+        beat = json.loads((self.state / "beat.json").read_text())
+        self.assertEqual(beat["at"], stamp(T0), "a failed read is no good poll")
+        self.assertEqual(beat["cycle_at"], stamp(T0 + timedelta(seconds=30)),
+                         "and the cycle it ran is stamped all the same")
+
     def test_a_ticket_whose_read_on_start_failed_is_read_in_full_when_it_works(self):
         self.board[62].append(comment(102, "ticket.claimed", 62))
         self.poll()

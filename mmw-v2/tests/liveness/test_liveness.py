@@ -652,11 +652,48 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1, "one report per stretch")
 
-    def test_a_stale_relay_is_reported(self):
+    def test_a_stale_relay_with_no_cycle_stamp_is_judged_on_its_last_good_poll(self):
+        """A beat an older relay wrote carries no `cycle_at`, and then the last good poll
+        is all there is to judge running by, as it was before that field existed."""
         self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=91)), "delivering": 0,
                                  "grace": 90})
         self.watchdog().round()
         self.assertIn("past its grace of 90s", self.send.calls[0][2])
+
+    def test_a_relay_still_cycling_after_a_failed_read_is_not_reported_down(self):
+        """2026-09-12 (#406): one round's `net/http: TLS handshake timeout` left the last
+        good poll standing still, and the watchdog called the relay down — five times in
+        one night, while the process was there, cycling, and healthy again next round.
+        `night.md` answers `relay down` with a reopened night, so each one cost a needless
+        `open`."""
+        self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=91)),
+                                 "cycle_at": stamp(T0 - timedelta(seconds=5)),
+                                 "failed_at": stamp(T0 - timedelta(seconds=5)),
+                                 "failure": "#749: gh exited 1 (net/http: TLS handshake timeout)",
+                                 "delivering": 0, "grace": 90, "interval": 30})
+        self.watchdog().round()
+        text = self.send.calls[0][2]
+        self.assertNotIn("relay down", text)
+        self.assertIn("relay not reading", text)
+        self.assertIn(f"cycling (last cycle at {stamp(T0 - timedelta(seconds=5))}", text)
+        self.assertIn("TLS handshake timeout", text)
+
+    def test_a_relay_that_stopped_cycling_is_down_and_says_when_it_last_cycled(self):
+        self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=200)),
+                                 "cycle_at": stamp(T0 - timedelta(seconds=200)),
+                                 "delivering": 0, "grace": 90, "interval": 30})
+        self.watchdog().round()
+        text = self.send.calls[0][2]
+        self.assertIn("relay down", text)
+        self.assertIn(f"last finished a cycle at {stamp(T0 - timedelta(seconds=200))}", text)
+
+    def test_a_relay_cycling_and_reading_is_reported_to_nobody(self):
+        self.write("beat.json", {"at": stamp(T0 - timedelta(seconds=20)),
+                                 "cycle_at": stamp(T0), "delivering": 0, "grace": 90,
+                                 "interval": 30})
+        self.board.tickets[61] = []
+        self.watchdog().round()
+        self.assertEqual(self.send.calls, [])
 
     def test_a_relay_just_started_is_given_its_grace(self):
         self.write("beat.json", {"at": None})
