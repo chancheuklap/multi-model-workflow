@@ -2641,12 +2641,19 @@ advance() {
     || { cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec"; }
   rm -f "$plan_err"
 
-  local merged=0 skipped=0 bounced=0 number passed into rc
+  # A ticket that cannot be landed is one ticket: it is named, counted as failed and left
+  # unlanded, which keeps the tickets it blocks off the frontier, and the rest of the batch
+  # lands and starts as if it were not there.
+  local merged=0 skipped=0 bounced=0 failed=0 number passed into rc
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
-    passed="$(ticket_passed_commit "$number")" \
-      || refuse "#${number}'s ticket.passed event carries no usable commit"
-    into="$(ticket_into "$number" "$spec")" \
-      || refuse "#${number}'s events carry no usable base branch"
+    if ! passed="$(ticket_passed_commit "$number")"; then
+      echo "dispatch: #${number}'s ticket.passed event carries no usable commit, so it is not landed" >&2
+      failed=$((failed + 1)); continue
+    fi
+    if ! into="$(ticket_into "$number" "$spec")"; then
+      echo "dispatch: #${number}'s events carry no usable base branch, so it is not landed" >&2
+      failed=$((failed + 1)); continue
+    fi
     land_one_via_origin "$root" "$number" "$spec" "$into" "$passed"
     rc=$?
     case "$rc" in
@@ -2656,7 +2663,10 @@ advance() {
         ;;
       1) bounced=$((bounced + 1)) ;;
       3) skipped=$((skipped + 1)) ;;
-      *) refuse "could not land #$number into origin/$into after $MERGE_TRIES tries" ;;
+      *)
+        echo "dispatch: #$number is not landed: could not land it into origin/$into (the reason is above); run advance again once that is fixed" >&2
+        failed=$((failed + 1))
+        ;;
     esac
   done
 
@@ -2702,12 +2712,15 @@ advance() {
     fi
   done
 
-  echo "advance #$spec: merged $merged, already in $skipped, bounced $bounced, released $released, started $started, refused $refused" >&2
+  echo "advance #$spec: merged $merged, already in $skipped, bounced $bounced, released $released, started $started, refused $refused, failed $failed" >&2
   sweep_orphan_merge_worktrees "$root" \
     || echo "dispatch: could not sweep orphan merge worktrees after advancing #$spec" >&2
   # A refused start is its own exit code. Read as success it ends the main agent's turn,
   # and when nothing else of the batch is running no wake will ever come: the ticket sits
   # on the frontier, never started, and the night stops there without a word.
+  # A ticket that could not be landed is exit 2 for the same reason, and it comes first:
+  # what it names is fixed and advance is run again.
+  [ "$failed" -eq 0 ] || exit 2
   [ "$refused" -eq 0 ] || exit 4
 }
 

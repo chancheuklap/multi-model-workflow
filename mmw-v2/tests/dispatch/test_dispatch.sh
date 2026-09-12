@@ -6073,6 +6073,25 @@ JSON
   grep -q "#60's ticket.passed event carries no usable commit" "$TMP/err" \
     || fail "stderr should name the unusable pass: $(cat "$TMP/err")"
   [ -z "$(posted_events 60)" ] || fail "#60 must not be recorded landed: $(posted_events 60)"
+
+  echo "--- the rest of the batch goes on: a ticket #60 does not block is started, and the run still exits 2"
+  reset_log
+  fresh_repo
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 60, "state": "CLOSED", "labels": [], "closedAt": "2026-08-31T01:00:00Z",
+   "comments": [$(ev ticket.passed 60 "ALL MET" --field branch=issue-60)]},
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"],
+   "blockedBy": [{"number": 60, "state": "CLOSED"}]},
+  {"number": 62, "state": "OPEN", "labels": ["ready-for-agent"]}
+]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 2 ] || fail "exit $code, not 2: $(cat "$TMP/err")"
+  assert_no_wt 61
+  [ -d "$(wt 62)" ] || fail "#62 should have been started: $(cat "$TMP/err")"
+  grep -q "started 1, refused 0, failed 1" "$TMP/err" || fail "the tally should count the failed landing: $(cat "$TMP/err")"
 }
 
 # `start` holds a ticket back on the rule the frontier and the worker's preflight use: a
