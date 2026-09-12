@@ -52,69 +52,91 @@ export function mountPage(doc = document) {
     paint();
   };
 
+  // Each column's render rebuilds it from nothing, which costs the reader whatever they had
+  // going in it: the canvas viewport, the detail column's scroll, an edge animation
+  // mid-flight. So a column is redrawn only when what it shows differs from what is on
+  // screen. A signature is the data that column reads, which includes text derived from the
+  // clock (a ticket's 已跑 N 分钟), so that keeps ticking.
+  const shown = {};
+  const changed = (column, signature) => {
+    if (shown[column] === signature) return false;
+    shown[column] = signature;
+    return true;
+  };
+
   const paint = () => {
     const list = state.payload.tasks || [];
     if (state.task == null && list[0]) setTask(list[0].n);
-    topbar(slots.topbar, topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen}), api, {
-      onJumpNeedYou() {
-        const next = nextOrange(list, state.sel);
-        if (next) {
-          setTask(next.task);
-          state.sel = next.node;
-          paint();
-        }
-      },
-      onRefresh(data) {
-        state.payload = data;
-        paint();
-      },
-      onOpenSettings(data) {
-        state.settingsPayload = data;
-        state.settingsOpen = true;
-        paint();
-      },
-    });
-    tasks(slots.tasks, {
-      tasks: list,
-      selectedTask: state.task,
-      onSelectTask(n) {
-        setTask(n);
-        state.sel = null;
-        paint();
-      },
-    });
-    canvas(slots.canvas, {
-      task: taskOf(state.task),
-      sel: state.sel,
-      expanded: state.expanded,
-      onSelectNode(n) {
-        state.sel = n;
-        paint();
-      },
-      onToggle(_n, expanded) {
-        state.expanded = expanded;
-      },
-    });
-    // Nothing picked, nothing to show: the column comes off the page rather than standing
-    // there empty, and the canvas takes the width back. The stylesheet follows the slot.
-    const detailView = detailFromBoard(state.payload, state.sel);
-    if (detailView.empty) {
-      unmountDetail(slots.detail);
-    } else {
-      detail(slots.detail, detailView, api, {
-        onGoto(n) {
-          const found = find(list, n);
-          if (found) {
-            setTask(found.task.n);
-            state.sel = n;
+    const listSign = JSON.stringify(list);
+    const topbarView = topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen});
+    if (changed("topbar", JSON.stringify(topbarView))) {
+      topbar(slots.topbar, topbarView, api, {
+        onJumpNeedYou() {
+          const next = nextOrange(list, state.sel);
+          if (next) {
+            setTask(next.task);
+            state.sel = next.node;
             paint();
           }
         },
-        onClose() {
+        onRefresh(data) {
+          state.payload = data;
+          paint();
+        },
+        onOpenSettings(data) {
+          state.settingsPayload = data;
+          state.settingsOpen = true;
+          paint();
+        },
+      });
+    }
+    if (changed("tasks", `${state.task}|${listSign}`)) {
+      tasks(slots.tasks, {
+        tasks: list,
+        selectedTask: state.task,
+        onSelectTask(n) {
+          setTask(n);
           state.sel = null;
           paint();
         },
       });
+    }
+    if (changed("canvas", `${state.task}|${state.sel}|${(state.expanded || []).join(",")}|${listSign}`)) {
+      canvas(slots.canvas, {
+        task: taskOf(state.task),
+        sel: state.sel,
+        expanded: state.expanded,
+        onSelectNode(n) {
+          state.sel = n;
+          paint();
+        },
+        onToggle(_n, expanded) {
+          state.expanded = expanded;
+        },
+      });
+    }
+    // Nothing picked, nothing to show: the column comes off the page rather than standing
+    // there empty, and the canvas takes the width back. The stylesheet follows the slot.
+    const detailView = detailFromBoard(state.payload, state.sel);
+    if (changed("detail", JSON.stringify(detailView))) {
+      if (detailView.empty) {
+        unmountDetail(slots.detail);
+      } else {
+        detail(slots.detail, detailView, api, {
+          onGoto(n) {
+            const found = find(list, n);
+            if (found) {
+              setTask(found.task.n);
+              state.sel = n;
+              paint();
+            }
+          },
+          onClose() {
+            state.sel = null;
+            paint();
+          },
+        });
+      }
     }
     if (!slots.settings) return;
     const open = slots.settings.querySelector('[data-screen="settings"]');
