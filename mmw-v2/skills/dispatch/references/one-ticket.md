@@ -4,7 +4,7 @@ You are starting one worker on one ticket, with no batch behind it. A ticket out
 
 Four steps:
 
-1. `<dispatch> open-ticket <n>`: it opens a watch on ticket `<n>` alone with this session as its main agent — the runner and session its runner's adapter reads from this process — and starts the relay when none runs for this repository. A night open on this repository keeps its own watch and its own main agent.
+1. `<dispatch> open-ticket <n>`: it opens a watch on ticket `<n>` alone with this session as its main agent — the runner and session its runner's adapter reads from this process — and starts the relay when none runs for this repository. It also registers and starts this repository's task board, the one view of the ticket for a person, and prints its URL: hand it to the user. A night open on this repository keeps its own watch and its own main agent.
 2. `<dispatch> start <n> worker`, from the checkout branch this ticket will merge into. That branch must exist on origin; `start` fetches it, records it as `worker.started.into`, creates the ticket branch from `origin/<branch>` and pushes the new ticket branch before the worker runs. Then end your turn.
 3. You are woken with `#<n> ticket.passed` or `#<n> ticket.returned`, or with one of the three below. Read that event on the ticket, act on it, then `<dispatch> ack <n> <that event>` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)).
    - `#<n> worker.lost`: the worker's session stopped. `<dispatch> start <n> worker` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.
@@ -18,7 +18,7 @@ Four steps:
 
 | Code | What happened |
 | --- | --- |
-| `0` | A watch on `<n>` is open with this session as its main agent, and a relay runs; stdout reads `opened #<n>: wake-ups go to <runner> session <session>`, and stderr says whether the watch was opened now or was open already, and whether the relay was started or found running |
+| `0` | A watch on `<n>` is open with this session as its main agent, and a relay runs; stdout reads `opened #<n>: wake-ups go to <runner> session <session>; task board <url>`, and stderr says whether the watch was opened now or was open already, and whether the relay was started or found running. A task board that would not start leaves the `; task board <url>` part off stdout and says why in one stderr line; the watch is open all the same, and `<dispatch> board` starts the board once that reason is fixed |
 | `2` | Nothing was opened. The reason is on stderr; read it verbatim. Every open watch is left as it was |
 
 **`start <n> worker`:**
