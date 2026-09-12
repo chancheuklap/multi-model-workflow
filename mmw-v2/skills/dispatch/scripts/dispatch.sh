@@ -67,9 +67,10 @@
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
 # how a woken session says it handled the wake it read. `adopt` makes a session that
 # picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
-# runner and session this process runs in. `open` also makes sure this repository's task
-# board is registered and answering and names its URL on the line it prints: everything
-# else a night starts is read by the main agent, and the board is what a person reads.
+# runner and session this process runs in. `open` and `open-ticket` also make sure this
+# repository's task board is registered and answering and name its URL on the line they
+# print: everything else a watch starts is read by the main agent, and the board is what a
+# person reads.
 #
 # Each pipeline command's exit codes are written beside that command, in the door that
 # carries it. `board` is the one command documented directly in SKILL.md; that file is
@@ -718,12 +719,20 @@ open_night() {
 }
 
 # `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
-# session as its main agent; `land <n>` closes the watch.
+# session as its main agent; `land <n>` closes the watch. The task board is made sure of
+# the way `open` makes sure of it, for the same reason: the relay and the watchdog start
+# themselves, and the board is the one view of the ticket for a person. A board that will
+# not start is said on stderr and leaves the watch open.
 open_ticket() {
-  local number="$1" opened runner session how
+  local number="$1" opened runner session how board
   opened="$(open_relay --tickets "$number")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
-  echo "opened #$number: wake-ups go to $runner session $session"
+  if board="$(ensure_board)"; then
+    echo "opened #$number: wake-ups go to $runner session $session; task board $board"
+  else
+    echo "opened #$number: wake-ups go to $runner session $session"
+    echo "dispatch: the watch on #$number is open and its task board is not, so the ticket's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
+  fi
 }
 
 # `ack <n> <event>` or `ack relay.recovered`: the wake this session read is handled, and
