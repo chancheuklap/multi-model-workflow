@@ -63,9 +63,19 @@ export const Board = {
     return "working";
   },
 
+  // Whether this ticket is finished, which is the same question `blocker_hold` already
+  // answers for the ticket behind it: nothing more is coming from it. The ledger landed
+  // it, or it closed with nothing that will ever land — taken through by hand outside the
+  // pipeline, which writes no `ticket.landed` and can leave the ledger empty. A ticket
+  // that passed and has not landed yet is not finished, and neither is one whose events
+  // could not be read: those still say why they hold.
+  done(ticket) {
+    return Boolean(ticket.fold.landed) || this.released(ticket);
+  },
+
   step(ticket) {
     const fold = ticket.fold;
-    if (fold.landed) return "landed";
+    if (this.done(ticket)) return "landed";
     const live = fold.sessions.filter(session => session.live);
     if (this.handedBack(ticket) || this.bounce(ticket) || (live.length && this.stoppedByFault(ticket))) {
       return this.stoppedAt(ticket);
@@ -108,7 +118,7 @@ export const Board = {
   light(ticket) {
     if (this.why(ticket).length) return "orange";
     if (this.running(ticket)) return "green";
-    if (ticket.fold.landed) return "ink";
+    if (this.done(ticket)) return "ink";
     return "hollow";
   },
 
@@ -143,6 +153,9 @@ export const Board = {
   runLine(ticket) {
     const live = ticket.fold.sessions.filter(session => session.live);
     if (!ticket.fold.sessions.length) {
+      // Finished with no session at all: it was taken through outside the pipeline, so
+      // there is no runner to name and "尚未派发" would read as work still to come.
+      if (this.done(ticket)) return {text: "没派发过就关了"};
       return {text: ticket.fold.claim_hold || ticket.fold.held ? "已认领 · 待派发" : "尚未派发"};
     }
     const since = this.waitingSince(ticket);
@@ -202,7 +215,7 @@ export const Board = {
 
   progress(task) {
     const tickets = this.allTickets(task);
-    return {done: tickets.filter(ticket => ticket.fold.landed).length, total: tickets.length};
+    return {done: tickets.filter(ticket => this.done(ticket)).length, total: tickets.length};
   },
 
   released(blocker) {

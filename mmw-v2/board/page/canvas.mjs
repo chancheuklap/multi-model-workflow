@@ -107,7 +107,7 @@ export function canvasView(task, sel, expandedList, reduced) {
       const container = node.ref, isMap = node.type === "map";
       const list = isMap ? Board.allTickets(container) : container.tickets;
       const light = Board.aggregate(list);
-      const done = list.filter(ticket => ticket.fold.landed).length;
+      const done = list.filter(ticket => Board.done(ticket)).length;
       const canExpand = isMap ? container.decisions.length > 0 : container.tickets.length > 0;
       const open = expanded.has(container.n);
       containers.push({

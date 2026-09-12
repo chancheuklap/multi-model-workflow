@@ -273,11 +273,25 @@ class BoardDataTest(unittest.TestCase):
 
     def test_tree_is_reread_after_ten_minutes(self):
         now = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
-        active = [{"n": 12, "fold": {"landed": False}}, {"n": 11, "fold": {"landed": True}}]
+        active = [{"n": 12, "fold": {"landed": False}, "blocker_hold": "open"},
+                  {"n": 11, "fold": {"landed": True}, "blocker_hold": ""}]
         self.assertEqual(board_data.plan_read(now - dt.timedelta(seconds=599), active, now),
                          {"tree": False, "comments": [12]})
         self.assertEqual(board_data.plan_read(now - dt.timedelta(seconds=600), active, now),
                          {"tree": True, "comments": [12]})
+
+    def test_a_ticket_closed_by_hand_stops_being_reread(self):
+        now = dt.datetime(2026, 9, 11, tzinfo=dt.timezone.utc)
+        # Closed outside the pipeline: no `ticket.landed`, an empty ledger, and nothing
+        # that will ever land. One that passed and has not landed yet is still to come.
+        by_hand = {"n": 24, "fold": {"landed": False}, "blocker_hold": ""}
+        passed = {"n": 25, "fold": {"landed": False}, "blocker_hold": "passed, not landed"}
+        unreadable = {"n": 26, "fold": {"landed": False},
+                      "blocker_hold": "its events cannot be read"}
+        self.assertEqual(board_data.plan_read(now, [by_hand, passed, unreadable], now),
+                         {"tree": False, "comments": [25, 26]})
+        self.assertEqual([board_data.finished(row) for row in (by_hand, passed, unreadable)],
+                         [True, False, False])
 
     def test_failed_read_keeps_the_last_data(self):
         data = scenario()

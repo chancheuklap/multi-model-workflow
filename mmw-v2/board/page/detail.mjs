@@ -143,7 +143,7 @@ function relRowFromBoard(tasks, n, role, hereSpec) {
         : Board.released(found.ref) ? "没过就关了，已放行" : "未合入";
   } else if (found.type === "spec") {
     light = Board.aggregate(found.ref.tickets);
-    state = `${found.ref.tickets.filter(ticket => ticket.fold.landed).length}/${found.ref.tickets.length}`;
+    state = `${found.ref.tickets.filter(ticket => Board.done(ticket)).length}/${found.ref.tickets.length}`;
   } else {
     light = Board.decisionLight(found.ref);
     state = found.ref.state === "closed" ? "已关闭" : "开着";
@@ -216,7 +216,7 @@ function containerView(tasks, found) {
   const light = Board.aggregate(list);
   const countLight = key => list.filter(ticket => Board.light(ticket) === key).length;
   const countStep = key => list.filter(ticket => Board.step(ticket) === key).length;
-  const done = list.filter(ticket => ticket.fold.landed).length;
+  const done = list.filter(ticket => Board.done(ticket)).length;
   return {
     empty: false, kind: isMap ? "map" : "spec",
     eyebrow: isMap ? "Map · 任务" : "Spec",
@@ -357,8 +357,9 @@ function ticketBody(hooks, view) {
     }
   }
   if (view.kind === "ticket" && !view.hasWorker) {
-    runtime.push(el("p", {class: "rel-none"},
-      "尚未派发。frontier 选中它之后，这里会出现它跑在哪个 host、哪个 runner。"));
+    runtime.push(el("p", {class: "rel-none"}, view.step === "landed"
+      ? "没派发过就关了：它不是这条管线跑完的，没有 host、runner 可看。"
+      : "尚未派发。frontier 选中它之后，这里会出现它跑在哪个 host、哪个 runner。"));
   }
   kids.push(section("运行时", view.runtimeNote || "", ...runtime));
   kids.push(blockingSection(hooks, view, "无，一开始就能动"));

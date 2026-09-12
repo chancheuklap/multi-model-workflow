@@ -80,6 +80,36 @@ test("step follows who still holds the ticket", () => {
   assert.equal(Board.step(ticket({fold: {landed: true}})), "landed");
 });
 
+test("a ticket closed by hand is finished even with an empty ledger", () => {
+  // Taken through outside the pipeline: no session, no `ticket.landed`, nothing that will
+  // ever land — which is what an empty blocker_hold says.
+  const byHand = ticket({state: "closed", blocker_hold: ""});
+  assert.equal(Board.done(byHand), true);
+  assert.equal(Board.step(byHand), "landed");
+  assert.equal(Board.light(byHand), "ink");
+  assert.deepEqual(Board.progress({specs: [{tickets: [byHand, ticket()]}]}), {done: 1, total: 2});
+});
+
+test("a ticket closed by hand names no runner and does not read as still to come", () => {
+  assert.equal(Board.runLine(ticket({state: "closed", blocker_hold: ""})).text, "没派发过就关了");
+  assert.equal(Board.runLine(ticket()).text, "尚未派发");
+});
+
+test("a closed ticket whose work has not landed yet is not finished", () => {
+  const passed = ticket({state: "closed", blocker_hold: "passed, not landed",
+    fold: {sessions: [{kind: "verifier", live: false}], verdict: {event: "verifier.passed"}}});
+  assert.equal(Board.done(passed), false);
+  assert.equal(Board.light(passed), "hollow");
+  const unreadable = ticket({state: "closed", blocker_hold: "its events cannot be read"});
+  assert.equal(Board.done(unreadable), false);
+});
+
+test("a closed ticket that still needs you stays orange", () => {
+  const openChild = ticket({state: "closed", blocker_hold: "",
+    fold: {children: {2: {child: 2, kind: "fault"}}}, children: [{number: 2, state: "OPEN"}]});
+  assert.equal(Board.light(openChild), "orange");
+});
+
 test("a stopped ticket keeps the step it stopped at", () => {
   const returned = ticket({fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}}});
   assert.equal(Board.step(returned), "working");

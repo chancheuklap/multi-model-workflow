@@ -38,10 +38,21 @@ def iso(value: dt.datetime) -> str:
     return value.astimezone(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def finished(ticket: dict) -> bool:
+    """Whether this ticket is done and its comments will not say anything new: the ledger
+    landed it, or it closed with nothing that will ever land, which is what an empty
+    `blocker_hold` says. A ticket taken through by hand, outside the pipeline, is written
+    no `ticket.landed` and can have no events at all; re-reading its comments every poll
+    for the rest of the board's life buys nothing. One that passed and has not landed yet
+    is still to come, and is read on. The page asks the same question the same way, in
+    `page/board-logic.mjs`'s `done`."""
+    return bool(ticket["fold"]["landed"]) or ticket["blocker_hold"] == ""
+
+
 def plan_read(last_tree_at: dt.datetime | None, tickets: list[dict], now: dt.datetime) -> dict:
     """Choose this poll's GitHub reads from cached state and an explicit clock."""
     stale = last_tree_at is None or (now - last_tree_at).total_seconds() >= 600
-    numbers = [ticket["n"] for ticket in tickets if not ticket["fold"]["landed"]]
+    numbers = [ticket["n"] for ticket in tickets if not finished(ticket)]
     return {"tree": stale, "comments": numbers}
 
 
@@ -269,7 +280,7 @@ class BoardStore:
                     flat = [ticket for task in current for spec in task["specs"]
                             for ticket in spec["tickets"]]
                     plan["comments"] = [ticket["n"] for ticket in flat
-                                        if not ticket["fold"]["landed"]]
+                                        if not finished(ticket)]
 
                 structural = False
                 for number in plan["comments"]:
