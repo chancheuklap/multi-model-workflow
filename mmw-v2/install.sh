@@ -11,7 +11,7 @@
 #                     worktrees.root。不写 Agent profile。~/.mmw/models.json 缺席时写入默认值，
 #                     或把同目录遗留的 models.md 一次性导入后删除；已有 JSON 不覆盖。
 #   Orca 侧工作树     有 orca 时：每个 setup 的 worktree-base-path 为 .worktrees；
-#                     repo 的 externalWorktreeVisibility 为 show。没有 orca 则跳过。
+#                     Git repo 的 externalWorktreeVisibility 为 show。没有 orca 则跳过。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
@@ -1264,7 +1264,8 @@ fi
 # base path 的字段名是 `worktreeBasePath`，只在设过之后出现在 setup 行上；相对值挂在
 # 仓库路径下（Orca 1.4.199 `shared/worktree/configured-worktree-base-path.js`）。所以
 # 字段缺席就是没设，报缺；设了但解析出来不是 `<仓库>/.worktrees` 也报缺。
-# 可见性按 Orca 自己的判定链：仓库级 `externalWorktreeVisibility` 有值就是它；没值时
+# 可见性只适用于 `kind: git`；Orca 也把 folder workspace 放进 repo list，那些没有 Git
+# worktree，不检查。Git 仓库按 Orca 自己的判定链：仓库级 `externalWorktreeVisibility` 有值就是它；没值时
 # 看全局 `worktreeVisibilityDefaults.external`，再按仓库加入日期兜底。Orca 的 CLI 读不出
 # 全局默认，所以仓库级没值的那一行报「没查」，不猜。可见性没有 CLI 可写，只核对。
 # 列表读不出、形状不对，报「没查」：一个空列表读起来和「全都对」一样。
@@ -1374,6 +1375,8 @@ repos = rows_of(repos_proc, "repos") if repos_proc.returncode == 0 else None
 if repos is None:
     unread("repo list --json", repos_proc)
 for row in repos:
+    if row.get("kind") == "folder":
+        continue
     vis = row.get("externalWorktreeVisibility")
     path = row.get("path") or row.get("id") or "?"
     if vis == "show":
