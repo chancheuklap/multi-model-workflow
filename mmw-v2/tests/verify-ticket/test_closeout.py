@@ -106,7 +106,7 @@ CALLS = []
 
 
 def check(text, comments=(),
-          verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
+          head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True, repo=None, body=None,
           reverify=True, tracker_fails=False, post_fails=False, labels=(), reason=None,
           started_event=STARTED, pushed=None):
@@ -148,7 +148,7 @@ def check(text, comments=(),
         return ""
 
     def fake_is_ancestor(commit, descendant, root=None):
-        return main_merged if commit == "main" else verdict_reachable
+        return main_merged
 
     ticket = {"state": state, "labels": [{"name": n} for n in labels],
               "assignees": [{"login": a} for a in assignees], "blockedBy": {"nodes": []}}
@@ -351,6 +351,13 @@ class TestTheFinalRunSettlesAllMet(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("carries no worker reverify", err)
 
+    def test_a_later_main_reverify_does_not_hide_the_workers_final_run(self):
+        main_run = checked("reverify", [UNMET], "UNMET: 1 (met: 0)", commit=HEAD,
+                           actor="main")
+        code, err, _ = check(draft(counts=counts_line()),
+                             comments=(FINAL_RUN, main_run), reverify=False)
+        self.assertEqual(code, 0, err)
+
 
 FENCED = """- [x] AC4: install.sh 装完五处配置
   CHECK:
@@ -421,10 +428,10 @@ class TestEveryRefusalHasAWayOut(unittest.TestCase):
         self.assertEqual(code, 0, err)
 
     def test_no_refusal_asks_for_something_only_someone_else_can_write(self):
-        """The worker writes the draft and the commits. It does not write the verdict."""
-        for label, kwargs in (("no verdict", {"comments": NO_FINAL_RUN}),
-                              ("verdict commit lost", {"verdict_reachable": False}),
-                              ("head moved on", {})):
+        """A hand-back remains possible regardless of the worker's final-run state."""
+        for label, kwargs in (("no final run", {"comments": NO_FINAL_RUN}),
+                              ("stale final run", {"comments": (STALE_FINAL_RUN,)}),
+                              ("current final run", {"comments": (FINAL_RUN,)})):
             with self.subTest(ticket=label):
                 code, err, _ = check(
                     draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),

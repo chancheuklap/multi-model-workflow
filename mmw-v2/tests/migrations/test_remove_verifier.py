@@ -68,7 +68,9 @@ else: print('unknown request', file=sys.stderr); sys.exit(2)
         data = json.loads(self.state.read_text())
         self.assertEqual(data["edits"], [10, 11])
         self.assertEqual(data["comments"][0]["body"], "started\n")
-        self.assertNotIn("verifier", json.loads((self.home / "models.json").read_text())["rows"])
+        config = json.loads((self.home / "models.json").read_text())
+        self.assertNotIn("verifier", config["rows"])
+        self.assertEqual(config["version"], 2)
         again = self.invoke()
         self.assertEqual(again.returncode, 0, again.stderr)
         self.assertIn("acme/widget: 0 comment(s)", again.stdout)
@@ -90,15 +92,42 @@ else: print('unknown request', file=sys.stderr); sys.exit(2)
         self.assertEqual(run.returncode, 2)
         self.assertIn("open watch", run.stderr)
         self.assertEqual(self.state.read_text(), before)
+        self.assertIn("verifier", json.loads((self.home / "models.json").read_text())["rows"])
 
     def test_unfinished_started_event_refuses_before_any_change(self):
         data = json.loads(self.state.read_text())
         data["comments"] = data["comments"][:1]
         self.state.write_text(json.dumps(data))
+        before = self.state.read_text()
         run = self.invoke()
         self.assertEqual(run.returncode, 2)
         self.assertIn("has no result", run.stderr)
+        self.assertEqual(self.state.read_text(), before)
         self.assertIn("verifier", json.loads((self.home / "models.json").read_text())["rows"])
+
+    def test_held_models_lock_refuses_without_a_traceback_or_changes(self):
+        holder = subprocess.Popen([
+            "python3", "-c",
+            "import fcntl,json,sys,time; "
+            "f=open(sys.argv[1],'w'); fcntl.flock(f,fcntl.LOCK_EX); "
+            "f.write(json.dumps({'pid':__import__('os').getpid(),'identity':'test',"
+            "'since':'now','purpose':'test'})); f.flush(); print('ready',flush=True); time.sleep(30)",
+            str(self.home / "models.lock"),
+        ], text=True, stdout=subprocess.PIPE)
+        try:
+            self.assertEqual(holder.stdout.readline().strip(), "ready")
+            tracker_before = self.state.read_text()
+            models_before = (self.home / "models.json").read_text()
+            run = self.invoke()
+            self.assertEqual(run.returncode, 2)
+            self.assertNotIn("Traceback", run.stderr)
+            self.assertIn("Rerun after that process releases the lock", run.stderr)
+            self.assertEqual(self.state.read_text(), tracker_before)
+            self.assertEqual((self.home / "models.json").read_text(), models_before)
+        finally:
+            holder.terminate()
+            holder.wait(timeout=5)
+            holder.stdout.close()
 
 
 if __name__ == "__main__":

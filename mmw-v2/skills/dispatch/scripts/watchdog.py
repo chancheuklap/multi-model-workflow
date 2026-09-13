@@ -56,11 +56,11 @@ watch is open this process writes a last heartbeat saying so and exits.
    session's own runner, and no other runner, `runners/<runner>.sh liveness <session>`:
 
        alive     nothing
-       stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`,
-                 `reviewer.lost`. They are the only events not written
+       stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`
+                 or `reviewer.lost`. They are the only events not written
                  by the agent they are about, and this process is their one writer. Each
                  ends that session's hold; the relay wakes the main agent on
-                 `worker.lost`, and the ticket's worker on the other two, so a worker
+                 `worker.lost`, and the ticket's worker on `reviewer.lost`, so a worker
                  asleep on a reviewer that died is woken to start another.
        unknown   recorded as unknown in the heartbeat, and a finding. Never rendered as
                  alive, never a `*.lost`: an answer the adapter could not give — or a
@@ -291,8 +291,8 @@ def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> 
                                                        (kind, runner, session) to ask;
                                                        `idle` when its newest event is at
                                                        least `idle` old and it waits for
-                                                       nothing: no live reviewer or
-                                                       reviewer, and no pass
+                                                       nothing: no live reviewer and
+                                                       no pass
     """
     if fold.get("unreadable"):
         return {"state": "unreadable",

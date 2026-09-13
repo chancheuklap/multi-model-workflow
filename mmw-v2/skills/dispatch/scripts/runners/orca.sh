@@ -14,8 +14,8 @@
 # prints a session id, or refuses with exit 1 and the reason on stderr. The worktree is
 # already cut; this verb only starts a session at that absolute path, with one
 # `terminal create --worktree path:<abs> --command 'exec <launch line>' --title <name>
-# --json`. <name> is the title dispatch passes (`#<n> worker`, `#<n> reviewer`,
-# `#<n> reviewer`), so the sessions of one ticket, which share its worktree, have tabs
+# --json`. <name> is the title dispatch passes (`#<n> worker` or `#<n> reviewer`), so
+# the sessions of one ticket, which share its worktree, have tabs
 # that tell them apart; a start without a title is named after its worktree. The same
 # name is the session name a host that takes one is given.
 # The launch line is models.py `launch-line` with the first prompt: the host binary, its

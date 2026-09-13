@@ -79,6 +79,14 @@ test("phase follows who still holds the ticket", () => {
     {event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
   ]})), "verify");
   assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
+    {event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
+    {event: "reviewer.started", payload: {}},
+  ]})), "review");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
+    {event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
+    {event: "worker.resumed", payload: {}},
+  ]})), "working");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
     {event: "ticket.checked", payload: {run: "reverify", actor: "main"}},
   ]})), "working");
   assert.equal(Board.phase(ticket({fold: {landed: true}})), "landed");
@@ -117,6 +125,12 @@ test("a closed ticket that still needs you stays orange", () => {
 test("a stopped ticket keeps the phase it stopped at", () => {
   const returned = ticket({fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}}});
   assert.equal(Board.phase(returned), "working");
+  const returnedAfterFinalRun = ticket({
+    fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}},
+    events: [{event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
+      {event: "ticket.returned", payload: {}}],
+  });
+  assert.equal(Board.phase(returnedAfterFinalRun), "verify");
   const fault = ticket({
     fold: {sessions: [{kind: "reviewer", live: true}], children: {8: {child: 8, kind: "fault"}}},
     children: [{number: 8, state: "OPEN"}],

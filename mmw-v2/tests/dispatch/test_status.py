@@ -187,11 +187,10 @@ class WhoHoldsATicket(unittest.TestCase):
 class NamingWhatHoldsIt(unittest.TestCase):
     """How a ticket's live sessions are named where a plan says why it cannot start.
 
-    2026-09-12: three times in one night the line read `held by the worker <session> …;
-    if that session is gone, retract it` about a reviewer, because the
-    newest live session was printed as a worker whatever it was. `retract` takes back a
-    worker's start; run on that advice it stops a session reading a diff, and that
-    round's work goes with it.
+    A non-worker session was once printed as a worker because the newest live session
+    was given that name regardless of its kind. `retract` takes back a worker's start;
+    run on that advice it stops a session reading a diff, and that round's work goes
+    with it.
     """
 
     def row(self, *comments, **kwargs):

@@ -84,7 +84,7 @@ def checked(run, ledger, summary=None, ticket=77, commit="0" * 40, **fields):
         result = "unmet"
     if run == "reverify":
         actor = fields.setdefault("actor", "worker")
-        fields.setdefault("stage", "regress" if actor == "main" else "verify")
+        fields.setdefault("stage", _events.checked_stage(run, actor))
     payload = {"run": run, "commit": commit, "result": result,
                "counts": _vt.tally(criteria, abandons), "criteria": results,
                "failed": failed,

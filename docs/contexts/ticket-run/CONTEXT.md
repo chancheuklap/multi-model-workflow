@@ -125,7 +125,7 @@ The two events that bracket a night on its spec. `dispatch.sh open <spec>` posts
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`spec.suspended`**:
-The event `dispatch.sh suspend <spec>` posts on the spec and on every ticket of the batch still open and in the agent queue, first line `NIGHT SUSPENDED #<spec>`. Under it: the time the night was suspended, that the ticket has no verdict, and either that its worker was interrupted (stopped through the runner its started event names) or that no session of ours was on it. It ends every hold on the ticket, so a ticket whose worker could not be stopped gets none: it would read as unheld while that worker still runs, and the next `advance` would start a second one beside it. Its reader is whoever opens the ticket the next morning and would otherwise find a batch with no verdict on any of it and no way to tell that from work in progress. A ticket handed back to triage during the night carries its own verdict and gets none.
+The event `dispatch.sh suspend <spec>` posts on the spec and on every ticket of the batch still open and in the agent queue, first line `NIGHT SUSPENDED #<spec>`. Under it: the time the night was suspended, that the ticket has no completion result, and either that its worker was interrupted (stopped through the runner its started event names) or that no session of ours was on it. It ends every hold on the ticket, so a ticket whose worker could not be stopped gets none: it would read as unheld while that worker still runs, and the next `advance` would start a second one beside it. Its reader is whoever opens the ticket the next morning and would otherwise find a batch with no completion result on any of it and no way to tell that from work in progress. A ticket handed back to triage during the night carries its own result and gets none.
 _Avoid_: NIGHT SUSPENDED (as a name; it is the event's first line)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -277,7 +277,7 @@ _Avoid_: 写码纪律, 写码纪律七条, the seven working rules, 不问 (as a
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written: integrate the base branch and run the worker criteria; start the reviewer, fix in-ticket findings once and record out-of-ticket findings; post `--decisions`; run every criterion with `--reverify --actor worker`; audit; post `--touched`; write decision children where required; draft and close out. The final full run follows the last commit and its actor, commit, result and criterion shape are the closeout proof. A resumed worker follows the ticket event table in `implement`.
+What `implement` does once the code is written: integrate the base branch and run the worker criteria; start the reviewer, fix in-ticket findings once and record out-of-ticket findings; post `--decisions`; run every criterion with `--reverify --actor worker`; audit; post `--touched`; write decision children where required; draft and close out. The final full run follows the last commit and its actor, commit, result and criterion shape are the closeout proof. `--closeout` pushes the ticket branch without force and opens no pull request; it archives no agent, because `land` or `advance` owns the workspace and its sessions. A resumed worker follows the ticket event table in `implement`.
 _Avoid_: 收尾七步, 收尾六步, the seven closing steps, the closeout (for the sequence)
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 

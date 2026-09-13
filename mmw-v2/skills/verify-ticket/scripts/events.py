@@ -91,6 +91,8 @@ ABANDON_KINDS = ("decision", "failed", "stuck")
 # and the repository's own `checks` of `.mmw/target.json` at the closeout.
 CHECK_RUNS = ("self", "reverify", "repo-checks")
 CHECK_RESULTS = ("met", "unmet", "handoff")
+REVERIFY_ACTORS = ("worker", "main")
+CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close"}
 # Why a run waits for a product slot: this product's `instance.max` is reached, or every
 # slot of this machine is taken.
 QUEUE_REASONS = ("product-full", "machine-full")
@@ -229,6 +231,11 @@ COMMENT_ID_RE = re.compile(r"#issuecomment-(\d+)")
 
 class EventError(ValueError):
     """An event that cannot be written: unknown name, or a payload the table refuses."""
+
+
+def checked_stage(run: str, actor: str) -> str:
+    """The stage of one `ticket.checked`, distinguishing the two reverify actors."""
+    return "regress" if run == "reverify" and actor == "main" else CHECK_STAGES[run]
 
 
 def now() -> str:

@@ -11,7 +11,7 @@ amends: [0018, 0019, 0020, 0021, 0022, 0023, 0024]
 
 独立 verifier 会话重复运行 worker 已能完成的机械 criteria，却新增一份模型配置、一次 session 启动、四种 events、relay wake、watchdog hold 与失败恢复路径。它并不提供 code review 的独立判断；reviewer 已承担 Standards、Spec、Tests 三个判断轴。保留这个角色使 closing proof 分散在 `ticket.checked` 和 verifier result 两套记录里。
 
-迁移脚本 `mmw-v2/migrations/remove-verifier.py` 在升级前检查没有 active watch，也没有 open ticket 留着未完成的 `verifier.started`，随后删除历史 retired events 尾部的 machine block，并在锁内原子删除 `models.json` 的旧 role row。评论给人看的正文保留。
+迁移脚本 `mmw-v2/migrations/remove-verifier.py` 在执行时先检查没有 active watch，也没有 open ticket 留着未完成的 `verifier.started`，随后删除历史 retired events 尾部的 machine block，并在锁内原子删除 `models.json` 的旧 role row。评论给人看的正文保留。执行顺序是先让 `.worktrees/mmw-installed` 使用包含本脚本的新代码，再立即运行迁移；旧安装仍要求旧 role row，不能提前删除配置。
 
 ## Considered Options
 
@@ -19,10 +19,11 @@ amends: [0018, 0019, 0020, 0021, 0022, 0023, 0024]
 - **由 reviewer 完成 final run。** 否决：reviewer 的职责是判断 diff，且它的 report 在 worker 修复之前；让它同时证明最终 commit 会要求第二轮 review 或混合两种职责。
 - **closeout 自己运行全部 criteria。** 否决：closeout 还要执行 repository checks；把两次运行合在 gate 内会让失败记录、重试位置与 product lease 边界不清楚。
 
+接受的风险：worker 可以在 final run 之前改写 `CHECK:`，关票前不会再由第二个 session 审查这项改写。Reviewer 仍独立判断 Standards、Spec 与 Tests，但 final run 的执行者与代码作者相同；用户于 2026-09-14 接受这个取舍。
+
 ## Consequences
 
 - 每张 ticket 少一个模型会话、一行 machine configuration、四种 events 及其 wake 与 liveness 分支。
 - Final proof 只有一份：actor 为 `worker`、commit 等于 `HEAD`、result 为 `met`、criterion shape 与 ticket 当前正文一致的最新 `reverify` event。
 - `--reverify` 必须显式给 `--actor worker|main`，遗漏 actor 会直接拒绝，避免两种阶段写出无法判断来源的记录。
-- 旧历史不能靠 compatibility 分支继续解释；迁移必须在升级代码前运行，且 active work 存在时拒绝修改。
-
+- 旧历史不能靠 compatibility 分支继续解释；新代码安装后立即运行迁移，且 active work 存在时拒绝修改。

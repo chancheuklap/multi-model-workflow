@@ -70,7 +70,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 A `needs-triage` ticket whose newest result is `ticket.returned` or `ticket.bounced` did not arrive from outside. `ticket.returned` means the worker could not finish it. `ticket.bounced` means a passed ticket could not merge onto the fetched `origin/<base branch>` commit because the merge conflicted or the repository checks failed.
 
-Read the ticket's event trail instead of reproducing from a reporter's steps, and skip `.out-of-scope/`: nobody rejected this request. For `ticket.returned`, read its `ticket.checked` runs, and `reviewer.reported`. For `ticket.bounced`, read the `origin/<base branch>` commit the merge tried to build on (`commit`), the base branch in `into`, the sibling tickets that landed after this ticket started, and the `files` or `commands` attached to the event. Then recommend one of the four outcomes, `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`, from what the pipeline already established.
+Read the ticket's event trail instead of reproducing from a reporter's steps, and skip `.out-of-scope/`: nobody rejected this request. For `ticket.returned`, read its `ticket.checked` runs and `reviewer.reported`. For `ticket.bounced`, read the `origin/<base branch>` commit the merge tried to build on (`commit`), the base branch in `into`, the sibling tickets that landed after this ticket started, and the `files` or `commands` attached to the event. Then recommend one of the four outcomes, `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`, from what the pipeline already established.
 
 ## Triage a specific issue or PR
 

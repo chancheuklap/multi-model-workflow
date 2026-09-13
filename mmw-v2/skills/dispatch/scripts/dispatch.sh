@@ -2770,8 +2770,8 @@ suspend_night() {
 
   # Every session still holding a ticket of the batch — its worker and a reviewer whose
   # result is not in — is ended through its own runner's `stop`. One already shown to be
-  # stopped is left alone. A
-  # ticket whose events cannot be read, or one of whose sessions will not stop, is left as
+  # stopped is left alone. A ticket whose events cannot be read, or one of whose sessions
+  # will not stop, is left as
   # it is: nobody can say nothing still runs on it.
   local live="" number ident name sessions stopped=0 kept="" push_failed=""
   for number in $batch; do

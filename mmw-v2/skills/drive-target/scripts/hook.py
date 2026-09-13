@@ -32,7 +32,8 @@ outcome it exists to prevent — the ticket closed with no closing comment on it
 
 Whether this session is governed is read off the process, the same way for both gates
 and on every runner: the working directory's basename. `issue-<n>` (digits only) is
-ticket `<n>`, and every session a runner starts on a ticket — worker and reviewer — runs in that worktree, with nobody at its screen. Any other basename is not a
+ticket `<n>`, and every session a runner starts on a ticket — worker and reviewer —
+runs in that worktree, with nobody at its screen. Any other basename is not a
 ticket worktree and is not refused. Nothing is asked of any runner.
 
 Cursor CLI imports Claude Code hooks and has no off switch, so this file is

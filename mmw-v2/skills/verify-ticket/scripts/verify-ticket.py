@@ -552,11 +552,17 @@ def shape_digest(lines: list[str]) -> str:
     return hashlib.sha256("\n".join(criteria_shape(lines)).encode("utf-8")).hexdigest()
 
 
-def newest_run(comments: list, *runs: str) -> dict | None:
-    """The newest `ticket.checked` among `runs`, as its event record, or None."""
-    state = events.fold(comments)
-    found = [state["checks"][run] for run in runs if state["checks"].get(run)]
-    return max(found, key=lambda r: r["comment"]) if found else None
+def newest_run(comments: list, *runs: str, actor: str | None = None) -> dict | None:
+    """The newest matching `ticket.checked`, as its event record, or None."""
+    found = []
+    for comment in events.normalise(comments):
+        what, payload = events.parse(comment["body"])
+        if (what == "event" and payload["event"] == "ticket.checked"
+                and payload.get("run") in runs
+                and (actor is None or payload.get("actor") == actor)):
+            found.append({"comment": comment["id"] if comment["id"] is not None
+                          else comment["position"], "payload": payload})
+    return max(found, key=lambda record: record["comment"]) if found else None
 
 
 def ledger_with_results(lines: list[str], results: list[dict]) -> list[str]:
@@ -773,18 +779,6 @@ def draft_line(text: str, prefix: str) -> str | None:
     return None
 
 
-def last_worker_reverify(comments: list) -> dict | None:
-    """The newest worker reverify payload on the ticket, or None when there is none."""
-    found = None
-    for comment in events.normalise(comments):
-        what, payload = events.parse(comment["body"])
-        if (what == "event" and payload["event"] == "ticket.checked"
-                and payload.get("run") == "reverify"
-                and payload.get("actor") == "worker"):
-            found = payload
-    return found
-
-
 def newest_worker_started(number: int, comments: list) -> tuple[dict | None, str | None]:
     """The newest readable `worker.started` payload, or the fact that none exists."""
     record = events.newest(comments, "worker.started")
@@ -881,7 +875,8 @@ def verified_problems(draft: str, body: str, comments: list[str]) -> list[str]:
     if first != "ALL MET":
         return problems
 
-    reverify = last_worker_reverify(comments)
+    record = newest_run(comments, "reverify", actor="worker")
+    reverify = record["payload"] if record else None
     if reverify is None:
         problems.append("the ticket carries no worker reverify `ticket.checked` event. Run "
                         "`verify-ticket.py <n> --reverify --actor worker` after the final "
@@ -1379,11 +1374,10 @@ def default_draft_path(number: int) -> Path:
     The skeleton recounts the ticket, so it carries every path and file name the ticket
     names — that is what a closing comment says. `--closeout` then runs the repository's
     own `checks` over the working tree, and a draft written into that tree is one more
-    file those checks read: on 2026-09-11 agentflow-hq/agentflow #831 had every criterion
-    met and its final run through, and stayed open because a guard of that repository found
-    two reference file names in `.mmw/closeout-831.md` — the draft it had written a minute
-    earlier. Every consuming repository with a guard over its own Markdown would meet the
-    same wall, so the default landing place is outside all of them.
+    file those checks read. A prior ticket with every criterion met stayed open because a
+    repository guard found two reference file names in the closeout draft written inside
+    its working tree. Every consuming repository with a guard over its own Markdown could
+    meet the same wall, so the default landing place is outside all of them.
     """
     return Path(tempfile.mkdtemp(prefix=f"mmw-closeout-{number}-")) / f"closeout-{number}.md"
 
@@ -1621,10 +1615,6 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
             spent += SLOT_BEAT_S
 
 
-# Where each run is recorded, by whom it is written when nothing else is said.
-RUN_STAGE = {"self": "work", "reverify": "verify", "repo-checks": "close"}
-
-
 def run_checks(number: int, reverify: bool, timeout: int | None,
                actor: str | None = None) -> int:
     """Run criteria under the lifetime of a non-ticket judge lease."""
@@ -1720,7 +1710,7 @@ def _run_checks(number: int, reverify: bool, timeout: int | None,
                    shape=shape_digest(section(body, "Acceptance criteria")),
                    slot=slot.get("slot") if slot else None,
                    port_base=slot.get("port_base") if slot else None,
-                   actor=actor, stage=("regress" if actor == "main" else RUN_STAGE[run]),
+                   actor=actor, stage=events.checked_stage(run, actor),
                    **fields)
     except (OSError, subprocess.CalledProcessError) as exc:
         # The criteria ran, but nothing on the ticket says how. Every reader decides from
@@ -2880,7 +2870,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage child under this ticket; KIND is one of "
                              + ", ".join(SUB_ISSUE_KINDS))
-    parser.add_argument("--actor", choices=("worker", "main"),
+    parser.add_argument("--actor", choices=events.REVERIFY_ACTORS,
                         help="required with --reverify: the worker's final run or the main "
                              "agent re-running a landed ticket on the base branch")
     parser.add_argument("--review", type=Path, metavar="FILE",

@@ -117,14 +117,14 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
     n: 133, title: "折叠接入中继", blocked: [132], children: [], events: [],
     fold: {
       children: {}, sessions: [], landed: false, returned: false, bounced: false,
-      outcome: null, waiting: null, review: null, verdict: null, worker: null,
+      outcome: null, waiting: null, review: null, worker: null,
     },
   };
   const landed = {
     n: 132, title: "中继进程骨架", blocked: [], children: [], events: [],
     fold: {
       children: {}, sessions: [], landed: true, returned: false, bounced: false,
-      outcome: null, waiting: null, review: null, verdict: null,
+      outcome: null, waiting: null, review: null,
     },
   };
   const view = fromBoard({
@@ -146,7 +146,7 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
 
 test("selecting a spec that has no map shows the spec card with no map link", () => {
   const fold = {children: {}, sessions: [], landed: false, returned: false, bounced: false,
-    outcome: null, unreadable: [], passed: false, review: null, verdict: null, waiting: null};
+    outcome: null, unreadable: [], passed: false, review: null, waiting: null};
   const ticket = {n: 31, title: "its ticket", state: "open", blocked: [], blockers: [], children: [], events: [], fold};
   const spec = {n: 30, title: "lone spec", tickets: [ticket]};
   const tasks = [{n: 30, kind: "spec", title: "lone spec", state: "open", decisions: [], specs: [spec]}];

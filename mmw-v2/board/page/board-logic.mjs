@@ -63,10 +63,27 @@ export const Board = {
   },
 
   stoppedAt(ticket) {
-    const kinds = ticket.fold.sessions.map(session => session.kind);
     if (this.bounce(ticket)) return "verify";
-    if (kinds.includes("reviewer") && !ticket.fold.review) return "review";
-    return "working";
+    return this.workflowPhase(ticket);
+  },
+
+  workflowPhase(ticket) {
+    const reviewerLive = ticket.fold.sessions.some(session => session.kind === "reviewer" && session.live);
+    let phase = reviewerLive ? "review" : "working";
+    for (const event of ticket.events) {
+      if (event.event === "ticket.checked" && event.payload?.run === "reverify"
+          && event.payload?.actor === "worker") {
+        phase = "verify";
+      } else if (event.event === "reviewer.started") {
+        phase = "review";
+      } else if (event.event === "reviewer.reported"
+          || (!reviewerLive && (["worker.started", "worker.resumed", "ticket.claimed",
+            "worker.decided"].includes(event.event)
+            || (event.event === "ticket.checked" && event.payload?.run === "self")))) {
+        phase = "working";
+      }
+    }
+    return phase;
   },
 
   // Whether this ticket is finished, which is the same question `blocker_hold` already
@@ -87,12 +104,8 @@ export const Board = {
       return this.stoppedAt(ticket);
     }
     if (!live.length) return "queued";
-    const finalRun = [...ticket.events].reverse().find(event => event.event === "ticket.checked"
-      && event.payload?.run === "reverify" && event.payload?.actor === "worker");
-    if (finalRun) return "verify";
-    if (live.some(session => session.kind === "reviewer")) return "review";
     if (fold.waiting) return "waiting";
-    return "working";
+    return this.workflowPhase(ticket);
   },
 
   why(ticket) {

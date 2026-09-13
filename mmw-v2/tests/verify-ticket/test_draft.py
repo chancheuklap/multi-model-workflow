@@ -290,7 +290,7 @@ class TestFixedLines(unittest.TestCase):
         self.assertIn("newest worker.started carries no `into`", err)
         self.assertIn("dispatch.sh start 77 worker", err)
 
-    def test_the_draft_carries_no_line_about_commits_after_the_verdict(self):
+    def test_the_draft_carries_no_line_about_commits_after_the_final_run(self):
         """A worker's account of its own commits settled nothing, so the skeleton
         stopped asking for one."""
         code, err, text, _ = run_draft((MET_RUN,))

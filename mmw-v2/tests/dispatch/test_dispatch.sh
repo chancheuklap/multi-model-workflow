@@ -1960,9 +1960,9 @@ path = sys.argv[1]
 catalog = json.load(open(path))
 catalog["claude"] = [o for o in catalog["claude"] if o["id"] != "claude-opus-5"]
 json.dump(catalog, open(sys.argv[2], "w"))
-' "$HERE/catalog.json" "$TMP/catalog-no-sonnet.json"
+' "$HERE/catalog.json" "$TMP/catalog-no-opus.json"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_RUNNER=orca \
-          MMW_HOST_CATALOG="$TMP/catalog-no-sonnet.json" \
+          MMW_HOST_CATALOG="$TMP/catalog-no-opus.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "a reviewer row that does not resolve is exit 2, got $code: $(cat "$TMP/err")"
   grep -q "the reviewer row of .* does not resolve on orca: 'opus 5'" "$TMP/err" \
