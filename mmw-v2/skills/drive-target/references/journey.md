@@ -48,8 +48,8 @@ CHECK: journey.py run <name>
 EXPECT: JOURNEY OK <name>
 ```
 
-Journeys appear on the contract ticket and on the tickets the owner named, and nowhere
-else. `verify-ticket.py --lint` reports a `journey.py run <name>` with no directory under
+Journeys appear on the contract ticket, on the tickets the owner named, and on each
+acceptance ticket, and nowhere else. `verify-ticket.py --lint` reports a `journey.py run <name>` with no directory under
 `.mmw/journeys/`, unless the ticket's `## Owns` covers that directory — then this is the
 ticket that builds it.
 

@@ -37,6 +37,15 @@
 | 第 3 步 `<vertical-slice-rules>` 之后的 **contract ticket** 段、第 4 步 `CHECK:` 来源列表里的界面票判据条、`<issue-template>` `## Read first` 说明里界面票两条基线那几句、第 8 步 `--lint` 那条末尾的 `[screen-contract]` 一句 | 我们加的：spec 有 screen contract 时第一张固定是 contract ticket，交付 `.mmw/` 全部答案、story 页面骨架与 adapter 先例、`boundary-check.py` 交互助手先例、旅程骨架与守卫，判据 `journey.py run smoke`，其余票全被它阻塞；界面票按设计页拥有 `story-parity.py --pages` 与每条 `calls` 非 `none` 的行一条边界判据；`--lint` 的 `[screen-contract]` 把这些形状做成机器版。（它查的就是这些形状而已：`built_by`、`--scenes` 越界与未知 `--mount` 三条它从来没有查过——`--scenes` 那条规则是真的，由 `story-parity.py` 在运行时执行，不在 lint；`--mount` 对机器来说也不是 unknown，`PIPELINE_SCRIPTS` 把它列在 `story-parity.py` 的 retired 一栏里。）理由同 to-spec 那条。上游改这几处 → 收上游措辞，四处接回去（取代原先「observe 行出 wiring criterion」与「空壳 + addressing self-check」） |
 | 第 3 步 contract ticket 段里 `.mmw/target.json` 那句加「filled until `screen_driver.py target --check` of the `drive-target` skill exits 0」 | 我们改的，来自 mmw #158：target 归 `drive-target` 技能，字段由驱动器声明并由检查命令打印，contract ticket 的工人跑命令而不是读文档。上游改这一句 → 收上游措辞，检查命令与技能名保留 |
 | 第 4 问「It is.」一支删掉「a screen composed against fixtures instead of the live client」那个例子；第 8 步 `## Owns` 一条加「跨仓库的工具改动不开票、当场改」；`<issue-template>` `## Read first` 加「界面票的 Read first 由行的 `source` 推导（baseline 类出处按文档去重，spec 小节与 story 经 Parent 到达）+ 目标树按行号两次查表」 | 我们改的，来自 mmw #115，#216 第 8 节未推翻的部分。fixtures 例子与「这正是本流水线要抓的失败」直接矛盾，删；推导 Read first 是正面修法。上游改这几处 → 收上游措辞，这几条保留 |
+| 开头两门表与 `references/ambiguity-scan.md` | 我们加的：写票的会话读本文件；被起为找漏者的读 `references/ambiguity-scan.md`。写法照 `code-review/SKILL.md` 的两门表。上游加同类分门 → 收上游结构，找漏那一扇门仍指向这份 reference |
+| 第 3 步 contract ticket 段的旅程落点与其后的 **acceptance ticket** 段 | 我们改的：旅程从「只出现在合同票和用户点名的票」改为三种——合同票、用户点名的票、acceptance ticket。spec 声明了 **Cross-ticket flows** 时，每个流程切一张 acceptance ticket：`## Parent` 点名那些节，**Blocked by** 为点名这些节的全部票，`## Owns` 只有 `.mmw/journeys/<flow>/`，唯一标准 `journey.py run <flow>` / `EXPECT: JOURNEY OK <flow>`，带 `TIMEOUT:`，`senior-worker`；红了 `HANDOFF REQUIRED` 交早间 triage。`.mmw/target.json` 不能起整机的仓库不切。上游改合同票段 → 收上游措辞，三种落点与 acceptance ticket 段保留 |
+| 第 6 步开头的找漏 subagent 与 `Choices` 行 | 我们加的：quiz 列出切分之前，能跑 subagent 的 host 起一个 host 自己的通用 subagent，prompt 一句扫 spec 与 `mktemp` 里的票草稿，不指定模型与思考级别，host 允许时限制为只读与搜索，**Hold this turn** 等到结果再列切分；不能跑的由本会话按同一份 reference 自己跑、先写进文件再列。返回的问题并入 **Choices**；只影响某张票交付的写进 `## What to build`，改变 spec 某节决定的经 `to-spec` 第 5 步修订 spec。写法照抄 `code-review/references/session.md` 第 2 步。上游改 quiz 那一步 → 收上游的问题清单，找漏那段与 `Choices` 的并入保留 |
+
+## 找漏 reference `ambiguity-scan.md`
+
+`references/ambiguity-scan.md` 是新文件。姿态一句取自 Factory Missions 抓包提示词（assertions 换成 decisions）。扫描分类清单照抄 spec-kit `templates/commands/clarify.md`（commit `d848fb4e`）第 73–123 行，每类标 Clear / Partial / Missing。约束照抄第 134、136、137、138 行，其中「会改变什么」收窄为「某张票交付什么或它的标准查什么」；最多 5 条（`Maximum of 5`），超出按 Impact × Uncertainty 取前 5。每条一句完整问句、一句 Why it matters、引用 spec 原句、2–5 个互斥选项、`Recommended: Option X — <1–2 句理由>`。只读 spec 与票草稿，不读代码，只跑一轮。没有值得问的原样返回 `No critical ambiguities detected worth formal clarification.`
+
+上游给 to-tickets 加同类找漏步骤 → 收上游对调用句式的措辞，这份 reference 的分类、上限、形状与只读一轮保留。上游把 clarify.md 改了 → 分类清单跟那一版，收窄、上限、形状与只读一轮仍按上一段。
 
 ### agents/openai.yaml
 

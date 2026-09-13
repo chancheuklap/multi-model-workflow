@@ -5,6 +5,13 @@ description: Break a plan, spec, or the current conversation into a set of trace
 
 # To Tickets
 
+Two doors, and this run is at one of them.
+
+| You are | Read |
+| --- | --- |
+| The session writing the tickets: your prompt names this skill and names no scan | this file |
+| The ambiguity scan: your prompt names this skill, a spec and a file of drafted tickets, and asks you to scan them for ambiguities | [references/ambiguity-scan.md](references/ambiguity-scan.md) |
+
 Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
@@ -35,7 +42,9 @@ Break the work into **tracer bullet** tickets.
 
 </vertical-slice-rules>
 
-**The contract ticket comes first when the spec has a screen contract.** It lands every product answer under `.mmw/`: `target.json` filled until `screen_driver.py target --check` of the `drive-target` skill exits 0, the story-page skeleton and one adapter precedent, the interaction-helper precedent a `boundary-check.py` criterion copies, the journey skeleton, and the harness guard. Its **Read first** names two sections of the `drive-target` skill that nothing else would put in front of the worker: `references/story-parity.md`, **The story page the product serves**, for what the story page and its adapter have to be; and `references/journey.md` for what a journey script has to assert, since every journey is run a second time with the product down and one that asserts nothing is reported rather than passed. Those skeletons are the precedents later tickets copy. It carries one criterion that starts the stack on a clean machine and signs in: `journey.py run smoke`. Journeys appear only on this ticket and on tickets the owner named. Every other ticket in the batch is blocked by it.
+**The contract ticket comes first when the spec has a screen contract.** It lands every product answer under `.mmw/`: `target.json` filled until `screen_driver.py target --check` of the `drive-target` skill exits 0, the story-page skeleton and one adapter precedent, the interaction-helper precedent a `boundary-check.py` criterion copies, the journey skeleton, and the harness guard. Its **Read first** names two sections of the `drive-target` skill that nothing else would put in front of the worker: `references/story-parity.md`, **The story page the product serves**, for what the story page and its adapter have to be; and `references/journey.md` for what a journey script has to assert, since every journey is run a second time with the product down and one that asserts nothing is reported rather than passed. Those skeletons are the precedents later tickets copy. It carries one criterion that starts the stack on a clean machine and signs in: `journey.py run smoke`. Journeys appear on the contract ticket, on tickets the owner named, and on each acceptance ticket. Every other ticket in the batch is blocked by it.
+
+**When the spec declares Cross-ticket flows, cut one acceptance ticket per flow**, after the contract ticket. Its **Parent** names the Implementation Decisions sections that flow lists. **Blocked by** is every ticket whose **Parent** names those same sections. **Owns** is only `.mmw/journeys/<flow>/` — this is the ticket that builds the journey, and `verify-ticket.py --lint` already treats an **Owns** covering that directory as the ticket that creates it. Its one criterion is the shape in the `drive-target` skill's `references/journey.md` § The criterion, in one shape: `CHECK: journey.py run <flow>` / `EXPECT: JOURNEY OK <flow>`, with a `TIMEOUT:`. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for morning triage, and the closing comment names the step that broke — the blockers are already landed, so that night has nowhere to fix them. Cut none when the repository's `.mmw/target.json` cannot start the whole product.
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
@@ -105,13 +114,27 @@ A shared file that is one body of logic — a route module several tickets add h
 
 ### 6. Quiz the user
 
+Write the drafted tickets to a file `mktemp` makes. When the host can run subagents, start one: a call to your host's general-purpose subagent. Name no model and no thinking level: the scan runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading and searching. The prompt is one sentence naming this skill, the spec, and that file:
+
+```
+Use the to-tickets skill to scan spec #<spec> and the drafted tickets in <file> for ambiguities.
+```
+
+Nothing else. No summary of the spec, no list of tickets, no restatement of what the scan looks for, no path. The skill is what they read, and the door table is which file they take.
+
+**Hold this turn until the scan's result exists.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The user is about to see the breakdown, and the scan's questions belong in each ticket's **Choices** before that list is shown. A turn ended here leaves the scan unwritten, so the list goes out without it.
+
+When the host cannot run subagents, run the scan yourself from [references/ambiguity-scan.md](references/ambiguity-scan.md), write its result to a file, then list the breakdown, so the list does not depend on memory of the scan.
+
+Returned questions join each ticket's **Choices** line.
+
 Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
 
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
 - **Worker**: `junior` or `senior`, then ` — ` and the one line that buys it. This line is the only time the grade passes a person's eye. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** — money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default — because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`. Name the worker; the model behind each one lives in `MMW_HOME/models.json`, which is the only place a model is written down.
-- **Choices**: every choice question 5 sent here, one line each — the options, and the one you would take. Omit the line when there are none.
+- **Choices**: every choice question 5 sent here, and every question the ambiguity scan returned, one line each — the options, and the one you would take. Omit the line when there are none.
 
 Then the `ready-for-human` tickets, in the same list, each with its **Title**, **Blocked by**, its kind (*reaction* or *reach*) and what is to be looked at.
 
@@ -123,7 +146,7 @@ Ask the user:
 - Is each worker grade right for what going wrong on that ticket would cost?
 - For each choice listed: which option?
 
-Iterate until the user approves the breakdown. Write each answered choice into that ticket's **What to build** before publishing.
+Iterate until the user approves the breakdown. Write each answered choice that only changes what one ticket delivers into that ticket's **What to build** before publishing. Write each answered choice that changes a decision in a spec section back through the `to-spec` skill's step for revising a published spec, then into the tickets.
 
 ### 7. Publish the tickets to the configured tracker
 

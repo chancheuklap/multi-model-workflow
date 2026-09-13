@@ -151,6 +151,15 @@ The first ticket cut from a spec with a screen contract: `.mmw/` in full (target
 _Avoid_: 合同票, prefactor ticket (for this one), addressing self-check
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
+**acceptance ticket**:
+A ticket `to-tickets` cuts when the spec's **Cross-ticket flows** names a flow: one per flow, blocked by every ticket whose `## Parent` names those same Implementation Decisions sections, owning only `.mmw/journeys/<flow>/`, carrying one criterion `journey.py run <flow>` / `EXPECT: JOURNEY OK <flow>` with a `TIMEOUT:`, labelled `senior-worker`. It starts on the merged base branch after those tickets have landed; a red run is `HANDOFF REQUIRED` for morning triage. Only a repository whose `.mmw/target.json` can start the whole product gets one.
+_Avoid_: 验收票, flow ticket
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+
+**Cross-ticket flows**:
+An optional bullet of a spec's `## Testing Decisions`: one line per user flow that spans tickets, naming the flow (the directory under `.mmw/journeys/<flow>/`) and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. A spec that omits the bullet cuts none.
+_Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
+
 **mount**:
 A design page's `mount` in the contract's `pages`: the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from rows; lowercase `[a-z0-9-]`, unique across pages. A story criterion names the ticket's mounts with `--pages`. `--mount` is a retired flag of `story-parity.py`, listed under `retired` in `verify-ticket.py`'s `PIPELINE_SCRIPTS` and reported by `--lint` as `[screen-contract]`; the live name is `--pages <mount,…>`. It is also the value of `data-screen` on the one product element this page *is*, when the surface carries that attribute.
 _Avoid_: mount point (for this), 挂载点, data-screen-label, test hook (for this)
