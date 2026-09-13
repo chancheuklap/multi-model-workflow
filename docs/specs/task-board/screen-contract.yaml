@@ -134,7 +134,67 @@ proposed_operations:
   - "GET /api/settings"
   - "PUT /api/settings"
   - "POST /api/settings/scan"
-retired_ids: []
+retired_ids:
+  - id: detail.open-github-132
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-134
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-135
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-136
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-138
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-139
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-141
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-220
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-305
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-306
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.open-github-307
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: one `GitHub ↗` link at the top of a ticket's column replaces the per-issue link; its row is detail.open-github-133"
+  - id: detail.blocking-133-needs-you
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: a related ticket this one does not wait on is no longer a control; a relation that holds is listed as one, marked held"
+  - id: detail.blocking-134-running
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: a related ticket this one does not wait on is no longer a control; a relation that holds is listed as one, marked held"
+  - id: detail.blocking-136-running
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: a related ticket this one does not wait on is no longer a control; a relation that holds is listed as one, marked held"
+  - id: detail.blocking-138-needs-you
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: a related ticket this one does not wait on is no longer a control; a relation that holds is listed as one, marked held"
+  - id: detail.blocking-139-needs-you
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: a related ticket this one does not wait on is no longer a control; a relation that holds is listed as one, marked held"
+  - id: detail.blocking-141-running
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: a related ticket this one does not wait on is no longer a control; a relation that holds is listed as one, marked held"
+  - id: detail.goto-closeout-origin-132
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: the closing-pass origin is no longer a separate link"
+  - id: detail.goto-became-141
+    note: "retired 2026-09-14 — #318 Implementation Decisions 7, revised to the phase-block detail column: a finding that became a ticket is read on its event row, not a separate link"
+  - id: settings.verifier-host-offered
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-host-flagged
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-host-scanning
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-model-offered
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-model-flagged
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-model-unavailable
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-model-scanning
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-effort-offered
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-effort-flagged
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-effort-unavailable
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
+  - id: settings.verifier-effort-scanning
+    note: "retired 2026-09-14 — #415 Implementation Decisions 1 and 4: the verifier role is removed, so the settings sheet has no verifier row"
 volatile_values: []
 rows:
   # jumps to the next orange ticket after the selected one, opens its spec, selects it (the name embeds the count; one row per count the handoff shows)
@@ -904,7 +964,7 @@ rows:
   # Esc does the same (§7); the canvas deselects
   - id: detail.close
     component: "详情"
-    trigger: {role: button, name: "close"}
+    trigger: {role: button, name: "关闭详情"}
     precondition: {}
     scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "详情.morning", "详情.twenty-tickets", "详情.bad-data", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed", "ticket-fault", "ticket-missing-blocker", "spec", "map", "decision"]
     calls: ["none"]
@@ -926,8 +986,8 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-135-not-dispatched
     component: "详情"
-    trigger: {role: button, name: "#135 投递回执 queued"}
-    precondition: {panel: "ticket", related: "not-dispatched"}
+    trigger: {role: button, name: "#135 投递回执 held"}
+    precondition: {panel: "ticket", related: "held"}
     scenes: ["任务板.morning", "详情.morning", "ticket-review"]
     calls: ["none"]
     shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
@@ -959,8 +1019,8 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-221-not-dispatched
     component: "详情"
-    trigger: {role: button, name: "#221 worker.lost 写入 queued"}
-    precondition: {panel: "ticket", related: "not-dispatched"}
+    trigger: {role: button, name: "#221 worker.lost 写入 held"}
+    precondition: {panel: "ticket", related: "held"}
     scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
     calls: ["none"]
     shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
@@ -1047,31 +1107,9 @@ rows:
   # opens the issue on GitHub in a new tab; the board itself writes nothing
   - id: detail.open-github-133
     component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #133 ↗"}
-    precondition: {}
-    scenes: ["任务板.morning", "详情.morning"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-220
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #220 ↗"}
-    precondition: {}
-    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-306
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #306 ↗"}
-    precondition: {}
-    scenes: ["任务板.bad-data", "详情.bad-data"]
+    trigger: {role: button, name: "GitHub ↗"}
+    precondition: {panel: "ticket"}
+    scenes: ["任务板.morning", "任务板.twenty-tickets", "任务板.bad-data", "详情.morning", "详情.twenty-tickets", "详情.bad-data", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed", "ticket-fault", "ticket-missing-blocker"]
     calls: ["none"]
     shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
     next: "stay"
@@ -1147,17 +1185,6 @@ rows:
     next: "spec"
     source: ["#318 Implementation Decisions 7"]
     gap: aligned
-  # 「出自 #n 的 finding #m」: the ticket whose finding this one came from
-  - id: detail.goto-closeout-origin-132
-    component: "详情"
-    trigger: {role: button, name: "#132"}
-    precondition: {closeout: "yes"}
-    scenes: ["ticket-closeout"]
-    calls: ["none"]
-    shows: {from: "ticket.closeout.from@GET /api/board"}
-    next: "ticket-landed"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 6"]
-    gap: aligned
   - id: detail.spec-ticket-132-landed
     component: "详情"
     trigger: {role: button, name: "#132 中继进程骨架 landed"}
@@ -1181,20 +1208,9 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-133-not-landed
     component: "详情"
-    trigger: {role: button, name: "#133 折叠接入中继 not landed"}
-    precondition: {panel: "ticket", related: "not-landed"}
+    trigger: {role: button, name: "#133 折叠接入中继 held"}
+    precondition: {panel: "ticket", related: "held"}
     scenes: ["ticket-queued"]
-    calls: ["none"]
-    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
-    next: "详情.morning"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
-    gap: aligned
-  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
-  - id: detail.blocking-133-needs-you
-    component: "详情"
-    trigger: {role: button, name: "#133 折叠接入中继 needs you"}
-    precondition: {panel: "ticket", related: "needs-you"}
-    scenes: ["ticket-landed"]
     calls: ["none"]
     shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
     next: "详情.morning"
@@ -1211,21 +1227,10 @@ rows:
     source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
     gap: aligned
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
-  - id: detail.blocking-134-running
-    component: "详情"
-    trigger: {role: button, name: "#134 唤醒队列持久化 running"}
-    precondition: {panel: "ticket", related: "running"}
-    scenes: ["ticket-landed"]
-    calls: ["none"]
-    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
-    next: "ticket-review"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
-    gap: aligned
-  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-134-not-landed
     component: "详情"
-    trigger: {role: button, name: "#134 唤醒队列持久化 not landed"}
-    precondition: {panel: "ticket", related: "not-landed"}
+    trigger: {role: button, name: "#134 唤醒队列持久化 held"}
+    precondition: {panel: "ticket", related: "held"}
     scenes: ["ticket-queued"]
     calls: ["none"]
     shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
@@ -1252,17 +1257,6 @@ rows:
     next: "ticket-waiting"
     source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
     gap: aligned
-  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
-  - id: detail.blocking-136-running
-    component: "详情"
-    trigger: {role: button, name: "#136 重试与退避 running"}
-    precondition: {panel: "ticket", related: "running"}
-    scenes: ["ticket-landed"]
-    calls: ["none"]
-    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
-    next: "ticket-waiting"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
-    gap: aligned
   - id: detail.spec-ticket-137-queued
     component: "详情"
     trigger: {role: button, name: "#137 中继自检命令 queued"}
@@ -1276,8 +1270,8 @@ rows:
   # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
   - id: detail.blocking-137-not-dispatched
     component: "详情"
-    trigger: {role: button, name: "#137 中继自检命令 queued"}
-    precondition: {panel: "ticket", related: "not-dispatched"}
+    trigger: {role: button, name: "#137 中继自检命令 held"}
+    precondition: {panel: "ticket", related: "held"}
     scenes: ["ticket-queued"]
     calls: ["none"]
     shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
@@ -1294,17 +1288,6 @@ rows:
     next: "ticket-returned"
     source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
     gap: aligned
-  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
-  - id: detail.blocking-138-needs-you
-    component: "详情"
-    trigger: {role: button, name: "#138 离线时唤醒去向 needs you"}
-    precondition: {panel: "ticket", related: "needs-you"}
-    scenes: ["ticket-landed"]
-    calls: ["none"]
-    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
-    next: "ticket-returned"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
-    gap: aligned
   - id: detail.spec-ticket-139-verify
     component: "详情"
     trigger: {role: button, name: "#139 槽位交还后叫醒 verify"}
@@ -1314,17 +1297,6 @@ rows:
     shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
     next: "ticket-bounced"
     source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
-    gap: aligned
-  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
-  - id: detail.blocking-139-needs-you
-    component: "详情"
-    trigger: {role: button, name: "#139 槽位交还后叫醒 needs you"}
-    precondition: {panel: "ticket", related: "needs-you"}
-    scenes: ["ticket-landed"]
-    calls: ["none"]
-    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
-    next: "ticket-bounced"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
     gap: aligned
   - id: detail.map-spec-140
     component: "详情"
@@ -1345,17 +1317,6 @@ rows:
     shows: {lamp: "lamp(ticket.fold)@GET /api/board", title: "ticket.title@GET /api/board", step: "step(ticket.fold)@GET /api/board"}
     next: "ticket-closeout"
     source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 5"]
-    gap: aligned
-  # 「阻塞它的」 says landed / closed without a pass / not landed (events.py blocker_hold); 「它阻塞的」 says the blocked ticket's lamp word
-  - id: detail.blocking-141-running
-    component: "详情"
-    trigger: {role: button, name: "#141 中继日志轮转 running"}
-    precondition: {panel: "ticket", related: "running"}
-    scenes: ["ticket-landed"]
-    calls: ["none"]
-    shows: {lamp: "lamp(related.fold)@GET /api/board", title: "related.title@GET /api/board", where: "related.spec@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
-    next: "ticket-closeout"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 3"]
     gap: aligned
   - id: detail.spec-ticket-142-landed
     component: "详情"
@@ -1388,17 +1349,6 @@ rows:
     next: "decision"
     source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 4"]
     gap: aligned
-  # a finding the closing pass turned into a ticket
-  - id: detail.goto-became-141
-    component: "详情"
-    trigger: {role: button, name: "became #141"}
-    precondition: {child: "became-ticket"}
-    scenes: ["ticket-landed"]
-    calls: ["none"]
-    shows: {ticket: "ticket.fold.children[].ticket@GET /api/board"}
-    next: "ticket-closeout"
-    source: ["#318 Implementation Decisions 7"]
-    gap: aligned
   # opens the issue on GitHub in a new tab; the board itself writes nothing
   - id: detail.open-github-105
     component: "详情"
@@ -1416,105 +1366,6 @@ rows:
     trigger: {role: button, name: "在 GitHub 打开 #131 ↗"}
     precondition: {}
     scenes: ["spec"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-132
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #132 ↗"}
-    precondition: {}
-    scenes: ["ticket-landed"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-134
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #134 ↗"}
-    precondition: {}
-    scenes: ["ticket-review"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-135
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #135 ↗"}
-    precondition: {}
-    scenes: ["ticket-queued"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-136
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #136 ↗"}
-    precondition: {}
-    scenes: ["ticket-waiting"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-138
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #138 ↗"}
-    precondition: {}
-    scenes: ["ticket-returned"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-139
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #139 ↗"}
-    precondition: {}
-    scenes: ["ticket-bounced"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-141
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #141 ↗"}
-    precondition: {}
-    scenes: ["ticket-closeout"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-305
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #305 ↗"}
-    precondition: {}
-    scenes: ["ticket-missing-blocker"]
-    calls: ["none"]
-    shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 7", "#318 Implementation Decisions 8"]
-    gap: aligned
-  # opens the issue on GitHub in a new tab; the board itself writes nothing
-  - id: detail.open-github-307
-    component: "详情"
-    trigger: {role: button, name: "在 GitHub 打开 #307 ↗"}
-    precondition: {}
-    scenes: ["ticket-fault"]
     calls: ["none"]
     shows: {link: "https://github.com/{repo}/issues/{number} from repo@GET /api/board"}
     next: "stay"
@@ -2052,127 +1903,6 @@ rows:
     source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
     gap: aligned
   # cascade: the model stays when the new host offers it, else waits for a choice; the effort follows the same way; a model with one effort takes it
-  - id: settings.verifier-host-offered
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 host"}
-    precondition: {cell: "offered"}
-    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings"}
-    next: "edited"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
-  - id: settings.verifier-host-flagged
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 host"}
-    precondition: {cell: "flagged"}
-    scenes: ["paseo-off"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.host@GET /api/settings", options: "hosts[], scan.hosts[].state@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
-    next: "edited"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # disabled while a scan runs
-  - id: settings.verifier-host-scanning
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 host"}
-    precondition: {scan: "running"}
-    scenes: ["scanning"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.host@GET /api/settings"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # cascade: the effort stays when the new model has it, else waits; one effort is taken
-  - id: settings.verifier-model-offered
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 model"}
-    precondition: {cell: "offered"}
-    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings"}
-    next: "edited"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
-  - id: settings.verifier-model-flagged
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 model"}
-    precondition: {cell: "flagged"}
-    scenes: []
-    calls: ["none"]
-    shows: {value: "rows.verifier.model@GET /api/settings", options: "scan.hosts[host].offered[].model@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
-    next: "edited"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # disabled
-  - id: settings.verifier-model-unavailable
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 model"}
-    precondition: {cell: "disabled: host is not usable"}
-    scenes: ["paseo-off"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.model@GET /api/settings"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # disabled while a scan runs
-  - id: settings.verifier-model-scanning
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 model"}
-    precondition: {scan: "running"}
-    scenes: ["scanning"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.model@GET /api/settings"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # cascade: nothing else moves
-  - id: settings.verifier-effort-offered
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 effort"}
-    precondition: {cell: "offered"}
-    scenes: ["mine", "fresh", "retired", "changed", "edited", "incomplete", "saved", "refused"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings"}
-    next: "edited"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # the saved value this machine no longer offers stays in its list, named, hatched, with a line saying what to change
-  - id: settings.verifier-effort-flagged
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 effort"}
-    precondition: {cell: "flagged"}
-    scenes: []
-    calls: ["none"]
-    shows: {value: "rows.verifier.effort@GET /api/settings", options: "scan.hosts[host].offered[model].efforts@GET /api/settings", flag: "problems(scan, draft)@GET /api/settings"}
-    next: "edited"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # disabled
-  - id: settings.verifier-effort-unavailable
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 effort"}
-    precondition: {cell: "disabled: model is not offered"}
-    scenes: ["paseo-off"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.effort@GET /api/settings"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # disabled while a scan runs
-  - id: settings.verifier-effort-scanning
-    component: "本机配置"
-    trigger: {role: combobox, name: "verifier 的 effort"}
-    precondition: {scan: "running"}
-    scenes: ["scanning"]
-    calls: ["none"]
-    shows: {value: "rows.verifier.effort@GET /api/settings"}
-    next: "stay"
-    source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
-    gap: aligned
-  # cascade: the model stays when the new host offers it, else waits for a choice; the effort follows the same way; a model with one effort takes it
   - id: settings.advisor-host-offered
     component: "本机配置"
     trigger: {role: combobox, name: "advisor 的 host"}
@@ -2292,4 +2022,554 @@ rows:
     shows: {value: "rows.advisor.effort@GET /api/settings"}
     next: "stay"
     source: ["#318 Implementation Decisions 14", "#318 Implementation Decisions 13"]
+    gap: aligned
+  # a blocker outside the tree: its state cannot be read, so the row says so and selects nothing
+  - id: detail.blocking-399-unknown
+    component: "详情"
+    trigger: {role: button, name: "#399 不在这棵树里，读不到它的状态 unknown"}
+    precondition: {panel: "ticket", related: "unknown"}
+    scenes: ["ticket-missing-blocker"]
+    calls: ["none"]
+    shows: {number: "related.number@GET /api/board", state: "blocker_hold(related.state, related.fold)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2006-ticket-claimed
+    component: "详情"
+    trigger: {role: button, name: "20:06 Ticket claimed"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2006-worker-started-claude-opus-5-high-effort
+    component: "详情"
+    trigger: {role: button, name: "20:06 Worker started claude opus 5, high effort"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2159-ticket-claimed
+    component: "详情"
+    trigger: {role: button, name: "21:59 Ticket claimed"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.bad-data", "详情.bad-data", "ticket-fault"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2159-worker-started-codex-gpt-5-5-high-effort
+    component: "详情"
+    trigger: {role: button, name: "21:59 Worker started codex gpt-5.5, high effort"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.bad-data", "详情.bad-data"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2159-worker-started-grok-grok-4-6-xhigh-effort
+    component: "详情"
+    trigger: {role: button, name: "21:59 Worker started grok grok 4.6, xhigh effort"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-fault"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2234-mmw-itself-broke-verify-ticket-py
+    component: "详情"
+    trigger: {role: button, name: "22:34 MMW itself broke verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-fault"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2236-finding-became-a-ticket-147-became-ticket-141
+    component: "详情"
+    trigger: {role: button, name: "22:36 Finding became a ticket #147 became ticket #141"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2236-landed-merged-into-wake-relay
+    component: "详情"
+    trigger: {role: button, name: "22:36 Landed merged into wake-relay"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2236-sub-issue-closed-148-fixed
+    component: "详情"
+    trigger: {role: button, name: "22:36 Sub-issue closed #148: fixed"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2238-ticket-claimed
+    component: "详情"
+    trigger: {role: button, name: "22:38 Ticket claimed"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.morning", "详情.morning", "ticket-returned"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2238-worker-started-grok-grok-4-6-high-effort
+    component: "详情"
+    trigger: {role: button, name: "22:38 Worker started grok grok 4.6, high effort"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2238-worker-started-grok-grok-4-6-xhigh-effort
+    component: "详情"
+    trigger: {role: button, name: "22:38 Worker started grok grok 4.6, xhigh effort"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.morning", "详情.morning"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2247-your-decision-needed-5
+    component: "详情"
+    trigger: {role: button, name: "22:47 Your decision needed 扫描发现心跳停了 5 分钟，算死还是算不知道"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2251-spec-does-not-hold-spec
+    component: "详情"
+    trigger: {role: button, name: "22:51 Spec does not hold spec 没写队列为空时中继读什么"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.morning", "详情.morning"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2258-criteria-run-3-of-4-criteria-met-ac3-unmet
+    component: "详情"
+    trigger: {role: button, name: "22:58 Criteria run 3 of 4 criteria met — AC3 unmet"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2310-left-for-a-later-ticket-status-py
+    component: "详情"
+    trigger: {role: button, name: "23:10 Left for a later ticket status.py 的表头还是旧词"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.morning", "详情.morning"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2322-final-criteria-run-3-of-4-criteria-met-ac3-unmet
+    component: "详情"
+    trigger: {role: button, name: "23:22 Final criteria run 3 of 4 criteria met — AC3 unmet"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2322-reviewer-started-codex-gpt-5-5-medium-effort
+    component: "详情"
+    trigger: {role: button, name: "23:22 Reviewer started codex gpt-5.5, medium effort"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-review"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2324-final-criteria-run-4-of-4-criteria-met
+    component: "详情"
+    trigger: {role: button, name: "23:24 Final criteria run 4 of 4 criteria met"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2326-ticket-handed-back-handed-back-with-criteria-it
+    component: "详情"
+    trigger: {role: button, name: "23:26 Ticket handed back handed back with criteria it could not meet"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2327-repository-checks-3-of-3-repository-checks-passe
+    component: "详情"
+    trigger: {role: button, name: "23:27 Repository checks 3 of 3 repository checks passed"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2328-ticket-passed-4-of-4-criteria-met-ticket-closed
+    component: "详情"
+    trigger: {role: button, name: "23:28 Ticket passed 4 of 4 criteria met, ticket closed"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2329-merge-bounced-conflict-with-wake-relay-in-2-file
+    component: "详情"
+    trigger: {role: button, name: "23:29 Merge bounced conflict with wake-relay in 2 files"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2331-your-decision-needed-spec
+    component: "详情"
+    trigger: {role: button, name: "23:31 Your decision needed 唤醒要不要跨过已暂停的 spec"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.morning", "详情.morning"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2332-final-criteria-run-4-of-4-criteria-met
+    component: "详情"
+    trigger: {role: button, name: "23:32 Final criteria run 4 of 4 criteria met"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-closeout"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this event's fields in place: every payload field under its own name, and the comment's first line
+  - id: detail.event-2332-waiting-for-a-slot-every-instance-of-the-product
+    component: "详情"
+    trigger: {role: button, name: "23:32 Waiting for a slot every instance of the product was in use"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-waiting"]
+    calls: ["none"]
+    shows: {at: "event.at@GET /api/board", name: "event_name(event)@GET /api/board", text: "event_text(event)@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-review-2120-review-posted
+    component: "详情"
+    trigger: {role: button, name: "▸ review Review posted — the three-axis review is on the ticket 21:20"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-review-2300-review-posted
+    component: "详情"
+    trigger: {role: button, name: "▸ review Review posted — the three-axis review is on the ticket 23:00"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-review-2302-review-posted
+    component: "详情"
+    trigger: {role: button, name: "▸ review Review posted — the three-axis review is on the ticket 23:02"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-review-2304-review-posted
+    component: "详情"
+    trigger: {role: button, name: "▸ review Review posted — the three-axis review is on the ticket 23:04"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-closeout"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-verify-2210-ticket-passed
+    component: "详情"
+    trigger: {role: button, name: "▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 22:10"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-working-2238-criteria-run
+    component: "详情"
+    trigger: {role: button, name: "▸ working Criteria run — 4 of 4 criteria met 22:38"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-bounced", "ticket-closeout", "ticket-review"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-working-2316-decisions-recorded
+    component: "详情"
+    trigger: {role: button, name: "▸ working Decisions recorded — the calls the worker made on its own, written down for the review 23:16"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-working-2317-decisions-recorded
+    component: "详情"
+    trigger: {role: button, name: "▸ working Decisions recorded — the calls the worker made on its own, written down for the review 23:17"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-working-2328-decisions-recorded
+    component: "详情"
+    trigger: {role: button, name: "▸ working Decisions recorded — the calls the worker made on its own, written down for the review 23:28"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-closeout"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-working-2150-finding-raised
+    component: "详情"
+    trigger: {role: button, name: "▸ working Finding raised — 中继日志不轮转，一夜能写满磁盘 21:50"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-working-2030-left-for-a-later-ticket
+    component: "详情"
+    trigger: {role: button, name: "▸ working Left for a later ticket — status 表头少一列 runner 20:30"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # opens this phase block; a shut block shows its phase and the event of it worth opening it for
+  - id: detail.block-closed-working-2238-worker-started
+    component: "详情"
+    trigger: {role: button, name: "▸ working Worker started — claude opus 5, high effort 22:38"}
+    precondition: {panel: "ticket", block: "closed"}
+    scenes: ["ticket-waiting"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", name: "event_name(block.lead)@GET /api/board", text: "event_text(block.lead)@GET /api/board", at: "block.lead.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-landed-2236
+    component: "详情"
+    trigger: {role: button, name: "▾ landed 22:36"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-landed"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-review-2322
+    component: "详情"
+    trigger: {role: button, name: "▾ review 23:22"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-review"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-verify-2322-2326
+    component: "详情"
+    trigger: {role: button, name: "▾ verify 23:22–23:26"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-verify-2324-2329
+    component: "详情"
+    trigger: {role: button, name: "▾ verify 23:24–23:29"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-bounced"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-verify-2332
+    component: "详情"
+    trigger: {role: button, name: "▾ verify 23:32"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-closeout"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-waiting-2332
+    component: "详情"
+    trigger: {role: button, name: "▾ waiting 23:32"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-waiting"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-working-2006-2247
+    component: "详情"
+    trigger: {role: button, name: "▾ working 20:06–22:47"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.twenty-tickets", "详情.twenty-tickets"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-working-2159
+    component: "详情"
+    trigger: {role: button, name: "▾ working 21:59"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.bad-data", "详情.bad-data"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-working-2159-2234
+    component: "详情"
+    trigger: {role: button, name: "▾ working 21:59–22:34"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-fault"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-working-2238-2258
+    component: "详情"
+    trigger: {role: button, name: "▾ working 22:38–22:58"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["ticket-returned"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
+    gap: aligned
+  # closes this phase block; an open block lists its events (the last block and any block that went wrong are open when the column opens)
+  - id: detail.block-open-working-2238-2331
+    component: "详情"
+    trigger: {role: button, name: "▾ working 22:38–23:31"}
+    precondition: {panel: "ticket", block: "open"}
+    scenes: ["任务板.morning", "详情.morning"]
+    calls: ["none"]
+    shows: {phase: "event_phase(block.lead)@GET /api/board", span: "block.first.at, block.last.at@GET /api/board"}
+    next: "stay"
+    source: ["#318 Implementation Decisions 7"]
     gap: aligned
