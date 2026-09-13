@@ -401,5 +401,169 @@ class TestCloseoutRefusesTheUnfilledSkeleton(unittest.TestCase):
         self.assertTrue(any("<fill>" in p for p in problems), problems)
 
 
+IN_TICKET_REVIEW = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## Spec
+
+None
+
+## In-ticket
+
+- Spec src/app.py:12 — the importer skips a row
+- Tests tests/test_import.py:4 — the case never fails
+
+## Out-of-ticket
+
+- Standards src/other.py:9 — a helper the ticket does not own
+
+## Withdrawn
+
+- Standards src/app.py:40 — claimed a missing guard — the guard is on line 38
+""", base="abcdef0", head="1234567")
+
+
+BASELINE_GREEN = checked(
+    "baseline",
+    """- [x] AC1: the importer writes six rows
+  CHECK: pytest -q tests/test_import.py
+  EXPECT: 1 passed
+  EVIDENCE: exit=0; EXPECT=matched; output-bytes=9
+- [ ] AC2: a journey
+  CHECK: journey.py run import
+  EXPECT: JOURNEY OK import
+  EVIDENCE: skipped""",
+    "UNMET: 1 (met: 1)",
+    commit="0" * 40,
+)
+
+
+class TestReviewFindingsInTheDraft(unittest.TestCase):
+    """`--draft` prefills `Review findings:` from the newest `## In-ticket` list."""
+
+    def test_each_in_ticket_finding_is_prefilled_with_fill(self):
+        code, err, text, _ = run_draft((MET_RUN, IN_TICKET_REVIEW))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Review findings:", text)
+        self.assertIn(
+            "- Spec src/app.py:12 — the importer skips a row — <fill>", text)
+        self.assertIn(
+            "- Tests tests/test_import.py:4 — the case never fails — <fill>", text)
+
+    def test_out_of_ticket_and_withdrawn_findings_are_not_prefilled(self):
+        code, err, text, _ = run_draft((MET_RUN, IN_TICKET_REVIEW))
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("src/other.py:9", text)
+        self.assertNotIn("src/app.py:40", text)
+
+    def test_none_when_the_review_lists_no_in_ticket_finding(self):
+        code, err, text, _ = run_draft((MET_RUN, REVIEW))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Review findings:\nNone", text)
+
+    def test_none_when_the_ticket_carries_no_review(self):
+        code, err, text, _ = run_draft((MET_RUN,))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Review findings:\nNone", text)
+
+    def test_closeout_refuses_the_prefilled_skeleton(self):
+        comments = (MET_RUN, IN_TICKET_REVIEW)
+        code, err, text, fake = run_draft(comments)
+        self.assertEqual(code, 0, err)
+        filled = (text
+                  .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"\n{vt.FILL}\n", "\nnone\n"))
+        self.assertIn("— <fill>", filled)
+        self.assertNotIn(f"skipped: {vt.FILL}", filled)
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
+            problems = vt.draft_problems(filled, list(comments))
+        self.assertTrue(any("<fill>" in p for p in problems), problems)
+
+    def test_replacing_review_finding_fills_clears_the_draft(self):
+        comments = (MET_RUN, IN_TICKET_REVIEW)
+        code, err, text, fake = run_draft(comments)
+        self.assertEqual(code, 0, err)
+        filled = (text
+                  .replace("- Spec src/app.py:12 — the importer skips a row — <fill>",
+                           "- Spec src/app.py:12 — the importer skips a row — "
+                           "fixed 9b1d40c7feedface0011223344556677889900aa")
+                  .replace("- Tests tests/test_import.py:4 — the case never fails — <fill>",
+                           "- Tests tests/test_import.py:4 — the case never fails — "
+                           "refuted: the case fails when the fixture is empty")
+                  .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"\n{vt.FILL}\n", "\nnone\n"))
+        self.assertNotIn(vt.FILL, filled)
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
+            self.assertEqual(vt.draft_problems(filled, list(comments)), [])
+
+    def test_the_newest_review_is_the_one_read(self):
+        older = IN_TICKET_REVIEW
+        newer = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## Spec
+
+None
+
+## In-ticket
+
+None
+""", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((MET_RUN, older, newer))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Review findings:\nNone", text)
+        self.assertNotIn("src/app.py:12", text)
+
+
+class TestGreenBeforeWork(unittest.TestCase):
+    """`--draft` prefills `Green before work:` from a `baseline` run's met criteria."""
+
+    def test_each_criterion_already_green_on_the_base_is_prefilled(self):
+        code, err, text, _ = run_draft((BASELINE_GREEN, MET_RUN))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Green before work:", text)
+        self.assertIn("- AC1: <fill>", text)
+        self.assertNotIn("- AC2: <fill>", text)
+
+    def test_none_when_no_baseline_run_is_on_the_ticket(self):
+        code, err, text, _ = run_draft((MET_RUN,))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Green before work:\nnot run: no baseline `ticket.checked`", text)
+        self.assertNotIn("Green before work:\nNone", text)
+
+    def test_none_when_the_baseline_ran_and_found_nothing_green(self):
+        red = checked(
+            "baseline",
+            """- [ ] AC1: the importer writes six rows
+  CHECK: pytest -q tests/test_import.py
+  EXPECT: 1 passed
+  EVIDENCE: exit=1; EXPECT=missed""",
+            "UNMET: 1 (met: 0)",
+            commit="0" * 40,
+        )
+        code, err, text, _ = run_draft((red, MET_RUN))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Green before work:\nNone", text)
+        self.assertNotIn("not run:", text)
+
+    def test_a_baseline_tick_does_not_count_as_a_run_of_your_own(self):
+        """`newest_run` for the skeleton's ticks still reads only `self`."""
+        code, err, text, _ = run_draft((BASELINE_GREEN,))
+        self.assertEqual(code, 0, err)
+        self.assertIn("- [ ] AC1: the importer writes six rows", text)
+        self.assertIn("EVIDENCE: pending", text)
+
+    def test_closeout_refuses_an_unfilled_green_before_work_line(self):
+        comments = (BASELINE_GREEN, MET_RUN)
+        code, err, text, fake = run_draft(comments)
+        self.assertEqual(code, 0, err)
+        filled = (text
+                  .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"\n{vt.FILL}\n", "\nnone\n"))
+        self.assertIn("- AC1: <fill>", filled)
+        self.assertNotIn(f"skipped: {vt.FILL}", filled)
+        with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
+            problems = vt.draft_problems(filled, list(comments))
+        self.assertTrue(any("<fill>" in p for p in problems), problems)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -121,7 +121,8 @@ class TestCarriedEditsAreStoppedAtTheCloseout(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("READY: #77 claimed on issue-77", out)
         self.assertIn("CARRIED: 1 tracked files have uncommitted changes", out)
-        self.assertEqual(tracker.events()[-1], "ticket.claimed")
+        self.assertEqual(tracker.events()[-2:], ["ticket.claimed", "ticket.checked"])
+        self.assertEqual(vt.events.parse(tracker.comments[-1])[1]["run"], "baseline")
 
         # Everything else the closeout asks for is in place on HEAD, so the tree is the
         # one condition left for it to refuse.

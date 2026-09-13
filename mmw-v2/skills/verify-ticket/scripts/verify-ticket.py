@@ -46,6 +46,9 @@ LEDGER_NAME = "AC.md"
 # The summary line gate-check prints on its own stdout.
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
+IN_TICKET_ITEM_RE = re.compile(
+    r"^- (Standards|Spec|Tests) (\S+):(\d+) — (.+)$")
+IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"
 # The layer label every issue this pipeline opens carries beside its queue label: which
@@ -64,6 +67,9 @@ CLASS_SPEC = "mmw:spec"
 # is not one: it starts the story page service, which has no backend behind it and takes
 # a port of its own.
 PRODUCT_JUDGES = ("journey.py", "screen_driver.py", "lease.py")
+# Criteria whose CHECK names one of these are left off the claim-time baseline run:
+# they start the product or the story page service. Recorded on the event as `skipped`.
+BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
 # How long a reverify waits for a product slot before it hands back exit 3, and how often
 # it asks again in between. The bound stays under the time a host lets a command run
 # before it moves it to the background; a reverify given back 3 is run again, and the wait
@@ -812,7 +818,8 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                 "(<kinds>), <m> unmet, <k> met of <total>`: " + (first or "(empty draft)")]
     if FILL in draft:
         problems.append("the draft still contains `<fill>`; replace the placeholders "
-                        "in `skipped:` and `Decisions I made on my own`")
+                        "in `skipped:`, `Review findings:`, `Green before work:` and "
+                        "`Decisions I made on my own`")
 
     criteria = parse_criteria(draft)
     ids = [c["id"] for c in criteria]
@@ -1220,6 +1227,39 @@ def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
     return base
 
 
+def in_ticket_findings(review: str) -> list[tuple[str, str, str, str]]:
+    """`(axis, path, line, claim)` from the newest review comment's `## In-ticket` list."""
+    found = []
+    for row in section(review, "In-ticket"):
+        m = IN_TICKET_ITEM_RE.match(row.strip())
+        if m:
+            found.append((m.group(1), m.group(2), m.group(3), m.group(4).strip()))
+    return found
+
+
+def review_findings_block(review: str) -> str:
+    items = in_ticket_findings(review)
+    if not items:
+        return "Review findings:\nNone"
+    lines = ["Review findings:"]
+    for axis, path, line, claim in items:
+        lines.append(f"- {axis} {path}:{line} — {claim} — {FILL}")
+    return "\n".join(lines)
+
+
+def green_before_work_block(comments: list) -> str:
+    record = newest_run(comments, "baseline")
+    if record is None:
+        return "Green before work:\nnot run: no baseline `ticket.checked`"
+    ids = []
+    for item in record["payload"].get("criteria") or []:
+        if isinstance(item, dict) and item.get("met") and item.get("id"):
+            ids.append(str(item["id"]))
+    if not ids:
+        return "Green before work:\nNone"
+    return "Green before work:\n" + "\n".join(f"- {i}: {FILL}" for i in ids)
+
+
 def criterion_block(item: dict) -> str:
     """The four ledger lines of one criterion."""
     tick = "x" if item["ticked"] else " "
@@ -1433,7 +1473,9 @@ def run_draft(number: int, out_file: Path | None) -> int:
         parts.append("")
     parts += [
         outside, "",
+        review_findings_block(review), "",
         f"skipped: {FILL}", "",
+        green_before_work_block(comments), "",
         sub, "",
         counts_line, "",
         "Decisions I made on my own", "",
@@ -1687,12 +1729,7 @@ def _run_checks(number: int, reverify: bool, timeout: int | None,
     results = [{"id": c["id"],
                 "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
                 "evidence": c["evidence"] or "pending"} for c in criteria]
-    if result.returncode == 0:
-        outcome = "met"
-    elif summary.startswith("HANDOFF REQUIRED:"):
-        outcome = "handoff"
-    else:
-        outcome = "unmet"
+    outcome = check_run_outcome(result.returncode, summary)
     fields = ({} if reverify else
               outside_owns_fields(number, owns_globs(body), root, base))
     prose = [updated]
@@ -1828,12 +1865,138 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
     return out
 
 
+def check_run_outcome(returncode: int, summary: str) -> str | None:
+    """The `ticket.checked` result of one gate-check process, or None if it could not start."""
+    if returncode == 2:
+        return None
+    if returncode == 0:
+        return "met"
+    if summary.startswith("HANDOFF REQUIRED:"):
+        return "handoff"
+    return "unmet"
+
+
+def baseline_skipped(check: str) -> bool:
+    """Whether this CHECK is left off the claim-time baseline run."""
+    return any(name in (check or "") for name in BASELINE_SKIP_JUDGES)
+
+
+def run_baseline_if_needed(number: int, root: Path) -> None:
+    """Run the baseline once for the newest `worker.started.base`, if that run is missing.
+
+    A red result does not refuse the claim. Failures of the throwaway worktree are written
+    as an unmet `ticket.checked` of run `baseline` when the base commit is known, and
+    otherwise named on stderr; they never raise into `--preflight`.
+    """
+    try:
+        comments = fetch_comments(number)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
+        return
+    started = events.newest(comments, "worker.started")
+    base = (started or {}).get("payload", {}).get("base")
+    if not isinstance(base, str) or not re.fullmatch(r"[0-9a-f]{40}", base):
+        sys.stderr.write(f"#{number}: baseline run did not start "
+                         f"(no worker.started.base commit)\n")
+        return
+    existing = newest_run(comments, "baseline")
+    if existing and existing["payload"].get("commit") == base:
+        return
+    try:
+        body = fetch_body(number)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
+        return
+    run_baseline(number, body, base, root)
+
+
+def run_baseline(number: int, body: str, base: str, root: Path) -> None:
+    """Criteria that need no product slot, at `base`, in a throwaway detached worktree."""
+    items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
+    skipped = [c["id"] for c in items if baseline_skipped(c.get("check", ""))]
+    runnable = [c for c in items if c["id"] not in skipped]
+    tmp = Path(tempfile.mkdtemp(prefix="mmw-baseline-"))
+    worktree = tmp / "tree"
+    try:
+        added = subprocess.run(
+            ["git", "worktree", "add", "--detach", str(worktree), base],
+            cwd=root, capture_output=True, text=True)
+        short = base[:12]
+        if added.returncode != 0 or not worktree.is_dir():
+            why = (added.stderr or added.stdout or "git worktree add failed").strip()
+            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+                           outcome="unmet",
+                           line=f"Baseline run on {short}: unmet ({why})")
+            return
+        if not runnable:
+            _post_baseline(number, body, base, runnable=[], skipped=skipped, outcome="unmet",
+                           line=f"Baseline run on {short}: nothing ran (all skipped)")
+            return
+        ledger_dir = tmp / "ledger"
+        ledger_dir.mkdir()
+        lines = []
+        for item in runnable:
+            pending = dict(item)
+            pending["ticked"] = False
+            pending["evidence"] = pending.get("evidence") or "pending"
+            lines.extend(criterion_block(pending).splitlines())
+            lines.append("")
+        ledger = write_ledger(body, ledger_dir, lines)
+        cmd = ["node", str(GATE_CHECK), "--cwd", str(worktree),
+               "--timeout", str(check_timeout(body, None)), str(ledger)]
+        env = os.environ.copy()
+        env["MMW_TICKET"] = str(number)
+        if TOOLS:
+            env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=worktree, env=env)
+        printed = (result.stdout or "") + (result.stderr or "")
+        summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
+        updated = ledger.read_text(encoding="utf-8").rstrip("\n") if ledger.is_file() else ""
+        outcome = check_run_outcome(result.returncode, summary)
+        if outcome is None:
+            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+                           outcome="unmet",
+                           line=f"Baseline run on {short}: could not start")
+            return
+        ran = parse_criteria(updated) if updated else runnable
+        _post_baseline(number, body, base, runnable=ran, skipped=skipped, outcome=outcome,
+                       line=f"Baseline run on {short}: {summary or outcome}",
+                       updated=updated)
+    except (OSError, subprocess.CalledProcessError, events.EventError) as exc:
+        sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
+    finally:
+        subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
+                       cwd=root, capture_output=True, text=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
+                   skipped: list[str], outcome: str, line: str,
+                   updated: str = "") -> None:
+    results = [{"id": c["id"],
+                "met": bool(c.get("ticked") and c.get("evidence")
+                            and c.get("evidence") != "pending"),
+                "evidence": c.get("evidence") or "pending"} for c in runnable]
+    abandons = parse_abandons(updated) if updated else []
+    post_event(number, "ticket.checked", line, updated,
+               run="baseline", commit=base, result=outcome,
+               counts=tally(runnable, abandons) if runnable else {
+                   "met": 0, "unmet": 0, "abandoned": 0, "total": 0},
+               criteria=results, failed=[r["id"] for r in results if not r["met"]],
+               abandons=abandons or None, skipped=skipped or None,
+               shape=shape_digest(section(body, "Acceptance criteria")),
+               actor="worker", stage=events.checked_stage("baseline", "worker"))
+
+
 def run_preflight(number: int) -> int:
     """Claim the ticket, or say on the ticket itself why it cannot be claimed.
 
     Either way one event lands on the ticket: `ticket.refused` with the first refusal's
     reason, or `ticket.claimed` once the claim is made. A claim whose event could not be
     written still holds — the tracker's assignee is the claim — and says so on stderr.
+    After a successful claim, criteria that need no product slot are run once at the
+    newest `worker.started.base` (a `ticket.checked` of run `baseline`) unless that run
+    is already on the ticket; a red result does not refuse.
     """
     root = repo_root()
     ticket = fetch_ticket(number)
@@ -1858,6 +2021,7 @@ def run_preflight(number: int) -> int:
     except (OSError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"#{number} is claimed, but its ticket.claimed event was not "
                          f"written ({exc})\n")
+    run_baseline_if_needed(number, root)
     print(f"READY: #{number} claimed on issue-{number}")
     # Getting here with a dirty tree means the claim was already this account's, so the
     # changes came in under it: this is a worker back on its own work, and the only thing
@@ -2540,6 +2704,30 @@ def parent_sections(parent_text: str) -> dict[int, dict]:
     return out
 
 
+def implementation_decision_numbers(spec_body: str) -> list[int]:
+    """`### <n>.` headings under `## Implementation Decisions`, first occurrence of each."""
+    numbers = []
+    for line in section(spec_body, "Implementation Decisions"):
+        m = IMPLEMENTATION_DECISION_HEADING_RE.match(line)
+        if m:
+            numbers.append(int(m.group(1)))
+    return list(dict.fromkeys(numbers))
+
+
+def print_uncovered_sections(spec: int, spec_body: str, named: set[int]) -> None:
+    """WARN each Implementation Decisions section no ticket's Parent names; then the count.
+
+    A WARN does not change the lint exit code.
+    """
+    numbers = implementation_decision_numbers(spec_body)
+    for n in numbers:
+        if n not in named:
+            print(f"  WARN #{spec} Implementation Decisions section {n} is named by no "
+                  f"ticket's ## Parent [uncovered-section]")
+    covered = sum(1 for n in numbers if n in named)
+    print(f"sections named by a ticket: {covered}/{len(numbers)}")
+
+
 def load_yaml_file(path: str) -> dict | None:
     """The file as a mapping. `pyyaml` when this interpreter has it; else through `uv`,
     which every `CHECK:` of this pipeline already relies on; else `None`, and the caller
@@ -2831,13 +3019,18 @@ def lint_spec(spec: int) -> int:
     numbers = fetch_sub_issues(spec)
     print(f"#{spec} is a spec with {len(numbers)} sub-issues; linting each, then the graph")
     failed: list[int] = []
+    named: set[int] = set()
     for child in numbers:
         ticket = fetch_ticket(child)
         print(f"\n## #{child} ({ticket.get('state') or 'state unknown'})")
-        if lint_criteria(child, fetch_body(child), labels_of(ticket)):
+        body = fetch_body(child)
+        named |= set(parent_sections("\n".join(section(body, "Parent")))
+                     .get(spec, {}).get("sections") or ())
+        if lint_criteria(child, body, labels_of(ticket)):
             failed.append(child)
     print("\n## ticket graph")
     graph = lint_batch_graph(spec, numbers)
+    print_uncovered_sections(spec, fetch_body(spec), named)
     if failed:
         print("  ERROR tickets with findings: " + ", ".join(f"#{n}" for n in failed))
     return 1 if (failed or graph) else 0

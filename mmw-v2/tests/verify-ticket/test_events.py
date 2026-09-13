@@ -99,11 +99,17 @@ class TheVocabulary(unittest.TestCase):
     def test_a_check_names_its_run_and_its_result_from_closed_sets(self):
         full = dict(run="self", commit="a" * 40, result="met")
         events.build("ticket.checked", ticket=61, line="x", **full)
+        events.build("ticket.checked", ticket=61, line="x",
+                     run="baseline", commit="a" * 40, result="unmet")
         for key, bad in (("run", "self-run"), ("result", "ALL MET"), ("commit", "a" * 8)):
             with self.subTest(key=key):
                 with self.assertRaises(events.EventError):
                     events.build("ticket.checked", ticket=61, line="x",
                                  **{**full, key: bad})
+
+    def test_baseline_is_a_run_name_and_its_stage_is_claim(self):
+        self.assertIn("baseline", events.CHECK_RUNS)
+        self.assertEqual(events.checked_stage("baseline", "worker"), "claim")
 
     def test_every_name_is_subject_dot_past_tense_verb_with_no_value_in_it(self):
         for name in events.EVENTS:
@@ -493,6 +499,7 @@ class WaitingAndSlots(unittest.TestCase):
         self.assertEqual(state["checks"]["self"]["comment"], 3)
         self.assertEqual(state["checks"]["reverify"]["comment"], 2)
         self.assertIsNone(state["checks"]["repo-checks"])
+        self.assertIsNone(state["checks"]["baseline"])
 
     def test_touched_files_land_in_touched(self):
         state = events.fold([ev("worker.touched", "#62 changed 1 file(s) this ticket owns",
