@@ -391,11 +391,73 @@ class TestBaselineRun(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
 
+    def test_a_newer_base_runs_again(self):
+        from _load import started, checked
+        root, base, head = self.repo()
+        already = checked("baseline",
+                          ["- [x] AC1: a file the base already has",
+                           "  CHECK: cat ok.txt", "  EXPECT: ok",
+                           "  EVIDENCE: exit=0"],
+                          ticket=77, commit=base)
+        history = [started(ticket=77, base=head, into="spec-337",
+                           worktree=str(root), branch="issue-77"), already]
+        code, posted, err, _, _ = self.claim(root, head, comments=history)
+        self.assertEqual(code, 0, err)
+        names = [event_of(b)[0] for _, b in posted]
+        self.assertEqual(names[0], "ticket.claimed")
+        self.assertIn("ticket.checked", names)
+        payload = event_of(posted[1][1])[1]
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["commit"], head)
+
     def test_no_worker_started_skips_the_baseline_run(self):
         root, base, _ = self.repo()
         code, posted, err, _, _ = self.claim(root, base, comments=[])
         self.assertEqual(code, 0, err)
         self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
+        self.assertIn("baseline run did not start", err)
+        self.assertIn("no worker.started.base commit", err)
+
+    def test_a_missing_base_commit_does_not_refuse_the_claim(self):
+        root, _, _ = self.repo()
+        missing = "a" * 40
+        code, posted, err, out, assign = self.claim(root, missing)
+        self.assertEqual(code, 0, err)
+        self.assertIn("READY:", out)
+        assign.assert_called_once()
+        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
+        payload = event_of(posted[1][1])[1]
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["commit"], missing)
+        self.assertEqual(payload["result"], "unmet")
+        self.assertEqual(sorted(payload["skipped"]), ["AC1", "AC2", "AC3", "AC4"])
+        listed = subprocess.check_output(
+            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
+        self.assertEqual(listed.count("worktree "), 1, listed)
+
+    def test_gate_check_exit_2_is_not_a_criteria_result(self):
+        self.assertIsNone(vt.check_run_outcome(2, "ALL MET (1 met)"))
+        self.assertEqual(vt.check_run_outcome(0, "ALL MET (1 met)"), "met")
+        self.assertEqual(vt.check_run_outcome(1, "UNMET: 1 (met: 0)"), "unmet")
+
+    def test_every_criterion_skipped_is_not_a_pass(self):
+        body = """## Acceptance criteria
+
+- [ ] AC1: a journey
+  CHECK: journey.py run unused
+  EXPECT: JOURNEY OK unused
+  EVIDENCE: pending
+"""
+        root, base, _ = self.repo()
+        code, posted, err, out, _ = self.claim(root, base, body=body)
+        self.assertEqual(code, 0, err)
+        self.assertIn("READY:", out)
+        payload = event_of(posted[1][1])[1]
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["result"], "unmet")
+        self.assertEqual(payload["skipped"], ["AC1"])
+        self.assertIn("nothing ran", posted[1][1])
+        self.assertNotIn("ALL MET", posted[1][1])
 
 
 if __name__ == "__main__":

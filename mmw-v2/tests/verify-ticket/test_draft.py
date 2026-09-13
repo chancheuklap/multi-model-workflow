@@ -469,11 +469,16 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
         comments = (MET_RUN, IN_TICKET_REVIEW)
         code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)
+        filled = (text
+                  .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"\n{vt.FILL}\n", "\nnone\n"))
+        self.assertIn("— <fill>", filled)
+        self.assertNotIn(f"skipped: {vt.FILL}", filled)
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
-            problems = vt.draft_problems(text, list(comments))
+            problems = vt.draft_problems(filled, list(comments))
         self.assertTrue(any("<fill>" in p for p in problems), problems)
 
-    def test_fixed_or_refuted_clears_the_placeholder(self):
+    def test_replacing_review_finding_fills_clears_the_draft(self):
         comments = (MET_RUN, IN_TICKET_REVIEW)
         code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)
@@ -484,10 +489,28 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
                   .replace("- Tests tests/test_import.py:4 — the case never fails — <fill>",
                            "- Tests tests/test_import.py:4 — the case never fails — "
                            "refuted: the case fails when the fixture is empty")
-                  .replace(vt.FILL, "none"))
+                  .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"\n{vt.FILL}\n", "\nnone\n"))
         self.assertNotIn(vt.FILL, filled)
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
+
+    def test_the_newest_review_is_the_one_read(self):
+        older = IN_TICKET_REVIEW
+        newer = event("reviewer.reported", """REVIEW abcdef0..1234567
+
+## Spec
+
+None
+
+## In-ticket
+
+None
+""", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((MET_RUN, older, newer))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Review findings:\nNone", text)
+        self.assertNotIn("src/app.py:12", text)
 
 
 class TestGreenBeforeWork(unittest.TestCase):
@@ -503,7 +526,23 @@ class TestGreenBeforeWork(unittest.TestCase):
     def test_none_when_no_baseline_run_is_on_the_ticket(self):
         code, err, text, _ = run_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
+        self.assertIn("Green before work:\nnot run: no baseline `ticket.checked`", text)
+        self.assertNotIn("Green before work:\nNone", text)
+
+    def test_none_when_the_baseline_ran_and_found_nothing_green(self):
+        red = checked(
+            "baseline",
+            """- [ ] AC1: the importer writes six rows
+  CHECK: pytest -q tests/test_import.py
+  EXPECT: 1 passed
+  EVIDENCE: exit=1; EXPECT=missed""",
+            "UNMET: 1 (met: 0)",
+            commit="0" * 40,
+        )
+        code, err, text, _ = run_draft((red, MET_RUN))
+        self.assertEqual(code, 0, err)
         self.assertIn("Green before work:\nNone", text)
+        self.assertNotIn("not run:", text)
 
     def test_a_baseline_tick_does_not_count_as_a_run_of_your_own(self):
         """`newest_run` for the skeleton's ticks still reads only `self`."""
@@ -516,8 +555,13 @@ class TestGreenBeforeWork(unittest.TestCase):
         comments = (BASELINE_GREEN, MET_RUN)
         code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)
+        filled = (text
+                  .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"\n{vt.FILL}\n", "\nnone\n"))
+        self.assertIn("- AC1: <fill>", filled)
+        self.assertNotIn(f"skipped: {vt.FILL}", filled)
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
-            problems = vt.draft_problems(text, list(comments))
+            problems = vt.draft_problems(filled, list(comments))
         self.assertTrue(any("<fill>" in p for p in problems), problems)
 
 
