@@ -2241,10 +2241,12 @@ sys.exit(0 if not value.get("failed") and not value.get("problem") else 1)
 '
 }
 
-bounced_since_night_opened() {
+# 0 means this bounce goes to triage; 1 means this open night has one retry left;
+# 2 means the events that decide between them could not be read.
+bounce_goes_to_triage() {
   local number="$1" spec="$2" opened bounced rc
   [ -n "$spec" ] || return 0
-  opened="$(newest_field "$spec" at spec.opened)"; rc=$?
+  opened="$(newest_field "$spec" at spec.opened spec.suspended spec.closed)"; rc=$?
   case "$rc" in
     0) ;;
     3) return 0 ;;
@@ -2260,8 +2262,10 @@ bounced_since_night_opened() {
 
 bounce_ticket() {
   local root="$1" number="$2" spec="$3" into="$4" base="$5" reason="$6" detail="$7"
-  local started siblings="" text failed_text retry=0 rc fields=()
-  bounced_since_night_opened "$number" "$spec"; rc=$?
+  local started siblings="" text failed_text retry=0 rc
+  local add_label=needs-triage remove_label=ready-for-agent outcome="labelled needs-triage"
+  local fields=()
+  bounce_goes_to_triage "$number" "$spec"; rc=$?
   case "$rc" in
     0) ;;
     1) retry=1 ;;
@@ -2272,6 +2276,9 @@ bounce_ticket() {
     siblings="$(integrated_ticket_numbers "$root" "$started..origin/$into" | awk -v n="$number" '$0 != n')"
   fi
   if [ "$retry" -eq 1 ]; then
+    add_label=ready-for-agent
+    remove_label=needs-triage
+    outcome="returned to ready-for-agent"
     text="Tried to merge issue-$number into origin/$into at $base and returned it to the agent queue for its one retry this night."
   else
     text="Tried to merge issue-$number into origin/$into at $base and handed it to triage."
@@ -2297,16 +2304,9 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
 
   gh_ issue reopen "$number" >/dev/null 2>&1 \
     || { echo "dispatch: could not reopen #$number after its merge $reason" >&2; return 2; }
-  if [ "$retry" -eq 1 ]; then
-    gh_ issue edit "$number" --add-label ready-for-agent --remove-label needs-triage \
-        --remove-assignee @me >/dev/null 2>&1 \
-      || { echo "dispatch: #$number is open, but could not be returned to ready-for-agent and unassigned" >&2; return 2; }
-    retry_bounced="${retry_bounced:+$retry_bounced }$number"
-  else
-    gh_ issue edit "$number" --remove-label ready-for-agent --add-label needs-triage \
-        --remove-assignee @me >/dev/null 2>&1 \
-      || { echo "dispatch: #$number is open, but could not be labelled needs-triage and unassigned" >&2; return 2; }
-  fi
+  gh_ issue edit "$number" --remove-label "$remove_label" --add-label "$add_label" \
+      --remove-assignee @me >/dev/null 2>&1 \
+    || { echo "dispatch: #$number is open, but could not be $outcome and unassigned" >&2; return 2; }
   give_ticket_slot_back "$number" || true
   post_event "$number" ticket.bounced --ticket "$number" --spec "$spec" \
       --line "$text" --field "reason=$reason" --field "commit=$base" \
@@ -2563,7 +2563,7 @@ advance() {
     || { cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec"; }
   rm -f "$plan_err"
 
-  local merged=0 skipped=0 bounced=0 retry_bounced="" number passed into rc
+  local merged=0 skipped=0 bounced=0 bounced_this_advance="" number passed into rc
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
     passed="$(ticket_passed_commit "$number")" \
       || refuse "#${number}'s ticket.passed event carries no usable commit"
@@ -2576,7 +2576,10 @@ advance() {
         merged=$((merged + 1))
         echo "merged issue-$number into origin/$into" >&2
         ;;
-      1) bounced=$((bounced + 1)) ;;
+      1)
+        bounced=$((bounced + 1))
+        bounced_this_advance="${bounced_this_advance:+$bounced_this_advance }$number"
+        ;;
       3) skipped=$((skipped + 1)) ;;
       *) refuse "could not land #$number into origin/$into after $MERGE_TRIES tries" ;;
     esac
@@ -2617,7 +2620,7 @@ advance() {
   # writing code takes no slot, so a worker is never kept from its code by a port.
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
-    case " $retry_bounced " in *" $number "*) continue ;; esac
+    case " $bounced_this_advance " in *" $number "*) continue ;; esac
     if bash "$SELF" ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} start "$number" worker; then
       started=$((started + 1))
     else

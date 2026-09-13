@@ -18,7 +18,7 @@ Ask these questions in order. The first yes decides the kind.
 
 | Order | Question | Kind | Not this kind |
 | --- | --- | --- | --- |
-| 1 | Is the pipeline itself broken: a script, hook, driver or `.mmw/target.json`? | `fault` | A stale product process occupies a port and can be removed as an environment repair. |
+| 1 | Is the pipeline itself broken: a script, hook, driver or the target contract? | `fault` | A stale product process occupies a port and can be removed as an environment repair. |
 | 2 | Does something this ticket was told to follow fail to hold: a baseline, a `## Parent` spec section or an acceptance criterion lacks a state, field or case, or contradicts another such source? | `contract` | Those sources are clear and this ticket's implementation is wrong; fix it in this ticket. |
 | 3 | Do the sources say nothing, while multiple defensible readings would produce observably different outcomes? | `decision`, with the default taken | An internal name or data structure whose alternatives have no observable difference; decide it and record it in `DECISIONS`. |
 | 4 | Is it a defect from the review report outside this ticket's `## Owns`? | `finding` | It is inside `## Owns`; fix it in this ticket. |

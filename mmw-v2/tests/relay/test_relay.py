@@ -328,6 +328,7 @@ class QueueTest(RelayCase):
         # The three children that wake the main agent are contract, fault and decision.
         woken = [r for r in self.rows() if r["event"] == "child.opened"]
         self.assertEqual(len(woken), 3)
+        self.assertEqual(sorted(r["ticket"] for r in woken), [62, 64, 65])
 
     def test_contract_fault_and_decision_wake_the_main_agent(self):
         for kind, wakes in (("fault", True), ("decision", True), ("contract", True),

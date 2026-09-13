@@ -105,7 +105,7 @@ The event `dispatch.sh reverify` posts on a landed ticket whose criteria went re
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.bounced`**:
-The event that records a landing merge conflict (`reason` `conflict`) or failed repository checks (`checks`). It records the failed attempt's evidence and the `commit` it was tried on, takes back pass and landing, ends every hold on the ticket and gives its product slot back, stops the current worker, and leaves the workspace standing. The first one since the newest `spec.opened` returns the ticket to `ready-for-agent`; the next `advance`, not the one that wrote the event, starts the original worker in that workspace for one integration, criterion and closeout run. A second one in the same night moves the ticket to `needs-triage` and the night does not try it again.
+The event that records a landing merge conflict (`reason` `conflict`) or failed repository checks (`checks`). It records the failed attempt's evidence and the `commit` it was tried on, takes back pass and landing, ends every hold on the ticket and gives its product slot back, stops the current worker, and leaves the workspace standing. When the spec's newest night event is `spec.opened`, the first bounce since it returns the ticket to `ready-for-agent`; the next `advance`, not the one that wrote the event, starts a worker in that workspace for one integration, criterion and closeout run. A second one in the same night moves the ticket to `needs-triage` and the night does not try it again. Outside an open night, a bounce moves directly to `needs-triage`.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`worker.resumed`, `worker.retracted`, `worker.replaced`, `worker.lost`**:
