@@ -547,7 +547,7 @@ def summary(rows: list[dict], opened: str, now: datetime | None = None,
             for r in rows if r["state"] == "OPEN" and "needs-triage" in r["labels"]
             and not r.get("bounced_reason")]
     bounced = [f"#{r['ticket']} ({r['bounced_reason']})"
-               for r in rows if r.get("bounced_reason")]
+               for r in rows if r.get("bounced_reason") and "needs-triage" in r["labels"]]
     waiting = [f"#{r['ticket']} blocked by " + blocking_text(r["blocking"])
                for r in rows if r["state"] == "OPEN" and r["blocking"]]
     fresh = [f"#{c['number']} {(c.get('title') or '')[:80]}".strip()

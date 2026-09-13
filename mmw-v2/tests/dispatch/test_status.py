@@ -730,6 +730,13 @@ class Summary(unittest.TestCase):
         self.assertEqual(body[3], "Handed back to needs-triage: None")
         self.assertEqual(body[4], "Bounced: #61 (conflict)")
 
+    def test_the_summary_omits_a_bounce_returned_to_the_agent_queue(self):
+        tickets = {61: ticket(61, labels=("ready-for-agent",), comments=[bounced(61)])}
+        body = status.summary(rows_of(tickets), opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14)).splitlines()
+        self.assertEqual(body[3], "Handed back to needs-triage: None")
+        self.assertEqual(body[4], "Bounced: None")
+
     def test_a_later_pass_replaces_an_old_bounce_in_the_summary(self):
         tickets = {61: ticket(61, state="CLOSED", labels=(),
                               comments=[bounced(61), passed(61)])}

@@ -1068,6 +1068,20 @@ for name in found.get("labels", []):
       exit 1
     fi
     echo "✓ Label \"$3\" created" ;;
+  "issue reopen "*)
+    if [ -n "${FAKE_GH_MUTATES_ISSUES:-}" ]; then
+      MMW_EDIT_N="$3" python3 -c '
+import json, os
+path = os.environ["FAKE_GH_TICKETS_FILE"]
+rows = json.load(open(path))
+for ticket in rows:
+    if ticket.get("number") == int(os.environ["MMW_EDIT_N"]):
+        ticket["state"] = "OPEN"
+        break
+json.dump(rows, open(path, "w"))
+'
+    fi
+    echo "✓ Reopened issue #$3" ;;
   "issue close "*)
     # FAKE_GH_CLOSE_FAILS: the tracker refuses the close, the way a network drop does.
     [ -z "${FAKE_GH_CLOSE_FAILS:-}" ] || { echo "HTTP 502" >&2; exit 1; }
@@ -1156,14 +1170,22 @@ store.write_text(json.dumps(rows))
     echo "https://github.com/o/r/issues/$3#issuecomment-1" ;;
   *"issue edit"*)
     number="$3"
-    remove=""
+    remove="" add_label="" remove_label=""
     skip=0
     for a in "$@"; do
       if [ "$skip" = 1 ]; then remove="$a"; skip=0; continue; fi
       [ "$a" = "--remove-assignee" ] && skip=1
     done
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --add-label) add_label="$2"; shift 2 ;;
+        --remove-label) remove_label="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
     if [ -n "$remove" ] && [ -n "${FAKE_GH_TICKETS_FILE:-}" ] && [ -f "$FAKE_GH_TICKETS_FILE" ]; then
-      MMW_EDIT_N="$number" MMW_REMOVE="$remove" python3 -c '
+      MMW_EDIT_N="$number" MMW_REMOVE="$remove" MMW_ADD_LABEL="$add_label" \
+        MMW_REMOVE_LABEL="$remove_label" python3 -c '
 import json, os
 path = os.environ["FAKE_GH_TICKETS_FILE"]
 n = int(os.environ["MMW_EDIT_N"])
@@ -1175,6 +1197,14 @@ rows = json.load(open(path))
 for t in rows:
     if t.get("number") == n:
         t["assignees"] = [a for a in t.get("assignees") or [] if a != who]
+        if os.environ.get("FAKE_GH_MUTATES_ISSUES"):
+            labels = list(t.get("labels") or [])
+            remove_label = os.environ.get("MMW_REMOVE_LABEL")
+            add_label = os.environ.get("MMW_ADD_LABEL")
+            labels = [label for label in labels if label != remove_label]
+            if add_label and add_label not in labels:
+                labels.append(add_label)
+            t["labels"] = labels
         break
 json.dump(rows, open(path, "w"))
 '
@@ -7291,6 +7321,7 @@ JSON
 }
 
 setup_bounced_conflict() {
+  local round="${1:-second}"
   reset_log
   fresh_repo
   commit_file "$TMP/repo" shared.txt base shared-base
@@ -7303,7 +7334,63 @@ setup_bounced_conflict() {
   commit_file "$other" shared.txt sibling sibling
   git -C "$other" push -q origin main
   write_one_passed 61 "$passed"
+  post_ev 76 spec.opened --spec 76 --line opened --field into=main --field project=project
+  if [ "$round" = second ] || [ "$round" = older ]; then
+    MMW_BOUNCE_ROUND="$round" MMW_PREVIOUS_BOUNCE="$(ev ticket.bounced 61 "bounced once" --spec 76 \
+      --field reason=conflict --field commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+      --field into=main --json-field 'files=["shared.txt"]')" python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+rows = json.loads(path.read_text())
+comment = json.loads(os.environ["MMW_PREVIOUS_BOUNCE"])
+if os.environ.get("MMW_BOUNCE_ROUND") == "older":
+    import re
+    comment = re.sub(r'"at":"[^"]+"', '"at":"2000-01-01T00:00:00Z"', comment)
+rows[0].setdefault("comments", []).insert(0, comment)
+path.write_text(json.dumps(rows))
+PY
+  fi
+  if [ "$round" = closed ]; then
+    post_ev 76 spec.closed --spec 76 --line closed
+  fi
   seed_workspace 61
+}
+
+scenario_bounceretriesonce() {
+  setup_bounced_conflict first
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a first bounce should return to the agent queue: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage"
+  grep -q 'started 0' "$TMP/err" || fail "the same advance dispatched its own bounce: $(cat "$TMP/err")"
+  posted_events 61 reason | grep -q '^ticket.bounced reason=conflict$' \
+    || fail "the first conflict posted no ticket.bounced event with its reason"
+
+  setup_bounced_conflict older
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a bounce from before this night should not consume its retry: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage"
+
+  setup_bounced_conflict second
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a second bounce should be handed to triage: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent"
+
+  setup_bounced_conflict closed
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "a landing outside an open night should be handed to triage: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent"
+  echo "the first conflict returns once; the second goes to triage"
 }
 
 scenario_advancebouncedconflict() {
@@ -8348,7 +8435,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8410,6 +8497,7 @@ banner_for() {
     landdeletesbranch) echo LAND-DELETES-BRANCH-OK ;;
     bouncedkeepsbranch) echo BOUNCED-KEEPS-BRANCH-OK ;;
     bouncestopssessions) echo BOUNCE-STOPS-SESSIONS-OK ;;
+    bounceretriesonce) echo BOUNCE-RETRY-OK ;;
     returnedstopssessions) echo RETURNED-STOPS-SESSIONS-OK ;;
     archiveremovesinstance) echo ARCHIVE-REMOVES-INSTANCE-OK ;;
     bouncekeepsinstance) echo BOUNCE-KEEPS-INSTANCE-OK ;;
