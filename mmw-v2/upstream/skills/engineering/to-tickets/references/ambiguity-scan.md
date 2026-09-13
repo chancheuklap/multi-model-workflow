@@ -1,14 +1,12 @@
 # Ambiguity scan
 
-Reached from the door table of [`SKILL.md`](../SKILL.md) when this run is the scan: the prompt names this skill, a spec, and a file of drafted tickets, and asks you to scan them for ambiguities.
+Read only the spec and the drafted tickets. Do not read the code. Run one pass. Write nothing on the tracker.
 
 It is very likely that important decisions are missing or ambiguous, even if the spec looks good on the surface. Be skeptical, adversarial, and actively try to find gaps.
 
-Read only the spec and the drafted tickets. Do not read the code. Run one pass. Write nothing on the tracker.
-
 ## Scan
 
-Load the spec and the drafted tickets. Perform a structured ambiguity and coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output the raw map).
+Load the spec and the drafted tickets. For each category below, mark status: Clear / Partial / Missing. Keep an internal map for prioritization (do not output it).
 
 Functional Scope & Behavior:
 - Core user goals & success criteria
@@ -60,26 +58,25 @@ Misc / Placeholders:
 - TODO markers / unresolved decisions
 - Ambiguous adjectives ("robust", "intuitive") lacking quantification
 
-For each category with Partial or Missing status, add a candidate question opportunity unless:
-- Clarification would not change what a ticket delivers or what its criteria check
-- Information is better deferred to planning (note internally)
+For each category with Partial or Missing status, add a candidate question opportunity unless the answer would not change what a ticket delivers or what its criteria check.
 
 ## Questions
 
-Generate a prioritized queue of candidate questions. Maximum of 5 total questions across the whole session. Apply these constraints:
+Generate a prioritized queue of candidate questions. Maximum of 5 questions. Apply these constraints:
 
 - Only include questions whose answers change what a ticket delivers or what its criteria check.
 - Exclude questions already answered, trivial stylistic preferences, or plan-level execution details (unless blocking correctness).
-- Favor clarifications that reduce downstream rework risk or prevent misaligned acceptance tests.
+- Prefer questions that reduce downstream rework risk or prevent misaligned acceptance tests.
 - If more than 5 categories remain unresolved, select the top 5 by Impact × Uncertainty.
 
 Each question carries:
 
 - One full interrogative that ends with `?`. The question text before the `?` must make sense on its own. Never use a topic label, section heading, or requirement id as the question itself.
+- Use everyday wording; introduce jargon only if defined in the same sentence. A reader who has not read this file must be able to answer from the Question line alone.
 - One plain-language "Why it matters" sentence (the stake for what a ticket delivers or what its criteria check).
 - The spec sentence it cites, quoted.
 - 2–5 distinct, mutually exclusive options.
-- `Recommended: Option X — <1–2 sentences of reasoning>`
+- `Recommended: Option X — <1–2 sentences of reasoning>`, chosen from best practices for the project type, common patterns in similar implementations, risk reduction, and alignment with explicit project goals or constraints visible in the spec. Present the recommendation first.
 
 Present every question in this pass. This is not a sequential loop.
 

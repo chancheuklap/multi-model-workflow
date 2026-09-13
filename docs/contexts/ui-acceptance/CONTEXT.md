@@ -152,7 +152,7 @@ _Avoid_: 合同票, prefactor ticket (for this one), addressing self-check
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **acceptance ticket**:
-A ticket `to-tickets` cuts when the spec's **Cross-ticket flows** names a flow: one per flow, blocked by every ticket whose `## Parent` names those same Implementation Decisions sections, owning only `.mmw/journeys/<flow>/`, carrying one criterion `journey.py run <flow>` / `EXPECT: JOURNEY OK <flow>` with a `TIMEOUT:`, labelled `senior-worker`. It starts on the merged base branch after those tickets have landed; a red run is `HANDOFF REQUIRED` for morning triage. Only a repository whose `.mmw/target.json` can start the whole product gets one.
+The ticket `to-tickets` cuts per line of a spec's **Cross-ticket flows**: it builds and runs that flow's journey on the merged base branch after every ticket the flow involves has landed. Unlike the **contract ticket**, it comes after the batch rather than before it.
 _Avoid_: 验收票, flow ticket
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 

@@ -49,9 +49,9 @@ EXPECT: JOURNEY OK <name>
 ```
 
 Journeys appear on the contract ticket, on the tickets the owner named, and on each
-acceptance ticket, and nowhere else. `verify-ticket.py --lint` reports a `journey.py run <name>` with no directory under
-`.mmw/journeys/`, unless the ticket's `## Owns` covers that directory — then this is the
-ticket that builds it.
+acceptance ticket, and nowhere else. `verify-ticket.py --lint` reports a
+`journey.py run <name>` with no directory under `.mmw/journeys/`, unless the
+ticket's `## Owns` covers that directory — then this is the ticket that builds it.
 
 A journey starts and stops the whole stack twice over, so it is the slowest criterion on
 a ticket. When it needs longer than the ten minutes every `CHECK:` gets, the ticket says
