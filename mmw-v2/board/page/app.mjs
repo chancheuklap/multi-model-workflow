@@ -7,14 +7,6 @@ import {render as settings, fromPayload as settingsFromPayload, unmount as unmou
 import {api} from "./api.mjs";
 import {startBoardFeed} from "./board-feed.mjs";
 
-// PROTOTYPE scaffolding — prototypes/board-orchestration/sidebar-events/UI.
-// `?variant=A|B|C` hands the detail column to a prototype variant, `?sel=<n>` opens a card
-// on load. Nothing runs without the parameter; the import is served only by that
-// prototype's own serve.py. It all comes down when a winner is folded in.
-const protoQuery = typeof location === "undefined" ? null : new URLSearchParams(location.search);
-const protoKey = protoQuery?.get("variant") || null;
-const proto = protoKey ? await import("./proto/mount.mjs").catch(() => null) : null;
-
 function nextOrange(tasks, current) {
   const list = [];
   for (const task of tasks) {
@@ -46,10 +38,6 @@ export function mountPage(doc = document) {
 
   const taskOf = n => (state.payload.tasks || []).find(task => task.n === n) || null;
 
-  // PROTOTYPE scaffolding: `?sel=<n>` opens that card as soon as the first payload lands.
-  const protoSel = proto ? Number(protoQuery.get("sel")) : NaN;
-  let protoSelPending = Number.isFinite(protoSel) && protoSel > 0;
-
   const setTask = n => {
     if (state.task === n) return;
     state.task = n;
@@ -79,14 +67,6 @@ export function mountPage(doc = document) {
   const paint = () => {
     const list = state.payload.tasks || [];
     if (state.task == null && list[0]) setTask(list[0].n);
-    if (protoSelPending && list.length) {
-      protoSelPending = false;
-      const found = find(list, protoSel);
-      if (found) {
-        setTask(found.task.n);
-        state.sel = protoSel;
-      }
-    }
     const listSign = JSON.stringify(list);
     const topbarView = topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen});
     if (changed("topbar", JSON.stringify(topbarView))) {
@@ -152,15 +132,9 @@ export function mountPage(doc = document) {
         paint();
       },
     };
-    // A prototype variant reads the whole payload, not the view the real column reads, so
-    // its signature is the payload it is handed.
-    const detailSign = proto
-      ? `${protoKey}|${state.sel}|${JSON.stringify(state.payload)}`
-      : JSON.stringify(detailView);
+    const detailSign = JSON.stringify(detailView);
     if (changed("detail", detailSign)) {
-      if (proto) {
-        proto.mount(slots.detail, {payload: state.payload, sel: state.sel, variant: protoKey}, api, detailHooks);
-      } else if (detailView.empty) {
+      if (detailView.empty) {
         unmountDetail(slots.detail);
       } else {
         detail(slots.detail, detailView, api, detailHooks);

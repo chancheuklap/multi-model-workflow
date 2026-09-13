@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {fromBoard, fromScene, render} from "../../board/page/detail.mjs";
+import {describeEvent, groupEventBlocks} from "../../board/page/event-history.mjs";
 import {accessibleName, installDom, namedButton, walk} from "./fake-dom.mjs";
 
 const ticketScene = {
@@ -78,9 +79,10 @@ test("a ticket scene shows origin, status, why-orange, and GitHub", () => {
   assert.ok(namedButton(root, "map #98"));
   assert.match(root.textContent, /折叠接入中继/);
   assert.match(root.textContent, /Needs you/);
-  assert.match(root.textContent, /from worker.started/);
+  assert.match(root.textContent, /Events1/);
+  assert.match(root.textContent, /Worker started/);
   assert.ok(namedButton(root, "#132 中继进程骨架 landed"));
-  assert.ok(namedButton(root, "在 GitHub 打开 #133 ↗"));
+  assert.ok(namedButton(root, "GitHub ↗"));
   const heading = walk(root).find(node => node.tagName === "H2");
   assert.equal(accessibleName(heading), "折叠接入中继");
 });
@@ -103,10 +105,10 @@ test("ticket numbers in the panel call onGoto", () => {
   assert.deepEqual(seen, [131, 132, 135]);
 });
 
-test("在 GitHub 打开 uses a new tab and does not call the API client", () => {
+test("GitHub uses a new tab and does not call the API client", () => {
   const api = new Proxy({}, {get() { throw new Error("board wrote"); }});
   const {root, window} = mount(fromScene(ticketScene), api);
-  namedButton(root, "在 GitHub 打开 #133 ↗").click();
+  namedButton(root, "GitHub ↗").click();
   assert.deepEqual(window.opened, [
     ["https://github.com/chancheuklap/multi-model-workflow/issues/133", "_blank", "noopener,noreferrer"],
   ]);
@@ -139,8 +141,8 @@ test("fromBoard maps a folded ticket onto the detail panel", () => {
   assert.equal(view.lamp, "hollow");
   assert.equal(view.repo, "example/board");
   const {root} = mount(view);
-  assert.ok(namedButton(root, "在 GitHub 打开 #133 ↗"));
-  namedButton(root, "在 GitHub 打开 #133 ↗").click();
+  assert.ok(namedButton(root, "GitHub ↗"));
+  namedButton(root, "GitHub ↗").click();
   assert.equal(globalThis.window.opened[0][0], "https://github.com/example/board/issues/133");
 });
 
@@ -155,4 +157,62 @@ test("selecting a spec that has no map shows the spec card with no map link", ()
   assert.equal(view.eyebrow, "Spec");
   assert.deepEqual(view.links, []);
   assert.equal(view.listCount, 1);
+});
+
+test("pipeline events become human-readable phase blocks", () => {
+  const events = [
+    {event: "worker.started", at: "2026-09-12T10:00:00Z", line: "raw worker line",
+      payload: {host: "codex", model: "gpt-5.6-sol", effort: "medium"}},
+    {event: "ticket.claimed", at: "2026-09-12T10:01:00Z", line: "raw claim", payload: {}},
+    {event: "ticket.checked", at: "2026-09-12T10:20:00Z", line: "raw check",
+      payload: {run: "self", result: "met", counts: {met: 6, total: 6}}},
+    {event: "reviewer.started", at: "2026-09-12T10:21:00Z", line: "raw reviewer",
+      payload: {host: "claude", model: "opus", effort: "high"}},
+    {event: "reviewer.reported", at: "2026-09-12T10:30:00Z", line: "raw report", payload: {}},
+    {event: "ticket.landed", at: "2026-09-12T10:40:00Z", line: "raw landed",
+      payload: {into: "task-board"}},
+  ];
+
+  const described = events.map(describeEvent);
+  assert.deepEqual(described.map(event => event.name), [
+    "Worker started", "Ticket claimed", "Criteria run", "Reviewer started", "Review posted", "Landed",
+  ]);
+  assert.deepEqual(groupEventBlocks(events).map(block => block.phase), ["working", "review", "landed"]);
+  assert.equal(described.some(event => /^(worker|ticket|reviewer|verifier)\./.test(event.name)), false);
+  assert.equal(describeEvent({event: "future.event", payload: {}}).name, "Future event");
+});
+
+test("ticket rendering shows phase blocks and keeps backend fields behind an event click", () => {
+  const scene = structuredClone(ticketScene);
+  scene.vals.d.events = [];
+  scene.vals.rawEvents = [
+    {event: "worker.started", at: "2026-09-12T10:00:00Z", line: "worker started",
+      payload: {host: "codex", model: "gpt-5.6-sol", effort: "medium", session: "term-secret"}},
+    {event: "ticket.checked", at: "2026-09-12T10:20:00Z", line: "criteria passed",
+      payload: {run: "self", result: "met", counts: {met: 6, total: 6}, commit: "abc123"}},
+  ];
+  const {root} = mount(fromScene(scene));
+
+  assert.match(root.textContent, /Worker started/);
+  assert.match(root.textContent, /Criteria run/);
+  assert.doesNotMatch(root.textContent, /worker\.started|ticket\.checked|term-secret|abc123/);
+  const eventButton = namedButton(root, "10:00 Worker started codex gpt-5.6-sol, medium effort");
+  assert.ok(eventButton);
+  eventButton.click();
+  assert.match(root.textContent, /term-secret/);
+  assert.match(root.textContent, /session/);
+});
+
+test("poll repaint keeps the detail root and an opened event", () => {
+  const scene = structuredClone(ticketScene);
+  scene.vals.rawEvents = [{event: "worker.started", at: "2026-09-12T10:00:00Z",
+    line: "worker started", payload: {session: "term-secret"}}];
+  const view = fromScene(scene);
+  const {host, root} = mount(view);
+  namedButton(root, "10:00 Worker started").click();
+  assert.match(root.textContent, /term-secret/);
+
+  const repainted = render(host, view);
+  assert.equal(repainted, root);
+  assert.match(repainted.textContent, /term-secret/);
 });
