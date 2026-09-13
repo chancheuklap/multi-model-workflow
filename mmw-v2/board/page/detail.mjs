@@ -39,13 +39,11 @@ function relFrom(row) {
 }
 
 function phaseItemFrom(item) {
-  const tone = item.tone
-    || ((item.nameCls || "").includes("warn") ? "warn" : "plain");
-  const detail = (item.detail || []).map(row => Array.isArray(row)
-    ? {k: row[0], v: row[1]} : {k: row.k, v: row.v});
   return {
     event: item.event, time: item.time, name: item.name, text: item.text || "",
-    hasText: item.hasText ?? Boolean(item.text), tone, detail,
+    hasText: item.hasText ?? Boolean(item.text),
+    tone: item.tone || "plain",
+    detail: item.detail || [],
   };
 }
 
@@ -131,19 +129,21 @@ export function find(tasks, n) {
   return null;
 }
 
-function relRowFromBoard(tasks, n, role, hereSpec) {
+function relRowFromBoard(tasks, n, role, hereSpec, thisTicket) {
   const found = find(tasks, n);
   if (!found) {
     return {n, num: `#${n}`, lamp: "none", title: "不在这棵树里，读不到它的状态",
-      where: "", state: "unknown", unknown: true};
+      where: "", state: "unknown", unknown: true, hold: false};
   }
-  let lamp, state, phase;
+  let lamp, state, phase, hold = false;
   if (found.type === "ticket") {
     lamp = Board.lamp(found.ref);
     phase = Board.phase(found.ref);
     state = found.ref.fold.landed ? "landed"
       : role !== "blocker" ? LAMP_WORD[lamp]
         : Board.released(found.ref) ? "closed unpassed · released" : "not landed";
+    hold = role === "blocker" ? !Board.released(found.ref)
+      : Boolean(thisTicket) && !Board.released(thisTicket);
   } else if (found.type === "spec") {
     lamp = Board.aggregate(found.ref.tickets);
     state = `${found.ref.tickets.filter(ticket => Board.done(ticket)).length}/${found.ref.tickets.length}`;
@@ -154,16 +154,8 @@ function relRowFromBoard(tasks, n, role, hereSpec) {
   return {
     n, num: `#${n}`, lamp, title: found.ref.title, unknown: false,
     where: found.spec && found.spec.n !== hereSpec ? `spec #${found.spec.n}` : "",
-    state, phase,
+    state, phase, hold,
   };
-}
-
-function relatedRow(tasks, n, upstream, thisTicket, hereSpec) {
-  const row = relRowFromBoard(tasks, n, upstream ? "blocker" : "blocked", hereSpec);
-  const other = find(tasks, n);
-  const ticket = other?.type === "ticket" ? other.ref : null;
-  const hold = Boolean(ticket) && (upstream ? !Board.released(ticket) : !Board.released(thisTicket));
-  return {...row, hold};
 }
 
 function heldFirst(rows) {
@@ -200,10 +192,10 @@ function ticketView(tasks, found) {
     ["machine", payload.machine],
     ...(slot ? [["slot", String(slot.payload.slot)]] : []),
   ].filter(([, value]) => value).map(([k, v]) => ({k, v}));
-  const blockers = heldFirst(ticket.blocked.map(n => relatedRow(tasks, n, true, ticket, found.spec.n)));
-  const blocking = heldFirst(found.spec.tickets
+  const blockers = ticket.blocked.map(n => relRowFromBoard(tasks, n, "blocker", found.spec.n, ticket));
+  const blocking = found.spec.tickets
     .filter(item => item.blocked.includes(ticket.n))
-    .map(item => relatedRow(tasks, item.n, false, ticket, found.spec.n)));
+    .map(item => relRowFromBoard(tasks, item.n, "blocked", found.spec.n, ticket));
   const kids = Object.values(fold.children);
   return {
     empty: false, kind: "ticket", eyebrow: "Ticket", num: `#${ticket.n}`,
@@ -358,7 +350,9 @@ function ticketRelation(hooks, row) {
   const body = [
     el("span", {class: `lamp ${row.lamp}`}),
     el("span", {class: "pv-rel-n"}, row.num),
-    el("span", {class: "pv-rel-t"}, row.title),
+    el("span", {class: "pv-rel-t"}, row.title,
+      row.where ? " " : null,
+      row.where ? el("span", {class: "rel-where"}, row.where) : null),
     last,
   ];
   if (row.unknown) {
@@ -409,14 +403,13 @@ function eventRow(item, key, ui, repaint) {
     }},
   el("span", {class: "va-t"}, item.time),
   el("span", {class: item.tone === "warn" || item.tone === "needs-you" ? "va-n warn" : "va-n"}, item.name),
-  item.hasText || item.text ? el("span", {class: "va-x"}, item.text) : null,
-  opened ? backendDetail(item.detail || []) : null);
+  item.hasText ? el("span", {class: "va-x"}, item.text) : null,
+  opened ? backendDetail(item.detail) : null);
 }
 
 function phaseBlock(block, index, view, ui, repaint) {
   const key = `${view.gh}:b${index}`;
-  const defaultOpen = block.openByDefault ?? (index === (view.phaseBlocks || []).length - 1
-    || block.tone !== "plain");
+  const defaultOpen = block.openByDefault;
   const opened = ui.toggledBlocks.has(key) ? !defaultOpen : defaultOpen;
   const header = el("button", {type: "button", class: "va-bhead", "data-detail-key": key,
     onClick: () => {
@@ -425,8 +418,8 @@ function phaseBlock(block, index, view, ui, repaint) {
     }},
   el("span", {class: "va-chev"}, opened ? "▾" : "▸"),
   el("span", {class: `pill ${block.phase}`}, block.phase),
-  el("span", {class: "va-bsum"}, opened ? "" : (block.summary || blockSummary(block))),
-  el("span", {class: "va-btime"}, opened ? (block.span || block.from) : block.from));
+  el("span", {class: "va-bsum"}, opened ? "" : block.summary),
+  el("span", {class: "va-btime"}, opened ? block.span : block.from));
   const card = el("div", {class: block.tone === "plain" ? "va-block" : "va-block warn"}, header);
   if (opened) {
     card.append(el("div", {class: "va-body"},
@@ -437,7 +430,7 @@ function phaseBlock(block, index, view, ui, repaint) {
 }
 
 function ticketCard(hooks, view, ui, repaint) {
-  const blocks = view.phaseBlocks?.length ? view.phaseBlocks : phaseBlocksFrom(view.rawEvents || []);
+  const blocks = view.phaseBlocks || [];
   const parts = [
     el("div", {class: "pv-head"},
       el("span", {class: "pv-eyebrow"}, view.eyebrow || "Ticket"),

@@ -12,16 +12,6 @@ const NEEDS_YOU_KIND = {
   contract: "spec 本身不成立，要回到写 spec 的人",
 };
 const NEEDS_YOU = new Set(Object.keys(NEEDS_YOU_KIND));
-const QUEUE_REASON = {"product-full": "every instance of the product is held",
-  "machine-full": "every slot on this machine is held"};
-const ENDED_BY = {
-  "reviewer.reported": "review posted", "ticket.landed": "landed",
-  "ticket.returned": "handed back", "ticket.bounced": "bounced",
-  "ticket.released": "claim released", "spec.suspended": "night suspended",
-  "worker.retracted": "retracted", "worker.replaced": "replaced",
-  "ticket.refused": "preflight refused", "worker.lost": "session lost",
-  "reviewer.lost": "session lost",
-};
 const duration = value => value < 60 ? `${value}m` : `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}m`;
 const short = value => String(value || "").slice(0, 7);
 const workerStartedAfter = (fold, at) => fold.sessions.some(session =>
@@ -142,30 +132,6 @@ export const Board = {
     return "hollow";
   },
 
-  eventLamp(event) {
-    if (event.event === "child.opened" && NEEDS_YOU.has(event.payload?.kind)) return "orange";
-    if (event.event === "ticket.returned" || event.event === "ticket.bounced") return "orange";
-    if (/\.started$|^worker\.resumed$|^ticket\.claimed$/.test(event.event)) return "green";
-    if (/^ticket\.(landed|passed)$|^reviewer\.reported$|^child\.closed$/.test(event.event)) return "ink";
-    return "hollow";
-  },
-
-  evFields(event) {
-    const payload = event.payload || {};
-    if (/\.started$/.test(event.event)) return `${payload.runner} · ${payload.session} · ${payload.machine}`;
-    if (/\.lost$|^worker\.(retracted|replaced|resumed)$/.test(event.event)) return `${payload.runner} · ${payload.session}`;
-    if (event.event === "ticket.claimed") return `login=${payload.login}`;
-    if (event.event === "ticket.checked") return `run=${payload.run} result=${payload.result}${payload.slot != null ? ` slot=${payload.slot}` : ""}`;
-    if (event.event === "worker.queued") return `reason=${payload.reason} run=${payload.run}`;
-    if (event.event === "child.opened") return `kind=${payload.kind} #${payload.child}`;
-    if (event.event === "child.closed") return `#${payload.child} → ${payload.resolution}${payload.became ? ` #${payload.became}` : ""}`;
-    if (event.event === "ticket.returned") return (payload.abandoned || []).map(item => `${item.ac}=${item.kind}`).join(" ");
-    if (event.event === "ticket.bounced") return `reason=${payload.reason} onto=${short(payload.commit)}`;
-    if (event.event === "reviewer.reported") return `${short(payload.base)}..${short(payload.head)}`;
-    if (payload.commit) return `commit=${short(payload.commit)}`;
-    return "";
-  },
-
   waitingSince(ticket) {
     return ticket.fold.waiting && ticket.fold.sessions.some(session => session.live) ? ticket.fold.waiting.at : null;
   },
@@ -184,32 +150,6 @@ export const Board = {
     const session = live.length ? live[live.length - 1] : ticket.fold.worker;
     if (live.length && this.stoppedByFault(ticket)) return {text: `stopped · ${session.host} · ${session.model}`, flag: true};
     return {text: `${session.host} · ${session.model} · ${session.effort}`};
-  },
-
-  facts(ticket) {
-    const fold = ticket.fold;
-    const workerSession = fold.worker;
-    if (!workerSession) return [];
-    const rows = [
-      ["host", `${workerSession.host} · ${workerSession.model} · ${workerSession.effort}`],
-      ["runner", `${workerSession.runner} · ${workerSession.session}`],
-      ["machine", workerSession.machine],
-      ["ticket branch", `${workerSession.branch} @ ${short(workerSession.base)}`],
-      ...(workerSession.into ? [["base branch", workerSession.into]] : []),
-      ["worktree", `…/.worktrees/${String(workerSession.worktree).split("/.worktrees/")[1]}`],
-      ["worker grade", workerSession.grade],
-    ];
-    const since = this.waitingSince(ticket);
-    if (since) {
-      const queued = fold.waiting.payload;
-      rows.push(["slot", `queueing since ${hhmm(since)}: ${QUEUE_REASON[queued.reason]} (max ${queued.limit}). Until the next ticket.checked, the relay's wake and the criteria run included`]);
-    } else if (fold.slot != null) rows.push(["slot", `${fold.slot}, held until this ticket lands, is handed back or bounces`]);
-    return rows;
-  },
-
-  sessionState(session, ticket) {
-    return !session.live ? (ENDED_BY[session.ended_by] || "ended")
-      : this.stoppedByFault(ticket) ? "stopped on a fault" : "live";
   },
 
   elapsed(ticket) {
@@ -472,8 +412,8 @@ const PHASE_OF_EVENT = {
 const STICKY_EVENTS = new Set(["ticket.claimed"]);
 const EVENT_NAME = {
   "spec.opened": "Night opened", "spec.suspended": "Night suspended",
-  "spec.closed": "Night closed", "spec.merged": "Base branch merged",
-  "ticket.claimed": "Ticket claimed", "ticket.refused": "Preflight refused",
+  "spec.closed": "Night closed", "spec.merged": "Night's branch merged",
+  "ticket.claimed": "Ticket claimed", "ticket.refused": "Pick-up refused",
   "ticket.passed": "Ticket passed", "ticket.returned": "Ticket handed back",
   "ticket.released": "Claim released", "ticket.landed": "Landed",
   "ticket.regressed": "Regressed after landing", "ticket.bounced": "Merge bounced",
@@ -631,7 +571,7 @@ export function describeEvent(raw = {}) {
   const event = raw.event || "";
   return {
     event,
-    time: raw.at ? raw.at.slice(11, 16) : raw.time || "",
+    time: raw.at ? hhmm(raw.at) : raw.time || "",
     name: eventName(event, payload),
     text: eventText(event, payload),
     phase: eventPhase(event, payload),

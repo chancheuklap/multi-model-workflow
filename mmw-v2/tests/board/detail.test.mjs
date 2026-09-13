@@ -3,7 +3,15 @@ import test from "node:test";
 
 import {fromBoard, fromScene, render} from "../../board/page/detail.mjs";
 import {describeEvent, eventBlocks} from "../../board/page/board-logic.mjs";
+import {hhmm} from "../../board/page/shared.mjs";
 import {accessibleName, installDom, namedButton, walk} from "./fake-dom.mjs";
+
+function fold(extra = {}) {
+  return {
+    children: {}, sessions: [], landed: false, returned: false, bounced: false,
+    outcome: null, waiting: null, review: null, worker: null, ...extra,
+  };
+}
 
 const ticketScene = {
   vals: {
@@ -220,7 +228,88 @@ test("poll repaint keeps the detail root and an opened event", () => {
   namedButton(root, "22:38 Worker started grok grok 4.6, xhigh effort").click();
   assert.match(root.textContent, /w94b8/);
 
-  const repainted = render(host, view);
+  const repainted = render(host, fromScene(ticketScene));
   assert.equal(repainted, root);
   assert.match(repainted.textContent, /w94b8/);
+});
+
+test("fromBoard opens the last block and a problem block, and shuts a plain middle one", () => {
+  const events = [
+    {event: "worker.started", at: "2026-09-12T10:00:00Z", payload: {host: "codex", model: "gpt-5.6", effort: "high"}},
+    {event: "ticket.claimed", at: "2026-09-12T10:01:00Z", payload: {}},
+    {event: "ticket.checked", at: "2026-09-12T10:20:00Z",
+      payload: {run: "self", result: "met", counts: {met: 4, total: 4}}},
+    {event: "reviewer.started", at: "2026-09-12T10:21:00Z", payload: {host: "claude", model: "opus", effort: "high"}},
+    {event: "reviewer.reported", at: "2026-09-12T10:30:00Z", payload: {}},
+    {event: "child.opened", at: "2026-09-12T10:40:00Z",
+      payload: {kind: "decision", child: 151, title: "唤醒要不要跨过已暂停的 spec"}},
+    {event: "ticket.landed", at: "2026-09-12T11:00:00Z", payload: {into: "wake-relay"}},
+  ];
+  const ticket = {
+    n: 133, title: "折叠接入中继", blocked: [], children: [], events,
+    fold: fold({landed: true, children: {151: {child: 151, kind: "decision", title: "唤醒要不要跨过已暂停的 spec"}}}),
+  };
+  const view = fromBoard({
+    repo: "example/board",
+    tasks: [{n: 98, kind: "wayfinder", title: "map", decisions: [],
+      specs: [{n: 131, title: "唤醒回路", tickets: [ticket]}]}],
+  }, 133);
+  const {root} = mount(view);
+  assert.ok(namedButton(root, `▸ working Criteria run — 4 of 4 criteria met ${hhmm("2026-09-12T10:00:00Z")}`));
+  assert.ok(namedButton(root, `▸ review Review posted — the three-axis review is on the ticket ${hhmm("2026-09-12T10:21:00Z")}`));
+  assert.ok(namedButton(root, `▾ working ${hhmm("2026-09-12T10:40:00Z")}`));
+  assert.ok(namedButton(root, `▾ landed ${hhmm("2026-09-12T11:00:00Z")}`));
+  assert.match(root.textContent, /Your decision needed/);
+  assert.doesNotMatch(root.textContent, /Worker started/);
+});
+
+test("a claim after a waiting event stays in that waiting block", () => {
+  const events = [
+    {event: "worker.queued", at: "2026-09-12T10:00:00Z", payload: {reason: "product-full"}},
+    {event: "ticket.claimed", at: "2026-09-12T10:01:00Z", payload: {}},
+  ];
+  const blocks = eventBlocks(events);
+  assert.deepEqual(blocks.map(block => block.phase), ["waiting"]);
+  assert.equal(blocks[0].items.length, 2);
+  assert.equal(blocks[0].items[1].name, "Ticket claimed");
+});
+
+test("fromBoard sorts a holding blocker above a released one and names the other spec", () => {
+  const here = {
+    n: 133, title: "折叠接入中继", blocked: [132, 220], children: [], events: [],
+    fold: fold(),
+  };
+  const released = {
+    n: 132, title: "中继进程骨架", blocked: [], children: [], events: [],
+    blocker_hold: "",
+    fold: fold({landed: true}),
+  };
+  const holding = {
+    n: 220, title: "判活扫描循环", blocked: [], children: [], events: [],
+    blocker_hold: "open",
+    fold: fold(),
+  };
+  const view = fromBoard({
+    repo: "example/board",
+    tasks: [{
+      n: 98, kind: "wayfinder", title: "map", decisions: [],
+      specs: [
+        {n: 131, title: "唤醒回路", tickets: [released, here]},
+        {n: 211, title: "判活三层", tickets: [holding]},
+      ],
+    }],
+  }, 133);
+  const {root} = mount(view);
+  assert.ok(namedButton(root, "#220 判活扫描循环 spec #211 held"));
+  assert.ok(namedButton(root, "#132 中继进程骨架 landed"));
+  const buttons = walk(root).filter(node => node.tagName === "BUTTON").map(accessibleName);
+  assert.ok(buttons.indexOf("#220 判活扫描循环 spec #211 held")
+    < buttons.indexOf("#132 中继进程骨架 landed"));
+});
+
+test("event times follow the board clock and two README names", () => {
+  const at = "2026-09-12T10:00:00Z";
+  assert.equal(describeEvent({event: "worker.started", at, payload: {}}).time, hhmm(at));
+  assert.equal(describeEvent({event: "ticket.refused", payload: {}}).name, "Pick-up refused");
+  assert.equal(describeEvent({event: "spec.merged", payload: {}}).name, "Night's branch merged");
 });
