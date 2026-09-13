@@ -13,6 +13,8 @@ The design is ported into Claude Design as five components (the four regions of 
 - Project: https://claude.ai/design/p/457777fa-6ee0-43e9-85f1-e78e457f0629
 - Design system: https://claude.ai/design/p/1d871e1b-2359-439c-a986-37e5657993f6
 
+`Component · 详情` shows a ticket the way variant A of `prototypes/board-orchestration/sidebar-events/UI/` (README section "The three variants", **A · Phase blocks**) shows it: its history as one block per phase, every event under a human-readable name, and the payload fields one click behind each event. The event names, phase pills and block rules are that prototype's `vocab.mjs`, carried in `work/data/fixtures.js` under `event history`; the class rules are its `proto.css`, carried in `work/styles/board.css` under `right column: a ticket`. A spec, the map and a decision ticket keep the column they had.
+
 The handoff package #318 section 2 asks for is in `work/`; the screen contract `align-screens` wrote from it is `docs/specs/task-board/screen-contract.yaml`, with its target trees under `docs/specs/task-board/targets/`.
 
 ## Which parts the real code has taken

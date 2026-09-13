@@ -707,6 +707,221 @@ function canvasView(key, taskN, sel, expandedList, reduced) {
   };
 }
 
+/* ── event history ──────────────────────────────────────────── */
+// Every pipeline event as a person reads it: an English name, the phase pill the ticket card
+// carried while that event was the newest one on the ticket, and one sentence built from the
+// payload fields worth reading. Every other payload field is kept under `detail`, in the
+// payload's own field names, one click behind the event.
+// A refusal, a release, a retraction and a lost session all leave nothing running, so all
+// four carry `queued`, the pill of a card with nothing on it.
+const PHASE_OF_EVENT = {
+  'worker.started': 'working', 'worker.resumed': 'working', 'ticket.claimed': 'working',
+  'worker.touched': 'working', 'worker.decided': 'working', 'child.opened': 'working',
+  'worker.queued': 'waiting',
+  'reviewer.started': 'review', 'reviewer.reported': 'review',
+  'verifier.started': 'verify', 'verifier.passed': 'verify', 'verifier.failed': 'verify',
+  'ticket.passed': 'verify', 'ticket.returned': 'verify', 'ticket.bounced': 'verify',
+  'ticket.refused': 'queued', 'ticket.released': 'queued', 'worker.retracted': 'queued',
+  'worker.replaced': 'queued', 'worker.lost': 'queued', 'reviewer.lost': 'queued',
+  'verifier.lost': 'queued',
+  'ticket.landed': 'landed', 'ticket.regressed': 'landed', 'child.closed': 'landed',
+  'spec.merged': 'landed', 'spec.opened': 'queued', 'spec.suspended': 'queued',
+  'spec.closed': 'queued',
+};
+// A claim never opens a block of its own: `dispatch.sh` starts the session and the worker
+// claims the ticket a minute later, and a person reads those two as one act.
+const STICKY_EVENTS = new Set(['ticket.claimed']);
+const EVENT_NAME = {
+  'spec.opened': 'Night opened', 'spec.suspended': 'Night suspended',
+  'spec.closed': 'Night closed', 'spec.merged': 'Base branch merged',
+  'ticket.claimed': 'Ticket claimed', 'ticket.refused': 'Preflight refused',
+  'ticket.passed': 'Ticket passed', 'ticket.returned': 'Ticket handed back',
+  'ticket.released': 'Claim released', 'ticket.landed': 'Landed',
+  'ticket.regressed': 'Regressed after landing', 'ticket.bounced': 'Merge bounced',
+  'worker.started': 'Worker started', 'worker.resumed': 'Worker resumed',
+  'worker.retracted': 'Worker retracted', 'worker.replaced': 'Worker replaced',
+  'worker.decided': 'Decisions recorded', 'worker.queued': 'Waiting for a slot',
+  'worker.touched': 'Another ticket touched its files', 'worker.lost': 'Worker session lost',
+  'reviewer.started': 'Reviewer started', 'reviewer.reported': 'Review posted',
+  'reviewer.lost': 'Reviewer session lost', 'verifier.started': 'Verifier started',
+  'verifier.passed': 'Verification passed', 'verifier.failed': 'Verification failed',
+  'verifier.lost': 'Verifier session lost',
+};
+const CHILD_NAME = {
+  finding: 'Finding raised', contract: 'Spec does not hold', deferred: 'Left for a later ticket',
+  decision: 'Your decision needed', fault: 'MMW itself broke',
+};
+const RUN_NAME = { self: 'Criteria run', reverify: 'Criteria re-run', 'repo-checks': 'Repository checks' };
+const REFUSAL = {
+  'wrong-branch': 'the worktree was on the wrong branch',
+  'dirty-tree': 'the tree already carried uncommitted changes',
+  'not-open': 'the ticket was no longer open',
+  'not-ready': 'the ticket was not in the agent queue',
+  blocked: 'a ticket in front of it had not landed',
+  'claimed-by-other': 'someone else already held it',
+};
+const RELEASE = {
+  landed: 'it had landed', suspended: 'the night was suspended',
+  'worker-lost': "its worker's session was gone",
+};
+const QUEUE = {
+  'product-full': 'every instance of the product was in use',
+  'machine-full': 'every slot on this machine was in use',
+};
+const RESOLUTION = { fixed: 'fixed', stale: 'no longer applies', 'became-ticket': 'became a ticket' };
+const COMMON_FIELDS = new Set(['v', 'event', 'stage', 'actor', 'spec', 'ticket', 'at']);
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const listOf = (items, max = 2) => {
+  const all = items || [];
+  if (all.length <= max) return all.join(', ');
+  return `${all.slice(0, max).join(', ')} and ${all.length - max} more`;
+};
+const countsText = counts => {
+  if (!counts || counts.total == null) return '';
+  return `${counts.met ?? counts.passed ?? 0} of ${counts.total}`;
+};
+
+function eventText(event, p) {
+  switch (event) {
+    case 'worker.started':
+    case 'worker.resumed':
+    case 'reviewer.started':
+    case 'verifier.started':
+      return p.model ? `${p.host} ${p.model}, ${p.effort} effort` : '';
+    case 'worker.touched':
+      return `#${p.by} changed ${plural((p.files || []).length, 'file')} this ticket owns`;
+    case 'worker.queued':
+      return QUEUE[p.reason] || '';
+    case 'worker.decided':
+      return 'the calls the worker made on its own, written down for the review';
+    case 'ticket.refused':
+      return `it would not start: ${REFUSAL[p.reason] || p.reason}`;
+    case 'ticket.released':
+      return `back in the queue: ${RELEASE[p.reason] || p.reason}`;
+    case 'ticket.checked': {
+      const counts = countsText(p.counts);
+      if (p.run === 'repo-checks') {
+        return `${counts || 'the'} repository check${p.counts && p.counts.total === 1 ? '' : 's'} passed`;
+      }
+      const failed = (p.failed || []).length ? ` — ${listOf(p.failed, 3)} unmet` : '';
+      return `${counts} criteria met${failed}`;
+    }
+    case 'ticket.passed':
+      return `${countsText(p.counts)} criteria met, ticket closed`;
+    case 'ticket.returned':
+      return 'handed back with criteria it could not meet';
+    case 'ticket.landed':
+      return `merged into ${p.into}`;
+    case 'ticket.bounced':
+      return p.reason === 'conflict'
+        ? `conflict with ${p.into} in ${plural((p.files || []).length, 'file')}`
+        : `checks failed after merging into ${p.into}`;
+    case 'ticket.regressed':
+      return `${listOf(p.failed, 3)} stopped passing on the base branch`;
+    case 'reviewer.reported':
+      return 'the three-axis review is on the ticket';
+    case 'verifier.passed':
+    case 'verifier.failed':
+      return p.says || '';
+    case 'worker.lost':
+    case 'reviewer.lost':
+    case 'verifier.lost':
+      return 'its session stopped without finishing';
+    case 'child.opened':
+      return p.title || '';
+    case 'child.closed':
+      return p.resolution === 'became-ticket'
+        ? `#${p.child} became ticket #${p.became}`
+        : `#${p.child}: ${RESOLUTION[p.resolution] || p.resolution}`;
+    case 'spec.merged':
+      return `into the project branch ${p.project}`;
+    default:
+      return '';
+  }
+}
+
+function eventName(event, p) {
+  if (event === 'ticket.checked') {
+    if (p.run === 'reverify' && p.stage === 'regress') return 'Criteria re-run after landing';
+    return RUN_NAME[p.run] || 'Criteria run';
+  }
+  if (event === 'child.opened') return CHILD_NAME[p.kind] || 'Sub-issue opened';
+  if (event === 'child.closed') return p.resolution === 'became-ticket' ? 'Finding became a ticket' : 'Sub-issue closed';
+  return EVENT_NAME[event] || event;
+}
+
+function eventTone(event, p) {
+  if (event === 'child.opened' && NEEDS_YOU_KIND[p.kind]) return 'needs-you';
+  if (event === 'ticket.returned' || event === 'ticket.bounced' || event === 'ticket.regressed') return 'needs-you';
+  if (event === 'ticket.refused' || /\.lost$|^worker\.(retracted|replaced)$/.test(event)) return 'warn';
+  if (event === 'ticket.checked' && p.result !== 'met') return 'warn';
+  if (event === 'verifier.failed') return 'warn';
+  if (/^ticket\.(landed|passed)$|^verifier\.passed$/.test(event)) return 'good';
+  return 'plain';
+}
+
+function eventPhase(event, p) {
+  if (event === 'ticket.checked') {
+    if (p.run === 'repo-checks') return 'verify';
+    if (p.run === 'reverify') return p.stage === 'regress' ? 'landed' : 'verify';
+    return 'working';
+  }
+  return PHASE_OF_EVENT[event] || 'working';
+}
+
+function eventDetail(p, line) {
+  const rows = [];
+  for (const [k, v] of Object.entries(p)) {
+    if (COMMON_FIELDS.has(k) || k === 'details') continue;
+    if (k === 'criteria') { rows.push({ k, v: v.map(c => `${c.id} ${c.met ? 'met' : 'unmet'}`).join(', ') }); continue; }
+    rows.push({ k, v: Array.isArray(v) ? v.join(', ') : typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v) });
+  }
+  rows.push({ k: 'comment', v: line });
+  return rows;
+}
+
+function describeEvent(e) {
+  const p = e.payload || {};
+  return {
+    event: e.event, time: e.at ? e.at.slice(11, 16) : '',
+    name: eventName(e.event, p), text: eventText(e.event, p),
+    phase: eventPhase(e.event, p), tone: eventTone(e.event, p),
+    sticky: STICKY_EVENTS.has(e.event), detail: eventDetail(p, e.line || ''),
+  };
+}
+
+// A ticket's events in order, cut into blocks wherever the phase pill changes: a second
+// worker start after a refusal opens a second `working` block, which is what a second
+// attempt looks like without a word invented for it.
+function eventBlocks(events) {
+  const out = [];
+  for (const e of events || []) {
+    const item = describeEvent(e);
+    const last = out[out.length - 1];
+    if (last && (last.phase === item.phase || item.sticky)) last.items.push(item);
+    else out.push({ phase: item.phase, items: [item] });
+  }
+  for (const b of out) {
+    b.from = b.items[0].time;
+    b.to = b.items[b.items.length - 1].time;
+    b.tone = b.items.some(i => i.tone === 'needs-you') ? 'needs-you' : b.items.some(i => i.tone === 'warn') ? 'warn' : 'plain';
+  }
+  return out;
+}
+
+// What a shut block says on its one line: the event of it a person would have opened it
+// for — a refusal or a finding before a criteria run, a criteria run before a claim.
+const SUMMARY_WEIGHT = {
+  'ticket.refused': 3, 'ticket.returned': 3, 'ticket.bounced': 3, 'ticket.regressed': 3, 'child.opened': 3,
+  'ticket.checked': 2, 'verifier.passed': 2, 'verifier.failed': 2, 'reviewer.reported': 2, 'ticket.landed': 2,
+  'ticket.passed': 2, 'worker.lost': 2, 'ticket.released': 1, 'worker.started': 1,
+};
+function blockSummary(b) {
+  const best = b.items.reduce((pick, i) => ((SUMMARY_WEIGHT[i.event] || 0) >= (SUMMARY_WEIGHT[pick.event] || 0) ? i : pick), b.items[0]);
+  return best.text ? `${best.name} — ${best.text}` : best.name;
+}
+
 /* ── detail ─────────────────────────────────────────────────── */
 // One related issue as a row: its lamp, title, where it lives, and how it stands.
 function relRow(key, n, role, hereSpec) {
@@ -730,59 +945,70 @@ function relRow(key, n, role, hereSpec) {
   };
 }
 
-// The current phase's class on the phase path, written out so every class the stylesheet
-// carries is findable by name.
-const NOW_CLASS = { queued: 'now-queued', working: 'now-working', waiting: 'now-waiting', review: 'now-review', verify: 'now-verify', landed: 'now-landed' };
-
+// A ticket: what it is and the way out to GitHub, its lamp, status word, phase pill and
+// duration, where it ran, what needs a person, what holds it and what it holds, its history
+// as phase blocks, and its sub-issues. Only the last block and a block that went wrong open
+// by default; which blocks and events are open is the component's own state.
 function ticketView(key, found) {
   const t = found.ref, f = t.fold, l = Board.lamp(t), st = Board.phase(t);
-  const w = f.worker, elapsed = Board.elapsed(t);
-  const stopped = Board.stopped(t);
-  const i = PHASES.indexOf(st);
-  const kidTo = k => {
-    if (k.resolution === 'fixed') return { to: 'fixed' };
-    if (k.resolution === 'stale') return { to: 'stale' };
-    if (k.resolution === 'became-ticket') return { to: `became #${k.ticket}`, goto: k.ticket };
-    if (NEEDS_YOU_KIND[k.kind]) return { to: 'needs you', toCls: 'kid-to orange' };
-    return { to: k.kind === 'deferred' ? 'deferred' : 'for the closing pass' };
+  // A related ticket reads the way its card on the canvas reads — its lamp and phase pill —
+  // unless its hold on this ticket still stands, which is the one thing the list is opened for.
+  const related = (n, upstream) => {
+    const row = relRow(key, n, upstream ? 'blocker' : 'blocked', found.spec.n);
+    const other = find(key, n), ticket = other && other.type === 'ticket' ? other.ref : null;
+    const hold = !!ticket && (upstream ? !Board.released(ticket) : !Board.released(t));
+    const phase = ticket ? Board.phase(ticket) : null;
+    return {
+      n, num: row.num, title: row.title, lampCls: row.lampCls, state: row.state, hold,
+      cls: hold ? 'pv-rel hold' : 'pv-rel', phase, pillCls: 'pill ' + phase,
+      showHold: hold, showPill: !hold && !!phase, showState: !hold && !phase,
+    };
   };
-  const facts = Board.facts(t).map(([k, v]) => ({ k, v }));
-  const blocks = found.spec.tickets.filter(x => x.blocked.includes(t.n)).map(x => x.n);
+  const heldFirst = rows => [...rows].sort((a, b) => Number(b.hold) - Number(a.hold));
+  const blockedBy = heldFirst(t.blocked.map(n => related(n, true)));
+  const blocking = heldFirst(found.spec.tickets.filter(x => x.blocked.includes(t.n)).map(x => related(x.n, false)));
+  // Where it ran, read off its newest `worker.started`. The runner and its session id and
+  // the base commit stay in that event's own detail, one click away in the history.
+  const started = [...t.events].reverse().find(e => e.event === 'worker.started');
+  const hasRun = !!f.worker && !!started;
+  const p = (started && started.payload) || {};
+  const worktree = String(p.worktree || '').split('/.worktrees/')[1];
+  const slot = [...t.events].reverse().find(e => e.event === 'ticket.checked' && e.payload && e.payload.slot != null);
+  const runRows = [
+    ['ticket branch', p.branch], ['base branch', p.into],
+    ['worktree', worktree ? `…/.worktrees/${worktree}` : p.worktree], ['machine', p.machine],
+    ...(slot ? [['slot', String(slot.payload.slot)]] : []),
+  ].filter(([, v]) => v).map(([k, v]) => ({ k, v }));
+  const blocks = eventBlocks(t.events);
+  const kids = Object.values(f.children);
   return {
     isTicket: true, eyebrow: 'Ticket', num: '#' + t.n,
     links: [{ label: `spec #${found.spec.n}`, n: found.spec.n }, { label: `map #${found.task.n}`, n: found.task.n }],
-    closeout: !!t.closeout, closeoutFrom: t.closeout ? t.closeout.from : null,
-    closeoutFromLabel: t.closeout ? '#' + t.closeout.from : '', closeoutChild: t.closeout ? `的 finding #${t.closeout.child}` : '',
-    title: t.title, lampCls: 'lamp big ' + l, statusWord: LAMP_WORD[l], statusCls: 'status-word ' + l, elapsed,
-    pillCls: 'pill big ' + st, phase: st,
-    hint: st === 'landed' ? 'done' : stopped ? 'stopped here' : st === 'queued' ? 'not started' : 'here now',
-    path: PHASES.map((s, j) => ({ name: s, cls: 'path-phase' + (j < i ? ' done' : j === i ? ' ' + NOW_CLASS[s] : ''), sep: j < PHASES.length - 1 })),
+    title: t.title, lampCls: 'lamp big ' + l, statusWord: LAMP_WORD[l], wordCls: 'va-word ' + l,
+    pillCls: 'pill big ' + st, phase: st, elapsed: Board.elapsed(t),
+    hasRun, noRun: !hasRun, noRunText: st === 'landed' ? 'closed without a run' : 'not dispatched yet',
+    runGrade: p.grade || '', runModel: hasRun ? `${p.host} · ${p.model} · ${p.effort}` : '', runRows,
     hasWhy: Board.why(t).length > 0,
     why: Board.why(t).map(x => x.child ? { head: `#${x.child} ${x.kind}`, body: `${x.title}。${x.text}` } : { head: '', body: x.text }),
-    hasWorker: !!w, facts,
-    manySessions: f.sessions.length > 1,
-    sessions: f.sessions.map(s => ({
-      kind: s.kind, what: `${s.host} · ${s.model} · ${s.effort}`, state: Board.sessionState(s, t),
-      stateCls: s.live && !Board.stoppedByFault(t) ? 'session-state live' : 'session-state',
-    })),
-    blockers: t.blocked.map(n => relRow(key, n, 'blocker', found.spec.n)), noBlockers: !t.blocked.length,
-    blockerCount: t.blocked.length || null,
-    blocks: blocks.map(n => relRow(key, n, 'blocked', found.spec.n)), noBlocks: !blocks.length,
-    blocksCount: blocks.length || null,
-    kidCount: Object.keys(f.children).length, noKids: !Object.keys(f.children).length,
-    kids: Object.values(f.children).map(k => {
-      const to = kidTo(k);
-      return {
-        num: '#' + k.child, kind: k.kind, title: k.title, to: to.to, toCls: to.toCls || 'kid-to', goto: to.goto || null, hasGoto: !!to.goto,
-        lampCls: 'lamp ' + (k.resolution ? 'ink' : NEEDS_YOU_KIND[k.kind] ? 'orange' : 'hollow'),
-      };
-    }),
+    blockedBy, hasBlockedBy: blockedBy.length > 0, blockedByCount: blockedBy.length,
+    blocking, hasBlocking: blocking.length > 0, blockingCount: blocking.length,
     eventCount: t.events.length, noEvents: !t.events.length,
-    events: t.events.map(e => {
-      const el = Board.evLight(e);
-      return { time: hhmm(e.at), name: e.event, nameCls: el === 'orange' ? 'ev-name orange' : 'ev-name', field: Board.evFields(e), line: e.line, dotCls: `lamp ${el} ev-dot` };
-    }),
-    ghLabel: `在 GitHub 打开 #${t.n} ↗`, gh: t.n,
+    phaseBlocks: blocks.map((b, i) => ({
+      phase: b.phase, pillCls: 'pill ' + b.phase, tone: b.tone, cls: b.tone === 'plain' ? 'va-block' : 'va-block warn',
+      openByDefault: i === blocks.length - 1 || b.tone !== 'plain',
+      summary: blockSummary(b), from: b.from, span: b.from !== b.to ? `${b.from}–${b.to}` : b.from,
+      items: b.items.map(e => ({
+        time: e.time, name: e.name, text: e.text, hasText: !!e.text,
+        nameCls: e.tone === 'warn' || e.tone === 'needs-you' ? 'va-n warn' : 'va-n', detail: e.detail,
+      })),
+    })),
+    rawEvents: t.events,
+    hasKids: kids.length > 0, kidCount: kids.length,
+    kids: kids.map(k => ({
+      num: '#' + k.child, title: k.title, kind: k.kind, kindCls: NEEDS_YOU_KIND[k.kind] ? 'pv-kind hot' : 'pv-kind',
+      lampCls: 'lamp ' + (k.resolution ? 'ink' : NEEDS_YOU_KIND[k.kind] ? 'orange' : 'hollow'),
+    })),
+    gh: t.n,
   };
 }
 
