@@ -32,8 +32,7 @@ outcome it exists to prevent — the ticket closed with no closing comment on it
 
 Whether this session is governed is read off the process, the same way for both gates
 and on every runner: the working directory's basename. `issue-<n>` (digits only) is
-ticket `<n>`, and every session a runner starts on a ticket — worker, reviewer and
-verifier — runs in that worktree, with nobody at its screen. Any other basename is not a
+ticket `<n>`, and every session a runner starts on a ticket — worker and reviewer — runs in that worktree, with nobody at its screen. Any other basename is not a
 ticket worktree and is not refused. Nothing is asked of any runner.
 
 Cursor CLI imports Claude Code hooks and has no off switch, so this file is
@@ -135,7 +134,7 @@ def tool_of(event: dict) -> str:
 def governed_ticket() -> int | None:
     """The ticket this session belongs to, if it is a ticket worktree.
 
-    The slug is `issue-<n>`. Reviewer, verifier and worker share that directory
+    The slug is `issue-<n>`. Reviewer and worker share that directory
     and are all governed. A session in no such directory is not.
 
     Two places say where the session is, and either one naming a ticket is enough.

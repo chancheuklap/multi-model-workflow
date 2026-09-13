@@ -5,11 +5,11 @@ comments into its state.
     events.py emit <event> --ticket N [--spec S] --line TEXT [--text-file F]
                    [--field KEY=VALUE]... [--json-field KEY=JSON]... [--actor A] [--stage S]
     events.py fold [<issue>] [--comments-file F|-]
-    events.py session [<issue>] [--kind worker|reviewer|verifier] [--comments-file F|-]
+    events.py session [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py sessions [<issue>] [--comments-file F|-]
-    events.py result [<issue>] --kind worker|reviewer|verifier [--comments-file F|-]
+    events.py result [<issue>] --kind worker|reviewer [--comments-file F|-]
     events.py checked [<issue>] [--run self|reverify|repo-checks] [--comments-file F|-]
-    events.py live [<issue>] [--kind worker|reviewer|verifier] [--comments-file F|-]
+    events.py live [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py child [<issue>] --child N [--comments-file F|-]
 
 A ticket's state is stored nowhere. It is computed: every comment on the issue is read in
@@ -44,7 +44,7 @@ that has no ids (a test fixture, a list of bodies) is replayed in the order give
 already fetched them: a JSON object with a `comments` list, a list of comment objects,
 or a list of bodies. Exit 0 answered, 2 the comments could not be read, 3 (every reader
 but `fold`) a comment carries an event block nobody can read, named on stderr.
-`result` prints the event's name and its key fields (`verifier.failed commit=… failed=AC2`),
+`result` prints the event's name and its key fields (`reviewer.reported base=… head=…`),
 never its prose. `checked` prints the newest `ticket.checked` the same way, of one run
 when `--run` names it. `live` prints "runner<TAB>session" for every session of that kind
 whose hold no event has ended, oldest first. `child` prints, for a child this issue's
@@ -72,9 +72,9 @@ MARK = "mmw"
 # must carry, and the fields whose value is one of a closed set. Names are
 # `subject.verb`: a subject from SUBJECTS, a verb in the past tense, lower case, ASCII,
 # no value ever inside the name — ticket numbers, commits, hosts and models are fields.
-SUBJECTS = ("spec", "ticket", "worker", "reviewer", "verifier", "child")
+SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child")
 
-AGENT_KINDS = ("worker", "reviewer", "verifier")
+AGENT_KINDS = ("worker", "reviewer")
 
 # The six refusals of `verify-ticket.py --preflight`, in the order it checks them.
 REFUSALS = ("wrong-branch", "dirty-tree", "not-open", "not-ready", "blocked", "claimed-by-other")
@@ -87,7 +87,7 @@ CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
 CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
 # The three runs of a ticket's criteria and checks: the worker's own run, a second run of
-# every criterion (the verifier's, or the main agent's on the base branch after landing),
+# every criterion (the worker's final run, or the main agent's after landing),
 # and the repository's own `checks` of `.mmw/target.json` at the closeout.
 CHECK_RUNS = ("self", "reverify", "repo-checks")
 CHECK_RESULTS = ("met", "unmet", "handoff")
@@ -164,20 +164,6 @@ EVENTS: dict[str, dict] = {
     "reviewer.lost":     {"stage": "review",   "actor": "judge",
                           "required": ("session", "runner")},
 
-    "verifier.started":  {"stage": "verify",   "actor": "worker",
-                          "required": ("session", "runner", "machine"),
-                          "patterns": {"worktree": r"/.*"}},
-    # A verdict covers one commit, written in full: a ticket closes on it being the
-    # commit at HEAD, and two commits share a short prefix often enough to pass a draft
-    # against a verdict on neither of them.
-    "verifier.passed":   {"stage": "verify",   "actor": "verifier", "required": ("commit",),
-                          "patterns": {"commit": r"[0-9a-f]{40}"}},
-    "verifier.failed":   {"stage": "verify",   "actor": "verifier", "required": ("commit",),
-                          "patterns": {"commit": r"[0-9a-f]{40}"}},
-    # A verifier whose session stopped with no verdict after its start.
-    "verifier.lost":     {"stage": "verify",   "actor": "judge",
-                          "required": ("session", "runner")},
-
     # One run of the criteria or of the repository's checks, on one commit: its result,
     # its counts, each criterion's outcome, and — for the worker's own run on its own
     # branch — the files it changed outside `## Owns`. `repo-checks` carries each failed
@@ -209,13 +195,12 @@ ENDS_EVERY_HOLD = ("ticket.landed", "ticket.returned", "ticket.released",
 # refusal ends the hold of the session that refused to claim, which does nothing more on
 # the ticket; a refusal that names no session ends nothing.
 ENDS_ONE_HOLD = ("worker.retracted", "worker.lost", "worker.replaced", "ticket.refused",
-                 "reviewer.lost", "verifier.lost")
-# A reviewer or verifier has done its work once its result is on the ticket, so its
+                 "reviewer.lost")
+# A reviewer has done its work once its result is on the ticket, so its
 # result ends its own hold: the session it names when it names one, else the newest live
 # session of that kind — the one that was started to produce it. A finished reviewer that
 # went on holding the ticket would keep it off the frontier after its worker is gone.
-ENDS_OWN_HOLD = {"reviewer.reported": "reviewer", "verifier.passed": "verifier",
-                 "verifier.failed": "verifier"}
+ENDS_OWN_HOLD = {"reviewer.reported": "reviewer"}
 # A worktree's product slot is held until its ticket's work ends, and given back at that
 # moment: it lands, it is handed back, its merge is bounced, its claim is released, the
 # night is suspended, or its start is retracted. A replaced or lost worker's worktree
@@ -228,8 +213,6 @@ RESULT_FIELDS = {
     "ticket.passed": ("commit",),
     "ticket.returned": (),
     "reviewer.reported": ("base", "head"),
-    "verifier.passed": ("commit",),
-    "verifier.failed": ("commit", "failed", "ran"),
     "ticket.checked": ("run", "commit", "result", "failed"),
 }
 
@@ -237,7 +220,6 @@ RESULT_FIELDS = {
 RESULTS = {
     "worker": ("ticket.passed", "ticket.returned"),
     "reviewer": ("reviewer.reported",),
-    "verifier": ("verifier.passed", "verifier.failed"),
 }
 
 BLOCK_RE = re.compile(r"<!--\s*" + MARK + r"\b(.*?)-->", re.S)
@@ -445,7 +427,6 @@ def empty_state(issue: int | None = None) -> dict:
         "bounced": False,
         "suspended": False,
         "review": None,
-        "verdict": None,
         "decided": 0,
         "results": {kind: None for kind in AGENT_KINDS},
         # The newest `ticket.checked` of each run.
@@ -560,8 +541,6 @@ def apply(state: dict, event: dict) -> None:
         state["spec_merged"] = True
     elif name == "reviewer.reported":
         state["review"] = event
-    elif name in ("verifier.passed", "verifier.failed"):
-        state["verdict"] = event
     elif name == "worker.decided":
         state["decided"] += 1
     elif name == "worker.queued":
@@ -601,10 +580,10 @@ def apply(state: dict, event: dict) -> None:
             if mine:
                 _end(state, name, (mine[-1]["runner"], mine[-1]["session"]))
     # A run waits only while a worker is at work on the ticket: whatever ends a worker's
-    # hold, or the worker's own result, ends the wait with it. A lost reviewer or verifier
-    # ends only its own hold; the worker's run is still waiting.
+    # hold, or the worker's own result, ends the wait with it. A lost reviewer ends only
+    # its own hold; the worker's run is still waiting.
     if name in ENDS_EVERY_HOLD or name in RESULTS["worker"] \
-            or (name in ENDS_ONE_HOLD and name not in ("reviewer.lost", "verifier.lost")):
+            or (name in ENDS_ONE_HOLD and name != "reviewer.lost"):
         state["waiting"] = None
     if name in SLOT_ENDS:
         state["slot"] = None

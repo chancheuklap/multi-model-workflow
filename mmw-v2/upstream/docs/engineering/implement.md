@@ -36,7 +36,7 @@ A run is five beats, in order:
 2. Drive [tdd](https://aihero.dev/skills-tdd) at the pre-agreed seams, one red-green slice at a time.
 3. Typecheck often, run single test files as it goes.
 4. Commit the ticket work, integrate `origin/<base branch>` into it, and run the full test suite once. A conflict, or a clean merge that makes repository checks red, is resolved by the worker that knows the ticket's intent.
-5. Run an independent [code-review](https://aihero.dev/skills-code-review), apply its in-ticket findings once, then run the verifier.
+5. Run an independent [code-review](https://aihero.dev/skills-code-review), apply its in-ticket findings once, then run every criterion again as the worker's final full run.
 6. Write the closeout, which pushes `issue-<n>` without force, and let the main agent merge the ticket branch. No pull request is created.
 
 One run covers one ticket. The tickets [to-tickets](https://aihero.dev/skills-to-tickets) produces are tracer-bullet vertical slices sized to fit a single fresh [context window](https://www.aihero.dev/ai-coding-dictionary/context-window), so the intended rhythm is: clear context, implement one ticket, commit, clear again. Each ticket is self-contained, which is what makes the previous ticket's context disposable.
@@ -51,7 +51,7 @@ The word "pre-agreed" is doing real work, and it is also the skill's weakest joi
 
 **It finished, but my ticket is still open and the acceptance criteria are still unchecked.**
 
-That is not a completed `implement` run in this pipeline. The worker runs each criterion through the `verify-ticket` skill, records review and verifier evidence, and uses `--closeout`; that command pushes the ticket branch, then closes an all-met ticket or returns an unmet one to triage. The tracker, not the worker's transcript, is the completion record.
+That is not a completed `implement` run in this pipeline. The worker runs each criterion through the `verify-ticket` skill, records review evidence and the worker's final full run, and uses `--closeout`; that command pushes the ticket branch, then closes an all-met ticket or returns an unmet one to triage. The tracker, not the worker's transcript, is the completion record.
 
 **Can I point it at all my tickets at once, or run several in parallel?**
 

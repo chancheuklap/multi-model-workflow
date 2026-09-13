@@ -98,7 +98,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | Repeated `resume` exit 3 with no new event | `<dispatch> start <n> worker`; exit 2 means nothing was replaced or started |
 | `child.opened` of kind `fault` | Read `python3 <events.py> fold <n>`, fix the child, then `<dispatch> resume <n> "… continue"` |
 | `child.opened` of kind `decision` | Nothing tonight; the worker took the default |
-| A live worker at `reviewer.started` or `verifier.started` | Nothing; its result wakes the worker |
+| A live worker at `reviewer.started` | Nothing; its result wakes the worker |
 | `ticket.returned` | Leave its workspace for triage; step 4 continues the batch |
 | The `advance` summary has `bounced` | Leave its workspace for triage; do not retry it tonight |
 | `ticket.refused` | Fix the event's `reason`; step 4 starts it if the frontier permits |
@@ -210,7 +210,7 @@ Exit 0 means the merge is recorded and every safe cleanup was attempted. Exit 1 
 
 A night is worth suspending when the fault is in the pipeline rather than in a ticket: workers left running against it spend their time producing failures that say nothing about the work. `<dispatch> suspend <spec>` is that decision carried out.
 
-It ends every session still holding a ticket of the batch — its worker, and a reviewer or verifier whose result is not in — that its runner does not already show stopped, through that session's runner's `stop`. It then commits tracked edits and pushes each stopped ticket branch to origin before releasing anything. A ticket whose session survives the stop, whose edits cannot be committed, or whose push is rejected keeps its workspace, slot, claim and event hold; no force-push is attempted. Every other ticket still in the agent queue gets `spec.suspended`, its claim is given back with `ticket.released` (reason `suspended`), and the spec gets `spec.suspended`. Last, it closes the spec's watch: a suspended night wakes nobody.
+It ends every session still holding a ticket of the batch — its worker, and a reviewer whose result is not in — that its runner does not already show stopped, through that session's runner's `stop`. It then commits tracked edits and pushes each stopped ticket branch to origin before releasing anything. A ticket whose session survives the stop, whose edits cannot be committed, or whose push is rejected keeps its workspace, slot, claim and event hold; no force-push is attempted. Every other ticket still in the agent queue gets `spec.suspended`, its claim is given back with `ticket.released` (reason `suspended`), and the spec gets `spec.suspended`. Last, it closes the spec's watch: a suspended night wakes nobody.
 
 Workspaces and branches stay, with the interrupted tickets' commits present on origin. The same batch is taken up again with `<dispatch> open <spec>` and then `<dispatch> advance <spec>` once whatever stopped the night is fixed: `start` fetches origin and reuses or fast-forwards each standing ticket workspace.
 

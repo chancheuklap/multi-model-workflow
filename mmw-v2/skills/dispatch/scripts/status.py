@@ -186,9 +186,9 @@ def phase_of(ticket: dict) -> str:
 def in_flight(ticket: dict) -> bool:
     """Whether `land` may treat this ticket's work as still going on, read off the tracker.
 
-        CLOSED                          not in flight — the worker wrote its verdict
+        CLOSED                          not in flight — the worker closed it
         OPEN, handed back to triage     not in flight — it said it could not finish
-        OPEN, no verdict either way     in flight
+        OPEN, no outcome either way     in flight
 
     Only `land_plan` asks this. Whether a worker holds the ticket is the fold's `held`,
     and no label changes that answer.
@@ -246,7 +246,7 @@ def cached(read):
 def holder_of(fold: dict) -> dict | None:
     """What holds the ticket: its newest live session, or the claim no session has taken
     over yet, or None when nothing does. A live session carries the `kind` of agent it
-    is — `worker`, `reviewer` or `verifier` — and every sentence about it says which."""
+    is — `worker` or `reviewer` — and every sentence about it says which."""
     if fold["holders"]:
         return fold["holders"][-1]
     if fold["claim_hold"]:
@@ -264,7 +264,7 @@ def holder_text(record: dict) -> str:
 def retract_advice(holders: list[dict]) -> str:
     """The sentence offering `retract`, or empty when it does not apply.
 
-    `retract` takes back one worker's start. Offered about a reviewer or a verifier it
+    `retract` takes back one worker's start. Offered about a reviewer it
     tells the reader to stop a session that is reading a diff or running criteria, and
     offered about a ticket two workers hold it does not say which one to take back — so
     it is printed only when exactly one worker is among the live sessions, and it names
@@ -706,7 +706,7 @@ def land_plan(numbers: list[int]) -> int:
             continue
         if in_flight(ticket):
             head = head_of(ticket)
-            print(f"HOLD {number} it is open with no verdict on it"
+            print(f"HOLD {number} it is open with no outcome on it"
                   + (f" (newest: {head[:50]})" if head else ""))
             continue
         closed = ticket["state"] == "CLOSED"

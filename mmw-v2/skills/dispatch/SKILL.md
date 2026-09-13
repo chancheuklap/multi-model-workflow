@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Start a reviewer or verifier from inside a ticket, run a night as its main agent, run one ticket outside a night, change the host, model, effort or runner, or open the local task board.
+description: Start a reviewer from inside a ticket, run a night as its main agent, run one ticket outside a night, change the host, model, effort or runner, or open the local task board.
 ---
 
 # Dispatch
@@ -23,7 +23,7 @@ Four names in the doors belong to other skills; resolve each from that skill's o
 
 | Door | You are | Read |
 | --- | --- | --- |
-| 1 | the worker inside a ticket, starting its reviewer or its verifier | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
+| 1 | the worker inside a ticket, starting its reviewer | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
 | 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass and running `finish` after user acceptance | [references/night.md](references/night.md) |
 | 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
 | 4 | changing which host, model or `effort` an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
@@ -37,7 +37,7 @@ Run `<dispatch> board` from any checkout or worktree of the consuming repository
 ## On waking
 
 1. A wake can cut short a command you were running. Run that command again first.
-2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the board does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`verifier.failed commit=<commit> failed=AC2 ran=true`) in one line, reading the ticket and nothing else. It is a read, not the way you learn a result.
+2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the board does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`reviewer.reported base=<commit> head=<commit>`) in one line, reading the ticket and nothing else. It is a read, not the way you learn a result.
 3. Act on it, as your door says.
 4. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one). Until you ack it, the relay sends the same wake again each time it restarts. An ack looks only at the wakes queued for your own session: one it does not find there — acked already, or sent to another session — is refused and removes nothing.
 
@@ -45,6 +45,6 @@ Run `<dispatch> board` from any checkout or worktree of the consuming repository
 
 `<n>`, `<spec>` and `<child>` are digits only, no `#`.
 
-`start`'s third argument is `worker`, `reviewer` or `verifier`. Which of the two worker rows in `MMW_HOME/models.json` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade the configuration has no row for, is refused (exit 2, stderr names the ticket). The base commit is computed from `origin/<base branch>` and the ticket branch; you do not pass it.
+`start`'s third argument is `worker` or `reviewer`. Which of the two worker rows in `MMW_HOME/models.json` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade the configuration has no row for, is refused (exit 2, stderr names the ticket). The base commit is computed from `origin/<base branch>` and the ticket branch; you do not pass it.
 
 The `adopt` command and its `into` rule are in [references/inside-a-ticket.md](references/inside-a-ticket.md) under **Exit codes**.

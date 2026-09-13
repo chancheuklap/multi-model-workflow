@@ -1,6 +1,6 @@
 ---
 name: verify-ticket
-description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use before you touch a ticket, once the code is written, when you are its verifier, when you are closing it out, when something has to be cut out of it, when you are handing back a report on it, and when a batch is about to be published.
+description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use before you touch a ticket, once the code is written, when you are closing it out, when something has to be cut out of it, when you are handing back a report on it, and when a batch is about to be published.
 ---
 
 # Verify ticket
@@ -26,13 +26,13 @@ A criterion names a judge by its bare name (`story-parity.py …`, `boundary-che
 | You are here | Read |
 | --- | --- |
 | About to touch ticket `<n>` | [references/claiming.md](references/claiming.md) |
-| A **worker** with the code written, or the **verifier** on the ticket | [references/running-criteria.md](references/running-criteria.md) |
+| A **worker** with the code written, or the main agent re-running landed work | [references/running-criteria.md](references/running-criteria.md) |
 | Closing the ticket out | [references/closeout.md](references/closeout.md) |
 | Cutting something out of the ticket | [references/sub-issues.md](references/sub-issues.md) |
 | The **reviewer**, with the report written to a file | [references/reporting.md](references/reporting.md) |
 | Publishing a batch, or opening a night on a spec | [references/linting.md](references/linting.md) |
 
-No run of this skill tells anybody anything. What a run posts on the ticket is the news: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue fault` or `decision`, the worker for a `--review` and a `--verdict`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
+No run of this skill tells anybody anything. What a run posts on the ticket is the news: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue fault` or `decision`, and the worker for a `--review`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
 
 ## Reached from here
 

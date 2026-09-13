@@ -30,11 +30,9 @@ UNMET = """- [ ] AC2: the expiry page says the link is stale
   EXPECT: 2 passed
   EVIDENCE: pending"""
 
-VERDICT_COMMENT = event("verifier.passed",
-                        f"VERDICT {HEAD} by opus — the importer writes six rows", commit=HEAD)
-STALE_VERDICT = event("verifier.passed",
-                      f"VERDICT {VERIFIED} by opus — the importer writes six rows",
-                      commit=VERIFIED)
+FINAL_RUN = checked("reverify", [MET], "ALL MET (1 met)", commit=HEAD, actor="worker")
+STALE_FINAL_RUN = checked("reverify", [MET], "ALL MET (1 met)",
+                          commit=VERIFIED, actor="worker")
 
 
 def posted_as(body):
@@ -69,8 +67,8 @@ def acceptance_body(ledger):
 
 
 def reverify_of(ledger, summary="ALL MET (1 met)"):
-    """The verifier's own run of exactly these criteria, reporting `summary`."""
-    return checked("reverify", ledger, summary, commit=HEAD)
+    """The worker's final run of exactly these criteria, reporting `summary`."""
+    return checked("reverify", ledger, summary, commit=HEAD, actor="worker")
 
 
 def self_runs(block, rounds):
@@ -107,7 +105,7 @@ def counts_line(met=1, unmet=0, abandoned=0, total=1):
 CALLS = []
 
 
-def check(text, comments=(VERDICT_COMMENT,),
+def check(text, comments=(),
           verdict_reachable=True, head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True, repo=None, body=None,
           reverify=True, tracker_fails=False, post_fails=False, labels=(), reason=None,
@@ -204,8 +202,9 @@ class TestFirstLine(unittest.TestCase):
         text = draft(criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        newest_run = checked("reverify", [MET, UNMET], "UNMET: 1 (met: 1)")
-        code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
+        newest_run = checked("reverify", [MET, UNMET], "UNMET: 1 (met: 1)",
+                             commit=HEAD, actor="worker")
+        code, err, _ = check(text, comments=(FINAL_RUN, newest_run))
         self.assertEqual(code, 0, err)
 
     def test_all_met_with_a_real_unmet_beside_the_decision_is_refused(self):
@@ -219,7 +218,7 @@ class TestFirstLine(unittest.TestCase):
                      abandons=("ABANDON: AC2 decision both wordings are legal; opened #58",),
                      counts=counts_line(met=2, abandoned=1, total=3))
         newest_run = checked("reverify", [MET, UNMET, unmet3], "UNMET: 2 (met: 1)")
-        code, err, _ = check(text, comments=(VERDICT_COMMENT, newest_run))
+        code, err, _ = check(text, comments=(FINAL_RUN, newest_run))
         self.assertEqual(code, 1)
         self.assertIn("still reports unmet", err)
         self.assertNotIn("first line is `ALL MET` but", err)
@@ -229,7 +228,7 @@ class TestFirstLine(unittest.TestCase):
                      criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 stuck chromium will not start here; tried the bundled build too",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        code, err, _ = check(text, comments=(VERDICT_COMMENT, *self_runs(UNMET, 1)))
+        code, err, _ = check(text, comments=(FINAL_RUN, *self_runs(UNMET, 1)))
         self.assertEqual(code, 0, err)
 
 
@@ -279,96 +278,11 @@ class TestBody(unittest.TestCase):
 
 HANDOFF = "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
 ABANDONED = "ABANDON: AC2 stuck chromium will not start here; tried the bundled build too"
-NO_VERDICT = (checked("self", [UNMET], "UNMET: 1 (met: 0)"),)
+NO_FINAL_RUN = (checked("self", [UNMET], "UNMET: 1 (met: 0)"),)
 
 
-class TestVerdict(unittest.TestCase):
-    """A verdict is what a ticket needs to close as done — and only that.
-
-    Handing the ticket to a person is the way out of everything the gate refuses,
-    so nothing the worker cannot produce may stand between it and `HANDOFF REQUIRED`.
-    The verifier's comment is exactly such a thing: the worker does not write it.
-    """
-
-    def handoff(self, **kwargs):
-        text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
-                     counts=counts_line(met=0, abandoned=1, total=1))
-        return check(text, **kwargs)
-
-    def test_all_met_with_no_verdict_is_still_refused(self):
-        code, err, _ = check(draft(counts=counts_line()), comments=NO_VERDICT)
-        self.assertEqual(code, 1)
-        self.assertIn("carries no `VERDICT", err)
-
-    def test_handing_over_needs_no_verdict(self):
-        code, err, _ = self.handoff(comments=NO_VERDICT)
-        self.assertEqual(code, 0, err)
-
-    def test_the_refusal_points_at_the_way_out(self):
-        _, err, _ = check(draft(counts=counts_line()), comments=NO_VERDICT)
-        self.assertIn("HANDOFF REQUIRED", err)
-
-    def test_a_verdict_on_head_passes(self):
-        code, err, _ = check(draft(counts=counts_line()))
-        self.assertEqual(code, 0, err)
-
-    def test_an_ancestor_verdict_is_refused(self):
-        """What was independently verified has to be what would be merged."""
-        code, err, _ = check(draft(counts=counts_line()), comments=(STALE_VERDICT,))
-        self.assertEqual(code, 1)
-        self.assertIn("HEAD has moved on", err)
-        self.assertIn("dispatch the verifier again", err)
-
-    def test_a_stale_verdict_has_no_second_way_through(self):
-        """#162 closed on a line the worker wrote about its own commits. There is now
-        no line to write: the only way past this is another verifier run."""
-        text = draft(counts=counts_line()).replace(
-            "Branch: issue-77  Commit: 9b1d40c7  PR: none",
-            "Branch: issue-77  Commit: 9b1d40c7  PR: none\n\n"
-            "Post-verdict: 9b1d40c7 (code-review found AC1)")
-        code, err, _ = check(text, comments=(STALE_VERDICT,))
-        self.assertEqual(code, 1)
-        self.assertIn("HEAD has moved on", err)
-
-    def test_a_verdict_commit_no_longer_in_history_is_refused_the_same_way(self):
-        code, err, _ = check(draft(counts=counts_line()), comments=(STALE_VERDICT,),
-                             verdict_reachable=False)
-        self.assertEqual(code, 1)
-        self.assertIn("HEAD has moved on", err)
-
-    def test_the_newest_verdict_is_the_one_checked(self):
-        comments = (event("verifier.failed", f"VERDICT {'0' * 40} by opus — AC1 failed",
-                          commit="0" * 40),
-                    event("verifier.passed",
-                          f"VERDICT {HEAD} by opus — the expiry page reads right too",
-                          commit=HEAD))
-        code, err, _ = check(draft(counts=counts_line()), comments=comments)
-        self.assertEqual(code, 0, err)
-
-    def test_a_verdict_typed_as_a_comment_is_not_a_verdict(self):
-        """A verdict is an event the verifier's script posts. The same words typed into a
-        comment by hand carry no event, so the gate has nothing independent to read."""
-        code, err, _ = check(draft(counts=counts_line()),
-                             comments=(f"VERDICT {HEAD} by opus — all passed",))
-        self.assertEqual(code, 1)
-        self.assertIn("carries no `VERDICT", err)
-
-    def test_an_event_block_that_cannot_be_read_is_a_refusal_not_a_skip(self):
-        broken = "VERDICT on HEAD\n\n<!-- mmw {\"v\":1,\"event\": -->\n"
-        code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, broken))
-        self.assertEqual(code, 1)
-        self.assertIn("cannot read", err)
-
-
-class TestOnlyTheVerifiersRunSettlesAllMet(unittest.TestCase):
-    """`ALL MET` is written by hand; the summary of a run is not — and the run that
-    counts is the one the worker did not make.
-
-    On 2026-09-06 #162 closed `ALL MET` after its verifier had posted `UNMET`: the
-    worker rewrote the failing criterion and re-ran it itself, and the gate read that
-    newer `self-run` instead. A `self-run` is no part of this judgement.
-    """
+class TestTheFinalRunSettlesAllMet(unittest.TestCase):
+    """`ALL MET` requires the worker's final full run on the current HEAD."""
 
     UNMET_RUN = checked("reverify", [UNMET], "UNMET: 1 (met: 0)")
     HANDOFF_RUN = checked("reverify", [UNMET], "HANDOFF REQUIRED: 1 abandoned (met: 0)")
@@ -376,57 +290,66 @@ class TestOnlyTheVerifiersRunSettlesAllMet(unittest.TestCase):
 
     def test_a_reverify_reporting_unmet_refuses_all_met(self):
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, self.UNMET_RUN))
+                             comments=(FINAL_RUN, self.UNMET_RUN))
         self.assertEqual(code, 1)
         self.assertIn("still reports unmet", err)
 
     def test_a_reverify_summarising_as_handoff_refuses_all_met(self):
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, self.HANDOFF_RUN))
+                             comments=(FINAL_RUN, self.HANDOFF_RUN))
         self.assertEqual(code, 1)
         self.assertIn("still reports unmet", err)
 
-    def test_a_later_self_run_cannot_override_the_verifier(self):
-        """This is #162. The worker's own later run is newer and says everything passed;
-        the ticket still does not close."""
+    def test_a_later_self_run_cannot_override_the_final_run(self):
+        """Only the newest worker reverify is closing proof, even if a self run follows."""
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, self.UNMET_RUN, self.MET_SELF_RUN))
+                             comments=(FINAL_RUN, self.UNMET_RUN, self.MET_SELF_RUN))
         self.assertEqual(code, 1)
-        self.assertIn("a run of your own does not settle", err)
+        self.assertIn("final reverify still reports unmet", err)
 
     def test_a_ticket_with_no_reverify_cannot_close_as_all_met(self):
-        code, err, _ = check(draft(counts=counts_line()), comments=(VERDICT_COMMENT,),
+        code, err, _ = check(draft(counts=counts_line()), comments=NO_FINAL_RUN,
                              reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("carries no reverify `ticket.checked` event", err)
+        self.assertIn("carries no worker reverify `ticket.checked` event", err)
 
     def test_a_reverify_typed_as_a_comment_is_not_a_reverify(self):
-        """The old `reverify` comment carried its summary on its second line. Nothing
-        reads a first line now: typed by hand, it is prose, and the gate still waits for
-        the verifier's event."""
+        """A hand-typed comment is prose, not the final run event."""
         typed = "reverify\nALL MET (1 met)\n\n" + MET
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, typed), reverify=False)
+                             comments=(*NO_FINAL_RUN, typed), reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("carries no reverify `ticket.checked` event", err)
+        self.assertIn("carries no worker reverify `ticket.checked` event", err)
 
-    def test_the_refusal_names_both_ways_out(self):
+    def test_a_failed_final_run_names_the_handoff(self):
         _, err, _ = check(draft(counts=counts_line()),
-                          comments=(VERDICT_COMMENT, self.UNMET_RUN))
-        self.assertIn("Dispatch the verifier again", err)
+                          comments=(FINAL_RUN, self.UNMET_RUN))
         self.assertIn("HANDOFF REQUIRED", err)
 
-    def test_handing_over_is_not_held_to_the_verifiers_run(self):
+    def test_handing_over_is_not_held_to_the_final_run(self):
         text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
                      counts=counts_line(met=0, abandoned=1, total=1))
-        code, err, _ = check(text, comments=(VERDICT_COMMENT, self.UNMET_RUN))
+        code, err, _ = check(text, comments=(FINAL_RUN, self.UNMET_RUN))
         self.assertEqual(code, 0, err)
 
     def test_handing_over_needs_no_reverify_at_all(self):
         text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
                      counts=counts_line(met=0, abandoned=1, total=1))
-        code, err, _ = check(text, comments=NO_VERDICT, reverify=False)
+        code, err, _ = check(text, comments=NO_FINAL_RUN, reverify=False)
         self.assertEqual(code, 0, err)
+
+    def test_a_final_run_on_an_older_commit_is_refused(self):
+        code, err, _ = check(draft(counts=counts_line()), comments=(STALE_FINAL_RUN,))
+        self.assertEqual(code, 1)
+        self.assertIn("HEAD has moved on", err)
+
+    def test_a_main_reverify_is_not_the_workers_final_run(self):
+        main_run = checked("reverify", [MET], "ALL MET (1 met)", commit=HEAD,
+                           actor="main")
+        code, err, _ = check(draft(counts=counts_line()), comments=(main_run,),
+                             reverify=False)
+        self.assertEqual(code, 1)
+        self.assertIn("carries no worker reverify", err)
 
 
 FENCED = """- [x] AC4: install.sh 装完五处配置
@@ -486,19 +409,20 @@ class TestEveryRefusalHasAWayOut(unittest.TestCase):
     """
 
     def test_the_advice_in_a_refusal_is_a_draft_the_gate_accepts(self):
-        code, err, _ = check(draft(counts=counts_line()), comments=NO_VERDICT)
+        code, err, _ = check(draft(counts=counts_line()), comments=NO_FINAL_RUN,
+                             reverify=False)
         self.assertEqual(code, 1)
         self.assertIn("HANDOFF REQUIRED", err)
 
         # Now do exactly what it said, against the same ticket.
         advised = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
                         counts=counts_line(met=0, abandoned=1, total=1))
-        code, err, _ = check(advised, comments=NO_VERDICT)
+        code, err, _ = check(advised, comments=NO_FINAL_RUN)
         self.assertEqual(code, 0, err)
 
     def test_no_refusal_asks_for_something_only_someone_else_can_write(self):
         """The worker writes the draft and the commits. It does not write the verdict."""
-        for label, kwargs in (("no verdict", {"comments": NO_VERDICT}),
+        for label, kwargs in (("no verdict", {"comments": NO_FINAL_RUN}),
                               ("verdict commit lost", {"verdict_reachable": False}),
                               ("head moved on", {})):
             with self.subTest(ticket=label):
@@ -545,16 +469,16 @@ class TestFailedNeedsNoRoundCount(unittest.TestCase):
                      counts=counts_line(met=1, abandoned=1, total=2))
 
     def test_failed_with_no_self_run_at_all_passes(self):
-        code, err, _ = check(self.failed_draft(), comments=(VERDICT_COMMENT,))
+        code, err, _ = check(self.failed_draft(), comments=(FINAL_RUN,))
         self.assertEqual(code, 0, err)
 
     def test_failed_after_one_self_run_passes(self):
         code, err, _ = check(self.failed_draft(),
-                             comments=(VERDICT_COMMENT, *self_runs(UNMET, 1)))
+                             comments=(FINAL_RUN, *self_runs(UNMET, 1)))
         self.assertEqual(code, 0, err)
 
     def test_stuck_passes_the_same_way(self):
-        code, err, _ = check(self.failed_draft(kind="stuck"), comments=(VERDICT_COMMENT,))
+        code, err, _ = check(self.failed_draft(kind="stuck"), comments=(FINAL_RUN,))
         self.assertEqual(code, 0, err)
 
 
@@ -589,62 +513,29 @@ class TestTheFirstLineCarriesTheWholeRefusal(unittest.TestCase):
         self.assertTrue(all(l.startswith("also: ") for l in lines[1:]), lines)
 
 
-class TestTheVerdictCommitIsWrittenInFull(unittest.TestCase):
-    """`VERDICT <full 40-character commit> by <model> — <one line>`.
-
-    A ticket closes on that commit being the commit at HEAD, and an abbreviation cannot
-    carry that: two commits share a seven-character prefix often enough that a draft
-    could pass against a verdict on neither of them.
-    """
-
-    def test_a_shortened_commit_is_not_read_as_a_verdict(self):
-        short = ("VERDICT six rows\n\n" + vt.events.block({
-            "v": 1, "event": "verifier.passed", "stage": "verify", "actor": "verifier",
-            "spec": None, "ticket": 77, "at": "2026-09-10T00:00:00Z",
-            "commit": VERIFIED[:8]}) + "\n")
-        code, err, _ = check(draft(counts=counts_line()), comments=(short,))
-        self.assertEqual(code, 1)
-        self.assertIn("carries no `VERDICT", err)
-        self.assertIn("cannot read", err)
-
-    def test_the_full_forty_characters_is_read_as_a_verdict(self):
-        self.assertEqual(vt.last_verdict([STALE_VERDICT]), VERIFIED)
-
-    def test_the_commit_is_the_event_field_not_the_words_of_its_line(self):
-        """The first line is for a person, so what it says about a commit decides nothing."""
-        worded = event("verifier.passed", f"VERDICT {VERIFIED} unit-test-verified by opus",
-                       commit=HEAD)
-        code, err, _ = check(draft(counts=counts_line()), comments=(worded,))
-        self.assertEqual(code, 0, err)
-        self.assertEqual(vt.last_verdict([worded]), HEAD)
-
-
-class TestTheCriteriaTheVerifierRanAreTheCriteriaTheTicketStates(unittest.TestCase):
-    """#162, exactly: the verifier ran AC1 and reported it unmet, so the worker
-    rewrote AC1's `CHECK:` into a command that passed and closed on the same commit.
-    Nothing compared the criteria the verifier had run with the ones the ticket then
-    stated, so a ticket could be closed by changing the question."""
+class TestTheCriteriaTheFinalRunUsedAreTheCriteriaTheTicketStates(unittest.TestCase):
+    """Closing proof must cover the criteria currently stated on the ticket."""
 
     REWRITTEN = MET.replace("CHECK: pytest -q tests/test_import.py",
                             "CHECK: pytest -q tests/test_import.py --deselect the-slow-one")
 
-    def test_a_rewritten_check_after_the_verifier_ran_is_refused(self):
+    def test_a_rewritten_check_after_the_final_run_is_refused(self):
         code, err, _ = check(
             draft(criteria=(self.REWRITTEN,), counts=counts_line()),
-            comments=(VERDICT_COMMENT, reverify_of([MET])))
+            comments=(FINAL_RUN, reverify_of([MET])))
         self.assertEqual(code, 1)
-        self.assertIn("acceptance criteria have changed since the verifier ran", err)
+        self.assertIn("acceptance criteria have changed since the worker's final run", err)
 
-    def test_a_criterion_added_after_the_verifier_ran_is_refused(self):
+    def test_a_criterion_added_after_the_final_run_is_refused(self):
         code, err, _ = check(
             draft(criteria=(MET, UNMET), counts=counts_line(met=1, unmet=1, total=2)),
-            comments=(VERDICT_COMMENT, reverify_of([MET])))
+            comments=(FINAL_RUN, reverify_of([MET])))
         self.assertEqual(code, 1)
-        self.assertIn("acceptance criteria have changed since the verifier ran", err)
+        self.assertIn("acceptance criteria have changed since the worker's final run", err)
 
     def test_the_same_criteria_pass(self):
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, reverify_of([MET])))
+                             comments=(FINAL_RUN, reverify_of([MET])))
         self.assertEqual(code, 0, err)
 
     def test_a_tick_or_a_piece_of_evidence_is_not_a_change(self):
@@ -653,13 +544,13 @@ class TestTheCriteriaTheVerifierRanAreTheCriteriaTheTicketStates(unittest.TestCa
         ran = MET.replace("- [x]", "- [ ]").replace(
             "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9", "EVIDENCE: pending")
         code, err, _ = check(draft(counts=counts_line()),
-                             comments=(VERDICT_COMMENT, reverify_of([ran])))
+                             comments=(FINAL_RUN, reverify_of([ran])))
         self.assertEqual(code, 0, err)
 
     def test_handing_over_is_not_held_to_this(self):
         text = draft(first=HANDOFF, criteria=(UNMET,), abandons=(ABANDONED,),
                      counts=counts_line(met=0, abandoned=1, total=1))
-        code, err, _ = check(text, comments=(VERDICT_COMMENT, reverify_of([MET])))
+        code, err, _ = check(text, comments=(FINAL_RUN, reverify_of([MET])))
         self.assertEqual(code, 0, err)
 
 
@@ -754,7 +645,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         claimed = event("ticket.claimed", "Claimed", login=ME)
         text = draft(counts=counts_line())
         pushed = []
-        code, err, seen = check(text, comments=(claimed, VERDICT_COMMENT), state="CLOSED",
+        code, err, seen = check(text, comments=(claimed, FINAL_RUN), state="CLOSED",
                                 assignees=(), labels=(), reason="COMPLETED", check_only=False,
                                 pushed=pushed)
         self.assertEqual(code, 0, err)
@@ -980,7 +871,7 @@ class TestCloseoutPush(unittest.TestCase):
         self.sh(work, "remote", "add", "origin", str(remote))
         return work, remote, base
 
-    def add_verdict_commit(self, work: Path):
+    def add_ticket_commit(self, work: Path):
         (work / "work.txt").write_text("done\n")
         self.sh(work, "add", "-A")
         self.sh(work, "commit", "-qm", "ticket work")
@@ -990,9 +881,7 @@ class TestCloseoutPush(unittest.TestCase):
         text = draft(counts=counts_line())
         ledger = ledger_of(text)
         comments = [started(base=base, into="spec-337"),
-                    reverify_of(ledger).replace(HEAD, head),
-                    event("verifier.passed", f"VERDICT {head} by opus — all passed",
-                          commit=head)]
+                    reverify_of(ledger).replace(HEAD, head)]
         posted, closed = [], []
         real_git = vt.git
 
@@ -1016,10 +905,10 @@ class TestCloseoutPush(unittest.TestCase):
                     code = vt.run_closeout(77, path, False)
         return code, err.getvalue(), posted, closed
 
-    def test_closeout_pushes_the_verdict_commit(self):
+    def test_closeout_pushes_the_final_run_commit(self):
         with TemporaryDirectory() as tmp:
             work, remote, base = self.make_repo(Path(tmp))
-            head = self.add_verdict_commit(work)
+            head = self.add_ticket_commit(work)
             code, err, posted, closed = self.run_closeout(work, base, head)
             remote_head = self.sh(remote, "rev-parse", "refs/heads/issue-77")
         self.assertEqual(code, 0, err)
@@ -1032,7 +921,7 @@ class TestCloseoutPush(unittest.TestCase):
             work, remote, base = self.make_repo(Path(tmp))
             self.sh(work, "push", "-q", "origin", "HEAD:refs/heads/issue-77")
             before = self.sh(remote, "rev-parse", "refs/heads/issue-77")
-            head = self.add_verdict_commit(work)
+            head = self.add_ticket_commit(work)
             hook = remote / "hooks" / "pre-receive"
             hook.write_text("#!/bin/sh\necho protected branch >&2\nexit 1\n")
             hook.chmod(0o755)

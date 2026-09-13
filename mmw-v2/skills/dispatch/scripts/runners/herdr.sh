@@ -157,7 +157,7 @@ start() {
   name="$(basename -- "$cwd")"
   [ -n "$name" ] && [ "$name" != "/" ] || name=mmw
   # The session name is its id, and one worktree runs a worker, a reviewer and a
-  # verifier: the last word of the title ("#61 reviewer") keeps the three apart.
+  # reviewer: the last word of the title ("#61 reviewer") keeps the sessions apart.
   [ -z "$title" ] || name="$name-${title##* }"
 
   local err
