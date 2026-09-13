@@ -42,8 +42,8 @@ tickets watch.
              session that started that reviewer. Its runner and session are the
              `runner` and `session` fields of the ticket's latest `worker.started` before
              the event. And worker.queued, when a product slot is given back (below)
-    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
-             (the pipeline itself broken) or decision, worker.lost: the main agent of the
+    main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind contract,
+             fault (the pipeline itself broken) or decision, worker.lost: the main agent of the
              ticket's watch. The relay's own relay.recovered: every watch's main agent
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
@@ -291,7 +291,7 @@ WAKES: dict[str, dict] = {
     "ticket.passed": {"to": MAIN},
     "ticket.returned": {"to": MAIN},
     "ticket.refused": {"to": MAIN},
-    "child.opened": {"to": MAIN, "when": {"kind": ("fault", "decision")}},
+    "child.opened": {"to": MAIN, "when": {"kind": ("contract", "fault", "decision")}},
     "worker.lost": {"to": MAIN},
 }
 

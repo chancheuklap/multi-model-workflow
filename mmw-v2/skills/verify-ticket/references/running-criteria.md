@@ -15,7 +15,7 @@ Each run lands one `ticket.checked` event on the ticket. Its first line names th
 
 The worker's run takes the criteria not yet met. `--reverify` reads the ticket and runs every criterion again, including the ones the newest run ticked, so the worker's ticks are re-run rather than trusted. The main agent re-runs a landed ticket on the base branch the same way with `--reverify --actor main` (the `dispatch` skill's `reverify` does it), and that run's event names the main agent as its writer.
 
-`verify-ticket.py` reads the ticket and writes its events. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, edit the criterion, run again.
+`verify-ticket.py` reads the ticket and writes its events. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is a `--sub-issue contract`: name the acceptance criterion, quote what is wrong, and state what it should be. Continue every part that does not depend on that criterion; after the main agent corrects the contract and wakes you with `resume`, run it again. Once a batch is published, only its main agent or the user edits a spec, ticket body or acceptance criterion.
 
 ## A criterion that runs the product
 

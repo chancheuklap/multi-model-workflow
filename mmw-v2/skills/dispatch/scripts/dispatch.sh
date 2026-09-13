@@ -1270,7 +1270,7 @@ archive_ticket_agents() {
 }
 
 # Stop sessions that are still present on their runner without removing the worktree.
-# A bounced or returned ticket keeps that worktree for triage.
+# A bounced or returned ticket keeps that worktree for its next owner.
 stop_live_ticket_agents() {
   stop_ticket_agents "$1" 1
 }
@@ -2241,14 +2241,41 @@ sys.exit(0 if not value.get("failed") and not value.get("problem") else 1)
 '
 }
 
+bounced_since_night_opened() {
+  local number="$1" spec="$2" opened bounced rc
+  [ -n "$spec" ] || return 0
+  opened="$(newest_field "$spec" at spec.opened)"; rc=$?
+  case "$rc" in
+    0) ;;
+    3) return 0 ;;
+    *) return 2 ;;
+  esac
+  bounced="$(newest_field "$number" at ticket.bounced)"; rc=$?
+  case "$rc" in
+    0) [ "$bounced" '<' "$opened" ] && return 1 || return 0 ;;
+    3) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
 bounce_ticket() {
   local root="$1" number="$2" spec="$3" into="$4" base="$5" reason="$6" detail="$7"
-  local started siblings="" text failed_text fields=()
+  local started siblings="" text failed_text retry=0 rc fields=()
+  bounced_since_night_opened "$number" "$spec"; rc=$?
+  case "$rc" in
+    0) ;;
+    1) retry=1 ;;
+    *) echo "dispatch: could not read whether #$number already bounced since the latest spec.opened on #$spec" >&2; return 2 ;;
+  esac
   started="$(newest_worker_field "$number" base 2>/dev/null)" || started=""
   if [ -n "$started" ] && git -C "$root" cat-file -e "$started^{commit}" 2>/dev/null; then
     siblings="$(integrated_ticket_numbers "$root" "$started..origin/$into" | awk -v n="$number" '$0 != n')"
   fi
-  text="Tried to merge issue-$number into origin/$into at $base and handed it to triage."
+  if [ "$retry" -eq 1 ]; then
+    text="Tried to merge issue-$number into origin/$into at $base and returned it to the agent queue for its one retry this night."
+  else
+    text="Tried to merge issue-$number into origin/$into at $base and handed it to triage."
+  fi
   if [ -n "$siblings" ]; then
     text="$text Tickets landed after this ticket started: $(printf '#%s ' $siblings | sed 's/ $//')."
   else
@@ -2270,14 +2297,21 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
 
   gh_ issue reopen "$number" >/dev/null 2>&1 \
     || { echo "dispatch: could not reopen #$number after its merge $reason" >&2; return 2; }
-  gh_ issue edit "$number" --remove-label ready-for-agent --add-label needs-triage \
-      --remove-assignee @me >/dev/null 2>&1 \
-    || { echo "dispatch: #$number is open, but could not be labelled needs-triage and unassigned" >&2; return 2; }
+  if [ "$retry" -eq 1 ]; then
+    gh_ issue edit "$number" --add-label ready-for-agent --remove-label needs-triage \
+        --remove-assignee @me >/dev/null 2>&1 \
+      || { echo "dispatch: #$number is open, but could not be returned to ready-for-agent and unassigned" >&2; return 2; }
+    retry_bounced="${retry_bounced:+$retry_bounced }$number"
+  else
+    gh_ issue edit "$number" --remove-label ready-for-agent --add-label needs-triage \
+        --remove-assignee @me >/dev/null 2>&1 \
+      || { echo "dispatch: #$number is open, but could not be labelled needs-triage and unassigned" >&2; return 2; }
+  fi
   give_ticket_slot_back "$number" || true
   post_event "$number" ticket.bounced --ticket "$number" --spec "$spec" \
       --line "$text" --field "reason=$reason" --field "commit=$base" \
       --field "into=$into" "${fields[@]}" \
-    || { echo "dispatch: #$number was handed to triage, but its ticket.bounced event was not written" >&2; return 2; }
+    || { echo "dispatch: #$number was relabelled after its landing failure, but its ticket.bounced event was not written" >&2; return 2; }
   stop_live_ticket_agents "$number" \
     || echo "dispatch: #$number was bounced, but its sessions could not be read and stopped" >&2
 }
@@ -2529,7 +2563,7 @@ advance() {
     || { cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec"; }
   rm -f "$plan_err"
 
-  local merged=0 skipped=0 bounced=0 number passed into rc
+  local merged=0 skipped=0 bounced=0 retry_bounced="" number passed into rc
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
     passed="$(ticket_passed_commit "$number")" \
       || refuse "#${number}'s ticket.passed event carries no usable commit"
@@ -2583,6 +2617,7 @@ advance() {
   # writing code takes no slot, so a worker is never kept from its code by a port.
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
+    case " $retry_bounced " in *" $number "*) continue ;; esac
     if bash "$SELF" ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} start "$number" worker; then
       started=$((started + 1))
     else
