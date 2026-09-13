@@ -127,7 +127,10 @@ nothing.
 adapter for the runner, when that runner's `liveness` says the session is `stopped`
 (every wake-up sent to it would be dropped), or when the watch overlaps another (the
 sub-issues of the specs involved are read from the board for that; a read that fails is
-a refusal too). Only when every check passes is the watch written with its main agent,
+a refusal too). A spec watch first takes over every ticket watch whose tickets are all
+sub-issues of the spec and whose main agent is the session opening the spec or one its
+runner shows stopped, and prints one `closed the watch on …` line for each; a ticket
+watch held by any other session is still an overlap. Only when every check passes is the watch written with its main agent,
 under the queue lock. Opening a watch that is open already replaces that watch's main
 agent — a main agent replaced by a new session — and never touches another watch's.
 Then, when no relay runs for the repository, it starts `run` as a process of its own
@@ -741,20 +744,45 @@ class Relay:
                               f"tracker answers.") from None
         return children
 
+    def _absorbable(self, want: dict, watches: dict[str, dict], children: dict[int, list[int]],
+                    runner: str, session: str) -> list[str]:
+        """The ticket watches a spec watch takes over as it opens: every ticket of the watch
+        is a sub-issue of the spec, and its main agent is the one opening the night or a
+        session its runner shows stopped. Such a watch is left over from `open-ticket` with no
+        `land` after it, and nobody else waits on its wake-ups. A ticket watch whose main agent
+        is another session that is alive, or whose liveness is unknown, keeps its ticket, and
+        the overlap refuses the night."""
+        if not want.get("spec"):
+            return []
+        mine = set(children.get(int(want["spec"]), []))
+        keys = []
+        for key, other in sorted(watches.items()):
+            tickets = set(other.get("tickets") or [])
+            if not tickets or not tickets <= mine:
+                continue
+            if main_of(other) == (runner, session) \
+                    or ask_liveness(other["runner"], other["session"]) == "stopped":
+                keys.append(key)
+        return keys
+
     def open_watch(self, want: dict, runner: str, session: str) -> tuple[dict | None, dict]:
         """Record `want` with (runner, session) as its main agent, unless it shares a ticket
         with another open watch. Opening a watch that is open replaces its main agent and
-        nothing else. Returns (the entry replaced, or None for a new watch; the running
-        relay's record as it stood when the watch was written)."""
+        nothing else; a spec watch takes over the ticket watches `_absorbable` names, listed
+        afterwards in `self.absorbed`. Returns (the entry replaced, or None for a new watch;
+        the running relay's record as it stood when the watch was written)."""
         key = watch_key(want)
+        self.absorbed = []
         for _ in range(3):
             before = self.watches()
             children = self._children_for(want, before)
+            absorbable = self._absorbable(want, before, children, runner, session)
             with self.queue_lock():
                 watches = self.watches()
                 # A watch opened or closed while the board was read: check against that.
                 if set(watches) != set(before):
                     continue
+                absorbed = {k: watches.pop(k) for k in absorbable}
                 problem = overlap(want, watches, children)
                 if problem:
                     raise Refusal(f"{describe_watch(want)} was not opened: {problem}. A ticket "
@@ -766,6 +794,7 @@ class Relay:
                 watches[key] = {**want, "runner": runner, "session": session,
                                 "at": iso(self.clock()), "stopped_since": None}
                 self._write_watches(watches)
+                self.absorbed = list(absorbed.values())
                 return previous, self._relay_record()
         raise Refusal("the open watches kept changing while this one was checked against them; "
                       "run it again.")
@@ -1514,6 +1543,12 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
     return relay, want, previous, record
 
 
+def absorbed_lines(repo: str, want: dict, absorbed: list[dict]) -> str:
+    return "".join(f"closed the watch on {describe_watch(other)} for {repo}: {describe_watch(want)} "
+                   f"watches it now, and its main agent was {other['runner']} session "
+                   f"{other['session']}\n" for other in absorbed)
+
+
 def opened_line(repo: str, want: dict, previous: dict | None, runner: str, session: str) -> str:
     if previous is None:
         return (f"opened the watch on {describe_watch(want)} for {repo}: wake-ups go to {runner} "
@@ -1525,8 +1560,9 @@ def opened_line(repo: str, want: dict, previous: dict | None, runner: str, sessi
 
 
 def cmd_add(args) -> int:
-    _, want, previous, _ = open_checked(args)
+    relay, want, previous, _ = open_checked(args)
     print(opened_line(args.repo, want, previous, args.runner, args.session))
+    sys.stdout.write(absorbed_lines(args.repo, want, relay.absorbed))
     return 0
 
 
@@ -1538,6 +1574,7 @@ def cmd_start(args) -> int:
     ending = holder is not None and record.get("pid") == holder.get("pid") and record.get("ending")
     if holder is not None and not ending:
         print(opened)
+        sys.stdout.write(absorbed_lines(args.repo, want, relay.absorbed))
         print(f"relay already running for {args.repo}: pid {holder.get('pid')}, watching "
               f"{describe_watches(relay.watches())}")
         return 0
@@ -1554,8 +1591,11 @@ def cmd_start(args) -> int:
         pid = spawn(args, state)
     except Refusal:
         relay.restore_watch(watch_key(want), previous)
+        for other in relay.absorbed:
+            relay.restore_watch(watch_key(other), other)
         raise
     print(opened)
+    sys.stdout.write(absorbed_lines(args.repo, want, relay.absorbed))
     print(f"relay started for {args.repo}: pid {pid}, watching {describe_watches(relay.watches())}, "
           f"log {state / 'relay.log'}")
     return 0

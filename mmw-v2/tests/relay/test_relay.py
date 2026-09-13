@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -906,6 +907,20 @@ class WatchesTest(RelayCase):
         self.assertIn("spec #80 was not opened: its sub-issue #5 is already watched as ticket #5, "
                       "whose main agent is paseo session main-b", str(caught.exception))
         self.assertEqual(self.written(), before)
+
+    def test_a_spec_takes_over_a_ticket_watch_its_own_main_agent_left(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-c")
+        self.gh.spec_children[80] = [4, 5]
+        self.relay.open_watch({"spec": 80}, "paseo", "main-c")
+        self.assertEqual(self.watches(), {"spec:76": MAIN_A, "spec:80": ("paseo", "main-c")})
+        self.assertEqual([relay.main_of(w) for w in self.relay.absorbed], [("paseo", "main-c")])
+
+    def test_a_spec_takes_over_a_ticket_watch_whose_main_agent_is_stopped(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.gh.spec_children[80] = [4, 5]
+        with mock.patch.object(relay, "ask_liveness", return_value="stopped"):
+            self.relay.open_watch({"spec": 80}, "paseo", "main-c")
+        self.assertEqual(self.watches(), {"spec:76": MAIN_A, "spec:80": ("paseo", "main-c")})
 
     def test_a_ticket_is_in_one_watch_only(self):
         self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")

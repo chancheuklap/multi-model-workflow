@@ -605,6 +605,26 @@ tickets:61 paseo main-a"
     || fail "the refusal should name the overlap: $(cat "$TMP/err")"
   expect_watches "spec:76 paseo main-b
 tickets:61 paseo main-a"
+
+  echo "--- a night opened by the main agent of a leftover ticket watch takes that ticket over"
+  code="$(relay_ add --repo "$REPO" --spec 77 --runner paseo --session main-a)"
+  [ "$code" = 0 ] || fail "spec #77 from main-a expected 0, got $code: $(cat "$TMP/err")"
+  grep -q "closed the watch on ticket #61 for o/r: spec #77 watches it now, and its main agent was paseo session main-a" "$TMP/out" \
+    || fail "stdout should say the ticket watch was taken over: $(cat "$TMP/out")"
+  expect_watches "spec:76 paseo main-b
+spec:77 paseo main-a"
+
+  echo "--- and so does a night beside a ticket watch whose main agent is stopped"
+  relay_ stop --repo "$REPO" --spec 77 >/dev/null
+  relay_ add --repo "$REPO" --tickets 61 --runner paseo --session main-a >/dev/null
+  agents main-b main-c
+  code="$(relay_ add --repo "$REPO" --spec 77 --runner paseo --session main-c)"
+  [ "$code" = 0 ] || fail "spec #77 beside a stopped ticket watch expected 0, got $code: $(cat "$TMP/err")"
+  expect_watches "spec:76 paseo main-b
+spec:77 paseo main-c"
+  relay_ stop --repo "$REPO" --spec 77 >/dev/null
+  agents main-a main-b main-c
+  relay_ add --repo "$REPO" --tickets 61 --runner paseo --session main-a >/dev/null
   code="$(relay_ watching --repo "$REPO" --ticket 63 --spec 76)"
   [ "$code" = 0 ] || fail "watching #63 of spec #76 expected 0, got $code: $(cat "$TMP/err")"
 

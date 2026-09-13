@@ -55,6 +55,19 @@ class TestLintOnASpec(unittest.TestCase):
         self.assertIn("tickets with findings: #302", printed)
         batch.assert_called_once_with(SPEC, [301, 302])
 
+    def test_a_finding_in_a_closed_sub_issue_does_not_fail_the_run(self):
+        closed = {"labels": [{"name": "junior-worker"}], "state": "CLOSED"}
+        with mock.patch.object(vt, "fetch_body", side_effect=lambda n: {SPEC: SPEC_BODY, 301: CLEAN, 302: MANUAL}[n]), \
+             mock.patch.object(vt, "fetch_ticket", side_effect=lambda n: closed if n == 302 else LABELS), \
+             mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[301, 302]), \
+             mock.patch.object(vt, "lint_batch_graph", return_value=0):
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.run_lint(SPEC)
+        self.assertEqual(code, 0)
+        self.assertIn("manual-gate", out.getvalue())
+        self.assertIn("[closed-ticket]", out.getvalue())
+
     def test_clean_sub_issues_and_a_clean_graph_exit_0(self):
         code, printed, _, batch, _ = lint(
             SPEC, {SPEC: SPEC_BODY, 301: CLEAN, 302: CLEAN}, [301, 302])

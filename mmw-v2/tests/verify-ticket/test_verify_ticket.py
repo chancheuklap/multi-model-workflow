@@ -490,16 +490,20 @@ class TestLint(unittest.TestCase):
         return code, out.getvalue()
 
     def test_the_worker_label_the_tracker_carries_is_what_the_rule_reads(self):
-        """A ticket in the agent queue with no worker label is the one worker ERROR,
-        and it is the labels that decide it, not anything in the body."""
+        """A ticket in the agent queue with two worker labels is the worker ERROR, one
+        with none a WARN, and it is the labels that decide it, not anything in the body."""
         body = ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: node scripts/import.mjs fixtures/valid.json",
             "  EXPECT: /wrote 6 rows/",
             "  EVIDENCE: pending",
         )
-        code, printed = self.lint(body, labels=["ready-for-agent"])
+        code, printed = self.lint(body, labels=["ready-for-agent", "junior-worker", "senior-worker"])
         self.assertEqual(code, 1)
+        self.assertIn("worker-label", printed)
+        code, printed = self.lint(body, labels=["ready-for-agent"])
+        self.assertEqual(code, 0)
+        self.assertIn("WARN", printed)
         self.assertIn("worker-label", printed)
         self.assertEqual(self.lint(body, labels=["needs-triage"])[0], 0)
 
