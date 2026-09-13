@@ -105,11 +105,10 @@ one that shows at a glance that #729 was started twice.
 
 ## Where it is wired
 
-`mmw-v2/board/page/app.mjs` carries a scaffolding block, marked `PROTOTYPE scaffolding`:
-`?variant=` hands the detail column to `mount.mjs` here, `?sel=` opens a card on load.
-Nothing runs without the parameter, and `serve.py` is the only server that serves this
-directory under `/proto/`. Both come down when a winner is folded into
-`page/detail.mjs` and `page/styles/board.css`.
+Variant A is the production ticket column in `mmw-v2/board/page/detail.mjs`, with the
+event vocabulary and phase grouping in `mmw-v2/board/page/event-history.mjs` and the
+visual rules in `mmw-v2/board/page/styles/board.css`. The earlier `?variant=` production
+scaffolding is gone; `serve.py` remains only for comparing A, B and C inside this prototype.
 
 ## Two more rules the column is held to
 
@@ -128,9 +127,9 @@ The pipeline's own long strings are cut on the way in: `跑了 1h02m 后交回` 
 
 ## The answer
 
-**A wins**, and is still being refined against real tickets. B and C stay as reference:
-B's opening sentence and C's per-run cards are both worth stealing from if A's blocks turn
-out to hide too much. Nothing has been folded into `page/detail.mjs` yet.
+**A wins and is the production ticket column.** B and C stay as reference: B's opening
+sentence and C's per-run cards are both worth stealing from if A's blocks turn out to
+hide too much.
 
 A is also the ticket column of the task board's Claude Design project, `Component · 详情`
 (https://claude.ai/design/p/457777fa-6ee0-43e9-85f1-e78e457f0629). Its handoff package, the

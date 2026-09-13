@@ -1,7 +1,7 @@
 # class sets of the handoff package page: Component · 顶栏.dc.html
 # derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
-# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
-# page sha256=02e547d8b41d2fbc1d3e29b5a6ff24f788cb5290a74ac31544d6f6f0f70fdb03
+# scenes.json sha256=2e85ba504f75f4eb2566132d7607eedb40b4353b145b7250f1ba6f31bbb26054
+# page sha256=0ad9ef7c3e5752a112a4e37a8e22b073c9f405f3c7844f68639d45d6ac1c90bc
 
 ## scene 顶栏.morning
 board
@@ -19,7 +19,7 @@ green
 hollow
 hot
 ink
-light
+lamp
 orange
 readstate
 topbar
@@ -40,7 +40,7 @@ green
 hollow
 hot
 ink
-light
+lamp
 orange
 readstate
 topbar
@@ -61,7 +61,7 @@ green
 hollow
 hot
 ink
-light
+lamp
 orange
 readstate
 topbar
@@ -80,6 +80,6 @@ gear-icon
 green
 hollow
 ink
-light
+lamp
 readstate
 topbar

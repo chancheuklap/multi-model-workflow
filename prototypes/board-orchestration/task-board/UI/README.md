@@ -19,7 +19,9 @@ The handoff package #318 section 2 asks for is in `work/`; the screen contract `
 
 ## Which parts the real code has taken
 
-None.
+The production ticket detail column uses `Component · 详情`'s phase blocks,
+human-readable event names, event payload disclosure, status summary, dependency rows
+and sub-issue rows. The map, spec and decision-ticket detail layouts remain unchanged.
 
 ## Layout
 

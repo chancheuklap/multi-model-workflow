@@ -1,7 +1,7 @@
 # class sets of the handoff package page: Component · 画布.dc.html
 # derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
-# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
-# page sha256=0d166211979b6d1d06197c915ab62af18349c04eefc96bb782b8a0ed3a293c8e
+# scenes.json sha256=2e85ba504f75f4eb2566132d7607eedb40b4353b145b7250f1ba6f31bbb26054
+# page sha256=2da8bdddc96cc4a1c3d47703686f2a57b947ee0cf7ae782c914b321b56a4640b
 
 ## scene 画布.morning
 blocked
@@ -34,13 +34,13 @@ green
 hollow
 hot
 ink
+lamp
 landed
 lane-label
 legend
 legend-bar
 legend-item
 legend-line
-light
 map
 on
 orange
@@ -90,13 +90,13 @@ green
 hollow
 hot
 ink
+lamp
 landed
 lane-label
 legend
 legend-bar
 legend-item
 legend-line
-light
 map
 on
 orange
@@ -145,13 +145,13 @@ green
 hollow
 hot
 ink
+lamp
 landed
 lane-label
 legend
 legend-bar
 legend-item
 legend-line
-light
 map
 on
 orange
@@ -205,13 +205,13 @@ flow
 green
 hollow
 ink
+lamp
 landed
 lane-label
 legend
 legend-bar
 legend-item
 legend-line
-light
 map
 orange
 pill

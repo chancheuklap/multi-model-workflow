@@ -1,24 +1,24 @@
 # raw accessibility snapshots of the handoff package page: Component · 本机配置.dc.html
 # derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
-# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
-# page sha256=aad4005dd1763d1b1c2dedb8709b2ac39f4cf2bf22a0bcc0d436293bf323b3bc
+# scenes.json sha256=2e85ba504f75f4eb2566132d7607eedb40b4353b145b7250f1ba6f31bbb26054
+# page sha256=703b2b6e1c40bbac2100aa672f45e215b79e8b49a2f73c13461a065f576f9029
 
 ## scene mine
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:02 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok" [selected]
@@ -33,7 +33,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok"
@@ -52,7 +52,7 @@
     - option "xhigh"
     - option "max"
     - option "ultra"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok"
@@ -70,7 +70,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok"
@@ -114,19 +114,19 @@
 ## scene fresh
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:02 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 本机没装 claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 本机没装 claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok · 本机没装" [selected]
@@ -137,7 +137,7 @@
     - option "grok 4.6" [selected]
   - combobox "junior-worker 的 effort" [disabled]:
     - option "high" [selected]
-  - text: 这台机器上没装 grok 的 CLI（grok），换一个这台机器有的 senior-worker 贴 senior-worker label 的票
+  - text: 这台机器上没装 grok 的 CLI（grok），换一个这台机器有的 senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok · 本机没装" [disabled]
@@ -156,7 +156,7 @@
     - option "xhigh"
     - option "max"
     - option "ultra"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok · 本机没装" [disabled]
@@ -174,7 +174,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok · 本机没装" [disabled]
@@ -218,19 +218,19 @@
 ## scene retired
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:30 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 2 个 model claude 3 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 2 个 model claude 3 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok" [selected]
@@ -245,7 +245,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok"
@@ -264,7 +264,7 @@
     - option "xhigh"
     - option "max"
     - option "ultra"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok"
@@ -281,7 +281,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok"
@@ -321,19 +321,19 @@
 ## scene paseo-off
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:02 问 Paseo ·
   - button "重新扫描"
-  - text: cursor Paseo 没开 grok Paseo 没开 claude Paseo 没开 codex Paseo 没开 pi Paseo 没开 runner 用什么起会话
+  - text: cursor Paseo 没开 grok Paseo 没开 claude Paseo 没开 codex Paseo 没开 pi Paseo 没开 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca"
     - option "paseo" [selected]
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor · Paseo 没开" [disabled]
     - option "grok · Paseo 没开" [selected]
@@ -344,7 +344,7 @@
     - option "grok 4.6" [selected]
   - combobox "junior-worker 的 effort" [disabled]:
     - option "high" [selected]
-  - text: Paseo 服务没开，问不到 grok 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr senior-worker 贴 senior-worker label 的票
+  - text: Paseo 服务没开，问不到 grok 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor · Paseo 没开" [disabled]
     - option "grok · Paseo 没开" [disabled]
@@ -355,7 +355,7 @@
     - option "gpt 5.6 sol" [selected]
   - combobox "senior-worker 的 effort" [disabled]:
     - option "high" [selected]
-  - text: Paseo 服务没开，问不到 codex 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr reviewer 评审每张票的改动
+  - text: Paseo 服务没开，问不到 codex 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor · Paseo 没开" [disabled]
     - option "grok · Paseo 没开" [disabled]
@@ -366,7 +366,7 @@
     - option "opus 5" [selected]
   - combobox "reviewer 的 effort" [disabled]:
     - option "high" [selected]
-  - text: Paseo 服务没开，问不到 claude 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr verifier 复验每张票的判据
+  - text: Paseo 服务没开，问不到 claude 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor · Paseo 没开" [disabled]
     - option "grok · Paseo 没开" [disabled]
@@ -397,19 +397,19 @@
 ## scene changed
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:02 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok" [selected]
@@ -424,7 +424,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok"
@@ -443,7 +443,7 @@
     - option "xhigh"
     - option "max"
     - option "ultra"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok"
@@ -461,7 +461,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok"
@@ -505,19 +505,19 @@
 ## scene edited
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:02 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok" [selected]
@@ -532,7 +532,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok"
@@ -550,7 +550,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok"
@@ -568,7 +568,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok"
@@ -612,19 +612,19 @@
 ## scene incomplete
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:02 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok" [selected]
@@ -639,7 +639,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok"
@@ -654,7 +654,7 @@
     - option "fable 5"
   - combobox "senior-worker 的 effort" [disabled]:
     - option "—" [selected]
-  - text: 还没选 model reviewer 评审每张票的改动
+  - text: 还没选 model reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok"
@@ -672,7 +672,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok"
@@ -716,17 +716,17 @@
 ## scene scanning
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
-  - text: 本机的 host 正在问每个 host 的 CLI 有哪些 model… cursor … grok … claude … codex … pi … runner 用什么起会话
+  - text: 本机的 host 正在问每个 host 的 CLI 有哪些 model… cursor … grok … claude … codex … pi … runner 用什么起 session
   - combobox "runner" [disabled]:
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host" [disabled]:
     - option "cursor"
     - option "grok" [selected]
@@ -741,7 +741,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host" [disabled]:
     - option "cursor"
     - option "grok"
@@ -760,7 +760,7 @@
     - option "xhigh"
     - option "max"
     - option "ultra"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host" [disabled]:
     - option "cursor"
     - option "grok"
@@ -778,7 +778,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host" [disabled]:
     - option "cursor"
     - option "grok"
@@ -822,19 +822,19 @@
 ## scene saved
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - text: 本机的 host 07:02 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok" [selected]
@@ -849,7 +849,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok"
@@ -868,7 +868,7 @@
     - option "xhigh"
     - option "max"
     - option "ultra"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok"
@@ -886,7 +886,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok"
@@ -930,22 +930,22 @@
 ## scene refused
 - dialog "本机配置":
   - text: 本机配置
-  - heading "这台机器上，每个角色跑在哪" [level=2]
-  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起会话时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
+  - heading "这台机器上，每个 agent 跑在哪" [level=2]
+  - paragraph: 下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。
   - button "关闭本机配置": ×
   - alert:
     - paragraph: 没有保存。这一页打开之后，本机配置在 07:44 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 1 处要再改一次。
     - button "重新读取"
   - text: 本机的 host 07:02 问各 host 的 CLI ·
   - button "重新扫描"
-  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起会话
+  - text: cursor 9 个 model grok 2 个 model claude 4 个 model codex 4 个 model pi orca、herdr 起不了 runner 用什么起 session
   - combobox "runner":
     - option "herdr"
     - option "orca" [selected]
     - option "paseo"
     - option "按所在环境判断"
   - paragraph: 环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。
-  - text: 一个角色一行 agent host model effort junior-worker 贴 junior-worker label 的票
+  - text: 一个 agent 一行 agent host model effort junior-worker 贴 junior-worker label 的 ticket
   - combobox "junior-worker 的 host":
     - option "cursor"
     - option "grok" [selected]
@@ -960,7 +960,7 @@
     - option "medium"
     - option "high" [selected]
     - option "xhigh"
-  - text: senior-worker 贴 senior-worker label 的票
+  - text: senior-worker 贴 senior-worker label 的 ticket
   - combobox "senior-worker 的 host":
     - option "cursor"
     - option "grok"
@@ -979,7 +979,7 @@
     - option "xhigh"
     - option "max"
     - option "ultra"
-  - text: reviewer 评审每张票的改动
+  - text: reviewer review 每张 ticket 的改动
   - combobox "reviewer 的 host":
     - option "cursor"
     - option "grok"
@@ -997,7 +997,7 @@
     - option "high" [selected]
     - option "xhigh"
     - option "max"
-  - text: verifier 复验每张票的判据
+  - text: verifier reverify 每张 ticket 的 acceptance criteria
   - combobox "verifier 的 host":
     - option "cursor"
     - option "grok"

@@ -29,6 +29,7 @@ function relFrom(row) {
     lamp: lampFrom(row.lampCls),
     state: row.state,
     phase: row.phase,
+    hold: Boolean(row.hold),
     unknown: Boolean(row.unknown || row.known === false),
   };
 }
@@ -50,10 +51,13 @@ function pathFrom(phases) {
   }));
 }
 
+const firstRows = (...candidates) => candidates.find(rows => Array.isArray(rows) && rows.length) || [];
+
 export function fromScene(data = {}) {
   const vals = data.vals || {};
   const d = vals.d || {};
-  if (!d.hasCard) {
+  const hasCard = d.hasCard ?? Boolean(d.isTicket || d.isMap || d.isSpec || d.isDecision || d.isCardNotTicket);
+  if (!hasCard) {
     return {
       empty: true,
       emptyTitle: vals.emptyTitle || "点一张卡",
@@ -82,15 +86,23 @@ export function fromScene(data = {}) {
       ? {from: d.closeoutFrom, fromLabel: d.closeoutFromLabel, child: d.closeoutChild}
       : null,
     links: vals.links || d.links || [],
-    blockers: (vals.blockers || []).map(relFrom),
-    blocks: (vals.blocks || []).map(relFrom),
-    kids: (vals.kids || []).map(kidFrom),
+    blockers: firstRows(vals.blockedBy, vals.blockers, d.blockedBy, d.blockers).map(relFrom),
+    blocks: firstRows(vals.blocking, vals.blocks, d.blocking, d.blocks).map(relFrom),
+    kids: firstRows(vals.kids, d.kids).map(kidFrom),
     rawEvents: vals.rawEvents || d.rawEvents || (d.events || []).map(event => ({
       event: event.event || event.name, time: event.time, line: event.line,
       payload: event.payload || {},
     })),
+    phaseBlocks: (vals.phaseBlocks || d.phaseBlocks || []).map(block => ({
+      ...block,
+      items: (block.items || []).map(item => ({
+        ...item,
+        tone: item.tone || ((item.nameCls || "").includes("warn") ? "warn" : "plain"),
+      })),
+    })),
+    runtime: d.hasRun ? {grade: d.runGrade, model: d.runModel, rows: d.runRows || []} : null,
     runtimeNote: vals.runtimeNote || "",
-    hasWorker: Boolean(d.hasWorker),
+    hasWorker: Boolean(d.hasWorker ?? d.hasRun),
     gh: d.gh,
     ghLabel: d.ghLabel,
     listTitle: d.listTitle,
@@ -356,6 +368,17 @@ function ticketOrigin(hooks, view) {
 }
 
 function ticketRuntime(view) {
+  if (view.runtime) {
+    return el("div", {class: "ticket-runtime"},
+      el("div", {class: "ticket-runtime-who"},
+        el("span", {class: "ticket-runtime-grade"}, view.runtime.grade || "worker"),
+        view.runtime.model ? el("span", {class: "ticket-runtime-model"}, view.runtime.model) : null),
+      view.runtime.rows?.length ? el("div", {class: "ticket-runtime-where"},
+        ...view.runtime.rows.flatMap(row => [
+          el("span", {class: "ticket-runtime-key"}, row.k),
+          el("span", {class: "ticket-runtime-value"}, row.v),
+        ])) : null);
+  }
   const started = [...(view.rawEvents || [])].reverse().find(event => event.event === "worker.started");
   if (!view.hasWorker || !started) {
     return el("p", {class: "ticket-detail-none"}, view.phase === "landed"
@@ -428,6 +451,7 @@ function eventRow(item, key, ui, repaint) {
 }
 
 function blockSummary(block) {
+  if (block.summary) return block.summary;
   const best = block.items.reduce((pick, item) =>
     (EVENT_WEIGHT[item.event] || 0) >= (EVENT_WEIGHT[pick.event] || 0) ? item : pick, block.items[0]);
   return best.text ? `${best.name} — ${best.text}` : best.name;
@@ -435,7 +459,7 @@ function blockSummary(block) {
 
 function phaseBlock(block, index, total, view, ui, repaint) {
   const key = `${view.gh}:block:${index}`;
-  const defaultOpen = index === total - 1 || block.tone !== "plain";
+  const defaultOpen = block.openByDefault ?? (index === total - 1 || block.tone !== "plain");
   const opened = ui.toggledBlocks.has(key) ? !defaultOpen : defaultOpen;
   const header = el("button", {type: "button", class: "phase-block-head", "data-detail-key": key,
     onClick: () => {
@@ -445,8 +469,9 @@ function phaseBlock(block, index, total, view, ui, repaint) {
   el("span", {class: "phase-block-chevron"}, opened ? "▾" : "▸"),
   el("span", {class: `pill ${block.phase}`}, block.phase),
   el("span", {class: "phase-block-summary"}, opened ? "" : blockSummary(block)),
-  el("span", {class: "phase-block-time"}, opened && block.from !== block.to
-    ? `${block.from}–${block.to}` : block.from));
+  el("span", {class: "phase-block-time"}, opened
+    ? (block.span || (block.from !== block.to ? `${block.from}–${block.to}` : block.from))
+    : block.from));
   const card = el("div", {class: `phase-block${block.tone === "plain" ? "" : " warn"}`}, header);
   if (opened) card.append(el("div", {class: "phase-block-body"},
     ...block.items.map((item, itemIndex) => eventRow(item, `${key}:event:${itemIndex}`, ui, repaint))));
@@ -454,12 +479,12 @@ function phaseBlock(block, index, total, view, ui, repaint) {
 }
 
 function ticketCard(hooks, view, ui, repaint) {
-  const blocks = groupEventBlocks(view.rawEvents || []);
+  const blocks = view.phaseBlocks?.length ? view.phaseBlocks : groupEventBlocks(view.rawEvents || []);
   const parts = [
     el("div", {class: "ticket-detail-head"},
       el("span", {class: "ticket-detail-eyebrow"}, "Ticket"),
       el("button", {type: "button", class: "ticket-detail-github", onClick: () => openGithub(view)}, "GitHub ↗"),
-      el("button", {type: "button", class: "ticket-detail-close", "aria-label": "close",
+      el("button", {type: "button", class: "ticket-detail-close", "aria-label": "关闭详情",
         onClick: () => hooks.onClose?.()}, "×")),
     el("h2", {class: "ticket-detail-title"}, view.title),
     ticketOrigin(hooks, view),
@@ -515,7 +540,7 @@ function card(hooks, view) {
   const parts = [
     el("div", {class: "dp-head"},
       el("span", {class: "dp-eyebrow"}, view.eyebrow),
-      el("button", {type: "button", class: "dp-close", "aria-label": "close",
+      el("button", {type: "button", class: "dp-close", "aria-label": "关闭详情",
         onClick: () => hooks.onClose?.()}, "×")),
     origin(hooks, view),
   ];

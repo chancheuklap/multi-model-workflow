@@ -74,7 +74,7 @@ test("empty scene shows the empty copy and no GitHub button", () => {
 
 test("a ticket scene shows origin, status, why-orange, and GitHub", () => {
   const {root} = mount(fromScene(ticketScene));
-  assert.ok(namedButton(root, "close"));
+  assert.ok(namedButton(root, "关闭详情"));
   assert.ok(namedButton(root, "spec #131"));
   assert.ok(namedButton(root, "map #98"));
   assert.match(root.textContent, /折叠接入中继/);
@@ -90,7 +90,7 @@ test("a ticket scene shows origin, status, why-orange, and GitHub", () => {
 test("close and Escape call onClose", () => {
   let closed = 0;
   const {root, document} = mount(fromScene(ticketScene), undefined, {onClose: () => { closed += 1; }});
-  namedButton(root, "close").click();
+  namedButton(root, "关闭详情").click();
   assert.equal(closed, 1);
   document.dispatchEvent({type: "keydown", key: "Escape", preventDefault() {}});
   assert.equal(closed, 2);
