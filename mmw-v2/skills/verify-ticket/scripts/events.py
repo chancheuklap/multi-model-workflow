@@ -8,7 +8,7 @@ comments into its state.
     events.py session [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py sessions [<issue>] [--comments-file F|-]
     events.py result [<issue>] --kind worker|reviewer [--comments-file F|-]
-    events.py checked [<issue>] [--run self|reverify|repo-checks] [--comments-file F|-]
+    events.py checked [<issue>] [--run self|reverify|repo-checks|baseline] [--comments-file F|-]
     events.py live [<issue>] [--kind worker|reviewer] [--comments-file F|-]
     events.py child [<issue>] --child N [--comments-file F|-]
 
@@ -86,13 +86,15 @@ CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
 # choice only a person can make; `fault`, the pipeline itself broken.
 CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
-# The three runs of a ticket's criteria and checks: the worker's own run, a second run of
+# The four runs of a ticket's criteria and checks: the worker's own run, a second run of
 # every criterion (the worker's final run, or the main agent's after landing),
-# and the repository's own `checks` of `.mmw/target.json` at the closeout.
-CHECK_RUNS = ("self", "reverify", "repo-checks")
+# the repository's own `checks` of `.mmw/target.json` at the closeout, and the claim-time
+# run at `worker.started.base` of the criteria that need no product slot.
+CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline")
 CHECK_RESULTS = ("met", "unmet", "handoff")
 REVERIFY_ACTORS = ("worker", "main")
-CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close"}
+CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
+                "baseline": "claim"}
 # Why a run waits for a product slot: this product's `instance.max` is reached, or every
 # slot of this machine is taken.
 QUEUE_REASONS = ("product-full", "machine-full")
@@ -169,8 +171,9 @@ EVENTS: dict[str, dict] = {
     # One run of the criteria or of the repository's checks, on one commit: its result,
     # its counts, each criterion's outcome, and — for the worker's own run on its own
     # branch — the files it changed outside `## Owns`. `repo-checks` carries each failed
-    # command with its last lines. `slot` is the product slot the run held, when it
-    # needed the product.
+    # command with its last lines. `baseline` is the claim-time run at
+    # `worker.started.base` and carries `skipped`. `slot` is the product slot the run
+    # held, when it needed the product.
     "ticket.checked":    {"stage": "work",     "actor": "worker",
                           "required": ("run", "commit", "result"),
                           "closed": {"run": CHECK_RUNS, "result": CHECK_RESULTS},

@@ -146,5 +146,95 @@ class TestLintOnASpec(unittest.TestCase):
         self.assertIn("sub-issues-unreadable", out.getvalue())
 
 
+SPEC_WITH_SECTIONS = """## Summary
+
+A spec.
+
+## Implementation Decisions
+
+### 1. First decision
+
+Do the first thing.
+
+### 2. Second decision
+
+Do the second.
+
+### 3. Third decision
+
+Do the third.
+
+## Out of Scope
+
+- nothing
+"""
+
+COVERS_1_AND_2 = ("## Parent\n\n#216, Implementation Decisions sections 1 and 2\n\n"
+                  "## Acceptance criteria\n\n"
+                  "- [ ] AC1: the importer writes six rows\n"
+                  "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
+                  "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")
+COVERS_NONE = ("## Parent\n\n#216\n\n## Acceptance criteria\n\n"
+               "- [ ] AC1: the importer writes six rows\n"
+               "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
+               "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")
+COVERS_3_CLOSED = ("## Parent\n\n#216, Implementation Decisions section 3\n\n"
+                   "## Acceptance criteria\n\n"
+                   "- [ ] AC1: the importer writes six rows\n"
+                   "  CHECK: node scripts/import.mjs fixtures/valid.json\n"
+                   "  EXPECT: /^6 rows$/m\n  EVIDENCE: pending\n")
+
+
+class TestUncoveredSection(unittest.TestCase):
+    """`--lint` on a spec warns for Implementation Decisions no ticket's Parent names."""
+
+    def test_a_section_named_by_no_ticket_is_a_warn_not_an_error(self):
+        code, printed, _, _, _ = lint(
+            SPEC, {SPEC: SPEC_WITH_SECTIONS, 301: COVERS_1_AND_2, 302: COVERS_NONE},
+            [301, 302])
+        self.assertEqual(code, 0)
+        self.assertIn(
+            "WARN #216 Implementation Decisions section 3 is named by no ticket's "
+            "## Parent [uncovered-section]",
+            printed)
+        self.assertNotIn("section 1 is named by no ticket", printed)
+        self.assertNotIn("section 2 is named by no ticket", printed)
+        self.assertIn("sections named by a ticket: 2/3", printed)
+
+    def test_a_closed_ticket_still_covers_the_section_it_names(self):
+        fetched = dict(LABELS)
+        closed = {"labels": [{"name": "ready-for-agent"}, {"name": "junior-worker"}],
+                  "state": "CLOSED"}
+        with mock.patch.object(vt, "fetch_body", side_effect=lambda n: {
+                 SPEC: SPEC_WITH_SECTIONS, 301: COVERS_1_AND_2,
+                 303: COVERS_3_CLOSED}[n]), \
+             mock.patch.object(vt, "fetch_ticket", side_effect=lambda n: (
+                 fetched if n == SPEC else (closed if n == 303 else LABELS))), \
+             mock.patch.object(vt, "fetch_parent", return_value=None), \
+             mock.patch.object(vt, "fetch_sub_issues", return_value=[301, 303]), \
+             mock.patch.object(vt, "lint_batch_graph", return_value=0):
+            with redirect_stdout(io.StringIO()) as out:
+                code = vt.run_lint(SPEC)
+        printed = out.getvalue()
+        self.assertEqual(code, 0)
+        self.assertNotIn("[uncovered-section]", printed)
+        self.assertIn("sections named by a ticket: 3/3", printed)
+
+    def test_a_parent_that_names_no_section_covers_none(self):
+        code, printed, _, _, _ = lint(
+            SPEC, {SPEC: SPEC_WITH_SECTIONS, 301: COVERS_NONE}, [301])
+        self.assertEqual(code, 0)
+        self.assertIn("section 1 is named by no ticket", printed)
+        self.assertIn("section 2 is named by no ticket", printed)
+        self.assertIn("section 3 is named by no ticket", printed)
+        self.assertIn("sections named by a ticket: 0/3", printed)
+
+    def test_the_warn_does_not_change_the_exit_when_the_graph_is_red(self):
+        code, printed, _, _, _ = lint(
+            SPEC, {SPEC: SPEC_WITH_SECTIONS, 301: COVERS_1_AND_2}, [301], graph=1)
+        self.assertEqual(code, 1)
+        self.assertIn("[uncovered-section]", printed)
+
+
 if __name__ == "__main__":
     unittest.main()

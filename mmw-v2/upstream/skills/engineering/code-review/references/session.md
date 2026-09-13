@@ -1,6 +1,6 @@
 # Running the session
 
-You are the reviewer session. You write three axis reports onto one ticket. On a host that can run subagents you review nothing yourself; on one that cannot, you run the three axis files yourself. You are the only one of the four agents that writes anything.
+You are the reviewer session. You write three axis reports onto one ticket. On a host that can run subagents you run no axis yourself, and you verify every finding the axes report; on one that cannot, you run the three axis files yourself. You are the only one of the four agents that writes anything.
 
 The caller gives you two values: the base commit the diff starts from, and the ticket number.
 
@@ -12,13 +12,13 @@ git diff <base-commit>...HEAD --stat
 git log <base-commit>..HEAD --oneline
 ```
 
-Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway, through the same call step 4 uses, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That report is what the worker is waiting for, so write it even when there is nothing to review. Then stop.
+Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway, through the same call step 5 uses, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That report is what the worker is waiting for, so write it even when there is nothing to review. Then stop.
 
 Capture the base commit and the `HEAD` commit. Both go in the first line of the review comment.
 
 ## 2. Run the three axes
 
-When the host can run subagents, start three at once, one per axis. When it cannot, run the three axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The axis file's read-only rule binds that pass; step 4 is still yours to write.
+When the host can run subagents, start three at once, one per axis. When it cannot, run the three axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The axis file's read-only rule binds that pass; step 5 is still yours to write.
 
 On a host that can run subagents, that start is one message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
 
@@ -28,9 +28,25 @@ Use the code-review skill to review ticket #<ticket> from base commit <base comm
 
 Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for, no path. The skill is what they read, and the axis word is which door they take.
 
-**Hold this turn until all three axis reports exist.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in step 4 — which cannot be made until the report exists. A turn ended here leaves the report unwritten, so nothing has gone out and the worker is still waiting.
+**Hold this turn until all three axis reports exist.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in step 5 — which cannot be made until the report exists. A turn ended here leaves the report unwritten, so nothing has gone out and the worker is still waiting.
 
-## 3. Sort every review finding into in-ticket or out-of-ticket
+## 3. Verify every finding the axes report
+
+Once every axis has reported — and not before — verify each finding at the cited file and line, ahead of any sorting.
+
+At the cited file and line, does the bad outcome the reviewer describes actually occur? Read beyond the changed lines — follow callers, guards upstream, etc — until you can answer yes or no. A different finding about nearby code does not settle this one. Judge whether the problem is real, not whether the proposed fix is plausible. Code that loudly fails on a situation you never showed the program can reach is correct behavior, not a defect.
+
+Render exactly one conclusion:
+
+- Holds: the bad outcome does occur at the cited location.
+- `false` — you checked, and the bad outcome does not happen at the cited location. Write what disproves this specific claim. A true fact about nearby code that does not disprove the claim does not count.
+- Could not tell: the diff and surrounding code leave the question open. Sort it as usual and end the line with `unverified: <what would settle it>`.
+
+`false` findings go under `## Withdrawn`, each with its refutation. Findings that hold and findings you could not tell go on to step 4.
+
+You do not assign severity, and you do not drop a finding because the fix looks large.
+
+## 4. Sort every review finding into in-ticket or out-of-ticket
 
 A review finding is **in-ticket** when it touches one of six things: this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under the ticket's `## Read first`, the spec's `## Out of Scope`, the spec's `## Testing Decisions`, or a file inside this ticket's `## Owns`. Everything else is **out-of-ticket**.
 
@@ -47,7 +63,7 @@ The Tests axis splits on one question — is the test case the review finding na
 - A test case some `CHECK:` runs → **in-ticket**. That criterion's green is what the review finding is about.
 - Any other test file in the diff → **out-of-ticket**.
 
-## 4. Write one review comment on the ticket
+## 5. Write one review comment on the ticket
 
 Write the report to a file, then hand that file to the `verify-ticket` skill's engine, resolving `<engine>` from that skill's own `SKILL.md`:
 
@@ -63,7 +79,7 @@ The review comment's first line is fixed:
 REVIEW <base commit>..<HEAD commit>
 ```
 
-Then the three axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order. Then two lists, `## In-ticket` and `## Out-of-ticket`, each entry naming the axis it came from and the file and line it points at. An empty list says `None`.
+Then the three axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order. Then `## Withdrawn`, each `false` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Each in-ticket entry is `- <Standards|Spec|Tests> <path>:<line> — <claim>`, with `unverified: <what would settle it>` at the end of the line when you could not tell. An empty list says `None`.
 
 End with one line per axis: how many review findings it raised and the worst one within that axis. Rank nothing across axes and merge nothing between them — the separation is what keeps a passing axis from covering a failing one.
 
