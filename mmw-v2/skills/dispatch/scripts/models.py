@@ -29,7 +29,7 @@ SKILL_DIR = SCRIPTS_DIR.parent
 HOSTS_JSON = SKILL_DIR / "hosts.json"
 RUNNERS_DIR = SKILL_DIR / "scripts" / "runners"
 ALLOWED_AGENTS = (
-    "junior-worker", "senior-worker", "reviewer", "verifier", "advisor")
+    "junior-worker", "senior-worker", "reviewer", "advisor")
 # Lody cuts its own worktree. Runtime detection must not pick it; an explicit choice may.
 WORKTREE_OWNING = frozenset({"lody"})
 DEFAULT_RUNNER = "orca"
@@ -136,11 +136,11 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
         errors.append({"cell": "runner", "reason": "is required"})
     rows = config.get("rows")
     if not isinstance(rows, dict):
-        return errors + [{"cell": "rows", "reason": "five role rows are required"}]
+        return errors + [{"cell": "rows", "reason": "four role rows are required"}]
     missing = [role for role in ALLOWED_AGENTS if role not in rows]
     extra = [role for role in rows if role not in ALLOWED_AGENTS]
     if missing or extra:
-        reason = "five role rows are required"
+        reason = "four role rows are required"
         if missing:
             reason += "; missing " + ", ".join(missing)
         if extra:

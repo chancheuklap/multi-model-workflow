@@ -15,13 +15,12 @@ const NEEDS_YOU = new Set(Object.keys(NEEDS_YOU_KIND));
 const QUEUE_REASON = {"product-full": "every instance of the product is held",
   "machine-full": "every slot on this machine is held"};
 const ENDED_BY = {
-  "reviewer.reported": "review posted", "verifier.passed": "verifier passed",
-  "verifier.failed": "verifier failed", "ticket.landed": "landed",
+  "reviewer.reported": "review posted", "ticket.landed": "landed",
   "ticket.returned": "handed back", "ticket.bounced": "bounced",
   "ticket.released": "claim released", "spec.suspended": "night suspended",
   "worker.retracted": "retracted", "worker.replaced": "replaced",
   "ticket.refused": "preflight refused", "worker.lost": "session lost",
-  "reviewer.lost": "session lost", "verifier.lost": "session lost",
+  "reviewer.lost": "session lost",
 };
 const duration = value => value < 60 ? `${value}m` : `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}m`;
 const short = value => String(value || "").slice(0, 7);
@@ -64,10 +63,27 @@ export const Board = {
   },
 
   stoppedAt(ticket) {
-    const kinds = ticket.fold.sessions.map(session => session.kind);
-    if (kinds.includes("verifier") || this.bounce(ticket)) return "verify";
-    if (kinds.includes("reviewer") && !ticket.fold.review) return "review";
-    return "working";
+    if (this.bounce(ticket)) return "verify";
+    return this.workflowPhase(ticket);
+  },
+
+  workflowPhase(ticket) {
+    const reviewerLive = ticket.fold.sessions.some(session => session.kind === "reviewer" && session.live);
+    let phase = reviewerLive ? "review" : "working";
+    for (const event of ticket.events) {
+      if (event.event === "ticket.checked" && event.payload?.run === "reverify"
+          && event.payload?.actor === "worker") {
+        phase = "verify";
+      } else if (event.event === "reviewer.started") {
+        phase = "review";
+      } else if (event.event === "reviewer.reported"
+          || (!reviewerLive && (["worker.started", "worker.resumed", "ticket.claimed",
+            "worker.decided"].includes(event.event)
+            || (event.event === "ticket.checked" && event.payload?.run === "self")))) {
+        phase = "working";
+      }
+    }
+    return phase;
   },
 
   // Whether this ticket is finished, which is the same question `blocker_hold` already
@@ -88,11 +104,8 @@ export const Board = {
       return this.stoppedAt(ticket);
     }
     if (!live.length) return "queued";
-    if (live.some(session => session.kind === "verifier")) return "verify";
-    if (fold.verdict?.event === "verifier.passed") return "verify";
-    if (live.some(session => session.kind === "reviewer")) return "review";
     if (fold.waiting) return "waiting";
-    return "working";
+    return this.workflowPhase(ticket);
   },
 
   why(ticket) {
@@ -133,7 +146,7 @@ export const Board = {
     if (event.event === "child.opened" && NEEDS_YOU.has(event.payload?.kind)) return "orange";
     if (event.event === "ticket.returned" || event.event === "ticket.bounced") return "orange";
     if (/\.started$|^worker\.resumed$|^ticket\.claimed$/.test(event.event)) return "green";
-    if (/^ticket\.(landed|passed)$|^verifier\.passed$|^reviewer\.reported$|^child\.closed$/.test(event.event)) return "ink";
+    if (/^ticket\.(landed|passed)$|^reviewer\.reported$|^child\.closed$/.test(event.event)) return "ink";
     return "hollow";
   },
 

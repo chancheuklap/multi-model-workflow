@@ -55,8 +55,6 @@ def started(cid: int, ticket: int, session: str, runner: str = "paseo") -> dict:
 # What each event must carry to be an event at all (`events.EVENTS`), for the fixtures
 # below that do not care about those fields.
 REQUIRED = {
-    "verifier.passed": {"commit": "a" * 40},
-    "verifier.failed": {"commit": "a" * 40},
     "ticket.refused": {"reason": "blocked"},
     "ticket.released": {"reason": "worker-lost"},
     "ticket.bounced": {"reason": "conflict", "commit": "a" * 40},
@@ -64,7 +62,6 @@ REQUIRED = {
     "worker.lost": {"session": "gone", "runner": "paseo"},
     "worker.started": {"machine": "mac-1", "host": "grok", "model": "grok-4.6", "effort": "high", "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61", "branch": "issue-61", "base": "0" * 40},
     "reviewer.started": {"session": "rv-1", "runner": "paseo", "machine": "mac-1"},
-    "verifier.started": {"session": "vf-1", "runner": "paseo", "machine": "mac-1"},
 }
 
 
@@ -287,18 +284,15 @@ class QueueTest(RelayCase):
         self.poll()
         self.assertEqual(self.summary(), [(1, 61, "ticket.passed"), (2, 62, "ticket.passed")])
 
-    def test_a_lost_reviewer_or_verifier_wakes_the_worker_that_started_it(self):
+    def test_a_lost_reviewer_wakes_the_worker_that_started_it(self):
         self.board[61] += [
             started(101, 61, "wk-61"),
             comment(102, "reviewer.started", 61),
             comment(103, "reviewer.lost", 61, session="rv-1", runner="paseo"),
-            comment(104, "verifier.started", 61),
-            comment(105, "verifier.lost", 61, session="vf-1", runner="paseo"),
         ]
         self.poll()
         self.assertEqual(self.addressed(), [
             (1, "reviewer.lost", "worker", "wk-61"),
-            (2, "verifier.lost", "worker", "wk-61"),
         ])
 
     def test_only_the_events_in_wakes_are_queued_each_for_its_role(self):
@@ -308,9 +302,6 @@ class QueueTest(RelayCase):
             comment(102, "ticket.claimed", 61),
             comment(103, "reviewer.started", 61),
             comment(104, "reviewer.reported", 61),
-            comment(105, "verifier.started", 61),
-            comment(106, "verifier.failed", 61),
-            comment(107, "verifier.passed", 61),
             comment(108, "child.opened", 61, kind="finding"),
             comment(109, "child.opened", 61, kind="deferred"),
             comment(110, "child.opened", 61, kind="fault"),
@@ -327,14 +318,12 @@ class QueueTest(RelayCase):
         self.poll()
         self.assertEqual(self.addressed(), [
             (1, "reviewer.reported", "worker", "wk-61"),
-            (2, "verifier.failed", "worker", "wk-61"),
-            (3, "verifier.passed", "worker", "wk-61"),
-            (4, "child.opened", "main", "main-a"),
-            (5, "child.opened", "main", "main-a"),
-            (6, "ticket.passed", "main", "main-a"),
-            (7, "worker.lost", "main", "main-a"),
-            (8, "ticket.returned", "main", "main-a"),
-            (9, "ticket.refused", "main", "main-a"),
+            (2, "child.opened", "main", "main-a"),
+            (3, "child.opened", "main", "main-a"),
+            (4, "ticket.passed", "main", "main-a"),
+            (5, "worker.lost", "main", "main-a"),
+            (6, "ticket.returned", "main", "main-a"),
+            (7, "ticket.refused", "main", "main-a"),
         ])
         # The two children that wake the main agent are the fault and the decision.
         woken = [r for r in self.rows() if r["event"] == "child.opened"]
@@ -382,11 +371,13 @@ class QueueTest(RelayCase):
 
 class WorkerRecipientTest(RelayCase):
     def test_a_worker_wake_goes_to_the_worker_on_the_ticket_when_the_event_landed(self):
-        self.board[61] += [started(101, 61, "wk-a", runner="orca"), comment(102, "reviewer.reported", 61),
-                           started(103, 61, "wk-b", runner="herdr"), comment(104, "verifier.passed", 61)]
+        self.board[61] += [started(101, 61, "wk-a", runner="orca"),
+                           comment(102, "reviewer.lost", 61, session="rv-1", runner="paseo"),
+                           started(103, 61, "wk-b", runner="herdr"), comment(104, "reviewer.reported", 61)]
         self.poll()
         self.assertEqual([(r["event"], r["runner"], r["session"]) for r in self.rows()],
-                         [("reviewer.reported", "orca", "wk-a"), ("verifier.passed", "herdr", "wk-b")])
+                         [("reviewer.lost", "orca", "wk-a"),
+                          ("reviewer.reported", "herdr", "wk-b")])
 
     def test_the_worker_named_in_an_earlier_read_addresses_a_later_event(self):
         self.board[61] += [

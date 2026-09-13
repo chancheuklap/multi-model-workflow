@@ -47,7 +47,7 @@ Three rules bind how each one is worded:
 2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected".
 3. One behaviour per criterion, independently true or false. Split compounds.
 
-**A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the verifier, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. Most of what you want to say about the work does not belong there. Ask **the five questions** in order and stop at the first yes:
+**A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the worker's final full run, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. Most of what you want to say about the work does not belong there. Ask **the five questions** in order and stop at the first yes:
 
 1. **Is the rule a comparison — equal, matches, counts, over a threshold — against something a machine can reach?** It is a criterion. Write its `CHECK:` and `EXPECT:`.
 2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next, whether the test behind a criterion could ever have failed. Code review decides these — its `Standards` axis for how the code is written, its `Spec` axis for whether it matches what was asked, its `Tests` axis for whether the cases a `CHECK:` names are worth trusting — in a session other than the one that wrote the code. Leave it out of `## Acceptance criteria`: a judgement left there has only its own author to decide it, which is the one thing that section exists to prevent. Write the judgement as one sentence into the `## Implementation Decisions` subsection of the spec this ticket's **Parent** names, through the `to-spec` skill's step for revising a published spec. The Spec axis reads that subsection, so it will judge it; and a decision in the spec section the ticket names is in-ticket for the review, so the finding gets its round of fixes on this ticket rather than a sub-issue.
@@ -202,7 +202,7 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
   EVIDENCE: pending
   TIMEOUT: 1800
 
-Every criterion here carries a command. A judgement goes to code review; a thing only a person can look at is its own `ready-for-human` ticket, blocked by this one. `TIMEOUT:` is optional: seconds this `CHECK:` may run, written when the precedent takes longer than ten minutes — a full build, a suite that starts a browser — and read by the worker's own run and the verifier's alike. It raises the limit and never lowers it.
+Every criterion here carries a command. A judgement goes to code review; a thing only a person can look at is its own `ready-for-human` ticket, blocked by this one. `TIMEOUT:` is optional: seconds this `CHECK:` may run, written when the precedent takes longer than ten minutes — a full build, a suite that starts a browser — and read by the worker's own run and final full run alike. It raises the limit and never lowers it.
 
 </issue-template>
 

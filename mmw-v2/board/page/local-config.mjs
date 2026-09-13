@@ -2,7 +2,7 @@ import {hhmm} from "./shared.mjs";
 
 export const CATALOG = {
   store: "~/.mmw/models.json",
-  agents: ["junior-worker", "senior-worker", "reviewer", "verifier", "advisor"],
+  agents: ["junior-worker", "senior-worker", "reviewer", "advisor"],
   hosts: ["cursor", "grok", "claude", "codex", "pi"],
   binaries: {cursor: "cursor-agent", grok: "grok", claude: "claude", codex: "codex", pi: "pi"},
   launch: {
@@ -21,7 +21,6 @@ export const LocalConfig = {
     "junior-worker": "贴 junior-worker label 的 ticket",
     "senior-worker": "贴 senior-worker label 的 ticket",
     reviewer: "review 每张 ticket 的改动",
-    verifier: "reverify 每张 ticket 的 acceptance criteria",
     advisor: "被问到时给第二意见",
   },
   source: d => (d.runner === "paseo" ? "paseo" : "cli"),

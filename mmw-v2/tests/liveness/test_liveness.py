@@ -59,7 +59,6 @@ REQUIRED = {
                        "grade": "junior-worker", "worktree": "/repo/.worktrees/issue-61",
                        "branch": "issue-61", "base": "0" * 40},
     "reviewer.started": {"machine": HERE_MACHINE},
-    "verifier.started": {"machine": HERE_MACHINE},
     "worker.lost": {},
     "worker.replaced": {},
     "ticket.released": {"reason": "landed"},
@@ -522,31 +521,30 @@ class Rounds(StateCase):
         self.assertIn("#61 liveness unknown", self.send.calls[0][2])
 
     def children(self, *extra):
-        """A live worker, then a reviewer and a verifier it started, then `extra`."""
+        """A live worker, then a reviewer it started, then `extra`."""
         self.board.tickets[61] = [
             comment(1, "worker.started", 61, self.SILENT, runner="herdr", session="h1"),
             comment(2, "reviewer.started", 61, self.SILENT, runner="orca", session="rv"),
-            comment(3, "verifier.started", 61, self.SILENT, runner="paseo", session="vf"),
             *extra]
 
     def test_every_live_session_is_asked_through_its_own_runner(self):
         self.children()
         self.watchdog().round()
-        self.assertEqual(sorted(self.ask.calls), [("herdr", "h1"), ("orca", "rv"), ("paseo", "vf")])
+        self.assertEqual(sorted(self.ask.calls), [("herdr", "h1"), ("orca", "rv")])
 
-    def test_a_stopped_reviewer_or_verifier_with_no_result_is_lost(self):
+    def test_a_stopped_reviewer_with_no_result_is_lost(self):
         self.children()
-        self.ask.answers.update({("orca", "rv"): "stopped", ("paseo", "vf"): "stopped"})
+        self.ask.answers[("orca", "rv")] = "stopped"
         self.watchdog().round()
         posted = sorted((c[1], c[4], c[5]) for c in self.post.calls)
-        self.assertEqual(posted, [("reviewer", "orca", "rv"), ("verifier", "paseo", "vf")])
-        self.assertEqual(self.send.calls, [], "those two wake the worker through the relay")
+        self.assertEqual(posted, [("reviewer", "orca", "rv")])
+        self.assertEqual(self.send.calls, [], "the relay wakes the worker")
 
     def test_a_reviewer_whose_report_is_in_is_not_asked(self):
         self.children(comment(4, "reviewer.reported", 61, self.SILENT))
         self.ask.default = "stopped"
         self.watchdog().round()
-        self.assertEqual(sorted(self.ask.calls), [("herdr", "h1"), ("paseo", "vf")])
+        self.assertEqual(sorted(self.ask.calls), [("herdr", "h1")])
         self.assertNotIn("reviewer", [c[1] for c in self.post.calls])
 
     def test_a_report_before_this_reviewer_started_does_not_count_for_it(self):
@@ -772,7 +770,7 @@ class Rounds(StateCase):
         self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
         self.assertEqual(self.send.calls[0][2],
                          "watchdog: #61 silent since 2026-09-10T00:00:00Z with nothing to wait on: "
-                         "its worker h1 on herdr is alive, and no reviewer, verifier or product "
+                         "its worker h1 on herdr is alive, and no reviewer or product "
                          "slot is pending")
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1, "once per ticket and newest event")
@@ -896,18 +894,17 @@ class LostEvent(unittest.TestCase):
                            issue=61)
         self.assertFalse(fold["held"], "worker.lost ends the hold of the pair it names")
 
-    def test_reviewer_and_verifier_lost_end_only_their_own_hold(self):
-        for kind in ("reviewer", "verifier"):
-            with self.subTest(kind=kind):
-                what, payload = events.parse(dog.lost_body(kind, 61, 7, "orca", "s2", None))
-                self.assertEqual((what, payload["event"], payload["actor"]),
-                                 ("event", f"{kind}.lost", "judge"))
-                fold = events.fold([
-                    comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
-                    comment(2, f"{kind}.started", 61, T0, runner="orca", session="s2"),
-                    {"id": 3, "body": dog.lost_body(kind, 61, 7, "orca", "s2", None)}], issue=61)
-                self.assertEqual([(r["kind"], r["session"]) for r in fold["holders"]],
-                                 [("worker", "h1")])
+    def test_reviewer_lost_ends_only_its_own_hold(self):
+        what, payload = events.parse(dog.lost_body("reviewer", 61, 7, "orca", "s2", None))
+        self.assertEqual((what, payload["event"], payload["actor"]),
+                         ("event", "reviewer.lost", "judge"))
+        fold = events.fold([
+            comment(1, "worker.started", 61, T0, runner="herdr", session="h1"),
+            comment(2, "reviewer.started", 61, T0, runner="orca", session="s2"),
+            {"id": 3, "body": dog.lost_body("reviewer", 61, 7, "orca", "s2", None)}],
+            issue=61)
+        self.assertEqual([(r["kind"], r["session"]) for r in fold["holders"]],
+                         [("worker", "h1")])
 
 
 if __name__ == "__main__":

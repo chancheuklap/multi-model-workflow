@@ -125,7 +125,7 @@ test("fromBoard maps GET /api/board lamps and a failed read onto the top bar", (
     fold: {
       children: {9: {child: 9, kind: "decision", title: "choose"}},
       sessions: [], landed: false, returned: false, bounced: false,
-      outcome: null, waiting: null, review: null, verdict: null,
+      outcome: null, waiting: null, review: null,
     },
   };
   const view = fromBoard({

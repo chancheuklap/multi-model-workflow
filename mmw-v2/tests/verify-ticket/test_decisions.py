@@ -167,7 +167,7 @@ class TestRefusesWithoutASelfRun(unittest.TestCase):
         self.assertEqual(posted, [])
 
     def test_a_reverify_is_not_the_workers_own_run(self):
-        """The verifier's run says nothing about what the worker wrote outside `## Owns`."""
+        """The final run says nothing about what the worker wrote outside `## Owns`."""
         reverify = checked("reverify", LEDGER, "ALL MET (1 met)")
         code, err, posted, _ = run_decisions(TWO_SECTIONS, comments=(reverify,))
         self.assertEqual(code, 2)

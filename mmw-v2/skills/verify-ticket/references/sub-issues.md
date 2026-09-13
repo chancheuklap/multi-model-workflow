@@ -24,7 +24,7 @@ A kind is named for who can answer the child, not for where it came from:
 
 An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that brings the ticket to rest. This run tells nobody: the relay of the `dispatch` skill reads the `child.opened` on the ticket and wakes the main agent with `#<n> child.opened` for a `fault` or a `decision`.
 
-A reviewer or a verifier opens no `fault`. The worker that started it is asleep until its result lands on the ticket, and a `child.opened` wakes only the main agent, so a reviewer or verifier that stopped after opening one would leave that worker asleep for good. It reports the failure through its result instead, which wakes the worker: the reviewer's review report says which failure it hit, and the verifier writes `--verdict "could not start: <what it ran and what it saw>"`.
+A reviewer opens no `fault`. The worker that started it is asleep until its report lands on the ticket, and a `child.opened` wakes only the main agent, so a reviewer that stopped after opening one would leave that worker asleep. It reports the failure through its review report, which wakes the worker.
 
 ## Exit codes
 

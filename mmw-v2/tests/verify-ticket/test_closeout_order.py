@@ -68,7 +68,7 @@ CLAIMED = tc.event("ticket.claimed", "Claimed #77 on issue-77", login=tc.ME, bra
 
 def after_a_lost_post(text, **kwargs):
     """--closeout on a ticket a previous run already changed, whose event was never posted."""
-    return tc.check(text, comments=(tc.VERDICT_COMMENT, CLAIMED), check_only=False, **kwargs)
+    return tc.check(text, comments=(tc.FINAL_RUN, CLAIMED), check_only=False, **kwargs)
 
 
 class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
@@ -100,7 +100,7 @@ class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
         passed = tc.event("ticket.passed", "ALL MET", commit=tc.HEAD)
         code, err, seen = tc.check(tc.draft(counts=tc.counts_line()), state="CLOSED", assignees=(),
                                    reason="COMPLETED", check_only=False,
-                                   comments=(tc.VERDICT_COMMENT, CLAIMED, passed))
+                                   comments=(tc.FINAL_RUN, CLAIMED, passed))
         self.assertEqual(code, 1)
         self.assertIn("already CLOSED", err)
         self.assertEqual(seen["posted"], [])
@@ -117,7 +117,7 @@ class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
                           branch="issue-77")
         code, err, seen = tc.check(tc.draft(counts=tc.counts_line()), state="CLOSED", assignees=(),
                                    reason="COMPLETED", check_only=False,
-                                   comments=(tc.VERDICT_COMMENT, theirs))
+                                   comments=(tc.FINAL_RUN, theirs))
         self.assertEqual(code, 1)
         self.assertEqual(seen["posted"], [])
 

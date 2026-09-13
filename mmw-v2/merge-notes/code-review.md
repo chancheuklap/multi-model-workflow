@@ -36,7 +36,7 @@
 
 ## 第三个 axis：Tests
 
-上游只有两个 axis，都不看测试内容。这条 landing pipeline 里，测试是 worker 自己写的，`CHECK:` 跑的是 worker 自己写的用例，verifier 重跑的是同一条命令——一个期望值按被测代码同样算法重算一遍的用例，从写到关 ticket 没有任何一步会怀疑它。Tests axis 是唯一问「这个绿色证明了什么」的读者。
+上游只有两个 axis，都不看测试内容。这条 landing pipeline 里，测试是 worker 自己写的，`CHECK:` 跑的是 worker 自己写的用例，worker 的 final run 重跑同一条命令——一个期望值按被测代码同样算法重算一遍的用例，从写到关 ticket 没有任何一步会怀疑它。Tests axis 是唯一问「这个绿色证明了什么」的读者。
 
 它照的规则不是自造的，抄 `mmw-v2/upstream/skills/engineering/tdd/tests.md` 与 `tdd/mocking.md`：tautological、implementation-coupled 六条 red flags、绕过接口验证、测试名说 how 不说 what、mock 越过系统边界。**那两份文件与 `references/tests-reviewer.md` 第 2 节的 test smell baseline 是同一批规则的两个副本：改 `tdd/tests.md` 或 `tdd/mocking.md` 时对着 `references/tests-reviewer.md` 第 2 节看一遍，反过来也一样。** 第六条「只测了 happy path」是这里独有的，`tdd` 那边没有。
 

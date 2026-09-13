@@ -18,7 +18,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import checked, event, load, started
+from _load import checked, load, started
 
 vt = load()
 
@@ -56,11 +56,10 @@ class Tracker:
         return [vt.events.parse(body)[1]["event"] for body in self.comments]
 
     def verified_at(self, commit):
-        """The verifier's run of the criteria on `commit`, and its verdict on it."""
+        """The worker's own run and final full run of the criteria on `commit`."""
         self.comments.append(checked("self", CRITERION, "ALL MET (1 met)", commit=commit))
-        self.comments.append(checked("reverify", CRITERION, "ALL MET (1 met)", commit=commit))
-        self.comments.append(event("verifier.passed", f"VERDICT {commit} by opus — six rows",
-                                   commit=commit))
+        self.comments.append(checked("reverify", CRITERION, "ALL MET (1 met)",
+                                     commit=commit, actor="worker"))
 
     def run(self, call, *args):
         """One run of `verify-ticket.py`, as `(exit code, stdout, stderr)`."""

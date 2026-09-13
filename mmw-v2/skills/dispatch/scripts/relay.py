@@ -38,9 +38,8 @@ tickets watch.
 
 **Who is woken.** The session waiting on the event, which `WAKES` names by role:
 
-    worker   reviewer.reported, verifier.passed, verifier.failed, and reviewer.lost or
-             verifier.lost (that reviewer or verifier died with no result): the session
-             that started that reviewer or verifier. Its runner and session are the
+    worker   reviewer.reported and reviewer.lost (the reviewer died with no result): the
+             session that started that reviewer. Its runner and session are the
              `runner` and `session` fields of the ticket's latest `worker.started` before
              the event. And worker.queued, when a product slot is given back (below)
     main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind fault
@@ -56,7 +55,7 @@ id alone — consumes it.
 keeps, per watched ticket, whether a `worker.queued` is pending: set by one, cleared by
 exactly the events that clear the fold's `waiting` in events.py — a `ticket.checked`, any
 event of `ENDS_EVERY_HOLD`, the worker's result (`RESULTS["worker"]`), and an event of
-`ENDS_ONE_HOLD` other than `reviewer.lost` and `verifier.lost`. When an event of
+`ENDS_ONE_HOLD` other than `reviewer.lost`. When an event of
 `SLOT_ENDS` that gives a slot back lands on any watched ticket (all of them but
 `spec.suspended`, which stops the night), every watched ticket whose pending
 `worker.queued` is older — a lower comment id — gets one row `#<m> worker.queued` for its
@@ -150,7 +149,7 @@ alone, whether that spec is watched.
 hour. Every 10 cycles the relay asks each watch's main agent's runner `liveness`. A main
 agent answered `stopped` at every ask for 3600 seconds or more has its watch closed as
 `stop` would close it, with a line in `relay.log`; `alive` or `unknown` starts the count
-again. The hour lets the reviewers and verifiers still at work bring their results back
+again. The hour lets reviewers still at work bring their results back
 to their workers first, and the next `open` reads everything in full. The relay exits
 when no watch is left.
 
@@ -288,10 +287,7 @@ WORKER = "worker"
 # lists the payload values the event must carry for it to wake anyone.
 WAKES: dict[str, dict] = {
     "reviewer.reported": {"to": WORKER},
-    "verifier.passed": {"to": WORKER},
-    "verifier.failed": {"to": WORKER},
     "reviewer.lost": {"to": WORKER},
-    "verifier.lost": {"to": WORKER},
     "ticket.passed": {"to": MAIN},
     "ticket.returned": {"to": MAIN},
     "ticket.refused": {"to": MAIN},
@@ -370,11 +366,11 @@ def woken_by(event: dict) -> str | None:
 
 def ends_waiting(name: str) -> bool:
     """Whether this event ends a run's wait for a product slot: the events that clear the
-    fold's `waiting` in events.py. A lost reviewer or verifier ends only its own hold, and
+    fold's `waiting` in events.py. A lost reviewer ends only its own hold, and
     the worker's run is still waiting."""
     return (name == "ticket.checked" or name in events.ENDS_EVERY_HOLD
             or name in events.RESULTS["worker"]
-            or (name in events.ENDS_ONE_HOLD and name not in ("reviewer.lost", "verifier.lost")))
+            or (name in events.ENDS_ONE_HOLD and name != "reviewer.lost"))
 
 
 def gives_slot_back(name: str) -> bool:

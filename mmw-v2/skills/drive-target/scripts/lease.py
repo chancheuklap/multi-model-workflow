@@ -14,7 +14,7 @@ slot is a block of ports and a data directory that no other slot overlaps. It is
 once per worktree, by the first run of that worktree's criteria that needs the product,
 and lives until the ticket's work ends — landed, handed back, released, suspended or its
 start retracted: a worktree runs its criteria many times in a night — the worker's own
-run, the verifier's reverify, the closeout checks — and they all want the same
+run, the worker's final reverify, the closeout checks — and they all want the same
 application, so the lease cannot be per run. Writing code takes no slot. A criterion or
 judge run outside a ticket worktree gives back the slot **it claimed** when that run
 ends, and leaves a slot that was already held to whoever claimed it; `lease.py run`
@@ -620,7 +620,7 @@ def leased_environment(worktree: Path | None = None) -> dict[str, str]:
 def judge_run(worktree: Path | None = None, *, stop: bool = False):
     """Release the non-ticket lease this judge claimed, and no other.
 
-    Ticket worktrees keep one lease across the worker's, reviewer's and verifier's runs.
+    Ticket worktrees keep one lease across the worker's and reviewer's runs.
     A judge in any other checkout owns the lease it claimed itself, for this context
     only. A lease the worktree already held when the judge started belongs to whoever
     claimed it — a product a person left running under `lease.py run`, a journey running

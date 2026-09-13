@@ -8,10 +8,10 @@
 
 ```bash
 <engine> <n>              # you are the worker, and the code is written
-<engine> <n> --reverify   # you are the verifier on this ticket
+<engine> <n> --reverify --actor worker  # the worker's final full run
 ```
 
-Each run lands one `ticket.checked` event on the ticket. Its first line names the run and the commit it ran on and repeats gate-check's summary line; under it is the ledger as the run left it — each criterion ticked or not, each with the `EVIDENCE:` line gate-check recorded. What programs read is the event block: `run` (`self` for the worker's run, `reverify` for the verifier's), the full commit, the `result` (`met`, `unmet` or `handoff`), the counts, each criterion's outcome, the ids left unmet, and a fingerprint of the criteria it ran.
+Each run lands one `ticket.checked` event on the ticket. Its first line names the run and the commit it ran on and repeats gate-check's summary line; under it is the ledger as the run left it — each criterion ticked or not, each with the `EVIDENCE:` line gate-check recorded. What programs read is the event block: `run` (`self` for the worker's first run, `reverify` for the final full run), the full commit, the `result` (`met`, `unmet` or `handoff`), the counts, each criterion's outcome, the ids left unmet, and a fingerprint of the criteria it ran.
 
 The worker's run takes the criteria not yet met. `--reverify` reads the ticket and runs every criterion again, including the ones the newest run ticked, so the worker's ticks are re-run rather than trusted. The main agent re-runs a landed ticket on the base branch the same way with `--reverify --actor main` (the `dispatch` skill's `reverify` does it), and that run's event names the main agent as its writer.
 
@@ -25,17 +25,9 @@ When no product slot is free, the run posts one `worker.queued` event and runs n
 
 The worker's own run exits `3` at once. End your turn. A slot comes back only when another ticket's work ends, and at that moment the relay of the `dispatch` skill wakes you with `#<n> worker.queued`. Run the same command again, then acknowledge that wake with the `dispatch` skill's `ack <n> worker.queued`. A run that finds every slot still held exits `3` again, and you are woken again when the next slot is given back.
 
-The verifier's `--reverify`, and the main agent's `--reverify --actor main`, wait inside the command instead: they ask again every 10 seconds, and after 90 seconds exit `3` having run nothing. Run the same command again to keep waiting. `MMW_SLOT_WAIT_S` and `MMW_SLOT_BEAT_S` change the two numbers.
+The worker's `--reverify --actor worker`, and the main agent's `--reverify --actor main`, wait inside the command instead: they ask again every 10 seconds, and after 90 seconds exit `3` having run nothing. Run the same command again to keep waiting. `MMW_SLOT_WAIT_S` and `MMW_SLOT_BEAT_S` change the two numbers.
 
-## The verifier's verdict
-
-```bash
-<engine> <n> --verdict "<one line>" --model <the model field of the ticket's newest verifier.started event>
-```
-
-The verifier runs this after its `--reverify`. It posts one event on the ticket, first line `VERDICT <commit> by <model> — <one line>`: `verifier.passed` when the newest reverify `ticket.checked` has the result `met`, `verifier.failed` otherwise, naming the criteria it left unmet. The commit is `HEAD`, all 40 characters, read by the script, and that reverify must be a run of it: a newest reverify on an older commit is refused, and `--reverify` on this commit comes first. A line that opens `could not start` is a `verifier.failed` whose criteria never ran. Which of the two it is comes from the run, never from the words of the line, so a verdict cannot say more than the run it reports. Exit `0` posted; `2` refused and nothing posted — no `--model`, no `HEAD`, or no reverify `ticket.checked` of `HEAD` on the ticket for a line that does not open `could not start`.
-
-A `CHECK:` may run ten minutes. A criterion that needs longer says so on the ticket, on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`; every run reads those lines off the ticket body, so the worker's own run and the verifier's `--reverify` are held to the same number. `--timeout <seconds>` raises it for one run. Neither lowers it.
+A `CHECK:` may run ten minutes. A criterion that needs longer says so on the ticket, on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`; every run reads those lines off the ticket body, so the worker's own run and final `--reverify` are held to the same number. `--timeout <seconds>` raises it for one run. Neither lowers it.
 
 ## How many rounds a criterion gets
 

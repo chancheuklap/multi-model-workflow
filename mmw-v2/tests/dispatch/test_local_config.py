@@ -27,7 +27,6 @@ def base_config(version=1, runner="orca"):
             "junior-worker": {"host": "grok", "model": "grok 4.6", "effort": "high"},
             "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
             "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
-            "verifier": {"host": "claude", "model": "sonnet 5", "effort": "high"},
             "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
         },
     }
@@ -65,7 +64,7 @@ class LocalConfigTest(unittest.TestCase):
         self.assertEqual(written["version"], 2)
         self.assertEqual(set(written), {"version", "runner", "rows"})
         self.assertEqual(set(written["rows"]), {
-            "junior-worker", "senior-worker", "reviewer", "verifier", "advisor"})
+            "junior-worker", "senior-worker", "reviewer", "advisor"})
         on_disk = json.loads(models.models_json_path().read_text(encoding="utf-8"))
         self.assertEqual(on_disk, written)
         self.assertEqual(on_disk["rows"]["reviewer"]["model"], "sonnet 5")
