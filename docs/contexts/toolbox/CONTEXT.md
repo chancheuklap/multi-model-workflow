@@ -252,6 +252,12 @@ A skill's text is one and the same for every host: no host is the default or pre
 _Avoid_: 五宿主平权, host-neutral (as a name), 五个宿主
 _Home_: `AGENTS.md`
 
+**ambiguity scan**:
+The read-only pass over a spec and its drafted tickets that feeds questions into the quiz's **Choices** before the breakdown is shown.
+_Admitted_: 找漏
+_Avoid_: clarify (as this pass's name), coverage scan (as this pass's name)
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/ambiguity-scan.md`
+
 **runner neutrality**:
 A skill's text is one and the same for every runner: nothing branches on a runner's name, and a difference in what runners can do is written as that capability. Which runner runs tonight is chosen by `models.py runner`, whose last step is a default; the text states that choice and assumes nothing past it. A runner's own commands are written only in its adapter, whose `# MMW_USES:` lines are the authoritative declaration of every command it calls. A skill's `description` names no runner, since every host scans it into its system prompt: a runner that cannot start is refused by one stderr line of the script at run time, never by a precondition in the `description`.
 _Avoid_: runner-neutral (as a name)
