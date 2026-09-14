@@ -50,8 +50,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.send_file(target, "text/javascript; charset=utf-8")
         if path.startswith("/styles/"):
             target = (PAGE / path.removeprefix("/")).resolve()
-            if target.parent == (PAGE / "styles").resolve():
-                return self.send_file(target, "text/css; charset=utf-8")
+            styles = (PAGE / "styles").resolve()
+            if target.is_relative_to(styles):
+                content_type = (
+                    "font/woff2" if target.suffix == ".woff2"
+                    else "text/css; charset=utf-8"
+                )
+                return self.send_file(target, content_type)
         self.send_error(404)
 
     def send_file(self, path: Path, content_type: str):

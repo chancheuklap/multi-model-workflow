@@ -1,11 +1,8 @@
-import {Board, LAMP_WORD, PHASES} from "./board-logic.mjs";
-import {el, hhmm} from "./shared.mjs";
+import {Board, LAMP_WORD, PHASES, eventBlocks, blockSummary} from "./board-logic.mjs";
+import {el} from "./shared.mjs";
 
-const NOW_CLASS = {
-  queued: "now-queued", working: "now-working", waiting: "now-waiting",
-  review: "now-review", verify: "now-verify", landed: "now-landed",
-};
 const NEEDS_YOU = new Set(["decision", "fault", "contract"]);
+
 function lampFrom(cls) {
   if (!cls) return "hollow";
   if (/\borange\b/.test(cls)) return "orange";
@@ -23,6 +20,10 @@ function kindOf(d) {
   return "empty";
 }
 
+function firstRows(...candidates) {
+  return candidates.find(rows => Array.isArray(rows) && rows.length) || [];
+}
+
 function relFrom(row) {
   return {
     n: row.n,
@@ -32,37 +33,42 @@ function relFrom(row) {
     lamp: lampFrom(row.lampCls),
     state: row.state,
     phase: row.phase,
+    hold: Boolean(row.hold || row.showHold),
     unknown: Boolean(row.unknown || row.known === false),
   };
 }
 
-function kidFrom(row) {
+function phaseItemFrom(item) {
   return {
-    num: row.num, kind: row.kind, title: row.title, to: row.to,
-    lamp: lampFrom(row.lampCls), goto: row.goto, hasGoto: Boolean(row.hasGoto),
-    orange: (row.toCls || "").includes("orange"),
+    event: item.event, time: item.time, name: item.name, text: item.text || "",
+    hasText: item.hasText ?? Boolean(item.text),
+    tone: item.tone || "plain",
+    detail: item.detail || [],
   };
-}
-
-function pathFrom(phases) {
-  return (phases || []).map(phase => ({
-    name: phase.name,
-    done: (phase.cls || "").includes("done"),
-    now: /now-/.test(phase.cls || ""),
-    sep: Boolean(phase.sep),
-  }));
 }
 
 export function fromScene(data = {}) {
   const vals = data.vals || {};
   const d = vals.d || {};
-  if (!d.hasCard) {
+  const hasCard = d.hasCard ?? Boolean(d.isTicket || d.isMap || d.isSpec || d.isDecision || d.isContainer);
+  if (!hasCard) {
     return {
       empty: true,
       emptyTitle: vals.emptyTitle || "点一张卡",
-      emptyText: vals.emptyText || "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+      emptyText: vals.emptyText
+        || "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
     };
   }
+  const rawEvents = vals.rawEvents || d.rawEvents || [];
+  const phaseBlocks = (vals.phaseBlocks || d.phaseBlocks || []).map(block => ({
+    phase: block.phase,
+    tone: block.tone || "plain",
+    openByDefault: Boolean(block.openByDefault),
+    summary: block.summary || "",
+    from: block.from,
+    span: block.span || (block.from !== block.to ? `${block.from}–${block.to}` : block.from),
+    items: (block.items || []).map(phaseItemFrom),
+  }));
   return {
     empty: false,
     repo: vals.repo,
@@ -74,26 +80,20 @@ export function fromScene(data = {}) {
     statusWord: d.statusWord,
     elapsed: d.elapsed || "",
     phase: d.phase,
-    hint: d.hint,
-    path: pathFrom(d.path),
     why: d.why || [],
-    facts: d.facts || [],
-    sessions: (d.sessions || []).map(session => ({
-      ...session, live: (session.stateCls || "").includes("live"),
-    })),
-    closeout: d.closeout
-      ? {from: d.closeoutFrom, fromLabel: d.closeoutFromLabel, child: d.closeoutChild}
-      : null,
     links: vals.links || d.links || [],
-    blockers: (vals.blockers || []).map(relFrom),
-    blocks: (vals.blocks || []).map(relFrom),
-    kids: (vals.kids || []).map(kidFrom),
-    events: (d.events || []).map(event => ({
-      time: event.time, name: event.name, field: event.field, line: event.line,
-      lamp: lampFrom(event.dotCls),
+    blockers: firstRows(vals.blockedBy, d.blockedBy, vals.blockers, d.blockers).map(relFrom),
+    blocks: firstRows(vals.blocking, d.blocking, vals.blocks, d.blocks).map(relFrom),
+    kids: firstRows(vals.kids, d.kids).map(row => ({
+      num: row.num, kind: row.kind, title: row.title,
+      lamp: lampFrom(row.lampCls),
+      hot: Boolean(row.kindCls && row.kindCls.includes("hot")) || NEEDS_YOU.has(row.kind),
     })),
-    runtimeNote: vals.runtimeNote || "",
-    hasWorker: Boolean(d.hasWorker),
+    rawEvents,
+    eventCount: d.eventCount ?? rawEvents.length,
+    phaseBlocks,
+    runtime: d.hasRun ? {grade: d.runGrade, model: d.runModel, rows: d.runRows || []} : null,
+    noRunText: d.noRunText || "not dispatched yet",
     gh: d.gh,
     ghLabel: d.ghLabel,
     listTitle: d.listTitle,
@@ -102,9 +102,9 @@ export function fromScene(data = {}) {
     phases: (d.phases || []).map(item => ({
       phase: (item.cls || "").replace(/^pill\s+/, ""), label: item.label,
     })),
-    ticketRows: (vals.ticketRows || []).map(relFrom),
-    specRows: (vals.specRows || []).map(relFrom),
-    decisionRows: (vals.decisionRows || []).map(relFrom),
+    ticketRows: (vals.ticketRows || d.ticketRows || []).map(relFrom),
+    specRows: (vals.specRows || d.specRows || []).map(relFrom),
+    decisionRows: (vals.decisionRows || d.decisionRows || []).map(relFrom),
     specCount: d.specCount,
     decisionCount: d.decisionCount,
   };
@@ -129,18 +129,21 @@ export function find(tasks, n) {
   return null;
 }
 
-function relRowFromBoard(tasks, n, role, hereSpec) {
+function relRowFromBoard(tasks, n, role, hereSpec, thisTicket) {
   const found = find(tasks, n);
   if (!found) {
     return {n, num: `#${n}`, lamp: "none", title: "不在这棵树里，读不到它的状态",
-      where: "", state: "unknown", unknown: true};
+      where: "", state: "unknown", unknown: true, hold: false};
   }
-  let lamp, state;
+  let lamp, state, phase, hold = false;
   if (found.type === "ticket") {
     lamp = Board.lamp(found.ref);
+    phase = Board.phase(found.ref);
     state = found.ref.fold.landed ? "landed"
       : role !== "blocker" ? LAMP_WORD[lamp]
         : Board.released(found.ref) ? "closed unpassed · released" : "not landed";
+    hold = role === "blocker" ? !Board.released(found.ref)
+      : Boolean(thisTicket) && !Board.released(thisTicket);
   } else if (found.type === "spec") {
     lamp = Board.aggregate(found.ref.tickets);
     state = `${found.ref.tickets.filter(ticket => Board.done(ticket)).length}/${found.ref.tickets.length}`;
@@ -151,62 +154,73 @@ function relRowFromBoard(tasks, n, role, hereSpec) {
   return {
     n, num: `#${n}`, lamp, title: found.ref.title, unknown: false,
     where: found.spec && found.spec.n !== hereSpec ? `spec #${found.spec.n}` : "",
-    state,
+    state, phase, hold,
   };
 }
 
-function kidTo(child) {
-  if (child.resolution === "fixed") return {to: "fixed"};
-  if (child.resolution === "stale") return {to: "stale"};
-  if (child.resolution === "became-ticket") {
-    return {to: `became #${child.ticket}`, goto: child.ticket, hasGoto: true};
-  }
-  if (NEEDS_YOU.has(child.kind)) return {to: "needs you", orange: true};
-  return {to: child.kind === "deferred" ? "deferred" : "for the closing pass"};
+function heldFirst(rows) {
+  return [...rows].sort((a, b) => Number(b.hold) - Number(a.hold));
+}
+
+function phaseBlocksFrom(events) {
+  const blocks = eventBlocks(events);
+  return blocks.map((block, index) => ({
+    phase: block.phase,
+    tone: block.tone,
+    openByDefault: index === blocks.length - 1 || block.tone !== "plain",
+    summary: blockSummary(block),
+    from: block.from,
+    span: block.from !== block.to ? `${block.from}–${block.to}` : block.from,
+    items: block.items.map(item => ({
+      event: item.event, time: item.time, name: item.name, text: item.text,
+      hasText: Boolean(item.text), tone: item.tone, detail: item.detail,
+    })),
+  }));
 }
 
 function ticketView(tasks, found) {
   const ticket = found.ref, fold = ticket.fold, lamp = Board.lamp(ticket), phase = Board.phase(ticket);
-  const stopped = Board.handedBack(ticket) || Board.bounce(ticket)
-    || (fold.sessions.some(session => session.live) && Board.stoppedByFault(ticket));
-  const index = PHASES.indexOf(phase);
-  const worker = fold.worker;
-  const blocks = found.spec.tickets.filter(item => item.blocked.includes(ticket.n)).map(item => item.n);
-  const why = Board.why(ticket).map(item => item.child
-    ? {head: `#${item.child} ${item.kind}`, body: `${item.title}。${item.text}`}
-    : {head: "", body: item.text});
+  const started = [...ticket.events].reverse().find(event => event.event === "worker.started");
+  const hasRun = Boolean(fold.worker && started);
+  const payload = (started && started.payload) || {};
+  const worktree = String(payload.worktree || "").split("/.worktrees/")[1];
+  const slot = [...ticket.events].reverse()
+    .find(event => event.event === "ticket.checked" && event.payload?.slot != null);
+  const runRows = [
+    ["ticket branch", payload.branch], ["base branch", payload.into],
+    ["worktree", worktree ? `…/.worktrees/${worktree}` : payload.worktree],
+    ["machine", payload.machine],
+    ...(slot ? [["slot", String(slot.payload.slot)]] : []),
+  ].filter(([, value]) => value).map(([k, v]) => ({k, v}));
+  const blockers = ticket.blocked.map(n => relRowFromBoard(tasks, n, "blocker", found.spec.n, ticket));
+  const blocking = found.spec.tickets
+    .filter(item => item.blocked.includes(ticket.n))
+    .map(item => relRowFromBoard(tasks, item.n, "blocked", found.spec.n, ticket));
+  const kids = Object.values(fold.children);
   return {
     empty: false, kind: "ticket", eyebrow: "Ticket", num: `#${ticket.n}`,
-    repo: undefined,
     links: [{label: `spec #${found.spec.n}`, n: found.spec.n}, {label: `map #${found.task.n}`, n: found.task.n}],
-    closeout: ticket.closeout
-      ? {from: ticket.closeout.from, fromLabel: `#${ticket.closeout.from}`, child: `的 finding #${ticket.closeout.child}`}
-      : null,
     title: ticket.title, lamp, statusWord: LAMP_WORD[lamp], elapsed: Board.elapsed(ticket),
-    phase, hint: phase === "landed" ? "done" : stopped ? "stopped here" : phase === "queued" ? "not started" : "here now",
-    path: PHASES.map((name, i) => ({name, done: i < index, now: i === index, sep: i < PHASES.length - 1})),
-    why, facts: Board.facts(ticket).map(([k, v]) => ({k, v})),
-    hasWorker: Boolean(worker), runtimeNote: worker ? "from worker.started" : "",
-    sessions: fold.sessions.map(session => ({
-      kind: session.kind, what: `${session.host} · ${session.model} · ${session.effort}`,
-      state: Board.sessionState(session, ticket),
-      live: session.live && !Board.stoppedByFault(ticket),
+    phase,
+    why: Board.why(ticket).map(item => item.child
+      ? {head: `#${item.child} ${item.kind}`, body: `${item.title}。${item.text}`}
+      : {head: "", body: item.text}),
+    runtime: hasRun ? {
+      grade: payload.grade || "",
+      model: `${payload.host} · ${payload.model} · ${payload.effort}`,
+      rows: runRows,
+    } : null,
+    noRunText: phase === "landed" ? "closed without a run" : "not dispatched yet",
+    blockers, blocks: blocking,
+    kids: kids.map(child => ({
+      num: `#${child.child}`, title: child.title, kind: child.kind,
+      lamp: child.resolution ? "ink" : NEEDS_YOU.has(child.kind) ? "orange" : "hollow",
+      hot: NEEDS_YOU.has(child.kind),
     })),
-    blockers: ticket.blocked.map(n => relRowFromBoard(tasks, n, "blocker", found.spec.n)),
-    blocks: blocks.map(n => relRowFromBoard(tasks, n, "blocked", found.spec.n)),
-    kids: Object.values(fold.children).map(child => {
-      const to = kidTo(child);
-      return {
-        num: `#${child.child}`, kind: child.kind, title: child.title, to: to.to,
-        goto: to.goto, hasGoto: Boolean(to.hasGoto), orange: Boolean(to.orange),
-        lamp: child.resolution ? "ink" : NEEDS_YOU.has(child.kind) ? "orange" : "hollow",
-      };
-    }),
-    events: ticket.events.map(event => ({
-      time: hhmm(event.at), name: event.event, field: Board.evFields(event),
-      line: event.line, lamp: Board.eventLamp(event),
-    })),
-    gh: ticket.n, ghLabel: `在 GitHub 打开 #${ticket.n} ↗`,
+    rawEvents: ticket.events,
+    eventCount: ticket.events.length,
+    phaseBlocks: phaseBlocksFrom(ticket.events),
+    gh: ticket.n,
   };
 }
 
@@ -237,8 +251,7 @@ function containerView(tasks, found) {
       return {n: ticket.n, num: `#${ticket.n}`, lamp: Board.lamp(ticket), title: ticket.title, phase};
     }),
     gh: container.n, ghLabel: `在 GitHub 打开 #${container.n} ↗`,
-    why: [], facts: [], sessions: [], kids: [], events: [], blockers: [], blocks: [],
-    closeout: null, hasWorker: false, runtimeNote: "",
+    why: [], kids: [], blockers: [], blocks: [],
   };
 }
 
@@ -249,13 +262,12 @@ function decisionView(tasks, found) {
     empty: false, kind: "decision", eyebrow: `Decision ticket · ${decision.kind}`, num: `#${decision.n}`,
     links: [{label: `map #${found.task.n}`, n: found.task.n}],
     title: decision.title, lamp,
-    statusWord: decision.state === "closed" ? "settled" : "open",
+    statusWord: decision.state === "closed" ? "settled" : "还开着",
     elapsed: "",
     blockers: decision.blocked.map(n => relRowFromBoard(tasks, n, "decision", null)),
     blocks: blocks.map(n => relRowFromBoard(tasks, n, "decision", null)),
     gh: decision.n, ghLabel: `在 GitHub 打开 #${decision.n} ↗`,
-    why: [], facts: [], sessions: [], kids: [], events: [], closeout: null,
-    hasWorker: false, runtimeNote: "", path: [],
+    why: [], kids: [],
   };
 }
 
@@ -283,6 +295,12 @@ function goto(hooks, n) {
   hooks.onGoto?.(n);
 }
 
+function openGithub(view) {
+  if (view.gh != null && view.repo) {
+    window.open(`https://github.com/${view.repo}/issues/${view.gh}`, "_blank", "noopener,noreferrer");
+  }
+}
+
 function relRow(hooks, row) {
   const last = row.phase
     ? el("span", {class: `pill ${row.phase}`}, row.phase)
@@ -304,8 +322,6 @@ function section(title, note, ...rows) {
     ...rows);
 }
 
-// GitHub's own two names for the two directions of a blocking link: its API calls the
-// connections `blockedBy` and `blocking`, and the issue page heads them the same way.
 function blockingSection(hooks, view, noneText) {
   return [
     section("Blocked by", view.blockers?.length || null,
@@ -327,65 +343,140 @@ function origin(hooks, view) {
   return el("div", {class: "dp-origin"}, ...parts);
 }
 
-function ticketBody(hooks, view) {
-  const kids = [
-    el("div", {class: "dp-phase"},
-      el("span", {class: `pill big ${view.phase}`}, view.phase),
-      el("span", {class: "dp-hint"}, view.hint)),
-    el("div", {class: "path"},
-      ...(view.path || []).flatMap(phase => [
-        el("span", {class: "path-phase" + (phase.done ? " done" : phase.now ? ` ${NOW_CLASS[phase.name]}` : "")},
-          phase.name),
-        phase.sep ? el("span", {class: "path-sep"}, "›") : null,
+function ticketRelation(hooks, row) {
+  const last = row.hold ? el("span", {class: "pv-rel-hold"}, "held")
+    : row.phase ? el("span", {class: `pill ${row.phase}`}, row.phase)
+      : el("span", {class: "pv-rel-s"}, row.state);
+  const body = [
+    el("span", {class: `lamp ${row.lamp}`}),
+    el("span", {class: "pv-rel-n"}, row.num),
+    el("span", {class: "pv-rel-t"}, row.title,
+      row.where ? " " : null,
+      row.where ? el("span", {class: "rel-where"}, row.where) : null),
+    last,
+  ];
+  if (row.unknown) {
+    return el("button", {type: "button", class: "pv-rel"}, ...body);
+  }
+  return el("button", {
+    type: "button", class: row.hold ? "pv-rel hold" : "pv-rel",
+    onClick: () => goto(hooks, row.n),
+  }, ...body);
+}
+
+function ticketSection(title, count, ...rows) {
+  return el("section", {class: "pv-sec"},
+    el("div", {class: "pv-sec-title"}, el("span", {}, title), el("span", {}, count)),
+    ...rows);
+}
+
+function ticketRuntime(view) {
+  if (view.runtime) {
+    return el("div", {class: "pv-run"},
+      el("div", {class: "pv-run-who"},
+        el("span", {class: "pv-run-grade"}, view.runtime.grade || ""),
+        view.runtime.model ? el("span", {class: "pv-run-model"}, view.runtime.model) : null),
+      view.runtime.rows?.length ? el("div", {class: "pv-run-where"},
+        ...view.runtime.rows.flatMap(row => [
+          el("span", {class: "pv-run-k"}, row.k),
+          el("span", {class: "pv-run-v"}, row.v),
+        ])) : null);
+  }
+  return el("p", {class: "pv-none"}, view.noRunText || "not dispatched yet");
+}
+
+function backendDetail(rows) {
+  return el("span", {class: "va-x"},
+    el("span", {class: "pv-detail"},
+      ...rows.flatMap(row => [
+        el("span", {class: "pv-detail-k"}, row.k),
+        el("span", {class: "pv-detail-v"}, row.v),
+      ])));
+}
+
+function eventRow(item, key, ui, repaint) {
+  const opened = ui.openEvents.has(key);
+  return el("button", {type: "button", class: "va-ev", "data-detail-key": key,
+    onClick: () => {
+      if (opened) ui.openEvents.delete(key); else ui.openEvents.add(key);
+      repaint();
+    }},
+  el("span", {class: "va-t"}, item.time),
+  el("span", {class: item.tone === "warn" || item.tone === "needs-you" ? "va-n warn" : "va-n"}, item.name),
+  item.hasText ? el("span", {class: "va-x"}, item.text) : null,
+  opened ? backendDetail(item.detail) : null);
+}
+
+function phaseBlock(block, index, view, ui, repaint) {
+  const key = `${view.gh}:b${index}`;
+  const defaultOpen = block.openByDefault;
+  const opened = ui.toggledBlocks.has(key) ? !defaultOpen : defaultOpen;
+  const header = el("button", {type: "button", class: "va-bhead", "data-detail-key": key,
+    onClick: () => {
+      if (ui.toggledBlocks.has(key)) ui.toggledBlocks.delete(key); else ui.toggledBlocks.add(key);
+      repaint();
+    }},
+  el("span", {class: "va-chev"}, opened ? "▾" : "▸"),
+  el("span", {class: `pill ${block.phase}`}, block.phase),
+  el("span", {class: "va-bsum"}, opened ? "" : block.summary),
+  el("span", {class: "va-btime"}, opened ? block.span : block.from));
+  const card = el("div", {class: block.tone === "plain" ? "va-block" : "va-block warn"}, header);
+  if (opened) {
+    card.append(el("div", {class: "va-body"},
+      ...(block.items || []).map((item, itemIndex) =>
+        eventRow(item, `${key}:${itemIndex}`, ui, repaint))));
+  }
+  return card;
+}
+
+function ticketCard(hooks, view, ui, repaint) {
+  const blocks = view.phaseBlocks || [];
+  const parts = [
+    el("div", {class: "pv-head"},
+      el("span", {class: "pv-eyebrow"}, view.eyebrow || "Ticket"),
+      el("button", {type: "button", class: "pv-gh", onClick: () => openGithub(view)}, "GitHub ↗"),
+      el("button", {type: "button", class: "pv-close", "aria-label": "关闭详情",
+        onClick: () => hooks.onClose?.()}, "×")),
+    el("h2", {class: "pv-title"}, view.title),
+    el("div", {class: "pv-links"},
+      el("span", {}, view.num),
+      ...(view.links || []).flatMap(link => [
+        el("span", {}, "·"),
+        el("button", {type: "button", class: "pv-link", onClick: () => goto(hooks, link.n)}, link.label),
       ])),
+    el("div", {class: "va-status"},
+      el("span", {class: `lamp big ${view.lamp}`}),
+      el("span", {class: `va-word ${view.lamp}`}, view.statusWord),
+      el("span", {class: `pill big ${view.phase}`}, view.phase),
+      el("span", {class: "va-elapsed"}, view.elapsed || "")),
+    ticketRuntime(view),
   ];
   if (view.why?.length) {
-    kids.push(el("div", {class: "why"},
-      el("span", {class: "why-title"}, "Needs you"),
-      ...view.why.map(item => el("span", {}, el("b", {class: "why-child"}, item.head), " ", item.body))));
+    parts.push(el("div", {class: "pv-why"},
+      el("span", {class: "pv-why-t"}, "Needs you"),
+      ...view.why.map(item => el("span", {}, el("b", {}, item.head), " ", item.body))));
   }
-  const runtime = [];
-  if (view.hasWorker) {
-    runtime.push(el("div", {class: "facts"},
-      ...(view.facts || []).flatMap(fact => [
-        el("span", {class: "fact-key"}, fact.k), el("span", {class: "fact-val"}, fact.v),
-      ])));
-    if ((view.sessions || []).length > 1) {
-      for (const session of view.sessions) {
-        runtime.push(el("div", {class: "session"},
-          el("span", {class: "session-kind"}, session.kind),
-          el("span", {class: "session-what"}, session.what),
-          el("span", {class: session.live ? "session-state live" : "session-state"}, session.state)));
-      }
-    }
+  if (view.blockers?.length) {
+    parts.push(ticketSection("Blocked by", view.blockers.length,
+      ...heldFirst(view.blockers).map(row => ticketRelation(hooks, row))));
   }
-  if (view.kind === "ticket" && !view.hasWorker) {
-    runtime.push(el("p", {class: "rel-none"}, view.phase === "landed"
-      ? "closed, never dispatched" : "not dispatched yet"));
+  if (view.blocks?.length) {
+    parts.push(ticketSection("Blocking", view.blocks.length,
+      ...heldFirst(view.blocks).map(row => ticketRelation(hooks, row))));
   }
-  kids.push(section("Runtime", view.runtimeNote || "", ...runtime));
-  kids.push(...blockingSection(hooks, view, "none"));
-  kids.push(section("Sub-issues", view.kids?.length ?? 0,
-    ...(view.kids || []).map(kid => el("div", {class: "kid"},
-      el("span", {class: `lamp ${kid.lamp}`}),
-      el("span", {class: "kid-num"}, kid.num),
-      el("span", {class: "kid-kind"}, kid.kind),
-      kid.hasGoto
-        ? el("button", {type: "button", class: "dp-link kid-to", onClick: () => goto(hooks, kid.goto)}, kid.to)
-        : el("span", {class: kid.orange ? "kid-to orange" : "kid-to"}, kid.to),
-      el("span", {class: "kid-title"}, kid.title))),
-    view.kids?.length ? null : el("p", {class: "rel-none"}, "none")));
-  kids.push(section("Events", view.events?.length ?? 0,
-    view.events?.length ? null : el("p", {class: "rel-none"}, "no events yet"),
-    el("div", {class: "events"},
-      ...(view.events || []).map(event => el("div", {class: "ev"},
-        el("span", {class: `lamp ${event.lamp} ev-dot`}),
-        el("div", {class: "ev-head"},
-          el("span", {class: "ev-time"}, event.time),
-          el("span", {class: event.lamp === "orange" ? "ev-name orange" : "ev-name"}, event.name),
-          el("span", {class: "ev-field"}, event.field)),
-        el("div", {class: "ev-line"}, event.line))))));
-  return kids;
+  parts.push(ticketSection("Events", view.eventCount ?? (view.rawEvents || []).length,
+    view.rawEvents?.length || blocks.length
+      ? null : el("p", {class: "pv-none"}, "no events yet"),
+    ...(blocks.length ? blocks.map((block, index) => phaseBlock(block, index, view, ui, repaint)) : [])));
+  if (view.kids?.length) {
+    parts.push(ticketSection("Sub-issues", view.kids.length,
+      ...view.kids.map(kid => el("div", {class: "pv-rel"},
+        el("span", {class: `lamp ${kid.lamp}`}),
+        el("span", {class: "pv-rel-n"}, kid.num),
+        el("span", {class: "pv-rel-t"}, kid.title),
+        el("span", {class: kid.hot ? "pv-kind hot" : "pv-kind"}, kid.kind)))));
+  }
+  return el("div", {class: "pv"}, ...parts);
 }
 
 function containerBody(hooks, view) {
@@ -414,35 +505,20 @@ function card(hooks, view) {
   const parts = [
     el("div", {class: "dp-head"},
       el("span", {class: "dp-eyebrow"}, view.eyebrow),
-      el("button", {type: "button", class: "dp-close", "aria-label": "close",
+      el("button", {type: "button", class: "dp-close", "aria-label": "关闭详情",
         onClick: () => hooks.onClose?.()}, "×")),
     origin(hooks, view),
-  ];
-  if (view.closeout) {
-    parts.push(el("div", {class: "dp-closeout"},
-      el("span", {class: "dp-closeout-bar"}),
-      "opened in the closing pass · from",
-      el("button", {type: "button", class: "dp-link",
-        onClick: () => goto(hooks, view.closeout.from)}, view.closeout.fromLabel),
-      view.closeout.child));
-  }
-  parts.push(
     el("h2", {class: "dp-title"}, view.title),
     el("div", {class: "dp-status"},
       el("span", {class: `lamp big ${view.lamp}`}),
       el("span", {class: `status-word ${view.lamp}`}, view.statusWord),
       el("span", {class: "dp-elapsed"}, view.elapsed || "")),
-  );
-  if (view.kind === "ticket") parts.push(...ticketBody(hooks, view));
+  ];
   if (view.kind === "spec" || view.kind === "map") parts.push(...containerBody(hooks, view));
   if (view.kind === "decision") parts.push(...blockingSection(hooks, view, "none"));
   parts.push(el("button", {
     type: "button", class: "dp-gh",
-    onClick: () => {
-      if (view.gh != null && view.repo) {
-        window.open(`https://github.com/${view.repo}/issues/${view.gh}`, "_blank", "noopener,noreferrer");
-      }
-    },
+    onClick: () => openGithub(view),
   }, view.ghLabel));
   return el("div", {class: "dp"}, ...parts);
 }
@@ -451,15 +527,25 @@ export function unmount(host) {
   if (!host) return;
   if (host._detailEsc) document.removeEventListener("keydown", host._detailEsc);
   host._detailEsc = null;
+  host._detailRoot = null;
+  host._detailUi = null;
   host.replaceChildren();
 }
 
 export function render(host, view = {}, api, hooks = {}) {
-  const root = el("aside", {class: "detail board", "aria-label": "detail"});
-  root.dataset.screen = "detail";
-  if (!view.empty && view.kind) root.append(card(hooks, view));
+  let root = host._detailRoot;
+  if (!root) {
+    root = el("aside", {class: "detail board", "aria-label": "详情"});
+    root.dataset.screen = "detail";
+    host._detailRoot = root;
+    host.replaceChildren(root);
+  }
+  const ui = host._detailUi ||= {openEvents: new Set(), toggledBlocks: new Set()};
+  const repaint = () => render(host, view, api, hooks);
+  if (!view.empty && view.kind === "ticket") root.replaceChildren(ticketCard(hooks, view, ui, repaint));
+  else if (!view.empty && view.kind) root.replaceChildren(card(hooks, view));
   else {
-    root.append(el("div", {class: "dp-empty"},
+    root.replaceChildren(el("div", {class: "dp-empty"},
       el("p", {class: "dp-empty-title"}, view.emptyTitle || "点一张卡"),
       view.emptyText || "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。"));
   }
@@ -468,6 +554,5 @@ export function render(host, view = {}, api, hooks = {}) {
     if (event.key === "Escape" && !view.empty && view.kind) hooks.onClose?.();
   };
   document.addEventListener("keydown", host._detailEsc);
-  host.replaceChildren(root);
   return root;
 }
