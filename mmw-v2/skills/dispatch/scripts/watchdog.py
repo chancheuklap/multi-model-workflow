@@ -51,17 +51,17 @@ watch is open this process writes a last heartbeat saying so and exits.
    600) is skipped.
 3. Every other held ticket is silent. For each session that still holds a silent or a
    waiting ticket — the (runner, session) pair of every `worker.started`,
-   `reviewer.started` or `verifier.started` no later event has ended, less a reviewer or
-   verifier whose result is already on the ticket after its start — this asks that
+   `reviewer.started` no later event has ended, less a reviewer whose result is already
+   on the ticket after its start — this asks that
    session's own runner, and no other runner, `runners/<runner>.sh liveness <session>`:
 
        alive     nothing
-       stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`,
-                 `reviewer.lost` or `verifier.lost`. They are the only events not written
+       stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`
+                 or `reviewer.lost`. They are the only events not written
                  by the agent they are about, and this process is their one writer. Each
                  ends that session's hold; the relay wakes the main agent on
-                 `worker.lost`, and the ticket's worker on the other two, so a worker
-                 asleep on a reviewer or verifier that died is woken to start another.
+                 `worker.lost`, and the ticket's worker on `reviewer.lost`, so a worker
+                 asleep on a reviewer that died is woken to start another.
        unknown   recorded as unknown in the heartbeat, and a finding. Never rendered as
                  alive, never a `*.lost`: an answer the adapter could not give — or a
                  missing adapter, a non-zero exit, a timeout — is not a death.
@@ -70,7 +70,7 @@ watch is open this process writes a last heartbeat saying so and exits.
    whose results are in) is a finding too. So is a ticket whose events cannot be read.
 4. A silent ticket whose newest event is at least `--idle` seconds old (default 3600),
    whose worker's runner answered `alive`, and whose fold shows it waiting for nothing —
-   no live reviewer or verifier session, no `waiting`, not `passed` — is a finding: its
+   no live reviewer session, no `waiting`, not `passed` — is a finding: its
    worker is there and nothing will ever wake it (a worker that ended its turn with no
    result, say). Once per ticket and newest event.
 
@@ -105,7 +105,7 @@ The findings exactly:
               <machine>, not on <this machine>, and only that machine can ask <runner>;
               silent since <time>
     watchdog: #<n> silent since <time> with nothing to wait on: its worker <session> on
-              <runner> is alive, and no reviewer, verifier or product slot is pending
+              <runner> is alive, and no reviewer or product slot is pending
     watchdog: cannot read the board since <time>: <what failed>
 
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
@@ -291,8 +291,8 @@ def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> 
                                                        (kind, runner, session) to ask;
                                                        `idle` when its newest event is at
                                                        least `idle` old and it waits for
-                                                       nothing: no live reviewer or
-                                                       verifier, and no pass
+                                                       nothing: no live reviewer and
+                                                       no pass
     """
     if fold.get("unreadable"):
         return {"state": "unreadable",
@@ -309,7 +309,7 @@ def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> 
     at = parse_iso(since)
     if at is not None and (now - at).total_seconds() < silence:
         return {"state": "recent", "since": since}
-    helpers = [r for r in fold.get("holders") or [] if r.get("kind") in ("reviewer", "verifier")]
+    helpers = [r for r in fold.get("holders") or [] if r.get("kind") == "reviewer"]
     quiet = at is not None and (now - at).total_seconds() >= idle
     return {"state": "silent", "since": since, "sessions": to_ask(fold),
             "comment": last.get("comment"),
@@ -318,7 +318,7 @@ def judge(fold: dict, now: datetime, silence: int, idle: int = DEFAULT_IDLE) -> 
 
 def to_ask(fold: dict) -> list[tuple[str, str, str, str]]:
     """(kind, runner, session, machine) of every session still holding the ticket. A
-    reviewer's or verifier's result ends its own hold in the fold, so one whose result is
+    reviewer's result ends its own hold in the fold, so one whose result is
     in is not among them: its process ending is not a loss."""
     out = []
     for record in fold.get("holders") or []:
@@ -734,7 +734,7 @@ class Watchdog:
                         "key": f"idle:{number}:{verdict.get('comment')}",
                         "text": f"watchdog: #{number} silent since {since} with nothing to wait "
                                 f"on: its worker {session} on {runner} is alive, and no "
-                                f"reviewer, verifier or product slot is pending",
+                                f"reviewer or product slot is pending",
                         "to": to,
                     })
                 continue

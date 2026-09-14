@@ -6,7 +6,7 @@ One vocabulary, six bounded contexts. A term is defined in exactly one of them; 
 
 - [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — skills, subtrees, install locations, prompts, hosts, notes, ADRs, and the rules on how skill text is written
 - [Tickets](./docs/contexts/tickets/CONTEXT.md): what a spec and a ticket are, how they are written, published and linted, and the labels and queues they carry
-- [Ticket run](./docs/contexts/ticket-run/CONTEXT.md): one ticket being worked from claim to close — events on the ticket, criteria runs, code review, the verifier, the advisor, the closing steps and the closeout gate
+- [Ticket run](./docs/contexts/ticket-run/CONTEXT.md): one ticket being worked from claim to close — events on the ticket, criteria runs, code review, the worker's final run, the advisor, the closing steps and the closeout gate
 - [Night](./docs/contexts/night/CONTEXT.md): dispatching sessions onto tickets, runners and adapters, workspaces and worktrees, base and project branches, the relay, the watchdog and the turn guard, and the main agent's night commands
 - [UI acceptance](./docs/contexts/ui-acceptance/CONTEXT.md): the design side (Claude Design, handoff package, scenes), the screen contract, the judges (story, boundary, journey), the lease and `.mmw/target.json`
 - [Task board](./docs/contexts/task-board/CONTEXT.md): the local browser board, its registry and supervisor

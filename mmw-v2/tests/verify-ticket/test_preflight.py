@@ -1,9 +1,12 @@
 """The opening guard: six conditions, and what the ticket is told when one fails."""
 
 import io
+import os
 import subprocess
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest import mock
 
 from _load import event, load
@@ -266,6 +269,195 @@ class TestIdempotence(unittest.TestCase):
         self.assertEqual((name, payload["login"], payload["ticket"]),
                          ("ticket.claimed", ME, 77))
         assign.assert_called_once_with(77)
+
+
+class TestBaselineRun(unittest.TestCase):
+    """After a successful claim, `--preflight` runs non-slot criteria at the base commit."""
+
+    BODY = """## Parent
+
+#118, Implementation Decisions section 11
+
+## Acceptance criteria
+
+- [ ] AC1: a file the base already has
+  CHECK: cat ok.txt
+  EXPECT: ok
+  EVIDENCE: pending
+- [ ] AC2: a file only this ticket adds
+  CHECK: cat later.txt
+  EXPECT: later
+  EVIDENCE: pending
+- [ ] AC3: a story
+  CHECK: story-parity.py --pages unused
+  EXPECT: PARITY OK
+  EVIDENCE: pending
+- [ ] AC4: a journey
+  CHECK: journey.py run unused
+  EXPECT: JOURNEY OK unused
+  EVIDENCE: pending
+"""
+
+    def repo(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t.test",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t.test"}
+        subprocess.run(["git", "init", "-b", "issue-77"], cwd=root, check=True,
+                       capture_output=True, env=env)
+        (root / "ok.txt").write_text("ok\n", encoding="utf-8")
+        subprocess.run(["git", "add", "ok.txt"], cwd=root, check=True,
+                       capture_output=True, env=env)
+        subprocess.run(["git", "commit", "-m", "base"], cwd=root, check=True,
+                       capture_output=True, env=env)
+        base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root,
+                                       text=True).strip()
+        (root / "later.txt").write_text("later\n", encoding="utf-8")
+        subprocess.run(["git", "add", "later.txt"], cwd=root, check=True,
+                       capture_output=True, env=env)
+        subprocess.run(["git", "commit", "-m", "later"], cwd=root, check=True,
+                       capture_output=True, env=env)
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root,
+                                       text=True).strip()
+        return root, base, head
+
+    def claim(self, root, base, comments=None, body=None):
+        from _load import started
+        history = comments if comments is not None else [
+            started(ticket=77, base=base, into="spec-337",
+                    worktree=str(root), branch="issue-77")]
+        posted = []
+        with mock.patch.object(vt, "fetch_ticket", return_value=ticket()), \
+             mock.patch.object(vt, "fetch_comments", return_value=history), \
+             mock.patch.object(vt, "fetch_body", return_value=body or self.BODY), \
+             mock.patch.object(vt, "gh_login", return_value=ME), \
+             mock.patch.object(vt, "current_branch", return_value="issue-77"), \
+             mock.patch.object(vt, "dirty_tracked", return_value=[]), \
+             mock.patch.object(vt, "repo_root", return_value=root), \
+             mock.patch.object(vt, "assign_self") as assign, \
+             mock.patch.object(vt, "post_comment",
+                               side_effect=lambda n, b: posted.append((n, b))):
+            with redirect_stdout(io.StringIO()) as out, \
+                    redirect_stderr(io.StringIO()) as err:
+                code = vt.run_preflight(77)
+        return code, posted, err.getvalue(), out.getvalue(), assign
+
+    def test_a_criterion_already_true_on_the_base_is_met_and_the_new_one_is_not(self):
+        root, base, head = self.repo()
+        code, posted, err, out, assign = self.claim(root, base)
+        self.assertEqual(code, 0, err)
+        assign.assert_called_once_with(77)
+        self.assertIn("READY:", out)
+        names = [event_of(body)[0] for _, body in posted]
+        self.assertEqual(names[0], "ticket.claimed")
+        self.assertIn("ticket.checked", names)
+        payload = event_of(posted[1][1])[1]
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["commit"], base)
+        self.assertEqual(payload["actor"], "worker")
+        self.assertEqual(payload["stage"], "claim")
+        self.assertEqual(payload["result"], "unmet")
+        by_id = {c["id"]: c for c in payload["criteria"]}
+        self.assertTrue(by_id["AC1"]["met"], by_id)
+        self.assertFalse(by_id["AC2"]["met"], by_id)
+        self.assertEqual(sorted(payload["skipped"]), ["AC3", "AC4"])
+        self.assertEqual(head, subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=root, text=True).strip())
+        self.assertTrue((root / "later.txt").is_file())
+        listed = subprocess.check_output(
+            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
+        self.assertEqual(listed.count("worktree "), 1, listed)
+
+    def test_a_red_baseline_does_not_refuse_the_claim(self):
+        root, base, _ = self.repo()
+        code, posted, err, out, assign = self.claim(root, base)
+        self.assertEqual(code, 0, err)
+        self.assertTrue(out.startswith("READY:"), out)
+        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
+        assign.assert_called_once()
+
+    def test_the_same_base_is_not_run_twice(self):
+        from _load import started, checked
+        root, base, _ = self.repo()
+        already = checked("baseline",
+                          ["- [x] AC1: a file the base already has",
+                           "  CHECK: cat ok.txt", "  EXPECT: ok",
+                           "  EVIDENCE: exit=0"],
+                          ticket=77, commit=base)
+        history = [started(ticket=77, base=base, into="spec-337",
+                           worktree=str(root), branch="issue-77"), already]
+        code, posted, err, _, _ = self.claim(root, base, comments=history)
+        self.assertEqual(code, 0, err)
+        self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
+
+    def test_a_newer_base_runs_again(self):
+        from _load import started, checked
+        root, base, head = self.repo()
+        already = checked("baseline",
+                          ["- [x] AC1: a file the base already has",
+                           "  CHECK: cat ok.txt", "  EXPECT: ok",
+                           "  EVIDENCE: exit=0"],
+                          ticket=77, commit=base)
+        history = [started(ticket=77, base=head, into="spec-337",
+                           worktree=str(root), branch="issue-77"), already]
+        code, posted, err, _, _ = self.claim(root, head, comments=history)
+        self.assertEqual(code, 0, err)
+        names = [event_of(b)[0] for _, b in posted]
+        self.assertEqual(names[0], "ticket.claimed")
+        self.assertIn("ticket.checked", names)
+        payload = event_of(posted[1][1])[1]
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["commit"], head)
+
+    def test_no_worker_started_skips_the_baseline_run(self):
+        root, base, _ = self.repo()
+        code, posted, err, _, _ = self.claim(root, base, comments=[])
+        self.assertEqual(code, 0, err)
+        self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
+        self.assertIn("baseline run did not start", err)
+        self.assertIn("no worker.started.base commit", err)
+
+    def test_a_missing_base_commit_does_not_refuse_the_claim(self):
+        root, _, _ = self.repo()
+        missing = "a" * 40
+        code, posted, err, out, assign = self.claim(root, missing)
+        self.assertEqual(code, 0, err)
+        self.assertIn("READY:", out)
+        assign.assert_called_once()
+        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
+        payload = event_of(posted[1][1])[1]
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["commit"], missing)
+        self.assertEqual(payload["result"], "unmet")
+        self.assertEqual(sorted(payload["skipped"]), ["AC1", "AC2", "AC3", "AC4"])
+        listed = subprocess.check_output(
+            ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
+        self.assertEqual(listed.count("worktree "), 1, listed)
+
+    def test_gate_check_exit_2_is_not_a_criteria_result(self):
+        self.assertIsNone(vt.check_run_outcome(2, "ALL MET (1 met)"))
+        self.assertEqual(vt.check_run_outcome(0, "ALL MET (1 met)"), "met")
+        self.assertEqual(vt.check_run_outcome(1, "UNMET: 1 (met: 0)"), "unmet")
+
+    def test_every_criterion_skipped_is_not_a_pass(self):
+        body = """## Acceptance criteria
+
+- [ ] AC1: a journey
+  CHECK: journey.py run unused
+  EXPECT: JOURNEY OK unused
+  EVIDENCE: pending
+"""
+        root, base, _ = self.repo()
+        code, posted, err, out, _ = self.claim(root, base, body=body)
+        self.assertEqual(code, 0, err)
+        self.assertIn("READY:", out)
+        payload = event_of(posted[1][1])[1]
+        self.assertEqual(payload["run"], "baseline")
+        self.assertEqual(payload["result"], "unmet")
+        self.assertEqual(payload["skipped"], ["AC1"])
+        self.assertIn("nothing ran", posted[1][1])
+        self.assertNotIn("ALL MET", posted[1][1])
 
 
 if __name__ == "__main__":

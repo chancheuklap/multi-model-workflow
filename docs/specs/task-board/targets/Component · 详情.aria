@@ -1,6 +1,6 @@
 # target trees of the handoff package page: Component · 详情.dc.html
 # derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
-# scenes.json sha256=2e85ba504f75f4eb2566132d7607eedb40b4353b145b7250f1ba6f31bbb26054
+# scenes.json sha256=2cb51e737a5e18771ea1341d821934c7003493c99587956d45eb360a7e64d153
 # page sha256=dad30995e6da7c5435c56ecf2ebd4de6eb387ad0da924b68f20aefefa189a777
 
 ## scene 详情.morning
@@ -77,17 +77,15 @@
 - button "map #98"
 - text: "needs you verify 48m senior-worker grok · grok 4.6 · high ticket branch issue-138 base branch wake-relay worktree …/.worktrees/138-work machine cheuk-mbp slot 1 Needs you handed back: AC3 放弃（stuck）。离线投递要一个真的 main 会话来收，夜里起不来 Blocked by 1"
 - button "#132 中继进程骨架 landed"
-- text: Events 10
+- text: Events 8
 - button "▾ working 22:38–22:58"
 - button "22:38 Worker started grok grok 4.6, high effort"
 - button "22:38 Ticket claimed"
 - button "22:58 Criteria run 3 of 4 criteria met — AC3 unmet"
 - button "▸ review Review posted — the three-axis review is on the ticket 23:00"
 - button "▸ working Decisions recorded — the calls the worker made on its own, written down for the review 23:16"
-- button "▾ verify 23:18–23:26"
-- button "23:18 Verifier started claude sonnet 5, medium effort"
-- button "23:22 Criteria re-run 3 of 4 criteria met — AC3 unmet"
-- button "23:24 Verification failed AC3 abandoned (stuck); the rest met on HEAD"
+- button "▾ verify 23:22–23:26"
+- button "23:22 Final criteria run 3 of 4 criteria met — AC3 unmet"
 - button "23:26 Ticket handed back handed back with criteria it could not meet"
 
 ## scene ticket-bounced
@@ -101,14 +99,12 @@
 - button "map #98"
 - text: needs you verify 51m senior-worker claude · opus 5 · high ticket branch issue-139 base branch wake-relay worktree …/.worktrees/139-work machine cheuk-mbp slot 2 Needs you 合不进 wake-relay（f3bebc0）：冲突在 mmw-v2/skills/dispatch/scripts/relay.py、mmw-v2/tests/relay/test_relay.py。等早上 triage Blocked by 1
 - button "#132 中继进程骨架 landed"
-- text: Events 12
+- text: Events 10
 - button "▸ working Criteria run — 4 of 4 criteria met 22:38"
 - button "▸ review Review posted — the three-axis review is on the ticket 23:02"
 - button "▸ working Decisions recorded — the calls the worker made on its own, written down for the review 23:17"
-- button "▾ verify 23:18–23:29"
-- button "23:18 Verifier started claude sonnet 5, medium effort"
-- button "23:24 Criteria re-run 4 of 4 criteria met"
-- button "23:26 Verification passed every criterion met on HEAD"
+- button "▾ verify 23:24–23:29"
+- button "23:24 Final criteria run 4 of 4 criteria met"
 - button "23:27 Repository checks 3 of 3 repository checks passed"
 - button "23:28 Ticket passed 4 of 4 criteria met, ticket closed"
 - button "23:29 Merge bounced conflict with wake-relay in 2 files"
@@ -129,7 +125,7 @@
 - button "▸ review Review posted — the three-axis review is on the ticket 23:04"
 - button "▸ working Decisions recorded — the calls the worker made on its own, written down for the review 23:28"
 - button "▾ verify 23:32"
-- button "23:32 Verifier started claude sonnet 5, medium effort"
+- button "23:32 Final criteria run 4 of 4 criteria met"
 
 ## scene ticket-waiting
 - text: Ticket
@@ -201,11 +197,11 @@
 - button "#138 离线时唤醒去向 verify"
 - button "#141 中继日志轮转 verify"
 - button "#136 重试与退避 waiting"
-- text: Events 16
+- text: Events 14
 - button "▸ working Left for a later ticket — status 表头少一列 runner 20:30"
 - button "▸ review Review posted — the three-axis review is on the ticket 21:20"
 - button "▸ working Finding raised — 中继日志不轮转，一夜能写满磁盘 21:50"
-- button "▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 21:55"
+- button "▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 22:10"
 - button "▾ landed 22:36"
 - button "22:36 Sub-issue closed #148: fixed"
 - button "22:36 Finding became a ticket #147 became ticket #141"

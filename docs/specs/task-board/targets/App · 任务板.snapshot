@@ -1,6 +1,6 @@
 # raw accessibility snapshots of the handoff package page: App · 任务板.dc.html
 # derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
-# scenes.json sha256=2e85ba504f75f4eb2566132d7607eedb40b4353b145b7250f1ba6f31bbb26054
+# scenes.json sha256=2cb51e737a5e18771ea1341d821934c7003493c99587956d45eb360a7e64d153
 # page sha256=bd48134b9b88accc30358ab4a7da90a008298a15efb5b9db642ec5627dc82d0b
 
 ## scene 任务板.morning
@@ -58,7 +58,7 @@
     - button "#138 离线时唤醒去向"
     - text: "#138 verify 离线时唤醒去向 grok · grok 4.6 · high"
     - button "#141 中继日志轮转"
-    - text: "#141 verify 中继日志轮转 claude · sonnet 5 · medium"
+    - text: "#141 verify 中继日志轮转 cursor · composer 2.5 · —"
     - button "#136 重试与退避"
     - text: "#136 waiting 重试与退避 waiting for a slot · since 07:32"
     - button "#135 投递回执"
@@ -126,7 +126,7 @@
     - button "#217 Herdr 状态读取"
     - text: "#217 landed Herdr 状态读取 codex · gpt-5.5 · high"
     - button "#218 Orca tui-idle 等待"
-    - text: "#218 verify Orca tui-idle 等待 claude · sonnet 5 · medium"
+    - text: "#218 verify Orca tui-idle 等待 cursor · composer 2.5 · —"
     - button "#219 tmux pane 探活"
     - text: "#219 working tmux pane 探活 grok · grok 4.6 · high"
     - button "#229 远程 --on 探活"

@@ -187,11 +187,10 @@ class WhoHoldsATicket(unittest.TestCase):
 class NamingWhatHoldsIt(unittest.TestCase):
     """How a ticket's live sessions are named where a plan says why it cannot start.
 
-    2026-09-12: three times in one night the line read `held by the worker <session> …;
-    if that session is gone, retract it` about a reviewer or a verifier, because the
-    newest live session was printed as a worker whatever it was. `retract` takes back a
-    worker's start; run on that advice it stops a session reading a diff or running
-    criteria, and that round's work goes with it.
+    A non-worker session was once printed as a worker because the newest live session
+    was given that name regardless of its kind. `retract` takes back a worker's start;
+    run on that advice it stops a session reading a diff, and that round's work goes
+    with it.
     """
 
     def row(self, *comments, **kwargs):
@@ -203,13 +202,6 @@ class NamingWhatHoldsIt(unittest.TestCase):
         self.assertIn("the worker term_7 on orca", why)
         self.assertIn("the reviewer rv_1 on orca", why)
         self.assertNotIn("the worker rv_1", why)
-
-    def test_a_verifier_holding_it_alone_gets_no_retract_advice(self):
-        row = self.row(started(61, "term_7"), started(61, "vf_1", kind="verifier"),
-                       ev("worker.retracted", "retracted", session="term_7", runner="orca"))
-        why = status.why_not_on_frontier(row)
-        self.assertIn("the verifier vf_1 on orca", why)
-        self.assertNotIn("retract", why)
 
     def test_the_retract_advice_names_the_one_live_worker(self):
         row = self.row(started(61, "term_7"))
@@ -737,6 +729,13 @@ class Summary(unittest.TestCase):
                               now=datetime(2026, 8, 31, 2, 14)).splitlines()
         self.assertEqual(body[3], "Handed back to needs-triage: None")
         self.assertEqual(body[4], "Bounced: #61 (conflict)")
+
+    def test_the_summary_omits_a_bounce_returned_to_the_agent_queue(self):
+        tickets = {61: ticket(61, labels=("ready-for-agent",), comments=[bounced(61)])}
+        body = status.summary(rows_of(tickets), opened="2026-08-30T00:00:00Z",
+                              now=datetime(2026, 8, 31, 2, 14)).splitlines()
+        self.assertEqual(body[3], "Handed back to needs-triage: None")
+        self.assertEqual(body[4], "Bounced: None")
 
     def test_a_later_pass_replaces_an_old_bounce_in_the_summary(self):
         tickets = {61: ticket(61, state="CLOSED", labels=(),

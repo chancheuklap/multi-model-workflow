@@ -11,10 +11,10 @@
 #   dispatch.sh advance <spec>
 #   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
-#   dispatch.sh start <n> worker|reviewer|verifier
+#   dispatch.sh start <n> worker|reviewer
 #   dispatch.sh advise <packet file>
 #   dispatch.sh retract <n>
-#   dispatch.sh wait <n> worker|reviewer|verifier
+#   dispatch.sh wait <n> worker|reviewer
 #   dispatch.sh ack <n> <event> | relay.recovered
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
@@ -44,7 +44,7 @@
 # that starts it (`use_catalog_of`). Tonight's runner is `models.py runner`: MMW_RUNNER,
 # then models.json, then, when its runner is auto, the runner this process runs in, then orca.
 # `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
-# session, writes a `worker.started`, `reviewer.started` or `verifier.started` event
+# session, writes a `worker.started` or `reviewer.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
 # path, branch and base commit — and prints the session id. A worker takes no product
 # slot here: the first run of its criteria that needs the product claims one
@@ -375,10 +375,10 @@ usage: dispatch.sh check <spec>
        dispatch.sh advance <spec>
        dispatch.sh integrate <n>
        dispatch.sh land <n>
-       dispatch.sh start <n> worker|reviewer|verifier
+       dispatch.sh start <n> worker|reviewer
        dispatch.sh advise <packet file>
        dispatch.sh retract <n>
-       dispatch.sh wait <n> worker|reviewer|verifier
+       dispatch.sh wait <n> worker|reviewer
        dispatch.sh ack <n> <event> | relay.recovered
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
@@ -1368,7 +1368,7 @@ archive_ticket_agents() {
 }
 
 # Stop sessions that are still present on their runner without removing the worktree.
-# A bounced or returned ticket keeps that worktree for triage.
+# A bounced or returned ticket keeps that worktree for its next owner.
 stop_live_ticket_agents() {
   stop_ticket_agents "$1" 1
 }
@@ -1449,8 +1449,8 @@ start_one() {
   local number="$1" kind="$2"
   use_runner "$(tonight_runner)"
   case "$kind" in
-    worker|reviewer|verifier) ;;
-    *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
+    worker|reviewer) ;;
+    *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
 
   local answer grades title spec
@@ -1478,7 +1478,6 @@ start_one() {
   local profile
   case "$kind" in
     reviewer) profile=reviewer ;;
-    verifier) profile=verifier ;;
     worker)
       local -a marked
       read -r -a marked <<<"$grades"
@@ -1501,7 +1500,7 @@ start_one() {
   into="$(resolve_into "$number" "$spec" "$fallback")" || exit 2
 
   # The checkout the night runs in, whichever worktree this runs from: a worker starts its
-  # reviewer and its verifier from its own worktree, and `.worktrees/` cut under that one
+  # reviewer from its own worktree, and `.worktrees/` cut under that one
   # would be a second worktree of the branch it already has checked out.
   local root
   root="$(main_checkout)"
@@ -1550,12 +1549,6 @@ start_one() {
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
       prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
-    verifier)
-      base="$(base_commit "$root" "$into" "issue-$number")"
-      if [ -z "$base" ]; then
-        base="$(newest_worker_field "$number" base)" || base=""
-      fi
-      prompt="Use the verdict skill to verify ticket #$number. $AUTONOMOUS $PRODUCT_RULES" ;;
   esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
@@ -1852,8 +1845,7 @@ PY
 # ------------------------------------------------------------------ wait
 
 # The newest result event of this kind — worker `ticket.passed` / `ticket.returned`,
-# reviewer `reviewer.reported`, verifier `verifier.passed` / `verifier.failed` — as its
-# name and key fields (`verifier.failed commit=… failed=AC2`). Nothing when there is
+# reviewer `reviewer.reported` as its name and key fields. Nothing when there is
 # none; non-zero when the ticket could not be read or carries an event nobody can read.
 result_event() {
   ticket_events "$1" result --kind "$2"
@@ -1867,8 +1859,8 @@ result_event() {
 wait_one() {
   local number="$1" kind="$2"
   case "$kind" in
-    worker|reviewer|verifier) ;;
-    *) refuse "the second argument is worker, reviewer or verifier, got $kind" ;;
+    worker|reviewer) ;;
+    *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
 
   local head
@@ -1937,7 +1929,7 @@ check_machine() {
   fi
 
   # Tonight's runner has to be one this skill has an adapter for, and every row `start`
-  # reads — each worker grade, the reviewer, the verifier — has to resolve against the
+  # reads — each worker grade and the reviewer — has to resolve against the
   # catalog of that runner. A row that does not resolve refuses every start of its agent,
   # one ticket at a time, hours into the night; here it is one line before the night opens,
   # in the resolver's own words.
@@ -1951,7 +1943,7 @@ check_machine() {
   roles="$(worker_roles | tr '\n' ' ')" \
     || { echo "dispatch: $MODELS_JSON cannot be read (the reason is above)" >&2; failed=1; roles=""; }
   err_file="$(mktemp)"
-  for role in $roles reviewer verifier; do
+  for role in $roles reviewer; do
     if ! out="$(row_for_role "$role" 2>"$err_file")"; then
       echo "dispatch: the $role row of $MODELS_JSON does not resolve on $runner: $(tr '\n' ' ' < "$err_file")" >&2
       failed=1
@@ -1976,7 +1968,7 @@ check_machine() {
   # the call costs seconds (measured: claude 0.7s, pi 1.7s, grok 2.5s, cursor 6.7s).
   # Paseo's provider snapshot only says something about sessions Paseo starts.
   local host host_line hosts="" diag paseo_roles=""
-  [ "$runner" = paseo ] && paseo_roles="$roles reviewer verifier"
+  [ "$runner" = paseo ] && paseo_roles="$roles reviewer"
   for role in $paseo_roles; do
     host_line="$(row_for_role "$role" 2>/dev/null)" || continue
     host="$(printf '%s\n' "$host_line" | cut -f1)"
@@ -2352,14 +2344,48 @@ sys.exit(0 if not value.get("failed") and not value.get("problem") else 1)
 '
 }
 
+# 0 means this bounce goes to triage; 1 means this open night has one retry left;
+# 2 means the events that decide between them could not be read.
+bounce_goes_to_triage() {
+  local number="$1" spec="$2" opened bounced rc
+  [ -n "$spec" ] || return 0
+  opened="$(newest_field "$spec" at spec.opened spec.suspended spec.closed)"; rc=$?
+  case "$rc" in
+    0) ;;
+    3) return 0 ;;
+    *) return 2 ;;
+  esac
+  bounced="$(newest_field "$number" at ticket.bounced)"; rc=$?
+  case "$rc" in
+    0) [ "$bounced" '<' "$opened" ] && return 1 || return 0 ;;
+    3) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
 bounce_ticket() {
   local root="$1" number="$2" spec="$3" into="$4" base="$5" reason="$6" detail="$7"
-  local started siblings="" text failed_text fields=()
+  local started siblings="" text failed_text retry=0 rc
+  local add_label=needs-triage remove_label=ready-for-agent outcome="labelled needs-triage"
+  local fields=()
+  bounce_goes_to_triage "$number" "$spec"; rc=$?
+  case "$rc" in
+    0) ;;
+    1) retry=1 ;;
+    *) echo "dispatch: could not read whether #$number already bounced since the latest spec.opened on #$spec" >&2; return 2 ;;
+  esac
   started="$(newest_worker_field "$number" base 2>/dev/null)" || started=""
   if [ -n "$started" ] && git -C "$root" cat-file -e "$started^{commit}" 2>/dev/null; then
     siblings="$(integrated_ticket_numbers "$root" "$started..origin/$into" | awk -v n="$number" '$0 != n')"
   fi
-  text="Tried to merge issue-$number into origin/$into at $base and handed it to triage."
+  if [ "$retry" -eq 1 ]; then
+    add_label=ready-for-agent
+    remove_label=needs-triage
+    outcome="returned to ready-for-agent"
+    text="Tried to merge issue-$number into origin/$into at $base and returned it to the agent queue for its one retry this night."
+  else
+    text="Tried to merge issue-$number into origin/$into at $base and handed it to triage."
+  fi
   if [ -n "$siblings" ]; then
     text="$text Tickets landed after this ticket started: $(printf '#%s ' $siblings | sed 's/ $//')."
   else
@@ -2381,14 +2407,14 @@ print(" | ".join("{}: {}".format(row.get("command", "?"), row.get("tail", "")).r
 
   gh_ issue reopen "$number" >/dev/null 2>&1 \
     || { echo "dispatch: could not reopen #$number after its merge $reason" >&2; return 2; }
-  gh_ issue edit "$number" --remove-label ready-for-agent --add-label needs-triage \
+  gh_ issue edit "$number" --remove-label "$remove_label" --add-label "$add_label" \
       --remove-assignee @me >/dev/null 2>&1 \
-    || { echo "dispatch: #$number is open, but could not be labelled needs-triage and unassigned" >&2; return 2; }
+    || { echo "dispatch: #$number is open, but could not be $outcome and unassigned" >&2; return 2; }
   give_ticket_slot_back "$number" || true
   post_event "$number" ticket.bounced --ticket "$number" --spec "$spec" \
       --line "$text" --field "reason=$reason" --field "commit=$base" \
       --field "into=$into" "${fields[@]}" \
-    || { echo "dispatch: #$number was handed to triage, but its ticket.bounced event was not written" >&2; return 2; }
+    || { echo "dispatch: #$number was relabelled after its landing failure, but its ticket.bounced event was not written" >&2; return 2; }
   stop_live_ticket_agents "$number" \
     || echo "dispatch: #$number was bounced, but its sessions could not be read and stopped" >&2
 }
@@ -2641,10 +2667,9 @@ advance() {
     || { cat "$plan_err" >&2; rm -f "$plan_err"; refuse "could not read the batch under #$spec"; }
   rm -f "$plan_err"
 
-  # A ticket that cannot be landed is one ticket: it is named, counted as failed and left
-  # unlanded, which keeps the tickets it blocks off the frontier, and the rest of the batch
-  # lands and starts as if it were not there.
-  local merged=0 skipped=0 bounced=0 failed=0 number passed into rc
+  # One failed landing does not stop the rest of the batch; bounced tickets are tracked
+  # separately so the first bounce in this night can return once.
+  local merged=0 skipped=0 bounced=0 failed=0 bounced_this_advance="" number passed into rc
   for number in $(printf '%s\n' "$plan" | awk '$1 == "MERGE" { print $2 }'); do
     if ! passed="$(ticket_passed_commit "$number")"; then
       echo "dispatch: #${number}'s ticket.passed event carries no usable commit, so it is not landed" >&2
@@ -2661,7 +2686,10 @@ advance() {
         merged=$((merged + 1))
         echo "merged issue-$number into origin/$into" >&2
         ;;
-      1) bounced=$((bounced + 1)) ;;
+      1)
+        bounced=$((bounced + 1))
+        bounced_this_advance="${bounced_this_advance:+$bounced_this_advance }$number"
+        ;;
       3) skipped=$((skipped + 1)) ;;
       *)
         echo "dispatch: #$number is not landed: could not land it into origin/$into (the reason is above); run advance again once that is fixed" >&2
@@ -2705,6 +2733,7 @@ advance() {
   # writing code takes no slot, so a worker is never kept from its code by a port.
   local started=0 refused=0
   for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
+    case " $bounced_this_advance " in *" $number "*) continue ;; esac
     if bash "$SELF" ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} start "$number" worker; then
       started=$((started + 1))
     else
@@ -2850,7 +2879,7 @@ land_tickets() {
 suspend_text() {
   local spec="$1" when="$2" ident="$3" number="$4"
   printf '%s\n' \
-    "The night on spec #$spec was suspended at $when, so this ticket has no verdict: nothing here says whether its work is finished."
+    "The night on spec #$spec was suspended at $when, so nothing here says whether this ticket's work is finished."
   if [ -n "$ident" ]; then
     printf '%s\n' "Interrupted: $ident. Its tracked edits were committed and issue-$number was pushed to origin before the hold ended. The batch is taken up again where it stands with advance."
   else
@@ -2860,8 +2889,8 @@ suspend_text() {
 
 # Suspend the night without throwing its work away.
 #
-# Five things happen: every session still holding a ticket of the batch — worker,
-# reviewer or verifier — that is not already stopped is ended through its own runner's
+# Five things happen: every session still holding a ticket of the batch — worker or
+# reviewer — that is not already stopped is ended through its own runner's
 # `stop`, which interrupts a running agent (workspace and branch stay); every ticket
 # still in the agent queue gets a `spec.suspended` event,
 # and so does the spec; every OPEN ready-for-agent ticket assigned to this pipeline's
@@ -2893,11 +2922,10 @@ suspend_night() {
   queued="$(printf '%s\n' "$grades" | awk '$1 == "GRADE" { print $2 }')"
   batch="$(printf '%s\n' "$grades" | awk '$1 == "BATCH" { print $2 }')"
 
-  # Every session still holding a ticket of the batch — its worker, and a reviewer or a
-  # verifier whose result is not in — is ended through its own runner's `stop`, which
-  # interrupts it mid-turn: a verifier left running keeps running the product, and the
-  # slot is given back under it below. One already shown to be stopped is left alone. A
-  # ticket whose events cannot be read, or one of whose sessions will not stop, is left as
+  # Every session still holding a ticket of the batch — its worker and a reviewer whose
+  # result is not in — is ended through its own runner's `stop`. One already shown to be
+  # stopped is left alone. A ticket whose events cannot be read, or one of whose sessions
+  # will not stop, is left as
   # it is: nobody can say nothing still runs on it.
   local live="" number ident name sessions stopped=0 kept="" push_failed=""
   for number in $batch; do

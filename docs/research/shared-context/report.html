@@ -1,0 +1,705 @@
+<title>Project Context 调研与 MMW 方案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#F4F6F5; --surface:#FFFFFF; --ink:#1B2220; --muted:#56635F; --rule:#D5DCD9;
+  --accent:#2C6A64; --accent-soft:#E1EEEC; --warn:#9A5418; --warn-soft:#F6EBDF; --bad:#9B3131; --bad-soft:#F5E3E3; --good:#2F6B3A; --good-soft:#E3F0E4;
+  --code-bg:#EAEFED;
+  --sans:"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --cond:"IBM Plex Sans Condensed","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#111615; --surface:#182020; --ink:#E2E8E6; --muted:#98A6A2; --rule:#2C3735;
+    --accent:#72B9B0; --accent-soft:#1E3230; --warn:#D99A5B; --warn-soft:#33271B; --bad:#E08A8A; --bad-soft:#3A2222; --good:#8CC596; --good-soft:#1F3222;
+    --code-bg:#1F2928;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#111615; --surface:#182020; --ink:#E2E8E6; --muted:#98A6A2; --rule:#2C3735;
+  --accent:#72B9B0; --accent-soft:#1E3230; --warn:#D99A5B; --warn-soft:#33271B; --bad:#E08A8A; --bad-soft:#3A2222; --good:#8CC596; --good-soft:#1F3222;
+  --code-bg:#1F2928;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75;padding-inline:20px;padding-block:0 80px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:56px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr;gap:0}nav.toc{display:none}}
+nav.toc{position:sticky;top:0;align-self:start;padding-block:48px 24px;font-size:13.5px;line-height:1.5;max-height:100vh;overflow:auto}
+nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:5px 0 5px 12px;border-left:2px solid var(--rule)}
+nav.toc a.sub{padding-left:24px;font-size:12.5px}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent);border-left-color:var(--accent)}
+nav.toc .lbl{font-family:var(--cond);text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--muted);margin-bottom:10px}
+main{max-width:780px;min-width:0}
+header.top{padding-block:56px 28px;border-bottom:1px solid var(--rule);margin-bottom:8px}
+.eyebrow{font-family:var(--cond);text-transform:uppercase;letter-spacing:.1em;font-size:12.5px;color:var(--accent);font-weight:600}
+h1{font-family:var(--cond);font-weight:600;font-size:clamp(30px,4.2vw,42px);line-height:1.2;margin:10px 0 14px;text-wrap:balance}
+.meta{color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:6px 20px}
+h2{font-family:var(--cond);font-weight:600;font-size:27px;line-height:1.3;margin:64px 0 12px;text-wrap:balance;scroll-margin-top:16px}
+h2 .n{color:var(--accent);margin-right:10px;font-variant-numeric:tabular-nums}
+h3{font-family:var(--cond);font-weight:600;font-size:20px;line-height:1.35;margin:36px 0 8px;text-wrap:balance;scroll-margin-top:16px}
+h4{font-size:16px;font-weight:600;margin:24px 0 4px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 16px;padding-left:22px}
+li{margin:4px 0}
+code{font-family:var(--mono);font-size:.86em;background:var(--code-bg);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.lede{font-size:17.5px}
+.verdict{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:22px 24px;margin:28px 0}
+.verdict h2{margin-top:0;font-size:22px}
+.verdict ol{margin-bottom:0}
+.verdict li{margin:8px 0}
+.tbl{overflow-x:auto;margin:14px 0 22px;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.55}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+th{font-family:var(--cond);font-weight:600;font-size:13px;letter-spacing:.03em;color:var(--muted);background:var(--ground)}
+tr:last-child td{border-bottom:0}
+.w{min-width:680px}
+.nw td:first-child{white-space:nowrap}
+.note{background:var(--warn-soft);border-radius:6px;padding:14px 18px;margin:18px 0;font-size:15px}
+.note strong{color:var(--warn)}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:10px;white-space:nowrap}
+.pill.have{background:var(--good-soft);color:var(--good)}
+.pill.part{background:var(--warn-soft);color:var(--warn)}
+.pill.gap{background:var(--bad-soft);color:var(--bad)}
+.pill.no{background:var(--code-bg);color:var(--muted)}
+.phase{margin-top:48px;padding-top:10px;border-top:3px solid var(--accent)}
+.phase > .eyebrow{display:block}
+.phase h3{margin-top:6px}
+.item{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 22px;margin:18px 0}
+.item h4{margin:0 0 10px;font-family:var(--cond);font-size:18px;font-weight:600}
+.item h4 .id{color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:6.5em minmax(0,1fr);gap:6px 16px;font-size:15px;margin:0}
+.kv dt{color:var(--muted);font-weight:500}
+.kv dd{margin:0}
+@media (max-width:480px){.kv{grid-template-columns:1fr}.kv dt{margin-top:8px}}
+.decide{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 22px;margin:16px 0}
+.decide ol{margin:0}
+.decide li{margin:12px 0}
+.small{font-size:14px;color:var(--muted)}
+.tag{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:0 6px;border-radius:3px;background:var(--code-bg);color:var(--muted);margin-left:6px;vertical-align:2px;white-space:nowrap}
+.tag.d{background:var(--warn-soft);color:var(--warn)}
+figure.dg{margin:22px 0 26px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 16px 12px;overflow-x:auto}
+figure.dg svg{display:block;width:100%;min-width:640px;height:auto;font-family:var(--sans)}
+figure.dg figcaption{font-size:14px;color:var(--muted);line-height:1.65;margin-top:10px;max-width:70ch}
+figure.dg figcaption strong{color:var(--ink)}
+.dg text{fill:var(--ink);font-size:13px;text-anchor:middle}
+.dg text.s{font-size:11.5px;fill:var(--muted)}
+.dg g.s text{font-size:11.5px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.dg text.hd{font-family:var(--cond);font-size:12px;letter-spacing:.08em;fill:var(--muted);font-weight:600}
+.dg text.b{font-weight:600}
+.dg text.mono{font-family:var(--mono);font-size:12.5px}
+.dg text.acct{fill:var(--accent)}
+.dg .box{fill:var(--surface);stroke:var(--rule);stroke-width:1.2}
+.dg .box.acc{fill:var(--accent-soft);stroke:var(--accent)}
+.dg .box.dash{stroke-dasharray:4 3;stroke:var(--muted)}
+.dg .ln{fill:none;stroke:var(--muted);stroke-width:1.3}
+.dg .ln.dashed{stroke-dasharray:5 4}
+.dg .ln.accl{stroke:var(--accent);stroke-width:2}
+.dg .ah{fill:var(--muted)}
+.dg .aha{fill:var(--accent)}
+.dg .grid{stroke:var(--rule);stroke-width:1}
+.dg .bar{fill:var(--rule)}
+.dg .dot{fill:var(--muted)}
+.dg .dota{fill:var(--accent)}
+.dg .doth{fill:var(--surface);stroke:var(--muted);stroke-width:1.5}
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="目录">
+  <div class="lbl">目录</div>
+  <a href="#verdict">先读这里</a>
+  <a href="#s1">1 这一轮查了什么</a>
+  <a href="#s2">2 取舍的标准：MMW 的设计意图</a>
+  <a href="#s3">3 返工从哪来：MMW 现状对照</a>
+  <a href="#s4">4 参考对象里值得学的</a>
+  <a href="#s5">5 Nowledge Mem 能做什么</a>
+  <a href="#s6">6 方案</a>
+  <a class="sub" href="#p1">阶段一 优化现有流水线</a>
+  <a class="sub" href="#p2">阶段二 共享经验层</a>
+  <a class="sub" href="#p3">阶段三 跨夜学习</a>
+  <a href="#s7">7 不采纳的做法</a>
+  <a href="#s8">8 怎么判断有没有用</a>
+  <a href="#s9">9 决定</a>
+  <a href="#s10">10 更正与原始报告</a>
+</nav>
+
+<main>
+<header class="top">
+  <div class="eyebrow">调研报告 · 多 agent 协作与共享上下文</div>
+  <h1>Project Context 调研与 MMW 方案</h1>
+  <div class="meta"><span>2026-09-13 第二轮</span><span>九份调研：Cursor、13 个商业产品、22 个开源实现、理论文章、Nowledge Mem、Factory Missions、BMAD 与 Anthropic、monomind/Devin/Augment、降返工专题</span></div>
+</header>
+
+<section class="verdict" id="verdict">
+  <h2>先读这里</h2>
+  <ol>
+    <li><strong>MMW 最强的地方不用改。</strong>九份调研里没有一个对象同时做到这几条：验收由命令判定且判官自带负对照、落地后在合并结果上重跑、票状态只由脚本写事件、agent 靠事件唤醒、合并前先查。Factory、BMAD、Anthropic、Copilot 在这几点上都比 MMW 松。</li>
+    <li><strong>返工的主要入口里，MMW 有三处缝。</strong>①worker 发现 spec、基线或本票验收标准不成立时，<code>contract</code> 子票谁也不叫醒，同一 spec 小节下没开工的票照常派出，写错的 <code>CHECK</code> 由 worker 只在本票上改；②落地合并冲突变成 <code>ticket.bounced</code> 后当夜没人接手，要等早间 triage；③一夜里学到的操作性知识，同一夜别的 agent 读不到——写入大部分已由 Nowledge Mem 自动完成，缺的是按任务取回。</li>
+    <li><strong>Nowledge Mem 适合做经验库，不适合做账本。</strong>agent 用 <code>nmem m add</code> 写入后立即可检索；会话结束时插件自动采集，每个 space 有 Working Memory 在会话开头注入，所以跨夜的写与读它都已经在做。它做不到的是同一夜内按这张票检索：会话开头注入的内容不含检索结果。MMW 只补这一处，由 <code>dispatch.sh start</code> 起 worker 时查一次放进 prompt。票状态、唤醒、闸口仍然只在 tracker 事件里。</li>
+    <li><strong>方案分三个阶段。</strong>阶段一优化现有流水线，不需要新基础设施：补上面前两处缝，让 main agent 当夜处理而不是登记后停下；取消作用过小的 verifier；发布前检查 spec 有没有被票完整覆盖、开工前先在基线上跑一遍验收。阶段二以 Nowledge Mem 自带机制为主做经验层，MMW 只补当夜检索。阶段三做跨夜复盘，把重复出现的问题变成检查或技能修改。</li>
+    <li><strong>现在就有一个与方案无关的风险：</strong>你的 Nowledge Mem Working Memory 里 MMW 和客户产品的内容混在一起，会在任何仓库、任何 host 的会话开头注入，夜里的 worker 会话也已经被自动存进你的个人记忆库。第 9 节已定。</li>
+  </ol>
+</section>
+
+<section id="s1">
+<h2><span class="n">1</span>这一轮查了什么</h2>
+<p>第一轮（Cursor Projects、商业产品、开源实现、理论文章）的结论保留在第 10 节的原始报告里。这一轮按你的要求做了两件事：查清 Nowledge Mem 能怎么用，以及回头深挖"谁有权写"那张表里的参考对象，重点是它们怎样减少返工、怎样让代码忠于设计意图。</p>
+<div class="tbl"><table class="w nw">
+<tr><th>调研</th><th>读了什么</th><th>可信度说明</th></tr>
+<tr><td>Nowledge Mem</td><td>本机 <code>nmem</code> 0.10.78 全部只读命令、本机 server 的 <code>openapi.json</code>、Claude Code / Codex / Cursor / Grok / Pi 五个插件的钩子源码、官方文档 7 页</td><td>全程只读，未写入你的记忆库；server 闭源，并发写的内部实现查不到</td></tr>
+<tr><td>Factory Missions</td><td>官方博客 5 篇、文档 12 页、员工演讲字幕全文、逆向提示词、GitHub 上真实 mission 留下的交接与验证报告</td><td>字段级细节标明版本（3 月逆向 vs 8 月取证有差异）；五个内置技能正文未找到</td></tr>
+<tr><td>BMAD / Anthropic / planning-with-files</td><td>三个仓库固定 commit 的实现文件；Anthropic 4 篇工程文章全文与 2026 年 3 篇相关文章</td><td>未运行任何脚本</td></tr>
+<tr><td>monomind / Devin / Augment</td><td>monomind 两个仓库源码与设计文档；Devin 35 页文档与 16 篇博客；Augment 约 40 页</td><td>关键引语 8 条用 curl 回原页核对一致</td></tr>
+<tr><td>降返工专题</td><td>Copilot、OpenAI、Kiro、Claude Code 官方资料；25 篇 2025–2026 论文与报告；Spotify、Stripe、Airbnb 等一线实践</td><td>承重数字逐条回源；只读了摘要的已在原始报告中标出</td></tr>
+</table></div>
+<p><strong>我自己回到 MMW 仓库核实过的推断</strong>（其余来自 subagent，报告里注明出处）：</p>
+<ul>
+  <li>写错的验收标准由 worker 在本票上改：<code>mmw-v2/skills/verify-ticket/references/running-criteria.md</code> 写 "A wrong `CHECK` is fixed on the ticket: comment saying what is wrong with it, edit the criterion, run again." 这条改动只修本票；同一个错误如果来自 spec，或也写在兄弟票里，别处不会跟着改。有一个实例：MMW 仓库 #162（2026-09-06），verifier 判 <code>AC1 failed</code> 后，worker 没改代码，把 AC1 的 <code>CHECK:</code> 换成绕开失败的命令，自跑变绿，在同一个 commit 上关票；#205 之后关票检查会比对 verifier 那次运行的标准指纹，这条路在 verifier 之后已堵上，在 verifier 之前没有。</li>
+  <li><code>contract</code> 子票不叫醒任何人：<code>mmw-v2/skills/dispatch/scripts/relay.py</code> 的 <code>WAKES</code> 表里 <code>child.opened</code> 只在 <code>kind</code> 为 <code>fault</code> 或 <code>decision</code> 时叫醒 main agent；<code>how-it-works.md</code> 的 <strong>Results, watches and wakes</strong> 一节写明 "A <code>finding</code>, a <code>contract</code> or a <code>deferred</code> child is written on its ticket and wakes nobody, by design"。</li>
+  <li>五种子票在 agentflow 仓库的实际数量（按正文首行 "A `&lt;kind&gt;` child" 搜索，含已关闭）：<code>finding</code> 73、<code>fault</code> 5、<code>contract</code> 3、<code>decision</code> 2、<code>deferred</code> 2。三张 <code>contract</code>（#821、#828、#860）都是真实的基线问题：缺一条兼容下发路径、两份合同的到期锚点互相冲突、屏幕合同一行的 <code>shows</code> 抄错了对象。</li>
+  <li>合并冲突的第一道处理已经在 worker 手里：<code>implement/SKILL.md</code> 收尾步骤第 1 条要求跑验收前先 <code>dispatch.sh integrate &lt;n&gt;</code> 把 <code>origin/&lt;base branch&gt;</code> 合进本票分支，冲突时报出是哪几张已落地的票，用 <code>resolving-merge-conflicts</code> 技能解决。所以落地时的 bounce 只发生在"worker 合入之后、本票落地之前，另一张票先落地"的那段时间里。bounce 之后 <code>ticket.bounced</code> 谁也不叫醒，当夜不再试（ADR 0023 的 Consequences）。</li>
+  <li>两条规则打架：<code>to-spec/SKILL.md</code> 第 5 步要求 spec 修订后 "Tickets already cut from the section are checked against the new text and corrected"，<code>docs/contexts/tickets/CONTEXT.md</code> 的 <strong>ticket</strong> 条目写票正文 "not edited once the batch has been reported to the user as published"。</li>
+  <li>verifier 修环境的办法并非无处可写：<code>mmw-v2/skills/verdict/SKILL.md</code> 规定结论行第三段写 "What you repaired"，随 <code>verifier.passed</code>/<code>verifier.failed</code> 留在票上；只是没有别的票会读它。</li>
+  <li>跨票协作已有一条：<code>code-review/references/spec-reviewer.md</code> 的 <strong>Read tickets already integrated into the base branch</strong> 从组合行为、契约一致、迁移完整、共享状态四个角度审已合入 base branch 的票。</li>
+  <li>ADR 0001（<code>docs/adr/0001-tracker-repo-authority.md</code>）：权威副本在"生产这份内容的那一侧"，另一侧是索引。它管的是票状态这类有程序读取的内容；经验没有程序读取、不进任何闸口，所以阶段二不套用它，agent 直接写 Nowledge Mem。</li>
+</ul>
+</section>
+
+<section id="s2">
+<h2><span class="n">2</span>取舍的标准：MMW 的设计意图</h2>
+<p>每条借鉴都先过这几条。不符合的，即使别家做得好也不搬；符合的，改成 MMW 自己的形状再用。</p>
+<ol>
+  <li><strong>事实只由脚本写，模型打字不算</strong>（ADR 0019）。新机制产生的记录也要经脚本写成事件。</li>
+  <li><strong>tracker 是权威，别处是索引</strong>（ADR 0001）。任何外部系统只能是副本。</li>
+  <li><strong>沉默不算通过</strong>（ADR 0008）。查不了要说查不了，不能读起来像"没问题"。</li>
+  <li><strong>agent 靠事件唤醒，不轮询；夜里没有时钟</strong>（ADR 0010、0017）。</li>
+  <li><strong>写入单线程、验证独立</strong>：worker 一人写一张票，reviewer 是另起的会话，只报告不改。</li>
+  <li><strong>回环有上限</strong>：一轮评审修复，失败交回人（<code>implement/SKILL.md</code>）。</li>
+  <li><strong>技能文本对所有 host 一样</strong>，能力差异写成能力，不写 host 名。</li>
+  <li><strong>并行换吞吐，冲突靠 <code>## Owns</code> 与 blocking link 预防</strong>；worker 落地前先把 base branch 合进本票并解冲突，落地时仍冲突变 <code>ticket.bounced</code>（ADR 0023；1.3 改为当夜回到 worker 一次）。</li>
+</ol>
+</section>
+
+<section id="s3">
+<h2><span class="n">3</span>返工从哪来：MMW 现状对照</h2>
+<p>按"返工的成因"排，而不是按参考对象排。证据列里的数字都来自原始报告中已回源核对的来源。</p>
+<div class="tbl"><table class="w">
+<tr><th>返工成因</th><th>MMW 现在有什么</th><th>缝在哪里</th><th>外部证据</th></tr>
+<tr><td>验收标准本身写错</td><td>命令 + 只在成功时打印的 <code>EXPECT</code>；verifier 独立重跑；<code>boundary-check.py</code> 等三个判官自带负对照；worker 发现 <code>CHECK</code> 写错就在本票上改</td><td><span class="pill gap">缝</span> 改动只修本票，同一错误若来自 spec 或也在兄弟票里，别处不跟着改；普通测试类标准没有"没写代码时应该是红的"证据</td><td>ImpossibleBench：测试与 spec 矛盾时，给 agent 一个"标记标准不成立"的正式出口，比在提示词里要求它照做有效得多（54%→9%）</td></tr>
+<tr><td>spec 本身错了</td><td><code>contract</code> 子票；早间 triage 经 <code>to-spec</code> 第 5 步修订 spec</td><td><span class="pill gap">缝</span> <code>contract</code> 不叫醒 main agent，同小节未开工的票当夜照常派出，基于同一个错误写代码</td><td>BMAD：spec 错误回滚、改 spec、重做，比在错 spec 上打补丁更连贯</td></tr>
+<tr><td>spec 没被票完整覆盖</td><td><code>to-tickets</code> 第 6 步请你批准切分；第 8 步人工读回；<code>--lint</code> 查格式与票图</td><td><span class="pill gap">缝</span> 没有机器检查"每个 Implementation Decisions 小节至少有一张票认领"</td><td>Factory：先写验收断言、对抗评审两轮、再做覆盖检查才拆 feature。Ambig-SWE：模型分不清规格是否完整</td></tr>
+<tr><td>并行改同一批文件</td><td>同一 spec 内 <code>## Owns</code> 不重叠 + blocking link；worker 跑验收前 <code>integrate</code> 合入 base branch 并解冲突；落地时再冲突变 bounce</td><td><span class="pill gap">缝</span> bounce 当夜没人接手，票和它的 worktree 等到早上；你记忆里 #748、#750、#751 三次同文件 bounce</td><td>Factory 员工演讲：并行 agent "step on each other's changes"，他们因此把顶层改成串行</td></tr>
+<tr><td>环境与命令知识丢失</td><td><code>.mmw/target.json</code> 与 lease 负责起停产品；verifier 结论行写"修了什么"</td><td><span class="pill gap">缝</span> 写在票上但没有别的票读；不稳定测试、工具坑无处记</td><td>Copilot Memory：带代码引用、使用前核对的共享记忆让合并率从 83% 到 90%。两篇 2026 研究：上下文文件不提高正确率，主要省时间</td></tr>
+<tr><td>评审发现修没修说不清</td><td>三轴独立评审；Spec 轴要求引用原文；out-of-ticket 发现在收口轮按 ADR 0012 路由</td><td><span class="pill part">部分</span> in-ticket 发现修没修、为什么不修，票上无法逐条对账</td><td>Anthropic 2026-07：要求评审发现附有效性证明后，有实质评论的 PR 从 16% 升到 54%</td></tr>
+<tr><td>自称完成</td><td>关票门由脚本判定，verdict 绑定 commit</td><td><span class="pill have">已具备</span> 比所有参考对象严</td><td>Advani 2026：自评失败中 75.8% 是"自称成功"；METR 2026：自动评分比维护者合并决定高约 24 个百分点</td></tr>
+<tr><td>单票都绿、合起来不通</td><td>Spec 轴读已合入的票；<code>reverify</code> 重跑各票自己的标准</td><td><span class="pill part">部分</span> 没有批次级的跨票流程验收</td><td>Factory：里程碑验证修复工作占实现量 34%，首轮从未通过。SpecBench：代码越大，逐特性测试与组合测试差距越大</td></tr>
+<tr><td>同类问题每夜重犯</td><td><code>NIGHT SUMMARY</code> 计数；早间 triage 逐张处理</td><td><span class="pill gap">缝</span> 没有跨夜 retro，技能不从结果改进</td><td>OpenAI、Augment：同一错误出现两次就回写规则；OpenHands：代码存活率比合并率更能反映质量</td></tr>
+</table></div>
+</section>
+
+<section id="s4">
+<h2><span class="n">4</span>参考对象里值得学的</h2>
+<p>每个对象只写对 MMW 有用的部分，以及它比 MMW 弱的地方。</p>
+
+<h3>Factory Missions</h3>
+<p>和 MMW 最像的大任务编排：orchestrator 不写代码，每个 feature 一个全新上下文的 worker，每个里程碑结束自动插入两道验证。</p>
+<ul>
+  <li><strong>值得学：</strong>先写验收断言清单（<code>validation-contract.md</code>），经至少两轮对抗评审，再做"每条断言恰好被一个 feature 认领"的覆盖检查，然后才拆 feature。原文理由："If it had created the features first, the contract would be influenced by the implementation it had already planned." 真实 mission 里 96 条断言、0 条遗漏。</li>
+  <li><strong>值得学：</strong>验证者分两种。scrutiny 读 diff 与 worker 轨迹，只许直接写"事实性、低风险"的共享知识（命令、环境），对 <code>AGENTS.md</code> 与技能只能提建议；user-testing 黑盒跑跨 feature 的用户流程。</li>
+  <li><strong>值得学：</strong>"已知的无关老问题"登记在固定小节，后续 worker 不重复排查。</li>
+  <li><strong>8 月新研究：</strong>验证者先建完成标准且对实现者保密，同一模型在 gdal 重写上行为一致性从 36% 到 90%，代价 14 倍花费。原话："The single agent didn't lack skill. It lacked a standard of completion."</li>
+  <li><strong>比 MMW 弱：</strong>验证结论由 LLM 读截图给出；交接记录是 worker 自述，7 份里 5 份没写 commit；需求变了但契约没跟着改时，validator 把正确的新实现判失败；validator 的系统性建议没人执行，连续两个里程碑重复出现；顶层串行，吞吐低。</li>
+</ul>
+
+<h3>BMAD-METHOD v6</h3>
+<ul>
+  <li><strong>值得学：</strong>评审发现先核实再处置，结论只有 high / medium / low / false / maybe-false，判 false 必须写反驳，每条都进 Review Triage Log。</li>
+  <li><strong>值得学：</strong>spec 错误的处理。bad_spec 先记下哪些做对了（KEEP），回滚代码，改 spec 并写进 Spec Change Log，再重做；intent_gap（人批准的意图本身不完整）回滚后交人。</li>
+  <li><strong>值得学：</strong>retro 的规矩——每条发现必须有出处，否则丢弃；每条给两个处置："本例怎么办"和"怎样防下一次"；下一轮先按证据核上一轮的行动项落没落地；只提议不执行。</li>
+  <li><strong>值得学：</strong>一个只描述不提议的"意图对账"评审层：列出用户原话的几种合理读法、这次实现了哪种、用户期望的"表面"与测试观察的表面是否一致。</li>
+  <li><strong>比 MMW 弱：</strong>状态同时存在两处；评审强制报满 N 条发现（与 ADR 0012 记录的"每票约 3 条、循环不会自己停"冲突）；回环上限 5 轮。</li>
+</ul>
+
+<h3>Anthropic 工程文章</h3>
+<ul>
+  <li><strong>值得学：</strong>写代码前 generator 与 evaluator 协商"完成的定义"（sprint contract）。MMW 已经做得更彻底（标准由别人事先写好、可执行、你批准），剩下可取的一半是"开工前确认标准在基线上是红的"。</li>
+  <li><strong>值得学：</strong>把 evaluator 调严的方法是读它的日志，找它"发现问题又说服自己放行"的例子，然后改提示词；一次只拿掉一个脚手架组件。</li>
+  <li><strong>值得学：</strong>会话开头先验证已有功能没坏，再做新的。</li>
+</ul>
+
+<h3>planning-with-files</h3>
+<p>它的价值主要是一个反例：同一作者早期的 planning-with-teams 让所有 agent 写同一组文件，后来自己退回到"只有 orchestrator 写计划，每个 worker 写自己的日志"，并写明原因："The later write silently discards the earlier one's work, and nothing notices." 另外两条值得记：注入给模型的只放结构化摘要、不放磁盘上的自由文本（防提示注入）；Stop 钩子阻止提前结束时有次数上限，且"上次阻止后没有进展就放行"。</p>
+
+<h3>monomind project-context</h3>
+<ul>
+  <li><strong>值得学：</strong>采集与提升分两步。"Capture has to be cheap enough to happen during the work, or it does not happen at all." 是决策、经验还是无用，提升时再判断。</li>
+  <li><strong>值得学：</strong>证据写成 <code>path@commit</code>，用 <code>git diff --quiet &lt;commit&gt; HEAD -- &lt;path&gt;</code> 判断引用后文件变没变，变了就报 evidence-drift。"A link that still resolves proves the cited file exists, not that it still says what it said when it was cited."</li>
+  <li><strong>值得学：</strong>检索按"这次要改的文件"做路径前缀匹配，不用向量检索；超预算的条目列成链接而不丢弃。agent 不得批准自己提出的条目。</li>
+  <li><strong>局限：</strong>只有 3 颗星、作者自用，没有并发多 agent；价值在设计理由写得清楚。</li>
+</ul>
+
+<h3>Devin 与 Augment</h3>
+<ul>
+  <li><strong>Devin：</strong>Knowledge 按触发描述检索，没有版本、没有过期、写入时不查冲突；陈旧只能事后在 Session Insights 的 "Misleading Knowledge" 里发现，且只给建议。会话记录用了哪些知识条目（"Accessed Knowledge"），这点可审计性值得学。Cognition 2026-04 自己的结论："writes stay single-threaded and the additional agents contribute intelligence rather than actions"。</li>
+  <li><strong>Augment：</strong>记忆加载时对照现状，有冲突就报出来，而不是过期删除。评审记忆在合并时从评审结果学习：明确的人工反馈直接生效，弱信号要重复出现才晋升；按改动路径加载，用来压低已知误报。进 <code>AGENTS.md</code> 的两条准入："undiscoverable"（读代码推不出）且 "universal"（每个任务都适用）。</li>
+</ul>
+
+<h3>降返工专题里的其他对象</h3>
+<ul>
+  <li><strong>GitHub Copilot Memory：</strong>每条记忆带 <code>path:line</code> 引用，使用前核对引用，核对不上就不用；投毒测试里 agent 会发现矛盾并改正记忆。注意核对是提示词驱动，不是脚本。</li>
+  <li><strong>OpenAI：</strong>失败归因于环境而非模型——"what capability is missing, and how do we make it both legible and enforceable for the agent?"；lint 错误信息里直接写修复指令；"When Codex makes the same mistake twice, ask it for a retrospective and update AGENTS.md"。</li>
+  <li><strong>Kiro：</strong>bug 类 spec 固定三段，第三段是"SHALL CONTINUE TO [现有行为]"，把防回归写成显式标准。</li>
+  <li><strong>Claude Code agent teams：</strong>现行文档里 teammate 的计划已改为不经 lead 审阅自动批准——说明"LLM lead 审计划"的价值官方没有坚持。</li>
+</ul>
+</section>
+
+<section id="s5">
+<h2><span class="n">5</span>Nowledge Mem 能做什么</h2>
+
+<h3>查到的事实</h3>
+<div class="tbl"><table class="w">
+<tr><th>方面</th><th>现状</th><th>对 MMW 的含义</th></tr>
+<tr><td>检索</td><td><code>nmem m search</code> 约 0.52 秒；可按 label、unit type（fact / procedure / learning / decision 等）、时间、<code>metadata key=value</code>、space 过滤；<code>ask</code> 问答要 130 秒</td><td>脚本在派发时查一次完全可行；问答不能放进派发路径</td></tr>
+<tr><td>写入</td><td>REST <code>POST /memories</code> 可带自由 <code>metadata</code> 与 <code>agent_id</code>，写完即可检索；普通写入没有审阅；<code>memories update</code> 不保留正文历史，<code>supersede</code> 保留旧条目</td><td>MMW 的 python 脚本可用标准库直接写；改动一律用"取代"不用"改写"</td></tr>
+<tr><td>自动采集</td><td>各 host 插件在会话结束时存会话记录，后台蒸馏成记忆；蒸馏任务在队列里等过 47 分钟还没跑，内容由模型决定</td><td>同一夜内的经验不能靠自动蒸馏传递，必须显式写</td></tr>
+<tr><td>会话开始注入</td><td>Context Bundle 只有身份、space、rules、Working Memory 四块，<strong>不含按当前任务检索出的记忆</strong>；插件故意不按工作目录推断 space</td><td>"读"要做完整，只能由 MMW 自己查、自己放进 prompt</td></tr>
+<tr><td>五个 host</td><td>Claude Code、Codex、Pi、Cursor 插件会注入 bundle；Grok 丢弃会话开始钩子的输出；Claude Code 用户级没有 Nowledge MCP；MMW 写进 <code>~/.cursor/mcp.json</code> 的条目不带身份头和 space 头；钩子失败时静默（只有 Pi 会说"不可用"）</td><td>依赖 host 钩子违反"技能对所有 host 一样"和 ADR 0008；派发时由脚本做，五个 host 一致</td></tr>
+<tr><td>space 与身份</td><td>space 可设 strict / shared / all 检索模式；agent identity 通过 <code>NMEM_AGENT_ID</code> 选择，只决定 agent 级 rules 和默认 space，检索本身不按 agent 过滤。本机 spaces 未启用、只有 <code>default</code> 一个身份、51 条 rules 全是草稿</td><td>每个客户仓库一个 strict space、一个共享的工具箱 space 可以做到隔离，需要你同意启用</td></tr>
+<tr><td>多机器</td><td>默认只监听 <code>127.0.0.1</code>；远程访问是单一 hub，需要全权 API key，没找到只读或限定 space 的 key</td><td>本机 runner 没问题；云端或别的机器上的 worker 要读，需要分发全权 key</td></tr>
+<tr><td>已经在发生的事</td><td>agentflow 仓库 <code>issue-900</code> worktree 里的 worker 与 reviewer 会话已被自动存入你的记忆库；Working Memory 里 MMW 与客户监控产品的决策混在一起，每个会话开头都会注入</td><td>客户上下文正在跨仓库、跨 host 流动，与方案无关，已定（第 9 节）</td></tr>
+</table></div>
+
+<h3>它该承担什么、不该承担什么</h3>
+<p><strong>该承担：</strong>没人会写进票、但下一个 agent 很需要的东西——怎么起产品、哪个测试不稳、上次为什么失败、某个目录的已知坑、本仓库评审中反复出现的误报与真缺陷。</p>
+<p><strong>不该承担：</strong>票状态、认领、依赖、唤醒、<code>## Owns</code> 重叠检查、验收证据、spec、ADR、决策结论，以及任何闸口的通过条件。理由：这些都要求确定性或可审计的历史，而 Nowledge Mem 的检索是语义的、写入没有版本、后台会自动合并改写，且失败时静默。</p>
+<p class="small">位置的一句话表述：tracker 事件是账本，仓库文件是规章，Nowledge Mem 是经验库。经验不是票状态，直接写进 Nowledge Mem，不在票上留第二份。</p>
+</section>
+
+<section id="s6">
+<h2><span class="n">6</span>方案</h2>
+<p>三个阶段按"证据强、改动小、先堵漏"的顺序排。每项写明它解决的缝、做法、你在产品上会看到的变化、依据和风险。第 9 节列出由你定下的产品决定；其余是工程决定，按 MMW 惯例由我判断。所有新名字都是暂名，落地时按 <code>CONTEXT-MAP.md</code> 的词表规则定名。</p>
+
+<div class="phase" id="p1">
+<span class="eyebrow">阶段一 · 优化现有流水线 · 不需要新基础设施</span>
+<h3>当夜处理问题、取消 verifier、发布前查覆盖、开工前查基线</h3>
+<p>这一阶段的共同原则：worker 发现问题就正式交出去（开子票、或落地失败），main agent 被叫醒，能引用已写下的依据的就当夜解决并恢复派发；引用不到依据时，才真正停掉相关的票等你。</p>
+
+<h4>先把层次说清楚</h4>
+<p>worker 照着做的东西是一条从上到下派生的链。错可能出在任何一层，改要改在出错的那一层，再把下游派生出来的一起改掉：</p>
+<div class="tbl"><table class="w">
+<tr><th>层</th><th>写在哪</th><th>里面有什么</th></tr>
+<tr><td>基线</td><td>ADR、决策票的结论、交接包、屏幕合同、领域文档</td><td>已经定下的结论；票的 <code>## Read first</code> 逐行列出并标明是基线</td></tr>
+<tr><td>spec</td><td>一个 <code>mmw:spec</code> issue</td><td><code>## Implementation Decisions</code>、<code>## Testing Decisions</code> 等小节；没有验收标准</td></tr>
+<tr><td>票</td><td>spec 下的子 issue</td><td><code>## Parent</code> 指回 spec 小节；<code>## What to build</code>、<code>## Owns</code>；<code>## Acceptance criteria</code> 里一条条验收标准，每条由 <code>CHECK:</code>（要跑的命令）、<code>EXPECT:</code>（输出必须出现的文字）、<code>EVIDENCE:</code> 组成</td></tr>
+</table></div>
+
+<div class="item">
+<h4><span class="id">1.1</span>照做的东西不成立：<code>contract</code> 叫醒 main agent，改在出错的那一层<span class="tag">已定：第 9 节</span></h4>
+<dl class="kv">
+  <dt>缝</dt><dd>两处。worker 发现基线或 spec 不成立时开 <code>contract</code> 子票后继续做，谁也不被叫醒（<code>relay.py</code> 的 <code>WAKES</code> 只对 <code>fault</code>、<code>decision</code> 叫醒），同一小节还没开工的票照常派出，基于同一个错误写代码。发现本票的 <code>CHECK</code> 写错时，<code>running-criteria.md</code> 让 worker 在本票上直接改，同一个错误若来自 spec 或也在兄弟票里，别处不跟着改。</dd>
+  <dt>做法</dt><dd>这两种合成一条路：worker 开 <code>contract</code>，写明哪一处不成立、它认为应该是什么，照常做不受影响的部分。relay 的 <code>WAKES</code> 表里 <code>child.opened</code> 的叫醒种类加上 <code>contract</code>。main agent 被叫醒后顺着链往上找出错的那一层，然后二选一：
+    <ul>
+      <li><strong>能引用已写下的依据 → 自己改。</strong>依据是比出错处权威更高或更具体的文件、仓库规则（如 <code>AGENTS.md</code>），或基线当初照抄的实物（交接包、已上线的代码）。改出错的那一层：tracker 上的 spec、决策票、票正文与验收标准直接编辑（GitHub 保留编辑历史）；仓库里的基线文件经一个新的 <code>dispatch.sh</code> 命令在 <code>merge-&lt;branch&gt;</code> worktree 提交并 fast-forward 推到 <code>origin/&lt;base branch&gt;</code>，与落地同一把锁。再改从它派生、还没落地的票。关子票时写明依据是哪份文件、改了哪些地方，然后 <code>resume</code> 受影响的 worker，照常 <code>advance</code>。main agent 每次被叫醒是先处理再跑 <code>advance</code>，改好之前不会有同小节的新票派出。</li>
+      <li><strong>引用不到 → 停下等你。</strong>三种情况：没有任何文件说过怎么办；修法会推翻你做过的决定（决策票结论、ADR、spec 的 User Stories 与 Out of Scope）；需要 spec 范围之外的新工作。把同小节未开工的票从 <code>ready-for-agent</code> 移到 <code>needs-triage</code>，开一张 <code>decision</code> 写明选项与推荐，已开工的照常。<code>NIGHT SUMMARY</code> 列出被停的票。</li>
+    </ul>
+  </dd>
+  <dt>要先补的一张表</dt><dd>MMW 现在没有写下"依据互相冲突时谁优先"，只有"交接包管外观、屏幕合同管行为"这一条分工（<code>docs/contexts/tickets/CONTEXT.md</code> 的 <strong>contract</strong> 条目）。草案：你的决策票与 ADR &gt; spec &gt; 交接包或屏幕合同（各管各的领域）&gt; 领域文档 &gt; 票正文。</dd>
+  <dt>拿实例试</dt><dd>agentflow 的三张 <code>contract</code>：#860 屏幕合同四行 <code>shows</code> 抄错，交接包与代码一致——能引用交接包，自己改。#828 票与 #587 要求的到期起算时刻和领域文档冲突——按草案"spec 优先于领域文档"能引用，自己改（当时的实际处理也是收窄领域文档）。#821 缺一条下发路径——修法方向能引用 <code>AGENTS.md</code> 的 "Contracts and evolution"，是否属于 spec 范围内的工作没有核对。</dd>
+  <dt>怎样观察到叫醒</dt><dd>每次叫醒 relay 在 <code>~/.mmw/state/&lt;owner&gt;__&lt;name&gt;/relay.log</code> 写 <code>queued &lt;序号&gt; #&lt;n&gt; child.opened for main &lt;session&gt;</code> 与 <code>delivered …</code> 两行，main agent 的会话收到 <code>#&lt;n&gt; child.opened</code>。relay 测试套件加一个场景：五种子票各开一张，断言只有 <code>contract</code>、<code>fault</code>、<code>decision</code> 进队列。</dd>
+  <dt>顺带解决</dt><dd><code>running-criteria.md</code>、<code>to-spec</code> 第 5 步、<code>tickets/CONTEXT.md</code> 三处关于"发布后票能不能改"的矛盾统一为：发布后 spec、票正文与验收标准只由 main agent 或你改。</dd>
+  <dt>风险</dt><dd>main agent 夜里改基线，等于在你不在时改设计意图。约束是每次必须点名依据；早上看子票关闭评论就能逐条核对，依据站不住的可以改回。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">1.2</span>五种子票各自的边界，写成一个判定顺序</h4>
+<dl class="kv">
+  <dt>缝</dt><dd><code>verify-ticket/references/sub-issues.md</code> 的表写了每种记录什么，没有写"两种都像时选哪个"。1.1 让 <code>contract</code> 叫醒 main agent 之后，选错种类的代价变大。</dd>
+  <dt>做法</dt><dd>在那张表前加一个按顺序问的判定，第一个答"是"的就是种类，每种写一个"不是它"的例子：
+    <div class="tbl"><table class="w">
+      <tr><th>顺序</th><th>问</th><th>种类</th><th>不是它的例子</th></tr>
+      <tr><td>1</td><td>流水线本身坏了吗——脚本、钩子、driver、<code>.mmw/target.json</code>？</td><td><code>fault</code></td><td>产品端口被旧进程占着，杀掉就能跑：这是环境，修掉并记一条经验（2.1）</td></tr>
+      <tr><td>2</td><td>照做的东西不成立吗——<code>## Read first</code> 的基线、spec 小节、本票的验收标准缺状态、字段、情形，或互相矛盾？</td><td><code>contract</code></td><td>这些写得清楚，只是自己的实现没做对：本票里修</td></tr>
+      <tr><td>3</td><td>它们都没说，而这是只有你能做的选择吗？</td><td><code>decision</code>（取默认继续）</td><td>没说、但怎么做都不影响结果（内部命名、数据结构）：worker 自己定，写进 <code>DECISIONS</code> 评论</td></tr>
+      <tr><td>4</td><td>评审报告指出的缺陷在本票 <code>## Owns</code> 之外吗？</td><td><code>finding</code></td><td>在 Owns 之内：本票修</td></tr>
+      <tr><td>5</td><td>Owns 之外有顺手想改、但验收不需要的地方吗？</td><td><code>deferred</code></td><td>不改就过不了验收：直接改，列在 <code>Outside Owns</code></td></tr>
+    </table></div>
+  </dd>
+  <dt>顺带</dt><dd><code>tickets/CONTEXT.md</code> 的 <strong>contract</strong> 条目写进"spec 小节或本票验收标准不成立"两种情形。</dd>
+  <dt>实际数量</dt><dd>agentflow 已开的 85 张子票：<code>finding</code> 73、<code>fault</code> 5、<code>contract</code> 3、<code>decision</code> 2、<code>deferred</code> 2。落地后开始统计早间 triage 改种类的次数。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">1.3</span>落地冲突当夜回到这张票的 worker</h4>
+<dl class="kv">
+  <dt>缝</dt><dd>worker 跑验收前已用 <code>dispatch.sh integrate &lt;n&gt;</code> 合入 base branch 并解冲突；但在它合入之后、本票落地之前，另一张票可能先落地。这时 <code>advance</code> 合并失败，写 <code>ticket.bounced</code>，谁也不叫醒，票等到早上（ADR 0023）。</dd>
+  <dt>做法</dt><dd>relay 的 <code>WAKES</code> 加上 <code>ticket.bounced</code>，叫醒 main agent。main agent 用 <code>start &lt;n&gt; worker</code> 在保留的 worktree 起 worker，开场指令固定：再跑 <code>integrate</code>，冲突按 <code>resolving-merge-conflicts</code> 技能读两边的票与 spec 解决，重跑验收，关票；之后照常落地。每张票每夜只回一次，第二次 bounce 才交早间 triage。当夜重试时，bounce 不再把票移到 <code>needs-triage</code>、不释放认领。修订 ADR 0023 的 Consequences。</dd>
+  <dt>为什么是 worker 解</dt><dd>①两个并行 spec 各有自己的 main agent，每个只持有自己那一半的背景；worker 的 <code>integrate</code> 会报出冲突来自哪几张票，技能会去读它们，两边都拿得到。②解冲突写出新代码，要重跑本票标准，走 worker 路径自然有；ADR 0023 否决"main agent 当晚修"正是因为会绕过验证。③main agent 的上下文要撑一整夜。main agent 负责时机：被叫醒就立刻派回去。</dd>
+  <dt>你会看到</dt><dd>同文件的并行票不再过夜；<code>NIGHT SUMMARY</code> 的 <code>Bounced:</code> 行只剩第二次仍冲突的票。</dd>
+  <dt>代价</dt><dd>每次 bounce 多一次 worker 的花费。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">1.4</span>评审发现先核实再上报，处置逐条入账</h4>
+<dl class="kv">
+  <dt>缝</dt><dd>in-ticket 发现修没修、为什么不修，票上无法逐条对账；假发现会被照改，真发现会被略过。</dd>
+  <dt>做法</dt><dd>两处。reviewer 会话（<code>code-review/references/session.md</code> 第 3 步分拣之前）逐条打开发现所指的 <code>file:line</code> 核对，不成立的放进报告末尾的撤回列表，不进入 In-ticket / Out-of-ticket。worker 的关票草稿增加一节，每条 in-ticket 发现一行：<code>fixed &lt;commit&gt;</code> 或 <code>refuted: &lt;file:line 上实际发生什么&gt;</code>；<code>--closeout</code> 逐条核对都有一行；Spec 轴判为 <code>should not</code> 的不允许 <code>refuted</code>。</dd>
+  <dt>你会看到</dt><dd>每张票的评审结果可以一行一行追到代码提交或反驳理由；收口轮里被判 stale 的 finding 应该变少（现在 ADR 0012 记录约 24%）。</dd>
+  <dt>依据</dt><dd>BMAD Review Triage Log；Anthropic 要求附证明后实质评论从 16% 到 54%；Claude Code Code Review 与 Uber 的"先对照代码验证再上报"。</dd>
+  <dt>风险</dt><dd>核实本身也是 LLM 做，会误撤真问题。MMW 的 in-ticket 修复只有一轮，误报代价高，偏向精度是合适的。</dd>
+</dl>
+</div>
+<div class="item">
+<h4><span class="id">1.5</span>取消 verifier（先做）</h4>
+<dl class="kv">
+  <dt>现在的作用</dt><dd><code>mmw-v2/skills/verdict/SKILL.md</code>：在 worker 的同一 worktree、同一 commit 上用 <code>--reverify</code> 把票上标准再跑一遍，发一行 VERDICT（怎么跑的、结果、修了环境里的什么）；不改文件、不加标准、不评代码。<code>--closeout</code> 要求 VERDICT 的 commit 等于 <code>HEAD</code>。</dd>
+  <dt>实际效果</dt><dd>relay 日志（2026-09-12 起）：agentflow 49 次、MMW 8 次 VERDICT，失败 0 次。worker 刚在同一 commit 上跑过同一组命令，那次运行本身由脚本记成事件，所以重跑几乎只能抓到环境差异。MMW #162 的 <code>AC1 failed</code> 是 worker 自跑已经看到的失败。</dd>
+  <dt>参考来源对照</dt><dd>设计来自 pstack（<code>skills/poteto-mode/playbooks/autopilot-full.md</code>）与 unlazy（<code>--reverify</code>）。pstack 的验证分三条线，在 MMW 里都已有人做：
+    <ul>
+      <li>在要合并的 commit 上重跑检查——worker 自跑，由脚本记成 <code>ticket.checked</code>；夜后 main agent 的 <code>reverify</code> 再在合并结果上跑一遍。</li>
+      <li>在真实界面上证明关键行为——MMW 的界面验收是 <code>story-parity.py</code>、<code>boundary-check.py</code>、<code>journey.py</code> 这些写在票上的标准，由 worker 在自跑里执行，判官自带负对照，结论由命令给出。它们的目的是让 worker 自己发现实现与设计的明显差别并修正：<code>DIFF</code> 行点名差在哪个节点，<code>implement</code> 收尾步骤第 1 条要求 worker 只修 <code>DIFF</code> 行点名的地方（<code>drive-target/references/story-parity.md</code> 的 Exit codes 一节）。</li>
+      <li>不信 PR 描述，审证据与 diff——这是 reviewer 的三轴评审，一个独立会话，默认与 worker 不同模型家族；取消 verifier 不影响它。</li>
+    </ul>
+    pstack 自己在 <code>playbooks/orchestrate.md</code> 写道："A verifier agent whose entire product would be rerunning one command is ceremony, not verification."</dd>
+  <dt>做法</dt><dd>删除 <code>verdict</code> 技能；<code>implement</code> 去掉第 4 步与状态表里的 verifier 行；<code>--closeout</code> 的条件改为"脚本记录的 worker 自跑在 <code>HEAD</code> 上全部通过"；<code>--verdict</code>、<code>dispatch.sh start … verifier</code>、<code>models.json</code> 的 verifier 行、relay <code>WAKES</code> 里的 <code>verifier.*</code>、<code>events.py</code> 与任务板对这些事件的读取、<code>docs/contexts</code> 的词条一并删除；写一份 ADR 记录取消的理由。与本阶段其他项改同一批文件，放在最前面做。</dd>
+  <dt>剩下的风险</dt><dd>worker 在关票前改了 <code>CHECK:</code>，关票前没有第二个会话看到；夜后 <code>reverify</code> 跑的也是改过的标准。防线是 1.1 的规则（发布后只有 main agent 或你改标准）、GitHub 的正文编辑历史、以及复盘（3.1）列出关票前标准被改过的票。三者都能发现，不能阻止。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">1.6</span>spec 覆盖检查进 <code>--lint</code></h4>
+<dl class="kv">
+  <dt>做法</dt><dd><code>verify-ticket.py &lt;spec&gt; --lint</code> 新增两项：spec 的每个 Implementation Decisions 编号小节至少被一张票的 <code>## Parent</code> 点名；Testing Decisions 的 <strong>How a test arrives at a state</strong> 下每个机制都被某张票的 <code>## Owns</code> 覆盖（<code>to-tickets</code> 第 8 步现在是人工检查，改为机器）。未被认领的报 WARN 并点名小节号。</dd>
+  <dt>你会看到</dt><dd>发布时就知道 spec 里哪一条决定没有任何票去做，而不是验收时才发现少了一块。</dd>
+  <dt>依据</dt><dd>Factory 的覆盖检查（"Unclaimed assertions = planning gap"）；spec-kit analyze 的覆盖率。</dd>
+  <dt>后续</dt><dd>Factory 的做法是给每条行为断言编号并要求"恰好被一个 feature 认领"。先做小节级覆盖，看 retro 里"spec 有、票没做"的案例多不多，再决定要不要细到断言级。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">1.7</span>发布前一次只读的"找漏"会话</h4>
+<dl class="kv">
+  <dt>做法</dt><dd><code>to-tickets</code> 第 6 步请你批准切分之前，起一个 host 原生 subagent（与 code review 的轴 subagent 同一做法，工作指引写成一份单独的 reference），只读 spec 与票草稿，找会改变交付内容的模糊、冲突与遗漏，最多 5 条，每条引用 spec 原句并带推荐选项，并入你已经在看的 Choices 行，不另开一轮对话。</dd>
+  <dt>依据</dt><dd>Factory 契约的对抗评审（"It is very likely that important assertions are missing, even if the contract looks good on the surface"）；Ambig-SWE（模型分不清规格是否完整）；spec-kit clarify 的"最多 5 题、带推荐"。</dd>
+  <dt>风险</dt><dd>过度规格化（Böckeler 批评小 bug 被扩成 16 条验收）。只收会改变交付的问题，其余照 <code>implement</code> "Put no question on the screen" 由 worker 取默认。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">1.8</span>认领后先在基线上跑一遍验收</h4>
+<dl class="kv">
+  <dt>做法</dt><dd><code>--preflight</code> 认领成功后，在 <code>worker.started</code> 的 base commit 上把全部标准跑一遍，写一条 run 为 <code>baseline</code> 的 <code>ticket.checked</code>。没写代码就已经通过的标准，<code>--closeout</code> 要求草稿逐条说明：已被别的票做掉，还是这条 <code>CHECK</code> 测不到本票的行为（后者走 <code>contract</code>）。不阻止开工。</dd>
+  <dt>依据</dt><dd>Anthropic "run through a basic end-to-end test before implementing a new feature"；PLANS.md "the new test fails before the change and passes after"；MMW 的 <code>boundary-check.py</code> 已证明负对照可以机械化。</dd>
+  <dt>风险</dt><dd>开工变慢，带长 <code>TIMEOUT:</code> 的标准要跑两次，可以只对不需要产品槽位的标准做。测试文件还不存在时标准必然是红的，这种红不证明任何事，所以只对"基线已绿"下结论。更强的版本（worker 自跑时把本票新增的测试放到旧代码上跑、要求失败，即负对照）需要单独设计，放到这一项跑一段时间之后。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">1.9</span>批次级流程验收票（仅对能起整机的仓库）</h4>
+<dl class="kv">
+  <dt>做法</dt><dd>spec 声明跨票的用户流程时，<code>to-tickets</code> 切一张验收票，<code>Blocked by</code> 流程涉及的所有票，<code>## Owns</code> 只含 <code>.mmw/journeys/&lt;flow&gt;/</code>，标准是 <code>journey.py run &lt;flow&gt;</code>。它自然在最后被派出，由新 worker 在已合并的 base branch 上跑；失败走现有的 finding 路由。</dd>
+  <dt>依据</dt><dd>Factory user-testing validator 是发现问题最多的环节；SpecBench 的组合差距。</dd>
+  <dt>适用范围</dt><dd>需要 <code>.mmw/target.json</code> 能起整机并登录；MMW 自身这种没有界面的仓库不适用。</dd>
+</dl>
+</div>
+</div>
+
+<div class="phase" id="p2">
+<span class="eyebrow">阶段二 · 共享经验层 · Nowledge Mem 自带机制优先</span>
+<h3>让每个 agent 开工时读到别的 agent 学到的东西</h3>
+<p>经验不是票状态：没有程序汇总它，也没有闸口依赖它，所以不经票事件，agent 直接写 Nowledge Mem。能交给 Nowledge Mem 自带机制的都交给它，MMW 只补它做不到的一处——同一夜内按票检索。下面的每个结论标明是本机实测、读源码确认，还是推断。</p>
+
+<div class="tbl"><table class="w">
+<tr><th>需要</th><th>Nowledge Mem 现成的</th><th>够不够</th><th>MMW 要补的</th></tr>
+<tr><td>agent 记一条</td><td><code>nmem m add</code>（可带标题、label、unit type、space、agent id），或 MCP <code>memory_add</code>；写入后立即可检索（服务端接口说明，搜索 0.52 秒为实测）</td><td>够</td><td><code>implement</code>、<code>verdict</code> 技能文本各加一句何时记、怎么记</td></tr>
+<tr><td>条目与会话记录落到本仓库</td><td>space。2026-09-14 实测，spaces 已启用：设了 <code>NMEM_SPACE</code> 的 <code>nmem m add</code> 与 Claude Code、Codex、Grok、Pi 四个 host 的会话记录都落进指定 space，Default 检索不到；经 orca 交互启动（Claude Code、Codex、Grok）、经 paseo 启动（Claude Code、Codex）、直接命令行启动都一样。Cursor 未测</td><td>够</td><td>派发时给会话设 <code>NMEM_SPACE</code>、<code>NMEM_AGENT_ID</code>：orca 在启动行前加 <code>exec env …</code>、paseo 用 <code>--env</code>，两种都实测传进了会话</td></tr>
+<tr><td>跨夜读到</td><td>会话结束自动采集并蒸馏；每个 space 一份 Working Memory，会话开头由插件注入（Grok 不注入）</td><td>够，蒸馏内容由模型决定</td><td>不补</td></tr>
+<tr><td>同一夜、按这张票读到</td><td>没有。会话开头注入的 Context Bundle 不含检索结果；每回合只提示"主动去搜"</td><td>不够</td><td><code>dispatch.sh start</code> 起 worker 时检索一次，结果写进开场 prompt（2.2）</td></tr>
+<tr><td>reviewer 常驻的指南</td><td>agent 级 rules，脚本可直接写成 active，按 <code>NMEM_AGENT_ID</code> 进入 bundle（读 CLI 帮助确认）</td><td>够（Grok 除外）</td><td>给 <code>mmw-reviewer</code> 维护一组 rules</td></tr>
+<tr><td>reviewer 不读 worker 的经验</td><td>检索不能按 agent 过滤</td><td>不够，只能在 prompt 层做</td><td>它们的开场 prompt 不放检索结果；它们自己去搜挡不住</td></tr>
+</table></div>
+
+<figure class="dg">
+<svg viewBox="0 0 760 440" role="img" aria-label="经验流向：票 A 的 worker、reviewer 直接写入 Nowledge Mem 本仓库 space，会话结束后插件还会自动采集并蒸馏；dispatch.sh start 当夜检索今夜条目放进票 B worker 的开场 prompt；Working Memory 在任何会话开头由插件注入；reviewer 只拿 agent 级 rules；main agent 收口轮处置今夜条目，你批准的进入规章文件。">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"></path></marker>
+    <marker id="aha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="aha"></path></marker>
+  </defs>
+  <text x="105" y="22" class="hd">谁写</text>
+  <text x="390" y="22" class="hd">记在哪</text>
+  <text x="655" y="22" class="hd">谁读、什么时候读</text>
+
+  <rect x="20" y="40" width="170" height="40" rx="4" class="box"></rect>
+  <text x="105" y="65" class="t">worker（票 A）</text>
+  <rect x="20" y="92" width="170" height="40" rx="4" class="box"></rect>
+  <text x="105" y="117" class="t">reviewer（票 A）</text>
+  <rect x="20" y="144" width="170" height="40" rx="4" class="box"></rect>
+  <text x="105" y="169" class="t">main agent（收口）</text>
+  <polyline points="190,60 210,60 210,164 190,164" class="ln accl"></polyline>
+  <line x1="190" y1="112" x2="210" y2="112" class="ln accl"></line>
+  <line x1="210" y1="126" x2="314" y2="126" class="ln accl" marker-end="url(#aha)"></line>
+  <text x="262" y="117" class="s acct">直接写</text>
+
+  <line x1="105" y1="184" x2="105" y2="230" class="ln dashed" marker-end="url(#ah)"></line>
+  <rect x="20" y="232" width="170" height="52" rx="4" class="box dash"></rect>
+  <text x="105" y="254" class="t">会话结束</text>
+  <text x="105" y="273" class="s">插件自动采集</text>
+  <polyline points="190,258 250,258 250,182 314,182" class="ln dashed" marker-end="url(#ah)"></polyline>
+  <text x="258" y="276" class="s" text-anchor="start">排队蒸馏</text>
+  <text x="105" y="312" class="s">两者都由 dispatch 设的</text>
+  <text x="105" y="328" class="s mono">NMEM_SPACE</text>
+  <text x="105" y="344" class="s">决定落到哪个仓库</text>
+
+  <rect x="300" y="40" width="180" height="270" rx="4" class="box acc"></rect>
+  <text x="390" y="64" class="t b">Nowledge Mem</text>
+  <text x="390" y="84" class="s">本仓库 space</text>
+  <rect x="316" y="104" width="148" height="44" rx="3" class="box"></rect>
+  <text x="390" y="122" class="t">经验条目</text>
+  <text x="390" y="139" class="s">写入即可查</text>
+  <rect x="316" y="160" width="148" height="44" rx="3" class="box"></rect>
+  <text x="390" y="178" class="t">会话蒸馏的记忆</text>
+  <text x="390" y="195" class="s">延迟不固定</text>
+  <rect x="316" y="216" width="148" height="44" rx="3" class="box"></rect>
+  <text x="390" y="234" class="t">Working Memory</text>
+  <text x="390" y="251" class="s">每天生成一次</text>
+  <text x="390" y="286" class="s">agent 级 rules：常驻指南</text>
+
+  <rect x="570" y="92" width="170" height="56" rx="4" class="box"></rect>
+  <text x="655" y="115" class="t mono">dispatch.sh start</text>
+  <text x="655" y="135" class="s">当夜检索一次</text>
+  <line x1="464" y1="126" x2="568" y2="120" class="ln accl" marker-end="url(#aha)"></line>
+  <text x="516" y="110" class="s acct">按 Owns 检索</text>
+  <line x1="655" y1="148" x2="655" y2="168" class="ln accl" marker-end="url(#aha)"></line>
+  <rect x="570" y="170" width="170" height="44" rx="4" class="box"></rect>
+  <text x="655" y="188" class="t">worker（票 B）</text>
+  <text x="655" y="205" class="s">开场 prompt 带今夜条目</text>
+
+  <line x1="464" y1="238" x2="568" y2="258" class="ln dashed" marker-end="url(#ah)"></line>
+  <text x="516" y="238" class="s">跨夜</text>
+  <rect x="570" y="236" width="170" height="44" rx="4" class="box"></rect>
+  <text x="655" y="254" class="t">任何会话开头</text>
+  <text x="655" y="271" class="s">插件注入（Grok 除外）</text>
+
+  <line x1="464" y1="284" x2="568" y2="320" class="ln" marker-end="url(#ah)"></line>
+  <rect x="570" y="302" width="170" height="44" rx="4" class="box"></rect>
+  <text x="655" y="320" class="t">reviewer</text>
+  <text x="655" y="337" class="s">只拿 rules，不给检索结果</text>
+
+  <line x1="390" y1="310" x2="390" y2="358" class="ln" marker-end="url(#ah)"></line>
+  <text x="382" y="338" class="s" text-anchor="end">今夜条目</text>
+  <rect x="300" y="360" width="180" height="56" rx="4" class="box"></rect>
+  <text x="390" y="383" class="t">main agent 收口轮</text>
+  <text x="390" y="402" class="s">接受 · 提名进规章 · 丢弃</text>
+
+  <rect x="570" y="366" width="170" height="56" rx="4" class="box"></rect>
+  <text x="655" y="389" class="t">规章文件</text>
+  <text x="655" y="408" class="s">AGENTS.md · target.json · 技能</text>
+  <line x1="480" y1="394" x2="568" y2="394" class="ln" marker-end="url(#ah)"></line>
+  <text x="524" y="386" class="s">你批准后</text>
+</svg>
+<figcaption><strong>图 1　经验怎样流动。</strong>绿色是同一夜内能送达的路径：票 A 的会话直接写进本仓库 space，票 B 开工时 <code>dispatch.sh start</code> 按本票的 <code>## Owns</code> 路径与标题检索，放进开场 prompt。虚线是 Nowledge Mem 自己在做的：会话结束自动采集并蒸馏、每天生成 Working Memory 并在会话开头注入，这条对之后的夜晚有用，MMW 不写代码。reviewer 只拿常驻 rules，开场 prompt 不放检索结果，但挡不住它自己去搜。</figcaption>
+</figure>
+
+<figure class="dg">
+<svg viewBox="0 0 760 232" role="img" aria-label="一夜时间线示例：01:40 票 A 的 worker 修好端口并直接写入，立即可查；01:50 票 B 开工，开工包里有这条；02:10 票 A 会话结束被自动采集，03:00 蒸馏完成；06:00 main agent 收口轮处置。">
+  <defs>
+    <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"></path></marker>
+    <marker id="aha2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="aha"></path></marker>
+  </defs>
+  <text x="10" y="54" class="t" text-anchor="start">票 A</text>
+  <text x="10" y="106" class="t" text-anchor="start">票 B</text>
+  <text x="10" y="154" class="t" text-anchor="start">Nowledge Mem</text>
+  <line x1="120" y1="150" x2="740" y2="150" class="grid"></line>
+
+  <rect x="168" y="44" width="159" height="12" rx="2" class="bar"></rect>
+  <rect x="295" y="96" width="207" height="12" rx="2" class="bar"></rect>
+  <text x="279" y="30" class="s">01:40 worker 杀掉占端口的旧进程，直接写入</text>
+  <circle cx="279" cy="50" r="5" class="dota"></circle>
+  <line x1="279" y1="56" x2="279" y2="143" class="ln accl" marker-end="url(#aha2)"></line>
+  <circle cx="279" cy="150" r="5" class="dota"></circle>
+  <line x1="283" y1="145" x2="294" y2="111" class="ln accl" marker-end="url(#aha2)"></line>
+  <text x="510" y="106" class="s" text-anchor="start">01:50 开工包里已有这条</text>
+  <text x="279" y="176" class="s acct">立即可查</text>
+
+  <line x1="327" y1="56" x2="402" y2="145" class="ln dashed" marker-end="url(#ah2)"></line>
+  <text x="362" y="80" class="s" text-anchor="start">02:10 会话结束，插件存记录</text>
+  <circle cx="406" cy="150" r="5" class="doth"></circle>
+  <text x="406" y="176" class="s">03:00 蒸馏完成</text>
+  <text x="406" y="191" class="s">票 B 早已开工，读不到</text>
+
+  <circle cx="692" cy="150" r="5" class="dot"></circle>
+  <text x="692" y="176" class="s">06:00 收口轮处置</text>
+
+  <line x1="120" y1="206" x2="740" y2="206" class="ln"></line>
+  <g class="s">
+    <line x1="120" y1="206" x2="120" y2="211" class="ln"></line><text x="120" y="224">00:00</text>
+    <line x1="215" y1="206" x2="215" y2="211" class="ln"></line><text x="215" y="224">01:00</text>
+    <line x1="311" y1="206" x2="311" y2="211" class="ln"></line><text x="311" y="224">02:00</text>
+    <line x1="406" y1="206" x2="406" y2="211" class="ln"></line><text x="406" y="224">03:00</text>
+    <line x1="501" y1="206" x2="501" y2="211" class="ln"></line><text x="501" y="224">04:00</text>
+    <line x1="597" y1="206" x2="597" y2="211" class="ln"></line><text x="597" y="224">05:00</text>
+    <line x1="692" y1="206" x2="692" y2="211" class="ln"></line><text x="692" y="224">06:00</text>
+  </g>
+</svg>
+<figcaption><strong>图 2　一夜里的先后（示例时间，不是实测）。</strong>票 A 与票 B 并行。票 A 的 worker 在 01:40 修好环境，票 B 在 01:50 开工，只有直接写入的那一条能赶上。自动采集要等票 A 的会话结束，再排队蒸馏：本机一次观察到排队超过 47 分钟，另一次没有积压，延迟不固定。它对票 B 太晚，对下一夜有用。</figcaption>
+</figure>
+
+<div class="item">
+<h4><span class="id">2.1</span>写：agent 直接写，会话落到本仓库</h4>
+<dl class="kv">
+  <dt>做法</dt><dd><code>implement</code> 技能文本加一段：撞到别的票大概也会撞到的坑（不稳定的测试、工具的怪行为），或者为了让命令跑起来修过环境，就用 <code>nmem m add</code> 记一条，写事实、证据（命令与输出首行，或 <code>path:line</code>）、label 带上 <code>ticket-&lt;n&gt;</code> 与种类。不强制，关票时不查。space 不写进技能文本，由环境变量决定。</dd>
+  <dt>派发时设环境变量</dt><dd>runner adapter 起会话时设 <code>NMEM_SPACE=&lt;owner&gt;__&lt;name&gt;</code> 与 <code>NMEM_AGENT_ID=mmw-&lt;角色&gt;</code>。paseo 有 <code>--env</code>；orca 的启动行是 shell 执行的 <code>exec &lt;launch line&gt;</code>，前面加 <code>env</code>。这样 agent 的 <code>nmem m add</code> 与插件的会话采集都落进本仓库 space。</dd>
+  <dt>实测</dt><dd>2026-09-14 在一个临时 space 里验证（验证后已删除）：见上表"条目与会话记录落到本仓库"一行。另发现 <code>NMEM_AGENT_ID</code> 指向一个不存在的身份时，Nowledge Mem 会自动建一个同名身份，所以派发用的身份名要固定，不能每次生成。Cursor 本机 <code>cursor-agent</code> 未登录，没有测。</dd>
+  <dt>Nowledge Mem 不可达</dt><dd><code>nmem</code> 报错，agent 照常继续；不影响任何闸口。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">2.2</span>读：跨夜交给 Nowledge Mem，当夜由派发脚本查一次</h4>
+<dl class="kv">
+  <dt>跨夜</dt><dd>不加代码。会话开头插件注入本仓库 space 的 Working Memory；worker 也可以按技能文本自己搜。</dd>
+  <dt>当夜</dt><dd><code>dispatch.sh start</code> 起 worker 时，用本票标题与 <code>## Owns</code> 路径跑一次 <code>nmem --json m search … --space &lt;repo&gt; --time today</code>，取前几条放进开场 prompt 的固定小节，失败时写"经验库未查询"。与 host 无关，估计几十行。</dd>
+  <dt>角色</dt><dd>reviewer 的开场 prompt 不放检索结果；它需要的常驻内容写成 <code>mmw-reviewer</code> 的 agent 级 active rules，由 bundle 注入。</dd>
+  <dt>过期</dt><dd>Nowledge Mem 有取代、弃用与矛盾检测，但不会比对代码是否变过。条目里写了 <code>path:line</code> 的，由读的 agent 自己核对。</dd>
+  <dt>依据</dt><dd>monomind 按文件路径取回；Cognition 与 LangChain：验证者用干净上下文；Nowledge Mem 各插件钩子源码。</dd>
+</dl>
+</div>
+
+<div class="item">
+<h4><span class="id">2.3</span>提升：重复才进规章<span class="tag">已定：第 9 节</span></h4>
+<dl class="kv">
+  <dt>做法</dt><dd>收口轮里 main agent 检索今夜本仓库带 <code>ticket-</code> label 的条目，逐条三选一：<strong>留着</strong>（本来就在检索里，不用动）；<strong>提名进规章</strong>（同类出现两次以上，或一次就让票卡住的，提议写进 <code>.mmw/target.json</code>、仓库脚本、消费仓库 <code>AGENTS.md</code> 的 Gotchas、reviewer rules，或 MMW 技能文本）；<strong>弃用</strong>（用 Nowledge Mem 的 deprecate，写原因）。<code>NIGHT SUMMARY</code> 加一行计数。</dd>
+  <dt>谁批准</dt><dd>"进规章"会改变之后所有 agent 的行为，默认做成早上给你看的提案。</dd>
+  <dt>依据</dt><dd>Augment 与 OpenAI 的"同一错误两次再回写"；ETH 研究（上下文文件写多了有害，只放读代码推不出的）。</dd>
+</dl>
+</div>
+
+<div class="note"><strong>布局（第 9 节已定）：</strong>spaces 已于 2026-09-14 启用，目前只有 Default 一个 space，所以现有会话的行为不变。还要定的是布局：每个消费仓库一个 strict space，另建一个工具箱 space 共享给各仓库。现有 1883 条记忆留在 Default，不会自动迁移，仓库 space 起初是空的。</div>
+</div>
+
+<div class="phase" id="p3">
+<span class="eyebrow">阶段三 · 跨夜学习</span>
+<h3>同一类失败出现第二次时，提议一条自动检查或一处技能修改</h3>
+<p>现在每夜结束，早间 triage 把被退回、bounce、子票逐张处理掉，处理完就结束了；同一个原因下一夜再出现，再逐张处理一次，没有谁去看"这是第几次"。例子：#748、#750、#751 三张票都因为改同一批文件而 bounce，每次都是单独处理。"改同一批文件的票要串行"这条结论最后记进了你的 Nowledge Mem，并开了 MMW #408，是人看出来的，不是流程自己数出来的。</p>
+<p>夜后复盘（retro）做的就是"看第几次"：读完票事件，把失败按原因归类，某一类跨票或跨夜出现第二次，就开一张 issue，提议把它变成一条机器检查（例如 <code>--lint</code> 里多查一项）或一处技能文本修改，附上那几次的出处。它只提议，不改；你早上批准或拒绝。</p>
+
+<div class="item">
+<h4><span class="id">3.1</span>夜后复盘（retro）<span class="tag">已定：第 9 节</span></h4>
+<dl class="kv">
+  <dt>做法</dt><dd><code>summary</code> 之后跑，只用票事件与 <code>git log</code> 作证据，产出一条由脚本写成事件的 spec 评论：
+    <ul>
+      <li>每条发现带事件或 commit 出处，无出处的丢弃；</li>
+      <li>每条两个处置：本例怎么办（开票 / 接受）、怎样防下一次（改哪个技能的哪一节、加哪个检查、改哪条规章）；</li>
+      <li>跨票或跨夜出现两次以上的同类问题（bounce 原因、<code>HANDOFF REQUIRED</code> 原因、finding 类别、同一环境问题被反复修）列成候选，属于工具箱的开到 MMW 仓库，属于消费仓库的开到该仓库；</li>
+      <li>先核上一次 retro 的行动项，按证据写"已落地"或"没找到证据"；</li>
+      <li>一节只描述不提议的意图对账：整批交付与 spec 的 Problem Statement、User Stories、Out of Scope 对一次，列出用户期望的表面与测试实际观察的表面是否一致；</li>
+      <li>评审结果写成"本仓库评审指南"候选：同一路径被判 stale 两次的发现提名为已知误报，同类缺陷成立两次的提名为反模式或 lint 规则。</li>
+    </ul>
+  </dd>
+  <dt>需要补的字段</dt><dd>review comment 的每条发现加一个类别字段（现在是自由文本，无法聚合）；<code>route</code> 的 <code>stale</code> 区分"本来就不成立"和"被别的票修掉了"。</dd>
+  <dt>是不是技能</dt><dd>MMW 现在没有复盘技能，<code>mmw-v2/skills.txt</code> 里也没有；这是新提议，落地时写成一个新技能加一个脚本命令。mattpocock 上游有一个 <code>mmw-v2/upstream/skills/in-progress/retro/SKILL.md</code>，上游 README 标注 "STUB: design notes only, not functional yet"，针对单个会话，把改进候选分成 Navigation、Automated checks、Coding standards、Global AGENTS.md、Tool economy、No-ops、Information access 七类；它的分类可以直接借用，对象从单个会话换成一夜的票事件。</dd>
+  <dt>依据</dt><dd>BMAD <code>skills/bmad-retrospective</code>（<code>workflow.md</code>、<code>references/evidence-gathering.md</code>、<code>references/retro-document.md</code>）的出处规则与双处置；OpenAI Codex best practices "When Codex makes the same mistake twice, ask it for a retrospective and update AGENTS.md"；Devin Session Insights 的事后归类；Anthropic "a discovered bug class never makes it back into CLAUDE.md … the whole structure degrades"；OpenAI "promote the rule into code"；Augment 评审记忆的强弱信号；ADR 0012 自己的数据（每票约 3 条发现、三代不降）。</dd>
+  <dt>风险</dt><dd>提议太多没人看。每次只列重复两次以上的，并跟踪上一次提议的落地率。</dd>
+</dl>
+</div>
+</div>
+
+<h3>其他值得做的小项</h3>
+<ul>
+  <li><strong>worker 的回合结束守卫。</strong>现在 worker 过早结束回合，要等 watchdog 一小时沉默才发现。照 planning-with-files 的教训做：票上没有等待中的 reviewer/槽位、也没有结果事件时拦一次，有次数上限，自上次拦截后票上没有新事件就放行，理由用固定句子。</li>
+  <li><strong>reviewer 与 worker 同一模型家族时，<code>install.sh --check</code> 给一行 WARN。</strong>Copilot Rubber Duck 与 Factory 都把"验证者用不同家族"作为默认；MMW 的 <code>hosts.json</code> 默认已经这样配，但没有检查。</li>
+  <li><strong>bug 类票至少一条"现有行为保持"标准。</strong>来自 Kiro bugfix spec 的 "SHALL CONTINUE TO"。</li>
+</ul>
+</section>
+
+<section id="s7">
+<h2><span class="n">7</span>不采纳的做法</h2>
+<div class="tbl"><table class="w">
+<tr><th>做法</th><th>来源</th><th>不采纳的理由</th></tr>
+<tr><td>顶层全串行</td><td>Factory</td><td>并行本来就会冲突，冲突由有背景资料的 worker 在落地前 <code>integrate</code> 时解决，落地时再冲突当夜回到 worker（1.3）；串行换来的是整夜吞吐下降</td></tr>
+<tr><td>每批生成专用 worker 技能</td><td>Factory</td><td>技能是交付物、对所有 host 一样；实物显示 mission 专用技能会与仓库事实脱节</td></tr>
+<tr><td>票级验收标准对 worker 保密</td><td>Factory 8 月研究</td><td>MMW 的 <code>CHECK</code> 是精确规格而非稀疏抽样，worker 需要自测；只在 1.9 的流程验收票上可以试"持有者不是实现者"</td></tr>
+<tr><td>验证失败自动修到收敛</td><td>Factory、BMAD</td><td>MMW 的一轮上限是有意防止无限循环；Factory 修复占实现量 34%、首轮从不通过</td></tr>
+<tr><td>评审强制报满 N 条</td><td>BMAD</td><td>与 ADR 0012 的数据冲突，会放大子票膨胀</td></tr>
+<tr><td>共写一个共享笔记文件</td><td>Cursor 默认、planning-with-teams</td><td>并行分支改同一文件会 bounce；同作者已退回单写者；LLM 整体重写会塌缩</td></tr>
+<tr><td>把项目上下文整份注入每个会话</td><td>Cline memory bank</td><td>ETH 研究：上下文文件平均降低成功率、成本升 20% 以上；MMW 按票收窄读取范围。Nowledge Mem 注入的 Working Memory 是每个 space 一份、上限 4 KB 的简报，不在此列</td></tr>
+<tr><td>Nowledge Mem 承载状态、唤醒或闸口</td><td>—</td><td>检索语义化、无版本、后台改写、失败静默，违反 ADR 0001、0008、0019</td></tr>
+<tr><td>从一次纠正自动保存用户偏好</td><td>Cursor、Devin</td><td>Cursor 自己禁止 worker 保存偏好；一次性意见固化为全局规则是污染</td></tr>
+<tr><td>reviewer 读 worker 的完整会话记录</td><td>Factory scrutiny</td><td>上下文暴涨、各 host 记录格式不同；先观察 1.4 与 3.1 的效果</td></tr>
+<tr><td>Claude Code <code>TaskCompleted</code> 钩子作为完成门</td><td>Claude Code</td><td>单 host 机制；MMW 的关票门已经更严</td></tr>
+</table></div>
+</section>
+
+<section id="s8">
+<h2><span class="n">8</span>怎么判断有没有用</h2>
+<p>两篇 2026 研究表明上下文文件主要省时间、不直接提高正确率，所以每一项都用它针对的那个成本来衡量，不笼统看通过率。这些数都能从票事件与 git 里算出来，放进 3.1 的复盘。</p>
+<div class="tbl"><table class="w nw">
+<tr><th>项</th><th>看什么</th><th>方向</th></tr>
+<tr><td>1.1</td><td><code>contract</code> 子票里当夜由 main agent 修好的比例、停下等你的比例；main agent 自己改了、你早上又改回的次数；早上按修订 spec 返工的票数</td><td>改回次数接近 0；出现时说明优先顺序表或"能引用依据"的边界要收紧</td></tr>
+<tr><td>1.2</td><td>早间 triage 时被改了种类的子票数</td><td>接近 0</td></tr>
+<tr><td>1.3</td><td><code>ticket.bounced</code> 后当夜落地的票数；第二次 bounce 的票数</td><td>过夜的 bounce 只剩第二次仍冲突的</td></tr>
+<tr><td>1.4</td><td>in-ticket 发现中 <code>refuted</code> 的比例；收口轮 stale 比例</td><td>stale 比例从约 24% 下降</td></tr>
+<tr><td>2.x</td><td>开场 prompt 里当夜条目的条数；同一环境问题被第二张票再修一次的次数</td><td>修环境次数下降；引用次数上升</td></tr>
+<tr><td>1.5</td><td>取消后被 <code>reverify</code> 判红的已落地票数；复盘列出的"关票前标准被改过"的票数</td><td>两者都接近 0</td></tr>
+<tr><td>1.6–1.8</td><td>spec 有、票没做的遗漏在验收时被发现的次数；基线已绿的标准数</td><td>遗漏前移到发布时</td></tr>
+<tr><td>整体</td><td>你每晚从 <code>ALL MET</code> 票里抽 2–3 张验收时退回的比例；落地代码 14 天内被后续提交改写的比例（排除后续票明确声明的修改）</td><td>两者都下降；METR 与 OpenHands 都指出这两个比"标准全绿"更接近真实质量</td></tr>
+</table></div>
+</section>
+
+<section id="s9">
+<h2><span class="n">9</span>决定</h2>
+<h3>已经定了的（来自你在本页的评论与对话）</h3>
+<ul>
+  <li><strong>验收标准不用脚本锁定。</strong>发布后 spec、票正文与验收标准只由 main agent 或你改；worker 发现照做的东西不成立，一律开 <code>contract</code>（1.1）。</li>
+  <li><strong>main agent 有权当夜修改出错的那一层并恢复派发，</strong>只在需要你选择时才停掉后续的票（1.1）；五种子票的边界要写清（1.2）。</li>
+  <li><strong>不做并行 spec 之间的 <code>## Owns</code> 重叠检查；落地冲突当夜交回这张票的 worker，</strong>每票每夜一次，修订 ADR 0023（1.3）。</li>
+  <li><strong>取消 verifier</strong>（1.5）：它的三条验证线在 MMW 里已由 worker 自跑、界面判官与 reviewer 承担；接受"关票前改标准无人拦"的剩余风险。</li>
+  <li><strong>阶段一与原阶段三合并</strong>为"优化现有流水线"。</li>
+  <li><strong>经验不经票事件，</strong>agent 直接写 Nowledge Mem；能用 Nowledge Mem 自带机制的不另写代码（阶段二）。</li>
+</ul>
+<h3>第 9 节原待定四条，按推荐定案</h3>
+<ul>
+  <li><strong>main agent 能否当夜改基线</strong>：能引用一份已写下的依据就自己改，并在子票里点名依据；引用不到、会推翻你做过的决定、或需要 spec 范围外的新工作，就停下等你。依据冲突时的优先顺序：你的决策票与 ADR &gt; spec &gt; 交接包或屏幕合同（各管各的领域）&gt; 领域文档 &gt; 票正文（1.1）。</li>
+  <li><strong>Nowledge Mem 布局</strong>：spaces 已启用；每个客户仓库一个互不可见的 strict space，另建一个共享的工具箱 space；夜里流水线会话的采集与条目进仓库 space，不进你的个人 Default；你自己的会话保持现状（阶段二）。</li>
+  <li><strong>复盘</strong>：每夜收尾自动跑；它开出的工具箱 issue 先进 <code>needs-triage</code>（3.1）。</li>
+  <li><strong>经验进规章</strong>：夜里只出提案，早上由你批准（2.3）。</li>
+  <li><strong>发布前找漏（1.7）用 host 原生 subagent</strong>，和 code review 的轴 subagent 一样，工作指引单独写成一份 reference。</li>
+</ul>
+<p>阶段一整体写成一个 spec：<a href="https://github.com/chancheuklap/multi-model-workflow/issues/415">#415</a>，先做取消 verifier（1.5）。阶段二、阶段三各自一个 spec，尚未发布。</p>
+</section>
+
+<section id="s10">
+<h2><span class="n">10</span>更正与原始报告</h2>
+<h3>本页前几版里已更正的说法</h3>
+<ul>
+  <li>"前一夜的结果不流回下一个 spec"——错。一夜的遗留问题经早间 triage 分流进 spec 或票；而且 MMW 的多个 spec 本来就是并行开夜，没有"上一个、下一个"之分。</li>
+  <li>"verifier 修环境的办法无处存放"——不准确。它写在 verdict 结论行里，缺的是别的票会读它。</li>
+  <li>"coordinator 独写 <code>notes.md</code> 是 Cursor 官方设计"——官方博客没这么写，是 Arslan 的做法；Cursor 客户端提示词里确实也有 worker 不得写 <code>notes.md</code> 的规则。</li>
+</ul>
+
+<h3>Cursor Projects 要点（第一轮）</h3>
+<p>Project Context 是挂载到每台机器的共享文件夹：<code>notes.md</code> 放状态（只有 coordinator 写，只允许复选框行），<code>docs/</code>、<code>plans/</code>、<code>media/</code> 给人看，<code>internal/</code> 放 agent 报告（worker 只能改带自己 <code>subagentId</code> 的文件）。文件内容不注入 prompt，只告诉 worker 路径和规则。同步按文件后写者赢，输的一方存成冲突副本。coordinator 之间不能通信，Arslan 用 git 里的收件箱文件绕过。细节见原始报告一。</p>
+
+<h3>原始报告</h3>
+<p>九份报告作为本页的附件发布，带完整引语、URL 与读取状态。</p>
+<ul>
+  <li><a href="research-1-cursor.md">一 · Cursor Projects 官方与客户端代码</a></li>
+  <li><a href="research-2-commercial.md">二 · 13 个商业产品</a></li>
+  <li><a href="research-3-opensource.md">三 · 22 个开源实现</a></li>
+  <li><a href="research-4-theory.md">四 · 原则与失败模式</a></li>
+  <li><a href="research-5-nowledge-mem.md">五 · Nowledge Mem</a></li>
+  <li><a href="research-6-factory.md">六 · Factory Missions</a></li>
+  <li><a href="research-7-bmad-anthropic-pwf.md">七 · BMAD、Anthropic、planning-with-files</a></li>
+  <li><a href="research-8-monomind-devin-augment.md">八 · monomind、Devin、Augment</a></li>
+  <li><a href="research-9-rework.md">九 · 降返工机制专题</a></li>
+</ul>
+</section>
+</main>
+</div>

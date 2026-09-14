@@ -38,13 +38,12 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """30 events — the spec's 26 plus worker.queued, reviewer.lost, verifier.lost and
-    ticket.bounced — one shape and closed sets."""
+    """The 26 live events have one shape and closed sets."""
 
-    def test_there_are_thirty_events(self):
-        self.assertEqual(len(events.EVENTS), 30)
+    def test_there_are_twenty_six_events(self):
+        self.assertEqual(len(events.EVENTS), 26)
         for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
-                     "verifier.lost", "ticket.bounced"):
+                     "ticket.bounced"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
 
@@ -100,11 +99,17 @@ class TheVocabulary(unittest.TestCase):
     def test_a_check_names_its_run_and_its_result_from_closed_sets(self):
         full = dict(run="self", commit="a" * 40, result="met")
         events.build("ticket.checked", ticket=61, line="x", **full)
+        events.build("ticket.checked", ticket=61, line="x",
+                     run="baseline", commit="a" * 40, result="unmet")
         for key, bad in (("run", "self-run"), ("result", "ALL MET"), ("commit", "a" * 8)):
             with self.subTest(key=key):
                 with self.assertRaises(events.EventError):
                     events.build("ticket.checked", ticket=61, line="x",
                                  **{**full, key: bad})
+
+    def test_baseline_is_a_run_name_and_its_stage_is_claim(self):
+        self.assertIn("baseline", events.CHECK_RUNS)
+        self.assertEqual(events.checked_stage("baseline", "worker"), "claim")
 
     def test_every_name_is_subject_dot_past_tense_verb_with_no_value_in_it(self):
         for name in events.EVENTS:
@@ -162,9 +167,10 @@ class TheVocabulary(unittest.TestCase):
         with self.assertRaises(events.EventError):
             events.build("worker.lost", ticket=61, line="x", session="term_7")
 
-    def test_a_short_commit_on_a_verdict_is_refused_when_written(self):
+    def test_a_short_commit_on_a_checked_run_is_refused_when_written(self):
         with self.assertRaises(events.EventError):
-            events.build("verifier.passed", ticket=61, line="x", commit="3f9c2e1a")
+            events.build("ticket.checked", ticket=61, line="x", run="reverify",
+                         commit="3f9c2e1a", result="met")
 
 
 class TheCommentFormat(unittest.TestCase):
@@ -364,19 +370,14 @@ class Replays(unittest.TestCase):
 
     def test_a_landing_ends_every_session_of_every_kind(self):
         state = events.fold([started(), started("rev_1", kind="reviewer"),
-                             started("ver_1", kind="verifier"),
                              ev("ticket.landed", "Landed")])
-        self.assertEqual([r["live"] for r in state["sessions"]], [False, False, False])
+        self.assertEqual([r["live"] for r in state["sessions"]], [False, False])
 
     def test_each_kind_has_its_newest_result(self):
         state = events.fold([
-            started(), ev("reviewer.reported", "REVIEW a..b", base="a", head="b"),
-            ev("verifier.failed", "VERDICT", commit="b" * 40),
-            ev("verifier.passed", "VERDICT again", commit="c" * 40)])
+            started(), ev("reviewer.reported", "REVIEW a..b", base="a", head="b")])
         self.assertEqual(state["results"]["reviewer"]["line"], "REVIEW a..b")
-        self.assertEqual(state["results"]["verifier"]["event"], "verifier.passed")
         self.assertIsNone(state["results"]["worker"])
-        self.assertEqual(state["verdict"]["payload"]["commit"], "c" * 40)
 
     def test_children_carry_their_kind_and_their_resolution(self):
         state = events.fold([
@@ -434,16 +435,14 @@ class WaitingAndSlots(unittest.TestCase):
         state = events.fold([checked_run(slot=2), checked_run(run="reverify")])
         self.assertEqual(state["slot"], 2)
 
-    def test_a_result_ends_the_hold_of_the_reviewer_or_verifier_that_produced_it(self):
+    def test_a_result_ends_the_hold_of_the_reviewer_that_produced_it(self):
         state = events.fold([started(), started("rv_1", kind="reviewer"),
                              ev("reviewer.reported", "REVIEW", base="0" * 40, head="1" * 40),
-                             started("vf_1", kind="verifier"),
-                             ev("verifier.failed", "VERDICT", commit="a" * 40),
                              started("rv_2", kind="reviewer")])
         self.assertEqual([(r["kind"], r["session"]) for r in state["holders"]],
                          [("worker", "term_7"), ("reviewer", "rv_2")])
         self.assertEqual({r["session"]: r["ended_by"] for r in state["sessions"] if not r["live"]},
-                         {"rv_1": "reviewer.reported", "vf_1": "verifier.failed"})
+                         {"rv_1": "reviewer.reported"})
 
     def test_after_a_finished_reviewer_a_lost_worker_frees_the_ticket(self):
         state = events.fold([started(), started("rv_1", kind="reviewer"),
@@ -500,6 +499,7 @@ class WaitingAndSlots(unittest.TestCase):
         self.assertEqual(state["checks"]["self"]["comment"], 3)
         self.assertEqual(state["checks"]["reverify"]["comment"], 2)
         self.assertIsNone(state["checks"]["repo-checks"])
+        self.assertIsNone(state["checks"]["baseline"])
 
     def test_touched_files_land_in_touched(self):
         state = events.fold([ev("worker.touched", "#62 changed 1 file(s) this ticket owns",
@@ -611,9 +611,7 @@ class CommandLine(unittest.TestCase):
         data = json.dumps({"comments": [
             comment(1, started("term_7")),
             comment(2, started("rev_1", kind="reviewer")),
-            comment(3, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
-            comment(4, ev("verifier.failed", "VERDICT", commit="c" * 40, failed=["AC2"],
-                          ran=True))]})
+            comment(3, ev("reviewer.reported", "REVIEW a..b", base="a", head="b"))]})
         code, out, err = self.run_cli("session", "61", "--kind", "worker",
                                       "--comments-file", "-", stdin=data)
         self.assertEqual((code, out, err), (0, "orca\tterm_7\n", ""))
@@ -626,11 +624,8 @@ class CommandLine(unittest.TestCase):
     def test_result_prints_the_event_and_its_key_fields_never_its_prose(self):
         data = json.dumps({"comments": [
             comment(1, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
-            comment(2, ev("verifier.failed", "VERDICT … all passed", commit="c" * 40,
-                          failed=["AC2", "AC3"], ran=True)),
             comment(3, ev("ticket.passed", "ALL MET", commit="d" * 40))]})
         for kind, want in (("reviewer", "reviewer.reported base=a head=b"),
-                           ("verifier", f"verifier.failed commit={'c' * 40} failed=AC2,AC3 ran=true"),
                            ("worker", f"ticket.passed commit={'d' * 40}")):
             with self.subTest(kind=kind):
                 code, out, _ = self.run_cli("result", "61", "--kind", kind,

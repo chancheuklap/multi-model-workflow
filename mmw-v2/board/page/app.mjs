@@ -132,8 +132,7 @@ export function mountPage(doc = document) {
         paint();
       },
     };
-    const detailSign = JSON.stringify(detailView);
-    if (changed("detail", detailSign)) {
+    if (changed("detail", JSON.stringify(detailView))) {
       if (detailView.empty) {
         unmountDetail(slots.detail);
       } else {

@@ -7,7 +7,7 @@ import {defaultExpanded} from "../../board/page/board-logic.mjs";
 function ticket(overrides = {}) {
   const fold = {
     children: {}, sessions: [], landed: false, returned: false, bounced: false,
-    outcome: null, unreadable: [], passed: false, review: null, verdict: null, waiting: null,
+    outcome: null, unreadable: [], passed: false, review: null, waiting: null,
     ...overrides.fold,
   };
   return {n: 1, title: "ticket", state: "open", blocked: [], children: [], events: [], ...overrides, fold};

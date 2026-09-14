@@ -5,7 +5,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh check|advance|advanceconflict|advancedirty
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateuptodate|integrateclean|integratenamestickets
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh integrateconflict|integratedirty
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|start-verifier|advise|retract
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh start-worker|start-reviewer|advise|retract
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh resume|resumeendedhold|wait|reverify|summary
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh release|releaseother|releaselive|releasestanding|frontierwhy
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh slotatclaim|route|specfield|stopproduct|suspend|suspendbusy|status
@@ -1068,6 +1068,20 @@ for name in found.get("labels", []):
       exit 1
     fi
     echo "✓ Label \"$3\" created" ;;
+  "issue reopen "*)
+    if [ -n "${FAKE_GH_MUTATES_ISSUES:-}" ]; then
+      MMW_EDIT_N="$3" python3 -c '
+import json, os
+path = os.environ["FAKE_GH_TICKETS_FILE"]
+rows = json.load(open(path))
+for ticket in rows:
+    if ticket.get("number") == int(os.environ["MMW_EDIT_N"]):
+        ticket["state"] = "OPEN"
+        break
+json.dump(rows, open(path, "w"))
+'
+    fi
+    echo "✓ Reopened issue #$3" ;;
   "issue close "*)
     # FAKE_GH_CLOSE_FAILS: the tracker refuses the close, the way a network drop does.
     [ -z "${FAKE_GH_CLOSE_FAILS:-}" ] || { echo "HTTP 502" >&2; exit 1; }
@@ -1156,14 +1170,22 @@ store.write_text(json.dumps(rows))
     echo "https://github.com/o/r/issues/$3#issuecomment-1" ;;
   *"issue edit"*)
     number="$3"
-    remove=""
+    remove="" add_label="" remove_label=""
     skip=0
     for a in "$@"; do
       if [ "$skip" = 1 ]; then remove="$a"; skip=0; continue; fi
       [ "$a" = "--remove-assignee" ] && skip=1
     done
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --add-label) add_label="$2"; shift 2 ;;
+        --remove-label) remove_label="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
     if [ -n "$remove" ] && [ -n "${FAKE_GH_TICKETS_FILE:-}" ] && [ -f "$FAKE_GH_TICKETS_FILE" ]; then
-      MMW_EDIT_N="$number" MMW_REMOVE="$remove" python3 -c '
+      MMW_EDIT_N="$number" MMW_REMOVE="$remove" MMW_ADD_LABEL="$add_label" \
+        MMW_REMOVE_LABEL="$remove_label" python3 -c '
 import json, os
 path = os.environ["FAKE_GH_TICKETS_FILE"]
 n = int(os.environ["MMW_EDIT_N"])
@@ -1175,6 +1197,14 @@ rows = json.load(open(path))
 for t in rows:
     if t.get("number") == n:
         t["assignees"] = [a for a in t.get("assignees") or [] if a != who]
+        if os.environ.get("FAKE_GH_MUTATES_ISSUES"):
+            labels = list(t.get("labels") or [])
+            remove_label = os.environ.get("MMW_REMOVE_LABEL")
+            add_label = os.environ.get("MMW_ADD_LABEL")
+            labels = [label for label in labels if label != remove_label]
+            if add_label and add_label not in labels:
+                labels.append(add_label)
+            t["labels"] = labels
         break
 json.dump(rows, open(path, "w"))
 '
@@ -1250,7 +1280,7 @@ mkdir -p "$MMW_HOME"
 # the scenarios exercise (a Cursor junior row with its effort inside the model id, a Grok
 # senior row at xhigh).
 cat > "$MMW_HOME/models.json" <<'JSON'
-{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"verifier":{"host":"claude","model":"sonnet 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}
+{"version":1,"runner":"orca","rows":{"junior-worker":{"host":"cursor","model":"grok 4.6","effort":"high"},"senior-worker":{"host":"grok","model":"grok 4.6","effort":"xhigh"},"reviewer":{"host":"claude","model":"opus 5","effort":"high"},"advisor":{"host":"claude","model":"fable 5.1","effort":"medium"}}}
 JSON
 
 git init -q --bare -b main "$TMP/origin.git"
@@ -1975,14 +2005,14 @@ JSON
 import json, sys
 path = sys.argv[1]
 catalog = json.load(open(path))
-catalog["claude"] = [o for o in catalog["claude"] if o["id"] != "claude-sonnet-5"]
+catalog["claude"] = [o for o in catalog["claude"] if o["id"] != "claude-opus-5"]
 json.dump(catalog, open(sys.argv[2], "w"))
-' "$HERE/catalog.json" "$TMP/catalog-no-sonnet.json"
+' "$HERE/catalog.json" "$TMP/catalog-no-opus.json"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_RUNNER=orca \
-          MMW_HOST_CATALOG="$TMP/catalog-no-sonnet.json" \
+          MMW_HOST_CATALOG="$TMP/catalog-no-opus.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  [ "$code" = 2 ] || fail "a verifier row that does not resolve is exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "the verifier row of .* does not resolve on orca: 'sonnet 5'" "$TMP/err" \
+  [ "$code" = 2 ] || fail "a reviewer row that does not resolve is exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "the reviewer row of .* does not resolve on orca: 'opus 5'" "$TMP/err" \
     || fail "the refusal should name the row, the runner and the resolver's reason: $(cat "$TMP/err")"
   hasnt "paseo :: provider"
 
@@ -2109,7 +2139,7 @@ scenario_land() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   hasnt_runner_worktree
   hasnt "gh :: issue :: edit :: 66"
-  grep -q "open with no verdict" "$TMP/err" \
+  grep -q "open with no outcome" "$TMP/err" \
     || fail "the hold should say why: $(cat "$TMP/err")"
 
   echo "--- a ticket handed back keeps its worktree for the next start, and gives the claim back"
@@ -2800,32 +2830,6 @@ scenario_nobaseconfig() {
   no_relay
 }
 
-scenario_start_verifier() {
-  local code
-  reset_log
-  fresh_repo
-  seed_workspace 61
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 verifier)"
-  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  started_once
-  [ "$(out_json title)" = "#61 verifier" ] || fail "title: $(out_json title)"
-  python3 -c '
-import json, sys
-from pathlib import Path
-obj = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])
-assert obj["provider"] == "claude/claude-sonnet-5", obj["provider"]
-assert obj["settings"].get("thinkingOptionId") == "high"
-' "$MMW_FAKE_PASEO_STATE/runs.jsonl" || fail "verifier payload: $(cat "$TMP/out")"
-  case "$(out_json initialPrompt)" in
-    "Use the verdict skill to verify ticket #61."*) ;;
-    *) fail "the verifier prompt does not name the verdict skill: $(out_json initialPrompt)" ;;
-  esac
-  case "$(out_json initialPrompt)" in
-    *"You are operating autonomously"*) ;;
-    *) fail "the autonomous sentence is missing from the verifier prompt" ;;
-  esac
-}
-
 scenario_advise() {
   local code packet dest
   packet="$TMP/packet.txt"
@@ -3060,7 +3064,7 @@ scenario_wait() {
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}")"
   [ "$code" = 2 ] || fail "expected exit 2 for usage, got $code: $(cat "$TMP/err")"
-  grep -qF 'wait <n> worker|reviewer|verifier' "$TMP/err" \
+  grep -qF 'wait <n> worker|reviewer' "$TMP/err" \
     || fail "usage should list wait: $(cat "$TMP/err")"
 
   echo "--- a result already on the ticket is printed and wait is not called"
@@ -3786,7 +3790,6 @@ scenario_suspend() {
     || fail "the night should hold three slots, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
 
   seed_agent 61 worker
-  seed_agent 61 verifier
   seed_agent 99 worker 99
   seed_foreign_workspace
   mkdir -p "$TMP/other-repo/issue-61"
@@ -3804,10 +3807,8 @@ scenario_suspend() {
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
 
   # `--force` is the whole point: without it the real CLI refuses a running agent, and a
-  # worker mid-turn is exactly what suspend exists to end. A verifier still running on the
-  # ticket is ended too: left alone it keeps the product up after its slot is given back.
+  # worker mid-turn is exactly what suspend exists to end.
   has "paseo :: archive :: --force :: agt_61_worker"
-  has "paseo :: archive :: --force :: agt_61_verifier"
   hasnt "agt_99_worker"
   hasnt "paseo :: stop"
   has "gh :: issue :: view :: 61 :: --json :: comments"
@@ -3832,11 +3833,11 @@ scenario_suspend() {
   has "gh :: issue :: comment :: 76 :: --body"
   [ "$(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")" = 3 ] \
     || fail "expected the spec and two tickets told, got $(grep -cF 'NIGHT SUSPENDED #76' "$MMW_TEST_LOG")"
-  posted_events 61 interrupted | grep -qx "spec.suspended interrupted=agt_61_worker, agt_61_verifier" \
-    || fail "#61 should carry spec.suspended naming its worker and verifier: $(posted_events 61 interrupted)"
+  posted_events 61 interrupted | grep -qx "spec.suspended interrupted=agt_61_worker" \
+    || fail "#61 should carry spec.suspended naming its worker: $(posted_events 61 interrupted)"
   posted_events 61 reason | grep -qx "ticket.released reason=suspended" \
     || fail "#61 should carry ticket.released (suspended): $(posted_events 61 reason)"
-  grep -qF 'Interrupted: agt_61_worker, agt_61_verifier.' "$MMW_TEST_LOG" \
+  grep -qF 'Interrupted: agt_61_worker.' "$MMW_TEST_LOG" \
     || fail "the comment on #61 does not say its sessions were interrupted"
   grep -qF 'No session of ours was working on it' "$MMW_TEST_LOG" \
     || fail "the comment on #63 does not say it had no session"
@@ -3847,7 +3848,7 @@ scenario_suspend() {
     || fail "slots are still held: $(python3 "$LEASE_PY" list)"
   [ "$(python3 "$LEASE_PY" count "$TMP/other-repo")" = 1 ] \
     || fail "a lease from another checkout was released: $(python3 "$LEASE_PY" list)"
-  grep -q 'suspend #76: stopped 2, commented 2, slots given back 3, claims given back 2' "$TMP/out" \
+  grep -q 'suspend #76: stopped 1, commented 2, slots given back 3, claims given back 2' "$TMP/out" \
     || fail "the summary line is wrong: $(cat "$TMP/out")"
   [ -z "$(relay_now)" ] || fail "suspend should have stopped the night's relay: $(relay_now)"
 
@@ -5821,7 +5822,6 @@ scenario_installimportsmodelsmd() {
 | junior-worker | cursor | grok 4.6 | high |
 | senior-worker | grok | grok 4.6 | xhigh |
 | reviewer | claude | opus 5 | high |
-| verifier | claude | sonnet 5 | high |
 | advisor | claude | fable 5.1 | medium |
 TABLE
   MMW_V2_HOME="$home" MMW_HOME="$home/.mmw" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err" || true
@@ -5834,7 +5834,6 @@ expected = {
     "junior-worker": {"host": "cursor", "model": "grok 4.6", "effort": "high"},
     "senior-worker": {"host": "grok", "model": "grok 4.6", "effort": "xhigh"},
     "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
-    "verifier": {"host": "claude", "model": "sonnet 5", "effort": "high"},
     "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"},
 }
 assert data == {"version": 1, "runner": "herdr", "rows": expected}, data
@@ -5967,16 +5966,12 @@ scenario_runneronticket() {
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
-  [ "$code" = 2 ] || true
-  reset_log
-  fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 verifier)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has "gh :: issue :: comment :: 61 :: --body :: verifier started on paseo: session agt_run_1"
+  has "gh :: issue :: comment :: 61 :: --body :: reviewer started on paseo: session agt_run_1"
   local want
-  want="verifier.started session=agt_run_1 runner=paseo host=claude model=claude-sonnet-5 effort=high grade=verifier worktree=$(cd "$TMP/repo" && git rev-parse --show-toplevel)/.worktrees/issue-61 branch=issue-61"
+  want="reviewer.started session=agt_run_1 runner=paseo host=claude model=claude-opus-5 effort=high grade=reviewer worktree=$(cd "$TMP/repo" && git rev-parse --show-toplevel)/.worktrees/issue-61 branch=issue-61"
   [ "$(posted_events 61 session runner host model effort grade worktree branch)" = "$want" ] \
-    || fail "the verifier.started event is wrong: $(posted_events 61 session runner host model effort grade worktree branch)"
+    || fail "the reviewer.started event is wrong: $(posted_events 61 session runner host model effort grade worktree branch)"
 
   echo "--- a worker's start carries no slot: the first run that needs the product claims it"
   reset_log
@@ -6191,7 +6186,6 @@ scenario_landarchivesagents() {
   seed_workspace 64
   seed_agent 64 worker
   seed_agent 64 reviewer
-  seed_agent 64 verifier
   seed_agent 99 worker 99
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" land 64)"
@@ -6201,7 +6195,6 @@ scenario_landarchivesagents() {
   assert_no_branch 64
   has "paseo :: archive :: --force :: agt_64_worker"
   has "paseo :: archive :: --force :: agt_64_reviewer"
-  has "paseo :: archive :: --force :: agt_64_verifier"
   hasnt "paseo :: archive :: --force :: agt_99_worker"
   hasnt "paseo :: workspace :: archive"
   left="$(python3 -c '
@@ -7525,6 +7518,7 @@ JSON
 }
 
 setup_bounced_conflict() {
+  local round="${1:-second}"
   reset_log
   fresh_repo
   commit_file "$TMP/repo" shared.txt base shared-base
@@ -7537,7 +7531,63 @@ setup_bounced_conflict() {
   commit_file "$other" shared.txt sibling sibling
   git -C "$other" push -q origin main
   write_one_passed 61 "$passed"
+  post_ev 76 spec.opened --spec 76 --line opened --field into=main --field project=project
+  if [ "$round" = second ] || [ "$round" = older ]; then
+    MMW_BOUNCE_ROUND="$round" MMW_PREVIOUS_BOUNCE="$(ev ticket.bounced 61 "bounced once" --spec 76 \
+      --field reason=conflict --field commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+      --field into=main --json-field 'files=["shared.txt"]')" python3 - "$TMP/tickets.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+rows = json.loads(path.read_text())
+comment = json.loads(os.environ["MMW_PREVIOUS_BOUNCE"])
+if os.environ.get("MMW_BOUNCE_ROUND") == "older":
+    import re
+    comment = re.sub(r'"at":"[^"]+"', '"at":"2000-01-01T00:00:00Z"', comment)
+rows[0].setdefault("comments", []).insert(0, comment)
+path.write_text(json.dumps(rows))
+PY
+  fi
+  if [ "$round" = closed ]; then
+    post_ev 76 spec.closed --spec 76 --line closed
+  fi
   seed_workspace 61
+}
+
+scenario_bounceretriesonce() {
+  setup_bounced_conflict first
+  local code
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a first bounce should return to the agent queue: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage"
+  grep -q 'started 0' "$TMP/err" || fail "the same advance dispatched its own bounce: $(cat "$TMP/err")"
+  posted_events 61 reason | grep -q '^ticket.bounced reason=conflict$' \
+    || fail "the first conflict posted no ticket.bounced event with its reason"
+
+  setup_bounced_conflict older
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a bounce from before this night should not consume its retry: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage"
+
+  setup_bounced_conflict second
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "a second bounce should be handed to triage: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent"
+
+  setup_bounced_conflict closed
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" land 61)"
+  [ "$code" = 0 ] || fail "a landing outside an open night should be handed to triage: $(cat "$TMP/err")"
+  has "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage :: --remove-assignee :: @me"
+  hasnt "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent"
+  echo "the first conflict returns once; the second goes to triage"
 }
 
 scenario_advancebouncedconflict() {
@@ -7993,12 +8043,11 @@ scenario_bouncestopssessions() {
   setup_bounced_conflict
   seed_agent 61 worker
   seed_agent 61 reviewer
-  seed_agent 61 verifier
   local code kind
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "bounced landing failed: $(cat "$TMP/err")"
-  for kind in worker reviewer verifier; do
+  for kind in worker reviewer; do
     [ "$(count_of "paseo :: archive :: --force :: agt_61_$kind")" = 1 ] \
       || fail "$kind was not stopped exactly once: $(cat "$MMW_TEST_LOG")"
   done
@@ -8017,14 +8066,13 @@ JSON
   seed_workspace 61
   seed_agent 61 worker
   seed_agent 61 reviewer
-  seed_agent 61 verifier
   post_ev 61 ticket.returned --ticket 61 --spec 76 \
     --line "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
   local code kind
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "advance of a returned ticket failed: $(cat "$TMP/err")"
-  for kind in worker reviewer verifier; do
+  for kind in worker reviewer; do
     [ "$(count_of "paseo :: archive :: --force :: agt_61_$kind")" = 1 ] \
       || fail "$kind was not stopped exactly once: $(cat "$MMW_TEST_LOG")"
   done
@@ -8584,7 +8632,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer start-verifier advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto startstrayworkspace replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openprojectpastdefault openpushes openrefusesdiverged openbasefollowsproject openbaseprojectconflict openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused advancerestoreswatch catalogbyrunner startunlandedblocker"
+ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8646,6 +8694,7 @@ banner_for() {
     landdeletesbranch) echo LAND-DELETES-BRANCH-OK ;;
     bouncedkeepsbranch) echo BOUNCED-KEEPS-BRANCH-OK ;;
     bouncestopssessions) echo BOUNCE-STOPS-SESSIONS-OK ;;
+    bounceretriesonce) echo BOUNCE-RETRY-OK ;;
     returnedstopssessions) echo RETURNED-STOPS-SESSIONS-OK ;;
     archiveremovesinstance) echo ARCHIVE-REMOVES-INSTANCE-OK ;;
     bouncekeepsinstance) echo BOUNCE-KEEPS-INSTANCE-OK ;;
@@ -8677,7 +8726,6 @@ banner_for() {
     land) echo DISPATCH-LAND-OK ;;
     start-worker) echo DISPATCH-START-WORKER-OK ;;
     start-reviewer) echo DISPATCH-START-REVIEWER-OK ;;
-    start-verifier) echo DISPATCH-START-VERIFIER-OK ;;
     advise) echo ADVISE-OK ;;
     startfromorigin) echo START-FROM-ORIGIN-OK ;;
     startresumesorigin) echo START-RESUMES-ORIGIN-OK ;;
@@ -8800,7 +8848,6 @@ fn_for() {
   case "$1" in
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
-    start-verifier) echo scenario_start_verifier ;;
     *) echo "scenario_$1" ;;
   esac
 }

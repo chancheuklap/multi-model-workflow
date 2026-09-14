@@ -37,5 +37,4 @@ Several runs share one machine, and each gets its own ports and directories from
 Reporting blocked, in rules 3 to 5, goes through an event, because an event on the ticket is the only thing the relay of the `dispatch` skill wakes anybody for: a plain comment carries none, and a session that ends its turn wakes nobody. Which event depends on your role:
 
 - **A worker** runs the `verify-ticket` skill's `--sub-issue fault <file>`, the file's body being exactly what you ran and what you saw, then stops. Its `child.opened` event, of kind `fault`, wakes the main agent, who fixes the cause.
-- **A verifier** writes its verdict with the `verify-ticket` skill as `--verdict "could not start: <what you ran and what you saw>"`. That verdict wakes the worker, which hands the ticket back.
 - **A reviewer** never starts the product.

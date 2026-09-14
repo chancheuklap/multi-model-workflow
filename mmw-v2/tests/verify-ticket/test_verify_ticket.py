@@ -211,11 +211,11 @@ class TestTheRunIsOneTicketCheckedEvent(LedgerRun):
         self.assertNotIn("outside_owns", payload)
         self.assertNotIn("Outside Owns:", comment)
 
-    def test_a_reverify_left_to_its_default_is_the_verifiers(self):
+    def test_a_worker_reverify_has_the_verify_stage(self):
         body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
-        _, comment, _ = self.run_ticket(body, reverify=True)
+        _, comment, _ = self.run_ticket(body, reverify=True, actor="worker")
         payload = payload_of(comment)
-        self.assertEqual((payload["actor"], payload["stage"]), ("verifier", "verify"))
+        self.assertEqual((payload["actor"], payload["stage"]), ("worker", "verify"))
 
     def test_a_head_that_is_not_a_commit_is_refused_before_anything_runs(self):
         body = ticket("- [ ] AC1: a", "  CHECK: echo ok", "  EXPECT: ok", "  EVIDENCE: pending")
@@ -852,9 +852,9 @@ class TestTheProductSlot(unittest.TestCase):
         self.assertEqual(self.lease.claimed(), [], "the main checkout kept its slot")
         self.assertTrue(stopped.exists(), "the product was not stopped before the release")
 
-    def test_a_verifiers_reverify_keeps_the_worktrees_slot(self):
+    def test_a_workers_reverify_keeps_the_worktrees_slot(self):
         _, root = self.main_repo(instance_max=1)
-        code, _, err = self.run_in(root, PRODUCT, reverify=True)
+        code, _, err = self.run_in(root, PRODUCT, reverify=True, actor="worker")
         self.assertEqual(code, 0, err)
         self.assertEqual([r["worktree"] for r in self.lease.claimed()], [str(root)])
 
@@ -933,6 +933,20 @@ class TestTheProductSlot(unittest.TestCase):
         self.assertEqual((code, posted), (2, []))
         self.assertNotIn("gate", self.order)
         self.assertIn("lease.py", err)
+
+
+class TestReverifyActorIsExplicit(unittest.TestCase):
+    def test_reverify_without_actor_is_a_usage_error(self):
+        with redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit) as caught:
+            vt.main(["1", "--reverify"])
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("--reverify requires --actor worker|main", err.getvalue())
+
+    def test_actor_without_reverify_is_a_usage_error(self):
+        with redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit) as caught:
+            vt.main(["1", "--actor", "worker"])
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("--actor belongs to --reverify", err.getvalue())
 
 
 if __name__ == "__main__":

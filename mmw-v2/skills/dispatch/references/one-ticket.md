@@ -9,7 +9,7 @@ Four steps:
 3. You are woken with `#<n> ticket.passed` or `#<n> ticket.returned`, or with one of the three below. Read that event on the ticket, act on it, then `<dispatch> ack <n> <that event>` (exit codes in [inside-a-ticket.md](inside-a-ticket.md)).
    - `#<n> worker.lost`: the worker's session stopped. `<dispatch> start <n> worker` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.
    - `#<n> ticket.refused`: the worker refused to claim the ticket, and the event's `reason` says why. Fix that, then `<dispatch> start <n> worker` again.
-   - `#<n> child.opened`: a `fault` stopped the worker — fix what the child names, then `<dispatch> resume <n> "<what you fixed>, then: continue"`; a `decision` is for the user in the morning, and the worker carries on.
+   - `#<n> child.opened`: a `contract` stops only the dependent work — resolve it by `night.md` under **3. Each time something wakes you**, then resume the worker; a `fault` stopped the worker — fix what the child names, then `<dispatch> resume <n> "<what you fixed>, then: continue"`; a `decision` is for the user in the morning, and the worker carries on.
 4. Once the ticket passed or came back, run `<dispatch> land <n>` from any checkout of this repository; what it does is under [Exit codes](#exit-codes) below.
 
 ## Exit codes
@@ -30,10 +30,10 @@ Four steps:
 
 **`land <n>`:**
 
-It reads `into` and `ticket.passed.commit` from the ticket, merges and checks in the detached merge worktree, fast-forward pushes `origin/<into>`, gives back the claim and slot, archives the workspace, records `ticket.landed`, and closes the watch. It deletes the ticket branch locally and on origin only when no worktree uses it and each copy is contained in `origin/<into>`; an unlanded copy is kept, and a deletion failure does not undo the landing. A conflict or red check writes `ticket.bounced`, leaves the workspace and ticket branch for triage, and closes the watch.
+It reads `into` and `ticket.passed.commit` from the ticket, merges and checks in the detached merge worktree, fast-forward pushes `origin/<into>`, gives back the claim and slot, archives the workspace, records `ticket.landed`, and closes the watch. It deletes the ticket branch locally and on origin only when no worktree uses it and each copy is contained in `origin/<into>`; an unlanded copy is kept, and a deletion failure does not undo the landing. A conflict or red check writes `ticket.bounced` and leaves the workspace and ticket branch standing. When the ticket belongs to an open night, the first bounce since `spec.opened` returns it to `ready-for-agent` for the next `advance`, and the second leaves it in `needs-triage`; without an open night, `land` leaves it in `needs-triage`. The one-ticket watch closes.
 
 | Code | What happened |
 | --- | --- |
-| `0` | Done, already present, or handed to triage as `ticket.bounced`; stderr carries `land: merged <m>, already in <a>, bounced <b>, still working <w>, already landed <d>, failed <f>` |
+| `0` | Done, already present, or recorded as `ticket.bounced`; stderr carries `land: merged <m>, already in <a>, bounced <b>, still working <w>, already landed <d>, failed <f>` |
 | `1` | Something was left standing: a ticket closed without `ticket.passed` has work outside `origin/<into>`, a landing could not finish, or the relay did not end; stderr names it |
 | `2` | Nothing was touched: not a git repository, an unreadable ticket, a missing remote base, or invalid arguments |

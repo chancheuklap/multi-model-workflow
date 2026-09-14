@@ -24,7 +24,6 @@ def config(version=1):
         "junior-worker": {"host": "grok", "model": "grok 4.6", "effort": "high"},
         "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
         "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
-        "verifier": {"host": "claude", "model": "sonnet 5", "effort": "high"},
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"}}}
 
 
@@ -47,7 +46,7 @@ class SettingsApiTest(unittest.TestCase):
             status, raw = board.request("GET", "/api/settings")
             data = json.loads(raw)
         self.assertEqual(status, 200); self.assertEqual(data["version"], 1)
-        self.assertEqual(len(data["rows"]), 5); self.assertIn("sources", data)
+        self.assertEqual(len(data["rows"]), 4); self.assertIn("sources", data)
         self.assertTrue(data["scan"]["scanned_at"]); self.assertEqual(data["scan"]["source"], "cli")
         self.assertEqual(data["scan"]["hosts"]["grok"]["state"], "ok")
         self.assertEqual(set(data["scan"]["hosts"]), {"cursor", "grok", "claude", "codex", "pi"})
