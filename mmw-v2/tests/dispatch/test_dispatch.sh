@@ -41,7 +41,10 @@ set -uo pipefail
 # The session running this suite may itself be a runner's session; the scenarios say
 # which one they stand in, and nothing else may answer `self`.
 unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
-unset MMW_SPEC
+unset MMW_SPEC MMW_TASK_SCOPE
+while IFS='=' read -r name _; do
+  case "$name" in NMEM_*) unset "$name" ;; esac
+done < <(env)
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL="$(dirname "$(dirname "$HERE")")/skills/dispatch"
@@ -63,6 +66,95 @@ printf 'launchctl' >> "$MMW_TEST_LOG"
 printf ' :: %s' "$@" >> "$MMW_TEST_LOG"
 printf '\n' >> "$MMW_TEST_LOG"
 exit 0
+FAKE
+
+cat > "$TMP/bin/nmem" <<'FAKE'
+#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+
+with open(os.environ["MMW_TEST_LOG"], "a", encoding="utf-8") as fh:
+    fh.write("nmem" + "".join(" :: " + arg for arg in sys.argv[1:]) + "\n")
+
+state_path = Path(os.environ["MMW_FAKE_NMEM_STATE"])
+try:
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    state = {"spaces": {}, "agents": {}}
+state.setdefault("spaces", {})
+state.setdefault("agents", {})
+args = [arg for arg in sys.argv[1:] if arg != "--json"]
+
+if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "unavailable":
+    print("Nowledge Mem unavailable", file=sys.stderr)
+    raise SystemExit(1)
+if args[:2] in (["spaces", "show"], ["agents", "show"]):
+    if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "invalid-json":
+        print("not-json")
+        raise SystemExit(0)
+    if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "non-object":
+        print("[]")
+        raise SystemExit(0)
+
+def option(name, default=""):
+    try:
+        return args[args.index(name) + 1]
+    except (ValueError, IndexError):
+        return default
+
+def save():
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+
+if args[:2] == ["spaces", "show"]:
+    ident = args[2]
+    row = state["spaces"].get(ident)
+    if row is None:
+        print(f"error: /spaces/{ident} returned 404: Unknown space: {ident}", file=sys.stderr)
+        raise SystemExit(1)
+    print(json.dumps(row, sort_keys=True))
+elif args[:2] == ["spaces", "create"]:
+    name = args[2]
+    ident = option("--id")
+    shared = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "--share-with"]
+    row = {"id": ident, "name": name,
+           "defaultRetrievalMode": option("--retrieval-mode"),
+           "sharedSpaceIds": shared}
+    state["spaces"][ident] = row
+    save()
+    print(json.dumps(row, sort_keys=True))
+elif args[:2] == ["spaces", "update"]:
+    ident = args[2]
+    row = state["spaces"].setdefault(ident, {"id": ident})
+    if "--name" in args:
+        row["name"] = option("--name")
+    if "--retrieval-mode" in args:
+        row["defaultRetrievalMode"] = option("--retrieval-mode")
+    if "--clear-shared" in args:
+        row["sharedSpaceIds"] = []
+    row["sharedSpaceIds"] = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "--share-with"]
+    save()
+    print(json.dumps(row, sort_keys=True))
+elif args[:2] == ["agents", "show"]:
+    ident = args[2]
+    row = state["agents"].get(ident)
+    if row is None:
+        print(json.dumps({"error": "not_found", "id": ident}))
+        raise SystemExit(1)
+    print(json.dumps(row, sort_keys=True))
+elif args[:2] == ["agents", "enroll"]:
+    ident = args[2]
+    row = state["agents"].setdefault(ident, {
+        "id": ident, "displayName": option("--name"), "role": option("--role"),
+        "defaultSpaceId": "default", "origin": "cli"})
+    save()
+    print(json.dumps(row, sort_keys=True))
+elif args[:4] == ["config", "mcp", "show", "--host"]:
+    print(json.dumps({"config": {"mcpServers": {"nowledge-mem": {
+        "type": "http", "url": "https://mem.invalid/mcp", "headers": {}}}}}))
+else:
+    print(json.dumps({"error": "unsupported", "args": args}), file=sys.stderr)
+    raise SystemExit(2)
 FAKE
 
 cat > "$TMP/bin/paseo" <<'FAKE'
@@ -1231,12 +1323,13 @@ for a in "\$@"; do
 done
 exec "$REAL_PYTHON" "\$@"
 WRAPPER
-chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/orca" "$TMP/bin/gh" "$TMP/bin/launchctl"
+chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/orca" "$TMP/bin/gh" "$TMP/bin/launchctl" "$TMP/bin/nmem"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
 export MMW_FAKE_HERDR_STATE="$TMP/herdr-state"
 export MMW_FAKE_ORCA_STATE="$TMP/orca-state"
+export MMW_FAKE_NMEM_STATE="$TMP/nmem-state.json"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
 export MMW_HOME="$TMP/mmw-home"
 # Tonight's runner is pinned: the session running this suite may itself sit in Orca,
@@ -1413,6 +1506,8 @@ reset_log() {
   echo '[]' > "$MMW_FAKE_ORCA_STATE/repos.json"
   unset MMW_FAKE_HERDR_SCENARIO MMW_FAKE_HERDR_PROMPT MMW_FAKE_SEND_FAILS
   unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND MMW_FAKE_USES
+  unset MMW_FAKE_NMEM_SCENARIO
+  printf '%s\n' '{"spaces":{},"agents":{}}' > "$MMW_FAKE_NMEM_STATE"
   rm -rf "$MMW_HOME/leases"
   no_relay
   fake_relay
@@ -5905,6 +6000,192 @@ scenario_installmodelsjsonhome() {
   [ -f "$home/.mmw/models.json" ] || fail "install did not default to HOME_DIR/.mmw"
 }
 
+scenario_memory_install() {
+  local home="$TMP/install-home" no_nmem_home="$TMP/install-home-no-nmem" code no_nmem="$TMP/bin-no-nmem" name
+  echo "--- install creates the shared Toolbox Space and the two provenance-only Identities once"
+  reset_log
+  seed_orca_projects 1 .worktrees show
+  run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install expected 0: $(cat "$TMP/err")"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "the installed Nowledge objects have the wrong shape"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["spaces"] == {"mmw-toolbox": {"id": "mmw-toolbox", "name": "MMW Toolbox",
+    "defaultRetrievalMode": "strict", "sharedSpaceIds": []}}, d
+assert {k: {x: v[x] for x in ("id", "displayName", "role", "defaultSpaceId")}
+        for k, v in d["agents"].items()} == {
+    "mmw-worker": {"id": "mmw-worker", "displayName": "MMW Worker", "role": "worker", "defaultSpaceId": "default"},
+    "mmw-reviewer": {"id": "mmw-reviewer", "displayName": "MMW Reviewer", "role": "reviewer", "defaultSpaceId": "default"}}, d
+PY
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "second install expected 0: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: spaces :: create"
+  hasnt "nmem :: --json :: agents :: enroll"
+
+  echo "--- --check reads all three objects and writes none"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || fail "complete check expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: spaces :: show :: mmw-toolbox"
+  has "nmem :: --json :: agents :: show :: mmw-worker"
+  has "nmem :: --json :: agents :: show :: mmw-reviewer"
+  hasnt "nmem :: --json :: spaces :: create"
+  hasnt "nmem :: --json :: agents :: enroll"
+
+  echo "--- --check fails explicitly on a wrong object and performs no repair"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["mmw-toolbox"]["defaultRetrievalMode"]="shared"; json.dump(d,open(p,"w"))
+PY
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "wrong-object check expected 1, got $(cat "$TMP/code")"
+  grep -q '^缺    Nowledge Mem Space mmw-toolbox' "$TMP/err" || fail "wrong object was not named: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: spaces :: update"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["mmw-toolbox"]["defaultRetrievalMode"]="strict"; del d["agents"]["mmw-reviewer"]; json.dump(d,open(p,"w"))
+PY
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "missing-object check expected 1, got $(cat "$TMP/code")"
+  grep -q '^缺    Nowledge Mem Identity mmw-reviewer 不存在' "$TMP/err" || fail "missing object was not named: $(cat "$TMP/err")"
+
+  echo "--- a machine without nmem says the objects were not checked, without changing check's exit"
+  rm -rf "$no_nmem"; mkdir -p "$no_nmem"
+  for name in python3 paseo herdr orca gh launchctl; do ln -s "$TMP/bin/$name" "$no_nmem/$name"; done
+  rm -rf "$no_nmem_home"; mkdir -p "$no_nmem_home"
+  PATH="$no_nmem:/usr/bin:/bin:/usr/sbin:/sbin" MMW_V2_HOME="$no_nmem_home" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err"
+  PATH="$no_nmem:/usr/bin:/bin:/usr/sbin:/sbin" MMW_V2_HOME="$no_nmem_home" bash "$INSTALLER" --check > "$TMP/out" 2> "$TMP/err"; code=$?
+  [ "$code" = 0 ] || fail "no-nmem check expected 0, got $code: $(cat "$TMP/err")"
+  grep -q '^没查  Nowledge Mem objects（本机没有 nmem）$' "$TMP/err" \
+    || fail "no-nmem check was not explicit: $(cat "$TMP/err")"
+}
+
+scenario_memory_open_space() {
+  local code
+  echo "--- open creates this repository's shared Space with only mmw-toolbox shared"
+  reset_log
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d["spaces"].update({
+    "default": {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]},
+    "else__where": {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]},
+})
+json.dump(d, open(p, "w"), sort_keys=True)
+PY
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  write_open_batch
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: spaces :: create :: o/r :: --id :: o__r :: --retrieval-mode :: shared :: --share-with :: mmw-toolbox"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repository Space was not created exactly"
+import json, sys
+spaces = json.load(open(sys.argv[1]))["spaces"]
+row = spaces["o__r"]
+assert row == {"id":"o__r", "name":"o/r", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, row
+assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
+assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
+PY
+  hasnt "nmem :: --json :: spaces :: update :: default"
+  hasnt "nmem :: --json :: spaces :: update :: else__where"
+  hasnt ":: --id :: default"
+  hasnt ":: --id :: else__where"
+  no_relay
+
+  echo "--- open repairs a wrong repository Space"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["o__r"]={"id":"o__r","name":"wrong","defaultRetrievalMode":"strict","sharedSpaceIds":["default","mmw-toolbox"]}; json.dump(d,open(p,"w"))
+PY
+  : > "$MMW_TEST_LOG"; seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "repairing open expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: spaces :: update :: o__r :: --name :: o/r :: --retrieval-mode :: shared :: --clear-shared :: --share-with :: mmw-toolbox"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repair changed an unrelated Space"
+import json, sys
+spaces = json.load(open(sys.argv[1]))["spaces"]
+assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
+assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
+PY
+  hasnt "nmem :: --json :: spaces :: update :: default"
+  hasnt "nmem :: --json :: spaces :: update :: else__where"
+  hasnt ":: --id :: default"
+  hasnt ":: --id :: else__where"
+  no_relay
+
+  echo "--- open performs no Space write when its shape is already exact"
+  : > "$MMW_TEST_LOG"; seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "idempotent open expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: spaces :: show :: o__r"
+  hasnt "nmem :: --json :: spaces :: create"
+  hasnt "nmem :: --json :: spaces :: update"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "idempotent open changed an unrelated Space"
+import json, sys
+spaces = json.load(open(sys.argv[1]))["spaces"]
+assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
+assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
+PY
+  no_relay
+}
+
+scenario_memory_space_unavailable() {
+  local code bad
+  echo "--- an unreadable Nowledge service makes install --check fail explicitly and causes no fallback write"
+  reset_log
+  seed_orca_projects 1 .worktrees show
+  run_installer
+  MMW_FAKE_NMEM_SCENARIO=unavailable MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "unavailable check expected 1, got $(cat "$TMP/code")"
+  grep -q '^没查  Nowledge Mem objects' "$TMP/err" || fail "unavailable check was not explicit: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: spaces :: create"
+  hasnt "nmem :: --json :: agents :: enroll"
+
+  echo "--- open reports the unavailable repository Space, opens the night, and creates no substitute"
+  reset_log
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  write_open_batch
+  seed_main_agent agt_main
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "Nowledge failure must not block the completable open: $(cat "$TMP/err")"
+  grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
+    || fail "open did not report repository Memory as unavailable: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: spaces :: create"
+  hasnt "nmem :: --json :: spaces :: update"
+  no_relay
+
+  for bad in invalid-json non-object; do
+    echo "--- exit-0 $bad makes install --check fail without a fallback write"
+    reset_log
+    seed_orca_projects 1 .worktrees show
+    run_installer
+    MMW_FAKE_NMEM_SCENARIO="$bad" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+    [ "$(cat "$TMP/code")" = 1 ] || fail "$bad check expected 1, got $(cat "$TMP/code")"
+    grep -q '^没查  Nowledge Mem objects' "$TMP/err" \
+      || fail "$bad check was not explicit: $(cat "$TMP/err")"
+    hasnt "nmem :: --json :: spaces :: create"
+    hasnt "nmem :: --json :: spaces :: update"
+    hasnt "nmem :: --json :: agents :: enroll"
+
+    echo "--- exit-0 $bad makes open report unavailable without a fallback write"
+    reset_log
+    fresh_project_night
+    git -C "$TMP/repo" push -q -u origin night
+    write_open_batch
+    seed_main_agent agt_main
+    code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO="$bad" PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+    [ "$code" = 0 ] || fail "$bad Memory response must not block the completable open: $(cat "$TMP/err")"
+    grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
+      || fail "$bad open did not report repository Memory as unavailable: $(cat "$TMP/err")"
+    hasnt "nmem :: --json :: spaces :: create"
+    hasnt "nmem :: --json :: spaces :: update"
+    no_relay
+  done
+}
+
 scenario_orcaworktreelink() {
   local code actual expected destination
   reset_log; fresh_repo
@@ -8632,7 +8913,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8646,6 +8927,9 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
+    memory-install) echo MEMORY-INSTALL-OK ;;
+    memory-open-space) echo MEMORY-OPEN-SPACE-OK ;;
+    memory-space-unavailable) echo MEMORY-SPACE-UNAVAILABLE-OK ;;
     boardregisters) echo BOARD-REGISTERS-OK ;;
     boardsameport) echo BOARD-SAME-PORT-OK ;;
     boardopenstab) echo BOARD-OPENS-TAB-OK ;;
@@ -8846,6 +9130,9 @@ banner_for() {
 
 fn_for() {
   case "$1" in
+    memory-install) echo scenario_memory_install ;;
+    memory-open-space) echo scenario_memory_open_space ;;
+    memory-space-unavailable) echo scenario_memory_space_unavailable ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     *) echo "scenario_$1" ;;

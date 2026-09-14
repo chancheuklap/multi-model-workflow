@@ -26,7 +26,11 @@ unset MMW_CATALOG_MODE
 # is not a test. Measured 2026-09-10 on #320. `MMW_EVENTS_PY` goes for the same reason:
 # `dispatch.sh` exports it to every command it runs, pointing at its own checkout's
 # events.py, and `status.py` and `relay.py` would load that one instead of this checkout's.
-unset MMW_SPEC MMW_TICKET MMW_KIND MMW_EVENTS_PY
+unset MMW_SPEC MMW_TICKET MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
+unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
+while IFS='=' read -r name _; do
+  case "$name" in NMEM_*) unset "$name" ;; esac
+done < <(env)
 
 rc=0
 
