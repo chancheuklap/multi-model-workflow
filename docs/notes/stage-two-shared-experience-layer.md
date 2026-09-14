@@ -1,6 +1,6 @@
 # 阶段二与阶段三：共享经验和跨夜学习闭环
 
-日期：2026-09-14
+日期：2026-09-15
 
 对象：[《Project Context 调研与 MMW 方案》](https://claude.ai/code/artifact/b9520c08-eb0d-40f1-872e-228662445954?via=auto_preview)第 6 节“阶段二 · 共享经验层 · NOWLEDGE MEM 自带机制优先”、第 7 节“阶段三 · 跨夜学习”和第 9 节“决定”
 
@@ -8,14 +8,15 @@
 
 ## 方案总览
 
-阶段二与阶段三作为一条反馈闭环共同实施：阶段二让 worker 在同一 task 内直接写入和取得已证实的经验；阶段三在每份 spec 的 `summary` 之后复盘 ticket event 与 `git log`，把跨 ticket 或跨 night 第二次出现的问题，以及一次就实际阻塞工作的 Memory proposal candidate，提议为自动检查、reviewer Rule、repository `AGENTS.md` Gotchas、repository script、repository-local skill、MMW skill 或 `mmw-toolbox` Memory。owner 批准后的结果在后续 worker、reviewer 或检查中生效。
+阶段二与阶段三作为一条反馈闭环共同实施：阶段二让 worker 在同一 task 内直接写入和取得已证实的经验，并在新 task 开工前主动取得相关历史 Memory；阶段三在每份 spec 的 `summary` 之后复盘 ticket event 与 `git log`，把跨 ticket 或跨 night 第二次出现的问题，以及一次就实际阻塞工作的 Memory proposal candidate，提议为自动检查、reviewer Rule、repository `AGENTS.md` Gotchas、repository script、repository-local skill、MMW skill 或 `mmw-toolbox` Memory。owner 批准后的结果在后续 worker、reviewer 或检查中生效。
 
 task root 按以下规则解析：spec 有 native map parent 时，map 是 task root；spec 没有 map parent 时，该 standalone spec 自己就是 task root。一个 map 可以拆成多份 spec 并行执行，这些 spec 下的 worker 和 reviewer 使用同一个 task scope；standalone spec 下的全部 ticket 使用该 spec 的 task scope。task root 决定执行时谁共享经验，不限制阶段三在 repository 内识别跨 task、跨 night 的重复问题。
 
-阶段二只有两条读取路径：
+阶段二的 worker 首次 prompt 有两个 Memory 区块，运行中另有一条按需检索路径：
 
-1. `dispatch.sh start <ticket> worker` 根据 GitHub native parent 得到 task root，按 task scope label 读取一次当前 task 已有的 Memory，放进 worker 的首次 prompt。
-2. worker 遇到具体的非显然故障时，以实际错误、命令和组件主动做 semantic search；先搜当前 task，仍没有答案时再搜当前 repository Space 和已批准的 `mmw-toolbox`。
+1. `dispatch.sh start <ticket> worker` 根据 GitHub native parent 得到 task root，按 task scope label 精确列出当前 task 已写入的 Memory。这只负责同一轮 map 或 standalone spec 内的并行共享。
+2. 同一次 start 以 task root 的已定内容执行一次 semantic search，从当前 repository 和已批准的 `mmw-toolbox` 取回与这项新任务相关的历史 Memory。map 下所有 specs 使用同一份 map 检索输入；standalone spec 使用自身检索输入。
+3. worker 遇到具体的非显然故障时，以实际错误、命令和组件主动搜索；先搜当前 task，仍没有答案时再搜 repository 与 `mmw-toolbox`。
 
 worker 一旦证实一条同一 task 其他 ticket 可复用的经验，就立即写入 repository Space，并带当前 task root 的 scope label。后来启动的 worker 会自动得到它；已经运行的 worker 在遇到相同问题时通过主动检索得到它。
 
@@ -86,7 +87,7 @@ Nowledge Mem Working Memory 是每个 Space 一份、由 AI 维护的每日简�
 #### 建立和解析
 
 - `install.sh` 幂等建立全局的 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`；`install.sh --check` 只报告缺失或形状不一致。
-- `dispatch.sh open <spec>` 幂等建立当前 repository Space；已有正确 Space 时不重建，但不把 Memory 注入 main prompt。
+- `dispatch.sh open <spec>` 幂等建立当前 repository Space；已有正确 Space 时不重建。Memory 只在每名 worker 真正启动时进入它的首次 prompt，不在 `open` 时交给 main agent，也不另存一份 task 检索包。
 - repository Space id 是 tracker repository 的 `lowercase(owner) + "__" + lowercase(name)`；显示名保留 `owner/name`，避免两个同名 repository 冲突。
 - dispatch 每次从当前 tracker repository 和 native parent graph 重新解析 Space 与 task root，不把它们缓存进 ticket body。
 
@@ -131,7 +132,7 @@ ticket --native parent--> spec --native parent--> map
 | --- | --- | --- |
 | `memories add` | 可指定 Space、Identity、unit type、labels；写入后即可检索 | worker 即时保存显式经验 |
 | `memories list` | 可按一个 label 精确列出；只列 active Space 自身，不扩到 shared Space；本机重复 `--label` 实测为 OR；达到 `--limit` 仍 exit 0，须比较 `total` 与 `returned` | 列出当前 task root 或当前 spec night 产生的经验 |
-| `memories search` | semantic + text search，约 0.5 秒；可按 label、unit type、时间和 metadata 过滤；active Space 为 `shared` 时扩到显式 shared Spaces | agent 按真实问题主动找经验 |
+| `memories search` | semantic + text search，约 0.5 秒；可按 label、unit type、时间和 metadata 过滤；active Space 为 `shared` 时扩到显式 shared Spaces | worker start 按 task root 取历史 Memory；agent 按真实问题精确找经验 |
 | `ask` | 本机一次约 130 秒 | 不进入派发路径 |
 | Space | `strict` 只读当前 Space；`shared` 读取当前 Space 和显式 shared Spaces | repository 隔离并只共享 `mmw-toolbox` |
 | Identity | provenance、默认 Space 与 agent Rule 的选择，不是授权，也不是 Memory 可见性过滤器 | 区分 worker/reviewer 来源与常驻 Rule |
@@ -150,12 +151,13 @@ ticket --native parent--> spec --native parent--> map
 
 #### `dispatch.sh start <ticket> worker`
 
-`start` 在调用 runner adapter 前完成一次当前 task 读取：
+`start` 在调用 runner adapter 前组装一次开场经验包：
 
 1. 从 ticket 的 native parent 得到 spec，再从 spec 的 native parent 得到 `map:<n>` 或 standalone `spec:<n>`；
 2. 得到当前 repository Space；
 3. 用唯一 task scope label 列出当前 task 已写入的显式 Memory；
-4. 把结果放进 worker 的首次 prompt。
+4. 用 task root 的已定内容做一次历史 semantic search；
+5. 按 Memory id 去重后，把两组结果放进 worker 的首次 prompt。
 
 ```sh
 nmem --json memories list \
@@ -166,7 +168,25 @@ nmem --json memories list \
 
 `dispatch.sh` 比较返回值的 `total` 与 `returned`。相等才算完整读取；`total > returned` 时仍启动 worker，但首次 prompt 明确写出“当前 task Memory 已截断”，不能把前 1000 条伪装成完整结果。本机 CLI 没有 `offset`，因此不另造分页层；一个 task 达到这个上限时应治理其 Memory，而不是继续扩大启动 prompt。
 
-这里只使用一个 scope label。本机实测 `memories list` 的重复 `--label` 是 OR，不是 AND；因此所有带 task scope label 的 Memory 都必须是共享经验，`mmw-experience` 只用于 worker 按具体问题搜索历史。
+这里只使用一个 scope label。本机实测 `memories list` 的重复 `--label` 是 OR，不是 AND；因此所有带 task scope label 的 Memory 都必须是共享经验。
+
+历史检索不使用 scope label，因为下一夜启动的是新的 map 或 standalone spec，先前 repository 经验带的是旧 task label。它使用同一个 task root 的已定内容，让同一 map 下所有 specs 得到相同的历史检索结果：
+
+| task root | semantic search 输入 | 原因 |
+| --- | --- | --- |
+| map | `Destination`、`Notes`、`Decisions so far` | map 是同一项任务的共同低分辨率索引；这些段落说明目标、领域与已定路线，不读取某一份 child spec 来代替整个 map |
+| standalone spec | `Problem Statement`、`Solution`、`Implementation Decisions`、`Testing Decisions` | 没有 map 时，spec 本身就是完整 task root |
+
+map 的 `Decisions so far` 已经给每项决定一行 gist 与 resolution link；检索只需要这份共同索引，不在每次 worker start 重新读取所有 resolution comment。`Out of scope` 不进入 query，避免把明确不做的内容召回成工作经验。检索命令固定为：
+
+```sh
+nmem --json memories search "$MMW_TASK_QUERY" \
+  --space "$NMEM_SPACE" \
+  --label mmw-experience \
+  --limit 10
+```
+
+repository Space 的 shared retrieval 使结果只来自当前 repository 和已批准的 `mmw-toolbox`。当前 task Memory 如果同时被 semantic search 命中，按 Memory id 去重，精确 `list` 的版本保留。检索包不写回 tracker、文件或 Mem；每次 worker start 直接重做两次廉价读取，所以没有缓存失效或另一份 task 状态。
 
 首次 prompt 的固定部分只包含：
 
@@ -178,11 +198,16 @@ Current task shared experience:
   <content>
   Source: <source>
 
+Historical experience relevant to this task:
+- <memory id> — <title>
+  <content>
+  Source: <source>
+
 When an unexplained failure is not covered above, search with the exact error,
 command and component. Verify every Memory against current repository evidence.
 ```
 
-这一步不用 ticket title、`## Owns`、`--time today` 或整份 spec 作为检索输入，也不增加第二次 historical seed。新 task 没有 scoped Memory 时结果就是 0；真正遇到问题后再按“worker 遇到问题时主动搜索”处理，避免把仅仅“可能相关”的内容预先塞给 worker。
+task scope 仍只由 native parent 决定；semantic query 只判断历史相关性，不能改变归属。ticket title、`## Owns` 与 `--time today` 既不定 scope，也不组成开场 query。若 task-scoped `list` 为 0，新 task 仍可通过历史 semantic search 得到旧经验；若 semantic search 为 0，则明确写 0，不用 Working Memory 冒充检索结果。
 
 #### `dispatch.sh start <ticket> reviewer`
 
@@ -204,7 +229,7 @@ nmem --json context read \
 
 worker 另收到 `MMW_EXPERIENCE_SCOPE`、`MMW_SPEC` 与 `MMW_TICKET`，供主动搜索和写入使用。runner 的 `start` 合同增加可重复的 `--env KEY=VALUE`：Paseo 转发给现有 `paseo run --env`，Herdr 转发给现有 `herdr tab create --env`，Orca 把同一组值放进新 terminal 的 host launch environment。Space、Identity 和 scope 仍由 `dispatch.sh` 解析，adapter 只传值。
 
-**依据**：Artifact 2.2“当夜由派发脚本查一次”；现有 `dispatch.sh read_ticket()` 与 runner adapters；task root 解析沿用上一节的 native parent graph。
+**依据**：Artifact 2.2“当夜由派发脚本查一次”；monomind project-context `context_packet.py` 的开工前相关上下文取回；现有 `dispatch.sh read_ticket()` 与 runner adapters；`wayfinder/SKILL.md` 的 map body 与 `to-spec/SKILL.md` 的 spec template。
 
 ### 4. worker 遇到问题时主动搜索
 
@@ -278,13 +303,15 @@ Observed: <YYYY-MM-DD>
 
 ```text
 spec A worker 启动
-  → dispatch 注入 label=mmw-map-384 的当前 task Memory
+  → dispatch 用 map 的共同 query 注入相关历史 Memory
+  → 再注入 label=mmw-map-384 的当前 task Memory
   → worker 证实一个非显然工具行为
   → 立即写 Memory(labels: mmw-experience, mmw-map-384)
 
 spec B worker 稍后启动
   → native parent 同样解析为 map #384
-  → dispatch 的一次 task 读取直接取得新 Memory
+  → 使用与 spec A 相同的 map query 取得相关历史 Memory
+  → task-scoped list 直接取得 spec A 的新 Memory
 
 spec B worker 已经在运行
   → 遇到同一错误
@@ -292,7 +319,7 @@ spec B worker 已经在运行
   → 取回 spec A 的 Memory
 ```
 
-另一个 map 不进入 task-scoped 列表；以后只有在 worker 遇到具体相同问题并主动查 repository 历史时，才可能按 relevance 取回这条经验。standalone spec 使用相同路径，scope 改为 `mmw-spec-<n>`。reviewer 不在这条 Memory 传播路径中。
+下一夜的新 map 不进入旧 map 的 task-scoped 列表；它会在 worker start 以自己的 task root query 搜索 repository 历史，因此相关旧 Memory 可以在开工前按 relevance 取回。没有命中但后来出现具体相同问题时，worker 仍用错误、命令和组件精确搜索。standalone spec 使用相同路径，scope 改为 `mmw-spec-<n>`，历史 query 改用自身的四个已定 section。reviewer 不在这条 Memory 传播路径中。
 
 **依据**：task root 的 native parent graph，以及前述 worker 注入、搜索和写入路径。
 
@@ -322,25 +349,34 @@ reviewer 仍独立读取 ticket、spec、repository authority 与 diff，并重�
 
 ### 9. Thread、Working Memory 与跨夜检索
 
-跨夜信息通过三条彼此独立的路径进入 agent；只有第一条和第二条是阶段二的确定路径。
+下一夜会启动新的 map 或 standalone spec，不会靠旧 task label 继续上一夜。跨夜经验通过以下路径进入新 agent。
 
-#### 同一 task 的显式送达
+#### connector 自动注入的真实内容
 
-Memory 写入 repository Space 后会一直保留，不因 night 结束而消失。下一夜如果启动的 worker 仍属于同一 task root，`dispatch.sh start <ticket> worker` 会按 `mmw-map-<n>` 或 `mmw-spec-<n>` 执行 `memories list`，把完整结果直接写进首次 prompt。这是“跨夜记忆给到 agent”的主要路径，也是唯一不要求 agent 先意识到问题的历史 Memory 路径。
+支持 session-start 注入的 Nowledge connector 会使用 runner 提供的 `NMEM_SPACE` 和 `NMEM_AGENT_ID` 读取 Context Bundle。自动注入的是实际文本，而不只是提示：owner/agent Identity 摘要、active Space、适用的 active Rules，以及该 repository Space 当前的一份 Working Memory。Working Memory 本身可以包含 Nowledge 后台从较早 Memory 与活动整理出的内容和 Memory 链接，所以它能给 agent 一份真实的 repository 宽背景。
 
-#### 不同 task 的按需检索
+它**不会**自动执行与当前 map/spec 有关的 `memories search`，不会自动注入命中的 Memory records，也不会把上一夜的完整 Thread 直接放进新会话。Working Memory 是整个 repository 的异步简报，可能同时包含多个 task，不能按当前 task root 过滤；其刷新也没有派发时限。因此它可用于方向与未决事项，不能承担“这项新任务的相关历史已经送达”。
 
-新 task 不自动继承旧 task 的 Memory。worker 真正遇到未解释的错误后，以错误、命令和组件执行 `memories search --space <repository> --label mmw-experience`；repository Space 的 shared retrieval 同时搜索本 repository 与 `mmw-toolbox`，但不搜索其他客户 repository 或 Default。命中的旧 Memory 被当前证据核实后使用。这条路径跨 task、跨 map、跨 night，但不会把大量“可能相关”的历史预先注入 prompt。
+Claude Code、Codex、Cursor 与 Pi 的 connector 可以在 session start 提供 Context Bundle，但各自有 fallback 差异；Grok 的 passive `SessionStart` 不把正文交给模型。MMW 不把关键路径建立在这种 host 差异上。
 
-#### connector 的自动 Context Bundle
+#### MMW 在新 task 开工前主动送达
 
-支持 session-start 注入的 Nowledge connector 会使用 runner 提供的 `NMEM_SPACE` 和 `NMEM_AGENT_ID` 读取 Context Bundle。自动注入的是：owner/agent Identity 摘要、active Space、适用的 active Rules，以及该 repository Space 当前的一份 Working Memory。它**不会**自动注入任意历史 Memory 的检索结果，也不会把上一夜的完整 Thread 直接放进新会话。
+每名 worker 启动时，`dispatch.sh` 都做两次读取，并把结果直接写进首次 prompt：
 
-Working Memory 是整个 repository 的异步简报，可能同时包含多个 map 和 standalone spec，不能按 task root 过滤。Claude Code、Codex、Cursor 与 Pi 的 connector 可以在 session start 提供 Context Bundle，但各自有 fallback 差异；Grok 的 passive `SessionStart` 不把正文交给模型。因此本方案只把它当作可选的跨夜宽背景，不用它证明 task Memory 已送达。reviewer 所需的 active Rules 仍由 `dispatch.sh` 读取 `context read --no-working-memory` 后明确放进 review packet，避免 host 差异。
+1. `memories list --label <current task scope>`：取得同一轮 task 内较早 worker 刚写的经验；新 task 开始时通常为 0。
+2. `memories search <task root query> --label mmw-experience`：取得较早 task 留在当前 repository 和 `mmw-toolbox` 的相关历史；这才是下一夜新 map/spec 的主动跨夜路径。
 
-session 结束或 compact 时，已启用的 connector 可以把会话保存为 repository Thread。Thread 是可审计的会话记录；Nowledge 后台以后可能从中蒸馏 Memory 并刷新 Working Memory，但这个过程异步且不保证完成。Thread 本身不自动注入下一名 agent，也不承担同夜或跨夜的确定送达。
+map 的所有 worker 使用 `Destination + Notes + Decisions so far` 这一份共同 query；standalone spec 使用自己的 `Problem Statement + Solution + Implementation Decisions + Testing Decisions`。结果不另存一份，worker 每次 start 直接搜索，所以 task root 内容变化会在下一次启动自然生效。
 
-所以本方案对 Mem 自动能力的利用只有两项：用 Context Bundle 提供非关键的 repository 宽背景；用 connector capture 保留可供后台整理的 Thread。真正影响工作行为的经验仍走 `dispatch.sh` 的 task Memory 注入、worker 的按需 search 和 reviewer 的 active Rules 注入。阶段二不自建 Thread 摘要器、Working Memory patch、map Working Memory或实时同步层。
+#### worker 运行中的精确检索
+
+开场 semantic search 只能按任务语义取回最相关的一小组历史，不能预知后面出现的具体故障。worker 真正遇到未解释的行为时，仍以实际错误、命令和组件搜索 current task，再搜索 repository 与 `mmw-toolbox`。这条路径补充开场包，不替代它。
+
+#### Thread 的位置
+
+session 结束或 compact 时，已启用的 connector 可以把会话保存为 repository Thread。Thread 是可审计的会话记录；Nowledge 后台以后可能从中蒸馏 Memory 并刷新 Working Memory，但这个过程异步且不保证完成。Thread 本身不自动注入下一名 agent，也不承担确定送达。
+
+因此，Mem 的自动能力负责宽背景与 Thread capture；MMW 的 worker-start 检索负责主动送达新 task 的相关历史和同一 task 的即时共享；worker 的精确 search 负责开场时无法预知的问题。reviewer 所需的 active Rules 仍由 `dispatch.sh` 读取 `context read --no-working-memory` 后明确放进 review packet，普通 Memory 不进入 reviewer。
 
 **依据**：Artifact 2.1、2.2；Nowledge Mem `Background Intelligence` 与 `Context`。
 
@@ -446,6 +482,15 @@ review finding 增加一个稳定 category。`route … stale` 同时记录：
 
 ### 13. `spec.retroed`、owner 决定与长期载体
 
+retro 只有两类持久产物。它们放在不同位置，也由不同角色读取：
+
+| 产物 | 何时产生 | 放在哪里 | 后续谁读取 | 作用 |
+| --- | --- | --- | --- | --- |
+| `spec.retroed` | 每份 spec 的 retro 都写一条，即使没有 proposal | 当前 spec 的 script-written tracker comment/event | 以后新 spec 完成时的 retro script | 保留第一次出现但尚未达到 proposal 门槛的问题、核对上一轮行动、识别跨 spec/night 的第二次同因问题、避免重复 proposal |
+| `needs-triage` proposal | process 同因有两个独立来源，或 Memory candidate 满足“两次出现 / 一次实际阻塞”时才写 | 应承担改变的 repository 中的一张普通 issue | owner/早间 triage；批准后由正常 spec/ticket worker | 请求把已证实问题落到一个长期载体；它本身不改变 agent 行为 |
+
+普通 worker 和 reviewer **不读取 `spec.retroed`**。`spec.retroed` 只是后续 retro 的 repository 内历史账本；proposal 获批并实现后，普通 agent 才通过 check、`AGENTS.md`、repository-local skill、active Rule、MMW skill 或 Memory retrieval 使用结果。这个分工让第一次出现的问题可以留下来等待第二次，而不用第一次就开 proposal，也不用建立 retro 数据库。
+
 #### `spec.retroed` event
 
 retro script 在 spec 上写一条现有 event 格式的 comment：
@@ -462,7 +507,7 @@ Proposals: <issue links or none>
 <!-- mmw {"v":1,"event":"spec.retroed","stage":"night","actor":"main",...} -->
 ```
 
-每条 finding 的正文带 source；无 event/commit source 的内容不写。`spec.retroed` 是 repository 内可折叠、可读取的 event，不增加 status、hold、wake 或 gate。
+每条 finding 的正文带稳定 category、同因摘要、source、本例处置、预防方式和目标载体；无 event/commit source 的运行 finding 不写。事件 payload 保留 proposal issue numbers 和本次 finding categories，完整内容留在人可读 comment 中；后续 retro 通过 event 取得 comment 与链接后再读取，不需要另一个 occurrence 表。`spec.retroed` 不增加 status、hold、wake 或 gate，也不会被 dispatch 注入 worker prompt。
 
 #### proposal issue
 
@@ -515,8 +560,9 @@ worker 写/读 task Memory
   → summary 写 spec.closed
   → retro 写 spec.retroed，并对重复问题开 needs-triage proposal
   → owner 批准后由现有 ticket 流程落入长期载体
-  → 后续 worker、reviewer 或 check 使用
-  → 后续 retro 以证据判断是否仍重复
+  → 后续 worker、reviewer 或 check 从长期载体使用
+  → 新 task 的 worker start 从 repository/toolbox Memory 主动检索相关历史
+  → 后续 retro 读取较早 spec.retroed，验证同因问题是否仍重复
 ```
 
 **依据**：Artifact 2.3、3.1 与第 9 节“决定”；`docs/agents/issue-tracker.md` 的 `Three label sets`、`Morning queries` 与现有发布流程；OpenAI Harness Engineering；Augment AGENTS.md/Review Guidelines。
@@ -554,11 +600,11 @@ worker 写/读 task Memory
 #### A. Space、Identity 与现有 dispatch
 
 1. `mmw-v2/install.sh` 幂等建立 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`，`--check` 只读核对。
-2. 在现有 `dispatch.sh` 内增加 Nowledge helper：建立或读取 repository Space、解析 `nmem --json`、按 task/spec label 列举、读取 reviewer active `rule_stack`，并区分 unavailable 与 0 results。worker 仍直接使用 Nowledge CLI 搜索与写 Memory，不增加中间服务或新 adapter module。
+2. 在现有 `dispatch.sh` 内增加 Nowledge helper：建立或读取 repository Space、解析 `nmem --json`、按 task/spec label 列举、从 task root 生成历史 semantic query、读取 reviewer active `rule_stack`，并区分 unavailable、0 results 与截断。worker 仍直接使用 Nowledge CLI 做运行中的精确搜索并写 Memory，不增加中间服务、检索缓存或新 adapter module。
 
 #### B. 阶段二读写
 
-3. `dispatch.sh` 解析 native parent，并通过 runner `start --env` 设置 Space/Identity；三个 runner adapter 只把值送入实际 agent process。worker start 读取一次 task Memory 并核对 `total == returned`；reviewer start 只读取 active `rule_stack`；`summary --memory-decisions` 校验逐项 manifest，并把完整决定写入 `spec.closed`。
+3. `dispatch.sh` 解析 native parent，并通过 runner `start --env` 设置 Space/Identity；三个 runner adapter 只把值送入实际 agent process。worker start 精确列出当前 task Memory，并按 map 或 standalone spec query 搜索历史后去重；reviewer start 只读取 active `rule_stack`；`summary --memory-decisions` 校验逐项 manifest，并把完整决定写入 `spec.closed`。
 4. `implement/SKILL.md` 增加 Artifact 2.1 的五字段写入条件与 2.2 的主动搜索时点；`code-review` 不增加 Memory retrieval，只使用 prompt 中的 active Rules。
 5. `to-spec/SKILL.md` 在 map 来源时创建 native child 并 read back；standalone spec 不虚构 parent。
 
@@ -566,13 +612,13 @@ worker 写/读 task Memory
 
 6. `code-review` 的汇总合同增加 category；`route … stale` 增加 `invalid|fixed-elsewhere` reason。
 7. `events.py` 增加一个无 hold、无 wake 的 `spec.retroed` event；night runbook 在成功 `summary` 后执行 retro。
-8. 新增 `mmw-v2/skills/retro/SKILL.md` 与一个脚本入口。脚本读取当前 spec tree、ticket event、相关 `git log`、较早 `spec.retroed` 和 `spec.closed` 的 proposed Memory ids，按 source spec/evidence marker 复用已有 proposal，写本次 event，并作为唯一入口创建 `needs-triage` proposal。它不把 Memory、Thread 或 Working Memory 当作运行证据，也不写长期载体。
+8. 新增 `mmw-v2/skills/retro/SKILL.md` 与一个脚本入口。脚本读取当前 spec tree、ticket event、相关 `git log`、较早 `spec.retroed` 和 `spec.closed` 的 proposed Memory ids，按 source spec/evidence marker 复用已有 proposal，始终在当前 spec 写本次 `spec.retroed`，并在达到门槛时创建或复用 `needs-triage` proposal。以后只有 retro script 读取这些 `spec.retroed`；普通 worker 不读。retro 不把 Memory、Thread 或 Working Memory 当作运行证据，也不写长期载体。
 
 #### D. owner approval 与证明
 
 9. 批准后的改变继续走现有 triage、`to-spec`、`to-tickets`、worker、review、closeout 和 landing；生成 repository-local skill 时验证触发、完整流程与当晚 host 的发现结果，新建 toolbox Memory 或激活 Rule 时在 proposal 留下实际 id。
 10. 按 repository 规则更新 Tickets/Night/Memory contexts、dispatch reference、upstream merge-note 和必要的 downstream-note。
-11. 测试覆盖 install、dispatch、runner、map/standalone scope、review category、stale reason、retro event、proposal repository/label 和跨 night 重复。
+11. 测试覆盖 install、dispatch、runner、map/standalone scope、当前 task list、新 task historical search、review category、stale reason、retro event、proposal repository/label 和跨 night 重复。
 
 实现顺序是 A → B → C → D。所有验证使用隔离 `MMW_HOME`、假 tracker、临时 Git repository 和临时 Nowledge objects；当前 frozen runtime 不读取新版本。
 
@@ -593,19 +639,20 @@ worker 写/读 task Memory
 1. 一个 map 下两份 specs 的 workers 解析成同一 task scope；standalone spec 使用自己的 scope。
 2. repository A 只能搜索自身与 `mmw-toolbox`，看不到 repository B 或 Default。
 3. runner 实际启动的 agent process 收到 `NMEM_SPACE` 与对应 `NMEM_AGENT_ID`；显式 worker Memory 进入当前 repository Space，已启用 connector 时 worker/reviewer Thread 也进入该 Space。
-4. spec A worker 写入 task Memory 后，稍后启动的 spec B worker 在一次 task 读取中得到它；reviewer prompt 不包含它。
-5. 已运行 worker 用实际错误、命令和组件取回 current-task 或 repository/toolbox 历史 Memory；没有具体问题时不搜索。
-6. MMW 组装的 reviewer packet 只包含 active Rules，不包含普通 Memory、Thread 或 Working Memory；reviewer 独立运行 acceptance/review checks。
-7. 一份 spec 的 closing pass 只处理带该 spec label 的 current Memory；完整读取时 `total == returned` 且每条都有唯一的 retain/propose/deprecate/supersede 决定，`spec.closed` 保存逐项决定、计数与 proposed ids；读取失败或截断明确写 `unchecked`，proposal issue 只由随后的 retro 创建。
-8. `summary` 后写出一个 `spec.retroed` event；每条运行 finding 都能跳到 ticket event 或 commit。
-9. 两个 specs/nights 的同因 event 在第二次形成一个 proposal；同一事件的多条记录不重复计数。
-10. 上一轮 proposal 只有在找到实际落地证据时显示“已落地”，否则显示“没找到证据”。
-11. intent reconciliation 同时显示 spec expected surface、实际 observed surface 与 gap/未验证。
-12. 两个 `stale reason=invalid` 的同类 finding 形成 reviewer Rule proposal；`fixed-elsewhere` 不算 false positive。
-13. proposal 在正确 repository 创建，初始 label 为 `needs-triage`，未获 owner 批准不改变任何长期载体；retro 重试按 source spec/evidence marker 复用已有 proposal。
-14. owner 批准 toolbox 晋升后，原 repository Memory 保留，固定 id `mmw-toolbox-<source-memory-id>` 在所有 shared repository 可搜索；重复执行仍只有一条。
-15. owner 批准 repository-local skill 后，代表性任务能从 description 发现并执行完整流程，不相关任务只看到 description；该 skill 不被安装到其他 repository。
-16. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
+4. spec A worker 写入 task Memory 后，同一 map 中稍后启动的 spec B worker 通过 task-scoped `list` 得到它；reviewer prompt 不包含它。
+5. 下一夜的新 map worker 以该 map 的 `Destination + Notes + Decisions so far`，新 standalone spec worker 以自身四个已定 section，在首次 prompt 中得到 repository/toolbox 的相关历史 Memory；两种 task 的结果都不含其他客户 repository 或 Default。
+6. 已运行 worker 用实际错误、命令和组件取回当前 task 或 repository/toolbox 历史 Memory；没有具体问题时不做运行中搜索。
+7. MMW 组装的 reviewer packet 只包含 active Rules，不包含普通 Memory、Thread 或 Working Memory；reviewer 独立运行 acceptance/review checks。
+8. 一份 spec 的 closing pass 只处理带该 spec label 的 current Memory；完整读取时 `total == returned` 且每条都有唯一的 retain/propose/deprecate/supersede 决定，`spec.closed` 保存逐项决定、计数与 proposed ids；读取失败或截断明确写 `unchecked`，proposal issue 只由随后的 retro 创建。
+9. `summary` 后始终在当前 spec 写出一个 `spec.retroed` event；每条运行 finding 都能跳到 ticket event 或 commit；普通 worker prompt 不读取该 event。
+10. 下一份 spec 的 retro 能从较早 `spec.retroed` 取回第一次出现的问题；两个 specs/nights 的同因 event 在第二次形成一个 proposal，同一事件的多条记录不重复计数。
+11. 上一轮 proposal 只有在找到实际落地证据时显示“已落地”，否则显示“没找到证据”。
+12. intent reconciliation 同时显示 spec expected surface、实际 observed surface 与 gap/未验证。
+13. 两个 `stale reason=invalid` 的同类 finding 形成 reviewer Rule proposal；`fixed-elsewhere` 不算 false positive。
+14. proposal 在正确 repository 创建，初始 label 为 `needs-triage`，未获 owner 批准不改变任何长期载体；retro 重试按 source spec/evidence marker 复用已有 proposal。
+15. owner 批准 toolbox 晋升后，原 repository Memory 保留，固定 id `mmw-toolbox-<source-memory-id>` 在所有 shared repository 可搜索；重复执行仍只有一条。
+16. owner 批准 repository-local skill 后，代表性任务能从 description 发现并执行完整流程，不相关任务只看到 description；该 skill 不被安装到其他 repository。
+17. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
 
 **依据**：本文“共享边界”“阶段二：task 内共享经验”“阶段二收口与阶段三 retro”中的可观察结果。
 
@@ -613,7 +660,7 @@ worker 写/读 task Memory
 
 | 指标 | 记录位置 | 期望方向 |
 | --- | --- | --- |
-| worker start 实际注入的 task Memory 数 | dispatch 输出与 `NIGHT SUMMARY` | 可核对，不设数量目标 |
+| worker start 实际注入的当前 task / 历史 Memory 数 | dispatch 输出与 `NIGHT SUMMARY` | 两组分开记录，可核对，不设数量目标 |
 | 同一已知问题在一个 task 被第二名 worker 重复修复的次数 | ticket event 与 retro | 下降 |
 | retro proposal 的实际落地率 | 下一次 `Previous actions` | 上升；无证据不计落地 |
 | 预防措施落地后同因问题再次出现的次数 | 后续 `spec.retroed` | 下降至 0 |
@@ -629,7 +676,7 @@ worker 写/读 task Memory
 - 阶段二、阶段三分别等待两次实施；
 - 每个 map/spec 建 Space，或把 Working Memory 改成 task bus；
 - 用 ticket title、`## Owns`、整份 spec 或 `--time today` 决定 task scope；
-- `dispatch.sh open` 注入、worker start 的第二次 historical seed、reviewer Memory 注入；
+- `dispatch.sh open` 注入、历史检索结果缓存或 reviewer Memory 注入；
 - 用 Memory、Thread 或 Working Memory 补 retro 的运行证据；
 - bootstrap 全量扫描、`occurrence` 数据层、evidence packet、proposal 去重状态机；
 - 新建 retro 数据库、relay、轮询、queue 或 approval state machine；
