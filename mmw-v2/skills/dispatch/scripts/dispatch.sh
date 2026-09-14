@@ -1755,11 +1755,47 @@ def reason(proc, fallback):
     return text or fallback
 
 
-def render_rule(row):
-    if not isinstance(row, dict):
-        row = {}
-    shown = {name: row.get(name) for name in ("id", "title", "body", "scope", "source")}
-    return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
+FIELDS = ("id", "title", "body", "scope", "source")
+SCOPES = ("global", "owner", "space", "agent")
+
+
+def render_rules(value):
+    if not isinstance(value, dict):
+        return "unavailable: nmem did not return a JSON object"
+    warnings = value.get("warnings", [])
+    if warnings is None:
+        warnings = []
+    if not isinstance(warnings, list):
+        return "unavailable: nmem returned a non-list warnings"
+    for item in warnings:
+        text = str(item)
+        if "Unknown space" in text:
+            return f"unavailable: {text}"
+    active = value.get("active_space")
+    if not isinstance(active, dict):
+        return "unavailable: nmem did not return an active_space JSON object"
+    got = active.get("primary_space_id")
+    if got != space:
+        return f"unavailable: active space is {got}, not {space}"
+    stack = value.get("rule_stack")
+    if not isinstance(stack, dict):
+        return "unavailable: nmem did not return a rule_stack JSON object"
+    rendered = []
+    for name in SCOPES:
+        if name not in stack:
+            return f"unavailable: nmem did not return rule_stack.{name}"
+        rows = stack[name]
+        if not isinstance(rows, list):
+            return f"unavailable: nmem returned a non-list rule_stack.{name}"
+        for row in rows:
+            if not isinstance(row, dict):
+                return f"unavailable: nmem returned a malformed rule_stack.{name} entry"
+            missing = next((field for field in FIELDS if field not in row), None)
+            if missing:
+                return f"unavailable: nmem returned a rule_stack.{name} entry without {missing}"
+            shown = {field: row[field] for field in FIELDS}
+            rendered.append(json.dumps(shown, ensure_ascii=False, separators=(",", ":")))
+    return "\n".join(rendered) if rendered else "none"
 
 
 proc = call(["nmem", "--json", "context", "read",
@@ -1772,22 +1808,7 @@ else:
     except Exception:
         rules = "unavailable: nmem did not return readable JSON"
     else:
-        if not isinstance(value, dict):
-            rules = "unavailable: nmem did not return a JSON object"
-        elif not isinstance(value.get("rule_stack"), dict):
-            rules = "unavailable: nmem did not return a rule_stack JSON object"
-        else:
-            stack = value["rule_stack"]
-            rendered = []
-            malformed = None
-            for name in ("global", "owner", "space", "agent"):
-                rows = stack.get(name, [])
-                if not isinstance(rows, list):
-                    malformed = f"nmem returned a non-list rule_stack.{name}"
-                    break
-                rendered.extend(render_rule(row) for row in rows)
-            rules = f"unavailable: {malformed}" if malformed else (
-                "\n".join(rendered) if rendered else "none")
+        rules = render_rules(value)
 
 prompt = f"""Active reviewer Rules approved for this review:
 {rules}

@@ -167,9 +167,12 @@ elif args[:2] == ["context", "read"]:
     if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "non-object":
         print("[]")
         raise SystemExit(0)
+    space = option("--space")
     print(json.dumps(state.get("context", {
         "schema_version": 1,
         "bundle_kind": "context_bundle",
+        "active_space": {"primary_space_id": space},
+        "warnings": [],
         "rule_stack": {"global": [], "owner": [], "space": [], "agent": []},
     }), sort_keys=True))
 else:
@@ -6532,11 +6535,15 @@ data = json.load(open(path))
 data["context"] = {
     "schema_version": 1,
     "bundle_kind": "context_bundle",
+    "active_space": {"primary_space_id": "o__r"},
+    "warnings": [],
     "working_memory": {"content": "MUST NOT APPEAR IN PROMPT"},
     "owner_profile": {"name": "must-not-appear"},
     "rule_stack": {
         "global": [{"id": "g1", "title": "Global title", "body": "Global body",
-                    "scope": "global", "source": "src-g", "extra": "drop-me"}],
+                    "scope": "global", "source": "src-g", "extra": "drop-me"},
+                   {"id": "g2", "title": "Global title two", "body": "Global body two",
+                    "scope": "global", "source": "src-g2"}],
         "owner": [{"id": "o1", "title": "Owner title", "body": "Owner body",
                    "scope": "owner", "source": "src-o"}],
         "space": [{"id": "s1", "title": "Space title", "body": "Space body",
@@ -6554,6 +6561,7 @@ PY
 reviewer_rule_lines() {
   printf '%s\n' \
     '{"id":"g1","title":"Global title","body":"Global body","scope":"global","source":"src-g"}' \
+    '{"id":"g2","title":"Global title two","body":"Global body two","scope":"global","source":"src-g2"}' \
     '{"id":"o1","title":"Owner title","body":"Owner body","scope":"owner","source":"src-o"}' \
     '{"id":"s1","title":"Space title","body":"Space body","scope":"space","source":"src-s"}' \
     '{"id":"a1","title":"Agent title","body":"Agent body","scope":"agent","source":"src-a"}'
@@ -6619,9 +6627,10 @@ scenario_memory_reviewer_rules() {
   hasnt "Shadowed title"
   hasnt "Must lose"
   python3 -c '
-import os, sys
+import sys
 prompt = sys.argv[1]
-order = [prompt.find(token) for token in ("\"id\":\"g1\"", "\"id\":\"o1\"", "\"id\":\"s1\"", "\"id\":\"a1\"")]
+order = [prompt.find(token) for token in (
+    "\"id\":\"g1\"", "\"id\":\"g2\"", "\"id\":\"o1\"", "\"id\":\"s1\"", "\"id\":\"a1\"")]
 assert all(i >= 0 for i in order), prompt
 assert order == sorted(order), order
 ' "$prompt" || fail "Rules were not injected in global-owner-space-agent order: $prompt"
@@ -6661,6 +6670,7 @@ scenario_memory_reviewer_prompt_states() {
     || fail "unavailable state is missing or duplicated: $prompt"
   case "$prompt" in *$'\n'"none"$'\n'*) fail "unavailable prompt also rendered none: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: Nowledge Mem unavailable"
+  assert_reviewer_context_call
 
   echo "--- an unreadable Context Bundle is unavailable, not none"
   reset_log; fresh_repo
@@ -6670,6 +6680,91 @@ scenario_memory_reviewer_prompt_states() {
   case "$prompt" in *$'\n'"none"$'\n'*) fail "unreadable prompt rendered none: $prompt" ;; esac
   case "$prompt" in *"unavailable: nmem did not return readable JSON"*) ;; *) fail "unreadable JSON was silent: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: nmem did not return readable JSON"
+  assert_reviewer_context_call
+
+  echo "--- an unknown repository Space is unavailable, not none"
+  reset_log; fresh_repo
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["context"] = {
+    "active_space": {"primary_space_id": "default"},
+    "warnings": ["Unknown space: o__r"],
+    "rule_stack": {"global": [], "owner": [], "space": [], "agent": []},
+}
+json.dump(data, open(path, "w"), sort_keys=True)
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "unknown Space should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *$'\n'"none"$'\n'*) fail "unknown Space rendered none: $prompt" ;; esac
+  assert_complete_reviewer_prompt "unavailable: Unknown space: o__r"
+  assert_reviewer_context_call
+
+  echo "--- a Context Bundle whose active Space is not the requested repository Space is unavailable"
+  reset_log; fresh_repo
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["context"] = {
+    "active_space": {"primary_space_id": "default"},
+    "warnings": [],
+    "rule_stack": {"global": [], "owner": [], "space": [], "agent": []},
+}
+json.dump(data, open(path, "w"), sort_keys=True)
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "mismatched Space should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *$'\n'"none"$'\n'*) fail "mismatched Space rendered none: $prompt" ;; esac
+  assert_complete_reviewer_prompt "unavailable: active space is default, not o__r"
+  assert_reviewer_context_call
+
+  echo "--- a missing rule_stack scope is unavailable, not an empty Rule set"
+  reset_log; fresh_repo
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["context"] = {
+    "active_space": {"primary_space_id": "o__r"},
+    "warnings": [],
+    "rule_stack": {"owner": [], "space": [], "agent": []},
+}
+json.dump(data, open(path, "w"), sort_keys=True)
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "missing scope should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *$'\n'"none"$'\n'*) fail "missing scope rendered none: $prompt" ;; esac
+  assert_complete_reviewer_prompt "unavailable: nmem did not return rule_stack.global"
+  assert_reviewer_context_call
+
+  echo "--- a malformed Rule entry is unavailable, not invented null fields"
+  reset_log; fresh_repo
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["context"] = {
+    "active_space": {"primary_space_id": "o__r"},
+    "warnings": [],
+    "rule_stack": {
+        "global": [{"title": "No id", "body": "b", "scope": "global", "source": "s"}],
+        "owner": [], "space": [], "agent": [],
+    },
+}
+json.dump(data, open(path, "w"), sort_keys=True)
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "malformed Rule should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *'"id":null'*) fail "malformed Rule invented a null id: $prompt" ;; esac
+  case "$prompt" in *$'\n'"none"$'\n'*) fail "malformed Rule rendered none: $prompt" ;; esac
+  assert_complete_reviewer_prompt "unavailable: nmem returned a rule_stack.global entry without id"
+  assert_reviewer_context_call
 }
 
 scenario_memory_reviewer_contract() {
