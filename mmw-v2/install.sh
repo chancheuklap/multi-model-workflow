@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把八样东西装到本机，让每个 host 都读得到：
+# 把九样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
 #   hook              drive-target 的 hook.py 与 dispatch 的 turn-guard.py，写进各 host 自己的配置
@@ -12,6 +12,8 @@
 #                     或把同目录遗留的 models.md 一次性导入后删除；已有 JSON 不覆盖。
 #   Orca 侧工作树     有 orca 时：每个 setup 的 worktree-base-path 为 .worktrees；
 #                     Git repo 的 externalWorktreeVisibility 为 show。没有 orca 则跳过。
+#   Nowledge Mem 对象  strict 的 mmw-toolbox Space；mmw-worker、mmw-reviewer 两个 Identity，
+#                     都不改 default Space。没有 nmem 时 --check 明说没查，但不因此失败。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
@@ -1618,6 +1620,115 @@ for path in adapters:
 sys.exit(1 if failed else 0)
 PY
 fi
+
+# Nowledge Mem 的共享对象。Identity 只写来源角色，不改它的 default Space；repository
+# Space 由 dispatch.sh open 建立，这里只建立所有 repository 都会共享的 Toolbox Space。
+MMW_MODE="$mode" python3 - <<'PY' || rc=1
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+mode = os.environ["MMW_MODE"]
+
+if shutil.which("nmem") is None:
+    if mode == "check":
+        sys.stderr.write("没查  Nowledge Mem objects（本机没有 nmem）\n")
+    raise SystemExit(0)
+
+
+def call(args):
+    return subprocess.run(["nmem", "--json", *args], text=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def parse(proc, label):
+    if proc.returncode:
+        detail = (proc.stderr or proc.stdout or f"exit {proc.returncode}").strip().replace("\n", "; ")
+        sys.stderr.write(f"没查  Nowledge Mem objects：{label} 失败（{detail}）\n")
+        raise SystemExit(1)
+    try:
+        value = json.loads(proc.stdout)
+    except Exception as exc:
+        sys.stderr.write(f"没查  Nowledge Mem objects：{label} 没给出合法 JSON（{exc}）\n")
+        raise SystemExit(1)
+    if not isinstance(value, dict):
+        sys.stderr.write(f"没查  Nowledge Mem objects：{label} 没给出 object\n")
+        raise SystemExit(1)
+    return value
+
+
+def missing_space(proc):
+    text = (proc.stderr or "") + (proc.stdout or "")
+    return proc.returncode != 0 and "404" in text and "Unknown space:" in text
+
+
+def missing_agent(proc):
+    if proc.returncode == 0:
+        return False
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        return False
+    return isinstance(value, dict) and value.get("error") == "not_found"
+
+
+def exact_space(value):
+    return (value.get("id") == "mmw-toolbox"
+            and value.get("name") == "MMW Toolbox"
+            and value.get("defaultRetrievalMode") == "strict"
+            and value.get("sharedSpaceIds") == [])
+
+
+def exact_agent(value, ident, name, role):
+    return (value.get("id") == ident and value.get("displayName") == name
+            and value.get("role") == role and value.get("defaultSpaceId") == "default")
+
+
+space = call(["spaces", "show", "mmw-toolbox"])
+if missing_space(space):
+    if mode == "check":
+        sys.stderr.write("缺    Nowledge Mem Space mmw-toolbox 不存在：跑一次 install.sh\n")
+        raise SystemExit(1)
+    created = call(["spaces", "create", "MMW Toolbox", "--id", "mmw-toolbox",
+                    "--retrieval-mode", "strict"])
+    if created.returncode:
+        parse(created, "nmem spaces create mmw-toolbox")
+    value = parse(call(["spaces", "show", "mmw-toolbox"]),
+                  "nmem spaces show mmw-toolbox after create")
+    if not exact_space(value):
+        sys.stderr.write("缺    Nowledge Mem Space mmw-toolbox 建立后形状不对\n")
+        raise SystemExit(1)
+    print("已装  Nowledge Mem Space mmw-toolbox")
+else:
+    value = parse(space, "nmem spaces show mmw-toolbox")
+    if not exact_space(value):
+        sys.stderr.write("缺    Nowledge Mem Space mmw-toolbox 应为 MMW Toolbox / strict / 不共享其他 Space\n")
+        raise SystemExit(1)
+
+for ident, name, role in (("mmw-worker", "MMW Worker", "worker"),
+                          ("mmw-reviewer", "MMW Reviewer", "reviewer")):
+    agent = call(["agents", "show", ident])
+    if missing_agent(agent):
+        if mode == "check":
+            sys.stderr.write(f"缺    Nowledge Mem Identity {ident} 不存在：跑一次 install.sh\n")
+            raise SystemExit(1)
+        enrolled = call(["agents", "enroll", ident, "--name", name, "--role", role])
+        if enrolled.returncode:
+            parse(enrolled, f"nmem agents enroll {ident}")
+        value = parse(call(["agents", "show", ident]),
+                      f"nmem agents show {ident} after enroll")
+        if not exact_agent(value, ident, name, role):
+            sys.stderr.write(f"缺    Nowledge Mem Identity {ident} 建立后形状不对\n")
+            raise SystemExit(1)
+        print(f"已装  Nowledge Mem Identity {ident}")
+    else:
+        value = parse(agent, f"nmem agents show {ident}")
+        if not exact_agent(value, ident, name, role):
+            sys.stderr.write(f"缺    Nowledge Mem Identity {ident} 的 name、role 或 default Space 不对\n")
+            raise SystemExit(1)
+PY
 
 # Cursor 的 Nowledge Mem MCP 一条：~/.cursor/mcp.json 里 mcpServers.nowledge-mem。
 # 条目内容问本机的 nmem 要（`nmem config mcp show --host cursor`),因为 URL 与 header 跟着

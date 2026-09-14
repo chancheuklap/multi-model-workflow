@@ -452,6 +452,81 @@ repo_slug() {
   printf '%s\n' "$slug"
 }
 
+# Make this repository's Memory boundary explicit before a night opens. A failed
+# Nowledge call is reported and the rest of `open` continues; only a confirmed 404 is
+# absence, so an unavailable service never triggers a create as a substitute.
+ensure_repository_memory() {
+  local slug="$1"
+  MMW_REPOSITORY_SLUG="$slug" python3 - <<'PY'
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+slug = os.environ["MMW_REPOSITORY_SLUG"]
+parts = slug.split("/", 1)
+if len(parts) != 2 or not all(parts):
+    sys.stderr.write(f"dispatch: repository Memory unavailable: {slug!r} is not owner/name\n")
+    raise SystemExit(1)
+ident = "__".join(part.lower() for part in parts)
+
+if shutil.which("nmem") is None:
+    sys.stderr.write("dispatch: repository Memory unavailable: this machine has no nmem\n")
+    raise SystemExit(1)
+
+
+def call(args):
+    return subprocess.run(["nmem", "--json", *args], text=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def detail(proc):
+    return (proc.stderr or proc.stdout or f"exit {proc.returncode}").strip().replace("\n", "; ")
+
+
+def parse(proc):
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def exact(value):
+    return (isinstance(value, dict) and value.get("id") == ident
+            and value.get("name") == slug
+            and value.get("defaultRetrievalMode") == "shared"
+            and value.get("sharedSpaceIds") == ["mmw-toolbox"])
+
+
+shown = call(["spaces", "show", ident])
+if shown.returncode:
+    missing = "404" in (shown.stderr or "") and "Unknown space:" in (shown.stderr or "")
+    if not missing:
+        sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces show {ident} failed ({detail(shown)})\n")
+        raise SystemExit(1)
+    changed = call(["spaces", "create", slug, "--id", ident,
+                    "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"])
+    action = "create"
+else:
+    value = parse(shown)
+    if exact(value):
+        raise SystemExit(0)
+    changed = call(["spaces", "update", ident, "--name", slug,
+                    "--retrieval-mode", "shared", "--clear-shared",
+                    "--share-with", "mmw-toolbox"])
+    action = "update"
+
+verified = call(["spaces", "show", ident]) if changed.returncode == 0 else changed
+value = parse(verified)
+if changed.returncode or verified.returncode or not exact(value):
+    why = detail(changed) if changed.returncode else (detail(verified) if verified.returncode else "the stored JSON has the wrong shape")
+    sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces {action} {ident} failed ({why})\n")
+    raise SystemExit(1)
+PY
+}
+
 # The runner and session this process itself runs in, "runner<TAB>session", as that
 # runner's adapter reads it (`self`). The innermost runner is asked first: an agent Paseo
 # runs can sit in a terminal of Herdr or Orca, and Herdr can run inside an Orca terminal;
@@ -765,7 +840,7 @@ sync_base_with_project() {
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
-  local spec="$1" root into opened runner session how rows project board
+  local spec="$1" root into opened runner session how rows project board repository
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
@@ -775,6 +850,8 @@ open_night() {
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
   push_open_branches "$root" "$rows" || exit 2
   sync_base_with_project "$root" "$into" "$project" || exit 2
+  repository="$(repo_slug)" || exit 2
+  ensure_repository_memory "$repository" || true
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
