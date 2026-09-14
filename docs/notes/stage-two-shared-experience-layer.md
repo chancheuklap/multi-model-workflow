@@ -145,6 +145,37 @@ ticket --native parent--> spec --native parent--> map
 
 **依据**：本机 `nmem 0.10.78` CLI、Context Bundle、Working Memory API 与 Codex connector 的实际行为；隔离实验验证 `list` 不扩到 shared Space、`search` 会扩展、`move` 会从原 Space 移除记录。
 
+#### Memory record 与 label 的实际结构
+
+Nowledge Mem 的一条 Memory 只有一个扁平的 labels 集合，集合中的每一项都是实际写入的 label 字符串。label 的用途只在下表说明，不形成额外字段。本方案使用下面六种 label 字符串格式：
+
+| 实际 label | 出现在哪种 Memory | 用途 |
+| --- | --- | --- |
+| `mmw-experience` | repository Worker Memory；`mmw-toolbox` copy | 让 worker 的历史 semantic search 只取可复用执行经验 |
+| `mmw-retro` | repository Retro Memory | 让 retro 只搜索较早的完整 retro 记录 |
+| `mmw-toolbox-approved` | `mmw-toolbox` copy | 表明该 copy 已由 owner 批准进入 toolbox |
+| `mmw-map-<map number>` | map 下的 Worker Memory | 让同一 map 下所有 specs 的 workers 精确列出当前 task 经验 |
+| `mmw-spec-<spec number>` | 所有 Worker Memory | 让 closing pass 只列出当前 spec 的 Worker Memory；standalone spec 中它同时也是 task scope |
+| `mmw-ticket-<ticket number>` | 所有 Worker Memory | 保留产生该经验的 ticket 来源 |
+
+四种实际 Memory record 形状的完整 labels 集合是：
+
+```text
+map 下的 Worker Memory
+{mmw-experience, mmw-map-<map>, mmw-spec-<spec>, mmw-ticket-<ticket>}
+
+standalone spec 下的 Worker Memory
+{mmw-experience, mmw-spec-<spec>, mmw-ticket-<ticket>}
+
+Retro Memory
+{mmw-retro}
+
+mmw-toolbox copy
+{mmw-experience, mmw-toolbox-approved}
+```
+
+standalone spec 的 `mmw-spec-<spec>` 同时承担当前 task 精确列举和 closing pass 按 spec 列举，两次用途仍是同一个字符串，只写入一次。Working Memory、Thread 和 active Rule 不使用这套 Memory labels。
+
 ## 二、阶段二：task 内共享经验
 
 ### 3. worker 启动时主动注入
@@ -267,17 +298,23 @@ worker 在以下三项都成立时立即写，不等 closeout：
 2. 已由实际命令结果或当前权威文件证实；
 3. 只读 ticket 和代码不能立即得知。
 
-写入命令是：
+写入时先构造不重复的 label 参数。map 下增加 `mmw-map-<map>`；standalone spec 不增加另一条 task label，因为 `mmw-spec-<spec>` 已经同时是它的 task scope：
 
 ```sh
+label_args=(
+  --label mmw-experience
+  --label "mmw-spec-$MMW_SPEC"
+  --label "mmw-ticket-$MMW_TICKET"
+)
+if [[ "$MMW_TASK_SCOPE" == mmw-map-* ]]; then
+  label_args+=(--label "$MMW_TASK_SCOPE")
+fi
+
 nmem --json memories add --stdin \
   --space "$NMEM_SPACE" \
   --agent-id "$NMEM_AGENT_ID" \
   --unit-type learning \
-  --label mmw-experience \
-  --label "$MMW_TASK_SCOPE" \
-  --label "mmw-spec-$MMW_SPEC" \
-  --label "mmw-ticket-$MMW_TICKET" \
+  "${label_args[@]}" \
   --title "<searchable title>"
 ```
 
@@ -291,7 +328,7 @@ Memory 正文固定使用 Artifact 2.1 的五项内容；字段名避免与 MMW 
 发生位置：<repository、spec #n、ticket #n、日期>
 ```
 
-“适用条件”防止旧环境经验被无条件套用，“有效做法”让下一名 worker 可以直接行动，“发生位置”保留来源与时间；不另造 provenance schema。默认 unit type 是 `learning`；固定操作步骤使用 `procedure`。适合写的是不稳定测试、工具的非显然行为、环境修法和测试前提。普通实现细节、ticket 状态、未经验证的推测、用户决定、凭据和客户数据不写。Space、Identity、task/spec/ticket labels 已提供 repository、角色和工作来源。
+“适用条件”防止旧环境经验被无条件套用，“有效做法”让下一名 worker 可以直接行动，“发生位置”保留来源与时间；不另造 provenance schema。默认 unit type 是 `learning`；固定操作步骤使用 `procedure`。适合写的是不稳定测试、工具的非显然行为、环境修法和测试前提。普通实现细节、ticket 状态、未经验证的推测、用户决定、凭据和客户数据不写。Space 和 Identity 提供 repository 与角色来源；`mmw-map-*`、`mmw-spec-*`、`mmw-ticket-*` 保留任务层级来源。
 
 同一事实发生变化时不覆写历史：新 Memory 已证实旧 Memory 错误时使用 supersede；旧经验只是不再适用时使用 deprecate。普通 repository Memory 的写入与纠正不等待 owner 批准，因为等待会使并行 agent 继续重复遇到同一问题。
 
