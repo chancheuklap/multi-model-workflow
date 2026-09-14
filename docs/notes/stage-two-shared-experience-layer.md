@@ -8,7 +8,7 @@
 
 ## 方案总览
 
-阶段二与阶段三作为一条反馈闭环共同实施：阶段二让 worker 在同一 task 内直接写入和取得已证实的经验；阶段三在每份 spec 的 `summary` 之后复盘 ticket event 与 `git log`，把跨 ticket 或跨 night 第二次出现的问题提议为自动检查、reviewer Rule、repository `AGENTS.md` Gotchas、repository script、MMW skill 或 `mmw-toolbox` Memory。owner 批准后的结果在后续 worker、reviewer 或检查中生效。
+阶段二与阶段三作为一条反馈闭环共同实施：阶段二让 worker 在同一 task 内直接写入和取得已证实的经验；阶段三在每份 spec 的 `summary` 之后复盘 ticket event 与 `git log`，把跨 ticket 或跨 night 第二次出现的问题，以及一次就实际阻塞工作的 Memory proposal candidate，提议为自动检查、reviewer Rule、repository `AGENTS.md` Gotchas、repository script、repository-local skill、MMW skill 或 `mmw-toolbox` Memory。owner 批准后的结果在后续 worker、reviewer 或检查中生效。
 
 task root 按以下规则解析：spec 有 native map parent 时，map 是 task root；spec 没有 map parent 时，该 standalone spec 自己就是 task root。一个 map 可以拆成多份 spec 并行执行，这些 spec 下的 worker 和 reviewer 使用同一个 task scope；standalone spec 下的全部 ticket 使用该 spec 的 task scope。task root 决定执行时谁共享经验，不限制阶段三在 repository 内识别跨 task、跨 night 的重复问题。
 
@@ -322,21 +322,25 @@ reviewer 仍独立读取 ticket、spec、repository authority 与 diff，并重�
 
 ### 9. Thread、Working Memory 与跨夜检索
 
-阶段二保留 Nowledge Mem 的原生跨夜链路：
+跨夜信息通过三条彼此独立的路径进入 agent；只有第一条和第二条是阶段二的确定路径。
 
-```text
-worker/reviewer session
-  → 已启用的 connector 以 NMEM_SPACE 保存 Thread 到 repository Space
-  → Nowledge 后台整理与异步蒸馏
-  → repository Working Memory 在后续 session start 提供宽背景
-  → 后续 agent 遇到具体问题时检索显式 Memory
-```
+#### 同一 task 的显式送达
 
-这条链路提供“下一夜的宽背景”，不负责“同一夜立即广播”。没有安装或启用 connector 时它可以缺席；显式 Memory 仍然保存在 repository Space，后续 night 仍可按具体问题搜索。同夜确定性由 worker 直接写显式 Memory、dispatch 在每次 start 精确列举、运行中 agent 按具体问题主动搜索共同保证。
+Memory 写入 repository Space 后会一直保留，不因 night 结束而消失。下一夜如果启动的 worker 仍属于同一 task root，`dispatch.sh start <ticket> worker` 会按 `mmw-map-<n>` 或 `mmw-spec-<n>` 执行 `memories list`，把完整结果直接写进首次 prompt。这是“跨夜记忆给到 agent”的主要路径，也是唯一不要求 agent 先意识到问题的历史 Memory 路径。
 
-完整 Thread 是事后证据，不直接塞给并行 agent。Working Memory 是整个 repository Space 的简报，可能同时包含多个 map 和 standalone spec；它只提供宽背景，不能作为 task root 检索结果。后台蒸馏即使较慢或没有发生，也不影响显式 Memory 的同夜传播。
+#### 不同 task 的按需检索
 
-后续 task 查历史经验时，先用具体问题在 repository Space 搜 `mmw-experience`。shared retrieval 会同时查 repository 与 `mmw-toolbox`；仍然不会查其他客户 repository 或 Default。阶段二不自建 Thread 摘要器、Working Memory patch、map Working Memory 或实时同步层。
+新 task 不自动继承旧 task 的 Memory。worker 真正遇到未解释的错误后，以错误、命令和组件执行 `memories search --space <repository> --label mmw-experience`；repository Space 的 shared retrieval 同时搜索本 repository 与 `mmw-toolbox`，但不搜索其他客户 repository 或 Default。命中的旧 Memory 被当前证据核实后使用。这条路径跨 task、跨 map、跨 night，但不会把大量“可能相关”的历史预先注入 prompt。
+
+#### connector 的自动 Context Bundle
+
+支持 session-start 注入的 Nowledge connector 会使用 runner 提供的 `NMEM_SPACE` 和 `NMEM_AGENT_ID` 读取 Context Bundle。自动注入的是：owner/agent Identity 摘要、active Space、适用的 active Rules，以及该 repository Space 当前的一份 Working Memory。它**不会**自动注入任意历史 Memory 的检索结果，也不会把上一夜的完整 Thread 直接放进新会话。
+
+Working Memory 是整个 repository 的异步简报，可能同时包含多个 map 和 standalone spec，不能按 task root 过滤。Claude Code、Codex、Cursor 与 Pi 的 connector 可以在 session start 提供 Context Bundle，但各自有 fallback 差异；Grok 的 passive `SessionStart` 不把正文交给模型。因此本方案只把它当作可选的跨夜宽背景，不用它证明 task Memory 已送达。reviewer 所需的 active Rules 仍由 `dispatch.sh` 读取 `context read --no-working-memory` 后明确放进 review packet，避免 host 差异。
+
+session 结束或 compact 时，已启用的 connector 可以把会话保存为 repository Thread。Thread 是可审计的会话记录；Nowledge 后台以后可能从中蒸馏 Memory 并刷新 Working Memory，但这个过程异步且不保证完成。Thread 本身不自动注入下一名 agent，也不承担同夜或跨夜的确定送达。
+
+所以本方案对 Mem 自动能力的利用只有两项：用 Context Bundle 提供非关键的 repository 宽背景；用 connector capture 保留可供后台整理的 Thread。真正影响工作行为的经验仍走 `dispatch.sh` 的 task Memory 注入、worker 的按需 search 和 reviewer 的 active Rules 注入。阶段二不自建 Thread 摘要器、Working Memory patch、map Working Memory或实时同步层。
 
 **依据**：Artifact 2.1、2.2；Nowledge Mem `Background Intelligence` 与 `Context`。
 
@@ -474,12 +478,17 @@ proposal 只写 Artifact 要求的内容：本例如何处理、怎样防下一�
 | --- | --- | --- |
 | 可机械判断 | `.mmw/target.json`、judge、lint、ticket `CHECK:` 或 repository script | 运行或验收时直接检查 |
 | repository 通用且代码无法推出 | repository `AGENTS.md` 的 Gotchas | 后续 agent 读 repository authority |
+| repository 特有的重复工作方法 | repository-local skill：`SKILL.md`，按需附带 `scripts/`、`references/` 或 `assets/` | description 负责发现；只有任务匹配时才加载并执行完整流程 |
 | reviewer 的稳定方法 | `mmw-reviewer` active Rule | `dispatch.sh start <ticket> reviewer` 从 Context Bundle 的 active `rule_stack` 注入 |
 | MMW pipeline 行为 | 对应 MMW skill、reference 或 script | 新版本安装后的 night 使用 |
 | 跨 repository 有用但不应强制 | 在 `mmw-toolbox` 新建一条泛化后的 Memory，正文回链原 Memory id | repository shared retrieval 按需取得；原 repository Memory 不移动 |
 | 不够稳定或不够通用 | 原 repository Memory | 保持可搜索，不升格 |
 
-能机械执行的内容优先进入 check 或 script；只有无法从代码推得且几乎每项任务都适用的内容才进入 `AGENTS.md`。这些选择分别来自 OpenAI Harness Engineering 与 Augment 的 AGENTS.md/Review Guidelines，不扩展为新的 `CONTEXT.md`、ADR、coding-standard 层或治理系统。
+能机械执行的内容优先进入 check 或 script；只有无法从代码推得且几乎每项任务都适用的短规则才进入 `AGENTS.md`。repository-local skill 用于另一类内容：方法只属于当前 repository，会在多张 ticket 中重复，并且需要多个有顺序的步骤、工具调用、模板或可执行辅助文件；它不该让每个 agent 永久背在 prompt 中，也不值得进入所有 repository 共用的 MMW skill。若内容只是一个事实或偶尔有用的提示，继续留在 repository Memory；若能直接判定对错，写 check/script，不为它包一层 skill。
+
+repository-local skill 只有在 proposal 证明该流程已独立出现两次，或一次就实际阻塞工作且同一 repository 后续还会复用，并能写出明确触发条件、输入、输出和 `Done when` 时才生成。owner 批准后仍走正常 ticket 实现和 review；retro 本身不自动生成 `SKILL.md`。文件放进 consuming repository 已采用的 skill root；没有既有 root 时，实现 ticket 按 Agent Skills 的 `SKILL.md` 标准建立 repository-local skill，并验证当晚选定的 host 能发现它。MMW pipeline 自身的操作才进入 MMW repository 的 skill、reference 或 script。
+
+这些选择来自 Agent Skills 的 progressive disclosure、OpenAI Harness Engineering 与 Augment 的 AGENTS.md/Review Guidelines，不扩展为新的 `CONTEXT.md`、ADR、coding-standard 层或治理系统。
 
 Rule 与 toolbox Memory 直接使用现有 Nowledge 接口：
 
@@ -561,7 +570,7 @@ worker 写/读 task Memory
 
 #### D. owner approval 与证明
 
-9. 批准后的改变继续走现有 triage、`to-spec`、`to-tickets`、worker、review、closeout 和 landing；新建 toolbox Memory 或激活 Rule 时也在 proposal 留下实际 id。
+9. 批准后的改变继续走现有 triage、`to-spec`、`to-tickets`、worker、review、closeout 和 landing；生成 repository-local skill 时验证触发、完整流程与当晚 host 的发现结果，新建 toolbox Memory 或激活 Rule 时在 proposal 留下实际 id。
 10. 按 repository 规则更新 Tickets/Night/Memory contexts、dispatch reference、upstream merge-note 和必要的 downstream-note。
 11. 测试覆盖 install、dispatch、runner、map/standalone scope、review category、stale reason、retro event、proposal repository/label 和跨 night 重复。
 
@@ -595,7 +604,8 @@ worker 写/读 task Memory
 12. 两个 `stale reason=invalid` 的同类 finding 形成 reviewer Rule proposal；`fixed-elsewhere` 不算 false positive。
 13. proposal 在正确 repository 创建，初始 label 为 `needs-triage`，未获 owner 批准不改变任何长期载体；retro 重试按 source spec/evidence marker 复用已有 proposal。
 14. owner 批准 toolbox 晋升后，原 repository Memory 保留，固定 id `mmw-toolbox-<source-memory-id>` 在所有 shared repository 可搜索；重复执行仍只有一条。
-15. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
+15. owner 批准 repository-local skill 后，代表性任务能从 description 发现并执行完整流程，不相关任务只看到 description；该 skill 不被安装到其他 repository。
+16. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
 
 **依据**：本文“共享边界”“阶段二：task 内共享经验”“阶段二收口与阶段三 retro”中的可观察结果。
 
@@ -645,6 +655,7 @@ worker 写/读 task Memory
 - [Augment Expert Memory](https://docs.augmentcode.com/cosmos/experts-memory)、[Code Review Memory](https://docs.augmentcode.com/cosmos/experts-code-review-memory) 与 [Review Guidelines](https://docs.augmentcode.com/codereview/review-guidelines)：采用强弱信号、review 结果学习、明确 scope 和稳定长期载体；不用 VFS 或专有 guideline 格式。
 - [Devin Session Insights](https://docs.devin.ai/product-guides/session-insights)：支持“工作完成后从真实运行记录提出改进”；MMW 使用 tracker event，不复制 transcript 分析系统。
 - [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/) 与 [Codex Best Practices](https://developers.openai.com/codex/learn/best-practices)：采用“同类错误第二次进入长期预防”和“可执行 rule 进入 code/check”；不用后台 agent 或 quality-score 系统。
+- [Agent Skills specification](https://agentskills.io/specification)：采用 `SKILL.md`、按需加载的 progressive disclosure，以及可选的 `scripts/`、`references/`、`assets/` 结构；只用于确实需要重复流程的 repository-local skill。
 - [Anthropic AI-native SDLC](https://claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle)：采用“bug class 回到长期指导”的反馈原则；不增加 reviewer 或 shadow mode。
 - `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 的 `## Steps` 与 `### Implementation vs Review`：只复用 Navigation、Automated checks、Coding standards、Global `AGENTS.md`、Tool economy、No-ops 和 Information access 这些改进目的地；分析范围改为一份 spec night 的完整 tracker evidence。
 

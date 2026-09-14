@@ -164,7 +164,7 @@
       <path class="edge-accent" d="M 496 364 H 568" marker-end="url(#life-accent)"/>
       <rect class="mask" x="488" y="336" width="168" height="18"/><text class="label-accent" x="572" y="349" text-anchor="middle">proposed Memory ids</text>
       <path class="edge-accent" d="M 872 332 H 904 Q 912 332 912 324 V 214 Q 912 206 920 206 H 952" marker-end="url(#life-accent)"/>
-      <rect class="mask" x="864" y="254" width="104" height="18"/><text class="label-accent" x="916" y="267" text-anchor="middle">重复 ≥ 2</text>
+      <rect class="mask" x="840" y="254" width="152" height="18"/><text class="label-accent" x="916" y="267" text-anchor="middle">两个门槛见图 4</text>
       <rect class="focal" x="952" y="146" width="264" height="88" rx="8"/>
       <text class="name" x="1084" y="176" text-anchor="middle">needs-triage proposal</text>
       <text class="sub" x="1084" y="202" text-anchor="middle">source / evidence marker 防重</text>
@@ -173,121 +173,215 @@
       <rect class="node" x="952" y="282" width="264" height="80" rx="7"/>
       <text class="name" x="1084" y="312" text-anchor="middle">owner 决定</text>
       <text class="sub" x="1084" y="338" text-anchor="middle">批准 → 正常 ticket；拒绝 → 不改变</text>
-      <line class="edge" x1="1084" y1="362" x2="1084" y2="410" marker-end="url(#life-arrow)"/>
-      <rect class="focal" x="952" y="410" width="264" height="102" rx="8"/>
-      <text class="name" x="1084" y="440" text-anchor="middle">长期载体</text>
-      <text class="sub" x="1084" y="466" text-anchor="middle">check / authority / reviewer Rule</text>
-      <text class="sub" x="1084" y="488" text-anchor="middle">MMW skill / 新建 mmw-toolbox Memory</text>
-      <path class="edge-link" d="M 1084 512 V 584 H 164 V 404" marker-end="url(#life-link)"/>
+      <line class="edge" x1="1084" y1="362" x2="1084" y2="366" marker-end="url(#life-arrow)"/>
+      <rect class="focal" x="952" y="366" width="264" height="164" rx="8"/>
+      <text class="name" x="1084" y="392" text-anchor="middle">长期载体</text>
+      <text class="sub" x="1084" y="416" text-anchor="middle">check / script — 自动执行</text>
+      <text class="sub" x="1084" y="436" text-anchor="middle">AGENTS.md / Rule — 作用域内常驻</text>
+      <text class="sub" x="1084" y="456" text-anchor="middle">repository skill — 本仓库按需加载</text>
+      <text class="sub" x="1084" y="476" text-anchor="middle">MMW skill — pipeline 跨仓库</text>
+      <text class="sub" x="1084" y="496" text-anchor="middle">toolbox Memory — 有问题时召回</text>
+      <text class="micro" x="1084" y="516" text-anchor="middle">skill 只在可复用的多步骤流程时生成</text>
+      <path class="edge-link" d="M 1084 530 V 584 H 164 V 404" marker-end="url(#life-link)"/>
       <rect class="mask" x="500" y="568" width="420" height="20"/>
       <text class="label-link" x="710" y="582" text-anchor="middle">后续 task 使用；后续 retro 再验证同一问题是否复发</text>
     </svg>
   </figure>
 
   <figure id="retro">
-    <figcaption><span class="kicker">04 · 图 3 的 retro 节点</span><h2>retro 怎样从证据形成结果</h2><span class="question">只展开内部判断；proposal 之后的 owner 路径回到图 3</span></figcaption>
-    <div class="sourcebar">依据：Artifact 3.1 · BMAD retrospective · reviewer.reported event 与 route 结果</div>
-    <svg viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="retro-title retro-desc">
-      <title id="retro-title">retro 的证据、分析和记录结构</title>
-      <desc id="retro-desc">retro 从 ticket event、review route、git log、较早的 spec.retroed 和 spec intent 形成有来源的 finding，核对上一轮行动、意图和 review 结果，并写入 spec.retroed；只有同一原因有两个独立来源时才创建 proposal。</desc>
-      <defs><marker id="retro-arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#4f5d75"/></marker><marker id="retro-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#eb6c36"/></marker></defs>
-      <rect width="1280" height="640" fill="#f5f5f5"/>
-      <rect class="zone" x="32" y="64" width="360" height="508" rx="8"/>
-      <rect class="zone" x="416" y="64" width="392" height="508" rx="8"/>
-      <rect class="zone" x="832" y="64" width="416" height="508" rx="8"/>
-      <rect class="mask" x="48" y="68" width="144" height="20"/><text class="micro" x="120" y="82" text-anchor="middle">输入 · 来源分工</text>
-      <rect class="mask" x="432" y="68" width="176" height="20"/><text class="micro" x="520" y="82" text-anchor="middle">判断 · 不新增数据层</text>
-      <rect class="mask" x="848" y="68" width="152" height="20"/><text class="micro" x="924" y="82" text-anchor="middle">输出 · 写回 spec</text>
+    <figcaption><span class="kicker">04 · 完整 retro 合同</span><h2>从 spec.closed 到证据、判断和持久结果</h2><span class="question">本图完整表达 retro；proposal 之后的 owner 路径见图 3</span></figcaption>
+    <div class="sourcebar">依据：Artifact 2.3、3.1 · NIGHT SUMMARY decision manifest · ticket event fold · git log · 较早 spec.retroed</div>
+    <svg viewBox="0 0 1280 960" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="retro-title retro-desc">
+      <title id="retro-title">完整的 retro 输入、判断、输出和重试合同</title>
+      <desc id="retro-desc">每份 spec 在 summary 后运行 retro；它读取当前 ticket event、git log、历史 spec.retroed、spec intent 和 Memory proposal candidate，形成有来源的 finding，分别应用 process 与 Memory proposal 门槛，完成 previous action、intent 和 review 对照，始终写 spec.retroed，并在满足条件时复用或创建 needs-triage proposal。</desc>
+      <defs><marker id="retro-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker><marker id="retro-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#eb6c36"/></marker></defs>
+      <rect width="1280" height="960" fill="#f5f5f5"/>
+      <rect class="zone" x="32" y="48" width="1216" height="124" rx="8"/>
+      <rect class="zone" x="32" y="200" width="1216" height="220" rx="8"/>
+      <rect class="zone" x="32" y="448" width="1216" height="284" rx="8"/>
+      <rect class="zone" x="32" y="760" width="1216" height="156" rx="8"/>
 
-      <rect class="store" x="56" y="112" width="312" height="356" rx="8"/>
-      <text class="name" x="212" y="142" text-anchor="middle">证据与意图</text>
-      <rect class="tag" x="76" y="166" width="272" height="46" rx="5"/><text class="name-sm" x="92" y="185">ticket tree + event fold</text><text class="sub" x="92" y="203">bounce · return · HANDOFF · finding</text>
-      <rect class="tag" x="76" y="226" width="272" height="46" rx="5"/><text class="name-sm" x="92" y="245">review + route</text><text class="sub" x="92" y="263">axis · category · path · stale reason</text>
-      <rect class="tag" x="76" y="286" width="272" height="46" rx="5"/><text class="name-sm" x="92" y="305">git log</text><text class="sub" x="92" y="323">merge · closing-pass fix · base revision</text>
-      <rect class="tag" x="76" y="346" width="272" height="46" rx="5"/><text class="name-sm" x="92" y="365">repository 历史</text><text class="sub" x="92" y="383">较早 spec.retroed · proposal 落地证据</text>
-      <rect class="tag" x="76" y="406" width="272" height="46" rx="5"/><text class="name-sm" x="92" y="425">spec intent</text><text class="sub" x="92" y="443">Problem · User Stories · Out of Scope</text>
-      <rect class="optional" x="56" y="484" width="312" height="68" rx="7"/>
-      <text class="name-sm" x="212" y="506" text-anchor="middle">proposed Memory ids 只作 promotion 输入</text>
-      <text class="sub" x="212" y="528" text-anchor="middle">Memory / Thread / Working Memory 不补运行事实</text>
-      <text class="sub" x="212" y="546" text-anchor="middle">来源读不到 → 明写“未检查”</text>
+      <line class="edge" x1="296" y1="116" x2="336" y2="116" marker-end="url(#retro-arrow)"/>
+      <line class="edge" x1="760" y1="116" x2="800" y2="116" marker-end="url(#retro-arrow)"/>
+      <line class="edge" x1="640" y1="172" x2="640" y2="196" marker-end="url(#retro-arrow)"/>
+      <line class="edge-accent" x1="640" y1="420" x2="640" y2="448" marker-end="url(#retro-accent)"/>
+      <path class="edge" d="M 640 552 V 576 H 240 V 596" marker-end="url(#retro-arrow)"/>
+      <line class="edge" x1="640" y1="552" x2="640" y2="596" marker-end="url(#retro-arrow)"/>
+      <path class="edge" d="M 640 576 H 1040 V 596" marker-end="url(#retro-arrow)"/>
+      <path class="edge-accent" d="M 640 732 V 780 H 328 V 796" marker-end="url(#retro-accent)"/>
+      <path class="edge-accent" d="M 640 780 H 952 V 796" marker-end="url(#retro-accent)"/>
 
-      <line class="edge-accent" x1="368" y1="298" x2="448" y2="298" marker-end="url(#retro-accent)"/>
-      <rect class="focal" x="448" y="112" width="328" height="94" rx="8"/>
-      <text class="name" x="612" y="142" text-anchor="middle">形成有来源的 finding</text>
-      <text class="sub" x="612" y="168" text-anchor="middle">source · 本例处置 · 预防下一次</text>
-      <text class="sub" x="612" y="190" text-anchor="middle">同一事件的多条记录只算一次</text>
-      <line class="edge" x1="612" y1="206" x2="612" y2="246" marker-end="url(#retro-arrow)"/>
-      <rect class="node" x="448" y="246" width="328" height="92" rx="7"/>
-      <text class="name" x="612" y="276" text-anchor="middle">比较同一可预防原因</text>
-      <text class="sub" x="612" y="302" text-anchor="middle">相同 path、标题或宽类别都不够</text>
-      <text class="sub" x="612" y="324" text-anchor="middle">proposal 门槛 = 两个独立 event / commit source</text>
-      <line class="edge" x1="612" y1="338" x2="612" y2="378" marker-end="url(#retro-arrow)"/>
-      <rect class="store" x="448" y="378" width="96" height="104" rx="7"/>
-      <text class="name-sm" x="496" y="404" text-anchor="middle">上一轮</text><text class="sub" x="496" y="430" text-anchor="middle">核实际</text><text class="sub" x="496" y="450" text-anchor="middle">落地证据</text>
-      <rect class="store" x="560" y="378" width="104" height="104" rx="7"/>
-      <text class="name-sm" x="612" y="404" text-anchor="middle">intent</text><text class="sub" x="612" y="430" text-anchor="middle">expected</text><text class="sub" x="612" y="450" text-anchor="middle">observed / gap</text>
-      <rect class="store" x="680" y="378" width="96" height="104" rx="7"/>
-      <text class="name-sm" x="728" y="404" text-anchor="middle">review</text><text class="sub" x="728" y="430" text-anchor="middle">invalid ≠</text><text class="sub" x="728" y="450" text-anchor="middle">fixed-elsewhere</text>
-      <rect class="optional" x="448" y="508" width="328" height="36" rx="6"/>
-      <text class="sub" x="612" y="531" text-anchor="middle">没有 event / commit source 的运行 finding 不写入</text>
+      <rect class="mask" x="48" y="52" width="144" height="20"/><text class="micro" x="120" y="66" text-anchor="middle">触发与范围</text>
+      <rect class="mask" x="48" y="204" width="168" height="20"/><text class="micro" x="132" y="218" text-anchor="middle">输入 · 来源分工</text>
+      <rect class="mask" x="48" y="452" width="168" height="20"/><text class="micro" x="132" y="466" text-anchor="middle">判断 · 不新增数据层</text>
+      <rect class="mask" x="48" y="764" width="160" height="20"/><text class="micro" x="128" y="778" text-anchor="middle">持久输出</text>
 
-      <line class="edge-accent" x1="776" y1="298" x2="864" y2="298" marker-end="url(#retro-accent)"/>
-      <rect class="focal" x="864" y="112" width="352" height="250" rx="8"/>
-      <text class="name" x="1040" y="142" text-anchor="middle">spec.retroed event</text>
-      <text class="sub" x="888" y="172">Evidence checked：读过的 ticket 与 commit range</text>
-      <text class="sub" x="888" y="200">Previous actions：已落地 / 没找到证据</text>
-      <text class="sub" x="888" y="228">Findings：来源 + 本例处置 + 预防下一次</text>
-      <text class="sub" x="888" y="256">Intent reconciliation：expected / observed / gap</text>
-      <text class="sub" x="888" y="284">Review learning：真实缺陷 / invalid / fixed-elsewhere</text>
-      <text class="sub" x="888" y="312">Proposals：issue 链接或 none</text>
-      <line class="divider" x1="888" y1="332" x2="1192" y2="332"/>
-      <text class="sub" x="1040" y="352" text-anchor="middle">始终写回；不产生 hold、wake 或 gate</text>
-      <path class="edge-accent" d="M 1040 362 V 408" marker-end="url(#retro-accent)"/>
-      <rect class="node" x="864" y="408" width="352" height="94" rx="7"/>
-      <text class="name" x="1040" y="438" text-anchor="middle">条件输出：needs-triage proposal</text>
-      <text class="sub" x="1040" y="462" text-anchor="middle">只在同一原因有两个独立来源时创建</text>
-      <text class="sub" x="1040" y="480" text-anchor="middle">source / evidence marker 命中则复用</text>
-      <text class="sub" x="1040" y="496" text-anchor="middle">owner 决定与长期载体见图 3</text>
-      <rect class="optional" x="864" y="520" width="352" height="28" rx="5"/>
-      <text class="sub" x="1040" y="539" text-anchor="middle">一次问题仍走 fault / contract / finding / ticket</text>
+      <rect class="store" x="64" y="76" width="232" height="80" rx="6"/>
+      <text class="name" x="180" y="100" text-anchor="middle">spec.closed</text>
+      <text class="sub" x="180" y="124" text-anchor="middle">routes + Memory</text>
+      <text class="sub" x="180" y="144" text-anchor="middle">decision manifest</text>
+      <rect class="focal" x="336" y="72" width="424" height="88" rx="8"/>
+      <text class="name" x="548" y="100" text-anchor="middle">每份 spec 的 summary 成功后运行一次</text>
+      <text class="sub" x="548" y="124" text-anchor="middle">不等待 map siblings；不建立 map-level retro</text>
+      <text class="sub" x="548" y="144" text-anchor="middle">后完成的 sibling 可读较早的 spec.retroed</text>
+      <rect class="node" x="800" y="72" width="416" height="88" rx="7"/>
+      <text class="name" x="1008" y="100" text-anchor="middle">三个范围</text>
+      <text class="sub" x="1008" y="122" text-anchor="middle">本次 = 当前 spec night · 历史 = repository</text>
+      <text class="sub" x="1008" y="144" text-anchor="middle">task root 只界定阶段二 Memory 共享</text>
+
+      <rect class="store" x="56" y="244" width="216" height="108" rx="7"/>
+      <text class="name-sm" x="164" y="272" text-anchor="middle">ticket tree + event fold</text>
+      <text class="sub" x="164" y="296" text-anchor="middle">bounce · return · lost</text>
+      <text class="sub" x="164" y="318" text-anchor="middle">HANDOFF · finding · route</text>
+      <text class="sub" x="164" y="340" text-anchor="middle">checks · final result</text>
+      <rect class="store" x="288" y="244" width="216" height="108" rx="7"/>
+      <text class="name-sm" x="396" y="272" text-anchor="middle">git log</text>
+      <text class="sub" x="396" y="296" text-anchor="middle">ticket merge</text>
+      <text class="sub" x="396" y="318" text-anchor="middle">closing-pass fix</text>
+      <text class="sub" x="396" y="340" text-anchor="middle">base revision</text>
+      <rect class="store" x="520" y="244" width="216" height="108" rx="7"/>
+      <text class="name-sm" x="628" y="272" text-anchor="middle">repository 历史</text>
+      <text class="sub" x="628" y="296" text-anchor="middle">较早 spec.retroed</text>
+      <text class="sub" x="628" y="318" text-anchor="middle">linked proposal</text>
+      <text class="sub" x="628" y="340" text-anchor="middle">重新核对落地证据</text>
+      <rect class="store" x="752" y="244" width="216" height="108" rx="7"/>
+      <text class="name-sm" x="860" y="272" text-anchor="middle">spec intent</text>
+      <text class="sub" x="860" y="296" text-anchor="middle">Problem Statement</text>
+      <text class="sub" x="860" y="318" text-anchor="middle">User Stories</text>
+      <text class="sub" x="860" y="340" text-anchor="middle">Out of Scope</text>
+      <rect class="optional" x="984" y="244" width="240" height="108" rx="7"/>
+      <text class="name-sm" x="1104" y="272" text-anchor="middle">Memory proposal candidate</text>
+      <text class="sub" x="1104" y="296" text-anchor="middle">spec.closed proposed ids</text>
+      <text class="sub" x="1104" y="318" text-anchor="middle">只选择长期载体</text>
+      <text class="sub" x="1104" y="340" text-anchor="middle">不证明运行事实</text>
+      <rect class="optional" x="56" y="372" width="1168" height="28" rx="5"/>
+      <text class="sub" x="640" y="391" text-anchor="middle">运行事实只接受 event / commit；Memory、Thread、Working Memory 不补证据；来源读不到就写“未检查”</text>
+
+      <rect class="focal" x="400" y="476" width="480" height="76" rx="8"/>
+      <text class="name" x="640" y="504" text-anchor="middle">形成有来源的 finding</text>
+      <text class="sub" x="640" y="528" text-anchor="middle">source · 本例处置 · 预防下一次 · 目标长期载体</text>
+      <text class="micro" x="640" y="546" text-anchor="middle">同一 event 多条记录只算一次；path、标题或宽 category 相同都不足以判为同因</text>
+      <rect class="node" x="56" y="600" width="368" height="108" rx="7"/>
+      <text class="name" x="240" y="628" text-anchor="middle">process finding 门槛</text>
+      <text class="sub" x="240" y="650" text-anchor="middle">bounce · HANDOFF · review category · 环境修复</text>
+      <text class="sub" x="240" y="672" text-anchor="middle">同一可预防原因</text>
+      <text class="sub" x="240" y="694" text-anchor="middle">两个独立 event / commit source 才 proposal</text>
+      <rect class="node" x="456" y="600" width="368" height="108" rx="7"/>
+      <text class="name" x="640" y="628" text-anchor="middle">Memory promotion 门槛</text>
+      <text class="sub" x="640" y="650" text-anchor="middle">独立出现两次，或一次就实际阻塞 ticket</text>
+      <text class="sub" x="640" y="672" text-anchor="middle">Memory 只作 carrier candidate</text>
+      <text class="sub" x="640" y="694" text-anchor="middle">proposal 仍引用 source Memory + event / commit</text>
+      <rect class="node" x="856" y="600" width="368" height="108" rx="7"/>
+      <text class="name" x="1040" y="628" text-anchor="middle">每次都完成三个对照</text>
+      <text class="sub" x="1040" y="650" text-anchor="middle">previous action：只认实际落地证据</text>
+      <text class="sub" x="1040" y="672" text-anchor="middle">intent：expected / observed / gap</text>
+      <text class="sub" x="1040" y="694" text-anchor="middle">review：真实缺陷 / invalid / fixed-elsewhere</text>
+
+      <rect class="focal" x="56" y="796" width="544" height="96" rx="8"/>
+      <text class="name" x="328" y="824" text-anchor="middle">始终写 spec.retroed</text>
+      <text class="sub" x="328" y="848" text-anchor="middle">Evidence checked · Previous actions · Findings</text>
+      <text class="sub" x="328" y="868" text-anchor="middle">Intent reconciliation · Review learning · Proposals / none</text>
+      <text class="sub" x="328" y="888" text-anchor="middle">无来源的 finding 不写；不产生 hold、wake 或 gate</text>
+      <rect class="node" x="680" y="796" width="544" height="96" rx="7"/>
+      <text class="name" x="952" y="824" text-anchor="middle">条件输出：needs-triage proposal</text>
+      <text class="sub" x="952" y="848" text-anchor="middle">process：同因独立来源 ≥2 · Memory：≥2 或一次实际阻塞</text>
+      <text class="sub" x="952" y="868" text-anchor="middle">正确 repository · source / evidence marker 命中则复用</text>
+      <text class="sub" x="952" y="888" text-anchor="middle">只提出长期载体；owner 批准前不改变行为</text>
+      <text class="micro" x="640" y="940" text-anchor="middle">重跑：已有 spec.retroed → no-op；已有 marker-matched proposal → 复用链接；没有 proposal 也保留完整 retro</text>
     </svg>
   </figure>
 
   <figure id="time">
-    <figcaption><span class="kicker">05 · 时间与角色</span><h2>同夜确定性、跨夜背景与 reviewer 独立性</h2><span class="question">Memory 不是 event；Working Memory 不是 task bus</span></figcaption>
-    <div class="sourcebar">依据：Artifact 2.1–2.2 · Nowledge Mem Context / Working Memory · reviewer 干净上下文</div>
+    <figcaption><span class="kicker">05 · 跨夜进入路径</span><h2>什么会自动注入，什么由 MMW 主动送达</h2><span class="question">旧 Memory 和旧 Thread 都不会被 connector 自动塞进新会话</span></figcaption>
+    <div class="sourcebar">依据：Nowledge Mem Context Bundle / Threads / Working Memory · 五个 connector 源码 · dispatch task retrieval</div>
     <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="time-title time-desc">
-      <title id="time-title">阶段二的时间尺度和角色信息边界</title>
-      <desc id="time-desc">对比 worker 的同夜显式 Memory 路径、跨夜 Thread 与 Working Memory 路径、tracker 事件唤醒路径，并展示 dispatch 不向 reviewer 注入普通 Memory 检索结果，常驻 review 经验只使用 active Rules。</desc>
+      <title id="time-title">跨夜信息进入 worker 和 reviewer 的三条路径</title>
+      <desc id="time-desc">Context Bundle 在支持的 host 自动提供 Identity、active Space、active Rules 和 repository Working Memory；同一 task 的旧 Memory 由 dispatch 精确列出后写进 worker prompt，不同 task 的历史由 worker 遇到问题时搜索；Thread 只在 session 结束时保存并供后台整理。</desc>
       <defs><marker id="time-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker><marker id="time-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2e5aa8"/></marker><marker id="time-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0,8 3,0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker></defs>
       <rect width="1280" height="720" fill="#f5f5f5"/>
-      <rect class="zone" x="32" y="64" width="760" height="184" rx="8"/><rect class="zone-dashed" x="32" y="280" width="760" height="184" rx="8"/><rect class="zone" x="32" y="496" width="760" height="136" rx="8"/><rect class="zone" x="824" y="64" width="424" height="568" rx="8"/>
-      <rect class="mask" x="48" y="68" width="128" height="16"/><text class="micro" x="112" y="80" text-anchor="middle">同夜 · 确定送达</text><rect class="mask" x="48" y="284" width="152" height="16"/><text class="micro" x="124" y="296" text-anchor="middle">跨夜 · 后台路径</text><rect class="mask" x="48" y="500" width="168" height="16"/><text class="micro" x="132" y="512" text-anchor="middle">立即改变行为</text><rect class="mask" x="840" y="68" width="136" height="16"/><text class="micro" x="908" y="80" text-anchor="middle">reviewer 边界</text>
-      <line class="edge-link" x1="216" y1="156" x2="304" y2="156" marker-end="url(#time-link)"/><line class="edge-link" x1="456" y1="156" x2="544" y2="156" marker-end="url(#time-link)"/><line class="edge" x1="696" y1="156" x2="760" y2="156" marker-end="url(#time-arrow)"/>
-      <line class="edge-async" x1="216" y1="372" x2="304" y2="372" marker-end="url(#time-open)"/><line class="edge-async" x1="456" y1="372" x2="544" y2="372" marker-end="url(#time-open)"/><line class="edge-async" x1="696" y1="372" x2="760" y2="372" marker-end="url(#time-open)"/>
-      <line class="edge" x1="216" y1="568" x2="304" y2="568" marker-end="url(#time-arrow)"/><line class="edge" x1="456" y1="568" x2="544" y2="568" marker-end="url(#time-arrow)"/>
-      <path class="edge-deny" d="M 760 156 H 876"/><line class="xmark" x1="812" y1="148" x2="824" y2="160"/><line class="xmark" x1="824" y1="148" x2="812" y2="160"/>
-      <path class="edge-async" d="M 760 372 H 812 Q 820 372 820 364 V 316 Q 820 308 828 308 H 876" marker-end="url(#time-open)"/>
-      <path class="edge-deny" d="M 876 452 H 824"/><line class="xmark" x1="840" y1="444" x2="852" y2="456"/><line class="xmark" x1="852" y1="444" x2="840" y2="456"/>
+      <rect class="zone-dashed" x="32" y="64" width="1216" height="168" rx="8"/>
+      <rect class="zone" x="32" y="264" width="832" height="304" rx="8"/>
+      <rect class="zone" x="888" y="264" width="360" height="304" rx="8"/>
+      <rect class="zone-dashed" x="32" y="600" width="1216" height="80" rx="8"/>
 
-      <rect class="focal" x="64" y="116" width="152" height="80" rx="6"/><text class="name" x="140" y="144" text-anchor="middle">已证实 Memory</text><text class="sub" x="140" y="164" text-anchor="middle">立即写入</text><text class="sub" x="140" y="180" text-anchor="middle">task/spec/ticket labels</text>
-      <rect class="node" x="304" y="116" width="152" height="80" rx="6"/><text class="name" x="380" y="144" text-anchor="middle">精确列出</text><text class="sub" x="380" y="164" text-anchor="middle">每次 worker start</text><text class="sub" x="380" y="180" text-anchor="middle">0 ≠ unavailable</text>
-      <rect class="node" x="544" y="116" width="152" height="80" rx="6"/><text class="name" x="620" y="144" text-anchor="middle">worker prompt</text><text class="sub" x="620" y="164" text-anchor="middle">仅当前 task Memory</text><text class="sub" x="620" y="180" text-anchor="middle">不轮询</text>
-      <rect class="store" x="712" y="120" width="48" height="72" rx="6"/><text class="name-sm" x="736" y="148" text-anchor="middle">运行中</text><text class="sub" x="736" y="168" text-anchor="middle">worker</text><text class="sub" x="736" y="184" text-anchor="middle">搜索</text>
+      <line class="edge-async" x1="264" y1="148" x2="320" y2="148" marker-end="url(#time-open)"/>
+      <line class="edge-async" x1="560" y1="148" x2="608" y2="148" marker-end="url(#time-open)"/>
+      <line class="edge-async" x1="976" y1="148" x2="1032" y2="148" marker-end="url(#time-open)"/>
+      <line class="edge-link" x1="264" y1="352" x2="320" y2="352" marker-end="url(#time-link)"/>
+      <line class="edge-link" x1="520" y1="352" x2="576" y2="352" marker-end="url(#time-link)"/>
+      <line class="edge" x1="264" y1="488" x2="320" y2="488" marker-end="url(#time-arrow)"/>
+      <line class="edge" x1="520" y1="488" x2="576" y2="488" marker-end="url(#time-arrow)"/>
+      <line class="edge-accent" x1="1068" y1="368" x2="1068" y2="404" marker-end="url(#time-arrow)"/>
+      <line class="edge-async" x1="264" y1="640" x2="320" y2="640" marker-end="url(#time-open)"/>
+      <line class="edge-async" x1="520" y1="640" x2="576" y2="640" marker-end="url(#time-open)"/>
+      <line class="edge-async" x1="840" y1="640" x2="896" y2="640" marker-end="url(#time-open)"/>
 
-      <rect class="optional" x="64" y="332" width="152" height="80" rx="6"/><text class="name" x="140" y="360" text-anchor="middle">Session Thread</text><text class="sub" x="140" y="380" text-anchor="middle">connector 自动保存</text><text class="sub" x="140" y="396" text-anchor="middle">repository Space</text>
-      <rect class="optional" x="304" y="332" width="152" height="80" rx="6"/><text class="name" x="380" y="360" text-anchor="middle">后台整理</text><text class="sub" x="380" y="380" text-anchor="middle">整理 / distill</text><text class="sub" x="380" y="396" text-anchor="middle">无完成时间保证</text>
-      <rect class="optional" x="544" y="332" width="152" height="80" rx="6"/><text class="name" x="620" y="360" text-anchor="middle">Working Memory</text><text class="sub" x="620" y="380" text-anchor="middle">每个 repository Space 一份</text><text class="sub" x="620" y="396" text-anchor="middle">包含多个 task</text>
-      <rect class="optional" x="712" y="336" width="48" height="72" rx="6"/><text class="name-sm" x="736" y="364" text-anchor="middle">后续</text><text class="sub" x="736" y="384" text-anchor="middle">session</text>
+      <rect class="mask" x="48" y="68" width="208" height="20"/><text class="micro" x="152" y="82" text-anchor="middle">connector 自动 Context Bundle</text>
+      <rect class="mask" x="48" y="268" width="176" height="20"/><text class="micro" x="136" y="282" text-anchor="middle">MMW 确定路径</text>
+      <rect class="mask" x="904" y="268" width="152" height="20"/><text class="micro" x="980" y="282" text-anchor="middle">reviewer 用法</text>
+      <rect class="mask" x="48" y="604" width="176" height="20"/><text class="micro" x="136" y="618" text-anchor="middle">connector session 输出</text>
 
-      <rect class="store" x="64" y="536" width="152" height="64" rx="6"/><text class="name" x="140" y="560" text-anchor="middle">contract · fault</text><text class="sub" x="140" y="580" text-anchor="middle">decision child</text>
-      <rect class="node" x="304" y="536" width="152" height="64" rx="6"/><text class="name" x="380" y="560" text-anchor="middle">tracker event</text><text class="sub" x="380" y="580" text-anchor="middle">ticket state</text>
-      <rect class="node" x="544" y="536" width="152" height="64" rx="6"/><text class="name" x="620" y="560" text-anchor="middle">relay 唤醒</text><text class="sub" x="620" y="580" text-anchor="middle">立即协调</text>
+      <rect class="store" x="64" y="108" width="200" height="80" rx="6"/>
+      <text class="name-sm" x="164" y="136" text-anchor="middle">runner environment</text>
+      <text class="sub" x="164" y="158" text-anchor="middle">NMEM_SPACE</text>
+      <text class="sub" x="164" y="178" text-anchor="middle">NMEM_AGENT_ID</text>
+      <rect class="optional" x="320" y="108" width="240" height="80" rx="6"/>
+      <text class="name-sm" x="440" y="136" text-anchor="middle">session-start connector</text>
+      <text class="sub" x="440" y="158" text-anchor="middle">Claude · Codex · Cursor · Pi</text>
+      <text class="sub" x="440" y="178" text-anchor="middle">Grok passive hook 不注入正文</text>
+      <rect class="optional" x="608" y="100" width="368" height="96" rx="7"/>
+      <text class="name" x="792" y="128" text-anchor="middle">自动注入 Context Bundle</text>
+      <text class="sub" x="792" y="150" text-anchor="middle">Identity · active Space · active Rules</text>
+      <text class="sub" x="792" y="170" text-anchor="middle">repository Working Memory</text>
+      <text class="micro" x="792" y="188" text-anchor="middle">不含任意 Memory search results；不含上一夜完整 Thread</text>
+      <rect class="node" x="1032" y="108" width="184" height="80" rx="6"/>
+      <text class="name" x="1124" y="136" text-anchor="middle">agent 宽背景</text>
+      <text class="sub" x="1124" y="158" text-anchor="middle">可缺席 · 不按 task 过滤</text>
+      <text class="sub" x="1124" y="178" text-anchor="middle">不作为送达验收</text>
 
-      <rect class="focal" x="876" y="116" width="320" height="104" rx="8"/><text class="name" x="1036" y="144" text-anchor="middle">MMW review packet</text><text class="sub" x="1036" y="168" text-anchor="middle">普通 Memory 不进入 · 只取 active rule_stack</text><text class="sub" x="1036" y="188" text-anchor="middle">不要求主动搜索普通 Memory</text><text class="sub" x="1036" y="204" text-anchor="middle">独立读取 ticket / authority / checks</text>
-      <rect class="optional" x="876" y="268" width="320" height="104" rx="8"/><text class="name" x="1036" y="296" text-anchor="middle">connector 宽背景</text><text class="sub" x="1036" y="320" text-anchor="middle">repository Working Memory · 后续 session</text><text class="sub" x="1036" y="340" text-anchor="middle">shared toolbox 不合并 · task 不可过滤</text><text class="sub" x="1036" y="356" text-anchor="middle">不承担同夜送达，也不作 review 证据</text>
-      <rect class="store" x="876" y="420" width="320" height="120" rx="8"/><text class="name" x="1036" y="448" text-anchor="middle">始终禁止进入 reviewer</text><text class="sub" x="1036" y="472" text-anchor="middle">worker Thread · 推理过程 · 临时推测</text><text class="sub" x="1036" y="492" text-anchor="middle">自评 · 正确性结论 · acceptance 判决</text><text class="sub" x="1036" y="516" text-anchor="middle">Memory 不能证明实现正确，也不能免除 review axis</text>
-      <line class="divider" x1="32" y1="664" x2="1248" y2="664"/><text class="micro" x="48" y="688">WORKING MEMORY</text><text class="sub" x="188" y="688">repository 每日简报 ≠ task 检索 ≠ 实时 scratchpad</text><text class="micro" x="752" y="688">MEMORY</text><text class="sub" x="824" y="688">参考信息 ≠ authority ≠ tracker state</text>
+      <text class="micro" x="56" y="312">同一 task，跨 night</text>
+      <rect class="focal" x="64" y="320" width="200" height="64" rx="6"/>
+      <text class="name-sm" x="164" y="344" text-anchor="middle">repository Memory</text>
+      <text class="sub" x="164" y="368" text-anchor="middle">持久保存 + task label</text>
+      <rect class="node" x="320" y="320" width="200" height="64" rx="6"/>
+      <text class="name-sm" x="420" y="344" text-anchor="middle">dispatch memories list</text>
+      <text class="sub" x="420" y="368" text-anchor="middle">精确 scope · 核对完整</text>
+      <rect class="node" x="576" y="320" width="232" height="64" rx="6"/>
+      <text class="name-sm" x="692" y="344" text-anchor="middle">下一夜 worker 首次 prompt</text>
+      <text class="sub" x="692" y="368" text-anchor="middle">无需先知道问题 · 确定送达</text>
+
+      <text class="micro" x="56" y="448">不同 task / map，跨 night</text>
+      <rect class="store" x="64" y="456" width="200" height="64" rx="6"/>
+      <text class="name-sm" x="164" y="480" text-anchor="middle">worker 遇到真实问题</text>
+      <text class="sub" x="164" y="504" text-anchor="middle">error + command + component</text>
+      <rect class="node" x="320" y="456" width="200" height="64" rx="6"/>
+      <text class="name-sm" x="420" y="480" text-anchor="middle">memories search</text>
+      <text class="sub" x="420" y="504" text-anchor="middle">repository Space · shared</text>
+      <rect class="node" x="576" y="456" width="232" height="64" rx="6"/>
+      <text class="name-sm" x="692" y="480" text-anchor="middle">repository + mmw-toolbox</text>
+      <text class="sub" x="692" y="504" text-anchor="middle">核对当前证据后采用</text>
+
+      <rect class="focal" x="920" y="296" width="296" height="72" rx="7"/>
+      <text class="name" x="1068" y="320" text-anchor="middle">dispatch</text>
+      <text class="sub" x="1068" y="340" text-anchor="middle">context read --no-working-memory</text>
+      <text class="sub" x="1068" y="360" text-anchor="middle">只解析 active rule_stack</text>
+      <rect class="node" x="920" y="404" width="296" height="120" rx="7"/>
+      <text class="name" x="1068" y="432" text-anchor="middle">MMW review packet</text>
+      <text class="sub" x="1068" y="454" text-anchor="middle">active Rules + ticket / authority / checks</text>
+      <text class="sub" x="1068" y="476" text-anchor="middle">不含 targeted Memory / Thread / WM</text>
+      <text class="micro" x="1068" y="498" text-anchor="middle">connector 的宽背景可能另在会话中</text>
+      <text class="micro" x="1068" y="516" text-anchor="middle">但不作 finding 或 verdict 证据</text>
+
+      <rect class="optional" x="64" y="628" width="200" height="40" rx="5"/>
+      <text class="name-sm" x="164" y="652" text-anchor="middle">session end / compact</text>
+      <rect class="optional" x="320" y="628" width="200" height="40" rx="5"/>
+      <text class="name-sm" x="420" y="652" text-anchor="middle">repository Thread</text>
+      <rect class="optional" x="576" y="620" width="264" height="56" rx="5"/>
+      <text class="name-sm" x="708" y="644" text-anchor="middle">异步整理 / distill</text>
+      <text class="sub" x="708" y="664" text-anchor="middle">没有完成时间保证</text>
+      <rect class="optional" x="896" y="620" width="320" height="56" rx="5"/>
+      <text class="name-sm" x="1056" y="644" text-anchor="middle">以后可能更新 Memory / Working Memory</text>
+      <text class="sub" x="1056" y="664" text-anchor="middle">Thread 本身不自动进入下一名 agent</text>
     </svg>
   </figure>
 
@@ -419,7 +513,7 @@
       <rect class="node" x="464" y="248" width="416" height="128" rx="7"/>
       <text class="name" x="672" y="278" text-anchor="middle">重复问题与 review 学习</text>
       <text class="sub" x="488" y="306">✓ 跨 spec / 跨 night 第二次形成一个 proposal</text>
-      <text class="sub" x="488" y="330">✓ 阶段三一次问题不提议</text>
+      <text class="sub" x="488" y="330">✓ process 单次不提议；Memory 实际阻塞可提议</text>
       <text class="sub" x="488" y="354">✓ invalid 与 fixed-elsewhere 不混淆</text>
       <text class="sub" x="488" y="372">✓ 已知 false positive 只降噪，不静默压制</text>
       <rect class="node" x="464" y="400" width="416" height="128" rx="7"/>
@@ -427,7 +521,7 @@
       <text class="sub" x="488" y="458">✓ needs-triage，无 MMW layer，不自动改</text>
       <text class="sub" x="488" y="482">✓ owner 批准前不改变长期载体</text>
       <text class="sub" x="488" y="506">✓ 关闭无落地证据仍写“没找到证据”</text>
-      <text class="sub" x="488" y="524">✓ 正确 repository · toolbox 固定 id · 后续验证</text>
+      <text class="sub" x="488" y="524">✓ repository skill 按需加载 · toolbox 固定 id</text>
 
       <line class="edge-accent" x1="972" y1="232" x2="972" y2="132" marker-end="url(#proof-up)"/>
       <text class="name-sm" x="996" y="154">Memory 被实际采用</text>
@@ -471,7 +565,7 @@
       </article>
       <article class="source-card">
         <h3>Nowledge Mem</h3>
-        <p><strong>Spaces / Identity / Context / Background Intelligence / CLI</strong>：提供 repository Space、shared retrieval、Memory、Thread、Working Memory、active Rules、supersede / deprecate 与 multi-agent 环境路由。实测 <code>list</code> 只读当前 Space且可能按 limit 截断，<code>search</code> 扩到 shared Space，<code>move</code> 会移出原 Space；toolbox 因此用固定 <code>--id</code> 新建泛化 Memory。</p>
+        <p><strong>Spaces / Identity / Context / Background Intelligence / CLI</strong>：Context Bundle 自动内容只有 Identity、active Space、active Rules 与当前 Space 的 Working Memory，不含任意 Memory 检索结果或旧 Thread。实测 <code>list</code> 只读当前 Space且可能按 limit 截断，<code>search</code> 扩到 shared Space，<code>move</code> 会移出原 Space；toolbox 因此用固定 <code>--id</code> 新建泛化 Memory。</p>
       </article>
       <article class="source-card">
         <h3>参考项目 · capture 与 retrieval</h3>
@@ -483,7 +577,7 @@
       </article>
       <article class="source-card">
         <h3>参考项目 · review 与长期预防</h3>
-        <p><strong>Augment Code Review Memory / Review Guidelines</strong>：review 结果学习与稳定 Rule。<strong>OpenAI Harness Engineering / Codex Best Practices</strong>：同类错误第二次进入长期预防，可执行约束进入 code / check。<strong>Anthropic AI-native SDLC</strong>：bug class 回到长期指导。</p>
+        <p><strong>Augment Code Review Memory / Review Guidelines</strong>：review 结果学习与稳定 Rule。<strong>OpenAI Harness Engineering / Codex Best Practices</strong>：同类错误第二次进入长期预防，可执行约束进入 code / check。<strong>Agent Skills specification</strong>：repository-local skill 用 <code>SKILL.md</code> 与 progressive disclosure 承载按需加载的重复流程。<strong>Anthropic AI-native SDLC</strong>：bug class 回到长期指导。</p>
       </article>
       <article class="source-card">
         <h3>MMW 现有流程与运行边界</h3>
