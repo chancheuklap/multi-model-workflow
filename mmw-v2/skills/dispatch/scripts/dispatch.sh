@@ -1621,7 +1621,7 @@ def record(row, historical=False):
     return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
 
 
-def block(value, error, historical=False, excluded=()):
+def block(value, error, historical=False, excluded=(), show_truncation=False):
     if error:
         return f"unavailable: {error}"
     rows = value["memories"]
@@ -1632,7 +1632,7 @@ def block(value, error, historical=False, excluded=()):
     total = value.get("total", returned)
     if not isinstance(returned, int) or not isinstance(total, int):
         return "unavailable: nmem returned non-numeric total or returned"
-    prefix = f"truncated: {returned}/{total}" if total > returned else ""
+    prefix = f"truncated: {returned}/{total}" if show_truncation and total > returned else ""
     if prefix:
         return "\n".join([prefix, *rendered]) if rendered else prefix
     return "\n".join(rendered) if rendered else "none"
@@ -1682,7 +1682,7 @@ else:
         "--label", "mmw-experience", "--limit", "10"])
     exact_ids = [row.get("id") for row in (listed or {}).get("memories", [])
                  if isinstance(row, dict) and row.get("id")]
-    current = block(listed, list_error)
+    current = block(listed, list_error, show_truncation=True)
     historical = block(searched, search_error, historical=True, excluded=exact_ids)
 
 prompt = f"""Use this repository Space and MMW task scope as the shared experience pipeline
@@ -1734,13 +1734,14 @@ start_one() {
     *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
 
-  local answer grades title spec
+  local answer grades title spec native_spec
   answer="$(read_ticket "$number")"
   case "$answer" in
     "REFUSE "*) refuse "${answer#REFUSE }" ;;
     "") refuse "the tracker did not answer with a readable ticket #$number" ;;
   esac
   { IFS= read -r grades; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
+  native_spec="$spec"
   if [ -n "${MMW_SPEC:-}" ]; then
     spec="$MMW_SPEC"
   fi
@@ -1824,7 +1825,7 @@ start_one() {
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
       repository_space="$(repo_slug)" || exit 2
       repository_space="$(printf '%s' "$repository_space" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
-      memory_packet="$(worker_memory_packet "$number" "$spec" "$repository_space")" || \
+      memory_packet="$(worker_memory_packet "$number" "$native_spec" "$repository_space")" || \
         refuse "could not build the worker Memory packet for #$number"
       task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
         refuse "the worker Memory packet for #$number could not be read"
@@ -1836,7 +1837,7 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
       # malformed native parent graph; inheriting the caller's scope would permit writes
       # into an unrelated task.
       session_environment+=("MMW_TASK_SCOPE=$task_scope")
-      session_environment+=("MMW_SPEC=$spec" "MMW_TICKET=$number") ;;
+      session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number") ;;
     reviewer)
       base="$(base_commit "$root" "$into" "issue-$number")"
       if [ -z "$base" ]; then
