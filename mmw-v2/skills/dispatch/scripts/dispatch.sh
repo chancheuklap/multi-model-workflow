@@ -511,6 +511,12 @@ if shown.returncode:
     action = "create"
 else:
     value = parse(shown)
+    if value is None:
+        sys.stderr.write(
+            f"dispatch: repository Memory unavailable: nmem spaces show {ident} "
+            f"did not return a JSON object ({detail(shown)})\n"
+        )
+        raise SystemExit(1)
     if exact(value):
         raise SystemExit(0)
     changed = call(["spaces", "update", ident, "--name", slug,

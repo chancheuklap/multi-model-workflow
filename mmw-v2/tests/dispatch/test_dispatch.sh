@@ -88,6 +88,13 @@ args = [arg for arg in sys.argv[1:] if arg != "--json"]
 if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "unavailable":
     print("Nowledge Mem unavailable", file=sys.stderr)
     raise SystemExit(1)
+if args[:2] in (["spaces", "show"], ["agents", "show"]):
+    if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "invalid-json":
+        print("not-json")
+        raise SystemExit(0)
+    if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "non-object":
+        print("[]")
+        raise SystemExit(0)
 
 def option(name, default=""):
     try:
@@ -6056,6 +6063,16 @@ scenario_memory_open_space() {
   local code
   echo "--- open creates this repository's shared Space with only mmw-toolbox shared"
   reset_log
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d["spaces"].update({
+    "default": {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]},
+    "else__where": {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]},
+})
+json.dump(d, open(p, "w"), sort_keys=True)
+PY
   fresh_project_night
   git -C "$TMP/repo" push -q -u origin night
   write_open_batch
@@ -6065,9 +6082,16 @@ scenario_memory_open_space() {
   has "nmem :: --json :: spaces :: create :: o/r :: --id :: o__r :: --retrieval-mode :: shared :: --share-with :: mmw-toolbox"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repository Space was not created exactly"
 import json, sys
-row = json.load(open(sys.argv[1]))["spaces"]["o__r"]
+spaces = json.load(open(sys.argv[1]))["spaces"]
+row = spaces["o__r"]
 assert row == {"id":"o__r", "name":"o/r", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, row
+assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
+assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
 PY
+  hasnt "nmem :: --json :: spaces :: update :: default"
+  hasnt "nmem :: --json :: spaces :: update :: else__where"
+  hasnt ":: --id :: default"
+  hasnt ":: --id :: else__where"
   no_relay
 
   echo "--- open repairs a wrong repository Space"
@@ -6079,6 +6103,16 @@ PY
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "repairing open expected 0: $(cat "$TMP/err")"
   has "nmem :: --json :: spaces :: update :: o__r :: --name :: o/r :: --retrieval-mode :: shared :: --clear-shared :: --share-with :: mmw-toolbox"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repair changed an unrelated Space"
+import json, sys
+spaces = json.load(open(sys.argv[1]))["spaces"]
+assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
+assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
+PY
+  hasnt "nmem :: --json :: spaces :: update :: default"
+  hasnt "nmem :: --json :: spaces :: update :: else__where"
+  hasnt ":: --id :: default"
+  hasnt ":: --id :: else__where"
   no_relay
 
   echo "--- open performs no Space write when its shape is already exact"
@@ -6088,11 +6122,17 @@ PY
   has "nmem :: --json :: spaces :: show :: o__r"
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: spaces :: update"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "idempotent open changed an unrelated Space"
+import json, sys
+spaces = json.load(open(sys.argv[1]))["spaces"]
+assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
+assert spaces["else__where"] == {"id":"else__where", "name":"else/where", "defaultRetrievalMode":"shared", "sharedSpaceIds":["mmw-toolbox"]}, spaces
+PY
   no_relay
 }
 
 scenario_memory_space_unavailable() {
-  local code
+  local code bad
   echo "--- an unreadable Nowledge service makes install --check fail explicitly and causes no fallback write"
   reset_log
   seed_orca_projects 1 .worktrees show
@@ -6116,6 +6156,34 @@ scenario_memory_space_unavailable() {
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: spaces :: update"
   no_relay
+
+  for bad in invalid-json non-object; do
+    echo "--- exit-0 $bad makes install --check fail without a fallback write"
+    reset_log
+    seed_orca_projects 1 .worktrees show
+    run_installer
+    MMW_FAKE_NMEM_SCENARIO="$bad" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+    [ "$(cat "$TMP/code")" = 1 ] || fail "$bad check expected 1, got $(cat "$TMP/code")"
+    grep -q '^没查  Nowledge Mem objects' "$TMP/err" \
+      || fail "$bad check was not explicit: $(cat "$TMP/err")"
+    hasnt "nmem :: --json :: spaces :: create"
+    hasnt "nmem :: --json :: spaces :: update"
+    hasnt "nmem :: --json :: agents :: enroll"
+
+    echo "--- exit-0 $bad makes open report unavailable without a fallback write"
+    reset_log
+    fresh_project_night
+    git -C "$TMP/repo" push -q -u origin night
+    write_open_batch
+    seed_main_agent agt_main
+    code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO="$bad" PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+    [ "$code" = 0 ] || fail "$bad Memory response must not block the completable open: $(cat "$TMP/err")"
+    grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
+      || fail "$bad open did not report repository Memory as unavailable: $(cat "$TMP/err")"
+    hasnt "nmem :: --json :: spaces :: create"
+    hasnt "nmem :: --json :: spaces :: update"
+    no_relay
+  done
 }
 
 scenario_orcaworktreelink() {
