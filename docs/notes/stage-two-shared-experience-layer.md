@@ -219,24 +219,49 @@ nmem --json memories search "$MMW_TASK_QUERY" \
 
 repository Space 的 shared retrieval 使结果只来自当前 repository 和已批准的 `mmw-toolbox`。当前 task Memory 如果同时被 semantic search 命中，按 Memory id 去重，精确 `list` 的版本保留。检索包不写回 tracker、文件或 Mem；每次 worker start 直接重做两次廉价读取，所以没有缓存失效或另一份 task 状态。
 
-首次 prompt 的固定部分只包含：
+首次 prompt 在现有 `Use the implement skill to work ticket #<ticket>`、autonomous instruction、product rules 和 pipeline-fault instruction 之后，原样追加下面的固定模板。方括号中的动态块由 `dispatch.sh` 替换；其余句子、段落顺序和两个 Memory 区块标题都是 prompt 合同，实施时不得重新概括或精简：
 
 ```text
-MMW task root: map #384
-MMW task scope: mmw-map-384
+Use this repository Space and MMW task scope as the shared experience pipeline
+for ticket #<ticket>.
+
+MMW repository Space: <repository-space-id>
+MMW task root: <map #n | standalone spec #n>
+MMW task scope: <mmw-map-n | mmw-spec-n>
+
+Before working, read Current task shared experience, then Historical experience
+relevant to this task. Follow only the linked primary artifacts and evidence
+needed for the ticket. Current artifacts, verified evidence, the user's
+instructions, repository instructions, the ticket, and its parent spec override
+Memory. Treat a superseded or deprecated Memory as historical evidence only.
+
 Current task shared experience:
-- <memory id> — <title>
-  <content>
-  Source: <source>
+<complete task-scoped Memory records with id, title, content, and source |
+none | unavailable: reason | truncated: returned/total>
 
 Historical experience relevant to this task:
-- <memory id> — <title>
-  <content>
-  Source: <source>
+<complete semantic-search Memory records with id, title, content, source, and
+origin Space | none | unavailable: reason>
 
-When an unexplained failure is not covered above, search with the exact error,
-command and component. Verify every Memory against current repository evidence.
+When a command or tool behaves in a way that the ticket, repository authority,
+and Current task shared experience do not explain, search the current task with
+the exact error, command, and component before trying a workaround. If that has
+no answer, search repository and approved mmw-toolbox experience. Verify every
+Memory against current repository evidence before acting on it.
+
+As soon as a changed fact is verified, save it when another ticket or later
+agent can reuse it and the ticket and code do not already make it obvious; do
+not wait for a milestone or handoff. At every meaningful milestone or handoff,
+evaluate this trigger again. Use the implement skill's exact Memory fields and
+labels. Link the evidence, supersede a replaced Memory, and deprecate one that
+no longer applies. Never store secrets, customer data, raw chat transcripts,
+private host paths, or unverified claims.
+
+Finish by reporting the Memory records added, used, superseded, or deprecated,
+and the evidence used to validate them. If none changed, say so.
 ```
+
+这保持 monomind [`prompts/maintain-project-context.md`](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/prompts/maintain-project-context.md) 的三段职责和顺序：指定共享上下文入口；开工前读取、只跟随相关 primary evidence 并声明 authority；在 milestone/handoff 只保存已验证且可复用的变化，保留 evidence 与 supersession，并在结束时报告。MMW 只把 `project-context/` 文件替换成两组实际 Memory records，把写入目标替换成第 5 节的 Nowledge Mem 合同，并补上当前 task 到 repository/toolbox 的两级故障检索。
 
 task scope 仍只由 native parent 决定；semantic query 只判断历史相关性，不能改变归属。ticket title、`## Owns` 与 `--time today` 既不定 scope，也不组成开场 query。若 task-scoped `list` 为 0，新 task 仍可通过历史 semantic search 得到旧经验；若 semantic search 为 0，则明确写 0，不用 Working Memory 冒充检索结果。
 
@@ -380,6 +405,23 @@ relay 继续只由 tracker event 唤醒 agent。Memory 不产生 wake，也不�
 
 reviewer 的开场 prompt 不放 worker 或 repository Memory 的检索结果，`code-review` 也不要求 reviewer 主动搜索普通 Memory。需要常驻的 review 经验只以 owner 已批准并编译进 `mmw-reviewer` Context Bundle 的 active Rules 提供；`dispatch.sh` 从 `rule_stack` 取出这些 Rules，保证所有 runner/host 得到相同 review packet。
 
+reviewer 的现有开场句和 autonomous instruction 保持不变，随后原样追加下面的固定模板。每条 active Rule 的 id、title、body、scope 和 source 按 Context Bundle 中 `global → owner → space → agent` 的顺序逐条写入，不重写、不合并、不摘要：
+
+```text
+Active reviewer Rules approved for this review:
+<each active Rule verbatim with id, title, body, scope, and source | none |
+unavailable: reason>
+
+Apply each active Rule as a review instruction within its stated scope. A Rule
+is not evidence that a finding exists. Independently verify every finding
+against the current ticket, parent spec, repository authority, diff, and checks,
+and report the source that proves it. Do not search or use ordinary Memory,
+Working Memory, Thread, worker reasoning, worker self-assessment, or the worker's
+retrieval results as finding or verdict evidence.
+```
+
+公开的 Augment、Devin 和 Anthropic 资料没有可复制的 reviewer system prompt，因此这里不声称复刻它们。这个模板只把 Artifact 已定的 clean-context 边界和 Nowledge Mem 实际 `rule_stack` 接到 MMW 已有 `code-review` 首次 prompt；review 方法本身仍由现有 `code-review` skill 完整提供。
+
 reviewer 仍独立读取 ticket、spec、repository authority 与 diff，并重新运行它负责的检查。worker Thread、推理、自评和“实现正确”的结论都不进入 reviewer。connector 自动提供的 repository Working Memory 只作宽背景，不能作为 finding 或 verdict 的证据；MMW 自己组装的 review packet 不包含它。需要让以后每次 review 都执行的稳定方法，先由 retro 提议，owner 批准后再成为 active Rule。
 
 这保留了 Artifact 2.2 的角色边界：reviewer 使用稳定规则与当前 repository 证据，不继承 worker 的检索结果或结论。
@@ -478,6 +520,138 @@ session 结束或 compact 时，已启用的 connector 可以把会话保存为 
 8. **写入产物。** 先写完整 Retro Memory，再在 spec issue 留 `spec.retroed` 回执。
 
 这条路径让 Mem 负责发现相关历史，让 ticket event 与 commit 负责核实。下一次 retro 不遍历旧 spec comments，也不需要 occurrence 表、retro 数据库或检索缓存。
+
+#### `retro/SKILL.md` 的固定执行 prompt
+
+新 skill 以本仓库 `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 为文字底稿；下面是完成 MMW 对象替换后的执行正文。`<spec>`、`<repository Space>` 和 `<base commit>` 是调用时输入。实现可以把各 phase 的细节拆进一层 `references/`，但 `SKILL.md` 必须在对应步骤要求完整读取，不能删掉句子、限定条件、七个 category、phase 顺序或输出字段。
+
+```text
+The completed spec night is ready for a retrospective. You are suggesting
+evidence-backed improvements to the coding agents' environment and workflow.
+This retrospective proposes; it does not auto-apply code, spec, prompt, Rule,
+AGENTS.md, check, script, skill, or Memory promotion changes. The owner decides
+what executes.
+
+Every problem you report must carry a source reference: a tracker event comment,
+commit, current repository file, or observed check. A claim you cannot point at
+is not a problem. Drop it. Memory, Thread, Working Memory, an agent's report,
+and an issue status are discovery inputs, not proof that an event happened or a
+change landed.
+
+Run these phases in order: Gather, Analyze, Decide, Finalize.
+
+## Gather
+
+1. Use the writing-for-agents skill for the writing style of every prompt,
+   instruction, AGENTS.md, or skill proposal.
+2. Read the primary sources for completed spec #<spec>: the spec sections named
+   in this contract; its complete native ticket tree; every ticket's full event
+   fold and the comments carrying those events; spec.closed and its proposed
+   Worker Memory ids; and the landing and closing-pass commits from <base commit>
+   through the completed result.
+3. Inventory every required source as present, missing, or unreadable and record
+   the exact path, URL, id, or commit range. Carry this inventory into every
+   later phase. A missing source narrows the analysis; it never means that the
+   corresponding problem did not happen. The final record must distinguish
+   checked and clean from never checked.
+4. Read the most recent earlier mmw-retro Memory for previous-proposal follow-
+   through. Use semantic search for additional earlier mmw-retro Memories only
+   when a current problem supplies a category and cause to search for. Reopen
+   every cited original event or commit before treating a Memory match as fact.
+
+## Analyze
+
+5. Form current problems only from the gathered tracker events, commits, files,
+   and observed checks. Merge duplicate representations of the same underlying
+   event. Give every remaining problem its category, cause, source, and current
+   handling. Do not count a shared path, similar title, or category alone as the
+   same cause.
+6. For each current problem, search earlier mmw-retro Memory with category plus
+   cause. Count an earlier occurrence only when its original source opens, shows
+   the same cause, and belongs to a different ticket, spec, or night.
+7. Check every earlier proposal named by the most recent Retro Memory. Record it
+   as landed only when a commit, active Rule id, Memory id, or current file
+   proves the change. When no such evidence is found, write "no evidence found",
+   not "not done". Issue closure alone is not landing evidence.
+8. Reconcile intent: take the expected surface from Problem Statement and User
+   Stories, the observed surface from checks and events, and compare both with
+   Out of Scope. Record aligned, diverged, or unverified; do not change the spec.
+9. Review the review results: distinguish a finding that was invalid from one
+   that was valid and fixed elsewhere. Preserve the finding's axis, category,
+   path, line, claim, route reason, and source.
+10. Look for supported improvement candidates in all seven categories below.
+    If a category has no supported candidate, record none; do not invent one.
+    - Navigation: how easy was it for the agent to find the right authority and
+      files? Are there hidden dependencies? Would a navigation pointer help?
+      Use when the evidence shows time or errors spent finding information.
+    - Automated checks: could linting, typing, a test, a judge, a boundary check,
+      or a repository script have caught the mistake? Use when such a check can
+      deterministically detect the observed problem.
+    - Coding standards: should the reviewer receive a stable rule, or should an
+      existing rule be removed or clarified? Use when review missed or repeatedly
+      misclassified an objective issue.
+    - Global AGENTS.md: should a standing instruction move to a check, reviewer
+      Rule, skill, or reference? Use when repository or user-level AGENTS.md is
+      carrying detail that needlessly consumes every implementation context.
+    - Tool economy: did a CLI or MCP produce repeated, expensive, or irrelevant
+      calls that a tool, script, or skill could streamline? Use when the evidence
+      shows the expensive call.
+    - No-ops: did an instruction fail to change agent behavior? Use when repeated
+      evidence shows a steering instruction was present but ineffective.
+    - Information access: was a necessary fact unavailable to the agent? Could
+      an existing connector, read-only service, log, or reference expose it? Use
+      when the missing information is visible in the evidence.
+
+## Decide
+
+11. Give every supported problem two independent dispositions:
+    - Handled here: how this instance was fixed, deferred, or accepted as-is.
+    - Prevention: the spec wording, navigation pointer, convention, check,
+      script, reviewer Rule, AGENTS.md instruction, repository-local skill, MMW
+      skill, toolbox Memory, or nothing that would prevent the next instance.
+12. A subagent report, Memory match, agent self-assessment, or inferred outcome
+    is unverified until its primary source is reopened. Drop a problem whose
+    source does not hold up.
+13. Create or reuse a needs-triage proposal only when the same cause has two
+    independently verified event or commit occurrences, or when spec.closed
+    proposed a Worker Memory backed by two occurrences or one actual blocking
+    event. The proposal names the responsible repository, the sources, how this
+    instance was handled, the proposed prevention, this spec, and the Retro
+    Memory id. Do not apply the proposal.
+14. For a prompt change, include the target file and heading, supporting event
+    or commit, the complete current passage, the complete proposed passage,
+    every Changes Made item, and the expected behavior change. State whether it
+    adds missing context or constraints, clarifies ambiguity, adds success
+    criteria or a specific requirement, or frontloads information that arrived
+    too late. Keep every unchanged sentence unchanged; never submit only a
+    shorter paraphrase or a diff fragment.
+
+## Finalize
+
+15. Write one fixed-id mmw-retro Memory in <repository Space>. Preserve every
+    required section and field exactly: Spec, Task root, Evidence checked,
+    Previous proposals, Problems observed, Intent reconciliation, Review
+    learning, and Observed; for every problem preserve Evidence, Handled here,
+    Prevention, Earlier occurrences, and Proposal. Do not summarize away source
+    references or missing-evidence statements.
+16. Only after the complete Retro Memory write succeeds, write the script-made
+    spec.retroed receipt with the Memory id, problem count, proposal links, and
+    evidence completeness. If the Memory write fails, write result=unrecorded
+    with the specific reason. A completed retro changes no ticket verdict and
+    wakes no agent.
+17. Report the Retro Memory id, problem count, proposals or none, and whether
+    the evidence inventory was complete. If no supported improvement exists,
+    record and report none; do not manufacture a proposal.
+
+Implementation agents carry the greatest context pressure because they explore,
+implement, and debug. Reviewers receive a diff and have less context pressure.
+Put stable coding standards in the reviewer path, not in every worker prompt.
+Use AGENTS.md sparingly, mainly for navigation pointers; use docs as referenced
+detail; use a skill only for a repeatable multi-step workflow with a discoverable
+trigger, inputs, outputs, and Done when.
+```
+
+这个 prompt 保留 upstream `retro` 的 `writing-for-agents → primary sources → 七类检查 → candidates` 主线，也保留 BMAD 的 evidence hard rule、inventory、missing-evidence distinction、previous-retro follow-through、dual disposition 和完整 final record。MMW 只删去与已有 pipeline 重叠的 BMAD acceptance verdict、sprint-status、team discussion 和独立 Markdown artifact，并把对象替换成 spec night、event fold、commits、Retro Memory、proposal 与 `spec.retroed`。
 
 **依据**：Artifact 3.1；BMAD `retro-document.md` 的 previous-action verification；Artifact 第 5 节“经验直接写 Mem”与 MMW tracker authority。
 
@@ -673,21 +847,21 @@ worker 写/读 mmw-experience
 
 #### B. 阶段二读写
 
-3. `dispatch.sh` 解析 native parent，并通过 runner `start --env` 设置 Space/Identity；三个 runner adapter 只把值送入实际 agent process。worker start 精确列出当前 task Memory，并按 map 或 standalone spec query 搜索历史后去重；reviewer start 只读取 active `rule_stack`；`summary --memory-decisions` 校验逐项 manifest，并把完整决定写入 `spec.closed`。
-4. `implement/SKILL.md` 增加 Artifact 2.1 的五字段写入条件与 2.2 的主动搜索时点；`code-review` 不增加 Memory retrieval，只使用 prompt 中的 active Rules。
+3. `dispatch.sh` 解析 native parent，并通过 runner `start --env` 设置 Space/Identity；三个 runner adapter 只把值送入实际 agent process。worker start 精确列出当前 task Memory，并按 map 或 standalone spec query 搜索历史后去重；reviewer start 只读取 active `rule_stack`；`summary --memory-decisions` 校验逐项 manifest，并把完整决定写入 `spec.closed`。worker 与 reviewer 的固定 prompt 直接作为 `dispatch.sh` 中相邻的单一模板保存，只替换第 3、8 节列出的动态块，再接到已有首次 prompt 后；不增加 prompt renderer 或第二份模板文件。
+4. `implement/SKILL.md` 增加第 3 节 monomind prompt 中的 authority、验证、运行中两级搜索、当场写入、禁止内容、supersede/deprecate 和结束报告指令，并完整引用第 5 节五字段与 labels；`code-review` 不增加 Memory retrieval，只执行第 8 节 prompt 中逐字注入的 active Rules，并用当前证据独立核实。
 5. `to-spec/SKILL.md` 在 map 来源时创建 native child 并 read back；standalone spec 不虚构 parent。
 
 #### C. 阶段三 retro
 
 6. `code-review` 的汇总合同增加 category；`route … stale` 增加 `invalid|fixed-elsewhere` reason。
 7. `events.py` 增加一个无 hold、无 wake 的 `spec.retroed` 回执 event；night runbook 在成功 `summary` 后执行 retro。
-8. 新增 `mmw-v2/skills/retro/SKILL.md` 与一个脚本入口。脚本读取当前 spec tree、ticket event、相关 `git log` 与 `spec.closed` 的 proposed Memory ids；用 `mmw-retro` list/search 取得较早记录，命中后核对其原 event/commit；达到门槛时先创建或复用 `needs-triage` proposal，再写完整 Retro Memory 和当前 spec 回执。普通 worker/reviewer 不读 Retro Memory；retro 不把 Memory、Thread 或 Working Memory 当作运行事实。
+8. 从 `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 建立新的 `mmw-v2/skills/retro/SKILL.md`，按第 12 节固定执行 prompt 逐段完成 MMW 对象替换，并引入 BMAD 的 `Gather → Analyze → Decide → Finalize` 指令；详细 phase 可以放进一层 `references/`，但 `SKILL.md` 必须明确要求完整读取。脚本入口读取当前 spec tree、ticket event、相关 `git log` 与 `spec.closed` 的 proposed Memory ids；用 `mmw-retro` list/search 取得较早记录，命中后核对其原 event/commit；达到门槛时先创建或复用 `needs-triage` proposal，再写完整 Retro Memory 和当前 spec 回执。普通 worker/reviewer 不读 Retro Memory；retro 不把 Memory、Thread 或 Working Memory 当作运行事实。
 
 #### D. owner approval 与证明
 
 9. 批准后的改变继续走现有 triage、`to-spec`、`to-tickets`、worker、review、closeout 和 landing；生成 repository-local skill 时验证触发、完整流程与当晚 host 的发现结果，新建 toolbox Memory 或激活 Rule 时在 proposal 留下实际 id。
 10. 按 repository 规则更新 Tickets/Night/Memory contexts、dispatch reference、upstream merge-note 和必要的 downstream-note。
-11. 测试覆盖 install、dispatch、runner、map/standalone scope、当前 task list、新 task historical search、review category、stale reason、retro event、proposal repository/label 和跨 night 重复。
+11. 测试覆盖 install、dispatch、runner、map/standalone scope、当前 task list、新 task historical search、review category、stale reason、retro event、proposal repository/label 和跨 night 重复；另外以完整字符串核对第 3 节 worker 固定 prompt、第 8 节 reviewer 固定 prompt 及其段落顺序，分别覆盖 records、none、unavailable 和 task-list truncated 的动态块。retro 测试以有来源、缺来源、无合格问题和达到 proposal 门槛四条完整路径证明第 12 节每个 phase 与最终字段都执行，不能只 grep 关键词。
 
 实现顺序是 A → B → C → D。所有验证使用隔离 `MMW_HOME`、假 tracker、临时 Git repository 和临时 Nowledge objects；当前 frozen runtime 不读取新版本。
 
@@ -759,26 +933,158 @@ worker 写/读 mmw-experience
 
 ## 五、研究依据与采用范围
 
-正文每个设计段落就地标明依据；本节给出可复查的原始实现和 MMW authority。
+正文每个设计段落就地标明依据；本节固定实施时必须继承的原始机制和 prompt 合同。GitHub 来源固定到 commit。产品文档没有公开版本 commit 的，以下以 URL、页面 heading 和查阅日期 2026-09-15 定位；它们只证明公开行为，不能冒充未公开的内部 prompt。
 
-### Artifact
+### Artifact 是方案边界
 
-- [《Project Context 调研与 MMW 方案》](https://claude.ai/code/artifact/b9520c08-eb0d-40f1-872e-228662445954?via=auto_preview)第 5 节“实验结果”、第 6 节“阶段二”、第 7 节“阶段三”和第 9 节“决定”：方案主体，包括当场 capture、worker 派发时检索一次、reviewer 使用 active Rules、Memory closing pass、retro、`needs-triage` 与 owner approval。
+[《Project Context 调研与 MMW 方案》](https://claude.ai/code/artifact/b9520c08-eb0d-40f1-872e-228662445954?via=auto_preview)第 5 节“实验结果”、第 6 节“阶段二”、第 7 节“阶段三”和第 9 节“决定”固定方案主体：worker 当场写、派发时主动取回、reviewer 只用稳定规则、每份 spec closing pass、retro、`needs-triage` 和 owner approval。外部参考只补齐这些机制的执行方法，不得借参考项目扩大阶段二、阶段三的对象或边界。
 
-### 参考项目
+### Prompt 与 workflow 的继承规则
 
-- [monomind project-context `context_capture.py`](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/skills/project-context/scripts/context_capture.py) 与 [`context_packet.py`](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/skills/project-context/scripts/context_packet.py)：采用当场 capture、provenance 和按相关上下文取回；不用 capsule inbox、approval state、`path@commit` doctor 或文件存储层。
-- BMAD-METHOD `bmad-retrospective` @94b6727b：采用 [`workflow.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/workflow.md) 与 [`evidence-gathering.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/references/evidence-gathering.md) 的 evidence inventory 和来源规则、[`acceptance-verdict.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/references/acceptance-verdict.md) 的 dual disposition、[`retro-document.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/references/retro-document.md) 的 previous-action verification；不用 sprint-status、独立文档树或团队仪式。
-- [Augment Expert Memory](https://docs.augmentcode.com/cosmos/experts-memory)、[Code Review Memory](https://docs.augmentcode.com/cosmos/experts-code-review-memory) 与 [Review Guidelines](https://docs.augmentcode.com/codereview/review-guidelines)：采用强弱信号、review 结果学习、明确 scope，以及把可检索经验与 reviewer 行为规则分开；不用 VFS 或专有 guideline 格式。
-- [Devin Session Insights](https://docs.devin.ai/product-guides/session-insights)：支持“工作完成后从真实运行记录提出改进”；MMW 使用 tracker event，不复制 transcript 分析系统。
-- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/) 与 [Codex Best Practices](https://learn.chatgpt.com/guides/best-practices)：采用“同类错误第二次进入长期预防”、把可执行 rule 进入 code/check，以及把稳定的重复流程写成 skill；不用后台 agent 或 quality-score 系统。
-- [Agent Skills specification](https://agentskills.io/specification)：采用 `SKILL.md`、按需加载的 progressive disclosure，以及可选的 `scripts/`、`references/`、`assets/` 结构；只用于确实需要重复流程的 repository-local skill。
-- [Anthropic AI-native SDLC](https://claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle)：采用“bug class 回到长期指导”的反馈原则；不增加 reviewer 或 shadow mode。
-- `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 的 `## Steps` 与 `### Implementation vs Review`：只复用 Navigation、Automated checks、Coding standards、Global `AGENTS.md`、Tool economy、No-ops 和 Information access 这些改进目的地；分析范围改为一份 spec night 的完整 tracker evidence。
+实施者不得根据本调查文档重新概括一份较短 prompt。新 `retro` skill 以 [mattpocock/skills `retro/SKILL.md` @6654f6b60cd9d5be8b54c6fafe44346dabeb3b76](https://github.com/mattpocock/skills/blob/6654f6b60cd9d5be8b54c6fafe44346dabeb3b76/skills/in-progress/retro/SKILL.md) 为文字底稿，并逐段引入下列 BMAD 文件中明确采用的指令。允许的改动只有本节列出的 MMW 对象替换、字段替换和入口替换；不能删掉限定词、改变步骤顺序、合并问题，或把完整输出字段缩成 summary。如果按 Agent Skills 的 progressive disclosure 把细节放进 `references/`，`SKILL.md` 必须明确要求在相应步骤完整读取该 reference；拆文件不等于删 prompt。
 
-这些参考项目都不包含 MMW 的 GitHub native parent、event fold、`route` 和 frozen runtime，所以本方案扩展现有 MMW 与 Nowledge Mem，不引入另一套工作流。
+对 prompt 的任何后续改变也必须以 proposal 的“预防方式”记录以下内容，owner 批准后再走正常 spec/ticket 流程：目标文件与 heading、支撑改变的 event/commit、现行完整段落、拟替换的完整段落、逐项 `Changes Made` 和期望改变的 agent 行为。不能只写“简化 prompt”“加强检查”或只有 diff 片段。
+
+### 1. monomind project-context：当场 capture 与开工 packet
+
+固定来源：
+
+- [`context_capture.py` @72a0a22640f4577eddd615c6bd3a4dad2a6473b9](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/skills/project-context/scripts/context_capture.py) 的 module docstring、`provenance()`、`capsule_id()`、`render()` 与 `build()`。
+- [`context_packet.py` @72a0a22640f4577eddd615c6bd3a4dad2a6473b9](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/skills/project-context/scripts/context_packet.py) 的 module docstring、`build_packet()` 与 `render()`。
+- [`project-context/SKILL.md` @72a0a22640f4577eddd615c6bd3a4dad2a6473b9](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/skills/project-context/SKILL.md) 的 `## Start`、`## Triggers`、`## Maintain` 与 `## Automation`。
+
+采用的原始机制是：信息在工作中出现时立即 capture；只记录会跨任务复用且有证据的 learning；保存 actor、session、harness、model、commit、evidence 和 files 等 provenance；开工 packet 先放确定适用的约束和当前状态，再放匹配记录；verified 与 proposed 分开；预算装不下的记录列成链接而不是静默消失；取回结果标出 source 和匹配原因。
+
+MMW 只作以下替换：
+
+| project-context 对象 | MMW 对象 |
+| --- | --- |
+| `project-context/inbox/` capsule | 当前 repository Space 中立即可搜索的 Worker Memory |
+| path/token scan | task-scope `memories list` 加 repository shared `memories search` |
+| file provenance | Space、Identity、`mmw-map-*` / `mmw-spec-*` / `mmw-ticket-*` labels，以及 Memory 正文的“证据”“发生位置” |
+| packet `--task` / `--files` | map 的 `Destination + Notes + Decisions so far`，或 standalone spec 的四个已定 section |
+| packet Markdown | `dispatch.sh start <ticket> worker` 首次 prompt 的“Current task shared experience”和“Historical experience relevant to this task” |
+
+必须保持：先解析 repository 与 task root，再列出当前 task Memory，再搜索历史 Memory，再按 Memory id 去重，最后把两组完整内容、Memory id 和 source 分开放进首次 prompt；不能只给标题，不能把两组混成一个 relevance 列表。worker 的写入仍保持本文第 5 节五个字段和“证实后立即写”的时点。
+
+不采用 monomind 的 capsule inbox、200-word capsule limit、promotion state、registry 文件、`path@commit` doctor、文件 packet budget 和 Hub。Nowledge Mem 已提供持久化、检索、supersede/deprecate 与 provenance；复制这些层会形成第二套 Memory 系统。
+
+### 2. BMAD-METHOD：retro 的 evidence-first 主流程
+
+固定来源均为 BMAD-METHOD commit [`94b6727b00c8316557828c8a8ff2a48ff60d60cc`](https://github.com/bmad-code-org/BMAD-METHOD/tree/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective)：
+
+- [`workflow.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/workflow.md) 的 opening evidence rule、`## Working state and resumption`、`### Phase 1 — Gather`、`### Phase 2 — Analyze`、`### Phase 4 — Decide` 与 `### Phase 5 — Finalize`。
+- [`references/evidence-gathering.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/references/evidence-gathering.md) 的 `## Inventory checklist` 与 `## Missing evidence`。
+- [`references/acceptance-verdict.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/references/acceptance-verdict.md) 的 `## Route each finding`、`## Action items` 与 `## Previous-retro follow-through`。
+- [`references/retro-document.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/references/retro-document.md) 的 `## The retrospective document`、section list 和 `## Finish`。
+- [`references/aggregate-views.md`](https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b00c8316557828c8a8ff2a48ff60d60cc/skills/bmad-retrospective/references/aggregate-views.md) 的 opening evidence rule 与 `Spec-to-implementation reconciliation`。
+
+采用的 workflow 顺序固定为 `Gather → Analyze → Decide → Finalize`：
+
+1. **Gather**：先列 inventory，明确哪些来源存在、缺失或读不到；后续分析只能使用 inventory 中已读的证据。
+2. **Analyze**：只从真实来源形成问题；每条都带 event、commit、file 或 check source；无法指向来源的结论直接丢弃。完成当前问题、intent reconciliation、review learning 和较早同因 Retro Memory 的核验。
+3. **Decide**：每条问题给两个独立 disposition——本例怎样处理，以及怎样预防下一次；核对上一条 proposal 是否实际落地；达到本文第 13 节门槛时只提出 `needs-triage` proposal，不自动改变行为。
+4. **Finalize**：先创建或复用 proposal，再写完整 Retro Memory，最后写 `spec.retroed`；报告 Memory id、problem count、proposal links 和 evidence completeness。
+
+MMW 只作以下对象替换：
+
+| BMAD 对象 | MMW 对象 |
+| --- | --- |
+| completed epic | 当前刚完成的 spec night |
+| epic spec / story files | spec 的指定 sections / native ticket tree |
+| sprint status / session logs | script-written event fold、承载 event 的 comments 与 `spec.closed` |
+| epic diff and commits | `spec.opened` base 到实际 landing/closing-pass commits 的可核对范围 |
+| previous retro document | 当前 repository Space 中上一条及 semantic search 命中的 `mmw-retro` Memory |
+| retrospective document | 固定 id 的完整 Retro Memory |
+| action item | 负责改变的 repository 中一张 `needs-triage` proposal |
+| final status write | 当前 spec 的 script-written `spec.retroed` 回执 |
+
+必须保留 BMAD 的原始问题和限定：证据 inventory 是什么、缺了什么；每个问题的 source 是什么；本例做什么；下一次靠什么预防；上一轮每个未完成项目是否找到落地证据；没有证据时必须写“没找到证据”，不能写“未完成”；缺少来源必须写“未检查”并缩小结论，不能猜。当前 Retro Memory 的字段必须完整保持本文第 13 节的 `Spec`、`Task root`、`Evidence checked`、`Previous proposals`、`Problems observed`、`Intent reconciliation`、`Review learning` 和 `Observed`；每个 problem 必须保持 `Evidence`、`Handled here`、`Prevention`、`Earlier occurrences`、`Proposal`。
+
+不采用 `sprint-status.yaml`、epic detection、interactive/headless 两套选择、unfinished-story gate、team discussion、独立 `RETROSPECTIVE.md`、BMAD acceptance verdict 或 status update。MMW 已在 closing pass 和 `spec.closed` 完成 acceptance 与状态裁决；retro 再判一次会产生两个 verdict。`aggregate-views.md` 的 architecture delta、duplication map、god-class growth 和 pattern divergence 也不并入本阶段，因为本文的 retro 范围已经固定为 event/commit 问题、intent reconciliation 与 review learning；它们可以由以后单独批准的 architecture review 处理。
+
+### 3. upstream `retro`：改进目的地与角色分工
+
+固定来源是 [mattpocock/skills `retro/SKILL.md` 的 `## Steps`、`### Implementation vs Review` 与 `### Files` @6654f6b60cd9d5be8b54c6fafe44346dabeb3b76](https://github.com/mattpocock/skills/blob/6654f6b60cd9d5be8b54c6fafe44346dabeb3b76/skills/in-progress/retro/SKILL.md)；本仓库 [`mmw-v2/upstream/skills/in-progress/retro/SKILL.md`](../../mmw-v2/upstream/skills/in-progress/retro/SKILL.md) 与该 commit byte-identical。
+
+新 `retro` skill 不从空白 prompt 开始。保留原 `## Steps` 的顺序：先读 `writing-for-agents`，再读指定 session 的 primary sources，再逐项检查七个 category，最后按严重性呈现候选。MMW 只把“指定 session”替换为“当前刚完成的 spec night”，把 primary sources 固定为本文第 11 节的 tracker/git evidence，把最后的直接呈现替换为“达到门槛才创建或复用 proposal，并写 Retro Memory”。七个 category 的名称、原问题和 `Use when` 条件不能删减或合并；目的地精确适配为：
+
+| 原 category | MMW 中检查什么 | 获批后的目的地 |
+| --- | --- | --- |
+| Navigation | agent 是否难以找到 authority、文件或 hidden dependency | repository `AGENTS.md` 中的 navigation pointer，或现有 docs |
+| Automated checks | 错误能否由确定性检查直接抓住 | check、judge、lint 或 repository script |
+| Coding standards | reviewer 是否漏掉可重复的客观问题 | repository rule/check；确实跨 repository 才是 `mmw-reviewer` active Rule |
+| Global `AGENTS.md` | 常驻 prompt 是否承载了应由 check、review 或 reference 承担的内容 | 对应 repository authority 或 MMW prompt source；不直接改 generated `AGENTS.md` |
+| Tool economy | 某个 CLI/MCP 是否反复产生无用上下文或多余调用 | 对应 tool/script/skill 的改进 ticket |
+| No-ops | instruction 是否没有改变 agent 行为 | 删除或改写该 instruction 的 proposal，带重复证据 |
+| Information access | agent 是否缺少完成任务必需且可提供的事实入口 | 现有 connector、只读接口、日志或 reference |
+
+保留 `### Implementation vs Review` 的角色判断：implementation agent 承担探索、实现和调试，context pressure 最大；review agent 拿到 diff 后 context pressure 更小，因此稳定 coding standards 放在 reviewer 路径，不把全部规则塞进 worker prompt。保留 `### Files` 的载体判断：`AGENTS.md` 极少使用且主要作 navigation pointer；docs 作为被引用的详细资料；skill 只承载可重复流程。MMW 只把 `CODING_STANDARDS.md` 目标换成现有 reviewer active Rule、repository authority 和 check，不新建同名文件。
+
+不采用“每次 retro 都必须向用户展示一组候选”的交互入口。MMW 的自动 retro 只在有来源且达到既定门槛时创建 proposal；没有合格 proposal 仍写完整 Retro Memory。
+
+### 4. Augment：强弱信号、scope 与 Memory/skill 分工
+
+公开产品文档未提供内部 prompt 源码，因此这里只继承产品行为，实施者不得据此杜撰一份“Augment prompt”。固定来源为查阅于 2026-09-15 的 [Expert Memory `## How memory works`、`## Memory models`、`## Best practices`](https://docs.augmentcode.com/cosmos/experts-memory)、[Code Review Memory `## Code Review Memory`](https://docs.augmentcode.com/cosmos/experts-code-review-memory) 和 [Review Guidelines `## Tell Augment Code Review to check specific areas with guidelines`](https://docs.augmentcode.com/codereview/review-guidelines)。guideline 实际结构另核对了 [`code_review_guidelines.example.yaml` @9b4cc06e1dcbba4fbc51ba4a8e36214668c6a2cf](https://github.com/augmentcode/code-review-best-practices/blob/9b4cc06e1dcbba4fbc51ba4a8e36214668c6a2cf/code_review_guidelines.example.yaml)。
+
+采用的原始机制及精确适配是：
+
+- 保留 `capture → curate → load` 的顺序。Worker Memory 是已由当前 evidence 证实的直接 capture；closing pass 和 retro 做 curate；以后 worker start/主动 search 或 reviewer active Rule 做 load。
+- 保留 narrowest stable scope。repository Space 是客户隔离边界，task label 是同一 map/standalone spec 的即时共享范围，repository shared search 只增加 `mmw-toolbox`。
+- 保留 simple/noisy 的信号区别。已证实的 worker learning 可以立即写；由 reaction、review disposition 或推断得到的弱信号必须在独立 event/commit 中重复后才形成 proposal。
+- 保留 Code Review Memory 对信号强弱的判断，但不照搬其输入通道：MMW 只把已经进入 script-written event 的 human decision 和实际 commit 当作强证据；reaction、普通 comment 或 inferred outcome 单独都不是运行证据。弱信号只有在独立 event/commit 中重复后才能形成 proposal。
+- 保留“Memory 是演进中的 evidence-backed context，skill 是明确、可重复的 workflow”的分工。Memory 与当前 repository evidence 冲突时报告冲突；不能把 Memory 当成不可质疑的 Rule。
+- Review Guidelines 只证明稳定 review 行为需要 objective description 和最窄适用范围。MMW 保留 `id`、完整 `description` 和适用 scope 的信息，不复制 Augment 的 `areas/globs/severity` YAML；repository-specific 规则进入 repository authority，跨 repository 的 reviewer 方法才进入 active Rule。
+
+不采用 VFS、background Template Expert、每次 merge 后的后台 Memory Manager、自动把 known false positive 喂给 reviewer、Augment guideline 文件格式或组织级共享。MMW 使用 Nowledge Mem、现有 reviewer clean-context 边界和 owner approval。
+
+### 5. Devin Session Insights：完成后分析与精确 prompt 修订
+
+公开文档没有 Session Insights 的内部分析 prompt；固定来源是查阅于 2026-09-15 的 [Session Insights `## What is Session Insights?`、`## Analysis Tabs`、`### Actionable Feedback`、`### Knowledge Usage` 与 `## Best Practices`](https://docs.devin.ai/product-guides/session-insights)。
+
+采用的原始顺序是：session 完成后分析真实记录；用 Issue Timeline 表示发生过的问题；Actionable Feedback 分为 Improved Prompt 与 Action Items；Knowledge Usage 分为 Useful Knowledge 与 Misleading Knowledge。MMW 的对象替换为：completed session → `spec.closed` 后的 spec night；Issue Timeline → folded tracker event 与 commit；Improved Prompt → `needs-triage` proposal 中的精确 prompt 替换合同；Action Items → check/script/Rule/`AGENTS.md`/skill/toolbox 的正常 ticket；Useful/Misleading Knowledge → closing pass 的 retain 与 deprecate/supersede。
+
+prompt proposal 必须保留 Devin 的四种 `Changes Made` 检查，逐项说明是否增加了缺失 context/constraint、澄清了 ambiguity、补上 success criteria/specific requirement、把过晚出现的重要信息前置。它不能自动重写 source prompt，也不能只保存“改进后的短版”；现行完整段落与拟替换完整段落必须同时出现，未改变的语句保持原样。
+
+不采用 ACU/session-size 指标、通用 task category、UI modal、自动 transcript analyzer 或一键开始新 session。MMW 已有 tracker event 和 Git evidence，复制 transcript 产品不会增加可核对事实。
+
+### 6. OpenAI：repository knowledge、可执行约束与可复用 prompt
+
+公开文章没有可复制的系统 prompt。固定来源是查阅于 2026-09-15 的 [Harness Engineering `## We made repository knowledge the system of record`、`## Enforcing architecture and taste`、`## What “agent-generated” actually means` 与 `## Entropy and garbage collection`](https://openai.com/index/harness-engineering/)，以及 [Codex Best Practices `## Strong first use: Context and prompts`、`## Make guidance reusable with AGENTS.md`、`## Improve reliability with testing and review` 与 `## Turn repeatable work into skills`](https://learn.chatgpt.com/guides/best-practices)。
+
+采用的原始机制及 MMW 适配是：
+
+- repository knowledge 是 system of record；短 `AGENTS.md` 主要导航到更深 authority，不能成为百科全书。MMW 因此只把无法从代码推出且几乎每项任务都适用的内容放进 repository `AGENTS.md`。
+- 能机械执行的 invariant 进入 lint、structural test、check 或 script，错误输出包含 remediation instruction；不能用一条更长的 prompt 代替可执行约束。
+- agent 遇到困难是缺少 tool、guardrail 或 documentation 的信号；retro 将有证据的重复问题路由到相应载体。
+- 新任务 prompt 的四部分保持 `Goal`、`Context`、`Constraints`、`Done when`。Memory 两个区块是 dispatch 首次 prompt 的补充，不能替换 ticket 已提供的目标、上下文、约束和完成条件。
+- 同一错误第二次出现时运行 retrospective 并更新长期载体；本文的“两次独立 evidence”门槛来自这一用法。稳定重复 workflow 才进入 skill，description 必须说明做什么和何时用，正文必须有明确 inputs 与 outputs。
+
+不采用 OpenAI 项目的 background cleanup agent、`QUALITY_SCORE.md`、CI、自动 merge 或整套 repository layout。MMW 是个人工具箱、无 CI，并已有 closing pass 与 tracker authority。
+
+### 7. Agent Skills：repository-local skill 的完整载体
+
+固定来源是 Agent Skills commit [`69ef37e9424c0a7ea9dd2293b559e43ec8176379`](https://github.com/agentskills/agentskills/tree/69ef37e9424c0a7ea9dd2293b559e43ec8176379)：[`docs/specification.mdx` 的 `## SKILL.md format`、`### Body content`、`## Optional directories`、`## Progressive disclosure` 与 `## File references`](https://github.com/agentskills/agentskills/blob/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx)，以及 reference implementation [`skills-ref/src/skills_ref/prompt.py` 的 `to_prompt()`](https://github.com/agentskills/agentskills/blob/69ef37e9424c0a7ea9dd2293b559e43ec8176379/skills-ref/src/skills_ref/prompt.py) 和 [`docs/client-implementation/adding-skills-support.mdx` 的 `## Step 3: Disclose available skills to the model`、`## Step 4: Activate skills`](https://github.com/agentskills/agentskills/blob/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/client-implementation/adding-skills-support.mdx)。
+
+必须保持三层 progressive disclosure：启动时只暴露 `name + description + location`；任务匹配后加载完整 `SKILL.md`；`scripts/`、`references/`、`assets/` 只在 skill 正文明确要求时按需读取。`description` 必须同时写“做什么”和“何时使用”，并包含 agent 能匹配的真实任务词。skill body 必须保留完整 step-by-step instructions、inputs、outputs、必要 examples 和 edge cases；不能以“节省 token”为由删掉 workflow。详细 prompt 可以移入 focused reference，但 `SKILL.md` 必须给出一层深的明确链接和完整读取时点。
+
+MMW 只作 repository convention 的精确收窄：自写 skill 的 frontmatter 仍只有根 `AGENTS.md` 规定的 `name` 与 `description`；脚本按现有 `<token>` 解析规则调用；repository-local skill 只安装在该 repository，MMW pipeline 方法才进入 `mmw-v2/skills/`。不新增另一套 skill registry、activation tool 或 metadata schema。
+
+repository-local skill 只有同时满足以下条件才生成：方法已经在当前 repository 重复出现；需要多步且不能由单个 check/script 取代；触发、inputs、outputs 与 `Done when` 可以明确写出；至少有一个代表性任务可验证 agent 能从 description 发现它并完整执行。单条事实、偶发命令、仍在演进的推测继续留在 Memory。
+
+### 8. Anthropic AI-native SDLC：bug class 回流与有证据的 reviewer finding
+
+公开文章没有 reviewer prompt 源码。固定来源是查阅于 2026-09-15 的 [AI-native SDLC `## Code`、`## Test (CI)` 与 `## Governance`](https://claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle)。
+
+采用三项机制：发现 bug class 后更新负责预防的 instruction/skill，形成闭环；reviewer 使用单一、窄 scope，而不是 mega-prompt；finding 必须写出能够复查其成立的 proof。MMW 精确适配为：event/commit 中同因问题达到门槛后才创建 proposal；owner 批准后选择最短的有效长期载体；review finding 继续保留 axis、category、path、line、claim 和 source evidence；跨 repository 稳定方法才进入 `mmw-reviewer` active Rule。
+
+必须保持“先证明 finding 成立，再用于改变 prompt 或行为”的顺序。单个 reviewer opinion、agent 自评或相同 category 名不构成 bug class；Retro Memory 命中后仍须打开原 event/commit 核对 cause。
+
+不采用 shadow mode、多 reviewer fleet、SIEM、risk-tier sampling、安全 VM 或 RAG incident system。这些属于 Anthropic 的安全组织与基础设施，不是阶段二、阶段三的 Memory/retro 最短路径。
 
 ### MMW 与 Nowledge Mem authority
+
+上述参考项目都没有 MMW 的 GitHub native parent、event fold、`route`、closing pass、frozen runtime 或 Nowledge Mem Space。发生冲突时，以下现有 authority 决定 MMW 对象和执行入口；外部 prompt 只在不改变这些合同的范围内适配：
 
 - [Nowledge Mem Background Intelligence](https://mem.nowledge.co/docs/concepts/background-intelligence)、[Spaces](https://mem.nowledge.co/docs/spaces)、[Context](https://mem.nowledge.co/docs/ai-context)、[Customize Integration Behavior](https://mem.nowledge.co/docs/integrations/customize-behavior) 与 [CLI](https://mem.nowledge.co/docs/cli)：Space、Identity、Memory、Thread、Working Memory、Context Bundle、multi-agent 环境路由、shared retrieval 与 CLI 行为。
 - `docs/contexts/tickets/CONTEXT.md` 的 `spec`、`ticket`、`sub-issue` 与 `map`，以及 `mmw-v2/skills/verify-ticket/scripts/tree.py` 的 module docstring 和 `LAYERS`：native parent graph 与 task root。
