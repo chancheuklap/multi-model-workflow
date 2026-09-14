@@ -5,6 +5,15 @@ Only `mmw-v2/` is live. `archive/` is the previous generation, `deprecated/` wha
 This repository is also a consuming repository of its own pipeline: root `.mmw/` is the task board's acceptance runtime, `docs/specs/task-board/screen-contract.yaml` its screen contract, `prototypes/` its handoff package. Tickets about the board run from here.
 The skills in this repository are deliverables, not the working instructions of an agent working on it.
 
+## Self-hosting boundary
+
+When this repository consumes its own landing pipeline, the MMW runtime for the whole run is the checkout recorded in `~/.mmw/installed-root` when the night or one-ticket watch opens. Treat that installed checkout, its skills, scripts, prompts, event vocabulary, relay and watchdog as one frozen version until the watch closes.
+
+- Everything under the ticket worktrees, merge worktrees, main checkout, project branch and base branch is the product being changed. Never run its copy of an MMW skill or script to control, interpret, repair or finish the run that is changing it. In particular, do not call a repo-local `dispatch.sh`, `verify-ticket.py`, `events.py`, migration or replacement closeout protocol because it has just landed on the base branch.
+- Do not move `.worktrees/mmw-installed`, run `install.sh`, retarget installed symlinks, change the live model configuration to satisfy new code, or otherwise make a running watch consume any part of the version it is building. A passing ticket, an already-landed dependency, a test result and an agent's judgement are not exceptions.
+- Tests of the changed MMW run only in isolated test homes against fake trackers, runners and repositories. They prove the product under test; they do not authorize that product to take over the current run. The changed MMW becomes eligible to run only after the old installed MMW has closed the whole watch, the user has accepted the result, `finish` has completed, and the frozen installed worktree is deliberately updated for a later run.
+- If the frozen runtime cannot finish a batch after the product under test changes a protocol, do not bridge the versions by editing events, invoking the new protocol or resuming an agent under new instructions. Keep the old runtime authoritative and report the incompatibility immediately. Suspend or repair the run only through that frozen runtime; record the product defect for a later batch.
+
 ## Package Manager
 
 No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; the claude-design-blocks, verify-ticket and gate-check tests need `node`; the board and drive-target tests need Playwright's browsers.
