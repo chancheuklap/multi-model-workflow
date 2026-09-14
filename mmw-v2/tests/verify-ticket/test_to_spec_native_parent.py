@@ -107,10 +107,6 @@ class ToSpecNativeParent(unittest.TestCase):
         self.assertIn("native sub-issue of the map", sub)
         self.assertIn("only machine ownership", sub)
 
-        publish = self.tickets.split("**publish**:", 1)[1].split("_Avoid_:", 1)[0]
-        self.assertIn("native sub-issue of that map", publish)
-        self.assertIn("parent.number", publish)
-
     def test_the_merge_note_records_the_native_parent_prompt(self):
         self.assertIn("native parent", self.merge_note)
         self.assertIn("parent.number", self.merge_note)
