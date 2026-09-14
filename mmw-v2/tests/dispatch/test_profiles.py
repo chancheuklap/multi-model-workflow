@@ -106,7 +106,7 @@ class SessionRowsTest(unittest.TestCase):
         rows = rows_from(shuffled)
         self.assertEqual(
             [r.agent for r in rows],
-            ["junior-worker", "senior-worker", "reviewer", "verifier", "advisor"])
+            ["junior-worker", "senior-worker", "reviewer", "advisor"])
 
     def test_an_unknown_agent_is_refused(self):
         config = models.default_local_config()["rows"]

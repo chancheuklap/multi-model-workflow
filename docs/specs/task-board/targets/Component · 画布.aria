@@ -1,10 +1,10 @@
 # target trees of the handoff package page: Component · 画布.dc.html
 # derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
-# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
-# page sha256=0d166211979b6d1d06197c915ab62af18349c04eefc96bb782b8a0ed3a293c8e
+# scenes.json sha256=2cb51e737a5e18771ea1341d821934c7003493c99587956d45eb360a7e64d153
+# page sha256=2da8bdddc96cc4a1c3d47703686f2a57b947ee0cf7ae782c914b321b56a4640b
 
 ## scene 画布.morning
-- text: 这次讨论自己的票 · 6 张 讨论产出的 spec · 3 个
+- text: decision tickets · 6 spec · 3
 - button "#98 落地流水线改造"
 - text: "#98 · wayfinder 6/18"
 - button: ▾
@@ -46,20 +46,20 @@
 - button "#138 离线时唤醒去向"
 - text: "#138 verify 离线时唤醒去向 grok · grok 4.6 · high"
 - button "#141 中继日志轮转"
-- text: "#141 verify 中继日志轮转 claude · sonnet 5 · medium"
+- text: "#141 verify 中继日志轮转 cursor · composer 2.5 · —"
 - button "#136 重试与退避"
-- text: "#136 waiting 重试与退避 等槽位 · 07:32 起"
+- text: "#136 waiting 重试与退避 waiting for a slot · since 07:32"
 - button "#135 投递回执"
-- text: "#135 queued 投递回执 尚未派发"
+- text: "#135 queued 投递回执 not dispatched"
 - button "#137 中继自检命令"
-- text: "#137 queued 中继自检命令 尚未派发 展开 · 走过 在走 被挡 收口新开"
+- text: "#137 queued 中继自检命令 not dispatched contains · released released · working blocked closing pass"
 - button: −
 - text: 90%
 - button: +
-- button "适配"
+- button "fit"
 
 ## scene 画布.twenty-tickets
-- text: 这次讨论自己的票 · 2 张 讨论产出的 spec · 1 个
+- text: decision tickets · 2 spec · 1
 - button "#210 判活三层落地"
 - text: "#210 · wayfinder 7/20"
 - button: ▾
@@ -83,7 +83,7 @@
 - button "#217 Herdr 状态读取"
 - text: "#217 landed Herdr 状态读取 codex · gpt-5.5 · high"
 - button "#218 Orca tui-idle 等待"
-- text: "#218 verify Orca tui-idle 等待 claude · sonnet 5 · medium"
+- text: "#218 verify Orca tui-idle 等待 cursor · composer 2.5 · —"
 - button "#219 tmux pane 探活"
 - text: "#219 working tmux pane 探活 grok · grok 4.6 · high"
 - button "#229 远程 --on 探活"
@@ -95,30 +95,30 @@
 - button "#223 扫描间隔配置"
 - text: "#223 review 扫描间隔配置 codex · gpt-5.5 · medium"
 - button "#225 陈旧绑定检测"
-- text: "#225 waiting 陈旧绑定检测 等槽位 · 07:26 起"
+- text: "#225 waiting 陈旧绑定检测 waiting for a slot · since 07:26"
 - button "#228 install --check 覆盖叠挂"
 - text: "#228 landed install --check 覆盖叠挂 grok · grok 4.6 · high"
 - button "#221 worker.lost 写入"
-- text: "#221 queued worker.lost 写入 尚未派发"
+- text: "#221 queued worker.lost 写入 not dispatched"
 - button "#222 「不知道」与「死了」分开"
-- text: "#222 queued 「不知道」与「死了」分开 尚未派发"
+- text: "#222 queued 「不知道」与「死了」分开 not dispatched"
 - button "#224 误判回放测试"
-- text: "#224 queued 误判回放测试 尚未派发"
+- text: "#224 queued 误判回放测试 not dispatched"
 - button "#226 retract 联动"
-- text: "#226 queued retract 联动 尚未派发"
+- text: "#226 queued retract 联动 not dispatched"
 - button "#227 夜间摘要一行"
-- text: "#227 queued 夜间摘要一行 尚未派发"
+- text: "#227 queued 夜间摘要一行 not dispatched"
 - button "#230 判活文档"
-- text: "#230 queued 判活文档 尚未派发"
+- text: "#230 queued 判活文档 not dispatched"
 - button "#231 端到端夜跑"
-- text: "#231 queued 端到端夜跑 尚未派发 展开 · 走过 在走 被挡 收口新开"
+- text: "#231 queued 端到端夜跑 not dispatched contains · released released · working blocked closing pass"
 - button: −
 - text: 90%
 - button: +
-- button "适配"
+- button "fit"
 
 ## scene 画布.bad-data
-- text: "讨论产出的 spec · 1 个 阻塞成环 · #304 · 排不出先后"
+- text: "spec · 1 blocking cycle · #304"
 - button "#300 端口租约回收"
 - text: "#300 · grilling 1/6 端口租约回收"
 - button "#301 租约回收"
@@ -128,26 +128,26 @@
 - button "#302 租约登记表"
 - text: "#302 landed 租约登记表 claude · opus 5 · high"
 - button "#303 回收脚本"
-- text: "#303 queued 回收脚本 尚未派发"
+- text: "#303 queued 回收脚本 not dispatched"
 - button "#304 占用探测"
-- text: "#304 queued 占用探测 尚未派发"
+- text: "#304 queued 占用探测 not dispatched"
 - button "#305 回收日志"
-- text: "#305 queued 回收日志 尚未派发"
+- text: "#305 queued 回收日志 not dispatched"
 - button "#307 回收冲突告警"
-- text: "#307 working 回收冲突告警 已停下 · grok · grok 4.6"
+- text: "#307 working 回收冲突告警 stopped · grok · grok 4.6"
 - button "#306 lease --check"
-- text: "#306 working lease --check codex · gpt-5.5 · high 展开 · 走过 在走 被挡 收口新开"
+- text: "#306 working lease --check codex · gpt-5.5 · high contains · released released · working blocked closing pass"
 - button: −
 - text: 90%
 - button: +
-- button "适配"
+- button "fit"
 
 ## scene 画布.empty
-- paragraph: 还没有任务
-- paragraph: 一个任务就是一次讨论开出的那张票。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。
+- paragraph: The Night 还没开始
+- paragraph: The Night 是一次讨论开出的那张 ticket。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。
 
 ## scene 画布.nothing-selected
-- text: 这次讨论自己的票 · 6 张 讨论产出的 spec · 3 个
+- text: decision tickets · 6 spec · 3
 - button "#98 落地流水线改造"
 - text: "#98 · wayfinder 6/18"
 - button: ▾
@@ -189,14 +189,14 @@
 - button "#138 离线时唤醒去向"
 - text: "#138 verify 离线时唤醒去向 grok · grok 4.6 · high"
 - button "#141 中继日志轮转"
-- text: "#141 verify 中继日志轮转 claude · sonnet 5 · medium"
+- text: "#141 verify 中继日志轮转 cursor · composer 2.5 · —"
 - button "#136 重试与退避"
-- text: "#136 waiting 重试与退避 等槽位 · 07:32 起"
+- text: "#136 waiting 重试与退避 waiting for a slot · since 07:32"
 - button "#135 投递回执"
-- text: "#135 queued 投递回执 尚未派发"
+- text: "#135 queued 投递回执 not dispatched"
 - button "#137 中继自检命令"
-- text: "#137 queued 中继自检命令 尚未派发 展开 · 走过 在走 被挡 收口新开"
+- text: "#137 queued 中继自检命令 not dispatched contains · released released · working blocked closing pass"
 - button: −
 - text: 90%
 - button: +
-- button "适配"
+- button "fit"

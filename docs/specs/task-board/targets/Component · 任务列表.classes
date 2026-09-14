@@ -1,7 +1,7 @@
 # class sets of the handoff package page: Component · 任务列表.dc.html
 # derived by extract_skeleton.py — the handoff package is the baseline and this file is its readable view; the lint fails when the hashes below no longer match the package
-# scenes.json sha256=5873450cb918666f5b2f7919883486055f1ada43e45589bacca22d1e3a93be5f
-# page sha256=573aee9bf969e928487a4172edc98dd3c2216d4e3d453e98626d706ee8633221
+# scenes.json sha256=2cb51e737a5e18771ea1341d821934c7003493c99587956d45eb360a7e64d153
+# page sha256=3679b09b8a1c2c10b43bd140c50c6e88f66cad68832fe1b8d84b47a9dc0027c6
 
 ## scene 任务列表.morning
 bar
@@ -10,7 +10,7 @@ board
 col-eyebrow
 hollow
 ink
-light
+lamp
 on
 orange
 task
@@ -25,7 +25,7 @@ bar
 bar-fill
 board
 col-eyebrow
-light
+lamp
 on
 orange
 task
@@ -40,7 +40,7 @@ bar
 bar-fill
 board
 col-eyebrow
-light
+lamp
 on
 orange
 task

@@ -5,7 +5,7 @@ import {Board, defaultExpanded} from "../../board/page/board-logic.mjs";
 function ticket(overrides = {}) {
   const fold = {
     children: {}, sessions: [], landed: false, returned: false, bounced: false,
-    outcome: null, unreadable: [], passed: false, review: null, verdict: null, waiting: null,
+    outcome: null, unreadable: [], passed: false, review: null, waiting: null,
     ...overrides.fold,
   };
   return {n: 1, state: "open", blocked: [], children: [], events: [], ...overrides, fold};
@@ -75,8 +75,20 @@ test("phase follows who still holds the ticket", () => {
   assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}})), "working");
   assert.equal(Board.phase(ticket({fold: {sessions: [worker()], waiting: {at: "2026-01-01T00:00:00Z"}}})), "waiting");
   assert.equal(Board.phase(ticket({fold: {sessions: [worker(), {kind: "reviewer", live: true}]}})), "review");
-  assert.equal(Board.phase(ticket({fold: {sessions: [worker(), {kind: "verifier", live: true}]}})), "verify");
-  assert.equal(Board.phase(ticket({fold: {sessions: [worker()], verdict: {event: "verifier.passed"}}})), "verify");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
+    {event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
+  ]})), "verify");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
+    {event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
+    {event: "reviewer.started", payload: {}},
+  ]})), "review");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
+    {event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
+    {event: "worker.resumed", payload: {}},
+  ]})), "working");
+  assert.equal(Board.phase(ticket({fold: {sessions: [worker()]}, events: [
+    {event: "ticket.checked", payload: {run: "reverify", actor: "main"}},
+  ]})), "working");
   assert.equal(Board.phase(ticket({fold: {landed: true}})), "landed");
 });
 
@@ -97,7 +109,7 @@ test("a ticket closed by hand names no runner and does not read as still to come
 
 test("a closed ticket whose work has not landed yet is not finished", () => {
   const passed = ticket({state: "closed", blocker_hold: "passed, not landed",
-    fold: {sessions: [{kind: "verifier", live: false}], verdict: {event: "verifier.passed"}}});
+    fold: {sessions: [{kind: "worker", live: false}]}});
   assert.equal(Board.done(passed), false);
   assert.equal(Board.lamp(passed), "hollow");
   const unreadable = ticket({state: "closed", blocker_hold: "its events cannot be read"});
@@ -113,6 +125,12 @@ test("a closed ticket that still needs you stays orange", () => {
 test("a stopped ticket keeps the phase it stopped at", () => {
   const returned = ticket({fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}}});
   assert.equal(Board.phase(returned), "working");
+  const returnedAfterFinalRun = ticket({
+    fold: {returned: true, outcome: {at: "2026-01-01T01:00:00Z"}},
+    events: [{event: "ticket.checked", payload: {run: "reverify", actor: "worker"}},
+      {event: "ticket.returned", payload: {}}],
+  });
+  assert.equal(Board.phase(returnedAfterFinalRun), "verify");
   const fault = ticket({
     fold: {sessions: [{kind: "reviewer", live: true}], children: {8: {child: 8, kind: "fault"}}},
     children: [{number: 8, state: "OPEN"}],

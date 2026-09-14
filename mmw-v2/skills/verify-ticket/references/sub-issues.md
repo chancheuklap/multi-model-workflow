@@ -12,19 +12,31 @@
 
 `--sub-issue` takes a kind and a file whose first line is the title. It opens a new issue labelled `needs-triage` and `mmw:child` (the layer label; the repository's first child creates it), parented to this ticket, whose body opens with the line ``A `<kind>` child of #<n>.``, and posts a `child.opened` event on this ticket naming the new issue and its kind — the ticket's events are where its children are counted.
 
+## Which kind it is
+
+Ask these questions in order. The first yes decides the kind.
+
+| Order | Question | Kind | Not this kind |
+| --- | --- | --- | --- |
+| 1 | Is the pipeline itself broken: a script, hook, driver or the target contract? | `fault` | A stale product process occupies a port and can be removed as an environment repair. |
+| 2 | Does something this ticket was told to follow fail to hold: a baseline, a `## Parent` spec section or an acceptance criterion lacks a state, field or case, or contradicts another such source? | `contract` | Those sources are clear and this ticket's implementation is wrong; fix it in this ticket. |
+| 3 | Do the sources say nothing, while multiple defensible readings would produce observably different outcomes? | `decision`, with the default taken | An internal name or data structure whose alternatives have no observable difference; decide it and record it in `DECISIONS`. |
+| 4 | Is it a defect from the review report outside this ticket's `## Owns`? | `finding` | It is inside `## Owns`; fix it in this ticket. |
+| 5 | Is it a merely convenient change outside `## Owns` that no criterion needs? | `deferred` | A criterion cannot pass without it; make the change and list it under `Outside Owns`. |
+
 A kind is named for who can answer the child, not for where it came from:
 
 | Kind | Who opens it | What it records | Where it goes next |
 | --- | --- | --- | --- |
 | `finding` | the worker, from the review comment | the review found a defect that does not fall inside this ticket's scope | the closing pass of the night: fixed by the main agent, closed as no longer true, or made a ticket |
-| `contract` | the worker | a baseline under `## Read first` this ticket was told to follow does not hold — a missing state, field or case, or two baselines that contradict each other | back to whoever wrote the spec or the baseline; never changed quietly and worked on |
+| `contract` | the worker | something this ticket was told to follow does not hold: a baseline under `## Read first`, a spec section named by `## Parent`, or an acceptance criterion lacks a state, field or case, or contradicts another such source. Its body quotes what does not hold and states what in the same source still holds and must be preserved | back to whoever wrote the failing layer; never changed quietly and worked on |
 | `deferred` | the worker | work outside `## Owns` seen here that was merely convenient to change, and left alone on purpose | a later ticket. A change a criterion cannot pass without is made and listed under `Outside Owns`, not opened here |
 | `decision` | the worker | a choice only a person can make; the worker carries on with the default | the user |
 | `fault` | the worker or the main agent | the pipeline itself is broken — a script, a hook, the driver, the target contract | the user, to fix the pipeline. The agent that opens it stops where it is |
 
-An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that brings the ticket to rest. This run tells nobody: the relay of the `dispatch` skill reads the `child.opened` on the ticket and wakes the main agent with `#<n> child.opened` for a `fault` or a `decision`.
+An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that brings the ticket to rest. This run tells nobody: the relay of the `dispatch` skill reads the `child.opened` on the ticket and wakes the main agent with `#<n> child.opened` for a `contract`, `fault` or `decision`.
 
-A reviewer or a verifier opens no `fault`. The worker that started it is asleep until its result lands on the ticket, and a `child.opened` wakes only the main agent, so a reviewer or verifier that stopped after opening one would leave that worker asleep for good. It reports the failure through its result instead, which wakes the worker: the reviewer's review report says which failure it hit, and the verifier writes `--verdict "could not start: <what it ran and what it saw>"`.
+A reviewer opens no `fault`. The worker that started it is asleep until its report lands on the ticket, and a `child.opened` wakes only the main agent, so a reviewer that stopped after opening one would leave that worker asleep. It reports the failure through its review report, which wakes the worker.
 
 ## Exit codes
 

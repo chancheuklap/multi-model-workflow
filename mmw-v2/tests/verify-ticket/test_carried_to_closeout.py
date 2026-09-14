@@ -18,7 +18,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _load import checked, event, load, started
+from _load import checked, load, started
 
 vt = load()
 
@@ -56,11 +56,10 @@ class Tracker:
         return [vt.events.parse(body)[1]["event"] for body in self.comments]
 
     def verified_at(self, commit):
-        """The verifier's run of the criteria on `commit`, and its verdict on it."""
+        """The worker's own run and final full run of the criteria on `commit`."""
         self.comments.append(checked("self", CRITERION, "ALL MET (1 met)", commit=commit))
-        self.comments.append(checked("reverify", CRITERION, "ALL MET (1 met)", commit=commit))
-        self.comments.append(event("verifier.passed", f"VERDICT {commit} by opus — six rows",
-                                   commit=commit))
+        self.comments.append(checked("reverify", CRITERION, "ALL MET (1 met)",
+                                     commit=commit, actor="worker"))
 
     def run(self, call, *args):
         """One run of `verify-ticket.py`, as `(exit code, stdout, stderr)`."""
@@ -122,7 +121,8 @@ class TestCarriedEditsAreStoppedAtTheCloseout(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("READY: #77 claimed on issue-77", out)
         self.assertIn("CARRIED: 1 tracked files have uncommitted changes", out)
-        self.assertEqual(tracker.events()[-1], "ticket.claimed")
+        self.assertEqual(tracker.events()[-2:], ["ticket.claimed", "ticket.checked"])
+        self.assertEqual(vt.events.parse(tracker.comments[-1])[1]["run"], "baseline")
 
         # Everything else the closeout asks for is in place on HEAD, so the tree is the
         # one condition left for it to refuse.

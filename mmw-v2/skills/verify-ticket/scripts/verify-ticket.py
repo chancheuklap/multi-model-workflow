@@ -46,6 +46,9 @@ LEDGER_NAME = "AC.md"
 # The summary line gate-check prints on its own stdout.
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
+IN_TICKET_ITEM_RE = re.compile(
+    r"^- (Standards|Spec|Tests) (\S+):(\d+) — (.+)$")
+IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"
 # The layer label every issue this pipeline opens carries beside its queue label: which
@@ -64,6 +67,9 @@ CLASS_SPEC = "mmw:spec"
 # is not one: it starts the story page service, which has no backend behind it and takes
 # a port of its own.
 PRODUCT_JUDGES = ("journey.py", "screen_driver.py", "lease.py")
+# Criteria whose CHECK names one of these are left off the claim-time baseline run:
+# they start the product or the story page service. Recorded on the event as `skipped`.
+BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
 # How long a reverify waits for a product slot before it hands back exit 3, and how often
 # it asks again in between. The bound stays under the time a host lets a command run
 # before it moves it to the background; a reverify given back 3 is run again, and the wait
@@ -79,7 +85,7 @@ SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
 ABANDON_KINDS = events.ABANDON_KINDS
 HANDOFF_KINDS = ("failed", "stuck")
 # Seconds one `CHECK:` may run. A ticket raises it per criterion with `TIMEOUT:`; the
-# worker's own run and the verifier's `--reverify` read the same lines, so the two
+# worker's own run and final `--reverify` read the same lines, so the two
 # never disagree about it.
 DEFAULT_TIMEOUT = 600
 ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
@@ -552,11 +558,17 @@ def shape_digest(lines: list[str]) -> str:
     return hashlib.sha256("\n".join(criteria_shape(lines)).encode("utf-8")).hexdigest()
 
 
-def newest_run(comments: list, *runs: str) -> dict | None:
-    """The newest `ticket.checked` among `runs`, as its event record, or None."""
-    state = events.fold(comments)
-    found = [state["checks"][run] for run in runs if state["checks"].get(run)]
-    return max(found, key=lambda r: r["comment"]) if found else None
+def newest_run(comments: list, *runs: str, actor: str | None = None) -> dict | None:
+    """The newest matching `ticket.checked`, as its event record, or None."""
+    found = []
+    for comment in events.normalise(comments):
+        what, payload = events.parse(comment["body"])
+        if (what == "event" and payload["event"] == "ticket.checked"
+                and payload.get("run") in runs
+                and (actor is None or payload.get("actor") == actor)):
+            found.append({"comment": comment["id"] if comment["id"] is not None
+                          else comment["position"], "payload": payload})
+    return max(found, key=lambda record: record["comment"]) if found else None
 
 
 def ledger_with_results(lines: list[str], results: list[dict]) -> list[str]:
@@ -650,7 +662,7 @@ def check_timeout(body: str, asked: int | None) -> int:
 
     The largest of `DEFAULT_TIMEOUT`, every `TIMEOUT:` in `## Acceptance criteria`, and
     `--timeout` when given: a ticket can raise the limit and never lower it, and it is
-    read off the ticket body whichever run this is, so the verifier's `--reverify` runs
+    read off the ticket body whichever run this is, so the final `--reverify` runs
     under the same number as the worker's own run.
     """
     values = [DEFAULT_TIMEOUT]
@@ -773,24 +785,6 @@ def draft_line(text: str, prefix: str) -> str | None:
     return None
 
 
-def last_verdict(comments: list) -> str | None:
-    """The commit the newest `verifier.passed` or `verifier.failed` event covers."""
-    found = events.newest(comments, "verifier.passed", "verifier.failed")
-    commit = (found or {}).get("payload", {}).get("commit")
-    return commit if isinstance(commit, str) and commit else None
-
-
-def last_reverify(comments: list) -> dict | None:
-    """The payload of the newest reverify `ticket.checked` on the ticket, None when none.
-
-    The worker's own run is its measurement of its own work; a reverify is the
-    verifier's, of the same criteria on the same commit. The closing gate reads only
-    this one, because the other is written by the party being judged.
-    """
-    record = newest_run(comments, "reverify")
-    return record["payload"] if record else None
-
-
 def newest_worker_started(number: int, comments: list) -> tuple[dict | None, str | None]:
     """The newest readable `worker.started` payload, or the fact that none exists."""
     record = events.newest(comments, "worker.started")
@@ -824,7 +818,8 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
                 "(<kinds>), <m> unmet, <k> met of <total>`: " + (first or "(empty draft)")]
     if FILL in draft:
         problems.append("the draft still contains `<fill>`; replace the placeholders "
-                        "in `skipped:` and `Decisions I made on my own`")
+                        "in `skipped:`, `Review findings:`, `Green before work:` and "
+                        "`Decisions I made on my own`")
 
     criteria = parse_criteria(draft)
     ids = [c["id"] for c in criteria]
@@ -880,31 +875,19 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
 
 
 def verified_problems(draft: str, body: str, comments: list[str]) -> list[str]:
-    """What an `ALL MET` draft lacks in independent verification, in reader order.
-
-    Three facts, and all three are ones the worker cannot write for itself: the
-    verifier's own run of the criteria, the commit that run was made on, and the
-    criteria it ran. On 2026-09-06 #162 closed `ALL MET` with none of them holding —
-    the verifier had posted `VERDICT … AC1 failed`, the worker then rewrote AC1's
-    `CHECK:` into a command that passed, re-ran it itself, and closed on the same
-    commit. Each check below is one of the three doors that let that through.
-
-    `HANDOFF REQUIRED` reaches none of this. A worker whose verifier will not run must
-    still be able to hand the ticket back; demanding an independent check before it may
-    say "I could not do this" would leave it with no legal move at all.
-    """
+    """What an `ALL MET` draft lacks in the worker's final full run."""
     problems = []
     lines = draft.strip().splitlines()
     first = lines[0].strip() if lines else ""
     if first != "ALL MET":
         return problems
 
-    reverify = last_reverify(comments)
+    record = newest_run(comments, "reverify", actor="worker")
+    reverify = record["payload"] if record else None
     if reverify is None:
-        problems.append("the ticket carries no reverify `ticket.checked` event, so nothing "
-                        "but this ticket's own author has run its criteria. Dispatch the "
-                        "verifier; if it cannot run, close out as `HANDOFF REQUIRED` instead "
-                        "and say so")
+        problems.append("the ticket carries no worker reverify `ticket.checked` event. Run "
+                        "`verify-ticket.py <n> --reverify --actor worker` after the final "
+                        "commit, or close out as `HANDOFF REQUIRED`")
     else:
         # A run is generated from the ticket body, which carries no `ABANDON:` line, so a
         # criterion the draft abandons as `decision` still runs and still reports unmet.
@@ -915,29 +898,19 @@ def verified_problems(draft: str, body: str, comments: list[str]) -> list[str]:
         unmet = list(reverify.get("failed") or [])
         covered = result == "unmet" and unmet and set(unmet) <= decided
         if result != "met" and not covered:
-            problems.append("the verifier's newest reverify still reports unmet or "
-                            "abandoned criteria — a run of your own does not settle it. "
-                            "Dispatch the verifier again, or close out as "
+            problems.append("the worker's final reverify still reports unmet or abandoned "
+                            "criteria. Add the required `ABANDON:` lines and close out as "
                             "`HANDOFF REQUIRED`")
-        # The criteria the verifier ran must be the criteria the ticket now states. A
+        if reverify.get("commit") != git("rev-parse", "HEAD"):
+            problems.append(f"the worker's final reverify is on {reverify.get('commit')} and "
+                            "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
+        # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
-        # then what stands is a verification of something else, and the verifier runs again.
+        # then what stands is a verification of something else, and the final run runs again.
         if reverify.get("shape") != shape_digest(section(body, "Acceptance criteria")):
-            problems.append("the acceptance criteria have changed since the verifier ran: "
-                            "the criteria its reverify ran and the ticket body no longer "
-                            "describe the same criteria. Dispatch the verifier again so the "
-                            "run and the ticket agree")
-
-    verdict = last_verdict(comments)
-    if verdict is None:
-        problems.append("the ticket carries no `VERDICT` — no verifier.passed or "
-                        "verifier.failed event — so nothing but this ticket's own author "
-                        "says the work is done. Dispatch the verifier; if it cannot run, "
-                        "close out as `HANDOFF REQUIRED` instead and say so")
-    elif not git("rev-parse", "HEAD").startswith(verdict):
-        problems.append(f"the `VERDICT` is on {verdict} and HEAD has moved on. What was "
-                        f"independently verified is not what would be merged; dispatch the "
-                        f"verifier again on this commit")
+            problems.append("the acceptance criteria have changed since the worker's final "
+                            "run: run `--reverify --actor worker` again so the run and the "
+                            "ticket agree")
     return problems
 
 
@@ -961,8 +934,7 @@ def git_problems(base: str, root: Path | None = None) -> list[str]:
                         f"commit them so the closing comment names a real commit")
     if not is_ancestor(base, "HEAD", root):
         problems.append(f"this branch does not contain its base {base}; run `git merge {base}`. "
-                        f"Do not rebase — the `VERDICT` on this ticket names one commit, and "
-                        f"rewriting history throws it away")
+                        f"Do not rebase because the ticket's recorded runs name commits")
         return problems
     fork = git("merge-base", base, "HEAD", cwd=root)
     if fork and not git("diff", "--name-only", f"{fork}..HEAD", cwd=root):
@@ -1255,6 +1227,39 @@ def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
     return base
 
 
+def in_ticket_findings(review: str) -> list[tuple[str, str, str, str]]:
+    """`(axis, path, line, claim)` from the newest review comment's `## In-ticket` list."""
+    found = []
+    for row in section(review, "In-ticket"):
+        m = IN_TICKET_ITEM_RE.match(row.strip())
+        if m:
+            found.append((m.group(1), m.group(2), m.group(3), m.group(4).strip()))
+    return found
+
+
+def review_findings_block(review: str) -> str:
+    items = in_ticket_findings(review)
+    if not items:
+        return "Review findings:\nNone"
+    lines = ["Review findings:"]
+    for axis, path, line, claim in items:
+        lines.append(f"- {axis} {path}:{line} — {claim} — {FILL}")
+    return "\n".join(lines)
+
+
+def green_before_work_block(comments: list) -> str:
+    record = newest_run(comments, "baseline")
+    if record is None:
+        return "Green before work:\nnot run: no baseline `ticket.checked`"
+    ids = []
+    for item in record["payload"].get("criteria") or []:
+        if isinstance(item, dict) and item.get("met") and item.get("id"):
+            ids.append(str(item["id"]))
+    if not ids:
+        return "Green before work:\nNone"
+    return "Green before work:\n" + "\n".join(f"- {i}: {FILL}" for i in ids)
+
+
 def criterion_block(item: dict) -> str:
     """The four ledger lines of one criterion."""
     tick = "x" if item["ticked"] else " "
@@ -1409,11 +1414,10 @@ def default_draft_path(number: int) -> Path:
     The skeleton recounts the ticket, so it carries every path and file name the ticket
     names — that is what a closing comment says. `--closeout` then runs the repository's
     own `checks` over the working tree, and a draft written into that tree is one more
-    file those checks read: on 2026-09-11 agentflow-hq/agentflow #831 had every criterion
-    met and its verifier through, and stayed open because a guard of that repository found
-    two reference file names in `.mmw/closeout-831.md` — the draft it had written a minute
-    earlier. Every consuming repository with a guard over its own Markdown would meet the
-    same wall, so the default landing place is outside all of them.
+    file those checks read. A prior ticket with every criterion met stayed open because a
+    repository guard found two reference file names in the closeout draft written inside
+    its working tree. Every consuming repository with a guard over its own Markdown could
+    meet the same wall, so the default landing place is outside all of them.
     """
     return Path(tempfile.mkdtemp(prefix=f"mmw-closeout-{number}-")) / f"closeout-{number}.md"
 
@@ -1469,7 +1473,9 @@ def run_draft(number: int, out_file: Path | None) -> int:
         parts.append("")
     parts += [
         outside, "",
+        review_findings_block(review), "",
         f"skipped: {FILL}", "",
+        green_before_work_block(comments), "",
         sub, "",
         counts_line, "",
         "Decisions I made on my own", "",
@@ -1588,8 +1594,8 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
 
     Writing code takes no slot. The first run of the criteria that needs the product
     claims one, and the worktree holds it until its ticket's work ends — landed, handed
-    back, released, suspended or retracted — so every later run — the verifier's
-    reverify, the closeout's checks — finds it already there.
+    back, released, suspended or retracted — so every later run, including the final
+    reverify and closeout checks, finds it already there.
 
     When no slot is free, a `worker.queued` event goes on the ticket, once for this wait,
     so a ticket quiet for twenty minutes reads as queued and not as dead. The worker's
@@ -1597,8 +1603,8 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
     ticket's work ends, and the event that ends it is what the relay of the dispatch skill
     wakes every queued worker on, with `#<n> worker.queued`; the worker runs the same
     command again then. Waiting here instead would cost the worker a turn every
-    `SLOT_WAIT_S` for as long as the slots stay held. A reverify — the verifier's, or the
-    main agent's — normally finds its worktree's slot already held; when it does not, it
+    `SLOT_WAIT_S` for as long as the slots stay held. A reverify by the worker or main
+    agent normally finds its worktree's slot already held; when it does not, it
     asks again every `SLOT_BEAT_S` seconds and exits 3 after `SLOT_WAIT_S`, to be run again.
     """
     lease = load_lease()
@@ -1651,10 +1657,6 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
             spent += SLOT_BEAT_S
 
 
-# Where each run is recorded, by whom it is written when nothing else is said.
-RUN_STAGE = {"self": "work", "reverify": "verify", "repo-checks": "close"}
-
-
 def run_checks(number: int, reverify: bool, timeout: int | None,
                actor: str | None = None) -> int:
     """Run criteria under the lifetime of a non-ticket judge lease."""
@@ -1685,7 +1687,7 @@ def _run_checks(number: int, reverify: bool, timeout: int | None,
     recording them could not be written.
     """
     run = "reverify" if reverify else "self"
-    actor = actor or ("verifier" if reverify else "worker")
+    actor = actor or "worker"
     head = git("rev-parse", "HEAD", cwd=root)
     if not re.fullmatch(r"[0-9a-f]{40}", head or ""):
         return refuse("could not read HEAD, so this run would name no commit. Nothing was "
@@ -1727,12 +1729,7 @@ def _run_checks(number: int, reverify: bool, timeout: int | None,
     results = [{"id": c["id"],
                 "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
                 "evidence": c["evidence"] or "pending"} for c in criteria]
-    if result.returncode == 0:
-        outcome = "met"
-    elif summary.startswith("HANDOFF REQUIRED:"):
-        outcome = "handoff"
-    else:
-        outcome = "unmet"
+    outcome = check_run_outcome(result.returncode, summary)
     fields = ({} if reverify else
               outside_owns_fields(number, owns_globs(body), root, base))
     prose = [updated]
@@ -1750,7 +1747,7 @@ def _run_checks(number: int, reverify: bool, timeout: int | None,
                    shape=shape_digest(section(body, "Acceptance criteria")),
                    slot=slot.get("slot") if slot else None,
                    port_base=slot.get("port_base") if slot else None,
-                   actor=actor, stage=("regress" if actor == "main" else RUN_STAGE[run]),
+                   actor=actor, stage=events.checked_stage(run, actor),
                    **fields)
     except (OSError, subprocess.CalledProcessError) as exc:
         # The criteria ran, but nothing on the ticket says how. Every reader decides from
@@ -1868,12 +1865,138 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
     return out
 
 
+def check_run_outcome(returncode: int, summary: str) -> str | None:
+    """The `ticket.checked` result of one gate-check process, or None if it could not start."""
+    if returncode == 2:
+        return None
+    if returncode == 0:
+        return "met"
+    if summary.startswith("HANDOFF REQUIRED:"):
+        return "handoff"
+    return "unmet"
+
+
+def baseline_skipped(check: str) -> bool:
+    """Whether this CHECK is left off the claim-time baseline run."""
+    return any(name in (check or "") for name in BASELINE_SKIP_JUDGES)
+
+
+def run_baseline_if_needed(number: int, root: Path) -> None:
+    """Run the baseline once for the newest `worker.started.base`, if that run is missing.
+
+    A red result does not refuse the claim. Failures of the throwaway worktree are written
+    as an unmet `ticket.checked` of run `baseline` when the base commit is known, and
+    otherwise named on stderr; they never raise into `--preflight`.
+    """
+    try:
+        comments = fetch_comments(number)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
+        return
+    started = events.newest(comments, "worker.started")
+    base = (started or {}).get("payload", {}).get("base")
+    if not isinstance(base, str) or not re.fullmatch(r"[0-9a-f]{40}", base):
+        sys.stderr.write(f"#{number}: baseline run did not start "
+                         f"(no worker.started.base commit)\n")
+        return
+    existing = newest_run(comments, "baseline")
+    if existing and existing["payload"].get("commit") == base:
+        return
+    try:
+        body = fetch_body(number)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
+        return
+    run_baseline(number, body, base, root)
+
+
+def run_baseline(number: int, body: str, base: str, root: Path) -> None:
+    """Criteria that need no product slot, at `base`, in a throwaway detached worktree."""
+    items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
+    skipped = [c["id"] for c in items if baseline_skipped(c.get("check", ""))]
+    runnable = [c for c in items if c["id"] not in skipped]
+    tmp = Path(tempfile.mkdtemp(prefix="mmw-baseline-"))
+    worktree = tmp / "tree"
+    try:
+        added = subprocess.run(
+            ["git", "worktree", "add", "--detach", str(worktree), base],
+            cwd=root, capture_output=True, text=True)
+        short = base[:12]
+        if added.returncode != 0 or not worktree.is_dir():
+            why = (added.stderr or added.stdout or "git worktree add failed").strip()
+            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+                           outcome="unmet",
+                           line=f"Baseline run on {short}: unmet ({why})")
+            return
+        if not runnable:
+            _post_baseline(number, body, base, runnable=[], skipped=skipped, outcome="unmet",
+                           line=f"Baseline run on {short}: nothing ran (all skipped)")
+            return
+        ledger_dir = tmp / "ledger"
+        ledger_dir.mkdir()
+        lines = []
+        for item in runnable:
+            pending = dict(item)
+            pending["ticked"] = False
+            pending["evidence"] = pending.get("evidence") or "pending"
+            lines.extend(criterion_block(pending).splitlines())
+            lines.append("")
+        ledger = write_ledger(body, ledger_dir, lines)
+        cmd = ["node", str(GATE_CHECK), "--cwd", str(worktree),
+               "--timeout", str(check_timeout(body, None)), str(ledger)]
+        env = os.environ.copy()
+        env["MMW_TICKET"] = str(number)
+        if TOOLS:
+            env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=worktree, env=env)
+        printed = (result.stdout or "") + (result.stderr or "")
+        summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
+        updated = ledger.read_text(encoding="utf-8").rstrip("\n") if ledger.is_file() else ""
+        outcome = check_run_outcome(result.returncode, summary)
+        if outcome is None:
+            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+                           outcome="unmet",
+                           line=f"Baseline run on {short}: could not start")
+            return
+        ran = parse_criteria(updated) if updated else runnable
+        _post_baseline(number, body, base, runnable=ran, skipped=skipped, outcome=outcome,
+                       line=f"Baseline run on {short}: {summary or outcome}",
+                       updated=updated)
+    except (OSError, subprocess.CalledProcessError, events.EventError) as exc:
+        sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
+    finally:
+        subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
+                       cwd=root, capture_output=True, text=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
+                   skipped: list[str], outcome: str, line: str,
+                   updated: str = "") -> None:
+    results = [{"id": c["id"],
+                "met": bool(c.get("ticked") and c.get("evidence")
+                            and c.get("evidence") != "pending"),
+                "evidence": c.get("evidence") or "pending"} for c in runnable]
+    abandons = parse_abandons(updated) if updated else []
+    post_event(number, "ticket.checked", line, updated,
+               run="baseline", commit=base, result=outcome,
+               counts=tally(runnable, abandons) if runnable else {
+                   "met": 0, "unmet": 0, "abandoned": 0, "total": 0},
+               criteria=results, failed=[r["id"] for r in results if not r["met"]],
+               abandons=abandons or None, skipped=skipped or None,
+               shape=shape_digest(section(body, "Acceptance criteria")),
+               actor="worker", stage=events.checked_stage("baseline", "worker"))
+
+
 def run_preflight(number: int) -> int:
     """Claim the ticket, or say on the ticket itself why it cannot be claimed.
 
     Either way one event lands on the ticket: `ticket.refused` with the first refusal's
     reason, or `ticket.claimed` once the claim is made. A claim whose event could not be
     written still holds — the tracker's assignee is the claim — and says so on stderr.
+    After a successful claim, criteria that need no product slot are run once at the
+    newest `worker.started.base` (a `ticket.checked` of run `baseline`) unless that run
+    is already on the ticket; a red result does not refuse.
     """
     root = repo_root()
     ticket = fetch_ticket(number)
@@ -1898,6 +2021,7 @@ def run_preflight(number: int) -> int:
     except (OSError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"#{number} is claimed, but its ticket.claimed event was not "
                          f"written ({exc})\n")
+    run_baseline_if_needed(number, root)
     print(f"READY: #{number} claimed on issue-{number}")
     # Getting here with a dirty tree means the claim was already this account's, so the
     # changes came in under it: this is a worker back on its own work, and the only thing
@@ -2052,7 +2176,7 @@ def post_repo_checks(number: int, checks: dict, spec: int | None) -> bool:
 
 
 def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
-    """Push the verdict commit to `origin/issue-<n>` without rewriting remote history."""
+    """Push the final-run commit to `origin/issue-<n>` without rewriting history."""
     ref = f"refs/heads/issue-{number}"
     try:
         pushed = subprocess.run(
@@ -2070,13 +2194,13 @@ def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
             capture_output=True, text=True,
         )
     except OSError as exc:
-        return (f"git could not reach origin for issue-{number} at verdict commit {commit}: "
+        return (f"git could not reach origin for issue-{number} at final-run commit {commit}: "
                 f"{exc}. The ticket remains open; fix Git access and run --closeout again")
     remote_commit = (remote.stdout.strip().split() or [""])[0]
     if remote.returncode != 0 or remote_commit != commit:
         detail = " ".join((remote.stderr or remote.stdout).strip().splitlines())
         resolved = remote_commit or "nothing"
-        return (f"origin/issue-{number} could not be confirmed at verdict commit {commit}: "
+        return (f"origin/issue-{number} could not be confirmed at final-run commit {commit}: "
                 f"{detail[:500] or f'it resolved to {resolved}'}. The ticket "
                 f"remains open; confirm the remote and run --closeout again")
     return None
@@ -2197,45 +2321,6 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         print(f"CLOSED: #{number}{note}")
     else:
         print(f"HANDED BACK: #{number} is now needs-triage and stays open{note}")
-    return 0
-
-
-def run_verdict(number: int, line: str, model: str) -> int:
-    """Post the verifier's verdict on HEAD: `verifier.passed` or `verifier.failed`.
-
-    The verifier writes one line and names its model; which of the two events it is,
-    and the commit it covers, are read here rather than typed. A line opening `could not
-    start` is a failure whose criteria never ran. Otherwise the newest reverify
-    `ticket.checked` decides: result `met` is a pass, anything else a failure naming the
-    criteria it left unmet — so a verdict can never say more than the run it reports.
-    """
-    line = " ".join((line or "").split())
-    if not line:
-        return refuse("--verdict needs the one line that says what the run proved")
-    if not (model or "").strip():
-        return refuse("--verdict needs --model, the model field of the ticket's newest verifier.started event")
-    commit = git("rev-parse", "HEAD")
-    if not re.fullmatch(r"[0-9a-f]{40}", commit or ""):
-        return refuse("could not read HEAD, so there is no commit for the verdict to cover")
-    reverify = last_reverify(fetch_comments(number))
-    ran = not line.lower().startswith("could not start")
-    if ran and reverify is None:
-        return refuse(f"#{number} carries no reverify `ticket.checked` event, so there is no "
-                      f"run for this verdict to report. Run --reverify first; if it could "
-                      f"not start, say `could not start` in the line")
-    # A verdict covers HEAD, so the run it reports has to be a run of HEAD. The newest
-    # reverify on an older commit says nothing about the commit this verdict would name.
-    if ran and reverify.get("commit") != commit:
-        return refuse(f"#{number}'s newest reverify ran on {str(reverify.get('commit'))[:12]}, "
-                      f"and HEAD is {commit[:12]}: no run of HEAD exists for this verdict to "
-                      f"report. Run --reverify first, on this commit")
-    passed = bool(ran and reverify.get("result") == "met")
-    post_event(number, "verifier.passed" if passed else "verifier.failed",
-               f"VERDICT {commit} by {model.strip()} — {line}",
-               commit=commit, model=model.strip(), says=line, ran=ran,
-               failed=(list(reverify.get("failed") or []) if ran and not passed else None)
-               or None)
-    print(f"VERDICT: {'passed' if passed else 'failed'} on {commit[:12]}, posted on #{number}")
     return 0
 
 
@@ -2619,6 +2704,30 @@ def parent_sections(parent_text: str) -> dict[int, dict]:
     return out
 
 
+def implementation_decision_numbers(spec_body: str) -> list[int]:
+    """`### <n>.` headings under `## Implementation Decisions`, first occurrence of each."""
+    numbers = []
+    for line in section(spec_body, "Implementation Decisions"):
+        m = IMPLEMENTATION_DECISION_HEADING_RE.match(line)
+        if m:
+            numbers.append(int(m.group(1)))
+    return list(dict.fromkeys(numbers))
+
+
+def print_uncovered_sections(spec: int, spec_body: str, named: set[int]) -> None:
+    """WARN each Implementation Decisions section no ticket's Parent names; then the count.
+
+    A WARN does not change the lint exit code.
+    """
+    numbers = implementation_decision_numbers(spec_body)
+    for n in numbers:
+        if n not in named:
+            print(f"  WARN #{spec} Implementation Decisions section {n} is named by no "
+                  f"ticket's ## Parent [uncovered-section]")
+    covered = sum(1 for n in numbers if n in named)
+    print(f"sections named by a ticket: {covered}/{len(numbers)}")
+
+
 def load_yaml_file(path: str) -> dict | None:
     """The file as a mapping. `pyyaml` when this interpreter has it; else through `uv`,
     which every `CHECK:` of this pipeline already relies on; else `None`, and the caller
@@ -2910,13 +3019,18 @@ def lint_spec(spec: int) -> int:
     numbers = fetch_sub_issues(spec)
     print(f"#{spec} is a spec with {len(numbers)} sub-issues; linting each, then the graph")
     failed: list[int] = []
+    named: set[int] = set()
     for child in numbers:
         ticket = fetch_ticket(child)
         print(f"\n## #{child} ({ticket.get('state') or 'state unknown'})")
-        if lint_criteria(child, fetch_body(child), labels_of(ticket)):
+        body = fetch_body(child)
+        named |= set(parent_sections("\n".join(section(body, "Parent")))
+                     .get(spec, {}).get("sections") or ())
+        if lint_criteria(child, body, labels_of(ticket)):
             failed.append(child)
     print("\n## ticket graph")
     graph = lint_batch_graph(spec, numbers)
+    print_uncovered_sections(spec, fetch_body(spec), named)
     if failed:
         print("  ERROR tickets with findings: " + ", ".join(f"#{n}" for n in failed))
     return 1 if (failed or graph) else 0
@@ -2949,14 +3063,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
                         help="open a needs-triage child under this ticket; KIND is one of "
                              + ", ".join(SUB_ISSUE_KINDS))
-    parser.add_argument("--actor", choices=("verifier", "main"),
-                        help="with --reverify: who runs it, the verifier (the default) or the "
-                             "main agent re-running a landed ticket on the base branch")
+    parser.add_argument("--actor", choices=events.REVERIFY_ACTORS,
+                        help="required with --reverify: the worker's final run or the main "
+                             "agent re-running a landed ticket on the base branch")
     parser.add_argument("--review", type=Path, metavar="FILE",
                         help="post the review report on the ticket")
-    parser.add_argument("--verdict", metavar="LINE",
-                        help="post the verifier's verdict on HEAD, read off its newest reverify")
-    parser.add_argument("--model", help="with --verdict: the model field of the ticket's newest verifier.started event")
     parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
                         help="a directory holding scripts of other skills (the drive-target "
                              "skill's scripts/); put on the PATH of every CHECK; repeatable")
@@ -2972,18 +3083,15 @@ def main(argv: list[str] | None = None) -> int:
                ("--decisions", args.decisions is not None), ("--touched", args.touched),
                ("--draft", args.draft is not None),
                ("--sub-issue", args.sub_issue is not None),
-               ("--review", args.review is not None),
-               ("--verdict", args.verdict is not None)) if on]
+               ("--review", args.review is not None)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
     if args.check_only and args.closeout is None:
         parser.error("--check-only belongs to --closeout")
-    if args.model is not None and args.verdict is None:
-        parser.error("--model belongs to --verdict")
     if args.actor is not None and not args.reverify:
         parser.error("--actor belongs to --reverify")
-    if args.verdict is not None:
-        return run_verdict(args.ticket, args.verdict, args.model or "")
+    if args.reverify and args.actor is None:
+        parser.error("--reverify requires --actor worker|main")
     if args.preflight:
         return run_preflight(args.ticket)
     if args.closeout is not None:
