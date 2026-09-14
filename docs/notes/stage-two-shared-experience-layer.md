@@ -249,13 +249,14 @@ the exact error, command, and component before trying a workaround. If that has
 no answer, search repository and approved mmw-toolbox experience. Verify every
 Memory against current repository evidence before acting on it.
 
-As soon as a changed fact is verified, save it when another ticket or later
-agent can reuse it and the ticket and code do not already make it obvious; do
-not wait for a milestone or handoff. At every meaningful milestone or handoff,
-evaluate this trigger again. Use the implement skill's exact Memory fields and
-labels. Link the evidence, supersede a replaced Memory, and deprecate one that
-no longer applies. Never store secrets, customer data, raw chat transcripts,
-private host paths, or unverified claims.
+Save a changed fact immediately when another ticket or later agent can reuse it,
+current evidence verifies it, and the ticket and code do not already make it
+obvious. Evaluate the same trigger again at every meaningful milestone or
+handoff. Use the implement skill's exact Memory fields and labels. Link the
+evidence, supersede a replaced Memory, and deprecate one that no longer applies.
+Store only reusable engineering context that is safe for repository
+collaborators; exclude secrets, customer data, raw chat transcripts, private
+host paths, and unverified claims.
 
 Finish by reporting the Memory records added, used, superseded, or deprecated,
 and the evidence used to validate them. If none changed, say so.
@@ -412,12 +413,13 @@ Active reviewer Rules approved for this review:
 <each active Rule verbatim with id, title, body, scope, and source | none |
 unavailable: reason>
 
-Apply each active Rule as a review instruction within its stated scope. A Rule
-is not evidence that a finding exists. Independently verify every finding
-against the current ticket, parent spec, repository authority, diff, and checks,
-and report the source that proves it. Do not search or use ordinary Memory,
-Working Memory, Thread, worker reasoning, worker self-assessment, or the worker's
-retrieval results as finding or verdict evidence.
+Apply every active Rule within its stated scope. Use the Rules to decide what to
+inspect; establish every finding and verdict independently from the current
+ticket, parent spec, repository authority, diff, and checks. Report the source
+that proves each finding. Keep ordinary Memory, Working Memory, Thread, worker
+reasoning, worker self-assessment, and the worker's retrieval results outside
+the review evidence. Complete the review only after every applicable Rule has
+been applied and every reported finding has a current source.
 ```
 
 公开的 Augment、Devin 和 Anthropic 资料没有可复制的 reviewer system prompt，因此这里不声称复刻它们。这个模板只把 Artifact 已定的 clean-context 边界和 Nowledge Mem 实际 `rule_stack` 接到 MMW 已有 `code-review` 首次 prompt；review 方法本身仍由现有 `code-review` skill 完整提供。
@@ -523,20 +525,30 @@ session 结束或 compact 时，已启用的 connector 可以把会话保存为 
 
 #### `retro/SKILL.md` 的固定执行 prompt
 
-新 skill 以本仓库 `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 为文字底稿；下面是完成 MMW 对象替换后的执行正文。`<spec>`、`<repository Space>` 和 `<base commit>` 是调用时输入。实现可以把各 phase 的细节拆进一层 `references/`，但 `SKILL.md` 必须在对应步骤要求完整读取，不能删掉句子、限定条件、七个 category、phase 顺序或输出字段。
+新 skill 由 night runbook 在 `summary` 后主动到达，因此采用 model-invoked skill，frontmatter 只有 MMW 规定的 `name` 与 `description`。description 是它唯一的常驻 context pointer，固定为：
+
+```yaml
+---
+name: retro
+description: Retrospect one completed MMW spec night from tracker and git evidence, compare earlier Retro Memory, propose prevention, and write its Retro Memory and spec.retroed receipt. Use immediately after dispatch summary records spec.closed.
+---
+```
+
+skill 以本仓库 `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 为文字底稿；下面是完成 MMW 对象替换后的执行正文。`<spec>`、`<repository Space>` 和 `<base commit>` 是调用时输入。实现可以把各 phase 的细节拆进一层 `references/`，但 `SKILL.md` 必须在对应步骤明确写出触发该 reference 的 phase，并要求完整读取；每条执行路径仍须保留全部限定条件、七个 category、phase 顺序和输出字段。
 
 ```text
-The completed spec night is ready for a retrospective. You are suggesting
+Run an evidence-first retrospective for the completed spec night. Produce
 evidence-backed improvements to the coding agents' environment and workflow.
-This retrospective proposes; it does not auto-apply code, spec, prompt, Rule,
-AGENTS.md, check, script, skill, or Memory promotion changes. The owner decides
-what executes.
+The retrospective may write proposals, one Retro Memory, and one spec.retroed
+receipt. Owner-approved work through the normal spec and ticket flow applies
+changes to code, specs, prompts, Rules, AGENTS.md, checks, scripts, skills, or
+toolbox Memory.
 
-Every problem you report must carry a source reference: a tracker event comment,
-commit, current repository file, or observed check. A claim you cannot point at
-is not a problem. Drop it. Memory, Thread, Working Memory, an agent's report,
-and an issue status are discovery inputs, not proof that an event happened or a
-change landed.
+A problem exists only when a tracker event comment, commit, current repository
+file, or observed check proves it. Attach that source to every reported problem
+and drop unsupported claims. Use Memory, Thread, Working Memory, agent reports,
+and issue status to discover what to verify; use primary tracker, git,
+repository, and check evidence to establish what happened or landed.
 
 Run these phases in order: Gather, Analyze, Decide, Finalize.
 
@@ -544,11 +556,11 @@ Run these phases in order: Gather, Analyze, Decide, Finalize.
 
 1. Use the writing-for-agents skill for the writing style of every prompt,
    instruction, AGENTS.md, or skill proposal.
-2. Read the primary sources for completed spec #<spec>: the spec sections named
-   in this contract; its complete native ticket tree; every ticket's full event
-   fold and the comments carrying those events; spec.closed and its proposed
-   Worker Memory ids; and the landing and closing-pass commits from <base commit>
-   through the completed result.
+2. Read the primary sources for completed spec #<spec>: Problem Statement, User
+   Stories, and Out of Scope; its complete native ticket tree; every ticket's
+   full event fold and the comments carrying those events; spec.closed and its
+   proposed Worker Memory ids; and the landing and closing-pass commits from
+   <base commit> through the completed result.
 3. Inventory every required source as present, missing, or unreadable and record
    the exact path, URL, id, or commit range. Carry this inventory into every
    later phase. A missing source narrows the analysis; it never means that the
@@ -561,26 +573,26 @@ Run these phases in order: Gather, Analyze, Decide, Finalize.
 
 ## Analyze
 
-5. Form current problems only from the gathered tracker events, commits, files,
-   and observed checks. Merge duplicate representations of the same underlying
-   event. Give every remaining problem its category, cause, source, and current
-   handling. Do not count a shared path, similar title, or category alone as the
-   same cause.
-6. For each current problem, search earlier mmw-retro Memory with category plus
-   cause. Count an earlier occurrence only when its original source opens, shows
-   the same cause, and belongs to a different ticket, spec, or night.
-7. Check every earlier proposal named by the most recent Retro Memory. Record it
+5. Check every earlier proposal named by the most recent Retro Memory. Record it
    as landed only when a commit, active Rule id, Memory id, or current file
    proves the change. When no such evidence is found, write "no evidence found",
    not "not done". Issue closure alone is not landing evidence.
+6. Form current problems only from the gathered tracker events, commits, files,
+   and observed checks. Merge duplicate representations of the same underlying
+   event. Give every remaining problem its category, cause, and source. Treat a
+   shared path, similar title, or category as a search lead rather than proof of
+   the same cause.
+7. For each current problem, search earlier mmw-retro Memory with category plus
+   cause. Count an earlier occurrence only when its original source opens, shows
+   the same cause, and belongs to a different ticket, spec, or night.
 8. Reconcile intent: take the expected surface from Problem Statement and User
    Stories, the observed surface from checks and events, and compare both with
    Out of Scope. Record aligned, diverged, or unverified; do not change the spec.
 9. Review the review results: distinguish a finding that was invalid from one
    that was valid and fixed elsewhere. Preserve the finding's axis, category,
    path, line, claim, route reason, and source.
-10. Look for supported improvement candidates in all seven categories below.
-    If a category has no supported candidate, record none; do not invent one.
+10. Inspect all seven categories below. Record every source-backed candidate and
+    record none for each category whose checked evidence supports no candidate.
     - Navigation: how easy was it for the agent to find the right authority and
       files? Are there hidden dependencies? Would a navigation pointer help?
       Use when the evidence shows time or errors spent finding information.
@@ -609,39 +621,43 @@ Run these phases in order: Gather, Analyze, Decide, Finalize.
     - Prevention: the spec wording, navigation pointer, convention, check,
       script, reviewer Rule, AGENTS.md instruction, repository-local skill, MMW
       skill, toolbox Memory, or nothing that would prevent the next instance.
-12. A subagent report, Memory match, agent self-assessment, or inferred outcome
-    is unverified until its primary source is reopened. Drop a problem whose
-    source does not hold up.
-13. Create or reuse a needs-triage proposal only when the same cause has two
+12. Reopen the primary source behind every subagent report, Memory match, agent
+    self-assessment, or inferred outcome used by a problem. Keep the problem only
+    when that source proves it.
+13. Create or reuse a needs-triage proposal when the same cause has two
     independently verified event or commit occurrences, or when spec.closed
     proposed a Worker Memory backed by two occurrences or one actual blocking
     event. The proposal names the responsible repository, the sources, how this
     instance was handled, the proposed prevention, this spec, and the Retro
-    Memory id. Do not apply the proposal.
+    Memory id. Leave the proposed behavior change for owner-approved work through
+    the normal spec and ticket flow.
 14. For a prompt change, include the target file and heading, supporting event
     or commit, the complete current passage, the complete proposed passage,
     every Changes Made item, and the expected behavior change. State whether it
     adds missing context or constraints, clarifies ambiguity, adds success
     criteria or a specific requirement, or frontloads information that arrived
-    too late. Keep every unchanged sentence unchanged; never submit only a
-    shorter paraphrase or a diff fragment.
+    too late. Keep every unchanged sentence unchanged and submit both complete
+    passages rather than a shorter paraphrase or an isolated diff fragment.
 
 ## Finalize
 
-15. Write one fixed-id mmw-retro Memory in <repository Space>. Preserve every
+15. Write one fixed-id mmw-retro Memory in <repository Space>. Include every
     required section and field exactly: Spec, Task root, Evidence checked,
     Previous proposals, Problems observed, Intent reconciliation, Review
-    learning, and Observed; for every problem preserve Evidence, Handled here,
-    Prevention, Earlier occurrences, and Proposal. Do not summarize away source
-    references or missing-evidence statements.
+    learning, and Observed; for every problem include Evidence, Handled here,
+    Prevention, Earlier occurrences, and Proposal. Keep every source reference
+    and missing-evidence statement in the record.
 16. Only after the complete Retro Memory write succeeds, write the script-made
     spec.retroed receipt with the Memory id, problem count, proposal links, and
     evidence completeness. If the Memory write fails, write result=unrecorded
     with the specific reason. A completed retro changes no ticket verdict and
     wakes no agent.
 17. Report the Retro Memory id, problem count, proposals or none, and whether
-    the evidence inventory was complete. If no supported improvement exists,
-    record and report none; do not manufacture a proposal.
+    the evidence inventory was complete. Completion requires every inventory
+    item to have a status, every retained problem to have primary evidence and
+    both dispositions, all seven categories to have a result, and every output
+    field above to be present. When no supported improvement exists, record and
+    report none.
 
 Implementation agents carry the greatest context pressure because they explore,
 implement, and debug. Reviewers receive a diff and have less context pressure.
@@ -1022,6 +1038,8 @@ MMW 只作以下对象替换：
 保留 `### Implementation vs Review` 的角色判断：implementation agent 承担探索、实现和调试，context pressure 最大；review agent 拿到 diff 后 context pressure 更小，因此稳定 coding standards 放在 reviewer 路径，不把全部规则塞进 worker prompt。保留 `### Files` 的载体判断：`AGENTS.md` 极少使用且主要作 navigation pointer；docs 作为被引用的详细资料；skill 只承载可重复流程。MMW 只把 `CODING_STANDARDS.md` 目标换成现有 reviewer active Rule、repository authority 和 check，不新建同名文件。
 
 不采用“每次 retro 都必须向用户展示一组候选”的交互入口。MMW 的自动 retro 只在有来源且达到既定门槛时创建 proposal；没有合格 proposal 仍写完整 Retro Memory。
+
+也不保留 upstream 的 `disable-model-invocation: true`。upstream `retro` 由用户手动调用；MMW 的 night runbook 必须在 `summary` 后主动到达新 `retro` skill，所以使用第 12 节的 model-invoked description。这个变化只改 invocation，不改七个 category 或分析步骤。
 
 ### 4. Augment：强弱信号、scope 与 Memory/skill 分工
 
