@@ -86,10 +86,10 @@ Nowledge Mem Working Memory 是每个 Space 一份、由 AI 维护的每日简�
 
 #### 建立和解析
 
-- `install.sh` 幂等建立全局的 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`；`install.sh --check` 只报告缺失或形状不一致。
+- `install.sh` 幂等建立全局的 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`。`install.sh --check` 是只读检查：机器没有 `nmem` 时明确报告“未检查”并保持 exit 0；`nmem` 已存在但对象缺失、JSON 不可读或形状不一致时报告失败并 exit 1。
 - `dispatch.sh open <spec>` 幂等建立当前 repository Space；已有正确 Space 时不重建。Memory 只在每名 worker 真正启动时进入它的首次 prompt，不在 `open` 时交给 main agent，也不另存一份 task 检索包。
 - repository Space id 是 tracker repository 的 `lowercase(owner) + "__" + lowercase(name)`；显示名保留 `owner/name`，避免两个同名 repository 冲突。
-- dispatch 每次从当前 tracker repository 和 native parent graph 重新解析 Space 与 task root，不把它们缓存进 ticket body。
+- dispatch 每次从当前 tracker repository 和 native parent graph 重新解析 Space 与 task root，不把它们缓存进 ticket body。spec 有 `mmw:map` native parent 时使用该 map；没有 native parent 时使用 standalone spec；存在 native parent 但 parent 不是 `mmw:map` 时视为 malformed graph，本次 worker 不做 task-scoped 检索或写入并报告 routing failure，不能退化成 standalone spec。
 
 首次建立使用当前 `nmem 0.10.78` 已存在的接口：
 
@@ -474,7 +474,9 @@ session 结束或 compact 时，已启用的 connector 可以把会话保存为 
 3. **`deprecate`**：证据表明不再适用；
 4. **`supersede`**：另一条新 Memory 已经明确替代它。
 
-`propose` 的门槛沿用 Artifact 2.3：同因独立出现至少两次，或一次就有实际阻塞 ticket 的 event/commit 证据。main agent 把 `memory_id`、决定、理由和必要证据交给 `dispatch.sh summary <spec> --memory-decisions <file>`；`supersede` 另带 `replacement_id`，`propose` 另带达到门槛的 event/commit URL。`summary` 重新列举同一组 ids 后才执行 Memory lifecycle 操作。
+main agent 把 `memory_id`、决定、理由和已知 evidence 交给 `dispatch.sh summary <spec> --memory-decisions <file>`；`supersede` 另带 `replacement_id`。closing pass 的 `propose` 只标记需要 retro 检查的 Memory candidate，不在此处断言 proposal 门槛已经成立。`summary` 重新列举同一组 ids 后才执行 Memory lifecycle 操作。retro 随后独立核对：同一 cause 必须有两个独立 event/commit，或者 closing pass 标记的 Worker Memory 必须由两次 occurrence 或一次实际 blocker 支撑，才能创建 proposal。
+
+Memory lifecycle 动作部分成功后只要仍有一项失败，`summary` 就不写 `spec.closed`，并报告已经完成的 Memory ids 与失败 id。重跑使用同一份 `--memory-decisions` 文件，重新读取 Nowledge 当前状态，跳过已经达到目标状态的项，只补未完成动作；不增加 retry manifest 或第二份持久状态。
 
 `spec.closed` 的 `NIGHT SUMMARY` 记录逐项决定、计数与 `propose` 的 Memory ids，作为 closing pass 到 retro 的确定性交接。Memory 服务不可用、JSON 不可读或读取截断时仍允许 night 结束，但明确写 `Memory closing: unchecked (<reason>)`，不能写成 0。
 
@@ -736,8 +738,11 @@ Evidence: complete | partial (<unreadable sources>)
 
 <!-- mmw {"v":1,"event":"spec.retroed","stage":"night","actor":"main",
 "result":"recorded","retro_memory":"<id>",
-"problem_count":<n>,"proposals":[...]} -->
+"problem_count":<n>,"proposals":[...],
+"evidence":"complete|partial","unreadable_sources":[...]} -->
 ```
+
+`evidence` 是 recorded 回执的必填字段；值为 `partial` 时 `unreadable_sources` 必须列出具体来源，值为 `complete` 时该数组为空。`result=unrecorded` 不伪造这些成功字段，只带具体 `reason`。
 
 `spec.retroed` 只做三件事：
 
@@ -845,7 +850,7 @@ worker 写/读 mmw-experience
 2. review finding 汇总行增加稳定 category，同时保留现有 axis、path、line 和 claim。
 3. `child.closed resolution=stale` 增加 `reason=invalid|fixed-elsewhere`，resolution 本身不变。
 4. retro 用固定 id 在 repository Space 写完整 `mmw-retro` Memory。
-5. `events.py` 增加 `spec.retroed result=recorded|unrecorded`；recorded 回执带 `retro_memory` 与 proposal numbers，不进入 hold、relay 或 ticket verdict。
+5. `events.py` 增加 `spec.retroed result=recorded|unrecorded`；recorded 回执带 `retro_memory`、problem count、proposal numbers、`evidence=complete|partial`，partial 时另带 `unreadable_sources`，不进入 hold、relay 或 ticket verdict。
 6. retro proposal 使用现有 `needs-triage` queue 和现有 issue tracker，不增加 layer、queue 或私有审批表。
 
 `## Sources`、map 的 `## Specs`、ticket title 和 `## Owns` 都是人可读记录或执行切片，不能替代 native parent 与 structured outcome。
@@ -858,7 +863,7 @@ worker 写/读 mmw-experience
 
 #### A. Space、Identity 与现有 dispatch
 
-1. `mmw-v2/install.sh` 幂等建立 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`，`--check` 只读核对。
+1. `mmw-v2/install.sh` 幂等建立 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`；`--check` 只读核对，没有 `nmem` 时明确跳过并 exit 0，已有 `nmem` 但对象或返回形状错误时 exit 1。
 2. 在现有 `dispatch.sh` 内增加 Nowledge helper：建立或读取 repository Space、解析 `nmem --json`、按 task/spec label 列举、从 task root 生成历史 semantic query、读取 reviewer active `rule_stack`，并区分 unavailable、0 results 与截断。worker 仍直接使用 Nowledge CLI 做运行中的精确搜索并写 Memory，不增加中间服务、检索缓存或新 adapter module。
 
 #### B. 阶段二读写
@@ -886,7 +891,8 @@ worker 写/读 mmw-experience
 ### 17. 不可用时的行为
 
 - Nowledge Mem 读取或写入失败时，worker 照常执行 ticket，输出具体失败原因；Memory 从不改变 acceptance、review 或 landing verdict。
-- native parent 读不到时，不猜成 standalone spec，也不扩大到 repository scope；本次 worker 不注入或写 task-scoped Memory，并报告 routing 未完成。
+- native parent 读不到，或存在 native parent 但它不是 `mmw:map` 时，不猜成 standalone spec，也不扩大到 repository scope；本次 worker 不注入或写 task-scoped Memory，并报告 routing 未完成。
+- closing pass 的 Memory lifecycle 部分成功后失败时不写 `spec.closed`；重跑同一份 decision file，按 Nowledge 当前状态跳过已完成项并补齐未完成项。
 - retro 的某项 event/git source 读不到时，Retro Memory 明确写“未检查”；不能把 unreadable 当 0，也不能用该来源形成 proposal。Retro Memory 写入失败时，spec 写 `spec.retroed result=unrecorded` 回执；已由可读 event/commit 支撑的 proposal 保留并由重试复用。
 
 这些行为只让“查询失败”和“查到 0 条”可区分，不增加 retry state、补偿事务或新的 gate。
@@ -895,15 +901,15 @@ worker 写/读 mmw-experience
 
 ### 18. 验收
 
-1. 一个 map 下两份 specs 的 workers 解析成同一 task scope；standalone spec 使用自己的 scope。
+1. 一个 map 下两份 specs 的 workers 解析成同一 task scope；无 native parent 的 standalone spec 使用自己的 scope；存在非 `mmw:map` parent 的 spec 明确失败而不误判为 standalone。
 2. repository A 只能搜索自身与 `mmw-toolbox`，看不到 repository B 或 Default。
 3. runner 实际启动的 agent process 收到 `NMEM_SPACE` 与对应 `NMEM_AGENT_ID`；显式 worker Memory 进入当前 repository Space，已启用 connector 时 worker/reviewer Thread 也进入该 Space。
 4. spec A worker 写入 task Memory 后，同一 map 中稍后启动的 spec B worker 通过 task-scoped `list` 得到它；reviewer prompt 不包含它。
 5. 下一夜的新 map worker 以该 map 的 `Destination + Notes + Decisions so far`，新 standalone spec worker 以自身四个已定 section，在首次 prompt 中得到 repository/toolbox 的相关历史 Memory；两种 task 的结果都不含其他客户 repository 或 Default。
 6. 已运行 worker 用实际错误、命令和组件取回当前 task 或 repository/toolbox 历史 Memory；没有具体问题时不做运行中搜索。
 7. MMW 组装的 reviewer packet 只包含 active Rules，不包含普通 Memory、Thread 或 Working Memory；reviewer 独立运行 acceptance/review checks。
-8. 一份 spec 的 closing pass 只处理带该 spec label 的 current Memory；完整读取时 `total == returned` 且每条都有唯一的 retain/propose/deprecate/supersede 决定，`spec.closed` 保存逐项决定、计数与 proposed ids；读取失败或截断明确写 `unchecked`，proposal issue 只由随后的 retro 创建。
-9. `summary` 后的 retro 达到门槛时先创建或复用 proposal，再写固定 id 的完整 Retro Memory，最后在当前 spec 写 `spec.retroed result=recorded` 回执；回执只含 Memory id、计数与 proposal links，不重复完整正文。
+8. 一份 spec 的 closing pass 只处理带该 spec label 的 current Memory；完整读取时 `total == returned` 且每条都有唯一的 retain/propose/deprecate/supersede 决定，`spec.closed` 保存逐项决定、计数与 proposed ids；读取失败或截断明确写 `unchecked`；lifecycle 部分失败时不写 `spec.closed`，同一 decision file 重跑只补未完成项；proposal issue 只由随后的 retro 创建。
+9. `summary` 后的 retro 独立验证 occurrence/blocker 门槛，达到时先创建或复用 proposal，再写固定 id 的完整 Retro Memory，最后在当前 spec 写 `spec.retroed result=recorded` 回执；回执只含 Memory id、计数、proposal links、evidence completeness 和 partial 时的 unreadable sources，不重复完整正文。
 10. 下一份 spec 的 retro 通过 `mmw-retro` semantic search 取回较早同因问题，再核对其中引用的原 event/commit；两个 specs/nights 的同因 event 在第二次形成一个 proposal，同一事件的多条记录不重复计数。
 11. 上一轮 proposal 只有在找到实际落地证据时显示“已落地”，否则显示“没找到证据”。
 12. intent reconciliation 同时显示 spec expected surface、实际 observed surface 与 gap/未验证。
