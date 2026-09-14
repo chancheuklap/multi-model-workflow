@@ -3,28 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>阶段二共享经验层 · 完整方案图</title>
+  <title>阶段二与阶段三 · 经验反馈闭环完整方案图</title>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{--paper:#f5f5f5;--paper2:#ececec;--ink:#2d3142;--muted:#4f5d75;--soft:#7a8399;--rule:rgba(45,49,66,.12);--rule2:rgba(45,49,66,.24);--accent:#eb6c36;--accentTint:rgba(235,108,54,.08);--link:#2e5aa8;--sans:'Geist','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;--serif:'Instrument Serif','Songti SC','STSong',serif;--mono:'Geist Mono','Noto Sans Mono CJK SC','PingFang SC',monospace}
     html{scroll-behavior:smooth} body{background:var(--paper);color:var(--ink);font-family:var(--sans);padding:48px 32px 64px}.page{max-width:1360px;margin:0 auto}.mast{display:grid;grid-template-columns:1fr auto;align-items:end;gap:32px;padding-bottom:28px;border-bottom:1px solid var(--rule)}
-    .eyebrow,.kicker{font:500 8px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}h1{font:400 clamp(36px,5vw,64px)/.98 var(--serif);letter-spacing:-.03em;margin-top:12px}.subtitle{font-size:14px;line-height:1.6;color:var(--muted);max-width:720px;margin-top:12px}.root-rule{border:1px solid var(--accent);background:var(--accentTint);padding:12px 16px;border-radius:6px;font:600 12px/1.5 var(--mono);color:var(--ink);white-space:nowrap}
-    nav{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 40px}nav a{font:500 10px/1 var(--mono);color:var(--muted);text-decoration:none;border:1px solid var(--rule);padding:8px 10px;border-radius:4px;background:#fff}nav a:hover{border-color:var(--accent);color:var(--ink)}
-    figure{margin:0 0 56px;padding:24px;background:#fff;border:1px solid var(--rule);border-radius:8px;overflow-x:auto}figcaption{display:flex;align-items:baseline;gap:16px;margin-bottom:20px}h2{font:400 28px/1 var(--serif)}.question{font:400 11px/1.4 var(--mono);color:var(--soft)}svg{width:100%;min-width:1080px;height:auto;display:block}.zone{fill:rgba(45,49,66,.018);stroke:rgba(45,49,66,.14);stroke-width:1}.zone-dashed{fill:rgba(45,49,66,.012);stroke:rgba(45,49,66,.18);stroke-width:1;stroke-dasharray:4 4}.node{fill:#fff;stroke:var(--ink);stroke-width:1}.store{fill:rgba(45,49,66,.05);stroke:var(--muted);stroke-width:1}.external{fill:rgba(45,49,66,.03);stroke:rgba(45,49,66,.3);stroke-width:1}.focal{fill:var(--accentTint);stroke:var(--accent);stroke-width:1.2}.optional{fill:rgba(45,49,66,.02);stroke:rgba(45,49,66,.24);stroke-width:1;stroke-dasharray:4 3}.name{font:600 12px var(--sans);fill:var(--ink)}.name-sm{font:600 10px var(--sans);fill:var(--ink)}.sub{font:400 8px var(--mono);fill:var(--muted)}.micro{font:500 8px var(--mono);fill:var(--soft);letter-spacing:.08em}.tag{fill:var(--paper);stroke:rgba(45,49,66,.22);stroke-width:.8}.tagtext{font:500 8px var(--mono);fill:var(--muted);letter-spacing:.1em}.edge{fill:none;stroke:var(--muted);stroke-width:1.2}.edge-link{fill:none;stroke:var(--link);stroke-width:1.2}.edge-accent{fill:none;stroke:var(--accent);stroke-width:1.2}.edge-async{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:5 4}.edge-deny{fill:none;stroke:var(--soft);stroke-width:1;stroke-dasharray:3 4}.mask{fill:#fff}.label{font:500 8px var(--mono);fill:var(--muted);letter-spacing:.06em}.label-link{font:500 8px var(--mono);fill:var(--link);letter-spacing:.06em}.label-accent{font:500 8px var(--mono);fill:var(--accent);letter-spacing:.06em}.divider{stroke:rgba(45,49,66,.12);stroke-width:1}.check{fill:none;stroke:var(--muted);stroke-width:1}.checkmark{fill:none;stroke:var(--accent);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}.xmark{stroke:var(--soft);stroke-width:1.2;stroke-linecap:round}.footer{border-top:1px solid var(--rule);padding-top:20px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;font:400 10px/1.5 var(--mono);color:var(--soft)}
+    .eyebrow,.kicker{font:500 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}h1{font:400 clamp(36px,5vw,64px)/.98 var(--serif);letter-spacing:-.03em;margin-top:12px}.subtitle{font-size:18px;line-height:1.6;color:var(--muted);max-width:720px;margin-top:12px}.root-rule{border:1px solid var(--accent);background:var(--accentTint);padding:12px 16px;border-radius:6px;font:600 14px/1.5 var(--mono);color:var(--ink);white-space:nowrap}
+    nav{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 40px}nav a{font:500 13px/1 var(--mono);color:var(--muted);text-decoration:none;border:1px solid var(--rule);padding:8px 10px;border-radius:4px;background:#fff}nav a:hover{border-color:var(--accent);color:var(--ink)}
+    figure{margin:0 0 56px;padding:24px;background:#fff;border:1px solid var(--rule);border-radius:8px;overflow-x:auto}figcaption{display:flex;align-items:baseline;gap:16px;margin-bottom:20px}h2{font:400 34px/1 var(--serif)}.question{font:400 14px/1.4 var(--mono);color:var(--soft)}svg{width:100%;min-width:1080px;height:auto;display:block}.zone{fill:rgba(45,49,66,.018);stroke:rgba(45,49,66,.14);stroke-width:1}.zone-dashed{fill:rgba(45,49,66,.012);stroke:rgba(45,49,66,.18);stroke-width:1;stroke-dasharray:4 4}.node{fill:#fff;stroke:var(--ink);stroke-width:1}.store{fill:rgba(45,49,66,.05);stroke:var(--muted);stroke-width:1}.external{fill:rgba(45,49,66,.03);stroke:rgba(45,49,66,.3);stroke-width:1}.focal{fill:var(--accentTint);stroke:var(--accent);stroke-width:1.2}.optional{fill:rgba(45,49,66,.02);stroke:rgba(45,49,66,.24);stroke-width:1;stroke-dasharray:4 3}.name{font:600 16px var(--sans);fill:var(--ink)}.name-sm{font:600 13px var(--sans);fill:var(--ink)}.sub{font:400 11px var(--mono);fill:var(--muted)}.micro{font:500 10px var(--mono);fill:var(--soft);letter-spacing:.08em}.tag{fill:var(--paper);stroke:rgba(45,49,66,.22);stroke-width:.8}.tagtext{font:500 10px var(--mono);fill:var(--muted);letter-spacing:.1em}.edge{fill:none;stroke:var(--muted);stroke-width:1.2}.edge-link{fill:none;stroke:var(--link);stroke-width:1.2}.edge-accent{fill:none;stroke:var(--accent);stroke-width:1.2}.edge-async{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:5 4}.edge-deny{fill:none;stroke:var(--soft);stroke-width:1;stroke-dasharray:3 4}.mask{fill:#fff}.label{font:500 10px var(--mono);fill:var(--muted);letter-spacing:.06em}.label-link{font:500 10px var(--mono);fill:var(--link);letter-spacing:.06em}.label-accent{font:500 10px var(--mono);fill:var(--accent);letter-spacing:.06em}.divider{stroke:rgba(45,49,66,.12);stroke-width:1}.check{fill:none;stroke:var(--muted);stroke-width:1}.checkmark{fill:none;stroke:var(--accent);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}.xmark{stroke:var(--soft);stroke-width:1.2;stroke-linecap:round}.footer{border-top:1px solid var(--rule);padding-top:20px;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;font:400 12px/1.5 var(--mono);color:var(--soft)}
     @media(max-width:760px){body{padding:28px 16px 48px}.mast{grid-template-columns:1fr}.root-rule{white-space:normal}figure{padding:16px;margin-bottom:32px}}
   </style>
 </head>
 <body>
 <main class="page">
   <header class="mast">
-    <div><div class="eyebrow">MMW · Phase 2 · Shared Experience</div><h1>阶段二共享经验层</h1><p class="subtitle">一份 task working set，三条检索路径，两种时间尺度；共享已验证经验，不共享推理和判决。</p></div>
-    <div class="root-rule">TASK ROOT = MAP IF PRESENT<br>OTHERWISE STANDALONE SPEC</div>
+    <div><div class="eyebrow">MMW · 阶段二 + 阶段三 · 经验反馈闭环</div><h1>共享经验与跨夜学习</h1><p class="subtitle">阶段二让同一 task 的 agent 即时复用已证实经验；阶段三把完整运行证据变成经 owner 批准的长期预防措施。</p></div>
+    <div class="root-rule">task root = 有 map 时用 map<br>否则用 standalone spec</div>
   </header>
-  <nav aria-label="图表导航"><a href="#scope">01 边界</a><a href="#runtime">02 运行</a><a href="#lifecycle">03 生命周期</a><a href="#time">04 时间与角色</a><a href="#implementation">05 实施</a><a href="#proof">06 验收与约束</a></nav>
+  <nav aria-label="图表导航"><a href="#scope">01 边界</a><a href="#runtime">02 运行</a><a href="#lifecycle">03 完整闭环</a><a href="#retro">04 retro</a><a href="#time">05 时间与角色</a><a href="#implementation">06 实施</a><a href="#proof">07 验收与约束</a></nav>
 
   <figure id="scope">
-    <figcaption><span class="kicker">01 · Secure architecture</span><h2>共享边界与 task root</h2><span class="question">什么共用；什么永远隔离</span></figcaption>
+    <figcaption><span class="kicker">01 · 边界架构</span><h2>共享边界与 task root</h2><span class="question">什么共用；什么永远隔离</span></figcaption>
     <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="scope-title scope-desc">
       <title id="scope-title">阶段二的 Space、Identity 与 task root 边界</title>
       <desc id="scope-desc">展示 map 或 standalone spec 如何成为 repository Space 内的共享经验范围，以及 Default、其他客户 repository 和 toolbox 的隔离关系。</desc>
@@ -37,9 +37,9 @@
       <rect class="zone" x="32" y="64" width="224" height="540" rx="8"/>
       <rect class="zone" x="288" y="64" width="712" height="540" rx="8"/>
       <rect class="zone-dashed" x="1032" y="64" width="216" height="540" rx="8"/>
-      <rect class="mask" x="48" y="68" width="120" height="16"/><text class="micro" x="108" y="80" text-anchor="middle">OWNER / DEFAULT</text>
-      <rect class="mask" x="304" y="68" width="208" height="16"/><text class="micro" x="408" y="80" text-anchor="middle">REPOSITORY A · OWNER__NAME</text>
-      <rect class="mask" x="1048" y="68" width="168" height="16"/><text class="micro" x="1132" y="80" text-anchor="middle">OTHER CUSTOMER REPO</text>
+      <rect class="mask" x="48" y="68" width="120" height="16"/><text class="micro" x="108" y="80" text-anchor="middle">owner / Default</text>
+      <rect class="mask" x="304" y="68" width="208" height="16"/><text class="micro" x="408" y="80" text-anchor="middle">repository A · owner__name</text>
+      <rect class="mask" x="1048" y="68" width="168" height="16"/><text class="micro" x="1132" y="80" text-anchor="middle">其他客户 repository</text>
 
       <line class="edge" x1="144" y1="184" x2="144" y2="300" marker-end="url(#scope-arrow)"/>
       <path class="edge-accent" d="M 488 220 H 568" marker-end="url(#scope-accent)"/>
@@ -50,102 +50,236 @@
       <path class="edge-link" d="M 1136 252 V 268 Q 1136 276 1144 276 H 1216 Q 1224 276 1224 284 V 540 Q 1224 548 1216 548 H 792" marker-end="url(#scope-link)"/>
       <path class="edge-deny" d="M 256 340 H 288"/><line class="xmark" x1="268" y1="332" x2="280" y2="344"/><line class="xmark" x1="280" y1="332" x2="268" y2="344"/>
       <path class="edge-deny" d="M 1000 300 H 1032"/><line class="xmark" x1="1012" y1="292" x2="1024" y2="304"/><line class="xmark" x1="1024" y1="292" x2="1012" y2="304"/>
-      <rect class="mask" x="152" y="192" width="104" height="16"/><text class="label-link" x="204" y="204" text-anchor="middle">OPEN RESULT</text>
+      <rect class="mask" x="152" y="192" width="104" height="16"/><text class="label-link" x="204" y="204" text-anchor="middle">读取结果</text>
       <rect class="mask" x="496" y="292" width="152" height="16"/><text class="label" x="572" y="304" text-anchor="middle">PARENT = MMW:MAP</text>
       <rect class="mask" x="744" y="292" width="112" height="16"/><text class="label" x="800" y="304" text-anchor="middle">PARENT = NULL</text>
-      <rect class="mask" x="664" y="504" width="144" height="16"/><text class="label-link" x="736" y="516" text-anchor="middle">SHARED RETRIEVAL</text>
+      <rect class="mask" x="664" y="504" width="144" height="16"/><text class="label-link" x="736" y="516" text-anchor="middle">共享读取</text>
 
-      <rect class="node" x="72" y="120" width="144" height="64" rx="6"/><rect class="tag" x="84" y="132" width="56" height="16" rx="2"/><text class="tagtext" x="112" y="144" text-anchor="middle">IDENTITY</text><text class="name" x="144" y="164" text-anchor="middle">Owner session</text>
-      <rect class="store" x="72" y="300" width="144" height="80" rx="6"/><text class="name" x="144" y="328" text-anchor="middle">Default Space</text><text class="sub" x="144" y="348" text-anchor="middle">personal Thread / WM</text><text class="sub" x="144" y="364" text-anchor="middle">不进 pipeline retrieval</text>
+      <rect class="node" x="72" y="120" width="144" height="64" rx="6"/><rect class="tag" x="84" y="132" width="56" height="16" rx="2"/><text class="tagtext" x="112" y="144" text-anchor="middle">Identity</text><text class="name" x="144" y="164" text-anchor="middle">owner session</text>
+      <rect class="store" x="72" y="300" width="144" height="80" rx="6"/><text class="name" x="144" y="328" text-anchor="middle">Default Space</text><text class="sub" x="144" y="348" text-anchor="middle">个人 Thread / Working Memory</text><text class="sub" x="144" y="364" text-anchor="middle">不进入 pipeline 检索</text>
 
-      <rect class="store" x="336" y="116" width="152" height="104" rx="6"/><text class="name" x="412" y="148" text-anchor="middle">Repository Space</text><text class="sub" x="412" y="168" text-anchor="middle">retrieval = shared</text><text class="sub" x="412" y="184" text-anchor="middle">Memory · Thread · WM</text><text class="sub" x="412" y="200" text-anchor="middle">only + mmw-toolbox</text>
-      <rect class="focal" x="568" y="116" width="184" height="156" rx="8"/><rect class="tag" x="584" y="132" width="80" height="16" rx="2"/><text class="tagtext" x="624" y="144" text-anchor="middle">RESOLVER</text><text class="name" x="660" y="172" text-anchor="middle">Native parent graph</text><text class="sub" x="660" y="196" text-anchor="middle">ticket → spec → map?</text><line class="divider" x1="588" y1="212" x2="732" y2="212"/><text class="name-sm" x="660" y="236" text-anchor="middle">输出唯一 task scope</text><text class="sub" x="660" y="252" text-anchor="middle">mmw-map-n | mmw-spec-n</text>
+      <rect class="store" x="336" y="116" width="152" height="104" rx="6"/><text class="name" x="412" y="148" text-anchor="middle">repository Space</text><text class="sub" x="412" y="168" text-anchor="middle">读取模式 = shared</text><text class="sub" x="412" y="184" text-anchor="middle">Memory · Thread · WM</text><text class="sub" x="412" y="200" text-anchor="middle">仅额外读取 mmw-toolbox</text>
+      <rect class="focal" x="568" y="116" width="184" height="156" rx="8"/><rect class="tag" x="584" y="132" width="80" height="16" rx="2"/><text class="tagtext" x="624" y="144" text-anchor="middle">解析</text><text class="name" x="660" y="172" text-anchor="middle">native parent graph</text><text class="sub" x="660" y="196" text-anchor="middle">ticket → spec → map?</text><line class="divider" x1="588" y1="212" x2="732" y2="212"/><text class="name-sm" x="660" y="236" text-anchor="middle">输出唯一 task scope</text><text class="sub" x="660" y="252" text-anchor="middle">mmw-map-n | mmw-spec-n</text>
 
-      <rect class="node" x="336" y="356" width="296" height="136" rx="8"/><rect class="tag" x="352" y="368" width="88" height="16" rx="2"/><text class="tagtext" x="396" y="380" text-anchor="middle">MAP ROOT</text><text class="name" x="484" y="404" text-anchor="middle">mmw-map-n</text><rect class="store" x="360" y="424" width="112" height="44" rx="4"/><rect class="store" x="496" y="424" width="112" height="44" rx="4"/><text class="name-sm" x="416" y="444" text-anchor="middle">spec A</text><text class="sub" x="416" y="460" text-anchor="middle">tickets</text><text class="name-sm" x="552" y="444" text-anchor="middle">spec B</text><text class="sub" x="552" y="460" text-anchor="middle">tickets</text><text class="micro" x="484" y="484" text-anchor="middle">MAIN · WORKERS · REVIEWERS SHARE ONE SET</text>
-      <rect class="node" x="740" y="356" width="176" height="136" rx="8"/><rect class="tag" x="756" y="368" width="104" height="16" rx="2"/><text class="tagtext" x="808" y="380" text-anchor="middle">NO MAP</text><text class="name" x="828" y="408" text-anchor="middle">mmw-spec-n</text><rect class="store" x="764" y="428" width="128" height="40" rx="4"/><text class="name-sm" x="828" y="448" text-anchor="middle">standalone tickets</text><text class="micro" x="828" y="484" text-anchor="middle">SPEC IS THE ROOT</text>
-      <rect class="store" x="512" y="528" width="280" height="60" rx="6"/><text class="name" x="652" y="552" text-anchor="middle">mmw-toolbox</text><text class="sub" x="652" y="572" text-anchor="middle">owner-approved · cross-repository · strict</text>
+      <rect class="node" x="336" y="356" width="296" height="136" rx="8"/><rect class="tag" x="352" y="368" width="88" height="16" rx="2"/><text class="tagtext" x="396" y="380" text-anchor="middle">map 作为 task root</text><text class="name" x="484" y="404" text-anchor="middle">mmw-map-n</text><rect class="store" x="360" y="424" width="112" height="44" rx="4"/><rect class="store" x="496" y="424" width="112" height="44" rx="4"/><text class="name-sm" x="416" y="444" text-anchor="middle">spec A</text><text class="sub" x="416" y="460" text-anchor="middle">tickets</text><text class="name-sm" x="552" y="444" text-anchor="middle">spec B</text><text class="sub" x="552" y="460" text-anchor="middle">tickets</text><text class="micro" x="484" y="484" text-anchor="middle">main · worker · reviewer 共用同一组</text>
+      <rect class="node" x="740" y="356" width="176" height="136" rx="8"/><rect class="tag" x="756" y="368" width="104" height="16" rx="2"/><text class="tagtext" x="808" y="380" text-anchor="middle">没有 MAP</text><text class="name" x="828" y="408" text-anchor="middle">mmw-spec-n</text><rect class="store" x="764" y="428" width="128" height="40" rx="4"/><text class="name-sm" x="828" y="448" text-anchor="middle">standalone spec 的 tickets</text><text class="micro" x="828" y="484" text-anchor="middle">spec 自己是 task root</text>
+      <rect class="store" x="512" y="528" width="280" height="60" rx="6"/><text class="name" x="652" y="552" text-anchor="middle">mmw-toolbox</text><text class="sub" x="652" y="572" text-anchor="middle">owner 批准 · 跨 repository · strict</text>
 
-      <rect class="external" x="1064" y="180" width="152" height="72" rx="6"/><text class="name" x="1140" y="208" text-anchor="middle">Repository B</text><text class="sub" x="1140" y="228" text-anchor="middle">own Space · own scopes</text><text class="sub" x="1140" y="244" text-anchor="middle">only + mmw-toolbox</text>
-      <rect class="optional" x="1064" y="300" width="152" height="76" rx="6"/><text class="name" x="1140" y="328" text-anchor="middle">不可见</text><text class="sub" x="1140" y="348" text-anchor="middle">Repo A ↔ Repo B</text><text class="sub" x="1140" y="364" text-anchor="middle">Default ↔ pipeline</text>
-      <line class="divider" x1="32" y1="636" x2="1248" y2="636"/><text class="micro" x="48" y="660">LEGEND</text><rect class="focal" x="140" y="648" width="20" height="12" rx="2"/><text class="sub" x="172" y="660">task root resolver</text><rect class="store" x="308" y="648" width="20" height="12" rx="2"/><text class="sub" x="340" y="660">durable context</text><line class="edge-link" x1="468" y1="654" x2="500" y2="654" marker-end="url(#scope-link)"/><text class="sub" x="512" y="660">permitted shared read</text><line class="edge-deny" x1="684" y1="654" x2="716" y2="654"/><text class="sub" x="728" y="660">blocked boundary</text>
+      <rect class="external" x="1064" y="180" width="152" height="72" rx="6"/><text class="name" x="1140" y="208" text-anchor="middle">repository B</text><text class="sub" x="1140" y="228" text-anchor="middle">独立 Space · 独立 scope</text><text class="sub" x="1140" y="244" text-anchor="middle">仅额外读取 mmw-toolbox</text>
+      <rect class="optional" x="1064" y="300" width="152" height="76" rx="6"/><text class="name" x="1140" y="328" text-anchor="middle">不可见</text><text class="sub" x="1140" y="348" text-anchor="middle">repository A ↔ repository B</text><text class="sub" x="1140" y="364" text-anchor="middle">Default ↔ pipeline</text>
+      <line class="divider" x1="32" y1="636" x2="1248" y2="636"/><text class="micro" x="48" y="660">图例</text><rect class="focal" x="140" y="648" width="20" height="12" rx="2"/><text class="sub" x="172" y="660">task root 解析</text><rect class="store" x="308" y="648" width="20" height="12" rx="2"/><text class="sub" x="340" y="660">长期上下文</text><line class="edge-link" x1="468" y1="654" x2="500" y2="654" marker-end="url(#scope-link)"/><text class="sub" x="512" y="660">允许的共享读取</text><line class="edge-deny" x1="684" y1="654" x2="716" y2="654"/><text class="sub" x="728" y="660">禁止越界</text>
     </svg>
   </figure>
 
   <figure id="runtime">
-    <figcaption><span class="kicker">02 · Sequence</span><h2>三条检索路径与即时传播</h2><span class="question">冷启动、同 task、运行中</span></figcaption>
+    <figcaption><span class="kicker">02 · 时序</span><h2>三条检索路径与即时传播</h2><span class="question">冷启动、同 task、运行中</span></figcaption>
     <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="runtime-title runtime-desc">
       <title id="runtime-title">阶段二运行时序</title>
       <desc id="runtime-desc">展示 dispatch 解析 task root、注入当前 task 经验与历史经验、worker 写入，以及稍后或已经运行的 agent 如何取得经验。</desc>
       <defs><marker id="run-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker><marker id="run-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2e5aa8"/></marker><marker id="run-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#eb6c36"/></marker></defs>
       <rect width="1280" height="720" fill="#f5f5f5"/>
       <line class="edge-async" x1="128" y1="104" x2="128" y2="628"/><line class="edge-async" x1="376" y1="104" x2="376" y2="628"/><line class="edge-async" x1="640" y1="104" x2="640" y2="628"/><line class="edge-async" x1="896" y1="104" x2="896" y2="628"/><line class="edge-async" x1="1152" y1="104" x2="1152" y2="628"/>
-      <line class="edge-link" x1="128" y1="148" x2="376" y2="148" marker-end="url(#run-link)"/><rect class="mask" x="184" y="124" width="136" height="16"/><text class="label-link" x="252" y="136" text-anchor="middle">OPEN / START &lt;TICKET&gt;</text>
-      <line class="edge-link" x1="376" y1="196" x2="640" y2="196" marker-end="url(#run-link)"/><rect class="mask" x="444" y="172" width="144" height="16"/><text class="label-link" x="516" y="184" text-anchor="middle">READ NATIVE PARENTS</text>
+      <line class="edge-link" x1="128" y1="148" x2="376" y2="148" marker-end="url(#run-link)"/><rect class="mask" x="184" y="124" width="136" height="16"/><text class="label-link" x="252" y="136" text-anchor="middle">open / start &lt;ticket&gt;</text>
+      <line class="edge-link" x1="376" y1="196" x2="640" y2="196" marker-end="url(#run-link)"/><rect class="mask" x="444" y="172" width="144" height="16"/><text class="label-link" x="516" y="184" text-anchor="middle">读取 native parent</text>
       <line class="edge-async" x1="640" y1="236" x2="376" y2="236" marker-end="url(#run-arrow)"/><rect class="mask" x="464" y="212" width="88" height="16"/><text class="label" x="508" y="224" text-anchor="middle">TASK ROOT</text>
-      <line class="edge-link" x1="376" y1="284" x2="896" y2="284" marker-end="url(#run-link)"/><rect class="mask" x="532" y="260" width="208" height="16"/><text class="label-link" x="636" y="272" text-anchor="middle">LIST ONE TASK SCOPE LABEL</text>
-      <line class="edge-async" x1="896" y1="324" x2="376" y2="324" marker-end="url(#run-arrow)"/><rect class="mask" x="560" y="300" width="152" height="16"/><text class="label" x="636" y="312" text-anchor="middle">CURRENT TASK SET</text>
-      <line class="edge-link" x1="376" y1="372" x2="896" y2="372" marker-end="url(#run-link)"/><rect class="mask" x="500" y="348" width="272" height="16"/><text class="label-link" x="636" y="360" text-anchor="middle">SEARCH TICKET EXECUTION CONTRACT</text>
-      <line class="edge-async" x1="896" y1="412" x2="376" y2="412" marker-end="url(#run-arrow)"/><rect class="mask" x="536" y="388" width="200" height="16"/><text class="label" x="636" y="400" text-anchor="middle">REPO + TOOLBOX · TOP 10 · DEDUPE</text>
-      <line class="edge-accent" x1="376" y1="460" x2="1152" y2="460" marker-end="url(#run-accent)"/><rect class="mask" x="640" y="436" width="248" height="16"/><text class="label-accent" x="764" y="448" text-anchor="middle">PROMPT = CURRENT + HISTORY</text>
-      <line class="edge-link" x1="1152" y1="508" x2="896" y2="508" marker-end="url(#run-link)"/><rect class="mask" x="948" y="484" width="152" height="16"/><text class="label-link" x="1024" y="496" text-anchor="middle">ADD VERIFIED MEMORY</text>
-      <line class="edge-link" x1="896" y1="556" x2="1152" y2="556" marker-end="url(#run-link)"/><rect class="mask" x="936" y="532" width="176" height="16"/><text class="label-link" x="1024" y="544" text-anchor="middle">NEXT START SET INCLUDES IT</text>
-      <line class="edge" x1="1152" y1="596" x2="896" y2="596" marker-end="url(#run-arrow)"/><rect class="mask" x="948" y="572" width="152" height="16"/><text class="label" x="1024" y="584" text-anchor="middle">TASK SCOPE → REPO + TOOLBOX</text>
+      <line class="edge-link" x1="376" y1="284" x2="896" y2="284" marker-end="url(#run-link)"/><rect class="mask" x="532" y="260" width="208" height="16"/><text class="label-link" x="636" y="272" text-anchor="middle">按 task scope 精确列出</text>
+      <line class="edge-async" x1="896" y1="324" x2="376" y2="324" marker-end="url(#run-arrow)"/><rect class="mask" x="560" y="300" width="152" height="16"/><text class="label" x="636" y="312" text-anchor="middle">当前 task 经验</text>
+      <line class="edge-link" x1="376" y1="372" x2="896" y2="372" marker-end="url(#run-link)"/><rect class="mask" x="500" y="348" width="272" height="16"/><text class="label-link" x="636" y="360" text-anchor="middle">按 ticket 执行合同搜历史</text>
+      <line class="edge-async" x1="896" y1="412" x2="376" y2="412" marker-end="url(#run-arrow)"/><rect class="mask" x="536" y="388" width="200" height="16"/><text class="label" x="636" y="400" text-anchor="middle">repository + toolbox · 前 10 · 去重</text>
+      <line class="edge-accent" x1="376" y1="460" x2="1152" y2="460" marker-end="url(#run-accent)"/><rect class="mask" x="640" y="436" width="248" height="16"/><text class="label-accent" x="764" y="448" text-anchor="middle">prompt = 当前 task + 历史经验</text>
+      <line class="edge-link" x1="1152" y1="508" x2="896" y2="508" marker-end="url(#run-link)"/><rect class="mask" x="948" y="484" width="152" height="16"/><text class="label-link" x="1024" y="496" text-anchor="middle">写入已证实 Memory</text>
+      <line class="edge-link" x1="896" y1="556" x2="1152" y2="556" marker-end="url(#run-link)"/><rect class="mask" x="936" y="532" width="176" height="16"/><text class="label-link" x="1024" y="544" text-anchor="middle">后续 start 自动包含</text>
+      <line class="edge" x1="1152" y1="596" x2="896" y2="596" marker-end="url(#run-arrow)"/><rect class="mask" x="948" y="572" width="152" height="16"/><text class="label" x="1024" y="584" text-anchor="middle">task scope → repository + toolbox</text>
       <line class="edge-async" x1="896" y1="628" x2="1152" y2="628" marker-end="url(#run-arrow)"/>
 
-      <rect class="node" x="56" y="56" width="144" height="48" rx="6"/><text class="name" x="128" y="84" text-anchor="middle">Main agent</text>
+      <rect class="node" x="56" y="56" width="144" height="48" rx="6"/><text class="name" x="128" y="84" text-anchor="middle">main agent</text>
       <rect class="focal" x="288" y="56" width="176" height="48" rx="6"/><text class="name" x="376" y="84" text-anchor="middle">dispatch.sh</text>
-      <rect class="external" x="560" y="56" width="160" height="48" rx="6"/><text class="name" x="640" y="84" text-anchor="middle">GitHub graph</text>
+      <rect class="external" x="560" y="56" width="160" height="48" rx="6"/><text class="name" x="640" y="84" text-anchor="middle">GitHub parent graph</text>
       <rect class="store" x="812" y="56" width="168" height="48" rx="6"/><text class="name" x="896" y="84" text-anchor="middle">Nowledge Mem</text>
-      <rect class="node" x="1064" y="56" width="176" height="48" rx="6"/><text class="name" x="1152" y="76" text-anchor="middle">worker / reviewer</text><text class="sub" x="1152" y="92" text-anchor="middle">each fresh start</text>
-      <rect class="optional" x="288" y="260" width="704" height="176" rx="6"/><rect class="tag" x="300" y="272" width="72" height="16" rx="2"/><text class="tagtext" x="336" y="284" text-anchor="middle">READ-IN</text>
-      <line class="divider" x1="32" y1="660" x2="1248" y2="660"/><text class="micro" x="48" y="684">QUERY INPUT</text><text class="sub" x="152" y="684">task set = exact label</text><text class="sub" x="340" y="684">history seed = What to build + Seam + Acceptance criteria</text><text class="sub" x="756" y="684">live search = exact error + command + component</text>
+      <rect class="node" x="1064" y="56" width="176" height="48" rx="6"/><text class="name" x="1152" y="76" text-anchor="middle">worker / reviewer</text><text class="sub" x="1152" y="92" text-anchor="middle">每次新启动</text>
+      <rect class="optional" x="288" y="260" width="704" height="176" rx="6"/><rect class="tag" x="300" y="272" width="72" height="16" rx="2"/><text class="tagtext" x="336" y="284" text-anchor="middle">读取输入</text>
+      <line class="divider" x1="32" y1="660" x2="1248" y2="660"/><text class="micro" x="48" y="684">检索输入</text><text class="sub" x="152" y="684">当前 task = 精确 label</text><text class="sub" x="340" y="684">历史 seed = What to build + Seam + Acceptance criteria</text><text class="sub" x="756" y="684">运行中搜索 = 错误 + 命令 + 组件</text>
     </svg>
   </figure>
 
   <figure id="lifecycle">
-    <figcaption><span class="kicker">03 · State / process</span><h2>Memory 从发现到长期载体</h2><span class="question">即时写入；每个 spec night 收口；永久化需 owner</span></figcaption>
+    <figcaption><span class="kicker">03 · 完整反馈闭环</span><h2>阶段二与阶段三是一条闭环</h2><span class="question">运行中复用 → 完成后复盘 → 批准后预防 → 下一次再验证</span></figcaption>
     <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="life-title life-desc">
-      <title id="life-title">共享经验的写入、纠正、收口和晋升</title>
-      <desc id="life-desc">展示一条候选经验经过三个证据条件写入 repository Space，并在每个 spec night 被保留、废弃、替代或提交 owner 批准晋升。</desc>
-      <defs><marker id="life-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker><marker id="life-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#eb6c36"/></marker></defs>
+      <title id="life-title">阶段二与阶段三的完整经验反馈闭环</title>
+      <desc id="life-desc">阶段二在 task 内即时写入和读取已证实 Memory；summary 关闭 spec night；阶段三以完整运行证据和 repository 历史做 retro；owner 决定 proposal，批准后的长期载体在下一次阶段二生效。</desc>
+      <defs><marker id="life-arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#4f5d75"/></marker><marker id="life-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#eb6c36"/></marker><marker id="life-link" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#2e5aa8"/></marker></defs>
       <rect width="1280" height="720" fill="#f5f5f5"/>
-      <rect class="zone" x="32" y="64" width="360" height="520" rx="8"/><rect class="zone" x="424" y="64" width="352" height="520" rx="8"/><rect class="zone" x="808" y="64" width="440" height="520" rx="8"/>
-      <rect class="mask" x="48" y="68" width="88" height="16"/><text class="micro" x="92" y="80" text-anchor="middle">IN-TICKET</text><rect class="mask" x="440" y="68" width="104" height="16"/><text class="micro" x="492" y="80" text-anchor="middle">SPEC NIGHT</text><rect class="mask" x="824" y="68" width="144" height="16"/><text class="micro" x="896" y="80" text-anchor="middle">OWNER-APPROVED</text>
-      <line class="edge" x1="112" y1="172" x2="112" y2="220" marker-end="url(#life-arrow)"/><line class="edge" x1="112" y1="396" x2="112" y2="444" marker-end="url(#life-arrow)"/>
-      <path class="edge-accent" d="M 328 480 H 392 Q 400 480 400 472 V 232 Q 400 224 408 224 H 456" marker-end="url(#life-accent)"/><rect class="mask" x="344" y="336" width="104" height="16"/><text class="label-accent" x="396" y="348" text-anchor="middle">WRITE NOW</text>
-      <path class="edge" d="M 616 276 V 320" marker-end="url(#life-arrow)"/><path class="edge" d="M 496 376 V 420" marker-end="url(#life-arrow)"/><path class="edge" d="M 608 376 V 420" marker-end="url(#life-arrow)"/><path class="edge-accent" d="M 716 376 V 420" marker-end="url(#life-accent)"/>
-      <path class="edge-accent" d="M 760 468 H 788 Q 796 468 796 460 V 202 Q 796 194 804 194 H 852" marker-end="url(#life-accent)"/>
-      <path class="edge" d="M 956 232 V 280 H 872 V 320" marker-end="url(#life-arrow)"/><path class="edge" d="M 988 232 V 280 H 964 V 320" marker-end="url(#life-arrow)"/><path class="edge" d="M 1020 232 V 280 H 1056 V 320" marker-end="url(#life-arrow)"/><path class="edge" d="M 1052 232 V 280 H 1148 V 320" marker-end="url(#life-arrow)"/>
-      <path class="edge" d="M 852 212 H 824 Q 816 212 816 220 V 476 Q 816 484 824 484 H 960" marker-end="url(#life-arrow)"/>
+      <rect class="zone" x="32" y="64" width="264" height="548" rx="8"/>
+      <rect class="zone" x="320" y="64" width="184" height="548" rx="8"/>
+      <rect class="zone" x="528" y="64" width="360" height="548" rx="8"/>
+      <rect class="zone" x="912" y="64" width="336" height="548" rx="8"/>
+      <rect class="mask" x="48" y="68" width="152" height="20"/><text class="micro" x="124" y="82" text-anchor="middle">阶段二 · task 内共享</text>
+      <rect class="mask" x="336" y="68" width="136" height="20"/><text class="micro" x="404" y="82" text-anchor="middle">spec night 收口</text>
+      <rect class="mask" x="544" y="68" width="232" height="20"/><text class="micro" x="660" y="82" text-anchor="middle">阶段三 · repository 历史</text>
+      <rect class="mask" x="928" y="68" width="176" height="20"/><text class="micro" x="1016" y="82" text-anchor="middle">owner 决定与长期载体</text>
 
-      <circle cx="112" cy="132" r="8" fill="#2d3142"/><text class="sub" x="132" y="136">observed</text>
-      <rect class="node" x="56" y="220" width="304" height="176" rx="8"/><text class="name" x="208" y="248" text-anchor="middle">三个条件同时成立</text><rect class="check" x="80" y="272" width="16" height="16" rx="2"/><path class="checkmark" d="M 84 280 L 88 284 L 94 276"/><text class="name-sm" x="108" y="284">其他 ticket / agent 可能再遇到</text><rect class="check" x="80" y="308" width="16" height="16" rx="2"/><path class="checkmark" d="M 84 316 L 88 320 L 94 312"/><text class="name-sm" x="108" y="320">实际输出或 authority 已证实</text><rect class="check" x="80" y="344" width="16" height="16" rx="2"/><path class="checkmark" d="M 84 352 L 88 356 L 94 348"/><text class="name-sm" x="108" y="356">只读 ticket / code 无法立即得知</text><text class="sub" x="208" y="380" text-anchor="middle">推测 · 状态 · 客户数据 · 凭据 → 不写</text>
-      <rect class="focal" x="56" y="444" width="272" height="88" rx="8"/><text class="name" x="192" y="468" text-anchor="middle">Explicit Memory</text><text class="sub" x="192" y="488" text-anchor="middle">Applies · Finding · Action · Evidence · Observed</text><text class="sub" x="192" y="508" text-anchor="middle">mmw-experience · task · spec · ticket</text><text class="sub" x="192" y="524" text-anchor="middle">learning | procedure</text>
+      <circle cx="164" cy="120" r="9" fill="#2d3142"/><text class="sub" x="184" y="125">发现可复用事实</text>
+      <line class="edge" x1="164" y1="132" x2="164" y2="164" marker-end="url(#life-arrow)"/>
+      <rect class="node" x="56" y="164" width="216" height="112" rx="7"/>
+      <text class="name" x="164" y="192" text-anchor="middle">写入条件</text>
+      <text class="sub" x="76" y="220">✓ 其他 agent 可能再遇到</text>
+      <text class="sub" x="76" y="244">✓ 输出或 authority 已证实</text>
+      <text class="sub" x="76" y="268">✓ 只读现状无法立即得知</text>
+      <line class="edge-accent" x1="164" y1="276" x2="164" y2="316" marker-end="url(#life-accent)"/>
+      <rect class="focal" x="56" y="316" width="216" height="92" rx="8"/>
+      <text class="name" x="164" y="344" text-anchor="middle">Explicit Memory</text>
+      <text class="sub" x="164" y="368" text-anchor="middle">task · spec · ticket · evidence</text>
+      <text class="sub" x="164" y="390" text-anchor="middle">写入后立即可检索</text>
+      <line class="edge-link" x1="164" y1="408" x2="164" y2="448" marker-end="url(#life-link)"/>
+      <rect class="node" x="56" y="448" width="216" height="92" rx="7"/>
+      <text class="name" x="164" y="476" text-anchor="middle">当前 task 继续复用</text>
+      <text class="sub" x="164" y="500" text-anchor="middle">后续 start 自动包含</text>
+      <text class="sub" x="164" y="522" text-anchor="middle">运行中按具体故障搜索</text>
 
-      <rect class="store" x="456" y="172" width="320" height="104" rx="6"/><text class="name" x="616" y="200" text-anchor="middle">按 mmw-spec-n 列出本夜</text><text class="sub" x="616" y="220" text-anchor="middle">不吞并 sibling spec · 不按日期</text><text class="sub" x="616" y="240" text-anchor="middle">保留的 map scope 继续服务未完成 tickets</text><text class="sub" x="616" y="260" text-anchor="middle">summary: written / retained / corrected / proposed</text>
-      <rect class="node" x="456" y="320" width="320" height="56" rx="6"/><text class="name" x="616" y="344" text-anchor="middle">Closing pass</text><text class="sub" x="616" y="364" text-anchor="middle">每条 Memory 只走一个处置分支</text>
-      <rect class="store" x="448" y="420" width="96" height="96" rx="6"/><text class="name" x="496" y="448" text-anchor="middle">retain</text><text class="sub" x="496" y="468" text-anchor="middle">仍正确</text><text class="sub" x="496" y="488" text-anchor="middle">仍适用</text>
-      <rect class="store" x="560" y="420" width="96" height="96" rx="6"/><text class="name" x="608" y="448" text-anchor="middle">correct</text><text class="sub" x="608" y="468" text-anchor="middle">supersede</text><text class="sub" x="608" y="488" text-anchor="middle">deprecate</text>
-      <rect class="focal" x="672" y="420" width="88" height="96" rx="6"/><text class="name" x="716" y="448" text-anchor="middle">proposal</text><text class="sub" x="716" y="468" text-anchor="middle">repeat</text><text class="sub" x="716" y="488" text-anchor="middle">or blocker</text>
-      <rect class="focal" x="852" y="156" width="208" height="76" rx="8"/><text class="name" x="956" y="184" text-anchor="middle">Owner decision</text><text class="sub" x="956" y="204" text-anchor="middle">跨 repo / active Rule / 永久行为</text><text class="sub" x="956" y="220" text-anchor="middle">approve or leave as Memory</text>
-      <rect class="node" x="824" y="320" width="96" height="92" rx="6"/><text class="name-sm" x="872" y="344" text-anchor="middle">Reviewer Rule</text><text class="sub" x="872" y="364" text-anchor="middle">agent scope</text><text class="sub" x="872" y="380" text-anchor="middle">active</text>
-      <rect class="node" x="932" y="320" width="96" height="92" rx="6"/><text class="name-sm" x="980" y="344" text-anchor="middle">AGENTS.md</text><text class="sub" x="980" y="364" text-anchor="middle">repo-wide</text><text class="sub" x="980" y="380" text-anchor="middle">authority</text>
-      <rect class="node" x="1040" y="320" width="96" height="92" rx="6"/><text class="name-sm" x="1088" y="344" text-anchor="middle">Executable</text><text class="sub" x="1088" y="364" text-anchor="middle">target · judge</text><text class="sub" x="1088" y="380" text-anchor="middle">CHECK · script</text>
-      <rect class="node" x="1148" y="320" width="84" height="92" rx="6"/><text class="name-sm" x="1190" y="344" text-anchor="middle">MMW</text><text class="sub" x="1190" y="364" text-anchor="middle">skill</text><text class="sub" x="1190" y="380" text-anchor="middle">reference</text>
-      <rect class="store" x="960" y="448" width="208" height="68" rx="6"/><text class="name" x="1064" y="476" text-anchor="middle">mmw-toolbox copy</text><text class="sub" x="1064" y="496" text-anchor="middle">保留原 Memory id/source · 不 move</text>
-      <line class="divider" x1="32" y1="620" x2="1248" y2="620"/><text class="micro" x="48" y="644">PROMOTION TRIGGER</text><text class="sub" x="200" y="644">多票重复出现</text><text class="sub" x="332" y="644">或一次就阻塞工作</text><text class="micro" x="640" y="644">NO NEW GATE</text><text class="sub" x="752" y="644">未批准 → 原 Memory 保留，night 正常结束</text>
+      <path class="edge" d="M 272 362 H 304 Q 312 362 312 354 V 180 Q 312 172 320 172 H 344" marker-end="url(#life-arrow)"/>
+      <rect class="node" x="344" y="136" width="136" height="72" rx="7"/>
+      <text class="name-sm" x="412" y="164" text-anchor="middle">closing pass</text>
+      <text class="sub" x="412" y="186" text-anchor="middle">retain / correct</text>
+      <line class="edge" x1="412" y1="208" x2="412" y2="272" marker-end="url(#life-arrow)"/>
+      <rect class="focal" x="344" y="272" width="136" height="104" rx="8"/>
+      <text class="name" x="412" y="300" text-anchor="middle">summary</text>
+      <text class="sub" x="412" y="326" text-anchor="middle">finding 全部 route</text>
+      <text class="sub" x="412" y="348" text-anchor="middle">写 spec.closed</text>
+      <text class="sub" x="412" y="368" text-anchor="middle">停止 watch</text>
+      <rect class="store" x="344" y="448" width="136" height="76" rx="7"/>
+      <text class="name-sm" x="412" y="476" text-anchor="middle">Memory 计数</text>
+      <text class="sub" x="412" y="500" text-anchor="middle">按 mmw-spec-n</text>
+
+      <path class="edge-accent" d="M 480 324 H 516 Q 520 324 520 316 H 552" marker-end="url(#life-accent)"/>
+      <rect class="store" x="552" y="112" width="312" height="144" rx="7"/>
+      <text class="name" x="708" y="140" text-anchor="middle">完整 evidence inventory</text>
+      <text class="sub" x="576" y="168">spec intent · 全部 ticket event</text>
+      <text class="sub" x="576" y="192">review class · route outcome</text>
+      <text class="sub" x="576" y="216">git log · 本夜 Memory</text>
+      <text class="sub" x="576" y="240">历史 NIGHT RETRO · 既有 proposal</text>
+      <line class="edge-accent" x1="708" y1="256" x2="708" y2="300" marker-end="url(#life-accent)"/>
+      <rect class="focal" x="552" y="300" width="312" height="92" rx="8"/>
+      <text class="name" x="708" y="328" text-anchor="middle">retro：判断第几次</text>
+      <text class="sub" x="708" y="352" text-anchor="middle">同一可预防 cause · 独立 source</text>
+      <text class="sub" x="708" y="374" text-anchor="middle">重复 ≥ 2，或一次实际阻塞</text>
+      <line class="edge" x1="708" y1="392" x2="708" y2="436" marker-end="url(#life-arrow)"/>
+      <rect class="node" x="552" y="436" width="312" height="104" rx="7"/>
+      <text class="name" x="708" y="464" text-anchor="middle">两类结果同时产出</text>
+      <text class="sub" x="576" y="490">当前情况：已修复 / 仍阻塞 / 被证伪</text>
+      <text class="sub" x="576" y="514">预防措施：改哪个载体、怎样验证</text>
+      <text class="sub" x="576" y="534">另列 intent reconciliation，不自动扩 scope</text>
+
+      <path class="edge-accent" d="M 864 346 H 900 Q 904 346 904 338 H 936" marker-end="url(#life-accent)"/>
+      <rect class="focal" x="936" y="128" width="288" height="88" rx="8"/>
+      <text class="name" x="1080" y="156" text-anchor="middle">ready-for-human proposal</text>
+      <text class="sub" x="1080" y="180" text-anchor="middle">来源 spec ↔ proposal 双向链接</text>
+      <text class="sub" x="1080" y="202" text-anchor="middle">不是 MMW layer，不阻止 night</text>
+      <line class="edge-accent" x1="1080" y1="216" x2="1080" y2="260" marker-end="url(#life-accent)"/>
+      <rect class="node" x="936" y="260" width="288" height="80" rx="7"/>
+      <text class="name" x="1080" y="290" text-anchor="middle">owner：批准 / 拒绝 / 暂缓</text>
+      <text class="sub" x="1080" y="316" text-anchor="middle">未批准不改变长期行为</text>
+      <path class="edge" d="M 1080 340 V 376 H 984 V 404" marker-end="url(#life-arrow)"/>
+      <path class="edge-accent" d="M 1080 340 V 376 H 1176 V 404" marker-end="url(#life-accent)"/>
+      <rect class="store" x="936" y="404" width="136" height="112" rx="7"/>
+      <text class="name-sm" x="1004" y="432" text-anchor="middle">保留原 Memory</text>
+      <text class="sub" x="1004" y="456" text-anchor="middle">拒绝：wontfix</text>
+      <text class="sub" x="1004" y="478" text-anchor="middle">暂缓：等待决定</text>
+      <rect class="focal" x="1088" y="404" width="136" height="112" rx="7"/>
+      <text class="name-sm" x="1156" y="432" text-anchor="middle">正常 ticket 落地</text>
+      <text class="sub" x="1156" y="456" text-anchor="middle">check / authority</text>
+      <text class="sub" x="1156" y="478" text-anchor="middle">Rule / MMW skill</text>
+      <text class="sub" x="1156" y="500" text-anchor="middle">mmw-toolbox copy</text>
+
+      <path class="edge-link" d="M 1156 516 V 650 H 164 V 548" marker-end="url(#life-link)"/>
+      <rect class="mask" x="500" y="634" width="424" height="22"/>
+      <text class="label-link" x="712" y="650" text-anchor="middle">下一次 task：prompt / search / Rule / authority / check 生效，后续 retro 再验证</text>
+    </svg>
+  </figure>
+
+  <figure id="retro">
+    <figcaption><span class="kicker">04 · 证据与判断</span><h2>retro 怎样从事实形成 proposal</h2><span class="question">不是总结 Memory；是核对完整证据、历史重复与已落地效果</span></figcaption>
+    <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="retro-title retro-desc">
+      <title id="retro-title">阶段三 retro 的证据、判断和输出</title>
+      <desc id="retro-desc">展示 retro 收集 spec intent、全部 ticket event、review class、route reason、git log、Memory、历史 retro 和 proposal；形成有 source 的 occurrence；按重复或实际阻塞提出预防措施，并写 NIGHT RETRO 与 ready-for-human issue。</desc>
+      <defs><marker id="retro-arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#4f5d75"/></marker><marker id="retro-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#eb6c36"/></marker></defs>
+      <rect width="1280" height="720" fill="#f5f5f5"/>
+      <rect class="zone" x="32" y="64" width="360" height="568" rx="8"/>
+      <rect class="zone" x="416" y="64" width="392" height="568" rx="8"/>
+      <rect class="zone" x="832" y="64" width="416" height="568" rx="8"/>
+      <rect class="mask" x="48" y="68" width="152" height="20"/><text class="micro" x="124" y="82" text-anchor="middle">收集 · 本次与历史</text>
+      <rect class="mask" x="432" y="68" width="152" height="20"/><text class="micro" x="508" y="82" text-anchor="middle">分析 · 有证据才成立</text>
+      <rect class="mask" x="848" y="68" width="168" height="20"/><text class="micro" x="932" y="82" text-anchor="middle">发布 · 使用现有载体</text>
+
+      <rect class="store" x="56" y="112" width="312" height="420" rx="8"/>
+      <text class="name" x="212" y="142" text-anchor="middle">evidence packet</text>
+      <rect class="tag" x="76" y="168" width="272" height="48" rx="5"/><text class="name-sm" x="92" y="188">spec intent</text><text class="sub" x="92" y="207">Problem Statement · User Stories · Out of Scope</text>
+      <rect class="tag" x="76" y="232" width="272" height="48" rx="5"/><text class="name-sm" x="92" y="252">完整 tree + event fold</text><text class="sub" x="92" y="271">bounce · return · lost · finding · check</text>
+      <rect class="tag" x="76" y="296" width="272" height="48" rx="5"/><text class="name-sm" x="92" y="316">review + route</text><text class="sub" x="92" y="335">axis · class · path · stale reason</text>
+      <rect class="tag" x="76" y="360" width="272" height="48" rx="5"/><text class="name-sm" x="92" y="380">实际落地与 Memory</text><text class="sub" x="92" y="399">git log · merge/fix commit · mmw-spec-n</text>
+      <rect class="tag" x="76" y="424" width="272" height="48" rx="5"/><text class="name-sm" x="92" y="444">repository 历史 / bootstrap</text><text class="sub" x="92" y="463">NIGHT RETRO · proposal · 旧 spec.closed</text>
+      <rect class="optional" x="76" y="488" width="272" height="28" rx="5"/><text class="sub" x="212" y="507" text-anchor="middle">Thread 仅按需补原因；缺失不阻断</text>
+      <rect class="optional" x="56" y="552" width="312" height="52" rx="7"/>
+      <text class="name-sm" x="212" y="574" text-anchor="middle">任何来源 unreadable → 明写 narrowed</text>
+      <text class="sub" x="212" y="594" text-anchor="middle">没有读到 ≠ 没有发生</text>
+
+      <line class="edge-accent" x1="368" y1="312" x2="448" y2="312" marker-end="url(#retro-accent)"/>
+      <rect class="focal" x="448" y="112" width="328" height="112" rx="8"/>
+      <text class="name" x="612" y="142" text-anchor="middle">生成有来源的 occurrence</text>
+      <text class="sub" x="472" y="170">class · cause · scope · source · outcome</text>
+      <text class="sub" x="472" y="194">相同 path / 标题 / 大类不能证明同 cause</text>
+      <text class="sub" x="472" y="216">同一事件的多条记录只算一次</text>
+      <line class="edge" x1="612" y1="224" x2="612" y2="268" marker-end="url(#retro-arrow)"/>
+      <rect class="node" x="448" y="268" width="328" height="112" rx="7"/>
+      <text class="name" x="612" y="298" text-anchor="middle">形成候选的唯一门槛</text>
+      <text class="sub" x="472" y="328">① 同一可预防 cause 有 ≥ 2 个独立 source</text>
+      <text class="sub" x="472" y="354">② 一次发生，但有实际阻塞 event</text>
+      <text class="sub" x="472" y="374">一次普通 observation 不开 proposal</text>
+      <line class="edge" x1="612" y1="380" x2="612" y2="424" marker-end="url(#retro-arrow)"/>
+      <rect class="store" x="448" y="424" width="328" height="128" rx="7"/>
+      <text class="name" x="612" y="454" text-anchor="middle">每个候选必须成对回答</text>
+      <text class="sub" x="472" y="484">当前情况：已修复 / 仍阻塞 / 被证伪</text>
+      <text class="sub" x="472" y="510">预防下一次：改哪个载体、改变什么行为</text>
+      <text class="sub" x="472" y="536">如何验证：以后 occurrence 是否停止</text>
+      <rect class="optional" x="448" y="572" width="328" height="32" rx="6"/>
+      <text class="sub" x="612" y="593" text-anchor="middle">无 source → 丢弃；不能用 Working Memory 补证据</text>
+
+      <line class="edge-accent" x1="776" y1="312" x2="864" y2="312" marker-end="url(#retro-accent)"/>
+      <rect class="focal" x="864" y="112" width="352" height="160" rx="8"/>
+      <text class="name" x="1040" y="142" text-anchor="middle">NIGHT RETRO 普通 spec comment</text>
+      <text class="sub" x="888" y="170">Evidence：完整 / narrowed</text>
+      <text class="sub" x="888" y="194">Previous actions：已落地 / 等待 / 没找到证据</text>
+      <text class="sub" x="888" y="218">Occurrences + repeated/blocking groups</text>
+      <text class="sub" x="888" y="242">Intent reconciliation + review learning</text>
+      <text class="sub" x="888" y="264">不是 event，不参与 fold，不唤醒 relay</text>
+      <line class="edge-accent" x1="1040" y1="272" x2="1040" y2="316" marker-end="url(#retro-accent)"/>
+      <rect class="focal" x="864" y="316" width="352" height="120" rx="8"/>
+      <text class="name" x="1040" y="346" text-anchor="middle">ready-for-human proposal issue</text>
+      <text class="sub" x="888" y="374">开在承担改动的 repository</text>
+      <text class="sub" x="888" y="398">已有同 cause / 目的地 → 追加证据，不重复开</text>
+      <text class="sub" x="888" y="422">未批准 → 不改 Rule、authority、check 或 skill</text>
+      <rect class="node" x="864" y="476" width="168" height="104" rx="7"/>
+      <text class="name-sm" x="948" y="504" text-anchor="middle">交付意图对照</text>
+      <text class="sub" x="948" y="530" text-anchor="middle">expected / observed / gap</text>
+      <text class="sub" x="948" y="554" text-anchor="middle">只描述，不扩 scope</text>
+      <rect class="node" x="1048" y="476" width="168" height="104" rx="7"/>
+      <text class="name-sm" x="1132" y="504" text-anchor="middle">review 学习</text>
+      <text class="sub" x="1132" y="528" text-anchor="middle">invalid</text>
+      <text class="sub" x="1132" y="546" text-anchor="middle">≠ fixed-elsewhere</text>
+      <text class="sub" x="1132" y="568" text-anchor="middle">降噪，不静默压制</text>
+      <rect class="optional" x="864" y="600" width="352" height="28" rx="5"/>
+      <text class="sub" x="1040" y="619" text-anchor="middle">proposal 不是完成；预防措施落地并经后续 retro 验证才完成闭环</text>
     </svg>
   </figure>
 
   <figure id="time">
-    <figcaption><span class="kicker">04 · Boundary architecture</span><h2>同夜确定性、跨夜背景与 reviewer 独立性</h2><span class="question">Memory 不是 event；Working Memory 不是 task bus</span></figcaption>
+    <figcaption><span class="kicker">05 · 时间与角色</span><h2>同夜确定性、跨夜背景与 reviewer 独立性</h2><span class="question">Memory 不是 event；Working Memory 不是 task bus</span></figcaption>
     <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="time-title time-desc">
       <title id="time-title">阶段二的时间尺度和角色信息边界</title>
       <desc id="time-desc">对比同夜显式 Memory 路径、跨夜 Thread 与 Working Memory 路径、tracker 事件唤醒路径，并展示 reviewer 只接收事实性操作经验。</desc>
       <defs><marker id="time-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker><marker id="time-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2e5aa8"/></marker><marker id="time-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0,8 3,0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker></defs>
       <rect width="1280" height="720" fill="#f5f5f5"/>
       <rect class="zone" x="32" y="64" width="760" height="184" rx="8"/><rect class="zone-dashed" x="32" y="280" width="760" height="184" rx="8"/><rect class="zone" x="32" y="496" width="760" height="136" rx="8"/><rect class="zone" x="824" y="64" width="424" height="568" rx="8"/>
-      <rect class="mask" x="48" y="68" width="128" height="16"/><text class="micro" x="112" y="80" text-anchor="middle">SAME NIGHT · SYNC</text><rect class="mask" x="48" y="284" width="152" height="16"/><text class="micro" x="124" y="296" text-anchor="middle">CROSS NIGHT · ASYNC</text><rect class="mask" x="48" y="500" width="168" height="16"/><text class="micro" x="132" y="512" text-anchor="middle">IMMEDIATE BEHAVIOR CHANGE</text><rect class="mask" x="840" y="68" width="136" height="16"/><text class="micro" x="908" y="80" text-anchor="middle">REVIEWER BOUNDARY</text>
+      <rect class="mask" x="48" y="68" width="128" height="16"/><text class="micro" x="112" y="80" text-anchor="middle">同夜 · 确定送达</text><rect class="mask" x="48" y="284" width="152" height="16"/><text class="micro" x="124" y="296" text-anchor="middle">跨夜 · 后台路径</text><rect class="mask" x="48" y="500" width="168" height="16"/><text class="micro" x="132" y="512" text-anchor="middle">立即改变行为</text><rect class="mask" x="840" y="68" width="136" height="16"/><text class="micro" x="908" y="80" text-anchor="middle">reviewer 边界</text>
       <line class="edge-link" x1="216" y1="156" x2="304" y2="156" marker-end="url(#time-link)"/><line class="edge-link" x1="456" y1="156" x2="544" y2="156" marker-end="url(#time-link)"/><line class="edge" x1="696" y1="156" x2="760" y2="156" marker-end="url(#time-arrow)"/>
       <line class="edge-async" x1="216" y1="372" x2="304" y2="372" marker-end="url(#time-open)"/><line class="edge-async" x1="456" y1="372" x2="544" y2="372" marker-end="url(#time-open)"/><line class="edge-async" x1="696" y1="372" x2="760" y2="372" marker-end="url(#time-open)"/>
       <line class="edge" x1="216" y1="568" x2="304" y2="568" marker-end="url(#time-arrow)"/><line class="edge" x1="456" y1="568" x2="544" y2="568" marker-end="url(#time-arrow)"/>
@@ -153,95 +287,173 @@
       <path class="edge-async" d="M 760 372 H 812 Q 820 372 820 364 V 316 Q 820 308 828 308 H 876" marker-end="url(#time-open)"/>
       <path class="edge-deny" d="M 876 452 H 824"/><line class="xmark" x1="840" y1="444" x2="852" y2="456"/><line class="xmark" x1="852" y1="444" x2="840" y2="456"/>
 
-      <rect class="focal" x="64" y="116" width="152" height="80" rx="6"/><text class="name" x="140" y="144" text-anchor="middle">Verified Memory</text><text class="sub" x="140" y="164" text-anchor="middle">write immediately</text><text class="sub" x="140" y="180" text-anchor="middle">task + spec + ticket labels</text>
-      <rect class="node" x="304" y="116" width="152" height="80" rx="6"/><text class="name" x="380" y="144" text-anchor="middle">Live list</text><text class="sub" x="380" y="164" text-anchor="middle">every open / start</text><text class="sub" x="380" y="180" text-anchor="middle">0 ≠ unavailable</text>
-      <rect class="node" x="544" y="116" width="152" height="80" rx="6"/><text class="name" x="620" y="144" text-anchor="middle">Task prompt</text><text class="sub" x="620" y="164" text-anchor="middle">current set + history</text><text class="sub" x="620" y="180" text-anchor="middle">no polling</text>
-      <rect class="store" x="712" y="120" width="48" height="72" rx="6"/><text class="name-sm" x="736" y="148" text-anchor="middle">live</text><text class="sub" x="736" y="168" text-anchor="middle">agent</text><text class="sub" x="736" y="184" text-anchor="middle">search</text>
+      <rect class="focal" x="64" y="116" width="152" height="80" rx="6"/><text class="name" x="140" y="144" text-anchor="middle">已证实 Memory</text><text class="sub" x="140" y="164" text-anchor="middle">立即写入</text><text class="sub" x="140" y="180" text-anchor="middle">task/spec/ticket labels</text>
+      <rect class="node" x="304" y="116" width="152" height="80" rx="6"/><text class="name" x="380" y="144" text-anchor="middle">精确列出</text><text class="sub" x="380" y="164" text-anchor="middle">每次 open / start</text><text class="sub" x="380" y="180" text-anchor="middle">0 ≠ unavailable</text>
+      <rect class="node" x="544" y="116" width="152" height="80" rx="6"/><text class="name" x="620" y="144" text-anchor="middle">task prompt</text><text class="sub" x="620" y="164" text-anchor="middle">当前 task + 历史经验</text><text class="sub" x="620" y="180" text-anchor="middle">不轮询</text>
+      <rect class="store" x="712" y="120" width="48" height="72" rx="6"/><text class="name-sm" x="736" y="148" text-anchor="middle">运行中</text><text class="sub" x="736" y="168" text-anchor="middle">agent</text><text class="sub" x="736" y="184" text-anchor="middle">搜索</text>
 
-      <rect class="optional" x="64" y="332" width="152" height="80" rx="6"/><text class="name" x="140" y="360" text-anchor="middle">Session Thread</text><text class="sub" x="140" y="380" text-anchor="middle">connector capture</text><text class="sub" x="140" y="396" text-anchor="middle">repository Space</text>
-      <rect class="optional" x="304" y="332" width="152" height="80" rx="6"/><text class="name" x="380" y="360" text-anchor="middle">Background</text><text class="sub" x="380" y="380" text-anchor="middle">organize / distill</text><text class="sub" x="380" y="396" text-anchor="middle">no timing guarantee</text>
-      <rect class="optional" x="544" y="332" width="152" height="80" rx="6"/><text class="name" x="620" y="360" text-anchor="middle">Working Memory</text><text class="sub" x="620" y="380" text-anchor="middle">one per repo Space</text><text class="sub" x="620" y="396" text-anchor="middle">multiple tasks mixed</text>
-      <rect class="optional" x="712" y="336" width="48" height="72" rx="6"/><text class="name-sm" x="736" y="364" text-anchor="middle">next</text><text class="sub" x="736" y="384" text-anchor="middle">session</text>
+      <rect class="optional" x="64" y="332" width="152" height="80" rx="6"/><text class="name" x="140" y="360" text-anchor="middle">Session Thread</text><text class="sub" x="140" y="380" text-anchor="middle">connector 自动保存</text><text class="sub" x="140" y="396" text-anchor="middle">repository Space</text>
+      <rect class="optional" x="304" y="332" width="152" height="80" rx="6"/><text class="name" x="380" y="360" text-anchor="middle">后台整理</text><text class="sub" x="380" y="380" text-anchor="middle">整理 / distill</text><text class="sub" x="380" y="396" text-anchor="middle">无完成时间保证</text>
+      <rect class="optional" x="544" y="332" width="152" height="80" rx="6"/><text class="name" x="620" y="360" text-anchor="middle">Working Memory</text><text class="sub" x="620" y="380" text-anchor="middle">每个 repository Space 一份</text><text class="sub" x="620" y="396" text-anchor="middle">包含多个 task</text>
+      <rect class="optional" x="712" y="336" width="48" height="72" rx="6"/><text class="name-sm" x="736" y="364" text-anchor="middle">后续</text><text class="sub" x="736" y="384" text-anchor="middle">session</text>
 
       <rect class="store" x="64" y="536" width="152" height="64" rx="6"/><text class="name" x="140" y="560" text-anchor="middle">contract · fault</text><text class="sub" x="140" y="580" text-anchor="middle">decision child</text>
       <rect class="node" x="304" y="536" width="152" height="64" rx="6"/><text class="name" x="380" y="560" text-anchor="middle">tracker event</text><text class="sub" x="380" y="580" text-anchor="middle">ticket state</text>
-      <rect class="node" x="544" y="536" width="152" height="64" rx="6"/><text class="name" x="620" y="560" text-anchor="middle">relay wake</text><text class="sub" x="620" y="580" text-anchor="middle">immediate coordination</text>
+      <rect class="node" x="544" y="536" width="152" height="64" rx="6"/><text class="name" x="620" y="560" text-anchor="middle">relay 唤醒</text><text class="sub" x="620" y="580" text-anchor="middle">立即协调</text>
 
       <rect class="focal" x="876" y="116" width="320" height="104" rx="8"/><text class="name" x="1036" y="144" text-anchor="middle">可进入 reviewer</text><text class="sub" x="1036" y="168" text-anchor="middle">runner 参数 · 测试前提 · 环境限制</text><text class="sub" x="1036" y="188" text-anchor="middle">已验证工具行为 · task scoped Memory</text><text class="sub" x="1036" y="204" text-anchor="middle">仍须重新运行 acceptance / review checks</text>
-      <rect class="optional" x="876" y="268" width="320" height="104" rx="8"/><text class="name" x="1036" y="296" text-anchor="middle">只作宽背景</text><text class="sub" x="1036" y="320" text-anchor="middle">repository Working Memory · later session</text><text class="sub" x="1036" y="340" text-anchor="middle">shared toolbox WM 不合并 · task 不可过滤</text><text class="sub" x="1036" y="356" text-anchor="middle">不承担同夜送达</text>
-      <rect class="store" x="876" y="420" width="320" height="120" rx="8"/><text class="name" x="1036" y="448" text-anchor="middle">禁止进入 reviewer</text><text class="sub" x="1036" y="472" text-anchor="middle">worker Thread · chain of thought · 临时推测</text><text class="sub" x="1036" y="492" text-anchor="middle">自评 · correctness 结论 · acceptance 判决</text><text class="sub" x="1036" y="516" text-anchor="middle">Memory 不能证明实现正确，也不能免除 review axis</text>
-      <line class="divider" x1="32" y1="664" x2="1248" y2="664"/><text class="micro" x="48" y="688">WORKING MEMORY</text><text class="sub" x="188" y="688">repository daily briefing ≠ task retrieval ≠ realtime scratchpad</text><text class="micro" x="752" y="688">MEMORY</text><text class="sub" x="824" y="688">guidance ≠ authority ≠ tracker state</text>
+      <rect class="optional" x="876" y="268" width="320" height="104" rx="8"/><text class="name" x="1036" y="296" text-anchor="middle">只作宽背景</text><text class="sub" x="1036" y="320" text-anchor="middle">repository Working Memory · 后续 session</text><text class="sub" x="1036" y="340" text-anchor="middle">shared toolbox 不合并 · task 不可过滤</text><text class="sub" x="1036" y="356" text-anchor="middle">不承担同夜送达</text>
+      <rect class="store" x="876" y="420" width="320" height="120" rx="8"/><text class="name" x="1036" y="448" text-anchor="middle">禁止进入 reviewer</text><text class="sub" x="1036" y="472" text-anchor="middle">worker Thread · 推理过程 · 临时推测</text><text class="sub" x="1036" y="492" text-anchor="middle">自评 · 正确性结论 · acceptance 判决</text><text class="sub" x="1036" y="516" text-anchor="middle">Memory 不能证明实现正确，也不能免除 review axis</text>
+      <line class="divider" x1="32" y1="664" x2="1248" y2="664"/><text class="micro" x="48" y="688">WORKING MEMORY</text><text class="sub" x="188" y="688">repository 每日简报 ≠ task 检索 ≠ 实时 scratchpad</text><text class="micro" x="752" y="688">MEMORY</text><text class="sub" x="824" y="688">参考信息 ≠ authority ≠ tracker state</text>
     </svg>
   </figure>
 
   <figure id="implementation">
-    <figcaption><span class="kicker">05 · Dependency graph</span><h2>最短实施依赖链</h2><span class="question">一个 adapter；现有入口接入；隔离验收</span></figcaption>
+    <figcaption><span class="kicker">06 · 实施依赖</span><h2>一条实施链覆盖阶段二和阶段三</h2><span class="question">先建立可靠读写，再补可聚合证据，最后接 retro 与长期回流</span></figcaption>
     <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="impl-title impl-desc">
-      <title id="impl-title">阶段二实施依赖图</title>
-      <desc id="impl-desc">展示 install、native parent 合同、单一 Nowledge adapter、dispatch 与 runners、worker reviewer night 规则以及隔离测试之间的依赖。</desc>
-      <defs><marker id="impl-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker><marker id="impl-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#eb6c36"/></marker></defs>
+      <title id="impl-title">阶段二与阶段三的实施依赖</title>
+      <desc id="impl-desc">展示 Space 和 native parent 基础、单一 Nowledge adapter、运行中读写、review 与 route 结构字段、retro collect/publish、现有 owner 决策面和隔离端到端验收之间的依赖。</desc>
+      <defs><marker id="impl-arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#4f5d75"/></marker><marker id="impl-accent" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#eb6c36"/></marker></defs>
       <rect width="1280" height="720" fill="#f5f5f5"/>
-      <rect class="zone" x="32" y="64" width="1216" height="488" rx="8"/><rect class="mask" x="48" y="68" width="152" height="16"/><text class="micro" x="124" y="80" text-anchor="middle">PRODUCT UNDER TEST</text>
-      <path class="edge" d="M 248 160 V 204 H 444 V 248" marker-end="url(#impl-arrow)"/><path class="edge" d="M 1032 160 V 204 H 836 V 248" marker-end="url(#impl-arrow)"/>
-      <line class="edge-accent" x1="556" y1="284" x2="724" y2="284" marker-end="url(#impl-accent)"/>
-      <path class="edge" d="M 772 320 V 364 H 300 V 408" marker-end="url(#impl-arrow)"/><path class="edge" d="M 788 320 V 364 H 548 V 408" marker-end="url(#impl-arrow)"/><path class="edge" d="M 804 320 V 364 H 796 V 408" marker-end="url(#impl-arrow)"/><path class="edge" d="M 820 320 V 364 H 1044 V 408" marker-end="url(#impl-arrow)"/>
-      <path class="edge" d="M 300 488 V 524 H 568 V 576" marker-end="url(#impl-arrow)"/><path class="edge" d="M 548 488 V 540 H 600 V 576" marker-end="url(#impl-arrow)"/><path class="edge" d="M 796 488 V 540 H 632 V 576" marker-end="url(#impl-arrow)"/><path class="edge" d="M 1044 488 V 524 H 664 V 576" marker-end="url(#impl-arrow)"/>
-      <rect class="mask" x="600" y="260" width="80" height="16"/><text class="label-accent" x="640" y="272" text-anchor="middle">ONE API</text>
+      <rect class="zone" x="32" y="64" width="1216" height="548" rx="8"/>
+      <rect class="mask" x="48" y="68" width="224" height="20"/><text class="micro" x="160" y="82" text-anchor="middle">待实现产品 · A → B → C → D</text>
 
-      <rect class="node" x="120" y="112" width="256" height="48" rx="6"/><text class="name" x="248" y="136" text-anchor="middle">Install foundation</text><text class="sub" x="248" y="152" text-anchor="middle">mmw-v2/install.sh · toolbox · identities</text><rect class="tag" x="336" y="120" width="28" height="16" rx="2"/><text class="tagtext" x="350" y="132" text-anchor="middle">0 IN</text>
-      <rect class="node" x="904" y="112" width="256" height="48" rx="6"/><text class="name" x="1032" y="136" text-anchor="middle">Native parent contract</text><text class="sub" x="1032" y="152" text-anchor="middle">to-spec/SKILL.md · create + read-back</text><rect class="tag" x="1120" y="120" width="28" height="16" rx="2"/><text class="tagtext" x="1134" y="132" text-anchor="middle">0 IN</text>
-      <rect class="focal" x="332" y="248" width="224" height="72" rx="8"/><text class="name" x="444" y="276" text-anchor="middle">Nowledge adapter</text><text class="sub" x="444" y="296" text-anchor="middle">dispatch/scripts/experience.py</text><text class="sub" x="444" y="312" text-anchor="middle">ensure · list · search · render · summary</text><rect class="tag" x="516" y="256" width="28" height="16" rx="2"/><text class="tagtext" x="530" y="268" text-anchor="middle">1 IN</text>
-      <rect class="focal" x="724" y="248" width="224" height="72" rx="8"/><text class="name" x="836" y="276" text-anchor="middle">Dispatch integration</text><text class="sub" x="836" y="296" text-anchor="middle">dispatch.sh · open · start · closing pass</text><text class="sub" x="836" y="312" text-anchor="middle">Space · Identity · scope · spec · ticket</text><rect class="tag" x="908" y="256" width="28" height="16" rx="2"/><text class="tagtext" x="922" y="268" text-anchor="middle">2 IN</text>
-      <rect class="node" x="188" y="408" width="224" height="80" rx="6"/><text class="name" x="300" y="436" text-anchor="middle">Runner transport</text><text class="sub" x="300" y="456" text-anchor="middle">paseo · orca · herdr</text><text class="sub" x="300" y="472" text-anchor="middle">prompt + environment</text><rect class="tag" x="372" y="416" width="28" height="16" rx="2"/><text class="tagtext" x="386" y="428" text-anchor="middle">1 IN</text>
-      <rect class="node" x="436" y="408" width="224" height="80" rx="6"/><text class="name" x="548" y="436" text-anchor="middle">Worker behavior</text><text class="sub" x="548" y="456" text-anchor="middle">implement/SKILL.md</text><text class="sub" x="548" y="472" text-anchor="middle">search on failure · write now</text><rect class="tag" x="620" y="416" width="28" height="16" rx="2"/><text class="tagtext" x="634" y="428" text-anchor="middle">1 IN</text>
-      <rect class="node" x="684" y="408" width="224" height="80" rx="6"/><text class="name" x="796" y="436" text-anchor="middle">Reviewer boundary</text><text class="sub" x="796" y="456" text-anchor="middle">code-review/SKILL.md</text><text class="sub" x="796" y="472" text-anchor="middle">facts in · verdicts out</text><rect class="tag" x="868" y="416" width="28" height="16" rx="2"/><text class="tagtext" x="882" y="428" text-anchor="middle">1 IN</text>
-      <rect class="node" x="932" y="408" width="224" height="80" rx="6"/><text class="name" x="1044" y="436" text-anchor="middle">Night closeout</text><text class="sub" x="1044" y="456" text-anchor="middle">dispatch/references/night.md</text><text class="sub" x="1044" y="472" text-anchor="middle">retain · correct · propose</text><rect class="tag" x="1116" y="416" width="28" height="16" rx="2"/><text class="tagtext" x="1130" y="428" text-anchor="middle">1 IN</text>
-      <rect class="store" x="472" y="576" width="336" height="64" rx="6"/><text class="name" x="640" y="600" text-anchor="middle">Isolated end-to-end evidence</text><text class="sub" x="640" y="620" text-anchor="middle">MMW_HOME · fake tracker · temp Spaces · every host path</text><rect class="tag" x="768" y="584" width="28" height="16" rx="2"/><text class="tagtext" x="782" y="596" text-anchor="middle">4 IN</text>
-      <rect class="optional" x="32" y="672" width="1216" height="32" rx="4"/><text class="micro" x="640" y="692" text-anchor="middle">SELF-HOSTING BOUNDARY · FROZEN INSTALLED RUNTIME NEVER CONSUMES THIS VERSION DURING ITS OWN WATCH</text>
+      <rect class="node" x="72" y="112" width="248" height="96" rx="7"/>
+      <text class="name" x="196" y="142" text-anchor="middle">A1 · Space 与 Identity</text>
+      <text class="sub" x="196" y="168" text-anchor="middle">install.sh · repository Space</text>
+      <text class="sub" x="196" y="190" text-anchor="middle">mmw-toolbox · worker / reviewer</text>
+      <rect class="node" x="344" y="112" width="248" height="96" rx="7"/>
+      <text class="name" x="468" y="142" text-anchor="middle">A2 · native parent 合同</text>
+      <text class="sub" x="468" y="168" text-anchor="middle">to-spec：map child + read-back</text>
+      <text class="sub" x="468" y="190" text-anchor="middle">standalone spec 保持无 parent</text>
+      <path class="edge" d="M 320 160 H 344" marker-end="url(#impl-arrow)"/>
+      <path class="edge" d="M 468 208 V 240 H 332 V 264" marker-end="url(#impl-arrow)"/>
+      <path class="edge" d="M 196 208 V 240 H 308 V 264" marker-end="url(#impl-arrow)"/>
+
+      <rect class="focal" x="184" y="264" width="296" height="112" rx="8"/>
+      <text class="name" x="332" y="294" text-anchor="middle">A3 · experience.py</text>
+      <text class="sub" x="332" y="320" text-anchor="middle">唯一 Nowledge adapter</text>
+      <text class="sub" x="332" y="344" text-anchor="middle">ensure · list · search · render · summary</text>
+      <text class="sub" x="332" y="366" text-anchor="middle">unavailable / 0 / matches 三种结果</text>
+
+      <path class="edge-accent" d="M 480 320 H 536" marker-end="url(#impl-accent)"/>
+      <rect class="focal" x="536" y="264" width="296" height="112" rx="8"/>
+      <text class="name" x="684" y="294" text-anchor="middle">B · 阶段二运行中读写</text>
+      <text class="sub" x="684" y="320" text-anchor="middle">dispatch open/start/summary</text>
+      <text class="sub" x="684" y="344" text-anchor="middle">runner 传递 scope 与 Identity</text>
+      <text class="sub" x="684" y="366" text-anchor="middle">implement / reviewer 搜索与写入规则</text>
+
+      <path class="edge-accent" d="M 832 320 H 888" marker-end="url(#impl-accent)"/>
+      <rect class="node" x="888" y="112" width="304" height="112" rx="7"/>
+      <text class="name" x="1040" y="142" text-anchor="middle">C1 · review 可聚合字段</text>
+      <text class="sub" x="1040" y="168" text-anchor="middle">每条 finding：axis + class + path + claim</text>
+      <text class="sub" x="1040" y="192" text-anchor="middle">verify-ticket.py 校验格式</text>
+      <rect class="node" x="888" y="264" width="304" height="112" rx="7"/>
+      <text class="name" x="1040" y="294" text-anchor="middle">C2 · stale reason</text>
+      <text class="sub" x="1040" y="320" text-anchor="middle">invalid | fixed-elsewhere</text>
+      <text class="sub" x="1040" y="344" text-anchor="middle">resolution 仍为 stale</text>
+      <text class="sub" x="1040" y="366" text-anchor="middle">event vocabulary 与 summary slot 不变</text>
+      <path class="edge" d="M 1040 224 V 264" marker-end="url(#impl-arrow)"/>
+
+      <path class="edge" d="M 684 376 V 416 H 516 V 448" marker-end="url(#impl-arrow)"/>
+      <path class="edge" d="M 1040 376 V 416 H 548 V 448" marker-end="url(#impl-arrow)"/>
+      <rect class="focal" x="376" y="448" width="312" height="112" rx="8"/>
+      <text class="name" x="532" y="478" text-anchor="middle">C3 · retro skill + retro.py</text>
+      <text class="sub" x="532" y="504" text-anchor="middle">collect：完整 evidence packet</text>
+      <text class="sub" x="532" y="528" text-anchor="middle">analyze：sourced occurrence 与 candidate</text>
+      <text class="sub" x="532" y="550" text-anchor="middle">publish：NIGHT RETRO + proposal</text>
+      <path class="edge-accent" d="M 688 504 H 736" marker-end="url(#impl-accent)"/>
+      <rect class="node" x="736" y="448" width="304" height="112" rx="7"/>
+      <text class="name" x="888" y="478" text-anchor="middle">D · 复用现有决策与落地流程</text>
+      <text class="sub" x="888" y="504" text-anchor="middle">ready-for-human → owner</text>
+      <text class="sub" x="888" y="528" text-anchor="middle">to-spec / to-tickets / review / landing</text>
+      <text class="sub" x="888" y="550" text-anchor="middle">结果 id 回写 proposal，后续 retro 复核</text>
+
+      <path class="edge" d="M 332 376 V 588 H 548 V 624" marker-end="url(#impl-arrow)"/>
+      <path class="edge" d="M 532 560 V 624" marker-end="url(#impl-arrow)"/>
+      <path class="edge" d="M 888 560 V 588 H 612 V 624" marker-end="url(#impl-arrow)"/>
+      <rect class="store" x="400" y="624" width="424" height="64" rx="7"/>
+      <text class="name" x="612" y="652" text-anchor="middle">隔离端到端证据</text>
+      <text class="sub" x="612" y="676" text-anchor="middle">MMW_HOME · 假 tracker · 临时 Git/Space · 3 runners · 5 hosts · 两个 night</text>
+      <rect class="optional" x="32" y="696" width="1216" height="20" rx="4"/>
+      <text class="micro" x="640" y="710" text-anchor="middle">frozen installed runtime 在当前 watch 结束、owner 接受并 finish 前绝不读取新版本</text>
     </svg>
   </figure>
 
   <figure id="proof">
-    <figcaption><span class="kicker">06 · Verification map</span><h2>完成条件、效果信号与硬边界</h2><span class="question">能被实际观察；不靠“应该有效”</span></figcaption>
+    <figcaption><span class="kicker">07 · 验收图</span><h2>完成条件、效果信号与明确不做</h2><span class="question">既证明经验送达，也证明重复问题真的进入预防并停止复发</span></figcaption>
     <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="proof-title proof-desc">
-      <title id="proof-title">阶段二验收、效果指标和不采纳项</title>
-      <desc id="proof-desc">将十四项验收按边界、送达、角色、跨夜和运行分组，并显示效果指标方向以及明确禁止的替代方案。</desc>
-      <defs><marker id="proof-up" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#eb6c36"/></marker><marker id="proof-down" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker></defs>
+      <title id="proof-title">阶段二与阶段三的验收、效果和不采纳项</title>
+      <desc id="proof-desc">左侧是阶段二共享经验的可观察验收，中间是阶段三 retro 和 owner 决策的可观察验收，右侧是效果指标，底部列出不采用的新系统与错误归因。</desc>
+      <defs><marker id="proof-up" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#eb6c36"/></marker><marker id="proof-down" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#4f5d75"/></marker></defs>
       <rect width="1280" height="720" fill="#f5f5f5"/>
-      <rect class="zone" x="32" y="64" width="760" height="456" rx="8"/><rect class="zone" x="824" y="64" width="424" height="456" rx="8"/><rect class="zone-dashed" x="32" y="552" width="1216" height="120" rx="8"/>
-      <rect class="mask" x="48" y="68" width="120" height="16"/><text class="micro" x="108" y="80" text-anchor="middle">ACCEPTANCE SURFACES</text><rect class="mask" x="840" y="68" width="112" height="16"/><text class="micro" x="896" y="80" text-anchor="middle">EFFECT SIGNALS</text><rect class="mask" x="48" y="556" width="136" height="16"/><text class="micro" x="116" y="568" text-anchor="middle">HARD NO · NO BUILD</text>
-      <rect class="node" x="56" y="112" width="224" height="168" rx="6"/><text class="name" x="168" y="140" text-anchor="middle">Scope & isolation</text><text class="sub" x="80" y="168">✓ map siblings = one scope</text><text class="sub" x="80" y="192">✓ standalone spec = own root</text><text class="sub" x="80" y="216">✓ Repo A + approved toolbox only</text><text class="sub" x="80" y="240">✓ Repo B / Default never appear</text><text class="sub" x="80" y="264">✓ parent failure ≠ parent=null</text>
-      <rect class="node" x="300" y="112" width="224" height="168" rx="6"/><text class="name" x="412" y="140" text-anchor="middle">Delivery</text><text class="sub" x="324" y="168">✓ later start sees new Memory</text><text class="sub" x="324" y="192">✓ live agent finds exact failure</text><text class="sub" x="324" y="216">✓ cold task gets history seed</text><text class="sub" x="324" y="240">✓ one label list is exact</text><text class="sub" x="324" y="264">✓ repeated --label remains OR</text>
-      <rect class="node" x="544" y="112" width="224" height="168" rx="6"/><text class="name" x="656" y="140" text-anchor="middle">Roles & time</text><text class="sub" x="568" y="168">✓ worker / reviewer provenance</text><text class="sub" x="568" y="192">✓ no Thread leaked to Default</text><text class="sub" x="568" y="216">✓ reviewer uses facts, re-checks</text><text class="sub" x="568" y="240">✓ cross-night Thread / WM route</text><text class="sub" x="568" y="264">✓ toolbox WM is not merged</text>
-      <rect class="store" x="56" y="304" width="712" height="176" rx="6"/><text class="name" x="412" y="332" text-anchor="middle">Operational completion</text>
-      <rect class="tag" x="80" y="356" width="144" height="40" rx="4"/><text class="name-sm" x="152" y="376" text-anchor="middle">Host parity</text><text class="sub" x="152" y="392" text-anchor="middle">3 runners · 5 hosts</text>
-      <rect class="tag" x="244" y="356" width="144" height="40" rx="4"/><text class="name-sm" x="316" y="376" text-anchor="middle">Native parent</text><text class="sub" x="316" y="392" text-anchor="middle">create + read-back</text>
-      <rect class="tag" x="408" y="356" width="144" height="40" rx="4"/><text class="name-sm" x="480" y="376" text-anchor="middle">Spec closeout</text><text class="sub" x="480" y="392" text-anchor="middle">no sibling miscount</text>
-      <rect class="tag" x="572" y="356" width="144" height="40" rx="4"/><text class="name-sm" x="644" y="376" text-anchor="middle">Approval boundary</text><text class="sub" x="644" y="392" text-anchor="middle">proposal never auto-applies</text>
-      <rect class="tag" x="164" y="416" width="192" height="40" rx="4"/><text class="name-sm" x="260" y="436" text-anchor="middle">Three observable results</text><text class="sub" x="260" y="452" text-anchor="middle">unavailable · 0 · matches</text>
-      <rect class="tag" x="424" y="416" width="232" height="40" rx="4"/><text class="name-sm" x="540" y="436" text-anchor="middle">No ticket-state side effect</text><text class="sub" x="540" y="452" text-anchor="middle">fail-open · visible reason</text>
+      <rect class="zone" x="32" y="64" width="384" height="500" rx="8"/>
+      <rect class="zone" x="440" y="64" width="464" height="500" rx="8"/>
+      <rect class="zone" x="928" y="64" width="320" height="500" rx="8"/>
+      <rect class="zone-dashed" x="32" y="592" width="1216" height="96" rx="8"/>
+      <rect class="mask" x="48" y="68" width="176" height="20"/><text class="micro" x="136" y="82" text-anchor="middle">阶段二 · 共享经验验收</text>
+      <rect class="mask" x="456" y="68" width="184" height="20"/><text class="micro" x="548" y="82" text-anchor="middle">阶段三 · 跨夜学习验收</text>
+      <rect class="mask" x="944" y="68" width="112" height="20"/><text class="micro" x="1000" y="82" text-anchor="middle">效果信号</text>
+      <rect class="mask" x="48" y="596" width="152" height="20"/><text class="micro" x="124" y="610" text-anchor="middle">明确不做</text>
 
-      <line class="edge-accent" x1="876" y1="236" x2="876" y2="132" marker-end="url(#proof-up)"/><text class="name-sm" x="900" y="152">采用 Memory id</text><text class="sub" x="900" y="172">↑ then stable</text>
-      <line class="edge" x1="876" y1="276" x2="876" y2="380" marker-end="url(#proof-down)"/><text class="name-sm" x="900" y="336">同一问题重复修复</text><text class="sub" x="900" y="356">↓ to 0</text>
-      <rect class="store" x="1040" y="112" width="176" height="72" rx="6"/><text class="name-sm" x="1128" y="136" text-anchor="middle">open/start 注入数</text><text class="sub" x="1128" y="156" text-anchor="middle">record, no quota</text><text class="sub" x="1128" y="172" text-anchor="middle">not “more is better”</text>
-      <rect class="store" x="1040" y="208" width="176" height="72" rx="6"/><text class="name-sm" x="1128" y="232" text-anchor="middle">corrected / written</text><text class="sub" x="1128" y="252" text-anchor="middle">quality signal</text><text class="sub" x="1128" y="268" text-anchor="middle">not performance</text>
-      <rect class="store" x="1040" y="304" width="176" height="72" rx="6"/><text class="name-sm" x="1128" y="328" text-anchor="middle">post-promotion repeat</text><text class="sub" x="1128" y="348" text-anchor="middle">↓ after approval</text><text class="sub" x="1128" y="364" text-anchor="middle">reported next nights</text>
-      <rect class="optional" x="848" y="416" width="368" height="64" rx="6"/><text class="name" x="1032" y="440" text-anchor="middle">不使用 ticket pass rate 归因</text><text class="sub" x="1032" y="460" text-anchor="middle">任务难度 · 实现质量 · acceptance 同时影响</text>
+      <rect class="node" x="56" y="112" width="336" height="128" rx="7"/>
+      <text class="name" x="224" y="142" text-anchor="middle">task root 与 Space 隔离</text>
+      <text class="sub" x="80" y="170">✓ map siblings 共用；standalone spec 独立</text>
+      <text class="sub" x="80" y="194">✓ repository + 批准的 mmw-toolbox</text>
+      <text class="sub" x="80" y="218">✓ 其他客户 repository / Default 不可见</text>
+      <rect class="node" x="56" y="264" width="336" height="128" rx="7"/>
+      <text class="name" x="224" y="294" text-anchor="middle">三条读取路径实际送达</text>
+      <text class="sub" x="80" y="322">✓ 后续 start 看到刚写入 Memory</text>
+      <text class="sub" x="80" y="346">✓ 冷启动取得历史 seed</text>
+      <text class="sub" x="80" y="370">✓ 运行中按真实故障搜到；不轮询</text>
+      <rect class="node" x="56" y="416" width="336" height="112" rx="7"/>
+      <text class="name" x="224" y="446" text-anchor="middle">角色、时间与失败语义</text>
+      <text class="sub" x="80" y="474">✓ reviewer 只拿事实并重新判定</text>
+      <text class="sub" x="80" y="498">✓ unavailable / 0 / matches 可区分</text>
+      <text class="sub" x="80" y="520">✓ Working Memory 不承担 task 送达</text>
 
-      <g><line class="xmark" x1="72" y1="600" x2="84" y2="612"/><line class="xmark" x1="84" y1="600" x2="72" y2="612"/><text class="sub" x="96" y="612">map/spec Space</text></g>
-      <g><line class="xmark" x1="244" y1="600" x2="256" y2="612"/><line class="xmark" x1="256" y1="600" x2="244" y2="612"/><text class="sub" x="268" y="612">title / Owns scope</text></g>
-      <g><line class="xmark" x1="448" y1="600" x2="460" y2="612"/><line class="xmark" x1="460" y1="600" x2="448" y2="612"/><text class="sub" x="472" y="612">--time today</text></g>
-      <g><line class="xmark" x1="604" y1="600" x2="616" y2="612"/><line class="xmark" x1="616" y1="600" x2="604" y2="612"/><text class="sub" x="628" y="612">Working Memory bus</text></g>
-      <g><line class="xmark" x1="832" y1="600" x2="844" y2="612"/><line class="xmark" x1="844" y1="600" x2="832" y2="612"/><text class="sub" x="856" y="612">nmem ask in dispatch</text></g>
-      <g><line class="xmark" x1="1060" y1="600" x2="1072" y2="612"/><line class="xmark" x1="1072" y1="600" x2="1060" y2="612"/><text class="sub" x="1084" y="612">auto promotion</text></g>
-      <g><line class="xmark" x1="72" y1="640" x2="84" y2="652"/><line class="xmark" x1="84" y1="640" x2="72" y2="652"/><text class="sub" x="96" y="652">Memory event / relay / queue / state machine</text></g>
-      <g><line class="xmark" x1="448" y1="640" x2="460" y2="652"/><line class="xmark" x1="460" y1="640" x2="448" y2="652"/><text class="sub" x="472" y="652">Parent spec mega-query</text></g>
-      <g><line class="xmark" x1="700" y1="640" x2="712" y2="652"/><line class="xmark" x1="712" y1="640" x2="700" y2="652"/><text class="sub" x="724" y="652">worker Thread / reasoning → reviewer</text></g>
-      <g><line class="xmark" x1="1040" y1="640" x2="1052" y2="652"/><line class="xmark" x1="1052" y1="640" x2="1040" y2="652"/><text class="sub" x="1064" y="652">custom lifecycle</text></g>
+      <rect class="node" x="464" y="112" width="416" height="112" rx="7"/>
+      <text class="name" x="672" y="142" text-anchor="middle">完整证据，没有静默缺口</text>
+      <text class="sub" x="488" y="170">✓ 全部 ticket/event/review/commit/spec/Memory</text>
+      <text class="sub" x="488" y="194">✓ unreadable 明写 narrowed，不计作 0</text>
+      <text class="sub" x="488" y="216">✓ 每条 occurrence 都能跳到 source</text>
+      <rect class="node" x="464" y="248" width="416" height="128" rx="7"/>
+      <text class="name" x="672" y="278" text-anchor="middle">重复、阻塞与 review 学习</text>
+      <text class="sub" x="488" y="306">✓ 跨 spec / 跨 night 第二次形成一个 proposal</text>
+      <text class="sub" x="488" y="330">✓ 一次阻塞可提议；普通一次不提议</text>
+      <text class="sub" x="488" y="354">✓ invalid 与 fixed-elsewhere 不混淆</text>
+      <text class="sub" x="488" y="372">✓ 已知 false positive 只降噪，不静默压制</text>
+      <rect class="node" x="464" y="400" width="416" height="128" rx="7"/>
+      <text class="name" x="672" y="430" text-anchor="middle">proposal、owner 与后续验证</text>
+      <text class="sub" x="488" y="458">✓ ready-for-human，无 MMW layer，不自动改</text>
+      <text class="sub" x="488" y="482">✓ 相同 proposal 追加 source，不重复开</text>
+      <text class="sub" x="488" y="506">✓ 关闭无落地证据仍写“没找到证据”</text>
+      <text class="sub" x="488" y="524">✓ 正确 repository 落地，后续 retro 验证复发</text>
+
+      <line class="edge-accent" x1="972" y1="232" x2="972" y2="132" marker-end="url(#proof-up)"/>
+      <text class="name-sm" x="996" y="154">Memory 被实际采用</text>
+      <text class="sub" x="996" y="178">上升后稳定</text>
+      <line class="edge" x1="972" y1="264" x2="972" y2="364" marker-end="url(#proof-down)"/>
+      <text class="name-sm" x="996" y="322">同一问题重复修复</text>
+      <text class="sub" x="996" y="346">下降至 0</text>
+      <rect class="store" x="952" y="400" width="272" height="56" rx="7"/>
+      <text class="name-sm" x="1088" y="424" text-anchor="middle">批准 proposal 的实际落地率</text>
+      <text class="sub" x="1088" y="446" text-anchor="middle">只有 commit / Rule / Memory id 才计入</text>
+      <rect class="store" x="952" y="472" width="272" height="56" rx="7"/>
+      <text class="name-sm" x="1088" y="496" text-anchor="middle">预防措施落地后的同 cause 复发</text>
+      <text class="sub" x="1088" y="518" text-anchor="middle">下降至 0；复发表示措施覆盖不足</text>
+
+      <g><line class="xmark" x1="64" y1="638" x2="76" y2="650"/><line class="xmark" x1="76" y1="638" x2="64" y2="650"/><text class="sub" x="88" y="650">map/spec Space</text></g>
+      <g><line class="xmark" x1="224" y1="638" x2="236" y2="650"/><line class="xmark" x1="236" y1="638" x2="224" y2="650"/><text class="sub" x="248" y="650">title / Owns 定 scope</text></g>
+      <g><line class="xmark" x1="432" y1="638" x2="444" y2="650"/><line class="xmark" x1="444" y1="638" x2="432" y2="650"/><text class="sub" x="456" y="650">Working Memory bus</text></g>
+      <g><line class="xmark" x1="640" y1="638" x2="652" y2="650"/><line class="xmark" x1="652" y1="638" x2="640" y2="650"/><text class="sub" x="664" y="650">retro event / 新审批队列</text></g>
+      <g><line class="xmark" x1="888" y1="638" x2="900" y2="650"/><line class="xmark" x1="900" y1="638" x2="888" y2="650"/><text class="sub" x="912" y="650">只读 Memory 做 retro</text></g>
+      <g><line class="xmark" x1="1088" y1="638" x2="1100" y2="650"/><line class="xmark" x1="1100" y1="638" x2="1088" y2="650"/><text class="sub" x="1112" y="650">自动晋升</text></g>
+      <text class="sub" x="64" y="678">不使用 ticket pass rate 归因；不把 path 相同当成 cause 相同；不让新版本接管当前 frozen watch。</text>
     </svg>
   </figure>
 
-  <footer class="footer"><span>Source: docs/notes/stage-two-shared-experience-layer.md · 2026-09-14</span><span>Default Diagram Design profile · doc-wide · faithful · mixed</span></footer>
+  <footer class="footer"><span>来源：docs/notes/stage-two-shared-experience-layer.md · 2026-09-14</span><span>diagram-design 默认样式 · doc-wide · faithful · mixed</span></footer>
 </main>
 </body>
 </html>
