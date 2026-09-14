@@ -19,7 +19,7 @@ task root 按以下规则解析：spec 有 native map parent 时，map 是 task 
 
 worker 一旦证实一条同一 task 其他 ticket 可复用的经验，就立即写入 repository Space，并带当前 task root 的 scope label。后来启动的 worker 会自动得到它；已经运行的 worker 在遇到相同问题时通过主动检索得到它。
 
-reviewer 的首次 prompt 不放 Memory 检索结果；需要常驻的 review 经验只以 `mmw-reviewer` active Rules 注入。reviewer 独立读取 ticket、repository authority 和运行检查。这符合 Artifact 对 reviewer 干净上下文的设计。
+reviewer 的首次 prompt 不放 Memory 检索结果；`dispatch.sh start <ticket> reviewer` 从 `mmw-reviewer` Context Bundle 中只取 active `rule_stack`，作为唯一由 MMW 加入 review 的经验。reviewer 独立读取 ticket、repository authority 和运行检查。这符合 Artifact 对 reviewer 干净上下文的设计，也不依赖各 host 是否能把 startup hook 输出送进模型。
 
 不增加实时消息系统、Memory relay、retro 数据库或新的审批队列。必须立即改变其他 ticket 行为的信息继续使用现有 `contract`、`fault` 或 `decision` tracker event。retro 使用一个 script-written `spec.retroed` event 留在 spec comment 中；proposal 先进入现有 `needs-triage` 队列，owner 决定是否落入长期载体。
 
@@ -61,11 +61,11 @@ repository Space 的 `sharedSpaceIds` 只包含 `mmw-toolbox`。不同客户 rep
 
 | Identity | 使用者 | 默认 Space | 作用 |
 | --- | --- | --- | --- |
-| `mmw-worker` | ticket worker | 不固定；dispatch 显式传入当前 repository Space | 记录 provenance，接收 worker active Rules |
-| `mmw-reviewer` | ticket reviewer | 不固定；dispatch 显式传入当前 repository Space | 记录 provenance，接收 owner 批准的 reviewer active Rules |
+| `mmw-worker` | ticket worker | Default；dispatch 每次覆盖为当前 repository Space | 记录 provenance，接收 worker active Rules |
+| `mmw-reviewer` | ticket reviewer | Default；dispatch 每次覆盖为当前 repository Space | 记录 provenance，接收 owner 批准的 reviewer active Rules |
 | `default` | owner 的普通会话与非 pipeline 工作 | Default | 保持个人上下文，不由 dispatch 改写 |
 
-Identity 不承担授权：Memory 是否可见由 active Space、retrieval mode 和 shared Spaces 决定。Identity 只回答“谁产生了这条记录”和“哪个角色的 active Rules 应进入 Context Bundle”。固定 Identity 不能把 default Space 设成“当前 repository”；本机 `nmem agents enroll` 的 `--default-space` 是一个固定 Space id，所以 pipeline 必须每次显式传 `NMEM_SPACE`。
+Identity 不承担授权：Memory 是否可见由 active Space、retrieval mode 和 shared Spaces 决定。Identity 只回答“谁产生了这条记录”和“哪个角色的 active Rules 应进入 Context Bundle”。`agents enroll` 未指定 `--default-space` 时落到 Default；固定 Identity 也不能把 default Space 设成“当前 repository”，所以 pipeline 必须每次显式传 `NMEM_SPACE`。
 
 main agent 不使用独立的 `mmw-main` Identity，也不在 `open` 时接收 task Memory 注入。它在 closing pass 由 `dispatch.sh` 按本 spec label 读取 Memory；owner 会话的完整 Thread 不会被自动搬进客户 repository Space。
 
@@ -130,8 +130,8 @@ ticket --native parent--> spec --native parent--> map
 | 能力 | 已确认行为 | 阶段二用途 |
 | --- | --- | --- |
 | `memories add` | 可指定 Space、Identity、unit type、labels；写入后即可检索 | worker 即时保存显式经验 |
-| `memories list` | 可按一个 label 精确列出；本机重复 `--label` 实测为 OR | 列出当前 task root 或当前 spec 夜间产生的经验 |
-| `memories search` | semantic + text search，约 0.5 秒；可按 label、unit type、时间和 metadata 过滤 | agent 按真实问题主动找经验 |
+| `memories list` | 可按一个 label 精确列出；只列 active Space 自身，不扩到 shared Space；本机重复 `--label` 实测为 OR；达到 `--limit` 仍 exit 0，须比较 `total` 与 `returned` | 列出当前 task root 或当前 spec night 产生的经验 |
+| `memories search` | semantic + text search，约 0.5 秒；可按 label、unit type、时间和 metadata 过滤；active Space 为 `shared` 时扩到显式 shared Spaces | agent 按真实问题主动找经验 |
 | `ask` | 本机一次约 130 秒 | 不进入派发路径 |
 | Space | `strict` 只读当前 Space；`shared` 读取当前 Space 和显式 shared Spaces | repository 隔离并只共享 `mmw-toolbox` |
 | Identity | provenance、默认 Space 与 agent Rule 的选择，不是授权，也不是 Memory 可见性过滤器 | 区分 worker/reviewer 来源与常驻 Rule |
@@ -140,8 +140,9 @@ ticket --native parent--> spec --native parent--> map
 | Context Bundle | Identity、active Space、active Rules、Working Memory | startup 背景；不含 task retrieval |
 | supersede/deprecate | supersede 保留旧条目并建立 replacement；deprecate 使其退出普通 recall | 纠正或结束经验 |
 | active Rules | 编译进 Context Bundle；普通 Memory 不会自动变 Rule | owner 批准后的 reviewer/Space 常驻行为 |
+| Space 间迁移 | `memories move` 保留 Memory id、source 与 labels，但原 Space 不再持有该 Memory；同一套个人 Space 没有 copy 命令 | 不用来晋升 `mmw-toolbox`；晋升时新建泛化后的 Memory，原 repository Memory 保持不变 |
 
-**依据**：本机 `nmem 0.10.78` CLI、Context Bundle、Working Memory API 与 Codex connector 的实际行为。
+**依据**：本机 `nmem 0.10.78` CLI、Context Bundle、Working Memory API 与 Codex connector 的实际行为；隔离实验验证 `list` 不扩到 shared Space、`search` 会扩展、`move` 会从原 Space 移除记录。
 
 ## 二、阶段二：task 内共享经验
 
@@ -163,6 +164,8 @@ nmem --json memories list \
   --limit 1000
 ```
 
+`dispatch.sh` 比较返回值的 `total` 与 `returned`。相等才算完整读取；`total > returned` 时仍启动 worker，但首次 prompt 明确写出“当前 task Memory 已截断”，不能把前 1000 条伪装成完整结果。本机 CLI 没有 `offset`，因此不另造分页层；一个 task 达到这个上限时应治理其 Memory，而不是继续扩大启动 prompt。
+
 这里只使用一个 scope label。本机实测 `memories list` 的重复 `--label` 是 OR，不是 AND；因此所有带 task scope label 的 Memory 都必须是共享经验，`mmw-experience` 只用于 worker 按具体问题搜索历史。
 
 首次 prompt 的固定部分只包含：
@@ -183,14 +186,23 @@ command and component. Verify every Memory against current repository evidence.
 
 #### `dispatch.sh start <ticket> reviewer`
 
-reviewer 不执行上述 Memory 读取，首次 prompt 不放其结果。runner 仍设置 reviewer Identity，使 Nowledge Mem 的 Context Bundle 能提供 owner 已批准的 `mmw-reviewer` active Rules，并把 connector Thread 归到当前 repository Space。
+reviewer 不执行上述 Memory 读取，首次 prompt 不放其结果。`dispatch.sh` 另读一次不带 Working Memory 的 Context Bundle：
+
+```sh
+nmem --json context read \
+  --space "$NMEM_SPACE" \
+  --agent-id mmw-reviewer \
+  --no-working-memory
+```
+
+它只把返回值 `rule_stack.global`、`rule_stack.owner`、`rule_stack.space` 与 `rule_stack.agent` 中的 active Rules 加入 reviewer 首次 prompt；owner profile、Working Memory、Memory search result 和 Thread 都不进入这个 review packet。这样，能接收 startup Context Bundle 的 host 即使重复看到同一条 Rule，也不改变行为；不能接收 startup hook 输出的 host 仍会在 review 开始前得到同一组 Rules。
 
 两种角色都由 runner adapter 设置：
 
 - `NMEM_SPACE=<repository Space>`
 - `NMEM_AGENT_ID=mmw-worker|mmw-reviewer`
 
-worker 另收到 `MMW_EXPERIENCE_SCOPE`、`MMW_SPEC` 与 `MMW_TICKET`，供主动搜索和写入使用。Paseo、Orca 与 Herdr 只在各自现有 adapter 里传同一组值，不形成 host-specific 设计。
+worker 另收到 `MMW_EXPERIENCE_SCOPE`、`MMW_SPEC` 与 `MMW_TICKET`，供主动搜索和写入使用。runner 的 `start` 合同增加可重复的 `--env KEY=VALUE`：Paseo 转发给现有 `paseo run --env`，Herdr 转发给现有 `herdr tab create --env`，Orca 把同一组值放进新 terminal 的 host launch environment。Space、Identity 和 scope 仍由 `dispatch.sh` 解析，adapter 只传值。
 
 **依据**：Artifact 2.2“当夜由派发脚本查一次”；现有 `dispatch.sh read_ticket()` 与 runner adapters；task root 解析沿用上一节的 native parent graph。
 
@@ -244,14 +256,17 @@ nmem --json memories add --stdin \
   --title "<searchable title>"
 ```
 
-stdin 只写 Artifact 要求的事实与证据：
+stdin 使用 Artifact 2.1 的五个字段：
 
 ```text
+Applies: <适用的环境、版本或前提>
 Finding: <已证实的非显然事实>
+Action: <下一名 worker 应采取的操作>
 Evidence: <命令与输出首行，或 path:line>
+Observed: <YYYY-MM-DD>
 ```
 
-默认 unit type 是 `learning`；固定操作步骤使用 `procedure`。适合写的是不稳定测试、工具的非显然行为、环境修法和测试前提。普通实现细节、ticket 状态、未经验证的推测、用户决定、凭据和客户数据不写。Space、Identity、task/spec/ticket labels 已提供 repository、角色和工作来源，不在正文重复造 provenance schema。
+`Applies` 防止旧环境经验被无条件套用，`Action` 让下一名 worker 可以直接行动，`Observed` 保留时间判断；不另造 provenance schema。默认 unit type 是 `learning`；固定操作步骤使用 `procedure`。适合写的是不稳定测试、工具的非显然行为、环境修法和测试前提。普通实现细节、ticket 状态、未经验证的推测、用户决定、凭据和客户数据不写。Space、Identity、task/spec/ticket labels 已提供 repository、角色和工作来源。
 
 同一事实发生变化时不覆写历史：新 Memory 已证实旧 Memory 错误时使用 supersede；旧经验只是不再适用时使用 deprecate。普通 repository Memory 的写入与纠正不等待 owner 批准，因为等待会使并行 agent 继续重复遇到同一问题。
 
@@ -297,9 +312,9 @@ relay 继续只由 tracker event 唤醒 agent。Memory 不产生 wake，也不�
 
 ### 8. reviewer 的独立性
 
-reviewer 的开场 prompt 不放 worker 或 repository Memory 的检索结果，`code-review` 也不要求 reviewer 主动搜索普通 Memory。需要常驻的 review 经验只以 owner 已批准并编译进 Context Bundle 的 `mmw-reviewer` active Rules 提供。
+reviewer 的开场 prompt 不放 worker 或 repository Memory 的检索结果，`code-review` 也不要求 reviewer 主动搜索普通 Memory。需要常驻的 review 经验只以 owner 已批准并编译进 `mmw-reviewer` Context Bundle 的 active Rules 提供；`dispatch.sh` 从 `rule_stack` 取出这些 Rules，保证所有 runner/host 得到相同 review packet。
 
-reviewer 仍独立读取 ticket、spec、repository authority 与 diff，并重新运行它负责的检查。worker Thread、推理、自评和“实现正确”的结论都不进入 reviewer。需要让以后每次 review 都执行的稳定方法，先由 retro 提议，owner 批准后再成为 active Rule。
+reviewer 仍独立读取 ticket、spec、repository authority 与 diff，并重新运行它负责的检查。worker Thread、推理、自评和“实现正确”的结论都不进入 reviewer。connector 自动提供的 repository Working Memory 只作宽背景，不能作为 finding 或 verdict 的证据；MMW 自己组装的 review packet 不包含它。需要让以后每次 review 都执行的稳定方法，先由 retro 提议，owner 批准后再成为 active Rule。
 
 这保留了 Artifact 2.2 的角色边界，也与 Cognition、LangChain 的 clean verifier context 一致。
 
@@ -311,13 +326,13 @@ reviewer 仍独立读取 ticket、spec、repository authority 与 diff，并重�
 
 ```text
 worker/reviewer session
-  → connector 以 NMEM_SPACE 保存 Thread 到 repository Space
+  → 已启用的 connector 以 NMEM_SPACE 保存 Thread 到 repository Space
   → Nowledge 后台整理与异步蒸馏
   → repository Working Memory 在后续 session start 提供宽背景
   → 后续 agent 遇到具体问题时检索显式 Memory
 ```
 
-这条链路负责“下一夜仍能找到”，不负责“同一夜立即广播”。同夜确定性由 worker 直接写显式 Memory、dispatch 在每次 start 精确列举、运行中 agent 按具体问题主动搜索共同保证。
+这条链路提供“下一夜的宽背景”，不负责“同一夜立即广播”。没有安装或启用 connector 时它可以缺席；显式 Memory 仍然保存在 repository Space，后续 night 仍可按具体问题搜索。同夜确定性由 worker 直接写显式 Memory、dispatch 在每次 start 精确列举、运行中 agent 按具体问题主动搜索共同保证。
 
 完整 Thread 是事后证据，不直接塞给并行 agent。Working Memory 是整个 repository Space 的简报，可能同时包含多个 map 和 standalone spec；它只提供宽背景，不能作为 task root 检索结果。后台蒸馏即使较慢或没有发生，也不影响显式 Memory 的同夜传播。
 
@@ -343,12 +358,14 @@ worker/reviewer session
 小写 `night` 是 `dispatch.sh` 对一份 spec 的一次运行。closing pass 按 `mmw-spec-<n>` 列出本 spec night 写入的 Memory，逐条执行 Artifact 2.3 的三选一：
 
 1. **retain**：仍正确、仍适用，原 Memory 保持不变；
-2. **propose**：同类经验已独立出现两次以上，或一次就实际阻塞 ticket，形成长期载体 proposal；
+2. **propose**：同类经验已独立出现两次以上，或一次就实际阻塞 ticket，标成长期载体 proposal candidate；
 3. **deprecate**：已有证据说明不再适用，用 Nowledge Mem deprecate 并写原因；若新事实替代旧事实，使用 supersede。
 
-这一步只处理经验本身，不把 Memory 当作阶段三的运行证据。`dispatch.sh summary <spec>` 保持现有 ticket-state 闭合，并在 `NIGHT SUMMARY` 增加本 spec 的 `written / retained / proposed / deprecated` 计数。
+这一步只处理经验本身，不把 Memory 当作阶段三的运行证据。main agent 把逐条决定写入临时 JSON manifest，并调用 `dispatch.sh summary <spec> --memory-decisions <file>`；每项只有 `memory_id`、`decision=retain|propose|deprecate|supersede` 与 `reason`，`supersede` 另带 `replacement_id`，`propose` 另带证明“重复出现”或“实际阻塞”的 event/commit URL。`summary` 自己重新列出 `mmw-spec-<n>`，完整读取时要求 manifest ids 与 current Memory ids 完全一致，再执行 lifecycle 操作。
 
-`summary` 成功写入 `spec.closed` 后，同一 main agent 立即运行 retro。retro 以一个 script-written `spec.retroed` event 写在该 spec comment 中。它不改变 `spec.closed`，不持有任何 agent，也不触发 relay。
+`spec.closed` 的 `NIGHT SUMMARY` 保存逐条 decision manifest，并给出 `written / retained / proposed / deprecated / superseded` 计数及 proposed Memory ids；它是 closing pass 与 retro 的机器交接记录。`retain` 不调用 Mem 写接口，其他决定只有对应接口成功后才计数。Nowledge unavailable、JSON 不可读或 `total > returned` 时按既定 fail-open 关闭 night，但 `spec.closed` 必须写 `Memory closing: unchecked (<reason>)`，不能写成 0 或完整盘点。
+
+`summary` 成功写入 `spec.closed` 后，同一 main agent 立即运行 retro。retro 是 proposal issue 的唯一创建点：它接收 closing pass 的 proposed Memory ids，并与本次 event/commit finding 合并；同一原因只创建一个 issue。Memory candidate 可以按 Artifact 2.3 的“一次实际阻塞”成立，阶段三 finding 仍必须满足“两次独立出现”。retro 以一个 script-written `spec.retroed` event 写在该 spec comment 中。它不改变 `spec.closed`，不持有任何 agent，也不触发 relay。
 
 **依据**：Artifact 2.3、3.1；`mmw-v2/skills/dispatch/references/night.md` 的 `## 4. The closing pass` 与 `## 5. The night is over`；现有 `dispatch.sh summary <spec>`。
 
@@ -372,6 +389,7 @@ worker/reviewer session
 | process 与最终结果 | 每张 ticket 的完整 event fold及其 script-written comment | bounce、return、lost、HANDOFF、finding、route、check 与最终结果 |
 | 实际落地 | 本批 merge、closing-pass fix 与 base branch `git log` | 哪些改变确实进入 repository |
 | 历史重复与上一轮行动 | 较早的 `spec.retroed` event 及其链接的 issue，再用 commit、Rule、Memory 或现行文件复核 | 同类问题是否已出现、已提议的预防是否真正落地 |
+| Memory promotion candidate | 当前 `NIGHT SUMMARY` 的 proposed Memory ids | 只决定是否提出长期载体，不证明运行中发生了什么 |
 | 交付意图 | 当前 spec 的 `Problem Statement`、`User Stories`、`Out of Scope` | 仅用于 expected surface，不证明实现发生了什么 |
 
 retro 的运行事实只接受 event 或 commit source。review finding 的 path、claim 与 category 来自承载 `reviewer.reported` event 的 comment；spec 只定义批准的意图。Memory、Thread、Working Memory、agent 自评和无输出推断都不能补成运行证据。
@@ -446,6 +464,8 @@ Proposals: <issue links or none>
 
 proposal 创建在应承担改变的 repository：MMW 或 toolbox 行为开在 multi-model-workflow，consumer-local 问题留在该 consumer repository。新 issue 加现有 `needs-triage` queue label，不加 `mmw:map/spec/ticket/child` layer label；spec event 链接 proposal，proposal 回链来源 spec 和两次独立证据。
 
+proposal body 带稳定的 source spec 与 evidence marker。retro 创建前用这两个 marker 查询已有 open/closed proposal；命中时复用其链接，不再创建。这样即使 issue 已创建而 `spec.retroed` 尚未写入，重跑也不会重复开票，不需要 proposal 数据库或新状态机。`spec.retroed` 已存在时再次运行是 no-op。
+
 proposal 只写 Artifact 要求的内容：本例如何处理、怎样防下一次、目标载体、来源。它不直接修改长期载体，也不阻止 night 结束。owner 批准后，需实现的改变走现有 `to-spec`、`to-tickets`、worker、review 和 landing 流程；owner 拒绝则按现有 triage 结果处理，不建立新的审批状态。
 
 #### owner 批准后的长期载体
@@ -454,12 +474,29 @@ proposal 只写 Artifact 要求的内容：本例如何处理、怎样防下一�
 | --- | --- | --- |
 | 可机械判断 | `.mmw/target.json`、judge、lint、ticket `CHECK:` 或 repository script | 运行或验收时直接检查 |
 | repository 通用且代码无法推出 | repository `AGENTS.md` 的 Gotchas | 后续 agent 读 repository authority |
-| reviewer 的稳定方法 | `mmw-reviewer` active Rule | 后续 reviewer 的 Context Bundle 注入 |
+| reviewer 的稳定方法 | `mmw-reviewer` active Rule | `dispatch.sh start <ticket> reviewer` 从 Context Bundle 的 active `rule_stack` 注入 |
 | MMW pipeline 行为 | 对应 MMW skill、reference 或 script | 新版本安装后的 night 使用 |
-| 跨 repository 有用但不应强制 | `mmw-toolbox` Memory copy | repository shared retrieval 按需取得 |
+| 跨 repository 有用但不应强制 | 在 `mmw-toolbox` 新建一条泛化后的 Memory，正文回链原 Memory id | repository shared retrieval 按需取得；原 repository Memory 不移动 |
 | 不够稳定或不够通用 | 原 repository Memory | 保持可搜索，不升格 |
 
 能机械执行的内容优先进入 check 或 script；只有无法从代码推得且几乎每项任务都适用的内容才进入 `AGENTS.md`。这些选择分别来自 OpenAI Harness Engineering 与 Augment 的 AGENTS.md/Review Guidelines，不扩展为新的 `CONTEXT.md`、ADR、coding-standard 层或治理系统。
+
+Rule 与 toolbox Memory 直接使用现有 Nowledge 接口：
+
+```sh
+nmem --json rules upsert <rule-id> \
+  --scope agent --agent mmw-reviewer --status active \
+  --title "<title>" --body "<approved body>"
+
+nmem --json memories add --stdin \
+  --id "mmw-toolbox-<source-memory-id>" \
+  --space mmw-toolbox --source mmw-promotion \
+  --unit-type learning --label mmw-experience \
+  --label mmw-toolbox-approved \
+  --title "<approved generalized title>"
+```
+
+toolbox Memory 的正文保留 `Source Memory: <id>`、source proposal URL 与原 repository slug，但只写 owner 批准的通用表述。固定目标 id 让同一 source Memory 的重试更新原目标，而不是生成重复项。`memories move` 不用于这里：实测它会让原 repository 不再持有该 Memory；新建记录既保留 task 内原始证据，又避免把 repository-specific 正文原样暴露给其他 repository。
 
 #### 回流到下一次阶段二
 
@@ -487,9 +524,9 @@ worker 写/读 task Memory
 
 **依据**：本机 `nmem 0.10.78` 实测；现有 `install.sh`、`dispatch.sh`、runner adapters 与 `to-spec/SKILL.md`。
 
-### 15. 必须补齐的现有接口
+### 15. 阶段三必须补齐的五个结构化接口
 
-阶段二与阶段三只补五个现有接口：
+阶段二沿用 Nowledge Mem 的 Space、Identity、Memory、Context Bundle 与 Rules 接口；阶段三只补齐以下五个 MMW 结构化接口：
 
 1. 从 map 发布 spec 时，把 spec 创建为该 map 的 native child，并在 read-back 验证 `parent.number`；standalone spec 保持无 map parent。
 2. review finding 汇总行增加稳定 category，同时保留现有 axis、path、line 和 claim。
@@ -508,23 +545,23 @@ worker 写/读 task Memory
 #### A. Space、Identity 与现有 dispatch
 
 1. `mmw-v2/install.sh` 幂等建立 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`，`--check` 只读核对。
-2. 在现有 `dispatch.sh` 内增加 Nowledge helper：建立或读取 repository Space、解析 `nmem --json`、按 task/spec label 列举，并区分 unavailable 与 0 results。worker 仍直接使用 Nowledge CLI 搜索与写 Memory，不增加中间服务或新 adapter module。
+2. 在现有 `dispatch.sh` 内增加 Nowledge helper：建立或读取 repository Space、解析 `nmem --json`、按 task/spec label 列举、读取 reviewer active `rule_stack`，并区分 unavailable 与 0 results。worker 仍直接使用 Nowledge CLI 搜索与写 Memory，不增加中间服务或新 adapter module。
 
 #### B. 阶段二读写
 
-3. `dispatch.sh` 与现有 runner adapters 解析 native parent，设置 Space/Identity；只有 worker start 读取一次 task Memory。`summary` 加入本 spec Memory 计数。
-4. `implement/SKILL.md` 增加 Artifact 2.1 的写入条件与 2.2 的主动搜索时点；`code-review` 不增加 Memory retrieval，只依赖 active Rules。
+3. `dispatch.sh` 解析 native parent，并通过 runner `start --env` 设置 Space/Identity；三个 runner adapter 只把值送入实际 agent process。worker start 读取一次 task Memory 并核对 `total == returned`；reviewer start 只读取 active `rule_stack`；`summary --memory-decisions` 校验逐项 manifest，并把完整决定写入 `spec.closed`。
+4. `implement/SKILL.md` 增加 Artifact 2.1 的五字段写入条件与 2.2 的主动搜索时点；`code-review` 不增加 Memory retrieval，只使用 prompt 中的 active Rules。
 5. `to-spec/SKILL.md` 在 map 来源时创建 native child 并 read back；standalone spec 不虚构 parent。
 
 #### C. 阶段三 retro
 
 6. `code-review` 的汇总合同增加 category；`route … stale` 增加 `invalid|fixed-elsewhere` reason。
 7. `events.py` 增加一个无 hold、无 wake 的 `spec.retroed` event；night runbook 在成功 `summary` 后执行 retro。
-8. 新增 `mmw-v2/skills/retro/SKILL.md` 与一个脚本入口。脚本读取当前 spec tree、ticket event、相关 `git log` 和较早 `spec.retroed`，写本次 event，并在满足重复阈值时创建 `needs-triage` proposal。它不读 Thread/Working Memory，不写长期载体。
+8. 新增 `mmw-v2/skills/retro/SKILL.md` 与一个脚本入口。脚本读取当前 spec tree、ticket event、相关 `git log`、较早 `spec.retroed` 和 `spec.closed` 的 proposed Memory ids，按 source spec/evidence marker 复用已有 proposal，写本次 event，并作为唯一入口创建 `needs-triage` proposal。它不把 Memory、Thread 或 Working Memory 当作运行证据，也不写长期载体。
 
 #### D. owner approval 与证明
 
-9. 批准后的改变继续走现有 triage、`to-spec`、`to-tickets`、worker、review、closeout 和 landing；Memory copy 或 Rule activation 也在 proposal 留下实际 id。
+9. 批准后的改变继续走现有 triage、`to-spec`、`to-tickets`、worker、review、closeout 和 landing；新建 toolbox Memory 或激活 Rule 时也在 proposal 留下实际 id。
 10. 按 repository 规则更新 Tickets/Night/Memory contexts、dispatch reference、upstream merge-note 和必要的 downstream-note。
 11. 测试覆盖 install、dispatch、runner、map/standalone scope、review category、stale reason、retro event、proposal repository/label 和跨 night 重复。
 
@@ -546,18 +583,19 @@ worker 写/读 task Memory
 
 1. 一个 map 下两份 specs 的 workers 解析成同一 task scope；standalone spec 使用自己的 scope。
 2. repository A 只能搜索自身与 `mmw-toolbox`，看不到 repository B 或 Default。
-3. worker Memory 与 worker/reviewer connector Thread 进入当前 repository Space，provenance 使用各自固定 Identity。
+3. runner 实际启动的 agent process 收到 `NMEM_SPACE` 与对应 `NMEM_AGENT_ID`；显式 worker Memory 进入当前 repository Space，已启用 connector 时 worker/reviewer Thread 也进入该 Space。
 4. spec A worker 写入 task Memory 后，稍后启动的 spec B worker 在一次 task 读取中得到它；reviewer prompt 不包含它。
 5. 已运行 worker 用实际错误、命令和组件取回 current-task 或 repository/toolbox 历史 Memory；没有具体问题时不搜索。
-6. reviewer 只得到 active Rules，并独立运行 acceptance/review checks。
-7. 一份 spec 的 closing pass 只处理带该 spec label 的 Memory，完成 retain/propose/deprecate 并在 summary 计数。
+6. MMW 组装的 reviewer packet 只包含 active Rules，不包含普通 Memory、Thread 或 Working Memory；reviewer 独立运行 acceptance/review checks。
+7. 一份 spec 的 closing pass 只处理带该 spec label 的 current Memory；完整读取时 `total == returned` 且每条都有唯一的 retain/propose/deprecate/supersede 决定，`spec.closed` 保存逐项决定、计数与 proposed ids；读取失败或截断明确写 `unchecked`，proposal issue 只由随后的 retro 创建。
 8. `summary` 后写出一个 `spec.retroed` event；每条运行 finding 都能跳到 ticket event 或 commit。
 9. 两个 specs/nights 的同因 event 在第二次形成一个 proposal；同一事件的多条记录不重复计数。
 10. 上一轮 proposal 只有在找到实际落地证据时显示“已落地”，否则显示“没找到证据”。
 11. intent reconciliation 同时显示 spec expected surface、实际 observed surface 与 gap/未验证。
 12. 两个 `stale reason=invalid` 的同类 finding 形成 reviewer Rule proposal；`fixed-elsewhere` 不算 false positive。
-13. proposal 在正确 repository 创建，初始 label 为 `needs-triage`，未获 owner 批准不改变任何长期载体。
-14. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
+13. proposal 在正确 repository 创建，初始 label 为 `needs-triage`，未获 owner 批准不改变任何长期载体；retro 重试按 source spec/evidence marker 复用已有 proposal。
+14. owner 批准 toolbox 晋升后，原 repository Memory 保留，固定 id `mmw-toolbox-<source-memory-id>` 在所有 shared repository 可搜索；重复执行仍只有一条。
+15. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
 
 **依据**：本文“共享边界”“阶段二：task 内共享经验”“阶段二收口与阶段三 retro”中的可观察结果。
 
@@ -614,7 +652,7 @@ worker 写/读 task Memory
 
 ### MMW 与 Nowledge Mem authority
 
-- [Nowledge Mem Background Intelligence](https://mem.nowledge.co/docs/concepts/background-intelligence)、[Spaces](https://mem.nowledge.co/docs/spaces)、[Context](https://mem.nowledge.co/docs/ai-context) 与 [CLI](https://mem.nowledge.co/docs/cli)：Space、Identity、Memory、Thread、Working Memory、Context Bundle、shared retrieval 与 CLI 行为。
+- [Nowledge Mem Background Intelligence](https://mem.nowledge.co/docs/concepts/background-intelligence)、[Spaces](https://mem.nowledge.co/docs/spaces)、[Context](https://mem.nowledge.co/docs/ai-context)、[Customize Integration Behavior](https://mem.nowledge.co/docs/integrations/customize-behavior) 与 [CLI](https://mem.nowledge.co/docs/cli)：Space、Identity、Memory、Thread、Working Memory、Context Bundle、multi-agent 环境路由、shared retrieval 与 CLI 行为。
 - `docs/contexts/tickets/CONTEXT.md` 的 `spec`、`ticket`、`sub-issue` 与 `map`，以及 `mmw-v2/skills/verify-ticket/scripts/tree.py` 的 module docstring 和 `LAYERS`：native parent graph 与 task root。
 - `docs/contexts/task-board/CONTEXT.md` 的 `The Night`；`docs/contexts/night/CONTEXT.md` 的 `main agent`、`closing pass`、`route`、`summary` 与 `spec.closed`：map 级任务与 spec night 的不同范围。
 - `mmw-v2/skills/dispatch/references/night.md` 的 `## 4. The closing pass` 与 `## 5. The night is over`；`mmw-v2/skills/dispatch/scripts/dispatch.sh` 的 `summary_spec()` 与 `route_finding()`；`mmw-v2/skills/dispatch/scripts/status.py` 的 `summary()`、`ROUTES` 与 `routed_counts()`：现有收口流程。
@@ -622,4 +660,4 @@ worker 写/读 task Memory
 - `docs/agents/issue-tracker.md` 的 `Reading a tree`、`Three label sets`、`Morning queries` 与 `Wayfinding operations`：proposal 的 repository、queue 与发布路径。
 - `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md` 的 `Work through the map`、`to-spec/SKILL.md` 的 `Process`、`implement/SKILL.md` 的 read-in 与 `While writing code`：map、spec 与 worker 的现有流程。
 - 根 `AGENTS.md` 的 `Self-hosting boundary`：新版本只能在隔离环境验证，不能接管当前 watch。
-- 本机 Nowledge Mem Codex connector `hooks/nmem-context.py` 的 `_load_startup_context()` 与 `main()`：Context Bundle 在 session start 注入，`UserPromptSubmit` 不刷新 Working Memory。
+- 本机 Nowledge Mem Codex connector `hooks/nmem-context.py` 的 `_load_startup_context()` 与 `main()`、Claude/Grok connector 的 `scripts/nmem-hook-read.sh`、Cursor connector 的 `hooks/nmem-runtime.mjs`、Pi connector 的 `extensions/nowledge-mem.ts`：各 connector 消费 `NMEM_SPACE` / `NMEM_AGENT_ID` 的实际路径，以及 Grok startup hook 不注入正文的限制。
