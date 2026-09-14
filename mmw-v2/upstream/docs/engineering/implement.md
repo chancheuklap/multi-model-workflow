@@ -47,6 +47,18 @@ The idea the skill runs on is the **seam**: the public boundary you observe beha
 
 The word "pre-agreed" is doing real work, and it is also the skill's weakest joint. Nothing inside `implement` agrees the seams. `tdd` is the skill that asks, and it refuses to write a test at an unconfirmed seam. So in practice the agreement happens either upstream in the spec, or in the first exchange of the run. If it happens nowhere, the precondition never fires and the run quietly becomes "just write the code". Naming the seams in the spec is what stops that.
 
+## Shared experience
+
+An MMW worker starts with exact experience from the current task and a small search of
+relevant historical experience. This reduces repeated investigation across tickets, but
+Memory is never an authority: current artifacts, verified evidence, repository
+instructions, the ticket, and its parent spec take precedence.
+
+The worker records a finding only when another ticket may reuse it, current evidence
+verifies it, and the ticket or code does not already make it obvious. This keeps shared
+experience focused on non-obvious engineering facts and fixed procedures rather than
+turning every implementation detail into a second documentation system.
+
 ## Common questions
 
 **It finished, but my ticket is still open and the acceptance criteria are still unchecked.**
@@ -78,6 +90,7 @@ Probably the ticket is too big rather than the skill being misused. A run does c
 ## It's working if
 
 - The session opens by reading the ticket or spec and restating what it will build, rather than asking you what to build.
+- In an MMW run, the opening trace separates current-task experience from historical experience and names unavailable or truncated retrieval explicitly.
 - You can see an actual `/tdd` invocation in the trace, not just tests appearing in the diff.
 - Typechecks and single test files run repeatedly during the run, and the full suite runs once near the end.
 - The run reaches a commit on your current branch without you prompting it to carry on.

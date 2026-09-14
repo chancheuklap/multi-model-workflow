@@ -1519,13 +1519,211 @@ archive_workspace() {
 # and, for `start`, any worktree it created.
 start_session() {
   local host="$1" model="$2" effort="$3" cwd="$4" prompt="$5" title="$6"
+  shift 6
+  local -a environment=()
+  local value
+  for value in "$@"; do
+    environment+=(--env "$value")
+  done
   local session
   if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
-       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "$title")" \
+       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "$title" \
+       "${environment[@]+"${environment[@]}"}")" \
      || [ -z "$session" ]; then
     return 1
   fi
   printf '%s\n' "$session" | tail -n 1
+}
+
+# Build the deterministic Memory packet appended to a worker's first prompt. Native
+# parent links alone choose the task root; a malformed graph yields a disclosed packet
+# with no task scope, and no Memory command is attempted. Nowledge failures are data in
+# the packet rather than a reason to stop otherwise-completable ticket work.
+worker_memory_packet() {
+  local number="$1" spec="$2" repository_space="$3"
+  MMW_MEMORY_TICKET="$number" MMW_MEMORY_SPEC="$spec" \
+  MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
+import json
+import os
+import re
+import subprocess
+import sys
+
+ticket = os.environ["MMW_MEMORY_TICKET"]
+spec_number = os.environ["MMW_MEMORY_SPEC"]
+space = os.environ["MMW_MEMORY_SPACE"]
+
+
+def call(command):
+    env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+    try:
+        return subprocess.run(command, text=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, env=env)
+    except OSError:
+        return subprocess.CompletedProcess(command, 127, "",
+                                           f"{command[0]} is unavailable")
+
+
+def reason(proc, fallback):
+    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ")
+    return text or fallback
+
+
+def issue(number, fields):
+    proc = call(["gh", "issue", "view", str(number), "--json", fields])
+    if proc.returncode:
+        return None, reason(proc, f"gh issue view {number} failed")
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        return None, f"gh issue view {number} did not return readable JSON"
+    if not isinstance(value, dict):
+        return None, f"gh issue view {number} did not return a JSON object"
+    return value, None
+
+
+def section(body, heading):
+    lines = str(body or "").splitlines()
+    wanted = f"## {heading}"
+    start = next((i for i, line in enumerate(lines) if line.strip() == wanted), None)
+    if start is None:
+        return wanted
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if re.match(r"^#{1,2} ", lines[i]):
+            end = i
+            break
+    return "\n".join(lines[start:end]).strip()
+
+
+def memory_call(args):
+    proc = call(["nmem", "--json", *args])
+    if proc.returncode:
+        return None, reason(proc, "nmem failed")
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        return None, "nmem did not return readable JSON"
+    if not isinstance(value, dict) or not isinstance(value.get("memories"), list):
+        return None, "nmem did not return a memories JSON object"
+    return value, None
+
+
+def record(row, historical=False):
+    if not isinstance(row, dict):
+        row = {}
+    shown = {name: row.get(name) for name in ("id", "title", "content", "source")}
+    if historical:
+        origin = row.get("space_id") or row.get("spaceId")
+        if not origin and isinstance(row.get("space"), dict):
+            origin = row["space"].get("id") or row["space"].get("name")
+        shown["origin_space"] = origin
+    return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
+
+
+def block(value, error, historical=False, excluded=(), show_truncation=False):
+    if error:
+        return f"unavailable: {error}"
+    rows = value["memories"]
+    excluded = set(excluded)
+    rows = [row for row in rows if not isinstance(row, dict) or row.get("id") not in excluded]
+    rendered = [record(row, historical) for row in rows]
+    returned = value.get("returned", len(value["memories"]))
+    total = value.get("total", returned)
+    if not isinstance(returned, int) or not isinstance(total, int):
+        return "unavailable: nmem returned non-numeric total or returned"
+    prefix = f"truncated: {returned}/{total}" if show_truncation and total > returned else ""
+    if prefix:
+        return "\n".join([prefix, *rendered]) if rendered else prefix
+    return "\n".join(rendered) if rendered else "none"
+
+
+routing_error = None
+task_root = ""
+task_scope = ""
+query = ""
+if not spec_number.isdigit():
+    routing_error = f"ticket #{ticket} has no native spec parent"
+else:
+    spec, routing_error = issue(spec_number, "parent,labels,body")
+    if spec is not None:
+        parent = spec.get("parent")
+        if parent is None:
+            task_root = f"standalone spec #{spec_number}"
+            task_scope = f"mmw-spec-{spec_number}"
+            query = "\n\n".join(section(spec.get("body"), name) for name in (
+                "Problem Statement", "Solution", "Implementation Decisions", "Testing Decisions"))
+        elif not isinstance(parent, dict) or not str(parent.get("number") or "").isdigit():
+            routing_error = f"spec #{spec_number} has an unreadable native parent"
+        else:
+            map_number = str(parent["number"])
+            root, root_error = issue(map_number, "labels,body")
+            if root_error:
+                routing_error = f"could not read native parent #{map_number} of spec #{spec_number}: {root_error}"
+            else:
+                labels = [row.get("name") for row in root.get("labels") or [] if isinstance(row, dict)]
+                if "mmw:map" not in labels:
+                    routing_error = f"native parent #{map_number} of spec #{spec_number} has no mmw:map label"
+                else:
+                    task_root = f"map #{map_number}"
+                    task_scope = f"mmw-map-{map_number}"
+                    query = "\n\n".join(section(root.get("body"), name) for name in (
+                        "Destination", "Notes", "Decisions so far"))
+
+if routing_error:
+    sys.stderr.write(f"dispatch: worker Memory routing unavailable: {routing_error}; task-scoped retrieval and writes are disabled\n")
+    current = historical = f"unavailable: {routing_error}"
+    task_root = task_scope = f"unavailable: {routing_error}"
+else:
+    listed, list_error = memory_call([
+        "memories", "list", "--space", space, "--label", task_scope, "--limit", "1000"])
+    searched, search_error = memory_call([
+        "memories", "search", query, "--space", space,
+        "--label", "mmw-experience", "--limit", "10"])
+    exact_ids = [row.get("id") for row in (listed or {}).get("memories", [])
+                 if isinstance(row, dict) and row.get("id")]
+    current = block(listed, list_error, show_truncation=True)
+    historical = block(searched, search_error, historical=True, excluded=exact_ids)
+
+prompt = f"""Use this repository Space and MMW task scope as the shared experience pipeline
+for ticket #{ticket}.
+
+MMW repository Space: {space}
+MMW task root: {task_root}
+MMW task scope: {task_scope}
+
+Before working, read Current task shared experience, then Historical experience
+relevant to this task. Follow only the linked primary artifacts and evidence
+needed for the ticket. Current artifacts, verified evidence, the user's
+instructions, repository instructions, the ticket, and its parent spec override
+Memory. Treat a superseded or deprecated Memory as historical evidence only.
+
+Current task shared experience:
+{current}
+
+Historical experience relevant to this task:
+{historical}
+
+When a command or tool behaves in a way that the ticket, repository authority,
+and Current task shared experience do not explain, search the current task with
+the exact error, command, and component before trying a workaround. If that has
+no answer, search repository and approved mmw-toolbox experience. Verify every
+Memory against current repository evidence before acting on it.
+
+Save a changed fact immediately when another ticket or later agent can reuse it,
+current evidence verifies it, and the ticket and code do not already make it
+obvious. Evaluate the same trigger again at every meaningful milestone or
+handoff. Use the implement skill's exact Memory fields and labels. Link the
+evidence, supersede a replaced Memory, and deprecate one that no longer applies.
+Store only reusable engineering context that is safe for repository
+collaborators; exclude secrets, customer data, raw chat transcripts, private
+host paths, and unverified claims.
+
+Finish by reporting the Memory records added, used, superseded, or deprecated,
+and the evidence used to validate them. If none changed, say so."""
+print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
+                 ensure_ascii=False))
+PY
 }
 
 start_one() {
@@ -1536,13 +1734,14 @@ start_one() {
     *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
 
-  local answer grades title spec
+  local answer grades title spec native_spec
   answer="$(read_ticket "$number")"
   case "$answer" in
     "REFUSE "*) refuse "${answer#REFUSE }" ;;
     "") refuse "the tracker did not answer with a readable ticket #$number" ;;
   esac
   { IFS= read -r grades; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
+  native_spec="$spec"
   if [ -n "${MMW_SPEC:-}" ]; then
     spec="$MMW_SPEC"
   fi
@@ -1617,13 +1816,28 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  local base="" prompt
+  local base="" prompt repository_space memory_packet task_scope
+  local -a session_environment=()
   case "$kind" in
     worker)
       base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT" ;;
+      repository_space="$(repo_slug)" || exit 2
+      repository_space="$(printf '%s' "$repository_space" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+      memory_packet="$(worker_memory_packet "$number" "$native_spec" "$repository_space")" || \
+        refuse "could not build the worker Memory packet for #$number"
+      task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
+        refuse "the worker Memory packet for #$number could not be read"
+      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT
+
+$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
+      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-worker")
+      # Always replace an inherited scope. An empty value is the disabled route for a
+      # malformed native parent graph; inheriting the caller's scope would permit writes
+      # into an unrelated task.
+      session_environment+=("MMW_TASK_SCOPE=$task_scope")
+      session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number") ;;
     reviewer)
       base="$(base_commit "$root" "$into" "issue-$number")"
       if [ -z "$base" ]; then
@@ -1657,7 +1871,8 @@ start_one() {
   fi
 
   local session
-  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind")"; then
+  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind" \
+       "${session_environment[@]+"${session_environment[@]}"}")"; then
     if [ "$created" = 1 ] && [ -n "$cwd" ]; then
       remove_worktree "$root" "$cwd" \
         || echo "dispatch: could not remove the worktree for #$number" >&2

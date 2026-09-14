@@ -9,9 +9,9 @@ How to read an entry: the bold line is the term's only name; a term whose name i
 ### Roles
 
 **worker**:
-An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill — its prompt is `Use the implement skill to work ticket #<n>.` plus the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it); its only input is the ticket; it owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
+An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill. Its prompt starts with `Use the implement skill to work ticket #<n>.` and the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it), then carries the repository Space, native task root, Current task shared experience and Historical experience relevant to this task. Its process receives `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`, `MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`; its only work input remains the ticket and its named authorities, which override Memory. It owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
 _Admitted_: worker session
-_Avoid_: 工人, 做票的 agent, 领票的 agent, MMW_TICKET
+_Avoid_: 工人, 做票的 agent, 领票的 agent
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **reviewer**:
@@ -38,6 +38,30 @@ _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 What one consultation of the advisor gives back: do X, not Y, because Z, plus the single risk that decides it — or, when the caller's reading is sound, that it is sound and the one thing to watch. Missing information that would change the answer is named exactly, with what each answer would imply.
 _Avoid_: verdict (for this)
 _Home_: `mmw-v2/skills/advisor/references/advising.md`
+
+### Worker shared experience
+
+**native task root**:
+The map or standalone spec that bounds one worker's shared experience. It is derived only from the ticket's GitHub native parent graph: a spec with no parent is `standalone spec #<n>`; a spec whose parent carries `mmw:map` is `map #<n>`; an unreadable parent or a parent without `mmw:map` is malformed and supplies no root. Process environment does not override it.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`MMW_TASK_SCOPE`**:
+The one task-scope label a worker uses for exact Memory retrieval and writes: `mmw-map-<n>` for a map task or `mmw-spec-<n>` for a standalone spec. `dispatch.sh start <n> worker` passes it to the worker process; malformed native routing passes an empty value so an inherited scope cannot route a write elsewhere.
+_Admitted_: MMW task scope
+_Avoid_: current task scope, task scope (bare)
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**Current task shared experience**:
+The exact Memory records carrying `MMW_TASK_SCOPE` in the repository Space when a worker starts, listed at limit 1000. Its prompt block distinguishes complete records, `none`, `unavailable: <reason>`, and `truncated: <returned>/<total>`; an id also found by the historical search is shown here only.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**Historical experience relevant to this task**:
+The repository's `mmw-experience` Memory records returned by a semantic search over only the native task root's fixed sections, at limit 10, after ids already present in Current task shared experience are removed. Each record keeps its origin Space when the result supplies one; its prompt block distinguishes records, `none`, and `unavailable: <reason>`.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`MMW_TICKET`**:
+The worker-process environment value holding the number of the one ticket that session implements. `dispatch.sh start <n> worker` supplies it so the implement skill can label a reusable Memory without reconstructing the number from prose. The same name in a criterion shell is set independently by `verify-ticket.py` to the criterion's ticket number.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### Comments on the ticket
 
