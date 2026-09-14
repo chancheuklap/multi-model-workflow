@@ -32,6 +32,65 @@ While writing code:
 - At the end, write `skipped: [X], add when [Y]`.
 - For a file outside **Owns**: change it when a criterion cannot pass otherwise — it lands under `Outside Owns:` in the closing comment; when the change is merely convenient, leave it and run `<engine> <n> --sub-issue deferred <file>`.
 
+## Shared experience while implementing
+
+The worker start prompt gives you `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
+`MMW_TASK_SCOPE`, `MMW_SPEC`, and `MMW_TICKET`. Current task shared experience is
+the exact task-scoped list in that prompt. Historical experience is the semantic
+search result after duplicate Memory ids from the exact list have been removed.
+Current artifacts, verified evidence, the user's instructions, repository
+instructions, the ticket, and its parent spec override Memory. Verify every Memory
+against current repository evidence before acting on it.
+
+When a command or tool behaves in a way that the ticket, repository authority, and
+Current task shared experience do not explain, search the current task with the exact
+error, command, and component before trying a workaround:
+
+```sh
+nmem --json memories search \
+  "<exact error + command + component>" \
+  --space "$NMEM_SPACE" \
+  --label "$MMW_TASK_SCOPE" \
+  --limit 10
+```
+
+If that has no answer, search repository and approved mmw-toolbox experience:
+
+```sh
+nmem --json memories search \
+  "<exact error + command + component>" \
+  --space "$NMEM_SPACE" \
+  --label mmw-experience \
+  --limit 10
+```
+
+Write a Memory immediately only when all three conditions hold: another ticket or
+later agent may reuse the fact, a current command result or authority verifies it, and
+the ticket and code do not already make it obvious. Evaluate the same trigger again at
+every meaningful milestone or handoff. Use unit type `learning`, or `procedure` for
+fixed steps. Store only reusable engineering context that is safe for repository
+collaborators. Exclude secrets, customer data, raw chat transcripts, private host paths
+and unverified claims.
+
+Use these labels for a map task: `mmw-experience`, `mmw-map-<map>`,
+`mmw-spec-<spec>`, `mmw-ticket-<ticket>`. For a standalone spec omit the map label;
+`mmw-spec-<spec>` is already its task scope. Pass the current environment values rather
+than reconstructing the numbers from prose. Write this exact body:
+
+```text
+适用条件：<环境、版本或前提>
+问题：<已证实的非显然行为>
+有效做法：<下一名 worker 可以直接执行的操作>
+证据：<命令与输出首行，或 path:line>
+发生位置：<repository、spec #n、ticket #n、日期>
+```
+
+Link the evidence. When current evidence verifies a replacement for an existing
+Memory, create the replacement and supersede the old Memory. Deprecate an existing
+Memory when it no longer applies. Do not leave two active records that conflict.
+Finish by reporting the Memory records added, used, superseded, or deprecated, and the
+evidence used to validate them. If none changed, say so.
+
 Use /tdd where possible, at pre-agreed seams.
 
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.

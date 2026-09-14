@@ -9,7 +9,7 @@ How to read an entry: the bold line is the term's only name; a term whose name i
 ### Roles
 
 **worker**:
-An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill — its prompt is `Use the implement skill to work ticket #<n>.` plus the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it); its only input is the ticket; it owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
+An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill. Its prompt starts with `Use the implement skill to work ticket #<n>.` and the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it), then carries the repository Space, native task root, exact current task shared experience and relevant historical experience. Its process receives `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`, `MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`; its only work input remains the ticket and its named authorities, which override Memory. It owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
 _Admitted_: worker session
 _Avoid_: 工人, 做票的 agent, 领票的 agent, MMW_TICKET
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`

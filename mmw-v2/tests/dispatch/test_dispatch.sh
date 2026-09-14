@@ -149,6 +149,12 @@ elif args[:2] == ["agents", "enroll"]:
         "defaultSpaceId": "default", "origin": "cli"})
     save()
     print(json.dumps(row, sort_keys=True))
+elif args[:2] == ["memories", "list"]:
+    print(json.dumps(state.get("memory_list", {"memories": [], "total": 0, "returned": 0}),
+                     sort_keys=True))
+elif args[:2] == ["memories", "search"]:
+    print(json.dumps(state.get("memory_search", {"memories": [], "total": 0, "returned": 0}),
+                     sort_keys=True))
 elif args[:4] == ["config", "mcp", "show", "--host"]:
     print(json.dumps({"config": {"mcpServers": {"nowledge-mem": {
         "type": "http", "url": "https://mem.invalid/mcp", "headers": {}}}}}))
@@ -208,6 +214,7 @@ Options:
   --mode <mode>                     Provider-specific mode
   --thinking <id>                   Thinking option ID to use for this run
   --cwd <path>                      Working directory (default: current)
+  --env <key=value>                 Set environment variable(s) for the agent
   --label <key=value>               Add label(s) to the agent (default: [])
   --json                            Output in JSON format
   -h, --help                        display help for command
@@ -438,6 +445,7 @@ if args[:1] == ["run"]:
         "labels": labels,
         "cwd": flag("--cwd"),
         "initialPrompt": prompt,
+        "environment": [rest[i + 1] for i, value in enumerate(rest[:-1]) if value == "--env"],
     }
     with open(state / "runs.jsonl", "a", encoding="utf-8") as fh:
         fh.write(json.dumps(request) + "\n")
@@ -547,6 +555,7 @@ Usage: herdr tab create [OPTIONS]
 Options:
       --cwd <PATH>
       --no-focus
+      --env <KEY=VALUE>
 """,
     ("agent", "start"): """Start a supported interactive agent in an existing pane
 
@@ -1028,6 +1037,21 @@ case "$*" in
     printf '%s\n' "${FAKE_GH_URL:-https://github.com/o/r}" ;;
   "repo view"*)
     printf '%s\n' "${FAKE_GH_REPO:-o/r}" ;;
+  *"--json parent,labels,body"*|*"--json labels,body"*)
+    MMW_WANT="$3" python3 -c '
+import json, os
+path = os.environ.get("FAKE_GH_TICKETS_FILE")
+rows = json.load(open(path)) if path else []
+want = int(os.environ["MMW_WANT"])
+found = next((row for row in rows if row.get("number") == want), None)
+if found is None:
+    raise SystemExit(1)
+print(json.dumps({
+    "parent": found.get("parent"),
+    "labels": [{"name": name} for name in found.get("labels", [])],
+    "body": found.get("body", ""),
+}))
+' ;;
   *"--json state,labels,blockedBy,title,parent"*|*"--json state,labels,blockedBy,title,body"*|*"--json state,labels,blockedBy,title"*)
     MMW_WANT="$3" python3 -c '
 import json, os
@@ -6186,6 +6210,208 @@ scenario_memory_space_unavailable() {
   done
 }
 
+write_memory_graph() {
+  local shape="${1:-map}"
+  case "$shape" in
+    map)
+      cat > "$TMP/tickets.json" <<'JSON'
+[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":76}},
+ {"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":{"number":18},"body":"## Problem Statement\nwrong query\n"},
+ {"number":18,"state":"OPEN","labels":["mmw:map"],"parent":null,"body":"## Destination\nMap destination\n\n## Notes\nMap notes\n\n## Decisions so far\nMap decisions\n\n## Out of scope\nNever queried"}]
+JSON
+      ;;
+    standalone)
+      cat > "$TMP/tickets.json" <<'JSON'
+[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":76}},
+ {"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":null,"body":"## Problem Statement\nStandalone problem\n\n## Solution\nStandalone solution\n\n## Implementation Decisions\nStandalone decisions\n\n## Testing Decisions\nStandalone tests\n\n## Out of Scope\nNever queried"}]
+JSON
+      ;;
+    wrong-parent)
+      cat > "$TMP/tickets.json" <<'JSON'
+[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":76}},
+ {"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":{"number":18},"body":""},
+ {"number":18,"state":"OPEN","labels":["mmw:spec"],"parent":null,"body":""}]
+JSON
+      ;;
+  esac
+}
+
+seed_memory_records() {
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["memory_list"] = {"total": 1, "returned": 1, "memories": [{
+    "id": "mem-current", "title": "Current title", "content": "Current content",
+    "source": "agent", "space_id": "o__r"}]}
+data["memory_search"] = {"total": 2, "returned": 2, "memories": [{
+    "id": "mem-current", "title": "Stale duplicate", "content": "Must lose",
+    "source": "old", "space_id": "mmw-toolbox"}, {
+    "id": "mem-history", "title": "Historical title", "content": "Historical content",
+    "source": "codex", "space_id": "mmw-toolbox"}]}
+json.dump(data, open(path, "w"), sort_keys=True)
+PY
+}
+
+assert_complete_map_prompt() {
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete map worker prompt changed"
+import json, sys
+actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
+prefix = "Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill. A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
+packet = """Use this repository Space and MMW task scope as the shared experience pipeline
+for ticket #61.
+
+MMW repository Space: o__r
+MMW task root: map #18
+MMW task scope: mmw-map-18
+
+Before working, read Current task shared experience, then Historical experience
+relevant to this task. Follow only the linked primary artifacts and evidence
+needed for the ticket. Current artifacts, verified evidence, the user's
+instructions, repository instructions, the ticket, and its parent spec override
+Memory. Treat a superseded or deprecated Memory as historical evidence only.
+
+Current task shared experience:
+{"id":"mem-current","title":"Current title","content":"Current content","source":"agent"}
+
+Historical experience relevant to this task:
+{"id":"mem-history","title":"Historical title","content":"Historical content","source":"codex","origin_space":"mmw-toolbox"}
+
+When a command or tool behaves in a way that the ticket, repository authority,
+and Current task shared experience do not explain, search the current task with
+the exact error, command, and component before trying a workaround. If that has
+no answer, search repository and approved mmw-toolbox experience. Verify every
+Memory against current repository evidence before acting on it.
+
+Save a changed fact immediately when another ticket or later agent can reuse it,
+current evidence verifies it, and the ticket and code do not already make it
+obvious. Evaluate the same trigger again at every meaningful milestone or
+handoff. Use the implement skill's exact Memory fields and labels. Link the
+evidence, supersede a replaced Memory, and deprecate one that no longer applies.
+Store only reusable engineering context that is safe for repository
+collaborators; exclude secrets, customer data, raw chat transcripts, private
+host paths, and unverified claims.
+
+Finish by reporting the Memory records added, used, superseded, or deprecated,
+and the evidence used to validate them. If none changed, say so."""
+assert actual == prefix + "\n\n" + packet, actual
+PY
+}
+
+scenario_memory_worker_start() {
+  local code prompt
+  echo "--- a map worker receives native routing, exact list/search calls, deduplication and the full prompt"
+  reset_log; fresh_repo; write_memory_graph map; seed_memory_records
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "map worker start expected 0: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-map-18 :: --limit :: 1000"
+  has "nmem :: --json :: memories :: search :: ## Destination"
+  case "$prompt" in *"MMW task root: map #18"*"MMW task scope: mmw-map-18"*) ;; *) fail "map routing missing: $prompt" ;; esac
+  case "$prompt" in *'"id":"mem-current"'*'"id":"mem-history"'*) ;; *) fail "records missing: $prompt" ;; esac
+  case "$prompt" in *"Stale duplicate"*|*"Must lose"*) fail "semantic duplicate survived: $prompt" ;; esac
+  case "$prompt" in *"Before working, read Current task shared experience"*"When a command or tool behaves"*"Save a changed fact immediately"*"Finish by reporting the Memory records"*) ;; *) fail "fixed prompt was shortened or reordered: $prompt" ;; esac
+  assert_complete_map_prompt
+
+  echo "--- a standalone worker queries only the standalone spec sections"
+  reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "standalone worker start expected 0: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *"MMW task root: standalone spec #76"*"MMW task scope: mmw-spec-76"*) ;; *) fail "standalone routing missing: $prompt" ;; esac
+  has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-spec-76 :: --limit :: 1000"
+  has "Standalone problem"
+  has "Standalone solution"
+  has "Standalone decisions"
+  has "Standalone tests"
+  hasnt "Never queried"
+
+  echo "--- a present non-map native parent is malformed and performs no Memory retrieval"
+  reset_log; fresh_repo; write_memory_graph wrong-parent; seed_memory_records
+  code="$(run_dispatch env MMW_TASK_SCOPE=leaked-scope FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "malformed routing should disclose and continue: $(cat "$TMP/err")"
+  grep -q 'worker Memory routing unavailable.*has no mmw:map label' "$TMP/err" || fail "routing failure was not disclosed: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: memories :: list"
+  hasnt "nmem :: --json :: memories :: search"
+  has "MMW_TASK_SCOPE="
+  hasnt "MMW_TASK_SCOPE=leaked-scope"
+  case "$(out_json initialPrompt)" in *"MMW task root: unavailable:"*"Current task shared experience:"*"unavailable:"*) ;; *) fail "malformed prompt was guessed or silent" ;; esac
+
+  echo "--- an unreadable native parent is malformed and never falls back to standalone"
+  reset_log; fresh_repo; write_memory_graph map; seed_memory_records
+  python3 - "$TMP/tickets.json" <<'PY'
+import json,sys
+p=sys.argv[1]; rows=json.load(open(p)); rows=[row for row in rows if row["number"] != 18]; json.dump(rows,open(p,"w"))
+PY
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "unreadable parent should disclose and continue: $(cat "$TMP/err")"
+  grep -q 'worker Memory routing unavailable.*could not read native parent #18' "$TMP/err" || fail "unreadable parent was not disclosed: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: memories :: list"
+  hasnt "nmem :: --json :: memories :: search"
+}
+
+scenario_memory_worker_prompt_states() {
+  local code prompt
+  echo "--- zero records are none in both distinct blocks"
+  reset_log; fresh_repo; write_memory_graph standalone
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "none start expected 0: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  [ "$(printf '%s' "$prompt" | grep -c '^none$')" = 2 ] || fail "none states are not distinct: $prompt"
+
+  echo "--- total greater than returned is visibly truncated while preserving returned records"
+  reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["memory_list"]["total"]=4; d["memory_list"]["returned"]=1; json.dump(d,open(p,"w"))
+PY
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "truncated start expected 0: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *"Current task shared experience:"$'\n'"truncated: 1/4"*'"id":"mem-current"'*) ;; *) fail "truncated count or record missing: $prompt" ;; esac
+
+  echo "--- an unavailable Nowledge service is named in both blocks and does not prevent start"
+  reset_log; fresh_repo; write_memory_graph standalone
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "unavailable Memory should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  [ "$(printf '%s' "$prompt" | grep -c '^unavailable: Nowledge Mem unavailable$')" = 2 ] || fail "unavailable states are not explicit: $prompt"
+}
+
+scenario_memory_worker_runner_env() {
+  local code runner
+  for runner in paseo herdr orca; do
+    echo "--- $runner receives every worker environment value through its adapter"
+    reset_log; fresh_repo; write_memory_graph map
+    code="$(run_dispatch env MMW_RUNNER="$runner" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+    [ "$code" = 0 ] || fail "$runner worker env start expected 0: $(cat "$TMP/err")"
+    has "NMEM_SPACE=o__r"
+    has "NMEM_AGENT_ID=mmw-worker"
+    has "MMW_TASK_SCOPE=mmw-map-18"
+    has "MMW_SPEC=76"
+    has "MMW_TICKET=61"
+  done
+}
+
+scenario_memory_worker_contract() {
+  local skill="$(dirname "$(dirname "$HERE")")/upstream/skills/engineering/implement/SKILL.md"
+  grep -q 'exact error + command + component' "$skill" || fail "implement omits the exact search input"
+  [ "$(grep -c -- '--label \"\$MMW_TASK_SCOPE\"' "$skill")" -ge 1 ] || fail "implement omits task-scope search"
+  [ "$(grep -c -- '--label mmw-experience' "$skill")" -ge 1 ] || fail "implement omits repository search"
+  for field in 适用条件 问题 有效做法 证据 发生位置; do
+    grep -q "^${field}：" "$skill" || fail "implement omits Memory field $field"
+  done
+  python3 - "$skill" <<'PY' || fail "implement omits the capture, exclusion, lifecycle or finish contract"
+import re, sys
+text = re.sub(r"\s+", " ", open(sys.argv[1], encoding="utf-8").read())
+for phrase in (
+    "another ticket or later agent", "secrets, customer data, raw chat transcripts, private host paths and unverified claims",
+    "supersede", "deprecate", "added, used, superseded, or deprecated",
+):
+    assert phrase in text, phrase
+PY
+}
+
 scenario_orcaworktreelink() {
   local code actual expected destination
   reset_log; fresh_repo
@@ -8914,6 +9140,7 @@ JSON
 }
 
 ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -8930,6 +9157,10 @@ banner_for() {
     memory-install) echo MEMORY-INSTALL-OK ;;
     memory-open-space) echo MEMORY-OPEN-SPACE-OK ;;
     memory-space-unavailable) echo MEMORY-SPACE-UNAVAILABLE-OK ;;
+    memory-worker-start) echo MEMORY-WORKER-START-OK ;;
+    memory-worker-prompt-states) echo MEMORY-WORKER-PROMPT-STATES-OK ;;
+    memory-worker-runner-env) echo MEMORY-WORKER-RUNNER-ENV-OK ;;
+    memory-worker-contract) echo MEMORY-WORKER-CONTRACT-OK ;;
     boardregisters) echo BOARD-REGISTERS-OK ;;
     boardsameport) echo BOARD-SAME-PORT-OK ;;
     boardopenstab) echo BOARD-OPENS-TAB-OK ;;
@@ -9133,6 +9364,10 @@ fn_for() {
     memory-install) echo scenario_memory_install ;;
     memory-open-space) echo scenario_memory_open_space ;;
     memory-space-unavailable) echo scenario_memory_space_unavailable ;;
+    memory-worker-start) echo scenario_memory_worker_start ;;
+    memory-worker-prompt-states) echo scenario_memory_worker_prompt_states ;;
+    memory-worker-runner-env) echo scenario_memory_worker_runner_env ;;
+    memory-worker-contract) echo scenario_memory_worker_contract ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     *) echo "scenario_$1" ;;
