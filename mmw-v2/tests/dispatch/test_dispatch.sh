@@ -160,6 +160,18 @@ elif args[:2] == ["memories", "search"]:
 elif args[:4] == ["config", "mcp", "show", "--host"]:
     print(json.dumps({"config": {"mcpServers": {"nowledge-mem": {
         "type": "http", "url": "https://mem.invalid/mcp", "headers": {}}}}}))
+elif args[:2] == ["context", "read"]:
+    if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "invalid-json":
+        print("not-json")
+        raise SystemExit(0)
+    if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "non-object":
+        print("[]")
+        raise SystemExit(0)
+    print(json.dumps(state.get("context", {
+        "schema_version": 1,
+        "bundle_kind": "context_bundle",
+        "rule_stack": {"global": [], "owner": [], "space": [], "agent": []},
+    }), sort_keys=True))
 else:
     print(json.dumps({"error": "unsupported", "args": args}), file=sys.stderr)
     raise SystemExit(2)
@@ -6512,6 +6524,183 @@ assert actual == expected, (actual, expected)
 PY
 }
 
+seed_reviewer_rules() {
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["context"] = {
+    "schema_version": 1,
+    "bundle_kind": "context_bundle",
+    "working_memory": {"content": "MUST NOT APPEAR IN PROMPT"},
+    "owner_profile": {"name": "must-not-appear"},
+    "rule_stack": {
+        "global": [{"id": "g1", "title": "Global title", "body": "Global body",
+                    "scope": "global", "source": "src-g", "extra": "drop-me"}],
+        "owner": [{"id": "o1", "title": "Owner title", "body": "Owner body",
+                   "scope": "owner", "source": "src-o"}],
+        "space": [{"id": "s1", "title": "Space title", "body": "Space body",
+                   "scope": "space", "source": "src-s"}],
+        "agent": [{"id": "a1", "title": "Agent title", "body": "Agent body",
+                   "scope": "agent", "source": "src-a"}],
+        "shadowed": [{"id": "shadow", "title": "Shadowed title", "body": "Must lose",
+                      "scope": "global", "source": "src-x"}],
+    },
+}
+json.dump(data, open(path, "w"), sort_keys=True)
+PY
+}
+
+reviewer_rule_lines() {
+  printf '%s\n' \
+    '{"id":"g1","title":"Global title","body":"Global body","scope":"global","source":"src-g"}' \
+    '{"id":"o1","title":"Owner title","body":"Owner body","scope":"owner","source":"src-o"}' \
+    '{"id":"s1","title":"Space title","body":"Space body","scope":"space","source":"src-s"}' \
+    '{"id":"a1","title":"Agent title","body":"Agent body","scope":"agent","source":"src-a"}'
+}
+
+assert_complete_reviewer_prompt() {
+  local rules="$1" base
+  base="$(git -C "$TMP/repo" merge-base origin/main HEAD 2>/dev/null || git -C "$TMP/repo" rev-parse origin/main)"
+  MMW_EXPECT_BASE="$base" MMW_EXPECT_RULES="$rules" \
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete reviewer prompt changed"
+import json, os, sys
+actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
+prefix = (
+    "Use the code-review skill to review ticket #61 from base commit "
+    + os.environ["MMW_EXPECT_BASE"]
+    + ". You are operating autonomously. The user is not watching in real time and cannot "
+    "answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
+)
+packet = f"""Active reviewer Rules approved for this review:
+{os.environ['MMW_EXPECT_RULES']}
+
+Apply every active Rule within its stated scope. Use the Rules to decide what to
+inspect; establish every finding and verdict independently from the current
+ticket, parent spec, repository authority, diff, and checks. Report the source
+that proves each finding. Keep ordinary Memory, Working Memory, Thread, worker
+reasoning, worker self-assessment, and the worker's retrieval results outside
+the review evidence. Complete the review only after every applicable Rule has
+been applied and every reported finding has a current source."""
+assert actual == prefix + "\n\n" + packet, actual
+PY
+}
+
+assert_reviewer_context_call() {
+  python3 - "$MMW_FAKE_NMEM_CALLS" <<'PY' || fail "reviewer nmem argv was not exact"
+import json, sys
+calls = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+expected = [["--json", "context", "read", "--space", "o__r",
+             "--agent-id", "mmw-reviewer", "--no-working-memory"]]
+assert calls == expected, (calls, expected)
+PY
+}
+
+scenario_memory_reviewer_rules() {
+  local code prompt runner
+  echo "--- reviewer start injects active Rules in global-owner-space-agent order and the reviewer Identity"
+  reset_log; fresh_repo; seed_reviewer_rules
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "reviewer rules start expected 0: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "code-review dispatch line missing: $prompt" ;; esac
+  case "$prompt" in *"You are operating autonomously"*) ;; *) fail "autonomous sentence missing: $prompt" ;; esac
+  has "NMEM_SPACE=o__r"
+  has "NMEM_AGENT_ID=mmw-reviewer"
+  hasnt "NMEM_AGENT_ID=mmw-worker"
+  hasnt "MMW_TASK_SCOPE="
+  hasnt "MMW_SPEC="
+  hasnt "MMW_TICKET="
+  hasnt "nmem :: --json :: memories :: list"
+  hasnt "nmem :: --json :: memories :: search"
+  hasnt "MUST NOT APPEAR IN PROMPT"
+  hasnt "must-not-appear"
+  hasnt "drop-me"
+  hasnt "Shadowed title"
+  hasnt "Must lose"
+  python3 -c '
+import os, sys
+prompt = sys.argv[1]
+order = [prompt.find(token) for token in ("\"id\":\"g1\"", "\"id\":\"o1\"", "\"id\":\"s1\"", "\"id\":\"a1\"")]
+assert all(i >= 0 for i in order), prompt
+assert order == sorted(order), order
+' "$prompt" || fail "Rules were not injected in global-owner-space-agent order: $prompt"
+  assert_complete_reviewer_prompt "$(reviewer_rule_lines)"
+  assert_reviewer_context_call
+
+  for runner in paseo herdr orca; do
+    echo "--- $runner receives the reviewer Identity through its adapter"
+    reset_log; fresh_repo; seed_reviewer_rules
+    code="$(run_dispatch env MMW_RUNNER="$runner" bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+    [ "$code" = 0 ] || fail "$runner reviewer env start expected 0: $(cat "$TMP/err")"
+    has "NMEM_SPACE=o__r"
+    has "NMEM_AGENT_ID=mmw-reviewer"
+    hasnt "NMEM_AGENT_ID=mmw-worker"
+  done
+}
+
+scenario_memory_reviewer_prompt_states() {
+  local code prompt
+  echo "--- no active Rules is none and still starts from current evidence"
+  reset_log; fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "none reviewer start expected 0: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "none prompt dropped the code-review line: $prompt" ;; esac
+  [ "$(printf '%s' "$prompt" | grep -c '^none$')" = 1 ] || fail "none state is missing or duplicated: $prompt"
+  assert_complete_reviewer_prompt "none"
+  assert_reviewer_context_call
+
+  echo "--- an unavailable Context Bundle is named and still starts from current evidence"
+  reset_log; fresh_repo
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "unavailable Context Bundle should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "unavailable prompt dropped the code-review line: $prompt" ;; esac
+  [ "$(printf '%s' "$prompt" | grep -c '^unavailable: Nowledge Mem unavailable$')" = 1 ] \
+    || fail "unavailable state is missing or duplicated: $prompt"
+  case "$prompt" in *$'\n'"none"$'\n'*) fail "unavailable prompt also rendered none: $prompt" ;; esac
+  assert_complete_reviewer_prompt "unavailable: Nowledge Mem unavailable"
+
+  echo "--- an unreadable Context Bundle is unavailable, not none"
+  reset_log; fresh_repo
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=invalid-json bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "unreadable Context Bundle should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *$'\n'"none"$'\n'*) fail "unreadable prompt rendered none: $prompt" ;; esac
+  case "$prompt" in *"unavailable: nmem did not return readable JSON"*) ;; *) fail "unreadable JSON was silent: $prompt" ;; esac
+  assert_complete_reviewer_prompt "unavailable: nmem did not return readable JSON"
+}
+
+scenario_memory_reviewer_contract() {
+  local session="$(dirname "$(dirname "$HERE")")/upstream/skills/engineering/code-review/references/session.md"
+  python3 - "$session" <<'PY' || fail "code-review session contract lost the three axes or the Rule evidence bound"
+import sys
+text = open(sys.argv[1], encoding="utf-8").read()
+for needle in (
+    "## 1. Pin the diff",
+    "## 2. Run the three axes",
+    "## 3. Verify every finding the axes report",
+    "## 4. Sort every review finding into in-ticket or out-of-ticket",
+    "## 5. Write one review comment on the ticket",
+    "git diff <base-commit>...HEAD --stat",
+    "The axis word is exactly `Standards`, `Spec`, or `Tests`",
+    "## Active Rules",
+    "Apply every active Rule only within its stated scope.",
+    "every finding still needs a current source",
+    "Repository-specific standards remain repository authority and checks, not a global Rule.",
+    "Ordinary Memory, Working Memory, Thread, worker reasoning, worker self-assessment, and the worker's retrieval results stay outside the review evidence.",
+):
+    assert needle in text, needle
+PY
+  echo "--- the launched prompt keeps the code-review dispatch line, autonomous sentence and complete Rule packet"
+  reset_log; fresh_repo; seed_reviewer_rules
+  local code
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "contract reviewer start expected 0: $(cat "$TMP/err")"
+  assert_complete_reviewer_prompt "$(reviewer_rule_lines)"
+}
+
 scenario_orcaworktreelink() {
   local code actual expected destination
   reset_log; fresh_repo
@@ -9241,6 +9430,7 @@ JSON
 
 ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
+ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -9261,6 +9451,9 @@ banner_for() {
     memory-worker-prompt-states) echo MEMORY-WORKER-PROMPT-STATES-OK ;;
     memory-worker-runner-env) echo MEMORY-WORKER-RUNNER-ENV-OK ;;
     memory-worker-contract) echo MEMORY-WORKER-CONTRACT-OK ;;
+    memory-reviewer-rules) echo MEMORY-REVIEWER-RULES-OK ;;
+    memory-reviewer-prompt-states) echo MEMORY-REVIEWER-PROMPT-STATES-OK ;;
+    memory-reviewer-contract) echo MEMORY-REVIEWER-CONTRACT-OK ;;
     boardregisters) echo BOARD-REGISTERS-OK ;;
     boardsameport) echo BOARD-SAME-PORT-OK ;;
     boardopenstab) echo BOARD-OPENS-TAB-OK ;;
@@ -9468,6 +9661,9 @@ fn_for() {
     memory-worker-prompt-states) echo scenario_memory_worker_prompt_states ;;
     memory-worker-runner-env) echo scenario_memory_worker_runner_env ;;
     memory-worker-contract) echo scenario_memory_worker_contract ;;
+    memory-reviewer-rules) echo scenario_memory_reviewer_rules ;;
+    memory-reviewer-prompt-states) echo scenario_memory_reviewer_prompt_states ;;
+    memory-reviewer-contract) echo scenario_memory_reviewer_contract ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     *) echo "scenario_$1" ;;

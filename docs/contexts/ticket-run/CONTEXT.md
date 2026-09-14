@@ -15,7 +15,7 @@ _Avoid_: 工人, 做票的 agent, 领票的 agent
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **reviewer**:
-The session a worker starts with `dispatch.sh start <n> reviewer` to run one round of code review. Its prompt names the `code-review` skill, the ticket, and the base commit `start` computes from `origin/<base branch>` and the ticket branch, plus the one standing sentence about working autonomously. It runs in the ticket's worktree, the worker's own, and cuts no branch; its report is the **review comment**, which the worker reads off the ticket. The worker does not stop it: landing does, together with every other session the ticket's started events name, when it archives the workspace (`land <n>` for one ticket, `advance` for a batch). On its own, `reviewer` always means this session, never one of the three axis subagents.
+The session a worker starts with `dispatch.sh start <n> reviewer` to run one round of code review. Its prompt names the `code-review` skill, the ticket, and the base commit `start` computes from `origin/<base branch>` and the ticket branch, plus the one standing sentence about working autonomously, then the **active reviewer Rules**. Its process receives `NMEM_SPACE` and `NMEM_AGENT_ID=mmw-reviewer`. It performs no ordinary Memory list or search. It runs in the ticket's worktree, the worker's own, and cuts no branch; its report is the **review comment**, which the worker reads off the ticket. The worker does not stop it: landing does, together with every other session the ticket's started events name, when it archives the workspace (`land <n>` for one ticket, `advance` for a batch). On its own, `reviewer` always means this session, never one of the three axis subagents.
 _Admitted_: reviewer session
 _Avoid_: reviewer 会话, code-review 会话, 审稿人, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -61,6 +61,12 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`MMW_TICKET`**:
 The worker-process environment value holding the number of the one ticket that session implements. `dispatch.sh start <n> worker` supplies it so the implement skill can label a reusable Memory without reconstructing the number from prose. The same name in a criterion shell is set independently by `verify-ticket.py` to the criterion's ticket number.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+### Reviewer Rules
+
+**active reviewer Rules**:
+The owner-approved Rules `dispatch.sh start <n> reviewer` copies from the `mmw-reviewer` Context Bundle `rule_stack` in `global → owner → space → agent` order, each with id, title, body, scope and source. Empty renders `none`; an unreadable bundle renders `unavailable: <reason>`. They decide what to inspect; every finding still needs a current source on the ticket, parent spec, repository authority, diff or checks. Ordinary Memory, Working Memory, Thread and worker retrieval stay outside the review packet.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### Comments on the ticket

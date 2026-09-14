@@ -1726,6 +1726,83 @@ print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_erro
 PY
 }
 
+# Build the reviewer packet appended after the existing code-review dispatch line. Only
+# the compiled active rule_stack is read; ordinary Memory list/search is never attempted.
+# A failed or unreadable Context Bundle is named in the packet and the reviewer still starts.
+reviewer_rules_packet() {
+  local repository_space="$1"
+  MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
+import json
+import os
+import subprocess
+import sys
+
+space = os.environ["MMW_MEMORY_SPACE"]
+
+
+def call(command):
+    env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+    try:
+        return subprocess.run(command, text=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, env=env)
+    except OSError:
+        return subprocess.CompletedProcess(command, 127, "",
+                                           f"{command[0]} is unavailable")
+
+
+def reason(proc, fallback):
+    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ")
+    return text or fallback
+
+
+def render_rule(row):
+    if not isinstance(row, dict):
+        row = {}
+    shown = {name: row.get(name) for name in ("id", "title", "body", "scope", "source")}
+    return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
+
+
+proc = call(["nmem", "--json", "context", "read",
+             "--space", space, "--agent-id", "mmw-reviewer", "--no-working-memory"])
+if proc.returncode:
+    rules = f"unavailable: {reason(proc, 'nmem failed')}"
+else:
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        rules = "unavailable: nmem did not return readable JSON"
+    else:
+        if not isinstance(value, dict):
+            rules = "unavailable: nmem did not return a JSON object"
+        elif not isinstance(value.get("rule_stack"), dict):
+            rules = "unavailable: nmem did not return a rule_stack JSON object"
+        else:
+            stack = value["rule_stack"]
+            rendered = []
+            malformed = None
+            for name in ("global", "owner", "space", "agent"):
+                rows = stack.get(name, [])
+                if not isinstance(rows, list):
+                    malformed = f"nmem returned a non-list rule_stack.{name}"
+                    break
+                rendered.extend(render_rule(row) for row in rows)
+            rules = f"unavailable: {malformed}" if malformed else (
+                "\n".join(rendered) if rendered else "none")
+
+prompt = f"""Active reviewer Rules approved for this review:
+{rules}
+
+Apply every active Rule within its stated scope. Use the Rules to decide what to
+inspect; establish every finding and verdict independently from the current
+ticket, parent spec, repository authority, diff, and checks. Report the source
+that proves each finding. Keep ordinary Memory, Working Memory, Thread, worker
+reasoning, worker self-assessment, and the worker's retrieval results outside
+the review evidence. Complete the review only after every applicable Rule has
+been applied and every reported finding has a current source."""
+print(json.dumps({"prompt": prompt}, ensure_ascii=False))
+PY
+}
+
 start_one() {
   local number="$1" kind="$2"
   use_runner "$(tonight_runner)"
@@ -1845,7 +1922,14 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
       fi
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
-      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
+      repository_space="$(repo_slug)" || exit 2
+      repository_space="$(printf '%s' "$repository_space" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+      memory_packet="$(reviewer_rules_packet "$repository_space")" || \
+        refuse "could not build the reviewer Rules packet for #$number"
+      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS
+
+$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
+      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer") ;;
   esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or

@@ -93,6 +93,10 @@ One change can pass one axis and fail another:
 - Builds exactly what was asked, breaks the repository's conventions → **Spec pass, Standards fail.**
 - Does the right thing, proved by a test that would pass either way → **Standards and Spec pass, Tests fail.**
 
+## Active Rules
+
+The start prompt names the owner-approved reviewer Rules for this review. Apply every active Rule only within its stated scope. Use the Rules to decide what to inspect. Establish every finding and verdict independently from the current ticket, parent spec, repository authority, diff, and checks; every finding still needs a current source, and the report names that source. Ordinary Memory, Working Memory, Thread, worker reasoning, worker self-assessment, and the worker's retrieval results stay outside the review evidence. Complete the review only after every applicable Rule has been applied and every reported finding has a current source. Repository-specific standards remain repository authority and checks, not a global Rule.
+
 ## What you do not do
 
 You report. You do not decide whether a review finding is worth fixing, and you do not fix one. The repair path lives in the `implement` skill — one fix round for in-ticket findings, a `finding` child for the rest — and the worker who reads your review comment applies it.
