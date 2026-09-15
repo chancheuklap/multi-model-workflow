@@ -170,14 +170,69 @@ elif args[:2] == ["memories", "list"]:
     if scenario == "content-unavailable":
         print("Nowledge Mem unavailable", file=sys.stderr)
         raise SystemExit(1)
-    print(json.dumps(state.get("memory_list", {"memories": [], "total": 0, "returned": 0}),
-                     sort_keys=True))
+    listed = dict(state.get("memory_list", {"memories": [], "total": 0, "returned": 0}))
+    rows = listed.get("memories", [])
+    active = [row for row in rows
+              if state.get("memory_status", {}).get(row.get("id"), "active") == "active"]
+    removed = len(rows) - len(active)
+    listed["memories"] = active
+    listed["returned"] = max(0, listed.get("returned", len(rows)) - removed)
+    listed["total"] = max(0, listed.get("total", len(rows)) - removed)
+    print(json.dumps(listed, sort_keys=True))
 elif args[:2] == ["memories", "search"]:
     if scenario == "content-unavailable":
         print("Nowledge Mem unavailable", file=sys.stderr)
         raise SystemExit(1)
-    print(json.dumps(state.get("memory_search", {"memories": [], "total": 0, "returned": 0}),
+    query = args[2] if len(args) > 2 else ""
+    listed = state.get("memory_list", {}).get("memories", [])
+    exact = [row for row in listed if row.get("id") == query]
+    if exact:
+        exact = [row for row in exact
+                 if state.get("memory_status", {}).get(row["id"], "active") == "active"]
+        print(json.dumps({"memories": exact, "total": len(exact), "returned": len(exact)},
+                         sort_keys=True))
+    else:
+        print(json.dumps(state.get("memory_search", {"memories": [], "total": 0, "returned": 0}),
+                         sort_keys=True))
+elif args[:2] == ["memories", "show"]:
+    ident = args[2]
+    if state.get("fail_show_id") == ident:
+        print(f"service unavailable for {ident}", file=sys.stderr)
+        raise SystemExit(1)
+    listed = state.get("memory_list", {}).get("memories", [])
+    row = next((row for row in listed if row.get("id") == ident), None)
+    if row is None:
+        print(f"404 Memory not found: {ident}", file=sys.stderr)
+        raise SystemExit(1)
+    print(json.dumps(row, sort_keys=True))
+elif args[:3] == ["memories", "link", "list"]:
+    ident = args[3]
+    replacement = state.get("memory_replacements", {}).get(ident)
+    relations = ([] if replacement is None else [{
+        "source_memory_id": ident,
+        "target_memory_id": replacement,
+        "relation_type": "EVOLVES",
+    }])
+    print(json.dumps({"memory_id": ident, "relations": relations, "total": len(relations)},
                      sort_keys=True))
+elif args[:2] == ["memories", "deprecate"]:
+    ident = args[2]
+    if state.get("fail_lifecycle_id") == ident:
+        print(f"lifecycle failed for {ident}", file=sys.stderr)
+        raise SystemExit(1)
+    state.setdefault("memory_status", {})[ident] = "deprecated"
+    save()
+    print(json.dumps({"id": ident, "status": "deprecated"}, sort_keys=True))
+elif args[:2] == ["memories", "supersede"]:
+    ident, replacement = args[2:4]
+    if state.get("fail_lifecycle_id") == ident:
+        print(f"lifecycle failed for {ident}", file=sys.stderr)
+        raise SystemExit(1)
+    state.setdefault("memory_status", {})[ident] = "superseded"
+    state.setdefault("memory_replacements", {})[ident] = replacement
+    save()
+    print(json.dumps({"id": ident, "status": "superseded",
+                      "replacement_memory_id": replacement}, sort_keys=True))
 elif args[:4] == ["config", "mcp", "show", "--host"]:
     print(json.dumps({"config": {"mcpServers": {"nowledge-mem": {
         "type": "http", "url": "https://mem.invalid/mcp", "headers": {}}}}}))
@@ -1395,6 +1450,7 @@ export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
 export MMW_FAKE_HERDR_STATE="$TMP/herdr-state"
 export MMW_FAKE_ORCA_STATE="$TMP/orca-state"
 export MMW_FAKE_NMEM_STATE="$TMP/nmem-state.json"
+export MMW_EMPTY_MEMORY_DECISIONS="$TMP/empty-memory-decisions.json"
 export MMW_FAKE_NMEM_CALLS="$TMP/nmem-calls.jsonl"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
 export MMW_HOME="$TMP/mmw-home"
@@ -1575,6 +1631,7 @@ reset_log() {
   unset MMW_FAKE_ORCA_SCENARIO MMW_FAKE_ORCA_SEND MMW_FAKE_USES
   unset MMW_FAKE_NMEM_SCENARIO
   printf '%s\n' '{"spaces":{},"agents":{}}' > "$MMW_FAKE_NMEM_STATE"
+  printf '%s\n' '{"status":"complete","total":0,"returned":0,"decisions":[]}' > "$MMW_EMPTY_MEMORY_DECISIONS"
   rm -rf "$MMW_HOME/leases"
   no_relay
   fake_relay
@@ -3401,6 +3458,170 @@ PY
   hasnt "gh :: issue :: reopen"
 }
 
+seed_closing_memories() {
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+rows = [{"id": ident, "title": ident, "content": ident, "labels": ["mmw-spec-76"],
+         "space_id": "o__r"} for ident in ("mem-retain", "mem-propose", "mem-deprecate", "mem-old")]
+data["memory_list"] = {"memories": rows, "total": len(rows), "returned": len(rows)}
+json.dump(data, open(path, "w"))
+PY
+}
+
+write_complete_closing() {
+  cat > "$1" <<'JSON'
+{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-retain","decision":"retain","reason":"still current","evidence":"ticket #61"},{"memory_id":"mem-propose","decision":"propose","reason":"candidate for a durable check","evidence":"ticket #62"},{"memory_id":"mem-deprecate","decision":"deprecate","reason":"current evidence disproves it","evidence":"commit abc"},{"memory_id":"mem-old","decision":"supersede","reason":"the retained record replaces it","evidence":"commit def","replacement_id":"mem-retain"}]}
+JSON
+}
+
+memory_closing_payload() {
+  python3 - "$MMW_GH_LAST_BODY" <<'PY'
+import importlib.util, json, os, sys
+where = importlib.util.spec_from_file_location("events", os.environ["MMW_EVENTS_PY_FOR_TESTS"])
+events = importlib.util.module_from_spec(where)
+where.loader.exec_module(events)
+kind, payload = events.parse(open(sys.argv[1]).read())
+assert kind == "event", payload
+print(json.dumps(payload["memory_closing"], ensure_ascii=False, separators=(",", ":")))
+PY
+}
+
+scenario_memory_closing() {
+  local file="$TMP/memory-closing.json" code expected
+  reset_log; fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 0 ] || fail "zero-record Memory closing expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(memory_closing_payload)" = '{"status":"complete","total":0,"returned":0,"decisions":[]}' ] \
+    || fail "zero-record closing was not recorded as complete: $(memory_closing_payload)"
+
+  reset_log; fresh_repo; seed_closing_memories; write_complete_closing "$file"
+  expected="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])),ensure_ascii=False,separators=(",",":")))' "$file")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  [ "$code" = 0 ] || fail "complete Memory closing expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(memory_closing_payload)" = "$expected" ] \
+    || fail "spec.closed did not carry the exact manifest: $(memory_closing_payload)"
+  has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-spec-76 :: --limit :: 1000"
+  has "nmem :: --json :: memories :: deprecate :: mem-deprecate"
+  has "nmem :: --json :: memories :: supersede :: mem-old :: mem-retain"
+  [ "$(count_of 'memories :: deprecate :: mem-deprecate')" = 1 ] \
+    || fail "complete closing did not deprecate exactly once"
+  [ "$(count_of 'memories :: supersede :: mem-old :: mem-retain')" = 1 ] \
+    || fail "complete closing did not supersede exactly once"
+  grep -q '^Memory closing: complete (4)$' "$MMW_GH_LAST_BODY" \
+    || fail "human summary has no complete Memory status: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q '^Memory closing counts: retain 1, propose 1, deprecate 1, supersede 1$' "$MMW_GH_LAST_BODY" \
+    || fail "human summary has wrong decision counts: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q '^Proposed Memory ids: mem-propose$' "$MMW_GH_LAST_BODY" \
+    || fail "human summary has wrong proposed ids: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q '^Memory: mem-old -> supersede; reason: the retained record replaces it; evidence: commit def; replacement: mem-retain$' "$MMW_GH_LAST_BODY" \
+    || fail "human summary omits the supersede mapping, evidence, or replacement: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q '^Memory: mem-retain -> retain; reason: still current; evidence: ticket #61$' "$MMW_GH_LAST_BODY" \
+    || fail "human summary omits the retain mapping: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q '^Memory: mem-propose -> propose; reason: candidate for a durable check; evidence: ticket #62$' "$MMW_GH_LAST_BODY" \
+    || fail "human summary omits the propose mapping: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q '^Memory: mem-deprecate -> deprecate; reason: current evidence disproves it; evidence: commit abc$' "$MMW_GH_LAST_BODY" \
+    || fail "human summary omits the deprecate mapping: $(cat "$MMW_GH_LAST_BODY")"
+}
+
+scenario_memory_closing_refuses() {
+  local file="$TMP/memory-refuse.json" code body
+  for body in \
+    '{"status":"complete","total":4,"returned":4,"decisions":[]}' \
+    '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e"},{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e"}]}' \
+    '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"unknown","decision":"retain","reason":"r","evidence":"e"}]}' \
+    '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e","replacement_id":"mem-old"}]}' \
+    '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-old","decision":"supersede","reason":"r","evidence":"e"}]}' \
+    '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-deprecate","decision":"deprecate","reason":"valid first mutation","evidence":"e"},{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e","replacement_id":"mem-old"},{"memory_id":"mem-propose","decision":"propose","reason":"r","evidence":"e"},{"memory_id":"mem-old","decision":"retain","reason":"r","evidence":"e"}]}'
+  do
+    reset_log; fresh_repo; seed_closing_memories
+    printf '%s\n' "$body" > "$file"
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+    [ "$code" = 2 ] || fail "invalid manifest expected 2, got $code for $body"
+    hasnt "nmem :: --json :: memories :: deprecate"
+    hasnt "nmem :: --json :: memories :: supersede"
+    hasnt "gh :: issue :: comment :: 76"
+    grep -q 'cannot safely close because' "$TMP/err" \
+      || fail "refusal omitted why closing stops: $(cat "$TMP/err")"
+    grep -q 'then run dispatch.sh summary 76 --memory-decisions' "$TMP/err" \
+      || fail "refusal omitted the unique next action: $(cat "$TMP/err")"
+  done
+
+  reset_log; fresh_repo; seed_closing_memories; write_complete_closing "$file"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d["fail_show_id"]="mem-retain"; json.dump(d,open(p,"w"))
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  [ "$code" = 2 ] || fail "unavailable replacement lookup expected 2, got $code"
+  grep -q 'show mem-retain failed without confirming absence' "$TMP/err" \
+    || fail "replacement outage was misreported as absence: $(cat "$TMP/err")"
+  grep -q 'replacement Memory mem-retain for mem-old does not exist' "$TMP/err" \
+    && fail "replacement outage was asserted as confirmed absence: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: memories :: deprecate"
+  hasnt "nmem :: --json :: memories :: supersede"
+  hasnt "gh :: issue :: comment :: 76"
+}
+
+scenario_memory_closing_retry() {
+  local file="$TMP/memory-retry.json" code
+  echo '{"status":"unchecked","reason":"Nowledge Mem unavailable","total":null,"returned":null,"decisions":[]}' > "$file"
+  reset_log; fresh_repo
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable \
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  [ "$code" = 0 ] || fail "unavailable list expected unchecked close, got $code: $(cat "$TMP/err")"
+  grep -q '^Memory closing: unchecked (Nowledge Mem unavailable)$' "$MMW_GH_LAST_BODY" \
+    || fail "unavailable list was not disclosed: $(cat "$MMW_GH_LAST_BODY")"
+  [ "$(memory_closing_payload)" = '{"status":"unchecked","reason":"Nowledge Mem unavailable","total":null,"returned":null,"decisions":[]}' ] \
+    || fail "unavailable list did not preserve the exact unchecked payload: $(memory_closing_payload)"
+
+  reset_log; fresh_repo; seed_closing_memories
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d["memory_list"]["total"]=5; json.dump(d,open(p,"w"))
+PY
+  echo '{"status":"unchecked","reason":"truncated: 4/5","total":5,"returned":4,"decisions":[]}' > "$file"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  [ "$code" = 0 ] || fail "truncated list expected unchecked close, got $code: $(cat "$TMP/err")"
+  grep -q '^Memory closing: unchecked (truncated: 4/5)$' "$MMW_GH_LAST_BODY" \
+    || fail "truncation was not disclosed: $(cat "$MMW_GH_LAST_BODY")"
+  [ "$(memory_closing_payload)" = '{"status":"unchecked","reason":"truncated: 4/5","total":5,"returned":4,"decisions":[]}' ] \
+    || fail "truncation did not preserve the exact unchecked payload: $(memory_closing_payload)"
+
+  reset_log; fresh_repo; seed_closing_memories; write_complete_closing "$file"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d["fail_lifecycle_id"]="mem-old"; json.dump(d,open(p,"w"))
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  [ "$code" = 2 ] || fail "partial lifecycle failure expected 2, got $code: $(cat "$TMP/err")"
+  grep -q 'completed Memory ids: mem-deprecate' "$TMP/err" \
+    || fail "partial failure did not report completed ids: $(cat "$TMP/err")"
+  grep -q 'failed Memory id: mem-old' "$TMP/err" \
+    || fail "partial failure did not report its failed id: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: comment :: 76"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p)); d.pop("fail_lifecycle_id",None); json.dump(d,open(p,"w"))
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  [ "$code" = 0 ] || fail "retry expected 0, got $code: $(cat "$TMP/err")"
+  grep -q '^Memory closing: complete (4)$' "$MMW_GH_LAST_BODY" \
+    || fail "retry summary count differs from its four-item manifest: $(cat "$MMW_GH_LAST_BODY")"
+  [ "$(count_of 'memories :: deprecate :: mem-deprecate')" = 1 ] \
+    || fail "retry repeated the completed deprecation"
+  [ "$(count_of 'memories :: supersede :: mem-old :: mem-retain')" = 2 ] \
+    || fail "the failed supersede plus retry did not produce exactly two attempts"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "retry did not reach each final state"
+import json, os
+d=json.load(open(os.environ["MMW_FAKE_NMEM_STATE"]))
+assert d["memory_status"]["mem-deprecate"] == "deprecated"
+assert d["memory_status"]["mem-old"] == "superseded"
+assert d["memory_replacements"]["mem-old"] == "mem-retain"
+PY
+}
+
 scenario_summary() {
   local when code copy
   copy="$(skill_copy_for summary)"
@@ -3429,7 +3650,7 @@ JSON
   fresh_repo
   echo "--- without a reverify this session, the posted comment opens NIGHT SUMMARY and has no Reverify"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: comment :: 76 :: --body"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
@@ -3451,7 +3672,7 @@ JSON
   git -C "$TMP/repo" worktree add -q --detach "$TMP/linked-summary" HEAD
   reset_log
   code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76) \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
@@ -3464,13 +3685,13 @@ JSON
   fake_relay
   [ -n "$(relay_now)" ] || fail "the stand-in relay should be running before summary"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
   grep -q "stopped the relay for o/r" "$TMP/err" || fail "summary should say it stopped the relay: $(cat "$TMP/err")"
   fake_relay '{"spec": 80}'
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "a relay watching another spec is not this summary's failure, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 80}'*) ;; *) fail "a relay watching spec 80 should be left running: $(relay_now)" ;; esac
   grep -q "does not watch #76, so it was left running" "$TMP/err" || fail "summary should say why it left it: $(cat "$TMP/err")"
@@ -3497,7 +3718,7 @@ JSON
   fresh_repo
   echo "--- a finding no route reached refuses the summary: nothing posted, the watch still open"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q "#76 still holds 1 finding(s) that no route reached" "$TMP/err" \
     || fail "the refusal should count them: $(cat "$TMP/err")"
@@ -3516,7 +3737,7 @@ json.dump(rows, open(sys.argv[1], "w"))
 PY
   reset_log
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: comment :: 76 :: --body"
   grep -q "Findings routed: 2/1/0/1/0/0" "$MMW_GH_LAST_BODY" \
@@ -4905,14 +5126,14 @@ scenario_open() {
   [ -z "$(watch_main tickets:61)" ] || fail "no watch on #61 should be open: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- summary closes its night's watch, and the relay goes on for the other night"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "summary expected 0, got $code: $(cat "$TMP/err")"
   grep -q "stopped watching spec #76 for o/r: the relay (pid $pid) goes on watching spec #77" "$TMP/err" \
     || fail "summary should say the relay goes on for #77: $(cat "$TMP/err")"
   case "$(relay_now)" in "$pid "'{"spec": 77}') ;; *) fail "relay $pid should watch spec 77 alone: $(relay_now)" ;; esac
 
   echo "--- the last night's summary ends the relay"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 77)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 77 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "summary 77 expected 0, got $code: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
   kill -0 "$pid" 2>/dev/null && fail "relay pid $pid should be gone"
@@ -9583,7 +9804,7 @@ scenario_summarybounced() {
 JSON
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "summary expected 0: $(cat "$TMP/err")"
   grep -q '^Bounced: #61 (conflict)$' "$MMW_GH_LAST_BODY" \
     || fail "NIGHT SUMMARY omits the bounced ticket: $(cat "$MMW_GH_LAST_BODY")"
@@ -9594,6 +9815,7 @@ JSON
 ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
+ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -9617,6 +9839,9 @@ banner_for() {
     memory-reviewer-rules) echo MEMORY-REVIEWER-RULES-OK ;;
     memory-reviewer-prompt-states) echo MEMORY-REVIEWER-PROMPT-STATES-OK ;;
     memory-reviewer-contract) echo MEMORY-REVIEWER-CONTRACT-OK ;;
+    memory-closing) echo MEMORY-CLOSING-OK ;;
+    memory-closing-refuses) echo MEMORY-CLOSING-REFUSES-OK ;;
+    memory-closing-retry) echo MEMORY-CLOSING-RETRY-OK ;;
     boardregisters) echo BOARD-REGISTERS-OK ;;
     boardsameport) echo BOARD-SAME-PORT-OK ;;
     boardopenstab) echo BOARD-OPENS-TAB-OK ;;
@@ -9827,6 +10052,9 @@ fn_for() {
     memory-reviewer-rules) echo scenario_memory_reviewer_rules ;;
     memory-reviewer-prompt-states) echo scenario_memory_reviewer_prompt_states ;;
     memory-reviewer-contract) echo scenario_memory_reviewer_contract ;;
+    memory-closing) echo scenario_memory_closing ;;
+    memory-closing-refuses) echo scenario_memory_closing_refuses ;;
+    memory-closing-retry) echo scenario_memory_closing_retry ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     *) echo "scenario_$1" ;;

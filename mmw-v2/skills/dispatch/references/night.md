@@ -178,6 +178,27 @@ Then lint each ticket you wrote or rewrote, before you dispatch it:
 
 It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. An exit 1 whose `ERROR` lines are all tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or that ends in a traceback from a `gh` call, is the tracker not answering rather than the ticket being wrong: run the same command again once it answers. This is what step 1b does for the published batch, and this pass writes tickets the same way, so it gets the same pass. A ticket dispatched with criteria that produce no gate (`ledger contains zero live gates`) stops its worker at its first `--preflight`, and the worker does the right thing — opens a `fault` child and waits for you — which costs the ticket the whole round it was dispatched for.
 
+Once every finding has a route, close this spec's Worker Memory before leaving the pass.
+List the repository space by the exact `mmw-spec-<spec>` label with a limit large enough
+to return the whole set, and inspect every returned record. For each id decide exactly
+one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is;
+`propose` is a candidate for the later retro and does not change the Memory here;
+`deprecate` is no longer valid; `supersede` names the existing `replacement_id` that
+replaces it. Write the result as one UTF-8 JSON object:
+
+```json
+{"status":"complete","total":2,"returned":2,"decisions":[{"memory_id":"<id>","decision":"retain","reason":"<why>","evidence":"<where that was established>"},{"memory_id":"<old id>","decision":"supersede","reason":"<why>","evidence":"<where that was established>","replacement_id":"<existing id>"}]}
+```
+
+The ids must be the exact, duplicate-free set from the fresh complete list, and
+`total` must equal `returned`. When Nowledge Mem cannot return a readable list, or says
+it returned fewer rows than its total, do not infer an empty set and do no lifecycle
+work. Record that fact instead as
+`{"status":"unchecked","reason":"<why>","total":null,"returned":null,"decisions":[]}`
+when no counts were readable, or with the two reported counts when the list was
+truncated. Keep this object for step 5. A `propose` decision passes only its id and this
+evidence to the retro; it is not stored again in this pass.
+
 Then:
 
 ```bash
@@ -192,10 +213,22 @@ Step 4 left no open finding. From any checkout in this repository:
 
 ```bash
 <dispatch> reverify <spec>
-<dispatch> summary <spec>
+<dispatch> summary <spec> --memory-decisions <file>
 ```
 
 `reverify` exit 0 means every landed ticket is green. Exit 1 means each red ticket is already reopened in `needs-triage`, unassigned and carrying `ticket.regressed`; do not close it. Exit 2 means one ticket established no result, so no ticket was changed and the remainder was skipped; fix stderr's named condition and run `reverify` again.
+
+`summary` lists the exact label again; the file is a decision, not evidence that the list
+is still the same. A complete object is accepted only when its counts and ids match that
+fresh list and every decision has its required fields. It performs only the incomplete
+`deprecate` and `supersede` actions, so running the same command after a partial failure
+does not repeat a completed action. A lifecycle failure posts no `spec.closed`, leaves
+the watch open, and names both the ids completed in that invocation and the failing id.
+An accepted unchecked object performs no lifecycle action and writes
+`Memory closing: unchecked (<reason>)` in the summary. A successful object is copied
+unchanged into `spec.closed.payload.memory_closing`; `NIGHT SUMMARY` also gives the
+status, counts, each id's decision, replacement where applicable, evidence, and the
+proposed ids the retro consumes.
 
 `summary` exit 0 means `NIGHT SUMMARY` was posted and the spec watch is closed. Exit 1 means the comment was posted and the watch closed, but an otherwise unused relay remains; end the pid stderr names. Exit 2 means no comment was posted and the watch remains; fix stderr's named condition and run `summary` again. One of those conditions is step 4 itself: a batch with findings no route reached is refused here, with the `Findings routed:` counts on stderr and its last number the ones left. Go back to step 4, route them, and run `summary` again. Its event and counting mechanics are in [how-it-works.md](how-it-works.md) under **Reverify and summary**.
 
