@@ -20,10 +20,10 @@ import board_data  # noqa: E402
 from board_process import RunningBoard  # noqa: E402
 
 
-def event(name: str, ticket: int, **fields) -> dict:
-    ident = fields.pop("id", ticket * 100)
-    subject = fields.pop("_ticket", ticket)
-    body = board_data.events.build(name, ticket=subject, spec=10, line=name,
+def event(name: str, fixture_issue: int, **fields) -> dict:
+    ident = fields.pop("id", fixture_issue * 100)
+    event_ticket = fields.pop("event_ticket", fixture_issue)
+    body = board_data.events.build(name, ticket=event_ticket, spec=10, line=name,
                                    at=fields.pop("at", "2026-09-11T00:00:00Z"), **fields)
     return {"id": ident, "body": body,
             "created_at": "2026-09-11T00:00:00Z"}
@@ -148,9 +148,9 @@ def prepared_store(gh):
 
 class BoardDataTest(unittest.TestCase):
     def test_the_imported_event_reader_folds_the_latest_retro_receipt(self):
-        unrecorded = event("spec.retroed", 10, id=1001, _ticket=None,
+        unrecorded = event("spec.retroed", 10, id=1001, event_ticket=None,
                            result="unrecorded", reason="Nowledge Mem write failed")
-        recorded = event("spec.retroed", 10, id=1002, _ticket=None, result="recorded",
+        recorded = event("spec.retroed", 10, id=1002, event_ticket=None, result="recorded",
                          retro_memory="retro-10", problem_count=1, proposals=[430],
                          evidence="complete", unreadable_sources=[])
         folded = board_data.events.fold([recorded, unrecorded], 10)

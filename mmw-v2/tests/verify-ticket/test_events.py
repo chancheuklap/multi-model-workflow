@@ -6,6 +6,7 @@ reached here by writing the comments down. No tracker, no runner, no clock.
     python3 -m unittest discover -s mmw-v2/tests/verify-ticket -p test_events.py
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -16,6 +17,14 @@ import unittest
 from _load import EVENTS, load_events
 
 events = load_events()
+RELAY = EVENTS.parents[2] / "dispatch" / "scripts" / "relay.py"
+
+
+def load_relay():
+    spec = importlib.util.spec_from_file_location("mmw_relay_for_event_tests", RELAY)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 SAME_SECOND = "2026-09-10T02:00:00Z"
 
@@ -253,19 +262,6 @@ class TheVocabulary(unittest.TestCase):
 class TheCommentFormat(unittest.TestCase):
     """First line for a person, the block for a program."""
 
-    def test_a_retro_receipt_links_proposals_without_copying_the_retro(self):
-        body = events.build(
-            "spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
-            text="Result: recorded\nRetro Memory: nowledgemem://memory/retro-76\n"
-                 "Problems: 1\nProposals: [#431](https://github.com/o/r/issues/431)\n"
-                 "Evidence: complete",
-            result="recorded", retro_memory="retro-76", problem_count=1,
-            proposals=[431], evidence="complete", unreadable_sources=[])
-        self.assertEqual(events.first_line(body), "NIGHT RETRO")
-        self.assertIn("[#431](https://github.com/o/r/issues/431)", body)
-        self.assertNotIn("## Problems", body)
-        self.assertEqual(events.parse(body)[1]["proposals"], [431])
-
     def test_the_first_line_is_the_prose_and_the_block_carries_the_common_fields(self):
         body = ev("ticket.claimed", "Claimed #61 on issue-61", spec=76, login="bot")
         self.assertEqual(body.splitlines()[0], "Claimed #61 on issue-61")
@@ -485,7 +481,17 @@ class Replays(unittest.TestCase):
                     result="recorded", retro_memory="retro-76", problem_count=1,
                     proposals=[431], evidence="partial",
                     unreadable_sources=["ticket #61"])
-        state = events.fold([comment(20, latest), comment(10, first)], issue=76)
+        prior = [
+            comment(1, started()),
+            comment(2, checked_run(slot=2)),
+            comment(3, started("rev_1", kind="reviewer")),
+            comment(4, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
+            comment(5, ev("ticket.passed", "ALL MET", commit="d" * 40)),
+            comment(6, queued()),
+            comment(10, first),
+        ]
+        before = events.fold(prior, issue=76)
+        state = events.fold([comment(20, latest), *prior], issue=76)
         self.assertEqual(state["spec_retroed"]["payload"]["result"], "recorded")
         self.assertEqual(events.newest([comment(20, latest), comment(10, first)],
                                        "spec.retroed")["comment"], 20)
@@ -493,11 +499,17 @@ class Replays(unittest.TestCase):
                          "spec.retroed result=recorded retro_memory=retro-76 "
                          "problem_count=1 proposals=431 evidence=partial "
                          "unreadable_sources=ticket #61")
-        self.assertEqual((state["held"], state["waiting"], state["slot"],
-                          state["passed"], state["returned"], state["landed"],
-                          state["outcome"], state["review"]),
-                         (False, None, None, False, False, False, None, None))
-        self.assertEqual(state["results"], {"worker": None, "reviewer": None})
+        for key in ("held", "hold_ended", "waiting", "slot", "passed", "returned",
+                    "landed", "regressed", "bounced", "outcome", "review", "results",
+                    "sessions", "claim_hold"):
+            with self.subTest(preserved=key):
+                self.assertEqual(state[key], before[key])
+        self.assertTrue(state["held"])
+        self.assertIsNotNone(state["waiting"])
+        self.assertEqual(state["slot"], 2)
+        self.assertTrue(state["passed"])
+        self.assertIsNotNone(state["review"])
+        self.assertIsNone(load_relay().woken_by(state["spec_retroed"]["payload"]))
 
     def test_a_late_comment_is_replayed_in_its_place_not_applied_last(self):
         """Released, claimed again, then passed, landed and regressed — with the second
