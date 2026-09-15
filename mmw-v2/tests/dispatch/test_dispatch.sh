@@ -87,7 +87,8 @@ state.setdefault("spaces", {})
 state.setdefault("agents", {})
 args = [arg for arg in sys.argv[1:] if arg != "--json"]
 
-if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "unavailable":
+scenario = os.environ.get("MMW_FAKE_NMEM_SCENARIO", "")
+if scenario == "unavailable":
     print("Nowledge Mem unavailable", file=sys.stderr)
     raise SystemExit(1)
 if args[:2] in (["spaces", "show"], ["agents", "show"]):
@@ -166,16 +167,25 @@ elif args[:2] == ["agents", "set"]:
     save()
     print(json.dumps(row, sort_keys=True))
 elif args[:2] == ["memories", "list"]:
+    if scenario == "content-unavailable":
+        print("Nowledge Mem unavailable", file=sys.stderr)
+        raise SystemExit(1)
     print(json.dumps(state.get("memory_list", {"memories": [], "total": 0, "returned": 0}),
                      sort_keys=True))
 elif args[:2] == ["memories", "search"]:
+    if scenario == "content-unavailable":
+        print("Nowledge Mem unavailable", file=sys.stderr)
+        raise SystemExit(1)
     print(json.dumps(state.get("memory_search", {"memories": [], "total": 0, "returned": 0}),
                      sort_keys=True))
 elif args[:4] == ["config", "mcp", "show", "--host"]:
     print(json.dumps({"config": {"mcpServers": {"nowledge-mem": {
         "type": "http", "url": "https://mem.invalid/mcp", "headers": {}}}}}))
 elif args[:2] == ["context", "read"]:
-    if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "invalid-json":
+    if scenario == "content-unavailable":
+        print("Nowledge Mem unavailable", file=sys.stderr)
+        raise SystemExit(1)
+    if scenario in ("invalid-json", "content-invalid-json"):
         print("not-json")
         raise SystemExit(0)
     if os.environ.get("MMW_FAKE_NMEM_SCENARIO") == "non-object":
@@ -6059,7 +6069,7 @@ scenario_installmodelsjsonhome() {
 
 scenario_memory_install() {
   local home="$TMP/install-home" no_nmem_home="$TMP/install-home-no-nmem" code no_nmem="$TMP/bin-no-nmem" name
-  echo "--- install creates the shared Toolbox Space and the two provenance-only Identities once"
+  echo "--- install creates the strict Toolbox Space and two fixed Identities whose default Space is the Toolbox"
   reset_log
   seed_orca_projects 1 .worktrees show
   run_installer
@@ -6236,6 +6246,19 @@ scenario_memory_space_unavailable() {
   hasnt "spec.opened"
   no_relay
 
+  echo "--- start refuses before creating a worktree or session when the repository Space is unavailable"
+  reset_log
+  fresh_repo
+  write_memory_graph standalone
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 2 ] || fail "Nowledge failure must refuse start with exit 2, got $code: $(cat "$TMP/err")"
+  grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
+    || fail "start did not report repository Memory as unavailable: $(cat "$TMP/err")"
+  grep -q 'repository Space could not be verified' "$TMP/err" \
+    || fail "start did not name the failed routing condition: $(cat "$TMP/err")"
+  hasnt "paseo :: run"
+  [ ! -e "$TMP/repo/.worktrees/issue-61" ] || fail "a refused start created the ticket worktree"
+
   for bad in invalid-json non-object; do
     echo "--- exit-0 $bad makes install --check fail without a fallback write"
     reset_log
@@ -6374,6 +6397,9 @@ queries = {
 }
 scopes = {"map": "mmw-map-18", "standalone": "mmw-spec-76"}
 expected = [
+    ["--json", "spaces", "show", "o__r"],
+    ["--json", "spaces", "create", "o/r", "--id", "o__r", "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"],
+    ["--json", "spaces", "show", "o__r"],
     ["--json", "memories", "list", "--space", "o__r", "--label", scopes[sys.argv[2]], "--limit", "1000"],
     ["--json", "memories", "search", queries[sys.argv[2]], "--space", "o__r", "--label", "mmw-experience", "--limit", "10"],
 ]
@@ -6474,7 +6500,7 @@ PY
 
   echo "--- an unavailable Nowledge service is named in both blocks and does not prevent start"
   reset_log; fresh_repo; write_memory_graph standalone
-  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "unavailable Memory should not prevent start: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
   [ "$(printf '%s' "$prompt" | grep -c '^unavailable: Nowledge Mem unavailable$')" = 2 ] || fail "unavailable states are not explicit: $prompt"
@@ -6637,6 +6663,11 @@ import json, sys
 calls = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
 expected = [["--json", "context", "read", "--space", "o__r",
              "--agent-id", "mmw-reviewer", "--no-working-memory"]]
+expected = [
+    ["--json", "spaces", "show", "o__r"],
+    ["--json", "spaces", "create", "o/r", "--id", "o__r", "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"],
+    ["--json", "spaces", "show", "o__r"],
+] + expected
 assert calls == expected, (calls, expected)
 PY
 }
@@ -6699,7 +6730,7 @@ scenario_memory_reviewer_prompt_states() {
 
   echo "--- an unavailable Context Bundle is named and still starts from current evidence"
   reset_log; fresh_repo
-  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "unavailable Context Bundle should not prevent start: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
   case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "unavailable prompt dropped the code-review line: $prompt" ;; esac
@@ -6711,7 +6742,7 @@ scenario_memory_reviewer_prompt_states() {
 
   echo "--- an unreadable Context Bundle is unavailable, not none"
   reset_log; fresh_repo
-  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=invalid-json bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-invalid-json bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "unreadable Context Bundle should not prevent start: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
   case "$prompt" in *$'\n'"none"$'\n'*) fail "unreadable prompt rendered none: $prompt" ;; esac

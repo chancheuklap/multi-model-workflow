@@ -452,9 +452,9 @@ repo_slug() {
   printf '%s\n' "$slug"
 }
 
-# Make this repository's Memory boundary explicit before a night opens. A failed
-# Nowledge call is reported and the rest of `open` continues; only a confirmed 404 is
-# absence, so an unavailable service never triggers a create as a substitute.
+# Make this repository's Memory boundary explicit before a night opens or any agent
+# starts. Only a confirmed 404 is absence, so an unavailable service never triggers a
+# create as a substitute.
 ensure_repository_memory() {
   local slug="$1"
   MMW_REPOSITORY_SLUG="$slug" python3 - <<'PY'
@@ -1887,6 +1887,15 @@ start_one() {
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 
+  # `open-ticket` has no spec-level open step, and a previously valid Space may become
+  # unavailable before a later start. Verify the connector's routing target immediately
+  # before either role starts, before a worktree or session is created.
+  local repository_slug repository_space
+  repository_slug="$(repo_slug)" || exit 2
+  ensure_repository_memory "$repository_slug" \
+    || refuse "the repository Space could not be verified, so #$number's $kind was not started; the specific Nowledge failure is above. Restore Nowledge Mem or its repository Space, then run start again"
+  repository_space="$(printf '%s' "$repository_slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+
   workspace_origin_ready "$number" "$root" "$into" \
     || refuse "could not use origin to prepare issue-$number; an existing worker was not stopped"
 
@@ -1914,15 +1923,13 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  local base="" prompt repository_space memory_packet task_scope
+  local base="" prompt memory_packet task_scope
   local -a session_environment=()
   case "$kind" in
     worker)
       base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
-      repository_space="$(repo_slug)" || exit 2
-      repository_space="$(printf '%s' "$repository_space" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
       memory_packet="$(worker_memory_packet "$number" "$native_spec" "$repository_space")" || \
         refuse "could not build the worker Memory packet for #$number"
       task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
@@ -1943,8 +1950,6 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
       fi
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
-      repository_space="$(repo_slug)" || exit 2
-      repository_space="$(printf '%s' "$repository_space" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
       memory_packet="$(reviewer_rules_packet "$repository_space")" || \
         refuse "could not build the reviewer Rules packet for #$number"
       prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS

@@ -16,6 +16,7 @@ ROOT = HERE.parents[2]
 SKILL = MMW / "upstream" / "skills" / "engineering" / "to-spec" / "SKILL.md"
 TICKETS = ROOT / "docs" / "contexts" / "tickets" / "CONTEXT.md"
 MERGE_NOTE = MMW / "merge-notes" / "to-spec.md"
+DOCS_PAGE = MMW / "upstream" / "docs" / "engineering" / "to-spec.md"
 
 MAP_INSTRUCTION = """
 When the reference is a wayfinder map and the tracker is GitHub, publish each
@@ -50,6 +51,7 @@ class ToSpecNativeParent(unittest.TestCase):
         cls.skill = SKILL.read_text()
         cls.tickets = TICKETS.read_text()
         cls.merge_note = MERGE_NOTE.read_text()
+        cls.docs_page = DOCS_PAGE.read_text()
         cls.skill_words = words(cls.skill)
 
     def test_the_map_instruction_is_present_complete_and_in_order(self):
@@ -112,6 +114,11 @@ class ToSpecNativeParent(unittest.TestCase):
         self.assertIn("parent.number", self.merge_note)
         self.assertIn("gh issue create --parent", self.merge_note)
         self.assertIn("do not invent a map parent", self.merge_note)
+
+    def test_the_promoted_docs_page_explains_map_and_standalone_parentage(self):
+        self.assertIn("created as the map's native sub-issue", self.docs_page)
+        self.assertIn("read back before completion is reported", self.docs_page)
+        self.assertIn("standalone spec has no invented map parent", self.docs_page)
 
 
 if __name__ == "__main__":
