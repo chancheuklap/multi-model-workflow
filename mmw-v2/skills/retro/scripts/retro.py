@@ -13,6 +13,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ REPO = MMW.parent
 REPOSITORY_OVERRIDE = ""
 SPACE_CACHE = ""
 VERIFY = MMW / "skills" / "verify-ticket" / "scripts"
+DRIVE = MMW / "skills" / "drive-target" / "scripts"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards",
               "Global AGENTS.md", "Tool economy", "No-ops", "Information access")
 DESTINATIONS = ("check", "script", "repository-agents", "repository-skill",
@@ -32,8 +34,8 @@ SHA = re.compile(r"^[0-9a-f]{40}$")
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR", "CLICOLOR_FORCE")}
 
 
-def load(name: str):
-    path = VERIFY / f"{name}.py"
+def load(name: str, directory: Path = VERIFY):
+    path = directory / f"{name}.py"
     spec = importlib.util.spec_from_file_location(f"retro_{name}", path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
@@ -43,6 +45,7 @@ def load(name: str):
 
 tree = load("tree")
 events = load("events")
+refusal = load("refusal", DRIVE)
 
 
 class RetroError(RuntimeError):
@@ -323,30 +326,72 @@ def search(category: str, cause: str) -> dict:
                         if isinstance(row, dict) and isinstance(row.get("id"), str)]}
 
 
-def evidence_source(url: str) -> tuple[str, str]:
-    """Return the primary source kind and its actual text; a Memory is not a source."""
-    if not isinstance(url, str) or not url.startswith("https://github.com/"):
-        raise RetroError(f"evidence must be a primary GitHub URL: {url!r}")
-    parsed_url = urlparse(url)
+def observed_check(source: str) -> str:
+    """Reopen one read-only observed check without interpreting shell syntax."""
+    try:
+        args = shlex.split(source.removeprefix("check:").strip())
+    except ValueError as exc:
+        raise RetroError(f"observed check {source!r} has unreadable arguments") from exc
+    if not args:
+        raise RetroError("observed check has no command")
+    if args[0] == "rg" and not any(arg.startswith("--pre") for arg in args[1:]):
+        args.insert(1, "--no-config")
+    elif (args[:2] in (["git", "diff"], ["git", "show"], ["git", "log"],
+                       ["git", "status"], ["git", "grep"], ["git", "rev-parse"],
+                       ["git", "cat-file"])):
+        if any(arg in ("--output", "-o", "--ext-diff", "--textconv") or
+               arg.startswith(("--output=", "--pre=", "--ext-diff="))
+               for arg in args[2:]):
+            raise RetroError(f"observed check {source!r} contains a writing or external-diff option")
+    else:
+        raise RetroError(f"observed check {source!r} is not a read-only rg/git command")
+    try:
+        run = subprocess.run(args, cwd=REPO, text=True, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+    except OSError as exc:
+        raise RetroError(f"observed check {source!r} could not run: {exc}") from exc
+    output = (run.stdout + "\n" + run.stderr).strip()
+    if not output:
+        raise RetroError(f"observed check {source!r} returned no primary output")
+    return f"exit={run.returncode}\n{output}"
+
+
+def evidence_source(source: str) -> tuple[str, str]:
+    """Return reopened primary text for an event, commit, current file or check."""
+    if not isinstance(source, str) or not source.strip():
+        raise RetroError(f"primary evidence source is empty: {source!r}")
+    if source.startswith("check:"):
+        return "check", observed_check(source)
+    if not source.startswith("https://"):
+        target = (REPO / source).resolve()
+        if not target.is_relative_to(REPO.resolve()) or not target.is_file():
+            raise RetroError(f"current repository file {source!r} cannot be read inside {REPO}")
+        try:
+            return "file", target.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise RetroError(f"current repository file {source!r} is unreadable: {exc}") from exc
+    if not source.startswith("https://github.com/"):
+        raise RetroError(f"primary event or commit URL is not GitHub: {source!r}")
+    parsed_url = urlparse(source)
     match = re.fullmatch(r"/([^/]+)/([^/]+)/(issues|commit)/(\d+|[0-9a-f]{40})", parsed_url.path)
     if not match:
-        raise RetroError(f"not an issue event or commit source: {url}")
+        raise RetroError(f"not an issue event or commit source: {source}")
     owner, name, kind, ident = match.groups()
     if kind == "commit":
         sha = ident
         return "commit", command(["git", "show", "-s", "--format=%B", sha])
     if not parsed_url.fragment.startswith("issuecomment-"):
-        raise RetroError(f"an issue status without an event comment is not evidence: {url}")
+        raise RetroError(f"an issue status without an event comment is not evidence: {source}")
     comment_id = parsed_url.fragment.split("issuecomment-", 1)[1]
-    row = json.loads(gh("api", f"repos/{owner}/{name}/issues/comments/{comment_id}"))
-    body = row.get("body") if isinstance(row, dict) else None
+    row = parsed(["gh", "api", f"repos/{owner}/{name}/issues/comments/{comment_id}"], env=GH_ENV)
+    body = row.get("body")
     if not isinstance(body, str):
-        raise RetroError(f"{url} has no readable primary comment")
+        raise RetroError(f"{source} has no readable primary comment")
     what, value = events.parse(body)
     if what != "event" or not isinstance(value, dict):
-        raise RetroError(f"{url} is not a script-written event comment")
+        raise RetroError(f"{source} is not a script-written event comment")
     if value.get("ticket") not in (None, int(ident)) and value.get("spec") != int(ident):
-        raise RetroError(f"{url} event identifies a different ticket or spec")
+        raise RetroError(f"{source} event identifies a different ticket or spec")
     return "event", body
 
 
@@ -365,15 +410,19 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
         raise RetroError("task_root differs from the native parent")
     if data["evidence_checked"] != gathered["evidence_checked"]:
         raise RetroError("evidence_checked must carry gather's entire unchanged inventory")
+    if not isinstance(data["observed"], dict):
+        raise RetroError("observed must contain base_commit and at")
     if data["observed"].get("base_commit") != gathered["observed"]["base_commit"] or not data["observed"].get("at"):
         raise RetroError("observed needs gather's base commit and a retro time")
     if not isinstance(data["categories"], dict) or set(data["categories"]) != set(CATEGORIES):
         raise RetroError("all seven categories need an explicit result")
     if any(not isinstance(value, str) or not value.strip() for value in data["categories"].values()):
         raise RetroError("a category result is empty")
-    for name in ("previous_proposals", "problems"):
+    for name in ("evidence_checked", "previous_proposals", "problems"):
         if not isinstance(data[name], list):
             raise RetroError(f"{name} must be a list")
+        if any(not isinstance(row, dict) for row in data[name]):
+            raise RetroError(f"{name} has a non-object entry")
     for row in data["previous_proposals"]:
         if row.get("status") not in ("landed", "no-evidence-found") or not row.get("url"):
             raise RetroError("previous proposals need a URL and landed/no-evidence-found")
@@ -411,14 +460,17 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
             raise RetroError("problem needs one of seven categories and a cause")
         if data["categories"][problem["category"]].strip().lower() == "none":
             raise RetroError("a supported problem cannot have a none category result")
-        if not isinstance(problem.get("evidence"), list) or not problem["evidence"]:
+        if (not isinstance(problem.get("evidence"), list) or not problem["evidence"] or
+                any(not isinstance(source, str) for source in problem["evidence"])):
             raise RetroError("problem lacks primary evidence")
         if not isinstance(problem.get("handled_here"), str) or not problem["handled_here"]:
             raise RetroError("problem lacks Handled here")
         prevention = problem.get("prevention")
-        if not isinstance(prevention, dict) or prevention.get("destination") not in DESTINATIONS or not prevention.get("text"):
+        if (not isinstance(prevention, dict) or prevention.get("destination") not in DESTINATIONS or
+                not isinstance(prevention.get("text"), str) or not prevention["text"]):
             raise RetroError("problem lacks Prevention and its destination")
-        if not isinstance(problem.get("earlier_occurrences"), list):
+        if (not isinstance(problem.get("earlier_occurrences"), list) or
+                any(not isinstance(row, dict) for row in problem["earlier_occurrences"])):
             raise RetroError("problem lacks Earlier occurrences, even when none")
         for source in problem["evidence"]:
             _, text = evidence_source(source)
@@ -484,8 +536,9 @@ def validate_prompt(change: dict, problem: dict) -> None:
 def qualifies(problem: dict, gathered: dict) -> bool:
     urls = list(dict.fromkeys(problem["evidence"] + [p["evidence"] for p in problem["earlier_occurrences"]]))
     sources = [evidence_source(url) for url in urls]
-    distinct = len({occurrence(url) for url in urls}) >= 2
-    if distinct and any(source[0] == "event" for source in sources):
+    occurrences = {occurrence(url) for url, (kind, _) in zip(urls, sources)
+                   if kind in ("event", "commit")}
+    if len(occurrences) >= 2:
         return True
     manifest = gathered.get("memory_closing") or {}
     for item in manifest.get("decisions", []):
@@ -635,9 +688,30 @@ def finalize(number: int, file: Path) -> dict:
             "unreadable_sources": unreadable}
 
 
+class RetroArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        next_step = f"Next: python3 {Path(__file__).resolve()} --help."
+        sys.stderr.write("retro: " + refusal.refusal(
+            f"arguments: {message}", "because the retro command is incomplete or invalid.",
+            next_step) + "\n")
+        raise SystemExit(2)
+
+
+def refusal_for(exc: Exception, args: argparse.Namespace) -> str:
+    fact = f"{args.verb} {getattr(args, 'spec', '')}: {exc}".strip()
+    if args.verb == "gather":
+        return refusal.refusal(fact, "because primary completed-spec sources could not be verified.",
+                                refusal.REPORT_BLOCKED)
+    if args.verb == "search":
+        return refusal.refusal(fact, "because the category, cause or earlier Memory could not be verified.",
+                                f"Next: python3 {Path(__file__).resolve()} search 'Automated checks' '<specific cause>'.")
+    return refusal.refusal(fact, "because analyzed evidence or proposal support could not be verified.",
+                           f"Next: python3 {Path(__file__).resolve()} gather {args.spec}.")
+
+
 def main(argv: list[str] | None = None) -> int:
     global REPO, REPOSITORY_OVERRIDE
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = RetroArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, help="checkout to read; used for isolated tests")
     parser.add_argument("--repository", help="origin repository name; used with temporary Git origins")
     sub = parser.add_subparsers(dest="verb", required=True)
@@ -662,7 +736,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(value, ensure_ascii=False, indent=2))
         return 0
     except (RetroError, events.EventError) as exc:
-        sys.stderr.write(f"retro: {exc}\n")
+        sys.stderr.write(f"retro: {refusal_for(exc, args)}\n")
         return 2
 
 

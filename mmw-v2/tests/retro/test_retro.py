@@ -49,9 +49,11 @@ class Fixture:
             (self.bin / command).symlink_to(target)
         self.gh_path = self.root / "gh.json"
         self.mem_path = self.root / "nmem.json"
+        self.trace_path = self.root / "trace.jsonl"
         self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
                         RETRO_GH_STATE=str(self.gh_path), RETRO_NMEM_STATE=str(self.mem_path),
-                        NMEM_SPACE=SPACE, MMW_HOME=str(self.root / "mmw-home"))
+                        RETRO_TRACE_PATH=str(self.trace_path), NMEM_SPACE=SPACE,
+                        MMW_HOME=str(self.root / "mmw-home"))
         git("init", "--bare", str(self.origin), cwd=self.root)
         git("clone", str(self.origin), str(self.checkout), cwd=self.root)
         git("config", "user.email", "retro@test.invalid", cwd=self.checkout)
@@ -120,6 +122,9 @@ class Fixture:
         value = self.state(name)
         value.update(updates)
         (self.gh_path if name == "gh" else self.mem_path).write_text(json.dumps(value), encoding="utf-8")
+
+    def trace(self) -> list[dict]:
+        return [json.loads(line) for line in self.trace_path.read_text(encoding="utf-8").splitlines()]
 
     def run(self, *args: str, ok: bool = True) -> dict | str:
         result = subprocess.run([sys.executable, str(SCRIPT), "--repo", str(self.checkout),
@@ -214,10 +219,15 @@ def complete_none(f: Fixture):
 
 def partial_evidence(f: Fixture):
     f.issues["70"]["body"] = f.issues["70"]["body"].replace("## User Stories", "## Unknown")
+    f.issues["71"]["comments"].append({"id": 400, "url":
+        f"https://github.com/{REPOSITORY}/issues/71#issuecomment-400",
+        "body": "broken event evidence\n\n<!-- mmw {not-json} -->"})
     f.save()
     gathered = f.run("gather", "70")
     missing = [x["source"] for x in gathered["evidence_checked"] if x["status"] != "present"]
     assert any("User Stories" in x for x in missing)
+    assert any(x["status"] == "unreadable" and "comment 400" in x["source"]
+               for x in gathered["evidence_checked"]), gathered["evidence_checked"]
     problem = current_problem(f, earlier=True)
     gathered = f.run("gather", "70")
     analysis = f.analysis(gathered, [problem])
@@ -225,11 +235,13 @@ def partial_evidence(f: Fixture):
     path.write_text(json.dumps(analysis), encoding="utf-8")
     error = f.run("finalize", "70", str(path), ok=False)
     assert "partial inventory cannot support a proposal" in error
+    assert "because" in error and "gather 70" in error, error
     problem["proposal"] = None
     outcome = f.finish(f.analysis(gathered, [problem]))
     receipt = f.assert_receipt("recorded")
     assert receipt["evidence"] == "partial" and receipt["unreadable_sources"] == missing
-    assert "[missing]" in f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
+    content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
+    assert "[missing]" in content and "[unreadable]" in content
     assert not f.state("gh")["proposals"]
 
 
@@ -246,10 +258,14 @@ def proposal_threshold(f: Fixture):
     assert f.state("nmem")["memories"][outcome["retro_memory"]]["content"].find(proposal["url"]) > 0
     receipt = f.assert_receipt("recorded")
     assert receipt["proposals"] == [900]
-    assert f.state("gh")["calls"].index(["issue", "create", "--repo", REPOSITORY,
-                                          "--label", "needs-triage", "--title", "Prevent same cause",
-                                          "--body-file", "-"]) < len(f.state("gh")["calls"])
-    assert f.state("nmem")["calls"][-1][:2] == ["memories", "add"]
+    trace = f.trace()
+    created = next(i for i, call in enumerate(trace) if call["source"] == "gh" and
+                   call["args"][:2] == ["issue", "create"])
+    memory = next(i for i, call in enumerate(trace) if call["source"] == "nmem" and
+                  call["args"][:2] == ["memories", "add"])
+    posted = next(i for i, call in enumerate(trace) if call["source"] == "gh" and
+                  call["args"][:3] == ["issue", "comment", "70"])
+    assert created < memory < posted, trace
     # One occurrence cannot qualify by severity, title or category alone.
     weak = current_problem(f, earlier=False)
     weak["proposal"]["title"] = "Weak proposed change"
@@ -282,6 +298,29 @@ def proposal_threshold(f: Fixture):
     assert latest["proposed_memory_ids"] == ["worker-memory"]
     outcome = f.finish(f.analysis(latest, [blocker]))
     assert outcome["proposals"] and f.assert_receipt("recorded")["proposals"] == [900]
+    # The repeated-cause threshold also admits two independent commit sources
+    # with no event in the current problem.
+    commits = Fixture()
+    try:
+        git("commit", "--allow-empty", "-m", "same cause in first commit", cwd=commits.checkout)
+        first = git("rev-parse", "HEAD", cwd=commits.checkout)
+        git("commit", "--allow-empty", "-m", "same cause in second commit", cwd=commits.checkout)
+        second = git("rev-parse", "HEAD", cwd=commits.checkout)
+        git("push", "origin", "spec-base", cwd=commits.checkout)
+        git("fetch", "origin", cwd=commits.checkout)
+        evidence = [f"https://github.com/{REPOSITORY}/commit/{sha}" for sha in (first, second)]
+        commit_problem = {"category": "Automated checks", "cause": "same cause",
+                          "evidence": evidence, "handled_here": "Accepted in this run",
+                          "prevention": {"destination": "script", "text": "Check future commits"},
+                          "earlier_occurrences": [], "proposal": {"repository": REPOSITORY,
+                          "title": "Prevent repeated commits", "body": "Owner approval requested."}}
+        latest = commits.run("gather", "70")
+        assert {row["sha"] for row in latest["commits"]} >= {first, second}
+        outcome = commits.finish(commits.analysis(latest, [commit_problem]))
+        assert outcome["proposals"] == [f"https://github.com/{REPOSITORY}/issues/900"]
+        assert commits.assert_receipt("recorded")["proposals"] == [900]
+    finally:
+        commits.close()
 
 
 def prompt_and_record_contract(f: Fixture):
@@ -316,11 +355,44 @@ def prompt_and_record_contract(f: Fixture):
     path = f.root / "bad.json"
     path.write_text(json.dumps(bad), encoding="utf-8")
     assert "all four Changes Made" in f.run("finalize", "70", str(path), ok=False)
+    malformed = f.analysis(f.run("gather", "70"), [problem])
+    malformed["observed"] = "unreadable shape"
+    path.write_text(json.dumps(malformed), encoding="utf-8")
+    refusal = f.run("finalize", "70", str(path), ok=False)
+    assert "observed must contain" in refusal and "because" in refusal and "gather 70" in refusal
+    # A current repository file and a rerunnable observed check are valid
+    # primary evidence for problems without satisfying the proposal threshold.
+    sources = Fixture()
+    try:
+        gathered = sources.run("gather", "70")
+        problems = [
+            {"category": "Information access", "cause": "Change this.",
+             "evidence": ["retro-target.md"], "handled_here": "Found in the current file",
+             "prevention": {"destination": "none", "text": "No change proposed"},
+             "earlier_occurrences": [], "proposal": None},
+            {"category": "Automated checks", "cause": "Keep line.",
+             "evidence": ["check:rg -n 'Keep line.' retro-target.md"],
+             "handled_here": "Observed the read-only check output",
+             "prevention": {"destination": "none", "text": "No change proposed"},
+             "earlier_occurrences": [], "proposal": None},
+        ]
+        result = sources.finish(sources.analysis(gathered, problems))
+        assert result["problem_count"] == 2 and result["proposals"] == []
+        assert sources.assert_receipt("recorded")["problem_count"] == 2
+        content = sources.state("nmem")["memories"][result["retro_memory"]]["content"]
+        assert "retro-target.md" in content and "check:rg -n 'Keep line.'" in content
+    finally:
+        sources.close()
 
 
 def retry_finalize(f: Fixture):
     problem = current_problem(f)
     gathered = f.run("gather", "70")
+    ticket_before = f.state("gh")["issues"]["71"]["comments"]
+    fold_before = events.fold(ticket_before, issue=71)
+    closed_before = [events.parse(c["body"])[1] for c in f.state("gh")["issues"]["70"]["comments"]
+                     if events.parse(c["body"])[0] == "event" and
+                     events.parse(c["body"])[1].get("event") == "spec.closed"]
     f.update("nmem", fail_add_once=True)
     analysis = f.analysis(gathered, [problem])
     first = f.finish(analysis)
@@ -328,6 +400,11 @@ def retry_finalize(f: Fixture):
     f.assert_receipt("unrecorded")
     assert not f.state("nmem")["memories"].get(f"mmw-retro-{SPACE}-spec-70")
     assert len(f.state("gh")["proposals"]) == 1
+    assert f.state("gh")["issues"]["71"]["comments"] == ticket_before
+    assert events.fold(f.state("gh")["issues"]["71"]["comments"], issue=71) == fold_before
+    assert [events.parse(c["body"])[1] for c in f.state("gh")["issues"]["70"]["comments"]
+            if events.parse(c["body"])[0] == "event" and
+            events.parse(c["body"])[1].get("event") == "spec.closed"] == closed_before
     # The incomplete receipt is a spec comment; gather's inventory remains the
     # same source list, and the latest receipt replaces it in the fold.
     next_gather = f.run("gather", "70")
@@ -336,6 +413,11 @@ def retry_finalize(f: Fixture):
     assert len(f.state("gh")["proposals"]) == 1
     assert len(f.state("nmem")["memories"]) == 2  # earlier + one fixed id
     assert f.assert_receipt("recorded")["retro_memory"] == second["retro_memory"]
+    assert f.state("gh")["issues"]["71"]["comments"] == ticket_before
+    assert events.fold(f.state("gh")["issues"]["71"]["comments"], issue=71) == fold_before
+    assert [events.parse(c["body"])[1] for c in f.state("gh")["issues"]["70"]["comments"]
+            if events.parse(c["body"])[0] == "event" and
+            events.parse(c["body"])[1].get("event") == "spec.closed"] == closed_before
     assert len([c for c in f.state("gh")["issues"]["70"]["comments"]
                 if '"event":"spec.closed"' in c["body"]]) == 1
 

@@ -9,6 +9,8 @@ path = Path(os.environ["RETRO_GH_STATE"])
 state = json.loads(path.read_text(encoding="utf-8"))
 args = sys.argv[1:]
 state.setdefault("calls", []).append(args)
+with Path(os.environ["RETRO_TRACE_PATH"]).open("a", encoding="utf-8") as trace:
+    trace.write(json.dumps({"source": "gh", "args": args}) + "\n")
 
 
 def save():

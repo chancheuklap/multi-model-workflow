@@ -25,7 +25,7 @@ The main agent writes one UTF-8 JSON file after Gather, Analyze and Decide. `ret
     {
       "category": "...",
       "cause": "...",
-      "evidence": ["event URL|commit URL|observed check"],
+      "evidence": ["event URL|commit URL|repository-relative file|check:read-only command"],
       "handled_here": "...",
       "prevention": {"destination": "check|script|repository-agents|repository-skill|reviewer-rule|mmw-skill|toolbox-memory|none", "text": "..."},
       "earlier_occurrences": [{"memory_id": "...", "evidence": "original event|commit URL"}],
@@ -40,7 +40,7 @@ The main agent writes one UTF-8 JSON file after Gather, Analyze and Decide. `ret
 
 ## Primary sources and independent occurrences
 
-A current problem needs a script-written event comment URL or a Git commit URL whose opened body states the cause. An observed check is cited through the `ticket.checked` event comment that recorded its output. Earlier occurrences name an `mmw-retro` Memory id discovered by category-plus-cause search, and the original event/commit URL in that Memory; reopen both. Two event comments on one ticket/spec are one occurrence, not two. `spec.closed.payload.memory_closing.decisions` entries with `decision=propose` supply candidate Worker Memory ids only; the `NIGHT SUMMARY` prose and a second proposed-id field supply none. A proposed candidate with one actual blocking event may qualify if that decision's evidence URL is the problem's current source. A source that is missing or unreadable cannot support a proposal. Done when every retained problem has a primary source, independent Handled here and Prevention, and no proposal is based only on a label, title, issue closure or Memory assertion.
+A current problem needs a primary source whose opened text or output states the cause. Use a script-written event comment URL or Git commit URL for running facts and repeated occurrences. A current repository file is its path relative to the checkout root; `finalize` opens that file. A standalone observed check is `check:<command>`: supply a rerunnable, read-only `rg` command or read-only `git diff|show|log|status|grep|rev-parse|cat-file` command whose actual output states the cause. `finalize` runs its arguments without a shell and records its exit and output; a check already recorded by the pipeline uses the `ticket.checked` event URL instead. File and standalone-check sources support a problem, not the two-event-or-commit proposal threshold. Earlier occurrences name an `mmw-retro` Memory id discovered by category-plus-cause search, and the original event/commit URL in that Memory; reopen both. Two event comments on one ticket/spec are one occurrence, not two. `spec.closed.payload.memory_closing.decisions` entries with `decision=propose` supply candidate Worker Memory ids only; the `NIGHT SUMMARY` prose and a second proposed-id field supply none. A proposed candidate with one actual blocking event may qualify if that decision's evidence URL is the problem's current source. A source that is missing or unreadable cannot support a proposal. Done when every retained problem has a primary source, independent Handled here and Prevention, and no proposal is based only on a label, title, issue closure or Memory assertion.
 
 ## Proposal and prompt replacement
 

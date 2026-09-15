@@ -9,6 +9,8 @@ path = Path(os.environ["RETRO_NMEM_STATE"])
 state = json.loads(path.read_text(encoding="utf-8"))
 args = [arg for arg in sys.argv[1:] if arg != "--json"]
 state.setdefault("calls", []).append(args)
+with Path(os.environ["RETRO_TRACE_PATH"]).open("a", encoding="utf-8") as trace:
+    trace.write(json.dumps({"source": "nmem", "args": args}) + "\n")
 
 
 def save():
