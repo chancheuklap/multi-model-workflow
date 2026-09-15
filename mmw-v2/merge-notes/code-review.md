@@ -134,12 +134,28 @@ or the sorting step → keep both the four-angle pass and this ownership rule.
 | --- | --- |
 | `interface.short_description` | 改成「一张 ticket 的 diff」加三个 axis，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
 
+## Active reviewer Rules stay in the session contract
+
+`references/session.md` gained an **Active Rules** section after **Why three axes**. It states that a stable reviewer Rule is applied only within its stated scope, every finding still needs a current source, and repository-specific standards remain repository authority and checks rather than a global Rule. The start prompt in `dispatch.sh` is the verbatim packet from `docs/notes/stage-two-shared-experience-layer.md` “### 8. reviewer 的独立性”; this file is the session contract that packet binds to, not a second copy of the packet.
+
+The three axis steps, the verification step, the in-ticket / out-of-ticket sort, and `--review` reporting stay as they are. `code-review` does not search ordinary Memory. Upstream sentences in those steps were kept; MMW only added the Rule-scope and current-source bound.
+
+If upstream rewrites `session.md` → take its wording for the existing steps, put the Active Rules section back after Why three axes, and do not add Memory retrieval.
+
+## Review findings carry axis categories and sources
+
+`references/session.md` section 5 fixes every `## In-ticket` and `## Out-of-ticket` entry as `- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>`, with any unverified statement appended on that line. The category is the narrowest classification the axis already owns: Standards uses `documented-standard`, `less-code`, `pass-through` or the original smell name; Spec uses `Missing`, `Scope creep` or `Built wrong`; Tests uses the six names from its test smell baseline. The retro environment-improvement categories remain separate, and equal categories do not prove an equal cause.
+
+Reason: the retro can aggregate review evidence only when the ticket preserves both the reviewer's classification and the source that established the claim. A category without its source is not evidence; a source without the category forces the retro to infer the axis's judgement from prose.
+
+If upstream rewrites the report format → keep the category and source fields on both lists, keep unverified on the same line, and map categories to the existing axis vocabularies rather than introducing a shared review taxonomy.
+
 ## A host that cannot run subagents
 
 `references/session.md` section 2 gained the capability branch, in the form `manage-agents-md/references/survey.md` § Dispatch already uses: a host that can run subagents starts three at once; one that cannot runs the three axis files itself, one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The opening paragraph states the same branch. The section heading is `Run the three axes`. The launch and prompt sentences are marked as the can-run path. Hold-the-turn waits until all three axis reports exist. The axis file's read-only rule binds the axis pass; step 5 still writes the review comment. Reason: a reviewer session on a host without subagents had no path (spec #374 Implementation Decisions section 3). If upstream rewrites section 2 → take its wording and put the capability branch back.
 
 ## The session verifies every finding before it sorts
 
-`references/session.md` gained a step between running the axes and sorting in-ticket / out-of-ticket. The opening sentence is `On a host that can run subagents you run no axis yourself, and you verify every finding the axes report`. The session reads each finding at the cited `file:line` and keeps three conclusions, copied from BMAD-METHOD `94b6727b` `skills/bmad-build/step-04-review.md` lines 36–40: the finding holds; `false` (the bad outcome does not happen at the cited location — "A true fact about nearby code that does not disprove the claim does not count."); or it could not tell (`unverified: <what would settle it>` on the in-ticket / out-of-ticket line). `false` findings go under `## Withdrawn` with the refutation. Severity grades and "drop low because the fix is large" are not copied: `session.md` still says the session does not decide whether a finding is worth fixing (ADR 0012). `## In-ticket` entries are `- <Standards|Spec|Tests> <path>:<line> — <claim>`.
+`references/session.md` gained a step between running the axes and sorting in-ticket / out-of-ticket. The opening sentence is `On a host that can run subagents you run no axis yourself, and you verify every finding the axes report`. The session reads each finding at the cited `file:line` and keeps three conclusions, copied from BMAD-METHOD `94b6727b` `skills/bmad-build/step-04-review.md` lines 36–40: the finding holds; `false` (the bad outcome does not happen at the cited location — "A true fact about nearby code that does not disprove the claim does not count."); or it could not tell (`unverified: <what would settle it>` on the in-ticket / out-of-ticket line). `false` findings go under `## Withdrawn` with the refutation. Severity grades and "drop low because the fix is large" are not copied: `session.md` still says the session does not decide whether a finding is worth fixing (ADR 0012). The current `## In-ticket` and `## Out-of-ticket` entry shape is recorded under **Review findings carry axis categories and sources**.
 
 If upstream rewrites the session steps → keep this verification step between the axes and the sort, keep `## Withdrawn`, and keep the three conclusions without severity.

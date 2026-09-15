@@ -2,7 +2,7 @@
 #
 # Orca adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
-#   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT
+#   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT
 #   runners/orca.sh send <session-id> <text>
 #   runners/orca.sh liveness <session-id>
 #   runners/orca.sh stop <session-id>
@@ -85,7 +85,7 @@ orca_() {
 }
 
 usage() {
-  echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT" >&2
+  echo "usage: runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT" >&2
   echo "       runners/orca.sh send <session-id> <text>" >&2
   echo "       runners/orca.sh liveness <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
@@ -256,9 +256,10 @@ except Exception:
 
 start() {
   local host="" model="" effort="" cwd="" prompt="" title=""
+  local -a environment=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --host|--model|--effort|--cwd|--prompt)
+      --host|--model|--effort|--cwd|--prompt|--env)
         [ "$#" -ge 2 ] || usage
         case "$1" in
           --host) host="$2" ;;
@@ -266,6 +267,7 @@ start() {
           --effort) effort="$2" ;;
           --cwd) cwd="$2" ;;
           --prompt) prompt="$2" ;;
+          --env) environment+=("$2") ;;
         esac
         shift 2
         ;;
@@ -290,6 +292,14 @@ start() {
   [ -n "$name" ] || name="$(basename -- "$abs")"
   [ -n "$name" ] && [ "$name" != "/" ] || name=mmw
   cmd="$(host_command "$host" "$model" "$effort" "$name" "$prompt")" || exit 1
+  if [ "${#environment[@]}" -gt 0 ]; then
+    local quoted
+    quoted="$(printf '%s\n' "${environment[@]}" | python3 -c '
+import shlex, sys
+print(" ".join(shlex.quote(line.rstrip("\n")) for line in sys.stdin))
+')" || exit 1
+    cmd="env $quoted $cmd"
+  fi
 
   local err
   err="$(mktemp)"

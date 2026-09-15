@@ -594,6 +594,58 @@ class TestHandingBackReleasesTheTicket(unittest.TestCase):
         self.assertEqual(args[args.index("--remove-label") + 1], "ready-for-agent")
 
 
+class TestReviewFindingCompleteness(unittest.TestCase):
+    def test_missing_finding_is_refused_by_check_only(self):
+        rows = (
+            "- Standards [documented-standard] docs/review.md:82 — Missing docs contract. — source: docs/AGENTS.md:17",
+            "- Standards [Mysterious Name] tests/board.py:25 — The name obscures the subject. — source: docs/standards.md:37",
+            "- Tests [Tautological] tests/events.py:256 — The test provides its expected value. — source: #430 AC2 CHECK",
+            "- Tests [Only the happy path] tests/events.py:481 — It starts from empty state. — source: #430 AC2 CHECK",
+        )
+        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
+                       + "\n".join(rows) + "\n", base="abcdef0", head="1234567")
+        complete = [row + " — " + ("refuted: the cited behavior does not occur"
+                                     if i == 1 else "fixed " + HEAD)
+                    for i, row in enumerate(rows)]
+        text = draft(counts=counts_line()) + "\nReview findings:\n" \
+               + "\n".join(complete) + "\n"
+        code, err, seen = check(text, comments=(review,))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
+        for missing in rows:
+            with self.subTest(missing=missing):
+                remaining = [row + " — fixed " + HEAD for row in rows if row != missing]
+                text = draft(counts=counts_line()) + "\nReview findings:\n" \
+                       + "\n".join(remaining) + "\n"
+                code, err, seen = check(text, comments=(review,))
+                self.assertEqual(code, 1)
+                self.assertIn(missing, err)
+                self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
+
+    def test_old_review_rows_accept_fixed_and_refuted_responses(self):
+        row = "- Spec src/app.py:12 — the importer skips a row"
+        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
+                       + row + "\n", base="abcdef0", head="1234567")
+        for response in ("fixed " + HEAD, "refuted: the fixture contains the row"):
+            with self.subTest(response=response):
+                text = draft(counts=counts_line()) + "\nReview findings:\n" \
+                       + row + " — " + response + "\n"
+                code, err, seen = check(text, comments=(review,))
+                self.assertEqual(code, 0, err)
+                self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
+
+    def test_changed_source_does_not_satisfy_the_latest_review(self):
+        row = "- Tests [Tautological] tests/events.py:256 — The test provides its expected value. — source: #430 AC2 CHECK"
+        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
+                       + row + "\n", base="abcdef0", head="1234567")
+        changed = row.replace("#430 AC2 CHECK", "#430 AC1 CHECK")
+        text = draft(counts=counts_line()) + "\nReview findings:\n" \
+               + changed + " — fixed " + HEAD + "\n"
+        code, err, _ = check(text, comments=(review,))
+        self.assertEqual(code, 1)
+        self.assertIn(row, err)
+
+
 class TestNoSideEffectOnFail(unittest.TestCase):
     """A refused draft leaves the ticket exactly as it was."""
 

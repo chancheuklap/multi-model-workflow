@@ -9,13 +9,13 @@ How to read an entry: the bold line is the term's only name; a term whose name i
 ### Roles
 
 **worker**:
-An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill — its prompt is `Use the implement skill to work ticket #<n>.` plus the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it); its only input is the ticket; it owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
+An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill. Its prompt starts with `Use the implement skill to work ticket #<n>.` and the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it), then carries the repository Space, native task root, Current task shared experience and Historical experience relevant to this task. Its process receives `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`, `MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`; its only work input remains the ticket and its named authorities, which override Memory. It owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
 _Admitted_: worker session
-_Avoid_: 工人, 做票的 agent, 领票的 agent, MMW_TICKET
+_Avoid_: 工人, 做票的 agent, 领票的 agent
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **reviewer**:
-The session a worker starts with `dispatch.sh start <n> reviewer` to run one round of code review. Its prompt names the `code-review` skill, the ticket, and the base commit `start` computes from `origin/<base branch>` and the ticket branch, plus the one standing sentence about working autonomously. It runs in the ticket's worktree, the worker's own, and cuts no branch; its report is the **review comment**, which the worker reads off the ticket. The worker does not stop it: landing does, together with every other session the ticket's started events name, when it archives the workspace (`land <n>` for one ticket, `advance` for a batch). On its own, `reviewer` always means this session, never one of the three axis subagents.
+The session a worker starts with `dispatch.sh start <n> reviewer` to run one round of code review. Its prompt names the `code-review` skill, the ticket, and the base commit `start` computes from `origin/<base branch>` and the ticket branch, plus the one standing sentence about working autonomously, then the **active reviewer Rules**. Its process receives `NMEM_SPACE` and `NMEM_AGENT_ID=mmw-reviewer`. It performs no ordinary Memory list or search. It runs in the ticket's worktree, the worker's own, and cuts no branch; its report is the **review comment**, which the worker reads off the ticket. The worker does not stop it: landing does, together with every other session the ticket's started events name, when it archives the workspace (`land <n>` for one ticket, `advance` for a batch). On its own, `reviewer` always means this session, never one of the three axis subagents.
 _Admitted_: reviewer session
 _Avoid_: reviewer 会话, code-review 会话, 审稿人, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -38,6 +38,36 @@ _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 What one consultation of the advisor gives back: do X, not Y, because Z, plus the single risk that decides it — or, when the caller's reading is sound, that it is sound and the one thing to watch. Missing information that would change the answer is named exactly, with what each answer would imply.
 _Avoid_: verdict (for this)
 _Home_: `mmw-v2/skills/advisor/references/advising.md`
+
+### Worker shared experience
+
+**native task root**:
+The map or standalone spec that bounds one worker's shared experience. It is derived only from the ticket's GitHub native parent graph: a spec with no parent is `standalone spec #<n>`; a spec whose parent carries `mmw:map` is `map #<n>`; an unreadable parent or a parent without `mmw:map` is malformed and supplies no root. Process environment does not override it.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`MMW_TASK_SCOPE`**:
+The one task-scope label a worker uses for exact Memory retrieval and writes: `mmw-map-<n>` for a map task or `mmw-spec-<n>` for a standalone spec. `dispatch.sh start <n> worker` passes it to the worker process; malformed native routing passes an empty value so an inherited scope cannot route a write elsewhere.
+_Admitted_: MMW task scope
+_Avoid_: current task scope, task scope (bare)
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**Current task shared experience**:
+The exact Memory records carrying `MMW_TASK_SCOPE` in the repository Space when a worker starts, listed at limit 1000. Its prompt block distinguishes complete records, `none`, `unavailable: <reason>`, and `truncated: <returned>/<total>`; an id also found by the historical search is shown here only.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**Historical experience relevant to this task**:
+The repository's `mmw-experience` Memory records returned by a semantic search over only the native task root's fixed sections, at limit 10, after ids already present in Current task shared experience are removed. Each record keeps its origin Space when the result supplies one; its prompt block distinguishes records, `none`, and `unavailable: <reason>`.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`MMW_TICKET`**:
+The worker-process environment value holding the number of the one ticket that session implements. `dispatch.sh start <n> worker` supplies it so the implement skill can label a reusable Memory without reconstructing the number from prose. The same name in a criterion shell is set independently by `verify-ticket.py` to the criterion's ticket number.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+### Reviewer Rules
+
+**active reviewer Rules**:
+The owner-approved Rules `dispatch.sh start <n> reviewer` copies from the `mmw-reviewer` Context Bundle `rule_stack` in `global → owner → space → agent` order, each with id, title, body, scope and source. Empty renders `none`; an unreadable bundle renders `unavailable: <reason>`. They decide what to inspect; every finding still needs a current source on the ticket, parent spec, repository authority, diff or checks. Ordinary Memory, Working Memory, Thread and worker retrieval stay outside the review packet.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### Comments on the ticket
 
@@ -120,8 +150,8 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 A reviewer session that stopped before its report landed, named by `runner` and `session` together, the same shape as `worker.lost` and posted the same way, by the **watchdog**, actor `judge`: the ticket was silent past its silence, the session had no `reviewer.reported` after its own start, and its runner answered `stopped`. It ends that session's hold, and not the wait of a worker run in the waiting step. The relay wakes the ticket's worker on it — the worker waiting for that report — which starts another reviewer.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
-**`spec.opened`, `spec.closed`**:
-The two events that bracket a night on its spec. `dispatch.sh open <spec>` posts `spec.opened` once the watch is open and this session is the night's main agent, recording that main agent's runner and session, the base branch as `into` and the project branch as `project`; every later command reads those from it — `start` takes the base branch from it when no `worker.started` carries one, and `finish` refuses a spec whose `spec.opened` names neither. A night whose `spec.opened` could not be written is not open, and the watch that call opened is closed again. `dispatch.sh summary <spec>` posts `spec.closed` when the night is over, carrying the **`NIGHT SUMMARY`** comment and the night's `date`; `finish` refuses a spec that carries no `spec.closed`. Neither is `spec.merged`, which comes after the user has accepted the night's work.
+**`spec.opened`, `spec.closed`, `spec.retroed`**:
+The opening, closing, and retro receipt records of a night. `dispatch.sh open <spec>` posts `spec.opened` once the watch is open and this session is the night's main agent, recording that main agent's runner and session, the base branch as `into` and the project branch as `project`; every later command reads those from it — `start` takes the base branch from it when no `worker.started` carries one, and `finish` refuses a spec whose `spec.opened` names neither. A night whose `spec.opened` could not be written is not open, and the watch that call opened is closed again. `dispatch.sh summary <spec> --memory-decisions <file>` posts `spec.closed` when the night is over, carrying the **`NIGHT SUMMARY`** comment, the night's `date`, and the exact validated Memory decision object as `memory_closing`; `finish` refuses a spec that carries no `spec.closed`. The retro posts `spec.retroed` after `spec.closed`: `result=recorded` carries `retro_memory`, integer `problem_count`, integer proposal issue numbers, `evidence=complete|partial`, and `unreadable_sources` (nonempty only for `partial`); `result=unrecorded` carries only a concrete `reason`. Its person-readable `NIGHT RETRO` receipt links the proposal issues and points to the Retro Memory without copying the full retro. The fold keeps the latest `spec.retroed` by comment id as `spec_retroed`; it changes no hold, wake, slot, ticket verdict, night closing or relay state. None of these is `spec.merged`, which comes after the user has accepted the night's work.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`spec.suspended`**:
@@ -130,7 +160,7 @@ _Avoid_: NIGHT SUSPENDED (as a name; it is the event's first line)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`child.opened`, `child.closed`**:
-The events that record a ticket's children on the ticket itself. `--sub-issue <kind> <file>` posts `child.opened`: the new issue's number as `child`, its `kind` (one of the five **child kinds**), its title, and — as on every event — the ticket's `spec`; the child's own body opens with the line ``A `<kind>` child of #<n>.``, which is for a person. `child.closed` is what **route** posts on the ticket when it settles a `finding`: `resolution` `fixed`, `stale` or `became-ticket`, the new ticket in `became`. The closing pass, `route` and `NIGHT SUMMARY` take a child's kind, spec and route from these two events and from nothing on the child itself or on the tree, which a `became-ticket` route changes; a closed `finding` no `child.closed` accounts for is counted `unread`.
+The events that record a ticket's children on the ticket itself. `--sub-issue <kind> <file>` posts `child.opened`: the new issue's number as `child`, its `kind` (one of the five **child kinds**), its title, and — as on every event — the ticket's `spec`; the child's own body opens with the line ``A `<kind>` child of #<n>.``, which is for a person. `child.closed` is what **route** posts on the ticket when it settles a `finding`: `resolution` `fixed`, `stale` or `became-ticket`, the new ticket in `became`. A `stale` event must also carry `reason=invalid` when the finding never held or `reason=fixed-elsewhere` when it held and was resolved elsewhere; the latter is not a reviewer false positive. A non-stale event carries no `reason`. The closing pass, `route` and `NIGHT SUMMARY` take a child's kind, spec and route from these two events and from nothing on the child itself or on the tree, which a `became-ticket` route changes; a closed `finding` no `child.closed` accounts for is counted `unread`.
 _Avoid_: SUB-ISSUE (as a name or as the first line of a child's body)
 _Home_: `mmw-v2/skills/verify-ticket/references/sub-issues.md`
 
@@ -166,7 +196,7 @@ _Avoid_: decisions comment, 临时决策评论
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **review comment**:
-The reviewer's report on the ticket, the comment the **`reviewer.reported`** event carries. Its shape: first line `REVIEW <base commit>..<HEAD commit>`, the refs as given, even when one does not resolve or the diff is empty; then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes; then `## Withdrawn` (each `false` finding and the refutation that disproves that specific claim); then `## In-ticket` and `## Out-of-ticket`, each in-ticket entry `- <Standards|Spec|Tests> <path>:<line> — <claim>`; then one summary line per axis. The worker, which ended its turn after starting the reviewer, is woken with `#<n> reviewer.reported` once it lands, reads the comment off the ticket, and acks the wake.
+The reviewer's report on the ticket, the comment the **`reviewer.reported`** event carries. Its shape: first line `REVIEW <base commit>..<HEAD commit>`, the refs as given, even when one does not resolve or the diff is empty; then the three axis reports under `## Standards`, `## Spec`, `## Tests`, never merged or reordered across axes; then `## Withdrawn` (each `false` finding and the refutation that disproves that specific claim); then `## In-ticket` and `## Out-of-ticket`, where every finding is `- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>` and an unverified statement is appended on that same line; then one summary line per axis. Standards categories are `documented-standard`, `less-code`, `pass-through` or the original smell name, Spec categories are `Missing`, `Scope creep`, `Built wrong`, and Tests categories are the six test-smell names. The category identifies the narrow axis classification; it neither substitutes a retro environment-improvement category nor proves a shared cause. The worker, which ended its turn after starting the reviewer, is woken with `#<n> reviewer.reported` once it lands, reads the comment off the ticket, and acks the wake.
 _Avoid_: review report comment, REVIEW 评论, report (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/SKILL.md`
 
@@ -193,7 +223,7 @@ _Avoid_: form, 提问表单, BLOCKED:, MMW_AUTONOMOUS
 _Home_: `mmw-v2/skills/drive-target/scripts/hook.py`
 
 **`NIGHT SUMMARY`**:
-The `spec.closed` event `dispatch.sh summary <spec>` posts on the spec when the night is over, first line `NIGHT SUMMARY <date>`, then six lines: `Closed:`, `Handed back to needs-triage:`, `Bounced:` (only tickets whose second `ticket.bounced` since the newest `spec.opened` left them in `needs-triage`, with the reason), `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (by number and title) and `Findings routed:` (`opened/fixed/became/skipped/unread/open`, counting the `finding` kind alone). If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
+The `spec.closed` event `dispatch.sh summary <spec> --memory-decisions <file>` posts on the spec when the night is over, first line `NIGHT SUMMARY <date>`, then `Closed:`, `Handed back to needs-triage:`, `Bounced:` (only tickets whose second `ticket.bounced` since the newest `spec.opened` left them in `needs-triage`, with the reason), `Not dispatched, a blocker stayed open:`, `Sub-issues opened tonight:` (by number and title), `Findings routed:` (`opened/fixed/became/skipped/unread/open`, counting the `finding` kind alone), and Memory closing's status, decision counts, each id's decision, replacement and evidence where applicable, and proposed ids. If `reverify` ran in this checkout, a `Reverify: <green>/<red>` line is appended.
 _Avoid_: 夜间总结, the night summary
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
@@ -309,7 +339,7 @@ _Home_: `mmw-v2/merge-notes/implement.md`
 
 | name | values |
 | --- | --- |
-| event | `spec.opened` · `spec.suspended` · `spec.closed` · `spec.merged` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.bounced` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `child.opened` · `child.closed` |
+| event | `spec.opened` · `spec.suspended` · `spec.closed` · `spec.retroed` · `spec.merged` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.bounced` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `child.opened` · `child.closed` |
 | event subject | `spec` · `ticket` · `worker` · `reviewer` · `child` |
 | common payload field | `v` · `event` · `stage` · `actor` · `spec` · `ticket` · `at` |
 | ends every hold | `ticket.landed` · `ticket.returned` · `ticket.released` · `ticket.bounced` · `spec.suspended` |
