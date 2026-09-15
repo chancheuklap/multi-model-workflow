@@ -234,7 +234,9 @@ proposed ids the retro consumes.
 
 `summary` exit 0 means `NIGHT SUMMARY` was posted and the spec watch is closed. Exit 1 means the comment was posted and the watch closed, but an otherwise unused relay remains; end the pid stderr names. Exit 2 means no comment was posted and the watch remains; fix stderr's named condition and run `summary` again. One of those conditions is step 4 itself: a batch with findings no route reached is refused here, with the `Findings routed:` counts on stderr and its last number the ones left. Go back to step 4, route them, and run `summary` again. Its event and counting mechanics are in [how-it-works.md](how-it-works.md) under **Reverify and summary**.
 
-Tell the user the night finished, point them at that comment, and say that after they accept the result the main agent will run `finish` to close the night.
+Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same main-agent session for this spec. Read its `SKILL.md` completely; its `Gather → Analyze → Decide → Finalize` sequence reads tracker and git evidence, proposes only qualified prevention, writes one fixed-id Retro Memory and the script-authored `spec.retroed` receipt. It starts no runner role and creates no hold or wake. If its Memory write fails, the receipt says `unrecorded`; resolve the stated failure and retry the same spec, reusing proposals and the Memory id. Do not treat an absent or unrecorded receipt as completed retro.
+
+Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the main agent will run `finish` to close the night.
 
 ## 6. Close the night after acceptance
 

@@ -3525,6 +3525,29 @@ scenario_memory_closing() {
     || fail "human summary omits the deprecate mapping: $(cat "$MMW_GH_LAST_BODY")"
 }
 
+scenario_summary_retro() {
+  local code runbook
+  runbook="$(dirname "$(dirname "$HERE")")/skills/dispatch/references/night.md"
+  reset_log; fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 0 ] || fail "summary did not record a completed spec: $(cat "$TMP/err")"
+  posted_events 76 | grep -q '^spec.closed' \
+    || fail "summary never produced the prerequisite spec.closed event"
+  python3 - "$runbook" <<'PY' || fail "the same main-agent runbook does not reach retro after spec.closed"
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+start = text.index("## 5. The night is over")
+end = text.index("## 6. Close the night after acceptance")
+section = text[start:end]
+assert section.index("<dispatch> summary <spec>") < section.index("Immediately after `summary` records `spec.closed`")
+assert section.index("invoke the `retro` skill in this same main-agent session") < section.index("Then tell the user")
+assert "starts no runner role and creates no hold or wake" in section
+assert "unrecorded receipt" in section
+PY
+  hasnt "runner :: start :: retro"
+}
+
 scenario_memory_closing_refuses() {
   local file="$TMP/memory-refuse.json" code body
   for body in \
@@ -9872,6 +9895,7 @@ ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-e
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
 ALL="$ALL retro-review-evidence"
+ALL="$ALL summary-retro"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -9995,6 +10019,7 @@ banner_for() {
     wait) echo DISPATCH-WAIT-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;
     summary) echo DISPATCH-SUMMARY-OK ;;
+    summary-retro) echo SUMMARY-RETRO-OK ;;
     summaryholdsfindings) echo SUMMARY-HOLDS-FINDINGS-OK ;;
     release) echo DISPATCH-RELEASE-OK ;;
     releaseother) echo DISPATCH-RELEASE-OTHER-OK ;;
@@ -10113,6 +10138,7 @@ fn_for() {
     memory-closing-refuses) echo scenario_memory_closing_refuses ;;
     memory-closing-retry) echo scenario_memory_closing_retry ;;
     retro-review-evidence) echo scenario_retro_review_evidence ;;
+    summary-retro) echo scenario_summary_retro ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     *) echo "scenario_$1" ;;

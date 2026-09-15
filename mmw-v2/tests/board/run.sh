@@ -2,6 +2,20 @@
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+unset MMW_TICKET MMW_CATALOG_MODE MMW_SPEC MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
+unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
+while IFS='=' read -r name _; do
+  case "$name" in NMEM_*) unset "$name" ;; esac
+done < <(env)
+MMW_HOME="$(mktemp -d)"
+export MMW_HOME
+trap 'rm -rf "$MMW_HOME"' EXIT
+# A cached Playwright is a complete test dependency. uv may otherwise refresh
+# PyPI for each test file even when the installed package is already usable.
+# A fresh machine with no cache still takes the normal online path.
+if uv run --offline --quiet --with playwright python -c 'import playwright' >/dev/null 2>&1; then
+  export UV_OFFLINE=1
+fi
 rc=0
 count=0
 shopt -s nullglob
