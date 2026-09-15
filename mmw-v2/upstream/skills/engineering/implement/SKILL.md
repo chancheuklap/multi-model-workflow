@@ -93,6 +93,61 @@ evidence used to validate them. If none changed, say so.
 
 Use /tdd where possible, at pre-agreed seams.
 
+## Save or correct shared experience
+
+When the three conditions in **Shared experience while implementing** hold and
+`MMW_TASK_SCOPE` is `mmw-map-<n>` or `mmw-spec-<n>`, save the five-field body
+from that section as soon as the fact is verified. `dispatch` supplies the
+repository Space, Identity, spec, ticket and task scope; use those values
+rather than guessing them from the ticket title. For a map task, the map label
+is additional. For a standalone spec, its spec label already is the task label.
+
+```sh
+label_args=(
+  --label mmw-experience
+  --label "mmw-spec-$MMW_SPEC"
+  --label "mmw-ticket-$MMW_TICKET"
+)
+if [[ "$MMW_TASK_SCOPE" == mmw-map-* ]]; then
+  label_args+=(--label "$MMW_TASK_SCOPE")
+fi
+
+nmem --json memories add --stdin \
+  --space "$NMEM_SPACE" \
+  --agent-id "$NMEM_AGENT_ID" \
+  --unit-type learning \
+  "${label_args[@]}" \
+  --title "<searchable title>" <<'MEMORY'
+适用条件：<环境、版本或前提>
+问题：<已证实的非显然行为>
+有效做法：<下一名 worker 可以直接执行的操作>
+证据：<命令与输出首行，或 path:line>
+发生位置：<repository、spec #n、ticket #n、日期>
+MEMORY
+```
+
+Use `--unit-type procedure` instead of `learning` for fixed steps. Keep the id
+returned by `nmem` and link the current evidence in the ticket report. A failed
+Memory write is reported as unsaved; continue the ticket work rather than
+treating Memory as a prerequisite for implementation.
+
+Correct only an existing Memory from Current task shared experience, or a
+search/list result whose `space_id` equals `NMEM_SPACE`. A shared toolbox
+match is context, not a record for this worker to change. Once the replacement
+Memory is saved and its id returned, link the old record to it; when a record
+is simply obsolete, mark it deprecated:
+
+```sh
+nmem --json memories supersede "$OLD_ID" "$NEW_ID" \
+  --space "$NMEM_SPACE" --reason "<current evidence for the replacement>"
+nmem --json memories deprecate "$OLD_ID" \
+  --space "$NMEM_SPACE" --reason "<current evidence that it no longer applies>"
+```
+
+Use one lifecycle command for the old record, not both. The main agent's
+closing pass and the `retro` skill have their own script commands; a worker
+does not write their Memory records or edit Working Memory here.
+
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.
 
 Verify your work however you like; scratch scripts and quick checks need not be kept. Commit tests only where the ticket asks for them or this repository already keeps tests for this kind of change, sized like the neighboring test files — roughly one focused test per stated behavior — and don't turn scratch checks into additional permanent test files. This is about extras only: implement every behavior the ticket asks for, completely.

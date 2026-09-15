@@ -3,10 +3,11 @@
 #
 #   bash mmw-v2/tests/dispatch/run.sh
 #
-# Two engines, three test files:
+# Two engines, four test files:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
 #   test_profiles.py    unittest, models.bypass_argv, catalog match, adopt, create_agent settings, CLI scan
+#   test_memory_skill_commands.py  unittest, worker save example against fake nmem
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
 # None needs the tracker, a terminal or a browser.

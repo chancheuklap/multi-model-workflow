@@ -182,7 +182,22 @@ It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix 
 
 Once every finding has a route, close this spec's Worker Memory before leaving the pass.
 List the repository space by the exact `mmw-spec-<spec>` label with a limit large enough
-to return the whole set, and inspect every returned record. For each id decide exactly
+to return the whole set, and inspect every returned record. Get the Space id from the
+tracker repository rather than from this session's `NMEM_SPACE` (the main agent has no
+worker Space environment):
+
+```sh
+mmw_closeout_space="$(gh repo view --json nameWithOwner -q .nameWithOwner |
+  tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+nmem --json memories list --space "$mmw_closeout_space" \
+  --label "mmw-spec-<spec>" --limit 1000
+```
+
+If `gh repo view` did not give `owner/name`, skip the list and record `unchecked`
+below instead of treating Default as this repository. Retry `summary` when the
+tracker answers.
+
+For each id decide exactly
 one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is;
 `propose` is a candidate for the later retro and does not change the Memory here;
 `deprecate` is no longer valid; `supersede` names the existing `replacement_id` that
