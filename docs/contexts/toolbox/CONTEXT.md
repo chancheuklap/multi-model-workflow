@@ -114,7 +114,7 @@ _Home_: `mmw-v2/skills/manage-agents-md/references/write.md`
 ### The toolbox
 
 **skill**:
-The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `advisor`, `drive-target`, `align-screens`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`. A skill is named by its directory name; `the X skill` in prose, never `/X`.
+The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `retro`, `advisor`, `drive-target`, `align-screens`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`. A skill is named by its directory name; `the X skill` in prose, never `/X`.
 _Home_: `mmw-v2/skills.txt`
 
 **`SKILL.md`**:
@@ -128,7 +128,7 @@ _Avoid_: 名单 (as a term)
 _Home_: `mmw-v2/install.sh`
 
 **`tests/run.sh`**:
-The test entry point of one skill or one subsystem, the own-script layer, one directory each under `mmw-v2/tests/` — eleven of them: `verify-ticket`, `drive-target`, `align-screens`, `dispatch`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `board`, `liveness`, `relay`, `migrations`; `advisor` and `code-checkers` have none. There is no overall entry point and no CI: each is run by hand, and each one's header says what it tests and what runtime it needs. They live only in a checkout and are never symlinked into a host; each reaches its subject by counting two levels back to `mmw-v2/` and loading the script by path. gate-check's own tests are the vendored-script layer and stay in its own directory.
+The test entry point of one skill or one subsystem, the own-script layer, one directory each under `mmw-v2/tests/` — twelve of them: `verify-ticket`, `drive-target`, `align-screens`, `dispatch`, `retro`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `board`, `liveness`, `relay`, `migrations`; `advisor` and `code-checkers` have none. There is no overall entry point and no CI: each is run by hand, and each one's header says what it tests and what runtime it needs. They live only in a checkout and are never symlinked into a host; each reaches its subject by counting two levels back to `mmw-v2/` and loading the script by path. gate-check's own tests are the vendored-script layer and stay in its own directory.
 _Home_: `mmw-v2/tests/AGENTS.md`
 
 **merge-note**:
