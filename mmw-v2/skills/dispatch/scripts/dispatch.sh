@@ -19,7 +19,7 @@
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
-#   dispatch.sh summary <spec>
+#   dispatch.sh summary <spec> --memory-decisions <file>
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
 #   dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
@@ -383,7 +383,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh reverify <spec>
-       dispatch.sh summary <spec>
+       dispatch.sh summary <spec> --memory-decisions <file>
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
        dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
@@ -3569,11 +3569,260 @@ print((rows[0].get("login") or "") if rows else "")
   [ "$red" -eq 0 ] || exit 1
 }
 
+close_spec_memories() {
+  local spec="$1" decisions_file="$2" slug space result
+  slug="$(repo_slug)" || return 2
+  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+
+  result="$(MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" \
+      MMW_MEMORY_DECISIONS="$decisions_file" python3 - <<'PY'
+import json
+import os
+import subprocess
+import sys
+
+spec = os.environ["MMW_MEMORY_SPEC"]
+space = os.environ["MMW_MEMORY_SPACE"]
+manifest_path = os.environ.get("MMW_MEMORY_DECISIONS") or ""
+label = f"mmw-spec-{spec}"
+
+
+def fail(message):
+    print(f"dispatch: {message}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def nmem(*args):
+    command = ["nmem", "--json", *args]
+    try:
+        return subprocess.run(command, text=True, capture_output=True, check=False)
+    except OSError as exc:
+        return subprocess.CompletedProcess(command, 127, "", str(exc))
+
+
+def object_output(completed):
+    try:
+        value = json.loads(completed.stdout)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def shown_memory(ident):
+    shown = nmem("memories", "show", ident, "--space", space)
+    value = object_output(shown)
+    if shown.returncode != 0 or value is None or value.get("id") != ident:
+        return None
+    return value
+
+
+def exact_active(ident):
+    shown = shown_memory(ident)
+    if shown is None:
+        fail(f"could not read Memory {ident}")
+    query = shown.get("title") or shown.get("content")
+    if not isinstance(query, str) or not query.strip():
+        fail(f"Memory {ident} has no text for ordinary recall")
+    found = nmem("memories", "search", query, "--space", space,
+                 "--label", label, "--limit", "1000")
+    value = object_output(found)
+    if found.returncode != 0 or value is None or not isinstance(value.get("memories"), list):
+        fail(f"could not read the current lifecycle state of Memory {ident}")
+    return any(isinstance(row, dict) and row.get("id") == ident for row in value["memories"])
+
+
+def evolves_to(ident, replacement):
+    found = nmem("memories", "link", "list", ident, "--space", space,
+                 "--type", "EVOLVES", "--status", "active", "--limit", "50")
+    value = object_output(found)
+    if found.returncode != 0 or value is None:
+        fail(f"could not read the current replacement of Memory {ident}")
+    relations = value.get("relations", value.get("links", value.get("items", [])))
+    if not isinstance(relations, list):
+        fail(f"the current replacement response for Memory {ident} is unreadable")
+    target_keys = ("target_memory_id", "replacement_memory_id", "newer_memory_id", "to_memory_id")
+    return any(isinstance(row, dict) and any(row.get(key) == replacement for key in target_keys)
+               for row in relations)
+
+
+listed_call = nmem("memories", "list", "--space", space, "--label", label, "--limit", "1000")
+listed = object_output(listed_call) if listed_call.returncode == 0 else None
+list_available = listed is not None
+if list_available:
+    rows = listed.get("memories")
+    total = listed.get("total")
+    returned = listed.get("returned")
+    list_available = (
+        isinstance(rows, list)
+        and isinstance(total, int) and not isinstance(total, bool) and total >= 0
+        and isinstance(returned, int) and not isinstance(returned, bool) and returned >= 0
+        and returned == len(rows)
+    )
+else:
+    rows, total, returned = [], None, None
+
+if manifest_path:
+    try:
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        fail(f"Memory closing decisions at {manifest_path} are not a readable UTF-8 JSON object: {exc}")
+    if not isinstance(manifest, dict):
+        fail(f"Memory closing decisions at {manifest_path} are not a JSON object")
+else:
+    fail(f"Memory closing for #{spec} requires --memory-decisions <file>")
+
+status = manifest.get("status")
+if status == "unchecked":
+    required = {"status", "reason", "total", "returned", "decisions"}
+    if set(manifest) != required:
+        fail("an unchecked Memory closing object must contain only status, reason, total, returned, and decisions")
+    if not isinstance(manifest.get("reason"), str) or not manifest["reason"].strip():
+        fail("an unchecked Memory closing object requires a non-empty reason")
+    if manifest.get("decisions") != []:
+        fail("an unchecked Memory closing object must have an empty decisions array")
+    if list_available and total > returned:
+        if manifest.get("total") != total or manifest.get("returned") != returned:
+            fail(f"the unchecked Memory totals must match the fresh truncated list ({returned}/{total})")
+    elif not list_available:
+        if manifest.get("total") is not None or manifest.get("returned") is not None:
+            fail("the unchecked Memory totals must both be null when the fresh list is unavailable")
+    else:
+        fail("Memory closing is checkable and complete, so status unchecked is not allowed")
+    line = f"Memory closing: unchecked ({' '.join(manifest['reason'].split())})"
+    print(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
+    print(line)
+    raise SystemExit(0)
+
+if status != "complete":
+    fail("Memory closing status must be complete or unchecked")
+if not list_available:
+    fail("the fresh Memory list is unavailable or unreadable; record status unchecked with null totals")
+if total != returned:
+    fail(f"the fresh Memory list is truncated ({returned}/{total}); record status unchecked with those totals")
+if set(manifest) != {"status", "total", "returned", "decisions"}:
+    fail("a complete Memory closing object must contain only status, total, returned, and decisions")
+decisions = manifest.get("decisions")
+if not isinstance(decisions, list):
+    fail("complete Memory closing decisions must be an array")
+
+listed_ids = []
+for row in rows:
+    ident = row.get("id") if isinstance(row, dict) else None
+    if not isinstance(ident, str) or not ident:
+        fail("the fresh Memory list contains a record without an id")
+    listed_ids.append(ident)
+if len(set(listed_ids)) != len(listed_ids):
+    fail("the fresh Memory list contains duplicate ids")
+
+allowed = {"retain", "propose", "deprecate", "supersede"}
+seen = []
+for item in decisions:
+    if not isinstance(item, dict):
+        fail("each Memory closing decision must be an object")
+    decision = item.get("decision")
+    required = {"memory_id", "decision", "reason", "evidence"}
+    if decision == "supersede":
+        required.add("replacement_id")
+    if set(item) != required:
+        fail(f"Memory decision {item.get('memory_id', '<missing>')} has fields that do not match {decision or '<missing>'}")
+    for field in ("memory_id", "decision", "reason", "evidence"):
+        if not isinstance(item.get(field), str) or not item[field].strip():
+            fail(f"Memory decision {item.get('memory_id', '<missing>')} requires a non-empty {field}")
+    if decision not in allowed:
+        fail(f"Memory {item['memory_id']} has unknown decision {decision}")
+    if decision == "supersede" and (
+        not isinstance(item.get("replacement_id"), str) or not item["replacement_id"].strip()
+    ):
+        fail(f"Memory {item['memory_id']} requires a non-empty replacement_id")
+    seen.append(item["memory_id"])
+
+if len(set(seen)) != len(seen):
+    fail("Memory closing decisions contain duplicate memory_id values")
+if manifest.get("total") != manifest.get("returned") or manifest.get("total") != len(decisions):
+    fail("complete Memory closing totals must equal each other and the decision count")
+unknown = sorted(set(listed_ids) - set(seen))
+missing_now = sorted(set(seen) - set(listed_ids))
+if unknown:
+    fail(f"Memory closing ids do not match the fresh list (unknown current ids: {', '.join(unknown)})")
+by_id = {item["memory_id"]: item for item in decisions}
+
+# All replacement targets are checked before the first lifecycle mutation.
+for item in decisions:
+    if item["decision"] != "supersede":
+        continue
+    if shown_memory(item["replacement_id"]) is None:
+        fail(f"replacement Memory {item['replacement_id']} for {item['memory_id']} does not exist")
+
+# Read every mutable record lifecycle state before the first lifecycle mutation. A service read
+# failure therefore cannot arrive after an earlier decision was already applied.
+active = {}
+replaced = {}
+for item in decisions:
+    ident = item["memory_id"]
+    if item["decision"] == "deprecate":
+        active[ident] = exact_active(ident)
+    elif item["decision"] == "supersede":
+        replaced[ident] = evolves_to(ident, item["replacement_id"])
+        active[ident] = False if replaced[ident] else exact_active(ident)
+
+for ident in missing_now:
+    item = by_id[ident]
+    if item["decision"] == "deprecate" and not active[ident]:
+        continue
+    if item["decision"] == "supersede" and replaced[ident]:
+        continue
+    fail(f"Memory {ident} is absent from the fresh list without already being in its requested lifecycle state")
+
+
+completed = []
+for item in decisions:
+    ident = item["memory_id"]
+    decision = item["decision"]
+    if decision in ("retain", "propose"):
+        continue
+    if decision == "deprecate":
+        if not active[ident]:
+            continue
+        changed = nmem("memories", "deprecate", ident, "--reason", item["reason"], "--space", space)
+    else:
+        replacement = item["replacement_id"]
+        if replaced[ident]:
+            continue
+        if not active[ident]:
+            fail(f"Memory closing failed after completed Memory ids: {', '.join(completed) or 'None'}; failed Memory id: {ident} (inactive without the requested replacement)")
+        changed = nmem("memories", "supersede", ident, replacement,
+                       "--reason", item["reason"], "--space", space)
+    if changed.returncode != 0:
+        detail = (changed.stderr or changed.stdout or "lifecycle command failed").strip()
+        fail(f"Memory closing failed after completed Memory ids: {', '.join(completed) or 'None'}; failed Memory id: {ident} ({detail})")
+    completed.append(ident)
+
+counts = {name: 0 for name in ("retain", "propose", "deprecate", "supersede")}
+lines = [f"Memory closing: complete ({total})"]
+for item in decisions:
+    counts[item["decision"]] += 1
+lines.append("Memory closing counts: " + ", ".join(f"{name} {counts[name]}" for name in counts))
+for item in decisions:
+    one = lambda value: " ".join(value.split())
+    line = f"Memory: {item['memory_id']} -> {item['decision']}; reason: {one(item['reason'])}; evidence: {one(item['evidence'])}"
+    if item["decision"] == "supersede":
+        line += f"; replacement: {item['replacement_id']}"
+    lines.append(line)
+proposed = [item["memory_id"] for item in decisions if item["decision"] == "propose"]
+lines.append("Proposed Memory ids: " + (", ".join(proposed) if proposed else "None"))
+print(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
+print("\n".join(lines))
+PY
+)" || return 2
+  printf '%s\n' "$result"
+}
+
 summary_spec() {
-  local spec="$1"
+  local spec="$1" decisions_file="$2"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
 
-  local body extra git_dir
+  local body extra git_dir memory_result memory_manifest memory_summary
   body="$(python3 "$STATUS" --summary "$spec")"
 
   # The last slot of the summary's `Findings routed:` line is the findings of this batch
@@ -3597,6 +3846,11 @@ summary_spec() {
        esac ;;
   esac
 
+  memory_result="$(close_spec_memories "$spec" "$decisions_file")" || exit $?
+  memory_manifest="$(printf '%s\n' "$memory_result" | head -n 1)"
+  memory_summary="$(printf '%s\n' "$memory_result" | tail -n +2)"
+  body="$(printf '%s\n%s\n' "$body" "$memory_summary")"
+
   git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
   extra=""
   if [ -n "$git_dir" ] && [ -f "$git_dir/mmw-reverify-$spec" ]; then
@@ -3611,6 +3865,7 @@ summary_spec() {
   post_event "$spec" spec.closed --spec "$spec" --line "$first" \
       --text-file <(printf '%s\n' "$rest") \
       --field "date=$(date +%Y-%m-%d)" \
+      --json-field "memory_closing=$memory_manifest" \
     || refuse "could not post the night summary on #$spec"
   printf '%s\n' "$body"
 
@@ -4158,8 +4413,11 @@ case "${1:-}" in
     reverify_spec "$2"
     ;;
   summary)
-    [ "$#" -eq 2 ] || usage
-    summary_spec "$2"
+    if [ "$#" -eq 4 ] && [ "$3" = "--memory-decisions" ]; then
+      summary_spec "$2" "$4"
+    else
+      usage
+    fi
     ;;
   finish)
     [ "$#" -eq 2 ] || usage
