@@ -22,7 +22,9 @@
 #   dispatch.sh summary <spec> --memory-decisions <file>
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
-#   dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
+#   dispatch.sh route <ticket> <child> fixed
+#   dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
+#   dispatch.sh route <ticket> <child> became-ticket <new ticket>
 #
 # Every script this one calls is found by resolution, from this file's own path:
 # `lease.py` of the drive-target skill, and `verify-ticket.py` and `events.py` of the
@@ -386,7 +388,9 @@ usage: dispatch.sh check <spec>
        dispatch.sh summary <spec> --memory-decisions <file>
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
-       dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
+       dispatch.sh route <ticket> <child> fixed
+       dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
+       dispatch.sh route <ticket> <child> became-ticket <new ticket>
 USAGE
   exit 2
 }
@@ -3856,7 +3860,7 @@ summary_spec() {
          "" | *[!0-9]*)
            echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
          0) ;;
-         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed\`, \`dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh route <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
        esac ;;
   esac
 
@@ -4175,7 +4179,10 @@ print(number if isinstance(number, int) else "")
 # the night summary counts findings by it.
 #
 #   fixed               the main agent fixed it in the recorded commit; closed as completed
-#   stale               what it states no longer holds at HEAD; closed as not planned
+#   stale invalid       the finding never held; closed as not planned
+#   stale fixed-elsewhere
+#                       the finding held and another ticket or closing-pass fix resolved it;
+#                       closed as not planned
 #   became-ticket <m>   it is now ticket #<m>. When <m> is the child itself it stays open,
 #                       its layer label goes from mmw:child to mmw:ticket, and its parent
 #                       moves from the ticket to the spec — `verify-ticket.py` finds a
@@ -4196,26 +4203,35 @@ print(number if isinstance(number, int) else "")
 # nothing was done: the arguments are wrong, the ticket carries no `child.opened` for
 # this child, the child was routed another way, or the tracker could not be asked.
 route_child() {
-  local ticket="$1" child="$2" resolution="$3" became="${4:-}"
+  local ticket="$1" child="$2" resolution="$3" detail="${4:-}" reason="" became=""
   case "$ticket" in *[!0-9]* | "") refuse "the ticket number must be digits only, got $ticket" ;; esac
   case "$child" in *[!0-9]* | "") refuse "the child number must be digits only, got $child" ;; esac
   case "$resolution" in
-    fixed | stale) [ -z "$became" ] || refuse "$resolution takes no ticket number" ;;
+    fixed) [ -z "$detail" ] || refuse "fixed takes no reason or ticket number" ;;
+    stale)
+      case "$detail" in
+        invalid | fixed-elsewhere) reason="$detail" ;;
+        "") refuse "stale needs reason invalid or fixed-elsewhere" ;;
+        *) refuse "stale reason is invalid or fixed-elsewhere, got $detail" ;;
+      esac ;;
     became-ticket)
-      case "$became" in *[!0-9]* | "") refuse "became-ticket needs the number of the ticket it became, digits only" ;; esac ;;
+      case "$detail" in *[!0-9]* | "") refuse "became-ticket needs the number of the ticket it became, digits only" ;; esac
+      became="$detail" ;;
     *) refuse "the resolution is fixed, stale or became-ticket, got $resolution" ;;
   esac
 
-  local opened kind spec done_resolution done_became
+  local opened kind spec done_resolution done_became done_reason
   opened="$(ticket_events "$ticket" child --child "$child")" \
     || refuse "could not read #$ticket's events, so whether it opened #$child is unknown; nothing was done"
   [ -n "$opened" ] \
     || refuse "#$ticket carries no child.opened for #$child, so #$child is not a child it opened; name the ticket that opened it. Nothing was done"
-  IFS=$'\t' read -r kind spec done_resolution done_became <<<"$opened"
+  IFS=$'\t' read -r kind spec done_resolution done_became done_reason <<<"$opened"
   [ "$spec" != "-" ] || spec=""
   if [ "$done_resolution" != "-" ]; then
-    if [ "$done_resolution" = "$resolution" ] && { [ -z "$became" ] || [ "$done_became" = "$became" ]; }; then
-      echo "route #$child: already routed $resolution${became:+ #$became}, recorded on #$ticket" >&2
+    if [ "$done_resolution" = "$resolution" ] \
+       && { [ -z "$became" ] || [ "$done_became" = "$became" ]; } \
+       && { [ -z "$reason" ] || [ "$done_reason" = "$reason" ]; }; then
+      echo "route #$child: already routed $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
       return 0
     fi
     refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
@@ -4237,7 +4253,10 @@ route_child() {
     stale)
       [ "$state" = CLOSED ] || gh_ issue close "$child" --reason "not planned" >/dev/null 2>&1 \
         || refuse "could not close #$child; nothing was recorded"
-      line="Closed #$child: what it states no longer holds" ;;
+      case "$reason" in
+        invalid) line="Closed #$child: the finding was invalid" ;;
+        fixed-elsewhere) line="Closed #$child: the finding was fixed elsewhere" ;;
+      esac ;;
     became-ticket)
       ensure_label mmw:ticket || exit 2
       local current labels
@@ -4264,6 +4283,7 @@ route_child() {
   esac
 
   local -a fields=(--field "child=$child" --field "resolution=$resolution")
+  [ -z "$reason" ] || fields+=(--field "reason=$reason")
   [ -z "$became" ] || fields+=(--json-field "became=$became")
   [ "$resolution" != fixed ] || fields+=(--field "commit=$(git rev-parse HEAD 2>/dev/null)")
   if ! post_event "$ticket" child.closed --ticket "$ticket" --spec "$spec" --line "$line" \
@@ -4271,7 +4291,7 @@ route_child() {
     echo "dispatch: #$child is routed ($resolution) but the child.closed event on #$ticket was not written, so the night summary counts it unread; run this again" >&2
     exit 1
   fi
-  echo "route #$child: $resolution${became:+ #$became}, recorded on #$ticket" >&2
+  echo "route #$child: $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
 }
 
 # ------------------------------------------------------------------ entry

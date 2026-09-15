@@ -99,11 +99,17 @@ CHECK_STAGES = {"self": "work", "reverify": "verify", "repo-checks": "close",
 # slot of this machine is taken.
 QUEUE_REASONS = ("product-full", "machine-full")
 BOUNCE_REASONS = ("conflict", "checks")
+STALE_REASONS = ("invalid", "fixed-elsewhere")
+RETRO_RESULTS = ("recorded", "unrecorded")
+RETRO_EVIDENCE = ("complete", "partial")
 
 EVENTS: dict[str, dict] = {
     "spec.opened":       {"stage": "night",    "actor": "main"},
     "spec.suspended":    {"stage": "night",    "actor": "main"},
     "spec.closed":       {"stage": "night",    "actor": "main"},
+    "spec.retroed":      {"stage": "night",    "actor": "main",
+                           "required": ("result",),
+                           "closed": {"result": RETRO_RESULTS}},
     "spec.merged":       {"stage": "land",     "actor": "main",
                           "required": ("into", "project", "merge", "base"),
                           "patterns": {"merge": r"[0-9a-f]{40}",
@@ -215,6 +221,8 @@ SLOT_ENDS = ("ticket.landed", "ticket.returned", "ticket.released", "ticket.boun
 
 # The fields `result` and `checked` print after an event's name.
 RESULT_FIELDS = {
+    "spec.retroed": ("result", "retro_memory", "problem_count", "proposals", "evidence",
+                       "unreadable_sources", "reason"),
     "ticket.passed": ("commit",),
     "ticket.returned": (),
     "reviewer.reported": ("base", "head"),
@@ -267,6 +275,66 @@ def _check(event: str, payload: dict) -> str | None:
             missing = [key for key in group if key not in given]
             return (f"`{event}` names {', '.join(given)} without {', '.join(missing)}; "
                     f"they are one thing and come together")
+    if event == "child.closed":
+        resolution = payload.get("resolution")
+        reason = payload.get("reason")
+        if resolution == "stale" and reason not in STALE_REASONS:
+            return ("`child.closed` with resolution `stale` needs reason "
+                    f"{', '.join(STALE_REASONS)}")
+        if resolution != "stale" and "reason" in payload:
+            return "`child.closed` carries `reason` for a non-stale resolution"
+    if event == "spec.retroed":
+        if payload.get("stage") != "night" or payload.get("actor") != "main":
+            return "`spec.retroed` has stage `night` and actor `main`"
+        if payload.get("ticket") is not None:
+            return "`spec.retroed` is a spec event and its `ticket` must be null"
+        spec_number = payload.get("spec")
+        if isinstance(spec_number, bool) or not isinstance(spec_number, int):
+            return "`spec.retroed` needs an integer `spec`"
+        success = ("retro_memory", "problem_count", "proposals", "evidence",
+                   "unreadable_sources")
+        if payload.get("result") == "unrecorded":
+            reason = payload.get("reason")
+            if not isinstance(reason, str) or not reason.strip():
+                return "`spec.retroed` with result `unrecorded` needs a concrete `reason`"
+            present = [key for key in success if key in payload]
+            if present:
+                return ("`spec.retroed` with result `unrecorded` carries success fields: "
+                        + ", ".join(present))
+            extra = set(payload) - set(COMMON) - {"result", "reason"}
+            if extra:
+                return ("`spec.retroed` with result `unrecorded` carries fields other than "
+                        "its reason: " + ", ".join(sorted(extra)))
+        elif payload.get("result") == "recorded":
+            memory = payload.get("retro_memory")
+            if not isinstance(memory, str) or not memory.strip():
+                return "`spec.retroed` with result `recorded` needs `retro_memory`"
+            count = payload.get("problem_count")
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                return "`spec.retroed` needs a non-negative integer `problem_count`"
+            proposals = payload.get("proposals")
+            if not isinstance(proposals, list) or any(
+                    isinstance(number, bool) or not isinstance(number, int) or number < 1
+                    for number in proposals):
+                return "`spec.retroed` needs `proposals` as a list of integer issue numbers"
+            evidence = payload.get("evidence")
+            if evidence not in RETRO_EVIDENCE:
+                return ("`spec.retroed` has evidence "
+                        f"`{evidence}`, which is not one of {', '.join(RETRO_EVIDENCE)}")
+            sources = payload.get("unreadable_sources")
+            if not isinstance(sources, list) or any(
+                    not isinstance(source, str) or not source.strip() for source in sources):
+                return "`spec.retroed` needs `unreadable_sources` as a list of concrete sources"
+            if evidence == "partial" and not sources:
+                return "`spec.retroed` with partial evidence needs unreadable sources"
+            if evidence == "complete" and sources:
+                return "`spec.retroed` with complete evidence has unreadable sources"
+            if "reason" in payload:
+                return "`spec.retroed` with result `recorded` carries `reason`"
+            extra = set(payload) - set(COMMON) - {"result", *success}
+            if extra:
+                return ("`spec.retroed` with result `recorded` carries fields outside its "
+                        "receipt: " + ", ".join(sorted(extra)))
     return None
 
 
@@ -452,6 +520,7 @@ def empty_state(issue: int | None = None) -> dict:
         "ever_held": False,
         "spec_opened": False,
         "spec_closed": False,
+        "spec_retroed": None,
         "spec_merged": False,
     }
 
@@ -547,6 +616,8 @@ def apply(state: dict, event: dict) -> None:
         state["spec_opened"] = True
     elif name == "spec.closed":
         state["spec_closed"] = True
+    elif name == "spec.retroed":
+        state["spec_retroed"] = event
     elif name == "spec.merged":
         state["spec_merged"] = True
     elif name == "reviewer.reported":
@@ -571,7 +642,8 @@ def apply(state: dict, event: dict) -> None:
     elif name == "child.closed":
         child = payload.get("child")
         state["children"].setdefault(str(child), {"child": child}).update(
-            resolution=payload.get("resolution"), ticket=payload.get("became"))
+            resolution=payload.get("resolution"), reason=payload.get("reason"),
+            ticket=payload.get("became"))
 
     if name in ENDS_EVERY_HOLD:
         _end(state, name)
@@ -865,7 +937,7 @@ def main(argv: list[str] | None = None) -> int:
         entry = state["children"].get(str(args.child)) or {}
         if entry.get("opened"):
             print("\t".join("-" if entry.get(key) in (None, "") else str(entry[key])
-                            for key in ("kind", "spec", "resolution", "ticket")))
+                            for key in ("kind", "spec", "resolution", "ticket", "reason")))
         return 0
     record = state["results"].get(args.kind)
     if record:
