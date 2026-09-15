@@ -79,7 +79,15 @@ The review comment's first line is fixed:
 REVIEW <base commit>..<HEAD commit>
 ```
 
-Then the three axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order. Then `## Withdrawn`, each `false` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Each in-ticket entry is `- <Standards|Spec|Tests> <path>:<line> — <claim>`, with `unverified: <what would settle it>` at the end of the line when you could not tell. An empty list says `None`.
+Then the three axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order. Then `## Withdrawn`, each `false` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Both `## In-ticket` and `## Out-of-ticket` use this exact shape for every finding:
+
+```
+- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>
+```
+
+Use the narrowest category already defined by that axis. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name from its smell baseline. Spec uses `Missing`, `Scope creep`, or `Built wrong`. Tests uses `Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`. These categories preserve the axis's own classification; they are not the retro environment-improvement categories and do not prove that two findings have the same cause.
+
+The source is the current URL, `path:line`, or `CHECK` evidence that proves the finding. When you could not tell, append `unverified: <what would settle it>` at the end of the same line. An empty list says `None`.
 
 End with one line per axis: how many review findings it raised and the worst one within that axis. Rank nothing across axes and merge nothing between them — the separation is what keeps a passing axis from covering a failing one.
 

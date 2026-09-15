@@ -3728,7 +3728,7 @@ JSON
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a refused summary must leave the watch open: $(relay_now)" ;; esac
 
   echo "--- once every finding carries a route, the summary is posted and the watch closes"
-  python3 - "$TMP/tickets.json" "$(ev child.closed 61 "Closed #91" --spec 76 --field child=91 --field resolution=stale)" <<'PY'
+  python3 - "$TMP/tickets.json" "$(ev child.closed 61 "Closed #91" --spec 76 --field child=91 --field resolution=stale --field reason=invalid)" <<'PY'
 import json, sys
 rows = json.load(open(sys.argv[1]))
 rows[0]["comments"].append(json.loads(sys.argv[2]))
@@ -4031,7 +4031,7 @@ scenario_route() {
   has "gh :: issue :: close :: 90 :: --reason :: completed"
 
   echo "--- stale: closed as not planned"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale invalid)"
   [ "$code" = 0 ] || fail "route stale expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: close :: 91 :: --reason :: not planned"
 
@@ -4066,7 +4066,7 @@ scenario_route() {
   [ "$(posted_events 61 | grep -c child.closed)" = 4 ] || fail "a second child.closed was posted"
 
   echo "--- routed another way already: refused, nothing done"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 stale)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 stale invalid)"
   [ "$code" = 2 ] || fail "a child already routed fixed should refuse stale, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: close"
 
@@ -4095,6 +4095,61 @@ scenario_route() {
   hasnt "gh :: issue :: close"
   hasnt "gh :: issue :: edit"
   [ -z "$(posted_events 61)" ] || fail "nothing should be posted: $(posted_events 61)"
+}
+
+scenario_retro_review_evidence() {
+  local code session night
+  session="$(dirname "$(dirname "$HERE")")/upstream/skills/engineering/code-review/references/session.md"
+  night="$SKILL/references/night.md"
+
+  echo "--- review summaries carry the stable axis category and current source"
+  python3 - "$session" <<'PY' || fail "the review evidence contract is incomplete"
+import sys
+text = open(sys.argv[1], encoding="utf-8").read()
+needles = (
+    "- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>",
+    "`documented-standard`, `less-code`, `pass-through`",
+    "`Missing`, `Scope creep`, or `Built wrong`",
+    "`Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`",
+    "`unverified: <what would settle it>` at the end of the same line",
+    "Both `## In-ticket` and `## Out-of-ticket`",
+)
+for needle in needles:
+    assert needle in text, needle
+PY
+
+  echo "--- the night runbook publishes the required stale reason"
+  grep -qF '<dispatch> route <n> <child> stale <invalid|fixed-elsewhere>' "$night" \
+    || fail "night.md does not publish the stale reason signature"
+
+  echo "--- invalid records that the finding never held"
+  reset_log; fresh_repo; write_route_batch
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale invalid)"
+  [ "$code" = 0 ] || fail "stale invalid expected 0, got $code: $(cat "$TMP/err")"
+  posted_events 61 resolution reason | grep -qx 'child.closed resolution=stale reason=invalid' \
+    || fail "stale invalid reason was not recorded: $(posted_events 61 resolution reason)"
+  grep -q 'finding was invalid' "$MMW_GH_LAST_BODY" \
+    || fail "the human receipt does not explain invalid: $(cat "$MMW_GH_LAST_BODY")"
+
+  echo "--- fixed-elsewhere records that the finding once held and was resolved elsewhere"
+  reset_log; fresh_repo; write_route_batch
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale fixed-elsewhere)"
+  [ "$code" = 0 ] || fail "stale fixed-elsewhere expected 0, got $code: $(cat "$TMP/err")"
+  posted_events 61 resolution reason | grep -qx 'child.closed resolution=stale reason=fixed-elsewhere' \
+    || fail "fixed-elsewhere reason was not recorded: $(posted_events 61 resolution reason)"
+  grep -q 'fixed elsewhere' "$MMW_GH_LAST_BODY" \
+    || fail "the human receipt does not explain fixed-elsewhere: $(cat "$MMW_GH_LAST_BODY")"
+
+  echo "--- stale without exactly one allowed reason, and non-stale with a reason, are refused"
+  for args in '61 91 stale' '61 91 stale obsolete' '61 90 fixed invalid' \
+              '61 92 became-ticket 92 fixed-elsewhere'; do
+    reset_log; write_route_batch
+    code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route $args)"
+    [ "$code" = 2 ] || fail "route $args expected 2, got $code: $(cat "$TMP/err")"
+    hasnt "gh :: issue :: close"
+    hasnt "gh :: issue :: edit"
+    [ -z "$(posted_events 61)" ] || fail "route $args posted an event: $(posted_events 61)"
+  done
 }
 
 scenario_specfield() {
@@ -9816,6 +9871,7 @@ ALL="memory-install memory-open-space memory-space-unavailable boardregisters bo
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
+ALL="$ALL retro-review-evidence"
 ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
@@ -9842,6 +9898,7 @@ banner_for() {
     memory-closing) echo MEMORY-CLOSING-OK ;;
     memory-closing-refuses) echo MEMORY-CLOSING-REFUSES-OK ;;
     memory-closing-retry) echo MEMORY-CLOSING-RETRY-OK ;;
+    retro-review-evidence) echo RETRO-REVIEW-EVIDENCE-OK ;;
     boardregisters) echo BOARD-REGISTERS-OK ;;
     boardsameport) echo BOARD-SAME-PORT-OK ;;
     boardopenstab) echo BOARD-OPENS-TAB-OK ;;
@@ -10055,6 +10112,7 @@ fn_for() {
     memory-closing) echo scenario_memory_closing ;;
     memory-closing-refuses) echo scenario_memory_closing_refuses ;;
     memory-closing-retry) echo scenario_memory_closing_retry ;;
+    retro-review-evidence) echo scenario_retro_review_evidence ;;
     start-worker) echo scenario_start_worker ;;
     start-reviewer) echo scenario_start_reviewer ;;
     *) echo "scenario_$1" ;;
