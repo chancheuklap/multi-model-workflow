@@ -857,7 +857,7 @@ open_night() {
   push_open_branches "$root" "$rows" || exit 2
   sync_base_with_project "$root" "$into" "$project" || exit 2
   repository="$(repo_slug)" || exit 2
-  ensure_repository_memory "$repository" || true
+  ensure_repository_memory "$repository" || exit 2
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \

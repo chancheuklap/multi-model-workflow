@@ -13,7 +13,7 @@
 #   Orca 侧工作树     有 orca 时：每个 setup 的 worktree-base-path 为 .worktrees；
 #                     Git repo 的 externalWorktreeVisibility 为 show。没有 orca 则跳过。
 #   Nowledge Mem 对象  strict 的 mmw-toolbox Space；mmw-worker、mmw-reviewer 两个 Identity，
-#                     都不改 default Space。没有 nmem 时 --check 明说没查，但不因此失败。
+#                     默认 Space 都是 mmw-toolbox。没有 nmem 时 --check 明说没查，但不因此失败。
 #   Cursor 的 MCP     ~/.cursor/mcp.json 里 nowledge-mem 一条，内容问本机 nmem 要
 #
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
@@ -1621,8 +1621,8 @@ sys.exit(1 if failed else 0)
 PY
 fi
 
-# Nowledge Mem 的共享对象。Identity 只写来源角色，不改它的 default Space；repository
-# Space 由 dispatch.sh open 建立，这里只建立所有 repository 都会共享的 Toolbox Space。
+# Nowledge Mem 的共享对象。Identity 只写来源角色，default Space 固定为 mmw-toolbox，
+# 避免一次漏传 repository Space 时退回个人 Default。repository Space 由 dispatch.sh open 建立。
 MMW_MODE="$mode" python3 - <<'PY' || rc=1
 import json
 import os
@@ -1683,7 +1683,7 @@ def exact_space(value):
 
 def exact_agent(value, ident, name, role):
     return (value.get("id") == ident and value.get("displayName") == name
-            and value.get("role") == role and value.get("defaultSpaceId") == "default")
+            and value.get("role") == role and value.get("defaultSpaceId") == "mmw-toolbox")
 
 
 space = call(["spaces", "show", "mmw-toolbox"])
@@ -1704,8 +1704,19 @@ if missing_space(space):
 else:
     value = parse(space, "nmem spaces show mmw-toolbox")
     if not exact_space(value):
-        sys.stderr.write("缺    Nowledge Mem Space mmw-toolbox 应为 MMW Toolbox / strict / 不共享其他 Space\n")
-        raise SystemExit(1)
+        if mode == "check":
+            sys.stderr.write("缺    Nowledge Mem Space mmw-toolbox 应为 MMW Toolbox / strict / 不共享其他 Space\n")
+            raise SystemExit(1)
+        updated = call(["spaces", "update", "mmw-toolbox", "--name", "MMW Toolbox",
+                        "--retrieval-mode", "strict", "--clear-shared"])
+        if updated.returncode:
+            parse(updated, "nmem spaces update mmw-toolbox")
+        value = parse(call(["spaces", "show", "mmw-toolbox"]),
+                      "nmem spaces show mmw-toolbox after update")
+        if not exact_space(value):
+            sys.stderr.write("缺    Nowledge Mem Space mmw-toolbox 修复后形状不对\n")
+            raise SystemExit(1)
+        print("已修  Nowledge Mem Space mmw-toolbox")
 
 for ident, name, role in (("mmw-worker", "MMW Worker", "worker"),
                           ("mmw-reviewer", "MMW Reviewer", "reviewer")):
@@ -1714,7 +1725,8 @@ for ident, name, role in (("mmw-worker", "MMW Worker", "worker"),
         if mode == "check":
             sys.stderr.write(f"缺    Nowledge Mem Identity {ident} 不存在：跑一次 install.sh\n")
             raise SystemExit(1)
-        enrolled = call(["agents", "enroll", ident, "--name", name, "--role", role])
+        enrolled = call(["agents", "enroll", ident, "--name", name, "--role", role,
+                         "--default-space", "mmw-toolbox"])
         if enrolled.returncode:
             parse(enrolled, f"nmem agents enroll {ident}")
         value = parse(call(["agents", "show", ident]),
@@ -1726,8 +1738,19 @@ for ident, name, role in (("mmw-worker", "MMW Worker", "worker"),
     else:
         value = parse(agent, f"nmem agents show {ident}")
         if not exact_agent(value, ident, name, role):
-            sys.stderr.write(f"缺    Nowledge Mem Identity {ident} 的 name、role 或 default Space 不对\n")
-            raise SystemExit(1)
+            if mode == "check":
+                sys.stderr.write(f"缺    Nowledge Mem Identity {ident} 的 name、role 或 default Space 不对\n")
+                raise SystemExit(1)
+            updated = call(["agents", "set", ident, "--name", name, "--role", role,
+                            "--default-space", "mmw-toolbox"])
+            if updated.returncode:
+                parse(updated, f"nmem agents set {ident}")
+            value = parse(call(["agents", "show", ident]),
+                          f"nmem agents show {ident} after set")
+            if not exact_agent(value, ident, name, role):
+                sys.stderr.write(f"缺    Nowledge Mem Identity {ident} 修复后形状不对\n")
+                raise SystemExit(1)
+            print(f"已修  Nowledge Mem Identity {ident}")
 PY
 
 # Cursor 的 Nowledge Mem MCP 一条：~/.cursor/mcp.json 里 mcpServers.nowledge-mem。

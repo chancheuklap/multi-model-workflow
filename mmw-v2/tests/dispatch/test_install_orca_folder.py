@@ -54,7 +54,7 @@ if args == ["spaces", "show", "mmw-toolbox"]:
 elif args[:2] == ["agents", "show"] and args[2] in ("mmw-worker", "mmw-reviewer"):
     role = args[2].removeprefix("mmw-")
     result = {"id": args[2], "displayName": "MMW " + role.title(),
-              "role": role, "defaultSpaceId": "default"}
+              "role": role, "defaultSpaceId": "mmw-toolbox"}
 else:
     raise SystemExit(f"unexpected nmem call: {args}")
 print(json.dumps(result))

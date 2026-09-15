@@ -148,7 +148,21 @@ elif args[:2] == ["agents", "enroll"]:
     ident = args[2]
     row = state["agents"].setdefault(ident, {
         "id": ident, "displayName": option("--name"), "role": option("--role"),
-        "defaultSpaceId": "default", "origin": "cli"})
+        "defaultSpaceId": option("--default-space", "default"), "origin": "cli"})
+    save()
+    print(json.dumps(row, sort_keys=True))
+elif args[:2] == ["agents", "set"]:
+    ident = args[2]
+    row = state["agents"].get(ident)
+    if row is None:
+        print(json.dumps({"error": "not_found", "id": ident}))
+        raise SystemExit(1)
+    if "--name" in args:
+        row["displayName"] = option("--name")
+    if "--role" in args:
+        row["role"] = option("--role")
+    if "--default-space" in args:
+        row["defaultSpaceId"] = option("--default-space")
     save()
     print(json.dumps(row, sort_keys=True))
 elif args[:2] == ["memories", "list"]:
@@ -6057,13 +6071,14 @@ assert d["spaces"] == {"mmw-toolbox": {"id": "mmw-toolbox", "name": "MMW Toolbox
     "defaultRetrievalMode": "strict", "sharedSpaceIds": []}}, d
 assert {k: {x: v[x] for x in ("id", "displayName", "role", "defaultSpaceId")}
         for k, v in d["agents"].items()} == {
-    "mmw-worker": {"id": "mmw-worker", "displayName": "MMW Worker", "role": "worker", "defaultSpaceId": "default"},
-    "mmw-reviewer": {"id": "mmw-reviewer", "displayName": "MMW Reviewer", "role": "reviewer", "defaultSpaceId": "default"}}, d
+    "mmw-worker": {"id": "mmw-worker", "displayName": "MMW Worker", "role": "worker", "defaultSpaceId": "mmw-toolbox"},
+    "mmw-reviewer": {"id": "mmw-reviewer", "displayName": "MMW Reviewer", "role": "reviewer", "defaultSpaceId": "mmw-toolbox"}}, d
 PY
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
   [ "$(cat "$TMP/code")" = 0 ] || fail "second install expected 0: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: agents :: enroll"
+  hasnt "nmem :: --json :: agents :: set"
 
   echo "--- --check reads all three objects and writes none"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
@@ -6090,6 +6105,26 @@ PY
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "missing-object check expected 1, got $(cat "$TMP/code")"
   grep -q '^缺    Nowledge Mem Identity mmw-reviewer 不存在' "$TMP/err" || fail "missing object was not named: $(cat "$TMP/err")"
+
+  echo "--- normal install repairs an existing Toolbox Space and Identity to their exact safe shape"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+p=sys.argv[1]; d=json.load(open(p))
+d["spaces"]["mmw-toolbox"]={"id":"mmw-toolbox","name":"wrong","defaultRetrievalMode":"shared","sharedSpaceIds":["default"]}
+d["agents"]["mmw-reviewer"]={"id":"mmw-reviewer","displayName":"wrong","role":"general","defaultSpaceId":"default","origin":"claimed"}
+json.dump(d,open(p,"w"))
+PY
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "repairing install expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: spaces :: update :: mmw-toolbox :: --name :: MMW Toolbox :: --retrieval-mode :: strict :: --clear-shared"
+  has "nmem :: --json :: agents :: set :: mmw-reviewer :: --name :: MMW Reviewer :: --role :: reviewer :: --default-space :: mmw-toolbox"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "normal install did not repair the live object shapes"
+import json, sys
+d=json.load(open(sys.argv[1]))
+assert d["spaces"]["mmw-toolbox"] == {"id":"mmw-toolbox","name":"MMW Toolbox","defaultRetrievalMode":"strict","sharedSpaceIds":[]}, d
+r=d["agents"]["mmw-reviewer"]
+assert {k:r[k] for k in ("id","displayName","role","defaultSpaceId")} == {"id":"mmw-reviewer","displayName":"MMW Reviewer","role":"reviewer","defaultSpaceId":"mmw-toolbox"}, d
+PY
 
   echo "--- a machine without nmem says the objects were not checked, without changing check's exit"
   rm -rf "$no_nmem"; mkdir -p "$no_nmem"
@@ -6186,18 +6221,19 @@ scenario_memory_space_unavailable() {
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: agents :: enroll"
 
-  echo "--- open reports the unavailable repository Space, opens the night, and creates no substitute"
+  echo "--- open refuses before starting the night when the repository Space is unavailable"
   reset_log
   fresh_project_night
   git -C "$TMP/repo" push -q -u origin night
   write_open_batch
   seed_main_agent agt_main
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "Nowledge failure must not block the completable open: $(cat "$TMP/err")"
+  [ "$code" = 2 ] || fail "Nowledge failure must refuse open with exit 2, got $code: $(cat "$TMP/err")"
   grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
     || fail "open did not report repository Memory as unavailable: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: spaces :: update"
+  hasnt "spec.opened"
   no_relay
 
   for bad in invalid-json non-object; do
@@ -6213,18 +6249,19 @@ scenario_memory_space_unavailable() {
     hasnt "nmem :: --json :: spaces :: update"
     hasnt "nmem :: --json :: agents :: enroll"
 
-    echo "--- exit-0 $bad makes open report unavailable without a fallback write"
+    echo "--- exit-0 $bad makes open refuse without a fallback write"
     reset_log
     fresh_project_night
     git -C "$TMP/repo" push -q -u origin night
     write_open_batch
     seed_main_agent agt_main
     code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO="$bad" PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-    [ "$code" = 0 ] || fail "$bad Memory response must not block the completable open: $(cat "$TMP/err")"
+    [ "$code" = 2 ] || fail "$bad Memory response must refuse open with exit 2, got $code: $(cat "$TMP/err")"
     grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
       || fail "$bad open did not report repository Memory as unavailable: $(cat "$TMP/err")"
     hasnt "nmem :: --json :: spaces :: create"
     hasnt "nmem :: --json :: spaces :: update"
+    hasnt "spec.opened"
     no_relay
   done
 }

@@ -141,7 +141,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
 **repository Space**:
-The Nowledge Mem Space for one tracker repository, created or repaired by `dispatch.sh open <spec>` before the relay watch opens. Its id is the lowercase tracker owner, `__`, and lowercase repository name; its display name keeps `owner/name`, its retrieval mode is `shared`, and `sharedSpaceIds` contains exactly `mmw-toolbox`, so it reads no other customer repository or personal Default Space. `open` writes nothing when that shape is exact and treats only a confirmed 404 as absence; an absent `nmem`, unreadable result, or refused call is reported as `repository Memory unavailable`, creates no substitute, and does not block the parts of the night opening that can still complete.
+The Nowledge Mem Space for one tracker repository, created or repaired by `dispatch.sh open <spec>` before the relay watch opens. Its id is the lowercase tracker owner, `__`, and lowercase repository name; its display name keeps `owner/name`, its retrieval mode is `shared`, and `sharedSpaceIds` contains exactly `mmw-toolbox`, so it reads no other customer repository or personal Default Space. `open` writes nothing when that shape is exact and treats only a confirmed 404 as absence; an absent `nmem`, unreadable result, refused call, or wrong read-back is reported as `repository Memory unavailable`, creates no substitute, writes no `spec.opened`, and refuses the night before any agent is started.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **open**:

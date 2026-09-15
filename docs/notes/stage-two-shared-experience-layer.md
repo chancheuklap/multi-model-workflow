@@ -62,11 +62,13 @@ repository Space 的 `sharedSpaceIds` 只包含 `mmw-toolbox`。不同客户 rep
 
 | Identity | 使用者 | 默认 Space | 作用 |
 | --- | --- | --- | --- |
-| `mmw-worker` | ticket worker | Default；dispatch 每次覆盖为当前 repository Space | 记录 provenance，接收 worker active Rules |
-| `mmw-reviewer` | ticket reviewer | Default；dispatch 每次覆盖为当前 repository Space | 记录 provenance，接收 owner 批准的 reviewer active Rules |
+| `mmw-worker` | ticket worker | `mmw-toolbox`；dispatch 每次覆盖为当前 repository Space | 记录 provenance，接收 worker active Rules |
+| `mmw-reviewer` | ticket reviewer | `mmw-toolbox`；dispatch 每次覆盖为当前 repository Space | 记录 provenance，接收 owner 批准的 reviewer active Rules |
 | `default` | owner 的普通会话与非 pipeline 工作 | Default | 保持个人上下文，不由 dispatch 改写 |
 
 Identity 不承担授权：Memory 是否可见由 active Space、retrieval mode 和 shared Spaces 决定。Identity 只回答“谁产生了这条记录”和“哪个角色的 active Rules 应进入 Context Bundle”。`agents enroll` 未指定 `--default-space` 时落到 Default；固定 Identity 也不能把 default Space 设成“当前 repository”，所以 pipeline 必须每次显式传 `NMEM_SPACE`。
+
+MMW 显式把两个 Identity 的 default Space 设为 `mmw-toolbox`。它不是正常运行目标，而是漏传 `NMEM_SPACE` 时的安全边界：connector 最多读到已批准的通用经验，不会把 owner 的个人 Default Working Memory 或其他客户 repository 注入 pipeline agent。
 
 main agent 不使用独立的 `mmw-main` Identity，也不在 `open` 时接收 task Memory 注入。它在 closing pass 由 `dispatch.sh` 按本 spec label 读取 Memory；owner 会话的完整 Thread 不会被自动搬进客户 repository Space。
 
@@ -86,8 +88,8 @@ Nowledge Mem Working Memory 是每个 Space 一份、由 AI 维护的每日简�
 
 #### 建立和解析
 
-- `install.sh` 幂等建立全局的 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`。`install.sh --check` 是只读检查：机器没有 `nmem` 时明确报告“未检查”并保持 exit 0；`nmem` 已存在但对象缺失、JSON 不可读或形状不一致时报告失败并 exit 1。
-- `dispatch.sh open <spec>` 幂等建立当前 repository Space；已有正确 Space 时不重建。Memory 只在每名 worker 真正启动时进入它的首次 prompt，不在 `open` 时交给 main agent，也不另存一份 task 检索包。
+- `install.sh` 幂等建立或修复全局的 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`。两个 Identity 的 default Space 固定为 `mmw-toolbox`。`install.sh --check` 是只读检查：机器没有 `nmem` 时明确报告“未检查”并保持 exit 0；`nmem` 已存在但对象缺失、JSON 不可读或形状不一致时报告失败并 exit 1。
+- `dispatch.sh open <spec>` 幂等建立或修复当前 repository Space，并在启动 night 以前重新读取确认其完整形状；无法确认时拒绝启动。Memory 只在每名 worker 真正启动时进入它的首次 prompt，不在 `open` 时交给 main agent，也不另存一份 task 检索包。
 - repository Space id 是 tracker repository 的 `lowercase(owner) + "__" + lowercase(name)`；显示名保留 `owner/name`，避免两个同名 repository 冲突。
 - dispatch 每次从当前 tracker repository 和 native parent graph 重新解析 Space 与 task root，不把它们缓存进 ticket body。spec 有 `mmw:map` native parent 时使用该 map；没有 native parent 时使用 standalone spec；存在 native parent 但 parent 不是 `mmw:map` 时视为 malformed graph，本次 worker 不做 task-scoped 检索或写入并报告 routing failure，不能退化成 standalone spec。
 
@@ -97,9 +99,9 @@ Nowledge Mem Working Memory 是每个 Space 一份、由 AI 维护的每日简�
 nmem --json spaces create "MMW Toolbox" \
   --id mmw-toolbox --retrieval-mode strict
 nmem --json agents enroll mmw-worker \
-  --name "MMW Worker" --role worker
+  --name "MMW Worker" --role worker --default-space mmw-toolbox
 nmem --json agents enroll mmw-reviewer \
-  --name "MMW Reviewer" --role reviewer
+  --name "MMW Reviewer" --role reviewer --default-space mmw-toolbox
 
 nmem --json spaces create "$REPOSITORY_SLUG" \
   --id "$NMEM_SPACE" \
@@ -107,7 +109,7 @@ nmem --json spaces create "$REPOSITORY_SLUG" \
   --share-with mmw-toolbox
 ```
 
-`agents enroll` 已有 create-only/no-op 语义；`spaces create` 没有同样承诺，所以 `dispatch.sh` 先 `spaces show <id>`，缺失才 create。MMW 命名空间下的 repository Space 已存在但 retrieval shape 不一致时，用 `spaces update <id> --retrieval-mode shared --share-with mmw-toolbox` 恢复固定形状；不会触碰 Default 或其他 Space。
+`agents enroll` 是 create-only/no-op；已有 Identity 形状错误时，正常 install 使用 `agents set` 修复 name、role 与 default Space，`--check` 只报告而不写。`spaces create` 没有同样承诺，所以 `dispatch.sh` 先 `spaces show <id>`，缺失才 create。MMW 命名空间下的 repository Space 已存在但 retrieval shape 不一致时，用 `spaces update <id> --retrieval-mode shared --share-with mmw-toolbox` 恢复固定形状；不会触碰 Default 或其他 Space。
 
 正常路由只读 tracker graph：
 
@@ -834,11 +836,10 @@ worker 写/读 mmw-experience
 
 ### 14. 实施起点
 
-- 本机 CLI/server 是 `0.10.78`；本文只使用这个本机版本已实测的接口。
-- Spaces 功能已经启用，目前只有 Default；repository Spaces、`mmw-toolbox` 和 MMW Identities 尚未建立。
-- 当前只有 `default` Identity；active Rules 为 0，已有 Rule 全部是 draft。
-- MMW 目前只由 `install.sh` 配置 Cursor 的 Nowledge MCP；dispatch、implement 和 runner adapter 里还没有阶段二路由。
-- `to-spec` 已允许一个 map 拆成多份 specs，但发布步骤尚未明确保证这些 specs 是 map 的 native children。
+- 只使用本机 `nmem 0.10.78` 已实测的 Space、Identity、Memory、Context Bundle、Working Memory、Rules、Thread 与 CLI 接口。
+- repository Space、`mmw-toolbox` 和两个 MMW Identities 都必须由脚本按本节固定形状建立、修复并读回验证；真实 Mem 状态不是测试夹具的替代品。
+- MMW 通过现有 install、dispatch、runner adapter、implement、code-review、to-spec 和 event seams 接入，不建立第二套 Memory 服务或状态库。
+- map child spec 必须使用 tracker native parent；standalone spec 保持无 parent。
 
 **依据**：本机 `nmem 0.10.78` 实测；现有 `install.sh`、`dispatch.sh`、runner adapters 与 `to-spec/SKILL.md`。
 
@@ -863,7 +864,7 @@ worker 写/读 mmw-experience
 
 #### A. Space、Identity 与现有 dispatch
 
-1. `mmw-v2/install.sh` 幂等建立 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`；`--check` 只读核对，没有 `nmem` 时明确跳过并 exit 0，已有 `nmem` 但对象或返回形状错误时 exit 1。
+1. `mmw-v2/install.sh` 幂等建立或修复 `mmw-toolbox`、`mmw-worker` 与 `mmw-reviewer`；两个 Identity 的 default Space 固定为 `mmw-toolbox`。`--check` 只读核对，没有 `nmem` 时明确跳过并 exit 0，已有 `nmem` 但对象或返回形状错误时 exit 1。
 2. 在现有 `dispatch.sh` 内增加 Nowledge helper：建立或读取 repository Space、解析 `nmem --json`、按 task/spec label 列举、从 task root 生成历史 semantic query、读取 reviewer active `rule_stack`，并区分 unavailable、0 results 与截断。worker 仍直接使用 Nowledge CLI 做运行中的精确搜索并写 Memory，不增加中间服务、检索缓存或新 adapter module。
 
 #### B. 阶段二读写
@@ -890,34 +891,37 @@ worker 写/读 mmw-experience
 
 ### 17. 不可用时的行为
 
-- Nowledge Mem 读取或写入失败时，worker 照常执行 ticket，输出具体失败原因；Memory 从不改变 acceptance、review 或 landing verdict。
+- repository Space 在 `open` 时无法建立或读回为精确形状，night 不启动。这个启动条件只保护 connector 的 Space 隔离；它不把 Memory 内容变成 acceptance、review 或 landing verdict。
+- 已经安全启动后，task Memory 的 list、search 或 write 失败时，worker 照常执行 ticket并输出具体失败原因；不会生成假的 Memory，也不会改变 acceptance、review 或 landing verdict。
 - native parent 读不到，或存在 native parent 但它不是 `mmw:map` 时，不猜成 standalone spec，也不扩大到 repository scope；本次 worker 不注入或写 task-scoped Memory，并报告 routing 未完成。
 - closing pass 的 Memory lifecycle 部分成功后失败时不写 `spec.closed`；重跑同一份 decision file，按 Nowledge 当前状态跳过已完成项并补齐未完成项。
 - retro 的某项 event/git source 读不到时，Retro Memory 明确写“未检查”；不能把 unreadable 当 0，也不能用该来源形成 proposal。Retro Memory 写入失败时，spec 写 `spec.retroed result=unrecorded` 回执；已由可读 event/commit 支撑的 proposal 保留并由重试复用。
 
-这些行为只让“查询失败”和“查到 0 条”可区分，不增加 retry state、补偿事务或新的 gate。
+这些行为只增加一个已有隔离要求必需的启动前置条件，并让“查询失败”和“查到 0 条”可区分；不增加 retry state、补偿事务或新的 approval gate。
 
-**依据**：Artifact 2.1 的 fail-open；MMW ADR 0008 的 refusal 语义。
+**依据**：Artifact 2.1 的 fail-open 适用于安全启动后的 Memory 内容调用；repository 隔离来自本文“#### Space”、本机 connector 对未知 Space 的实际回退行为，以及 MMW ADR 0008 的 refusal 语义。
 
 ### 18. 验收
 
 1. 一个 map 下两份 specs 的 workers 解析成同一 task scope；无 native parent 的 standalone spec 使用自己的 scope；存在非 `mmw:map` parent 的 spec 明确失败而不误判为 standalone。
 2. repository A 只能搜索自身与 `mmw-toolbox`，看不到 repository B 或 Default。
-3. runner 实际启动的 agent process 收到 `NMEM_SPACE` 与对应 `NMEM_AGENT_ID`；显式 worker Memory 进入当前 repository Space，已启用 connector 时 worker/reviewer Thread 也进入该 Space。
-4. spec A worker 写入 task Memory 后，同一 map 中稍后启动的 spec B worker 通过 task-scoped `list` 得到它；reviewer prompt 不包含它。
-5. 下一夜的新 map worker 以该 map 的 `Destination + Notes + Decisions so far`，新 standalone spec worker 以自身四个已定 section，在首次 prompt 中得到 repository/toolbox 的相关历史 Memory；两种 task 的结果都不含其他客户 repository 或 Default。
-6. 已运行 worker 用实际错误、命令和组件取回当前 task 或 repository/toolbox 历史 Memory；没有具体问题时不做运行中搜索。
-7. MMW 组装的 reviewer packet 只包含 active Rules，不包含普通 Memory、Thread 或 Working Memory；reviewer 独立运行 acceptance/review checks。
-8. 一份 spec 的 closing pass 只处理带该 spec label 的 current Memory；完整读取时 `total == returned` 且每条都有唯一的 retain/propose/deprecate/supersede 决定，`spec.closed` 保存逐项决定、计数与 proposed ids；读取失败或截断明确写 `unchecked`；lifecycle 部分失败时不写 `spec.closed`，同一 decision file 重跑只补未完成项；proposal issue 只由随后的 retro 创建。
-9. `summary` 后的 retro 独立验证 occurrence/blocker 门槛，达到时先创建或复用 proposal，再写固定 id 的完整 Retro Memory，最后在当前 spec 写 `spec.retroed result=recorded` 回执；回执只含 Memory id、计数、proposal links、evidence completeness 和 partial 时的 unreadable sources，不重复完整正文。
-10. 下一份 spec 的 retro 通过 `mmw-retro` semantic search 取回较早同因问题，再核对其中引用的原 event/commit；两个 specs/nights 的同因 event 在第二次形成一个 proposal，同一事件的多条记录不重复计数。
-11. 上一轮 proposal 只有在找到实际落地证据时显示“已落地”，否则显示“没找到证据”。
-12. intent reconciliation 同时显示 spec expected surface、实际 observed surface 与 gap/未验证。
-13. 两个 `stale reason=invalid` 的同类 finding 形成 reviewer 行为 proposal：repository-specific 内容进入该 repository 的 `AGENTS.md` 或 check，跨 repository 成立的方法才进入 `mmw-reviewer` active Rule；`fixed-elsewhere` 不算 false positive。
-14. proposal 在正确 repository 创建，初始 label 为 `needs-triage`；未获 owner 批准不改变 Memory 之外的任何行为机制，retro 重试按 proposal 正文中的 source spec URL 和 evidence URL 复用已有 issue。
-15. owner 批准 toolbox 晋升后，原 repository Memory 保留，固定 id `mmw-toolbox-<source-memory-id>` 在所有 shared repository 可搜索；重复执行仍只有一条。
-16. owner 批准 repository-local skill 后，代表性任务能从 description 发现并执行完整流程，不相关任务只看到 description；该 skill 不被安装到其他 repository。
-17. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
+3. normal install 能把已有错误的 `mmw-toolbox`、`mmw-worker` 或 `mmw-reviewer` 修复成固定形状；`--check` 对同一错误只报告失败且不写。两个 MMW Identity 的 default Space 都是 `mmw-toolbox`。
+4. `open` 只有在 repository Space 已读回为 `shared` 且只共享 `mmw-toolbox` 后才启动 night；缺失、错误 JSON、错误形状或不可用都不会留下 `spec.opened`。
+5. runner 实际启动的 agent process 收到 `NMEM_SPACE` 与对应 `NMEM_AGENT_ID`；显式 worker Memory 进入当前 repository Space，已启用 connector 时 worker/reviewer Thread 也进入该 Space。
+6. spec A worker 写入 task Memory 后，同一 map 中稍后启动的 spec B worker 通过 task-scoped `list` 得到它；reviewer prompt 不包含它。
+7. 下一夜的新 map worker 以该 map 的 `Destination + Notes + Decisions so far`，新 standalone spec worker 以自身四个已定 section，在首次 prompt 中得到 repository/toolbox 的相关历史 Memory；两种 task 的结果都不含其他客户 repository 或 Default。
+8. 已运行 worker 用实际错误、命令和组件取回当前 task 或 repository/toolbox 历史 Memory；没有具体问题时不做运行中搜索。
+9. MMW 组装的 reviewer packet 只包含 active Rules，不包含普通 Memory、Thread 或 Working Memory；reviewer 独立运行 acceptance/review checks。
+10. 一份 spec 的 closing pass 只处理带该 spec label 的 current Memory；完整读取时 `total == returned` 且每条都有唯一的 retain/propose/deprecate/supersede 决定，`spec.closed` 保存逐项决定、计数与 proposed ids；读取失败或截断明确写 `unchecked`；lifecycle 部分失败时不写 `spec.closed`，同一 decision file 重跑只补未完成项；proposal issue 只由随后的 retro 创建。
+11. `summary` 后的 retro 独立验证 occurrence/blocker 门槛，达到时先创建或复用 proposal，再写固定 id 的完整 Retro Memory，最后在当前 spec 写 `spec.retroed result=recorded` 回执；回执只含 Memory id、计数、proposal links、evidence completeness 和 partial 时的 unreadable sources，不重复完整正文。
+12. 下一份 spec 的 retro 通过 `mmw-retro` semantic search 取回较早同因问题，再核对其中引用的原 event/commit；两个 specs/nights 的同因 event 在第二次形成一个 proposal，同一事件的多条记录不重复计数。
+13. 上一轮 proposal 只有在找到实际落地证据时显示“已落地”，否则显示“没找到证据”。
+14. intent reconciliation 同时显示 spec expected surface、实际 observed surface 与 gap/未验证。
+15. 两个 `stale reason=invalid` 的同类 finding 形成 reviewer 行为 proposal：repository-specific 内容进入该 repository 的 `AGENTS.md` 或 check，跨 repository 成立的方法才进入 `mmw-reviewer` active Rule；`fixed-elsewhere` 不算 false positive。
+16. proposal 在正确 repository 创建，初始 label 为 `needs-triage`；未获 owner 批准不改变 Memory 之外的任何行为机制，retro 重试按 proposal 正文中的 source spec URL 和 evidence URL 复用已有 issue。
+17. owner 批准 toolbox 晋升后，原 repository Memory 保留，固定 id `mmw-toolbox-<source-memory-id>` 在所有 shared repository 可搜索；重复执行仍只有一条。
+18. owner 批准 repository-local skill 后，代表性任务能从 description 发现并执行完整流程，不相关任务只看到 description；该 skill 不被安装到其他 repository。
+19. 隔离测试证明新闭环，而正在运行的 frozen MMW watch 从未读取新版本。
 
 **依据**：本文“共享边界”“阶段二：task 内共享经验”“阶段二收口与阶段三 retro”中的可观察结果。
 
