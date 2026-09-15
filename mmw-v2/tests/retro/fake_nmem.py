@@ -37,8 +37,12 @@ elif args[:2] == ["memories", "show"]:
     response(row)
 elif args[:2] == ["memories", "search"]:
     query = args[2]
-    rows = [row for row in state.get("memories", {}).values() if
-            all(word.lower() in row["content"].lower() for word in query.split())]
+    aliases = state.get("semantic_aliases", {})
+    if query in aliases:
+        rows = [state["memories"][ident] for ident in aliases[query]]
+    else:
+        rows = [row for row in state.get("memories", {}).values() if
+                all(word.lower() in row["content"].lower() for word in query.split())]
     response({"memories": rows, "total": len(rows), "returned": len(rows)})
 elif args[:2] == ["memories", "add"]:
     content = sys.stdin.read()

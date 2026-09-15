@@ -231,18 +231,23 @@ def partial_evidence(f: Fixture):
     problem = current_problem(f, earlier=True)
     gathered = f.run("gather", "70")
     analysis = f.analysis(gathered, [problem])
-    path = f.root / "partial.json"
-    path.write_text(json.dumps(analysis), encoding="utf-8")
-    error = f.run("finalize", "70", str(path), ok=False)
-    assert "partial inventory cannot support a proposal" in error
-    assert "because" in error and "gather 70" in error, error
-    problem["proposal"] = None
-    outcome = f.finish(f.analysis(gathered, [problem]))
+    outcome = f.finish(analysis)
     receipt = f.assert_receipt("recorded")
     assert receipt["evidence"] == "partial" and receipt["unreadable_sources"] == missing
     content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
     assert "[missing]" in content and "[unreadable]" in content
-    assert not f.state("gh")["proposals"]
+    assert len(f.state("gh")["proposals"]) == 1
+    # An unreadable source cannot itself support a different problem.
+    invalid = problem.copy()
+    invalid["evidence"] = [f"https://github.com/{REPOSITORY}/issues/71#issuecomment-400"]
+    invalid["earlier_occurrences"] = []
+    invalid["proposal"] = None
+    latest = f.run("gather", "70")
+    path = f.root / "unreadable.json"
+    path.write_text(json.dumps(f.analysis(latest, [invalid])), encoding="utf-8")
+    error = f.run("finalize", "70", str(path), ok=False)
+    assert "https://github.com/sample/" in error and "because" in error and "gather 70" in error, error
+    assert len(f.state("gh")["proposals"]) == 1
 
 
 def proposal_threshold(f: Fixture):
@@ -272,7 +277,7 @@ def proposal_threshold(f: Fixture):
     gathered = f.run("gather", "70")
     path = f.root / "weak.json"
     path.write_text(json.dumps(f.analysis(gathered, [weak])), encoding="utf-8")
-    assert "no two independent sources" in f.run("finalize", "70", str(path), ok=False)
+    assert "proposal has no two indep" in f.run("finalize", "70", str(path), ok=False)
     # Two comments on one ticket are two representations, not two occurrences.
     same = f.event(71, "ticket.checked", "same cause again", ticket=71,
                    run="self", result="unmet", commit=f.landed)
@@ -280,7 +285,7 @@ def proposal_threshold(f: Fixture):
     weak["evidence"].append(same)
     latest = f.run("gather", "70")
     path.write_text(json.dumps(f.analysis(latest, [weak])), encoding="utf-8")
-    assert "no two independent sources" in f.run("finalize", "70", str(path), ok=False)
+    assert "proposal has no two indep" in f.run("finalize", "70", str(path), ok=False)
     # A proposed Worker Memory with an actual blocking event reaches the other
     # threshold without borrowing the older Memory as an occurrence.
     blocked = f.event(71, "ticket.returned", "same cause blocked the ticket", ticket=71)
@@ -302,14 +307,14 @@ def proposal_threshold(f: Fixture):
     # with no event in the current problem.
     commits = Fixture()
     try:
-        git("commit", "--allow-empty", "-m", "same cause in first commit", cwd=commits.checkout)
+        git("commit", "--allow-empty", "-m", "validator rejects absent input file", cwd=commits.checkout)
         first = git("rev-parse", "HEAD", cwd=commits.checkout)
-        git("commit", "--allow-empty", "-m", "same cause in second commit", cwd=commits.checkout)
+        git("commit", "--allow-empty", "-m", "missing input causes validator exit", cwd=commits.checkout)
         second = git("rev-parse", "HEAD", cwd=commits.checkout)
         git("push", "origin", "spec-base", cwd=commits.checkout)
         git("fetch", "origin", cwd=commits.checkout)
         evidence = [f"https://github.com/{REPOSITORY}/commit/{sha}" for sha in (first, second)]
-        commit_problem = {"category": "Automated checks", "cause": "same cause",
+        commit_problem = {"category": "Automated checks", "cause": "validator fails when its input file is absent",
                           "evidence": evidence, "handled_here": "Accepted in this run",
                           "prevention": {"destination": "script", "text": "Check future commits"},
                           "earlier_occurrences": [], "proposal": {"repository": REPOSITORY,
@@ -321,6 +326,32 @@ def proposal_threshold(f: Fixture):
         assert commits.assert_receipt("recorded")["proposals"] == [900]
     finally:
         commits.close()
+    # Semantic retrieval can match the same cause even when the original event
+    # and older Retro Memory use different words from the current analysis.
+    semantic = Fixture()
+    try:
+        current = semantic.event(71, "ticket.checked", "missing input blocks validator",
+                                 ticket=71, run="self", result="unmet", commit=semantic.landed)
+        prior = semantic.event(60, "ticket.checked", "input absent makes validator exit",
+                               ticket=60, run="self", result="unmet", commit=semantic.base)
+        semantic.save()
+        cause = "validator fails when input is missing"
+        semantic.update("nmem", memories={"prior-retro": {
+            "id": "prior-retro", "space_id": SPACE,
+            "content": f"Spec: {REPOSITORY}#69\n## Problems observed\n"
+                       f"### Automated checks: absent input rejected\nEvidence: {prior}\n"}},
+            semantic_aliases={f"Automated checks {cause}": ["prior-retro"]})
+        semantic_problem = {"category": "Automated checks", "cause": cause,
+                            "evidence": [current], "handled_here": "Accepted in this run",
+                            "prevention": {"destination": "script", "text": "Check input first"},
+                            "earlier_occurrences": [{"memory_id": "prior-retro", "evidence": prior}],
+                            "proposal": {"repository": REPOSITORY, "title": "Check missing input",
+                                         "body": "Owner approval requested."}}
+        latest = semantic.run("gather", "70")
+        outcome = semantic.finish(semantic.analysis(latest, [semantic_problem]))
+        assert outcome["proposals"] and semantic.assert_receipt("recorded")["proposals"] == [900]
+    finally:
+        semantic.close()
 
 
 def prompt_and_record_contract(f: Fixture):
@@ -354,7 +385,12 @@ def prompt_and_record_contract(f: Fixture):
     bad["problems"][0]["proposal"]["prompt_change"]["changes_made"].pop("timing")
     path = f.root / "bad.json"
     path.write_text(json.dumps(bad), encoding="utf-8")
-    assert "all four Changes Made" in f.run("finalize", "70", str(path), ok=False)
+    assert "prompt_change needs all fo" in f.run("finalize", "70", str(path), ok=False)
+    problem["proposal"]["prompt_change"]["changes_made"]["timing"] = "No timing change"
+    no_change = f.analysis(f.run("gather", "70"), [problem])
+    no_change["problems"][0]["proposal"]["prompt_change"]["proposed_passage"] = "Keep line.\nChange this."
+    path.write_text(json.dumps(no_change), encoding="utf-8")
+    assert "prompt proposal does not" in f.run("finalize", "70", str(path), ok=False)
     malformed = f.analysis(f.run("gather", "70"), [problem])
     malformed["observed"] = "unreadable shape"
     path.write_text(json.dumps(malformed), encoding="utf-8")

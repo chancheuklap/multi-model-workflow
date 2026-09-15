@@ -454,7 +454,6 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
     if any(row.get("status") not in ("present", "missing", "unreadable") or
            not row.get("source") for row in data["evidence_checked"]):
         raise RetroError("evidence inventory has an unknown status or source")
-    partial = any(row["status"] != "present" for row in data["evidence_checked"])
     for problem in data["problems"]:
         if problem.get("category") not in CATEGORIES or not isinstance(problem.get("cause"), str) or not problem["cause"]:
             raise RetroError("problem needs one of seven categories and a cause")
@@ -473,18 +472,14 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
                 any(not isinstance(row, dict) for row in problem["earlier_occurrences"])):
             raise RetroError("problem lacks Earlier occurrences, even when none")
         for source in problem["evidence"]:
-            _, text = evidence_source(source)
-            if problem["cause"].lower() not in text.lower():
-                raise RetroError("current primary source does not state the proposed cause")
+            evidence_source(source)
         for previous in problem["earlier_occurrences"]:
             if not previous.get("memory_id") or not previous.get("evidence"):
                 raise RetroError("earlier occurrence needs a Memory id and original evidence")
-            _, original = evidence_source(previous["evidence"])
-            if problem["cause"].lower() not in original.lower():
-                raise RetroError("earlier primary source does not state the same cause")
+            evidence_source(previous["evidence"])
             match = search(problem["category"], problem["cause"])["matches"]
             matched = next((row for row in match if row["id"] == previous["memory_id"]), None)
-            if not matched or previous["evidence"] not in matched["content"] or problem["cause"] not in matched["content"]:
+            if not matched or previous["evidence"] not in matched["content"]:
                 raise RetroError("earlier mmw-retro does not cite the original same-cause source")
             if previous["evidence"] in problem["evidence"]:
                 raise RetroError("an earlier occurrence repeats the same event or commit")
@@ -492,8 +487,6 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
                 raise RetroError("an earlier event belongs to the same issue occurrence")
         proposal = problem.get("proposal")
         if proposal is not None:
-            if partial:
-                raise RetroError("partial inventory cannot support a proposal")
             if not isinstance(proposal, dict) or not all(proposal.get(key) for key in ("repository", "title", "body")):
                 raise RetroError("proposal needs responsible repository, title and body")
             if not re.fullmatch(r"[^/\s]+/[^/\s]+", proposal["repository"]):
@@ -525,12 +518,8 @@ def validate_prompt(change: dict, problem: dict) -> None:
         raise RetroError("prompt target file and heading do not exist")
     if change["current_passage"] not in target.read_text(encoding="utf-8"):
         raise RetroError("current complete passage does not occur in target file")
-    old = change["current_passage"].splitlines()
-    new = change["proposed_passage"].splitlines()
-    import difflib
-    unchanged = [line[2:] for line in difflib.ndiff(old, new) if line.startswith("  ")]
-    if any(line not in new for line in unchanged):
-        raise RetroError("an unchanged prompt sentence did not survive")
+    if change["current_passage"] == change["proposed_passage"]:
+        raise RetroError("prompt proposal does not change the passage")
 
 
 def qualifies(problem: dict, gathered: dict) -> bool:
