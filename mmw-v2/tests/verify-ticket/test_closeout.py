@@ -604,6 +604,14 @@ class TestReviewFindingCompleteness(unittest.TestCase):
         )
         review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
                        + "\n".join(rows) + "\n", base="abcdef0", head="1234567")
+        complete = [row + " — " + ("refuted: the cited behavior does not occur"
+                                     if i == 1 else "fixed " + HEAD)
+                    for i, row in enumerate(rows)]
+        text = draft(counts=counts_line()) + "\nReview findings:\n" \
+               + "\n".join(complete) + "\n"
+        code, err, seen = check(text, comments=(review,))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
         for missing in rows:
             with self.subTest(missing=missing):
                 remaining = [row + " — fixed " + HEAD for row in rows if row != missing]

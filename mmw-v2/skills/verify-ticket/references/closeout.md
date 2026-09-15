@@ -67,5 +67,5 @@ One gate comes after the draft: an accepted `ALL MET` draft still has to pass th
 ## Exit codes
 
 - `--decisions` and `--touched`: `0` posted (or, for `--touched`, nothing to post), `2` refused, with the reason on stderr and nothing posted.
-- `--draft`: `0` the file was written and its path printed, `2` refused because the newest `worker.started` carries no `into`, with the restart instruction on stderr and no file written anywhere.
+- `--draft`: `0` the file was written and its path printed; `2` refused because the newest `worker.started` carries no `into` or the newest review has an unrecognized nonempty `## In-ticket` row. Stderr names the missing start field or the review comment and original row, and no file is written.
 - `--closeout`: `0` the ticket is closed (or handed back) and its event posted, `1` refused — by one of the conditions above, by a `ticket.checked` event of run `repo-checks` with result `unmet`, by a rejected or unconfirmed push, or by the tracker not closing or handing back the ticket, in which case no event was posted and stderr says what to resolve before running it again.
