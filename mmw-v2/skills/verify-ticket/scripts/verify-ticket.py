@@ -1237,7 +1237,7 @@ def in_ticket_findings(review: str, comment: int | str | None = None) -> list[st
     """
     rows = [row.strip() for row in section(review, "In-ticket")
             if row.strip() and not re.fullmatch(r"<!-- mmw \{.*\} -->", row.strip())]
-    if rows == ["None"] or not rows:
+    if rows in (["None"], ["None."]) or not rows:
         return []
     found = []
     for row in rows:
@@ -1362,6 +1362,10 @@ def run_review(number: int, path: Path) -> int:
         return refuse(
             "a review comment opens `REVIEW <base commit>..<HEAD commit>`, and this file "
             + (f"opens `{head[:60]}`" if head else "is empty"))
+    try:
+        in_ticket_findings(stripped)
+    except ValueError as exc:
+        return refuse(str(exc))
     rest = "\n".join(stripped.splitlines()[1:]).strip("\n")
     post_event(number, "reviewer.reported", head, rest,
                base=found.group(1), head=found.group(2))

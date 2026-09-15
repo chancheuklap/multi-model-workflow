@@ -460,6 +460,13 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
 
+    def test_none_with_a_period_is_an_empty_review_not_a_worker_blocker(self):
+        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
+                       "## In-ticket\n\nNone.\n", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((MET_RUN, review))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Review findings:\nNone", text)
+
     def test_none_when_the_ticket_carries_no_review(self):
         code, err, text, _ = run_draft((MET_RUN,))
         self.assertEqual(code, 0, err)

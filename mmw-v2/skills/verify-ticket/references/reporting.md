@@ -14,8 +14,8 @@ You are the reviewer on ticket `<n>`, with the report written to a file.
 
 It posts the file as the review comment — the `reviewer.reported` event, carrying the two commits. That event is what wakes the worker waiting on your report: the relay of the `dispatch` skill reads it off the ticket and wakes the session that started you, so posting it is the whole of telling.
 
-The first line decides whether anything is posted at all. A file that does not open `REVIEW <base commit>..<HEAD commit>` is refused and nothing lands on the ticket, so nothing wakes the worker either, because those two commits are the event's `base` and `head`: a report that names no commits does not say which diff it read. An empty file is refused the same way.
+Before posting, the run checks the first line and every `## In-ticket` row. The first line is `REVIEW <base commit>..<HEAD commit>`; those commits become the event's `base` and `head`. An empty list is `None` or `None.`. Each finding row uses the `- <Standards|Spec|Tests> <path>:<line> — <claim>` form, with its category and source when the review contract requires them. A report with an unknown nonempty row is refused here, before any event wakes the worker.
 
 ## Exit codes
 
-`0` the comment is on the ticket. `2` the first line was wrong or the file was empty: nothing posted, the reason on stderr.
+`0` the comment is on the ticket. `2` the first line, file, or `## In-ticket` rows are invalid: nothing posted, the reason on stderr.
