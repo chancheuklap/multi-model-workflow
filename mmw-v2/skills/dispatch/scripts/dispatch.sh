@@ -3294,12 +3294,18 @@ record_spec_merged() {
 }
 
 clean_base_worktrees() {
-  local root="$1" into="$2" main path branch
+  local root="$1" into="$2" main current path branch resolved
   main="$(main_checkout)" || main=""
+  current="$(CDPATH='' cd -- "$root" 2>/dev/null && pwd -P)" || current="$root"
   while IFS=$'\t' read -r path branch; do
     [ "$branch" = "refs/heads/$into" ] || continue
     [ -n "$path" ] || continue
-    if [ -n "$main" ] && [ "$(CDPATH='' cd "$path" 2>/dev/null && pwd -P)" = "$(CDPATH='' cd "$main" && pwd -P)" ]; then
+    resolved="$(CDPATH='' cd -- "$path" 2>/dev/null && pwd -P)" || resolved="$path"
+    if [ "$resolved" = "$current" ]; then
+      echo "dispatch: keeping current worktree $path; after this main-agent session ends, run finish again from another checkout to remove it and the local $into branch" >&2
+      continue
+    fi
+    if [ -n "$main" ] && [ "$resolved" = "$(CDPATH='' cd "$main" && pwd -P)" ]; then
       echo "dispatch: keeping the main checkout $path; switch it off $into, then run git branch -D $into" >&2
       continue
     fi

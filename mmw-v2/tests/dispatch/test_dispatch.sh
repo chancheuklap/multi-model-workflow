@@ -6959,6 +6959,41 @@ scenario_finishcleans() {
   return 0
 }
 
+scenario_finishkeepscurrent() {
+  local caller finish_code cwd_code
+  setup_finish_closed
+  caller="$TMP/repo/.worktrees/night-current"
+  mkdir -p "$TMP/repo/.worktrees"
+  git -C "$TMP/repo" worktree add -q "$caller" night
+  caller="$(CDPATH='' cd -- "$caller" && pwd -P)"
+
+  (
+    cd "$caller" || exit 99
+    env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+      bash "$DISPATCH" "${TOOLS[@]}" finish 76 > "$TMP/out" 2> "$TMP/err"
+    printf '%s\n' "$?" > "$TMP/finish-code"
+    git rev-parse --show-toplevel > "$TMP/current-root" 2> "$TMP/current-error"
+    printf '%s\n' "$?" > "$TMP/current-code"
+  )
+
+  finish_code="$(cat "$TMP/finish-code")"
+  cwd_code="$(cat "$TMP/current-code")"
+  [ "$finish_code" = 0 ] || fail "finish from the current base worktree failed: $(cat "$TMP/err")"
+  [ "$cwd_code" = 0 ] \
+    || fail "finish deleted its caller's current worktree: $(cat "$TMP/current-error")"
+  [ "$(cat "$TMP/current-root" 2>/dev/null)" = "$caller" ] \
+    || fail "the caller no longer resolves to its worktree"
+  [ -d "$caller" ] || fail "finish removed the caller's current worktree"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night \
+    || fail "finish deleted the local base branch still checked out by its caller"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night \
+    && fail "finish kept the contained origin base branch"
+  grep -q "keeping current worktree $caller" "$TMP/err" \
+    || fail "finish did not explain why the current worktree remains: $(cat "$TMP/err")"
+  [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] \
+    || fail "finish from the current worktree did not record exactly one merge"
+}
+
 scenario_finishrefusesunclosed() {
   local code before local_night
   fresh_project_night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
@@ -8633,7 +8668,7 @@ JSON
 }
 
 ALL="boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
-ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepscurrent finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -8822,6 +8857,7 @@ banner_for() {
     openprojecthead) echo OPEN-PROJECT-HEAD-OK ;;
     finishmerges) echo FINISH-MERGES-OK ;;
     finishcleans) echo FINISH-CLEANS-OK ;;
+    finishkeepscurrent) echo FINISH-KEEPS-CURRENT-OK ;;
     finishrefusesunclosed) echo FINISH-REFUSES-UNCLOSED-OK ;;
     finishrefusesopenticket) echo FINISH-REFUSES-OPEN-TICKET-OK ;;
     finishrefusesothernight) echo FINISH-REFUSES-OTHER-NIGHT-OK ;;

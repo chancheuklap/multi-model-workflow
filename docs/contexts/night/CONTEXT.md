@@ -82,7 +82,7 @@ _Avoid_: base-commit (in prose), 起点 commit, cut point, 切点, review bounda
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **base branch**:
-The temporary integration branch on `origin` a night's tickets merge into; `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, `spec.opened` and `worker.started` name it in `into`, and after user acceptance `finish` merges it into the recorded project branch and removes every contained clean copy of it.
+The temporary integration branch on `origin` a night's tickets merge into; `origin/<base branch>` is authoritative and a local branch of the same name is a cache. The main agent opens the night on it, `spec.opened` and `worker.started` name it in `into`, and after user acceptance `finish` merges it into the recorded project branch and removes every contained clean copy except the worktree the calling main-agent session still uses; a later `finish` from another checkout removes that worktree and its local branch after the session ends.
 _Avoid_: main branch, 基线分支, main (as a name)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
@@ -146,7 +146,7 @@ _Avoid_: register (as the name of this), 开夜 (as a term)
 _Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
 
 **`dispatch.sh finish`**:
-`dispatch.sh finish <spec>`, run by the main agent after the user accepts a closed night, merges `origin/<base branch>` into the recorded project branch in a detached merge worktree, runs repository checks with `MMW_BASE_REF=origin/<project branch>`, fast-forward pushes the checked result, and writes `spec.merged`. It then removes the contained base branch from origin and locally, clean worktrees that have it checked out, the merge worktree and its lock. It refuses before changing anything while the spec carries no `spec.closed`, has no project branch, shares its open base branch with another night, or any ticket under a spec using that base remains open. Conflict or red checks push and delete nothing. Once `spec.merged` exists, another run performs only unfinished cleanup.
+`dispatch.sh finish <spec>`, run by the main agent after the user accepts a closed night, merges `origin/<base branch>` into the recorded project branch in a detached merge worktree, runs repository checks with `MMW_BASE_REF=origin/<project branch>`, fast-forward pushes the checked result, and writes `spec.merged`. It then removes the contained base branch from origin and locally, clean worktrees that have it checked out, the merge worktree and its lock, except that it keeps the worktree from which the calling main-agent session runs and therefore its checked-out local base branch; after that session ends, another `finish` from another checkout removes those two without merging again. It refuses before changing anything while the spec carries no `spec.closed`, has no project branch, shares its open base branch with another night, or any ticket under a spec using that base remains open. Conflict or red checks push and delete nothing. Once `spec.merged` exists, another run performs only unfinished cleanup.
 _Avoid_: finish (bare), summary (for this)
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
