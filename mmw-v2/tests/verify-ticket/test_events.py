@@ -6,6 +6,7 @@ reached here by writing the comments down. No tracker, no runner, no clock.
     python3 -m unittest discover -s mmw-v2/tests/verify-ticket -p test_events.py
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -16,6 +17,14 @@ import unittest
 from _load import EVENTS, load_events
 
 events = load_events()
+RELAY = EVENTS.parents[2] / "dispatch" / "scripts" / "relay.py"
+
+
+def load_relay():
+    spec = importlib.util.spec_from_file_location("mmw_relay_for_event_tests", RELAY)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 SAME_SECOND = "2026-09-10T02:00:00Z"
 
@@ -38,12 +47,12 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """The 26 live events have one shape and closed sets."""
+    """The 27 live events have one shape and closed sets."""
 
-    def test_there_are_twenty_six_events(self):
-        self.assertEqual(len(events.EVENTS), 26)
+    def test_there_are_twenty_seven_events(self):
+        self.assertEqual(len(events.EVENTS), 27)
         for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
-                     "ticket.bounced"):
+                     "ticket.bounced", "spec.retroed"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
 
@@ -171,6 +180,83 @@ class TheVocabulary(unittest.TestCase):
         with self.assertRaises(events.EventError):
             events.build("ticket.checked", ticket=61, line="x", run="reverify",
                          commit="3f9c2e1a", result="met")
+
+    def test_stale_child_closed_requires_its_reason_and_only_stale_accepts_one(self):
+        for reason in ("invalid", "fixed-elsewhere"):
+            body = events.build("child.closed", ticket=61, line="Closed #90", child=90,
+                                resolution="stale", reason=reason)
+            self.assertEqual(events.parse(body)[1]["reason"], reason)
+        for fields in (
+            {"child": 90, "resolution": "stale"},
+            {"child": 90, "resolution": "stale", "reason": "obsolete"},
+            {"child": 90, "resolution": "fixed", "reason": "invalid"},
+            {"child": 90, "resolution": "became-ticket", "became": 90,
+             "reason": "fixed-elsewhere"},
+        ):
+            with self.subTest(fields=fields):
+                with self.assertRaises(events.EventError):
+                    events.build("child.closed", ticket=61, line="Closed #90", **fields)
+
+    def test_recorded_retro_receipts_require_the_complete_typed_shape(self):
+        full = dict(result="recorded", retro_memory="retro-76", problem_count=2,
+                    proposals=[431, 432], evidence="complete", unreadable_sources=[])
+        body = events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO", **full)
+        what, payload = events.parse(body)
+        self.assertEqual((what, payload["stage"], payload["actor"], payload["ticket"]),
+                         ("event", "night", "main", None))
+        partial = {**full, "evidence": "partial", "unreadable_sources": ["ticket #61"]}
+        self.assertEqual(events.parse(events.build(
+            "spec.retroed", ticket=None, spec=76, line="NIGHT RETRO", **partial))[0], "event")
+        for key in full:
+            with self.subTest(missing=key):
+                with self.assertRaises(events.EventError):
+                    events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
+                                 **{name: value for name, value in full.items() if name != key})
+
+        invalid = [
+            {**full, "retro_memory": ""},
+            {**full, "problem_count": "2"},
+            {**full, "problem_count": True},
+            {**full, "proposals": [431, "432"]},
+            {**full, "proposals": [True]},
+            {**full, "proposals": "431"},
+            {**full, "evidence": "unknown"},
+            {**full, "evidence": "partial", "unreadable_sources": []},
+            {**full, "unreadable_sources": ["ticket #61"]},
+            {**full, "unreadable_sources": "none"},
+            {**full, "note": "not a receipt field"},
+        ]
+        for fields in invalid:
+            with self.subTest(fields=fields):
+                with self.assertRaises(events.EventError):
+                    events.build("spec.retroed", ticket=None, spec=76,
+                                 line="NIGHT RETRO", **fields)
+
+    def test_unrecorded_retro_receipts_carry_only_a_concrete_reason(self):
+        body = events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
+                            result="unrecorded", reason="Nowledge Mem write failed")
+        self.assertEqual(events.parse(body)[1]["reason"], "Nowledge Mem write failed")
+        self.assertEqual(events.describe(events.newest([comment(1, body)], "spec.retroed")),
+                         "spec.retroed result=unrecorded reason=Nowledge Mem write failed")
+        for fields in (
+            {"result": "unrecorded"},
+            {"result": "unrecorded", "reason": ""},
+            {"result": "unrecorded", "reason": "failed", "problem_count": 0},
+            {"result": "unrecorded", "reason": "failed", "note": "extra"},
+            {"result": "recorded", "reason": "failed", "retro_memory": "retro-76",
+             "problem_count": 0, "proposals": [], "evidence": "complete",
+             "unreadable_sources": []},
+        ):
+            with self.subTest(fields=fields):
+                with self.assertRaises(events.EventError):
+                    events.build("spec.retroed", ticket=None, spec=76,
+                                 line="NIGHT RETRO", **fields)
+        with self.assertRaises(events.EventError):
+            events.build("spec.retroed", ticket=61, spec=76, line="NIGHT RETRO",
+                         result="unrecorded", reason="failed")
+        with self.assertRaises(events.EventError):
+            events.build("spec.retroed", ticket=None, spec=76, line="NIGHT RETRO",
+                         actor="worker", result="unrecorded", reason="failed")
 
 
 class TheCommentFormat(unittest.TestCase):
@@ -387,6 +473,43 @@ class Replays(unittest.TestCase):
         self.assertEqual(state["children"]["90"]["kind"], "finding")
         self.assertEqual(state["children"]["90"]["resolution"], "became-ticket")
         self.assertEqual(state["children"]["90"]["ticket"], 80)
+
+    def test_latest_retro_receipt_folds_by_comment_id_without_other_effects(self):
+        first = ev("spec.retroed", "NIGHT RETRO", ticket=None, spec=76,
+                   result="unrecorded", reason="Nowledge Mem write failed")
+        latest = ev("spec.retroed", "NIGHT RETRO", ticket=None, spec=76,
+                    result="recorded", retro_memory="retro-76", problem_count=1,
+                    proposals=[431], evidence="partial",
+                    unreadable_sources=["ticket #61"])
+        prior = [
+            comment(1, started()),
+            comment(2, checked_run(slot=2)),
+            comment(3, started("rev_1", kind="reviewer")),
+            comment(4, ev("reviewer.reported", "REVIEW a..b", base="a", head="b")),
+            comment(5, ev("ticket.passed", "ALL MET", commit="d" * 40)),
+            comment(6, queued()),
+            comment(10, first),
+        ]
+        before = events.fold(prior, issue=76)
+        state = events.fold([comment(20, latest), *prior], issue=76)
+        self.assertEqual(state["spec_retroed"]["payload"]["result"], "recorded")
+        self.assertEqual(events.newest([comment(20, latest), comment(10, first)],
+                                       "spec.retroed")["comment"], 20)
+        self.assertEqual(events.describe(state["spec_retroed"]),
+                         "spec.retroed result=recorded retro_memory=retro-76 "
+                         "problem_count=1 proposals=431 evidence=partial "
+                         "unreadable_sources=ticket #61")
+        for key in ("held", "hold_ended", "waiting", "slot", "passed", "returned",
+                    "landed", "regressed", "bounced", "outcome", "review", "results",
+                    "sessions", "claim_hold"):
+            with self.subTest(preserved=key):
+                self.assertEqual(state[key], before[key])
+        self.assertTrue(state["held"])
+        self.assertIsNotNone(state["waiting"])
+        self.assertEqual(state["slot"], 2)
+        self.assertTrue(state["passed"])
+        self.assertIsNotNone(state["review"])
+        self.assertIsNone(load_relay().woken_by(state["spec_retroed"]["payload"]))
 
     def test_a_late_comment_is_replayed_in_its_place_not_applied_last(self):
         """Released, claimed again, then passed, landed and regressed — with the second

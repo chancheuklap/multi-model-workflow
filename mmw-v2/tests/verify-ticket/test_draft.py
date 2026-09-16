@@ -460,6 +460,13 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
 
+    def test_none_with_a_period_is_an_empty_review_not_a_worker_blocker(self):
+        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
+                       "## In-ticket\n\nNone.\n", base="abcdef0", head="1234567")
+        code, err, text, _ = run_draft((MET_RUN, review))
+        self.assertEqual(code, 0, err)
+        self.assertIn("Review findings:\nNone", text)
+
     def test_none_when_the_ticket_carries_no_review(self):
         code, err, text, _ = run_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
@@ -511,6 +518,41 @@ None
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
         self.assertNotIn("src/app.py:12", text)
+
+
+CAT_REVIEW_ROWS = (
+    "- Standards [documented-standard] mmw-v2/upstream/skills/engineering/code-review/references/session.md:82 — The promoted skill's category-and-source report contract is absent from its human-facing docs page. — source: mmw-v2/upstream/AGENTS.md:17",
+    "- Standards [Mysterious Name] mmw-v2/tests/board/test_board_data.py:25 — `_ticket` does not reveal that it overrides only the event subject while the positional value also seeds the fixture issue. — source: mmw-v2/upstream/skills/engineering/code-review/references/standards-reviewer.md:37",
+    "- Tests [Tautological] mmw-v2/tests/verify-ticket/test_events.py:256 — The test supplies the expected proposal link itself, so it cannot prove that structured proposal numbers are rendered into a person-readable receipt. — source: #430 AC2 CHECK",
+    "- Tests [Only the happy path] mmw-v2/tests/verify-ticket/test_events.py:481 — The empty-state case cannot prove that `spec.retroed` preserves pre-existing hold, wait, slot, verdict, and review state or produces no wake. — source: #430 AC2 CHECK",
+)
+CAT_REVIEW = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
+                   + "\n".join(CAT_REVIEW_ROWS) + "\n\n## Out-of-ticket\n\nNone\n",
+                   base="abcdef0", head="1234567")
+
+
+class TestCategorizedReviewFindings(unittest.TestCase):
+    def test_category_source_and_all_four_rows_survive(self):
+        code, err, text, _ = run_draft((MET_RUN, CAT_REVIEW))
+        self.assertEqual(code, 0, err)
+        block = text.split("Review findings:\n", 1)[1].split("\n\n", 1)[0]
+        self.assertNotEqual(block, "None")
+        self.assertEqual(block.splitlines(), [row + " — <fill>" for row in CAT_REVIEW_ROWS])
+
+    def test_unknown_nonempty_row_is_refused(self):
+        bad = "- Standards [documented-standard] no location or source"
+        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
+                       + CAT_REVIEW_ROWS[0] + "\n" + bad + "\n",
+                       base="abcdef0", head="1234567")
+        with TemporaryDirectory() as tmp:
+            asked = Path(tmp) / "closeout.md"
+            code, out, err, text, path, _ = draft_run((MET_RUN, review), asked)
+            self.assertEqual(code, 2)
+            self.assertEqual(out, "")
+            self.assertEqual(text, "")
+            self.assertFalse(asked.exists())
+            self.assertIn(bad, err)
+            self.assertIn("REVIEW abcdef0..1234567", err)
 
 
 class TestGreenBeforeWork(unittest.TestCase):
