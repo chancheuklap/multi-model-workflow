@@ -19,10 +19,12 @@
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
-#   dispatch.sh summary <spec>
+#   dispatch.sh summary <spec> --memory-decisions <file>
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
-#   dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
+#   dispatch.sh route <ticket> <child> fixed
+#   dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
+#   dispatch.sh route <ticket> <child> became-ticket <new ticket>
 #
 # Every script this one calls is found by resolution, from this file's own path:
 # `lease.py` of the drive-target skill, and `verify-ticket.py` and `events.py` of the
@@ -383,10 +385,12 @@ usage: dispatch.sh check <spec>
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh reverify <spec>
-       dispatch.sh summary <spec>
+       dispatch.sh summary <spec> --memory-decisions <file>
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
-       dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]
+       dispatch.sh route <ticket> <child> fixed
+       dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
+       dispatch.sh route <ticket> <child> became-ticket <new ticket>
 USAGE
   exit 2
 }
@@ -450,6 +454,87 @@ repo_slug() {
     return 2
   fi
   printf '%s\n' "$slug"
+}
+
+# Make this repository's Memory boundary explicit before a night opens or any agent
+# starts. Only a confirmed 404 is absence, so an unavailable service never triggers a
+# create as a substitute.
+ensure_repository_memory() {
+  local slug="$1"
+  MMW_REPOSITORY_SLUG="$slug" python3 - <<'PY'
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+slug = os.environ["MMW_REPOSITORY_SLUG"]
+parts = slug.split("/", 1)
+if len(parts) != 2 or not all(parts):
+    sys.stderr.write(f"dispatch: repository Memory unavailable: {slug!r} is not owner/name\n")
+    raise SystemExit(1)
+ident = "__".join(part.lower() for part in parts)
+
+if shutil.which("nmem") is None:
+    sys.stderr.write("dispatch: repository Memory unavailable: this machine has no nmem\n")
+    raise SystemExit(1)
+
+
+def call(args):
+    return subprocess.run(["nmem", "--json", *args], text=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+def detail(proc):
+    return (proc.stderr or proc.stdout or f"exit {proc.returncode}").strip().replace("\n", "; ")
+
+
+def parse(proc):
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def exact(value):
+    return (isinstance(value, dict) and value.get("id") == ident
+            and value.get("name") == slug
+            and value.get("defaultRetrievalMode") == "shared"
+            and value.get("sharedSpaceIds") == ["mmw-toolbox"])
+
+
+shown = call(["spaces", "show", ident])
+if shown.returncode:
+    missing = "404" in (shown.stderr or "") and "Unknown space:" in (shown.stderr or "")
+    if not missing:
+        sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces show {ident} failed ({detail(shown)})\n")
+        raise SystemExit(1)
+    changed = call(["spaces", "create", slug, "--id", ident,
+                    "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"])
+    action = "create"
+else:
+    value = parse(shown)
+    if value is None:
+        sys.stderr.write(
+            f"dispatch: repository Memory unavailable: nmem spaces show {ident} "
+            f"did not return a JSON object ({detail(shown)})\n"
+        )
+        raise SystemExit(1)
+    if exact(value):
+        raise SystemExit(0)
+    changed = call(["spaces", "update", ident, "--name", slug,
+                    "--retrieval-mode", "shared", "--clear-shared",
+                    "--share-with", "mmw-toolbox"])
+    action = "update"
+
+verified = call(["spaces", "show", ident]) if changed.returncode == 0 else changed
+value = parse(verified)
+if changed.returncode or verified.returncode or not exact(value):
+    why = detail(changed) if changed.returncode else (detail(verified) if verified.returncode else "the stored JSON has the wrong shape")
+    sys.stderr.write(f"dispatch: repository Memory unavailable: nmem spaces {action} {ident} failed ({why})\n")
+    raise SystemExit(1)
+PY
 }
 
 # The runner and session this process itself runs in, "runner<TAB>session", as that
@@ -765,7 +850,7 @@ sync_base_with_project() {
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
-  local spec="$1" root into opened runner session how rows project board
+  local spec="$1" root into opened runner session how rows project board repository
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
@@ -775,6 +860,8 @@ open_night() {
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
   push_open_branches "$root" "$rows" || exit 2
   sync_base_with_project "$root" "$into" "$project" || exit 2
+  repository="$(repo_slug)" || exit 2
+  ensure_repository_memory "$repository" || exit 2
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
@@ -1436,13 +1523,309 @@ archive_workspace() {
 # and, for `start`, any worktree it created.
 start_session() {
   local host="$1" model="$2" effort="$3" cwd="$4" prompt="$5" title="$6"
+  shift 6
+  local -a environment=()
+  local value
+  for value in "$@"; do
+    environment+=(--env "$value")
+  done
   local session
   if ! session="$(runner start --host "$host" --model "$model" --effort "$effort" \
-       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "$title")" \
+       --cwd "$cwd" --prompt "$prompt" --skip-approval --title "$title" \
+       "${environment[@]+"${environment[@]}"}")" \
      || [ -z "$session" ]; then
     return 1
   fi
   printf '%s\n' "$session" | tail -n 1
+}
+
+# Build the deterministic Memory packet appended to a worker's first prompt. Native
+# parent links alone choose the task root; a malformed graph yields a disclosed packet
+# with no task scope, and no Memory command is attempted. Nowledge failures are data in
+# the packet rather than a reason to stop otherwise-completable ticket work.
+worker_memory_packet() {
+  local number="$1" spec="$2" repository_space="$3"
+  MMW_MEMORY_TICKET="$number" MMW_MEMORY_SPEC="$spec" \
+  MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
+import json
+import os
+import re
+import subprocess
+import sys
+
+ticket = os.environ["MMW_MEMORY_TICKET"]
+spec_number = os.environ["MMW_MEMORY_SPEC"]
+space = os.environ["MMW_MEMORY_SPACE"]
+
+
+def call(command):
+    env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+    try:
+        return subprocess.run(command, text=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, env=env)
+    except OSError:
+        return subprocess.CompletedProcess(command, 127, "",
+                                           f"{command[0]} is unavailable")
+
+
+def reason(proc, fallback):
+    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ")
+    return text or fallback
+
+
+def issue(number, fields):
+    proc = call(["gh", "issue", "view", str(number), "--json", fields])
+    if proc.returncode:
+        return None, reason(proc, f"gh issue view {number} failed")
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        return None, f"gh issue view {number} did not return readable JSON"
+    if not isinstance(value, dict):
+        return None, f"gh issue view {number} did not return a JSON object"
+    return value, None
+
+
+def section(body, heading):
+    lines = str(body or "").splitlines()
+    wanted = f"## {heading}"
+    start = next((i for i, line in enumerate(lines) if line.strip() == wanted), None)
+    if start is None:
+        return wanted
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if re.match(r"^#{1,2} ", lines[i]):
+            end = i
+            break
+    return "\n".join(lines[start:end]).strip()
+
+
+def memory_call(args):
+    proc = call(["nmem", "--json", *args])
+    if proc.returncode:
+        return None, reason(proc, "nmem failed")
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        return None, "nmem did not return readable JSON"
+    if not isinstance(value, dict) or not isinstance(value.get("memories"), list):
+        return None, "nmem did not return a memories JSON object"
+    return value, None
+
+
+def record(row, historical=False):
+    if not isinstance(row, dict):
+        row = {}
+    shown = {name: row.get(name) for name in ("id", "title", "content", "source")}
+    if historical:
+        origin = row.get("space_id") or row.get("spaceId")
+        if not origin and isinstance(row.get("space"), dict):
+            origin = row["space"].get("id") or row["space"].get("name")
+        shown["origin_space"] = origin
+    return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
+
+
+def block(value, error, historical=False, excluded=(), show_truncation=False):
+    if error:
+        return f"unavailable: {error}"
+    rows = value["memories"]
+    excluded = set(excluded)
+    rows = [row for row in rows if not isinstance(row, dict) or row.get("id") not in excluded]
+    rendered = [record(row, historical) for row in rows]
+    returned = value.get("returned", len(value["memories"]))
+    total = value.get("total", returned)
+    if not isinstance(returned, int) or not isinstance(total, int):
+        return "unavailable: nmem returned non-numeric total or returned"
+    prefix = f"truncated: {returned}/{total}" if show_truncation and total > returned else ""
+    if prefix:
+        return "\n".join([prefix, *rendered]) if rendered else prefix
+    return "\n".join(rendered) if rendered else "none"
+
+
+routing_error = None
+task_root = ""
+task_scope = ""
+query = ""
+if not spec_number.isdigit():
+    routing_error = f"ticket #{ticket} has no native spec parent"
+else:
+    spec, routing_error = issue(spec_number, "parent,labels,body")
+    if spec is not None:
+        parent = spec.get("parent")
+        if parent is None:
+            task_root = f"standalone spec #{spec_number}"
+            task_scope = f"mmw-spec-{spec_number}"
+            query = "\n\n".join(section(spec.get("body"), name) for name in (
+                "Problem Statement", "Solution", "Implementation Decisions", "Testing Decisions"))
+        elif not isinstance(parent, dict) or not str(parent.get("number") or "").isdigit():
+            routing_error = f"spec #{spec_number} has an unreadable native parent"
+        else:
+            map_number = str(parent["number"])
+            root, root_error = issue(map_number, "labels,body")
+            if root_error:
+                routing_error = f"could not read native parent #{map_number} of spec #{spec_number}: {root_error}"
+            else:
+                labels = [row.get("name") for row in root.get("labels") or [] if isinstance(row, dict)]
+                if "mmw:map" not in labels:
+                    routing_error = f"native parent #{map_number} of spec #{spec_number} has no mmw:map label"
+                else:
+                    task_root = f"map #{map_number}"
+                    task_scope = f"mmw-map-{map_number}"
+                    query = "\n\n".join(section(root.get("body"), name) for name in (
+                        "Destination", "Notes", "Decisions so far"))
+
+if routing_error:
+    sys.stderr.write(f"dispatch: worker Memory routing unavailable: {routing_error}; task-scoped retrieval and writes are disabled\n")
+    current = historical = f"unavailable: {routing_error}"
+    task_root = task_scope = f"unavailable: {routing_error}"
+else:
+    listed, list_error = memory_call([
+        "memories", "list", "--space", space, "--label", task_scope, "--limit", "1000"])
+    searched, search_error = memory_call([
+        "memories", "search", query, "--space", space,
+        "--label", "mmw-experience", "--limit", "10"])
+    exact_ids = [row.get("id") for row in (listed or {}).get("memories", [])
+                 if isinstance(row, dict) and row.get("id")]
+    current = block(listed, list_error, show_truncation=True)
+    historical = block(searched, search_error, historical=True, excluded=exact_ids)
+
+prompt = f"""Use this repository Space and MMW task scope as the shared experience pipeline
+for ticket #{ticket}.
+
+MMW repository Space: {space}
+MMW task root: {task_root}
+MMW task scope: {task_scope}
+
+Before working, read Current task shared experience, then Historical experience
+relevant to this task. Follow only the linked primary artifacts and evidence
+needed for the ticket. Current artifacts, verified evidence, the user's
+instructions, repository instructions, the ticket, and its parent spec override
+Memory. Treat a superseded or deprecated Memory as historical evidence only.
+
+Current task shared experience:
+{current}
+
+Historical experience relevant to this task:
+{historical}
+
+When a command or tool behaves in a way that the ticket, repository authority,
+and Current task shared experience do not explain, search the current task with
+the exact error, command, and component before trying a workaround. If that has
+no answer, search repository and approved mmw-toolbox experience. Verify every
+Memory against current repository evidence before acting on it.
+
+Save a changed fact immediately when another ticket or later agent can reuse it,
+current evidence verifies it, and the ticket and code do not already make it
+obvious. Evaluate the same trigger again at every meaningful milestone or
+handoff. Use the implement skill's exact Memory fields and labels. Link the
+evidence, supersede a replaced Memory, and deprecate one that no longer applies.
+Store only reusable engineering context that is safe for repository
+collaborators; exclude secrets, customer data, raw chat transcripts, private
+host paths, and unverified claims.
+
+Finish by reporting the Memory records added, used, superseded, or deprecated,
+and the evidence used to validate them. If none changed, say so."""
+print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
+                 ensure_ascii=False))
+PY
+}
+
+# Build the reviewer packet appended after the existing code-review dispatch line. Only
+# the compiled active rule_stack is read; ordinary Memory list/search is never attempted.
+# A failed or unreadable Context Bundle is named in the packet and the reviewer still starts.
+reviewer_rules_packet() {
+  local repository_space="$1"
+  MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
+import json
+import os
+import subprocess
+import sys
+
+space = os.environ["MMW_MEMORY_SPACE"]
+
+
+def call(command):
+    env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+    try:
+        return subprocess.run(command, text=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, env=env)
+    except OSError:
+        return subprocess.CompletedProcess(command, 127, "",
+                                           f"{command[0]} is unavailable")
+
+
+def reason(proc, fallback):
+    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ")
+    return text or fallback
+
+
+FIELDS = ("id", "title", "body", "scope", "source")
+SCOPES = ("global", "owner", "space", "agent")
+
+
+def render_rules(value):
+    if not isinstance(value, dict):
+        return "unavailable: nmem did not return a JSON object"
+    warnings = value.get("warnings", [])
+    if warnings is None:
+        warnings = []
+    if not isinstance(warnings, list):
+        return "unavailable: nmem returned a non-list warnings"
+    for item in warnings:
+        text = str(item)
+        if "Unknown space" in text:
+            return f"unavailable: {text}"
+    active = value.get("active_space")
+    if not isinstance(active, dict):
+        return "unavailable: nmem did not return an active_space JSON object"
+    got = active.get("primary_space_id")
+    if got != space:
+        return f"unavailable: active space is {got}, not {space}"
+    stack = value.get("rule_stack")
+    if not isinstance(stack, dict):
+        return "unavailable: nmem did not return a rule_stack JSON object"
+    rendered = []
+    for name in SCOPES:
+        if name not in stack:
+            return f"unavailable: nmem did not return rule_stack.{name}"
+        rows = stack[name]
+        if not isinstance(rows, list):
+            return f"unavailable: nmem returned a non-list rule_stack.{name}"
+        for row in rows:
+            if not isinstance(row, dict):
+                return f"unavailable: nmem returned a malformed rule_stack.{name} entry"
+            missing = next((field for field in FIELDS if field not in row), None)
+            if missing:
+                return f"unavailable: nmem returned a rule_stack.{name} entry without {missing}"
+            shown = {field: row[field] for field in FIELDS}
+            rendered.append(json.dumps(shown, ensure_ascii=False, separators=(",", ":")))
+    return "\n".join(rendered) if rendered else "none"
+
+
+proc = call(["nmem", "--json", "context", "read",
+             "--space", space, "--agent-id", "mmw-reviewer", "--no-working-memory"])
+if proc.returncode:
+    rules = f"unavailable: {reason(proc, 'nmem failed')}"
+else:
+    try:
+        value = json.loads(proc.stdout)
+    except Exception:
+        rules = "unavailable: nmem did not return readable JSON"
+    else:
+        rules = render_rules(value)
+
+prompt = f"""Active reviewer Rules approved for this review:
+{rules}
+
+Apply every active Rule within its stated scope. Use the Rules to decide what to
+inspect; establish every finding and verdict independently from the current
+ticket, parent spec, repository authority, diff, and checks. Report the source
+that proves each finding. Keep ordinary Memory, Working Memory, Thread, worker
+reasoning, worker self-assessment, and the worker's retrieval results outside
+the review evidence. Complete the review only after every applicable Rule has
+been applied and every reported finding has a current source."""
+print(json.dumps({"prompt": prompt}, ensure_ascii=False))
+PY
 }
 
 start_one() {
@@ -1453,13 +1836,14 @@ start_one() {
     *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
 
-  local answer grades title spec
+  local answer grades title spec native_spec
   answer="$(read_ticket "$number")"
   case "$answer" in
     "REFUSE "*) refuse "${answer#REFUSE }" ;;
     "") refuse "the tracker did not answer with a readable ticket #$number" ;;
   esac
   { IFS= read -r grades; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
+  native_spec="$spec"
   if [ -n "${MMW_SPEC:-}" ]; then
     spec="$MMW_SPEC"
   fi
@@ -1507,6 +1891,15 @@ start_one() {
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 
+  # `open-ticket` has no spec-level open step, and a previously valid Space may become
+  # unavailable before a later start. Verify the connector's routing target immediately
+  # before either role starts, before a worktree or session is created.
+  local repository_slug repository_space
+  repository_slug="$(repo_slug)" || exit 2
+  ensure_repository_memory "$repository_slug" \
+    || refuse "the repository Space could not be verified, so #$number's $kind was not started; the specific Nowledge failure is above. Restore Nowledge Mem or its repository Space, then run start again"
+  repository_space="$(printf '%s' "$repository_slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+
   workspace_origin_ready "$number" "$root" "$into" \
     || refuse "could not use origin to prepare issue-$number; an existing worker was not stopped"
 
@@ -1534,13 +1927,26 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  local base="" prompt
+  local base="" prompt memory_packet task_scope
+  local -a session_environment=()
   case "$kind" in
     worker)
       base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT" ;;
+      memory_packet="$(worker_memory_packet "$number" "$native_spec" "$repository_space")" || \
+        refuse "could not build the worker Memory packet for #$number"
+      task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
+        refuse "the worker Memory packet for #$number could not be read"
+      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT
+
+$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
+      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-worker")
+      # Always replace an inherited scope. An empty value is the disabled route for a
+      # malformed native parent graph; inheriting the caller's scope would permit writes
+      # into an unrelated task.
+      session_environment+=("MMW_TASK_SCOPE=$task_scope")
+      session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number") ;;
     reviewer)
       base="$(base_commit "$root" "$into" "issue-$number")"
       if [ -z "$base" ]; then
@@ -1548,7 +1954,12 @@ start_one() {
       fi
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
-      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS" ;;
+      memory_packet="$(reviewer_rules_packet "$repository_space")" || \
+        refuse "could not build the reviewer Rules packet for #$number"
+      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS
+
+$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
+      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer") ;;
   esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
@@ -1574,7 +1985,8 @@ start_one() {
   fi
 
   local session
-  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind")"; then
+  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number $kind" \
+       "${session_environment[@]+"${session_environment[@]}"}")"; then
     if [ "$created" = 1 ] && [ -n "$cwd" ]; then
       remove_worktree "$root" "$cwd" \
         || echo "dispatch: could not remove the worktree for #$number" >&2
@@ -3161,11 +3573,274 @@ print((rows[0].get("login") or "") if rows else "")
   [ "$red" -eq 0 ] || exit 1
 }
 
+close_spec_memories() {
+  local spec="$1" decisions_file="$2" slug space result
+  slug="$(repo_slug)" || return 2
+  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+
+  result="$(MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" \
+      MMW_MEMORY_DECISIONS="$decisions_file" python3 - <<'PY'
+import json
+import os
+import subprocess
+import sys
+
+spec = os.environ["MMW_MEMORY_SPEC"]
+space = os.environ["MMW_MEMORY_SPACE"]
+manifest_path = os.environ.get("MMW_MEMORY_DECISIONS") or ""
+label = f"mmw-spec-{spec}"
+
+
+def fail(fact):
+    why = f"Memory closing for #{spec} cannot safely close because its exact decision set and lifecycle result are not established"
+    action = f"correct the named condition in {manifest_path or '<memory-decisions file>'}, then run dispatch.sh summary {spec} --memory-decisions {manifest_path or '<file>'} again"
+    print(f"dispatch: {fact}; {why}; {action}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def nmem(*args):
+    command = ["nmem", "--json", *args]
+    try:
+        return subprocess.run(command, text=True, capture_output=True, check=False)
+    except OSError as exc:
+        return subprocess.CompletedProcess(command, 127, "", str(exc))
+
+
+def object_output(completed):
+    try:
+        value = json.loads(completed.stdout)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def command_detail(completed):
+    return (completed.stderr or completed.stdout or f"exit {completed.returncode}").strip().replace("\n", "; ")
+
+
+def shown_memory(ident):
+    shown = nmem("memories", "show", ident, "--space", space)
+    if shown.returncode != 0:
+        detail = command_detail(shown)
+        confirmed_missing = "404" in detail and "not found" in detail.lower()
+        if confirmed_missing:
+            return None
+        fail(f"nmem memories show {ident} failed without confirming absence ({detail})")
+    value = object_output(shown)
+    if value is None:
+        fail(f"nmem memories show {ident} returned no JSON object ({command_detail(shown)})")
+    if value.get("id") != ident:
+        fail(f"nmem memories show {ident} returned id {value.get('id')!r}")
+    return value
+
+
+def exact_active(ident):
+    shown = shown_memory(ident)
+    if shown is None:
+        fail(f"nmem memories show confirmed that Memory {ident} does not exist")
+    query = shown.get("title") or shown.get("content")
+    if not isinstance(query, str) or not query.strip():
+        fail(f"Memory {ident} has no title or content for ordinary recall")
+    found = nmem("memories", "search", query, "--space", space,
+                 "--label", label, "--limit", "1000")
+    value = object_output(found)
+    if found.returncode != 0 or value is None or not isinstance(value.get("memories"), list):
+        fail(f"ordinary recall for Memory {ident} returned an unreadable result ({command_detail(found)})")
+    return any(isinstance(row, dict) and row.get("id") == ident for row in value["memories"])
+
+
+def evolves_to(ident, replacement):
+    found = nmem("memories", "link", "list", ident, "--space", space,
+                 "--type", "EVOLVES", "--status", "active", "--limit", "50")
+    value = object_output(found)
+    if found.returncode != 0 or value is None:
+        fail(f"the EVOLVES lookup for Memory {ident} returned an unreadable result ({command_detail(found)})")
+    relations = value.get("relations", value.get("links", value.get("items", [])))
+    if not isinstance(relations, list):
+        fail(f"the EVOLVES lookup for Memory {ident} returned {type(relations).__name__}, not a relation array")
+    target_keys = ("target_memory_id", "replacement_memory_id", "newer_memory_id", "to_memory_id")
+    return any(isinstance(row, dict) and any(row.get(key) == replacement for key in target_keys)
+               for row in relations)
+
+
+listed_call = nmem("memories", "list", "--space", space, "--label", label, "--limit", "1000")
+listed = object_output(listed_call) if listed_call.returncode == 0 else None
+list_available = listed is not None
+if list_available:
+    rows = listed.get("memories")
+    total = listed.get("total")
+    returned = listed.get("returned")
+    list_available = (
+        isinstance(rows, list)
+        and isinstance(total, int) and not isinstance(total, bool) and total >= 0
+        and isinstance(returned, int) and not isinstance(returned, bool) and returned >= 0
+        and returned == len(rows)
+    )
+else:
+    rows, total, returned = [], None, None
+
+if manifest_path:
+    try:
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        fail(f"Memory closing decisions at {manifest_path} are not a readable UTF-8 JSON object: {exc}")
+    if not isinstance(manifest, dict):
+        fail(f"Memory closing decisions at {manifest_path} are not a JSON object")
+else:
+    fail(f"Memory closing for #{spec} requires --memory-decisions <file>")
+
+status = manifest.get("status")
+if status == "unchecked":
+    required = {"status", "reason", "total", "returned", "decisions"}
+    if set(manifest) != required:
+        fail(f"the unchecked Memory closing fields are {sorted(manifest)}, not status, reason, total, returned, and decisions")
+    if not isinstance(manifest.get("reason"), str) or not manifest["reason"].strip():
+        fail(f"the unchecked Memory closing reason is {manifest.get('reason')!r}, not a non-empty string")
+    if manifest.get("decisions") != []:
+        fail(f"the unchecked Memory closing decisions value is {manifest.get('decisions')!r}, not an empty array")
+    if list_available and total > returned:
+        if manifest.get("total") != total or manifest.get("returned") != returned:
+            fail(f"the unchecked Memory totals must match the fresh truncated list ({returned}/{total})")
+    elif not list_available:
+        if manifest.get("total") is not None or manifest.get("returned") is not None:
+            fail(f"the fresh Memory list is unavailable but the unchecked totals are {manifest.get('returned')!r}/{manifest.get('total')!r}, not null/null")
+    else:
+        fail(f"the fresh Memory list is complete ({returned}/{total}), so status unchecked is not allowed")
+    line = f"Memory closing: unchecked ({' '.join(manifest['reason'].split())})"
+    print(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
+    print(line)
+    raise SystemExit(0)
+
+if status != "complete":
+    fail(f"Memory closing status is {status!r}, not complete or unchecked")
+if not list_available:
+    fail("the fresh Memory list is unavailable or unreadable; record status unchecked with null totals")
+if total != returned:
+    fail(f"the fresh Memory list is truncated ({returned}/{total}); record status unchecked with those totals")
+if set(manifest) != {"status", "total", "returned", "decisions"}:
+    fail(f"the complete Memory closing fields are {sorted(manifest)}, not status, total, returned, and decisions")
+decisions = manifest.get("decisions")
+if not isinstance(decisions, list):
+    fail(f"complete Memory closing decisions is {type(decisions).__name__}, not an array")
+
+listed_ids = []
+for index, row in enumerate(rows):
+    ident = row.get("id") if isinstance(row, dict) else None
+    if not isinstance(ident, str) or not ident:
+        fail(f"fresh Memory list row {index} has no non-empty id")
+    listed_ids.append(ident)
+if len(set(listed_ids)) != len(listed_ids):
+    fail(f"the fresh Memory list contains duplicate ids: {listed_ids}")
+
+allowed = {"retain", "propose", "deprecate", "supersede"}
+seen = []
+for item in decisions:
+    if not isinstance(item, dict):
+        fail(f"Memory closing decision {len(seen)} is {type(item).__name__}, not an object")
+    decision = item.get("decision")
+    required = {"memory_id", "decision", "reason", "evidence"}
+    if decision == "supersede":
+        required.add("replacement_id")
+    if set(item) != required:
+        fail(f"Memory decision {item.get('memory_id', '<missing>')} has fields {sorted(item)}, not {sorted(required)} for {decision or '<missing>'}")
+    for field in ("memory_id", "decision", "reason", "evidence"):
+        if not isinstance(item.get(field), str) or not item[field].strip():
+            fail(f"Memory decision {item.get('memory_id', '<missing>')} requires a non-empty {field}")
+    if decision not in allowed:
+        fail(f"Memory {item['memory_id']} has unknown decision {decision}")
+    if decision == "supersede" and (
+        not isinstance(item.get("replacement_id"), str) or not item["replacement_id"].strip()
+    ):
+        fail(f"Memory {item['memory_id']} requires a non-empty replacement_id")
+    seen.append(item["memory_id"])
+
+if len(set(seen)) != len(seen):
+    fail(f"Memory closing decisions contain duplicate memory_id values: {seen}")
+if manifest.get("total") != manifest.get("returned") or manifest.get("total") != len(decisions):
+    fail(f"complete Memory closing totals are {manifest.get('returned')!r}/{manifest.get('total')!r} for {len(decisions)} decisions")
+omitted = sorted(set(listed_ids) - set(seen))
+missing_now = sorted(set(seen) - set(listed_ids))
+if omitted:
+    fail(f"current Memory ids are omitted from the decisions: {', '.join(omitted)}")
+by_id = {item["memory_id"]: item for item in decisions}
+
+# All replacement targets are checked before the first lifecycle mutation.
+for item in decisions:
+    if item["decision"] != "supersede":
+        continue
+    if shown_memory(item["replacement_id"]) is None:
+        fail(f"replacement Memory {item['replacement_id']} for {item['memory_id']} does not exist")
+
+# Read every mutable record lifecycle state before the first lifecycle mutation. A service read
+# failure therefore cannot arrive after an earlier decision was already applied.
+active = {}
+replaced = {}
+for item in decisions:
+    ident = item["memory_id"]
+    if item["decision"] == "deprecate":
+        active[ident] = exact_active(ident)
+    elif item["decision"] == "supersede":
+        replaced[ident] = evolves_to(ident, item["replacement_id"])
+        active[ident] = False if replaced[ident] else exact_active(ident)
+
+for ident in missing_now:
+    item = by_id[ident]
+    if item["decision"] == "deprecate" and not active[ident]:
+        continue
+    if item["decision"] == "supersede" and replaced[ident]:
+        continue
+    fail(f"Memory {ident} is absent from the fresh list without already being in its requested lifecycle state")
+
+
+completed = []
+for item in decisions:
+    ident = item["memory_id"]
+    decision = item["decision"]
+    if decision in ("retain", "propose"):
+        continue
+    if decision == "deprecate":
+        if not active[ident]:
+            continue
+        changed = nmem("memories", "deprecate", ident, "--reason", item["reason"], "--space", space)
+    else:
+        replacement = item["replacement_id"]
+        if replaced[ident]:
+            continue
+        if not active[ident]:
+            fail(f"Memory closing failed after completed Memory ids: {', '.join(completed) or 'None'}; failed Memory id: {ident} (inactive without the requested replacement)")
+        changed = nmem("memories", "supersede", ident, replacement,
+                       "--reason", item["reason"], "--space", space)
+    if changed.returncode != 0:
+        detail = (changed.stderr or changed.stdout or "lifecycle command failed").strip()
+        fail(f"Memory closing failed after completed Memory ids: {', '.join(completed) or 'None'}; failed Memory id: {ident} ({detail})")
+    completed.append(ident)
+
+counts = {name: 0 for name in ("retain", "propose", "deprecate", "supersede")}
+lines = [f"Memory closing: complete ({manifest['total']})"]
+for item in decisions:
+    counts[item["decision"]] += 1
+lines.append("Memory closing counts: " + ", ".join(f"{name} {counts[name]}" for name in counts))
+for item in decisions:
+    one = lambda value: " ".join(value.split())
+    line = f"Memory: {item['memory_id']} -> {item['decision']}; reason: {one(item['reason'])}; evidence: {one(item['evidence'])}"
+    if item["decision"] == "supersede":
+        line += f"; replacement: {item['replacement_id']}"
+    lines.append(line)
+proposed = [item["memory_id"] for item in decisions if item["decision"] == "propose"]
+lines.append("Proposed Memory ids: " + (", ".join(proposed) if proposed else "None"))
+print(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
+print("\n".join(lines))
+PY
+)" || return 2
+  printf '%s\n' "$result"
+}
+
 summary_spec() {
-  local spec="$1"
+  local spec="$1" decisions_file="$2"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
 
-  local body extra git_dir
+  local body extra git_dir memory_result memory_manifest memory_summary
   body="$(python3 "$STATUS" --summary "$spec")"
 
   # The last slot of the summary's `Findings routed:` line is the findings of this batch
@@ -3185,9 +3860,14 @@ summary_spec() {
          "" | *[!0-9]*)
            echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
          0) ;;
-         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed|stale|became-ticket [<new ticket>]\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed\`, \`dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh route <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
        esac ;;
   esac
+
+  memory_result="$(close_spec_memories "$spec" "$decisions_file")" || exit $?
+  memory_manifest="$(printf '%s\n' "$memory_result" | head -n 1)"
+  memory_summary="$(printf '%s\n' "$memory_result" | tail -n +2)"
+  body="$(printf '%s\n%s\n' "$body" "$memory_summary")"
 
   git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
   extra=""
@@ -3203,6 +3883,7 @@ summary_spec() {
   post_event "$spec" spec.closed --spec "$spec" --line "$first" \
       --text-file <(printf '%s\n' "$rest") \
       --field "date=$(date +%Y-%m-%d)" \
+      --json-field "memory_closing=$memory_manifest" \
     || refuse "could not post the night summary on #$spec"
   printf '%s\n' "$body"
 
@@ -3504,7 +4185,10 @@ print(number if isinstance(number, int) else "")
 # the night summary counts findings by it.
 #
 #   fixed               the main agent fixed it in the recorded commit; closed as completed
-#   stale               what it states no longer holds at HEAD; closed as not planned
+#   stale invalid       the finding never held; closed as not planned
+#   stale fixed-elsewhere
+#                       the finding held and another ticket or closing-pass fix resolved it;
+#                       closed as not planned
 #   became-ticket <m>   it is now ticket #<m>. When <m> is the child itself it stays open,
 #                       its layer label goes from mmw:child to mmw:ticket, and its parent
 #                       moves from the ticket to the spec — `verify-ticket.py` finds a
@@ -3525,26 +4209,35 @@ print(number if isinstance(number, int) else "")
 # nothing was done: the arguments are wrong, the ticket carries no `child.opened` for
 # this child, the child was routed another way, or the tracker could not be asked.
 route_child() {
-  local ticket="$1" child="$2" resolution="$3" became="${4:-}"
+  local ticket="$1" child="$2" resolution="$3" detail="${4:-}" reason="" became=""
   case "$ticket" in *[!0-9]* | "") refuse "the ticket number must be digits only, got $ticket" ;; esac
   case "$child" in *[!0-9]* | "") refuse "the child number must be digits only, got $child" ;; esac
   case "$resolution" in
-    fixed | stale) [ -z "$became" ] || refuse "$resolution takes no ticket number" ;;
+    fixed) [ -z "$detail" ] || refuse "fixed takes no reason or ticket number" ;;
+    stale)
+      case "$detail" in
+        invalid | fixed-elsewhere) reason="$detail" ;;
+        "") refuse "stale needs reason invalid or fixed-elsewhere" ;;
+        *) refuse "stale reason is invalid or fixed-elsewhere, got $detail" ;;
+      esac ;;
     became-ticket)
-      case "$became" in *[!0-9]* | "") refuse "became-ticket needs the number of the ticket it became, digits only" ;; esac ;;
+      case "$detail" in *[!0-9]* | "") refuse "became-ticket needs the number of the ticket it became, digits only" ;; esac
+      became="$detail" ;;
     *) refuse "the resolution is fixed, stale or became-ticket, got $resolution" ;;
   esac
 
-  local opened kind spec done_resolution done_became
+  local opened kind spec done_resolution done_became done_reason
   opened="$(ticket_events "$ticket" child --child "$child")" \
     || refuse "could not read #$ticket's events, so whether it opened #$child is unknown; nothing was done"
   [ -n "$opened" ] \
     || refuse "#$ticket carries no child.opened for #$child, so #$child is not a child it opened; name the ticket that opened it. Nothing was done"
-  IFS=$'\t' read -r kind spec done_resolution done_became <<<"$opened"
+  IFS=$'\t' read -r kind spec done_resolution done_became done_reason <<<"$opened"
   [ "$spec" != "-" ] || spec=""
   if [ "$done_resolution" != "-" ]; then
-    if [ "$done_resolution" = "$resolution" ] && { [ -z "$became" ] || [ "$done_became" = "$became" ]; }; then
-      echo "route #$child: already routed $resolution${became:+ #$became}, recorded on #$ticket" >&2
+    if [ "$done_resolution" = "$resolution" ] \
+       && { [ -z "$became" ] || [ "$done_became" = "$became" ]; } \
+       && { [ -z "$reason" ] || [ "$done_reason" = "$reason" ]; }; then
+      echo "route #$child: already routed $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
       return 0
     fi
     refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
@@ -3566,7 +4259,10 @@ route_child() {
     stale)
       [ "$state" = CLOSED ] || gh_ issue close "$child" --reason "not planned" >/dev/null 2>&1 \
         || refuse "could not close #$child; nothing was recorded"
-      line="Closed #$child: what it states no longer holds" ;;
+      case "$reason" in
+        invalid) line="Closed #$child: the finding was invalid" ;;
+        fixed-elsewhere) line="Closed #$child: the finding was fixed elsewhere" ;;
+      esac ;;
     became-ticket)
       ensure_label mmw:ticket || exit 2
       local current labels
@@ -3593,6 +4289,7 @@ route_child() {
   esac
 
   local -a fields=(--field "child=$child" --field "resolution=$resolution")
+  [ -z "$reason" ] || fields+=(--field "reason=$reason")
   [ -z "$became" ] || fields+=(--json-field "became=$became")
   [ "$resolution" != fixed ] || fields+=(--field "commit=$(git rev-parse HEAD 2>/dev/null)")
   if ! post_event "$ticket" child.closed --ticket "$ticket" --spec "$spec" --line "$line" \
@@ -3600,7 +4297,7 @@ route_child() {
     echo "dispatch: #$child is routed ($resolution) but the child.closed event on #$ticket was not written, so the night summary counts it unread; run this again" >&2
     exit 1
   fi
-  echo "route #$child: $resolution${became:+ #$became}, recorded on #$ticket" >&2
+  echo "route #$child: $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
 }
 
 # ------------------------------------------------------------------ entry
@@ -3756,8 +4453,11 @@ case "${1:-}" in
     reverify_spec "$2"
     ;;
   summary)
-    [ "$#" -eq 2 ] || usage
-    summary_spec "$2"
+    if [ "$#" -eq 4 ] && [ "$3" = "--memory-decisions" ]; then
+      summary_spec "$2" "$4"
+    else
+      usage
+    fi
     ;;
   finish)
     [ "$#" -eq 2 ] || usage

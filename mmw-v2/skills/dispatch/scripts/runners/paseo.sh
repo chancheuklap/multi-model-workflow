@@ -3,7 +3,7 @@
 # Paseo adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
 #   runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval]
-#                          [--title T] --prompt TEXT
+#                          [--title T] [--env KEY=VALUE]... --prompt TEXT
 #   runners/paseo.sh send <session-id> <text>
 #   runners/paseo.sh liveness <session-id>
 #   runners/paseo.sh stop <session-id>
@@ -26,7 +26,7 @@
 # cannot be read (the reason on stderr). The main agent names itself to the relay with it.
 # Paseo sets PASEO_AGENT_ID in every agent it runs, and that id is the one `send` takes.
 #
-# MMW_USES: run -d --json --provider --mode --thinking --cwd --title
+# MMW_USES: run -d --json --provider --mode --thinking --cwd --title --env
 # MMW_USES: send --no-wait
 # MMW_USES: ls -g --json
 # MMW_USES: archive --force
@@ -43,7 +43,7 @@ paseo_() {
 }
 
 usage() {
-  echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT" >&2
+  echo "usage: runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT" >&2
   echo "       runners/paseo.sh send <session-id> <text>" >&2
   echo "       runners/paseo.sh liveness <session-id>" >&2
   echo "       runners/paseo.sh stop <session-id>" >&2
@@ -80,9 +80,10 @@ sys.exit(1)
 
 start() {
   local host="" model="" effort="" cwd="" prompt="" title=""
+  local -a environment=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --host|--model|--effort|--cwd|--prompt|--title)
+      --host|--model|--effort|--cwd|--prompt|--title|--env)
         [ "$#" -ge 2 ] || usage
         case "$1" in
           --host) host="$2" ;;
@@ -91,6 +92,7 @@ start() {
           --cwd) cwd="$2" ;;
           --prompt) prompt="$2" ;;
           --title) title="$2" ;;
+          --env) environment+=("$2") ;;
         esac
         shift 2
         ;;
@@ -111,6 +113,8 @@ start() {
     [ -z "$line" ] || args+=("$line")
   done <<<"$flags"
   [ -z "$title" ] || args+=(--title "$title")
+  local value
+  for value in "${environment[@]+"${environment[@]}"}"; do args+=(--env "$value"); done
   # The temporary file is removed here, on both paths, and not by an EXIT trap: `err` is
   # local to this function and gone by the time the script exits, so a trap naming it
   # removed nothing and failed under `set -u`.

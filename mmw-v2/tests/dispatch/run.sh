@@ -3,10 +3,11 @@
 #
 #   bash mmw-v2/tests/dispatch/run.sh
 #
-# Two engines, three test files:
+# Two engines, four test files:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
 #   test_profiles.py    unittest, models.bypass_argv, catalog match, adopt, create_agent settings, CLI scan
+#   test_memory_skill_commands.py  unittest, worker save example against fake nmem
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #
 # None needs the tracker, a terminal or a browser.
@@ -26,7 +27,11 @@ unset MMW_CATALOG_MODE
 # is not a test. Measured 2026-09-10 on #320. `MMW_EVENTS_PY` goes for the same reason:
 # `dispatch.sh` exports it to every command it runs, pointing at its own checkout's
 # events.py, and `status.py` and `relay.py` would load that one instead of this checkout's.
-unset MMW_SPEC MMW_TICKET MMW_KIND MMW_EVENTS_PY
+unset MMW_SPEC MMW_TICKET MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
+unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
+while IFS='=' read -r name _; do
+  case "$name" in NMEM_*) unset "$name" ;; esac
+done < <(env)
 
 rc=0
 

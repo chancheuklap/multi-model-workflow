@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -48,6 +48,8 @@ SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 IN_TICKET_ITEM_RE = re.compile(
     r"^- (Standards|Spec|Tests) (\S+):(\d+) — (.+)$")
+CAT_IN_TICKET_ITEM_RE = re.compile(
+    r"^- (Standards|Spec|Tests) \[([^\]]+)\] (\S+):(\d+) — (.+?) — source: (.+)$")
 IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"
@@ -1227,23 +1229,35 @@ def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
     return base
 
 
-def in_ticket_findings(review: str) -> list[tuple[str, str, str, str]]:
-    """`(axis, path, line, claim)` from the newest review comment's `## In-ticket` list."""
+def in_ticket_findings(review: str, comment: int | str | None = None) -> list[str]:
+    """Each finding verbatim from `## In-ticket`; refuse a nonempty unknown row.
+
+    Historical rows have no category or source. Current rows carry both, and their
+    source and any unverified note remain in the one line handed to the worker.
+    """
+    rows = [row.strip() for row in section(review, "In-ticket")
+            if row.strip() and not re.fullmatch(r"<!-- mmw \{.*\} -->", row.strip())]
+    if rows in (["None"], ["None."]) or not rows:
+        return []
     found = []
-    for row in section(review, "In-ticket"):
-        m = IN_TICKET_ITEM_RE.match(row.strip())
-        if m:
-            found.append((m.group(1), m.group(2), m.group(3), m.group(4).strip()))
+    for row in rows:
+        if CAT_IN_TICKET_ITEM_RE.fullmatch(row) or IN_TICKET_ITEM_RE.fullmatch(row):
+            found.append(row)
+        else:
+            label = f"comment {comment}" if comment is not None else "review comment"
+            raise ValueError(f"{label} (`{review.splitlines()[0] if review else '(empty)'}`) "
+                             f"has an unrecognized ## In-ticket row: {row}; correct the "
+                             "review comment before writing a closeout draft")
     return found
 
 
-def review_findings_block(review: str) -> str:
-    items = in_ticket_findings(review)
+def review_findings_block(review: str, comment: int | str | None = None) -> str:
+    items = in_ticket_findings(review, comment)
     if not items:
         return "Review findings:\nNone"
     lines = ["Review findings:"]
-    for axis, path, line, claim in items:
-        lines.append(f"- {axis} {path}:{line} — {claim} — {FILL}")
+    for row in items:
+        lines.append(f"{row} — {FILL}")
     return "\n".join(lines)
 
 
@@ -1348,6 +1362,10 @@ def run_review(number: int, path: Path) -> int:
         return refuse(
             "a review comment opens `REVIEW <base commit>..<HEAD commit>`, and this file "
             + (f"opens `{head[:60]}`" if head else "is empty"))
+    try:
+        in_ticket_findings(stripped)
+    except ValueError as exc:
+        return refuse(str(exc))
     rest = "\n".join(stripped.splitlines()[1:]).strip("\n")
     post_event(number, "reviewer.reported", head, rest,
                base=found.group(1), head=found.group(2))
@@ -1445,7 +1463,12 @@ def run_draft(number: int, out_file: Path | None) -> int:
     head = git("rev-parse", "HEAD")
     branch_line = (f"Branch: issue-{number} Commit: {head} PR: none — will be merged into "
                    f"{into} by dispatch.sh advance")
-    review = (events.newest(comments, "reviewer.reported") or {}).get("body") or ""
+    review_event = events.newest(comments, "reviewer.reported") or {}
+    review = review_event.get("body") or ""
+    try:
+        review_block = review_findings_block(review, review_event.get("comment"))
+    except ValueError as exc:
+        return refuse(str(exc))
     files = list((run or {}).get("outside_owns") or [])
     if files:
         judged = []
@@ -1473,7 +1496,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
         parts.append("")
     parts += [
         outside, "",
-        review_findings_block(review), "",
+        review_block, "",
         f"skipped: {FILL}", "",
         green_before_work_block(comments), "",
         sub, "",
@@ -2062,6 +2085,50 @@ def review_problems(draft: str, body: str, comments: list[str]) -> list[str]:
     return problems
 
 
+def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
+    """The newest review's In-ticket rows must each have a handled draft row.
+
+    Compare the whole source-bearing row, not just its path or claim. Counting rows
+    prevents one response from silently standing in for duplicate findings.
+    """
+    review_event = events.newest(comments, "reviewer.reported") or {}
+    try:
+        required = in_ticket_findings(review_event.get("body") or "",
+                                      review_event.get("comment"))
+    except ValueError as exc:
+        return [str(exc)]
+    if not required:
+        return []
+    lines = draft.splitlines()
+    start = next((i + 1 for i, line in enumerate(lines)
+                  if line.strip() == "Review findings:"), None)
+    shown = []
+    if start is not None:
+        for line in lines[start:]:
+            if not line.strip():
+                break
+            shown.append(line.strip())
+    matched = Counter()
+    for line in shown:
+        for row in required:
+            prefix = row + " — "
+            if not line.startswith(prefix):
+                continue
+            response = line[len(prefix):]
+            if re.fullmatch(r"fixed \S+|refuted: .+", response):
+                matched[row] += 1
+            break
+    needed = Counter(required)
+    problems = []
+    for row, count in needed.items():
+        if matched[row] < count:
+            problems.append(f"the newest review's ## In-ticket finding is missing or "
+                            f"has no `fixed <commit>` / `refuted: <evidence>` response "
+                            f"in `Review findings:`: {row}; copy the review row and "
+                            "record its disposition in the closeout draft")
+    return problems
+
+
 CHECKS_TAIL = 20
 
 
@@ -2219,6 +2286,7 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     problems = draft_problems(draft, comments)
     problems += verified_problems(draft, body, comments)
     problems += review_problems(draft, body, comments)
+    problems += review_finding_problems(draft, comments)
     problems += event_problems(comments)
     if started_problem:
         problems.append(started_problem)

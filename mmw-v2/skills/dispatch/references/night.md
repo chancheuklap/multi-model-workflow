@@ -133,14 +133,16 @@ The frontier is empty and `status` shows no live agent. If this spec's tickets s
 Every route is carried out by one command, run once per finding, and it is the only way a finding leaves this pass:
 
 ```bash
-<dispatch> route <n> <child> fixed|stale|became-ticket [<new ticket>]
+<dispatch> route <n> <child> fixed
+<dispatch> route <n> <child> stale <invalid|fixed-elsewhere>
+<dispatch> route <n> <child> became-ticket <new ticket>
 ```
 
-`<n>` is the ticket the finding came from — the one whose `fold` lists it under `children` — and the spec is the one that ticket's `child.opened` for it names; neither is read off the tree, which a `became-ticket` route itself changes. It closes the finding — `fixed` as completed, `stale` as not planned — or, for `became-ticket <new ticket>`, makes it that ticket, and writes the `child.closed` event on `<n>`; that event is the one record of where the finding went, and the night summary counts by it. When `<new ticket>` is the finding itself, the finding stays open, its `mmw:child` label becomes `mmw:ticket`, and its parent moves from the ticket to the spec, because the scripts find a ticket's spec through its direct parent alone. When `<new ticket>` is another issue, the finding is closed as its duplicate and that issue gets the same label and the same parent. Exit 0: routed and recorded, or routed that way already. Exit 1: the tracker took part of it and not the rest; stderr says which, and the same command run again finishes it without doing any step twice. Exit 2: nothing was done — `<n>` carries no `child.opened` for the finding, the finding was routed another way, its `child.opened` names no spec for a `became-ticket`, the tracker could not be asked, or the arguments are wrong.
+`<n>` is the ticket the finding came from — the one whose `fold` lists it under `children` — and the spec is the one that ticket's `child.opened` for it names; neither is read off the tree, which a `became-ticket` route itself changes. It closes the finding — `fixed` as completed, `stale` as not planned — or, for `became-ticket <new ticket>`, makes it that ticket, and writes the `child.closed` event on `<n>`; that event is the one record of where the finding went, and the night summary counts by it. A stale route records `reason=invalid` when the finding never held, or `reason=fixed-elsewhere` when it held and another ticket or a closing-pass fix resolved it. `fixed-elsewhere` is not a reviewer false positive. A non-stale route takes no reason. When `<new ticket>` is the finding itself, the finding stays open, its `mmw:child` label becomes `mmw:ticket`, and its parent moves from the ticket to the spec, because the scripts find a ticket's spec through its direct parent alone. When `<new ticket>` is another issue, the finding is closed as its duplicate and that issue gets the same label and the same parent. Exit 0: routed and recorded, or routed that way already. Exit 1: the tracker took part of it and not the rest; stderr says which, and the same command run again finishes it without doing any step twice. Exit 2: nothing was done — `<n>` carries no `child.opened` for the finding, the finding was routed another way, its `child.opened` names no spec for a `became-ticket`, the tracker could not be asked, or the arguments are wrong.
 
 Judge each one by the four steps below, **in order, first match wins**, after the check that comes before them. They are written here because this is where they are executed, and the night runs in a repository that has no copy of this toolbox's own decision records. Why the thresholds fall where they do, and what was rejected, is `docs/adr/0012-review-finding-routing.md` in the multi-model-workflow repository — read it when you want the reasoning, never in order to route.
 
-**Step 0, before you classify at all.** Check the condition the finding's own body states against the current `HEAD`. It no longer holds: `<dispatch> route <n> <child> stale` and do nothing else. A quarter of them go this way — a later ticket of the same batch already did it, or the judge that raised it wrote that it should not be taken up.
+**Step 0, before you classify at all.** Check the condition the finding's own body states against the current `HEAD`. If it never held, run `<dispatch> route <n> <child> stale invalid` and do nothing else. If it held but a later ticket of the same batch or a closing-pass fix already resolved it, run `<dispatch> route <n> <child> stale fixed-elsewhere` and do nothing else. A judge's claim disproved by current evidence is `invalid`; a valid claim satisfied somewhere else is `fixed-elsewhere`.
 
 1. **Does it fall inside another still-open ticket's `## Owns`?** → a ticket, `Blocked by` that open one. Not a question of size: the constraint is concurrency. Fixing it yourself in the origin-tracking checkout makes the next `advance` conflict when that ticket's branch merges.
 2. **Is it a hole in the acceptance itself** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control. This class fails in the one way nobody notices (`docs/adr/0008-silence-is-never-a-pass.md`).
@@ -178,6 +180,42 @@ Then lint each ticket you wrote or rewrote, before you dispatch it:
 
 It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. An exit 1 whose `ERROR` lines are all tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or that ends in a traceback from a `gh` call, is the tracker not answering rather than the ticket being wrong: run the same command again once it answers. This is what step 1b does for the published batch, and this pass writes tickets the same way, so it gets the same pass. A ticket dispatched with criteria that produce no gate (`ledger contains zero live gates`) stops its worker at its first `--preflight`, and the worker does the right thing — opens a `fault` child and waits for you — which costs the ticket the whole round it was dispatched for.
 
+Once every finding has a route, close this spec's Worker Memory before leaving the pass.
+List the repository space by the exact `mmw-spec-<spec>` label with a limit large enough
+to return the whole set, and inspect every returned record. Get the Space id from the
+tracker repository rather than from this session's `NMEM_SPACE` (the main agent has no
+worker Space environment):
+
+```sh
+mmw_closeout_space="$(gh repo view --json nameWithOwner -q .nameWithOwner |
+  tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+nmem --json memories list --space "$mmw_closeout_space" \
+  --label "mmw-spec-<spec>" --limit 1000
+```
+
+If `gh repo view` did not give `owner/name`, skip the list and record `unchecked`
+below instead of treating Default as this repository. Retry `summary` when the
+tracker answers.
+
+For each id decide exactly
+one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is;
+`propose` is a candidate for the later retro and does not change the Memory here;
+`deprecate` is no longer valid; `supersede` names the existing `replacement_id` that
+replaces it. Write the result as one UTF-8 JSON object:
+
+```json
+{"status":"complete","total":2,"returned":2,"decisions":[{"memory_id":"<id>","decision":"retain","reason":"<why>","evidence":"<where that was established>"},{"memory_id":"<old id>","decision":"supersede","reason":"<why>","evidence":"<where that was established>","replacement_id":"<existing id>"}]}
+```
+
+The ids must be the exact, duplicate-free set from the fresh complete list, and
+`total` must equal `returned`. When Nowledge Mem cannot return a readable list, or says
+it returned fewer rows than its total, do not infer an empty set and do no lifecycle
+work. Record that fact instead as
+`{"status":"unchecked","reason":"<why>","total":null,"returned":null,"decisions":[]}`
+when no counts were readable, or with the two reported counts when the list was
+truncated. Keep this object for step 5. A `propose` decision passes only its id and this
+evidence to the retro; it is not stored again in this pass.
+
 Then:
 
 ```bash
@@ -192,14 +230,28 @@ Step 4 left no open finding. From any checkout in this repository:
 
 ```bash
 <dispatch> reverify <spec>
-<dispatch> summary <spec>
+<dispatch> summary <spec> --memory-decisions <file>
 ```
 
 `reverify` exit 0 means every landed ticket is green. Exit 1 means each red ticket is already reopened in `needs-triage`, unassigned and carrying `ticket.regressed`; do not close it. Exit 2 means one ticket established no result, so no ticket was changed and the remainder was skipped; fix stderr's named condition and run `reverify` again.
 
+`summary` lists the exact label again; the file is a decision, not evidence that the list
+is still the same. A complete object is accepted only when its counts and ids match that
+fresh list and every decision has its required fields. It performs only the incomplete
+`deprecate` and `supersede` actions, so running the same command after a partial failure
+does not repeat a completed action. A lifecycle failure posts no `spec.closed`, leaves
+the watch open, and names both the ids completed in that invocation and the failing id.
+An accepted unchecked object performs no lifecycle action and writes
+`Memory closing: unchecked (<reason>)` in the summary. A successful object is copied
+unchanged into `spec.closed.payload.memory_closing`; `NIGHT SUMMARY` also gives the
+status, counts, each id's decision, replacement where applicable, evidence, and the
+proposed ids the retro consumes.
+
 `summary` exit 0 means `NIGHT SUMMARY` was posted and the spec watch is closed. Exit 1 means the comment was posted and the watch closed, but an otherwise unused relay remains; end the pid stderr names. Exit 2 means no comment was posted and the watch remains; fix stderr's named condition and run `summary` again. One of those conditions is step 4 itself: a batch with findings no route reached is refused here, with the `Findings routed:` counts on stderr and its last number the ones left. Go back to step 4, route them, and run `summary` again. Its event and counting mechanics are in [how-it-works.md](how-it-works.md) under **Reverify and summary**.
 
-Tell the user the night finished, point them at that comment, and say that after they accept the result the main agent will run `finish` to close the night.
+Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same main-agent session for this spec. Read its `SKILL.md` completely; its `Gather → Analyze → Decide → Finalize` sequence reads tracker and git evidence, proposes only qualified prevention, writes one fixed-id Retro Memory and the script-authored `spec.retroed` receipt. It starts no runner role and creates no hold or wake. If its Memory write fails, the receipt says `unrecorded`; resolve the stated failure and retry the same spec, reusing proposals and the Memory id. Do not treat an absent or unrecorded receipt as completed retro.
+
+Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the main agent will run `finish` to close the night.
 
 ## 6. Close the night after acceptance
 

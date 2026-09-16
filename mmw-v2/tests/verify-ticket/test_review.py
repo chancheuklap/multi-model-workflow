@@ -104,6 +104,13 @@ class TestPostsTheReport(unittest.TestCase):
 
 
 class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
+    def test_an_unknown_in_ticket_row_is_refused_before_it_wakes_the_worker(self):
+        bad = REPORT.replace("## In-ticket\n\nNone", "## In-ticket\n\n- no path or claim")
+        code, err, fake = run_review(bad)
+        self.assertEqual(code, 2)
+        self.assertIn("unrecognized ## In-ticket row", err)
+        self.assertEqual(fake.posted, [])
+
     def test_a_report_quoting_an_event_is_posted_as_one_event(self):
         """A review of the event code quotes blocks; the ticket must not read them."""
         quoted = REPORT.replace(
