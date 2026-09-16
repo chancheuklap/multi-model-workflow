@@ -2,7 +2,7 @@
 #
 # Herdr adapter: the three verbs of the runner boundary, `stop`, and `self`.
 #
-#   runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT
+#   runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT
 #   runners/herdr.sh send <session-id> <text>
 #   runners/herdr.sh liveness <session-id>
 #   runners/herdr.sh stop <session-id>
@@ -36,7 +36,7 @@
 # name `agent list` gives the agent in that pane, since a name is what `send` takes. An
 # agent with no name there cannot be addressed and is refused.
 #
-# MMW_USES: tab create --cwd --no-focus
+# MMW_USES: tab create --cwd --no-focus --env
 # MMW_USES: agent start --kind --pane --timeout
 # MMW_USES: agent prompt --wait --until --timeout
 # MMW_USES: agent list
@@ -53,7 +53,7 @@ herdr_() {
 }
 
 usage() {
-  echo "usage: runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] --prompt TEXT" >&2
+  echo "usage: runners/herdr.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT" >&2
   echo "       runners/herdr.sh send <session-id> <text>" >&2
   echo "       runners/herdr.sh liveness <session-id>" >&2
   echo "       runners/herdr.sh stop <session-id>" >&2
@@ -125,9 +125,10 @@ host_argv() {
 }
 start() {
   local host="" model="" effort="" cwd="" prompt="" title=""
+  local -a environment=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --host|--model|--effort|--cwd|--prompt)
+      --host|--model|--effort|--cwd|--prompt|--env)
         [ "$#" -ge 2 ] || usage
         case "$1" in
           --host) host="$2" ;;
@@ -135,6 +136,7 @@ start() {
           --effort) effort="$2" ;;
           --cwd) cwd="$2" ;;
           --prompt) prompt="$2" ;;
+          --env) environment+=("$2") ;;
         esac
         shift 2
         ;;
@@ -163,7 +165,11 @@ start() {
   local err
   err="$(mktemp)"
   trap 'rm -f "$err"' EXIT
-  if ! json="$(herdr_ tab create --cwd "$cwd" --no-focus 2>"$err")"; then
+  local -a env_args=()
+  local value
+  for value in "${environment[@]+"${environment[@]}"}"; do env_args+=(--env "$value"); done
+  if ! json="$(herdr_ tab create --cwd "$cwd" --no-focus \
+       "${env_args[@]+"${env_args[@]}"}" 2>"$err")"; then
     echo "runners/herdr.sh: could not open a tab in $cwd: $(tr '\n' ' ' < "$err")" >&2
     exit 1
   fi

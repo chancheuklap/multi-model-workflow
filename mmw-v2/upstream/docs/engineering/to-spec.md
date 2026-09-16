@@ -47,6 +47,8 @@ Often you should; the spec earns its step only on multi-session work. Where it p
 **I just finished a wayfinder map. What do I feed it?**
 The main map issue: `/to-spec #<map_issue>`, not the individual decision tickets. [wayfinder](https://aihero.dev/skills-wayfinder) produces decisions rather than deliverables, scattered across a map; `to-spec` is the step that collapses them into one buildable document. Looping the map straight into `/implement` throws that collapse away.
 
+On GitHub, every spec published from that map is created as the map's native sub-issue and read back before completion is reported. A spec produced from the conversation, a file, or another non-map source remains parentless at the map layer unless that source already supplies a native parent.
+
 **Is the spec for me to review, or is it just for the agent?**
 Mostly for the agent, and it reads that way: complete, dense, reference-heavy. The parts worth your eyes are the seams and the out-of-scope section, because those are the two places a wrong decision is cheapest to catch and most expensive to discover later. Reading the whole thing end to end is a real complaint people have, and there is no summary mode: the honest answer is that if the spec surprises you, the grilling was too shallow, not the spec too long.
 
@@ -69,6 +71,7 @@ Very large specs can outgrow what a tracker issue will serve back cleanly, and t
 - It comes back in your project's nouns, not generic product-management boilerplate.
 - Every decision in it is one you can remember making. Nothing was invented to fill a section.
 - The out-of-scope section has real things in it: the things you refused are usually the most useful lines on the page.
+- Every spec from a GitHub wayfinder map shows that map as its native parent; a standalone spec has no invented map parent.
 
 ## Where it fits
 

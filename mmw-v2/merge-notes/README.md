@@ -57,6 +57,7 @@
 - [wayfinder](wayfinder.md) — `engineering/wayfinder`
 - [wizard](wizard.md) — `engineering/wizard`
 - [grill-me](grill-me.md) — `productivity/grill-me`
+- [grilling](grilling.md) — `productivity/grilling`
 - [handoff](handoff.md) — `productivity/handoff`
 - [teach](teach.md) — `productivity/teach`
 - [to-questionnaire](to-questionnaire.md) — `productivity/to-questionnaire`

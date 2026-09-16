@@ -41,6 +41,28 @@ print(json.dumps({"ok": True, "result": result}))
             )
             orca.chmod(0o755)
 
+            nmem = bin_dir / "nmem"
+            nmem.write_text(
+                """#!/usr/bin/env python3
+import json
+import sys
+
+args = [arg for arg in sys.argv[1:] if arg != "--json"]
+if args == ["spaces", "show", "mmw-toolbox"]:
+    result = {"id": "mmw-toolbox", "name": "MMW Toolbox",
+              "defaultRetrievalMode": "strict", "sharedSpaceIds": []}
+elif args[:2] == ["agents", "show"] and args[2] in ("mmw-worker", "mmw-reviewer"):
+    role = args[2].removeprefix("mmw-")
+    result = {"id": args[2], "displayName": "MMW " + role.title(),
+              "role": role, "defaultSpaceId": "mmw-toolbox"}
+else:
+    raise SystemExit(f"unexpected nmem call: {args}")
+print(json.dumps(result))
+""",
+                encoding="utf-8",
+            )
+            nmem.chmod(0o755)
+
             env = dict(os.environ)
             env["MMW_V2_HOME"] = str(home)
             env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
