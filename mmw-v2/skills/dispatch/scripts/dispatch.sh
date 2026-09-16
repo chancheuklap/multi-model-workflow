@@ -850,7 +850,7 @@ sync_base_with_project() {
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
-  local spec="$1" root into opened runner session how rows project board repository
+  local spec="$1" root into opened runner session how rows project board repository git_dir
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
   into="$(current_branch "$root")" \
@@ -871,6 +871,9 @@ open_night() {
     [ "$how" = started ] && stop_relay --spec "$spec"
     refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
   fi
+  git_dir="$(git -C "$root" rev-parse --git-common-dir)"
+  case "$git_dir" in /*) ;; *) git_dir="$root/$git_dir" ;; esac
+  rm -f "$git_dir/mmw-reverify-$spec"
   # Every other process a night needs starts itself: `open` starts the relay, and the
   # turn guard arms the watchdog. The task board was the one thing somebody had to
   # remember, and it is the only one of the three whose output is for a person — the
@@ -3510,19 +3513,20 @@ reverify_spec() {
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$caller_root" ] || refuse "not inside a git repository"
   git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
+  case "$git_dir" in /*) ;; *) git_dir="$caller_root/$git_dir" ;; esac
 
   plan="$(python3 "$STATUS" --reverify-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
   first="$(printf '%s\n' "$plan" | awk '$1 == "REVERIFY" { print $2; exit }')"
-  if [ -n "$first" ]; then
+  into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" || into=""
+  if [ -z "$into" ] && [ -n "$first" ]; then
     into="$(ticket_into "$first" "$spec")" \
       || refuse "#${first}'s events carry no base branch for reverify"
-    prepare_merge_worktree "$caller_root" "$into" || exit 2
-    root="$MERGE_ROOT"
-  else
-    root="$caller_root"
-    into=""
   fi
+  [ -n "$into" ] \
+    || refuse "#${spec} carries no active spec.opened.into, so the base branch for reverify is unknown"
+  prepare_merge_worktree "$caller_root" "$into" || exit 2
+  root="$MERGE_ROOT"
   commit="$(git -C "$root" rev-parse HEAD)"
 
   local green=0 red=0
@@ -3577,7 +3581,7 @@ print((rows[0].get("login") or "") if rows else "")
     fi
   done
 
-  printf '%s %s\n' "$green" "$red" > "$git_dir/mmw-reverify-$spec"
+  printf '%s %s %s\n' "$green" "$red" "$commit" > "$git_dir/mmw-reverify-$spec"
   release_merge_lock
   echo "reverify #$spec: $green green, $red red"
   [ "$red" -eq 0 ] || exit 1
@@ -3851,7 +3855,39 @@ summary_spec() {
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
 
   local body extra git_dir memory_result memory_manifest memory_summary
-  body="$(python3 "$STATUS" --summary "$spec")"
+  local caller_root into expected marker green red checked extra_field
+  python3 "$STATUS" --closeout-ready "$spec" \
+    || refuse "#${spec} is not ready for summary; resolve every condition named above, then run summary again"
+
+  caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$caller_root" ] || refuse "not inside a git repository"
+  into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" \
+    || refuse "#${spec} carries no active spec.opened.into, so summary cannot verify the base branch"
+  fetch_origin "$caller_root" \
+    || refuse "origin could not be refreshed, so summary cannot prove the base branch is still the one reverified"
+  expected="$(git -C "$caller_root" rev-parse "origin/$into" 2>/dev/null)" \
+    || refuse "origin/$into does not resolve to a commit"
+  git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
+  case "$git_dir" in /*) ;; *) git_dir="$caller_root/$git_dir" ;; esac
+  marker="$git_dir/mmw-reverify-$spec"
+  [ -f "$marker" ] \
+    || refuse "#${spec} has no completed reverify; run reverify $spec, then summary again"
+  read -r green red checked extra_field < "$marker"
+  case "$green $red $checked $extra_field" in
+    *[!0-9a-f\ ]* | "" | *"  "*)
+      refuse "#${spec}'s reverify receipt is unreadable; run reverify $spec again" ;;
+  esac
+  case "$green" in "" | *[!0-9]*) refuse "#${spec}'s reverify receipt has no green count; run reverify $spec again" ;; esac
+  case "$red" in "" | *[!0-9]*) refuse "#${spec}'s reverify receipt has no red count; run reverify $spec again" ;; esac
+  case "$checked" in [0-9a-f][0-9a-f][0-9a-f]*) ;; *) refuse "#${spec}'s reverify receipt has no checked commit; run reverify $spec again" ;; esac
+  [ -z "$extra_field" ] || refuse "#${spec}'s reverify receipt has unexpected fields; run reverify $spec again"
+  [ "$red" -eq 0 ] \
+    || refuse "#${spec}'s latest reverify recorded $red red ticket(s); resolve them and run reverify again"
+  [ "$checked" = "$expected" ] \
+    || refuse "origin/$into advanced from reverified commit $checked to $expected; run reverify $spec again"
+
+  body="$(python3 "$STATUS" --summary "$spec")" \
+    || refuse "could not build the summary of #$spec"
 
   # The last slot of the summary's `Findings routed:` line is the findings of this batch
   # that no `child.closed` accounts for: the closing pass has not been through them. That
@@ -3879,11 +3915,7 @@ summary_spec() {
   memory_summary="$(printf '%s\n' "$memory_result" | tail -n +2)"
   body="$(printf '%s\n%s\n' "$body" "$memory_summary")"
 
-  git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
-  extra=""
-  if [ -n "$git_dir" ] && [ -f "$git_dir/mmw-reverify-$spec" ]; then
-    extra="$(awk '{ printf "Reverify: %s/%s\n", $1, $2 }' "$git_dir/mmw-reverify-$spec")"
-  fi
+  extra="$(printf 'Reverify: %s/%s\n' "$green" "$red")"
   if [ -n "$extra" ]; then
     body="$(printf '%s\n%s\n' "$body" "$extra")"
   fi
@@ -3924,9 +3956,19 @@ spec_children() {
 }
 
 finish_preflight() {
-  local spec="$1" into="$2" specs children other active seen child state open="" rc
+  local spec="$1" into="$2" specs children other active seen child state open="" rc retro
   newest_field "$spec" at spec.closed spec.opened >/dev/null 2>&1 \
     || { echo "dispatch: #$spec carries no spec.closed; run summary before finish" >&2; return 2; }
+  retro="$(newest_field "$spec" result spec.retroed spec.closed)"; rc=$?
+  case "$rc" in
+    0) ;;
+    2) echo "dispatch: could not read #$spec while checking its Retro receipt" >&2; return 2 ;;
+    3) echo "dispatch: #$spec carries no spec.retroed after its latest spec.closed; complete Retro before finish" >&2; return 2 ;;
+    4) echo "dispatch: #$spec's latest spec.retroed carries no result; complete Retro before finish" >&2; return 2 ;;
+    *) echo "dispatch: could not verify #$spec's Retro receipt" >&2; return 2 ;;
+  esac
+  [ "$retro" = recorded ] \
+    || { echo "dispatch: #$spec's latest spec.retroed result is $retro, not recorded; complete Retro before finish" >&2; return 2; }
 
   specs="$(spec_numbers)" || {
     echo "dispatch: could not list specs while checking whether $into is still in use" >&2

@@ -1950,6 +1950,20 @@ closed_night_spec() {
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field "into=$into" --field "project=$project"
   post_ev 76 spec.closed --ticket '' --spec 76 --line "NIGHT SUMMARY" --field date=2026-09-11
+  post_ev 76 spec.retroed --ticket '' --spec 76 --line "NIGHT RETRO" \
+    --field result=recorded --field retro_memory=memory-test \
+    --json-field problem_count=0 --json-field 'proposals=[]' \
+    --field evidence=complete --json-field 'unreadable_sources=[]'
+}
+
+summary_ready_fixture() {
+  local spec="${1:-76}" into="${2:-main}" git_dir commit
+  post_ev "$spec" spec.opened --ticket '' --spec "$spec" --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field "into=$into" --field project=proj
+  git_dir="$(git -C "$TMP/repo" rev-parse --git-common-dir)"
+  case "$git_dir" in /*) ;; *) git_dir="$TMP/repo/$git_dir" ;; esac
+  commit="$(git -C "$TMP/repo" rev-parse "origin/$into")"
+  printf '0 0 %s\n' "$commit" > "$git_dir/mmw-reverify-$spec"
 }
 
 # A second clone is the other machine in origin-authority scenarios.
@@ -3495,13 +3509,13 @@ PY
 
 scenario_memory_closing() {
   local file="$TMP/memory-closing.json" code expected
-  reset_log; fresh_repo
+  reset_log; fresh_repo; summary_ready_fixture
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "zero-record Memory closing expected 0, got $code: $(cat "$TMP/err")"
   [ "$(memory_closing_payload)" = '{"status":"complete","total":0,"returned":0,"decisions":[]}' ] \
     || fail "zero-record closing was not recorded as complete: $(memory_closing_payload)"
 
-  reset_log; fresh_repo; seed_closing_memories; write_complete_closing "$file"
+  reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories; write_complete_closing "$file"
   expected="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])),ensure_ascii=False,separators=(",",":")))' "$file")"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
   [ "$code" = 0 ] || fail "complete Memory closing expected 0, got $code: $(cat "$TMP/err")"
@@ -3534,6 +3548,12 @@ scenario_summary_retro() {
   local code runbook
   runbook="$(dirname "$(dirname "$HERE")")/skills/dispatch/references/night.md"
   reset_log; fresh_repo
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=main --field project=proj
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 0 ] || fail "empty-batch reverify failed: $(cat "$TMP/err")"
+  grep -q 'reverify #76: 0 green, 0 red' "$TMP/out" \
+    || fail "empty-batch reverify did not record a green receipt: $(cat "$TMP/out")"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "summary did not record a completed spec: $(cat "$TMP/err")"
   posted_events 76 | grep -q '^spec.closed' \
@@ -3563,7 +3583,7 @@ scenario_memory_closing_refuses() {
     '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-old","decision":"supersede","reason":"r","evidence":"e"}]}' \
     '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-deprecate","decision":"deprecate","reason":"valid first mutation","evidence":"e"},{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e","replacement_id":"mem-old"},{"memory_id":"mem-propose","decision":"propose","reason":"r","evidence":"e"},{"memory_id":"mem-old","decision":"retain","reason":"r","evidence":"e"}]}'
   do
-    reset_log; fresh_repo; seed_closing_memories
+    reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories
     printf '%s\n' "$body" > "$file"
     code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
     [ "$code" = 2 ] || fail "invalid manifest expected 2, got $code for $body"
@@ -3576,7 +3596,7 @@ scenario_memory_closing_refuses() {
       || fail "refusal omitted the unique next action: $(cat "$TMP/err")"
   done
 
-  reset_log; fresh_repo; seed_closing_memories; write_complete_closing "$file"
+  reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories; write_complete_closing "$file"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["fail_show_id"]="mem-retain"; json.dump(d,open(p,"w"))
@@ -3595,7 +3615,7 @@ PY
 scenario_memory_closing_retry() {
   local file="$TMP/memory-retry.json" code
   echo '{"status":"unchecked","reason":"Nowledge Mem unavailable","total":null,"returned":null,"decisions":[]}' > "$file"
-  reset_log; fresh_repo
+  reset_log; fresh_repo; summary_ready_fixture
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
   [ "$code" = 0 ] || fail "unavailable list expected unchecked close, got $code: $(cat "$TMP/err")"
@@ -3604,7 +3624,7 @@ scenario_memory_closing_retry() {
   [ "$(memory_closing_payload)" = '{"status":"unchecked","reason":"Nowledge Mem unavailable","total":null,"returned":null,"decisions":[]}' ] \
     || fail "unavailable list did not preserve the exact unchecked payload: $(memory_closing_payload)"
 
-  reset_log; fresh_repo; seed_closing_memories
+  reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["memory_list"]["total"]=5; json.dump(d,open(p,"w"))
@@ -3617,7 +3637,7 @@ PY
   [ "$(memory_closing_payload)" = '{"status":"unchecked","reason":"truncated: 4/5","total":5,"returned":4,"decisions":[]}' ] \
     || fail "truncation did not preserve the exact unchecked payload: $(memory_closing_payload)"
 
-  reset_log; fresh_repo; seed_closing_memories; write_complete_closing "$file"
+  reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories; write_complete_closing "$file"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["fail_lifecycle_id"]="mem-old"; json.dump(d,open(p,"w"))
@@ -3651,7 +3671,7 @@ PY
 }
 
 scenario_summary() {
-  local when code copy
+  local when code copy other
   copy="$(skill_copy_for summary)"
   mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
   cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
@@ -3676,29 +3696,42 @@ PY
 JSON
   reset_log
   fresh_repo
-  echo "--- without a reverify this session, the posted comment opens NIGHT SUMMARY and has no Reverify"
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=main --field project=proj
+  echo "--- without a reverify receipt, summary refuses before it posts or closes the watch"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has "gh :: issue :: comment :: 76 :: --body"
-  grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
-    || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
-  grep -q "Reverify:" "$MMW_GH_LAST_BODY" \
-    && fail "Reverify should be absent unless reverify ran: $(cat "$MMW_GH_LAST_BODY")"
-  grep -q "Closed: #61 ALL MET" "$MMW_GH_LAST_BODY" \
-    || fail "the closed line should carry the ticket's own result line: $(cat "$MMW_GH_LAST_BODY")"
-  posted_events 76 date | grep -q "^spec.closed date=" \
-    || fail "the summary should be the spec.closed event on #76: $(posted_events 76 date)"
+  [ "$code" = 2 ] || fail "missing reverify expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "has no completed reverify" "$TMP/err" \
+    || fail "missing reverify refusal was not explicit: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: comment :: 76 :: --body"
+  hasnt "nmem :: --json :: memories"
 
   echo "--- after reverify, the posted comment has a Reverify line matching that run"
-  reset_log
+  : > "$MMW_TEST_LOG"; : > "$MMW_GH_LAST_BODY"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "reverify expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "reverify #76: 1 green, 0 red" "$TMP/out" \
     || fail "reverify should report 1 green: $(cat "$TMP/out")"
   git -C "$TMP/repo" worktree add -q --detach "$TMP/linked-summary" HEAD
-  reset_log
+  : > "$MMW_TEST_LOG"; : > "$MMW_GH_LAST_BODY"
+  other="$(other_clone)"
+  commit_file "$other" after-reverify.txt changed after-reverify
+  git -C "$other" push -q origin main
+  code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
+          > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 2 ] || fail "an origin advance after reverify expected exit 2, got $code"
+  grep -q "origin/main advanced from reverified commit" "$TMP/err" \
+    || fail "the stale reverify refusal was not explicit: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: memories"
+  hasnt "gh :: issue :: comment :: 76 :: --body"
+
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 0 ] || fail "second reverify expected exit 0: $(cat "$TMP/err")"
+  : > "$MMW_TEST_LOG"; : > "$MMW_GH_LAST_BODY"
   code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
@@ -3707,8 +3740,14 @@ JSON
     || fail "the posted comment should open NIGHT SUMMARY: $(cat "$MMW_GH_LAST_BODY")"
   grep -q "Reverify: 1/0" "$MMW_GH_LAST_BODY" \
     || fail "missing Reverify line matching that reverify: $(cat "$MMW_GH_LAST_BODY")"
+  grep -q "Closed: #61 ALL MET" "$MMW_GH_LAST_BODY" \
+    || fail "the closed line should carry the ticket's own result line: $(cat "$MMW_GH_LAST_BODY")"
+  posted_events 76 date | grep -q "^spec.closed date=" \
+    || fail "the summary should be the spec.closed event on #76: $(posted_events 76 date)"
 
   echo "--- summary stops the relay watching the spec, and leaves one watching another alone"
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=main --field project=proj
   no_relay
   fake_relay
   [ -n "$(relay_now)" ] || fail "the stand-in relay should be running before summary"
@@ -3717,6 +3756,8 @@ JSON
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
   grep -q "stopped the relay for o/r" "$TMP/err" || fail "summary should say it stopped the relay: $(cat "$TMP/err")"
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=main --field project=proj
   fake_relay '{"spec": 80}'
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
@@ -3724,6 +3765,36 @@ JSON
   case "$(relay_now)" in *'{"spec": 80}'*) ;; *) fail "a relay watching spec 80 should be left running: $(relay_now)" ;; esac
   grep -q "does not watch #76, so it was left running" "$TMP/err" || fail "summary should say why it left it: $(cat "$TMP/err")"
   no_relay
+}
+
+scenario_summarycloseout() {
+  local code
+  reset_log; fresh_repo; summary_ready_fixture
+  cat > "$TMP/tickets.json" <<JSON
+[{"number":61,"state":"CLOSED","labels":[],
+  "comments":[$(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field into=main)]}]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 2 ] || fail "passed-unlanded summary expected 2, got $code"
+  grep -q '#61 passed but has not landed' "$TMP/err" \
+    || fail "passed-unlanded refusal was not explicit: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: memories"
+  hasnt "gh :: issue :: comment :: 76 :: --body"
+
+  reset_log; summary_ready_fixture
+  cat > "$TMP/tickets.json" <<JSON
+[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"assignees":["mmw-bot"],
+  "comments":[$(ev worker.started 61 "worker started on orca: session term_7" --spec 76 \
+    --field session=term_7 --field runner=orca $(start_facts "$(wt 61)" 61 worker))]}]
+JSON
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 2 ] || fail "live-worker summary expected 2, got $code"
+  grep -q '#61 still has a live worker term_7' "$TMP/err" \
+    || fail "live-worker refusal was not explicit: $(cat "$TMP/err")"
+  hasnt "nmem :: --json :: memories"
+  hasnt "gh :: issue :: comment :: 76 :: --body"
 }
 
 scenario_summaryholdsfindings() {
@@ -3744,6 +3815,7 @@ scenario_summaryholdsfindings() {
 JSON
   reset_log
   fresh_repo
+  summary_ready_fixture
   echo "--- a finding no route reached refuses the summary: nothing posted, the watch still open"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
@@ -3764,6 +3836,7 @@ rows[2]["state"] = "CLOSED"
 json.dump(rows, open(sys.argv[1], "w"))
 PY
   reset_log
+  summary_ready_fixture
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
@@ -5209,6 +5282,12 @@ scenario_open() {
   [ -z "$(watch_main tickets:61)" ] || fail "no watch on #61 should be open: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- summary closes its night's watch, and the relay goes on for the other night"
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number":61,"state":"CLOSED","labels":[],"comments":[]},
+ {"number":63,"state":"CLOSED","labels":[],"comments":[]}]
+JSON
+  summary_ready_fixture 76 night
+  summary_ready_fixture 77 night
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "summary expected 0, got $code: $(cat "$TMP/err")"
   grep -q "stopped watching spec #76 for o/r: the relay (pid $pid) goes on watching spec #77" "$TMP/err" \
@@ -8271,6 +8350,32 @@ scenario_finishrefusesunclosed() {
   [ "$(git -C "$TMP/repo" rev-parse night)" = "$local_night" ] || fail "unclosed finish changed local night"
 }
 
+scenario_finishrefusesretro() {
+  local code before
+  fresh_project_night; git -C "$TMP/repo" push -q -u origin night; git -C "$TMP/repo" checkout -q proj
+  echo '[]' > "$TMP/tickets.json"; reset_log
+  post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night --field project=proj
+  post_ev 76 spec.closed --ticket '' --spec 76 --line closed --field date=2026-09-11
+  before="$(git -C "$TMP/origin.git" rev-parse proj)"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 2 ] || fail "missing-retro finish expected 2, got $code"
+  grep -q 'no spec.retroed after its latest spec.closed' "$TMP/err" \
+    || fail "missing Retro refusal was not explicit: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] \
+    || fail "missing-retro finish changed the project branch"
+  [ -z "$(posted_events 76 | grep '^spec.merged' || true)" ] \
+    || fail "missing-retro finish wrote spec.merged"
+
+  post_ev 76 spec.retroed --ticket '' --spec 76 --line "NIGHT RETRO not recorded" \
+    --field result=unrecorded --field reason='Memory write failed'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 2 ] || fail "unrecorded-retro finish expected 2, got $code"
+  grep -q 'result is unrecorded, not recorded' "$TMP/err" \
+    || fail "unrecorded Retro refusal was not explicit: $(cat "$TMP/err")"
+  [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] \
+    || fail "unrecorded-retro finish changed the project branch"
+}
+
 scenario_finishrefusesopenticket() {
   local code before
   setup_finish_closed
@@ -8299,6 +8404,10 @@ scenario_finishrefusesnoproject() {
   echo '[]' > "$TMP/tickets.json"; reset_log
   post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night
   post_ev 76 spec.closed --ticket '' --spec 76 --line closed --field date=2026-09-11
+  post_ev 76 spec.retroed --ticket '' --spec 76 --line retro \
+    --field result=recorded --field retro_memory=memory-test \
+    --json-field problem_count=0 --json-field 'proposals=[]' \
+    --field evidence=complete --json-field 'unreadable_sources=[]'
   before="$(git -C "$TMP/origin.git" rev-parse proj)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 2 ] || fail "no-project finish expected 2, got $code"
@@ -9957,6 +10066,7 @@ JSON
 scenario_summarybounced() {
   reset_log
   fresh_repo
+  summary_ready_fixture
   cat > "$TMP/tickets.json" <<JSON
 [
   {"number": 61, "state": "OPEN", "labels": ["needs-triage"],
@@ -9980,7 +10090,7 @@ ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-co
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
-ALL="$ALL summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepscurrent finishrefusesunclosed finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepscurrent finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -10104,6 +10214,7 @@ banner_for() {
     wait) echo DISPATCH-WAIT-OK ;;
     reverify) echo DISPATCH-REVERIFY-OK ;;
     summary) echo DISPATCH-SUMMARY-OK ;;
+    summarycloseout) echo SUMMARY-CLOSEOUT-OK ;;
     summary-retro) echo SUMMARY-RETRO-OK ;;
     summaryholdsfindings) echo SUMMARY-HOLDS-FINDINGS-OK ;;
     release) echo DISPATCH-RELEASE-OK ;;
@@ -10187,6 +10298,7 @@ banner_for() {
     finishcleans) echo FINISH-CLEANS-OK ;;
     finishkeepscurrent) echo FINISH-KEEPS-CURRENT-OK ;;
     finishrefusesunclosed) echo FINISH-REFUSES-UNCLOSED-OK ;;
+    finishrefusesretro) echo FINISH-REFUSES-RETRO-OK ;;
     finishrefusesopenticket) echo FINISH-REFUSES-OPEN-TICKET-OK ;;
     finishrefusesothernight) echo FINISH-REFUSES-OTHER-NIGHT-OK ;;
     finishrefusesnoproject) echo FINISH-REFUSES-NO-PROJECT-OK ;;

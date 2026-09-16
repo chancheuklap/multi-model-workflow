@@ -22,6 +22,7 @@ SPACE = "sample__retro-test"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards", "Global AGENTS.md",
               "Tool economy", "No-ops", "Information access")
 NAMES = {"complete-none": "RETRO-COMPLETE-NONE-OK",
+         "default-caller-repo": "RETRO-DEFAULT-CALLER-REPO-OK",
          "partial-evidence": "RETRO-PARTIAL-EVIDENCE-OK",
          "proposal-threshold": "RETRO-PROPOSAL-THRESHOLD-OK",
          "prompt-and-record-contract": "RETRO-PROMPT-AND-RECORD-CONTRACT-OK",
@@ -137,6 +138,13 @@ class Fixture:
         assert result.returncode != 0, f"{args} unexpectedly passed"
         return result.stderr
 
+    def run_default(self, *args: str) -> dict:
+        result = subprocess.run([sys.executable, str(SCRIPT), *args], env=self.env,
+                                cwd=self.checkout, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        assert result.returncode == 0, f"{args}: {result.stderr}\n{result.stdout}"
+        return json.loads(result.stdout)
+
     def analysis(self, gathered: dict, problems: list[dict] | None = None) -> dict:
         problems = problems or []
         categories = {name: "none" for name in CATEGORIES}
@@ -215,6 +223,13 @@ def complete_none(f: Fixture):
                     "## Problems observed", "## Intent reconciliation", "## Review learning", "Observed:"):
         assert heading in row["content"], heading
     assert row["labels"] == ["mmw-retro"] and row["unit_type"] == "event"
+
+
+def default_caller_repo(f: Fixture):
+    git("remote", "set-url", "origin", f"git@github.com:{REPOSITORY}.git", cwd=f.checkout)
+    gathered = f.run_default("gather", "70")
+    assert gathered["spec_url"] == f"https://github.com/{REPOSITORY}/issues/70"
+    assert gathered["observed"]["base_commit"] == f.base
 
 
 def partial_evidence(f: Fixture):
@@ -458,7 +473,8 @@ def retry_finalize(f: Fixture):
                 if '"event":"spec.closed"' in c["body"]]) == 1
 
 
-FUNCTIONS = {"complete-none": complete_none, "partial-evidence": partial_evidence,
+FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_caller_repo,
+             "partial-evidence": partial_evidence,
              "proposal-threshold": proposal_threshold,
              "prompt-and-record-contract": prompt_and_record_contract,
              "retry-finalize": retry_finalize}

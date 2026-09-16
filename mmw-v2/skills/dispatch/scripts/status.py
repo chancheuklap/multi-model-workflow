@@ -400,6 +400,33 @@ def frontier(rows: list[dict]) -> list[dict]:
             and not off_frontier_reasons(r)]
 
 
+def closeout_problems(rows: list[dict], tickets: dict[int, dict]) -> list[str]:
+    """Conditions that make writing ``spec.closed`` unsafe.
+
+    Tickets deliberately left for a person, triage, or an unresolved blocker are valid
+    Night outcomes. A readable ticket that can still be dispatched, a live hold, or a
+    passed change not yet present on the base branch is not.
+    """
+    problems = []
+    for row in rows:
+        if row["unreadable"]:
+            problems.append(f"#{row['ticket']} cannot be checked: {row['unreadable']}")
+    for row in frontier(rows):
+        problems.append(f"#{row['ticket']} is still ready to dispatch")
+    for row in held(rows):
+        holder = row["holder"]
+        if holder.get("claim"):
+            problems.append(f"#{row['ticket']} still has an untaken claim")
+        else:
+            problems.append(
+                f"#{row['ticket']} still has a live {holder.get('kind') or 'session'} "
+                f"{holder.get('session') or '?'}")
+    for number in sorted(tickets):
+        if passed_unlanded(tickets[number]):
+            problems.append(f"#{number} passed but has not landed")
+    return problems
+
+
 def why_not_on_frontier(row: dict) -> str:
     """Which of `frontier`'s conditions this ticket fails, in that function's order."""
     return ("; ".join(off_frontier_reasons(row))
@@ -788,6 +815,14 @@ def print_summary(spec: int) -> int:
     print(summary(rows, night_opened(), children=children))
     return 0
 
+
+def closeout_ready(spec: int) -> int:
+    rows, tickets = collect(spec)
+    problems = closeout_problems(rows, tickets)
+    for problem in problems:
+        print(f"dispatch: summary refused: {problem}", file=sys.stderr)
+    return 2 if problems else 0
+
 # --------------------------------------------------------------------- entry
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -805,6 +840,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                        help="print the worker-grade labels of every ticket in the agent queue")
     forms.add_argument("--summary", action="store_true",
                        help="print the night summary and do not post it")
+    forms.add_argument("--closeout-ready", action="store_true",
+                       help="exit zero only when writing spec.closed is safe")
     forms.add_argument("--land-plan", action="store_true",
                        help="print what landing each of these tickets calls for")
     parser.add_argument("spec", type=int, nargs="+",
@@ -829,6 +866,8 @@ def main(argv: list[str] | None = None) -> int:
             return worker_grades(args.spec[0])
         if args.summary:
             return print_summary(args.spec[0])
+        if args.closeout_ready:
+            return closeout_ready(args.spec[0])
         return table(args.spec[0])
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         print(f"dispatch: {exc}", file=sys.stderr)

@@ -21,7 +21,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 MMW = Path(__file__).resolve().parents[3]
-REPO = MMW.parent
+REPO = Path.cwd().resolve()
 REPOSITORY_OVERRIDE = ""
 SPACE_CACHE = ""
 VERIFY = MMW / "skills" / "verify-ticket" / "scripts"
@@ -50,6 +50,19 @@ refusal = load("refusal", DRIVE)
 
 class RetroError(RuntimeError):
     pass
+
+
+def git_root(path: Path) -> Path:
+    try:
+        proc = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=path,
+                              text=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, check=False)
+    except OSError as exc:
+        raise RetroError(f"git rev-parse --show-toplevel: {exc}") from exc
+    if proc.returncode or not proc.stdout.strip():
+        detail = (proc.stderr or proc.stdout).strip()[:500]
+        raise RetroError(f"{path} is not inside a Git checkout: {detail}")
+    return Path(proc.stdout.strip()).resolve()
 
 
 def command(args: list[str], *, stdin: str | None = None, cwd: Path | None = None,
@@ -712,8 +725,11 @@ def main(argv: list[str] | None = None) -> int:
     finish.add_argument("spec", type=int)
     finish.add_argument("analysis", type=Path)
     args = parser.parse_args(argv)
-    if args.repo:
-        REPO = args.repo.resolve()
+    try:
+        REPO = git_root(args.repo.resolve() if args.repo else Path.cwd())
+    except RetroError as exc:
+        sys.stderr.write(f"retro: {refusal_for(exc, args)}\n")
+        return 2
     if args.repository:
         if not args.repo or not re.fullmatch(r"[^/\s]+/[^/\s]+", args.repository):
             parser.error("--repository is available only with --repo and needs owner/name")

@@ -184,6 +184,40 @@ class WhoHoldsATicket(unittest.TestCase):
         self.assertEqual(row["note"], "2 live workers: term_7, term_8")
 
 
+class SummaryCloseoutGate(unittest.TestCase):
+    """The summary gate names only conditions that make closeout unsafe."""
+
+    def problems(self, tickets):
+        return status.closeout_problems(rows_of(tickets), tickets)
+
+    def test_refuses_a_live_session(self):
+        tickets = {61: ticket(61, comments=(started(61, "term_7"),))}
+        self.assertEqual(self.problems(tickets), ["#61 still has a live worker term_7"])
+
+    def test_refuses_a_passed_ticket_that_has_not_landed(self):
+        tickets = {61: ticket(61, state="CLOSED", labels=(), comments=(passed(61),))}
+        self.assertEqual(self.problems(tickets), ["#61 passed but has not landed"])
+
+    def test_refuses_an_unreadable_ticket(self):
+        broken = ticket(61)
+        broken["unread_raw"] = True
+        tickets = {61: broken}
+        self.assertEqual(self.problems(tickets),
+                         ["#61 cannot be checked: the tracker did not answer for it"])
+
+    def test_refuses_a_dispatchable_frontier_ticket(self):
+        tickets = {61: ticket(61)}
+        self.assertEqual(self.problems(tickets), ["#61 is still ready to dispatch"])
+
+    def test_allows_human_acceptance_triage_and_blocked_tickets(self):
+        tickets = {
+            61: ticket(61, labels=("ready-for-human",)),
+            62: ticket(62, labels=("needs-triage",)),
+            63: ticket(63, blockers=(90,)),
+        }
+        self.assertEqual(self.problems(tickets), [])
+
+
 class NamingWhatHoldsIt(unittest.TestCase):
     """How a ticket's live sessions are named where a plan says why it cannot start.
 
