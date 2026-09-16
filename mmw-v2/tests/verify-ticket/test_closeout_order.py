@@ -10,6 +10,8 @@ before the event too.
 """
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import mock
 
 import test_closeout as tc
@@ -72,6 +74,15 @@ def after_a_lost_post(text, **kwargs):
 
 
 class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
+    def test_an_overlapping_closeout_cannot_enter_the_same_ticket(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tc.subprocess.run(["git", "init", "-q", str(root)], check=True)
+            with tc.vt.closeout_lock(root, 77):
+                with self.assertRaises(tc.vt.CloseoutBusy):
+                    with tc.vt.closeout_lock(root, 77):
+                        self.fail("the second closeout entered the critical section")
+
     def test_a_post_that_fails_after_the_close_says_to_run_closeout_again(self):
         code, err, _ = tc.check(tc.draft(counts=tc.counts_line()), check_only=False, post_fails=True)
         self.assertEqual(code, 1)
@@ -96,13 +107,13 @@ class TestAnEventThatCouldNotBePostedIsPostedByTheNextRun(unittest.TestCase):
                          "the hand back is not made twice, and a slot still held goes back first")
         self.assertEqual(tc.posted_as(seen["posted"][0][1])[1], "ticket.returned")
 
-    def test_a_closed_ticket_that_already_carries_its_event_is_still_refused(self):
+    def test_a_closed_ticket_with_the_same_commit_is_an_idempotent_success(self):
         passed = tc.event("ticket.passed", "ALL MET", commit=tc.HEAD)
         code, err, seen = tc.check(tc.draft(counts=tc.counts_line()), state="CLOSED", assignees=(),
                                    reason="COMPLETED", check_only=False,
                                    comments=(tc.FINAL_RUN, CLAIMED, passed))
-        self.assertEqual(code, 1)
-        self.assertIn("already CLOSED", err)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(tc.CALLS, [])
         self.assertEqual(seen["posted"], [])
 
     def test_a_ticket_closed_as_not_planned_is_somebody_elses_decision(self):

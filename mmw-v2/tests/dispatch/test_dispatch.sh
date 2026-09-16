@@ -1321,6 +1321,11 @@ print(json.dumps({
 }))
 ' ;;
   *"--json comments"*)
+    if [ -n "${FAKE_GH_COMMENTS_MARKER:-}" ] && [ ! -e "$FAKE_GH_COMMENTS_MARKER.used" ]; then
+      : > "$FAKE_GH_COMMENTS_MARKER.used"
+      : > "$FAKE_GH_COMMENTS_MARKER"
+      while [ ! -e "$FAKE_GH_COMMENTS_RELEASE" ]; do sleep 0.05; done
+    fi
     MMW_WANT="$3" python3 -c '
 import json, os
 from pathlib import Path
@@ -9073,6 +9078,50 @@ SH
   git -C "$TMP/origin.git" show main:ticket.txt >/dev/null || fail "the ticket commit was not retried"
 }
 
+scenario_advanceoverlap() {
+  reset_log
+  fresh_repo
+  make_branch issue-61 ticket.txt ticket
+  local passed first second waited code1 code2
+  passed="$(git -C "$TMP/repo" rev-parse issue-61)"
+  write_one_passed 61 "$passed"
+  seed_workspace 61
+  first="$TMP/advance-first"
+  second="$TMP/advance-second"
+  (
+    cd "$TMP/repo" || exit 99
+    env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+      FAKE_GH_COMMENTS_MARKER="$first.ready" FAKE_GH_COMMENTS_RELEASE="$TMP/advance.release" \
+      MMW_GH_LAST_BODY="$first.body" bash "$DISPATCH" "${TOOLS[@]}" advance 76 \
+      > "$first.out" 2> "$first.err"
+    printf '%s\n' "$?" > "$first.code"
+  ) &
+  first=$!
+  (
+    cd "$TMP/repo" || exit 99
+    env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+      FAKE_GH_COMMENTS_MARKER="$second.ready" FAKE_GH_COMMENTS_RELEASE="$TMP/advance.release" \
+      MMW_GH_LAST_BODY="$second.body" bash "$DISPATCH" "${TOOLS[@]}" advance 76 \
+      > "$second.out" 2> "$second.err"
+    printf '%s\n' "$?" > "$second.code"
+  ) &
+  second=$!
+  waited=0
+  until [ -e "$TMP/advance-first.ready" ] && [ -e "$TMP/advance-second.ready" ]; do
+    sleep 0.05
+    waited=$((waited + 1))
+    [ "$waited" -lt 200 ] || fail "the two advances did not both read the pre-landing snapshot"
+  done
+  : > "$TMP/advance.release"
+  wait "$first"; wait "$second"
+  code1="$(cat "$TMP/advance-first.code")"
+  code2="$(cat "$TMP/advance-second.code")"
+  [ "$code1" = 0 ] && [ "$code2" = 0 ] \
+    || fail "overlapping advances failed: first=$code1 $(cat "$TMP/advance-first.err"); second=$code2 $(cat "$TMP/advance-second.err")"
+  [ "$(posted_events 61 | grep -c '^ticket\.landed' | tr -d ' ')" = 1 ] \
+    || fail "overlapping advances wrote duplicate ticket.landed events: $(posted_events 61)"
+}
+
 scenario_advancelandedfields() {
   reset_log
   fresh_repo
@@ -9925,7 +9974,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
@@ -9996,6 +10045,7 @@ banner_for() {
     advancebaseref) echo ADVANCE-BASE-REF-OK ;;
     advancenochecks) echo ADVANCE-NO-CHECKS-OK ;;
     advanceraced) echo ADVANCE-RACED-OK ;;
+    advanceoverlap) echo ADVANCE-OVERLAP-OK ;;
     advancelandedfields) echo ADVANCE-LANDED-FIELDS-OK ;;
     advancealreadyin) echo ADVANCE-ALREADY-IN-OK ;;
     landedlinks) echo LANDED-LINKS-OK ;;

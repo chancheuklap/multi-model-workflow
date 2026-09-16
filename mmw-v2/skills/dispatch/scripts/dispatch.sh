@@ -2917,7 +2917,7 @@ delete_landed_ticket_branch() {
 # Whether the ticket's complete event fold currently says it is landed.
 ticket_is_landed() {
   local folded
-  folded="$(ticket_events "$1" fold)" || return 1
+  folded="$(ticket_events "$1" fold)" || return 2
   printf '%s\n' "$folded" | python3 -c '
 import json, sys
 raise SystemExit(0 if json.load(sys.stdin).get("landed") else 1)
@@ -2928,7 +2928,17 @@ raise SystemExit(0 if json.load(sys.stdin).get("landed") else 1)
 # branch copies only if both preceding state transitions succeeded.
 finish_landing() {
   local root="$1" number="$2" spec="$3" into="$4" passed="$5"
-  local merge_commit="$6" base="$7" mode="$8" archived=0
+  local merge_commit="$6" base="$7" mode="$8" archived=0 landing_state
+  ticket_is_landed "$number"; landing_state=$?
+  if [ "$landing_state" -eq 0 ]; then
+    archive_workspace "$number" && archived=1
+    [ "$archived" -eq 0 ] || delete_landed_ticket_branch "$root" "$number" "$into"
+    return 0
+  fi
+  if [ "$landing_state" -eq 2 ]; then
+    echo "dispatch: could not read #$number before recording ticket.landed; nothing was written and the landing can be retried" >&2
+    return 1
+  fi
   if [ "$mode" = land ]; then
     gh_ issue edit "$number" --remove-assignee @me >/dev/null 2>&1 \
       || echo "land: could not give #$number's claim back" >&2

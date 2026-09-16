@@ -10,6 +10,7 @@ that ledger to unlazy's `gate-check`, and posts the result back as one
 from __future__ import annotations
 
 import argparse
+import fcntl
 import fnmatch
 import hashlib
 import importlib.util
@@ -23,6 +24,7 @@ import sys
 import tempfile
 import time
 from collections import Counter, defaultdict, deque
+from contextlib import contextmanager
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -123,22 +125,47 @@ RETIRED_BASE_RE = re.compile(r"branch\.[A-Za-z0-9._/-]*\.mmw-base(-branch)?\b")
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
 
 
+class TrackerReadError(RuntimeError):
+    """A named tracker read that the caller may safely retry."""
+
+    def __init__(self, number: int, part: str, detail: str):
+        self.number = number
+        self.part = part
+        self.detail = detail
+        super().__init__(f"could not read #{number}'s {part} from the tracker ({detail})")
+
+
+def tracker_failure(exc: BaseException) -> str:
+    """The useful line from a failed tracker subprocess or parser."""
+    if isinstance(exc, subprocess.CalledProcessError):
+        lines = str(exc.stderr or exc.stdout or "").strip().splitlines()
+        return lines[-1] if lines else f"gh exited {exc.returncode}"
+    return str(exc)
+
+
 def fetch_body(number: int) -> str:
     """The issue body, straight from the tracker. Patched out in tests."""
-    out = subprocess.run(
-        ["gh", "issue", "view", str(number), "--json", "body", "-q", ".body"],
-        capture_output=True, text=True, check=True, env=GH_ENV,
-    )
+    try:
+        out = subprocess.run(
+            ["gh", "issue", "view", str(number), "--json", "body", "-q", ".body"],
+            capture_output=True, text=True, check=True, env=GH_ENV,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise TrackerReadError(number, "body", tracker_failure(exc)) from None
     return out.stdout
 
 
 def fetch_comments(number: int) -> list[str]:
     """Every comment body on the ticket, oldest first. Patched out in tests."""
-    out = subprocess.run(
-        ["gh", "issue", "view", str(number), "--json", "comments"],
-        capture_output=True, text=True, check=True, env=GH_ENV,
-    )
-    return [c.get("body", "") for c in json.loads(out.stdout).get("comments", [])]
+    try:
+        out = subprocess.run(
+            ["gh", "issue", "view", str(number), "--json", "comments"],
+            capture_output=True, text=True, check=True, env=GH_ENV,
+        )
+        return [c.get("body", "") for c in json.loads(out.stdout).get("comments", [])]
+    except (OSError, subprocess.CalledProcessError, json.JSONDecodeError,
+            AttributeError, TypeError) as exc:
+        raise TrackerReadError(number, "comments", tracker_failure(exc)) from None
 
 
 def post_comment(number: int, body: str) -> None:
@@ -2273,13 +2300,79 @@ def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
     return None
 
 
+class CloseoutBusy(RuntimeError):
+    """Another closeout still owns this ticket's local critical section."""
+
+
+@contextmanager
+def closeout_lock(root: Path, number: int):
+    """Exclude overlapping closeouts of one ticket in this repository."""
+    common = git("rev-parse", "--git-common-dir", cwd=root)
+    if not common:
+        raise OSError("git could not locate this repository's common directory")
+    directory = Path(common)
+    if not directory.is_absolute():
+        directory = root / directory
+    path = directory / f"mmw-closeout-{number}.lock"
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise CloseoutBusy(f"another --closeout for #{number} is still running") from None
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+def completed_closeout(ticket: dict, comments: list[str], first: str,
+                       head: str) -> str | None:
+    """The matching closeout result already recorded for this commit, if any."""
+    state = events.fold(comments)
+    outcome = state.get("outcome") or {}
+    payload = outcome.get("payload") or {}
+    if payload.get("commit") != head:
+        return None
+    if first == "ALL MET" and state.get("passed") \
+            and ticket.get("state") == "CLOSED" \
+            and str(ticket.get("stateReason") or "").upper() == "COMPLETED":
+        return "closed"
+    labels = {label.get("name") for label in ticket.get("labels") or []}
+    assigned = bool(ticket.get("assignees"))
+    if first.startswith("HANDOFF REQUIRED") and state.get("returned") \
+            and ticket.get("state") == "OPEN" and not assigned \
+            and "needs-triage" in labels and "ready-for-agent" not in labels:
+        return "handed"
+    return None
+
+
 def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
+    """Serialize one ticket's closeout, then check and apply it."""
+    try:
+        with closeout_lock(repo_root(), number):
+            return _run_closeout(number, draft_path, check_only)
+    except (CloseoutBusy, OSError) as exc:
+        return refuse(f"closeout refused: {exc}. Nothing was run or written; retry the "
+                      "same command after the active closeout finishes")
+
+
+def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     """Check the closing comment against the ticket and the repository, then post it."""
     draft = draft_path.read_text(encoding="utf-8")
     comments = fetch_comments(number)
-    body = fetch_body(number)
     first = (draft.strip().splitlines() or [""])[0].strip()
     passed = first == "ALL MET"
+    ticket = fetch_ticket(number)
+    head = git("rev-parse", "HEAD")
+    completed = completed_closeout(ticket, comments, first, head)
+    if completed:
+        action = "CLOSED" if completed == "closed" else "HANDED BACK"
+        print(f"{action}: #{number} was already recorded at {head}")
+        return 0
+    body = fetch_body(number)
     started, started_problem = newest_worker_started(number, comments)
     base = (started or {}).get("base")
     into = (started or {}).get("into") if passed else None
@@ -2295,7 +2388,6 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                         f"`dispatch.sh start {number} worker` again so it records one")
     if base:
         problems += git_problems(base, repo_root())
-    ticket = fetch_ticket(number)
     me = gh_login()
     # A previous run of this closeout that closed (or handed back) the ticket and could not
     # post the event: this run posts it, and does nothing else.
@@ -2321,7 +2413,6 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
         print(f"CLOSEOUT OK: #{number} draft passes every check")
         return 0
 
-    head = git("rev-parse", "HEAD")
     if passed and pending is None:
         checks = run_target_json_checks(repo_root(), into)
         if checks is not None and not post_repo_checks(number, checks, spec_field(ticket)):
@@ -3167,31 +3258,33 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--actor belongs to --reverify")
     if args.reverify and args.actor is None:
         parser.error("--reverify requires --actor worker|main")
-    if args.preflight:
-        return run_preflight(args.ticket)
-    if args.closeout is not None:
-        if not args.closeout.is_file():
-            parser.error(f"no draft at {args.closeout}")
-        return run_closeout(args.ticket, args.closeout, args.check_only)
-    if args.decisions is not None:
-        if not args.decisions.is_file():
-            parser.error(f"no file at {args.decisions}")
-        return run_decisions(args.ticket, args.decisions)
-    if args.touched:
-        return run_touched(args.ticket)
-    if args.draft is not None:
-        return run_draft(args.ticket, Path(args.draft) if args.draft else None)
-    if args.sub_issue is not None:
-        kind, file = args.sub_issue
-        return run_sub_issue(args.ticket, kind, Path(file))
-    if args.review is not None:
-        if not args.review.is_file():
-            parser.error(f"no file at {args.review}")
-        return run_review(args.ticket, args.review)
     try:
+        if args.preflight:
+            return run_preflight(args.ticket)
+        if args.closeout is not None:
+            if not args.closeout.is_file():
+                parser.error(f"no draft at {args.closeout}")
+            return run_closeout(args.ticket, args.closeout, args.check_only)
+        if args.decisions is not None:
+            if not args.decisions.is_file():
+                parser.error(f"no file at {args.decisions}")
+            return run_decisions(args.ticket, args.decisions)
+        if args.touched:
+            return run_touched(args.ticket)
+        if args.draft is not None:
+            return run_draft(args.ticket, Path(args.draft) if args.draft else None)
+        if args.sub_issue is not None:
+            kind, file = args.sub_issue
+            return run_sub_issue(args.ticket, kind, Path(file))
+        if args.review is not None:
+            if not args.review.is_file():
+                parser.error(f"no file at {args.review}")
+            return run_review(args.ticket, args.review)
         if args.lint:
             return run_lint(args.ticket)
         return run_checks(args.ticket, args.reverify, args.timeout, args.actor)
+    except TrackerReadError as exc:
+        return refuse(f"verify-ticket: {exc}. Nothing was run or written; retry the same command")
     except JudgeUnreachable as exc:
         print(f"verify-ticket: {exc}", file=sys.stderr)
         return 2

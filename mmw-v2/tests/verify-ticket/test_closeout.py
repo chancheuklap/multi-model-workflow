@@ -4,7 +4,7 @@ import io
 import json
 import subprocess
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import nullcontext, redirect_stderr, redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
@@ -170,7 +170,8 @@ def check(text, comments=(),
                                if pushed is not None else None), \
              mock.patch.object(vt, "post_comment", side_effect=post), \
              mock.patch.object(vt, "close_ticket", side_effect=change("closed")), \
-             mock.patch.object(vt, "hand_back_for_triage", side_effect=change("handed")):
+             mock.patch.object(vt, "hand_back_for_triage", side_effect=change("handed")), \
+             mock.patch.object(vt, "closeout_lock", return_value=nullcontext()):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 code = vt.run_closeout(77, path, check_only)
     return code, err.getvalue(), seen
