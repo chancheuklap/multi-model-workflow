@@ -601,12 +601,39 @@ def create_or_reuse(problem: dict, gathered: dict, memory_id: str) -> str:
               "--title", proposal["title"], "--body-file", "-", stdin=body).splitlines()[-1]
 
 
+def evidence_line(items: list[dict]) -> str:
+    """Name every missing or unreadable source; count present sources per issue and detail.
+
+    A night's event comments run to hundreds, and one line each would exceed the Space's
+    content limit. A present source is recoverable from `gather`, so only its count is kept.
+    """
+    present: dict[tuple[str, str], list[str]] = {}
+    order: list[tuple[str, str] | dict] = []
+    for item in items:
+        if item["status"] != "present":
+            order.append(item)
+            continue
+        key = (item["source"].split("#issuecomment-", 1)[0], item["detail"])
+        if key not in present:
+            present[key] = []
+            order.append(key)
+        present[key].append(item["source"])
+    parts = []
+    for entry in order:
+        if isinstance(entry, dict):
+            parts.append(f"{entry['source']} [{entry['status']}] {entry['detail']}")
+        elif len(present[entry]) == 1:
+            parts.append(f"{present[entry][0]} [present] {entry[1]}")
+        else:
+            parts.append(f"{entry[0]} [present] {len(present[entry])}× {entry[1]}")
+    return "; ".join(parts)
+
+
 def render(data: dict, gathered: dict, proposal_urls: dict[int, str]) -> str:
     root = data["task_root"]
     label = f"map #{root['number']}" if root["kind"] == "map" else f"standalone spec #{root['number']}"
     lines = [f"Spec: {repository()}#{data['spec']}", f"Task root: {label}",
-             "Evidence checked: " + "; ".join(f"{x['source']} [{x['status']}] {x['detail']}"
-                                                   for x in data["evidence_checked"]),
+             "Evidence checked: " + evidence_line(data["evidence_checked"]),
              "", "## Previous proposals"]
     lines += [f"- {x['url']} — " + (f"已落地：{x['evidence']}" if x["status"] == "landed"
                                      else "没找到证据") for x in data["previous_proposals"]] or ["none"]

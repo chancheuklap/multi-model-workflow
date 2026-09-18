@@ -26,7 +26,8 @@ NAMES = {"complete-none": "RETRO-COMPLETE-NONE-OK",
          "partial-evidence": "RETRO-PARTIAL-EVIDENCE-OK",
          "proposal-threshold": "RETRO-PROPOSAL-THRESHOLD-OK",
          "prompt-and-record-contract": "RETRO-PROMPT-AND-RECORD-CONTRACT-OK",
-         "retry-finalize": "RETRO-RETRY-FINALIZE-OK"}
+         "retry-finalize": "RETRO-RETRY-FINALIZE-OK",
+         "large-evidence": "RETRO-LARGE-EVIDENCE-OK"}
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -473,11 +474,32 @@ def retry_finalize(f: Fixture):
                 if '"event":"spec.closed"' in c["body"]]) == 1
 
 
+def large_evidence(f: Fixture):
+    # A night with hundreds of event comments: listing each present source would exceed
+    # the Space's 32768-character content limit and leave the retro unrecorded.
+    for _ in range(400):
+        f.event(71, "ticket.checked", "reverify on the landed commit", ticket=71,
+                run="reverify", result="met", commit=f.landed)
+    f.save()
+    gathered = f.run("gather", "70")
+    present = [x for x in gathered["evidence_checked"] if x["status"] == "present"]
+    assert len(present) > 400
+    outcome = f.finish(f.analysis(gathered))
+    assert outcome["result"] == "recorded", outcome
+    assert f.assert_receipt("recorded")["evidence"] == "complete"
+    content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
+    assert len(content) <= 32768, len(content)
+    ticket = f"https://github.com/{REPOSITORY}/issues/71"
+    assert f"{ticket} [present] 401× script-written event comment" in content, content[:2000]
+    assert f"{ticket}#issuecomment-" not in content
+    assert f"{ticket} [present] event-bearing comments and fold" in content
+
+
 FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_caller_repo,
              "partial-evidence": partial_evidence,
              "proposal-threshold": proposal_threshold,
              "prompt-and-record-contract": prompt_and_record_contract,
-             "retry-finalize": retry_finalize}
+             "retry-finalize": retry_finalize, "large-evidence": large_evidence}
 
 
 def main():

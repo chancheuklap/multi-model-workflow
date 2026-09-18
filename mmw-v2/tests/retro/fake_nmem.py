@@ -51,6 +51,10 @@ elif args[:2] == ["memories", "add"]:
         save()
         print("injected Memory write failure", file=sys.stderr)
         sys.exit(1)
+    if not 1 <= len(content) <= 32768:
+        save()
+        print("error: /memories returned 422: content must be 1..=32768 chars", file=sys.stderr)
+        sys.exit(1)
     ident = args[args.index("--id") + 1]
     row = {"id": ident, "content": content,
            "space_id": args[args.index("--space") + 1],

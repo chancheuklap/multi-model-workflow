@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Isolated command-level retro suite: temporary Git checkout, fake gh and nmem.
 # Needs bash, python3 and git. No live tracker, Space, install or product.
-# Run one path: bash mmw-v2/tests/retro/run.sh complete-none|partial-evidence|proposal-threshold|prompt-and-record-contract|retry-finalize|all
+# Run one path: bash mmw-v2/tests/retro/run.sh complete-none|partial-evidence|proposal-threshold|prompt-and-record-contract|retry-finalize|large-evidence|all
 set -euo pipefail
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 unset MMW_TICKET MMW_CATALOG_MODE MMW_SPEC MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
