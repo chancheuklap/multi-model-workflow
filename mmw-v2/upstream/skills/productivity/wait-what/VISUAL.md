@@ -13,7 +13,7 @@ Show the page in the richest surface this session has:
 
 ## Draw the page
 
-Read the `diagram-design` skill's `SKILL.md` and follow it: it sets the page's look and draws every picture on it. The material is already fixed, so draw without stopping to confirm a plan with the user first.
+Read the `diagram-design` skill's `SKILL.md` and follow it: it sets the page's look and draws every picture on it. Where it judges that a table or a sentence does the job better than a picture, put that table or sentence on the page instead. The material is already fixed, so draw without stopping to confirm a plan with the user first.
 
 Skip the preamble and keep prose brief.
 

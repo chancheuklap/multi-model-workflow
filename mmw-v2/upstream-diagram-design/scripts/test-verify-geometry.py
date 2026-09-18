@@ -120,6 +120,25 @@ def main() -> int:
         0,
     )
 
+    # Several diagrams on one page: each <svg> is its own coordinate space, so a
+    # mask in the first is never compared with a node in the second.
+    clipped_mask = '<rect x="240" y="80" width="48" height="12" rx="2" fill="#f5f5f5"/>'
+    two_svgs = (
+        "<!DOCTYPE html><html><body>"
+        f"{SVG_HEAD}{clipped_mask}</svg>"
+        f"{SVG_HEAD}{node}</svg>"
+        "</body></html>"
+    )
+    check("mask and node in different diagrams on one page", two_svgs, 0)
+    # The defect is still caught inside the second of two diagrams.
+    two_svgs_clipped = (
+        "<!DOCTYPE html><html><body>"
+        f"{SVG_HEAD}{node}</svg>"
+        f"{SVG_HEAD}{clipped_mask}{node}</svg>"
+        "</body></html>"
+    )
+    check("mask clipped inside the second diagram on a page", two_svgs_clipped, 1)
+
     check_file("shipped architecture example", ARCHITECTURE, 0)
     check_file("shipped swimlane example", SWIMLANE, 0)
     check_file("shipped zoned example", ZONED, 0)

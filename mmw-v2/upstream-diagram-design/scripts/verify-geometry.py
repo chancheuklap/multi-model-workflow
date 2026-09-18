@@ -24,6 +24,10 @@ Shape heuristics follow the shipped templates:
 * A mask fully contained in a node is a badge chip (`EXT`, `EDGE`, `ORIG`) and
   is legal.
 
+Each top-level `<svg>` is its own coordinate space, so a page carrying several
+diagrams (a report with a before and an after per card) compares a mask only
+with the nodes of its own `<svg>`.
+
 Usage:
     python3 scripts/verify-geometry.py --all
     python3 scripts/verify-geometry.py skills/diagram-design/assets/example-x.html
@@ -56,13 +60,16 @@ MASK_MIN_H = 8.0
 MASK_MAX_H = 14.0
 EPSILON = 0.5
 
+SVG_OPEN_RE = re.compile(r"<svg\b", re.IGNORECASE)
+SVG_CLOSE_RE = re.compile(r"</svg\s*>", re.IGNORECASE)
+
 
 class Rect:
-    __slots__ = ("x", "y", "w", "h", "line", "offset")
+    __slots__ = ("x", "y", "w", "h", "line", "offset", "svg")
 
-    def __init__(self, x, y, w, h, line, offset) -> None:
+    def __init__(self, x, y, w, h, line, offset, svg) -> None:
         self.x, self.y, self.w, self.h = x, y, w, h
-        self.line, self.offset = line, offset
+        self.line, self.offset, self.svg = line, offset, svg
 
     @property
     def right(self) -> float:
@@ -76,7 +83,33 @@ class Rect:
         return f"({self.x:g},{self.y:g} {self.w:g}x{self.h:g})"
 
 
+def svg_spans(source: str) -> list[tuple[int, int]]:
+    """Offsets of each top-level `<svg>` element, nested ones folded in."""
+    events = [(m.start(), 1) for m in SVG_OPEN_RE.finditer(source)]
+    events += [(m.end(), -1) for m in SVG_CLOSE_RE.finditer(source)]
+    spans: list[tuple[int, int]] = []
+    depth, start = 0, 0
+    for offset, step in sorted(events):
+        if step == 1:
+            if depth == 0:
+                start = offset
+            depth += 1
+        elif depth:
+            depth -= 1
+            if depth == 0:
+                spans.append((start, offset))
+    return spans
+
+
+def svg_index(spans: list[tuple[int, int]], offset: int) -> int:
+    for index, (start, end) in enumerate(spans):
+        if start <= offset < end:
+            return index
+    return -1
+
+
 def parse_rects(source: str) -> list[Rect]:
+    spans = svg_spans(source)
     rects: list[Rect] = []
     for match in RECT_RE.finditer(source):
         rects.append(
@@ -87,6 +120,7 @@ def parse_rects(source: str) -> list[Rect]:
                 float(match.group("h")),
                 source.count("\n", 0, match.start()) + 1,
                 match.start(),
+                svg_index(spans, match.start()),
             )
         )
     return rects
@@ -121,6 +155,8 @@ def check(path: Path) -> list[str]:
     findings: list[str] = []
     for mask in masks:
         for node in nodes:
+            if node.svg != mask.svg:
+                continue  # another diagram on the same page, another coordinate space
             if node.offset <= mask.offset:
                 continue  # painted before the label; the label stays on top
             dx, dy = overlap(mask, node)

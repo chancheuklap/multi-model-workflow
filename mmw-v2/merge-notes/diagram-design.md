@@ -56,6 +56,15 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 
 `skills/diagram-design/repo-root -> ../..`。上游没有，本仓加的：host 里 skill 是 symlink，`../../scripts/` 会解析到 host 目录，多这一跳才到 subtree 根。上游若自己给出装成 skill 后的脚本路径方案，改用它的，删掉这条 symlink。
 
+### scripts/verify-geometry.py 与 scripts/test-verify-geometry.py
+
+| 段落 | 我们的意图 |
+| --- | --- |
+| `svg_spans`、`svg_index` 两个函数，`Rect` 多出的 `svg` 字段，`check` 里「不同 `<svg>` 跳过」那一句，文件头说明末段 | 我们加的：每个顶层 `<svg>` 是自己的坐标系，标签只和同一张图里的节点比。上游版本把整份文件的 `<rect>` 放进一个坐标系，一页多张图时把甲图的标签和乙图的节点算成重叠；`improve-codebase-architecture` 的报告每张卡两张图，照上游版本永远过不了。上游自己改成按图分开 → 用上游的，删掉我们这几处 |
+| 测试里「mask and node in different diagrams on one page」「mask clipped inside the second diagram on a page」两条 | 我们加的，锁住上一条。第一条在上游版本上失败 |
+
+标签高度上限 `MASK_MAX_H = 14` 没动：上游的测试「container header bar is not a mask」说明这是有意的，16px 高的容器标题条不算标签。代价是 `style-guide.md` 规定的 16px 高中日韩文标签不受这项检查，中文图的这项检查是空过的。
+
 ### 未改
 
-frontmatter、§2、§3 选型表、§4、§5、§6 前五条规则、§8、§9 其余各条、§10、§11、§12，以及 `assets/`、`scripts/`、`commands/`、`prompts/`。
+frontmatter、§2、§3 选型表、§4、§5、§6 前五条规则、§8、§9 其余各条、§10、§11、§12，以及 `assets/`、`commands/`、`prompts/`，`scripts/` 里除上面两份之外的文件。
