@@ -19,6 +19,7 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "dispatch" / "scripts
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 import statedir  # noqa: E402
+import codeversion  # noqa: E402
 
 FIRST_PORT = 47100
 
@@ -165,6 +166,8 @@ class Supervisor:
     def run(self) -> int:
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
+        watch = codeversion.Watch()
+        restart = False
         try:
             while not self.stopping:
                 try:
@@ -172,8 +175,15 @@ class Supervisor:
                 except ValueError as exc:
                     print(f"supervisor: {exc}", file=sys.stderr, flush=True)
                 time.sleep(self.interval)
+                if watch.changed():
+                    restart = True
+                    break
         finally:
             self.shutdown()
+        if restart:
+            # Same pid, same arguments, new code: launchd keeps watching this process.
+            print("board code changed on disk; restarting the supervisor", flush=True)
+            os.execv(sys.executable, sys.orig_argv)
         return 0
 
 

@@ -7,10 +7,13 @@ import argparse
 import http.server
 import secrets
 import sys
+import threading
+import time
 import urllib.parse
 from pathlib import Path
 
 import board_data
+import codeversion
 import gates
 import settings_api
 
@@ -74,15 +77,30 @@ def make_handler(token: str, board_module=board_data, settings_module=settings_a
     return Handler
 
 
+def stop_when_code_changes(server: http.server.HTTPServer, watch: codeversion.Watch,
+                           interval: float) -> None:
+    while True:
+        time.sleep(interval)
+        if watch.changed():
+            print("board code changed on disk; exiting so the supervisor starts the new code",
+                  flush=True)
+            server.shutdown()
+            return
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--watch-interval", type=float, default=1.0)
     args = parser.parse_args(argv)
+    watch = codeversion.Watch()
     token = secrets.token_urlsafe(32)
     settings_api.initialize()
     server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(token))
     host, port = server.server_address
     print(f"http://{host}:{port}", flush=True)
+    threading.Thread(target=stop_when_code_changes, args=(server, watch, args.watch_interval),
+                     daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

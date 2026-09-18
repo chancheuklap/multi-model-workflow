@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -70,7 +71,18 @@ class SupervisorTests(unittest.TestCase):
         }), encoding="utf-8")
         return repository, fixture
 
-    def start(self, registry: dict[Path, int], fixtures: dict[Path, Path]):
+    def copied_supervisor(self) -> Path:
+        """A copy of the board and the scripts it loads, so a test can change the code."""
+        ignore = shutil.ignore_patterns("__pycache__", "node_modules")
+        copy = self.base / "installed" / "mmw-v2"
+        shutil.copytree(ROOT / "mmw-v2" / "board", copy / "board", ignore=ignore)
+        for skill in ("dispatch", "verify-ticket"):
+            shutil.copytree(ROOT / "mmw-v2" / "skills" / skill / "scripts",
+                            copy / "skills" / skill / "scripts", ignore=ignore)
+        return copy / "board" / "supervisor.py"
+
+    def start(self, registry: dict[Path, int], fixtures: dict[Path, Path],
+              supervisor: Path = SUPERVISOR):
         (self.home / "boards.json").write_text(json.dumps({
             str(path): port for path, port in registry.items()
         }), encoding="utf-8")
@@ -85,7 +97,7 @@ class SupervisorTests(unittest.TestCase):
             }),
         })
         process = subprocess.Popen(
-            [sys.executable, "-u", str(SUPERVISOR), "--interval", "0.05"],
+            [sys.executable, "-u", str(supervisor), "--interval", "0.05"],
             cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT,
         )
         self.processes.append((process, log))
@@ -142,6 +154,54 @@ class SupervisorTests(unittest.TestCase):
             time.sleep(0.05)
         self.assertIsNotNone(new_pid)
         self.assertEqual(self.board(port)["repo"], "fixture/restarted")
+
+    def wait_for_new_child(self, supervisor: int, port: int, old_pid: int) -> int:
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            candidate = self.child_pid(supervisor, port)
+            if candidate is not None and candidate != old_pid:
+                return candidate
+            time.sleep(0.05)
+        self.fail(f"no new board replaced pid {old_pid} on port {port}")
+
+    def test_runs_the_new_code_after_the_installed_files_change(self):
+        repository, fixture = self.repository("repo", "fixture/updated")
+        port = free_port()
+        copy = self.copied_supervisor()
+        supervisor, log = self.start({repository: port}, {repository: fixture}, copy)
+        self.board(port)
+        old_pid = self.child_pid(supervisor.pid, port)
+        self.assertIsNotNone(old_pid)
+        events = copy.parents[1] / "skills" / "verify-ticket" / "scripts" / "events.py"
+        events.write_text(events.read_text(encoding="utf-8") + "\n# changed\n", encoding="utf-8")
+        new_pid = self.wait_for_new_child(supervisor.pid, port, old_pid)
+        self.assertEqual(self.board(port)["repo"], "fixture/updated")
+        self.assertIsNone(supervisor.poll(), "the supervisor must replace itself, not exit")
+        log.flush()
+        log.seek(0)
+        self.assertIn("restarting the supervisor", log.read())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(old_pid, 0)
+        self.assertNotEqual(new_pid, old_pid)
+
+    def test_a_board_started_outside_the_supervisor_exits_when_its_code_changes(self):
+        repository, fixture = self.repository("repo", "fixture/orphan")
+        copy = self.copied_supervisor()
+        port = free_port()
+        env = os.environ.copy()
+        env.update({"MMW_HOME": str(self.home), "PATH": str(self.bin) + os.pathsep + env["PATH"],
+                    "MMW_TEST_REPO_FIXTURES": json.dumps({str(repository.resolve()): str(fixture)})})
+        log = (self.base / "server.log").open("w+", encoding="utf-8")
+        server = subprocess.Popen(
+            [sys.executable, "-u", str(copy.with_name("server.py")), "--port", str(port),
+             "--watch-interval", "0.05"],
+            cwd=repository, env=env, stdout=log, stderr=subprocess.STDOUT,
+        )
+        self.processes.append((server, log))
+        self.assertEqual(self.board(port)["repo"], "fixture/orphan")
+        gates = copy.with_name("gates.py")
+        gates.write_text(gates.read_text(encoding="utf-8") + "\n# changed\n", encoding="utf-8")
+        self.assertEqual(server.wait(timeout=10), 0)
 
     def test_skips_a_missing_repository(self):
         repository, fixture = self.repository("present", "fixture/present")
