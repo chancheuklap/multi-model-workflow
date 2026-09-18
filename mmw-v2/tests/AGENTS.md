@@ -1,6 +1,6 @@
 # mmw-v2/tests
 
-Every test of the toolbox's own scripts (the own-script layer), one directory per skill or subsystem; it exists only in a checkout and is never symlinked into a host. gate-check's own tests live beside gate-check, not here.
+Every test of the toolbox's own scripts (the own-script layer), one directory per skill or subsystem; it exists only in a checkout and is never symlinked into a host. gate-check's own tests live in the `mmw-v2/upstream-unlazy/` subtree, not here.
 
 ## Key Conventions
 

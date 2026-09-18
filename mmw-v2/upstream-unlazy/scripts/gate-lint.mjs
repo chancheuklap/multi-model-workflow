@@ -165,7 +165,11 @@ for (const file of files) {
   for (const gate of live) {
     const { id, title, check, expect } = gate;
 
-    if (check && FIXED_OUTPUT_COMMAND.test(check)) {
+    // A fenced CHECK is a script, not one command. `[^&|;]` spans newlines, so testing
+    // the whole block at once calls a script whose first line is `echo` tautological.
+    // A script is only that if every line of it is.
+    const commands = check ? check.split("\n").map((row) => row.trim()).filter(Boolean) : [];
+    if (commands.length && commands.every((row) => FIXED_OUTPUT_COMMAND.test(row))) {
       add(file, "warn", id, "tautological-check",
         'CHECK looks like a fixed-output command: "' + check + '"; use an oracle that observes the named outcome');
     }
@@ -181,8 +185,9 @@ for (const file of files) {
     }
 
     if (!check) {
-      add(file, "warn", id, "manual-gate",
-        "no CHECK, so this outcome is judged by hand and its evidence is only as good as the reader");
+      add(file, "error", id, "manual-gate",
+        "no CHECK, so nobody but this ticket's own author decides it: move it to code review " +
+        "if an agent can judge it, or to its own ready-for-human ticket if only a person can");
       if (/\d/.test(title)) {
         add(file, "warn", id, "unmeasured-number",
           'title states a number that nothing measures: "' + title + '"');

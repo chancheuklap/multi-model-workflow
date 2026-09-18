@@ -239,14 +239,14 @@ _Avoid_: 账本, 临时账本, AC.md (as a name), throwaway ledger
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **gate-check**:
-The judging program copied from unlazy: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which the first line of every criteria run's `ticket.checked` comment repeats for a person. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
+The judging program from unlazy, in the `mmw-v2/upstream-unlazy/` subtree: it walks the ledger, runs each `CHECK:` one at a time in its own shell, applies both conditions, writes `EVIDENCE:`, prints one **status line** per criterion (`RUN`, `PASS`, `FAIL`) and one **gate-check summary line** at the end — `ALL MET (<n> met…)`, `UNMET: <n> (met: <m>)`, or `HANDOFF REQUIRED: <n> abandoned (met: …)` — which the first line of every criteria run's `ticket.checked` comment repeats for a person. `gate-check.mjs` names the file. Its `--claim`, `--release`, `--scope` and `GATES.md` are unlazy features this pipeline does not use.
 _Avoid_: the judging engine, gate checker, the checker (for this), 汇总行
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
+_Home_: `mmw-v2/merge-notes/unlazy.md`
 
 **gate-lint**:
-The criterion linter copied from unlazy: it reports problems in how criteria are written and runs no command; `manual-gate` is an error here. It prints `LINT OK` or `LINT FINDINGS`. `--lint` runs it.
+The criterion linter from unlazy, in the same subtree: it reports problems in how criteria are written and runs no command; `manual-gate` is an error here. It prints `LINT OK` or `LINT FINDINGS`. `--lint` runs it.
 _Avoid_: the linter (for this)
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-lint.mjs`
+_Home_: `mmw-v2/upstream-unlazy/scripts/gate-lint.mjs`
 
 ### Code review
 

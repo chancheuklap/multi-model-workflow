@@ -10,16 +10,14 @@
 
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { execFile } from "node:child_process";
-import { join, dirname } from "node:path";
+import { delimiter, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { automaticEvidencePrefix, gateDefinitionDigest, gateState, parseGates } from "../scripts/lib/gates.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GATE_CHECK = join(HERE, "..", "scripts", "gate-check.mjs");
-const STOP_HOOK = join(HERE, "..", "scripts", "stop-hook.mjs");
-const INSTALL = join(HERE, "..", "scripts", "install-hooks.mjs");
 const filter = process.argv[2] || "";
-const APPROVAL_ROOT = mkdtempSync(join(tmpdir(), "unlazy-test-approvals-"));
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -43,12 +41,9 @@ function sandbox() {
 
 function run(script, args, opts = {}) {
   return new Promise((res) => {
-    const actions = new Set(["--status", "--claim", "--release", "--list-scopes", "--log", "--bind", "--help", "-h"]);
-    const needsApproval = script === GATE_CHECK && !opts.noApprove && !args.some((arg) => actions.has(arg));
-    const actualArgs = needsApproval && !args.includes("--approve") ? ["--approve", ...args] : args;
-    const child = execFile(process.execPath, [script, ...actualArgs], {
+    const child = execFile(process.execPath, [script, ...args], {
       cwd: opts.cwd, encoding: "utf8", maxBuffer: 8 * 1024 * 1024,
-      env: { ...process.env, UNLAZY_APPROVAL_DIR: APPROVAL_ROOT, ...(opts.env || {}) },
+      env: { ...process.env, ...(opts.env || {}) },
     }, (err, stdout, stderr) => {
       res({ code: err ? (err.code ?? 1) : 0, out: (stdout || "") + (stderr || "") });
     });
@@ -338,301 +333,158 @@ test("status log: appends, and appends survive concurrency", async () => {
   } finally { s.cleanup(); }
 });
 
-test("hook: does not block on a pipeline this session does not own", async () => {
+test("evidence: a failing criterion records why it failed, not pending", async () => {
   const s = sandbox();
   try {
-    // api is finished; web has never been started. Ending the api session must
-    // not be blocked by web's gates.
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates\n\n- [x] G1: done\n  EVIDENCE: measured, 8/8 passed\n");
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "not started", null, null));
-    const r = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin: JSON.stringify({ cwd: s.dir }) });
-    assertLacks(r.out, '"decision":"block"', "hook");
-    assert(r.code === 0, "hook should exit 0");
+    const failing = nodeEval("console.log('line-one'); console.log('the-real-reason'); process.exit(3)");
+    s.write("GATES.md", "# Gates\n\n" + gate("G1", "fails on purpose", failing, "never-printed"));
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    const led = s.read("GATES.md");
+    assert(r.code !== 0, "a failing criterion must still fail the run, got exit " + r.code);
+    assertHas(led, "- [ ] G1", "a failed criterion stays unchecked");
+    assertLacks(led, "EVIDENCE: pending", "ledger");
+    assertHas(led, "exit=3", "ledger");
+    assertHas(led, "EXPECT=not matched", "ledger");
+    assertHas(led, "the-real-reason", "ledger");
   } finally { s.cleanup(); }
 });
 
-test("hook: blocks on its own scope, naming qualified ids", async () => {
+test("evidence: a reverify that turns a met criterion red records the failure, not pending", async () => {
   const s = sandbox();
   try {
-    s.write(".unlazy/api/gates/leaf-7.md", "# Gates\n\n" + gate("G3", "unfinished", null, null));
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates\n\n- [x] G1: done\n  EVIDENCE: proven\n");
-    const r = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin: JSON.stringify({ cwd: s.dir }) });
-    assertHas(r.out, '"decision":"block"');
-    assertHas(r.out, "leaf-7:G3");
-    assertHas(r.out, "[scope api]");
+    const failing = nodeEval("console.log('regressed-here'); process.exit(1)");
+    s.write("GATES.md", "# Gates\n\n- [x] G1: was green\n  CHECK: " + failing +
+      "\n  EXPECT: never-printed\n  EVIDENCE: exit=0; shell=/bin/sh; EXPECT=matched\n");
+    const r = await run(GATE_CHECK, ["--reverify", "GATES.md"], { cwd: s.dir });
+    const led = s.read("GATES.md");
+    assert(r.code !== 0, "a regressed criterion must still fail the run, got exit " + r.code);
+    assertHas(led, "- [ ] G1", "a regressed criterion is unchecked");
+    assertLacks(led, "EVIDENCE: pending", "ledger");
+    assertLacks(led, "EXPECT=matched", "the old pass evidence must not survive a failed reverify");
+    assertHas(led, "exit=1", "ledger");
+    assertHas(led, "regressed-here", "ledger");
   } finally { s.cleanup(); }
 });
 
-test("hook: stale definition evidence blocks repeated ids without executing and keeps semantic progress", async () => {
+// The four below are upstream's evidence-binding and output-cap cases (hardening-tests.mjs
+// at 1667149), with the approval steps taken out and a failed run expected to record its
+// failure rather than `pending`.
+
+test("evidence: the definition digest is fixed and only exact current evidence is met", async () => {
+  const parsed = parseGates([
+    "- [x] G1: digest fixture",
+    "  CHECK: printf \"token-b\\n\"",
+    "  EXPECT: token-c",
+    "  EVIDENCE: pending",
+    "",
+  ].join("\n"));
+  assert(!parsed.errors.length, parsed.errors.join("; "));
+  const runnable = parsed.gates[0];
+  const digest = gateDefinitionDigest(runnable);
+  assert(digest === "544a096dd6735f1168b04cb00c40b2d7d8889c656e383d95ee6977ea90813ab5",
+    "definition digest golden vector changed: " + digest);
+  const prefix = automaticEvidencePrefix(digest);
+  const state = (evidence) => gateState({ ...runnable, checked: true, evidence }, new Map());
+  const success = prefix + " exit=0; EXPECT=matched; output-sha256=" + "a".repeat(64) +
+    "; output-bytes=0; shell=/bin/sh";
+  assert(state(success) === "met", "exact current evidence was not met");
+  for (const evidence of [
+    "pending",
+    "exit=0; shell=/bin/sh; cwd=/tmp; EXPECT=matched",
+    "automatic-evidence=v1; definition-sha256=" + "b".repeat(64) + "; exit=0",
+    prefix + " exit=1; EXPECT=not matched; output-sha256=" + "a".repeat(64) + "; output-bytes=0;",
+    success + "x".repeat(901),
+    "reviewed by owner",
+  ]) {
+    assert(state(evidence) !== "met", "stale or unbound evidence was met: " + JSON.stringify(evidence));
+  }
+  assert(gateDefinitionDigest({ ...runnable, cwd: "." }) !== digest, "omitted CWD and CWD: . collided");
+  assert(gateDefinitionDigest({ ...runnable, id: "RENAMED", title: "copy edited" }) === digest,
+    "id or title changed the definition digest");
+  assert(gateState({ ...runnable, checked: false, evidence: success }, new Map()) === "unmet",
+    "unchecked current evidence became met");
+});
+
+test("evidence: a changed CHECK makes old evidence stale and a rerun replaces it", async () => {
   const s = sandbox();
   try {
-    s.write("a.mjs", [
-      "import { appendFileSync } from 'node:fs';",
-      "appendFileSync('runs-a.log', 'run\\n');",
-      "console.log('A-OK');",
-      "",
-    ].join("\n"));
-    s.write("b.mjs", [
-      "import { appendFileSync } from 'node:fs';",
-      "appendFileSync('runs-b.log', 'run\\n');",
-      "console.log('B-OK');",
-      "",
-    ].join("\n"));
-    s.write(".unlazy/api/gates/leaf-current.md", "# Gates\n\n" +
-      gate("G1", "current automatic evidence", "node a.mjs", "A-OK"));
-    s.write(".unlazy/api/gates/leaf-stale.md", "# Gates\n\n" +
-      gate("G1", "stale automatic evidence", "node b.mjs", "B-OK"));
-    const seed = await run(GATE_CHECK, ["--scope", "api"], { cwd: s.dir });
-    assert(seed.code === 0, seed.out);
+    s.write("GATES.md", gate("G1", "bound evidence", echoOk("TOKEN-A"), "TOKEN-A"));
+    let r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, r.out);
+    let led = s.read("GATES.md");
+    const first = (led.match(/definition-sha256=([a-f0-9]{64});/) || [])[1];
+    assert(first, "a pass carries no definition digest\n" + led);
+    assertHas(led, "EVIDENCE: automatic-evidence=v1; definition-sha256=" + first + "; exit=0;");
 
-    const currentBefore = s.read(".unlazy/api/gates/leaf-current.md");
-    const staleBefore = s.read(".unlazy/api/gates/leaf-stale.md");
-    s.write(".unlazy/api/gates/leaf-stale.md",
-      staleBefore.replace("CHECK: node b.mjs", "CHECK: node ./b.mjs"));
-    const staleBytes = s.read(".unlazy/api/gates/leaf-stale.md");
-    const runsA = s.read("runs-a.log");
-    const runsB = s.read("runs-b.log");
+    r = await run(GATE_CHECK, ["--status", "GATES.md"], { cwd: s.dir, env: { PATH: "" } });
+    assert(r.code === 0, "status needed a shell or PATH\n" + r.out);
+    assertHas(r.out, "ALL MET (1 met)");
 
-    const status = await run(GATE_CHECK, ["--scope", "api", "--status"], { cwd: s.dir });
-    assert(status.code === 1, "stale multi-file status returned " + status.code + "\n" + status.out);
-    assertHas(status.out, "UNMET leaf-stale:G1 (checked but automatic evidence is stale or unbound)");
-    assertLacks(status.out, "UNMET leaf-current:G1", "multi-file status");
-    assertLacks(status.out, "ALL MET", "multi-file status");
-    assert(s.read(".unlazy/api/gates/leaf-current.md") === currentBefore,
-      "status changed current sibling ledger");
-    assert(s.read(".unlazy/api/gates/leaf-stale.md") === staleBytes,
-      "status changed stale ledger");
+    s.write("GATES.md", led.replace(echoOk("TOKEN-A"), echoOk("TOKEN-B")));
+    r = await run(GATE_CHECK, ["--status", "GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, r.out);
+    assertHas(r.out, "checked but automatic evidence is stale or unbound");
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, r.out);
+    led = s.read("GATES.md");
+    assertHas(led, "- [ ] G1: bound evidence");
+    assertLacks(led, "automatic-evidence=", "a failed rerun of stale evidence");
+    assertHas(led, "EXPECT=not matched", "ledger");
 
-    const stdin = JSON.stringify({ cwd: s.dir, session_id: "stale-definition-hook" });
-    const firstHook = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-    assertHas(firstHook.out, '"decision":"block"');
-    assertHas(firstHook.out, "leaf-stale:G1");
-    assertLacks(firstHook.out, "leaf-current:G1", "Stop reason");
-    assertLacks(firstHook.out, "definition-sha256", "privileged Stop reason");
-    assert(s.read("runs-a.log") === runsA && s.read("runs-b.log") === runsB,
-      "status or Stop executed a CHECK");
+    s.write("GATES.md", led.replace("EXPECT: TOKEN-A", "EXPECT: TOKEN-B"));
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, r.out);
+    led = s.read("GATES.md");
+    const second = (led.match(/definition-sha256=([a-f0-9]{64});/) || [])[1];
+    assert(second && second !== first, "an edited pass kept the old digest\n" + led);
 
-    // Another CHECK edit leaves the same semantic stale-unmet state and must
-    // increment, not reset, the six-block no-progress guard.
-    s.write(".unlazy/api/gates/leaf-stale.md",
-      staleBytes.replace("CHECK: node ./b.mjs", "CHECK: node ././b.mjs"));
-    const secondHook = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-    assertHas(secondHook.out, '"decision":"block"');
-    const hookState = JSON.parse(s.read(".unlazy/api/hook-state.json"));
-    assert(Object.values(hookState.sessions)[0].blocks === 2,
-      "stale definition edit reset semantic progress: " + JSON.stringify(hookState));
-
-    const repaired = await run(GATE_CHECK, ["--scope", "api"], { cwd: s.dir });
-    assert(repaired.code === 0, repaired.out);
-    assertHas(repaired.out, "PASS leaf-stale:G1");
-    const allowed = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-    assertLacks(allowed.out, '"decision":"block"', "repaired Stop hook");
-    assert(!existsSync(join(s.dir, ".unlazy", "api", "hook-state.json")),
-      "completed scope retained stale hook progress state");
+    s.write("GATES.md", led.replace(/EVIDENCE: .*$/m, "EVIDENCE: exit=0; shell=old-writer; EXPECT=matched"));
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, "legacy evidence was not rerun and migrated\n" + r.out);
+    assertHas(s.read("GATES.md"), "EVIDENCE: automatic-evidence=v1; definition-sha256=" + second + ";");
   } finally { s.cleanup(); }
 });
 
-test("hook: a matching digest with a malformed success transcript stays unmet", async () => {
+test("evidence: a long transcript cannot truncate the definition or output digest", async () => {
+  if (process.platform === "win32") return;
   const s = sandbox();
   try {
-    s.write("check.mjs", [
-      "import { appendFileSync } from 'node:fs';",
-      "appendFileSync('runs.log', 'run\\n');",
-      "console.log('OK');",
-      "",
-    ].join("\n"));
-    const file = ".unlazy/api/gates/leaf.md";
-    s.write(file, "# Gates\n\n" + gate("G1", "canonical automatic success", "node check.mjs", "OK"));
-    const seed = await run(GATE_CHECK, ["--scope", "api"], { cwd: s.dir });
-    assert(seed.code === 0, seed.out);
-    const current = s.read(file);
-    const digest = (current.match(/definition-sha256=([a-f0-9]{64});/) || [])[1];
-    assert(digest, "seed evidence lacks a definition digest\n" + current);
-    s.write(file, current.replace(/EVIDENCE: .*$/m,
-      "EVIDENCE: automatic-evidence=v1; definition-sha256=" + digest +
-      "; exit=1; EXPECT=not matched; output-sha256=" + "a".repeat(64) + "; output-bytes=0;"));
-    const malformed = s.read(file);
-    const runs = s.read("runs.log");
-
-    const status = await run(GATE_CHECK, ["--scope", "api", "--status"], { cwd: s.dir });
-    assert(status.code === 1, "malformed automatic transcript passed status\n" + status.out);
-    assertHas(status.out, "checked but automatic evidence is stale or unbound");
-    assert(s.read(file) === malformed, "status rewrote malformed automatic evidence");
-    const hook = await run(STOP_HOOK, ["--scope", "api"], {
-      cwd: s.dir,
-      stdin: JSON.stringify({ cwd: s.dir, session_id: "malformed-auto-hook" }),
-    });
-    assertHas(hook.out, '"decision":"block"');
-    assertHas(hook.out, "leaf:G1");
-    assert(s.read("runs.log") === runs, "status or Stop executed malformed automatic evidence");
+    const deep = Array.from({ length: 22 }, (_, index) =>
+      "segment-" + String(index).padStart(2, "0") + "-" + "x".repeat(18)).join("/");
+    s.write(deep + "/check.mjs", "console.log('LONG-OK');\n");
+    s.write("GATES.md", gate("G1", "long evidence transcript",
+      JSON.stringify(process.execPath) + " check.mjs", "LONG-OK").replace("  EVIDENCE:", "  CWD: " + deep + "\n  EVIDENCE:"));
+    const longPath = Array(120).fill(dirname(process.execPath)).join(delimiter);
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir, env: { PATH: longPath } });
+    assert(r.code === 0, r.out);
+    const line = s.read("GATES.md").split(/\r?\n/).find((l) => l.includes("EVIDENCE:"));
+    assert(line.length <= "  EVIDENCE: ".length + 900, "evidence cap exceeded: " + line.length);
+    assert(/^  EVIDENCE: automatic-evidence=v1; definition-sha256=[a-f0-9]{64};/.test(line),
+      "the definition digest was truncated\n" + line);
+    assert(/output-sha256=[a-f0-9]{64}; output-bytes=\d+;/.test(line),
+      "the output fingerprint was truncated\n" + line);
   } finally { s.cleanup(); }
 });
 
-test("hook: abandonment allows Stop but reports an explicit bounded handoff", async () => {
+test("checks: the output cap applies to stdout and stderr combined", async () => {
   const s = sandbox();
   try {
-    s.write(".unlazy/api/gates/leaf-7.md", [
-      "# Gates",
-      "",
-      "- [ ] G3: impossible",
-      "  EVIDENCE: pending",
-      "",
-      "ABANDON: G3 secret-looking reason that must stay ledger-local",
-      "",
-    ].join("\n"));
-    const r = await run(STOP_HOOK, ["--scope", "api"], {
-      cwd: s.dir,
-      stdin: JSON.stringify({ cwd: s.dir, session_id: "handoff-test" }),
-    });
-    assertLacks(r.out, '"decision":"block"');
-    assertHas(r.out, "HANDOFF REQUIRED");
-    assertHas(r.out, "leaf-7:G3");
-    assertLacks(r.out, "secret-looking reason");
-  } finally { s.cleanup(); }
-});
+    s.write("split-boundary.mjs",
+      "process.stdout.write('a'.repeat(524287)); process.stderr.write('b'.repeat(524288));\n");
+    s.write("GATES.md", gate("G1", "exactly at the cap once joined", "node split-boundary.mjs", "a"));
+    let r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, "the exact joined boundary failed\n" + r.out.slice(-2000));
+    assertHas(s.read("GATES.md"), "output-bytes=1048576;");
 
-test("hook: unresolvable scope allows the stop instead of blocking blindly", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "a", null, null));
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "b", null, null));
-    const r = await run(STOP_HOOK, [], { cwd: s.dir, stdin: JSON.stringify({ cwd: s.dir }) });
-    assertLacks(r.out, '"decision":"block"', "hook");
-    assertHas(r.out, "2 pipelines");
-  } finally { s.cleanup(); }
-});
-
-test("hook: session binding resolves the scope among several", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "a", null, null));
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "b", null, null));
-    const bind = await run(GATE_CHECK, ["--scope", "web", "--bind", "sess-abc"], { cwd: s.dir });
-    assertHas(bind.out, "bound session sess-abc to scope web");
-    const r = await run(STOP_HOOK, [], { cwd: s.dir, stdin: JSON.stringify({ cwd: s.dir, session_id: "sess-abc" }) });
-    assertHas(r.out, '"decision":"block"');
-    assertHas(r.out, "[scope web]");
-  } finally { s.cleanup(); }
-});
-
-test("hook: each pipeline keeps its own loop-guard counter", async () => {
-  const s = sandbox();
-  try {
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "a", null, null));
-    s.write(".unlazy/web/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "b", null, null));
-    const stdin = JSON.stringify({ cwd: s.dir });
-    for (let i = 0; i < 7; i++) await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-    const apiState = JSON.parse(s.read(".unlazy/api/hook-state.json"));
-    const apiSession = Object.values(apiState.sessions)[0];
-    assert(apiSession.blocks === 7, "api counter should be 7, got " + apiSession.blocks);
-    // api has exhausted its guard and now releases; web is untouched and still blocks.
-    const apiNow = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-    assertHas(apiNow.out, "releasing after 6 blocks");
-    const webNow = await run(STOP_HOOK, ["--scope", "web"], { cwd: s.dir, stdin });
-    assertHas(webNow.out, '"decision":"block"');
-  } finally { s.cleanup(); }
-});
-
-test("hook: the loop guard tracks gate state, not file bytes", async () => {
-  const s = sandbox();
-  try {
-    // A cosmetic edit is not progress. Keying the guard to raw bytes let any
-    // touch of the ledger reset the counter, so an agent that keeps editing
-    // without meeting a gate is never released. Re-running the checker did the
-    // same thing by rewriting evidence text.
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "a", null, null) + gate("G2", "b", null, null));
-    const stdin = JSON.stringify({ cwd: s.dir });
-    for (let i = 0; i < 6; i++) {
-      const blocked = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-      assertHas(blocked.out, '"decision":"block"');
-    }
-    s.write(".unlazy/api/gates/leaf-1.md",
-      s.read(".unlazy/api/gates/leaf-1.md") + "\n<!-- still thinking about it -->\n");
-    const afterCosmetic = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-    assertHas(afterCosmetic.out, "releasing after 6 blocks");
-  } finally { s.cleanup(); }
-});
-
-test("hook: meeting a gate resets the loop guard", async () => {
-  const s = sandbox();
-  try {
-    // The converse of the test above: real progress must still rearm the guard,
-    // or a long run would be released while it is genuinely advancing.
-    s.write(".unlazy/api/gates/leaf-1.md", "# Gates\n\n" + gate("G1", "a", null, null) + gate("G2", "b", null, null));
-    const stdin = JSON.stringify({ cwd: s.dir });
-    for (let i = 0; i < 3; i++) await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-    s.write(".unlazy/api/gates/leaf-1.md",
-      "# Gates\n\n- [x] G1: a\n  EVIDENCE: measured 3 of 3\n\n" + gate("G2", "b", null, null));
-    for (let i = 0; i < 4; i++) {
-      const blocked = await run(STOP_HOOK, ["--scope", "api"], { cwd: s.dir, stdin });
-      assertHas(blocked.out, '"decision":"block"');
-    }
-  } finally { s.cleanup(); }
-});
-
-test("hook: no gate files anywhere means silence", async () => {
-  const s = sandbox();
-  try {
-    const r = await run(STOP_HOOK, [], { cwd: s.dir, stdin: JSON.stringify({ cwd: s.dir }) });
-    assert(r.out.trim() === "", "expected no output, got: " + r.out);
-    assert(r.code === 0, "expected exit 0");
-  } finally { s.cleanup(); }
-});
-
-test("install: repeated install stays a single Stop entry", async () => {
-  const s = sandbox();
-  try {
-    await run(INSTALL, ["--scope", "api"], { cwd: s.dir });
-    await run(INSTALL, ["--scope", "api"], { cwd: s.dir });
-    const cfg = JSON.parse(s.read(".claude/settings.local.json"));
-    assert(cfg.hooks.Stop.length === 1, "expected 1 Stop entry, got " + cfg.hooks.Stop.length);
-    assertHas(cfg.hooks.Stop[0].hooks[0].command, "--scope api", "hook command");
-  } finally { s.cleanup(); }
-});
-
-test("install: changing the scope replaces the entry instead of stacking", async () => {
-  const s = sandbox();
-  try {
-    await run(INSTALL, ["--scope", "api"], { cwd: s.dir });
-    await run(INSTALL, ["--scope", "web"], { cwd: s.dir });
-    const cfg = JSON.parse(s.read(".claude/settings.local.json"));
-    assert(cfg.hooks.Stop.length === 1, "expected 1 Stop entry, got " + cfg.hooks.Stop.length);
-    assertHas(cfg.hooks.Stop[0].hooks[0].command, "--scope web", "hook command");
-  } finally { s.cleanup(); }
-});
-
-test("install: uninstall removes our entry and leaves others alone", async () => {
-  const s = sandbox();
-  try {
-    s.write(".claude/settings.local.json", JSON.stringify({
-      hooks: { Stop: [{ hooks: [{ type: "command", command: "node other-tool.mjs" }] }] },
-    }, null, 2));
-    await run(INSTALL, ["--scope", "api"], { cwd: s.dir });
-    const r = await run(INSTALL, ["--uninstall"], { cwd: s.dir });
-    assertHas(r.out, "Removed unlazy Stop hook");
-    const cfg = JSON.parse(s.read(".claude/settings.local.json"));
-    assert(cfg.hooks.Stop.length === 1, "expected the unrelated hook to remain");
-    assertHas(cfg.hooks.Stop[0].hooks[0].command, "other-tool.mjs", "unrelated hook");
-  } finally { s.cleanup(); }
-});
-
-test("install: an upstream v2.0 entry is still recognised and removable", async () => {
-  const s = sandbox();
-  try {
-    s.write(".claude/settings.local.json", JSON.stringify({
-      hooks: {
-        Stop: [{
-          hooks: [{
-            type: "command",
-            command: 'node "/home/me/.claude/skills/unlazy/scripts/stop-hook.mjs"',
-          }],
-        }],
-      },
-    }, null, 2));
-    const r = await run(INSTALL, ["--uninstall"], { cwd: s.dir });
-    assertHas(r.out, "Removed unlazy Stop hook");
-    const cfg = JSON.parse(s.read(".claude/settings.local.json"));
-    assert(!cfg.hooks, "settings should be left clean, got " + JSON.stringify(cfg));
+    s.write("split-cap.mjs",
+      "process.stdout.write('a'.repeat(524288)); process.stderr.write('b'.repeat(524288));\n");
+    s.write("GATES.md", gate("G1", "one byte over once joined", "node split-cap.mjs", "a"));
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, "over the joined cap returned " + r.code + "\n" + r.out.slice(-2000));
+    assertHas(r.out, "output exceeded 1048576 bytes after stdout/stderr UTF-8 combination");
+    const led = s.read("GATES.md");
+    assertHas(led, "- [ ] G1:");
+    assertLacks(led, "automatic-evidence=", "an over-cap run");
   } finally { s.cleanup(); }
 });
 
@@ -655,5 +507,4 @@ for (const t of selected) {
 
 console.log("");
 console.log(passed + "/" + selected.length + " passed");
-try { rmSync(APPROVAL_ROOT, { recursive: true, force: true }); } catch { /* best effort */ }
 process.exit(failures.length ? 1 : 0);

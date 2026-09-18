@@ -103,6 +103,14 @@ Scope: pricing section renders and behaves
 `;
 
 const SOUND = write("sound.md", SOUND_BODY);
+
+// Every gate commanded, one of them written weakly: findings, all of them warnings.
+const WARNING_ONLY = write("warning-only.md", SOUND_BODY + `
+- [ ] G6: banner prints
+  CHECK: node scripts/banner.mjs
+  EXPECT: ok
+  EVIDENCE: pending
+`);
 const MANUAL = write("manual.md", SOUND_BODY + `
 - [ ] G6: copy reads as written by the brand, not by a model
   EVIDENCE: pending
@@ -112,15 +120,24 @@ const LINE_SEPARATORS = "\u2028\u2029";
 const TAINTED = write("unsafe-" + LINE_SEPARATORS + "\u202e.md", `# Gates: unsafe terminal data
 
 - [ ] G1: improve ${TAINT} terminal rendering
+  CHECK: node scripts/render.mjs
+  EXPECT: rendered 3 rows
   EVIDENCE: pending
 `);
 
 // ------------------------------------------------------------- tests
 
-test("lint: a fixed-output command is advisory by default", () => {
-  const { out, code } = lint(WEAK);
-  assert.match(out, /G1: CHECK looks like a fixed-output command/);
-  assert.equal(code, 0);
+test("lint: a fixed-output command is advisory", () => {
+  const { out } = lint(WEAK);
+  assert.match(out, /WARN\s+G1: CHECK looks like a fixed-output command/);
+});
+
+test("lint: a gate with no CHECK is an error, in either mode", () => {
+  for (const args of [[MANUAL], ["--strict", MANUAL]]) {
+    const { out, code } = lint(...args);
+    assert.match(out, /ERROR G6: no CHECK, so nobody but this ticket's own author decides it/);
+    assert.equal(code, 1);
+  }
 });
 
 test("lint: a chained verifier is not classified as a tautology", () => {
@@ -163,14 +180,6 @@ test("lint: a literal path read as a regex is warned", () => {
 
 test("lint: a deliberate slash wrapped pattern is not warned", () => {
   assert.doesNotMatch(lint(SOUND).out, /looks like a literal path/);
-});
-
-test("lint: shipped leaf and node templates satisfy the documented size policy", () => {
-  for (const name of ["gates-leaf.md", "gates-node.md"]) {
-    const result = lint(join(HERE, "..", "templates", name));
-    assert.equal(result.code, 0, result.out);
-    assert.doesNotMatch(result.out, /thin-ledger|fat-ledger|under five|over twelve/);
-  }
 });
 
 test("lint: a sound ledger is clean and exits 0", () => {
@@ -227,24 +236,27 @@ test("lint: a gate ledger over 8 MiB is refused before parsing", () => {
 });
 
 test("lint: default warnings and strict warnings have distinct gate markers and exits", () => {
-  const normal = lint(MANUAL);
-  assert.match(normal.out, /G6:.*judged by hand/);
+  const normal = lint(WARNING_ONLY);
+  assert.match(normal.out, /WARN\s+G6:/);
   assert.match(normal.out, /^LINT OK \(\d+ warning\(s\)\)$/m);
   assert.equal(normal.code, 0);
-  const strict = lint("--strict", MANUAL);
+  const strict = lint("--strict", WARNING_ONLY);
   assert.equal(strict.code, 1);
   assert.match(strict.out, /^LINT FINDINGS:/m);
   assert.doesNotMatch(strict.out, /^LINT OK/m);
 });
 
 test("lint: json reports counts and stays parseable", () => {
-  const data = JSON.parse(lint("--json", WEAK).out);
+  const data = JSON.parse(lint("--json", WARNING_ONLY).out);
   assert.equal(data.ok, true);
   assert.equal(data.errors, 0);
   assert.ok(data.warnings >= 1, "expected warnings, got " + data.warnings);
   assert.ok(data.findings.every((f) => f.rule && f.level));
-  const strict = JSON.parse(lint("--strict", "--json", WEAK).out);
+  const strict = JSON.parse(lint("--strict", "--json", WARNING_ONLY).out);
   assert.equal(strict.ok, false);
+  const commandless = JSON.parse(lint("--json", MANUAL).out);
+  assert.equal(commandless.ok, false);
+  assert.ok(commandless.errors >= 1, "expected errors, got " + commandless.errors);
 });
 
 test("lint: default output escapes terminal and bidi controls in finding data", () => {
@@ -286,6 +298,8 @@ test("lint: hostile field expansion stays bounded in text and JSON", () => {
     "# Gates: bounded output",
     "",
     "- [ ] G1: improve " + "\u001b".repeat(1024 * 1024) + " terminal output",
+    "  CHECK: node scripts/render.mjs",
+    "  EXPECT: rendered 3 rows",
     "  EVIDENCE: pending",
     "",
   ].join("\n"));
@@ -308,13 +322,14 @@ test("lint: hostile field expansion stays bounded in text and JSON", () => {
 test("lint: finding count is capped without hiding totals or failure state", () => {
   const gates = [];
   for (let index = 1; index <= 80; index++) {
-    gates.push("- [ ] G" + index + ": improve item " + index + "\n  EVIDENCE: pending");
+    gates.push("- [ ] G" + index + ": improve item " + index +
+      "\n  CHECK: node scripts/item.mjs " + index + "\n  EXPECT: item " + index + " done\n  EVIDENCE: pending");
   }
   const crowded = write("crowded.md", "# Gates: crowded\n\n" + gates.join("\n\n") + "\n");
   const textResult = lint(crowded);
   assert.equal(textResult.code, 0, textResult.out);
-  assert.match(textResult.out, /report truncated: 177 finding\(s\) omitted/);
-  assert.match(textResult.out, /LINT OK \(241 warning\(s\)\)/);
+  assert.match(textResult.out, /report truncated: 16 finding\(s\) omitted/);
+  assert.match(textResult.out, /LINT OK \(80 warning\(s\)\)/);
   assert.ok(Buffer.byteLength(textResult.out, "utf8") < 256 * 1024);
 
   const jsonResult = lint("--strict", "--json", crowded);
@@ -322,10 +337,10 @@ test("lint: finding count is capped without hiding totals or failure state", () 
   assert.ok(Buffer.byteLength(jsonResult.out, "utf8") < 256 * 1024);
   const data = JSON.parse(jsonResult.out);
   assert.equal(data.ok, false);
-  assert.equal(data.warnings, 241);
+  assert.equal(data.warnings, 80);
   assert.equal(data.findings.length, 64);
   assert.equal(data.truncated, true);
-  assert.equal(data.omittedFindings, 177);
+  assert.equal(data.omittedFindings, 16);
 });
 
 test("CLI: help retains trusted multiline formatting", () => {

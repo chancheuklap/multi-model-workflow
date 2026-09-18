@@ -150,11 +150,11 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`EVIDENCE:`**:
 The fourth line: `pending` until the criterion has run, then the one line of fact gate-check writes (the **EVIDENCE structured line**). A pass is written `automatic-evidence=v1; definition-sha256=…; exit=0; EXPECT=matched; output-sha256=…; output-bytes=…; shell=…; cwd=…; path=…`: `definition-sha256` fingerprints the `CHECK:`, `EXPECT:` and `CWD:` that passed, and gate-check reads a ticked criterion whose line does not match its current definition exactly (another command, a hand-written line, a line in an older format) as unmet and runs it again. A failure is written in the same fields and order without the `automatic-evidence` prefix, with its own exit code (and `signal=` or `error=` where there is one), `EXPECT=not matched` where it did not match, and a trailing `output=` summary, so a red that does not repeat can still be explained. The checkbox stays the authority: a ticked criterion still reading `pending` is unmet, and evidence on an unticked line does not make it met.
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
+_Home_: `mmw-v2/upstream-unlazy/scripts/gate-check.mjs`
 
 **`CWD:`**:
 The optional attribute line naming the working directory `CHECK:` runs in. gate-check calls the indented lines under a criterion its **attributes** and recognises four names in all — `CHECK:`, `EXPECT:`, `EVIDENCE:`, `CWD:`; one written flush left is a parse error naming the indent.
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/lib/gates.mjs`
+_Home_: `mmw-v2/upstream-unlazy/scripts/lib/gates.mjs`
 
 **`TIMEOUT:`**:
 The optional attribute line `TIMEOUT: <seconds>` under a criterion: how long its `CHECK:` may run. `verify-ticket.py` reads every `TIMEOUT:` off the ticket body on every worker run and hands gate-check the largest of `DEFAULT_TIMEOUT` (600), those lines, and `--timeout`; it raises the limit and never lowers it, and is kept out of the ledger. `--lint` reports one that is not a positive whole number as `ERROR … [bad-timeout]`.
@@ -173,7 +173,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 **both conditions**:
 What it means for a criterion to pass: the `CHECK:` exits 0 and its output matches `EXPECT:`. gate-check applies it, and the rule is upstream's, unedited here.
 _Avoid_: 双条件, the double condition
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
+_Home_: `mmw-v2/merge-notes/unlazy.md`
 
 **`met`, `unmet`, `abandoned`**:
 The three states of a criterion: **met** is ticked with real evidence; **unmet** is not ticked, or ticked with `EVIDENCE: pending`, or — as gate-check reads it — ticked with a pass line written for another definition, which the next run runs again; **abandoned** carries an `ABANDON:` line. **ticked** is the checkbox state in the ledger; `--reverify` re-runs ticked criteria too. A criterion is **runnable** when both `CHECK:` and `EXPECT:` are non-blank.

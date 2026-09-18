@@ -6,7 +6,9 @@
 # Two engines, two test runners:
 #
 #   this directory                    unittest, against fixed ticket bodies
-#   scripts/gate-check/tests          node, the vendored engine's own suite
+#   mmw-v2/upstream-unlazy/tests      node, the vendored engine's run-tests.mjs and
+#                                     lint-tests.mjs; unlazy's other suites there cover
+#                                     parts this skill does not use and are not run
 #
 # Neither needs the tracker, a terminal or a browser. `node` has to be on PATH for
 # the second one; without it the run fails rather than passing on half the tests.
@@ -14,8 +16,7 @@
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-SKILL="$(dirname -- "$(dirname -- "$HERE")")/skills/verify-ticket"
-GATE_TESTS="$SKILL/scripts/gate-check/tests"
+GATE_TESTS="$(dirname -- "$(dirname -- "$HERE")")/upstream-unlazy/tests"
 
 # A lease registry of its own. The driver claims this machine's instance slots before it
 # runs any command a repository declares, so a suite that exercises that path would

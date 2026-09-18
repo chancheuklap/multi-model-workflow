@@ -49,7 +49,7 @@ _Avoid_: repo root, 仓库根
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **subtree**:
-How an upstream repository is carried inside this one: `git subtree pull --prefix … --squash`. `mmw-v2/upstream/` is `mattpocock/skills`; `mmw-v2/upstream-diagram-design/` is `cathrynlavery/diagram-design`. Both are editable, and a change to a skill inside one requires a merge-note. `gate-check/` is not a subtree: it was copied in whole, `git subtree pull` does not reach it, and its provenance is `UPSTREAM.md`.
+How an upstream repository is carried inside this one: `git subtree pull --prefix … --squash`. `mmw-v2/upstream/` is `mattpocock/skills`; `mmw-v2/upstream-diagram-design/` is `cathrynlavery/diagram-design`; `mmw-v2/upstream-unlazy/` is `Leonxlnx/unlazy`. All three are editable, and a change to a skill inside one, or to unlazy's scripts, requires a merge-note.
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **upstream**:
@@ -58,8 +58,8 @@ _Avoid_: 上游票号 (that is a blocker)
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **unlazy**:
-The repository `gate-check/` was copied from (`https://github.com/Leonxlnx/unlazy`, commit `16671491`, MIT). It is not a subtree; the upstream commit, what was taken as-is, what was edited, and what was left behind are recorded in `UPSTREAM.md`. `docs/research/code-landing-refs/unlazy/` is an older research snapshot (`da0b00a3`), not the source of these files.
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
+The repository gate-check comes from (`https://github.com/Leonxlnx/unlazy`, MIT), carried as the subtree `mmw-v2/upstream-unlazy/`. verify-ticket uses its `scripts/gate-check.mjs`, `scripts/gate-lint.mjs` and `scripts/lib/`, reached through relative symlinks in `mmw-v2/skills/verify-ticket/scripts/gate-check/`; what this repository changed in them is its merge-note. `docs/research/code-landing-refs/unlazy/` is an older research snapshot (`da0b00a3`), not the source of these files.
+_Home_: `mmw-v2/merge-notes/unlazy.md`
 
 **source directory**:
 One of the three directories in this repository a host's skill symlink points straight at (`mmw-v2/skills/`, `mmw-v2/upstream/skills/`, `mmw-v2/upstream-diagram-design/skills/`), so an edit takes effect on the next call. `install.sh` knows a link is its own because `readlink` lands inside one of them, matched by path segment — so any checkout of this repository counts, and whichever checkout runs `install.sh` takes over the batch.
@@ -128,11 +128,11 @@ _Avoid_: 名单 (as a term)
 _Home_: `mmw-v2/install.sh`
 
 **`tests/run.sh`**:
-The test entry point of one skill or one subsystem, the own-script layer, one directory each under `mmw-v2/tests/` — twelve of them: `verify-ticket`, `drive-target`, `align-screens`, `dispatch`, `retro`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `board`, `liveness`, `relay`, `migrations`; `advisor` and `code-checkers` have none. There is no overall entry point and no CI: each is run by hand, and each one's header says what it tests and what runtime it needs. They live only in a checkout and are never symlinked into a host; each reaches its subject by counting two levels back to `mmw-v2/` and loading the script by path. gate-check's own tests are the vendored-script layer and stay in its own directory.
+The test entry point of one skill or one subsystem, the own-script layer, one directory each under `mmw-v2/tests/` — twelve of them: `verify-ticket`, `drive-target`, `align-screens`, `dispatch`, `retro`, `exe-release`, `manage-agents-md`, `claude-design-blocks`, `board`, `liveness`, `relay`, `migrations`; `advisor` and `code-checkers` have none. There is no overall entry point and no CI: each is run by hand, and each one's header says what it tests and what runtime it needs. They live only in a checkout and are never symlinked into a host; each reaches its subject by counting two levels back to `mmw-v2/` and loading the script by path. gate-check's own tests are the vendored-script layer and live in the `mmw-v2/upstream-unlazy/` subtree.
 _Home_: `mmw-v2/tests/AGENTS.md`
 
 **merge-note**:
-One note per changed upstream skill in `mmw-v2/merge-notes/`: which passages this repository changed, why, and how to choose when upstream touches them again — intent, not diff. Its fixed parts are Chinese literals: `源目录：`, `## 逐段意图`, the table columns `段落` and `我们的意图`, `收上游` and `弃上游`. `merge-notes/README.md` indexes them and gives the upstream-pull procedure, plus the two rules every note assumes rather than repeats — the paired `disable-model-invocation` switch and the three host-neutral rewrites; gate-check has `UPSTREAM.md` instead.
+One note per changed upstream skill, and one for unlazy's scripts, in `mmw-v2/merge-notes/`: which passages this repository changed, why, and how to choose when upstream touches them again — intent, not diff. Its fixed parts are Chinese literals: `源目录：`, `## 逐段意图`, the table columns `段落` and `我们的意图`, `收上游` and `弃上游`. `merge-notes/README.md` indexes them and gives the upstream-pull procedure, plus the two rules every skill's note assumes rather than repeats — the paired `disable-model-invocation` switch and the three host-neutral rewrites.
 _Admitted_: 说明 (in `merge-notes/README.md`)
 _Home_: `mmw-v2/merge-notes/README.md`
 
@@ -140,10 +140,6 @@ _Home_: `mmw-v2/merge-notes/README.md`
 One note per change in this repository that invalidates a consuming repository's existing screen contract, ticket `CHECK:`, or `.mmw/target.json` — what changed, which of those classes (plus target trees, which go stale with the screen contract) go stale, and how to migrate — the opposite of a merge-note; `mmw-v2/downstream-notes/README.md` says which changes require one and indexes them. Its fixed parts are Chinese literals in this order: `## 改了什么`, `## 哪些产物失效`, `## 怎么迁`; its filename is the number of the ticket that caused the change plus a slug.
 _Admitted_: 说明 (in `downstream-notes/README.md`)
 _Home_: `mmw-v2/downstream-notes/README.md`
-
-**`UPSTREAM.md`**:
-The note written whenever upstream scripts are copied in without a subtree: source repository, commit, date, licence, which files are byte-identical to the snapshot, which were edited and how, and which were deliberately left behind. It is the one thing a skill directory carries that the agent holding the skill does not read — it is written for whoever next compares against upstream, whose only clue is the directory itself, and it covers the whole of `mmw-v2/skills/verify-ticket/scripts/gate-check/`, its own `tests/` included.
-_Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
 **`models.json`**:
 The versioned machine-level dispatch configuration at `MMW_HOME/models.json`, defaulting to `~/.mmw/models.json`. It holds the night's `runner` and one row per dispatched agent — `junior-worker`, `senior-worker`, `reviewer`, `advisor` — and is the only place a dispatched agent's model is written. `models.py config` and the task board share its validation, its lock and its whole-file atomic replacement. `dispatch.sh start` reads it fresh. `install.sh` creates it from `hosts.json` defaults when absent, or imports and deletes the retired Markdown file once; it never overwrites an existing JSON file. The main agent and the code-review axis subagents have no row.

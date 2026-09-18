@@ -29,7 +29,7 @@ HEAD_RE = r"^[0-9a-f]{40}$"
 
 def current_evidence(check: str, expect: str) -> str:
     """A pass line as gate-check writes it for this CHECK and EXPECT with no CWD:
-    `definition-sha256` is `gateDefinitionDigest` in `gate-check/lib/gates.mjs`."""
+    `definition-sha256` is `gateDefinitionDigest` in `mmw-v2/upstream-unlazy/scripts/lib/gates.mjs`."""
     definition = json.dumps(["unlazy.gate-definition", 1, check, expect, None],
                             separators=(",", ":"), ensure_ascii=False)
     digest = hashlib.sha256(definition.encode("utf-8")).hexdigest()
