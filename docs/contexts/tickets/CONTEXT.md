@@ -149,7 +149,7 @@ The string, or `/…/flags` regex, the `CHECK:` output must contain. It is writt
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`EVIDENCE:`**:
-The fourth line: `pending` until the criterion has run, then the one line of fact gate-check writes (the **EVIDENCE structured line**). A pass is written `exit=0; shell=…; cwd=…; path=…; EXPECT=matched; output-sha256=…; output-bytes=…`; a failure is written in the same fields with its own exit code (and `signal=` or `error=` where there is one), `EXPECT=not matched` where it did not match, and a trailing `output=` summary, so a red that does not repeat can still be explained. The checkbox stays the authority: a ticked criterion still reading `pending` is unmet, and evidence on an unticked line does not make it met.
+The fourth line: `pending` until the criterion has run, then the one line of fact gate-check writes (the **EVIDENCE structured line**). A pass is written `automatic-evidence=v1; definition-sha256=…; exit=0; EXPECT=matched; output-sha256=…; output-bytes=…; shell=…; cwd=…; path=…`: `definition-sha256` fingerprints the `CHECK:`, `EXPECT:` and `CWD:` that passed, and gate-check reads a ticked criterion whose line does not match its current definition exactly (another command, a hand-written line, a line in an older format) as unmet and runs it again. A failure is written in the same fields and order without the `automatic-evidence` prefix, with its own exit code (and `signal=` or `error=` where there is one), `EXPECT=not matched` where it did not match, and a trailing `output=` summary, so a red that does not repeat can still be explained. The checkbox stays the authority: a ticked criterion still reading `pending` is unmet, and evidence on an unticked line does not make it met.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/gate-check.mjs`
 
 **`CWD:`**:
@@ -176,7 +176,7 @@ _Avoid_: 双条件, the double condition
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
 **`met`, `unmet`, `abandoned`**:
-The three states of a criterion: **met** is ticked with real evidence; **unmet** is not ticked, or ticked with `EVIDENCE: pending`; **abandoned** carries an `ABANDON:` line. **ticked** is the checkbox state in the ledger; `--reverify` re-runs ticked criteria too. A criterion is **runnable** when both `CHECK:` and `EXPECT:` are non-blank.
+The three states of a criterion: **met** is ticked with real evidence; **unmet** is not ticked, or ticked with `EVIDENCE: pending`, or — as gate-check reads it — ticked with a pass line written for another definition, which the next run runs again; **abandoned** carries an `ABANDON:` line. **ticked** is the checkbox state in the ledger; `--reverify` re-runs ticked criteria too. A criterion is **runnable** when both `CHECK:` and `EXPECT:` are non-blank.
 _Avoid_: 勾 (as a term)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 

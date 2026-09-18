@@ -8,6 +8,7 @@ every later reader decides on.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -24,6 +25,16 @@ vt = load()
 
 DRIVE = SCRIPT.parents[2] / "drive-target" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
+
+
+def current_evidence(check: str, expect: str) -> str:
+    """A pass line as gate-check writes it for this CHECK and EXPECT with no CWD:
+    `definition-sha256` is `gateDefinitionDigest` in `gate-check/lib/gates.mjs`."""
+    definition = json.dumps(["unlazy.gate-definition", 1, check, expect, None],
+                            separators=(",", ":"), ensure_ascii=False)
+    digest = hashlib.sha256(definition.encode("utf-8")).hexdigest()
+    return (f"automatic-evidence=v1; definition-sha256={digest}; exit=0; EXPECT=matched; "
+            f"output-sha256={'a' * 64}; output-bytes=13; shell=/bin/sh; cwd=.")
 STARTED = started(ticket=1, into="spec-337")
 
 
@@ -142,7 +153,7 @@ class TestDoubleCondition(LedgerRun):
         ))
         self.assertEqual(code, 0)
         self.assertIn("- [x] AC1:", comment)
-        self.assertIn("EVIDENCE: exit=0;", comment)
+        self.assertRegex(comment, r"EVIDENCE: automatic-evidence=v1; definition-sha256=[0-9a-f]{64}; exit=0;")
 
     def test_a_criterion_with_no_check_is_never_run_and_never_ticked(self):
         code, comment, printed = self.run_ticket(ticket(
@@ -187,7 +198,7 @@ class TestTheRunIsOneTicketCheckedEvent(LedgerRun):
                          {"met": 1, "unmet": 1, "abandoned": 0, "total": 2})
         self.assertEqual([(c["id"], c["met"]) for c in payload["criteria"]],
                          [("AC1", True), ("AC2", False)])
-        self.assertTrue(payload["criteria"][0]["evidence"].startswith("exit=0"))
+        self.assertTrue(payload["criteria"][0]["evidence"].startswith("automatic-evidence=v1; "))
         self.assertEqual(payload["failed"], ["AC2"])
         self.assertEqual(payload["outside_owns"], ["docs/stray.md"])
         self.assertEqual(payload["shape"],
@@ -367,12 +378,32 @@ class TestReverify(LedgerRun):
             "- [x] AC1: the importer writes six rows",
             "  CHECK: echo 'wrote 6 rows'",
             "  EXPECT: wrote 6 rows",
-            "  EVIDENCE: exit=0; shell=/bin/sh; cwd=.; EXPECT=matched",
+            "  EVIDENCE: " + current_evidence("echo 'wrote 6 rows'", "wrote 6 rows"),
         ], ticket=1)
         code, comment, printed = self.run_ticket(body, reverify=True, comments=[previous])
         self.assertEqual(code, 0)
         self.assertEqual(payload_of(comment)["run"], "reverify")
         self.assertIn("previously met reverified: 1", printed)
+
+    def test_evidence_written_before_the_definition_digest_is_rerun_not_trusted(self):
+        """A run recorded by the gate-check before evidence named its definition: the
+        reverify still reruns it and it passes, but it does not count as previously met."""
+        body = ticket(
+            "- [ ] AC1: the importer writes six rows",
+            "  CHECK: echo 'wrote 6 rows'",
+            "  EXPECT: wrote 6 rows",
+            "  EVIDENCE: pending",
+        )
+        previous = checked("self", [
+            "- [x] AC1: the importer writes six rows",
+            "  CHECK: echo 'wrote 6 rows'",
+            "  EXPECT: wrote 6 rows",
+            "  EVIDENCE: exit=0; shell=/bin/sh; cwd=.; EXPECT=matched",
+        ], ticket=1)
+        code, comment, printed = self.run_ticket(body, reverify=True, comments=[previous])
+        self.assertEqual(code, 0)
+        self.assertEqual(payload_of(comment)["result"], "met")
+        self.assertIn("reran: 1, previously met reverified: 0", printed)
 
     def test_a_first_line_saying_self_run_carries_nothing_forward(self):
         """The old ledger comment, typed by hand, is prose: nothing is carried from it."""

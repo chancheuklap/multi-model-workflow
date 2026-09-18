@@ -8,11 +8,12 @@
 // Prints "N/N passed" on success, which is the string CI and the repo's own
 // gates match on.
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { execFile } from "node:child_process";
-import { join, dirname } from "node:path";
+import { delimiter, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { automaticEvidencePrefix, gateDefinitionDigest, gateState, parseGates } from "../lib/gates.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GATE_CHECK = join(HERE, "..", "gate-check.mjs");
@@ -362,6 +363,128 @@ test("evidence: a reverify that turns a met criterion red records the failure, n
     assertLacks(led, "EXPECT=matched", "the old pass evidence must not survive a failed reverify");
     assertHas(led, "exit=1", "ledger");
     assertHas(led, "regressed-here", "ledger");
+  } finally { s.cleanup(); }
+});
+
+// The four below are upstream's evidence-binding and output-cap cases (hardening-tests.mjs
+// at 1667149), with the approval steps taken out and a failed run expected to record its
+// failure rather than `pending`.
+
+test("evidence: the definition digest is fixed and only exact current evidence is met", async () => {
+  const parsed = parseGates([
+    "- [x] G1: digest fixture",
+    "  CHECK: printf \"token-b\\n\"",
+    "  EXPECT: token-c",
+    "  EVIDENCE: pending",
+    "",
+  ].join("\n"));
+  assert(!parsed.errors.length, parsed.errors.join("; "));
+  const runnable = parsed.gates[0];
+  const digest = gateDefinitionDigest(runnable);
+  assert(digest === "544a096dd6735f1168b04cb00c40b2d7d8889c656e383d95ee6977ea90813ab5",
+    "definition digest golden vector changed: " + digest);
+  const prefix = automaticEvidencePrefix(digest);
+  const state = (evidence) => gateState({ ...runnable, checked: true, evidence }, new Map());
+  const success = prefix + " exit=0; EXPECT=matched; output-sha256=" + "a".repeat(64) +
+    "; output-bytes=0; shell=/bin/sh";
+  assert(state(success) === "met", "exact current evidence was not met");
+  for (const evidence of [
+    "pending",
+    "exit=0; shell=/bin/sh; cwd=/tmp; EXPECT=matched",
+    "automatic-evidence=v1; definition-sha256=" + "b".repeat(64) + "; exit=0",
+    prefix + " exit=1; EXPECT=not matched; output-sha256=" + "a".repeat(64) + "; output-bytes=0;",
+    success + "x".repeat(901),
+    "reviewed by owner",
+  ]) {
+    assert(state(evidence) !== "met", "stale or unbound evidence was met: " + JSON.stringify(evidence));
+  }
+  assert(gateDefinitionDigest({ ...runnable, cwd: "." }) !== digest, "omitted CWD and CWD: . collided");
+  assert(gateDefinitionDigest({ ...runnable, id: "RENAMED", title: "copy edited" }) === digest,
+    "id or title changed the definition digest");
+  assert(gateState({ ...runnable, checked: false, evidence: success }, new Map()) === "unmet",
+    "unchecked current evidence became met");
+});
+
+test("evidence: a changed CHECK makes old evidence stale and a rerun replaces it", async () => {
+  const s = sandbox();
+  try {
+    s.write("GATES.md", gate("G1", "bound evidence", echoOk("TOKEN-A"), "TOKEN-A"));
+    let r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, r.out);
+    let led = s.read("GATES.md");
+    const first = (led.match(/definition-sha256=([a-f0-9]{64});/) || [])[1];
+    assert(first, "a pass carries no definition digest\n" + led);
+    assertHas(led, "EVIDENCE: automatic-evidence=v1; definition-sha256=" + first + "; exit=0;");
+
+    r = await run(GATE_CHECK, ["--status", "GATES.md"], { cwd: s.dir, env: { PATH: "" } });
+    assert(r.code === 0, "status needed a shell or PATH\n" + r.out);
+    assertHas(r.out, "ALL MET (1 met)");
+
+    s.write("GATES.md", led.replace(echoOk("TOKEN-A"), echoOk("TOKEN-B")));
+    r = await run(GATE_CHECK, ["--status", "GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, r.out);
+    assertHas(r.out, "checked but automatic evidence is stale or unbound");
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, r.out);
+    led = s.read("GATES.md");
+    assertHas(led, "- [ ] G1: bound evidence");
+    assertLacks(led, "automatic-evidence=", "a failed rerun of stale evidence");
+    assertHas(led, "EXPECT=not matched", "ledger");
+
+    s.write("GATES.md", led.replace("EXPECT: TOKEN-A", "EXPECT: TOKEN-B"));
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, r.out);
+    led = s.read("GATES.md");
+    const second = (led.match(/definition-sha256=([a-f0-9]{64});/) || [])[1];
+    assert(second && second !== first, "an edited pass kept the old digest\n" + led);
+
+    s.write("GATES.md", led.replace(/EVIDENCE: .*$/m, "EVIDENCE: exit=0; shell=old-writer; EXPECT=matched"));
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, "legacy evidence was not rerun and migrated\n" + r.out);
+    assertHas(s.read("GATES.md"), "EVIDENCE: automatic-evidence=v1; definition-sha256=" + second + ";");
+  } finally { s.cleanup(); }
+});
+
+test("evidence: a long transcript cannot truncate the definition or output digest", async () => {
+  if (process.platform === "win32") return;
+  const s = sandbox();
+  try {
+    const deep = Array.from({ length: 22 }, (_, index) =>
+      "segment-" + String(index).padStart(2, "0") + "-" + "x".repeat(18)).join("/");
+    s.write(deep + "/check.mjs", "console.log('LONG-OK');\n");
+    s.write("GATES.md", gate("G1", "long evidence transcript",
+      JSON.stringify(process.execPath) + " check.mjs", "LONG-OK").replace("  EVIDENCE:", "  CWD: " + deep + "\n  EVIDENCE:"));
+    const longPath = Array(120).fill(dirname(process.execPath)).join(delimiter);
+    const r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir, env: { PATH: longPath } });
+    assert(r.code === 0, r.out);
+    const line = s.read("GATES.md").split(/\r?\n/).find((l) => l.includes("EVIDENCE:"));
+    assert(line.length <= "  EVIDENCE: ".length + 900, "evidence cap exceeded: " + line.length);
+    assert(/^  EVIDENCE: automatic-evidence=v1; definition-sha256=[a-f0-9]{64};/.test(line),
+      "the definition digest was truncated\n" + line);
+    assert(/output-sha256=[a-f0-9]{64}; output-bytes=\d+;/.test(line),
+      "the output fingerprint was truncated\n" + line);
+  } finally { s.cleanup(); }
+});
+
+test("checks: the output cap applies to stdout and stderr combined", async () => {
+  const s = sandbox();
+  try {
+    s.write("split-boundary.mjs",
+      "process.stdout.write('a'.repeat(524287)); process.stderr.write('b'.repeat(524288));\n");
+    s.write("GATES.md", gate("G1", "exactly at the cap once joined", "node split-boundary.mjs", "a"));
+    let r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 0, "the exact joined boundary failed\n" + r.out.slice(-2000));
+    assertHas(s.read("GATES.md"), "output-bytes=1048576;");
+
+    s.write("split-cap.mjs",
+      "process.stdout.write('a'.repeat(524288)); process.stderr.write('b'.repeat(524288));\n");
+    s.write("GATES.md", gate("G1", "one byte over once joined", "node split-cap.mjs", "a"));
+    r = await run(GATE_CHECK, ["GATES.md"], { cwd: s.dir });
+    assert(r.code === 1, "over the joined cap returned " + r.code + "\n" + r.out.slice(-2000));
+    assertHas(r.out, "output exceeded 1048576 bytes after stdout/stderr UTF-8 combination");
+    const led = s.read("GATES.md");
+    assertHas(led, "- [ ] G1:");
+    assertLacks(led, "automatic-evidence=", "an over-cap run");
   } finally { s.cleanup(); }
 });
 

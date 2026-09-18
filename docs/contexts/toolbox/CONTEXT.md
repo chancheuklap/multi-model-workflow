@@ -58,7 +58,7 @@ _Avoid_: 上游票号 (that is a blocker)
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **unlazy**:
-The repository `gate-check/` was copied from (`https://github.com/Leonxlnx/unlazy`, commit `da0b00a3`, MIT), vendored 2026-08-29, with the snapshot it was taken from kept at `docs/research/code-landing-refs/unlazy/`. It is not a subtree; what was taken as-is, what was edited, and what was left behind are recorded in `UPSTREAM.md`.
+The repository `gate-check/` was copied from (`https://github.com/Leonxlnx/unlazy`, commit `16671491`, MIT). It is not a subtree; the upstream commit, what was taken as-is, what was edited, and what was left behind are recorded in `UPSTREAM.md`. `docs/research/code-landing-refs/unlazy/` is an older research snapshot (`da0b00a3`), not the source of these files.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/gate-check/UPSTREAM.md`
 
 **source directory**:
