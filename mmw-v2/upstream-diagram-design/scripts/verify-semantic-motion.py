@@ -21,7 +21,7 @@ PATTERNS = ROOT / "skills/diagram-design/references/semantic-patterns.md"
 ANIMATION = ROOT / "skills/diagram-design/references/animation.md"
 EXAMPLE = ROOT / "skills/diagram-design/assets/example-policy-trace-animated.html"
 MAX_SKILL_BYTES = 40_000
-VISUAL_TYPE_COUNT = 39
+VISUAL_TYPE_COUNT = 40
 
 PATTERN_NAMES = (
     "Fan-in queue / bottleneck",
@@ -31,6 +31,8 @@ PATTERN_NAMES = (
     "Secure paved road",
     "Governance / control catalog",
     "Compensating security layers",
+    "Traceable block decomposition",
+    "Lifecycle phase map",
 )
 PATTERN_FIELDS = (
     "Selection triggers:",
@@ -426,7 +428,7 @@ def main() -> int:
         return 1
     if not args.example_only:
         print(
-            f"OK: 7 semantic patterns route independently to the preserved "
+            f"OK: {len(PATTERN_NAMES)} semantic patterns route independently to the preserved "
             f"{VISUAL_TYPE_COUNT} visual types"
         )
         print("OK: animation modes, primitives, static fallback, and accessibility contract")

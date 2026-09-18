@@ -29,8 +29,10 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| §0 标题、第一句、第三句 | 上游把这一节写成每个新项目必过的 gate；本仓写成 settle which style guide：不停下来问品牌，直接用自带配色画，在交付物旁边一行说明用了哪套、四种改法是什么。送客户、送外部的场合仍然先问 |
-| §0 末段「All-default tokens…trigger the gate」 | 跟着上一条改成走默认路径，否则同一节里两句话互相矛盾 |
+| §0 标题、粗体首句、「Name the one you used…」一句 | 上游把这一节写成每个新项目必过的 gate；本仓写成 settle which style guide |
+| §0「For a markerless project…」一段 | 上游写 pause and present the choices from `onboarding.md`；本仓写成不停下来问品牌，直接用自带配色画，在交付物旁边一行说明用了哪套、四种改法是什么 |
+| §0「Branding first is the right call…」一段 | 本仓加的：送客户、送外部的场合仍然先问，问法照上游，指向 `onboarding.md` 与 `profiles.md` |
+| §0 末段句尾「all-default tokens with no marker or header take the default path above」 | 本仓加的半句，跟着上两条走默认路径。`profiles.md` 里「all those values unchanged, run the first-time setup gate in `SKILL.md`」回指这一节，不必改 |
 | §1 末句「Above 9 nodes, it's probably two diagrams」 | 改成超过 9 个节点先找能嵌套的图型，再考虑第二张 |
 | §3 rules of thumb 第三条 | 同上：超预算改成重选一个能嵌套的图型，整个主题留在一张画布 |
 | §7 复杂度预算末句 | 三处拆图规则里最要紧的一处。改写成：重画成能嵌套的图型，预算改为**按层**计——每条带、每个容器各自不超，整张画布可以超；图型是为它自己的典型题材写的，需要弯折（Layers 的范例不画带间连线，不代表你的连线要拿掉）。确实是两个独立问题时才拆，并说明每张图回答哪个问题。各图型自己的上限（泳道数、实体数、轴数、系列数）是它们语法的物理极限，仍然绝对生效 |
@@ -44,7 +46,7 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 | --- | --- |
 | 导入降复杂度第 6 步「Still over? Split into overview + detail. Splitting beats shrinking.」 | 同 §7：先嵌套、按层计，两个独立问题才拆 |
 
-其余 52 个 reference 未改。里面还有多处拆图建议（`type-radar.md` 超过 5 条系列、`type-sequence.md` 的 alt 套 alt、`type-dp-security-matrix.md` 超过 6 个角色等），那些是各图型语法的物理极限，不是全局性问题，**照收上游**。
+其余 55 个 reference 未改。里面还有多处拆图建议（`type-radar.md` 超过 5 条系列、`type-sequence.md` 的 alt 套 alt、`type-dp-security-matrix.md` 超过 6 个角色等），那些是各图型语法的物理极限，不是全局性问题，**照收上游**。
 
 ### repo-root（symlink）
 

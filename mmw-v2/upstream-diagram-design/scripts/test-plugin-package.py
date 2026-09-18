@@ -16,6 +16,8 @@ from typing import Iterator, Optional
 ROOT = Path(__file__).resolve().parent.parent
 VERIFY_SCRIPT = ROOT / "scripts/verify-plugin-package.py"
 BUMP_SCRIPT = ROOT / "scripts/bump-plugin-version.py"
+VERSION_HISTORY_SCRIPT = ROOT / "scripts/plugin_version_history.py"
+AUTO_BUMP_WORKFLOW = ROOT / ".github/workflows/auto-bump.yml"
 PLUGIN_NAME = "diagram-design"
 
 
@@ -31,6 +33,7 @@ def load_module(name: str, path: Path) -> ModuleType:
 
 VERIFY = load_module("verify_plugin_package", VERIFY_SCRIPT)
 BUMP = load_module("bump_plugin_version", BUMP_SCRIPT)
+VERSION_HISTORY = load_module("plugin_version_history", VERSION_HISTORY_SCRIPT)
 
 
 def write_json(path: Path, payload: dict) -> None:
@@ -179,6 +182,50 @@ def test_verifier() -> None:
             "missing bump",
             VERIFY.verify_package(root, "HEAD"),
             "must increase",
+        )
+
+    with package_repo() as root:
+        errors = VERIFY.verify_package(root, "HEAD", mode="no-bump")
+        if errors:
+            raise AssertionError(f"unchanged versions failed no-bump mode: {errors}")
+        print("OK: no-bump mode accepts unchanged versions")
+
+    with package_repo() as root:
+        set_versions(root, "1.2.4", "1.2.4")
+        expect_failure(
+            "version bump inside a pull request",
+            VERIFY.verify_package(root, "HEAD", mode="no-bump"),
+            "must not change in a pull request",
+        )
+
+    with package_repo() as root:
+        set_versions(root, "1.2.2", "1.2.2")
+        expect_failure(
+            "version rollback inside a pull request",
+            VERIFY.verify_package(root, "HEAD", mode="no-bump"),
+            "must not change in a pull request",
+        )
+
+    with package_repo() as root:
+        errors = VERIFY.verify_package(root, None, mode="current-only")
+        if errors:
+            raise AssertionError(f"current-only mode failed a valid tree: {errors}")
+        print("OK: current-only mode accepts a valid tree")
+
+    with package_repo() as root:
+        set_versions(root, "1.2.4", "1.2.5")
+        expect_failure(
+            "current-only mode with desynchronized manifests",
+            VERIFY.verify_package(root, None, mode="current-only"),
+            "versions must match",
+        )
+
+    with package_repo() as root:
+        set_versions(root, "1.2", "1.2")
+        expect_failure(
+            "current-only mode with malformed versions",
+            VERIFY.verify_package(root, None, mode="current-only"),
+            "strict MAJOR.MINOR.PATCH",
         )
 
     with package_repo() as root:
@@ -435,6 +482,11 @@ def test_bumper() -> None:
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
             seed_package(root)
+            version_paths = (*BUMP.MANIFEST_PATHS, BUMP.SKILL_PATH)
+            before = {
+                relative: (root / relative).read_text(encoding="utf-8")
+                for relative in version_paths
+            }
             actual = BUMP.bump(root, part)
             versions = {
                 json.loads((root / relative).read_text(encoding="utf-8"))["version"]
@@ -444,7 +496,27 @@ def test_bumper() -> None:
                 raise AssertionError(
                     f"{part} bump: expected {expected}, got {actual} and {versions}"
                 )
-            print(f"OK: {part} bump produced {expected}")
+            skill_text = (root / BUMP.SKILL_PATH).read_text(encoding="utf-8")
+            expected_minor = ".".join(expected.split(".")[:2])
+            if f'version: "{expected_minor}"' not in skill_text:
+                raise AssertionError(
+                    f"{part} bump left SKILL.md metadata.version off "
+                    f"{expected_minor!r}: {skill_text!r}"
+                )
+            changed = {
+                relative
+                for relative in version_paths
+                if (root / relative).read_text(encoding="utf-8") != before[relative]
+            }
+            expected_changed = set(BUMP.MANIFEST_PATHS)
+            if part != "patch":
+                expected_changed.add(BUMP.SKILL_PATH)
+            if changed != expected_changed:
+                raise AssertionError(
+                    f"{part} bump changed {sorted(map(str, changed))}; expected "
+                    f"{sorted(map(str, expected_changed))}"
+                )
+            print(f"OK: {part} bump produced {expected} and synced SKILL.md")
 
     with tempfile.TemporaryDirectory() as scratch:
         root = Path(scratch)
@@ -459,10 +531,136 @@ def test_bumper() -> None:
             raise AssertionError("version bumper accepted mismatched manifests")
         print("OK: version bumper rejects mismatched manifests")
 
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        seed_package(root)
+        skill = root / BUMP.SKILL_PATH
+        skill.write_text(f"---\nname: {PLUGIN_NAME}\n---\n", encoding="utf-8")
+        before = {
+            relative: (root / relative).read_text(encoding="utf-8")
+            for relative in BUMP.MANIFEST_PATHS
+        }
+        try:
+            BUMP.bump(root)
+        except BUMP.PackageVersionError as exc:
+            if "metadata.version" not in str(exc):
+                raise AssertionError(f"unexpected SKILL.md error: {exc}") from exc
+        else:
+            raise AssertionError("version bumper accepted SKILL.md without metadata.version")
+        after = {
+            relative: (root / relative).read_text(encoding="utf-8")
+            for relative in BUMP.MANIFEST_PATHS
+        }
+        if before != after:
+            raise AssertionError("failed bump must leave every manifest untouched")
+        print("OK: version bumper fails closed on SKILL.md drift, manifests untouched")
+
+
+def test_auto_bump_workflow_allowlists() -> None:
+    workflow = AUTO_BUMP_WORKFLOW.read_text(encoding="utf-8")
+    expected = {
+        "expected_without_skill": tuple(
+            sorted(relative.as_posix() for relative in BUMP.MANIFEST_PATHS)
+        ),
+        "expected_with_skill": tuple(
+            sorted(
+                relative.as_posix()
+                for relative in (*BUMP.MANIFEST_PATHS, BUMP.SKILL_PATH)
+            )
+        ),
+    }
+
+    for variable, expected_paths in expected.items():
+        marker = f"{variable}=$(printf '%s" + "\\n' \\" + "\n"
+        chunks = workflow.split(marker)
+        if len(chunks) != 3:
+            raise AssertionError(
+                f"expected prepare and publish assignments for {variable}; "
+                f"found {len(chunks) - 1}"
+            )
+        for job, chunk in zip(("prepare", "publish"), chunks[1:]):
+            body, separator, _ = chunk.partition("| LC_ALL=C sort)")
+            if not separator:
+                raise AssertionError(f"could not parse {job} {variable} allowlist")
+            actual_paths = tuple(
+                sorted(
+                    line.strip().removesuffix("\\").strip()
+                    for line in body.splitlines()
+                    if line.strip()
+                )
+            )
+            if actual_paths != expected_paths:
+                raise AssertionError(
+                    f"{job} {variable} allowlist is {actual_paths}; "
+                    f"expected {expected_paths}"
+                )
+    print("OK: prepare and publish workflow allowlists match bumper paths")
+
+
+def commit_all(root: Path, message: str) -> str:
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", message], cwd=root, check=True)
+    return subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=root, text=True
+    ).strip()
+
+
+def test_version_history() -> None:
+    with package_repo() as root:
+        base = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=root, text=True
+        ).strip()
+        BUMP.bump(root)
+        release = commit_all(root, "release 1.2.4")
+
+        for relative in BUMP.MANIFEST_PATHS:
+            path = root / relative
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["description"] = "Create editorial diagrams from imported sources."
+            write_json(path, payload)
+        metadata_only = commit_all(root, "update manifest descriptions")
+
+        if not VERSION_HISTORY.versions_changed(root, base, release):
+            raise AssertionError("release version change was not detected")
+        if VERSION_HISTORY.versions_changed(root, release, metadata_only):
+            raise AssertionError("description-only manifest change was treated as a release")
+        if VERSION_HISTORY.last_version_bump(root, metadata_only) != release:
+            raise AssertionError("description-only commit hid the previous real release")
+
+        BUMP.bump(root)
+        next_release = commit_all(root, "release 1.2.5")
+        if VERSION_HISTORY.last_version_bump(root, next_release) != next_release:
+            raise AssertionError("newest real release was not selected")
+
+        path = root / BUMP.MANIFEST_PATHS[0]
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["version"] = "not-semver"
+        write_json(path, payload)
+        malformed = commit_all(root, "break one manifest version")
+        try:
+            VERSION_HISTORY.versions_changed(root, next_release, malformed)
+        except VERSION_HISTORY.VersionHistoryError:
+            pass
+        else:
+            raise AssertionError("malformed history was treated as a normal comparison")
+
+        payload["version"] = "1.2.4"
+        write_json(path, payload)
+        desynchronized = commit_all(root, "desynchronize valid manifest versions")
+        try:
+            VERSION_HISTORY.versions_changed(root, next_release, desynchronized)
+        except VERSION_HISTORY.VersionHistoryError:
+            pass
+        else:
+            raise AssertionError("valid but unequal versions were treated as synchronized")
+        print("OK: version history ignores manifest metadata-only commits")
+
 
 def main() -> int:
     test_verifier()
     test_bumper()
+    test_auto_bump_workflow_allowlists()
+    test_version_history()
     print("All plugin package tests passed")
     return 0
 
