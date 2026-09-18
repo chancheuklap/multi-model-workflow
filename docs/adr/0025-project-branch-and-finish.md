@@ -5,14 +5,14 @@ amends: [0023]
 
 # 开夜记住并推送 project branch；用户验收后 `finish` 把 base branch 合回并清理
 
-一夜的 base branch 从哪个 project branch 切出，在 `open` 时按固定证据顺序确定并写进 `spec.opened.project`。`open` 先把 project branch 与 base branch fast-forward 推到 origin；用户在 `spec.closed` 之后验收，main agent 才用 `finish` 把 `origin/<base branch>` 合回 project branch、检查、推送、记录 `spec.merged`，然后删除已经包含的 base branch 与干净 worktree。project branch 合回默认分支不属于 MMW。
+一夜的 base branch 从哪个 project branch 切出，在 `open` 时按固定证据顺序确定并写进 `spec.opened.project`。`open` 先把 project branch 与 base branch fast-forward 推到 origin；用户在 `spec.closed` 之后验收，main agent 才用 `finish` 把 `origin/<base branch>` 合回 project branch、检查、推送、记录 `spec.merged`，然后删除已经包含的 base branch 与它的 merge worktree。project branch 合回默认分支不属于 MMW。
 
 ## 边界
 
 - 开夜以前，reflog、`branch.<base branch>.vscode-merge-base`、origin 上最近且唯一的共同历史依次提供 project branch；旧 `spec.opened.project` 优先于重新推导。默认分支、推导平手和任何 local/origin 分叉都拒绝，避免把猜测或覆盖写入 GitHub。
 - `summary` 只说明 agent batch 已收完；Retro 的 `spec.retroed.result=recorded` 证明复盘收据已经写成，用户验收才授权 `finish`。`finish` 先确认最新 `spec.closed` 之后有该收据、project 已记录、没有另一夜共用同一 base branch，并逐张确认用过该 base branch 的 spec 下没有开票。
 - 合并复用落票时的 detached merge worktree、repository checks、`MMW_BASE_REF` 和 fast-forward push 规则。冲突或检查失败保留两条分支及工作区，让证据仍可检查。
-- `spec.merged` 是新 merge 推送成功的事实，也是重跑边界：有它以后只补做逐项清理，不再产生第二个 merge commit。base branch 已经包含在 project branch 时不再合并，直接逐项清理。清理顺序固定为 origin base branch、merge worktree 与锁、本地 base branch，最后才删除签出 base branch 的干净 worktree（包括 main-agent session 所在的那个）。runner 会关闭所在 worktree 已消失的终端，session 和它启动的 `finish` 随之结束，所以删除 worktree 必须是最后一步，之前的清理都已完成。
+- `spec.merged` 是新 merge 推送成功的事实，也是重跑边界：有它以后只补做逐项清理，不再产生第二个 merge commit。base branch 已经包含在 project branch 时不再合并，直接逐项清理。`finish` 只清理流水线自己建的东西：origin base branch、base branch 的 merge worktree 与锁；本地 base branch 只在没有 worktree 签出它时删除。签出 base branch 的 worktree 一律保留：流水线从不建这种 worktree，它是人或 runner 建的，通常住着 main-agent session，而 runner 会关闭所在 worktree 已消失的终端，删它就会结束该 session。stderr 写明保留的 worktree 以及删除它和本地 base branch 的命令，由用户在 session 结束后自行删除。
 
 ## Considered Options
 
@@ -25,5 +25,5 @@ amends: [0023]
 
 - 本机和云端开始工作前都能取得 project branch 与 base branch；`spec.opened` 留下两者的永久对应。
 - 用户验收前，project branch 不含这一夜的合并；验收后，一条 `finish` 命令完成受检查的合回和可安全重复的清理。
-- 删除只发生在 base branch 已包含于 `origin/<project branch>` 之后；脏 worktree 和无法核对的分支保留，并打印人工补做命令。
+- 删除只发生在 base branch 已包含于 `origin/<project branch>` 之后；无法核对的分支保留，并打印人工补做命令。
 - ADR 0023 中「本机领先就拒绝并由用户推送」的开夜后果不再成立；分叉仍拒绝，push 仍只允许 fast-forward。

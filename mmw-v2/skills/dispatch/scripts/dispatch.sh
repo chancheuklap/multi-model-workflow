@@ -4068,29 +4068,15 @@ record_spec_merged() {
     --field "into=$into" --field "project=$project" --field "merge=$merge" --field "base=$base"
 }
 
-# Print, one per line, the worktrees with the base branch checked out that finish may remove:
-# clean, under the main checkout's .worktrees/, and not the main checkout itself. Every other
-# one is named on stderr with the command that removes it.
-removable_base_worktrees() {
-  local root="$1" into="$2" main path branch resolved
-  main="$(main_checkout)" || main=""
+# Print, one per line, the worktrees that have the base branch checked out. finish never removes
+# them: the pipeline makes no such worktree (its own are `issue-<n>` and detached merge
+# worktrees), so each one is a checkout a person or a runner made, and removing it can end the
+# session living in it.
+base_worktrees() {
+  local root="$1" into="$2" path branch
   while IFS=$'\t' read -r path branch; do
     [ "$branch" = "refs/heads/$into" ] || continue
-    [ -n "$path" ] || continue
-    resolved="$(CDPATH='' cd -- "$path" 2>/dev/null && pwd -P)" || resolved="$path"
-    if [ -n "$main" ] && [ "$resolved" = "$(CDPATH='' cd "$main" && pwd -P)" ]; then
-      echo "dispatch: keeping the main checkout $path; switch it off $into, then run git branch -D $into" >&2
-      continue
-    fi
-    case "$path" in "$main"/.worktrees/*) ;; *)
-      echo "dispatch: keeping $path because it is outside $main/.worktrees" >&2
-      continue ;;
-    esac
-    if [ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ]; then
-      echo "dispatch: keeping dirty worktree $path; clean it, then run git worktree remove $path" >&2
-      continue
-    fi
-    printf '%s\n' "$path"
+    [ -n "$path" ] && printf '%s\n' "$path"
   done < <(git -C "$root" worktree list --porcelain | awk '
     /^worktree / { path=substr($0,10); branch="" }
     /^branch / { branch=substr($0,8); print path "\t" branch }
@@ -4113,22 +4099,28 @@ delete_origin_base_branch() {
   echo "dispatch: could not delete origin/$into: $(printf '%s' "$out" | tr '\n' ' '); run git push origin --delete $into" >&2
 }
 
-# Delete the local base branch. The worktrees in $4 (newline-separated) that still have it
-# checked out are detached first, at the same commit and with their files untouched, so the
-# branch can go before those worktrees are removed.
+# Delete the local base branch when it is contained in origin/<project> and no worktree has it
+# checked out; otherwise name what keeps it and the commands that finish the job.
 delete_local_base_branch() {
-  local root="$1" into="$2" project="$3" trees="$4" path ahead out
+  local root="$1" into="$2" project="$3" trees path main ahead out
   git -C "$root" show-ref --verify --quiet "refs/heads/$into" || return 0
+  trees="$(base_worktrees "$root" "$into")"
+  if [ -n "$trees" ]; then
+    main="$(main_checkout)" || main=""
+    while IFS= read -r path; do
+      if [ "$path" = "$main" ]; then
+        echo "dispatch: keeping the main checkout $path on $into; switch it off $into, then run git branch -D $into" >&2
+        continue
+      fi
+      echo "dispatch: keeping worktree $path and the local $into it has checked out; once its session is done, remove the worktree (git worktree remove $path), then run git branch -D $into" >&2
+    done <<< "$trees"
+    return 0
+  fi
   ahead="$(git -C "$root" rev-list --count "origin/$project..refs/heads/$into" 2>/dev/null)" || ahead=""
   if [ "$ahead" != 0 ]; then
     echo "dispatch: keeping local $into because its containment in origin/$project was not proved; after checking, run git branch -D $into" >&2
     return 0
   fi
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    git -C "$path" checkout -q --detach >/dev/null 2>&1 \
-      || echo "dispatch: could not detach $path from $into" >&2
-  done <<< "$trees"
   out="$(git -C "$root" branch -D "$into" 2>&1)" \
     || echo "dispatch: could not delete local $into: $out; run git branch -D $into" >&2
 }
@@ -4145,30 +4137,19 @@ clean_base_merge_worktree() {
   rm -f "$state/merge-$(merge_slug "$into").lock"
 }
 
-# Removing a worktree can end the session that lives in it (a runner closes the terminals of a
-# worktree that disappears, and this process with them), so every other cleanup step runs first
-# and removing the base-branch worktrees is the last thing finish does.
 finish_cleanup() {
-  local root="$1" into="$2" project="$3" main trees contained=1 path
+  local root="$1" into="$2" project="$3"
   fetch_origin "$root" || { echo "dispatch: merge was recorded, but origin could not be fetched for cleanup; run finish again" >&2; return 0; }
-  main="$(main_checkout)" || main=""
-  [ -n "$main" ] || main="$root"
-  trees="$(removable_base_worktrees "$root" "$into")"
   if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$into" \
      && ! git -C "$root" merge-base --is-ancestor "origin/$into" "origin/$project" 2>/dev/null; then
     echo "dispatch: keeping $into because origin/$project does not contain origin/$into; run finish again after reconciling the branches" >&2
-    contained=0
+  else
+    delete_origin_base_branch "$root" "$into" "$project"
+    delete_local_base_branch "$root" "$into" "$project"
   fi
-  [ "$contained" = 1 ] && delete_origin_base_branch "$root" "$into" "$project"
   clean_base_merge_worktree "$root" "$into"
   sweep_orphan_merge_worktrees "$root" \
     || echo "dispatch: could not sweep orphan merge worktrees after finish" >&2
-  [ "$contained" = 1 ] && delete_local_base_branch "$root" "$into" "$project" "$trees"
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    git -C "$main" worktree remove "$path" >/dev/null 2>&1 \
-      || echo "dispatch: could not remove $path; run git worktree remove $path" >&2
-  done <<< "$trees"
 }
 
 finish_spec() {

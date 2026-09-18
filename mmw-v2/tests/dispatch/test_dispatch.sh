@@ -8442,20 +8442,23 @@ scenario_finishcleans() {
   main_path="$(git -C "$TMP/repo" worktree list --porcelain | head -1 | sed 's/^worktree //')"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "finish clean failed: $(cat "$TMP/err")"
-  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "local night remains"
   git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains"
-  [ ! -e "$TMP/repo/.worktrees/night-checkout" ] || fail "base worktree remains"
+  [ -d "$TMP/repo/.worktrees/night-checkout" ] || fail "finish removed a worktree with the base branch checked out"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night \
+    || fail "finish deleted the local base branch a worktree still has checked out"
+  grep -q "keeping worktree .*night-checkout and the local night" "$TMP/err" \
+    || fail "finish did not name the kept worktree: $(cat "$TMP/err")"
   [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains"
   [ ! -e "$lock" ] || fail "base merge lock remains"
   [ -d "$main_path" ] || fail "main checkout was removed"
   return 0
 }
 
-# #913: the main agent's session lives in a worktree on the base branch, and the runner closes
-# that session (and the finish it started) as soon as the worktree disappears. The git shim
-# plays the runner: it removes the worktree, then kills the finish process that asked for it.
-scenario_finishremovessessionlast() {
-  local session shim real_git lock code
+# #913: the main agent's session lives in a worktree on the base branch, and a runner closes a
+# session whose worktree disappears. finish, run from inside that worktree, must leave it and the
+# session's current directory in place while cleaning everything the pipeline made.
+scenario_finishkeepssession() {
+  local session lock
   setup_finish_closed
   session="$TMP/repo/.worktrees/night-session"
   mkdir -p "$TMP/repo/.worktrees"
@@ -8465,24 +8468,23 @@ scenario_finishremovessessionlast() {
   lock="$MMW_HOME/state/o__r/merge-night.lock"
   mkdir -p "$(dirname "$lock")"
   : > "$lock"
-  real_git="$(command -v git)"
-  shim="$TMP/session-shim"
-  mkdir -p "$shim"
-  cat > "$shim/git" <<SH
-#!/usr/bin/env bash
-"$real_git" "\$@"; rc=\$?
-case " \$* " in *" worktree remove $session "*) kill -9 \$PPID ;; esac
-exit \$rc
-SH
-  chmod +x "$shim/git"
-  code="$(run_dispatch env PATH="$shim:$PATH" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-    bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
-  [ "$code" = 137 ] || fail "the shim did not end finish at the session worktree's removal: exit $code, $(cat "$TMP/err")"
-  [ ! -e "$session" ] || fail "the session worktree remains"
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains after the session ended"
-  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "local night remains after the session ended"
-  [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains after the session ended"
-  [ ! -e "$lock" ] || fail "base merge lock remains after the session ended"
+  (
+    cd "$session" || exit 99
+    env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+      bash "$DISPATCH" "${TOOLS[@]}" finish 76 > "$TMP/out" 2> "$TMP/err"
+    printf '%s\n' "$?" > "$TMP/finish-code"
+    git rev-parse --show-toplevel > "$TMP/current-root" 2>&1
+  )
+  [ "$(cat "$TMP/finish-code")" = 0 ] || fail "finish from the session worktree failed: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/current-root")" = "$session" ] \
+    || fail "the session no longer resolves to its worktree: $(cat "$TMP/current-root")"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night \
+    || fail "finish deleted the local base branch the session has checked out"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains"
+  [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains"
+  [ ! -e "$lock" ] || fail "base merge lock remains"
+  grep -q "keeping worktree $session and the local night" "$TMP/err" \
+    || fail "finish did not name the session worktree it kept: $(cat "$TMP/err")"
   [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] \
     || fail "finish did not record exactly one merge"
 }
@@ -8620,11 +8622,11 @@ scenario_finishrerun() {
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "first finish failed: $(cat "$TMP/err")"
   first_merge="$(git -C "$TMP/origin.git" rev-parse proj)"
-  rm -f "$dirty/untracked.txt"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night || fail "first finish deleted the checked-out local night"
+  git -C "$TMP/repo" worktree remove --force "$dirty"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "finish rerun failed: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$first_merge" ] || fail "rerun made a second merge"
-  [ ! -d "$dirty" ] || fail "rerun did not finish cleanup"
   git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "rerun left local night"
   [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] || fail "rerun wrote another spec.merged"
 }
@@ -8681,7 +8683,7 @@ scenario_finishcleanupindependent() {
   git -C "$TMP/repo" push -q origin --delete gone
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 0 ] || fail "independent cleanup failed: $(cat "$TMP/err")"
-  [ ! -d "$checked" ] || fail "clean base worktree was gated on branch containment"
+  [ -d "$checked" ] || fail "finish removed a worktree with the base branch checked out"
   [ ! -d "$merge_wt" ] || fail "base merge worktree was gated on branch containment"
   [ ! -d "$orphan_wt" ] || fail "finish left an orphan merge worktree"
   [ ! -e "$orphan_lock" ] || fail "finish left an orphan merge lock"
@@ -10241,7 +10243,7 @@ ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-co
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishremovessessionlast finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -10452,7 +10454,7 @@ banner_for() {
     openprojecthead) echo OPEN-PROJECT-HEAD-OK ;;
     finishmerges) echo FINISH-MERGES-OK ;;
     finishcleans) echo FINISH-CLEANS-OK ;;
-    finishremovessessionlast) echo FINISH-REMOVES-SESSION-LAST-OK ;;
+    finishkeepssession) echo FINISH-KEEPS-SESSION-OK ;;
     finishrefusesunclosed) echo FINISH-REFUSES-UNCLOSED-OK ;;
     finishrefusesretro) echo FINISH-REFUSES-RETRO-OK ;;
     finishrefusesopenticket) echo FINISH-REFUSES-OPEN-TICKET-OK ;;
