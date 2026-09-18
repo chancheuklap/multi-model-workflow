@@ -256,6 +256,8 @@ Don't use the dot pattern when the diagram sits inside a product page, slide, or
 </marker>
 ```
 
+When one page carries several diagrams, prefix each marker `id` with the diagram's slug (`<slug>-arrow`) and point its `marker-end` references at the prefixed ids, as the `<title>` / `<desc>` IDs are in §12.
+
 | Arrow | Stroke | When |
 |---|---|---|
 | Default | muted `#4f5d75` | Internal, generic |

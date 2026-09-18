@@ -40,6 +40,7 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 | §1 末句「Above 9 nodes, it's probably two diagrams」 | 改成超过 9 个节点先找能嵌套的图型，再考虑第二张 |
 | §3 rules of thumb 第三条 | 同上：超预算改成重选一个能嵌套的图型，整个主题留在一张画布 |
 | §7 复杂度预算末句 | 三处拆图规则里最要紧的一处。改写成：重画成能嵌套的图型，预算改为**按层**计——每条带、每个容器各自不超，整张画布可以超；图型是为它自己的典型题材写的，需要弯折（Layers 的范例不画带间连线，不代表你的连线要拿掉）。确实是两个独立问题时才拆，并说明每张图回答哪个问题。各图型自己的上限（泳道数、实体数、轴数、系列数）是它们语法的物理极限，仍然绝对生效 |
+| §6「Arrow markers」代码块之后「When one page carries several diagrams…」一句 | 我们加的：三个箭头 marker 的 `id` 写死为 `arrow`、`arrow-accent`、`arrow-link`，一页放几张图（`improve-codebase-architecture` 的报告每张卡两张图）就出现重复 `id`，HTML 不合法，`self_check.py` 也不查。按 §12 给 `<title>` / `<desc>` 定的同一套 slug 前缀办。上游自己给出多图页的写法 → 用上游的，删这一句 |
 | §6 rule 6、§9 检查清单两条 | `<repo-root>` 占位符改成 `repo-root/`，指 skill 目录里的那条 symlink。host 装的是 skill 目录的 symlink，`../../` 会算到 host 目录去，占位符没法解析 |
 
 上游若把复杂度预算重写，认它的新数字，只把「超了就拆」重新替换成上面这套「先嵌套、按层计、独立问题才拆」。
@@ -67,4 +68,4 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 
 ### 未改
 
-frontmatter、§2、§3 选型表、§4、§5、§6 前五条规则、§8、§9 其余各条、§10、§11、§12，以及 `assets/`、`commands/`、`prompts/`，`scripts/` 里除上面两份之外的文件。
+frontmatter、§2、§3 选型表、§4、§5、§6 前五条规则（「Arrow markers」加的那一句除外）、§8、§9 其余各条、§10、§11、§12，以及 `assets/`、`commands/`、`prompts/`，`scripts/` 里除上面两份之外的文件。

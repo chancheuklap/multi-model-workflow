@@ -34,16 +34,16 @@ Pick the `diagram-design` type that fits the candidate. Mix them. Don't make eve
 - A tree of calls that collapses into one module: **Tree** before, **Nested** after, with the now-internal calls shown faded inside the deep module.
 - An interface nearly as wide as its implementation: **Nested**, the interface drawn as the outer band around the implementation, thin in the after picture.
 
-Before and after sit side by side, drawn with the same `viewBox`, each scaled to its column's width (overriding the template's `min-width`), so the reader compares them by eye.
+Before and after sit side by side, drawn with the same `viewBox` about 560 wide, each scaled to its column's width (overriding the template's `min-width`), so the reader compares them by eye and 12px labels stay legible at half the page width.
 
 Module, seam, leakage and deep module keep one look across every diagram in the report, so the reader learns the notation once:
 
 - **Module**: `diagram-design`'s Backend / API / Step node treatment.
 - **Deep module**: its Focal node treatment.
 - **Seam**: a dashed `muted` line with a mono label.
-- **Leakage**: a solid `accent` connector.
+- **Leakage**: a solid `accent` connector. A leaking return in a Sequence keeps the type's dashed return line and turns `accent`.
 
-The accent goes to leakage in a before diagram and to the deep module in an after diagram, never both, and this takes precedence over a type reference's own accent assignment. Each diagram's legend strip names the ones it uses.
+The accent goes to leakage in a before diagram and to the deep module in an after diagram, never both, and this takes precedence over a type reference's own accent assignment. The two-accent cap per diagram still holds: when more than two paths leak, accent the two that make the point. Each diagram's legend strip names the ones it uses.
 
 ## Top recommendation section
 
