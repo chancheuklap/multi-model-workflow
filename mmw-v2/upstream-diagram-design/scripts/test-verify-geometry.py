@@ -120,6 +120,41 @@ def main() -> int:
         0,
     )
 
+    # A CJK label plate is 16px tall (style-guide.md); the Latin text that
+    # follows a container header bar keeps a 16px bar out of the mask set.
+    cjk_plate = '<rect x="240" y="80" width="80" height="16" rx="2" fill="#f5f5f5"/>'
+    check(
+        "16px CJK mask clipped by a later node",
+        document(cjk_plate + '<text x="280" y="92">如果你也看</text>' + node),
+        1,
+    )
+    check(
+        "16px Hangul mask clipped by a later node",
+        document(cjk_plate + '<text x="280" y="92">결제 서비스</text>' + node),
+        1,
+    )
+    check(
+        "16px CJK mask over an earlier node is legal",
+        document(node + cjk_plate + '<text x="280" y="92">如果你也看</text>'),
+        0,
+    )
+    check(
+        "16px rect followed by Latin text is still a header bar",
+        document(cjk_plate + '<text x="280" y="92">ORDERS</text>' + node),
+        0,
+    )
+    check(
+        "CJK text after the next rect does not make a 16px rect a mask",
+        document(cjk_plate + node + '<text x="180" y="96">订单服务</text>'),
+        0,
+    )
+    check(
+        "18px rect with CJK text is not a mask",
+        document('<rect x="240" y="80" width="80" height="18" rx="2" fill="#f5f5f5"/>'
+                 '<text x="280" y="92">如果你也看</text>' + node),
+        0,
+    )
+
     # Several diagrams on one page: each <svg> is its own coordinate space, so a
     # mask in the first is never compared with a node in the second.
     clipped_mask = '<rect x="240" y="80" width="48" height="12" rx="2" fill="#f5f5f5"/>'

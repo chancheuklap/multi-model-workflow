@@ -21,6 +21,10 @@ Shape heuristics follow the shipped templates:
   SKILL.md prescribes for arrow labels and zone eyebrows. The width cap covers
   the long mono plates shipped in example-sequence-oauth.html (128px) and the
   wider plates CJK labels need at the same glyph count.
+* A plate up to 16 tall is also a label mask when the first `<text>` after it
+  carries Han, Kana or Hangul: style-guide.md grows a CJK arrow label, eyebrow
+  or legend plate to 16px. A 16-tall rect followed by Latin text stays a
+  container header bar or row stripe and is never reported.
 * A mask fully contained in a node is a badge chip (`EXT`, `EDGE`, `ORIG`) and
   is legal.
 
@@ -58,18 +62,23 @@ MASK_MIN_W = 20.0
 MASK_MAX_W = 200.0
 MASK_MIN_H = 8.0
 MASK_MAX_H = 14.0
+CJK_MASK_MAX_H = 16.0
 EPSILON = 0.5
 
 SVG_OPEN_RE = re.compile(r"<svg\b", re.IGNORECASE)
 SVG_CLOSE_RE = re.compile(r"</svg\s*>", re.IGNORECASE)
+NEXT_TEXT_RE = re.compile(r"<text\b[^>]*>(?P<body>.*?)</text>", re.IGNORECASE | re.DOTALL)
+NEXT_SHAPE_RE = re.compile(r"<rect\b|</svg\s*>", re.IGNORECASE)
+CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]")
 
 
 class Rect:
-    __slots__ = ("x", "y", "w", "h", "line", "offset", "svg")
+    __slots__ = ("x", "y", "w", "h", "line", "offset", "svg", "cjk_label")
 
-    def __init__(self, x, y, w, h, line, offset, svg) -> None:
+    def __init__(self, x, y, w, h, line, offset, svg, cjk_label) -> None:
         self.x, self.y, self.w, self.h = x, y, w, h
         self.line, self.offset, self.svg = line, offset, svg
+        self.cjk_label = cjk_label
 
     @property
     def right(self) -> float:
@@ -108,6 +117,19 @@ def svg_index(spans: list[tuple[int, int]], offset: int) -> int:
     return -1
 
 
+def labels_cjk(source: str, end: int) -> bool:
+    """Whether the first `<text>` after `end`, before the next rect, is CJK."""
+    stop = NEXT_SHAPE_RE.search(source, end)
+    text = NEXT_TEXT_RE.search(source, end, stop.start() if stop else len(source))
+    return bool(text and CJK_RE.search(re.sub(r"<[^>]+>", "", text.group("body"))))
+
+
+def is_mask(rect: Rect) -> bool:
+    if not MASK_MIN_W <= rect.w <= MASK_MAX_W or rect.h < MASK_MIN_H:
+        return False
+    return rect.h <= MASK_MAX_H or (rect.h <= CJK_MASK_MAX_H and rect.cjk_label)
+
+
 def parse_rects(source: str) -> list[Rect]:
     spans = svg_spans(source)
     rects: list[Rect] = []
@@ -121,6 +143,7 @@ def parse_rects(source: str) -> list[Rect]:
                 source.count("\n", 0, match.start()) + 1,
                 match.start(),
                 svg_index(spans, match.start()),
+                labels_cjk(source, match.end()),
             )
         )
     return rects
@@ -146,11 +169,7 @@ def check(path: Path) -> list[str]:
     source = path.read_text(encoding="utf-8")
     rects = parse_rects(source)
     nodes = [r for r in rects if r.w >= NODE_MIN_W and r.h >= NODE_MIN_H]
-    masks = [
-        r
-        for r in rects
-        if MASK_MIN_W <= r.w <= MASK_MAX_W and MASK_MIN_H <= r.h <= MASK_MAX_H
-    ]
+    masks = [r for r in rects if is_mask(r)]
 
     findings: list[str] = []
     for mask in masks:
