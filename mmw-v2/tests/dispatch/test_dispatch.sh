@@ -8451,39 +8451,40 @@ scenario_finishcleans() {
   return 0
 }
 
-scenario_finishkeepscurrent() {
-  local caller finish_code cwd_code
+# #913: the main agent's session lives in a worktree on the base branch, and the runner closes
+# that session (and the finish it started) as soon as the worktree disappears. The git shim
+# plays the runner: it removes the worktree, then kills the finish process that asked for it.
+scenario_finishremovessessionlast() {
+  local session shim real_git lock code
   setup_finish_closed
-  caller="$TMP/repo/.worktrees/night-current"
+  session="$TMP/repo/.worktrees/night-session"
   mkdir -p "$TMP/repo/.worktrees"
-  git -C "$TMP/repo" worktree add -q "$caller" night
-  caller="$(CDPATH='' cd -- "$caller" && pwd -P)"
-
-  (
-    cd "$caller" || exit 99
-    env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-      bash "$DISPATCH" "${TOOLS[@]}" finish 76 > "$TMP/out" 2> "$TMP/err"
-    printf '%s\n' "$?" > "$TMP/finish-code"
-    git rev-parse --show-toplevel > "$TMP/current-root" 2> "$TMP/current-error"
-    printf '%s\n' "$?" > "$TMP/current-code"
-  )
-
-  finish_code="$(cat "$TMP/finish-code")"
-  cwd_code="$(cat "$TMP/current-code")"
-  [ "$finish_code" = 0 ] || fail "finish from the current base worktree failed: $(cat "$TMP/err")"
-  [ "$cwd_code" = 0 ] \
-    || fail "finish deleted its caller's current worktree: $(cat "$TMP/current-error")"
-  [ "$(cat "$TMP/current-root" 2>/dev/null)" = "$caller" ] \
-    || fail "the caller no longer resolves to its worktree"
-  [ -d "$caller" ] || fail "finish removed the caller's current worktree"
-  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night \
-    || fail "finish deleted the local base branch still checked out by its caller"
-  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night \
-    && fail "finish kept the contained origin base branch"
-  grep -q "keeping current worktree $caller" "$TMP/err" \
-    || fail "finish did not explain why the current worktree remains: $(cat "$TMP/err")"
+  git -C "$TMP/repo" worktree add -q "$session" night
+  session="$(CDPATH='' cd -- "$session" && pwd -P)"
+  git -C "$TMP/repo" worktree add -q --detach "$TMP/repo/.worktrees/merge-night" origin/night
+  lock="$MMW_HOME/state/o__r/merge-night.lock"
+  mkdir -p "$(dirname "$lock")"
+  : > "$lock"
+  real_git="$(command -v git)"
+  shim="$TMP/session-shim"
+  mkdir -p "$shim"
+  cat > "$shim/git" <<SH
+#!/usr/bin/env bash
+"$real_git" "\$@"; rc=\$?
+case " \$* " in *" worktree remove $session "*) kill -9 \$PPID ;; esac
+exit \$rc
+SH
+  chmod +x "$shim/git"
+  code="$(run_dispatch env PATH="$shim:$PATH" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+    bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
+  [ "$code" = 137 ] || fail "the shim did not end finish at the session worktree's removal: exit $code, $(cat "$TMP/err")"
+  [ ! -e "$session" ] || fail "the session worktree remains"
+  git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/night && fail "origin night remains after the session ended"
+  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/night && fail "local night remains after the session ended"
+  [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains after the session ended"
+  [ ! -e "$lock" ] || fail "base merge lock remains after the session ended"
   [ "$(posted_events 76 | grep -c '^spec.merged' | tr -d ' ')" = 1 ] \
-    || fail "finish from the current worktree did not record exactly one merge"
+    || fail "finish did not record exactly one merge"
 }
 
 scenario_finishrefusesunclosed() {
@@ -10240,7 +10241,7 @@ ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-co
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
-ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepscurrent finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishremovessessionlast finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -10451,7 +10452,7 @@ banner_for() {
     openprojecthead) echo OPEN-PROJECT-HEAD-OK ;;
     finishmerges) echo FINISH-MERGES-OK ;;
     finishcleans) echo FINISH-CLEANS-OK ;;
-    finishkeepscurrent) echo FINISH-KEEPS-CURRENT-OK ;;
+    finishremovessessionlast) echo FINISH-REMOVES-SESSION-LAST-OK ;;
     finishrefusesunclosed) echo FINISH-REFUSES-UNCLOSED-OK ;;
     finishrefusesretro) echo FINISH-REFUSES-RETRO-OK ;;
     finishrefusesopenticket) echo FINISH-REFUSES-OPEN-TICKET-OK ;;

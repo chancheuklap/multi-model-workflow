@@ -12,7 +12,7 @@ amends: [0023]
 - 开夜以前，reflog、`branch.<base branch>.vscode-merge-base`、origin 上最近且唯一的共同历史依次提供 project branch；旧 `spec.opened.project` 优先于重新推导。默认分支、推导平手和任何 local/origin 分叉都拒绝，避免把猜测或覆盖写入 GitHub。
 - `summary` 只说明 agent batch 已收完；Retro 的 `spec.retroed.result=recorded` 证明复盘收据已经写成，用户验收才授权 `finish`。`finish` 先确认最新 `spec.closed` 之后有该收据、project 已记录、没有另一夜共用同一 base branch，并逐张确认用过该 base branch 的 spec 下没有开票。
 - 合并复用落票时的 detached merge worktree、repository checks、`MMW_BASE_REF` 和 fast-forward push 规则。冲突或检查失败保留两条分支及工作区，让证据仍可检查。
-- `spec.merged` 是新 merge 推送成功的事实，也是重跑边界：有它以后只补做逐项清理，不再产生第二个 merge commit。base branch 已经包含在 project branch 时不再合并，直接逐项清理。承载调用 `finish` 的 main-agent session 的 worktree 在该 session 结束前保留，避免删除它的当前目录；本次仍删除 origin base branch 与其他安全目标，session 结束后从另一 checkout 重跑 `finish`，再删除该 worktree 与本地 base branch。
+- `spec.merged` 是新 merge 推送成功的事实，也是重跑边界：有它以后只补做逐项清理，不再产生第二个 merge commit。base branch 已经包含在 project branch 时不再合并，直接逐项清理。清理顺序固定为 origin base branch、merge worktree 与锁、本地 base branch，最后才删除签出 base branch 的干净 worktree（包括 main-agent session 所在的那个）。runner 会关闭所在 worktree 已消失的终端，session 和它启动的 `finish` 随之结束，所以删除 worktree 必须是最后一步，之前的清理都已完成。
 
 ## Considered Options
 
