@@ -13,8 +13,6 @@ Show the page in the richest surface this session has:
 
 ## Draw the page
 
-Read the `diagram-design` skill's `SKILL.md` and follow it: it sets the page's look and draws every picture on it. Where it judges that a table or a sentence does the job better than a picture, put that table or sentence on the page instead. The material is already fixed, so draw without stopping to confirm a plan with the user first.
-
-Skip the preamble and keep prose brief.
+Read the `diagram-design` skill's `SKILL.md` and follow it: it sets the page's look and draws every picture on it. Where it judges that a table or a sentence does the job better than a picture, put that table or sentence on the page instead. Its §3 "Confirm before drawing" pause does not apply here: the material is already fixed, so draw straight away.
 
 The reader knows nothing about this topic. Pictures show what things are and how they connect. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn.

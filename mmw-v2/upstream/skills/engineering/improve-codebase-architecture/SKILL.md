@@ -37,7 +37,7 @@ Apply the **deletion test** to anything you suspect is shallow: would deleting i
 
 Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user (`xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows) and tell them the absolute path.
 
-The report's look and every diagram in it come from the `diagram-design` skill: read its `SKILL.md` and follow it. Draw every candidate's diagrams without stopping to confirm a plan with the user first; the report is where the user reviews them. Each candidate gets a **before/after visualisation**. Be visual.
+The report's look and every diagram in it come from the `diagram-design` skill: read its `SKILL.md` and follow it. Its §3 "Confirm before drawing" pause does not apply here: the report is where the user reviews the diagrams, so draw every candidate's straight away. Each candidate gets a **before/after visualisation**. Be visual.
 
 For each candidate, render a card with:
 

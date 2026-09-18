@@ -1,19 +1,10 @@
 # HTML Report Format
 
-The architectural review is rendered as a single self-contained HTML file in the OS temp directory. Its look (colours, type, page header, cards, footer) and every diagram on it follow the `diagram-design` skill. This file sets what goes on the page, top to bottom: the header, one card per candidate, the top recommendation, then a footer carrying the one line `diagram-design` asks for naming the style guide used.
+The architectural review is rendered as a single self-contained HTML file in the OS temp directory. This file sets what goes on the page, top to bottom: the header, one card per candidate, the top recommendation, then a footer carrying the one line `diagram-design` asks for naming the style guide used.
 
 ## Header
 
 Repo name and date. No introduction paragraph. Straight into the candidates.
-
-Module, seam, leakage and deep module keep one look across every diagram in the report, so the reader learns the notation once:
-
-- **Module**: `diagram-design`'s Backend / API / Step node treatment.
-- **Deep module**: its Focal node treatment.
-- **Seam**: a dashed `muted` hairline with a mono label.
-- **Leakage**: a solid `accent` connector.
-
-The accent goes to leakage in a before diagram and to the deep module in an after diagram, never both, and this takes precedence over a type reference's own accent assignment. Each diagram's legend strip names the ones it uses.
 
 ## Candidate card
 
@@ -43,7 +34,16 @@ Pick the `diagram-design` type that fits the candidate. Mix them. Don't make eve
 - A tree of calls that collapses into one module: **Tree** before, **Nested** after, with the now-internal calls shown faded inside the deep module.
 - An interface nearly as wide as its implementation: **Nested**, the interface drawn as the outer band around the implementation, thin in the after picture.
 
-Before and after sit side by side, drawn with the same `viewBox` and each scaled to its column's width rather than the template's fixed minimum width, so the reader compares them by eye.
+Before and after sit side by side, drawn with the same `viewBox`, each scaled to its column's width (overriding the template's `min-width`), so the reader compares them by eye.
+
+Module, seam, leakage and deep module keep one look across every diagram in the report, so the reader learns the notation once:
+
+- **Module**: `diagram-design`'s Backend / API / Step node treatment.
+- **Deep module**: its Focal node treatment.
+- **Seam**: a dashed `muted` line with a mono label.
+- **Leakage**: a solid `accent` connector.
+
+The accent goes to leakage in a before diagram and to the deep module in an after diagram, never both, and this takes precedence over a type reference's own accent assignment. Each diagram's legend strip names the ones it uses.
 
 ## Top recommendation section
 
