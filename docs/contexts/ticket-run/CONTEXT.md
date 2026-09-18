@@ -9,7 +9,7 @@ How to read an entry: the bold line is the term's only name; a term whose name i
 ### Roles
 
 **worker**:
-An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill. Its prompt starts with `Use the implement skill to work ticket #<n>.` and the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it), then carries the repository Space, native task root, Current task shared experience, Repository experience and Toolbox experience. Its process receives `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`, `MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`; its only work input remains the ticket and its named authorities, which override Memory. It owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
+An independent session dispatched to do one ticket, running the whole path from claiming the ticket to writing the closing comment. It runs the `implement` skill. Its prompt starts with `Use the implement skill to work ticket #<n>.` and the three standing sentences `start` gives a worker (work autonomously, the `drive-target` skill's five rules while the product is running, and report a pipeline fault rather than work around it), then carries the repository Space, native task root, and the Current task shared experience and Related experience indexes. Its process receives `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`, `MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`; its only work input remains the ticket and its named authorities, which override Memory. It owns the `issue-<n>` workspace, worktree and branch; it starts its reviewer; it never closes the ticket by hand.
 _Admitted_: worker session
 _Avoid_: 工人, 做票的 agent, 领票的 agent
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
@@ -52,15 +52,11 @@ _Avoid_: current task scope, task scope (bare)
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **Current task shared experience**:
-The exact Memory records carrying `MMW_TASK_SCOPE` in the repository Space when a worker starts, listed at limit 1000. Its prompt block distinguishes complete records, `none`, `unavailable: <reason>`, and `truncated: <returned>/<total>`; an id also carrying `mmw-experience` is shown here only.
+An index of the newest 30 Memory records carrying `MMW_TASK_SCOPE` in the repository Space when a worker starts, one line per record with `id`, `title`, its first line as `applies`, and `space`; the worker opens the records it judges relevant. Its prompt block distinguishes records, `none`, `unavailable: <reason>`, and `truncated: <shown>/<total>`; a record listed here is left out of Related experience.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
-**Repository experience**:
-Every `mmw-experience` Memory record in the repository Space when a worker starts, listed at limit 1000, minus the ids already in Current task shared experience. It is listed whole, not searched: the only query available at start is task prose, and Nowledge answers a query of several thousand characters with nothing. It is delivered even when native routing fails. Its prompt block distinguishes records, `none`, `unavailable: <reason>`, and `truncated: <returned>/<total>`.
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
-
-**Toolbox experience**:
-Every `mmw-experience` Memory record in the `mmw-toolbox` Space when a worker starts, listed at limit 1000: the owner-approved copies that apply across repositories. Its prompt block has the same four states as Repository experience.
+**Related experience**:
+An index, in the same line shape, of at most 15 `mmw-experience` Memory records from the repository Space and `mmw-toolbox`, gathered at worker start by one search (limit 10) per query: each of up to 8 paths under the ticket's `## Owns`, then the ticket, spec and map titles. Task prose is never a query, because Nowledge suppresses every result for a query naming an anchor no record holds. Candidates rank by whether the record's body names one of those paths, then by how many searches returned it, then by best score; scores order results within one search only, so no score threshold applies. It is searched even when native routing fails. Its prompt block distinguishes records, `none`, `unavailable: <reason>`, and a `partial:` line naming failed searches.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`MMW_TICKET`**:

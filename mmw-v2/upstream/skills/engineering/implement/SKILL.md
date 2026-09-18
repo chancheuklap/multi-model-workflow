@@ -35,25 +35,37 @@ While writing code:
 ## Shared experience while implementing
 
 `dispatch` starts you with `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
-`MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries three
-lists of Memory: Current task shared experience (every record labelled
-`MMW_TASK_SCOPE`), Repository experience (every other `mmw-experience` record in this
-repository) and Toolbox experience (every `mmw-experience` record approved into
-`mmw-toolbox`). Read them before working. Current artifacts, verified evidence, the
-user's instructions, repository instructions, the ticket, and its parent spec override
-Memory. Verify every Memory against current repository evidence before acting on it.
-
-When a command or tool behaves in a way that the ticket, repository authority, and
-those lists do not explain, search the current task with the exact error, command,
-and component before trying a workaround; if that has no answer, search repository
-and approved toolbox experience. Keep the query to that error, command and component:
-Nowledge returns nothing for a query several thousand characters long.
+`MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries two
+indexes of Memory, one line per record with its `id`, `title`, first line (`applies`)
+and `space`: Current task shared experience (the newest 30 records labelled
+`MMW_TASK_SCOPE`) and Related experience (up to 15 `mmw-experience` records from this
+repository and `mmw-toolbox`, found by searching each path under this ticket's
+`## Owns` and the ticket, spec and map titles; a record that names one of those paths
+comes first). Before working, read both indexes and open every record whose title or
+first line bears on this ticket; skip the rest. A `truncated:` line means more
+task records exist than are listed: search them with the task-scope command below.
 
 ```sh
-nmem --json memories search "<exact error + command + component>" \
-  --space "$NMEM_SPACE" --label "$MMW_TASK_SCOPE" --limit 10
-nmem --json memories search "<exact error + command + component>" \
-  --space "$NMEM_SPACE" --label mmw-experience --limit 10
+nmem --json memories show "<id>" --space "<space from the index line>"
+```
+
+Current artifacts, verified evidence, the user's instructions, repository
+instructions, the ticket, and its parent spec override Memory. Verify every Memory
+against current repository evidence before acting on it.
+
+When a command or tool behaves in a way that the ticket, repository authority, and
+the records you opened do not explain, search the current task with the exact error,
+command, and component before trying a workaround; if that has no answer, search
+repository and approved toolbox experience. Keep the query to that error, command and
+component, and keep `--` before it: Nowledge returns nothing for a query that names
+something no record holds, which long prose always does, and reads a query that starts
+with `-` as an option.
+
+```sh
+nmem --json memories search --space "$NMEM_SPACE" --label "$MMW_TASK_SCOPE" \
+  --limit 10 -- "<exact error + command + component>"
+nmem --json memories search --space "$NMEM_SPACE" --label mmw-experience \
+  --limit 10 -- "<exact error + command + component>"
 ```
 
 Save a Memory as soon as all three conditions hold: another ticket or later agent may
@@ -65,8 +77,10 @@ reusable engineering context that is safe for repository collaborators. Exclude
 secrets, customer data, raw chat transcripts, private host paths and unverified
 claims. Use unit type `learning`, or `procedure` for fixed steps. Take the labels from
 the environment rather than reconstructing the numbers from prose: a map task adds its
-map label, and a standalone spec's task label already is `mmw-spec-<spec>`. Write this
-exact body:
+map label, and a standalone spec's task label already is `mmw-spec-<spec>`. Give it a
+title that names the component and the behaviour, and name in `证据` every repository
+path the fact concerns: a later worker's Related experience ranks a record first when
+it names a path that worker owns. Write this exact body:
 
 ```sh
 label_args=(
@@ -96,9 +110,9 @@ Keep the id `nmem` returns and link the evidence in the ticket report. A failed 
 write is reported as unsaved; continue the ticket work rather than treating Memory as
 a prerequisite for implementation.
 
-Correct only a record from Current task shared experience or Repository experience, or
-a search result whose `space_id` equals `NMEM_SPACE`; a toolbox record is context, not
-a record for this worker to change. When current evidence verifies a replacement, save
+Correct only a record whose `space` (in an index line) or `space_id` (in a search or
+show result) equals `NMEM_SPACE`; a toolbox record is context, not a record for this
+worker to change. When current evidence verifies a replacement, save
 the replacement first and supersede the old record with its id; when a record simply
 no longer applies, deprecate it. Use one lifecycle command per old record, and do not
 leave two active records that conflict:

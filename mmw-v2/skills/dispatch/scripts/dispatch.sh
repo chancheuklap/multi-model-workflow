@@ -1544,23 +1544,32 @@ start_session() {
 
 # Build the deterministic Memory packet appended to a worker's first prompt. Native
 # parent links alone choose the task root; a malformed graph yields a disclosed packet
-# with no task scope and no task-scoped list. Repository and toolbox experience are
-# listed whole rather than searched: a search needs a query, and the only query
-# available at start is task prose, which Nowledge answers with nothing past a few
-# thousand characters. Nowledge failures are data in the packet rather than a reason to
-# stop otherwise-completable ticket work.
+# with no task scope and no task-scoped list. Both blocks are indexes (id, title, the
+# record's first line) with fixed caps, so the prompt does not grow with the store: the
+# worker opens the records it judges relevant. Related experience comes from several
+# short searches — each path under the ticket's `## Owns`, the ticket title, the spec
+# title and the map title — because Nowledge suppresses every result for a query that
+# names an anchor no record holds, which long task prose always does. A record whose
+# body names one of those paths ranks first; then how many searches returned it; then
+# its best score, which is only comparable within one search. Nowledge failures are
+# data in the packet rather than a reason to stop otherwise-completable ticket work.
 worker_memory_packet() {
   local number="$1" spec="$2" repository_space="$3"
   MMW_MEMORY_TICKET="$number" MMW_MEMORY_SPEC="$spec" \
   MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
 import json
 import os
+import re
 import subprocess
 import sys
 
 ticket = os.environ["MMW_MEMORY_TICKET"]
 spec_number = os.environ["MMW_MEMORY_SPEC"]
 space = os.environ["MMW_MEMORY_SPACE"]
+CURRENT_CAP = 30
+RELATED_CAP = 15
+PATH_CAP = 8
+PER_SEARCH = 10
 
 
 def call(command):
@@ -1592,9 +1601,8 @@ def issue(number, fields):
     return value, None
 
 
-def memory_list(list_space, label):
-    proc = call(["nmem", "--json", "memories", "list", "--space", list_space,
-                 "--label", label, "--limit", "1000"])
+def memories(args):
+    proc = call(["nmem", "--json", "memories", *args])
     if proc.returncode:
         return None, reason(proc, "nmem failed")
     try:
@@ -1606,36 +1614,48 @@ def memory_list(list_space, label):
     return value, None
 
 
-def record(row):
-    if not isinstance(row, dict):
-        row = {}
-    shown = {name: row.get(name) for name in ("id", "title", "content", "source")}
+def owned_paths(body):
+    lines = str(body or "").splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == "## Owns"), None)
+    if start is None:
+        return []
+    paths = []
+    for line in lines[start + 1:]:
+        if re.match(r"^#{1,2} ", line):
+            break
+        item = line.strip()
+        if not item.startswith(("-", "*")):
+            continue
+        words = item.lstrip("-* ").replace("`", "").split()
+        path = words[0].split("*", 1)[0].rstrip("/") if words else ""
+        if path and path not in paths:
+            paths.append(path)
+    return paths[:PATH_CAP]
+
+
+def entry(row):
+    content = str(row.get("content") or "")
+    first = next((line.strip() for line in content.splitlines() if line.strip()), "")
+    shown = {"id": row.get("id"), "title": row.get("title"),
+             "applies": first if len(first) <= 200 else first[:200] + "…",
+             "space": row.get("space_id") or space}
     return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
-
-
-def block(value, error, excluded=()):
-    if error:
-        return f"unavailable: {error}"
-    rows = value["memories"]
-    returned = value.get("returned", len(rows))
-    total = value.get("total", returned)
-    if not isinstance(returned, int) or not isinstance(total, int):
-        return "unavailable: nmem returned non-numeric total or returned"
-    excluded = set(excluded)
-    rendered = [record(row) for row in rows
-                if not isinstance(row, dict) or row.get("id") not in excluded]
-    prefix = [f"truncated: {returned}/{total}"] if total > returned else []
-    return "\n".join(prefix + rendered) or "none"
 
 
 routing_error = None
 task_root = ""
 task_scope = ""
+titles = []
+own, own_error = issue(ticket, "title,body")
+paths = owned_paths((own or {}).get("body"))
+if own:
+    titles.append(own.get("title") or "")
 if not spec_number.isdigit():
     routing_error = f"ticket #{ticket} has no native spec parent"
 else:
-    spec, routing_error = issue(spec_number, "parent")
+    spec, routing_error = issue(spec_number, "parent,title")
     if spec is not None:
+        titles.append(spec.get("title") or "")
         parent = spec.get("parent")
         if parent is None:
             task_root = f"standalone spec #{spec_number}"
@@ -1644,7 +1664,7 @@ else:
             routing_error = f"spec #{spec_number} has an unreadable native parent"
         else:
             map_number = str(parent["number"])
-            root, root_error = issue(map_number, "labels")
+            root, root_error = issue(map_number, "labels,title")
             if root_error:
                 routing_error = f"could not read native parent #{map_number} of spec #{spec_number}: {root_error}"
             else:
@@ -1654,18 +1674,55 @@ else:
                 else:
                     task_root = f"map #{map_number}"
                     task_scope = f"mmw-map-{map_number}"
+                    titles.append(root.get("title") or "")
 
-current_ids = []
+shown_ids = set()
 if routing_error:
     sys.stderr.write(f"dispatch: worker Memory routing unavailable: {routing_error}; task-scoped retrieval and writes are disabled\n")
     current = task_root = task_scope = f"unavailable: {routing_error}"
 else:
-    listed, list_error = memory_list(space, task_scope)
-    current_ids = [row.get("id") for row in (listed or {}).get("memories", [])
-                   if isinstance(row, dict) and row.get("id")]
-    current = block(listed, list_error)
-repository = block(*memory_list(space, "mmw-experience"), excluded=current_ids)
-toolbox = block(*memory_list("mmw-toolbox", "mmw-experience"))
+    listed, list_error = memories(["list", "--space", space, "--label", task_scope,
+                                   "--limit", str(CURRENT_CAP)])
+    if list_error:
+        current = f"unavailable: {list_error}"
+    else:
+        rows = [row for row in listed["memories"] if isinstance(row, dict)]
+        shown_ids = {row.get("id") for row in rows}
+        total = listed.get("total", len(rows))
+        prefix = [f"truncated: {len(rows)}/{total}"] if isinstance(total, int) and total > len(rows) else []
+        current = "\n".join(prefix + [entry(row) for row in rows]) or "none"
+
+queries = [query for query in [*paths, *titles] if query.strip()]
+candidates = {}
+failures = []
+for query in queries:
+    found, search_error = memories(["search", "--space", space, "--label", "mmw-experience",
+                                    "--limit", str(PER_SEARCH), "--", query])
+    if search_error:
+        failures.append(search_error)
+        continue
+    for row in found["memories"]:
+        if not isinstance(row, dict) or not row.get("id") or row["id"] in shown_ids:
+            continue
+        seen = candidates.setdefault(row["id"], {"row": row, "hits": 0, "best": 0.0})
+        seen["hits"] += 1
+        score = row.get("score")
+        if isinstance(score, (int, float)):
+            seen["best"] = max(seen["best"], float(score))
+ranked = sorted(candidates.values(), reverse=True, key=lambda seen: (
+    any(path in str(seen["row"].get("content") or "") for path in paths),
+    seen["hits"], seen["best"]))[:RELATED_CAP]
+if not queries:
+    related = f"unavailable: {own_error or routing_error or 'the ticket names no path and no title'}"
+elif len(failures) == len(queries):
+    related = f"unavailable: {failures[0]}"
+else:
+    notes = []
+    if own_error:
+        notes.append(f"partial: ticket #{ticket} was unreadable, so its paths and title were not searched ({own_error})")
+    if failures:
+        notes.append(f"partial: {len(failures)} of {len(queries)} searches failed ({failures[0]})")
+    related = "\n".join(notes + [entry(seen["row"]) for seen in ranked]) or "none"
 
 prompt = f"""Shared experience for ticket #{ticket}.
 
@@ -1676,14 +1733,12 @@ MMW task scope: {task_scope}
 Current task shared experience:
 {current}
 
-Repository experience:
-{repository}
+Related experience:
+{related}
 
-Toolbox experience:
-{toolbox}
-
-Read these records before working, then follow the implement skill's Shared
-experience section for using, searching, saving, correcting and reporting Memory."""
+These are indexes, not the records. Open each record that bears on this ticket, then
+follow the implement skill's Shared experience section for using, searching, saving,
+correcting and reporting Memory."""
 print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
                  ensure_ascii=False))
 PY

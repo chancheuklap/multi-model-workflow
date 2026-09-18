@@ -185,9 +185,15 @@ elif args[:2] == ["memories", "list"]:
     print(json.dumps(listed, sort_keys=True))
 elif args[:2] == ["memories", "search"]:
     if scenario == "content-unavailable":
-        print("Nowledge Mem unavailable", file=sys.stderr)
+        print(os.environ.get("MMW_FAKE_NMEM_ERROR", "Nowledge Mem unavailable"), file=sys.stderr)
         raise SystemExit(1)
-    query = args[2] if len(args) > 2 else ""
+    query = args[args.index("--") + 1] if "--" in args else (args[2] if len(args) > 2 else "")
+    if query in state.get("fail_search_queries", []):
+        print(f"search failed for {query}", file=sys.stderr)
+        raise SystemExit(1)
+    if query in state.get("memory_search_by_query", {}):
+        print(json.dumps(state["memory_search_by_query"][query], sort_keys=True))
+        raise SystemExit(0)
     listed = state.get("memory_list", {}).get("memories", [])
     exact = [row for row in listed if row.get("id") == query]
     if exact:
@@ -1137,7 +1143,7 @@ case "$*" in
     printf '%s\n' "${FAKE_GH_URL:-https://github.com/o/r}" ;;
   "repo view"*)
     printf '%s\n' "${FAKE_GH_REPO:-o/r}" ;;
-  *"--json parent,labels,body"*|*"--json labels,body"*|*"--json labels")
+  *"--json parent,labels,body"*|*"--json labels,body"*|*"--json labels"|*"--json title,body"|*"--json parent,title"|*"--json labels,title")
     MMW_WANT="$3" python3 -c '
 import json, os
 path = os.environ.get("FAKE_GH_TICKETS_FILE")
@@ -1150,6 +1156,7 @@ print(json.dumps({
     "parent": found.get("parent"),
     "labels": [{"name": name} for name in found.get("labels", [])],
     "body": found.get("body", ""),
+    "title": found.get("title", ""),
 }))
 ' ;;
   *"--json state,labels,blockedBy,title,parent"*|*"--json state,labels,blockedBy,title,body"*|*"--json state,labels,blockedBy,title"*)
@@ -6679,27 +6686,22 @@ scenario_memory_space_unavailable() {
 
 write_memory_graph() {
   local shape="${1:-map}"
+  local ticket='{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":76},"title":"Ticket title","body":"## What to build\nNever queried\n\n## Owns\n- `src/app/core.py`\n- tests/test_core.py (new)\n- src/lib/**\n\n## Acceptance criteria\nNever queried"}'
   case "$shape" in
     map)
-      cat > "$TMP/tickets.json" <<'JSON'
-[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":76}},
- {"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":{"number":18},"body":"## Problem Statement\nwrong query\n"},
- {"number":18,"state":"OPEN","labels":["mmw:map"],"parent":null,"body":"## Destination\nMap destination\n\n## Notes\nMap notes\n\n## Decisions so far\nMap decisions\n\n## Out of scope\nNever queried"}]
-JSON
-      ;;
+      printf '[%s,\n %s,\n %s]\n' "$ticket" \
+        '{"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":{"number":18},"title":"Spec title","body":"## Problem Statement\nNever queried\n"}' \
+        '{"number":18,"state":"OPEN","labels":["mmw:map"],"parent":null,"title":"Map title","body":"## Destination\nNever queried\n"}' \
+        > "$TMP/tickets.json" ;;
     standalone)
-      cat > "$TMP/tickets.json" <<'JSON'
-[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":76}},
- {"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":null,"body":"## Problem Statement\nStandalone problem\n\n## Solution\nStandalone solution\n\n## Implementation Decisions\nStandalone decisions\n\n## Testing Decisions\nStandalone tests\n\n## Out of Scope\nNever queried"}]
-JSON
-      ;;
+      printf '[%s,\n %s]\n' "$ticket" \
+        '{"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":null,"title":"Spec title","body":"## Problem Statement\nNever queried\n\n## Out of Scope\nNever queried"}' \
+        > "$TMP/tickets.json" ;;
     wrong-parent)
-      cat > "$TMP/tickets.json" <<'JSON'
-[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":76}},
- {"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":{"number":18},"body":""},
- {"number":18,"state":"OPEN","labels":["mmw:spec"],"parent":null,"body":""}]
-JSON
-      ;;
+      printf '[%s,\n %s,\n %s]\n' "$ticket" \
+        '{"number":76,"state":"OPEN","labels":["mmw:spec"],"parent":{"number":18},"title":"Spec title","body":""}' \
+        '{"number":18,"state":"OPEN","labels":["mmw:spec"],"parent":null,"title":"Not a map","body":""}' \
+        > "$TMP/tickets.json" ;;
   esac
 }
 
@@ -6708,29 +6710,38 @@ seed_memory_records() {
 import json, sys
 path = sys.argv[1]
 data = json.load(open(path))
-current = {"total": 1, "returned": 1, "memories": [{
-    "id": "mem-current", "title": "Current title", "content": "Current content",
-    "source": "agent", "space_id": "o__r"}]}
-data["memory_lists"] = {
-    "o__r|mmw-map-18": current,
-    "o__r|mmw-spec-76": current,
-    "o__r|mmw-experience": {"total": 2, "returned": 2, "memories": [{
-        "id": "mem-current", "title": "Stale duplicate", "content": "Must lose",
-        "source": "old", "space_id": "o__r"}, {
-        "id": "mem-repo", "title": "Repository title", "content": "Repository content",
-        "source": "codex", "space_id": "o__r"}]},
-    "mmw-toolbox|mmw-experience": {"total": 1, "returned": 1, "memories": [{
-        "id": "mmw-toolbox-mem-1", "title": "Toolbox title", "content": "Toolbox content",
-        "source": "cli", "space_id": "mmw-toolbox"}]},
+def row(ident, title, content, score, space="o__r"):
+    return {"id": ident, "title": title, "content": content, "score": score,
+            "source": "cli", "space_id": space}
+current = {"total": 1, "returned": 1, "memories": [
+    row("mem-current", "Current title", "适用条件：current\n问题：current", 0.5)]}
+data["memory_lists"] = {"o__r|mmw-map-18": current, "o__r|mmw-spec-76": current}
+a = row("mem-a", "Often found", "适用条件：a\n证据：elsewhere.py:3", 0.9)
+data["memory_search_by_query"] = {
+    "src/app/core.py": {"memories": [
+        row("mem-current", "Current duplicate", "Must lose", 0.99), a,
+        row("mem-path", "Names the owned path", "适用条件：path\n证据：src/app/core.py:12", 0.3)]},
+    "tests/test_core.py": {"memories": [dict(a, score=0.8)]},
+    "src/lib": {"memories": []},
+    "Ticket title": {"memories": [dict(a, score=0.7),
+                                  row("mmw-toolbox-mem-1", "Toolbox record", "适用条件：toolbox", 0.6, "mmw-toolbox")]},
+    "Spec title": {"memories": [row("mem-b", "Spec neighbour", "\n\n适用条件：b", 0.95)]},
+    "Map title": {"memories": []},
 }
 json.dump(data, open(path, "w"), sort_keys=True)
 PY
 }
 
+MMW_CURRENT_ENTRY='{"id":"mem-current","title":"Current title","applies":"适用条件：current","space":"o__r"}'
+MMW_RELATED_ENTRIES='{"id":"mem-path","title":"Names the owned path","applies":"适用条件：path","space":"o__r"}
+{"id":"mem-a","title":"Often found","applies":"适用条件：a","space":"o__r"}
+{"id":"mem-b","title":"Spec neighbour","applies":"适用条件：b","space":"o__r"}
+{"id":"mmw-toolbox-mem-1","title":"Toolbox record","applies":"适用条件：toolbox","space":"mmw-toolbox"}'
+
 assert_complete_worker_prompt() {
-  local task_root="$1" task_scope="$2" current="$3" repository="$4" toolbox="$5"
+  local task_root="$1" task_scope="$2" current="$3" related="$4"
   MMW_EXPECT_ROOT="$task_root" MMW_EXPECT_SCOPE="$task_scope" \
-  MMW_EXPECT_CURRENT="$current" MMW_EXPECT_REPOSITORY="$repository" MMW_EXPECT_TOOLBOX="$toolbox" \
+  MMW_EXPECT_CURRENT="$current" MMW_EXPECT_RELATED="$related" \
   python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete worker prompt changed for $task_root"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
@@ -6744,71 +6755,67 @@ MMW task scope: {os.environ['MMW_EXPECT_SCOPE']}
 Current task shared experience:
 {os.environ['MMW_EXPECT_CURRENT']}
 
-Repository experience:
-{os.environ['MMW_EXPECT_REPOSITORY']}
+Related experience:
+{os.environ['MMW_EXPECT_RELATED']}
 
-Toolbox experience:
-{os.environ['MMW_EXPECT_TOOLBOX']}
-
-Read these records before working, then follow the implement skill's Shared
-experience section for using, searching, saving, correcting and reporting Memory."""
+These are indexes, not the records. Open each record that bears on this ticket, then
+follow the implement skill's Shared experience section for using, searching, saving,
+correcting and reporting Memory."""
 assert actual == prefix + "\n\n" + packet, actual
 PY
 }
-
-MMW_CURRENT_RECORD='{"id":"mem-current","title":"Current title","content":"Current content","source":"agent"}'
-MMW_REPO_RECORD='{"id":"mem-repo","title":"Repository title","content":"Repository content","source":"codex"}'
-MMW_TOOLBOX_RECORD='{"id":"mmw-toolbox-mem-1","title":"Toolbox title","content":"Toolbox content","source":"cli"}'
 
 assert_memory_calls() {
   local shape="$1"
   python3 - "$MMW_FAKE_NMEM_CALLS" "$shape" <<'PY' || fail "$shape Memory calls were not exact"
 import json, sys
 calls = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
-scopes = {"map": "mmw-map-18", "standalone": "mmw-spec-76"}
+shape = sys.argv[2]
+def search(query):
+    return ["--json", "memories", "search", "--space", "o__r", "--label", "mmw-experience",
+            "--limit", "10", "--", query]
 expected = [
     ["--json", "spaces", "show", "o__r"],
     ["--json", "spaces", "create", "o/r", "--id", "o__r", "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"],
     ["--json", "spaces", "show", "o__r"],
-    ["--json", "memories", "list", "--space", "o__r", "--label", scopes[sys.argv[2]], "--limit", "1000"],
-    ["--json", "memories", "list", "--space", "o__r", "--label", "mmw-experience", "--limit", "1000"],
-    ["--json", "memories", "list", "--space", "mmw-toolbox", "--label", "mmw-experience", "--limit", "1000"],
 ]
+if shape != "wrong-parent":
+    scope = {"map": "mmw-map-18", "standalone": "mmw-spec-76"}[shape]
+    expected.append(["--json", "memories", "list", "--space", "o__r", "--label", scope, "--limit", "30"])
+titles = {"map": ["Ticket title", "Spec title", "Map title"],
+          "standalone": ["Ticket title", "Spec title"],
+          "wrong-parent": ["Ticket title", "Spec title"]}[shape]
+expected += [search(q) for q in ["src/app/core.py", "tests/test_core.py", "src/lib", *titles]]
 assert calls == expected, (calls, expected)
 PY
 }
 
 scenario_memory_worker_start() {
   local code prompt
-  echo "--- a map worker receives native routing, the three exact lists, deduplication and the full prompt"
+  echo "--- a map worker gets its task index and a Related index from short path and title searches"
   reset_log; fresh_repo; write_memory_graph map; seed_memory_records
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "map worker start expected 0: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
-  has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-map-18 :: --limit :: 1000"
-  hasnt "nmem :: --json :: memories :: search"
   case "$prompt" in *"MMW task root: map #18"*"MMW task scope: mmw-map-18"*) ;; *) fail "map routing missing: $prompt" ;; esac
-  case "$prompt" in *'"id":"mem-current"'*'"id":"mem-repo"'*'"id":"mmw-toolbox-mem-1"'*) ;; *) fail "records missing: $prompt" ;; esac
-  case "$prompt" in *"Stale duplicate"*|*"Must lose"*) fail "current-task duplicate survived in Repository experience: $prompt" ;; esac
-  assert_complete_worker_prompt "map #18" "mmw-map-18" "$MMW_CURRENT_RECORD" "$MMW_REPO_RECORD" "$MMW_TOOLBOX_RECORD"
+  case "$prompt" in *"Current duplicate"*|*"Must lose"*|*"Never queried"*) fail "a current-task duplicate or task prose reached the prompt: $prompt" ;; esac
+  assert_complete_worker_prompt "map #18" "mmw-map-18" "$MMW_CURRENT_ENTRY" "$MMW_RELATED_ENTRIES"
   assert_memory_calls map
+  hasnt "Never queried"
 
-  echo "--- a standalone worker lists its spec scope and never reads spec prose into Memory calls"
+  echo "--- a standalone worker lists its spec scope and searches ticket and spec titles only"
   reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "standalone worker start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *"MMW task root: standalone spec #76"*"MMW task scope: mmw-spec-76"*) ;; *) fail "standalone routing missing: $prompt" ;; esac
-  has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-spec-76 :: --limit :: 1000"
-  hasnt "Standalone problem"
-  hasnt "Never queried"
+  case "$(out_json initialPrompt)" in *"MMW task root: standalone spec #76"*"MMW task scope: mmw-spec-76"*) ;; *) fail "standalone routing missing" ;; esac
   assert_memory_calls standalone
+  hasnt "Never queried"
 
   echo "--- the ticket native parent, not an inherited batch spec, selects Memory routing"
   reset_log; fresh_repo
   cat > "$TMP/tickets.json" <<'JSON'
-[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":77}},
- {"number":77,"state":"OPEN","labels":["mmw:spec"],"parent":null,"body":"## Problem Statement\nNative 77\n\n## Solution\nS\n\n## Implementation Decisions\nI\n\n## Testing Decisions\nT"}]
+[{"number":61,"state":"OPEN","labels":["ready-for-agent"],"parent":{"number":77},"title":"T","body":""},
+ {"number":77,"state":"OPEN","labels":["mmw:spec"],"parent":null,"title":"S","body":""}]
 JSON
   code="$(run_dispatch env MMW_SPEC=76 FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "native parent with inherited spec expected 0: $(cat "$TMP/err")"
@@ -6816,20 +6823,17 @@ JSON
   has "MMW_SPEC=77"
   hasnt "MMW_SPEC=76"
 
-  echo "--- a present non-map native parent is malformed: no task-scoped list, repository and toolbox still delivered"
+  echo "--- a present non-map native parent is malformed: no task-scoped list, Related still searched"
   reset_log; fresh_repo; write_memory_graph wrong-parent; seed_memory_records
   code="$(run_dispatch env MMW_TASK_SCOPE=leaked-scope FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "malformed routing should disclose and continue: $(cat "$TMP/err")"
   grep -q 'worker Memory routing unavailable.*has no mmw:map label' "$TMP/err" || fail "routing failure was not disclosed: $(cat "$TMP/err")"
-  hasnt ":: --label :: mmw-map-"
-  hasnt ":: --label :: mmw-spec-"
-  hasnt ":: --label :: leaked-scope"
-  hasnt "nmem :: --json :: memories :: search"
+  assert_memory_calls wrong-parent
   has "MMW_TASK_SCOPE="
   hasnt "MMW_TASK_SCOPE=leaked-scope"
   prompt="$(out_json initialPrompt)"
   case "$prompt" in *"MMW task root: unavailable:"*"Current task shared experience:"$'\n'"unavailable:"*) ;; *) fail "malformed prompt was guessed or silent: $prompt" ;; esac
-  case "$prompt" in *"Repository experience:"$'\n''{"id":"mem-current","title":"Stale duplicate"'*"Toolbox experience:"$'\n'"$MMW_TOOLBOX_RECORD"*) ;; *) fail "repository and toolbox experience were withheld on a routing failure: $prompt" ;; esac
+  case "$prompt" in *"Related experience:"$'\n''{"id":"mem-path"'*) ;; *) fail "Related experience was withheld on a routing failure: $prompt" ;; esac
 
   echo "--- an unreadable native parent is malformed and never falls back to standalone"
   reset_log; fresh_repo; write_memory_graph map; seed_memory_records
@@ -6846,41 +6850,55 @@ PY
 
 scenario_memory_worker_prompt_states() {
   local code prompt
-  echo "--- zero records are none in all three distinct blocks"
+  echo "--- zero records are none in both distinct blocks"
   reset_log; fresh_repo; write_memory_graph standalone
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "none start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  [ "$(printf '%s' "$prompt" | grep -c '^none$')" = 3 ] || fail "none states are not distinct: $prompt"
-  assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" "none" "none" "none"
+  assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" "none" "none"
 
-  echo "--- total greater than returned is visibly truncated in its own block while preserving returned records"
+  echo "--- more task records than the cap is visibly truncated; Related holds at most 15"
   reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json,sys
-p=sys.argv[1]; d=json.load(open(p)); lists=d["memory_lists"]
-lists["o__r|mmw-spec-76"]["total"]=4
-lists["mmw-toolbox|mmw-experience"]["total"]=1200
+p=sys.argv[1]; d=json.load(open(p))
+d["memory_lists"]["o__r|mmw-spec-76"]["total"]=45
+d["memory_search_by_query"]["Spec title"]={"memories":[
+    {"id":f"mem-many-{i:02d}","title":f"Many {i:02d}","content":"适用条件：many","score":0.9-i/100,"space_id":"o__r"} for i in range(20)]}
 json.dump(d,open(p,"w"))
 PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
-  [ "$code" = 0 ] || fail "truncated start expected 0: $(cat "$TMP/err")"
-  assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" \
-    $'truncated: 1/4\n'"$MMW_CURRENT_RECORD" "$MMW_REPO_RECORD" $'truncated: 1/1200\n'"$MMW_TOOLBOX_RECORD"
+  [ "$code" = 0 ] || fail "capped start expected 0: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *"Current task shared experience:"$'\n'"truncated: 1/45"$'\n'"$MMW_CURRENT_ENTRY"*) ;; *) fail "task truncation was not visible: $prompt" ;; esac
+  [ "$(printf '%s' "$prompt" | sed -n '/^Related experience:$/,/^$/p' | grep -c '^{"id"')" = 15 ] \
+    || fail "Related experience was not capped at 15: $prompt"
+  case "$prompt" in *"Related experience:"$'\n''{"id":"mem-path"'*) ;; *) fail "the record naming an owned path did not rank first: $prompt" ;; esac
 
-  echo "--- an unavailable Nowledge service is named in every block and does not prevent start"
+  echo "--- one failed search is disclosed and the others still count"
+  reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d["fail_search_queries"]=["Spec title"]; json.dump(d,open(p,"w"))
+PY
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "partial start expected 0: $(cat "$TMP/err")"
+  assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" "$MMW_CURRENT_ENTRY" \
+    "partial: 1 of 5 searches failed (search failed for Spec title)
+$(printf '%s\n' "$MMW_RELATED_ENTRIES" | grep -v mem-b)"
+
+  echo "--- an unavailable Nowledge service is named in both blocks and does not prevent start"
   reset_log; fresh_repo; write_memory_graph standalone
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "unavailable Memory should not prevent start: $(cat "$TMP/err")"
   assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" \
-    "unavailable: Nowledge Mem unavailable" "unavailable: Nowledge Mem unavailable" "unavailable: Nowledge Mem unavailable"
+    "unavailable: Nowledge Mem unavailable" "unavailable: Nowledge Mem unavailable"
 
   echo "--- a failure that echoes a long request is cut to 300 characters in the prompt"
   reset_log; fresh_repo; write_memory_graph standalone
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable MMW_FAKE_NMEM_ERROR="$(printf 'x%.0s' $(seq 1 5000))" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "long failure should not prevent start: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
-  [ "$(printf '%s' "$prompt" | grep -c "^unavailable: $(printf 'x%.0s' $(seq 1 300))…$")" = 3 ] \
+  [ "$(printf '%s' "$prompt" | grep -c "^unavailable: $(printf 'x%.0s' $(seq 1 300))…$")" = 2 ] \
     || fail "long failure text was not cut to 300 characters: $(printf '%s' "$prompt" | head -c 600)"
 }
 
@@ -6906,25 +6924,37 @@ import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 actual = text.split("## Shared experience while implementing\n\n", 1)[1].split("\nUse /tdd", 1)[0]
 expected = """`dispatch` starts you with `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
-`MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries three
-lists of Memory: Current task shared experience (every record labelled
-`MMW_TASK_SCOPE`), Repository experience (every other `mmw-experience` record in this
-repository) and Toolbox experience (every `mmw-experience` record approved into
-`mmw-toolbox`). Read them before working. Current artifacts, verified evidence, the
-user's instructions, repository instructions, the ticket, and its parent spec override
-Memory. Verify every Memory against current repository evidence before acting on it.
-
-When a command or tool behaves in a way that the ticket, repository authority, and
-those lists do not explain, search the current task with the exact error, command,
-and component before trying a workaround; if that has no answer, search repository
-and approved toolbox experience. Keep the query to that error, command and component:
-Nowledge returns nothing for a query several thousand characters long.
+`MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries two
+indexes of Memory, one line per record with its `id`, `title`, first line (`applies`)
+and `space`: Current task shared experience (the newest 30 records labelled
+`MMW_TASK_SCOPE`) and Related experience (up to 15 `mmw-experience` records from this
+repository and `mmw-toolbox`, found by searching each path under this ticket's
+`## Owns` and the ticket, spec and map titles; a record that names one of those paths
+comes first). Before working, read both indexes and open every record whose title or
+first line bears on this ticket; skip the rest. A `truncated:` line means more
+task records exist than are listed: search them with the task-scope command below.
 
 ```sh
-nmem --json memories search "<exact error + command + component>" \\
-  --space "$NMEM_SPACE" --label "$MMW_TASK_SCOPE" --limit 10
-nmem --json memories search "<exact error + command + component>" \\
-  --space "$NMEM_SPACE" --label mmw-experience --limit 10
+nmem --json memories show "<id>" --space "<space from the index line>"
+```
+
+Current artifacts, verified evidence, the user's instructions, repository
+instructions, the ticket, and its parent spec override Memory. Verify every Memory
+against current repository evidence before acting on it.
+
+When a command or tool behaves in a way that the ticket, repository authority, and
+the records you opened do not explain, search the current task with the exact error,
+command, and component before trying a workaround; if that has no answer, search
+repository and approved toolbox experience. Keep the query to that error, command and
+component, and keep `--` before it: Nowledge returns nothing for a query that names
+something no record holds, which long prose always does, and reads a query that starts
+with `-` as an option.
+
+```sh
+nmem --json memories search --space "$NMEM_SPACE" --label "$MMW_TASK_SCOPE" \\
+  --limit 10 -- "<exact error + command + component>"
+nmem --json memories search --space "$NMEM_SPACE" --label mmw-experience \\
+  --limit 10 -- "<exact error + command + component>"
 ```
 
 Save a Memory as soon as all three conditions hold: another ticket or later agent may
@@ -6936,8 +6966,10 @@ reusable engineering context that is safe for repository collaborators. Exclude
 secrets, customer data, raw chat transcripts, private host paths and unverified
 claims. Use unit type `learning`, or `procedure` for fixed steps. Take the labels from
 the environment rather than reconstructing the numbers from prose: a map task adds its
-map label, and a standalone spec's task label already is `mmw-spec-<spec>`. Write this
-exact body:
+map label, and a standalone spec's task label already is `mmw-spec-<spec>`. Give it a
+title that names the component and the behaviour, and name in `证据` every repository
+path the fact concerns: a later worker's Related experience ranks a record first when
+it names a path that worker owns. Write this exact body:
 
 ```sh
 label_args=(
@@ -6967,9 +6999,9 @@ Keep the id `nmem` returns and link the evidence in the ticket report. A failed 
 write is reported as unsaved; continue the ticket work rather than treating Memory as
 a prerequisite for implementation.
 
-Correct only a record from Current task shared experience or Repository experience, or
-a search result whose `space_id` equals `NMEM_SPACE`; a toolbox record is context, not
-a record for this worker to change. When current evidence verifies a replacement, save
+Correct only a record whose `space` (in an index line) or `space_id` (in a search or
+show result) equals `NMEM_SPACE`; a toolbox record is context, not a record for this
+worker to change. When current evidence verifies a replacement, save
 the replacement first and supersede the old record with its id; when a record simply
 no longer applies, deprecate it. Use one lifecycle command per old record, and do not
 leave two active records that conflict:
