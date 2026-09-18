@@ -2008,8 +2008,14 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
     refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then start again"
   fi
 
-  if ! runner attach --cwd "$cwd" --issue "$number" 2>/dev/null; then
-    echo "dispatch: $RUNNER_NAME started session $session for #$number, but did not attach the worktree to that issue; the session continues" >&2
+  # A worker is started by the main agent, so its worktree is filed under the main
+  # agent's own. A reviewer is started by the worker, in the worktree it shares with it,
+  # which is filed already.
+  local -a attach_args=(--cwd "$cwd" --issue "$number")
+  [ "$kind" = worker ] && attach_args+=(--under-caller)
+  local attach_err
+  if ! attach_err="$(runner attach "${attach_args[@]}" 2>&1 >/dev/null)"; then
+    echo "dispatch: $RUNNER_NAME started session $session for #$number, but did not attach the worktree to that issue or file it under this session's worktree ($(printf '%s' "$attach_err" | tr '\n' ' ' | sed 's/ *$//')); the session continues" >&2
   fi
 
   # The replaced sessions are closed on the ticket before the new one is recorded, so the
@@ -2689,7 +2695,25 @@ prepare_merge_worktree() {
   git -C "$dest" merge --abort >/dev/null 2>&1 || true
   git -C "$dest" reset --hard "origin/$into" >/dev/null \
     || { echo "dispatch: could not reset $dest to origin/$into" >&2; release_merge_lock; return 2; }
+  file_merge_worktree "$dest"
   MERGE_ROOT="$dest"
+}
+
+# The merge worktree is filed under the worktree of the session running this command —
+# the main agent, for `open`, `advance`, `land`, `reverify` and `finish` — by tonight's
+# runner's `attach`, once per command however many landings it makes. A runner with no
+# such view does nothing; one that fails is reported on stderr and the landing goes on.
+FILED_MERGE_WORKTREES=""
+file_merge_worktree() {
+  local dest="$1" name adapter err
+  case " $FILED_MERGE_WORKTREES " in *" $dest "*) return 0 ;; esac
+  FILED_MERGE_WORKTREES="$FILED_MERGE_WORKTREES $dest"
+  name="$(python3 "$MODELS_PY" runner 2>/dev/null)" && [ -n "$name" ] || return 0
+  adapter="$SKILL_ROOT/scripts/runners/$name.sh"
+  [ -f "$adapter" ] || return 0
+  err="$(bash "$adapter" attach --cwd "$dest" --under-caller 2>&1 >/dev/null)" \
+    || echo "dispatch: $name did not file the merge worktree $dest under this session's worktree ($(printf '%s' "$err" | tr '\n' ' ' | sed 's/ *$//')); the landing goes on" >&2
+  return 0
 }
 
 ticket_passed_commit() {

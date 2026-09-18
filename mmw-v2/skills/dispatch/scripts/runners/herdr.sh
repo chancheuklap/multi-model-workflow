@@ -7,7 +7,7 @@
 #   runners/herdr.sh liveness <session-id>
 #   runners/herdr.sh stop <session-id>
 #   runners/herdr.sh self
-#   runners/herdr.sh attach --cwd DIR --issue N
+#   runners/herdr.sh attach --cwd DIR [--issue N] [--under-caller]
 # `open-url` is optional and unsupported here: exit 3.
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
@@ -58,7 +58,7 @@ usage() {
   echo "       runners/herdr.sh liveness <session-id>" >&2
   echo "       runners/herdr.sh stop <session-id>" >&2
   echo "       runners/herdr.sh self" >&2
-  echo "       runners/herdr.sh attach --cwd DIR --issue N" >&2
+  echo "       runners/herdr.sh attach --cwd DIR [--issue N] [--under-caller]" >&2
   exit 2
 }
 

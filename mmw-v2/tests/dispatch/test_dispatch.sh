@@ -880,7 +880,7 @@ if args[:1] == ["agent-context"]:
             {"command": "terminal close",
              "flags": ["help", "json", "terminal"]},
             {"command": "worktree set",
-             "flags": ["help", "worktree", "issue"]},
+             "flags": ["help", "json", "worktree", "issue", "parent-worktree"]},
         ],
     }))
     sys.exit(0)
@@ -935,6 +935,11 @@ if args[:2] == ["repo", "list"]:
 if args[:2] == ["worktree", "set"]:
     if scenario == "worktree-set-fail":
         print(json.dumps({"ok": False, "error": {"code": "link_failed"}}))
+        sys.exit(1)
+    if scenario == "parent-cycle" and "--parent-worktree" in args:
+        # What Orca 1.4.205 answers for a parent that would make a cycle (read 2026-09-18).
+        print(json.dumps({"ok": False, "error": {"code": "LINEAGE_PARENT_CYCLE",
+                                                 "message": "A worktree cannot parent itself."}}))
         sys.exit(1)
     print(json.dumps({"ok": True, "result": {}}))
     sys.exit(0)
@@ -7320,6 +7325,101 @@ scenario_orcaworktreelinkfails() {
   posted_events 61 | grep -q worker.started || fail "worker.started was not recorded"
 }
 
+# The Orca terminal the caller runs in, as `terminal list` names it: handle term_main in
+# the worktree at $1 (Orca's id is <repo-id>::<absolute path>).
+seed_orca_caller() {
+  printf '[{"handle": "term_main", "connected": true, "writable": true, "worktreeId": "r1::%s"}]\n' "$1" \
+    > "$MMW_FAKE_ORCA_STATE/terminals.json"
+}
+
+scenario_orcaworktreeparent() {
+  local code main destination
+  echo "--- a worker's worktree is filed under the worktree of the main agent that started it"
+  reset_log; fresh_repo
+  main="$(cd "$TMP/repo" && pwd -P)"
+  seed_orca_caller "$main"
+  code="$(run_dispatch env MMW_RUNNER=orca ORCA_TERMINAL_HANDLE=term_main bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "Orca start expected 0: $(cat "$TMP/err")"
+  destination="$(cd "$(wt 61)" && pwd -P)"
+  grep -qxF "orca :: worktree :: set :: --worktree :: path:$destination :: --issue :: 61" "$MMW_TEST_LOG" \
+    || fail "the issue link is gone: $(grep 'worktree :: set' "$MMW_TEST_LOG")"
+  grep -qxF "orca :: worktree :: set :: --worktree :: path:$destination :: --parent-worktree :: id:r1::$main :: --json" "$MMW_TEST_LOG" \
+    || fail "the worktree was not filed under the caller's: $(grep 'worktree :: set' "$MMW_TEST_LOG")"
+  ! grep -q 'did not attach' "$TMP/err" || fail "a clean attach reported a failure: $(cat "$TMP/err")"
+}
+
+scenario_orcareviewernoparent() {
+  local base code
+  echo "--- a reviewer start files its worktree under nothing, whichever terminal runs it"
+  reset_log; fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  base="$(git -C "$TMP/repo" rev-parse main)"
+  seed_worker_started_for_integration "$base"
+  seed_workspace 61
+  seed_orca_caller "$(cd "$TMP/repo" && pwd -P)"
+  code="$(run_dispatch env MMW_RUNNER=orca ORCA_TERMINAL_HANDLE=term_main bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
+  [ "$code" = 0 ] || fail "Orca reviewer start expected 0: $(cat "$TMP/err")"
+  grep -q '^orca :: worktree :: set .* --issue :: 61' "$MMW_TEST_LOG" || fail "the reviewer start linked no issue"
+  ! grep -q -- '--parent-worktree' "$MMW_TEST_LOG" || fail "a reviewer start set a parent: $(grep 'worktree :: set' "$MMW_TEST_LOG")"
+}
+
+scenario_orcaparentrefused() {
+  local code
+  echo "--- a parent Orca refuses is one stderr line; the issue link and the session stand"
+  reset_log; fresh_repo
+  seed_orca_caller "$(cd "$TMP/repo" && pwd -P)"
+  code="$(run_dispatch env MMW_RUNNER=orca MMW_FAKE_ORCA_SCENARIO=parent-cycle ORCA_TERMINAL_HANDLE=term_main \
+          bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "a refused parent blocked the start: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = term_2 ] || fail "the session id was not returned: $(cat "$TMP/out")"
+  [ "$(grep -c 'did not attach the worktree' "$TMP/err")" = 1 ] \
+    || fail "a refused parent should be one stderr line: $(cat "$TMP/err")"
+  grep -q 'A worktree cannot parent itself' "$TMP/err" || fail "Orca's reason was not carried: $(cat "$TMP/err")"
+  grep -q '^orca :: worktree :: set .* --issue :: 61$' "$MMW_TEST_LOG" || fail "the issue link was not asked for"
+  posted_events 61 | grep -q worker.started || fail "worker.started was not recorded"
+}
+
+scenario_orcaparentskips() {
+  local code main
+  RUNNER="$ORCA_RUNNER"
+  main="$(cd "$TMP/repo" && pwd -P)"
+  echo "--- a caller in no Orca terminal has nothing to file the worktree under"
+  reset_log
+  code="$(run_runner attach --cwd "$TMP/repo" --under-caller)"
+  [ "$code" = 0 ] || fail "attach outside Orca expected 0, got $code: $(cat "$TMP/err")"
+  ! grep -q 'worktree :: set' "$MMW_TEST_LOG" || fail "attach outside Orca set something: $(cat "$MMW_TEST_LOG")"
+  echo "--- a caller in the target worktree itself is not made its parent"
+  reset_log; seed_orca_caller "$main"
+  code="$(ORCA_TERMINAL_HANDLE=term_main run_runner attach --cwd "$TMP/repo" --under-caller)"
+  [ "$code" = 0 ] || fail "attach from the same worktree expected 0, got $code: $(cat "$TMP/err")"
+  ! grep -q -- '--parent-worktree' "$MMW_TEST_LOG" || fail "the worktree was made its own parent"
+  echo "--- a handle terminal list does not name is exit 1 with the handle in the reason"
+  reset_log
+  code="$(ORCA_TERMINAL_HANDLE=term_gone run_runner attach --cwd "$TMP/repo" --under-caller)"
+  [ "$code" = 1 ] || fail "an unlisted caller expected 1, got $code"
+  grep -q term_gone "$TMP/err" || fail "the reason should name the handle: $(cat "$TMP/err")"
+  ! grep -q 'worktree :: set' "$MMW_TEST_LOG" || fail "an unlisted caller still set something"
+  RUNNER="$PASEO_RUNNER"
+}
+
+scenario_orcamergeparent() {
+  local code main merge_tree
+  echo "--- the merge worktree is filed under the worktree of the main agent that lands"
+  reset_log; fresh_repo
+  make_branch issue-61 ticket.txt ticket
+  write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
+  seed_workspace 61
+  main="$(cd "$TMP/repo" && pwd -P)"
+  seed_orca_caller "$main"
+  code="$(run_dispatch env MMW_RUNNER=orca ORCA_TERMINAL_HANDLE=term_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance expected 0, got $code: $(cat "$TMP/err")"
+  merge_tree="$(cd "$TMP/repo/.worktrees/merge-main" && pwd -P)"
+  [ "$(grep -cxF "orca :: worktree :: set :: --worktree :: path:$merge_tree :: --parent-worktree :: id:r1::$main :: --json" "$MMW_TEST_LOG")" = 1 ] \
+    || fail "the merge worktree was not filed once under the caller's: $(grep 'worktree :: set' "$MMW_TEST_LOG")"
+  ! grep -q 'did not file the merge worktree' "$TMP/err" || fail "a clean filing reported a failure: $(cat "$TMP/err")"
+}
+
 scenario_worktreelinknoop() {
   local code name
   for name in paseo herdr; do
@@ -10134,7 +10234,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
@@ -10185,6 +10285,11 @@ banner_for() {
     installkeepsnewestbackup) echo INSTALL-KEEPS-NEWEST-BACKUP-OK ;;
     orcaworktreelink) echo ORCA-WORKTREE-LINK-OK ;;
     orcaworktreelinkfails) echo ORCA-WORKTREE-LINK-FAILS-OK ;;
+    orcaworktreeparent) echo ORCA-WORKTREE-PARENT-OK ;;
+    orcareviewernoparent) echo ORCA-REVIEWER-NO-PARENT-OK ;;
+    orcaparentrefused) echo ORCA-PARENT-REFUSED-OK ;;
+    orcaparentskips) echo ORCA-PARENT-SKIPS-OK ;;
+    orcamergeparent) echo ORCA-MERGE-PARENT-OK ;;
     worktreelinknoop) echo WORKTREE-LINK-NOOP-OK ;;
     check) echo DISPATCH-CHECK-OK ;;
     checknoorigin) echo CHECK-NO-ORIGIN-OK ;;

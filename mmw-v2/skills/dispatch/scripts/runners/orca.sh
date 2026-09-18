@@ -7,7 +7,7 @@
 #   runners/orca.sh liveness <session-id>
 #   runners/orca.sh stop <session-id>
 #   runners/orca.sh self
-#   runners/orca.sh attach --cwd DIR --issue N
+#   runners/orca.sh attach --cwd DIR [--issue N] [--under-caller]
 #   runners/orca.sh open-url --cwd DIR --url URL
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
@@ -60,6 +60,15 @@
 # cannot be read (the reason on stderr). The main agent names itself to the relay with it.
 # Orca sets ORCA_TERMINAL_HANDLE in every terminal it runs, and that handle is the one
 # `terminal list` lists and `send` takes.
+# attach files an existing worktree in Orca's sidebar. `--issue N` links it to the
+# ticket (`worktree set --issue`). `--under-caller` records as its parent the worktree of
+# the Orca terminal this process runs in (ORCA_TERMINAL_HANDLE, looked up in `terminal
+# list`), so the worktrees a main agent makes sit under that agent's own worktree. A
+# caller in no Orca terminal, or in a terminal of that same worktree, has nothing to file
+# it under, and that step is skipped. The two are separate `worktree set` calls: Orca
+# refuses a parent that would make a cycle (`LINEAGE_PARENT_CYCLE`, Orca 1.4.205, read
+# 2026-09-18), and that refusal must not also lose the issue link. Exit 0 done; 1 a step
+# Orca refused or could not be asked, the reason on stderr; 2 malformed arguments.
 # open-url: exit 0 the tab was opened; 1 the runner operation failed; 2 the arguments
 # are malformed. Adapters that do not implement this optional verb answer exit 3.
 #
@@ -69,7 +78,7 @@
 # MMW_USES: terminal read --terminal --json
 # MMW_USES: terminal list --json
 # MMW_USES: terminal close --terminal --json
-# MMW_USES: worktree set --worktree --issue
+# MMW_USES: worktree set --worktree --issue --parent-worktree --json
 # MMW_USES: tab create --url --worktree --json
 
 set -uo pipefail
@@ -90,7 +99,7 @@ usage() {
   echo "       runners/orca.sh liveness <session-id>" >&2
   echo "       runners/orca.sh stop <session-id>" >&2
   echo "       runners/orca.sh self" >&2
-  echo "       runners/orca.sh attach --cwd DIR --issue N" >&2
+  echo "       runners/orca.sh attach --cwd DIR [--issue N] [--under-caller]" >&2
   echo "       runners/orca.sh open-url --cwd DIR --url URL" >&2
   exit 2
 }
@@ -103,18 +112,83 @@ worktree_arg() {
 }
 
 attach() {
-  local cwd="" issue=""
+  local cwd="" issue="" under=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --cwd) [ "$#" -ge 2 ] || usage; cwd="$2"; shift 2 ;;
       --issue) [ "$#" -ge 2 ] || usage; issue="$2"; shift 2 ;;
+      --under-caller) under=1; shift ;;
       *) usage ;;
     esac
   done
-  [ -n "$cwd" ] && [[ "$issue" =~ ^[0-9]+$ ]] || usage
-  local worktree
-  worktree="$(worktree_arg "$cwd")" || return 1
-  orca_ worktree set --worktree "$worktree" --issue "$issue" >/dev/null
+  [ -n "$cwd" ] || usage
+  [ -z "$issue" ] || [[ "$issue" =~ ^[0-9]+$ ]] || usage
+  local worktree failed=0
+  worktree="$(worktree_arg "$cwd")" || {
+    echo "runners/orca.sh: no worktree directory at $cwd" >&2
+    return 1
+  }
+  if [ -n "$issue" ] \
+     && ! orca_ worktree set --worktree "$worktree" --issue "$issue" >/dev/null 2>&1; then
+    echo "runners/orca.sh: Orca did not link ${worktree#path:} to issue #$issue" >&2
+    failed=1
+  fi
+  if [ "$under" = 1 ]; then
+    file_under_caller "$worktree" || failed=1
+  fi
+  return "$failed"
+}
+
+# The Orca worktree id of the terminal this process runs in, looked up in `terminal
+# list` (each row's `worktreeId`, Orca 1.4.205). Exit 0 printed; 3 this process runs in
+# no Orca terminal; 1 the list could not be read or does not name the handle.
+caller_worktree() {
+  local json
+  [ -n "${ORCA_TERMINAL_HANDLE:-}" ] || return 3
+  json="$(orca_ terminal list --json 2>/dev/null)" || return 1
+  printf '%s' "$json" | MMW_IDENT="$ORCA_TERMINAL_HANDLE" python3 -c '
+import json, os, sys
+
+want = os.environ["MMW_IDENT"]
+try:
+    rows = json.load(sys.stdin)["result"]["terminals"]
+    for row in rows:
+        if isinstance(row, dict) and str(row.get("handle") or "") == want:
+            found = str(row.get("worktreeId") or "")
+            if found:
+                print(found)
+                sys.exit(0)
+except Exception:
+    pass
+sys.exit(1)
+'
+}
+
+file_under_caller() {
+  local worktree="$1" parent rc out reason
+  parent="$(caller_worktree)"
+  rc=$?
+  case "$rc" in
+    0) ;;
+    3) return 0 ;;
+    *)
+      echo "runners/orca.sh: terminal list did not name the worktree of this terminal ($ORCA_TERMINAL_HANDLE), so ${worktree#path:} was not filed under it" >&2
+      return 1
+      ;;
+  esac
+  # The id is <repo-id>::<absolute path>; a caller in the target itself has no parent to give it.
+  [ "${parent#*::}" != "${worktree#path:}" ] || return 0
+  out="$(orca_ worktree set --worktree "$worktree" --parent-worktree "id:$parent" --json 2>&1)" && return 0
+  reason="$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    error = json.load(sys.stdin).get("error") or {}
+    print(error.get("message") or error.get("code") or "")
+except Exception:
+    pass
+')"
+  echo "runners/orca.sh: Orca did not file ${worktree#path:} under ${parent#*::}: ${reason:-Orca gave no reason}" >&2
+  return 1
 }
 
 open_url() {
