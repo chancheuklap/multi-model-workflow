@@ -16,18 +16,15 @@
 
 ### VISUAL.md
 
-`mattpocock/skills` 里没有这个文件，subtree pull 不会碰它。
-
-正文是 humanlayer 的 `show-me` 技能，逐字照抄（<https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md>，2026-08 取）。那些示例块——伪代码、调用树、组件树、文件树、Mermaid、四种 diff、整块代码——是这份提示词的主体，一个字都不改写。
+`mattpocock/skills` 里没有这个文件，subtree pull 不会碰它。它是我们写的，只有 `Skip the preamble and keep prose brief.` 一句取自 humanlayer 的 `show-me` 技能（<https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md>）。
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| 开头到 `## Put the page where the user is looking` 那一节 | 我们写的。接上 `wait-what` 的语境，并规定呈现面：有渲染 HTML 的工具就用它，纯 CLI 才落盘再打开。不点任何 host 的名字——`host neutrality` 不许按 host 名分支，写成按能力判断的自然语言，新 host 出现也不过时 |
-| `## Views` 这个标题 | 替掉 show-me 的第一句 `Help the user understand the current topic of conversation visually.`——那句的职责已经由 `VISUAL.md` 第 3 行承担。同段后半句 `Skip the preamble...` 照抄，末尾加一句「每种视图都放在那一页上」 |
-| `## Views` 下第二段（`The reader knows nothing about this topic.` 起） | 我们加的整段，show-me 没有。定读者（对主题一无所知）和图、字的分工：图管是什么与怎么连，字只做图做不到的三件事（图答的是哪个问题、重点在哪、由此得出什么），字重复图就删字，图要一段话才看得懂就重画。上游 show-me 更新 → 这一段原样保留在 `## Views` 第一段之后 |
-| 各视图条目与全部示例块 | show-me 原文逐字。上游 show-me 更新 → 重新逐字取，只把下面这一条的改动重做一遍 |
-| 最末一条（原文的 `For a visual UI, ... write one focused HTML file` + `Bash(open ...)`） | 只有这一条改了表述。原文里写 HTML 是「太密的东西才走」的条件分支，还写死了 macOS 的 `open` 和工作目录里的文件名。我们无论如何都出一页 HTML，交付也已由上面那节处理，所以改成「承载这些的那一页本身就是可视化」。原文的实质要求全部留着：形态自选（图解／信息图／短幻灯）、配色排版跟产品走、真实标签与数据、桌面和手机都要支持 |
-| `### guidance` | show-me 原文逐字 |
+| 开头到 `## Put the page where the user is looking` 那一节 | 接上 `wait-what` 的语境，并规定呈现面：有渲染 HTML 的工具就用它，纯 CLI 才落盘再打开。不点任何 host 的名字——`host neutrality` 不许按 host 名分支，写成按能力判断的自然语言，新 host 出现也不过时 |
+| `## Draw the page` 第一段 | 页面的样子和页上每张图交给 `diagram-design` 技能，让本仓库所有向用户解释的 HTML 用同一套设计系统。后半句免掉 `diagram-design` §3 的「Confirm before drawing」：内容就是用户刚看不懂的那条消息，已经定了，再停一轮确认只是让用户多等一次 |
+| `## Draw the page` 下 `The reader knows nothing about this topic.` 那段 | 定读者（对主题一无所知）和图、字的分工：图管是什么与怎么连，字只做图做不到的三件事（图答的是哪个问题、重点在哪、由此得出什么），字重复图就删字，图要一段话才看得懂就重画。四个用 HTML 做解释的技能放的是同一段 |
+
+`show-me` 原来那七种视图（伪代码、调用树、组件树、文件树、Mermaid、四种 diff、整块代码）和它的 `### guidance` 不收。它们是给读代码的人看的表示法；同一份列表逐字出现在 mattpocock 的 `pr` 技能（`mmw-v2/upstream/skills/in-progress/pr/SKILL.md` 的 `### Summary`），那里的读者是审 PR 的人。`wait-what` 的读者不读代码。`show-me` 更新 → 不跟。
 
 ### agents/openai.yaml
 

@@ -23,6 +23,10 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 
 通用约束：改动只落在必要的句子上，不重写段落；上游的图型 reference 一律不动。
 
+## 谁调用它
+
+`wait-what`（`VISUAL.md` 的 `## Draw the page`）和 `improve-codebase-architecture`（`SKILL.md` 第 2 步、`HTML-REPORT.md`）把页面样子与页上每张图整个交给这份技能，各自只加自己的内容要求，并各自免掉 §3 的「Confirm before drawing」。上游动到 §3 的确认步骤、§7 的页面结构、§8 的卡片、§12 的输出约束，或 `style-guide.md` 的颜色角色名（`accent`、`accent-tint`、`ink`、`muted`）时，照收上游，再读一遍这两处调用方，确认它们的说法没有和新规定相矛盾。
+
 ## 逐段意图
 
 ### SKILL.md
