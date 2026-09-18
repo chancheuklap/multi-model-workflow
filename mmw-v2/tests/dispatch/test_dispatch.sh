@@ -168,9 +168,13 @@ elif args[:2] == ["agents", "set"]:
     print(json.dumps(row, sort_keys=True))
 elif args[:2] == ["memories", "list"]:
     if scenario == "content-unavailable":
-        print("Nowledge Mem unavailable", file=sys.stderr)
+        print(os.environ.get("MMW_FAKE_NMEM_ERROR", "Nowledge Mem unavailable"), file=sys.stderr)
         raise SystemExit(1)
-    listed = dict(state.get("memory_list", {"memories": [], "total": 0, "returned": 0}))
+    empty = {"memories": [], "total": 0, "returned": 0}
+    if "memory_lists" in state:
+        listed = dict(state["memory_lists"].get(f"{option('--space')}|{option('--label')}", empty))
+    else:
+        listed = dict(state.get("memory_list", empty))
     rows = listed.get("memories", [])
     active = [row for row in rows
               if state.get("memory_status", {}).get(row.get("id"), "active") == "active"]
@@ -1133,7 +1137,7 @@ case "$*" in
     printf '%s\n' "${FAKE_GH_URL:-https://github.com/o/r}" ;;
   "repo view"*)
     printf '%s\n' "${FAKE_GH_REPO:-o/r}" ;;
-  *"--json parent,labels,body"*|*"--json labels,body"*)
+  *"--json parent,labels,body"*|*"--json labels,body"*|*"--json labels")
     MMW_WANT="$3" python3 -c '
 import json, os
 path = os.environ.get("FAKE_GH_TICKETS_FILE")
@@ -3491,7 +3495,7 @@ PY
 
 write_complete_closing() {
   cat > "$1" <<'JSON'
-{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-retain","decision":"retain","reason":"still current","evidence":"ticket #61"},{"memory_id":"mem-propose","decision":"propose","reason":"candidate for a durable check","evidence":"ticket #62"},{"memory_id":"mem-deprecate","decision":"deprecate","reason":"current evidence disproves it","evidence":"commit abc"},{"memory_id":"mem-old","decision":"supersede","reason":"the retained record replaces it","evidence":"commit def","replacement_id":"mem-retain"}]}
+{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-retain","decision":"retain","reason":"still current","evidence":"ticket #61"},{"memory_id":"mem-propose","decision":"propose","reason":"candidate for a durable check","evidence":"https://github.com/o/r/issues/62#issuecomment-6201"},{"memory_id":"mem-deprecate","decision":"deprecate","reason":"current evidence disproves it","evidence":"commit abc"},{"memory_id":"mem-old","decision":"supersede","reason":"the retained record replaces it","evidence":"commit def","replacement_id":"mem-retain"}]}
 JSON
 }
 
@@ -3538,7 +3542,7 @@ scenario_memory_closing() {
     || fail "human summary omits the supersede mapping, evidence, or replacement: $(cat "$MMW_GH_LAST_BODY")"
   grep -q '^Memory: mem-retain -> retain; reason: still current; evidence: ticket #61$' "$MMW_GH_LAST_BODY" \
     || fail "human summary omits the retain mapping: $(cat "$MMW_GH_LAST_BODY")"
-  grep -q '^Memory: mem-propose -> propose; reason: candidate for a durable check; evidence: ticket #62$' "$MMW_GH_LAST_BODY" \
+  grep -q '^Memory: mem-propose -> propose; reason: candidate for a durable check; evidence: https://github.com/o/r/issues/62#issuecomment-6201$' "$MMW_GH_LAST_BODY" \
     || fail "human summary omits the propose mapping: $(cat "$MMW_GH_LAST_BODY")"
   grep -q '^Memory: mem-deprecate -> deprecate; reason: current evidence disproves it; evidence: commit abc$' "$MMW_GH_LAST_BODY" \
     || fail "human summary omits the deprecate mapping: $(cat "$MMW_GH_LAST_BODY")"
@@ -3581,6 +3585,7 @@ scenario_memory_closing_refuses() {
     '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"unknown","decision":"retain","reason":"r","evidence":"e"}]}' \
     '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e","replacement_id":"mem-old"}]}' \
     '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-old","decision":"supersede","reason":"r","evidence":"e"}]}' \
+    '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e"},{"memory_id":"mem-propose","decision":"propose","reason":"r","evidence":"ticket #62"},{"memory_id":"mem-deprecate","decision":"retain","reason":"r","evidence":"e"},{"memory_id":"mem-old","decision":"retain","reason":"r","evidence":"e"}]}' \
     '{"status":"complete","total":4,"returned":4,"decisions":[{"memory_id":"mem-deprecate","decision":"deprecate","reason":"valid first mutation","evidence":"e"},{"memory_id":"mem-retain","decision":"retain","reason":"r","evidence":"e","replacement_id":"mem-old"},{"memory_id":"mem-propose","decision":"propose","reason":"r","evidence":"e"},{"memory_id":"mem-old","decision":"retain","reason":"r","evidence":"e"}]}'
   do
     reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories
@@ -6703,88 +6708,71 @@ seed_memory_records() {
 import json, sys
 path = sys.argv[1]
 data = json.load(open(path))
-data["memory_list"] = {"total": 1, "returned": 1, "memories": [{
+current = {"total": 1, "returned": 1, "memories": [{
     "id": "mem-current", "title": "Current title", "content": "Current content",
     "source": "agent", "space_id": "o__r"}]}
-data["memory_search"] = {"total": 2, "returned": 2, "memories": [{
-    "id": "mem-current", "title": "Stale duplicate", "content": "Must lose",
-    "source": "old", "space_id": "mmw-toolbox"}, {
-    "id": "mem-history", "title": "Historical title", "content": "Historical content",
-    "source": "codex", "space_id": "mmw-toolbox"}]}
+data["memory_lists"] = {
+    "o__r|mmw-map-18": current,
+    "o__r|mmw-spec-76": current,
+    "o__r|mmw-experience": {"total": 2, "returned": 2, "memories": [{
+        "id": "mem-current", "title": "Stale duplicate", "content": "Must lose",
+        "source": "old", "space_id": "o__r"}, {
+        "id": "mem-repo", "title": "Repository title", "content": "Repository content",
+        "source": "codex", "space_id": "o__r"}]},
+    "mmw-toolbox|mmw-experience": {"total": 1, "returned": 1, "memories": [{
+        "id": "mmw-toolbox-mem-1", "title": "Toolbox title", "content": "Toolbox content",
+        "source": "cli", "space_id": "mmw-toolbox"}]},
+}
 json.dump(data, open(path, "w"), sort_keys=True)
 PY
 }
 
 assert_complete_worker_prompt() {
-  local task_root="$1" task_scope="$2" current="$3" historical="$4"
+  local task_root="$1" task_scope="$2" current="$3" repository="$4" toolbox="$5"
   MMW_EXPECT_ROOT="$task_root" MMW_EXPECT_SCOPE="$task_scope" \
-  MMW_EXPECT_CURRENT="$current" MMW_EXPECT_HISTORICAL="$historical" \
+  MMW_EXPECT_CURRENT="$current" MMW_EXPECT_REPOSITORY="$repository" MMW_EXPECT_TOOLBOX="$toolbox" \
   python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete worker prompt changed for $task_root"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
 prefix = "Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill. A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
-packet = f"""Use this repository Space and MMW task scope as the shared experience pipeline
-for ticket #61.
+packet = f"""Shared experience for ticket #61.
 
 MMW repository Space: o__r
 MMW task root: {os.environ['MMW_EXPECT_ROOT']}
 MMW task scope: {os.environ['MMW_EXPECT_SCOPE']}
 
-Before working, read Current task shared experience, then Historical experience
-relevant to this task. Follow only the linked primary artifacts and evidence
-needed for the ticket. Current artifacts, verified evidence, the user's
-instructions, repository instructions, the ticket, and its parent spec override
-Memory. Treat a superseded or deprecated Memory as historical evidence only.
-
 Current task shared experience:
 {os.environ['MMW_EXPECT_CURRENT']}
 
-Historical experience relevant to this task:
-{os.environ['MMW_EXPECT_HISTORICAL']}
+Repository experience:
+{os.environ['MMW_EXPECT_REPOSITORY']}
 
-When a command or tool behaves in a way that the ticket, repository authority,
-and Current task shared experience do not explain, search the current task with
-the exact error, command, and component before trying a workaround. If that has
-no answer, search repository and approved mmw-toolbox experience. Verify every
-Memory against current repository evidence before acting on it.
+Toolbox experience:
+{os.environ['MMW_EXPECT_TOOLBOX']}
 
-Save a changed fact immediately when another ticket or later agent can reuse it,
-current evidence verifies it, and the ticket and code do not already make it
-obvious. Evaluate the same trigger again at every meaningful milestone or
-handoff. Use the implement skill's exact Memory fields and labels. Link the
-evidence, supersede a replaced Memory, and deprecate one that no longer applies.
-Store only reusable engineering context that is safe for repository
-collaborators; exclude secrets, customer data, raw chat transcripts, private
-host paths, and unverified claims.
-
-Finish by reporting the Memory records added, used, superseded, or deprecated,
-and the evidence used to validate them. If none changed, say so."""
+Read these records before working, then follow the implement skill's Shared
+experience section for using, searching, saving, correcting and reporting Memory."""
 assert actual == prefix + "\n\n" + packet, actual
 PY
 }
 
-assert_complete_map_prompt() {
-  assert_complete_worker_prompt "map #18" "mmw-map-18" \
-    '{"id":"mem-current","title":"Current title","content":"Current content","source":"agent"}' \
-    '{"id":"mem-history","title":"Historical title","content":"Historical content","source":"codex","origin_space":"mmw-toolbox"}'
-}
+MMW_CURRENT_RECORD='{"id":"mem-current","title":"Current title","content":"Current content","source":"agent"}'
+MMW_REPO_RECORD='{"id":"mem-repo","title":"Repository title","content":"Repository content","source":"codex"}'
+MMW_TOOLBOX_RECORD='{"id":"mmw-toolbox-mem-1","title":"Toolbox title","content":"Toolbox content","source":"cli"}'
 
 assert_memory_calls() {
   local shape="$1"
   python3 - "$MMW_FAKE_NMEM_CALLS" "$shape" <<'PY' || fail "$shape Memory calls were not exact"
 import json, sys
 calls = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
-queries = {
-    "map": "## Destination\nMap destination\n\n## Notes\nMap notes\n\n## Decisions so far\nMap decisions",
-    "standalone": "## Problem Statement\nStandalone problem\n\n## Solution\nStandalone solution\n\n## Implementation Decisions\nStandalone decisions\n\n## Testing Decisions\nStandalone tests",
-}
 scopes = {"map": "mmw-map-18", "standalone": "mmw-spec-76"}
 expected = [
     ["--json", "spaces", "show", "o__r"],
     ["--json", "spaces", "create", "o/r", "--id", "o__r", "--retrieval-mode", "shared", "--share-with", "mmw-toolbox"],
     ["--json", "spaces", "show", "o__r"],
     ["--json", "memories", "list", "--space", "o__r", "--label", scopes[sys.argv[2]], "--limit", "1000"],
-    ["--json", "memories", "search", queries[sys.argv[2]], "--space", "o__r", "--label", "mmw-experience", "--limit", "10"],
+    ["--json", "memories", "list", "--space", "o__r", "--label", "mmw-experience", "--limit", "1000"],
+    ["--json", "memories", "list", "--space", "mmw-toolbox", "--label", "mmw-experience", "--limit", "1000"],
 ]
 assert calls == expected, (calls, expected)
 PY
@@ -6792,31 +6780,27 @@ PY
 
 scenario_memory_worker_start() {
   local code prompt
-  echo "--- a map worker receives native routing, exact list/search calls, deduplication and the full prompt"
+  echo "--- a map worker receives native routing, the three exact lists, deduplication and the full prompt"
   reset_log; fresh_repo; write_memory_graph map; seed_memory_records
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "map worker start expected 0: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
   has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-map-18 :: --limit :: 1000"
-  has "nmem :: --json :: memories :: search :: ## Destination"
+  hasnt "nmem :: --json :: memories :: search"
   case "$prompt" in *"MMW task root: map #18"*"MMW task scope: mmw-map-18"*) ;; *) fail "map routing missing: $prompt" ;; esac
-  case "$prompt" in *'"id":"mem-current"'*'"id":"mem-history"'*) ;; *) fail "records missing: $prompt" ;; esac
-  case "$prompt" in *"Stale duplicate"*|*"Must lose"*) fail "semantic duplicate survived: $prompt" ;; esac
-  case "$prompt" in *"Before working, read Current task shared experience"*"When a command or tool behaves"*"Save a changed fact immediately"*"Finish by reporting the Memory records"*) ;; *) fail "fixed prompt was shortened or reordered: $prompt" ;; esac
-  assert_complete_map_prompt
+  case "$prompt" in *'"id":"mem-current"'*'"id":"mem-repo"'*'"id":"mmw-toolbox-mem-1"'*) ;; *) fail "records missing: $prompt" ;; esac
+  case "$prompt" in *"Stale duplicate"*|*"Must lose"*) fail "current-task duplicate survived in Repository experience: $prompt" ;; esac
+  assert_complete_worker_prompt "map #18" "mmw-map-18" "$MMW_CURRENT_RECORD" "$MMW_REPO_RECORD" "$MMW_TOOLBOX_RECORD"
   assert_memory_calls map
 
-  echo "--- a standalone worker queries only the standalone spec sections"
+  echo "--- a standalone worker lists its spec scope and never reads spec prose into Memory calls"
   reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "standalone worker start expected 0: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
   case "$prompt" in *"MMW task root: standalone spec #76"*"MMW task scope: mmw-spec-76"*) ;; *) fail "standalone routing missing: $prompt" ;; esac
   has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-spec-76 :: --limit :: 1000"
-  has "Standalone problem"
-  has "Standalone solution"
-  has "Standalone decisions"
-  has "Standalone tests"
+  hasnt "Standalone problem"
   hasnt "Never queried"
   assert_memory_calls standalone
 
@@ -6832,16 +6816,20 @@ JSON
   has "MMW_SPEC=77"
   hasnt "MMW_SPEC=76"
 
-  echo "--- a present non-map native parent is malformed and performs no Memory retrieval"
+  echo "--- a present non-map native parent is malformed: no task-scoped list, repository and toolbox still delivered"
   reset_log; fresh_repo; write_memory_graph wrong-parent; seed_memory_records
   code="$(run_dispatch env MMW_TASK_SCOPE=leaked-scope FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "malformed routing should disclose and continue: $(cat "$TMP/err")"
   grep -q 'worker Memory routing unavailable.*has no mmw:map label' "$TMP/err" || fail "routing failure was not disclosed: $(cat "$TMP/err")"
-  hasnt "nmem :: --json :: memories :: list"
+  hasnt ":: --label :: mmw-map-"
+  hasnt ":: --label :: mmw-spec-"
+  hasnt ":: --label :: leaked-scope"
   hasnt "nmem :: --json :: memories :: search"
   has "MMW_TASK_SCOPE="
   hasnt "MMW_TASK_SCOPE=leaked-scope"
-  case "$(out_json initialPrompt)" in *"MMW task root: unavailable:"*"Current task shared experience:"*"unavailable:"*) ;; *) fail "malformed prompt was guessed or silent" ;; esac
+  prompt="$(out_json initialPrompt)"
+  case "$prompt" in *"MMW task root: unavailable:"*"Current task shared experience:"$'\n'"unavailable:"*) ;; *) fail "malformed prompt was guessed or silent: $prompt" ;; esac
+  case "$prompt" in *"Repository experience:"$'\n''{"id":"mem-current","title":"Stale duplicate"'*"Toolbox experience:"$'\n'"$MMW_TOOLBOX_RECORD"*) ;; *) fail "repository and toolbox experience were withheld on a routing failure: $prompt" ;; esac
 
   echo "--- an unreadable native parent is malformed and never falls back to standalone"
   reset_log; fresh_repo; write_memory_graph map; seed_memory_records
@@ -6852,43 +6840,48 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "unreadable parent should disclose and continue: $(cat "$TMP/err")"
   grep -q 'worker Memory routing unavailable.*could not read native parent #18' "$TMP/err" || fail "unreadable parent was not disclosed: $(cat "$TMP/err")"
-  hasnt "nmem :: --json :: memories :: list"
-  hasnt "nmem :: --json :: memories :: search"
+  hasnt ":: --label :: mmw-map-"
+  hasnt ":: --label :: mmw-spec-"
 }
 
 scenario_memory_worker_prompt_states() {
   local code prompt
-  echo "--- zero records are none in both distinct blocks"
+  echo "--- zero records are none in all three distinct blocks"
   reset_log; fresh_repo; write_memory_graph standalone
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "none start expected 0: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
-  [ "$(printf '%s' "$prompt" | grep -c '^none$')" = 2 ] || fail "none states are not distinct: $prompt"
-  assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" "none" "none"
+  [ "$(printf '%s' "$prompt" | grep -c '^none$')" = 3 ] || fail "none states are not distinct: $prompt"
+  assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" "none" "none" "none"
 
-  echo "--- total greater than returned is visibly truncated while preserving returned records"
+  echo "--- total greater than returned is visibly truncated in its own block while preserving returned records"
   reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json,sys
-p=sys.argv[1]; d=json.load(open(p)); d["memory_list"]["total"]=4; d["memory_list"]["returned"]=1; d["memory_search"]["total"]=5; json.dump(d,open(p,"w"))
+p=sys.argv[1]; d=json.load(open(p)); lists=d["memory_lists"]
+lists["o__r|mmw-spec-76"]["total"]=4
+lists["mmw-toolbox|mmw-experience"]["total"]=1200
+json.dump(d,open(p,"w"))
 PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "truncated start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  case "$prompt" in *"Current task shared experience:"$'\n'"truncated: 1/4"*'"id":"mem-current"'*) ;; *) fail "truncated count or record missing: $prompt" ;; esac
-  case "$prompt" in *"Historical experience relevant to this task:"$'\n'"truncated:"*) fail "historical search used the current-list truncated state: $prompt" ;; esac
   assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" \
-    $'truncated: 1/4\n{"id":"mem-current","title":"Current title","content":"Current content","source":"agent"}' \
-    '{"id":"mem-history","title":"Historical title","content":"Historical content","source":"codex","origin_space":"mmw-toolbox"}'
+    $'truncated: 1/4\n'"$MMW_CURRENT_RECORD" "$MMW_REPO_RECORD" $'truncated: 1/1200\n'"$MMW_TOOLBOX_RECORD"
 
-  echo "--- an unavailable Nowledge service is named in both blocks and does not prevent start"
+  echo "--- an unavailable Nowledge service is named in every block and does not prevent start"
   reset_log; fresh_repo; write_memory_graph standalone
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "unavailable Memory should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_json initialPrompt)"
-  [ "$(printf '%s' "$prompt" | grep -c '^unavailable: Nowledge Mem unavailable$')" = 2 ] || fail "unavailable states are not explicit: $prompt"
   assert_complete_worker_prompt "standalone spec #76" "mmw-spec-76" \
-    "unavailable: Nowledge Mem unavailable" "unavailable: Nowledge Mem unavailable"
+    "unavailable: Nowledge Mem unavailable" "unavailable: Nowledge Mem unavailable" "unavailable: Nowledge Mem unavailable"
+
+  echo "--- a failure that echoes a long request is cut to 300 characters in the prompt"
+  reset_log; fresh_repo; write_memory_graph standalone
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable MMW_FAKE_NMEM_ERROR="$(printf 'x%.0s' $(seq 1 5000))" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+  [ "$code" = 0 ] || fail "long failure should not prevent start: $(cat "$TMP/err")"
+  prompt="$(out_json initialPrompt)"
+  [ "$(printf '%s' "$prompt" | grep -c "^unavailable: $(printf 'x%.0s' $(seq 1 300))…$")" = 3 ] \
+    || fail "long failure text was not cut to 300 characters: $(printf '%s' "$prompt" | head -c 600)"
 }
 
 scenario_memory_worker_runner_env() {
@@ -6912,60 +6905,85 @@ scenario_memory_worker_contract() {
 import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 actual = text.split("## Shared experience while implementing\n\n", 1)[1].split("\nUse /tdd", 1)[0]
-expected = """The worker start prompt gives you `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
-`MMW_TASK_SCOPE`, `MMW_SPEC`, and `MMW_TICKET`. Current task shared experience is
-the exact task-scoped list in that prompt. Historical experience is the semantic
-search result after duplicate Memory ids from the exact list have been removed.
-Current artifacts, verified evidence, the user's instructions, repository
-instructions, the ticket, and its parent spec override Memory. Verify every Memory
-against current repository evidence before acting on it.
+expected = """`dispatch` starts you with `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
+`MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries three
+lists of Memory: Current task shared experience (every record labelled
+`MMW_TASK_SCOPE`), Repository experience (every other `mmw-experience` record in this
+repository) and Toolbox experience (every `mmw-experience` record approved into
+`mmw-toolbox`). Read them before working. Current artifacts, verified evidence, the
+user's instructions, repository instructions, the ticket, and its parent spec override
+Memory. Verify every Memory against current repository evidence before acting on it.
 
 When a command or tool behaves in a way that the ticket, repository authority, and
-Current task shared experience do not explain, search the current task with the exact
-error, command, and component before trying a workaround:
+those lists do not explain, search the current task with the exact error, command,
+and component before trying a workaround; if that has no answer, search repository
+and approved toolbox experience. Keep the query to that error, command and component:
+Nowledge returns nothing for a query several thousand characters long.
 
 ```sh
-nmem --json memories search \\
-  "<exact error + command + component>" \\
-  --space "$NMEM_SPACE" \\
-  --label "$MMW_TASK_SCOPE" \\
-  --limit 10
+nmem --json memories search "<exact error + command + component>" \\
+  --space "$NMEM_SPACE" --label "$MMW_TASK_SCOPE" --limit 10
+nmem --json memories search "<exact error + command + component>" \\
+  --space "$NMEM_SPACE" --label mmw-experience --limit 10
 ```
 
-If that has no answer, search repository and approved mmw-toolbox experience:
+Save a Memory as soon as all three conditions hold: another ticket or later agent may
+reuse the fact, a current command result or authority verifies it, and the ticket and
+code do not already make it obvious. Evaluate the same trigger again at every
+meaningful milestone or handoff. Save only while `MMW_TASK_SCOPE` is `mmw-map-<n>` or
+`mmw-spec-<n>`; an empty value means routing failed and nothing is written. Store only
+reusable engineering context that is safe for repository collaborators. Exclude
+secrets, customer data, raw chat transcripts, private host paths and unverified
+claims. Use unit type `learning`, or `procedure` for fixed steps. Take the labels from
+the environment rather than reconstructing the numbers from prose: a map task adds its
+map label, and a standalone spec's task label already is `mmw-spec-<spec>`. Write this
+exact body:
 
 ```sh
-nmem --json memories search \\
-  "<exact error + command + component>" \\
+label_args=(
+  --label mmw-experience
+  --label "mmw-spec-$MMW_SPEC"
+  --label "mmw-ticket-$MMW_TICKET"
+)
+if [[ "$MMW_TASK_SCOPE" == mmw-map-* ]]; then
+  label_args+=(--label "$MMW_TASK_SCOPE")
+fi
+
+nmem --json memories add --stdin \\
   --space "$NMEM_SPACE" \\
-  --label mmw-experience \\
-  --limit 10
-```
-
-Write a Memory immediately only when all three conditions hold: another ticket or
-later agent may reuse the fact, a current command result or authority verifies it, and
-the ticket and code do not already make it obvious. Evaluate the same trigger again at
-every meaningful milestone or handoff. Use unit type `learning`, or `procedure` for
-fixed steps. Store only reusable engineering context that is safe for repository
-collaborators. Exclude secrets, customer data, raw chat transcripts, private host paths
-and unverified claims.
-
-Use these labels for a map task: `mmw-experience`, `mmw-map-<map>`,
-`mmw-spec-<spec>`, `mmw-ticket-<ticket>`. For a standalone spec omit the map label;
-`mmw-spec-<spec>` is already its task scope. Pass the current environment values rather
-than reconstructing the numbers from prose. Write this exact body:
-
-```text
+  --agent-id "$NMEM_AGENT_ID" \\
+  --unit-type learning \\
+  "${label_args[@]}" \\
+  --title "<searchable title>" <<'MEMORY'
 适用条件：<环境、版本或前提>
 问题：<已证实的非显然行为>
 有效做法：<下一名 worker 可以直接执行的操作>
 证据：<命令与输出首行，或 path:line>
 发生位置：<repository、spec #n、ticket #n、日期>
+MEMORY
 ```
 
-Link the evidence. When current evidence verifies a replacement for an existing
-Memory, create the replacement and supersede the old Memory. Deprecate an existing
-Memory when it no longer applies. Do not leave two active records that conflict.
+Keep the id `nmem` returns and link the evidence in the ticket report. A failed Memory
+write is reported as unsaved; continue the ticket work rather than treating Memory as
+a prerequisite for implementation.
+
+Correct only a record from Current task shared experience or Repository experience, or
+a search result whose `space_id` equals `NMEM_SPACE`; a toolbox record is context, not
+a record for this worker to change. When current evidence verifies a replacement, save
+the replacement first and supersede the old record with its id; when a record simply
+no longer applies, deprecate it. Use one lifecycle command per old record, and do not
+leave two active records that conflict:
+
+```sh
+nmem --json memories supersede "$OLD_ID" "$NEW_ID" \\
+  --space "$NMEM_SPACE" --reason "<current evidence for the replacement>"
+nmem --json memories deprecate "$OLD_ID" \\
+  --space "$NMEM_SPACE" --reason "<current evidence that it no longer applies>"
+```
+
+The main agent's closing pass and the `retro` skill have their own script commands; a
+worker does not write their Memory records or edit Working Memory here.
+
 Finish by reporting the Memory records added, used, superseded, or deprecated, and the
 evidence used to validate them. If none changed, say so.
 """

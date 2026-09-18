@@ -18,8 +18,9 @@ SKILL = HERE.parents[1] / "upstream" / "skills" / "engineering" / "implement" / 
 class WorkerMemoryCommandTest(unittest.TestCase):
     def save_example(self, task_scope):
         text = SKILL.read_text(encoding="utf-8")
-        section = text.split("## Save or correct shared experience\n", 1)[1]
-        command = section.split("```sh\n", 1)[1].split("\n```", 1)[0]
+        section = text.split("## Shared experience while implementing\n", 1)[1]
+        blocks = [block.split("\n```", 1)[0] for block in section.split("```sh\n")[1:]]
+        command = next(block for block in blocks if "memories add" in block)
         with tempfile.TemporaryDirectory(prefix="mmw-memory-command-") as tmp:
             root = Path(tmp)
             binary = root / "bin" / "nmem"

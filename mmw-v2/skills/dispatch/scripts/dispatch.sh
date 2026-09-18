@@ -1544,15 +1544,17 @@ start_session() {
 
 # Build the deterministic Memory packet appended to a worker's first prompt. Native
 # parent links alone choose the task root; a malformed graph yields a disclosed packet
-# with no task scope, and no Memory command is attempted. Nowledge failures are data in
-# the packet rather than a reason to stop otherwise-completable ticket work.
+# with no task scope and no task-scoped list. Repository and toolbox experience are
+# listed whole rather than searched: a search needs a query, and the only query
+# available at start is task prose, which Nowledge answers with nothing past a few
+# thousand characters. Nowledge failures are data in the packet rather than a reason to
+# stop otherwise-completable ticket work.
 worker_memory_packet() {
   local number="$1" spec="$2" repository_space="$3"
   MMW_MEMORY_TICKET="$number" MMW_MEMORY_SPEC="$spec" \
   MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
 import json
 import os
-import re
 import subprocess
 import sys
 
@@ -1572,8 +1574,9 @@ def call(command):
 
 
 def reason(proc, fallback):
-    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ")
-    return text or fallback
+    text = (proc.stderr or proc.stdout or fallback).strip().replace("\n", "; ") or fallback
+    # A failing CLI can echo its whole request; the prompt carries only the start of it.
+    return text if len(text) <= 300 else text[:300] + "…"
 
 
 def issue(number, fields):
@@ -1589,22 +1592,9 @@ def issue(number, fields):
     return value, None
 
 
-def section(body, heading):
-    lines = str(body or "").splitlines()
-    wanted = f"## {heading}"
-    start = next((i for i, line in enumerate(lines) if line.strip() == wanted), None)
-    if start is None:
-        return wanted
-    end = len(lines)
-    for i in range(start + 1, len(lines)):
-        if re.match(r"^#{1,2} ", lines[i]):
-            end = i
-            break
-    return "\n".join(lines[start:end]).strip()
-
-
-def memory_call(args):
-    proc = call(["nmem", "--json", *args])
+def memory_list(list_space, label):
+    proc = call(["nmem", "--json", "memories", "list", "--space", list_space,
+                 "--label", label, "--limit", "1000"])
     if proc.returncode:
         return None, reason(proc, "nmem failed")
     try:
@@ -1616,55 +1606,45 @@ def memory_call(args):
     return value, None
 
 
-def record(row, historical=False):
+def record(row):
     if not isinstance(row, dict):
         row = {}
     shown = {name: row.get(name) for name in ("id", "title", "content", "source")}
-    if historical:
-        origin = row.get("space_id") or row.get("spaceId")
-        if not origin and isinstance(row.get("space"), dict):
-            origin = row["space"].get("id") or row["space"].get("name")
-        shown["origin_space"] = origin
     return json.dumps(shown, ensure_ascii=False, separators=(",", ":"))
 
 
-def block(value, error, historical=False, excluded=(), show_truncation=False):
+def block(value, error, excluded=()):
     if error:
         return f"unavailable: {error}"
     rows = value["memories"]
-    excluded = set(excluded)
-    rows = [row for row in rows if not isinstance(row, dict) or row.get("id") not in excluded]
-    rendered = [record(row, historical) for row in rows]
-    returned = value.get("returned", len(value["memories"]))
+    returned = value.get("returned", len(rows))
     total = value.get("total", returned)
     if not isinstance(returned, int) or not isinstance(total, int):
         return "unavailable: nmem returned non-numeric total or returned"
-    prefix = f"truncated: {returned}/{total}" if show_truncation and total > returned else ""
-    if prefix:
-        return "\n".join([prefix, *rendered]) if rendered else prefix
-    return "\n".join(rendered) if rendered else "none"
+    excluded = set(excluded)
+    rendered = [record(row) for row in rows
+                if not isinstance(row, dict) or row.get("id") not in excluded]
+    prefix = [f"truncated: {returned}/{total}"] if total > returned else []
+    return "\n".join(prefix + rendered) or "none"
 
 
 routing_error = None
 task_root = ""
 task_scope = ""
-query = ""
 if not spec_number.isdigit():
     routing_error = f"ticket #{ticket} has no native spec parent"
 else:
-    spec, routing_error = issue(spec_number, "parent,labels,body")
+    spec, routing_error = issue(spec_number, "parent")
     if spec is not None:
         parent = spec.get("parent")
         if parent is None:
             task_root = f"standalone spec #{spec_number}"
             task_scope = f"mmw-spec-{spec_number}"
-            query = "\n\n".join(section(spec.get("body"), name) for name in (
-                "Problem Statement", "Solution", "Implementation Decisions", "Testing Decisions"))
         elif not isinstance(parent, dict) or not str(parent.get("number") or "").isdigit():
             routing_error = f"spec #{spec_number} has an unreadable native parent"
         else:
             map_number = str(parent["number"])
-            root, root_error = issue(map_number, "labels,body")
+            root, root_error = issue(map_number, "labels")
             if root_error:
                 routing_error = f"could not read native parent #{map_number} of spec #{spec_number}: {root_error}"
             else:
@@ -1674,60 +1654,36 @@ else:
                 else:
                     task_root = f"map #{map_number}"
                     task_scope = f"mmw-map-{map_number}"
-                    query = "\n\n".join(section(root.get("body"), name) for name in (
-                        "Destination", "Notes", "Decisions so far"))
 
+current_ids = []
 if routing_error:
     sys.stderr.write(f"dispatch: worker Memory routing unavailable: {routing_error}; task-scoped retrieval and writes are disabled\n")
-    current = historical = f"unavailable: {routing_error}"
-    task_root = task_scope = f"unavailable: {routing_error}"
+    current = task_root = task_scope = f"unavailable: {routing_error}"
 else:
-    listed, list_error = memory_call([
-        "memories", "list", "--space", space, "--label", task_scope, "--limit", "1000"])
-    searched, search_error = memory_call([
-        "memories", "search", query, "--space", space,
-        "--label", "mmw-experience", "--limit", "10"])
-    exact_ids = [row.get("id") for row in (listed or {}).get("memories", [])
-                 if isinstance(row, dict) and row.get("id")]
-    current = block(listed, list_error, show_truncation=True)
-    historical = block(searched, search_error, historical=True, excluded=exact_ids)
+    listed, list_error = memory_list(space, task_scope)
+    current_ids = [row.get("id") for row in (listed or {}).get("memories", [])
+                   if isinstance(row, dict) and row.get("id")]
+    current = block(listed, list_error)
+repository = block(*memory_list(space, "mmw-experience"), excluded=current_ids)
+toolbox = block(*memory_list("mmw-toolbox", "mmw-experience"))
 
-prompt = f"""Use this repository Space and MMW task scope as the shared experience pipeline
-for ticket #{ticket}.
+prompt = f"""Shared experience for ticket #{ticket}.
 
 MMW repository Space: {space}
 MMW task root: {task_root}
 MMW task scope: {task_scope}
 
-Before working, read Current task shared experience, then Historical experience
-relevant to this task. Follow only the linked primary artifacts and evidence
-needed for the ticket. Current artifacts, verified evidence, the user's
-instructions, repository instructions, the ticket, and its parent spec override
-Memory. Treat a superseded or deprecated Memory as historical evidence only.
-
 Current task shared experience:
 {current}
 
-Historical experience relevant to this task:
-{historical}
+Repository experience:
+{repository}
 
-When a command or tool behaves in a way that the ticket, repository authority,
-and Current task shared experience do not explain, search the current task with
-the exact error, command, and component before trying a workaround. If that has
-no answer, search repository and approved mmw-toolbox experience. Verify every
-Memory against current repository evidence before acting on it.
+Toolbox experience:
+{toolbox}
 
-Save a changed fact immediately when another ticket or later agent can reuse it,
-current evidence verifies it, and the ticket and code do not already make it
-obvious. Evaluate the same trigger again at every meaningful milestone or
-handoff. Use the implement skill's exact Memory fields and labels. Link the
-evidence, supersede a replaced Memory, and deprecate one that no longer applies.
-Store only reusable engineering context that is safe for repository
-collaborators; exclude secrets, customer data, raw chat transcripts, private
-host paths, and unverified claims.
-
-Finish by reporting the Memory records added, used, superseded, or deprecated,
-and the evidence used to validate them. If none changed, say so."""
+Read these records before working, then follow the implement skill's Shared
+experience section for using, searching, saving, correcting and reporting Memory."""
 print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
                  ensure_ascii=False))
 PY
@@ -3596,6 +3552,7 @@ close_spec_memories() {
       MMW_MEMORY_DECISIONS="$decisions_file" python3 - <<'PY'
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -3748,6 +3705,8 @@ if len(set(listed_ids)) != len(listed_ids):
     fail(f"the fresh Memory list contains duplicate ids: {listed_ids}")
 
 allowed = {"retain", "propose", "deprecate", "supersede"}
+PROPOSE_EVIDENCE = re.compile(
+    r"https://github\.com/[^/\s]+/[^/\s]+/(issues/\d+#issuecomment-\d+|commit/[0-9a-f]{40})")
 seen = []
 for item in decisions:
     if not isinstance(item, dict):
@@ -3763,6 +3722,10 @@ for item in decisions:
             fail(f"Memory decision {item.get('memory_id', '<missing>')} requires a non-empty {field}")
     if decision not in allowed:
         fail(f"Memory {item['memory_id']} has unknown decision {decision}")
+    # retro counts a proposed Memory only when this string equals one event or commit
+    # source of the problem, so anything else would silently never qualify.
+    if decision == "propose" and not PROPOSE_EVIDENCE.fullmatch(item["evidence"]):
+        fail(f"Memory {item['memory_id']} is propose with evidence {item['evidence']!r}, not one event comment URL or commit URL")
     if decision == "supersede" and (
         not isinstance(item.get("replacement_id"), str) or not item["replacement_id"].strip()
     ):

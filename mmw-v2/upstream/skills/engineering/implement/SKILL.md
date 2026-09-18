@@ -34,73 +34,39 @@ While writing code:
 
 ## Shared experience while implementing
 
-The worker start prompt gives you `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
-`MMW_TASK_SCOPE`, `MMW_SPEC`, and `MMW_TICKET`. Current task shared experience is
-the exact task-scoped list in that prompt. Historical experience is the semantic
-search result after duplicate Memory ids from the exact list have been removed.
-Current artifacts, verified evidence, the user's instructions, repository
-instructions, the ticket, and its parent spec override Memory. Verify every Memory
-against current repository evidence before acting on it.
+`dispatch` starts you with `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
+`MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries three
+lists of Memory: Current task shared experience (every record labelled
+`MMW_TASK_SCOPE`), Repository experience (every other `mmw-experience` record in this
+repository) and Toolbox experience (every `mmw-experience` record approved into
+`mmw-toolbox`). Read them before working. Current artifacts, verified evidence, the
+user's instructions, repository instructions, the ticket, and its parent spec override
+Memory. Verify every Memory against current repository evidence before acting on it.
 
 When a command or tool behaves in a way that the ticket, repository authority, and
-Current task shared experience do not explain, search the current task with the exact
-error, command, and component before trying a workaround:
+those lists do not explain, search the current task with the exact error, command,
+and component before trying a workaround; if that has no answer, search repository
+and approved toolbox experience. Keep the query to that error, command and component:
+Nowledge returns nothing for a query several thousand characters long.
 
 ```sh
-nmem --json memories search \
-  "<exact error + command + component>" \
-  --space "$NMEM_SPACE" \
-  --label "$MMW_TASK_SCOPE" \
-  --limit 10
+nmem --json memories search "<exact error + command + component>" \
+  --space "$NMEM_SPACE" --label "$MMW_TASK_SCOPE" --limit 10
+nmem --json memories search "<exact error + command + component>" \
+  --space "$NMEM_SPACE" --label mmw-experience --limit 10
 ```
 
-If that has no answer, search repository and approved mmw-toolbox experience:
-
-```sh
-nmem --json memories search \
-  "<exact error + command + component>" \
-  --space "$NMEM_SPACE" \
-  --label mmw-experience \
-  --limit 10
-```
-
-Write a Memory immediately only when all three conditions hold: another ticket or
-later agent may reuse the fact, a current command result or authority verifies it, and
-the ticket and code do not already make it obvious. Evaluate the same trigger again at
-every meaningful milestone or handoff. Use unit type `learning`, or `procedure` for
-fixed steps. Store only reusable engineering context that is safe for repository
-collaborators. Exclude secrets, customer data, raw chat transcripts, private host paths
-and unverified claims.
-
-Use these labels for a map task: `mmw-experience`, `mmw-map-<map>`,
-`mmw-spec-<spec>`, `mmw-ticket-<ticket>`. For a standalone spec omit the map label;
-`mmw-spec-<spec>` is already its task scope. Pass the current environment values rather
-than reconstructing the numbers from prose. Write this exact body:
-
-```text
-适用条件：<环境、版本或前提>
-问题：<已证实的非显然行为>
-有效做法：<下一名 worker 可以直接执行的操作>
-证据：<命令与输出首行，或 path:line>
-发生位置：<repository、spec #n、ticket #n、日期>
-```
-
-Link the evidence. When current evidence verifies a replacement for an existing
-Memory, create the replacement and supersede the old Memory. Deprecate an existing
-Memory when it no longer applies. Do not leave two active records that conflict.
-Finish by reporting the Memory records added, used, superseded, or deprecated, and the
-evidence used to validate them. If none changed, say so.
-
-Use /tdd where possible, at pre-agreed seams.
-
-## Save or correct shared experience
-
-When the three conditions in **Shared experience while implementing** hold and
-`MMW_TASK_SCOPE` is `mmw-map-<n>` or `mmw-spec-<n>`, save the five-field body
-from that section as soon as the fact is verified. `dispatch` supplies the
-repository Space, Identity, spec, ticket and task scope; use those values
-rather than guessing them from the ticket title. For a map task, the map label
-is additional. For a standalone spec, its spec label already is the task label.
+Save a Memory as soon as all three conditions hold: another ticket or later agent may
+reuse the fact, a current command result or authority verifies it, and the ticket and
+code do not already make it obvious. Evaluate the same trigger again at every
+meaningful milestone or handoff. Save only while `MMW_TASK_SCOPE` is `mmw-map-<n>` or
+`mmw-spec-<n>`; an empty value means routing failed and nothing is written. Store only
+reusable engineering context that is safe for repository collaborators. Exclude
+secrets, customer data, raw chat transcripts, private host paths and unverified
+claims. Use unit type `learning`, or `procedure` for fixed steps. Take the labels from
+the environment rather than reconstructing the numbers from prose: a map task adds its
+map label, and a standalone spec's task label already is `mmw-spec-<spec>`. Write this
+exact body:
 
 ```sh
 label_args=(
@@ -126,16 +92,16 @@ nmem --json memories add --stdin \
 MEMORY
 ```
 
-Use `--unit-type procedure` instead of `learning` for fixed steps. Keep the id
-returned by `nmem` and link the current evidence in the ticket report. A failed
-Memory write is reported as unsaved; continue the ticket work rather than
-treating Memory as a prerequisite for implementation.
+Keep the id `nmem` returns and link the evidence in the ticket report. A failed Memory
+write is reported as unsaved; continue the ticket work rather than treating Memory as
+a prerequisite for implementation.
 
-Correct only an existing Memory from Current task shared experience, or a
-search/list result whose `space_id` equals `NMEM_SPACE`. A shared toolbox
-match is context, not a record for this worker to change. Once the replacement
-Memory is saved and its id returned, link the old record to it; when a record
-is simply obsolete, mark it deprecated:
+Correct only a record from Current task shared experience or Repository experience, or
+a search result whose `space_id` equals `NMEM_SPACE`; a toolbox record is context, not
+a record for this worker to change. When current evidence verifies a replacement, save
+the replacement first and supersede the old record with its id; when a record simply
+no longer applies, deprecate it. Use one lifecycle command per old record, and do not
+leave two active records that conflict:
 
 ```sh
 nmem --json memories supersede "$OLD_ID" "$NEW_ID" \
@@ -144,9 +110,13 @@ nmem --json memories deprecate "$OLD_ID" \
   --space "$NMEM_SPACE" --reason "<current evidence that it no longer applies>"
 ```
 
-Use one lifecycle command for the old record, not both. The main agent's
-closing pass and the `retro` skill have their own script commands; a worker
-does not write their Memory records or edit Working Memory here.
+The main agent's closing pass and the `retro` skill have their own script commands; a
+worker does not write their Memory records or edit Working Memory here.
+
+Finish by reporting the Memory records added, used, superseded, or deprecated, and the
+evidence used to validate them. If none changed, say so.
+
+Use /tdd where possible, at pre-agreed seams.
 
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.
 

@@ -201,7 +201,11 @@ For each id decide exactly
 one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is;
 `propose` is a candidate for the later retro and does not change the Memory here;
 `deprecate` is no longer valid; `supersede` names the existing `replacement_id` that
-replaces it. Write the result as one UTF-8 JSON object:
+replaces it. A `propose` decision's `evidence` is exactly one event comment URL
+(`https://github.com/<owner>/<name>/issues/<n>#issuecomment-<id>`) or commit URL
+(`https://github.com/<owner>/<name>/commit/<40-hex sha>`): the retro counts the
+proposal only when that string is one of its problem's sources, and `summary` refuses
+any other value. Write the result as one UTF-8 JSON object:
 
 ```json
 {"status":"complete","total":2,"returned":2,"decisions":[{"memory_id":"<id>","decision":"retain","reason":"<why>","evidence":"<where that was established>"},{"memory_id":"<old id>","decision":"supersede","reason":"<why>","evidence":"<where that was established>","replacement_id":"<existing id>"}]}
