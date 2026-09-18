@@ -183,11 +183,20 @@
       "height": 1202
     },
     {
+      "slug": "waterfall",
+      "source": "skills/diagram-design/assets/example-waterfall.html",
+      "screenshot": "docs/screenshots/waterfall.png",
+      "source_sha256": "10c4445b0582ddd6644ac734914c3549e9eb39075ee6e258ea78044a43c0ca3d",
+      "screenshot_sha256": "41a9d0c428b86fd8d75a301ca91c9b69e05376e931c67f7821b4c561f4b12b7e",
+      "width": 2400,
+      "height": 1202
+    },
+    {
       "slug": "treemap",
       "source": "skills/diagram-design/assets/example-treemap.html",
       "screenshot": "docs/screenshots/treemap.png",
-      "source_sha256": "e7014bd22d5bc1a5b173747caca0dc6d2916cec5a3038d2b953187e45245e1b4",
-      "screenshot_sha256": "780ceae4760ecaf02cda02d1783e578b40900c8ac9e6f7f9eead8c95cc75fb7a",
+      "source_sha256": "95f0dd0e5072bbe327c7a85d1fa71a18cff3ade32240a917c4b672940d151008",
+      "screenshot_sha256": "e8a341bcb240b4f3d7a4c61fae302304cb6e0be5234653e92cffec54bec1ac3c",
       "width": 2400,
       "height": 1202
     },
