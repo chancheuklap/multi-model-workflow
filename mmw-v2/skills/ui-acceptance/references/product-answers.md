@@ -9,8 +9,35 @@ python3 <scripts>/target_config.py --check [--repo <dir>] [--kind <kind> | --con
 ```
 
 It prints every field as `ok`, `missing` (one sentence and one example) or `absent`
-(optional), then the three rules below. That screen is the whole list. The reasons a
-field is shaped as it is are the fields below.
+(optional), then the rules below. That screen is the whole list. The reasons a
+field is shaped as it is are the fields below. What every answer must guarantee,
+whatever shape the product takes, is the next section.
+
+## What every product answer must guarantee
+
+These hold for every product. How a given repository meets them is its own.
+
+- **Story pages render the product's own components.** A `Component · ` page is
+  that component in one scene. An `App · ` page is the story service composing
+  those same components into a whole page from **scene data**. Neither page
+  carries a Claude Design runtime (`sc-interp`, `data-dc-tpl`, `data-dc-script`,
+  `dc-root`).
+- **`[data-story-root]` sits on the component's own root element**, together with
+  `data-screen="<mount>"` and the same `data-ui` id the design page's root carries.
+  Every other compared element carries that design page's matching `data-ui` id.
+- **Time values come from scene data.** A client-rendered product loads the same
+  paused clock the design side uses, so a clock reading is not a live instant.
+- **A boundary test replaces the outbound call module** the consuming repository
+  names — the layer that emits the call, whether the call travels as HTTP, IPC, or
+  an extension message.
+- **`.mmw/harness/` implements the break switch.** `start` reads `MMW_BREAK` as
+  `<METHOD> <route-pattern>`, fails only the one matching interface, acts only on
+  the product process, and prints `BREAK ARMED <METHOD> <route>` while the switch
+  is active.
+- **A journey script reads only the addresses `discover` printed.** It starts
+  nothing of its own — no application, server, container, or backing service.
+- **`harness_markers` declares this product's back-door strings** — the names it
+  uses only to make itself drivable. `[]` is an answer.
 
 ## What the repository answers
 
@@ -26,7 +53,9 @@ field. This section says why each one is shaped the way it is.
   found or chosen inside this command, from the lease in its environment
   (`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`,
   `MMW_AUTOMATION`). It refuses to start with no lease and prints the command that
-  supplies one: `python3 <scripts>/lease.py run -- <the start command>`.
+  supplies one: `python3 <scripts>/lease.py run -- <the start command>`. When
+  `MMW_BREAK` is in that command's environment, this is also the process that
+  arms the break switch.
 
 - **`stop`.** The only way a run ends a process. It ends only what this run
   recorded as its own, leaves a neighbour's product alone, exits 0 with nothing to
@@ -56,15 +85,21 @@ field. This section says why each one is shaped the way it is.
   lease, runs `start`, runs `discover`, puts each discover key into the
   environment under its uppercase spelling (so `origin` arrives as `ORIGIN`)
   together with the lease variables, runs that script, and runs `stop`
-  whether the script succeeded or not. Then it runs the script once more, with the
-  product down and the addresses moved, as its negative control: what a journey script
-  has to assert for that to work, and what each line it prints means, are
-  [journey.md](journey.md).
+  whether the script succeeded or not. With `--break`, it starts the product
+  again with the break switch armed and requires the script to fail. Without
+  `--break`, it runs the script once more with the product down and the addresses
+  moved. What a journey script has to assert for either control to work, and what
+  each line it prints means, are [journey.md](journey.md).
 
 - **`leaves_machine`.** Each thing this product does in a run that reaches past
   this machine — opening the system browser, calling a paid service, writing a
   machine-global location — naming the file that records it under
   `MMW_AUTOMATION=1`. `[]` is an answer; a missing key is not.
+
+- **`harness_markers`.** The strings this product uses only to make itself
+  drivable. `[]` is an answer; a missing key is not. The command that judges
+  those strings, and the criterion that carries it, are
+  [harness-guard.md](harness-guard.md).
 
 - **`instance`.** A product whose ports cannot move says
   `{"max": <n>, "why": "…"}`; absent means the product takes its ports from the
@@ -92,28 +127,36 @@ field. This section says why each one is shaped the way it is.
 Product answers live here, not scattered through the repository:
 
 - `target.json` — the fields above
-- `harness/` — start the stack, vendor stubs, account seeds, the few seeds a
-  journey uses, the entry that records an action that would leave the machine
+- `harness/` — start the stack, the break switch, vendor stubs, account seeds, the
+  few seeds a journey uses, the entry that records an action that would leave the
+  machine
 - `journeys/` — one directory per named journey
 - `stories/` — story pages and their adapter
 
 Scripts a person runs on their own machine may stay where they are, provided they
 call the same start code `harness/` uses.
 
-Reads of `MMW_` variables, `/api/dev/`, `transport off` and `__stub` belong in
-`.mmw/`, `tests/`, `scripts/dev/`, and the files `leaves_machine` names; anywhere
-else is a leak. The command that judges that, and the criterion that carries it,
-are [harness-guard.md](harness-guard.md).
+Reads of `MMW_` variables and the strings `harness_markers` lists belong in
+`.mmw/`, `tests/`, `scripts/dev/`, a test file kept beside the code it tests, and
+the files `leaves_machine` names; anywhere else is a leak. The command that
+judges that, and the criterion that carries it, are
+[harness-guard.md](harness-guard.md).
 
-## Three rules
+## An example, not a rule
+
+工作监控 meets the same guarantees by a different shape: its story service
+renders the production templates rather than a per-page module; one story adapter
+covers every design page; a boundary test parses the server-rendered HTML and
+infers the request from that. Those are facts about one product. They are not
+requirements on the next one. A desktop application's shape is written when that
+product's contract ticket has run.
+
+## Rules
 
 `target_config.py --check` prints these. It can see that `leaves_machine` is answered; it
-cannot see a Gateway address in the environment or whether a key is a
-placeholder. Those two are `start`'s job.
+cannot see whether a key is a placeholder. That is `start`'s job.
 
 - Automation uses placeholder keys, vendor stubs, and local accounts. Real keys
   exist only on a paid-smoke ticket labelled `ready-for-human`.
-- `start` refuses when the environment holds a Gateway address that points
-  elsewhere.
 - Every action `leaves_machine` names records instead of leaving the machine
   when `MMW_AUTOMATION=1`.

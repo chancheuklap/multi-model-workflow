@@ -332,7 +332,6 @@ def target_main(argv: list[str]) -> int:
         print(f"  target.kind {kind!r} is not one of {list(KINDS)}")
     print("rules:")
     print("  automation uses placeholder keys, vendor stubs, and local accounts")
-    print("  start refuses a Gateway address that points elsewhere")
     print("  leaves_machine actions record under MMW_AUTOMATION=1")
     if problems:
         print(f"{len(problems)} to answer; run this again when the file is filled")
