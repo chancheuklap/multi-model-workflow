@@ -28,7 +28,9 @@ fi
 
 # No parent to tell. These tests exercise session-bound paths against made-up agents, so
 # an inherited Paseo identity must not turn their output into news about work nobody is doing.
-unset PASEO_AGENT_ID
+# They also test judge ownership itself: an outer acceptance run's ownership marker would
+# make their inner judge skip the release the assertions are meant to observe.
+unset PASEO_AGENT_ID MMW_JUDGE_LEASE_OWNER
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "uv is not on PATH" >&2
