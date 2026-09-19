@@ -23,7 +23,7 @@ Two of these scripts are run from a copy instead, under their bare names: `mk.py
 | Command | 0 | 1 | 2 |
 | --- | --- | --- | --- |
 | `<scripts>/check_editable_selectors.py` | `every selector is editor-resolvable (<n> files)` | `<n> selectors the editor cannot reach`, one line each above it | no file given, or one of the CSS files will not open |
-| `<scripts>/pull_design.py` | the handoff package was written | text files need `--reread` | invocation error or the package cannot be completed; the target is unchanged |
+| `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | text files need `--reread` | invocation error or the package cannot be completed; the target is unchanged |
 | `mk.py`, `<scripts>/mkharness.py`, `<scripts>/deadsweep.py` | it ran | it raised; the Python traceback is on stderr | — |
 
 The three in the last row have no exit code of their own — Python's own is the whole of it.

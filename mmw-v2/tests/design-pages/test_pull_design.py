@@ -23,9 +23,10 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "mmw-v2" / "skills" / "design-pages" / "scripts" / "pull_design.py"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "pull"
 INJECTED = (
-    b'<style data-omelette-injected>body{outline:0}</style>'
+    b'\n    <style data-omelette-injected>body{outline:0}</style>\n    '
     b'<script data-omelette-injected>window.__preview=true</script>'
 )
+SERVE_PREFIX = "/v1/design/projects/fixture-project/serve/"
 
 
 class Preview:
@@ -62,8 +63,8 @@ class Preview:
             def do_GET(self):
                 path = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
                 owner.requests[path] += 1
-                if path.startswith("/preview/"):
-                    rel = path.removeprefix("/preview/")
+                if path.startswith(SERVE_PREFIX):
+                    rel = path.removeprefix(SERVE_PREFIX)
                     body = owner.files.get(rel)
                     if body is None:
                         self.send_error(503)
@@ -91,7 +92,10 @@ class Preview:
 
     @property
     def preview_url(self) -> str:
-        return f"http://127.0.0.1:{self.port}/preview/?token=secret-preview-token"
+        return (
+            f"http://fixture-project.claudeusercontent.localhost:{self.port}"
+            f"{SERVE_PREFIX}Overview.dc.html?token=secret-preview-token&direct=1"
+        )
 
     def close(self):
         self.server.shutdown()
@@ -112,24 +116,29 @@ class PullDesign(unittest.TestCase):
 
     def write_manifest(self, extra: list[dict] | None = None):
         files = [
-            {"path": path, "size": len(body), "etag": f'etag-{i}'}
+            {"path": path, "type": "file", "size": len(body), "etag": f'etag-{i}'}
             for i, (path, body) in enumerate(self.preview.files.items())
             if body is not None
         ]
         files.extend(extra or [])
         self.manifest.write_text(
-            json.dumps({"project_id": "fixture-project", "files": files}, indent=2),
+            json.dumps(files, indent=2),
             encoding="utf-8",
         )
 
-    def pull(self, *extra: str, preview_url: str | None = None):
+    def pull(
+        self, *extra: str, preview_url: str | None = None,
+        unset_preview: bool = False, script: Path = SCRIPT,
+    ):
         env = os.environ.copy()
-        if preview_url is not None:
+        if unset_preview:
+            env.pop("MMW_DESIGN_PREVIEW_URL", None)
+        elif preview_url is not None:
             env["MMW_DESIGN_PREVIEW_URL"] = preview_url
         else:
             env["MMW_DESIGN_PREVIEW_URL"] = self.preview.preview_url
         return subprocess.run(
-            [sys.executable, str(SCRIPT), str(self.manifest), str(self.target), *extra],
+            [sys.executable, str(script), str(self.manifest), str(self.target), *extra],
             capture_output=True,
             text=True,
             env=env,
@@ -168,13 +177,13 @@ class PullDesign(unittest.TestCase):
     def test_a_failed_download_over_256_kib_exits_2_and_writes_nothing(self):
         self.target.mkdir()
         (self.target / "existing.txt").write_text("unchanged", encoding="utf-8")
-        self.preview.files["videos/demo.mp4"] = None
+        self.preview.files["data/large.txt"] = None
         self.write_manifest([
-            {"path": "videos/demo.mp4", "size": 300 * 1024, "etag": "video-v1"}
+            {"path": "data/large.txt", "size": 300 * 1024, "etag": "text-v1"}
         ])
         result = self.pull()
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("videos/demo.mp4", result.stdout + result.stderr)
+        self.assertIn("data/large.txt", result.stdout + result.stderr)
         self.assertEqual(
             [path.relative_to(self.target).as_posix() for path in self.target.rglob("*")],
             ["existing.txt"],
@@ -183,7 +192,7 @@ class PullDesign(unittest.TestCase):
 
     def test_a_binary_with_the_same_etag_is_kept_from_the_target(self):
         manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
-        image = next(row for row in manifest["files"] if row["path"] == "assets/logo.png")
+        image = next(row for row in manifest if row["path"] == "assets/logo.png")
         kept = b"existing-image-with-claude-source-metadata"
         (self.target / "assets").mkdir(parents=True)
         (self.target / "assets" / "logo.png").write_bytes(kept)
@@ -194,7 +203,34 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.target / "assets/logo.png").read_bytes(), kept)
-        self.assertEqual(self.preview.requests["/preview/assets/logo.png"], 0)
+        self.assertEqual(self.preview.requests[SERVE_PREFIX + "assets/logo.png"], 0)
+
+    def test_a_binary_with_a_changed_etag_is_downloaded(self):
+        manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
+        image = next(row for row in manifest if row["path"] == "assets/logo.png")
+        previous = dict(image, etag="older-etag")
+        (self.target / "assets").mkdir(parents=True)
+        (self.target / "assets" / "logo.png").write_bytes(b"old-image")
+        (self.target / "design-manifest.json").write_text(
+            json.dumps({"project_id": "fixture-project", "files": [previous]}),
+            encoding="utf-8",
+        )
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            (self.target / "assets/logo.png").read_bytes(),
+            self.preview.files["assets/logo.png"],
+        )
+        self.assertEqual(self.preview.requests[SERVE_PREFIX + "assets/logo.png"], 1)
+
+    def test_a_failed_small_binary_download_exits_2_not_1(self):
+        self.preview.files["fonts/body.woff2"] = None
+        self.write_manifest([
+            {"path": "fonts/body.woff2", "size": 1024, "etag": "font-v1"}
+        ])
+        result = self.pull()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("fonts/body.woff2", result.stdout + result.stderr)
 
     def test_design_handoff_directories_are_skipped(self):
         path = "design_handoff_previous/old.txt"
@@ -203,7 +239,7 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse((self.target / path).exists())
-        self.assertEqual(self.preview.requests[f"/preview/{path}"], 0)
+        self.assertEqual(self.preview.requests[SERVE_PREFIX + path], 0)
 
     def test_scenes_json_is_generated_from_each_page_scene_prop(self):
         result = self.pull()
@@ -214,6 +250,10 @@ class PullDesign(unittest.TestCase):
             ["Component · Demo.ready", "Component · Demo.empty"],
         )
         self.assertTrue(all(row["page"] == "Component · Demo.dc.html" for row in rows))
+        self.assertEqual(
+            [row["props"] for row in rows],
+            [{"scene": "ready"}, {"scene": "empty"}],
+        )
         self.assertTrue(all("/" not in row["name"] for row in rows))
         self.assertFalse(any(row["page"] == "Overview.dc.html" for row in rows))
 
@@ -221,7 +261,23 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         rows = json.loads((self.target / "scenes.json").read_text(encoding="utf-8"))
-        self.assertNotIn("Component · Demo.future", [row["name"] for row in rows])
+        self.assertEqual(
+            [row["name"] for row in rows],
+            ["Component · Demo.ready", "Component · Demo.empty"],
+        )
+
+    def test_a_page_in_a_subfolder_uses_only_its_filename_in_scene_names(self):
+        body = self.preview.files.pop("Component · Demo.dc.html")
+        self.preview.files["pages/Component · Demo.dc.html"] = body
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        rows = json.loads((self.target / "scenes.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            [row["name"] for row in rows],
+            ["Component · Demo.ready", "Component · Demo.empty"],
+        )
+        self.assertTrue(all(row["page"].startswith("pages/") for row in rows))
 
     def test_scene_data_is_keyed_by_data_ui_id_with_nesting_and_lists(self):
         result = self.pull()
@@ -262,8 +318,33 @@ class PullDesign(unittest.TestCase):
         self.assertIn("Passed: 2/2 scenes", readme)
         self.assertIn("Claude Design project id: `fixture-project`", readme)
 
+    def test_a_successful_pull_preserves_non_package_files_and_the_state_list(self):
+        self.target.mkdir()
+        (self.target / "prototype.tsx").write_text("keep me", encoding="utf-8")
+        (self.target / "README.md").write_text(
+            "# Prototype\n\n## State list\n\n### Header\n- ready\n",
+            encoding="utf-8",
+        )
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((self.target / "prototype.tsx").read_text(), "keep me")
+        readme = (self.target / "README.md").read_text(encoding="utf-8")
+        self.assertIn("## State list\n\n### Header\n- ready", readme)
+
+    def test_an_empty_offline_root_refuses_without_changing_the_target(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        start = page.index(b'<main data-ui="root">')
+        end = page.index(b"</main>", start) + len(b"</main>")
+        self.preview.files["Component · Demo.dc.html"] = page[:start] + page[end:]
+        self.write_manifest()
+        self.target.mkdir()
+        (self.target / "existing.txt").write_text("unchanged", encoding="utf-8")
+        result = self.pull()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual((self.target / "existing.txt").read_text(), "unchanged")
+
     def test_a_missing_preview_url_exits_2(self):
-        result = self.pull(preview_url="")
+        result = self.pull(unset_preview=True)
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("MMW_DESIGN_PREVIEW_URL", result.stdout + result.stderr)
         self.assertFalse(self.target.exists())
@@ -271,11 +352,28 @@ class PullDesign(unittest.TestCase):
     def test_the_preview_url_is_never_printed_or_written(self):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        secret = self.preview.preview_url.encode("utf-8")
-        self.assertNotIn(self.preview.preview_url, result.stdout + result.stderr)
+        secret = b"secret-preview-token"
+        self.assertNotIn(secret.decode(), result.stdout + result.stderr)
         for path in self.target.rglob("*"):
             if path.is_file():
                 self.assertNotIn(secret, path.read_bytes(), str(path.relative_to(self.target)))
+
+        self.preview.files["styles/app.css"] += b"/* mismatched */\n"
+        refused = self.pull()
+        self.assertEqual(refused.returncode, 1, refused.stdout + refused.stderr)
+        self.assertNotIn(secret.decode(), refused.stdout + refused.stderr)
+
+    def test_tools_override_supplies_refusal_and_renderer_modules(self):
+        isolated = self.work / "isolated" / "pull_design.py"
+        isolated.parent.mkdir()
+        isolated.write_bytes(SCRIPT.read_bytes())
+        tools = ROOT / "mmw-v2" / "skills" / "ui-acceptance" / "scripts"
+        result = self.pull(
+            "--tools", str(tools), unset_preview=True, script=isolated,
+        )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("MMW_DESIGN_PREVIEW_URL", result.stdout + result.stderr)
+        self.assertNotIn("Traceback", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["playwright>=1.58"]
+# ///
 """Pull one Claude Design project into a complete handoff package.
 
 Usage: pull_design.py <manifest.json> <handoff-dir> [--reread <dir>] [--tools <dir>]
@@ -21,7 +25,6 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -34,7 +37,7 @@ MEDIA_SUFFIXES = {
     ".mp4", ".mpeg", ".mpg", ".png", ".svg", ".webm", ".webp",
 }
 TEXT_SUFFIXES = {
-    ".css", ".csv", ".html", ".js", ".json", ".md", ".mjs", ".svg",
+    ".css", ".csv", ".html", ".js", ".json", ".md", ".mjs",
     ".txt", ".xml", ".yaml", ".yml",
 }
 VENDOR_CONSTANTS = ("REACT_URL", "REACT_DOM_URL", "BABEL_URL")
@@ -45,6 +48,14 @@ class ManifestFile:
     path: str
     size: int
     etag: str | None
+
+
+@dataclass
+class HandoffPackage:
+    root: Path
+    scenes: list[dict]
+    sizes: dict[str, tuple[int, int]]
+    state_list: str = ""
 
 
 class PullRefused(Exception):
@@ -88,12 +99,22 @@ def _load_module(name: str, path: Path):
     return module
 
 
-def refusal_text(what: str, why: str, next_step: str) -> str:
-    refusal = _load_module(
-        "_pull_design_refusal",
-        Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts" / "refusal.py",
+def tool_scripts(tools: Path | None) -> Path:
+    return tools or (
+        Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts"
     )
-    return refusal.refusal(what, why, next_step)
+
+
+def refusal_text(
+    what: str, why: str, next_step: str, tools: Path | None = None,
+) -> str:
+    try:
+        refusal = _load_module(
+            "_pull_design_refusal", tool_scripts(tools) / "refusal.py",
+        )
+        return refusal.refusal(what, why, next_step)
+    except (OSError, ImportError):
+        return " ".join(part.strip() for part in (what, why, next_step) if part.strip())
 
 
 def safe_path(raw: object) -> str:
@@ -110,20 +131,7 @@ def safe_path(raw: object) -> str:
     return pure.as_posix()
 
 
-def manifest_payload(doc: object) -> dict:
-    if not isinstance(doc, dict):
-        raise PullRefused(
-            "the manifest root is not an object.",
-            "The command needs the JSON result of list_files.",
-            "Save the list_files result as JSON and rerun.",
-        )
-    structured = doc.get("structuredContent")
-    if isinstance(structured, dict):
-        return structured
-    return doc
-
-
-def load_manifest(path: Path) -> tuple[str, list[ManifestFile], dict]:
+def load_manifest(path: Path) -> list[ManifestFile]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -132,29 +140,17 @@ def load_manifest(path: Path) -> tuple[str, list[ManifestFile], dict]:
             "The pull has no trustworthy file inventory.",
             "Save a readable list_files JSON result at that path and rerun.",
         ) from exc
-    doc = manifest_payload(raw)
-    project = doc.get("project_id") or doc.get("projectId") or doc.get("project")
-    if isinstance(project, dict):
-        project = project.get("id") or project.get("project_id")
-    if not project:
+    if not isinstance(raw, list):
         raise PullRefused(
-            f"manifest {path} has no project id.",
-            "README.md must identify the Claude Design project that was pulled.",
-            "Save the list_files result with its project_id and rerun.",
-        )
-    rows = doc.get("files") or doc.get("entries") or doc.get("items")
-    if not isinstance(rows, list):
-        raise PullRefused(
-            f"manifest {path} has no file list.",
-            "The pull cannot know which project files must arrive.",
+            f"manifest {path} is not a list_files array.",
+            "The pull needs the unchanged JSON array returned by list_files.",
             "Run list_files with depth -1, save its JSON result, and rerun.",
         )
     files = []
-    for row in rows:
+    for row in raw:
         if not isinstance(row, dict):
             continue
-        kind = str(row.get("type") or row.get("kind") or "").lower()
-        if kind in {"directory", "dir", "folder"}:
+        if str(row.get("type") or "").lower() == "directory":
             continue
         if "size" not in row:
             continue
@@ -167,7 +163,7 @@ def load_manifest(path: Path) -> tuple[str, list[ManifestFile], dict]:
                 "Run list_files with depth -1, save its JSON result, and rerun.",
             ) from exc
         files.append(ManifestFile(
-            safe_path(row.get("path") or row.get("name")),
+            safe_path(row.get("path")),
             size,
             str(row["etag"]) if row.get("etag") is not None else None,
         ))
@@ -177,7 +173,7 @@ def load_manifest(path: Path) -> tuple[str, list[ManifestFile], dict]:
             "A silent empty pull cannot produce a handoff package.",
             "Run list_files with depth -1 for the intended project and rerun.",
         )
-    return str(project), files, raw
+    return files
 
 
 def handoff_path(path: str) -> bool:
@@ -186,11 +182,37 @@ def handoff_path(path: str) -> bool:
 
 def preview_file_url(preview: str, path: str) -> str:
     parsed = urllib.parse.urlsplit(preview)
-    base = parsed.path if parsed.path.endswith("/") else parsed.path + "/"
+    marker = "/serve/"
+    if marker not in parsed.path:
+        raise PullRefused(
+            "MMW_DESIGN_PREVIEW_URL has no /serve/ file path.",
+            "render_preview serve_url identifies one project file under /serve/.",
+            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and rerun.",
+        )
+    base = parsed.path.partition(marker)[0] + marker
     quoted = "/".join(urllib.parse.quote(part, safe="") for part in path.split("/"))
     return urllib.parse.urlunsplit(
         (parsed.scheme, parsed.netloc, base + quoted, parsed.query, "")
     )
+
+
+def project_id_from_preview(preview: str) -> str:
+    host = urllib.parse.urlsplit(preview).hostname or ""
+    marker = ".claudeusercontent."
+    if marker not in host:
+        raise PullRefused(
+            "MMW_DESIGN_PREVIEW_URL has no Claude Design project host.",
+            "README.md must identify the project from <project id>.claudeusercontent.com.",
+            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and rerun.",
+        )
+    project = host.partition(marker)[0]
+    if not project:
+        raise PullRefused(
+            "MMW_DESIGN_PREVIEW_URL has an empty project id.",
+            "README.md must identify the Claude Design project that was pulled.",
+            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and rerun.",
+        )
+    return project
 
 
 def fetch(url: str) -> bytes:
@@ -297,7 +319,7 @@ def write_project_files(
             try:
                 body = fetch(preview_file_url(preview, entry.path))
             except DownloadFailed as exc:
-                if entry.size <= READ_FILE_LIMIT and not is_media(entry.path):
+                if entry.size <= READ_FILE_LIMIT and is_text(entry.path):
                     needs_reread.append(entry.path)
                     continue
                 raise PullRefused(
@@ -305,7 +327,7 @@ def write_project_files(
                     f"The {entry.size}-byte file has no faithful read_file fallback.",
                     "Restore the preview download, then rerun; the target was not changed.",
                 ) from exc
-        if entry.path.lower().endswith((".html", ".dc.html")):
+        if entry.path.lower().endswith(".html"):
             body = strip_injected_head(body)
         if not is_media(entry.path) and len(body) != entry.size:
             if is_text(entry.path, body) and entry.size <= READ_FILE_LIMIT:
@@ -394,12 +416,12 @@ def page_props(path: Path) -> dict:
     return parser.props
 
 
-def scenes_from_pages(staged: Path) -> tuple[list[dict], dict[str, tuple[int, int]]]:
+def scenes_from_pages(staged: Path, state_list: str = "") -> HandoffPackage:
     scenes = []
     sizes = {}
     for page in sorted(staged.rglob("*.dc.html")):
         rel = page.relative_to(staged).as_posix()
-        name = rel.removesuffix(".dc.html")
+        name = PurePosixPath(rel).name.removesuffix(".dc.html")
         if PurePosixPath(rel).name.casefold() == "overview.dc.html":
             continue
         props = page_props(page)
@@ -444,13 +466,11 @@ def scenes_from_pages(staged: Path) -> tuple[list[dict], dict[str, tuple[int, in
                     "Rename that page or scene option in Claude Design, then rerun.",
                 )
             scenes.append({"name": scene_name, "page": rel, "props": {"scene": value}})
-    return scenes, sizes
+    return HandoffPackage(staged, scenes, sizes, state_list)
 
 
 def load_design_render(tools: Path | None):
-    scripts = tools or (
-        Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts"
-    )
+    scripts = tool_scripts(tools)
     path = scripts / "design_render.py"
     try:
         return _load_module("_pull_design_render", path)
@@ -463,9 +483,8 @@ def load_design_render(tools: Path | None):
 
 
 def render_scenes(
-    staged: Path, scenes: list[dict], sizes: dict[str, tuple[int, int]],
-    vendor: dict[str, Path], tools: Path | None,
-) -> None:
+    package: HandoffPackage, vendor: dict[str, Path], tools: Path | None,
+) -> int:
     dr = load_design_render(tools)
     try:
         from playwright.sync_api import sync_playwright
@@ -473,15 +492,15 @@ def render_scenes(
         raise PullRefused(
             "playwright is not importable.",
             "The offline render check cannot start Chromium.",
-            "Run pull_design.py in the design-pages test runtime with Playwright, then rerun.",
+            "Run the executable pull_design.py so its PEP 723 Playwright dependency is loaded.",
         ) from exc
     pages = {
         dr.wrapper_path(scene["name"]): dr.wrapper_page(
             dr.component_of(scene["page"]), scene["props"]
         )
-        for scene in scenes
+        for scene in package.scenes
     }
-    server, port = dr.serve_baseline(staged, pages)
+    server, port = dr.serve_baseline(package.root, pages)
     origin = f"http://127.0.0.1:{port}"
 
     def route_offline(route, request):
@@ -499,8 +518,9 @@ def render_scenes(
             context.route("**/*", route_offline)
             page = context.new_page()
             try:
-                for scene in scenes:
-                    dr.resize(page, sizes[scene["page"]])
+                rendered = 0
+                for scene in package.scenes:
+                    dr.resize(page, package.sizes[scene["page"]])
                     dr.navigate(page, f"{origin}{dr.wrapper_path(scene['name'])}")
                     dr.wait_for_mount(page, "#dc-root")
                     root = page.locator("#dc-root").first
@@ -511,6 +531,7 @@ def render_scenes(
                             "Fix that design page and rerun; the target was not changed.",
                         )
                     scene["data"] = dr.nest_ui_values(dr.read_ui_values(page, "#dc-root"))
+                    rendered += 1
             finally:
                 browser.close()
     except PullRefused:
@@ -524,6 +545,7 @@ def render_scenes(
     finally:
         server.shutdown()
         server.server_close()
+    return rendered
 
 
 def manifest_for_package(project: str, files: list[ManifestFile]) -> dict:
@@ -537,7 +559,7 @@ def manifest_for_package(project: str, files: list[ManifestFile]) -> dict:
 
 
 def write_readme(
-    staged: Path, project: str, scenes: list[dict], sizes: dict[str, tuple[int, int]],
+    package: HandoffPackage, project: str, rendered: int,
 ) -> None:
     lines = [
         "# Claude Design handoff package",
@@ -545,15 +567,15 @@ def write_readme(
         "## Viewport and size source",
         "",
     ]
-    for page, (width, height) in sorted(sizes.items()):
+    for page, (width, height) in sorted(package.sizes.items()):
         lines.append(f"- `{page}`: `{width}x{height}` from `$preview.width` and `$preview.height`.")
-    if not sizes:
+    if not package.sizes:
         lines.append("- No page declared a `scene` prop; no scene viewport was required.")
     lines.extend([
         "",
         "## Offline render check",
         "",
-        f"- Passed: {len(scenes)}/{len(scenes)} scenes rendered with external network requests blocked.",
+        f"- Passed: {rendered}/{len(package.scenes)} scenes rendered with external network requests blocked.",
         "",
         "## Pull provenance",
         "",
@@ -561,13 +583,75 @@ def write_readme(
         f"- Claude Design project id: `{project}`.",
         "",
     ])
-    (staged / "README.md").write_text("\n".join(lines), encoding="utf-8")
+    if package.state_list:
+        lines.extend([package.state_list.rstrip(), ""])
+    (package.root / "README.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def state_list_section(readme: Path) -> str:
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return ""
+    match = re.search(r"(?ms)^## State list\s*\n.*?(?=^## |\Z)", text)
+    return match.group(0).rstrip() if match else ""
+
+
+def previous_paths(target: Path) -> set[str]:
+    path = target / "design-manifest.json"
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    rows = doc.get("files") if isinstance(doc, dict) else None
+    if not isinstance(rows, list):
+        return set()
+    return {
+        str(row["path"])
+        for row in rows
+        if isinstance(row, dict) and isinstance(row.get("path"), str)
+    }
+
+
+def prepare_staging(
+    target: Path, staged: Path, files: list[ManifestFile],
+) -> str:
+    state_list = state_list_section(target / "README.md")
+    old_paths = previous_paths(target)
+    if target.exists():
+        if not target.is_dir():
+            raise PullRefused(
+                f"handoff target is not a directory: {target}.",
+                "The pull cannot preserve files beside the generated package.",
+                "Move that file aside, create a directory target, and rerun.",
+            )
+        shutil.copytree(target, staged)
+    else:
+        staged.mkdir()
+
+    current = {entry.path for entry in files if not handoff_path(entry.path)}
+    for stale in old_paths - current:
+        try:
+            path = staged.joinpath(*PurePosixPath(safe_path(stale)).parts)
+        except PullRefused:
+            continue
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.exists():
+            path.unlink()
+    vendor = staged / "vendor"
+    if vendor.is_dir():
+        shutil.rmtree(vendor)
+    elif vendor.exists():
+        vendor.unlink()
+    return state_list
 
 
 def install(staged: Path, target: Path) -> None:
     backup = None
     if target.exists():
-        backup = target.parent / f".{target.name}.before-pull-{uuid.uuid4().hex}"
+        backup = Path(tempfile.mkdtemp(prefix=f".{target.name}.before-pull-", dir=target.parent))
+        backup.rmdir()
         os.replace(target, backup)
     try:
         os.replace(staged, target)
@@ -576,10 +660,17 @@ def install(staged: Path, target: Path) -> None:
             os.replace(backup, target)
         raise
     if backup is not None:
-        if backup.is_dir():
-            shutil.rmtree(backup)
-        else:
-            backup.unlink()
+        try:
+            if backup.is_dir():
+                shutil.rmtree(backup)
+            else:
+                backup.unlink()
+        except OSError as exc:
+            print(
+                f"WARNING: installed the handoff package but could not remove {backup} "
+                f"({type(exc).__name__}).",
+                file=sys.stderr,
+            )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -605,8 +696,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return args
 
 
-def run(argv: list[str]) -> None:
-    args = parse_args(argv)
+def run(args: argparse.Namespace) -> None:
     preview = os.environ.get("MMW_DESIGN_PREVIEW_URL")
     if not preview:
         raise PullRefused(
@@ -618,39 +708,44 @@ def run(argv: list[str]) -> None:
     target = Path(args.target)
     reread = Path(args.reread) if args.reread else None
     tools = Path(args.tools) if args.tools else None
-    project, files, _raw = load_manifest(manifest)
+    project = project_id_from_preview(preview)
+    files = load_manifest(manifest)
     target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".{target.name}.pull-", dir=target.parent) as temp:
         staged = Path(temp) / "package"
-        staged.mkdir()
+        state_list = prepare_staging(target, staged, files)
         write_project_files(files, preview, reread, target, staged)
         vendor = pull_vendor(staged)
-        scenes, sizes = scenes_from_pages(staged)
-        render_scenes(staged, scenes, sizes, vendor, tools)
+        package = scenes_from_pages(staged, state_list)
+        rendered = render_scenes(package, vendor, tools)
         (staged / "scenes.json").write_text(
-            json.dumps(scenes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            json.dumps(package.scenes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         (staged / "design-manifest.json").write_text(
             json.dumps(manifest_for_package(project, files), ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        write_readme(staged, project, scenes, sizes)
+        write_readme(package, project, rendered)
         install(staged, target)
-    print(f"pulled {len(files)} files and rendered {len(scenes)} scenes")
+    print(f"pulled {len(files)} files and rendered {rendered} scenes")
 
 
 def main() -> int:
+    tools = None
     try:
-        run(sys.argv[1:])
+        args = parse_args(sys.argv[1:])
+        tools = Path(args.tools) if args.tools else None
+        run(args)
         return 0
     except PullRefused as exc:
-        print(refusal_text(exc.what, exc.why, exc.next_step), file=sys.stderr)
+        print(refusal_text(exc.what, exc.why, exc.next_step, tools), file=sys.stderr)
         return exc.code
     except Exception as exc:
         print(refusal_text(
             f"pull_design.py failed ({type(exc).__name__}).",
             "The handoff package could not be completed atomically.",
-            "Fix the reported local failure and rerun; the target was not changed.",
+            "Inspect the target, fix the reported local failure, and rerun.",
+            tools,
         ), file=sys.stderr)
         return 2
 

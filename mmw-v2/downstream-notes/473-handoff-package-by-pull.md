@@ -1,4 +1,4 @@
-# Handoff package 由 pull 生成
+# 473-handoff-package-by-pull
 
 ## 改了什么
 
@@ -9,6 +9,7 @@
 - consuming repository 中手写的 handoff package `README.md` 与 `scenes.json` 失效；旧的 `{state, vals}` scene data 也失效。
 - 使用 `scenario` 或其他 prop 名的 Claude Design 页面不能生成 scene；agentflow 工作监控的现有页面属于这一类。
 - screen contract 与 story adapter 中引用旧 scene 名或读取旧 scene data 形状的行失效。
+- **target trees**：`scenes.json` 重新生成后，`docs/specs/<effort>/targets/<page>.aria` 与 `.classes` 头部的 `# scenes.json sha256=` 失配，必须随 screen contract 一起重建。
 - ticket `CHECK:` 中直接运行 `export_scene_data.py` 的命令失效；该脚本已移出 live skill。
 
 ## 怎么迁
