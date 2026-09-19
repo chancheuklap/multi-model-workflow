@@ -372,15 +372,6 @@ def baseline_router(origin: str, baseline: Path, cache: Path):
     return route_baseline
 
 
-def frame_box(size: tuple[int, int]) -> str:
-    """Pin `#dc-root` to the box the implementation's mount element measured. The
-    `.dc.html` helmet pins it to the size the component was drawn at; the component
-    fills its container (`#dc-root > * { height:100% }`), so the design renders at
-    whatever box the product gives that component, and no size is declared anywhere."""
-    return (f"#dc-root{{width:{size[0]}px !important;height:{size[1]}px !important;"
-            f"margin:0 !important}}")
-
-
 def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
     """Hide every retired control on the baseline side — not merely drop it from the
     tree: it takes up room, and a tree-only exclusion leaves a pixel difference and a
@@ -673,8 +664,8 @@ def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] |
     `selector`, on a page that has already been navigated and settled.
 
     `clip` is the screenshot rectangle in viewport coordinates. The tree, class set
-    and values walk the whole subtree. `extra_css` pins the design frame;
-    `extra_js` applies the retired-control or negative-control mutation before capture.
+    and values walk the whole subtree. `extra_css` is extra stylesheet text;
+    `extra_js` applies a negative-control mutation before capture.
     """
     if extra_css:
         page.add_style_tag(content=extra_css)

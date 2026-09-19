@@ -18,6 +18,10 @@
       .pixel-only { position: absolute; left: 16px; top: 180px; width: 10px; height: 10px; background: #111; }
       h1 { margin: 0 0 8px; font-size: 20px; line-height: 24px; font-weight: 700; }
       p { margin: 0 0 12px; }
+      .demo > h1, .demo > p, .demo > [data-ui="group"], .demo > [data-ui="repeats"] {
+        width: 288px;
+        box-sizing: border-box;
+      }
       button { margin: 0; padding: 4px 8px; font: 14px/20px sans-serif; }
     </style>
   </head>
@@ -125,6 +129,25 @@
         if (mutate === "no-ids") {
           root.removeAttribute("data-ui");
           for (const el of root.querySelectorAll("[data-ui]")) el.removeAttribute("data-ui");
+        }
+        if (mutate === "narrow-frame") {
+          root.style.width = "300px";
+        }
+        if (mutate === "sc-interp") {
+          const body = root.querySelector('[data-ui="body"]');
+          const span = document.createElement("span");
+          span.className = "sc-interp";
+          while (body.firstChild) span.appendChild(body.firstChild);
+          body.appendChild(span);
+        }
+        if (mutate === "dc-tpl") {
+          root.setAttribute("data-dc-tpl", "");
+        }
+        if (mutate === "dc-script") {
+          root.setAttribute("data-dc-script", "");
+        }
+        if (mutate === "dc-root") {
+          root.id = "dc-root";
         }
       }
     </script>

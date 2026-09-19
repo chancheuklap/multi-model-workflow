@@ -37,8 +37,11 @@ tickets add one story adapter per design page.
 ## The two sides
 
 The product side is the subtree rooted at `[data-story-root]`. The design side is
-the handoff package's page, rendered offline with `#dc-root` pinned to the product
-root's measured width and height. Both sides are read as rendered. The judge does
+the handoff package's page, rendered offline in the same contract `viewports`
+window; `#dc-root` keeps the size the design page renders at in that window. Both
+browser contexts take `locale` from the contract; there is no fallback. Neither
+side reads a live clock: the design side keeps its paused clock, and the product's
+time values come from scene data. Both sides are read as rendered. The judge does
 not hide controls or replace display values.
 
 For each `[data-ui]` element, the common reader records these facts in document
@@ -141,9 +144,14 @@ The JSON array uses the fields in **The two sides** and preserves document order
 
 - `0`: one line `STORY OK <passed>/<total>`.
 - `1`: one or more lines in **The DIFF line** shape.
-- `2`: a negative control failed, the story service did not start, a page could not
-  be reached, or the requested mount/scene is outside the contract. The refusal
-  names the fact it could not establish.
+- `2`: a negative control failed; the `stories` command did not start; a story page
+  404; `--pages` names a mount the contract does not declare; the contract has no
+  `viewports` or no `locale`; `volatile_values` is non-empty; a `retired_ids` entry
+  carries `trigger`; or the product story page carries `sc-interp`, `data-dc-tpl`,
+  `data-dc-script` or `dc-root`. Each refusal names the fact, why, and what to do
+  next. `--render-only` applies the same `viewports`, `locale`, `volatile_values`
+  and `retired_ids` refusals; Claude Design runtime traces need a product page
+  and do not apply.
 
 `--out <dir>` keeps both screenshots, their pixel difference image and the ARIA
 capture beside each screenshot. `--render-only` additionally writes the design

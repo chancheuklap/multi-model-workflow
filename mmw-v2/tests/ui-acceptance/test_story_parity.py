@@ -358,6 +358,166 @@ class TestStoryFixture(unittest.TestCase):
         self.assertIn("story page 404", proc.stderr)
         self.assertIn("scene=missing", proc.stderr)
 
+    def _rewrite_contract(self, root: Path, transform) -> None:
+        path = root / CONTRACT
+        path.write_text(transform(path.read_text(encoding="utf-8")), encoding="utf-8")
+
+    def _drop_contract_key(self, root: Path, key: str) -> None:
+        prefix = f"{key}:"
+        self._rewrite_contract(
+            root,
+            lambda text: "".join(
+                line for line in text.splitlines(True) if not line.startswith(prefix)))
+
+    def test_a_product_frame_drawn_wrong_is_a_size_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "narrow-frame"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 root size "
+                         "design=320x200 product=300x200")
+
+    def test_a_contract_without_viewports_exits_2_naming_it(self):
+        root = self.copied_fixture()
+        self._drop_contract_key(root, "viewports")
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        err = proc.stderr + proc.stdout
+        self.assertIn("viewports", err)
+        self.assertIn("then rerun", err)
+
+    def test_a_contract_without_locale_exits_2_naming_it(self):
+        root = self.copied_fixture()
+        self._drop_contract_key(root, "locale")
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        err = proc.stderr + proc.stdout
+        self.assertIn("locale", err)
+        self.assertIn("story-parity.md", err)
+        self.assertIn("then rerun", err)
+
+    def test_the_contract_locale_reaches_both_sides(self):
+        root = self.copied_fixture()
+        self._rewrite_contract(root, lambda text: (
+            text.replace("locale: zh-CN\n", "locale: en-US\n")
+            if "locale:" in text
+            else text.replace("effort: story\n", "effort: story\nlocale: en-US\n", 1)))
+        design = (root / "docs" / "prototypes" / "story" / "claude-design"
+                  / "Component · Demo.dc.html")
+        design.write_text(
+            design.read_text(encoding="utf-8").replace(
+                '<span data-ui="hidden"',
+                '<span data-ui="locale-probe" style="position:absolute;left:0;top:0;'
+                'width:48px;height:12px;font-size:10px;line-height:12px;'
+                'overflow:hidden"></span>\n        <span data-ui="hidden"',
+                1),
+            encoding="utf-8")
+        support = (root / "docs" / "prototypes" / "story" / "claude-design"
+                   / "support.js")
+        support.write_text(
+            support.read_text(encoding="utf-8")
+            + "\n(function () {\n"
+              "  const apply = () => {\n"
+              "    const els = document.querySelectorAll('[data-ui=\"locale-probe\"]');\n"
+              "    if (!els.length) return false;\n"
+              "    for (const el of els) {\n"
+              "      if (el.getAttribute('data-filled') === '1') continue;\n"
+              "      el.textContent = navigator.language;\n"
+              "      el.setAttribute('data-filled', '1');\n"
+              "    }\n"
+              "    return true;\n"
+              "  };\n"
+              "  if (apply()) return;\n"
+              "  const obs = new MutationObserver(() => { if (apply()) obs.disconnect(); });\n"
+              "  obs.observe(document.documentElement, {subtree: true, childList: true});\n"
+              "})();\n",
+            encoding="utf-8")
+        page = root / "stories" / "index.html"
+        page.write_text(
+            page.read_text(encoding="utf-8").replace(
+                "'<span data-ui=\"hidden\"",
+                "'<span data-ui=\"locale-probe\" style=\"position:absolute;left:0;top:0;"
+                "width:48px;height:12px;font-size:10px;line-height:12px;overflow:hidden\">'"
+                " + navigator.language + '</span>' +\n        '<span data-ui=\"hidden\"",
+                1),
+            encoding="utf-8")
+        out = Path(tempfile.mkdtemp(prefix="story-locale-"))
+        self.addCleanup(shutil.rmtree, out, ignore_errors=True)
+        rendered = self.run_story(
+            cwd=root, extra_args=["--render-only", "--scenes", "alpha"], out=out)
+        self.assertEqual(rendered.returncode, 0, rendered.stderr + rendered.stdout)
+        values = json.loads(
+            (out / "values" / "demo" / "alpha-400x300.json").read_text(encoding="utf-8"))
+        probe = next(item for item in values if item["id"] == "locale-probe")
+        self.assertEqual(probe["text"], "en-US")
+        compared = self.run_story(cwd=root, extra_args=["--scenes", "alpha"])
+        self.assertEqual(compared.returncode, 0, compared.stderr + compared.stdout)
+        self.assertEqual(compared.stdout.strip(), "STORY OK 1/1")
+
+    def test_volatile_values_in_the_contract_exits_2_naming_it(self):
+        root = self.copied_fixture()
+        self._rewrite_contract(root, lambda text: text.replace(
+            "rows: []\n",
+            "volatile_values:\n"
+            "  - page: \"Component · Demo.dc.html\"\n"
+            "    trigger: { role: text, name: \"13\" }\n"
+            "    reason: \"test\"\n"
+            "rows: []\n",
+            1))
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        err = proc.stderr + proc.stdout
+        self.assertIn("volatile_values", err)
+        self.assertIn("这个键已不被 judge 执行，删掉它或把控件改回 Claude Design", err)
+        self.assertIn("then rerun", err)
+
+    def test_a_retired_id_with_a_trigger_exits_2_naming_it(self):
+        root = self.copied_fixture()
+        self._rewrite_contract(root, lambda text: text.replace(
+            "rows: []\n",
+            "retired_ids:\n"
+            "  - id: demo.old\n"
+            "    note: \"retired\"\n"
+            "    page: \"Component · Demo.dc.html\"\n"
+            "    trigger: { role: button, name: \"Continue\" }\n"
+            "rows: []\n",
+            1))
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        err = proc.stderr + proc.stdout
+        self.assertIn("retired_ids", err)
+        self.assertIn("这个键已不被 judge 执行，删掉它或把控件改回 Claude Design", err)
+        self.assertIn("then rerun", err)
+
+    def test_a_story_page_carrying_sc_interp_exits_2(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "sc-interp"})
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        err = proc.stderr + proc.stdout
+        self.assertIn("sc-interp", err)
+        self.assertIn("alpha", err)
+        self.assertIn("then rerun", err)
+
+    def test_each_claude_design_runtime_trace_exits_2(self):
+        for mutate, named in (("dc-tpl", "data-dc-tpl"),
+                              ("dc-script", "data-dc-script"),
+                              ("dc-root", "dc-root")):
+            with self.subTest(mutate=mutate):
+                proc = self.run_story(extra_env={"STORY_MUTATE": mutate})
+                self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+                err = proc.stderr + proc.stdout
+                self.assertIn(named, err)
+                self.assertIn("alpha", err)
+                self.assertIn("then rerun", err)
+
+    def test_render_only_refuses_a_contract_without_locale(self):
+        root = self.copied_fixture()
+        self._drop_contract_key(root, "locale")
+        proc = self.run_story(cwd=root, extra_args=["--render-only"])
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        err = proc.stderr + proc.stdout
+        self.assertIn("locale", err)
+        self.assertIn("story-parity.md", err)
+        self.assertIn("then rerun", err)
+
     def test_a_server_the_stories_command_started_is_gone_after_the_run(self):
         """fixtures/story/repo/stories/launch.py holds serve.py as a child and forwards
         no signal, so ending only the stories command would leave serve.py running."""
