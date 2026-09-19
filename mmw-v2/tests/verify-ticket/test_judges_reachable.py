@@ -20,7 +20,7 @@ from _load import load
 
 vt = load()
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
 
 
 def ticket(check: str) -> str:
@@ -89,7 +89,7 @@ class RequireJudges(unittest.TestCase):
 class NothingIsWritten(unittest.TestCase):
     """The refusal comes before the run, so the ticket is left exactly as it was.
 
-    `main` falls back to the `drive-target` skill's `scripts/` beside this one, which in
+    `main` falls back to the `ui-acceptance` skill's `scripts/` beside this one, which in
     a checkout holds every judge. These runs point that fallback at an empty directory,
     so nothing is reachable and the refusal is the one being tested.
     """

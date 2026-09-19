@@ -240,8 +240,17 @@ def _run_named(name: str, root: Path) -> int:
 
 def run_named(name: str, start: Path | None = None) -> int:
     root = repo_root(start)
-    with judge_run(root):
-        return _run_named(name, root)
+    code: int | None = None
+    try:
+        with judge_run(root):
+            code = _run_named(name, root)
+    except SystemExit as exc:
+        if code is None:
+            raise
+        print(exc, file=sys.stderr)
+        return max(code, 1)
+    assert code is not None
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:

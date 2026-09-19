@@ -27,7 +27,7 @@
 #   dispatch.sh route <ticket> <child> became-ticket <new ticket>
 #
 # Every script this one calls is found by resolution, from this file's own path:
-# `lease.py` of the drive-target skill, and `verify-ticket.py` and `events.py` of the
+# `lease.py` of the ui-acceptance skill, and `verify-ticket.py` and `events.py` of the
 # verify-ticket skill, are in the `scripts/` of their own skills one directory over. One
 # file belongs to the toolbox itself, not to any skill, and is taken from the toolbox
 # root (this skill directory two levels up): `install.sh`. `--tools <directory>` is an
@@ -107,7 +107,7 @@ MERGE_TRIES=3                # a worker's commit in its worktree can hold the .g
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
 PIPELINE_FAULT="A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
-PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill."
+PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -1127,7 +1127,7 @@ else:
 #
 # The protocol cuts and removes the worktree with git. The runner only receives
 # the absolute directory. The location is always `<repo>/.worktrees/issue-<n>`:
-# no runner name in the path, and the slug stays `issue-<n>` so hook.py's
+# no runner name in the path, and the slug stays `issue-<n>` so tool-guard.py's
 # TICKET_DIR still governs the session.
 
 # The repository's main checkout: where every ticket's worktree lives, whichever
@@ -2137,7 +2137,7 @@ retract_one() {
   fi
   if [ -n "$cwd" ]; then
     [ -f "$LEASE" ] \
-      || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the drive-target skill's scripts directory>, then retract again"
+      || refuse "no lease.py in any --tools directory, so the slot cannot be given back. Pass --tools <the ui-acceptance skill's scripts directory>, then retract again"
     if give_slot_back "$cwd"; then
       slot=1
     fi
@@ -3502,7 +3502,7 @@ suspend_night() {
       esac
     done
   else
-    echo "dispatch: no lease.py in any --tools directory, so this night's slots were not given back and the next night will read this machine as fuller than it is; pass --tools <the drive-target skill's scripts directory>" >&2
+    echo "dispatch: no lease.py in any --tools directory, so this night's slots were not given back and the next night will read this machine as fuller than it is; pass --tools <the ui-acceptance skill's scripts directory>" >&2
     left=$((left + 1))
   fi
 
@@ -4441,7 +4441,7 @@ tool() {
   return 1
 }
 SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
-LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/drive-target/scripts/lease.py")"
+LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/ui-acceptance/scripts/lease.py")"
 VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
 EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
 [ -f "$EVENTS" ] \

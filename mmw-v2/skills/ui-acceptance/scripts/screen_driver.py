@@ -45,7 +45,7 @@ from lease import leased_environment, worktree_of  # noqa: E402
 # fetched once; a render never depends on the network twice.
 CDN_PREFIX = "https://unpkg.com/"
 VENDOR_DIR = "vendor"
-DEFAULT_CACHE = Path.home() / ".cache" / "mmw" / "visual-parity"
+DEFAULT_CACHE = Path.home() / ".cache" / "mmw" / "pixel-diff"
 
 # Virtual milliseconds the design page's clock is run after a navigation: `support.js`
 # polls readiness every 50 ms and each component first renders on that poll, and a
@@ -262,7 +262,7 @@ def target_config(root: Path) -> dict:
     if not path.exists():
         raise SystemExit(f"no {path}: the repository has not said how its product is "
                          f"reached. Run `screen_driver.py target --check --repo {root}` "
-                         f"(the drive-target skill) and answer what it names")
+                         f"(the ui-acceptance skill) and answer what it names")
     try:
         cfg = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:

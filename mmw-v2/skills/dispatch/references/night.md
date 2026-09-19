@@ -2,7 +2,7 @@
 
 You are the main agent. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create worktrees, and start the sessions. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
 
-This file is the order of the night. How a wake reaches you and what you do on one is in `SKILL.md` next to this file, and `<dispatch>`, `<engine>`, `<lease.py>` and `<drive-target scripts>` are resolved in its `## Resolve `<dispatch>` once` section.
+This file is the order of the night. How a wake reaches you and what you do on one is in `SKILL.md` next to this file, and `<dispatch>`, `<engine>`, `<lease.py>` and `<ui-acceptance scripts>` are resolved in its `## Resolve `<dispatch>` once` section.
 
 Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch comes to rest (step 3), and the watchdog tells you when the board has gone silent where it should not ([how-it-works.md](how-it-works.md) under **The watchdog and turn guard** says what it is); nothing else does, and no agent polls another.
 
@@ -59,7 +59,7 @@ on 2026-09-07 the same class of defect arrived three at a time, hours apart, eac
 a whole ticket.
 
 When the batch drives a screen contract, whether the consuming repository can be driven
-at all is a separate question, answered there by `python3 <drive-target scripts>/screen_driver.py target --check`, which prints
+at all is a separate question, answered there by `python3 <ui-acceptance scripts>/screen_driver.py target --check`, which prints
 every `.mmw/target.json` field still to answer and exits 0 once the file is complete.
 
 **A clean lint is not a finished contract.** It reads text, not a running product: a story
@@ -279,6 +279,6 @@ It ends every session still holding a ticket of the batch — its worker, and a 
 
 Workspaces and branches stay, with the interrupted tickets' commits present on origin. The same batch is taken up again with `<dispatch> open <spec>` and then `<dispatch> advance <spec>` once whatever stopped the night is fixed: `start` fetches origin and reuses or fast-forwards each standing ticket workspace.
 
-`suspend` runs the product's own `stop` from each worktree before releasing its slot. `lease.py` refuses a slot something still listens on after that and names the port and the pid; `suspend` reports that and exits 1 rather than forcing it, because taking a slot off a live process is the same act as ending it. The slot lifecycle and its two limits are in the `drive-target` skill's `references/runtime-environment.md` under **`instance`**.
+`suspend` runs the product's own `stop` from each worktree before releasing its slot. `lease.py` refuses a slot something still listens on after that and names the port and the pid; `suspend` reports that and exits 1 rather than forcing it, because taking a slot off a live process is the same act as ending it. The slot lifecycle and its two limits are in the `ui-acceptance` skill's `references/product-answers.md` under **`instance`**.
 
 Exit 0: every live session of the batch is stopped, every ticket still in the agent queue carries its `spec.suspended` event and is unclaimed, every slot the batch held is back, and no relay watches the spec. Exit 1: the night is stopped as far as this command could take it and what is left is on stderr, one line each — a slot with a listener on it, where `lease.py` names the port and the pid, so stop that process where it was started and run `python3 <lease.py> release <its worktree>`; a ticket that could not be commented on or unclaimed is the one `advance` will not take up again; a session that could not be stopped, or a ticket whose events could not be read, is named with the ticket left exactly as it was; a relay left with no watch that did not end is named by its pid. Exit 2: nothing was touched, and the reason is on stderr — not a git repository, a spec number that is not digits only, or a tracker that could not answer for the batch. After a 0 or a 1, `open` and then `advance` take the night up again.

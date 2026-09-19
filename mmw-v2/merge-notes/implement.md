@@ -79,7 +79,7 @@ pointer.
 ## Put no question on the screen
 
 One bullet in the writing rules. A worker that puts a question up gets no answer:
-`hook.py`'s `question` gate refuses the host's question tool in every dispatched session
+`tool-guard.py`'s `question` gate refuses the host's question tool in every dispatched session
 (`MMW_AUTONOMOUS=1`), and the refusal points at the same two ways out. So the bullet says
 what to do instead: take the option the ticket, its baselines and the spec make most likely, record it
 under **Decisions I made on my own**, and carry on; a question whose answer would change
@@ -101,7 +101,7 @@ Upstream rewrites the "Once done" paragraph → take its wording and put the tab
 
 ## Every script name says which skill owns it
 
-Two places in the body named a script with no skill beside it, against this file's own `## Reaching the two scripts` rule: `story-parity.py --render-only` in the target-trees paragraph, and "that skill is where the line is read" in closing step 1, whose only antecedent was a script name. Both now name the `drive-target` skill and the render-only one says to resolve `scripts/` from that skill's own SKILL.md. A bare script name is a name the worker cannot turn into a path: `install.sh` puts the skill wherever the host reads its skills from, and that differs by machine and by host. Upstream touches either sentence → keep the skill name.
+Two places in the body named a script with no skill beside it, against this file's own `## Reaching the two scripts` rule: `story-parity.py --render-only` in the target-trees paragraph, and "that skill is where the line is read" in closing step 1, whose only antecedent was a script name. Both now name the `ui-acceptance` skill and the render-only one says to resolve `scripts/` from that skill's own SKILL.md. A bare script name is a name the worker cannot turn into a path: `install.sh` puts the skill wherever the host reads its skills from, and that differs by machine and by host. Upstream touches either sentence → keep the skill name.
 
 ## Where a failing `story-parity.py` criterion is read
 

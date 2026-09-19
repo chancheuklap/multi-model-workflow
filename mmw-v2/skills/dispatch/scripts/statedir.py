@@ -4,7 +4,7 @@
     from statedir import state_dir, locked, holder, LockHeld, write_atomic, read_json
 
 **One directory per repository**: `$MMW_HOME/state/<owner>__<name>/`, where `MMW_HOME`
-defaults to `~/.mmw` — the same root `lease.py` of the drive-target skill keeps its
+defaults to `~/.mmw` — the same root `lease.py` of the ui-acceptance skill keeps its
 registry under. Owner and name are lowercased, because GitHub treats `Owner/Repo` and
 `owner/repo` as one repository and two directories for it would be two truths. Every file
 a long-running MMW process keeps about a repository lives in that directory; nothing about

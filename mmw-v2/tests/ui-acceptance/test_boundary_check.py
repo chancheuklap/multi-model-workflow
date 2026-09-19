@@ -16,8 +16,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 SCRIPT = (Path(__file__).resolve().parents[2]
-          / "skills" / "drive-target" / "scripts" / "boundary-check.py")
-FIX = Path("mmw-v2/tests/drive-target/fixtures/boundary")
+          / "skills" / "ui-acceptance" / "scripts" / "boundary-check.py")
+FIX = Path("mmw-v2/tests/ui-acceptance/fixtures/boundary")
 
 
 def run_judge(*commands: str, extra_env: dict[str, str] | None = None,
@@ -49,7 +49,7 @@ class BoundaryCheck(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertRegex(
             result.stdout,
-            r"(?m)^GREEN WITHOUT INTERACTION bash mmw-v2/tests/drive-target/"
+            r"(?m)^GREEN WITHOUT INTERACTION bash mmw-v2/tests/ui-acceptance/"
             r"fixtures/boundary/always-green\.sh",
         )
         self.assert_not_ok(result)
@@ -59,7 +59,7 @@ class BoundaryCheck(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertTrue(
             result.stdout.startswith(
-                "MISS bash mmw-v2/tests/drive-target/fixtures/boundary/always-red.sh — "
+                "MISS bash mmw-v2/tests/ui-acceptance/fixtures/boundary/always-red.sh — "
             ),
             result.stdout,
         )

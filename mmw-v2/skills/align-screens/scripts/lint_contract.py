@@ -4,14 +4,14 @@
 # ///
 """Lint a screen contract against the handoff skeleton and, when given, openapi.json.
 
-Usage: uv run python lint_contract.py --tools <drive-target scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
+Usage: uv run python lint_contract.py --tools <ui-acceptance scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
 
 A `uv run python` invocation (the form a ticket CHECK writes) does not read the
 metadata block above; `main` then re-execs through `uv run --script` so PyYAML
 comes from that block. `uv run --script lint_contract.py` skips the re-exec.
 
-`--tools` is the `scripts/` directory of the drive-target skill. Two things
+`--tools` is the `scripts/` directory of the ui-acceptance skill. Two things
 come from that driver, and this file holds no copy of either: the `.mmw/target.json`
 check (the function `target --validate` runs), and matching (`volatile_triggers` /
 `count_volatile_hits`). Target kinds come from the same driver (`KINDS`).
@@ -78,7 +78,7 @@ TOP_KEYS = {
     "backend_without_ui", "proposed_operations",
 }
 
-# The directories `--tools` named. The driver of the drive-target skill is found
+# The directories `--tools` named. The driver of the ui-acceptance skill is found
 # there and nowhere else; `target_kinds()`, `target_file_problem()`, and matching
 # all ask it, through `extract_skeleton.py`'s `load_driver()`.
 TOOLS: list[Path] = []
@@ -95,11 +95,11 @@ def extract_skeleton_mod():
             import extract_skeleton
             return extract_skeleton
     raise SystemExit("no extract_skeleton.py in any --tools directory; pass --tools <the "
-                     "drive-target skill's scripts directory>")
+                     "ui-acceptance skill's scripts directory>")
 
 
 def screen_driver_mod():
-    """The drive-target driver from `--tools`, loaded the same way
+    """The ui-acceptance driver from `--tools`, loaded the same way
     `extract_skeleton.py` loads it. Cached after the first load.
     Matching (`volatile_triggers` / `count_volatile_hits`) and the
     target kinds / `.mmw/target.json` check all come from this module."""
@@ -137,7 +137,7 @@ def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
     """
     if not (repo / ".mmw" / "target.json").exists():
         return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
-                           "`screen_driver.py target --check` (the drive-target skill) there")
+                           "`screen_driver.py target --check` (the ui-acceptance skill) there")
     buf_out, buf_err = io.StringIO(), io.StringIO()
     with redirect_stdout(buf_out), redirect_stderr(buf_err):
         code = screen_driver_mod().target_main(
@@ -227,7 +227,7 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
     if kind not in kinds:
         errors.append(f"target.kind {kind!r} is not one of {sorted(kinds)}")
     if "adapter" in target:
-        errors.append("target.adapter is not read by anything; the drive-target skill picks "
+        errors.append("target.adapter is not read by anything; the ui-acceptance skill picks "
                       "the adapter by target.kind — drop the key")
     if kind in kinds and contract_dir is not None:
         problem = target_file_problem(repo_root(Path(contract_dir)), kind)

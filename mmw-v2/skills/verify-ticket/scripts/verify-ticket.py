@@ -65,7 +65,7 @@ CLASS_LABELS = {
 }
 # The one of them `--lint` asks after by name: which number is a batch's container.
 CLASS_SPEC = "mmw:spec"
-# The scripts of the drive-target skill that run a command `.mmw/target.json` declares,
+# The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
 # A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
 # is not one: it starts the story page service, which has no backend behind it and takes
@@ -1626,7 +1626,7 @@ def needs_product(body: str) -> bool:
 
 
 def load_lease():
-    """`lease.py` of the drive-target skill, from the directories in force; None when
+    """`lease.py` of the ui-acceptance skill, from the directories in force; None when
     none holds it."""
     path = tool("lease.py")
     if path is None:
@@ -1661,7 +1661,7 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
     if lease is None:
         return refuse("a criterion runs the product and no directory in force holds "
                       "lease.py, so no slot can be claimed for it. Nothing was run and "
-                      "nothing was written. Pass --tools <the drive-target skill's scripts "
+                      "nothing was written. Pass --tools <the ui-acceptance skill's scripts "
                       "directory> and run again.")
     worktree = lease.worktree_of(root)
     announced = events.fold(comments)["waiting"] is not None
@@ -2658,7 +2658,7 @@ PIPELINE_SCRIPTS = {
                                     "--impl-title", "--viewports", "--mount")},
     "boundary-check.py": {"required": ("--run",), "retired": ()},
 }
-# The judges of the `drive-target` skill: every script a `CHECK:` names by its bare name and
+# The judges of the `ui-acceptance` skill: every script a `CHECK:` names by its bare name and
 # that `require_judges` refuses a run for when the shell could not find it. The default place
 # looked at is that skill's `scripts/`, resolved in `main()`; `--tools` overrides it.
 JUDGES = ("story-parity.py", "boundary-check.py", "journey.py", "harness-guard.py")
@@ -2668,7 +2668,7 @@ TICKET_SOURCE_RE = re.compile(r"^#(\d+)(?:\s|$)")
 DOC_SOURCE_RE = re.compile(r"^(docs/\S+)")
 STORY_SOURCE_RE = re.compile(r"^#\d+ story \d+")
 _HELP_FLAGS: dict[str, set[str]] = {}
-# Where the scripts other skills own are found: the `drive-target` skill's `scripts/` by
+# Where the scripts other skills own are found: the `ui-acceptance` skill's `scripts/` by
 # default, or the directories `--tools` named instead. A `CHECK:` names a judge by its bare
 # name (`story-parity.py …`), and this process puts these directories on the PATH of the
 # shell that runs it. Nothing here looks for such a script by any other route.
@@ -3235,14 +3235,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--review", type=Path, metavar="FILE",
                         help="post the review report on the ticket")
     parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
-                        help="a directory holding scripts of other skills (the drive-target "
+                        help="a directory holding scripts of other skills (the ui-acceptance "
                              "skill's scripts/); put on the PATH of every CHECK; repeatable")
     args = parser.parse_args(argv)
-    # The judges live in the `drive-target` skill, beside this one under `skills/`, so this
+    # The judges live in the `ui-acceptance` skill, beside this one under `skills/`, so this
     # file's own location answers where they are and no caller has to know. `--tools`
     # overrides that for a run against a copy somewhere else.
     TOOLS[:] = ([d.resolve() for d in args.tools]
-                or [HERE.parents[1] / "drive-target" / "scripts"])
+                or [HERE.parents[1] / "ui-acceptance" / "scripts"])
     chosen = [name for name, on in
               (("--lint", args.lint), ("--reverify", args.reverify),
                ("--preflight", args.preflight), ("--closeout", args.closeout is not None),

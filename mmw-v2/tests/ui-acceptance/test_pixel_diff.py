@@ -1,4 +1,4 @@
-"""Everything in `visual-parity.py` that decides an outcome without a browser.
+"""Everything in `pixel_diff.py` that decides an outcome without a browser.
 
 The ARIA fragments are copied from the run recorded in
 `prototypes/code-landing/ui-gate/EXP/README.md` under "round-2 — 2026-08-28",
@@ -13,15 +13,15 @@ import sys
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts" / "visual-parity.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts" / "pixel_diff.py"
 
 
 def load():
-    """`visual-parity.py` is not a Python identifier, and its dataclasses need the
+    """`pixel_diff.py` is not a Python identifier, and its dataclasses need the
     module to be in `sys.modules` while it executes."""
-    spec = importlib.util.spec_from_file_location("visual_parity", SCRIPT)
+    spec = importlib.util.spec_from_file_location("pixel_diff", SCRIPT)
     module = importlib.util.module_from_spec(spec)
-    sys.modules["visual_parity"] = module
+    sys.modules["pixel_diff"] = module
     spec.loader.exec_module(module)
     return module
 

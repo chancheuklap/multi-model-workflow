@@ -1,10 +1,9 @@
 """The closing gate: who it governs, what it stops, and what it says.
 
-Every test drives `hook.py` the way a host does — one event as JSON on stdin, one
+Every test drives `tool-guard.py` the way a host does — one event as JSON on stdin, one
 answer as JSON on stdout. `pretool` reads the working directory's basename;
-the question gate asks a `paseo` on PATH. Tests name a temporary directory
-`issue-<n>` and put a fake `paseo` on PATH. An inherited `PASEO_AGENT_CWD` is
-cleared unless a test names it.
+the question gate reads the same session directory. Tests name a temporary directory
+`issue-<n>`. An inherited `PASEO_AGENT_CWD` is cleared unless a test names it.
 """
 
 from __future__ import annotations
@@ -19,18 +18,20 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+SKILLS = Path(__file__).resolve().parents[2] / "skills"
+DISPATCH_SCRIPTS = SKILLS / "dispatch" / "scripts"
+UI_ACCEPTANCE_SCRIPTS = SKILLS / "ui-acceptance" / "scripts"
 
 
-def load(name: str):
-    spec = importlib.util.spec_from_file_location(f"mmw_{name}", SCRIPTS / f"{name}.py")
+def load(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(f"mmw_{name}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-hk = load("hook")
-rf = load("refusal")
+hk = load(DISPATCH_SCRIPTS / "tool-guard.py", "tool_guard")
+rf = load(UI_ACCEPTANCE_SCRIPTS / "refusal.py", "refusal")
 HOST_PREFIX = len("Hook denied: ")
 
 TICKET = 64
@@ -51,6 +52,29 @@ EVENTS = {
     "pi": {"hook_event_name": "PreToolUse", "tool_name": "bash",
            "tool_input": {"command": CLOSE}},
 }
+
+
+class TestRecordedRefusalsFit(unittest.TestCase):
+    """The refusals this module records fit and tell the worker what to do next."""
+
+    def texts(self) -> dict[str, str]:
+        return {
+            "closeout": hk.REFUSAL.format(n=999999),
+            "question": hk.NO_QUESTION,
+            "kill": hk.no_kill("kill 12345"),
+        }
+
+    def test_all_of_them_fit_what_a_host_will_show(self):
+        for name, text in self.texts().items():
+            with self.subTest(refusal=name):
+                self.assertLessEqual(len(text), rf.REASON_LIMIT)
+
+    def test_all_of_them_say_what_to_do_next(self):
+        ways_out = ("--closeout", "Decisions I made on my own", "stop", "ABANDON")
+        for name, text in self.texts().items():
+            with self.subTest(refusal=name):
+                self.assertTrue(any(word in text for word in ways_out),
+                                f"{name} diagnoses without naming a way out")
 
 
 @contextmanager
@@ -190,7 +214,7 @@ class TestSelfScope(unittest.TestCase):
         opened.assert_not_called()
 
     def test_the_source_imports_no_socket_urllib_tempfile_shutil_or_pathlib(self):
-        source = (SCRIPTS / "hook.py").read_text(encoding="utf-8")
+        source = (DISPATCH_SCRIPTS / "tool-guard.py").read_text(encoding="utf-8")
         for name in ("socket", "urllib", "tempfile", "shutil", "pathlib"):
             self.assertNotIn(f"import {name}", source)
 

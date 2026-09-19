@@ -13,7 +13,7 @@ The file's shape is in [references/contract-format.md](references/contract-forma
 
 `<scripts>` in every command below is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
 
-One name in the commands below belongs to another skill; resolve it from that skill's own `SKILL.md`. `<drive-target scripts>` is the `scripts/` directory of the `drive-target` skill.
+One name in the commands below belongs to another skill; resolve it from that skill's own `SKILL.md`. `<ui-acceptance scripts>` is the `scripts/` directory of the `ui-acceptance` skill.
 
 Every one of this skill's own scripts is run as `uv run python <scripts>/…`, never `python3`: `<scripts>/lint_contract.py` carries a `# /// script` dependency block (`pyyaml>=6`), and `<scripts>/dump_openapi.py` imports the consuming repository's own application module. Both need the environment `uv` builds.
 
@@ -22,7 +22,7 @@ Every one of this skill's own scripts is run as `uv run python <scripts>/…`, n
 - The handoff package directory: `README.md`, the `.dc.html` pages, `styles/`, `data/fixtures.js`, `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a **baseline for look and copy**; you never edit it.
 - The wayfinder map issue: its **Decisions so far** and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too.
 - The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
-- What kind of product this is — a running desktop application, a server-rendered site, a single-page application, a browser extension — which is the contract's `target.kind`. The kinds and what each asks of the repository are in the `drive-target` skill's `references/runtime-environment.md`.
+- What kind of product this is — a running desktop application, a server-rendered site, a single-page application, a browser extension — which is the contract's `target.kind`. The kinds and what each asks of the repository are in the `ui-acceptance` skill's `references/product-answers.md`.
 - The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title.
 - The scope. A full run covers every page in `scenes.json`. A scoped run names the pages it covers; the reverse sweep and the README dispositions then stay inside those pages, and the lint reports the other pages as warnings.
 
@@ -32,10 +32,10 @@ Write every path in a command out in full. Some hosts refuse `uv run … $VAR`.
 
 ### 1. Extract the skeleton
 
-The render is the `drive-target` skill's:
+The render is the `ui-acceptance` skill's:
 
 ```
-uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json
+uv run python <ui-acceptance scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json
 ```
 
 It drives a real browser: Playwright with Chromium has to be installed on this machine before the command will run at all.
@@ -86,7 +86,7 @@ Two things a gap list does not carry: an implementation that today does less tha
 2. Render once more with the contract in hand so the retired controls are hidden, writing the target trees beside it:
 
    ```
-   uv run python <drive-target scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
+   uv run python <ui-acceptance scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --targets docs/specs/<effort>/targets --contract docs/specs/<effort>/screen-contract.yaml
    ```
 
    The target trees — one `.aria` and one `.classes` file per design page under `docs/specs/<effort>/targets/` — are what a worker writes toward and what the judges compare against, produced by the judges' own normaliser. They are a derived view of the handoff package and carry its hashes; the lint fails when they go stale.
@@ -94,10 +94,10 @@ Two things a gap list does not carry: an implementation that today does less tha
 3. Lint to zero errors:
 
    ```
-   uv run python <scripts>/lint_contract.py --tools <drive-target scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
+   uv run python <scripts>/lint_contract.py --tools <ui-acceptance scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
    ```
 
-   The lint asks the drive-target skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
+   The lint asks the ui-acceptance skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
 
 4. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
 

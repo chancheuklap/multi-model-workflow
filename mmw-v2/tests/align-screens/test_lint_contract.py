@@ -16,8 +16,8 @@ lc = importlib.util.module_from_spec(spec)
 sys.modules["lint_contract"] = lc
 spec.loader.exec_module(lc)
 
-# The drive-target scripts the lint asks for target kinds and volatile matching.
-TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+# The ui-acceptance scripts the lint asks for target kinds and volatile matching.
+TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
 
 PAGE_A = "Component · 新建商品项目.dc.html"
 PAGE_B = "Component · 壳头.dc.html"

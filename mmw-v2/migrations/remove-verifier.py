@@ -14,9 +14,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DISPATCH_SCRIPTS = ROOT / "mmw-v2" / "skills" / "dispatch" / "scripts"
-DRIVE_TARGET_SCRIPTS = ROOT / "mmw-v2" / "skills" / "drive-target" / "scripts"
+UI_ACCEPTANCE_SCRIPTS = ROOT / "mmw-v2" / "skills" / "ui-acceptance" / "scripts"
 sys.path.insert(0, str(DISPATCH_SCRIPTS))
-sys.path.insert(0, str(DRIVE_TARGET_SCRIPTS))
+sys.path.insert(0, str(UI_ACCEPTANCE_SCRIPTS))
 import models  # noqa: E402
 import statedir  # noqa: E402
 from refusal import REPORT_BLOCKED, refusal as refusal_message  # noqa: E402

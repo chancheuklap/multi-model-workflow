@@ -1,6 +1,6 @@
 """story-parity.py: the gate without a browser, and the fixture through Chromium.
 
-The gate tests are the shape of `test_visual_parity.py`'s `TestNegativeControl`.
+The gate tests are the shape of `test_pixel_diff.py`'s `TestNegativeControl`.
 The fixture tests are the seam this ticket is tested at: real Chromium, real
 files under `fixtures/story/`.
 """
@@ -20,7 +20,7 @@ from pathlib import Path
 
 SCRIPT = (
     Path(__file__).resolve().parents[2]
-    / "skills" / "drive-target" / "scripts" / "story-parity.py"
+    / "skills" / "ui-acceptance" / "scripts" / "story-parity.py"
 )
 REPO = Path(__file__).resolve().parent / "fixtures" / "story" / "repo"
 CONTRACT = "docs/specs/story/screen-contract.yaml"

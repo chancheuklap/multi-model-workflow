@@ -56,10 +56,10 @@ def _load(name: str, modname: str):
     return mod
 
 
-vp = _load("visual-parity.py", "visual_parity")
+vp = _load("pixel_diff.py", "pixel_diff")
 sd = vp.sd
 
-# Reused from visual-parity.py: do not copy.
+# Reused from pixel_diff.py: do not copy.
 pixel_diff = vp.pixel_diff
 Comparison = vp.Comparison
 NEGATIVE_CONTROL_HEAD = vp.NEGATIVE_CONTROL_HEAD

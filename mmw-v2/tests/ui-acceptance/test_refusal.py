@@ -11,7 +11,8 @@ import sys
 import unittest
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+SKILLS = Path(__file__).resolve().parents[2] / "skills"
+SCRIPTS = SKILLS / "ui-acceptance" / "scripts"
 
 
 def load(name: str):
@@ -50,28 +51,13 @@ class Shape(unittest.TestCase):
 
 
 class RecordedRefusalsFit(unittest.TestCase):
-    """The refusals this suite records have to fit and have to say what to do."""
-
-    def texts(self) -> dict[str, str]:
-        hook = load("hook")
-        return {
-            "closeout": hook.REFUSAL.format(n=999999),
-            "question": hook.NO_QUESTION,
-            "kill": hook.no_kill("kill 12345"),
-            "report_blocked": rf.REPORT_BLOCKED,
-        }
+    """The refusal this module records has to fit and say what to do."""
 
     def test_all_of_them_fit_what_a_host_will_show(self):
-        for name, text in self.texts().items():
-            with self.subTest(refusal=name):
-                self.assertLessEqual(len(text), rf.REASON_LIMIT)
+        self.assertLessEqual(len(rf.REPORT_BLOCKED), rf.REASON_LIMIT)
 
     def test_all_of_them_say_what_to_do_next(self):
-        ways_out = ("--closeout", "Decisions I made on my own", "stop", "ABANDON")
-        for name, text in self.texts().items():
-            with self.subTest(refusal=name):
-                self.assertTrue(any(w in text for w in ways_out),
-                                f"{name} diagnoses without naming a way out")
+        self.assertIn("stop", rf.REPORT_BLOCKED)
 
 
 if __name__ == "__main__":
