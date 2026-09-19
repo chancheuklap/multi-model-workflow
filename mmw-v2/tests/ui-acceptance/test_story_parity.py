@@ -8,6 +8,7 @@ files under `fixtures/story/`.
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -297,6 +298,126 @@ class TestStoryFixture(unittest.TestCase):
         self.addCleanup(end_if_running, pid)
         self.assertFalse(running(pid), f"serve.py (pid {pid}) outlived story-parity.py")
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+
+
+class TestRenderOnlyValues(unittest.TestCase):
+    """`--render-only` writes one design-values file per scene and viewport.
+
+    Numbers come from the fixture CSS: `.demo` is 320×200 with 16px padding;
+    `h1` is 20px/700 with 8px bottom margin and 24px line-height; `p` has 12px
+    bottom margin. Hidden `data-ui` nodes take no layout.
+    """
+
+    VIEWPORT = "400x300"
+    SCENES = ("alpha", "beta", "gamma")
+
+    @classmethod
+    def setUpClass(cls):
+        if not shutil.which("uv"):
+            raise AssertionError(
+                "uv is missing; the story fixture cannot run and AC1 must not "
+                "print all passed")
+        cls.home = tempfile.mkdtemp(prefix="mmw-render-only-home-")
+        cls.out = tempfile.mkdtemp(prefix="mmw-render-only-out-")
+        env = dict(os.environ)
+        env["MMW_HOME"] = cls.home
+        env.pop("STORY_MUTATE", None)
+        cls.proc = subprocess.run(
+            ["uv", "run", "python", str(SCRIPT),
+             "--contract", CONTRACT, "--pages", "demo",
+             "--out", cls.out, "--render-only"],
+            cwd=REPO, capture_output=True, text=True, env=env, timeout=180)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.home, ignore_errors=True)
+        shutil.rmtree(cls.out, ignore_errors=True)
+
+    def values_path(self, scene, viewport=None):
+        tag = viewport or self.VIEWPORT
+        return Path(self.out) / "values" / "demo" / f"{scene}-{tag}.json"
+
+    def values(self, scene="alpha"):
+        path = self.values_path(scene)
+        self.assertTrue(path.is_file(), f"missing {path}: {self.proc.stderr}{self.proc.stdout}")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def by_id(self, uid, scene="alpha"):
+        for item in self.values(scene):
+            if item["id"] == uid:
+                return item
+        self.fail(f"no data-ui {uid!r} in {scene}: {[i['id'] for i in self.values(scene)]}")
+
+    def test_render_only_writes_one_values_file_per_scene_and_viewport(self):
+        self.assertEqual(self.proc.returncode, 0, self.proc.stderr + self.proc.stdout)
+        for scene in self.SCENES:
+            path = self.values_path(scene)
+            self.assertTrue(path.is_file(), path)
+            rows = json.loads(path.read_text(encoding="utf-8"))
+            self.assertIsInstance(rows, list)
+            self.assertGreater(len(rows), 0)
+            for row in rows:
+                self.assertEqual(
+                    set(row),
+                    {"id", "visible", "text", "size", "ancestor", "offset",
+                     "previous", "gap", "style"})
+
+    def test_render_only_values_carry_the_design_numbers(self):
+        title = self.by_id("title")
+        self.assertEqual(title["style"]["font-size"], "20px")
+        self.assertEqual(title["style"]["font-weight"], "700")
+
+    def test_text_is_read_from_the_interpolated_layer(self):
+        self.assertEqual(self.by_id("body", "alpha")["text"], "Alpha scene copy")
+        self.assertEqual(self.by_id("body", "beta")["text"], "Beta scene copy")
+        self.assertEqual(self.by_id("body", "gamma")["text"], "Gamma scene copy")
+
+    def test_text_excludes_deeper_data_ui_elements(self):
+        body = self.by_id("body")
+        inner = self.by_id("inner")
+        self.assertEqual(inner["text"], "inner copy")
+        self.assertNotIn("inner copy", body["text"])
+        self.assertEqual(body["text"], "Alpha scene copy")
+
+    def test_values_record_ancestor_offset_and_previous_gap(self):
+        title = self.by_id("title")
+        body = self.by_id("body")
+        self.assertEqual(title["ancestor"], "root")
+        self.assertEqual(title["offset"], [16, 16])
+        self.assertEqual(body["ancestor"], "root")
+        self.assertEqual(body["previous"], "title")
+        self.assertEqual(body["gap"], [-288, 8])
+
+    def test_a_hidden_element_reads_not_visible(self):
+        hidden = self.by_id("hidden")
+        self.assertEqual(hidden["visible"], False)
+        self.assertEqual(hidden["text"], "hidden copy")
+        self.assertEqual(self.by_id("inner")["visible"], False)
+
+    def test_a_top_level_element_has_no_ancestor_offset(self):
+        root = self.by_id("root")
+        self.assertIsNone(root["ancestor"])
+        self.assertIsNone(root["offset"])
+        self.assertIsNone(root["previous"])
+        self.assertIsNone(root["gap"])
+
+    def test_render_only_needs_no_target_json(self):
+        root = Path(tempfile.mkdtemp(prefix="story-copy-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        shutil.copytree(REPO, root, dirs_exist_ok=True)
+        shutil.rmtree(root / ".mmw")
+        out = Path(tempfile.mkdtemp(prefix="story-render-only-"))
+        self.addCleanup(shutil.rmtree, out, ignore_errors=True)
+        env = dict(os.environ)
+        env["MMW_HOME"] = self.home
+        env.pop("STORY_MUTATE", None)
+        proc = subprocess.run(
+            ["uv", "run", "python", str(SCRIPT),
+             "--contract", CONTRACT, "--pages", "demo",
+             "--out", str(out), "--render-only"],
+            cwd=root, capture_output=True, text=True, env=env, timeout=180)
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertTrue((out / "values" / "demo" / "alpha-400x300.json").is_file())
 
 
 def running(pid: int) -> bool:

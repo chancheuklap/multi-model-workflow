@@ -15,6 +15,7 @@ A **target** is the product a consuming repository runs under automation. What t
 
 | You are | Run or read |
 | --- | --- |
+| Writing an interface ticket's code, before the first line: the design side's values | [references/story-parity.md](references/story-parity.md), **`--render-only`** |
 | Building the product's story page service and its scene adapter (the contract ticket's, and every surface component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
 | Writing the criterion that compares a product story with its design page, or reading the `DIFF` line one printed | [references/story-parity.md](references/story-parity.md) |
 | Writing the criterion that a control's click produces the request its `calls` column names, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |

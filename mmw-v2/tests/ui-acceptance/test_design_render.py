@@ -3,6 +3,7 @@ arithmetic, the tree's ancestor line, and the baseline server.
 """
 
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -447,6 +448,22 @@ class TestBaselineServing(unittest.TestCase):
         self.assertIn("<style>x</style>", page)
         self.assertEqual(dr.wrapper_path("a.b"), "/__parity-a.b.dc.html")
         self.assertEqual(dr.component_of("Component · 壳头.dc.html"), "Component · 壳头")
+
+
+class TestUiValues(unittest.TestCase):
+    """The values file path and the JSON array `--render-only` writes."""
+
+    def test_values_path_joins_mount_scene_and_viewport(self):
+        path = dr.values_path(Path("/out"), "demo", "alpha", (400, 300))
+        self.assertEqual(path, Path("/out") / "values" / "demo" / "alpha-400x300.json")
+
+    def test_write_values_writes_a_json_array(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = dr.values_path(Path(d), "demo", "alpha", (400, 300))
+            dr.write_values(path, [{"id": "title", "visible": True}])
+            self.assertEqual(
+                json.loads(path.read_text(encoding="utf-8")),
+                [{"id": "title", "visible": True}])
 
 
 

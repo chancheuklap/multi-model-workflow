@@ -2,8 +2,9 @@
 """Offline rendering of a handoff package's design side.
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
-server, the wrapper page, capture, and the accessibility-tree normaliser. The contract
-lint loads `volatile_triggers` and `count_volatile_hits` from this file.
+server, the wrapper page, capture, the `[data-ui]` reader, and the accessibility-tree
+normaliser. The contract lint loads `volatile_triggers` and `count_volatile_hits` from
+this file.
 """
 
 from __future__ import annotations
@@ -699,6 +700,98 @@ class Shot:
     elements: list[dict] = field(default_factory=list)
     classes: dict[str, str] = field(default_factory=dict)
     box: tuple[int, int, int, int] = (0, 0, 0, 0)  # x, y, w, h in viewport CSS pixels
+    values: list[dict] = field(default_factory=list)
+
+
+# Facts of every `[data-ui]` element under a root, document order. Visibility, box and
+# computed style follow Quixote `src/q_element.js` (`getComputedStyle`,
+# `getBoundingClientRect`). Text is the element's own character data plus descendants
+# that do not themselves carry `data-ui` — so a `span.sc-interp` counts and a nested
+# `[data-ui]` child does not. The walk is DOM-only, so a product story page can run it
+# on `[data-story-root]`.
+UI_VALUES_JS = """(root) => {
+  const els = [];
+  if (root && root.hasAttribute && root.hasAttribute('data-ui')) els.push(root);
+  if (root && root.querySelectorAll) {
+    for (const el of root.querySelectorAll('[data-ui]')) els.push(el);
+  }
+  const counts = {};
+  for (const el of els) {
+    const id = el.getAttribute('data-ui');
+    counts[id] = (counts[id] || 0) + 1;
+  }
+  const seen = {};
+  const qualified = new Map();
+  for (const el of els) {
+    const id = el.getAttribute('data-ui');
+    if (counts[id] === 1) {
+      qualified.set(el, id);
+    } else {
+      seen[id] = (seen[id] || 0) + 1;
+      qualified.set(el, id + '#' + seen[id]);
+    }
+  }
+  const nearest = (el) => {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      if (p.hasAttribute('data-ui')) return p;
+      if (p === root) return null;
+    }
+    return null;
+  };
+  const ancestors = new Map();
+  for (const el of els) ancestors.set(el, nearest(el));
+  const ownText = (el) => {
+    const parts = [];
+    const walk = (node) => {
+      for (const child of node.childNodes) {
+        if (child.nodeType === 3) parts.push(child.nodeValue);
+        else if (child.nodeType === 1 && !child.hasAttribute('data-ui')) walk(child);
+      }
+    };
+    walk(el);
+    return parts.join('').replace(/\\s+/g, ' ').trim();
+  };
+  const visible = (el) => {
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') {
+      return false;
+    }
+    if (r.width === 0 || r.height === 0) return false;
+    return true;
+  };
+  const out = [];
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    const anc = ancestors.get(el);
+    let prev = null;
+    for (const other of els) {
+      if (other === el) break;
+      if (ancestors.get(other) === anc) prev = other;
+    }
+    const cs = getComputedStyle(el);
+    const pr = prev ? prev.getBoundingClientRect() : null;
+    const ar = anc ? anc.getBoundingClientRect() : null;
+    out.push({
+      id: qualified.get(el),
+      visible: visible(el),
+      text: ownText(el),
+      size: [Math.round(r.width), Math.round(r.height)],
+      ancestor: anc ? qualified.get(anc) : null,
+      offset: ar ? [Math.round(r.left - ar.left), Math.round(r.top - ar.top)] : null,
+      previous: prev ? qualified.get(prev) : null,
+      gap: pr ? [Math.round(r.left - pr.right), Math.round(r.top - pr.bottom)] : null,
+      style: {
+        'font-size': cs.getPropertyValue('font-size'),
+        'font-weight': cs.getPropertyValue('font-weight'),
+        'color': cs.getPropertyValue('color'),
+        'background-color': cs.getPropertyValue('background-color'),
+        'border-radius': cs.getPropertyValue('border-radius'),
+      },
+    });
+  }
+  return out;
+}"""
 
 
 # Every element a reader could be sent to, with the name it goes by: its `aria-label`,
@@ -814,11 +907,29 @@ def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] |
             e["x"] -= x
             e["y"] -= y
         classes = class_set(page, selector)
+        values = read_ui_values(page, selector)
     finally:
         page.remove_listener("console", on_console)
         page.remove_listener("pageerror", on_pageerror)
     aria_path(png).write_text(aria, encoding="utf-8")
-    return Shot(png, aria, console, elements, classes, (x, y, w, h))
+    return Shot(png, aria, console, elements, classes, (x, y, w, h), values)
+
+
+def read_ui_values(page, selector: str) -> list[dict]:
+    """Every `[data-ui]` element under `selector`, document order, as one dict each."""
+    return page.locator(selector).first.evaluate(UI_VALUES_JS)
+
+
+def values_path(out: Path, mount: str, scene: str, viewport: tuple[int, int]) -> Path:
+    """`--out/values/<mount>/<scene>-<W>x<H>.json`."""
+    w, h = viewport
+    return Path(out) / "values" / mount / f"{scene}-{w}x{h}.json"
+
+
+def write_values(path: Path, values: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(values, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
 
 
 def visible_box(page, selector: str, viewport: tuple[int, int]) -> tuple[int, int, int, int]:

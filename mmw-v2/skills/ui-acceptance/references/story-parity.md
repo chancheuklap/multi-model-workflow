@@ -49,7 +49,8 @@ judge can read, and none of them is visible from a `DIFF` line months later.
   data layer is a page whose result depends on what happens to be in it.
 
 `--render-only` renders the design side of a scene into a directory with no product at
-all, which is what you look at while building the product side.
+all — screenshots and the values file — which is what you look at while building the
+product side. The path and fields are under **`--render-only`**.
 
 ## Two sides
 
@@ -111,7 +112,32 @@ ticket names `--max-pct` only when its scenes are known to need another number,
 and says why beside the criterion.
 
 `--render-only` renders the design side of the selected scenes into `--out` with
-no product at all, so a worker can look at what it is building.
+no product at all, so a worker can look at what it is building. The values file
+it writes is under **`--render-only`**.
+
+## `--render-only`
+
+`--render-only` renders the design side of the selected scenes into `--out` and
+stops. It needs no product and does not read `.mmw/target.json`. Besides the
+screenshots under `--out/media`, it writes one values file per scene and
+viewport, taken from that same render:
+
+`--out/values/<mount>/<scene>-<W>x<H>.json`
+
+The file is a JSON array in document order. Each item is one `[data-ui]` element
+under `#dc-root`:
+
+| field | meaning |
+| --- | --- |
+| `id` | the `data-ui` value; a repeated id is written `<id>#<n>` in document order from 1 |
+| `visible` | `false` when `display: none`, `visibility: hidden`, `opacity: 0`, or width or height is 0 |
+| `text` | the element's own character data plus descendants that do not carry `data-ui` (a `span.sc-interp` counts; a nested `[data-ui]` child does not). Whitespace collapsed, ends trimmed |
+| `size` | `[width, height]` in CSS pixels, integers |
+| `ancestor` | id of the nearest `[data-ui]` ancestor, or `null` |
+| `offset` | `[x, y]` of this element's top-left relative to that ancestor's top-left, or `null` |
+| `previous` | id of the previous `[data-ui]` element that shares this `ancestor`, or `null` |
+| `gap` | `[this.left − previous.right, this.top − previous.bottom]`, or `null` |
+| `style` | `font-size`, `font-weight`, `color`, `background-color`, `border-radius` from `getComputedStyle` |
 
 ## Exit codes
 
