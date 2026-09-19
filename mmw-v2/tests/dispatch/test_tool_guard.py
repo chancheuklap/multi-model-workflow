@@ -1,10 +1,9 @@
 """The closing gate: who it governs, what it stops, and what it says.
 
-Every test drives `hook.py` the way a host does — one event as JSON on stdin, one
+Every test drives `tool-guard.py` the way a host does — one event as JSON on stdin, one
 answer as JSON on stdout. `pretool` reads the working directory's basename;
-the question gate asks a `paseo` on PATH. Tests name a temporary directory
-`issue-<n>` and put a fake `paseo` on PATH. An inherited `PASEO_AGENT_CWD` is
-cleared unless a test names it.
+the question gate reads the same session directory. Tests name a temporary directory
+`issue-<n>`. An inherited `PASEO_AGENT_CWD` is cleared unless a test names it.
 """
 
 from __future__ import annotations
@@ -19,18 +18,20 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+SKILLS = Path(__file__).resolve().parents[2] / "skills"
+DISPATCH_SCRIPTS = SKILLS / "dispatch" / "scripts"
+UI_ACCEPTANCE_SCRIPTS = SKILLS / "ui-acceptance" / "scripts"
 
 
-def load(name: str):
-    spec = importlib.util.spec_from_file_location(f"mmw_{name}", SCRIPTS / f"{name}.py")
+def load(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(f"mmw_{name}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-hk = load("hook")
-rf = load("refusal")
+hk = load(DISPATCH_SCRIPTS / "tool-guard.py", "tool_guard")
+rf = load(UI_ACCEPTANCE_SCRIPTS / "refusal.py", "refusal")
 HOST_PREFIX = len("Hook denied: ")
 
 TICKET = 64
@@ -190,7 +191,7 @@ class TestSelfScope(unittest.TestCase):
         opened.assert_not_called()
 
     def test_the_source_imports_no_socket_urllib_tempfile_shutil_or_pathlib(self):
-        source = (SCRIPTS / "hook.py").read_text(encoding="utf-8")
+        source = (DISPATCH_SCRIPTS / "tool-guard.py").read_text(encoding="utf-8")
         for name in ("socket", "urllib", "tempfile", "shutil", "pathlib"):
             self.assertNotIn(f"import {name}", source)
 

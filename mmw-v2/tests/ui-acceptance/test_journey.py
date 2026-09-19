@@ -1,4 +1,4 @@
-"""journey.py and harness-guard.py: fake start/stop/discover, a real lease registry.
+"""journey.py: fake start/stop/discover, a real lease registry.
 
 The seam is the command line and the files the commands write. Nothing here stubs
 lease.py: a slot is claimed because journey.py claims one, under a MMW_HOME of this
@@ -22,9 +22,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
 JOURNEY = SCRIPTS / "journey.py"
-GUARD = SCRIPTS / "harness-guard.py"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "journey"
 HOME = tempfile.mkdtemp(prefix="mmw-journey-home-")
 atexit.register(shutil.rmtree, HOME, True)
@@ -39,7 +38,6 @@ def load(name: str, path: Path):
 
 
 jy = load("journey", JOURNEY)
-hg = load("harness_guard", GUARD)
 # The lease the driver claims through, reached from the function `journey.py` itself
 # imported: filling this registry is filling the one a run started here would claim from,
 # and it is this suite's own `MMW_HOME`, never the machine's.
@@ -171,14 +169,16 @@ class JourneyOrder(unittest.TestCase):
         pidfile = self.repo.root / ".mmw" / "leftover.pid"
         write_exec(self.repo.root / ".mmw" / "leftover.py", "\n".join([
             "#!/usr/bin/env python3",
-            "import os, socket, sys, time",
+            "import os, socket, sys",
             "sock = socket.socket()",
             "sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)",
             # Every address, which is where a container engine publishes a port.
             "sock.bind(('0.0.0.0', int(os.environ['MMW_PORT_BASE'])))",
             "sock.listen(1)",
             "open(sys.argv[1], 'w').write(str(os.getpid()))",
-            "time.sleep(60)",
+            "while True:",
+            "    conn, _ = sock.accept()",
+            "    conn.close()",
         ]))
 
         def kill_leftover():
@@ -196,11 +196,15 @@ class JourneyOrder(unittest.TestCase):
             "fi",
             f'[ "$ORIGIN" = "{self.ADDRESS}" ] || exit 9',
         ]))
-        code, out, _ = self.repo.run("demo")
+        code, out, err = self.repo.run("demo")
         self.assertEqual(code, 1, out)
         self.assertTrue(out.startswith("JOURNEY LEFT THE PRODUCT UP demo"), out)
         self.assertIn(pidfile.read_text(encoding="utf-8").strip(), out, "no pid to go to")
         self.assertNotIn("JOURNEY OK", out)
+        self.assertIn("Reclaiming a slot from a live process", err)
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn("SystemExit", err)
+        self.assertIsNotNone(LEASE.registered(LEASE.worktree_of(self.repo.root)))
 
     def test_stop_runs_when_the_script_fails(self):
         self.repo.write_journey(
@@ -441,84 +445,6 @@ class FixtureRepo(unittest.TestCase):
             env={**os.environ, "ORIGIN": f"http://127.0.0.1:{jy.closed_port()}"},
         )
         self.assertNotEqual(proc.returncode, 0, proc.stdout)
-
-
-class HarnessGuard(unittest.TestCase):
-    def test_the_leaky_fixture_names_the_leak_and_not_the_legal_hit(self):
-        out, err = io.StringIO(), io.StringIO()
-        with redirect_stdout(out), redirect_stderr(err):
-            code = hg.main([str(FIXTURE / "leaky")])
-        self.assertEqual(code, 1)
-        text = out.getvalue()
-        self.assertRegex(text, r"^HARNESS LEAK ")
-        self.assertIn("src/app.js", text)
-        self.assertNotIn("src/note.js", text)
-        self.assertNotIn("tests/", text)
-        self.assertNotIn("scripts/dev/", text)
-        self.assertNotIn("tools/opened.py", text)
-
-    def test_a_clean_repo_prints_ok(self):
-        out = io.StringIO()
-        with redirect_stdout(out):
-            code = hg.main([str(FIXTURE / "repo")])
-        self.assertEqual(code, 0)
-        self.assertEqual(out.getvalue(), "HARNESS OK\n")
-
-
-class WhatTheGuardReads(unittest.TestCase):
-    """What the repository keeps, not what happens to be lying in the directory."""
-
-    LEAK = 'const port = process.env.MMW_PORT_BASE;\n'
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name) / "repo"
-        (self.root / "src").mkdir(parents=True)
-        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
-
-    def write(self, relative: str, text: str) -> None:
-        path = self.root / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-
-    def guard(self) -> tuple[int, str]:
-        out = io.StringIO()
-        with redirect_stdout(out):
-            code = hg.main([str(self.root)])
-        return code, out.getvalue()
-
-    def test_a_file_git_ignores_is_not_judged(self):
-        """A log the product wrote while the criteria ran, a scratch copy of a ticket.
-        Read, they make the same commit green or red by how recently anyone ran the
-        product — which is what agentflow #703 and #704 hit on 2026-09-08."""
-        self.write(".gitignore", "logs/\n")
-        self.write("logs/app.log", self.LEAK)
-        self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
-
-    def test_a_file_that_is_there_and_not_committed_yet_is_judged(self):
-        """It is the work the ticket is being judged on."""
-        self.write("src/app.js", self.LEAK)
-        code, text = self.guard()
-        self.assertEqual(code, 1)
-        self.assertIn("HARNESS LEAK src/app.js:1", text)
-
-    def test_a_test_file_beside_the_code_it_tests_may_read_the_names(self):
-        """No release carries it, and `leaves_machine` would say it reaches past this
-        machine, which it does not. A repository left with no way to say so writes the
-        variable name in pieces to get past the check, and that hides the real leaks."""
-        self.write("src/__tests__/support/interact.ts", self.LEAK)
-        self.write("src/widget.spec.ts", self.LEAK)
-        self.write("src/widget.test.tsx", self.LEAK)
-        self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
-
-    def test_the_code_beside_those_tests_is_still_judged(self):
-        self.write("src/__tests__/support/interact.ts", self.LEAK)
-        self.write("src/widget.ts", self.LEAK)
-        code, text = self.guard()
-        self.assertEqual(code, 1)
-        self.assertIn("src/widget.ts:1", text)
-        self.assertNotIn("interact.ts", text)
 
 
 if __name__ == "__main__":

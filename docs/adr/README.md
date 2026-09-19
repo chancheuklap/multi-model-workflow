@@ -47,7 +47,7 @@
 | [0026](0026-no-verifier.md) | 取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria | 2026-09-14 | 0018、0019、0020、0021、0022、0023、0024 | 无 |
 | [0027](0027-a-bounce-returns-once.md) | 同一夜第一次 landing conflict 把 ticket 交回 worker 队列，第二次才交 triage | 2026-09-14 | 0023 | 无 |
 
-0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`，两份 ADR 里的 A3（设计系统 token 越界）与 B1（设计系统规则违反）由 `mmw-v2/skills/drive-target/scripts/story-parity.py` 部分承接。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
+0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`，两份 ADR 里的 A3（设计系统 token 越界）与 B1（设计系统规则违反）由 `mmw-v2/skills/ui-acceptance/scripts/story-parity.py` 部分承接。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
 ## 编号在本仓库以外仍会出现
 

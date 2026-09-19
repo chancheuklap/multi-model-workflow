@@ -23,7 +23,7 @@ from _load import SCRIPT, checked, event, load, started
 
 vt = load()
 
-DRIVE = SCRIPT.parents[2] / "drive-target" / "scripts"
+DRIVE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
 
 
@@ -716,7 +716,7 @@ class TestOutsideOwns(unittest.TestCase):
 
 
 def lease_in(home: Path):
-    """`lease.py` of the drive-target skill, its registry under `home`, not ~/.mmw."""
+    """`lease.py` of the ui-acceptance skill, its registry under `home`, not ~/.mmw."""
     spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
                                                   DRIVE / "lease.py")
     module = importlib.util.module_from_spec(spec)

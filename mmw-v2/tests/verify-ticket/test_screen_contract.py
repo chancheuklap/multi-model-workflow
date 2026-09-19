@@ -134,12 +134,12 @@ class TestPipelineFlags(unittest.TestCase):
     """story-parity.py and boundary-check.py are given what they need, nothing they
     retired, and nothing their `--help` does not list — the one check that catches
     a criterion naming a capability that does not exist at the moment it is written.
-    The scripts belong to the drive-target skill and reach the lint through
+    The scripts belong to the ui-acceptance skill and reach the lint through
     `--tools`, so the test hands their directory over the way the agent does."""
 
     def setUp(self):
         from pathlib import Path
-        vt.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"]
+        vt.TOOLS[:] = [Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"]
         vt._HELP_FLAGS.clear()
 
     def tearDown(self):

@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DISPATCH_SCRIPTS = ROOT / "mmw-v2" / "skills" / "dispatch" / "scripts"
-DRIVE_TARGET_SCRIPTS = ROOT / "mmw-v2" / "skills" / "drive-target" / "scripts"
+DRIVE_TARGET_SCRIPTS = ROOT / "mmw-v2" / "skills" / "ui-acceptance" / "scripts"
 sys.path.insert(0, str(DISPATCH_SCRIPTS))
 sys.path.insert(0, str(DRIVE_TARGET_SCRIPTS))
 import models  # noqa: E402

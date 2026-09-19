@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Run this skill's tests. Run after any change under scripts/.
 #
-#   bash mmw-v2/tests/drive-target/run.sh
+#   bash mmw-v2/tests/ui-acceptance/run.sh [-k <pattern>]
 #
-# unittest over the driver, the story judge, the lease, the hook and the refusal text.
+# unittest over the driver, the story judge, the lease and the refusal text.
 # No tracker, no terminal. The story fixture starts Chromium.
 #
 # Pixel classes need numpy and Pillow. The runner is
@@ -17,9 +17,17 @@ set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# No parent to tell. `hook.py` and the lease read `PASEO_AGENT_ID` to address the session
-# that started a run; these tests exercise those paths against made-up agents, so under a
-# Paseo session they would reach a live agent as news about work nobody is doing.
+pattern=""
+if [[ $# -ne 0 ]]; then
+  if [[ $# -ne 2 || "$1" != "-k" || -z "$2" ]]; then
+    echo "usage: $0 [-k <pattern>]" >&2
+    exit 2
+  fi
+  pattern="$2"
+fi
+
+# No parent to tell. These tests exercise session-bound paths against made-up agents, so
+# an inherited Paseo identity must not turn their output into news about work nobody is doing.
 unset PASEO_AGENT_ID
 
 if ! command -v uv >/dev/null 2>&1; then
@@ -65,13 +73,19 @@ else:
 ')"
 export MMW_LEASE_PORT_BASE
 
-if uv run --quiet --with numpy --with pillow python -u - "$HERE" <<'PY'
+if uv run --quiet --with numpy --with pillow python -u - "$HERE" "$pattern" <<'PY'
 import os
 import sys
 import unittest
 
 here = sys.argv[1]
-suite = unittest.defaultTestLoader.discover(here, pattern="test_*.py")
+name_pattern = sys.argv[2]
+loader = unittest.defaultTestLoader
+if name_pattern:
+    if "*" not in name_pattern:
+        name_pattern = f"*{name_pattern}*"
+    loader.testNamePatterns = [name_pattern]
+suite = loader.discover(here, pattern="test_*.py")
 if os.environ.get("MMW_FORCE_SKIP") == "1":
     class _ForceSkip(unittest.TestCase):
         def test_mmw_force_skip(self):
@@ -97,4 +111,3 @@ then
 else
   exit 1
 fi
-

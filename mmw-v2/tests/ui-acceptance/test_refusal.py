@@ -11,12 +11,14 @@ import sys
 import unittest
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+SKILLS = Path(__file__).resolve().parents[2] / "skills"
+SCRIPTS = SKILLS / "ui-acceptance" / "scripts"
+TOOL_GUARD = SKILLS / "dispatch" / "scripts" / "tool-guard.py"
 
 
-def load(name: str):
+def load(name: str, path: Path | None = None):
     spec = importlib.util.spec_from_file_location(f"mmw_{name}_under_test",
-                                                  SCRIPTS / f"{name}.py")
+                                                  path or SCRIPTS / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -53,11 +55,11 @@ class RecordedRefusalsFit(unittest.TestCase):
     """The refusals this suite records have to fit and have to say what to do."""
 
     def texts(self) -> dict[str, str]:
-        hook = load("hook")
+        tool_guard = load("tool_guard", TOOL_GUARD)
         return {
-            "closeout": hook.REFUSAL.format(n=999999),
-            "question": hook.NO_QUESTION,
-            "kill": hook.no_kill("kill 12345"),
+            "closeout": tool_guard.REFUSAL.format(n=999999),
+            "question": tool_guard.NO_QUESTION,
+            "kill": tool_guard.no_kill("kill 12345"),
             "report_blocked": rf.REPORT_BLOCKED,
         }
 

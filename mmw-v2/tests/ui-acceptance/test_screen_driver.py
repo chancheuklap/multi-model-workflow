@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts" / "screen_driver.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts" / "screen_driver.py"
 # Every command the driver declares runs with this run's lease in its environment, and
 # claiming one writes to a registry `lease.py` fixes at import from `MMW_HOME`. Without a
 # registry of its own here, the suite claims real slots and overwrites the record of a

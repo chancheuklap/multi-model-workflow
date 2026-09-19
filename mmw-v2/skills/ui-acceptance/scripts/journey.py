@@ -240,8 +240,15 @@ def _run_named(name: str, root: Path) -> int:
 
 def run_named(name: str, start: Path | None = None) -> int:
     root = repo_root(start)
-    with judge_run(root):
-        return _run_named(name, root)
+    result = []
+    try:
+        with judge_run(root):
+            result.append(_run_named(name, root))
+    except SystemExit as exc:
+        if not result:
+            raise
+        print(exc, file=sys.stderr)
+    return result[0]
 
 
 def main(argv: list[str] | None = None) -> int:

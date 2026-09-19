@@ -14,7 +14,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcasend|orcaclosed
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove|installorca
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh installboardagent|installcheckboardagent
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh installboardagent|installcheckboardagent|installtoolguard
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh usesagree|usesmismatch|usesunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
@@ -2153,17 +2153,17 @@ path.write_text(json.dumps(rows))
 
 # The scripts of the two other skills dispatch.sh runs are handed to it with --tools,
 # the way the agent does; TOOLS holds those arguments for every call below.
-TOOLS=(--tools "$TMP/fake/skills/drive-target/scripts" --tools "$TMP/fake/skills/verify-ticket/scripts"
-       --tools "$(dirname "$SKILL")/drive-target/scripts" --tools "$(dirname "$SKILL")/verify-ticket/scripts")
+TOOLS=(--tools "$TMP/fake/skills/ui-acceptance/scripts" --tools "$TMP/fake/skills/verify-ticket/scripts"
+       --tools "$(dirname "$SKILL")/ui-acceptance/scripts" --tools "$(dirname "$SKILL")/verify-ticket/scripts")
 
 skill_copy_for() {
   local copy="$TMP/fake/skills/$1"
   rm -rf "$TMP/fake"
-  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/drive-target/scripts"
+  mkdir -p "$copy" "$TMP/fake/skills/verify-ticket/scripts" "$TMP/fake/skills/ui-acceptance/scripts"
   cp -R "$SKILL/hosts.json" "$SKILL/scripts" "$SKILL/references" "$copy/"
-  cp "$(dirname "$SKILL")/drive-target/scripts/lease.py" \
-     "$(dirname "$SKILL")/drive-target/scripts/refusal.py" \
-     "$TMP/fake/skills/drive-target/scripts/"
+  cp "$(dirname "$SKILL")/ui-acceptance/scripts/lease.py" \
+     "$(dirname "$SKILL")/ui-acceptance/scripts/refusal.py" \
+     "$TMP/fake/skills/ui-acceptance/scripts/"
   cp "$(dirname "$SKILL")/verify-ticket/scripts/events.py" \
      "$(dirname "$SKILL")/verify-ticket/scripts/tree.py" \
      "$TMP/fake/skills/verify-ticket/scripts/"
@@ -2747,7 +2747,7 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
     *) fail "the shortened pipeline-fault sentence is missing: $(out_json initialPrompt)" ;;
   esac
   case "$(out_json initialPrompt)" in
-    *"Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill."*) ;;
+    *"Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."*) ;;
     *) fail "the product-rules sentence is missing: $(out_json initialPrompt)" ;;
   esac
   assert_wt 61
@@ -2970,7 +2970,7 @@ JSON
   : > "$MMW_TEST_LOG"
   local copy
   copy="$(skill_copy_for retract)"
-  rm -f "$TMP/fake/skills/drive-target/scripts/lease.py"
+  rm -f "$TMP/fake/skills/ui-acceptance/scripts/lease.py"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$copy/scripts/dispatch.sh" retract 61)"
   [ "$code" = 2 ] || fail "expected exit 2 without lease.py, got $code: $(cat "$TMP/err")"
@@ -2980,9 +2980,9 @@ JSON
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 1 ] \
     || fail "the slot must stay held when retract cannot see lease.py, count is $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
 
-  echo "--- and with the drive-target skill next door, no --tools is needed to find it"
+  echo "--- and with the ui-acceptance skill next door, no --tools is needed to find it"
   : > "$MMW_TEST_LOG"
-  cp "$(dirname "$SKILL")/drive-target/scripts/lease.py" "$TMP/fake/skills/drive-target/scripts/"
+  cp "$(dirname "$SKILL")/ui-acceptance/scripts/lease.py" "$TMP/fake/skills/ui-acceptance/scripts/"
   code="$(run_dispatch env MMW_LEASE_SLOTS=1 \
           bash "$copy/scripts/dispatch.sh" retract 61)"
   [ "$code" = 0 ] || fail "expected exit 0 with lease.py next door, got $code: $(cat "$TMP/err")"
@@ -4051,7 +4051,7 @@ JSON
 
 # ------------------------------------------------------------------ instance gate / suspend
 
-LEASE_PY="$(dirname "$SKILL")/drive-target/scripts/lease.py"
+LEASE_PY="$(dirname "$SKILL")/ui-acceptance/scripts/lease.py"
 
 scenario_slotatclaim() {
   rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
@@ -5703,20 +5703,20 @@ scenario_worktreegit() {
 
 scenario_worktreegoverned() {
   local code got dest hook
-  echo "--- the worktree basename is issue-<n>, and hook.py governed_ticket sees the ticket"
+  echo "--- the worktree basename is issue-<n>, and tool-guard.py governed_ticket sees the ticket"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   dest="$(wt 61)"
   [ "$(basename "$dest")" = issue-61 ] || fail "basename should be issue-61, got $(basename "$dest")"
-  hook="$(dirname "$SKILL")/drive-target/scripts/hook.py"
+  hook="$SKILL/scripts/tool-guard.py"
   got="$(cd "$dest" && python3 - "$hook" <<'PY'
 import importlib.util, sys
 from pathlib import Path
 path = Path(sys.argv[1])
 sys.path.insert(0, str(path.parent))
-spec = importlib.util.spec_from_file_location("mmw_hook", path)
+spec = importlib.util.spec_from_file_location("mmw_tool_guard", path)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 print(mod.governed_ticket())
@@ -5728,7 +5728,7 @@ import importlib.util, sys
 from pathlib import Path
 path = Path(sys.argv[1])
 sys.path.insert(0, str(path.parent))
-spec = importlib.util.spec_from_file_location("mmw_hook", path)
+spec = importlib.util.spec_from_file_location("mmw_tool_guard", path)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 print(mod.governed_ticket())
@@ -6113,6 +6113,44 @@ scenario_installcheckboardagent() {
   grep -q '^缺    .*com\.mmw\.board\.plist' "$TMP/err" \
     || fail "--check did not name the missing board LaunchAgent: $(cat "$TMP/err")"
   hasnt "launchctl"
+}
+
+scenario_installtoolguard() {
+  local home="$TMP/install-home" retired_skill retired_script retired_path config
+  echo "--- install moves every host to dispatch's tool guard and sweeps the retired registration"
+  rm -rf "$home"
+  mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" \
+    "$home/.grok/hooks" "$home/.pi/agent"
+  retired_skill="drive""-target"
+  retired_script="hook"".py"
+  retired_path="$home/.agents/skills/$retired_skill/scripts/$retired_script"
+  printf '[compat.claude]\nagents = false\n' > "$home/.grok/config.toml"
+  cat > "$home/.claude/settings.json" <<JSON
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 '$retired_path' pretool claude","timeout":10}]}]}}
+JSON
+
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
+  for config in \
+    "$home/.claude/settings.json" \
+    "$home/.codex/hooks.json" \
+    "$home/.cursor/hooks.json" \
+    "$home/.grok/hooks/mmw-verify-ticket.json" \
+    "$home/.pi/agent/extensions/mmw-verify-ticket.ts"
+  do
+    [ -f "$config" ] || { fail "install did not write $config"; continue; }
+    grep -qF "/dispatch/scripts/tool-guard.py" "$config" \
+      || fail "$config does not point at dispatch's tool guard"
+    grep -qF "$retired_script" "$config" \
+      && fail "$config kept the retired script registration"
+  done
+  grep -q '^trusted_hash = "sha256:' "$home/.codex/config.toml" \
+    || fail "Codex did not receive trusted_hash entries for the installed hooks"
+
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install --check failed: $(cat "$TMP/err")"
+  grep -qx 'HOOKS-INSTALLED' "$TMP/out" \
+    || fail "install --check did not report HOOKS-INSTALLED: $(cat "$TMP/out")"
 }
 
 run_uses_check() {
@@ -6750,7 +6788,7 @@ assert_complete_worker_prompt() {
   python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete worker prompt changed for $task_root"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
-prefix = "Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the drive-target skill. A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
+prefix = "Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill. A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
 packet = f"""Shared experience for ticket #61.
 
 MMW repository Space: o__r
@@ -10237,7 +10275,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
@@ -10278,6 +10316,7 @@ banner_for() {
     openticketstartsboard) echo OPEN-TICKET-STARTS-BOARD-OK ;;
     installboardagent) echo INSTALL-BOARD-AGENT-OK ;;
     installcheckboardagent) echo INSTALL-CHECK-BOARD-AGENT-OK ;;
+    installtoolguard) echo INSTALL-TOOL-GUARD-OK ;;
     startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;
     startnomodelsjson) echo START-NO-MODELS-JSON-OK ;;
     installimportsmodelsmd) echo INSTALL-IMPORTS-MODELS-MD-OK ;;

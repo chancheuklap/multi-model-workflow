@@ -21,7 +21,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts" / "lease.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts" / "lease.py"
 
 
 def load(home: Path, slots: int = 4, port_base: int = 21400, stride: int = 5):

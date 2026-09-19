@@ -19,7 +19,7 @@ The worker's run takes the criteria not yet met. `--reverify` reads the ticket a
 
 ## A criterion that runs the product
 
-Before running a `CHECK:` that names `journey.py`, `screen_driver.py` or `lease.py`, this run asks the `drive-target` skill's `lease.py` for the worktree's product slot. A `CHECK:` naming `story-parity.py` asks for none: the story page service it starts has no backend behind it and takes a port the machine hands out. The slot is in that run's `ticket.checked` event. Its lifecycle and limits are in that skill's `references/runtime-environment.md` under **`instance`**.
+Before running a `CHECK:` that names `journey.py`, `screen_driver.py` or `lease.py`, this run asks the `ui-acceptance` skill's `lease.py` for the worktree's product slot. A `CHECK:` naming `story-parity.py` asks for none: the story page service it starts has no backend behind it and takes a port the machine hands out. The slot is in that run's `ticket.checked` event. Its lifecycle and limits are in that skill's `references/product-answers.md` under **`instance`**.
 
 When no product slot is free, the run posts one `worker.queued` event and runs nothing; the ticket gets no second `worker.queued` for the same wait. What happens next depends on whose run it is.
 

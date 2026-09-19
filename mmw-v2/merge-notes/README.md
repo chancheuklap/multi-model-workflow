@@ -37,7 +37,7 @@ mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型�
 
 **上游把某一段改回工具名或斜杠命令 → 收上游对那一段其余部分的措辞，按能力说话这一层不收回去。** 下面每份说明只写它那个技能改了哪几段，不复述这三条。
 
-一处已知偏差，记录，不修，不加守卫：`mmw-v2/upstream/CONTEXT.md` 举的 label 例子是 `ready-for-afk`，而本仓库的 label 是 `ready-for-agent`。约定明写 `mmw-v2/upstream/` 自己的 `AGENTS.md`、`CLAUDE.md`、`CONTEXT.md` 原样不动，所以这处偏差留着。不加守卫的理由是三样现有的东西已经拦住一个 agent 真去打这个 label：根 `CONTEXT.md` 的 `label` 条目写 `No new label is added`；`docs/agents/triage-labels.md` 是 `triage` 与 `to-tickets` 唯一的 label 来源；`verify-ticket.py --closeout` 是流水线里唯一改 label 的一步，而 `hook.py pretool` 拦下把票挪出 agent 队列的那两条命令。一个打错的 label 不会让票进队列，也不会让它关掉，靠的是它不等于 `ready-for-agent`。这一条写在这里，是为了让下一次拉 upstream 的人不要把它当成本仓库的疏漏去「修」。
+一处已知偏差，记录，不修，不加守卫：`mmw-v2/upstream/CONTEXT.md` 举的 label 例子是 `ready-for-afk`，而本仓库的 label 是 `ready-for-agent`。约定明写 `mmw-v2/upstream/` 自己的 `AGENTS.md`、`CLAUDE.md`、`CONTEXT.md` 原样不动，所以这处偏差留着。不加守卫的理由是三样现有的东西已经拦住一个 agent 真去打这个 label：根 `CONTEXT.md` 的 `label` 条目写 `No new label is added`；`docs/agents/triage-labels.md` 是 `triage` 与 `to-tickets` 唯一的 label 来源；`verify-ticket.py --closeout` 是流水线里唯一改 label 的一步，而 `tool-guard.py pretool` 拦下把票挪出 agent 队列的那两条命令。一个打错的 label 不会让票进队列，也不会让它关掉，靠的是它不等于 `ready-for-agent`。这一条写在这里，是为了让下一次拉 upstream 的人不要把它当成本仓库的疏漏去「修」。
 
 ## 目前有说明的技能
 

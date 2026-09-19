@@ -19,8 +19,8 @@ finished. A run stops its own product through the `stop` command its repository
 declares; everything else is somebody else's, and a run that cannot reach its product
 reports the ticket blocked rather than clearing the way to it.
 
-    hook.py pretool <host>    the host is about to run a shell command
-    hook.py question <host>   the host is about to ask the user a question
+    tool-guard.py pretool <host>    the host is about to run a shell command
+    tool-guard.py question <host>   the host is about to ask the user a question
 
 `<host>` is one of claude, codex, grok, cursor, pi. It decides only the shape of the
 answer; the decision and the sentence are the same for all five.
@@ -55,8 +55,9 @@ import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
+_UI_ACCEPTANCE_SCRIPTS = _HERE.parents[1] / "ui-acceptance" / "scripts"
+if str(_UI_ACCEPTANCE_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_UI_ACCEPTANCE_SCRIPTS))
 
 from refusal import refusal  # noqa: E402
 
@@ -274,7 +275,7 @@ def run_question(host: str, event: dict) -> int:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2 or argv[0] not in GATES or argv[1] not in HOSTS:
-        sys.stderr.write(f"usage: hook.py <{'|'.join(GATES)}> <{'|'.join(HOSTS)}>\n")
+        sys.stderr.write(f"usage: tool-guard.py <{'|'.join(GATES)}> <{'|'.join(HOSTS)}>\n")
         return 0
     event = read_event()
     if imported_into_cursor(argv[1], event):

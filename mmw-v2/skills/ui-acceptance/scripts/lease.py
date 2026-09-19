@@ -467,7 +467,7 @@ def try_claim(worktree: Path) -> dict:
 def claim(worktree: Path) -> dict:
     """This worktree's slot, or the refusal a caller that cannot wait gets.
 
-    The judges of the drive-target skill come here through `leased_environment` in the
+    The judges of the ui-acceptance skill come here through `leased_environment` in the
     middle of a criterion, where there is nobody to wait: `verify-ticket.py` has already
     claimed the slot before the run began, and waited for it when none was free, so a
     judge reaching this with no slot free is a run that skipped that step.
