@@ -16,5 +16,5 @@ agentflow 当前有 2 个受影响文件：`tests/guards/test_work_monitor_hando
 
 1. 把技能名 `claude-design-blocks` 换成 `design-pages`；把 `~/.agents/skills/claude-design-blocks/` 换成 `~/.agents/skills/design-pages/`。
 2. 把 `selector_check.py` 换成 `check_editable_selectors.py`。
-3. agentflow：`tests/guards/test_work_monitor_handoff_scenes.py` 把 `"claude-design-blocks 的 export_scene_data.py"` 换成 `"design-pages 的 export_scene_data.py"`；`prototypes/hedgehog-boss-console/518/claude-design/README.md` 把 `selector_check.py` 换成 `check_editable_selectors.py`，把 `python3 ~/.agents/skills/claude-design-blocks/scripts/export_scene_data.py .` 换成 `python3 ~/.agents/skills/design-pages/scripts/export_scene_data.py .`，把「`claude-design-blocks` 技能」换成「`design-pages` 技能」。
+3. agentflow：`tests/guards/test_work_monitor_handoff_scenes.py` 只把技能名 `claude-design-blocks` 换成 `design-pages`；`prototypes/hedgehog-boss-console/518/claude-design/README.md` 把 `selector_check.py` 换成 `check_editable_selectors.py`，把技能名 `claude-design-blocks` 换成 `design-pages`。两处里指向 `export_scene_data.py` 的命令和测试字符串按 #473 的 `*-handoff-package-by-pull.md` 迁，不要写成 `~/.agents/skills/design-pages/scripts/export_scene_data.py`：同一批次会把该脚本移出技能目录。
 4. 新版 MMW 安装后，host 的 symlink 指向 `design-pages`；旧名 symlink 由 `install.sh` 当作残留摘掉。
