@@ -12,10 +12,11 @@ metadata block above; `main` then re-execs through `uv run --script` so PyYAML
 comes from that block. `uv run --script lint_contract.py` skips the re-exec.
 
 `--tools` is the `scripts/` directory of the ui-acceptance skill. Two things
-come from that driver, and this file holds no copy of either: the `.mmw/target.json`
-check (the function `target --validate` runs), and matching (`volatile_triggers` /
-`count_volatile_hits`). Target kinds come from the same driver (`KINDS`).
-All are loaded in-process through `extract_skeleton.py`'s `load_driver()`.
+come from those scripts, and this file holds no copy of either: the `.mmw/target.json`
+check (`target_config.py --validate`), and matching (`volatile_triggers` /
+`count_volatile_hits` from `design_render.py`). Target kinds come from
+`target_config.py` (`KINDS`). Matching is loaded in-process through
+`extract_skeleton.py`'s `load_driver()`.
 Rules are the tables in ../references/contract-format.md.
 
 Printed on every run, before the findings: each `retired_ids` entry with its note,
@@ -78,12 +79,14 @@ TOP_KEYS = {
     "backend_without_ui", "proposed_operations",
 }
 
-# The directories `--tools` named. The driver of the ui-acceptance skill is found
-# there and nowhere else; `target_kinds()`, `target_file_problem()`, and matching
-# all ask it, through `extract_skeleton.py`'s `load_driver()`.
+# The directories `--tools` named. The ui-acceptance scripts are found
+# there and nowhere else; `target_kinds()` and `target_file_problem()` ask
+# `target_config.py`, and matching asks `design_render.py` through
+# `extract_skeleton.py`'s `load_driver()`.
 TOOLS: list[Path] = []
 
-_SD = None
+_DR = None
+_TC = None
 
 
 def extract_skeleton_mod():
@@ -98,16 +101,36 @@ def extract_skeleton_mod():
                      "ui-acceptance skill's scripts directory>")
 
 
-def screen_driver_mod():
-    """The ui-acceptance driver from `--tools`, loaded the same way
+def design_render_mod():
+    """`design_render.py` from `--tools`, loaded the same way
     `extract_skeleton.py` loads it. Cached after the first load.
-    Matching (`volatile_triggers` / `count_volatile_hits`) and the
-    target kinds / `.mmw/target.json` check all come from this module."""
-    global _SD
-    if _SD is not None:
-        return _SD
-    _SD = extract_skeleton_mod().load_driver()
-    return _SD
+    Matching (`volatile_triggers` / `count_volatile_hits`) comes from this module."""
+    global _DR
+    if _DR is not None:
+        return _DR
+    _DR = extract_skeleton_mod().load_driver()
+    return _DR
+
+
+def target_config_mod():
+    """`target_config.py` from `--tools`. Cached after the first load.
+    Target kinds (`KINDS`) and the `.mmw/target.json` check (`target_main`) come
+    from this module."""
+    global _TC
+    if _TC is not None:
+        return _TC
+    import importlib.util
+    for directory in TOOLS:
+        path = directory / "target_config.py"
+        if path.is_file():
+            spec = importlib.util.spec_from_file_location("target_config", path)
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules["target_config"] = mod
+            spec.loader.exec_module(mod)
+            _TC = mod
+            return _TC
+    raise SystemExit("no target_config.py in any --tools directory; pass --tools <the "
+                     "ui-acceptance skill's scripts directory")
 
 
 def page_stem(page: str) -> str:
@@ -124,23 +147,23 @@ def target_hashes(path: Path) -> dict[str, str]:
 
 
 def target_kinds() -> set[str]:
-    return set(screen_driver_mod().KINDS)
+    return set(target_config_mod().KINDS)
 
 
 def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
     """`("error", line)` or `("warning", line)` about the repository's `.mmw/target.json`,
-    from the driver's own validation; `None` when the file is complete.
+    from `target_config.py`'s own validation; `None` when the file is complete.
 
     The file is missing until the contract ticket lands it, so that case is a warning
-    and names `screen_driver.py target --check`. A file that is there and fails
+    and names `target_config.py --check`. A file that is there and fails
     `--validate` is an error.
     """
     if not (repo / ".mmw" / "target.json").exists():
         return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
-                           "`screen_driver.py target --check` (the ui-acceptance skill) there")
+                           "`target_config.py --check` (the ui-acceptance skill) there")
     buf_out, buf_err = io.StringIO(), io.StringIO()
     with redirect_stdout(buf_out), redirect_stderr(buf_err):
-        code = screen_driver_mod().target_main(
+        code = target_config_mod().target_main(
             ["--validate", "--repo", str(repo), "--kind", kind])
     if code == 0:
         return None
@@ -358,9 +381,9 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
             continue
         if contract_dir is None:
             continue
-        hits = screen_driver_mod().count_volatile_hits(
+        hits = design_render_mod().count_volatile_hits(
             tree_of(page),
-            screen_driver_mod().volatile_triggers({"volatile_values": [entry]}))
+            design_render_mod().volatile_triggers({"volatile_values": [entry]}))
         if hits == 0:
             warnings.append(f"volatile_values: {role} {name!r} on {page} is not in the "
                             f"target tree")

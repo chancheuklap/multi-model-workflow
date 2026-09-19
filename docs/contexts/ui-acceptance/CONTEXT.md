@@ -111,7 +111,7 @@ _Avoid_: 负控制, GREEN WITHOUT TRANSPORT
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/story-parity.py`, `mmw-v2/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v2/skills/ui-acceptance/scripts/journey.py`
 
 **normalisation**:
-How an accessibility tree is read before comparison: as the sequence of its named nodes in reading order — role, name or text, and state attributes — each followed by ` < ` and its nearest named ancestor, with unnamed wrappers and landmark names dropped. One normaliser, `normalize_aria` in `screen_driver.py`, serves the story judge and the target trees. The accessibility tree walks the whole subtree under `[data-story-root]` or `#dc-root`; the pixel judge sees only that box intersected with the viewport, on both sides.
+How an accessibility tree is read before comparison: as the sequence of its named nodes in reading order — role, name or text, and state attributes — each followed by ` < ` and its nearest named ancestor, with unnamed wrappers and landmark names dropped. One normaliser, `normalize_aria` in `design_render.py`, serves the story judge and the target trees. The accessibility tree walks the whole subtree under `[data-story-root]` or `#dc-root`; the pixel judge sees only that box intersected with the viewport, on both sides.
 _Avoid_: 归一化, ARIA 归一化, ARIA 树, 视口
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
@@ -176,18 +176,22 @@ _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 ### The runtime a repository answers for
 
-**`screen_driver.py`**:
-`scripts/screen_driver.py` beside the ui-acceptance `SKILL.md`: the shared runtime `story-parity.py` and `extract_skeleton.py` import — the contract's pages and scenes, `.mmw/target.json` and the declaration of its fields (`FIELDS`), the baseline server and its CDN answering (`vendor/`, cache, network), `capture`, the wrapper page, and the normaliser. Nothing in it judges. Run as a command, `screen_driver.py target --check` is the setup-time bar for one repository. The contract lint loads this file in-process: kinds from `KINDS`, the `.mmw/target.json` check through the function `target --validate` runs.
+**`design_render.py`**:
+`scripts/design_render.py` beside the ui-acceptance `SKILL.md`: the shared runtime `story-parity.py` and `extract_skeleton.py` import — the contract's pages and scenes, the baseline server and its CDN answering (`vendor/`, cache, network), `capture`, the wrapper page, and the normaliser. Nothing in it judges. The contract lint loads this file in-process for `volatile_triggers` and `count_volatile_hits`.
 _Avoid_: the driver module, 共用驱动, Adapter (the driver class)
-_Home_: `mmw-v2/skills/ui-acceptance/scripts/screen_driver.py`
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
+
+**`target_config.py`**:
+`scripts/target_config.py` beside the ui-acceptance `SKILL.md`: reads and checks `.mmw/target.json` — `FIELDS`, `DISCOVER_PRINTS`, `target_problems`, `discover`, `run_command`, `command_env`, `repo_root`. Run as a command, `target_config.py --check` is the setup-time bar for one repository. The contract lint loads this file in-process: kinds from `KINDS`, the `.mmw/target.json` check through the function `--validate` runs.
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
 
 **target**:
-What kind of product this repository is, named in the contract as `target.kind` — `electron`, `web-spa`, `web-server-rendered`, `chrome-extension`. The repository answers for this product on this machine in `.mmw/target.json`, in the fields `screen_driver.py`'s `FIELDS` declares, which `screen_driver.py target --check` prints with one sentence and one example each, exiting 0 once the file is complete. The list does not change with the kind. The contract carries no `adapter` key.
+What kind of product this repository is, named in the contract as `target.kind` — `electron`, `web-spa`, `web-server-rendered`, `chrome-extension`. The repository answers for this product on this machine in `.mmw/target.json`, in the fields `target_config.py`'s `FIELDS` declares, which `target_config.py --check` prints with one sentence and one example each, exiting 0 once the file is complete. The list does not change with the kind. The contract carries no `adapter` key.
 _Avoid_: platform (bare), 目标 (as a term), 适配器 (and `adapter`, as a word for anything on the target side; the file name `.release-adapter.json` and the key template's `--adapter` flag are literals a program reads and stay), target.adapter, the nine questions
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`.mmw/target.json`**:
-The consuming repository's machine facts, read by the runtime and never written in a contract or a criterion: what brings this product up on this machine, what takes it down, where it answers, where its story pages and journeys are, and what it does that reaches past the machine. Which fields those are is `screen_driver.py`'s `FIELDS`, printed one sentence and one example each by `screen_driver.py target --check`. Addresses change per machine and per worktree; this file is where they are answered afresh.
+The consuming repository's machine facts, read by the runtime and never written in a contract or a criterion: what brings this product up on this machine, what takes it down, where it answers, where its story pages and journeys are, and what it does that reaches past the machine. Which fields those are is `target_config.py`'s `FIELDS`, printed one sentence and one example each by `target_config.py --check`. Addresses change per machine and per worktree; this file is where they are answered afresh.
 _Avoid_: target config, 地址文件, reach (the target.json field), transport_off, transport_on
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
@@ -219,7 +223,7 @@ _Avoid_: 槽位, port range (for this), seat
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
 
 **instance**:
-One run of a product on this machine, and the optional `instance` field of `.mmw/target.json`: how many of them one machine holds at once, and how a run takes one. `.mmw/target.json`'s `"instance": {"max": <n>, "why": "<what stops a second one>"}` is where a repository whose product cannot move its ports says so: every claim the repository holds counts toward `max`, the main checkout's included, and a run past it waits for a slot under a `worker.queued` event; `advance` still starts every frontier ticket. Its `MMW_DATA_DIR` remains as long as its ticket worktree remains and is removed by `lease.py remove-instance` after the workspace archive removes that worktree. `discover` prints `instance`, a readable name for messages, and `instance_check`, one `observe` line whose truth means the product answering is the one this run started — which is what makes question 2 mean *answering and mine*.
+One run of a product on this machine, and the optional `instance` field of `.mmw/target.json`: how many of them one machine holds at once, and how a run takes one. `.mmw/target.json`'s `"instance": {"max": <n>, "why": "<what stops a second one>"}` is where a repository whose product cannot move its ports says so: every claim the repository holds counts toward `max`, the main checkout's included, and a run past it waits for a slot under a `worker.queued` event; `advance` still starts every frontier ticket. Its `MMW_DATA_DIR` remains as long as its ticket worktree remains and is removed by `lease.py remove-instance` after the workspace archive removes that worktree. `discover` prints `instance`, a readable name for messages. After `stop`, `journey.py` checks that this run's slot is empty.
 _Avoid_: 实例 (as a term)
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 

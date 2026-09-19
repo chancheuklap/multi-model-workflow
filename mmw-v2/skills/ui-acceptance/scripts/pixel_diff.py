@@ -21,10 +21,10 @@ from pathlib import Path
 
 
 def _load_driver():
-    here = Path(__file__).resolve().parent / "screen_driver.py"
-    spec = importlib.util.spec_from_file_location("screen_driver", here)
+    here = Path(__file__).resolve().parent / "design_render.py"
+    spec = importlib.util.spec_from_file_location("design_render", here)
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["screen_driver"] = mod
+    sys.modules["design_render"] = mod
     spec.loader.exec_module(mod)
     return mod
 

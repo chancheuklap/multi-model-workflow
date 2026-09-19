@@ -150,7 +150,7 @@ class TestScreenAxis(unittest.TestCase):
         (self.repo.root / ".mmw" / "target.json").unlink()
         errors, warnings = self.lint(contract())
         self.assertFalse(any("target.json" in e for e in errors), errors)
-        self.assertTrue(any("no .mmw/target.json" in w and "target --check" in w
+        self.assertTrue(any("no .mmw/target.json" in w and "target_config.py --check" in w
                             for w in warnings), warnings)
 
     def test_an_incomplete_target_json_is_an_error(self):

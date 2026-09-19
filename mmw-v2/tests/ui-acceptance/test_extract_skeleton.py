@@ -3,7 +3,7 @@
 Playwright quotes a node's key (`role "name" [attrs]`) as YAML when it would not read
 plain — a name holding " #" or ": " is enough — and doubles any quote inside it. The
 skeleton's row inventory (`extract_skeleton.controls`), the judges' normaliser
-(`screen_driver.normalize_aria`) and the option naming (`name_options_from_dom`) all
+(`design_render.normalize_aria`) and the option naming (`name_options_from_dom`) all
 read those lines; a reader that skips them loses the control from the inventory and the
 node from both sides of every tree comparison.
 """
@@ -31,7 +31,7 @@ def load(name: str, modname: str):
     return module
 
 
-sd = load("screen_driver.py", "screen_driver")
+sd = load("design_render.py", "design_render")
 es = load("extract_skeleton.py", "extract_skeleton")
 
 

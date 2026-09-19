@@ -58,6 +58,7 @@ def _load(name: str, modname: str):
 
 vp = _load("pixel_diff.py", "pixel_diff")
 sd = vp.sd
+tc = _load("target_config.py", "target_config")
 
 # Reused from pixel_diff.py: do not copy.
 pixel_diff = vp.pixel_diff
@@ -122,12 +123,12 @@ def product_root() -> Path:
 
     The criterion is invoked from the product repository (AC1–AC3 `cd` there). If that
     directory holds the file, it is the product. Otherwise the git toplevel — the same
-    anchor `sd.repo_root()` uses.
+    anchor `tc.repo_root()` uses.
     """
     cwd = Path.cwd().resolve()
     if (cwd / ".mmw" / "target.json").exists():
         return cwd
-    return sd.repo_root()
+    return tc.repo_root()
 
 
 def load_stories_config(root: Path) -> dict:
@@ -333,7 +334,7 @@ def run(args) -> int:
     if args.render_only:
         root = Path.cwd().resolve()
         if not (root / look).exists():
-            root = sd.repo_root()
+            root = tc.repo_root()
     else:
         root = product_root()
     baseline = (root / look).resolve()

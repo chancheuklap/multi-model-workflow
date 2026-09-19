@@ -7,8 +7,8 @@ pipeline reads from that render.
 
 Usage: uv run python extract_skeleton.py <handoff dir> <out.json> [--targets <dir> [--contract <yaml>]]
 
-One render per scene in `scenes.json`, through the same driver the story judge uses
-(`screen_driver.py`, beside this script), so what comes out here is what the judge will
+One render per scene in `scenes.json`, through the same renderer the story judge uses
+(`design_render.py`, beside this script), so what comes out here is what the judge will
 read. The `align-screens` skill calls this script for its row inventory. Three things
 come out:
 
@@ -53,17 +53,17 @@ DERIVED_LINE = ("# derived by extract_skeleton.py — the handoff package is the
 
 
 def load_driver():
-    here = Path(__file__).resolve().parent / "screen_driver.py"
-    spec = importlib.util.spec_from_file_location("screen_driver", here)
+    here = Path(__file__).resolve().parent / "design_render.py"
+    spec = importlib.util.spec_from_file_location("design_render", here)
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["screen_driver"] = mod
+    sys.modules["design_render"] = mod
     spec.loader.exec_module(mod)
     return mod
 
 
 def driver():
-    """The driver beside this script: the one already loaded, else loaded now."""
-    return sys.modules.get("screen_driver") or load_driver()
+    """The design renderer beside this script: the one already loaded, else loaded now."""
+    return sys.modules.get("design_render") or load_driver()
 
 
 def controls(aria: str) -> list[tuple[str, str]]:

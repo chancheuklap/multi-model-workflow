@@ -175,7 +175,7 @@ _Avoid_: `self-run`, `reverify` (as the name of a comment), 自跑, 复验, `CHE
 _Home_: `mmw-v2/skills/verify-ticket/references/running-criteria.md`
 
 **baseline run**:
-The `ticket.checked` whose `run` is `baseline`: the ticket's criteria, minus those whose `CHECK` names `journey.py`, `screen_driver.py`, `lease.py` or `story-parity.py`, executed at the newest `worker.started.base` in a throwaway detached worktree during `--preflight`, after the claim and before `READY:`. A red result does not refuse the claim. It is not a run of the worker's own: `newest_run` still takes `self` and `reverify`. It is not **baseline**, the settled `## Read first` item defined in `docs/contexts/tickets/CONTEXT.md`.
+The `ticket.checked` whose `run` is `baseline`: the ticket's criteria, minus those whose `CHECK` names `journey.py`, `lease.py` or `story-parity.py`, executed at the newest `worker.started.base` in a throwaway detached worktree during `--preflight`, after the claim and before `READY:`. A red result does not refuse the claim. It is not a run of the worker's own: `newest_run` still takes `self` and `reverify`. It is not **baseline**, the settled `## Read first` item defined in `docs/contexts/tickets/CONTEXT.md`.
 _Avoid_: 基线运行, 开工前验收
 _Home_: `mmw-v2/skills/verify-ticket/references/claiming.md`
 
