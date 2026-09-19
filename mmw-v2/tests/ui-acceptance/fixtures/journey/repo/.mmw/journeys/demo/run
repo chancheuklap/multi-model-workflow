@@ -1,5 +1,7 @@
 #!/bin/sh
-# Asserts something only the running product can satisfy, which is what makes the
-# negative control mean anything: with the product stopped and ORIGIN pointing nowhere,
-# this line fails.
-curl -sf --max-time 5 "$ORIGIN/health" | grep -q '^ok$'
+# Write through one route, then read the result through another. The final assertion is
+# what the break control measures: a journey that stops after the write cannot detect a
+# failed result route, while this one can.
+set -e
+curl -sf --max-time 5 -X POST --data 'saved by journey' "$ORIGIN/write/42" >/dev/null
+curl -sf --max-time 5 "$ORIGIN/result/42" | grep -q '^saved by journey$'

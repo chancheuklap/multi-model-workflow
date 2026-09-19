@@ -3,5 +3,6 @@
   "stop": ".mmw/harness/stop.sh",
   "discover": ".mmw/harness/discover.sh",
   "stories": "true",
-  "leaves_machine": []
+  "leaves_machine": [],
+  "harness_markers": []
 }

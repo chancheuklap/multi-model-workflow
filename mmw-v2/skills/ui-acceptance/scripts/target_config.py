@@ -95,6 +95,9 @@ FIELDS: tuple[Field, ...] = (
           "the file that records it under MMW_AUTOMATION=1; [] when nothing leaves",
           '["tools/opened.py — system browser; under MMW_AUTOMATION=1 the URL is written '
           'to $MMW_DATA_DIR/opened-urls"]'),
+    Field("harness_markers", "list of strings",
+          "the strings this product uses only to make itself drivable; [] when it has none",
+          '["/api/dev/", "transport off", "__stub"]'),
     Field("instance", "object {max, why}",
           "only when the product cannot move its ports (ports in a container file, a "
           "callback at a fixed port): how many runs one machine holds and what stops a "
@@ -242,6 +245,9 @@ def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
             if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
                 problems.append((f.key, f"must be a list of strings ([] when nothing leaves) "
                                         f"— e.g. {f.example}"))
+        elif f.key == "harness_markers":
+            if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+                problems.append((f.key, f"must be a list of strings — e.g. {f.example}"))
         elif f.key == "instance":
             ok = (isinstance(value, dict) and isinstance(value.get("max"), int)
                   and value["max"] > 0 and isinstance(value.get("why"), str))
