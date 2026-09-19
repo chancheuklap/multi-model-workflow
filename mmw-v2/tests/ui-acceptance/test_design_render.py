@@ -275,9 +275,6 @@ class TestBoxes(unittest.TestCase):
         with self.assertRaises(SystemExit):
             dr.visible_box(self.Page(None), "[data-screen=x]", (1440, 900))
 
-    def test_frame_box_pins_the_design_to_the_measured_size(self):
-        self.assertIn("width:1440px !important;height:854px !important", dr.frame_box((1440, 854)))
-
 
 class TestTree(unittest.TestCase):
     def test_nearest_named_ancestor_not_landmark_not_wrapper(self):

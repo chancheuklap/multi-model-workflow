@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import http.server
+import importlib.util
 import json
 import re
 import socketserver
@@ -71,6 +72,17 @@ class Scene:
     props: dict
 
 
+def _refusal(what: str, why: str, next_step: str) -> str:
+    name = "_mmw_refusal"
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(
+            name, Path(__file__).resolve().parent / "refusal.py")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[name] = mod
+        spec.loader.exec_module(mod)
+    return sys.modules[name].refusal(what, why, next_step)
+
+
 def load_yaml(path: Path) -> dict:
     """`pyyaml` when the interpreter has it (the scripts declare it); else through `uv`,
     which every criterion of this pipeline already relies on."""
@@ -89,9 +101,11 @@ def load_yaml(path: Path) -> dict:
     return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
 
 
-def load_contract(path: Path) -> dict:
-    doc = load_yaml(Path(path))
-    for key in ("target", "pages", "scenes", "viewports"):
+def load_contract(path: Path, doc: dict | None = None) -> dict:
+    """Read the contract, or reuse a dict already loaded from `path`."""
+    if doc is None:
+        doc = load_yaml(Path(path))
+    for key in ("target", "pages", "scenes"):
         if key not in doc:
             raise SystemExit(f"{path}: contract has no top-level `{key}`; run align-screens "
                              f"step 2 to declare pages")
@@ -147,14 +161,20 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
     scenes = scenes_of(doc, catalogue)
     derived = [s for s in scenes.values() if s.mount in mounts]
     if not derived:
-        raise SystemExit(f"no scene declares mount {', '.join(mounts)}")
+        raise SystemExit(_refusal(
+            f"no scene declares mount {', '.join(mounts)}.",
+            "Every --pages value must be a pages.mount that at least one scene uses.",
+            "Pass a declared --pages mount, then rerun."))
     if not explicit:
         return derived
     by_name = {s.name: s for s in derived}
     outside = [n for n in explicit if n not in by_name]
     if outside:
-        raise SystemExit(f"--scenes names scenes outside mount {', '.join(mounts)}: "
-                         f"{', '.join(outside)}")
+        raise SystemExit(_refusal(
+            f"--scenes names scenes outside mount {', '.join(mounts)}: "
+            f"{', '.join(outside)}.",
+            "A --scenes name must belong to one of the --pages mounts.",
+            "Pass a scene of those mounts, then rerun."))
     return [by_name[n] for n in explicit]
 
 
@@ -370,15 +390,6 @@ def baseline_router(origin: str, baseline: Path, cache: Path):
             route.abort()
 
     return route_baseline
-
-
-def frame_box(size: tuple[int, int]) -> str:
-    """Pin `#dc-root` to the box the implementation's mount element measured. The
-    `.dc.html` helmet pins it to the size the component was drawn at; the component
-    fills its container (`#dc-root > * { height:100% }`), so the design renders at
-    whatever box the product gives that component, and no size is declared anywhere."""
-    return (f"#dc-root{{width:{size[0]}px !important;height:{size[1]}px !important;"
-            f"margin:0 !important}}")
 
 
 def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
@@ -668,20 +679,16 @@ def wait_for_mount(page, selector: str) -> None:
 
 
 def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] | None = None,
-            extra_css: str | None = None, extra_js: str | None = None) -> Shot:
+            extra_js: str | None = None) -> Shot:
     """Screenshot, accessibility tree, class set and `[data-ui]` values under
     `selector`, on a page that has already been navigated and settled.
 
     `clip` is the screenshot rectangle in viewport coordinates. The tree, class set
-    and values walk the whole subtree. `extra_css` pins the design frame;
-    `extra_js` applies the retired-control or negative-control mutation before capture.
+    and values walk the whole subtree. `extra_js` applies a negative-control
+    mutation before capture.
     """
-    if extra_css:
-        page.add_style_tag(content=extra_css)
     if extra_js:
         page.evaluate(extra_js)
-    if extra_css:
-        run_clock(page, SETTLE_VIRTUAL_MS)
     target = page.locator(selector).first
     rect = mount_rect(page, selector)
     if rect is None:

@@ -1,4 +1,5 @@
 effort: story
+locale: zh-CN
 baselines:
   look: docs/prototypes/story/claude-design
 target:
