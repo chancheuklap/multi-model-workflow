@@ -366,25 +366,45 @@ class NegativeControl(unittest.TestCase):
         self.repo.write_target()
         self.repo.write_stack()
 
-    def test_a_break_value_without_method_and_route_exits_2(self):
-        code, out, err = self.repo.run("lazy", "--break", "get health")
-        self.assertEqual(code, 2)
-        self.assertEqual(out, "")
-        self.assertIn("one uppercase method, one space, and a route starting with `/`", err)
-        self.assertFalse(self.repo.log.exists(), "start ran for an invalid --break value")
-
-    def test_start_gets_mmw_break_only_on_the_second_pass(self):
-        seen = self.repo.root / ".mmw" / "start-env"
+    def write_arming_stack(self, start_log: Path | None = None) -> Path:
         broken = self.repo.root / ".mmw" / "broken"
-        self.repo.write_stack(start="\n".join([
-            f'echo "BREAK=[$MMW_BREAK]" >> \'{seen}\'',
+        lines = []
+        if start_log is not None:
+            lines.append(f'echo "BREAK=[$MMW_BREAK]" >> \'{start_log}\'')
+        lines.extend([
             'if [ -n "$MMW_BREAK" ]; then',
             f"  touch '{broken}'",
             '  echo "BREAK ARMED $MMW_BREAK"',
             "else",
             f"  rm -f '{broken}'",
             "fi",
-        ]))
+        ])
+        self.repo.write_stack(start="\n".join(lines))
+        return broken
+
+    def test_a_break_value_without_method_and_route_exits_2(self):
+        for value in ("get /health", "GET health"):
+            with self.subTest(value=value):
+                code, out, err = self.repo.run("lazy", "--break", value)
+                self.assertEqual(code, 2)
+                self.assertEqual(out, "")
+                self.assertIn(
+                    "one uppercase method, one space, and a route starting with `/`", err)
+                self.assertFalse(
+                    self.repo.log.exists(), "start ran for an invalid --break value")
+
+    def test_the_root_route_is_a_valid_break_value(self):
+        broken = self.write_arming_stack()
+        self.repo.write_journey("root", f"[ ! -f '{broken}' ]")
+
+        code, out, err = self.repo.run("root", "--break", "GET /")
+
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out, "JOURNEY OK root\n")
+
+    def test_start_gets_mmw_break_only_on_the_second_pass(self):
+        seen = self.repo.root / ".mmw" / "start-env"
+        broken = self.write_arming_stack(start_log=seen)
         self.repo.write_journey(
             "write", f"echo script >> '{self.repo.log}'\n[ ! -f '{broken}' ]")
 
@@ -434,26 +454,27 @@ class NegativeControl(unittest.TestCase):
 
     def test_the_script_never_sees_which_pass_it_is_in(self):
         seen = self.repo.root / ".mmw" / "script-env"
-        broken = self.repo.root / ".mmw" / "broken"
-        self.repo.write_stack(start="\n".join([
-            'if [ -n "$MMW_BREAK" ]; then',
-            f"  touch '{broken}'",
-            '  echo "BREAK ARMED $MMW_BREAK"',
-            "else",
-            f"  rm -f '{broken}'",
-            "fi",
-        ]))
+        broken = self.write_arming_stack()
         self.repo.write_journey("watch", "\n".join([
             f"env | grep '^MMW_' | sort >> '{seen}'",
             f"echo pass-end >> '{seen}'",
             f"[ ! -f '{broken}' ]",
         ]))
 
-        code, out, err = self.repo.run("watch", "--break", "GET /result/{id}")
+        break_key = "MMW_BREAK"
+        retired_key = "MMW_" + "JOURNEY_NEGATIVE"
+        with mock.patch.dict(
+            os.environ, {break_key: "inherited-break", retired_key: "inherited-pass"},
+            clear=False,
+        ):
+            code, out, err = self.repo.run("watch", "--break", "GET /result/{id}")
 
         self.assertEqual(code, 0, out + err)
         first, _, second = seen.read_text(encoding="utf-8").partition("pass-end\n")
         self.assertEqual(first, second.removesuffix("pass-end\n"))
+        for pass_environment in (first, second):
+            self.assertNotIn(f"{break_key}=", pass_environment)
+            self.assertNotIn(f"{retired_key}=", pass_environment)
 
     def test_a_journey_that_asserts_nothing_is_caught(self):
         self.repo.write_journey("lazy", "exit 0")
@@ -544,13 +565,15 @@ class FixtureRepo(unittest.TestCase):
             env={**os.environ, "MMW_HOME": home},
         )
 
-    def test_a_break_journey_that_reads_the_result_back_passes(self):
+    def assert_demo_breaks(self, break_spec: str) -> Path:
         root = self.copy_repo()
-
-        proc = self.run_fixture(root, "demo", "--break", "GET /result/{id}")
-
+        proc = self.run_fixture(root, "demo", "--break", break_spec)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertEqual(proc.stdout, "JOURNEY OK demo\n")
+        return root
+
+    def test_a_break_journey_that_reads_the_result_back_passes(self):
+        self.assert_demo_breaks("POST /write/{id}")
 
     def test_a_break_journey_that_only_checks_the_page_is_green_with_break(self):
         root = self.copy_repo()
@@ -566,12 +589,7 @@ class FixtureRepo(unittest.TestCase):
         self.assertTrue((root / ".mmw" / "stop-ran").is_file())
 
     def test_the_committed_demo_passes_with_break(self):
-        root = self.copy_repo()
-
-        proc = self.run_fixture(root, "demo", "--break", "GET /result/{id}")
-
-        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertEqual(proc.stdout, "JOURNEY OK demo\n")
+        self.assert_demo_breaks("GET /result/{id}")
 
     def test_after_a_break_run_the_slot_is_empty(self):
         root = self.copy_repo()
@@ -580,23 +598,15 @@ class FixtureRepo(unittest.TestCase):
 
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertTrue((root / ".mmw" / "stop-ran").is_file())
-        self.assertIsNone(LEASE.registered(LEASE.worktree_of(root)))
+        for port in LEASE.ports_of(0):
+            self.assertIsNone(LEASE.listener(port), f"port {port} still has a listener")
 
     def test_the_committed_demo_prints_ok_and_stop_ran(self):
-        home = tempfile.mkdtemp(prefix="mmw-journey-ac-")
-        self.addCleanup(shutil.rmtree, home, True)
-        stop_ran = FIXTURE / "repo" / ".mmw" / "stop-ran"
-        stop_ran.unlink(missing_ok=True)
-        self.addCleanup(stop_ran.unlink, missing_ok=True)
-        proc = subprocess.run(
-            [sys.executable, str(JOURNEY), "run", "demo"],
-            cwd=FIXTURE / "repo",
-            capture_output=True, text=True,
-            env={**os.environ, "MMW_HOME": home},
-        )
+        root = self.copy_repo()
+        proc = self.run_fixture(root, "demo")
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(proc.stdout.splitlines()[0], "JOURNEY OK demo")
-        self.assertIn("stop-ran", stop_ran.read_text())
+        self.assertIn("stop-ran", (root / ".mmw" / "stop-ran").read_text())
 
     def test_the_committed_demo_would_go_red_without_its_product(self):
         """The fixture is a miniature of a real target: `start` brings a product up on

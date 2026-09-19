@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run one named journey against this repository's product, and prove it can fail.
 
-    journey.py run <name> --break "<METHOD> <route>"
+    journey.py run <name> [--break "<METHOD> <route>"]
 
 Claims or reuses this worktree's lease, runs `.mmw/target.json`'s `start` every
 time, runs `discover` and puts each printed address into the environment under
@@ -11,9 +11,9 @@ the script succeeded or not.
 
 With `--break`, it starts the product again with `MMW_BREAK` supplied only to `start`,
 requires `BREAK ARMED <METHOD> <route>`, discovers the product again, and reruns the
-script in the same environment. That pass must fail. Without `--break`, an existing
-criterion keeps the earlier control: the product stays down, discovered addresses move
-to a closed port, and the same script must fail. A judge that cannot go red is not a
+script in the same environment. That pass must fail. Without `--break`, the contract
+smoke journey keeps the product down, moves discovered addresses to a closed port, and
+runs the same script again. A judge that cannot go red is not a
 judge (`docs/adr/0008-silence-is-never-a-pass.md`).
 
 Then `stop` runs once more and this run's slot must be quiet: a journey ends leaving the
@@ -47,7 +47,8 @@ from lease import holder, judge_run, listener, ports_of, registered, worktree_of
 from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
-BREAK_RE = re.compile(r"^[A-Z]+ /\S+$")
+BREAK_RE = re.compile(r"[A-Z]+ /\S*")
+RETIRED_PASS_SIGNAL = "MMW_" + "JOURNEY_NEGATIVE"
 
 
 def last_line(text: str) -> str:
@@ -66,12 +67,10 @@ def still_up(root: Path) -> list[str]:
     """What still listens on this run's slot, once its `stop` has been run for the last
     time: one `port <n> pid <pid> cwd <dir>` line each, empty when the slot is quiet.
 
-    A journey's last act is to leave the machine as it found it. The negative control
-    runs with the product down, so a script that starts anything to reach the product —
-    the very thing that pass exists to make impossible — leaves that behind on this
-    slot, and the run still reads as `JOURNEY OK`. The next run given this slot then
-    starts onto live ports and can report nothing but blocked, far from the journey that
-    caused it, which is how agentflow spent a night in 2026-09-11. The run that left
+    A journey's last act is to leave the machine as it found it. A script that starts
+    anything itself leaves that process behind on this slot. The next run given this slot
+    then starts onto live ports and can report nothing but blocked, far from the journey
+    that caused it, which is how agentflow spent a night in 2026-09-11. The run that left
     them says so itself instead.
     """
     record = registered(worktree_of(root))
@@ -161,9 +160,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
     env.pop("MMW_BREAK", None)
-    for key in list(env):
-        if key.startswith("MMW_JOURNEY_"):
-            env.pop(key)
+    env.pop(RETIRED_PASS_SIGNAL, None)
 
     def bail(message: str | None = None,
              proc: subprocess.CompletedProcess | None = None) -> int:
@@ -241,31 +238,32 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             return bail(proc=exc.code)
         addresses_into(env, control_data)
         control_env = env
+        green_prefix = f"JOURNEY GREEN WITH BREAK {name} — "
+        green_explanation = ""
     else:
         # The product is down and the addresses point nowhere. A journey that reached it
         # cannot pass this; one that asserted nothing passes it exactly as it passed above,
         # which is the whole difference the run is here to print.
         control_env = negative_env(env, data)
+        green_prefix = f"JOURNEY GREEN WITHOUT PRODUCT {name} at "
+        green_explanation = (
+            " — it passed again with the product stopped and its addresses pointing "
+            "nowhere. Make the journey assert something only the running product can "
+            "satisfy."
+        )
     try:
         control = attempt(control_env)
     finally:
         stop(cfg, root, env)
     if control.returncode == 0:
-        if break_spec is not None:
-            print(f"JOURNEY GREEN WITH BREAK {name} — "
-                  f"{last_line(control.stdout + control.stderr)}")
-        else:
-            print(f"JOURNEY GREEN WITHOUT PRODUCT {name} at "
-                  f"{last_line(control.stdout + control.stderr)} — it passed again with the "
-                  f"product stopped and its addresses pointing nowhere. Make the journey "
-                  f"assert something only the running product can satisfy.")
+        print(f"{green_prefix}{last_line(control.stdout + control.stderr)}{green_explanation}")
         return 1
     left = still_up(root)
     if left:
         print(f"JOURNEY LEFT THE PRODUCT UP {name} — this run's slot still has "
               f"{len(left)} listener(s) after `stop`: {'; '.join(left)}. Whatever started "
               f"them outlives this run and blocks the next run given this slot. A journey "
-              f"script starts nothing itself, least of all in the negative control pass; "
+              f"script starts nothing itself in either pass; "
               f"everything it needs is started by `start` and ended by `stop`.")
         return 1
     print(f"JOURNEY OK {name}")
