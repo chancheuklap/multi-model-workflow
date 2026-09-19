@@ -30,7 +30,8 @@ the contract does not declare.
 
 `--out` holds the screenshot, the tree and the differing-pixel picture for every scene
 and viewport. `--render-only` renders the design side of the selected scenes into
-`--out` and stops, needing no product.
+`--out` and stops, needing no product: screenshots under `--out/media`, and one
+values file per scene and viewport at `--out/values/<mount>/<scene>-<W>x<H>.json`.
 """
 
 from __future__ import annotations
@@ -66,7 +67,6 @@ Comparison = vp.Comparison
 NEGATIVE_CONTROL_HEAD = vp.NEGATIVE_CONTROL_HEAD
 NEGATIVE_CONTROL_SCENE = vp.NEGATIVE_CONTROL_SCENE
 DEFAULT_MAX_PCT = vp.DEFAULT_MAX_PCT
-render_only = vp.render_only
 
 STORY_ROOT = "[data-story-root]"
 ORIGIN_WAIT_S = 15
@@ -308,8 +308,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="cache for the scripts support.js loads, when the handoff package "
                         "carries no vendor/ copy")
     p.add_argument("--render-only", action="store_true",
-                   help="render the design side of the selected scenes into --out and "
-                        "stop; no product is needed")
+                   help="render the design side of the selected scenes into --out "
+                        "(screenshots and values/<mount>/<scene>-<WxH>.json) and stop; "
+                        "no product is needed")
     return p
 
 
@@ -362,7 +363,7 @@ def run(args) -> int:
 
     try:
         if args.render_only:
-            return render_only(plan, viewports, media, origin, route_baseline, hide_js)
+            return render_only(plan, viewports, out, media, origin, route_baseline, hide_js)
         assert cfg is not None
         with Stories(root, cfg) as stories:
             return compare(plan=plan, viewports=viewports, media=media,
@@ -373,6 +374,40 @@ def run(args) -> int:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def render_only(plan, viewports, out, media, origin, route_baseline, hide_js) -> int:
+    """Design side only: screenshots under `media`, values under `out/values`.
+
+    No product, and `.mmw/target.json` is not read. Each scene at each viewport is
+    one render; the values file is taken from that same capture. `run()` creates
+    `media`.
+    """
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        ctx = browser.new_context(device_scale_factor=1, reduced_motion="reduce",
+                                  locale="zh-CN")
+        ctx.route("**/*", route_baseline)
+        page = ctx.new_page()
+        try:
+            for scene in plan:
+                for viewport in viewports:
+                    dr.resize(page, viewport)
+                    dr.navigate(page, f"{origin}{dr.wrapper_path(scene.name)}")
+                    dr.wait_for_mount(page, "#dc-root")
+                    tag = f"{viewport[0]}x{viewport[1]}"
+                    shot = dr.capture(
+                        page, media / f"{scene.name}-{tag}-baseline.png",
+                        selector="#dc-root", extra_js=hide_js[scene.name])
+                    dr.write_values(
+                        dr.values_path(out, scene.mount, scene.name, viewport),
+                        shot.values)
+                    print(f"rendered {scene.name} {tag} -> {shot.png}")
+        finally:
+            browser.close()
+    return 0
 
 
 def compare(*, plan, viewports, media, design_origin, pages, route_baseline,

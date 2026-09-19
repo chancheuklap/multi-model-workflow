@@ -24,11 +24,12 @@
           button { margin: 0; padding: 4px 8px; font: 14px/20px sans-serif; }
         </style>
       </helmet>
-      <div class="demo">
-        <h1>Demo card</h1>
-        <p>{{ copy }}</p>
-        <div class="swatch" aria-hidden="true"></div>
-        <button type="button">Continue</button>
+      <div class="demo" data-ui="root">
+        <h1 data-ui="title">Demo card</h1>
+        <p data-ui="body"><span class="sc-interp">{{ copy }}</span><span data-ui="inner" aria-hidden="true" style="position: absolute; opacity: 0">inner copy</span></p>
+        <div class="swatch" aria-hidden="true" data-ui="swatch"></div>
+        <button type="button" data-ui="continue">Continue</button>
+        <span data-ui="hidden" aria-hidden="true" style="position: absolute; visibility: hidden">hidden copy</span>
       </div>
     </x-dc>
     <script type="text/x-dc" data-dc-script data-props='{
