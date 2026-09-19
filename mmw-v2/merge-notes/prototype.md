@@ -51,10 +51,10 @@
 | 第 3 步 sub-shape B 那句 | 删掉 `/prototype/<name>` 这个路径，只留「B 也挂同一个切换条」。路径规则的唯一出处是子形态 B 那节（跟项目现有约定走，别造新顶层）；写在这里会和它冲突——B 的前提就是项目里还没有这类页面，`/prototype/` 必然是新顶层。上游若改这句措辞，仍然只收挂载语义，不收路径 |
 | 第 2 步末句 | 样式用变量，界面按可复用组件拆，因为要从它建 design system。上游没有这一句 |
 | 第 3 步末尾新增段 | variant 组件住在 leaf directory，路由只留 mount point；mount point 连同 symlink 定性为 scaffolding，第 7 步拆掉；import 不过去就 symlink；迭代只改 leaf directory |
-| 第 6 步首段新增句 | winning variant 进 Claude Design 时只记结论并交出，scaffolding 保留：design system 入口读它的样式与组件，edit pages 入口对照它的交互。上游没有这一句 |
-| 第 6 步 | 结论进 leaf `README.md`；winning variant 进 Claude Design 时只记结论并交出；scaffolding 保留到第 7 步；末句点名 `design-pages` 的 design system 入口。上游仍在这一步把 winner 折进真实代码并拆 scaffolding → 不收那一半，收到第 7 步 |
+| 第 6 步第二段 | winning variant 进 Claude Design 时 scaffolding 保留到第 7 步：design system 入口读它的样式与组件，edit pages 入口对照它的交互。上游没有这一段 |
+| 第 6 步 | 结论进 leaf `README.md`；`## State list`；点名 `design-pages` 的 design system 入口。上游仍在这一步把 winner 折进真实代码并拆 scaffolding → 不收那一半，收到第 7 步 |
 | 第 6 步 `## State list` | README 在固定标题 `## State list` 下按区域列出 winning variant 的全部状态：每个区域一个三级标题（即之后 `Component · <区域>` 页名），每个状态一个列表项且以状态名开头。`scene` prop、pull report、会改变页面状态的 decision ticket 都按这些名字核对。上游没有这一段 |
-| 第 7 步「拆 scaffolding」 | 由原第 6 步后半段拆出。第一次 pull 之后才执行，`design-pages` 的 `pull.md` 指回这里。挂在已有页面上的删挂载点、切换条与 import；单独路由的删 prototype 路由；完成条件是 leaf directory 外无人 import。上游把拆 scaffolding 写在第 6 步；我们改到第 7 步且改时机。上游改原第 6 步后半段措辞 → 收到第 7 步 |
+| 第 7 步「拆 scaffolding」 | 由原第 6 步后半段拆出。第一次 pull 之后才执行，`design-pages` 的 `pull.md` 指回这里。挂在已有页面上的删挂载点、切换条与 import；单独路由的删 prototype 路由与切换条；完成条件是 leaf directory 外无人 import。上游把拆 scaffolding 写在第 6 步；我们改到第 7 步且改时机。上游改原第 6 步后半段措辞 → 收到第 7 步 |
 | 第 1、4、5 步、反模式 | 上游的，照收 |
 
 ### EXP.md、evidence-page.md

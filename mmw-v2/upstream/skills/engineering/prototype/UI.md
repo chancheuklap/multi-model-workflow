@@ -101,18 +101,16 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer
 
-Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region — the region name is the name of the later `Component · <region>` page, which the pull report matches pages against — and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report matches by name; a decision ticket that will change a page's states is checked against this list.
+Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region — the region name is the later `Component · <region>` page — and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them.
 
-When the winner goes into Claude Design, record the conclusion and hand it over. Leave the scaffolding up: the design system entry of `design-pages` reads the winner's styles and components, and the edit pages entry compares against its interaction.
-
-Next: the design system entry of `design-pages`.
+When the winner goes into Claude Design, leave the scaffolding up until step 7: the `design-pages` skill's design system entry, which comes next, reads the winner's styles and components, and its edit pages entry compares against the winner's interaction.
 
 ### 7. Take the scaffolding down
 
 Run this after the first pull. The `pull.md` of `design-pages` points back here.
 
 - **Sub-shape A**: delete the mount point, the switcher, and the import of the leaf directory.
-- **Sub-shape B**: delete the prototype route.
+- **Sub-shape B**: delete the prototype route and the switcher.
 
 Delete the symlink beside the route as well, if step 3 needed one.
 
