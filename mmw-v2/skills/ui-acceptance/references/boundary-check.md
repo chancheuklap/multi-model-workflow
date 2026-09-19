@@ -15,9 +15,22 @@ EXPECT: BOUNDARY OK <n>/<n>
 
 ## What the product's test must do
 
-The consuming repository's contract ticket delivers one shared interaction helper (click, fill) and the tests call only that helper, never the page directly. Under `MMW_NEGATIVE=1` the helper does nothing. The test asserts the request the product's API client module emitted — method, path, and fields — and replaces that module with a mock. Mocking the product's own API client module is the allowed seam. Stubbing `fetch`, msw, nock or fetch-mock is still a cheat. `verify-ticket.py --lint` reports `ERROR` when those names appear on a `CHECK:` line; a stub inside a test file is not that line, so lint does not catch it. This section and code review are what hold the test-file half.
+One test asserts the four columns of one screen-contract row:
 
-That pairing is what makes the second pass mechanical. Skip the click, and a test that really asserted a request goes red; a test whose assertion is true without the click stays green, and this judge prints that.
+- `calls`: the request and parameters the click emitted.
+- `shows`: the outbound call module returns a marked value; the page displays that value.
+- `next`: the page entered the state or scene `next` names.
+- `on_failure`: that call returns failure; the page shows the failure the contract wrote.
+
+A row whose `calls` is `none` and whose `next` is not `stay` still has one test: the click emits no outbound call and the page enters that `next`.
+
+The consuming repository's contract ticket delivers one shared interaction helper (click, fill). Tests call only that helper, never the page directly; the helper finds the control by its `data-ui` id. Under `MMW_NEGATIVE=1` the helper does nothing.
+
+The test replaces the product's outbound call module — the layer the consuming repository names as the one that emits outbound calls, whether they travel as HTTP, IPC, or an extension message — with a mock. Mocking that module is the allowed seam. Stubbing `fetch`, msw, nock or fetch-mock is still a cheat. `verify-ticket.py --lint` reports `ERROR` when those names appear on a `CHECK:` line; a stub inside a test file is not that line, so lint does not catch it. This section and code review are what hold the test-file half.
+
+A cross-component row (`App · ` page, an action in region A that affects region B) is asserted at the whole-page composition: the request carries the other region's state, and the other region enters the scene the row names. The same `boundary-check.py` runs it; the negative control is the same.
+
+That pairing is what makes the second pass mechanical. Skip the click, and a test that really asserted those columns goes red; a test whose assertion is true without the click stays green, and this judge prints that.
 
 ## Why the second pass is not optional
 

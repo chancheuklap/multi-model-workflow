@@ -1,8 +1,10 @@
 """boundary-check.py runs a command twice; the pass that skips interaction must go red.
 
 Nothing here is stubbed. The judge is a real process and the commands are the
-fixture scripts under fixtures/boundary/, which read MMW_NEGATIVE for their
-exit code.
+fixture scripts under fixtures/boundary/. The original scripts choose their
+exit code from MMW_NEGATIVE; the four-column and cross-component scripts
+drive a fake outbound call module and a helper that no-ops under that
+variable, so a skipped click fails the row's assertions.
 """
 
 from __future__ import annotations
@@ -154,6 +156,55 @@ class BoundaryCheck(unittest.TestCase):
         self.assertEqual(first_cwd, second_cwd)
         self.assertEqual(first_neg, "")
         self.assertEqual(second_neg, "1")
+
+    def _python_fixture(self, name: str) -> str:
+        return f"{sys.executable} {FIX / name}"
+
+    def test_four_columns_honest_is_boundary_ok(self):
+        result = run_judge(self._python_fixture("four-columns-honest.py"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stdout, r"(?m)^BOUNDARY OK 1/1$")
+
+    def test_a_wrong_calls_column_is_a_miss(self):
+        result = run_judge(self._python_fixture("four-columns-wrong-calls.py"))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertTrue(result.stdout.startswith("MISS "), result.stdout)
+        self.assert_not_ok(result)
+
+    def test_a_wrong_shows_column_is_a_miss(self):
+        result = run_judge(self._python_fixture("four-columns-wrong-shows.py"))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertTrue(result.stdout.startswith("MISS "), result.stdout)
+        self.assert_not_ok(result)
+
+    def test_a_wrong_next_column_is_a_miss(self):
+        result = run_judge(self._python_fixture("four-columns-wrong-next.py"))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertTrue(result.stdout.startswith("MISS "), result.stdout)
+        self.assert_not_ok(result)
+
+    def test_a_wrong_on_failure_column_is_a_miss(self):
+        result = run_judge(self._python_fixture("four-columns-wrong-on-failure.py"))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertTrue(result.stdout.startswith("MISS "), result.stdout)
+        self.assert_not_ok(result)
+
+    def test_four_columns_without_the_click_is_green_without_interaction(self):
+        result = run_judge(self._python_fixture("four-columns-no-click.py"))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("GREEN WITHOUT INTERACTION", result.stdout)
+        self.assert_not_ok(result)
+
+    def test_cross_component_honest_is_boundary_ok(self):
+        result = run_judge(self._python_fixture("cross-component-honest.py"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertRegex(result.stdout, r"(?m)^BOUNDARY OK 1/1$")
+
+    def test_cross_component_without_the_click_is_green_without_interaction(self):
+        result = run_judge(self._python_fixture("cross-component-no-click.py"))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("GREEN WITHOUT INTERACTION", result.stdout)
+        self.assert_not_ok(result)
 
 
 if __name__ == "__main__":
