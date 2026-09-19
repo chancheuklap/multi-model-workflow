@@ -53,6 +53,8 @@ Draft each variant. Hold each one to:
 
 Variants must be **structurally different**: different layout, different information hierarchy, different primary affordance, not just different colours. Three slightly-tweaked card grids isn't a UI prototype, it's wallpaper. If two drafts come out too similar, redo one with explicit "do not use a card grid" guidance.
 
+Style with variables and split the interface into reusable components, because a design system will be built from this variant.
+
 ### 3. Wire them together
 
 Create a single switcher component on the route:
@@ -74,7 +76,7 @@ For sub-shape A (existing page): keep all the existing data fetching above the s
 
 For sub-shape B (new page): the prototype route you created above mounts the same switcher.
 
-In both sub-shapes the variant components live in the leaf directory `prototypes/<task>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point — and the symlink, if you needed one — is **scaffolding**: it exists so the variants render inside the real app, and it comes down in step 6. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
+In both sub-shapes the variant components live in the leaf directory `prototypes/<task>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point — and the symlink, if you needed one — is **scaffolding**: it exists so the variants render inside the real app, and it comes down in step 7. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
 ### 4. Build the floating switcher
 
@@ -97,16 +99,22 @@ Put the switcher in a single shared component so both sub-shapes can reuse it. L
 
 Surface the URL (and the `?variant=` keys). The user will flip through whenever they get to it. The interesting feedback is usually **"I want the header from B with the sidebar from C"**, which is the actual design they want.
 
-### 6. Capture the answer and take the scaffolding down
+### 6. Capture the answer
 
-Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. If the winner is being ported to Claude Design, run the `design-pages` port first: it opens the real page at `?variant=<winner>` to take the CSS and the DOM, so the scaffolding has to be still wired when it runs. Fold the winner into the real code, rewritten to production standard, then remove the scaffolding:
+Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region — the region name is the later `Component · <region>` page — and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them.
 
-- **Sub-shape A**: the existing page renders the winner for real; delete the mount point, the switcher, and the import of the leaf directory.
-- **Sub-shape B**: promote the winning variant to a real route; delete the prototype route file and the switcher.
+When the winner goes into Claude Design, leave the scaffolding up until step 7: the `design-pages` skill's design system entry, which comes next, reads the winner's styles and components, and its edit pages entry compares against the winner's interaction.
+
+### 7. Take the scaffolding down
+
+Run this after the first pull. The `pull.md` of `design-pages` points back here.
+
+- **Sub-shape A**: delete the mount point, the switcher, and the import of the leaf directory.
+- **Sub-shape B**: delete the prototype route and the switcher.
 
 Delete the symlink beside the route as well, if step 3 needed one.
 
-Done when nothing outside the leaf directory imports it and `?variant=` reaches nothing: the leaf directory can be deleted at any time without breaking the build. The full set of variants stays there as reference; the next round of this page's design reads them and writes a fresh mount point.
+Done when nothing outside the leaf directory imports it: the leaf directory can be deleted at any time without breaking the build. The full set of variants stays there as reference; the next round of this page's design reads them and writes a fresh mount point.
 
 ## Anti-patterns
 
