@@ -148,6 +148,12 @@ class PullDesign(unittest.TestCase):
     def report(self) -> str:
         return (self.target / "pull-report.md").read_text(encoding="utf-8")
 
+    def report_section(self, heading: str) -> str:
+        report = self.report()
+        start = report.index(f"## {heading}")
+        end = report.find("\n## ", start + 3)
+        return report[start:end if end >= 0 else None]
+
     def state_list(self, body: str) -> Path:
         path = self.work / "prototype-readme.md"
         path.write_text("# Prototype\n\n## State list\n\n" + body, encoding="utf-8")
@@ -158,9 +164,13 @@ class PullDesign(unittest.TestCase):
         self.write_manifest()
 
     def commit_target(self) -> None:
-        subprocess.run(["git", "init", "-q"], cwd=self.work, check=True)
+        subprocess.run(
+            ["git", "-c", "init.templateDir=", "init", "-q"], cwd=self.work, check=True,
+        )
         subprocess.run(["git", "config", "user.email", "tests@example.invalid"], cwd=self.work, check=True)
         subprocess.run(["git", "config", "user.name", "MMW tests"], cwd=self.work, check=True)
+        subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=self.work, check=True)
+        subprocess.run(["git", "config", "core.hooksPath", "/dev/null"], cwd=self.work, check=True)
         subprocess.run(["git", "add", "handoff"], cwd=self.work, check=True)
         subprocess.run(["git", "commit", "-qm", "baseline handoff"], cwd=self.work, check=True)
 
@@ -357,12 +367,10 @@ class PullDesign(unittest.TestCase):
         end = page.index(b"</main>", start) + len(b"</main>")
         self.preview.files["Component · Demo.dc.html"] = page[:start] + page[end:]
         self.write_manifest()
-        self.target.mkdir()
-        (self.target / "existing.txt").write_text("unchanged", encoding="utf-8")
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.target / "existing.txt").read_text(), "unchanged")
         self.assertIn("渲染为空", self.report())
+        self.assertIn("Passed: 0/2 scenes", (self.target / "README.md").read_text())
 
     def test_a_missing_preview_url_exits_2(self):
         result = self.pull(unset_preview=True)
@@ -408,7 +416,7 @@ class PullDesign(unittest.TestCase):
         self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn(".a .b .c", self.report())
+        self.assertIn(".a .b .c", self.report_section("设计检查"))
 
     def test_the_report_lists_scenes_that_render_empty_or_log_errors(self):
         page = self.preview.files["Component · Demo.dc.html"]
@@ -427,16 +435,19 @@ class PullDesign(unittest.TestCase):
         """)
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = self.report()
-        self.assertIn("Component · Empty.empty", report)
-        self.assertIn("fixture boom", report)
+        report = self.report_section("设计检查")
+        self.assertIn("渲染为空：`Component · Empty.empty`", report)
+        self.assertIn("控制台报错：`Component · Demo.ready` — fixture boom", report)
 
     def test_the_report_lists_states_missing_from_the_scene_prop(self):
         state_list = self.state_list("### Demo\n- ready\n- empty\n- loading\n")
         result = self.pull("--state-list", str(state_list))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("Demo", self.report())
-        self.assertIn("loading", self.report())
+        coverage = self.report_section("覆盖")
+        self.assertIn("state list 状态缺失：`Demo` 的 `loading`", coverage)
+        self.assertNotIn("`Demo` 的 `ready`", coverage)
+        self.assertNotIn("`Demo` 的 `empty`", coverage)
+        self.assertNotIn("### Demo", (self.target / "README.md").read_text())
 
     def test_the_report_lists_elements_and_controls_without_data_ui(self):
         page = self.preview.files["Component · Demo.dc.html"]
@@ -446,9 +457,11 @@ class PullDesign(unittest.TestCase):
         self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = self.report()
-        self.assertIn("Unidentified copy", report)
-        self.assertIn("Unidentified action", report)
+        coverage = self.report_section("覆盖")
+        self.assertIn("带文字但没有 `data-ui` id：", coverage)
+        self.assertIn("p: Unidentified copy", coverage)
+        self.assertIn("可点或可输入却没有 `data-ui` id：", coverage)
+        self.assertIn("button: Unidentified action", coverage)
 
     def test_the_report_lists_pages_without_a_scene_prop(self):
         self.add_page("Component · Static.dc.html", """
@@ -458,12 +471,12 @@ class PullDesign(unittest.TestCase):
         """)
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("Component · Static.dc.html", self.report())
+        self.assertIn("Component · Static.dc.html", self.report_section("覆盖"))
 
     def test_the_report_lists_out_of_scope_values(self):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = self.report()
+        report = self.report_section("覆盖")
         self.assertIn("out_of_scope", report)
         self.assertIn("future", report)
 
@@ -488,13 +501,18 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("分类：只改外观或文案", self.report())
+        self.assertNotIn("pull 前 handoff package 有本地改动", self.report())
+        self.assertIn("screen contract 未给出，合同行文字未核对", self.report())
 
     def test_a_report_with_problems_still_exits_0(self):
-        self.preview.files["styles/app.css"] += b"\n.a .b .c { color: red; }\n"
+        page = self.preview.files["Component · Demo.dc.html"]
+        start = page.index(b'<main data-ui="root">')
+        end = page.index(b"</main>", start) + len(b"</main>")
+        self.preview.files["Component · Demo.dc.html"] = page[:start] + page[end:]
         self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn(".a .b .c", self.report())
+        self.assertIn("渲染为空", self.report())
 
     def test_an_added_control_is_classified_controls_or_flow(self):
         first = self.pull()
@@ -521,14 +539,15 @@ class PullDesign(unittest.TestCase):
         contract = self.work / "screen-contract.yaml"
         contract.write_text(textwrap.dedent("""
             rows:
-              - id: title
+              - id: demo.open
                 trigger: {role: heading, name: "Demo"}
+                scenes: ["Component · Demo.ready"]
         """), encoding="utf-8")
         result = self.pull("--contract", str(contract))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         report = self.report()
         self.assertIn("分类：增删控件或改流转", report)
-        self.assertIn("title", report)
+        self.assertIn("demo.open", report)
         self.assertIn("Demo", report)
         self.assertIn("Updated demo", report)
 
@@ -556,7 +575,7 @@ class PullDesign(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         report = self.report()
         self.assertIn("分类：增删控件或改流转", report)
-        self.assertIn("added", report)
+        self.assertIn("`scene` 取值变化：`Component · Demo.dc.html`；新增 added", report)
 
     def test_a_state_missing_from_its_own_page_is_reported_even_if_another_page_has_it(self):
         self.add_page("Component · Other.dc.html", """
@@ -571,10 +590,82 @@ class PullDesign(unittest.TestCase):
         result = self.pull("--state-list", str(state_list))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         report = self.report()
-        self.assertIn("Demo", report)
-        self.assertIn("loading", report)
+        self.assertIn("state list 状态缺失：`Demo` 的 `loading`", report)
         self.assertIn("找不到同名页", report)
         self.assertIn("Missing page", report)
+
+    def test_unreadable_state_list_is_reported_as_not_checked_and_does_not_replace_readme(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        readme = self.target / "README.md"
+        readme.write_text(readme.read_text() + "\n## State list\n\n### Kept\n- ready\n")
+        result = self.pull("--state-list", str(self.work / "missing-readme.md"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("state list 无法读取，未核对", self.report_section("覆盖"))
+        self.assertIn("### Kept\n- ready", readme.read_text())
+
+    def test_contract_without_rows_is_reported_as_not_checked(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        contract = self.work / "screen-contract.yaml"
+        contract.write_text("target: {kind: web-spa}\n", encoding="utf-8")
+        result = self.pull("--contract", str(contract))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("screen contract 没有 `rows`，合同行文字未核对", self.report())
+
+    def test_without_css_the_report_says_selector_check_was_not_run(self):
+        self.preview.files.pop("styles/app.css")
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        design = self.report_section("设计检查")
+        self.assertIn("没有 `.css` 文件，选择器未核对", design)
+        self.assertNotIn("未发现设计检查问题", design)
+
+    def test_a_legacy_committed_package_does_not_block_the_next_pull(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        (self.target / "support.js").unlink()
+        page = self.target / "Component · Demo.dc.html"
+        page.write_text(page.read_text().replace('"$preview": {"width": 320, "height": 200},', ""))
+        subprocess.run(["git", "add", "handoff"], cwd=self.work, check=True)
+        subprocess.run(["git", "commit", "-qm", "legacy package"], cwd=self.work, check=True)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.target / "pull-report.md").is_file())
+
+    def test_editor_override_copy_change_is_classified_from_rendered_text(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b".old-value { display: none !important; }\n          .new-value { display: block !important; }",
+            b".old-value { display: block !important; }\n          .new-value { display: none !important; }",
+        )
+        self.write_manifest()
+        contract = self.work / "screen-contract.yaml"
+        contract.write_text(textwrap.dedent("""
+            rows:
+              - id: demo.status-copy
+                trigger: {role: text, name: "After override"}
+                scenes: ["Component · Demo.ready"]
+        """), encoding="utf-8")
+        result = self.pull("--contract", str(contract))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report_section("改动分类")
+        self.assertIn("分类：增删控件或改流转", report)
+        self.assertIn("demo.status-copy", report)
+        self.assertIn("After override", report)
+        self.assertIn("Before override", report)
+
+    def test_executable_loads_its_pep_723_dependencies(self):
+        result = subprocess.run([str(SCRIPT)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("pull_design.py received 0 arguments", result.stdout + result.stderr)
+        self.assertNotIn("ModuleNotFoundError", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
