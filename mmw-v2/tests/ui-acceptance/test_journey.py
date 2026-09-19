@@ -98,13 +98,13 @@ class Repo:
         write_exec(dest / "run", "#!/bin/sh\n" + body + "\n")
         return dest
 
-    def run(self, name: str) -> tuple[int, str, str]:
+    def run(self, name: str, *args: str) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()
         here = Path.cwd()
         os.chdir(self.root)
         try:
             with redirect_stdout(out), redirect_stderr(err):
-                code = jy.main(["run", name])
+                code = jy.main(["run", name, *args])
         finally:
             os.chdir(here)
         return code, out.getvalue(), err.getvalue()
@@ -187,9 +187,13 @@ class JourneyOrder(unittest.TestCase):
             except (OSError, ValueError):
                 pass
         self.addCleanup(kill_leftover)
+        pass_count = self.repo.root / ".mmw" / "pass-count"
         self.repo.write_journey("demo", "\n".join([
             f"echo script >> '{self.repo.log}'",
-            'if [ "$MMW_JOURNEY_NEGATIVE" = 1 ]; then',
+            f"count=$(cat '{pass_count}' 2>/dev/null || echo 0)",
+            "count=$((count + 1))",
+            f"echo $count > '{pass_count}'",
+            "if [ $count -eq 2 ]; then",
             f"  python3 '{self.repo.root / '.mmw' / 'leftover.py'}' '{pidfile}' "
             f">/dev/null 2>&1 &",
             f"  for _ in $(seq 1 100); do [ -f '{pidfile}' ] && break; sleep 0.05; done",
@@ -362,6 +366,95 @@ class NegativeControl(unittest.TestCase):
         self.repo.write_target()
         self.repo.write_stack()
 
+    def test_a_break_value_without_method_and_route_exits_2(self):
+        code, out, err = self.repo.run("lazy", "--break", "get health")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertIn("one uppercase method, one space, and a route starting with `/`", err)
+        self.assertFalse(self.repo.log.exists(), "start ran for an invalid --break value")
+
+    def test_start_gets_mmw_break_only_on_the_second_pass(self):
+        seen = self.repo.root / ".mmw" / "start-env"
+        broken = self.repo.root / ".mmw" / "broken"
+        self.repo.write_stack(start="\n".join([
+            f'echo "BREAK=[$MMW_BREAK]" >> \'{seen}\'',
+            'if [ -n "$MMW_BREAK" ]; then',
+            f"  touch '{broken}'",
+            '  echo "BREAK ARMED $MMW_BREAK"',
+            "else",
+            f"  rm -f '{broken}'",
+            "fi",
+        ]))
+        self.repo.write_journey(
+            "write", f"echo script >> '{self.repo.log}'\n[ ! -f '{broken}' ]")
+
+        code, out, err = self.repo.run("write", "--break", "POST /items/{id}")
+
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out, "JOURNEY OK write\n")
+        self.assertEqual(seen.read_text(encoding="utf-8").splitlines(),
+                         ["BREAK=[]", "BREAK=[POST /items/{id}]"])
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(), [
+            "start", "discover", "script", "stop",
+            "start", "discover", "script", "stop",
+        ])
+
+    def test_a_start_that_fails_under_break_exits_2(self):
+        self.repo.write_stack(start="\n".join([
+            'if [ -n "$MMW_BREAK" ]; then',
+            "  echo break-start-failed >&2",
+            "  exit 7",
+            "fi",
+        ]))
+        self.repo.write_journey(
+            "real", '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
+
+        code, out, err = self.repo.run("real", "--break", "GET /result/{id}")
+
+        self.assertEqual(code, 2, out + err)
+        self.assertNotIn("JOURNEY OK", out)
+        self.assertIn("break-start-failed", err)
+        self.assertIn("break switch", err)
+        self.assertIn("references/journey.md", err)
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["start", "discover", "stop", "start", "stop"])
+
+    def test_a_start_that_does_not_arm_the_break_exits_2(self):
+        self.repo.write_journey(
+            "real", f"echo script >> '{self.repo.log}'\n"
+                    '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
+
+        code, out, err = self.repo.run("real", "--break", "GET /result/{id}")
+
+        self.assertEqual(code, 2, out + err)
+        self.assertIn("break switch", err)
+        self.assertIn("references/journey.md", err)
+        self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
+                         ["start", "discover", "script", "stop", "start", "stop"])
+
+    def test_the_script_never_sees_which_pass_it_is_in(self):
+        seen = self.repo.root / ".mmw" / "script-env"
+        broken = self.repo.root / ".mmw" / "broken"
+        self.repo.write_stack(start="\n".join([
+            'if [ -n "$MMW_BREAK" ]; then',
+            f"  touch '{broken}'",
+            '  echo "BREAK ARMED $MMW_BREAK"',
+            "else",
+            f"  rm -f '{broken}'",
+            "fi",
+        ]))
+        self.repo.write_journey("watch", "\n".join([
+            f"env | grep '^MMW_' | sort >> '{seen}'",
+            f"echo pass-end >> '{seen}'",
+            f"[ ! -f '{broken}' ]",
+        ]))
+
+        code, out, err = self.repo.run("watch", "--break", "GET /result/{id}")
+
+        self.assertEqual(code, 0, out + err)
+        first, _, second = seen.read_text(encoding="utf-8").partition("pass-end\n")
+        self.assertEqual(first, second.removesuffix("pass-end\n"))
+
     def test_a_journey_that_asserts_nothing_is_caught(self):
         self.repo.write_journey("lazy", "exit 0")
         code, out, _ = self.repo.run("lazy")
@@ -390,17 +483,22 @@ class NegativeControl(unittest.TestCase):
         seen = self.repo.root / ".mmw" / "control-env"
         self.repo.write_journey(
             "watch",
-            f"echo ORIGIN=$ORIGIN NEG=$MMW_JOURNEY_NEGATIVE "
-            f"INSTANCE=$INSTANCE SLOT=$MMW_SLOT >> '{seen}'\n"
+            f"echo pass-start >> '{seen}'\n"
+            f"env | grep '^MMW_' | sort >> '{seen}'\n"
+            f"echo ORIGIN=$ORIGIN INSTANCE=$INSTANCE SLOT=$MMW_SLOT >> '{seen}'\n"
+            f"echo pass-end >> '{seen}'\n"
             '[ "$ORIGIN" = "http://127.0.0.1:9" ] || exit 9')
         code, out, _ = self.repo.run("watch")
         self.assertEqual(code, 0, out)
-        first, second = seen.read_text(encoding="utf-8").splitlines()
+        passes = seen.read_text(encoding="utf-8").split("pass-start\n")[1:]
+        self.assertEqual(len(passes), 2)
+        first, second = [item.split("pass-end\n", 1)[0] for item in passes]
+        first_mmw = [line for line in first.splitlines() if line.startswith("MMW_")]
+        second_mmw = [line for line in second.splitlines() if line.startswith("MMW_")]
+        self.assertEqual(first_mmw, second_mmw)
         self.assertIn("ORIGIN=http://127.0.0.1:9 ", first)
-        self.assertIn("NEG= ", first)
         self.assertRegex(second, r"ORIGIN=http://127\.0\.0\.1:\d+ ")
         self.assertNotIn("ORIGIN=http://127.0.0.1:9 ", second)
-        self.assertIn("NEG=1", second)
         # `instance` carries no port and is left alone; the lease is the same run's.
         self.assertIn("INSTANCE=t", second)
         self.assertRegex(second, r"SLOT=\d+")
@@ -429,6 +527,60 @@ class RepointingAnAddress(unittest.TestCase):
 
 class FixtureRepo(unittest.TestCase):
     """The committed fixture is what AC1 and AC2 run against."""
+
+    def copy_repo(self) -> Path:
+        tmp = tempfile.TemporaryDirectory(prefix="mmw-journey-fixture-")
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name) / "repo"
+        shutil.copytree(FIXTURE / "repo", root)
+        return root
+
+    def run_fixture(self, root: Path, name: str, *args: str) -> subprocess.CompletedProcess:
+        home = tempfile.mkdtemp(prefix="mmw-journey-ac-")
+        self.addCleanup(shutil.rmtree, home, True)
+        return subprocess.run(
+            [sys.executable, str(JOURNEY), "run", name, *args],
+            cwd=root, capture_output=True, text=True,
+            env={**os.environ, "MMW_HOME": home},
+        )
+
+    def test_a_break_journey_that_reads_the_result_back_passes(self):
+        root = self.copy_repo()
+
+        proc = self.run_fixture(root, "demo", "--break", "GET /result/{id}")
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(proc.stdout, "JOURNEY OK demo\n")
+
+    def test_a_break_journey_that_only_checks_the_page_is_green_with_break(self):
+        root = self.copy_repo()
+        write_exec(root / ".mmw" / "journeys" / "weak" / "run", "\n".join([
+            "#!/bin/sh",
+            'curl -sf --max-time 5 "$ORIGIN/health" | grep -q \'^ok$\'',
+        ]))
+
+        proc = self.run_fixture(root, "weak", "--break", "GET /result/{id}")
+
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertTrue(proc.stdout.startswith("JOURNEY GREEN WITH BREAK weak —"), proc.stdout)
+        self.assertTrue((root / ".mmw" / "stop-ran").is_file())
+
+    def test_the_committed_demo_passes_with_break(self):
+        root = self.copy_repo()
+
+        proc = self.run_fixture(root, "demo", "--break", "GET /result/{id}")
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(proc.stdout, "JOURNEY OK demo\n")
+
+    def test_after_a_break_run_the_slot_is_empty(self):
+        root = self.copy_repo()
+
+        proc = self.run_fixture(root, "demo", "--break", "GET /result/{id}")
+
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue((root / ".mmw" / "stop-ran").is_file())
+        self.assertIsNone(LEASE.registered(LEASE.worktree_of(root)))
 
     def test_the_committed_demo_prints_ok_and_stop_ran(self):
         home = tempfile.mkdtemp(prefix="mmw-journey-ac-")
