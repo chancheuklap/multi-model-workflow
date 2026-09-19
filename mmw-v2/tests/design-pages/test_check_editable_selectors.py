@@ -63,11 +63,25 @@ class SelectorCheck(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout)
         out = result.stdout
         self.assertIn("5 selectors the editor cannot reach", out)
-        self.assertIn("element in the selector", out)
-        self.assertIn("3 levels deep", out)
-        self.assertIn("attribute selector", out)
-        self.assertIn("id selector", out)
-        self.assertIn("more than two classes", out)
+        # Each selector carries its own reason: reading the reasons as a set would
+        # pass on a run that gave every selector the same one.
+        reasons = {}
+        for line in out.splitlines():
+            if ": " in line and line.endswith(")"):
+                body = line.split(": ", 1)[1]
+                selector, _, reason = body.rpartition("  (")
+                reasons[selector] = reason[:-1]
+        self.assertEqual(
+            reasons,
+            {
+                ".card header h2": "element in the selector",
+                ".a .b .c": "3 levels deep",
+                '.tab[aria-selected="true"]': "attribute selector",
+                "#view": "id selector",
+                ".a.b.c": "more than two classes",
+            },
+            out,
+        )
 
     def test_a_keyframe_step_is_not_a_selector(self):
         result = self.check("@keyframes spin { from { opacity: 0; } to { opacity: 1; } }\n")
