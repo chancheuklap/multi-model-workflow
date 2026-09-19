@@ -1,6 +1,6 @@
 # UI acceptance
 
-How an interface is proved correct by machine: the design-side baselines a Claude Design project leaves behind, the judges that compare a product story, a four-column boundary test, and a real journey against them, the screen contract that says what every control does, and the lease that gives each run its own share of this machine. It exists because a UI judgement that no command decides is not an acceptance criterion, and because several agents run on one machine at once.
+How an interface is proved correct by machine: the design-side baselines a Claude Design project leaves behind, the judges that compare a product story against the design side, run a four-column boundary test twice, and run a real journey, the screen contract that says what every control does, and the lease that gives each run its own share of this machine. It exists because a UI judgement that no command decides is not an acceptance criterion, and because several agents run on one machine at once.
 
 How to read an entry: the bold line is the term's only name; a term whose name is a literal string that appears in a file, a command, or a comment is named by that string exactly (case, colon, and all). The definition says what the thing is and what sets it apart from its neighbours. `_Admitted_` lists the one other wording that may appear in prose. `_Avoid_` lists dead words: a sentence in this repository that uses one is wrong; an item followed by a note in parentheses says in which sense the word is dead. `_Home_` is the file whose text or code the definition is taken from; when this file and that one disagree, that one is right and this file is rewritten. An attribute that can be had by reading that file — a field list, an exit code, a command's switches, the branches of a behaviour — is not repeated here: an entry says what the term is and how it differs from its neighbours, and points at `_Home_` for the rest.
 
@@ -49,7 +49,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 ### The judges
 
 **`data-ui` id**:
-The common element identity on a design page and on the matching product element. The **story judge** pairs by this id; a **four-column boundary test** finds the control by it; a screen-contract row names the control by it.
+The common element identity on a design page and on the matching product element. The **story judge** pairs by this id; a **four-column boundary test** finds the control by it.
 _Avoid_: test hook (for this), data-testid (when this identity is meant)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
@@ -108,11 +108,11 @@ _Avoid_: click helper, 交互 helper, page object (for this)
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **break switch**:
-The product-owned switch in `.mmw/harness/`: `start` reads `MMW_BREAK` (`<METHOD> <route-pattern>`), fails only the matching interface, acts only on the product process, and prints `BREAK ARMED <METHOD> <route>` while the switch is active. A journey criterion with `--break` arms it on the second start.
+The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on the second start. It is what distinguishes a journey's **negative control** from stopping the product.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **journey**:
-One Playwright path run against the real product on this machine: a directory `<journeys>/<name>/` holding an executable `run`, or a `package.json` declaring `scripts.run`, where `<journeys>` is `.mmw/target.json`'s `journeys` key, default `.mmw/journeys`. `scripts/journey.py run <name>` claims the lease, runs `start`, runs `discover`, puts the addresses (uppercased, so `origin` arrives as `ORIGIN`) and lease variables into the environment, runs the script in that directory, and runs `stop` whether the script succeeded or not. With `--break`, it starts the product again with the **break switch** armed and requires the script to fail (`JOURNEY GREEN WITH BREAK` when it does not). Without `--break`, the contract smoke journey runs the script once more as its **negative control** with the product down. Last it runs `stop` again and reads the slot's ports. The script reads only the discovered addresses and starts nothing itself. Prints `JOURNEY OK <name>`, `JOURNEY FAILED <name> at <last line>`, `JOURNEY GREEN WITH BREAK <name>`, `JOURNEY GREEN WITHOUT PRODUCT <name> at <last line>`, or `JOURNEY LEFT THE PRODUCT UP <name>`. Quantity and content are the owner's; the default three are money, the login gate, and one submit chain.
+One Playwright path run against the real product on this machine: a directory under `.mmw/target.json`'s `journeys` key (default `.mmw/journeys`). `scripts/journey.py run <name>` starts the product, runs the script against the discovered addresses, and stops it; with `--break` the **negative control** arms the **break switch**, without `--break` it is the contract smoke journey with the product down. The script reads only those addresses and starts nothing itself. Quantity and content are the owner's; the default three are money, the login gate, and one submit chain.
 _Admitted_: `journey.py`
 _Avoid_: wiring check (when a whole-product run is meant), parity run
 _Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
@@ -123,20 +123,20 @@ _Avoid_: reach script, `scripts/testing/` (when this directory is meant)
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **harness guard**:
-`scripts/harness-guard.py` beside the ui-acceptance `SKILL.md`: given one argument, the repository root, it walks the repository and decides whether the names a repository uses only to make itself drivable have stayed in the allowed places. The leak strings are `.mmw/target.json`'s `harness_markers` (`[]` is legal); `MMW_` reads are judged regardless. Story-service files must not name a `.dc.html`. It prints `HARNESS OK` (exit 0), one `HARNESS LEAK <file>:<line>` line per leak, or one `HARNESS DESIGN PAGE <file>:<line>` line per story-service hit (exit 1). A missing or unusable `harness_markers` is exit 2. What widens the allowed set is `.mmw/target.json`'s `leaves_machine`, never an exception written into the check. The **contract ticket** carries its criterion, `CHECK: harness-guard.py .`, and names it bare like every other judge. It judges names in files, not a running product: it starts nothing and takes no lease.
+`scripts/harness-guard.py` beside the ui-acceptance `SKILL.md`: given the repository root, it decides whether the names a repository uses only to make itself drivable have stayed in the allowed places. The leak strings are `.mmw/target.json`'s `harness_markers`; `MMW_` reads are judged regardless; story-service files must not name a `.dc.html`. What widens the allowed set is `leaves_machine`. It judges names in files, not a running product: it starts nothing and takes no lease. The **contract ticket** carries its criterion and names it bare.
 _Admitted_: `harness-guard.py`
 _Avoid_: leak check, back-door check
 _Home_: `mmw-v2/skills/ui-acceptance/references/harness-guard.md`
 
 **negative control**:
-The pair each judge builds to prove it can fail. The story judge's runs once per run on the first scene and viewport, before any real result: it adds 7 px to every design-side font size and requires a difference, then strips every product-side `data-ui` and requires a `missing` — either control reporting nothing is `NEGATIVE CONTROL FAILED`. The boundary criterion's is the **mutation check**. A journey with `--break` restarts the product with the **break switch** armed and requires the script to fail (`JOURNEY GREEN WITH BREAK` when it stays green). A contract smoke journey without `--break` runs last, after `stop`, with every discovered address repointed to a closed port (`JOURNEY GREEN WITHOUT PRODUCT` when that pass stays green).
+The pair each judge builds to prove it can fail. The story judge's perturbs a design-side style and strips product-side `data-ui` ids before any real result. The boundary criterion's is the **mutation check**. A journey with `--break` arms the **break switch**; a contract smoke journey without `--break` runs with the product down.
 _Avoid_: 负控制, GREEN WITHOUT TRANSPORT
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/story-parity.py`, `mmw-v2/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v2/skills/ui-acceptance/scripts/journey.py`
 
 **normalisation**:
-How an accessibility tree is read before comparison: as the sequence of its named nodes in reading order — role, name or text, and state attributes — each followed by ` < ` and its nearest named ancestor, with unnamed wrappers and landmark names dropped. One normaliser, `normalize_aria` in `design_render.py`, serves the story judge and the target trees. The accessibility tree walks the whole subtree under `[data-story-root]` or `#dc-root`; the pixel judge sees only that box intersected with the viewport, on both sides.
+How an accessibility tree is read as the sequence of its named nodes in reading order, each with its nearest named ancestor, unnamed wrappers and landmark names dropped. `normalize_aria` in `design_render.py` serves `extract_skeleton.py` and the **target trees**; the story judge no longer compares trees.
 _Avoid_: 归一化, ARIA 归一化, ARIA 树, 视口
-_Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
 
 ### Screen contract
 
@@ -155,7 +155,7 @@ _Avoid_: 差集
 _Home_: `mmw-v2/skills/align-screens/SKILL.md`
 
 **`extract_skeleton.py`**:
-`scripts/extract_skeleton.py` beside the ui-acceptance `SKILL.md`: one offline render of every scene of a **handoff package**, through the same driver and the same normaliser the story judge uses, so what comes out is what the judge will later read. It judges nothing and needs no product. `align-screens` runs it twice on one contract — once for the **skeleton**, and once more with `--targets` (and `--contract`, which hides the contract's `retired_ids` the way the judge hides them) to write the **target trees**. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
+`scripts/extract_skeleton.py` beside the ui-acceptance `SKILL.md`: one offline render of every scene of a **handoff package**, through `design_render.py`, writing the **skeleton** and, with `--targets`, the **target trees**. It judges nothing and needs no product. `--contract` beside `--targets` hides that contract's `retired_ids` triggers before the tree is read; the story judge does not hide them. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
 _Avoid_: the extractor, 骨架脚本
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/extract_skeleton.py`
 
@@ -165,7 +165,7 @@ _Avoid_: 骨架 (as a term), control inventory
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`, `mmw-v2/skills/ui-acceptance/scripts/extract_skeleton.py`
 
 **`retired_ids`**:
-The top-level list on a screen contract of row ids that once had a row and no longer do: an id is never renumbered and never reused, and the lint prints every entry on every run. An entry carries the id and a one-line note saying when and why it was retired. The story judge refuses an entry that still carries `trigger` rather than hiding the control.
+The top-level list on a screen contract of row ids that once had a row and no longer do: an id is never renumbered and never reused, and the lint prints every entry on every run. The lint uses an entry's `page` and `trigger` to stop asking for a row; the story judge refuses any entry that carries `trigger`.
 _Avoid_: 退役 id, deleted rows
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
@@ -189,7 +189,7 @@ _Avoid_: mount point (for this), 挂载点, data-screen-label, test hook (for th
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 
 **target trees**:
-`docs/specs/<effort>/targets/<page>.aria` and `<page>.classes`, one pair per design page, written by `extract_skeleton.py --targets` with the story judge's normaliser: every scene's normalised tree and the class names in that subtree, headed by the sha256 of `scenes.json` and of the page. The handoff package's behavioural counterpart and a derived view of it — the package is the baseline, the tree the view, the hashes what keeps them from disagreeing (the contract lint fails when they do). An interface ticket lists its pages' pair under `## Read first`.
+`docs/specs/<effort>/targets/<page>.aria` and `<page>.classes`, one pair per design page, written by `extract_skeleton.py --targets` with `normalize_aria` in `design_render.py`: every scene's normalised tree and the class names in that subtree, headed by the sha256 of `scenes.json` and of the page. The handoff package's behavioural counterpart and a derived view of it — the package is the baseline, the tree the view, the hashes what keeps them from disagreeing (the contract lint fails when they do). An interface ticket lists its pages' pair under `## Read first`.
 _Avoid_: 目标树, target elements, expected tree
 _Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
 

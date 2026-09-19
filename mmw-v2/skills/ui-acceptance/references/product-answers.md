@@ -20,8 +20,8 @@ These hold for every product. How a given repository meets them is its own.
 - **Story pages render the product's own components.** A `Component · ` page is
   that component in one scene. An `App · ` page is the story service composing
   those same components into a whole page from **scene data**. Neither page
-  carries a Claude Design runtime (`sc-interp`, `data-dc-tpl`, `data-dc-script`,
-  `dc-root`).
+  carries a Claude Design runtime (the markers [story-parity.md](story-parity.md)
+  lists).
 - **`[data-story-root]` sits on the component's own root element**, together with
   `data-screen="<mount>"` and the same `data-ui` id the design page's root carries.
   Every other compared element carries that design page's matching `data-ui` id.
@@ -145,11 +145,10 @@ judges that, and the criterion that carries it, are
 ## An example, not a rule
 
 工作监控 meets the same guarantees by a different shape: its story service
-renders the production templates rather than a per-page module; one story adapter
+renders the production templates rather than a per-page module; one module
 covers every design page; a boundary test parses the server-rendered HTML and
 infers the request from that. Those are facts about one product. They are not
-requirements on the next one. A desktop application's shape is written when that
-product's contract ticket has run.
+requirements on the next one.
 
 ## Rules
 
