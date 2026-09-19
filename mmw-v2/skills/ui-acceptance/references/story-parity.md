@@ -46,13 +46,13 @@ order:
 
 | field | fact |
 | --- | --- |
-| `id` | `data-ui`; repeated values become `<id>#<n>`, from 1 |
+| `id` | `data-ui`; repeated values become `<id>#<n>`, from 1, and a lone match on the other side becomes `<id>#1` |
 | `visible` | false for `display: none`, `visibility: hidden`, `opacity: 0`, or a zero width or height |
-| `text` | own character data and descendants without `data-ui`, with whitespace collapsed |
+| `text` | own character data and descendants without `data-ui`, including `span.sc-interp`, with whitespace collapsed |
 | `size` | integer `[width, height]` in CSS pixels |
-| `ancestor` | nearest `data-ui` ancestor, or null |
+| `ancestor` | nearest `data-ui` ancestor, or null; repeated ids use `<id>#<n>` |
 | `offset` | top-left relative to that ancestor, or null |
-| `previous` | previous element with the same nearest `data-ui` ancestor, or null |
+| `previous` | previous element with the same nearest `data-ui` ancestor, or null; repeated ids use `<id>#<n>` |
 | `gap` | `[left − previous.right, top − previous.bottom]`, or null |
 | `style` | `font-size`, `font-weight`, `color`, `background-color`, `border-radius` |
 
@@ -117,7 +117,8 @@ Once per run, using its first scene and viewport, the judge proves both detectio
 paths before trusting any result:
 
 1. It adds 7 px to every design-side `data-ui` element's computed font size and
-   requires at least one `font-size` difference.
+   requires at least one element difference. A product story with no ids therefore
+   reaches the ordinary `missing` report instead of making the control itself fail.
 2. It removes every product-side `data-ui` attribute and requires at least one
    `missing` difference.
 
@@ -144,5 +145,6 @@ The JSON array uses the fields in **The two sides** and preserves document order
   be reached, or the requested mount/scene is outside the contract. The refusal
   names the fact it could not establish.
 
-`--out <dir>` keeps both screenshots, their pixel difference image and the design
-facts for inspection.
+`--out <dir>` keeps both screenshots, their pixel difference image and the ARIA
+capture beside each screenshot. `--render-only` additionally writes the design
+facts described above.

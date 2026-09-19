@@ -20,10 +20,7 @@ VALID_SCENES = {"alpha", "beta", "gamma", "app", "legacy"}
 
 
 def body_for(mutate: str) -> str:
-    html = PAGE.replace("__STORY_MUTATE__", mutate)
-    if mutate == "copy":
-        html = html.replace("Alpha scene copy", "Alpha scene COPY")
-    return html
+    return PAGE.replace("__STORY_MUTATE__", mutate)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):

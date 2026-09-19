@@ -117,8 +117,8 @@ class TestArguments(unittest.TestCase):
 class TestStoryGate(unittest.TestCase):
     """The two negative controls at the gate, with no browser."""
 
-    FONT = ["DIFF demo alpha 400x300 root font-size design=23px product=16px"]
-    MISSING = ["DIFF demo alpha 400x300 root missing"]
+    FONT = [sp.ElementDifference("root", "font-size", "23px", "16px")]
+    MISSING = [sp.ElementDifference("root", "missing")]
 
     def test_a_control_that_reports_nothing_is_exit_2(self):
         for font, missing, named in (([], self.MISSING, "font-size"),
@@ -128,9 +128,13 @@ class TestStoryGate(unittest.TestCase):
                 self.assertEqual(code, 2)
                 self.assertTrue(lines[0].startswith("NEGATIVE CONTROL FAILED"))
                 self.assertIn(named, lines[0])
+                self.assertIn("then rerun", lines[0])
 
     def test_both_controls_caught_continue(self):
         self.assertEqual(sp.negative_control_gate(self.FONT, self.MISSING), (0, []))
+
+    def test_a_missing_difference_satisfies_the_design_perturbation_control(self):
+        self.assertEqual(sp.negative_control_gate(self.MISSING, self.MISSING), (0, []))
 
 
 class TestStoryFixture(unittest.TestCase):
@@ -219,6 +223,12 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 product-only extra")
 
+    def test_a_product_without_data_ui_reports_missing_elements(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "no-ids"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertNotIn("NEGATIVE CONTROL FAILED", proc.stdout)
+        self.assertIn("DIFF demo alpha 400x300 root missing", proc.stdout.splitlines())
+
     def test_a_wrapper_the_product_adds_is_no_diff(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "wrapper"})
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
@@ -279,6 +289,14 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.stdout.strip(),
                          "DIFF demo alpha 400x300 repeat#3 missing")
 
+    def test_repeated_ids_pair_in_document_order_when_product_has_one(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "repeat-one"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip().splitlines(), [
+            "DIFF demo alpha 400x300 repeat#2 missing",
+            "DIFF demo alpha 400x300 repeat#3 missing",
+        ])
+
     def test_a_pixel_only_difference_keeps_story_ok_and_writes_the_diff_image(self):
         out = Path(tempfile.mkdtemp(prefix="story-pixel-evidence-"))
         self.addCleanup(shutil.rmtree, out, ignore_errors=True)
@@ -288,6 +306,9 @@ class TestStoryFixture(unittest.TestCase):
         diff = out / "media" / "alpha-400x300-diff.png"
         self.assertTrue(diff.is_file(), f"missing {diff}")
         self.assertGreater(diff.stat().st_size, 0)
+        from PIL import Image
+        with Image.open(diff) as image:
+            self.assertIsNotNone(image.getbbox())
 
     def test_an_app_page_mount_is_compared(self):
         proc = self.run_story(pages="app")

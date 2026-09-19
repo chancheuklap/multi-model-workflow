@@ -288,12 +288,6 @@ class TestTree(unittest.TestCase):
 
 
 class TestClassSets(unittest.TestCase):
-    def test_diff_names_the_element_that_wears_the_class(self):
-        d = dr.class_diff({"btn": 'button "开始"', "hot": 'span "!"'}, {"btn": 'button "开始"'})
-        self.assertEqual(d["only_in_baseline"], [("hot", 'span "!"')])
-        self.assertEqual(d["only_in_impl"], [])
-        self.assertEqual(d["changed"], 1)
-
     def test_runtime_prefixes_are_not_design(self):
         self.assertTrue(all(p in ("sc-", "dc-") for p in dr.RUNTIME_CLASS_PREFIXES))
 
@@ -317,53 +311,8 @@ class TestBaselineServing(unittest.TestCase):
         self.assertIn('"查看账务状态"', js)
         self.assertIn("display = 'none'", js)
 
-    def test_volatile_values_replace_the_name_with_the_same_token_on_both_sides(self):
-        """A wallet balance is an external account; the seed does not write it. The
-        two judges replace the node's text with one token so 12,480 and 20 compare
-        equal. The trigger is the handoff's role and accessible name; a product
-        node matches when its role is the same and the non-digit stem of the name
-        is the same."""
-        triggers = [dr.VolatileTrigger("text", "鸭豆余额 12,480")]
-        design = '- main:\n  - text: 鸭豆余额 12,480\n  - button "新建商品项目"\n'
-        product = '- main:\n  - text: 鸭豆余额 20\n  - button "新建商品项目"\n'
-        masked_d = dr.mask_volatile(dr.normalize_aria(design), triggers)
-        masked_p = dr.mask_volatile(dr.normalize_aria(product), triggers)
-        self.assertEqual(masked_d, masked_p)
-        self.assertTrue(any("<volatile>" in line for line in masked_d))
-        self.assertFalse(any("12,480" in line or " 20" in line for line in masked_d))
-        self.assertEqual(dr.aria_diff(design, product, volatile=triggers)["changed"], 0)
-        self.assertGreater(dr.aria_diff(design, product)["changed"], 0)
-
-    def test_volatile_values_replace_the_name_on_ancestor_suffixes_too(self):
-        triggers = [dr.VolatileTrigger("status", "鸭豆余额 12,480")]
-        design = '- status "鸭豆余额 12,480"\n  - text: 可用\n'
-        product = '- status "鸭豆余额 20"\n  - text: 可用\n'
-        masked = dr.mask_volatile(dr.normalize_aria(design), triggers)
-        self.assertEqual(masked, dr.mask_volatile(dr.normalize_aria(product), triggers))
-        self.assertTrue(any("<volatile>" in line for line in masked))
-        self.assertFalse(any("12,480" in line for line in masked))
-        self.assertFalse(any("鸭豆余额 20" in line for line in masked))
-        self.assertTrue(any("可用" in line and "<volatile>" in line for line in masked))
-
-    def test_volatile_paint_puts_the_triggers_digits_in_the_node_before_painting(self):
-        """A painted box is as wide as the string in it, so `0 鸭豆` and `3,220 鸭豆`
-        painted over still move what follows them — and the design side shows its own
-        other number on some scenes. Both sides take the trigger's digits into the
-        first digit-bearing text node, then the paint; a node named by aria-label is
-        left as it is."""
-        js = dr.volatile_paint_js([dr.VolatileTrigger("strong", "3,220 鸭豆")])
-        self.assertIn("createTreeWalker(el, NodeFilter.SHOW_TEXT)", js)
-        self.assertIn("node.nodeValue.replace(/[\\d,]+/, target)", js)
-        self.assertIn("el.getAttribute('aria-label')) return", js)
-        self.assertLess(js.index("retext(el, w)"), js.index("el.style.backgroundColor"))
-
-    def test_volatile_paint_js_maps_a_table_cell_for_a_text_trigger(self):
-        self.assertEqual(dr.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
+    def test_volatile_text_trigger_matches_a_table_cell(self):
         self.assertIn("cell", dr.VOLATILE_TEXT_LIKE)
-        js = dr.volatile_paint_js([dr.VolatileTrigger("text", "鸭豆余额 12,480")])
-        self.assertIn(dr.VOLATILE_FILL, js)
-        self.assertIn(dr.VOLATILE_DIGITS.pattern, js)
-        self.assertIn('TD: "cell"', js)
         cell_lines = dr.normalize_aria("- cell: 鸭豆余额 12,480\n")
         self.assertEqual(dr.count_volatile_hits(cell_lines, [dr.VolatileTrigger("text", "鸭豆余额 12,480")]), 1)
         scoped = {"volatile_values": [
@@ -395,28 +344,6 @@ class TestBaselineServing(unittest.TestCase):
         mixed = ["## scene free-gate", *lines, "## scene free-hold-unknown", *unique]
         self.assertEqual(dr.count_volatile_hits(mixed, bare), 3)
         self.assertEqual(dr.count_volatile_hits(mixed, pinned), 1)
-        masked_bare = dr.mask_volatile(lines, bare)
-        masked_pinned = dr.mask_volatile(lines, pinned)
-        self.assertEqual(sum("<volatile>" in ln for ln in masked_bare), 3)
-        self.assertEqual(sum("<volatile>" in ln for ln in masked_pinned), 1)
-        self.assertTrue(any("20 鸭豆" in ln for ln in masked_pinned))
-        self.assertTrue(any("40 鸭豆" in ln for ln in masked_pinned))
-        self.assertFalse(any("12,480" in ln for ln in masked_pinned))
-        js = dr.volatile_paint_js(pinned)
-        self.assertIn("if (!w.after) return true;", js)
-        self.assertIn("if (!prev) return false;", js)
-        self.assertIn("prev = {role, nm};", js)
-        nested = dr.normalize_aria(
-            "- strong: 20 鸭豆\n"
-            "  - text: 每张\n"
-            "- text: 当前余额\n"
-            "- strong: 12,480 鸭豆\n"
-            "  - text: 可用\n"
-        )
-        nested_masked = dr.mask_volatile(nested, pinned)
-        self.assertTrue(any("20 鸭豆" in ln for ln in nested_masked))
-        self.assertFalse(any("12,480" in ln for ln in nested_masked))
-        self.assertTrue(any("<volatile>" in ln and "可用" in ln for ln in nested_masked))
         scoped = {"volatile_values": [
             {"page": "Component · 自由模式.dc.html",
              "trigger": {"role": "strong", "name": "12,480 鸭豆"},
@@ -426,8 +353,6 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(got, [dr.VolatileTrigger("strong", "12,480 鸭豆",
                                                   ("text", "当前余额"))])
         self.assertEqual(got[0].after, ("text", "当前余额"))
-        self.assertEqual(dr.mask_volatile(lines, got), masked_pinned)
-        self.assertEqual(dr.volatile_paint_js(got), js)
 
     def test_volatile_hits_count_same_stem_names(self):
         """`count_volatile_hits` matches on role plus the non-digit stem, so

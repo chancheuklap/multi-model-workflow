@@ -41,6 +41,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import urlencode
 
 
@@ -53,11 +54,11 @@ def _load(name: str, modname: str):
     return mod
 
 
-vp = _load("pixel_diff.py", "pixel_diff")
 dr = _load("design_render.py", "design_render")
 tc = _load("target_config.py", "target_config")
 
-pixel_diff = vp.pixel_diff
+pixel_diff = _load("pixel_diff.py", "pixel_diff").pixel_diff
+refusal = _load("refusal.py", "refusal").refusal
 NEGATIVE_CONTROL_SCENE = "__negative_control__"
 
 STORY_ROOT = "[data-story-root]"
@@ -73,6 +74,13 @@ FONT_CONTROL_JS = """(() => {
 REMOVE_IDS_JS = """(() => {
   for (const el of document.querySelectorAll('[data-ui]')) el.removeAttribute('data-ui');
 })()"""
+
+
+class ElementDifference(NamedTuple):
+    uid: str
+    property: str
+    design: str | None = None
+    product: str | None = None
 
 
 def _ensure_script_env() -> None:
@@ -246,59 +254,63 @@ def stop_tree(proc: subprocess.Popen, grace_s: float = 5.0) -> None:
     proc.poll()
 
 
-def element_differences(mount: str, scene: str, viewport: str,
-                        design: list[dict], product: list[dict]) -> list[str]:
-    """One public DIFF line per element fact that differs."""
+def element_differences(design: list[dict], product: list[dict]
+                        ) -> list[ElementDifference]:
+    """One structured record per element fact that differs."""
     design, product = _align_repeated_ids(design, product)
     design_by_id = {item["id"]: item for item in design}
     product_by_id = {item["id"]: item for item in product}
-    lines = []
+    differences = []
     suppressed: set[str] = set()
     for before in design:
         uid = before["id"]
         if uid in suppressed:
             continue
         if uid not in product_by_id:
-            lines.append(f"DIFF {mount} {scene} {viewport} {uid} missing")
+            differences.append(ElementDifference(uid, "missing"))
             continue
         after = product_by_id[uid]
         if not (before["visible"] and after["visible"]):
             if before["visible"] != after["visible"]:
-                lines.append(
-                    f"DIFF {mount} {scene} {viewport} {uid} visible "
-                    f"design={'yes' if before['visible'] else 'no'} "
-                    f"product={'yes' if after['visible'] else 'no'}")
+                differences.append(ElementDifference(
+                    uid, "visible",
+                    "yes" if before["visible"] else "no",
+                    "yes" if after["visible"] else "no"))
             suppressed.update(_descendant_ids(design, uid))
             suppressed.update(_descendant_ids(product, uid))
             continue
         if before["text"] != after["text"]:
-            lines.append(
-                f"DIFF {mount} {scene} {viewport} {uid} text "
-                f"design={before['text']} product={after['text']}")
+            differences.append(ElementDifference(
+                uid, "text", before["text"], after["text"]))
         if any(abs(a - b) > 2 for a, b in zip(before["size"], after["size"])):
-            lines.append(
-                f"DIFF {mount} {scene} {viewport} {uid} size "
-                f"design={before['size'][0]}x{before['size'][1]} "
-                f"product={after['size'][0]}x{after['size'][1]}")
+            differences.append(ElementDifference(
+                uid, "size", f"{before['size'][0]}x{before['size'][1]}",
+                f"{after['size'][0]}x{after['size'][1]}"))
         for key in STYLE_KEYS:
             if before["style"][key] != after["style"][key]:
-                lines.append(
-                    f"DIFF {mount} {scene} {viewport} {uid} {key} "
-                    f"design={before['style'][key]} product={after['style'][key]}")
+                differences.append(ElementDifference(
+                    uid, key, before["style"][key], after["style"][key]))
         if before["ancestor"] != after["ancestor"]:
-            lines.append(
-                f"DIFF {mount} {scene} {viewport} {uid} parent "
-                f"design={before['ancestor'] or 'null'} "
-                f"product={after['ancestor'] or 'null'}")
+            differences.append(ElementDifference(
+                uid, "parent", before["ancestor"] or "null",
+                after["ancestor"] or "null"))
         elif _position_differs(before, after):
-            lines.append(
-                f"DIFF {mount} {scene} {viewport} {uid} position "
-                f"design={_pair(before['offset'])} product={_pair(after['offset'])}")
+            differences.append(ElementDifference(
+                uid, "position", _pair(before["offset"]), _pair(after["offset"])))
     for after in product:
         uid = after["id"]
         if uid not in suppressed and uid not in design_by_id:
-            lines.append(f"DIFF {mount} {scene} {viewport} {uid} extra")
-    return lines
+            differences.append(ElementDifference(uid, "extra"))
+    return differences
+
+
+def format_element_difference(mount: str, scene: str, viewport: str,
+                              difference: ElementDifference) -> str:
+    """The one public line for a structured element difference."""
+    prefix = f"DIFF {mount} {scene} {viewport} {difference.uid} {difference.property}"
+    if difference.design is None and difference.product is None:
+        return prefix
+    return f"{prefix} design={difference.design} product={difference.product}"
 
 
 def _align_repeated_ids(design: list[dict], product: list[dict]
@@ -328,15 +340,21 @@ def _align_repeated_ids(design: list[dict], product: list[dict]
     return aligned(design), aligned(product)
 
 
-def negative_control_gate(font_lines: list[str], missing_lines: list[str]
+def negative_control_gate(design_differences: list[ElementDifference],
+                          missing_differences: list[ElementDifference]
                           ) -> tuple[int, list[str]]:
     """The two controls prove this run can see a changed style and absent ids."""
-    if not any(" font-size " in line for line in font_lines):
-        return 2, ["NEGATIVE CONTROL FAILED: design font-size perturbation "
-                   "reported no font-size difference"]
-    if not any(line.endswith(" missing") for line in missing_lines):
-        return 2, ["NEGATIVE CONTROL FAILED: removing every product data-ui id "
-                   "reported no missing element"]
+    if not design_differences:
+        return 2, [refusal(
+            "NEGATIVE CONTROL FAILED: changing every design font-size reported no difference.",
+            "The judge could not prove that it can observe element differences.",
+            "Confirm the design page and product story carry corresponding data-ui ids, then rerun.")]
+    if not any(diff.property == "missing" for diff in missing_differences):
+        return 2, [refusal(
+            "NEGATIVE CONTROL FAILED: removing every product data-ui id reported no missing element.",
+            "The design page carries no data-ui id this judge can compare.",
+            "Add data-ui ids to the design page and product story as "
+            "mmw-v2/downstream-notes/453-element-parity.md says, then rerun.")]
     return 0, []
 
 
@@ -368,9 +386,8 @@ def _position_differs(design: dict, product: dict) -> bool:
     for axis in (0, 1):
         if abs(before[axis] - after[axis]) <= 2:
             continue
-        if design["previous"] != product["previous"]:
-            return True
-        if design["previous"] is None:
+        if (design["previous"] is None
+                or design["previous"] != product["previous"]):
             return True
         before_gap = design["gap"]
         after_gap = product["gap"]
@@ -506,7 +523,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
 
     pair_count = 0
     element_lines: list[str] = []
-    controls: tuple[list[str], list[str]] | None = None
+    controls: tuple[list[ElementDifference], list[ElementDifference]] | None = None
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         story_ctx = browser.new_context(device_scale_factor=1, reduced_motion="reduce",
@@ -563,8 +580,9 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                     pair_count += 1
                     pixel_diff(base.png, impl.png,
                                media / f"{scene.name}-{tag}-diff.png")
-                    element_lines.extend(element_differences(
-                        scene.mount, scene.name, tag, base.values, impl.values))
+                    element_lines.extend(
+                        format_element_difference(scene.mount, scene.name, tag, difference)
+                        for difference in element_differences(base.values, impl.values))
                     if controls is None:
                         font_design = capture_design(
                             scene, viewport, impl.box,
@@ -575,10 +593,8 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                             media / f"{NEGATIVE_CONTROL_SCENE}-{tag}-no-ids-product.png",
                             REMOVE_IDS_JS)
                         controls = (
-                            element_differences(scene.mount, scene.name, tag,
-                                                font_design.values, impl.values),
-                            element_differences(scene.mount, scene.name, tag,
-                                                base.values, no_ids.values),
+                            element_differences(font_design.values, impl.values),
+                            element_differences(base.values, no_ids.values),
                         )
         finally:
             browser.close()

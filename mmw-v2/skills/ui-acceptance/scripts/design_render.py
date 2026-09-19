@@ -19,7 +19,7 @@ import sys
 import threading
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
@@ -218,21 +218,6 @@ def normalize_aria(text: str) -> list[str]:
     return out
 
 
-def aria_diff(a: str, b: str, out: Path | None = None,
-              volatile: list[VolatileTrigger] | None = None) -> dict:
-    import difflib
-
-    la, lb = normalize_aria(a), normalize_aria(b)
-    if volatile:
-        la, lb = mask_volatile(la, volatile), mask_volatile(lb, volatile)
-    diff = list(difflib.unified_diff(la, lb, "baseline", "impl", lineterm="", n=1))
-    if out is not None:
-        out.write_text("\n".join(diff) + ("\n" if diff else ""), encoding="utf-8")
-    changed = sum(1 for d in diff if d[:1] in "+-" and not d.startswith(("+++", "---")))
-    return {"lines_a": len(la), "lines_b": len(lb), "changed": changed,
-            "diff": "\n".join(diff)}
-
-
 # An `<option>`'s accessible name is computed from its own child text nodes alone. The
 # Claude Design runtime wraps every `{{ }}` hole in a `span.sc-interp`, which takes the
 # text out of those nodes, so a handoff package reports its options unnamed while any
@@ -278,14 +263,6 @@ def class_set(page, selector: str) -> dict[str, str]:
     found = page.locator(selector).first.evaluate(CLASSES_JS)
     return {c: label for c, label in found.items()
             if not c.startswith(RUNTIME_CLASS_PREFIXES)}
-
-
-def class_diff(a: dict[str, str], b: dict[str, str]) -> dict:
-    only_a = sorted(set(a) - set(b))
-    only_b = sorted(set(b) - set(a))
-    return {"only_in_baseline": [(c, a[c]) for c in only_a],
-            "only_in_impl": [(c, b[c]) for c in only_b],
-            "changed": len(only_a) + len(only_b)}
 
 
 # ---------------------------------------------------------------- baseline server
@@ -429,22 +406,8 @@ def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
 # non-digit stem of the name is the same. An optional `after` (the previous named
 # node) splits siblings that share that stem, and row triggers that share role
 # and name.
-VOLATILE_TOKEN = "<volatile>"
-VOLATILE_FILL = "#00E5FF"
 VOLATILE_DIGITS = re.compile(r"[\d,]+")
-# HTML implicit roles the pixel paint uses when the element has no `role`
-# attribute. `TD`/`TH` are `cell` so a balance in a table cell is painted;
-# static-text tags (`P`, `SPAN`, `DIV`, `SMALL`, `B`, `CODE`) are `text`.
-VOLATILE_IMPLICIT_ROLES = {
-    "BUTTON": "button", "A": "link", "P": "text", "SPAN": "text", "DIV": "text",
-    "STATUS": "status", "STRONG": "strong", "EM": "em", "LABEL": "label",
-    "LI": "listitem", "H1": "heading", "H2": "heading", "H3": "heading",
-    "H4": "heading", "H5": "heading", "H6": "heading",
-    "TD": "cell", "TH": "cell", "TIME": "time", "SMALL": "text", "B": "text",
-    "CODE": "text", "CAPTION": "caption", "DD": "definition", "DT": "term",
-}
-# A `text` trigger also paints these computed roles: a `<td>` snapshots as
-# `cell` in the tree, and the paint has to find the same node in the DOM.
+# A `text` trigger also matches these computed roles: a `<td>` snapshots as `cell`.
 VOLATILE_TEXT_LIKE = (
     "text", "generic", "cell", "columnheader", "rowheader", "definition",
     "term", "caption", "time", "code", "",
@@ -554,43 +517,6 @@ def _own_role_name(own: str) -> tuple[str, str] | None:
     return m.group("role"), label
 
 
-def _mask_label(own: str) -> str:
-    m = ARIA_LINE.match(own)
-    if not m:
-        return own
-    role, name, attrs, value = (m.group("role"), m.group("name"),
-                                m.group("attrs") or "", m.group("value"))
-    if value:
-        return f"- {role}: {VOLATILE_TOKEN}"
-    if name is not None:
-        return f'- {role} "{VOLATILE_TOKEN}"{attrs}'
-    return own
-
-
-def mask_volatile(lines: list[str], triggers: list[VolatileTrigger]) -> list[str]:
-    """Replace matching nodes' names (and the same names on ancestor suffixes) with
-    `VOLATILE_TOKEN`, so two trees that differ only in those values compare equal."""
-    out = []
-    previous: tuple[str, str] | None = None
-    masked: dict[str, str] = {}
-    for line in lines:
-        own, sep, ancestor = line.partition(" < ")
-        parsed = _own_role_name(own)
-        if parsed and matches_volatile(parsed[0], parsed[1], triggers, previous):
-            masked_own = _mask_label(own)
-            if own.startswith("- "):
-                masked[own[2:]] = masked_own[2:]
-            own = masked_own
-        if sep:
-            ancestor = masked.get(ancestor, ancestor)
-            out.append(f"{own} < {ancestor}")
-        else:
-            out.append(own)
-        if parsed and parsed[1]:
-            previous = parsed
-    return out
-
-
 def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger],
                         chains=None) -> int:
     """Most named nodes that match `triggers` in any one scene. A `## scene` line
@@ -610,97 +536,14 @@ def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger],
     return max(best, current)
 
 
-def volatile_paint_js(triggers: list[VolatileTrigger]) -> str:
-    """Put the trigger's digits into every matching node, then paint its box one
-    solid colour, on both sides. The digits come first because a box is as wide as
-    the string in it: `0 鸭豆` painted over is narrower than `3,220 鸭豆` painted
-    over, and everything after it on the line moves; a scene where the design itself
-    shows another number (`鸭豆余额 20` on the debt scene, `12,480` elsewhere) has the
-    same problem on its own side. With the trigger's digits in the first digit-bearing
-    text node on both sides the two boxes are one width by construction, and the
-    paint hides them. A node named by aria-label keeps its text.
-
-    Matching is the same as `matches_volatile`: role and non-digit stem, plus
-    `after` as the previous named node from a document-order walk of `nameOf`."""
-    wanted_list = []
-    for t in triggers:
-        item: dict = {"role": t.role, "name": t.name, "after": None}
-        if t.after:
-            item["after"] = {"role": t.after[0], "name": t.after[1]}
-        wanted_list.append(item)
-    wanted = json.dumps(wanted_list, ensure_ascii=False)
-    fill = json.dumps(VOLATILE_FILL)
-    implicit = ", ".join(f"{tag}: {json.dumps(role)}"
-                         for tag, role in VOLATILE_IMPLICIT_ROLES.items())
-    text_like = json.dumps(list(VOLATILE_TEXT_LIKE))
-    return """(() => {
-  const wanted = %s;
-  const fill = %s;
-  const implicit = {%s};
-  const textLike = new Set(%s);
-  const stem = s => s.replace(/[\\d,]+/g, '').trim();
-  const nameOf = el => (el.getAttribute('aria-label') || el.textContent || '')
-    .trim().replace(/\\s+/g, ' ');
-  const roleOf = el => el.getAttribute('role') || implicit[el.tagName] || el.tagName.toLowerCase();
-  const nameOk = (nm, wanted) => nm === wanted || (Boolean(stem(wanted)) && stem(nm) === stem(wanted));
-  const roleOk = (role, wanted) => role === wanted || (wanted === 'text' && textLike.has(role));
-  const hit = (role, nm, w, prev) => {
-    if (!nameOk(nm, w.name) || !roleOk(role, w.role)) return false;
-    if (!w.after) return true;
-    if (!prev) return false;
-    return nameOk(prev.nm, w.after.name) && roleOk(prev.role, w.after.role);
-  };
-  const digitsOf = s => (s.match(/[\\d,]+/) || [null])[0];
-  const retext = (el, w) => {
-    // The design's digits go into the first text node that carries digits, on both
-    // sides, so the box is one width whatever number each side showed.
-    const target = digitsOf(w.name);
-    if (!target || el.getAttribute('aria-label')) return;
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (/[\\d,]+/.test(node.nodeValue)) {
-        node.nodeValue = node.nodeValue.replace(/[\\d,]+/, target);
-        return;
-      }
-    }
-  };
-  const paint = (el, w) => {
-    retext(el, w);
-    el.style.backgroundColor = fill;
-    el.style.color = fill;
-    el.style.borderColor = fill;
-    el.style.caretColor = fill;
-    el.style.boxShadow = 'none';
-    el.style.outline = 'none';
-    for (const child of el.querySelectorAll('*')) {
-      child.style.backgroundColor = fill;
-      child.style.color = fill;
-      child.style.borderColor = fill;
-    }
-  };
-  let prev = null;
-  for (const el of document.querySelectorAll('*')) {
-    const nm = nameOf(el);
-    if (!nm) continue;
-    const role = roleOf(el);
-    for (const w of wanted) {
-      if (hit(role, nm, w, prev)) { paint(el, w); break; }
-    }
-    prev = {role, nm};
-  }
-})()""" % (wanted, fill, implicit, text_like)
-
-
 # ---------------------------------------------------------------- capture
 @dataclass
 class Shot:
     png: Path
     aria: str
-    console: list[str] = field(default_factory=list)
-    elements: list[dict] = field(default_factory=list)
-    classes: dict[str, str] = field(default_factory=dict)
-    box: tuple[int, int, int, int] = (0, 0, 0, 0)  # x, y, w, h in viewport CSS pixels
-    values: list[dict] = field(default_factory=list)
+    classes: dict[str, str]
+    box: tuple[int, int, int, int]  # x, y, w, h in viewport CSS pixels
+    values: list[dict]
 
 
 # Facts of every `[data-ui]` element under a root, document order. Visibility, box and
@@ -780,25 +623,6 @@ UI_VALUES_JS = """(root) => {
 }"""
 
 
-# Every element a reader could be sent to, with the name it goes by: its `aria-label`,
-# else its own text, else its `alt`. Boxes are viewport CSS pixels.
-ELEMENTS_JS = """(() => {
-  const sel = 'button, a, input, select, textarea, label, img, h1, h2, h3, h4, h5, h6, ' +
-              'p, li, strong, em, [role], [aria-label]';
-  const out = [];
-  for (const el of document.querySelectorAll(sel)) {
-    const r = el.getBoundingClientRect();
-    if (r.width <= 0 || r.height <= 0) continue;
-    const role = el.getAttribute('role') || el.tagName.toLowerCase();
-    const text = (el.getAttribute('aria-label') || el.innerText || el.getAttribute('alt') || '')
-      .trim().replace(/\\s+/g, ' ').slice(0, 40);
-    if (!text) continue;
-    out.push({label: role + ' "' + text + '"', x: r.left, y: r.top, w: r.width, h: r.height});
-  }
-  return out;
-})()"""
-
-
 _CLOCK_PAGES: set[int] = set()
 
 
@@ -845,61 +669,35 @@ def wait_for_mount(page, selector: str) -> None:
 
 def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] | None = None,
             extra_css: str | None = None, extra_js: str | None = None) -> Shot:
-    """Screenshot, tree, elements, class set and `[data-ui]` values of the subtree
-    under `selector`, on a page that has already been navigated and settled.
+    """Screenshot, accessibility tree, class set and `[data-ui]` values under
+    `selector`, on a page that has already been navigated and settled.
 
-    The pixel judge sees `clip` — the mount element's box intersected with the
-    viewport, in viewport coordinates; the tree, the class set and the values walk the
-    whole subtree, below the fold included. Values are the same DOM read on `#dc-root`
-    and on `[data-story-root]`. Both sides accept `extra_css` and `extra_js`: the
-    baseline side takes its frame and the retired controls' hiding through them; both
-    sides take the `volatile_values` paint through `extra_js`.
+    `clip` is the screenshot rectangle in viewport coordinates. The tree, class set
+    and values walk the whole subtree. `extra_css` pins the design frame;
+    `extra_js` applies the retired-control or negative-control mutation before capture.
     """
-    console: list[str] = []
-
-    def on_console(message):
-        if message.type == "error":
-            console.append(f"{message.type}: {message.text}")
-
-    def on_pageerror(error):
-        console.append(f"pageerror: {error}")
-
-    page.on("console", on_console)
-    page.on("pageerror", on_pageerror)
-    try:
-        if extra_css:
-            page.add_style_tag(content=extra_css)
-        if extra_js:
-            page.evaluate(extra_js)
-        # Pinning the design frame (and hiding retired controls, which rides with
-        # that extra_css) needs a clock step so the layout settles. Painting a
-        # volatile box is an inline style and must not move the page's clock past
-        # `scenes.<name>.clock` — that field is the one place elapsed time enters.
-        if extra_css:
-            run_clock(page, SETTLE_VIRTUAL_MS)
-        target = page.locator(selector).first
-        rect = mount_rect(page, selector)
-        if rect is None:
-            raise SystemExit(f"{selector} is not on screen at capture time")
-        if clip is None:
-            clip = (int(round(rect["x"])), int(round(rect["y"])),
-                    int(round(rect["width"])), int(round(rect["height"])))
-        x, y, w, h = clip
-        page.screenshot(path=str(png), scale="css",
-                        clip={"x": x, "y": y, "width": max(1, w), "height": max(1, h)})
-        aria = name_options_from_dom(target.aria_snapshot(),
-                                     target.evaluate(OPTION_TEXT_JS))
-        elements = page.evaluate(ELEMENTS_JS)
-        for e in elements:
-            e["x"] -= x
-            e["y"] -= y
-        classes = class_set(page, selector)
-        values = read_ui_values(page, selector)
-    finally:
-        page.remove_listener("console", on_console)
-        page.remove_listener("pageerror", on_pageerror)
+    if extra_css:
+        page.add_style_tag(content=extra_css)
+    if extra_js:
+        page.evaluate(extra_js)
+    if extra_css:
+        run_clock(page, SETTLE_VIRTUAL_MS)
+    target = page.locator(selector).first
+    rect = mount_rect(page, selector)
+    if rect is None:
+        raise SystemExit(f"{selector} is not on screen at capture time")
+    if clip is None:
+        clip = (int(round(rect["x"])), int(round(rect["y"])),
+                int(round(rect["width"])), int(round(rect["height"])))
+    x, y, w, h = clip
+    page.screenshot(path=str(png), scale="css",
+                    clip={"x": x, "y": y, "width": max(1, w), "height": max(1, h)})
+    aria = name_options_from_dom(target.aria_snapshot(),
+                                 target.evaluate(OPTION_TEXT_JS))
+    classes = class_set(page, selector)
+    values = read_ui_values(page, selector)
     aria_path(png).write_text(aria, encoding="utf-8")
-    return Shot(png, aria, console, elements, classes, (x, y, w, h), values)
+    return Shot(png, aria, classes, (x, y, w, h), values)
 
 
 def read_ui_values(page, selector: str) -> list[dict]:
