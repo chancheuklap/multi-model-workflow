@@ -4,7 +4,7 @@ MMW seen as a repository and as an install target: the skills it ships, the two 
 
 How to read an entry: the bold line is the term's only name; a term whose name is a literal string that appears in a file, a command, or a comment is named by that string exactly (case, colon, and all). The definition says what the thing is and what sets it apart from its neighbours. `_Admitted_` lists the one other wording that may appear in prose. `_Avoid_` lists dead words: a sentence in this repository that uses one is wrong; an item followed by a note in parentheses says in which sense the word is dead. `_Home_` is the file whose text or code the definition is taken from; when this file and that one disagree, that one is right and this file is rewritten. An attribute that can be had by reading that file — a field list, an exit code, a command's switches, the branches of a behaviour — is not repeated here: an entry says what the term is and how it differs from its neighbours, and points at `_Home_` for the rest.
 
-Vocabulary that belongs to one skill alone — `exe-release`'s release key, tiers, build machine and hooks; `design-pages`'s page kinds and helpers; `manage-agents-md`'s survey entries; `code-checkers`'s per-language checkers, their versions, and the file that silences a repository's existing errors; the design vocabulary of upstream skills such as `codebase-design` — is defined in that skill's own files and is not repeated here.
+Vocabulary that belongs to one skill alone — `exe-release`'s release key, tiers, build machine and hooks; `design-pages`'s `pull_design.py` switches and exit codes and the style rules in `template-project-claude-md.md`; `manage-agents-md`'s survey entries; `code-checkers`'s per-language checkers, their versions, and the file that silences a repository's existing errors; the design vocabulary of upstream skills such as `codebase-design` — is defined in that skill's own files and is not repeated here. The three design-pages entries and the page conventions are defined in `docs/contexts/ui-acceptance/CONTEXT.md`.
 
 ## Language
 
@@ -39,7 +39,7 @@ _Avoid_: 工具箱, this repository (as a name), 活层, live layer
 _Home_: `AGENTS.md`
 
 **consuming repository**:
-The outside repository where real tickets are run, as distinct from the toolbox — although this repository is one of them, so that its own task board tickets run through the same pipeline. It holds the `.mmw/` acceptance runtime, its screen contracts and its `prototypes/`; it must hold a `DESIGN.md` before UI refinement. Neither machine-level file is ever placed in it: `models.json` lives under `MMW_HOME`, and `hosts.json` travels with the dispatch skill.
+The outside repository where real tickets are run, as distinct from the toolbox — although this repository is one of them, so that its own task board tickets run through the same pipeline. It holds the `.mmw/` acceptance runtime, its screen contracts and its `prototypes/`. Neither machine-level file is ever placed in it: `models.json` lives under `MMW_HOME`, and `hosts.json` travels with the dispatch skill.
 _Avoid_: consumer repo, 消费仓库, the project (for this), the repo (for this)
 _Home_: `AGENTS.md`
 
