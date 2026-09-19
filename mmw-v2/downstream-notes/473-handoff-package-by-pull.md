@@ -16,4 +16,5 @@
 
 1. 把每个 design page 的状态 prop 改名为 `scene`，保留 `editor: "enum"`、`options` 与需要的 `out_of_scope`。
 2. 用 `mcp__claude-design__list_files`（`depth: -1`）保存 manifest，用 `render_preview` 的 `serve_url` 设置一次 `MMW_DESIGN_PREVIEW_URL`，再运行 `pull_design.py <manifest.json> <handoff dir>`；只在命令列出的文本文件需要补读时，加 `--reread <dir>` 重跑。
+   每次 pull 把同目录生成的 `pull-report.md` 连同 handoff package 一起提交。
 3. 按新生成的 `scenes.json`，把 screen contract 与 story 中的引用改为 `<page>.<value>`；把 story adapter 改为读取以 `data-ui` id 为键、子元素嵌套、重复 id 为列表的新 scene data。
