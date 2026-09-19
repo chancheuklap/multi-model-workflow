@@ -712,6 +712,52 @@ def read_ui_values(page, selector: str) -> list[dict]:
     return page.locator(selector).first.evaluate(UI_VALUES_JS)
 
 
+def nest_ui_values(values: list[dict]) -> dict:
+    """Visible `[data-ui]` text as the scene-data tree.
+
+    A leaf is its displayed text. A node with visible `[data-ui]` children is an
+    object keyed by those children's ids and carries its own direct text under
+    `_text`. Repeated ids under one parent become a document-order list. The reader
+    qualifies repeated ids as `id#1`, `id#2`; this function removes only that suffix.
+    """
+    visible = [row for row in values if row.get("visible")]
+    by_id = {str(row.get("id")): row for row in visible if row.get("id")}
+    children: dict[str | None, list[dict]] = {}
+    for row in visible:
+        ancestor = row.get("ancestor")
+        if ancestor not in by_id:
+            ancestor = None
+        children.setdefault(ancestor, []).append(row)
+
+    def plain_id(qualified: str) -> str:
+        return re.sub(r"#\d+$", "", qualified)
+
+    def add(target: dict, key: str, value) -> None:
+        if key not in target:
+            target[key] = value
+        elif isinstance(target[key], list):
+            target[key].append(value)
+        else:
+            target[key] = [target[key], value]
+
+    def value_of(row: dict):
+        own = str(row.get("text") or "")
+        descendants = children.get(str(row.get("id")), [])
+        if not descendants:
+            return own
+        out = {}
+        if own:
+            out["_text"] = own
+        for child in descendants:
+            add(out, plain_id(str(child["id"])), value_of(child))
+        return out
+
+    out = {}
+    for row in children.get(None, []):
+        add(out, plain_id(str(row["id"])), value_of(row))
+    return out
+
+
 def values_path(out: Path, mount: str, scene: str, viewport: tuple[int, int]) -> Path:
     """`--out/values/<mount>/<scene>-<W>x<H>.json`."""
     w, h = viewport

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <style>
+          html, body { margin: 0; }
+          #dc-root { width: 320px; height: 200px; }
+          .old-value { display: block; }
+          .new-value { display: none; }
+        </style>
+        <style id="__om-edit-overrides">
+          .old-value { display: none !important; }
+          .new-value { display: block !important; }
+        </style>
+      </helmet>
+      <main data-ui="root">
+        Root copy
+        <h1 data-ui="title">Demo</h1>
+        <section data-ui="group">
+          Group copy
+          <span data-ui="child">Nested</span>
+        </section>
+        <span data-ui="repeat">First</span>
+        <span data-ui="repeat">Second</span>
+        <span class="old-value" data-ui="status">Before override</span>
+        <span class="new-value" data-ui="status">After override</span>
+      </main>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+      "$preview": {"width": 320, "height": 200},
+      "scene": {
+        "editor": "enum",
+        "default": "ready",
+        "options": ["ready", "empty", "future"],
+        "out_of_scope": ["future"]
+      }
+    }'>
+      class Component extends DCLogic { renderVals() { return {}; } }
+    </script>
+  </body>
+</html>

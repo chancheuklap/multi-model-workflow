@@ -3,9 +3,9 @@
 #
 #   bash mmw-v2/tests/design-pages/run.sh [-k <pattern>]
 #
-# unittest over a miniature handoff package; Node runs the page LOGIC, no browser.
-# `node` has to be on PATH; without it the run fails rather than passing on
-# half the tests.
+# unittest over miniature Claude Design projects. pull_design.py renders with real
+# headless Chromium through `uv run --with playwright`; the older page generator tests
+# still use Node. Missing uv, Chromium or Node fails rather than passing half the suite.
 #
 # A skip count other than 0, or a run count of 0, exits non-zero and does not
 # print `all passed`.
@@ -28,7 +28,12 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-if python3 -u - "$HERE" "$pattern" <<'PY'
+if ! command -v uv >/dev/null 2>&1; then
+  echo "design-pages failed: uv is not on PATH" >&2
+  exit 1
+fi
+
+if uv run --quiet --with 'playwright>=1.58' python -u - "$HERE" "$pattern" <<'PY'
 import sys
 import unittest
 

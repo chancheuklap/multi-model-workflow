@@ -1,7 +1,7 @@
 """mk.py: the generated <script data-dc-script> is valid JavaScript.
 
-The seam is the same miniature handoff package as test_export_scene_data.py:
-mk.py writes a page, Node checks the script body, no browser.
+The seam is the miniature package under `fixtures/handoff`: mk.py writes a page,
+Node checks the script body, no browser.
 
 MMW_MK_MUTATE=1: this file copies mk.py and deletes one character from the
 wrapper (`super(props);` → `super(props;`) so node --check fails. This file
