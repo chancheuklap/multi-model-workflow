@@ -1127,6 +1127,100 @@ print("{}", file=sys.stderr)
 sys.exit(2)
 FAKE
 
+cat > "$TMP/bin/fake-gh-state" <<'PY'
+#!/usr/bin/env python3
+"""Atomic shared state for the fake tracker used by concurrent dispatch scenarios."""
+
+import fcntl
+import json
+import os
+import sys
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+
+
+@contextmanager
+def locked(path: Path):
+    lock = path.with_name(path.name + ".lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with lock.open("a", encoding="utf-8") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+
+
+def read_json(path: Path, default):
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
+
+
+def replace(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(temporary, path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
+def update_json(path: Path, default, change) -> None:
+    with locked(path):
+        rows = read_json(path, default)
+        change(rows)
+        replace(path, json.dumps(rows))
+
+
+verb, *args = sys.argv[1:]
+if verb == "comments-add":
+    path, number, body = Path(args[0]), args[1], Path(args[2])
+    update_json(path, {}, lambda rows: rows.setdefault(number, []).append(
+        body.read_text(encoding="utf-8").rstrip("\n")))
+elif verb == "comments-read":
+    comments, reads, number = Path(args[0]), Path(args[1]), args[2]
+    with locked(reads):
+        count = int(reads.read_text(encoding="utf-8")) + 1 if reads.is_file() else 1
+        replace(reads, str(count))
+    print(json.dumps({"posted": read_json(comments, {}).get(number, []), "count": count}))
+elif verb == "ticket-reopen":
+    path, number = Path(args[0]), int(args[1])
+
+    def reopen(rows):
+        for ticket in rows:
+            if ticket.get("number") == number:
+                ticket["state"] = "OPEN"
+                break
+
+    update_json(path, [], reopen)
+elif verb == "ticket-edit":
+    path = Path(args[0])
+    number = int(args[1])
+    who, add_label, remove_label = args[2:]
+    login = os.environ.get("FAKE_GH_LOGIN", "mmw-bot")
+    if who in ("@me", login):
+        who = login
+
+    def edit(rows):
+        for ticket in rows:
+            if ticket.get("number") != number:
+                continue
+            ticket["assignees"] = [a for a in ticket.get("assignees") or [] if a != who]
+            if os.environ.get("FAKE_GH_MUTATES_ISSUES"):
+                labels = [label for label in ticket.get("labels") or []
+                          if label != remove_label]
+                if add_label and add_label not in labels:
+                    labels.append(add_label)
+                ticket["labels"] = labels
+            break
+
+    update_json(path, [], edit)
+else:
+    raise SystemExit(f"unknown fake-gh-state verb: {verb}")
+PY
+
 cat > "$TMP/bin/gh" <<'FAKE'
 #!/usr/bin/env bash
 line=gh
@@ -1298,16 +1392,7 @@ for name in found.get("labels", []):
     echo "✓ Label \"$3\" created" ;;
   "issue reopen "*)
     if [ -n "${FAKE_GH_MUTATES_ISSUES:-}" ]; then
-      MMW_EDIT_N="$3" python3 -c '
-import json, os
-path = os.environ["FAKE_GH_TICKETS_FILE"]
-rows = json.load(open(path))
-for ticket in rows:
-    if ticket.get("number") == int(os.environ["MMW_EDIT_N"]):
-        ticket["state"] = "OPEN"
-        break
-json.dump(rows, open(path, "w"))
-'
+      "$MMW_FAKE_GH_STATE_HELPER" ticket-reopen "$FAKE_GH_TICKETS_FILE" "$3"
     fi
     echo "✓ Reopened issue #$3" ;;
   "issue close "*)
@@ -1342,22 +1427,21 @@ print(json.dumps({
       : > "$FAKE_GH_COMMENTS_MARKER"
       while [ ! -e "$FAKE_GH_COMMENTS_RELEASE" ]; do sleep 0.05; done
     fi
-    MMW_WANT="$3" python3 -c '
+    comment_state="$("$MMW_FAKE_GH_STATE_HELPER" comments-read \
+      "${MMW_FAKE_PASEO_STATE:-.}/gh-comments.json" \
+      "${MMW_FAKE_PASEO_STATE:-.}/comment_reads" "$3")"
+    MMW_WANT="$3" MMW_COMMENT_STATE="$comment_state" python3 -c '
 import json, os
-from pathlib import Path
 path = os.environ.get("FAKE_GH_TICKETS_FILE")
 rows = json.load(open(path)) if path else []
 try:
     want = int(os.environ["MMW_WANT"])
 except Exception:
     want = None
-state = os.environ.get("MMW_FAKE_PASEO_STATE")
 found = next((t for t in rows if t.get("number") == want), {})
-store = Path(state or ".") / "gh-comments.json"
-posted = json.loads(store.read_text()).get(str(want), []) if state and store.is_file() else []
-reads = Path(state or ".") / "comment_reads"
-count = int(reads.read_text()) + 1 if reads.is_file() else 1
-reads.write_text(str(count))
+comment_state = json.loads(os.environ["MMW_COMMENT_STATE"])
+posted = comment_state["posted"]
+count = comment_state["count"]
 comments = list(found.get("comments", [])) + posted
 if count == int(os.environ.get("FAKE_GH_UNREADABLE_ON_COMMENT_READ", "0")):
     comments.append("unreadable event\n\n<!-- mmw {\"v\":1,\"event\":\"ticket.passed\",\"commit\": -->")
@@ -1392,14 +1476,8 @@ print(next((t for t in rows if t.get("number") == want), {}).get("title", "a tic
   "issue comment "*)
     # FAKE_GH_COMMENT_FAILS: the tracker refuses the comment, the way a network drop does.
     [ -z "${FAKE_GH_COMMENT_FAILS:-}" ] || { echo "HTTP 502" >&2; exit 1; }
-    MMW_N="$3" python3 -c '
-import json, os
-from pathlib import Path
-store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
-rows = json.loads(store.read_text()) if store.is_file() else {}
-rows.setdefault(os.environ["MMW_N"], []).append(Path(os.environ["MMW_GH_LAST_BODY"]).read_text().rstrip("\n"))
-store.write_text(json.dumps(rows))
-'
+    "$MMW_FAKE_GH_STATE_HELPER" comments-add \
+      "$MMW_FAKE_PASEO_STATE/gh-comments.json" "$3" "$MMW_GH_LAST_BODY"
     echo "https://github.com/o/r/issues/$3#issuecomment-1" ;;
   *"issue edit"*)
     number="$3"
@@ -1417,30 +1495,8 @@ store.write_text(json.dumps(rows))
       esac
     done
     if [ -n "$remove" ] && [ -n "${FAKE_GH_TICKETS_FILE:-}" ] && [ -f "$FAKE_GH_TICKETS_FILE" ]; then
-      MMW_EDIT_N="$number" MMW_REMOVE="$remove" MMW_ADD_LABEL="$add_label" \
-        MMW_REMOVE_LABEL="$remove_label" python3 -c '
-import json, os
-path = os.environ["FAKE_GH_TICKETS_FILE"]
-n = int(os.environ["MMW_EDIT_N"])
-who = os.environ["MMW_REMOVE"]
-login = os.environ.get("FAKE_GH_LOGIN", "mmw-bot")
-if who in ("@me", login):
-    who = login
-rows = json.load(open(path))
-for t in rows:
-    if t.get("number") == n:
-        t["assignees"] = [a for a in t.get("assignees") or [] if a != who]
-        if os.environ.get("FAKE_GH_MUTATES_ISSUES"):
-            labels = list(t.get("labels") or [])
-            remove_label = os.environ.get("MMW_REMOVE_LABEL")
-            add_label = os.environ.get("MMW_ADD_LABEL")
-            labels = [label for label in labels if label != remove_label]
-            if add_label and add_label not in labels:
-                labels.append(add_label)
-            t["labels"] = labels
-        break
-json.dump(rows, open(path, "w"))
-'
+      "$MMW_FAKE_GH_STATE_HELPER" ticket-edit "$FAKE_GH_TICKETS_FILE" "$number" \
+        "$remove" "$add_label" "$remove_label"
     fi
     echo '{}' ;;
   *) echo '{}' ;;
@@ -1464,7 +1520,8 @@ for a in "\$@"; do
 done
 exec "$REAL_PYTHON" "\$@"
 WRAPPER
-chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/orca" "$TMP/bin/gh" "$TMP/bin/launchctl" "$TMP/bin/nmem"
+chmod +x "$TMP/bin/python3" "$TMP/bin/paseo" "$TMP/bin/herdr" "$TMP/bin/orca" \
+  "$TMP/bin/gh" "$TMP/bin/fake-gh-state" "$TMP/bin/launchctl" "$TMP/bin/nmem"
 export PATH="$TMP/bin:$PATH"
 export MMW_TEST_LOG="$TMP/calls.log"
 export MMW_FAKE_PASEO_STATE="$TMP/paseo-state"
@@ -1474,6 +1531,7 @@ export MMW_FAKE_NMEM_STATE="$TMP/nmem-state.json"
 export MMW_EMPTY_MEMORY_DECISIONS="$TMP/empty-memory-decisions.json"
 export MMW_FAKE_NMEM_CALLS="$TMP/nmem-calls.jsonl"
 export MMW_GH_LAST_BODY="$TMP/gh-last-body"
+export MMW_FAKE_GH_STATE_HELPER="$TMP/bin/fake-gh-state"
 export MMW_HOME="$TMP/mmw-home"
 # Tonight's runner is pinned: the session running this suite may itself sit in Orca,
 # Herdr or tmux, and runtime detection would pick that runner.
