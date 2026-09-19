@@ -40,7 +40,7 @@ uv run python <ui-acceptance scripts>/extract_skeleton.py <handoff dir> <scratch
 
 It drives a real browser: Playwright with Chromium has to be installed on this machine before the command will run at all.
 
-It renders every scene in `scenes.json` offline, through the same driver the story judge uses, reads each accessibility tree, and keeps every interactive control keyed by (page, role, accessible name) with the list of scenes it is visible in. This is the row inventory: a control the skeleton has and the contract lacks is a lint error, and so is the reverse. The accessible name is the whole name the tree reports, hint text included — copy it exactly. The same render leaves each scene's normalised tree and the class names in that subtree in the skeleton; step 6 writes them out as the target trees.
+It renders every scene in `scenes.json` offline, through the same `design_render.py` the story judge uses, reads each accessibility tree, and keeps every interactive control keyed by (page, role, accessible name) with the list of scenes it is visible in. This is the row inventory: a control the skeleton has and the contract lacks is a lint error, and so is the reverse. The accessible name is the whole name the tree reports, hint text included — copy it exactly. The same render leaves each scene's normalised tree and the class names in that subtree in the skeleton; step 6 writes them out as the target trees.
 
 ### 2. Declare pages, name components and split preconditions
 
@@ -97,7 +97,7 @@ Two things a gap list does not carry: an implementation that today does less tha
    uv run python <scripts>/lint_contract.py --tools <ui-acceptance scripts> docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
    ```
 
-   The lint asks the ui-acceptance skill's driver for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
+   The lint asks the ui-acceptance skill's `target_config.py` for the target kinds and for the state of the repository's `.mmw/target.json` (a warning while the contract ticket has not landed it; an error once the file is there and a field is still missing), which is why it takes `--tools`. When a `story-parity.py --out` directory sits under the contract directory, the lint warns if a non-App page has a scene that inventory does not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes only non-App mounts. Zero errors, or fix the file.
 
 4. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
 
