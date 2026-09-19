@@ -16,7 +16,7 @@ When this repository consumes its own landing pipeline, the MMW runtime for the 
 
 ## Package Manager
 
-No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; the design-pages, verify-ticket and gate-check tests need `node`; the board and ui-acceptance tests need Playwright's browsers.
+No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; the verify-ticket and gate-check tests need `node`; the board and ui-acceptance tests need Playwright's browsers.
 
 ## Commands
 

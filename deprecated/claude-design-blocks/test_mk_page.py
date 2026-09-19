@@ -18,13 +18,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-MK = (
-    Path(__file__).resolve().parents[2]
-    / "skills"
-    / "design-pages"
-    / "scripts"
-    / "mk.py"
-)
+MK = Path(__file__).resolve().parent / "mk.py"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "handoff"
 SRC = Path("src") / "Component · list.py"
 PAGE = "Component · list.dc.html"

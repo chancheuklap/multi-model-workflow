@@ -12,9 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPTS = (
-    Path(__file__).resolve().parents[2] / "skills" / "design-pages" / "scripts"
-)
+SCRIPTS = Path(__file__).resolve().parent
 SCRIPT = SCRIPTS / "deadsweep.py"
 
 SOURCE = '''NAME = "Component · list"
