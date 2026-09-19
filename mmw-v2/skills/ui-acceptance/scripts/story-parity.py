@@ -22,10 +22,12 @@ not compared.
 Exit codes
 ----------
 Exit 0 and one line `STORY OK <passed>/<total>` when every pair matches. Exit 1
-with one `DIFF` line per differing element fact. Exit 2 when either negative control
-fails, the story service is unreachable, the requested mount/scene is invalid, the
-contract lacks `viewports` or `locale`, the contract still carries a key the judge
-no longer executes, or the product story page hosts Claude Design runtime.
+with one `DIFF` line per differing element fact. Exit 2 when a negative control
+fails, the story service does not start, a story page is unreachable or 404, the
+requested mount or scene is outside the contract, `--pages` is empty, there is no
+visible `[data-story-root]`, the contract lacks `viewports` or `locale`, the
+contract still carries a key the judge no longer executes, or the product story
+page hosts Claude Design runtime.
 
 `--out` holds screenshots, capture evidence and a pixel difference image for every
 pair. `--render-only` needs no product and writes the design facts to
@@ -147,15 +149,16 @@ def product_root() -> Path:
 def load_stories_config(root: Path) -> dict:
     path = root / ".mmw" / "target.json"
     if not path.exists():
-        raise SystemExit(
-            f"no {path}: the repository has not said how its story pages are served"
-        )
+        raise SystemExit(refusal(
+            "no .mmw/target.json.",
+            "story-parity.py starts the product story pages with the stories command in that file.",
+            "Add .mmw/target.json with a stories command, then rerun."))
     cfg = json.loads(path.read_text(encoding="utf-8"))
     if not cfg.get("stories"):
-        raise SystemExit(
-            f"{path} has no `stories` command; story-parity.py starts the product "
-            f"story page with that command, which prints origin"
-        )
+        raise SystemExit(refusal(
+            ".mmw/target.json has no `stories` command.",
+            "story-parity.py starts the product story page with that command, which prints origin.",
+            "Add a stories command to .mmw/target.json, then rerun."))
     return cfg
 
 
@@ -217,12 +220,14 @@ class Stories:
         detail = "".join(collected).strip().splitlines()
         first = detail[0] if detail else "(no output)"
         if code is not None:
-            raise SystemExit(
-                f"`{command}` exited {code} before printing origin: {first}"
-            )
-        raise SystemExit(
-            f"`{command}` printed no origin within {ORIGIN_WAIT_S}s: {first}"
-        )
+            raise SystemExit(refusal(
+                f"`{command}` exited {code} before printing origin: {first}",
+                "The story service must print origin before the judge can open a page.",
+                "Fix the stories command so it prints origin, then rerun."))
+        raise SystemExit(refusal(
+            f"`{command}` printed no origin within {ORIGIN_WAIT_S}s: {first}",
+            "The story service must print origin before the judge can open a page.",
+            "Fix the stories command so it prints origin, then rerun."))
 
     def __exit__(self, *exc) -> None:
         proc = self.proc
@@ -439,25 +444,16 @@ def refuse_pages(mounts: list[str], doc: dict, catalogue: dict) -> str | None:
     declared = {s.mount for s in dr.scenes_of(doc, catalogue).values()}
     missing = [m for m in mounts if m not in declared]
     if missing:
-        return (f"--pages names mount(s) the contract does not declare: "
-                f"{', '.join(missing)}")
+        return refusal(
+            f"--pages names mount(s) the contract does not declare: {', '.join(missing)}.",
+            "Every mount must be a pages.mount value in the screen contract.",
+            "Pass a declared --pages mount, then rerun.")
     return None
-
-
-def shown_contract(raw_arg: str, resolved: Path) -> str:
-    """A short path for a refusal: the argument when it is relative, else the name."""
-    if not os.path.isabs(raw_arg):
-        return raw_arg
-    try:
-        return str(resolved.relative_to(Path.cwd().resolve()))
-    except ValueError:
-        return resolved.name
 
 
 def refuse_story_inputs(doc: dict, contract: str) -> str | None:
     """Why this contract cannot be judged, or None. Exit 2, refusal.py three parts."""
-    viewports = doc.get("viewports") if "viewports" in doc else None
-    if viewports in (None, [], ""):
+    if doc.get("viewports") in (None, [], ""):
         return refusal(
             f"{contract} has no top-level `viewports`.",
             "Both browser windows are one contract viewport; the judge does not invent a size.",
@@ -471,14 +467,14 @@ def refuse_story_inputs(doc: dict, contract: str) -> str | None:
     if doc.get("volatile_values"):
         return refusal(
             f"{contract} has a non-empty `volatile_values`.",
-            "这个键已不被 judge 执行，删掉它或把控件改回 Claude Design.",
-            "Remove `volatile_values` from the screen contract, then rerun.")
+            "这个键已不被 judge 执行.",
+            "删掉它或把控件改回 Claude Design, then rerun.")
     for entry in doc.get("retired_ids") or []:
         if isinstance(entry, dict) and entry.get("trigger"):
             return refusal(
                 f"{contract} has a `retired_ids` entry with `trigger`.",
-                "这个键已不被 judge 执行，删掉它或把控件改回 Claude Design.",
-                "Remove `trigger` from `retired_ids`, then rerun.")
+                "这个键已不被 judge 执行.",
+                "删掉它或把控件改回 Claude Design, then rerun.")
     return None
 
 
@@ -492,12 +488,12 @@ def refuse_design_trace(scene: str, named: str) -> str:
 
 def run(args) -> int:
     contract_path = Path(args.contract).resolve()
-    raw = dr.load_yaml(contract_path)
-    why = refuse_story_inputs(raw, shown_contract(args.contract, contract_path))
+    doc = dr.load_yaml(contract_path)
+    why = refuse_story_inputs(doc, args.contract)
     if why:
         print(why, file=sys.stderr)
         return 2
-    doc = dr.load_contract(contract_path)
+    doc = dr.load_contract(contract_path, doc)
     look = doc["baselines"]["look"]
     if args.render_only:
         root = Path.cwd().resolve()
@@ -508,10 +504,13 @@ def run(args) -> int:
     baseline = (root / look).resolve()
     catalogue = dr.load_catalogue(baseline)
     viewports = dr.parse_viewports(doc["viewports"])
-    locale = str(doc["locale"]).strip()
+    locale = doc["locale"].strip()
     mounts = [m.strip() for m in args.pages.split(",") if m.strip()]
     if not mounts:
-        print("--pages is empty", file=sys.stderr)
+        print(refusal(
+            "--pages is empty.",
+            "The judge needs at least one pages.mount value.",
+            "Pass --pages with a declared mount, then rerun."), file=sys.stderr)
         return 2
     why = refuse_pages(mounts, doc, catalogue)
     if why:
@@ -598,28 +597,39 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
         story_page = story_ctx.new_page()
         design_page = design_ctx.new_page()
         try:
-            def capture_story(scene, viewport, png, extra_js=None):
+            def capture_story(scene, viewport, png, extra_js=None,
+                              *, negative_control=False):
                 dr.resize(story_page, viewport)
                 url = story_url(story_origin, scene.mount, scene.name, viewport)
                 try:
                     response = story_page.goto(url, wait_until="domcontentloaded")
                 except PlaywrightError as exc:
-                    raise SystemExit(
-                        f"story page {url} could not be opened: {exc}"
-                    ) from exc
+                    raise SystemExit(refusal(
+                        f"story page {url} could not be opened: {exc}",
+                        "The judge could not reach the stories service.",
+                        "Fix the stories command so it stays up and prints origin, then rerun."
+                    )) from exc
                 status = response.status if response is not None else 0
                 if status == 404:
-                    raise SystemExit(f"story page 404: {url}")
+                    raise SystemExit(refusal(
+                        f"story page 404: {url}",
+                        "The stories service has no page for this mount and scene.",
+                        "Serve that scene or drop it from --scenes, then rerun."))
                 if status >= 400 or status == 0:
-                    raise SystemExit(f"story page {url} answered {status}")
+                    raise SystemExit(refusal(
+                        f"story page {url} answered {status}.",
+                        "The stories service did not return a usable page.",
+                        "Fix the stories command so that URL returns 200, then rerun."))
                 try:
                     story_page.locator(STORY_ROOT).first.wait_for(
                         state="visible", timeout=8000)
                 except PlaywrightError as exc:
-                    raise SystemExit(
-                        f"no visible {STORY_ROOT} at {url}: {exc}"
-                    ) from exc
-                if extra_js is None:
+                    raise SystemExit(refusal(
+                        f"no visible {STORY_ROOT} at {url}: {exc}",
+                        "The product story page must put [data-story-root] on the component root.",
+                        "Put [data-story-root] on the product component root, then rerun."
+                    )) from exc
+                if not negative_control:
                     named = story_page.evaluate(DESIGN_TRACE_JS)
                     if named:
                         raise SystemExit(refuse_design_trace(scene.name, named))
@@ -656,7 +666,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                         no_ids = capture_story(
                             scene, viewport,
                             media / f"{NEGATIVE_CONTROL_SCENE}-{tag}-no-ids-product.png",
-                            REMOVE_IDS_JS)
+                            REMOVE_IDS_JS, negative_control=True)
                         controls = (
                             element_differences(font_design.values, impl.values),
                             element_differences(base.values, no_ids.values),

@@ -381,26 +381,22 @@ class TestStoryFixture(unittest.TestCase):
         self._drop_contract_key(root, "viewports")
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        err = proc.stderr + proc.stdout
-        self.assertIn("viewports", err)
-        self.assertIn("then rerun", err)
+        self.assertIn("viewports", proc.stderr)
+        self.assertIn("then rerun", proc.stderr)
 
     def test_a_contract_without_locale_exits_2_naming_it(self):
         root = self.copied_fixture()
         self._drop_contract_key(root, "locale")
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        err = proc.stderr + proc.stdout
-        self.assertIn("locale", err)
-        self.assertIn("story-parity.md", err)
-        self.assertIn("then rerun", err)
+        self.assertIn("locale", proc.stderr)
+        self.assertIn("story-parity.md", proc.stderr)
+        self.assertIn("then rerun", proc.stderr)
 
     def test_the_contract_locale_reaches_both_sides(self):
         root = self.copied_fixture()
-        self._rewrite_contract(root, lambda text: (
-            text.replace("locale: zh-CN\n", "locale: en-US\n")
-            if "locale:" in text
-            else text.replace("effort: story\n", "effort: story\nlocale: en-US\n", 1)))
+        self._rewrite_contract(root, lambda text: text.replace(
+            "locale: zh-CN\n", "locale: en-US\n"))
         design = (root / "docs" / "prototypes" / "story" / "claude-design"
                   / "Component · Demo.dc.html")
         design.write_text(
@@ -449,9 +445,13 @@ class TestStoryFixture(unittest.TestCase):
             (out / "values" / "demo" / "alpha-400x300.json").read_text(encoding="utf-8"))
         probe = next(item for item in values if item["id"] == "locale-probe")
         self.assertEqual(probe["text"], "en-US")
-        compared = self.run_story(cwd=root, extra_args=["--scenes", "alpha"])
+        compared = self.run_story(
+            cwd=root, extra_args=["--scenes", "alpha"], out=out)
         self.assertEqual(compared.returncode, 0, compared.stderr + compared.stdout)
         self.assertEqual(compared.stdout.strip(), "STORY OK 1/1")
+        product_aria = (out / "media" / "alpha-400x300-impl.aria.yml").read_text(
+            encoding="utf-8")
+        self.assertIn("en-US", product_aria)
 
     def test_volatile_values_in_the_contract_exits_2_naming_it(self):
         root = self.copied_fixture()
@@ -465,10 +465,18 @@ class TestStoryFixture(unittest.TestCase):
             1))
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        err = proc.stderr + proc.stdout
-        self.assertIn("volatile_values", err)
-        self.assertIn("这个键已不被 judge 执行，删掉它或把控件改回 Claude Design", err)
-        self.assertIn("then rerun", err)
+        self.assertIn("volatile_values", proc.stderr)
+        self.assertIn("这个键已不被 judge 执行", proc.stderr)
+        self.assertIn("删掉它或把控件改回 Claude Design", proc.stderr)
+        self.assertIn("then rerun", proc.stderr)
+
+    def test_an_empty_volatile_values_list_still_passes(self):
+        root = self.copied_fixture()
+        self._rewrite_contract(root, lambda text: text.replace(
+            "rows: []\n", "volatile_values: []\nrows: []\n", 1))
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
 
     def test_a_retired_id_with_a_trigger_exits_2_naming_it(self):
         root = self.copied_fixture()
@@ -483,18 +491,30 @@ class TestStoryFixture(unittest.TestCase):
             1))
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        err = proc.stderr + proc.stdout
-        self.assertIn("retired_ids", err)
-        self.assertIn("这个键已不被 judge 执行，删掉它或把控件改回 Claude Design", err)
-        self.assertIn("then rerun", err)
+        self.assertIn("retired_ids", proc.stderr)
+        self.assertIn("这个键已不被 judge 执行", proc.stderr)
+        self.assertIn("删掉它或把控件改回 Claude Design", proc.stderr)
+        self.assertIn("then rerun", proc.stderr)
+
+    def test_a_retired_id_without_a_trigger_still_passes(self):
+        root = self.copied_fixture()
+        self._rewrite_contract(root, lambda text: text.replace(
+            "rows: []\n",
+            "retired_ids:\n"
+            "  - id: demo.old\n"
+            "    note: \"retired\"\n"
+            "rows: []\n",
+            1))
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
 
     def test_a_story_page_carrying_sc_interp_exits_2(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "sc-interp"})
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        err = proc.stderr + proc.stdout
-        self.assertIn("sc-interp", err)
-        self.assertIn("alpha", err)
-        self.assertIn("then rerun", err)
+        self.assertIn("sc-interp", proc.stderr)
+        self.assertIn("alpha", proc.stderr)
+        self.assertIn("then rerun", proc.stderr)
 
     def test_each_claude_design_runtime_trace_exits_2(self):
         for mutate, named in (("dc-tpl", "data-dc-tpl"),
@@ -503,20 +523,18 @@ class TestStoryFixture(unittest.TestCase):
             with self.subTest(mutate=mutate):
                 proc = self.run_story(extra_env={"STORY_MUTATE": mutate})
                 self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-                err = proc.stderr + proc.stdout
-                self.assertIn(named, err)
-                self.assertIn("alpha", err)
-                self.assertIn("then rerun", err)
+                self.assertIn(named, proc.stderr)
+                self.assertIn("alpha", proc.stderr)
+                self.assertIn("then rerun", proc.stderr)
 
     def test_render_only_refuses_a_contract_without_locale(self):
         root = self.copied_fixture()
         self._drop_contract_key(root, "locale")
         proc = self.run_story(cwd=root, extra_args=["--render-only"])
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        err = proc.stderr + proc.stdout
-        self.assertIn("locale", err)
-        self.assertIn("story-parity.md", err)
-        self.assertIn("then rerun", err)
+        self.assertIn("locale", proc.stderr)
+        self.assertIn("story-parity.md", proc.stderr)
+        self.assertIn("then rerun", proc.stderr)
 
     def test_a_server_the_stories_command_started_is_gone_after_the_run(self):
         """fixtures/story/repo/stories/launch.py holds serve.py as a child and forwards
