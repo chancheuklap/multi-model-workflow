@@ -11,15 +11,14 @@
 # passing on a half suite.
 #
 # MMW_FORCE_SKIP=1: this runner skips one test. A skip count other than 0, or a
-# run count of 0, exits non-zero and does not print `all passed`. `-k` parsing
-# and that verdict live in mmw-v2/tests/lib/.
+# run count of 0, exits non-zero and does not print `all passed`.
 
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-MMW_V2="$(CDPATH='' cd -- "$HERE/../.." && pwd -P)"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/parse_k.sh
-. "$MMW_V2/tests/lib/parse_k.sh"
+. "$HERE/../lib/parse_k.sh"  # mmw-v2/tests/lib/parse_k.sh
 
 # No parent to tell. These tests exercise session-bound paths against made-up agents, so
 # an inherited Paseo identity must not turn their output into news about work nobody is doing.
@@ -70,16 +69,24 @@ else:
 ')"
 export MMW_LEASE_PORT_BASE
 
-run_suite() {
-  if uv run --quiet --with pillow python -u "$MMW_V2/tests/lib/run_unittests.py" "$HERE" "$pattern" "$@"; then
-    echo "all passed"
-  else
-    exit 1
-  fi
-}
+if uv run --quiet --with pillow python -u - "$HERE/../lib" "$HERE" "$pattern" <<'PY'
+import os
+import sys
+import unittest
 
-if [[ "${MMW_FORCE_SKIP:-}" == "1" ]]; then
-  run_suite --force-skip
+sys.path.insert(0, sys.argv[1])
+import run_unittests
+
+suite = run_unittests.discover(sys.argv[2], sys.argv[3])
+if os.environ.get("MMW_FORCE_SKIP") == "1":
+    class _ForceSkip(unittest.TestCase):
+        def test_mmw_force_skip(self):
+            self.skipTest("MMW_FORCE_SKIP=1")
+    suite.addTest(_ForceSkip("test_mmw_force_skip"))
+sys.exit(run_unittests.run(suite))
+PY
+then
+  echo "all passed"
 else
-  run_suite
+  exit 1
 fi

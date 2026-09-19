@@ -8,21 +8,21 @@
 # fails rather than passing half the suite.
 #
 # A skip count other than 0, or a run count of 0, exits non-zero and does not
-# print `all passed`. `-k` parsing and that verdict live in mmw-v2/tests/lib/.
+# print `all passed`.
 
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-MMW_V2="$(CDPATH='' cd -- "$HERE/../.." && pwd -P)"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/parse_k.sh
-. "$MMW_V2/tests/lib/parse_k.sh"
+. "$HERE/../lib/parse_k.sh"  # mmw-v2/tests/lib/parse_k.sh
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "design-pages failed: uv is not on PATH" >&2
   exit 1
 fi
 
-if uv run --quiet --with 'playwright>=1.58' python -u "$MMW_V2/tests/lib/run_unittests.py" "$HERE" "$pattern"; then
+if uv run --quiet --with 'playwright>=1.58' python -u "$HERE/../lib/run_unittests.py" "$HERE" "$pattern"; then
   echo "all passed"
 else
   exit 1
