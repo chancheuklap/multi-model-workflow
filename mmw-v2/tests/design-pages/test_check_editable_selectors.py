@@ -1,4 +1,4 @@
-"""selector_check.py: which selectors the Claude Design editor can direct-edit.
+"""check_editable_selectors.py: which selectors the Claude Design editor can direct-edit.
 
 The rule under test is the one `get_claude_design_prompt` states under Styling —
 `.a`, `.a.b`, `.a .b`, pseudo-classes allowed, nothing deeper. Both directions are
@@ -15,9 +15,9 @@ from pathlib import Path
 SCRIPT = (
     Path(__file__).resolve().parents[2]
     / "skills"
-    / "claude-design-blocks"
+    / "design-pages"
     / "scripts"
-    / "selector_check.py"
+    / "check_editable_selectors.py"
 )
 
 CLEAN = """:root { --ink: #222; }

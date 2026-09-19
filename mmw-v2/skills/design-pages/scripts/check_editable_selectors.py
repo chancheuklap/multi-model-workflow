@@ -1,6 +1,6 @@
 """Report every selector the Claude Design editor cannot direct-edit.
 
-Usage: selector_check.py <css files...>
+Usage: check_editable_selectors.py <css files...>
 Prints one line per selector it cannot resolve (`<file>: <selector>  <why>`) and a
 count. Exit 1 when there is any, 0 when there is none.
 
@@ -87,7 +87,7 @@ def selectors(css: str):
 def main() -> int:
     files = [pathlib.Path(a) for a in sys.argv[1:]]
     if not files:
-        sys.stderr.write("usage: selector_check.py <css files...>\n")
+        sys.stderr.write("usage: check_editable_selectors.py <css files...>\n")
         return 2
     found = 0
     for path in files:

@@ -21,7 +21,7 @@ from pathlib import Path
 MK = (
     Path(__file__).resolve().parents[2]
     / "skills"
-    / "claude-design-blocks"
+    / "design-pages"
     / "scripts"
     / "mk.py"
 )
