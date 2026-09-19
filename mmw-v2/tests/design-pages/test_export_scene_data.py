@@ -17,7 +17,7 @@ from pathlib import Path
 SCRIPT = (
     Path(__file__).resolve().parents[2]
     / "skills"
-    / "claude-design-blocks"
+    / "design-pages"
     / "scripts"
     / "export_scene_data.py"
 )

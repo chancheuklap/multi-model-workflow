@@ -10,12 +10,12 @@ How to read an entry: the bold line is the term's only name; a term whose name i
 
 **Claude Design**:
 The design tool whose downloaded project is the handoff package and the baseline side of a parity run. Its page format is Design Components (`<x-dc>`, helmet, `sc-if` / `sc-for`, `{{ }}` template holes, `data-props`, `dc-import`); its runtime is `support.js`.
-_Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
+_Home_: `mmw-v2/skills/design-pages/references/porting.md`
 
 **component**:
 A root-level `<name>.dc.html` page in a Claude Design project that owns its state, exposes a `scene` enum prop — one value per state, and those values are the page's scene names — so the Tweaks panel can switch states, and reports cross-component actions through callback props. Its helmet pins the page root `#dc-root` to the application window size, which is where the baseline side is screenshotted from. The parity wrapper page imports it with `<dc-import name="…" …>` carrying that scene's `props` as attributes, which is what pins one scene. The `component` column of a screen contract's `pages` is a different thing — the product component that owns that page — and is defined in `mmw-v2/skills/align-screens/references/contract-format.md`.
 _Avoid_: design component, scenario, scenario 属性, 状态开关
-_Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
+_Home_: `mmw-v2/skills/design-pages/references/porting.md`
 
 **handoff package**:
 A Claude Design project downloaded into the prototype leaf directory the port started from, `prototypes/<task>/<issue>/UI/`: every `.dc.html` page the project has — components and app pages alike, since a scene's data and its render both come from the page — plus `styles/`, `data/`, `support.js`, `scenes.json` and `vendor/` holding the three scripts `support.js` loads, which together are what the driver renders; plus the `README.md` the handoff run writes beside them, recording where each exact value and piece of verbatim copy came from, which a spec and its tickets take exact values, verbatim copy and `viewports` from. The screen contract's `baselines.look` names it; `story-parity.py` and `extract_skeleton.py` render it; the Spec axis does not open it; it supersedes the winning variant under `## Read first`; once downloaded it is a contract, copied verbatim, not a reference. The target trees are its derived view.
@@ -25,16 +25,16 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 **scene**:
 One entry of `scenes.json`: `name`, `page` (the `.dc.html` it pins), `props` (the prop set that puts the design page into that state), and `data` (**scene data**). The screen contract declares every scene once under `scenes`, with its page. The product story is addressed by `?page=&scene=`; the view does not answer a query parameter from fixtures of its own. Each scene gets its own screenshot and tree per viewport. The name may not contain `/`, because its wrapper page is `/__parity-<name>.dc.html`. In Claude Design a scene is one value of a component's `scene` prop, switched from the Tweaks panel; the word is the same on both sides, and there is no second word for it.
 _Avoid_: 场景 (when a scene is meant), 场景列表, scenario, 状态
-_Home_: `mmw-v2/skills/claude-design-blocks/references/handoff.md`
+_Home_: `mmw-v2/skills/design-pages/references/handoff.md`
 
 **scene data**:
 The `data` field of a `scenes.json` entry: `{state, vals}` — the page's own logic class constructed with that scene's props, then `componentDidMount()`, then `renderVals()`, run in Node the way `support.js` runs it in a browser, with `state` and `vals` taken through JSON so functions are stripped. `export_scene_data.py` writes it from the downloaded page, never from a source under `src/`; the product story's adapter reads the same object. A package whose `data` is missing or stale is a lint failure, not a product defect.
 _Avoid_: fixture props (when this field is meant)
-_Home_: `mmw-v2/skills/claude-design-blocks/references/handoff.md`
+_Home_: `mmw-v2/skills/design-pages/references/handoff.md`
 
 **`DESIGN.md`**:
 The consuming repository's design-system file. It is checked for before the first upload of a port; when it is missing, the `create-design-md` skill writes one from that repository, and it is uploaded once per project — not once per port — in Claude Design under "Create new design system", so every interface designed afterwards holds to that system.
-_Home_: `mmw-v2/skills/claude-design-blocks/references/porting.md`
+_Home_: `mmw-v2/skills/design-pages/references/porting.md`
 
 **prototype**:
 Code that answers one design question, kept in the repository under `prototypes/<task>/<issue>/<UI|LOGIC|EXP>/` and iterated as the answer sharpens; the real implementation is written with it as reference. Its question and verdict live in the leaf `README.md`; it has no tests. A UI prototype is several structurally different **variants** (default three, at most five) on one real route, switched by `?variant=`; the user picks the winner, `?variant=<winner>`. The mount point, symlink, and switcher that let variants render inside the real app are **scaffolding**, taken down in step 6 of `prototype/UI.md`; a **prototype route** is one created for the variants and deleted when the winner is promoted. A prototype's chosen artifact — the winning variant, the validated logic module, an experiment's Reusable parts with its Conclusion — is a baseline source.

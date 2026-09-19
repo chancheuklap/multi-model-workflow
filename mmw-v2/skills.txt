@@ -34,7 +34,7 @@ productivity/to-questionnaire
 productivity/wait-what
 productivity/writing-for-agents
 
-self/claude-design-blocks
+self/design-pages
 self/exe-release
 self/verify-ticket
 self/ui-acceptance

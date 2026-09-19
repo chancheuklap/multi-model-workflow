@@ -1,9 +1,9 @@
 ---
-name: claude-design-blocks
+name: design-pages
 description: Move an interface between a repository and Claude Design. Porting takes an HTML mockup (static or with JavaScript) or a UI prototype's winning variant into Design Components (.dc.html pages) that are clickable, switch states from the Tweaks panel, and compose into app pages — use whenever the user wants a mockup, prototype, or static screen put into Claude Design, made interactive, or shown in every state, even if they never say .dc.html. Handoff brings a finished project back as the package an implementation is copied from and later compared against — use whenever the user wants a design brought back into the repository or a baseline for story parity.
 ---
 
-# claude-design-blocks — an interface between a repository and Claude Design
+# design-pages — an interface between a repository and Claude Design
 
 Two directions. Read the one this run is going in; each names the MCP tools it needs and the shape of its own work.
 
@@ -22,7 +22,7 @@ Two of these scripts are run from a copy instead, under their bare names: `mk.py
 
 | Command | 0 | 1 | 2 |
 | --- | --- | --- | --- |
-| `<scripts>/selector_check.py` | `every selector is editor-resolvable (<n> files)` | `<n> selectors the editor cannot reach`, one line each above it | no file given, or one of the CSS files will not open |
+| `<scripts>/check_editable_selectors.py` | `every selector is editor-resolvable (<n> files)` | `<n> selectors the editor cannot reach`, one line each above it | no file given, or one of the CSS files will not open |
 | `<scripts>/export_scene_data.py` | `exported <n>/<n> scenes` | `scenes.json` will not open or is not a list, or a scene will not run | wrong number of arguments, or a scene's props set `standalone` |
 | `mk.py`, `<scripts>/mkharness.py`, `<scripts>/deadsweep.py` | it ran | it raised; the Python traceback is on stderr | — |
 

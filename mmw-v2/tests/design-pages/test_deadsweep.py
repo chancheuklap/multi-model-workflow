@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 
 SCRIPTS = (
-    Path(__file__).resolve().parents[2] / "skills" / "claude-design-blocks" / "scripts"
+    Path(__file__).resolve().parents[2] / "skills" / "design-pages" / "scripts"
 )
 SCRIPT = SCRIPTS / "deadsweep.py"
 

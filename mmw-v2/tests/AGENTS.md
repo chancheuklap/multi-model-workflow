@@ -15,7 +15,7 @@ Every test of the toolbox's own scripts (the own-script layer), one directory pe
 ## Gotchas
 
 - `ui-acceptance/run.sh` exits non-zero on any skipped test (`refusing: skipped 1`), and the suite skips a case when `node` is missing, so a machine with `uv` and no `node` goes red. `MMW_FORCE_SKIP=1` injects one skip to prove that rule. Chromium comes from `story-parity.py`'s own PEP 723 block, which is why `run.sh` asks only for Pillow.
-- `verify-ticket/run.sh` runs two node suites (`run-tests.mjs`, `lint-tests.mjs`) and a missing `node` is a hard failure; `test_fenced_check.py` calls `node` directly. `claude-design-blocks` likewise: Python runs the unittests and Node executes the page's logic class, so a missing `node` fails the suite.
+- `verify-ticket/run.sh` runs two node suites (`run-tests.mjs`, `lint-tests.mjs`) and a missing `node` is a hard failure; `test_fenced_check.py` calls `node` directly. `design-pages` likewise: Python runs the unittests and Node executes the page's logic class, so a missing `node` fails the suite.
 - `board/run.sh` starts one `uv run --with playwright` per `test_*.py` and one `node --test` per `*.test.mjs`; four cases launch a real headless Chromium, and `--with playwright` supplies only the Python package, so the browser is installed separately. The suite depends on the root `.mmw/` (`story_helper.py` starts `.mmw/stories/serve.py`, `test_harness.py` runs `.mmw/harness/bin/gh`), so a change to `.mmw/` shows up here.
 - `board/github/gh` and `.mmw/harness/bin/gh` are two fake `gh` implementations and are not interchangeable: the first plays a `scenario.json` from `MMW_BOARD_FAKE_DIR` (`fail_all`, `fail_comments`, several tree versions, calls logged to `calls.jsonl`); the second answers from an exact-argument catalog.
 - `dispatch/run.sh` changes into the tests directory before running `test_dispatch.sh`, because `dispatch.sh` asks git about the current checkout.
@@ -29,4 +29,5 @@ Every test of the toolbox's own scripts (the own-script layer), one directory pe
 | --- | --- |
 | `bash dispatch/test_dispatch.sh <scenario>` / `bash relay/test_relay.sh <scenario>` | One scenario by name; `all` runs every scenario |
 | `bash ui-acceptance/run.sh -k <pattern>` | Run only cases whose full unittest name matches the same substring or `*` pattern accepted by `python3 -m unittest -k`; a pattern that selects zero cases is a failure |
+| `bash design-pages/run.sh -k <pattern>` | Same `-k` rule as `ui-acceptance/run.sh`; a pattern that selects zero cases is a failure |
 | `MMW_FORCE_SKIP=1 bash ui-acceptance/run.sh` | Expected to go red: proves the runner's no-skip rule still holds |

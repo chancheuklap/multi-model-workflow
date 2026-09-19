@@ -50,7 +50,7 @@
 | 子形态 B 及第 16 行「throwaway route」 | 叫 prototype route；其余判断照收 |
 | 第 3 步 sub-shape B 那句 | 删掉 `/prototype/<name>` 这个路径，只留「B 也挂同一个切换条」。路径规则的唯一出处是子形态 B 那节（跟项目现有约定走，别造新顶层）；写在这里会和它冲突——B 的前提就是项目里还没有这类页面，`/prototype/` 必然是新顶层。上游若改这句措辞，仍然只收挂载语义，不收路径 |
 | 第 3 步末尾新增段 | variant 组件住在 leaf directory，路由只留 mount point；mount point 连同 symlink 定性为 scaffolding，第 6 步拆掉；import 不过去就 symlink；迭代只改 leaf directory |
-| 第 6 步首段新增句 | winning variant 要移植进 Claude Design 时，先跑 `claude-design-blocks` 再拆 scaffolding：那个技能靠 `?variant=<winner>` 打开真实页面取 CSS 和 DOM，mount point 拆早了取回来的就是重写后的正式实现。上游没有这一句 |
+| 第 6 步首段新增句 | winning variant 要移植进 Claude Design 时，先跑 `design-pages` 再拆 scaffolding：那个技能靠 `?variant=<winner>` 打开真实页面取 CSS 和 DOM，mount point 拆早了取回来的就是重写后的正式实现。上游没有这一句 |
 | 第 6 步 | 结论进 leaf `README.md`；winning variant 按正式标准重写进页面；拆掉 mount point、切换条、symlink、prototype route，完成条件是 leaf directory 外无人 import 且 leaf directory 随时可删；全套 variant 留在 leaf directory |
 | 第 1、2、4、5 步、反模式 | 上游的，照收 |
 

@@ -289,7 +289,7 @@ def class_set(page, selector: str) -> dict[str, str]:
 def wrapper_page(component: str, props: dict, inline_head: str = "") -> str:
     """One page holding one `dc-import`, pinned to a scene.
 
-    Follows `claude-design-blocks/scripts/mkharness.py`, minus the `<select>`: the
+    Follows `design-pages/scripts/mkharness.py`, minus the `<select>`: the
     scene is written into the attribute instead of driven from state. `inline_head` is
     served as part of the page, which is what the negative control needs: an error that
     is in the bytes the server sends, not injected by the client.
