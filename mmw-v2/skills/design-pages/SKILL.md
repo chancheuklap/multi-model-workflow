@@ -13,6 +13,8 @@ Three entries, in this order. Each names the next. Read the one this run is goin
 
 Page conventions live in [template-project-claude-md.md](references/template-project-claude-md.md) and are written into the project root as `CLAUDE.md`. The design-system `readme.md` skeleton is [template-design-system-readme.md](references/template-design-system-readme.md).
 
+[edit pages](references/edit-pages.md) and [pull](references/pull.md) each list the MCP tools they need. Confirm each listed tool is callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
+
 ## Resolve `<scripts>` once
 
 `<scripts>` in every command in this skill is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
@@ -23,3 +25,5 @@ Page conventions live in [template-project-claude-md.md](references/template-pro
 | --- | --- | --- | --- |
 | `<scripts>/check_editable_selectors.py` | `every selector is editor-resolvable (<n> files)` | `<n> selectors the editor cannot reach`, one line each above it | no file given, or one of the CSS files will not open |
 | `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | text files need `--reread` | invocation error or the package cannot be completed; the target is unchanged |
+
+[pull](references/pull.md) runs `check_editable_selectors.py` as a module; those findings land in `pull-report.md` under `设计检查`. The CLI row above is what the script still prints when invoked on its own.

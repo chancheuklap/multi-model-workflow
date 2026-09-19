@@ -1,6 +1,6 @@
 # design system — from running code, before any page is drawn
 
-The design system exists before the first page is written. Its source is code that already runs, never a reverse extraction of a rendered product (ADR 0002, ADR 0004: a file is trusted by its own lint result, not by where it came from).
+The design system exists before the first page is written. Its source is code that already runs, never a reverse extraction of a rendered product.
 
 ## Which code
 
@@ -11,7 +11,7 @@ A remake is a new interface that does **not** keep the old look. An interface th
 
 ## Which path
 
-**React code.** Ask the user to start `/design-sync` (the command whose description limits it to a React design system; its product is `_ds_bundle.js`). This skill does not call the write tool that command uses.
+**React code.** Ask the user to start the design-sync command that ships with Claude Code (its description limits it to a React design system; its product is `_ds_bundle.js`). This skill does not call the write tool that command uses.
 
 **Anything else** (Jinja templates, a plain JavaScript prototype). Follow [template-design-system-readme.md](template-design-system-readme.md): gather `styles.css` and `readme.md` from the code into a scratch directory. The user creates the design system in Claude Design under "Set up your design system" and uploads those two files, once per product. The repository does not keep a second copy: from then on the design system in Claude Design is the source, and a later [pull](pull.md) brings down the bound project's `_ds/` copy.
 

@@ -28,5 +28,5 @@ Link `styles.css` on every page.
 | Button | `.btn` `.btn-primary` `.btn-quiet` | `<button class="btn btn-primary">…</button>` |
 | Badge | `.badge` `.badge-ok` | `<span class="badge badge-ok">…</span>` |
 | Banner | `.banner` `.banner-warn` | `<div class="banner banner-warn">…</div>` |
-| Dialog | `.dc-backdrop` `.dc-modal` | `<div class="dc-backdrop"></div><div class="dc-modal">…</div>` |
+| Field | `.field` `.field-label` | `<label class="field"><span class="field-label">…</span><input></label>` |
 ```

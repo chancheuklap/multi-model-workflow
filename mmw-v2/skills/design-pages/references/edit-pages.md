@@ -1,10 +1,8 @@
 # edit pages — a project, its pages, comments, and sign-off
 
-Page conventions are [template-project-claude-md.md](template-project-claude-md.md); write that file into the project root as `CLAUDE.md` and follow it here.
+Page conventions are [template-project-claude-md.md](template-project-claude-md.md); write that file into the project root as `CLAUDE.md` and follow it here. Confirm the tools below as `SKILL.md` says.
 
 ## MCP tools
-
-Confirm each of these is callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
 
 - `mcp__claude-design__get_claude_design_prompt`
 - `mcp__claude-design__create_project`
@@ -16,7 +14,7 @@ Confirm each of these is callable before anything else. If one is missing, stop 
 - `mcp__claude-design__list_comments`
 - `mcp__claude-design__ack_comments`
 
-Write with `write_files`. Do not use a tool whose description limits it to `/design-sync`.
+Write with `write_files`. Do not use the write tool whose description limits it to the design-sync command.
 
 Read the Design Components format from `get_claude_design_prompt` (with the design system bound). This skill does not restate `<x-dc>`, helmet, `sc-if` / `sc-for`, `{{ }}`, `data-props`, or `dc-import`.
 
@@ -31,11 +29,13 @@ Four steps, in this order:
 
 ## Write pages
 
-Follow that same `CLAUDE.md`. Use design-system components for `Component · ` pages and `App · ` pages. List every accepted state on `scene`, reusing the prototype state-list names. Compare interaction against the winning variant while its scaffolding is still up.
+Follow that same `CLAUDE.md`. Use design-system components for `Component · ` pages and `App · ` pages. Compare interaction against the winning variant while its scaffolding is still up.
 
 Every `write_files` call carries `if_match`, so an edit the user just made in the editor is not overwritten.
 
 The user may also talk to Claude Design in the browser and have its agent write the pages.
+
+Done when: the last `write_files` in this run carried `if_match`, and the preview check below has been run on that change.
 
 ## Check the preview
 

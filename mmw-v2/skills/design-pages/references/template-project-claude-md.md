@@ -23,7 +23,7 @@ Every `Component · ` page and every `App · ` page exposes one enum prop named 
 - On a `Component · ` page the values are every state that will be accepted, including combined states. Reuse the names from the prototype's state list: each region there is one `Component · <region>` page, and each list item's leading name is one value.
 - On an `App · ` page each value is one whole-page combination that will be accepted.
 
-A feature that is not shipping is not a scene. If it must stay in the file, list its values under `out_of_scope` in the `scene` prop definition. Those values are not accepted.
+A feature that is not shipping is not a scene. If it must stay in the file, list its values under `out_of_scope` in the `scene` prop definition. Those values do not enter `scenes.json` and so do not enter the screen contract.
 
 ## `data-ui`
 
@@ -36,6 +36,8 @@ When a page is edited or rewritten, an existing `data-ui` attribute moves with t
 An `App · ` page `dc-import`s `Component · ` pages and passes `scene` down. A child page's `renderVals()` does not return a key named `scene`.
 
 Every page carries `data-screen-label`.
+
+Every `Component · ` page and every `App · ` page declares `$preview` in `data-props`, with `$preview.width` and `$preview.height` as positive integers — the size the page is drawn at. A later pull refuses a page that has `scene` and no `$preview`.
 
 ## Style
 
