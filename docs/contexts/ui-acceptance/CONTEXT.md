@@ -9,11 +9,11 @@ How to read an entry: the bold line is the term's only name; a term whose name i
 ### The design side
 
 **Claude Design**:
-The design tool whose project is the only source of the design. Pages are written and signed off there; the repository's **handoff package** is written only by **pull**. Its page format is what `get_claude_design_prompt` returns when the design system is bound.
-_Home_: `mmw-v2/skills/design-pages/SKILL.md`
+The design tool whose project is the only source of the design. Pages are written and signed off there; the repository's **handoff package** is written only by **pull**. Its page format is what `get_claude_design_prompt` returns when the **design system** is bound.
+_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **design system**:
-The first of the three design-pages entries, run before any page is drawn: it builds the Claude Design design system from code that already runs — the winning variant for a new look, reviewed product styles and shared components when the look stays. React code asks the user to start the design-sync command that ships with Claude Code; other code gathers `styles.css` and `readme.md` for the user to upload once. The bound project's `_ds/` copy is what a later **pull** brings down.
+The first of the three design-pages entries, and the Claude Design artifact it builds from code that already runs, before any page is drawn. Distinct from **`DESIGN.md`**, which is not that source.
 _Home_: `mmw-v2/skills/design-pages/references/design-system.md`
 
 **edit pages**:
@@ -22,12 +22,12 @@ _Avoid_: Porting (as an entry name)
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **pull**:
-The third of the three design-pages entries, and the command that writes the **handoff package**: two MCP calls, then `pull_design.py`, then the **pull report**, then a commit of the package and the report together. It runs after sign-off, and later only in a session handling a design-class `contract` child.
+The third of the three design-pages entries, and the command that writes the **handoff package**. It runs after sign-off, and later only in a session handling a design-class `contract` child.
 _Avoid_: Handoff (as an entry name)
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
 **pull report**:
-`pull-report.md` in the **handoff package**, written every **pull**. It records design-time findings, coverage against the **state list**, whether the change is first / adds or removes controls or changes flow / only look or copy, and whether the package had local edits. Findings do not fail the command.
+`pull-report.md` in the **handoff package**, written every **pull**. Findings do not fail the command.
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
 **state list**:
@@ -44,23 +44,23 @@ _Avoid_: design component, scenario, scenario 属性, 状态开关
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **handoff package**:
-The Claude Design project as it sits in the repository, written only by **pull** into the directory the command names: the project's pages, `styles/`, `data/`, `support.js`, `scenes.json`, `vendor/`, `design-manifest.json`, the README the command writes, and the **pull report**. The screen contract's `baselines.look` names it; `story-parity.py` and `extract_skeleton.py` render it; the Spec axis does not open it; it supersedes the winning variant under `## Read first`; once pulled it is a contract, copied verbatim, not a reference. The target trees are its derived view. A local edit is not blocked; the next pull overwrites it and the **pull report** says so.
+The Claude Design project as it sits in the repository, written only by **pull** into the directory the command names — the project's `.dc.html` pages and what **pull** writes beside them. The screen contract's `baselines.look` names it; once pulled it is a contract, copied verbatim. A local edit is not blocked; the next pull overwrites it and the **pull report** says so.
 _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
 **scene**:
-One entry of `scenes.json`, generated from each design page's `scene` prop options: `name`, `page`, `props`, and `data` (**scene data**). The screen contract declares every scene once under `scenes`, with its page. The product story is addressed by `?page=&scene=`; the view does not answer a query parameter from fixtures of its own. In Claude Design a scene is one value of that prop; the word is the same on both sides, and there is no second word for it. Values listed under `out_of_scope` do not become scenes.
+One value of a design page's `scene` prop, and the matching `scenes.json` entry **pull** writes from those options. The screen contract declares every scene once under `scenes`. The product story is addressed by `?page=&scene=`. Values listed under `out_of_scope` do not become scenes.
 _Avoid_: 场景 (when a scene is meant), 场景列表, scenario, 状态
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **scene data**:
-The `data` field of a `scenes.json` entry: displayed values keyed by `data-ui` id, nested where an element with that id contains another, a document-order list where the same id appears more than once. **pull** writes it from the same offline render the story judge uses, after editor override styles have applied. The product story's **story adapter** reads the same object. A package whose `data` is missing or stale is a lint failure, not a product defect.
+The `data` field of a `scenes.json` entry: displayed values keyed by `data-ui` id, nested where an element with that id contains another, a document-order list where the same id appears more than once. **pull** writes it from the same offline render the story judge uses. The product story's **story adapter** reads the same object.
 _Avoid_: fixture props (when this field is meant)
 _Home_: `mmw-v2/skills/design-pages/scripts/pull_design.py`
 
 **`DESIGN.md`**:
-A DESIGN.md-format file a consuming repository may still keep. It is not the design source and not what pages are drawn from. The design system Claude Design binds to a project lives in that project as `readme.md`, `styles.css`, and `_ds_manifest.json`, built by the **design system** entry from code that already runs.
-_Home_: `mmw-v2/skills/design-pages/references/design-system.md`
+A DESIGN.md-format file a consuming repository may still keep. It is not the design source and not what pages are drawn from.
+_Home_: `docs/adr/0029-claude-design-is-the-design-source.md`
 
 **prototype**:
 Code that answers one design question, kept in the repository under `prototypes/<task>/<issue>/<UI|LOGIC|EXP>/` and iterated as the answer sharpens; the real implementation is written with it as reference. Its question and verdict live in the leaf `README.md`; it has no tests. A UI prototype is several structurally different **variants** (default three, at most five) on one real route, switched by `?variant=`; the user picks the winner, `?variant=<winner>`. The mount point, symlink, and switcher that let variants render inside the real app are **scaffolding**, taken down in step 7 of `prototype/UI.md`; a **prototype route** is one created for the variants and deleted when the winner is promoted. A prototype's chosen artifact — the winning variant, the validated logic module, an experiment's Reusable parts with its Conclusion — is a baseline source.

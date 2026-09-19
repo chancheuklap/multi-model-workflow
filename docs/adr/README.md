@@ -49,7 +49,7 @@
 | [0028](0028-element-parity-invariant-answers.md) | 外观按 data-ui id 做 element parity，App 页纳入 story；boundary test 断言四列；product answers 只写不变要求；judge 不遮不藏；journey 第二遍弄坏一个接口 | 2026-09-20 | 0011 | 无 |
 | [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 无 |
 
-0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由设计时截图检查（design-pages `references/edit-pages.md`）与 pull report（`references/pull.md`）承担。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
+0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由设计时截图检查（design-pages `references/edit-pages.md`）与 pull report（`references/pull.md`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
 ## 编号在本仓库以外仍会出现
 
