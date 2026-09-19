@@ -1,16 +1,10 @@
-"""story-parity.py: the gate without a browser, and the fixture through Chromium.
-
-The gate tests are the shape of `test_pixel_diff.py`'s `TestNegativeControl`.
-The fixture tests are the seam this ticket is tested at: real Chromium, real
-files under `fixtures/story/`.
-"""
+"""story-parity.py: its negative-control gate and real Chromium fixture seam."""
 
 from __future__ import annotations
 
 import importlib.util
 import json
 import os
-import re
 import shutil
 import signal
 import subprocess
@@ -80,16 +74,6 @@ def copy_fixture(cleanup) -> Path:
     return tmp / "repo"
 
 
-def comparison(pixel=None, aria=None, scene="default", viewport="400x300"):
-    return sp.Comparison(
-        scene, viewport,
-        pixel or {"size_equal": True, "pct": 0.0, "pct_unaligned": 0.0,
-                  "count": 0, "total": 100, "box": None,
-                  "size_a": (10, 10), "size_b": (10, 10)},
-        aria or {"changed": 0, "lines_a": 5, "lines_b": 5, "diff": ""},
-        [], [], [])
-
-
 class TestParseOrigin(unittest.TestCase):
     def test_origin_equals_form(self):
         self.assertEqual(sp.parse_origin("origin=http://127.0.0.1:21020\n"),
@@ -112,7 +96,6 @@ class TestArguments(unittest.TestCase):
     def test_defaults(self):
         args = sp.build_parser().parse_args(
             ["--contract", "c.yaml", "--pages", "demo"])
-        self.assertEqual(args.max_pct, 5.0)
         self.assertIsNone(args.scenes)
         self.assertFalse(args.render_only)
 
@@ -125,98 +108,29 @@ class TestArguments(unittest.TestCase):
             sp.build_parser().parse_args(
                 ["--contract", "c.yaml", "--pages", "demo", "--console-errors", "0"])
 
+    def test_max_pct_is_not_an_option(self):
+        with self.assertRaises(SystemExit):
+            sp.build_parser().parse_args(
+                ["--contract", "c.yaml", "--pages", "demo", "--max-pct", "3"])
+
 
 class TestStoryGate(unittest.TestCase):
-    """The printed line and the three exit codes, with no browser."""
+    """The two negative controls at the gate, with no browser."""
 
-    def caught(self):
-        return comparison(
-            scene="__negative_control__",
-            pixel={"size_equal": True, "pct": 23.4, "pct_unaligned": 31.0,
-                   "count": 9, "total": 100, "box": [0, 0, 9, 9],
-                   "size_a": (10, 10), "size_b": (10, 10)},
-            aria={"changed": 28, "lines_a": 30, "lines_b": 2, "diff": ""})
+    FONT = ["DIFF demo alpha 400x300 root font-size design=23px product=16px"]
+    MISSING = ["DIFF demo alpha 400x300 root missing"]
 
-    def test_a_control_that_passed_stops_the_run(self):
-        code, lines = sp.story_gate(comparison(scene="__negative_control__"),
-                                    [comparison()], 1.0, 0)
-        self.assertEqual(code, 2)
-        self.assertTrue(lines[0].startswith("NEGATIVE CONTROL FAILED"))
-        self.assertFalse(any("STORY" in ln for ln in lines))
+    def test_a_control_that_reports_nothing_is_exit_2(self):
+        for font, missing, named in (([], self.MISSING, "font-size"),
+                                     (self.FONT, [], "data-ui")):
+            with self.subTest(named=named):
+                code, lines = sp.negative_control_gate(font, missing)
+                self.assertEqual(code, 2)
+                self.assertTrue(lines[0].startswith("NEGATIVE CONTROL FAILED"))
+                self.assertIn(named, lines[0])
 
-    def test_a_control_that_failed_lets_the_scenes_be_read(self):
-        self.assertEqual(
-            sp.story_gate(self.caught(), [comparison(), comparison(scene="empty")],
-                          1.0, 0),
-            (0, ["STORY OK 2/2 pixel<=0.0%"]))
-
-    def test_the_ok_line_carries_the_worst_pixel_share(self):
-        near = comparison(pixel={"size_equal": True, "pct": 1.52,
-                                 "pct_unaligned": 4.0, "count": 3,
-                                 "total": 200, "box": [0, 0, 9, 9],
-                                 "size_a": (10, 10), "size_b": (10, 10)})
-        self.assertEqual(
-            sp.story_gate(self.caught(), [comparison(), near], 3.0, 0),
-            (0, ["STORY OK 2/2 pixel<=1.52%"]))
-
-    def test_a_diff_line_names_unaligned_and_not_the_class_set(self):
-        aria = sp.dr.aria_diff("- paragraph: Alpha scene copy\n",
-                               "- paragraph: Alpha scene COPY\n")
-        c = comparison(
-            pixel={"size_equal": True, "pct": 0.4, "pct_unaligned": 7.2,
-                   "count": 1, "total": 250, "box": None,
-                   "size_a": (10, 10), "size_b": (10, 10)},
-            aria=aria)
-        c.classes = {"only_in_baseline": [("btn", 'button "Continue"')],
-                     "only_in_impl": [], "changed": 1}
-        c.console_impl = ["error: Uncaught TypeError"]
-        code, lines = sp.story_gate(self.caught(), [c], 3.0, 0)
-        self.assertEqual(code, 1)
-        self.assertTrue(lines[0].startswith(
-            "DIFF default 400x300 0.4% (unaligned 7.2%)"))
-        self.assertIn("aria 2 changed lines", lines[0])
-        self.assertNotIn("classes", lines[0])
-        self.assertNotIn("console", lines[0])
-        self.assertNotIn("class only", "\n".join(lines))
-        self.assertEqual(lines[1:], [
-            "  baseline  paragraph Alpha scene copy",
-            "  impl      paragraph Alpha scene COPY",
-        ])
-
-    @unittest.skipUnless(
-        importlib.util.find_spec("numpy") is not None,
-        "around ranks a numpy mask")
-    def test_a_pixel_failure_uses_the_shared_around(self):
-        import numpy as np
-        mask = np.zeros((50, 80), dtype=bool)
-        mask[5, 10] = True
-        c = comparison(
-            pixel={"size_equal": True, "pct": 12.5, "pct_unaligned": 31.0,
-                   "count": 100, "total": 800, "box": [40, 20, 79, 59],
-                   "mask": mask, "scale": 4,
-                   "size_a": (10, 10), "size_b": (10, 10)})
-        c.impl_elements = [
-            {"label": 'heading "Demo card"', "x": 0, "y": 0, "w": 320, "h": 200},
-            {"label": 'button "Continue"', "x": 40, "y": 20, "w": 80, "h": 24},
-        ]
-        code, lines = sp.story_gate(self.caught(), [c], 3.0, 0)
-        self.assertEqual(code, 1)
-        self.assertEqual(lines, [
-            "DIFF default 400x300 12.5% (unaligned 31.0%) "
-            "— pixel 12.5% > 3.0% (unaligned 31.0%) "
-            "around: button \"Continue\", heading \"Demo card\"",
-        ])
-
-    def test_class_or_console_alone_does_not_fail_a_scene(self):
-        c = comparison()
-        c.classes = {"only_in_baseline": [("btn", 'button "Continue"')],
-                     "only_in_impl": [], "changed": 1}
-        c.console_impl = ["error: Uncaught TypeError"]
-        code, lines = sp.story_gate(self.caught(), [c], 3.0, 0)
-        self.assertEqual(code, 0)
-        self.assertEqual(lines, ["STORY OK 1/1 pixel<=0.0%"])
-        vp_code, _ = sp.vp.gate(self.caught(), [c], 3.0, 0)
-        self.assertEqual(vp_code, 1)
+    def test_both_controls_caught_continue(self):
+        self.assertEqual(sp.negative_control_gate(self.FONT, self.MISSING), (0, []))
 
 
 class TestStoryFixture(unittest.TestCase):
@@ -235,10 +149,10 @@ class TestStoryFixture(unittest.TestCase):
         shutil.rmtree(cls.home, ignore_errors=True)
 
     def run_story(self, extra_env=None, timeout=180, cwd=None, pages="demo",
-                  contract=None, extra_args=None):
+                  contract=None, extra_args=None, out=None):
         return run_story_cmd(
             self.home, extra_env=extra_env, timeout=timeout, cwd=cwd,
-            pages=pages, contract=contract, extra_args=extra_args)
+            pages=pages, contract=contract, extra_args=extra_args, out=out)
 
     def copied_fixture(self) -> Path:
         """A writable copy of the fixture repository, removed when the test ends."""
@@ -247,27 +161,144 @@ class TestStoryFixture(unittest.TestCase):
     def test_three_equal_scenes_print_story_ok(self):
         proc = self.run_story()
         self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertRegex(proc.stdout, r"^STORY OK 3/3 pixel<=")
+        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
         self.assertNotIn("NEGATIVE CONTROL FAILED", proc.stdout)
 
-    def test_a_changed_word_prints_two_tree_lines_and_exits_1(self):
+    def test_a_13px_value_against_26px_is_one_font_size_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "font-size"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 metric font-size "
+                         "design=13px product=26px")
+
+    def test_an_element_moved_alone_is_one_position_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "move-alone"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 body position "
+                         "design=16,48 product=16,78")
+
+    def test_a_block_moved_down_as_a_whole_is_no_diff(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "block-down"})
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+
+    def test_a_moved_parent_is_one_position_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "move-parent"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 group position "
+                         "design=16,84 product=16,114")
+
+    def test_a_sibling_pushed_by_a_taller_one_is_not_reported(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "taller-previous"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 title size "
+                         "design=288x24 product=288x54")
+
+    def test_size_beyond_two_pixels_is_a_size_line(self):
+        ten = self.run_story(extra_env={"STORY_MUTATE": "size-10"})
+        self.assertEqual(ten.returncode, 1, ten.stderr + ten.stdout)
+        self.assertEqual(ten.stdout.strip(),
+                         "DIFF demo alpha 400x300 swatch size "
+                         "design=80x80 product=90x80")
+        two = self.run_story(extra_env={"STORY_MUTATE": "size-2"})
+        self.assertEqual(two.returncode, 0, two.stderr + two.stdout)
+        self.assertEqual(two.stdout.strip(), "STORY OK 3/3")
+
+    def test_an_element_the_product_lacks_is_missing(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "missing"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 metric missing")
+
+    def test_an_element_only_the_product_has_is_extra(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "extra"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 product-only extra")
+
+    def test_a_wrapper_the_product_adds_is_no_diff(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "wrapper"})
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+
+    def test_an_element_drawn_hidden_is_one_visible_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "hidden-parent"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 group visible "
+                         "design=yes product=no")
+
+    def test_an_element_under_another_parent_is_a_parent_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "other-parent"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 metric parent "
+                         "design=group product=root")
+
+    def test_a_changed_word_is_one_text_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "copy"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
-        diffs = [ln for ln in proc.stdout.splitlines() if ln.startswith("DIFF ")]
-        self.assertEqual(len(diffs), 1, proc.stdout)
-        self.assertIn("alpha", diffs[0])
-        self.assertIn("aria 2 changed lines", diffs[0])
-        self.assertIn("Alpha scene copy", proc.stdout)
-        self.assertIn("Alpha scene COPY", proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 body text "
+                         "design=Alpha scene copy product=Alpha scene COPY")
 
-    def test_a_changed_colour_fails_on_pixels(self):
+    def test_a_changed_weight_is_a_font_weight_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "weight"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 metric font-weight "
+                         "design=700 product=400")
+
+    def test_a_changed_colour_is_a_color_line(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "color"})
         self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
-        diffs = [ln for ln in proc.stdout.splitlines() if ln.startswith("DIFF ")]
-        self.assertEqual(len(diffs), 3, proc.stdout)
-        for line in diffs:
-            self.assertRegex(line, rf"pixel [0-9.]+% > {re.escape(str(sp.DEFAULT_MAX_PCT))}%")
-            self.assertNotIn("aria", line)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 body color "
+                         "design=rgb(26, 26, 26) product=rgb(255, 45, 85)")
+
+    def test_a_changed_background_is_a_background_color_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "background"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 root background-color "
+                         "design=rgb(244, 241, 236) product=rgb(255, 255, 255)")
+
+    def test_a_changed_radius_is_a_border_radius_line(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "radius"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 group border-radius "
+                         "design=0px product=8px")
+
+    def test_repeated_ids_pair_in_document_order(self):
+        proc = self.run_story(extra_env={"STORY_MUTATE": "repeat-missing"})
+        self.assertEqual(proc.returncode, 1, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(),
+                         "DIFF demo alpha 400x300 repeat#3 missing")
+
+    def test_a_pixel_only_difference_keeps_story_ok_and_writes_the_diff_image(self):
+        out = Path(tempfile.mkdtemp(prefix="story-pixel-evidence-"))
+        self.addCleanup(shutil.rmtree, out, ignore_errors=True)
+        proc = self.run_story(extra_env={"STORY_MUTATE": "pixel-only"}, out=out)
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+        diff = out / "media" / "alpha-400x300-diff.png"
+        self.assertTrue(diff.is_file(), f"missing {diff}")
+        self.assertGreater(diff.stat().st_size, 0)
+
+    def test_an_app_page_mount_is_compared(self):
+        proc = self.run_story(pages="app")
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "STORY OK 1/1")
+
+    def test_a_design_page_without_data_ui_fails_the_negative_control(self):
+        proc = self.run_story(pages="legacy")
+        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
+        self.assertTrue(proc.stdout.startswith("NEGATIVE CONTROL FAILED"), proc.stdout)
+        self.assertNotIn("STORY OK", proc.stdout)
 
     def test_a_mount_the_contract_does_not_declare_exits_2(self):
         proc = self.run_story(pages="no-such-page")

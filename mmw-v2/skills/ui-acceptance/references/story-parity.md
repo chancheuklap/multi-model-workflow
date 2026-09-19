@@ -1,171 +1,148 @@
 # Story parity
 
-Whether a product story matches the design page it was built from is
-`<scripts>/story-parity.py`; `<scripts>` is the notation this skill's `SKILL.md`
-defines under **Resolve `<scripts>` once**. It reads the screen
-contract and `scenes.json`, starts the product's story service from
-`.mmw/target.json`'s `stories` command (which prints `origin`), opens
-`<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`, and compares that render
-with the design page rendered offline from the handoff package — by accessibility
-tree and by pixels, at every viewport the contract names. The class set is not
-compared.
+`<scripts>/story-parity.py` decides whether a product story matches the Claude
+Design page it was built from. `<scripts>` is the token defined by this skill's
+**Resolve `<scripts>` once** section. The judge reads the screen contract and the
+handoff package's `scenes.json`, starts the story service, and compares every
+selected scene at every contract viewport by `data-ui` id.
 
-Four agents come here. The one **taking design values before writing an interface
-ticket's code** needs **`--render-only`**. The one **building** the story page and
-its adapter needs the next section. The one **writing** the criterion needs the
-shape below it. The one **reading** a `DIFF` line needs the last section.
+Four agents use this page. An agent taking design facts before implementation uses
+**`--render-only`**. An agent building a story reads **The story page the product
+serves**. An agent writing a ticket copies **The criterion, in one shape**. An agent
+fixing a failure reads **The DIFF line**.
 
 ## The story page the product serves
 
-One ticket builds this and every later interface ticket copies it: the contract
-ticket, whose `## Owns` covers `.mmw/stories/`. Five things make a story page one this
-judge can read, and none of them is visible from a `DIFF` line months later.
+The contract ticket builds the service under `.mmw/stories/`; later interface
+tickets add one story adapter per design page.
 
-- **`.mmw/target.json`'s `stories` command brings the service up and prints its
-  `origin`**, the same shape `start` and `discover` have. The judge runs it, reads that
-  one line, and when it finishes ends the command together with every process under it,
-  so a server the command starts as a child or grandchild (`uv run` → python → pnpm →
-  vite) goes too. The command stays in the foreground for the whole run. Nothing else
-  tells it where the pages are. It runs under no lease — `MMW_AUTOMATION=1` is the only
-  variable this judge adds — so the port is one it asks the machine for, and a story
-  criterion costs no instance slot.
-- **The address carries the whole request.** The judge opens
-  `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>` and nothing else: `page` is the
-  screen contract's `pages.<page>.mount`, `scene` is a name from `scenes.json`,
-  `viewport` is `WIDTHxHEIGHT`. A page that needs a route, a login or a click first is
-  a page this judge cannot reach.
-- **`[data-story-root]` sits on the root of the design page's own block** — not on a
-  wrapper around it, not on a child inside it. That element's box is what the pixel
-  judge measures and what the accessibility tree is walked from, so a wrapper adds
-  padding the design side does not have and a child cuts the comparison short. A run
-  that cannot find it stops with `no visible [data-story-root] at <url>`.
-- **The adapter puts the component in the scene from `scenes.json`.** Each scene entry
-  carries `data` (`{state, vals}`, written by the handoff run's
-  `export_scene_data.py`); the adapter maps those fields onto the presentational
-  component's props, and the screen contract's `shows` column for each row says which
-  field feeds which displayed value. The `code-review` Spec axis checks that mapping
-  against the contract, field by field.
-- **Nothing else runs.** No backend, no seed, no route, no controlled clock: the page
-  puts the component in the scene by itself. A story page that reaches for the product's
-  data layer is a page whose result depends on what happens to be in it.
+- `.mmw/target.json`'s `stories` command starts the service in the foreground and
+  prints `origin=<url>`. The judge starts that command with `MMW_AUTOMATION=1` and
+  ends the command and all descendants it started. A story uses a machine-chosen
+  port and no lease.
+- The judge opens
+  `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. `mount` comes from the
+  contract's `pages`; `name` comes from `scenes.json`. `Component · ` and `App · `
+  pages use the same request and comparison.
+- `[data-story-root]` is on the product component's own root element. That same
+  element carries `data-screen="<mount>"` and the `data-ui` id on the design page's
+  root. It is not a wrapper around the component and not a child inside it.
+- Every other product element being compared carries the same `data-ui` id as the
+  corresponding element on the design page. Repeated component instances may reuse
+  an id; the judge pairs them in document order.
+- The adapter takes the scene's `scene data` and maps it to the presentational
+  component. No backend, seed, route or alternate preview projection runs. The
+  screen contract's `shows` columns bind the mapping and code review checks it.
 
-`--render-only` renders the design side of a scene into a directory with no product at
-all — screenshots and the values file — which is what you look at while building the
-product side. The path and fields are under **`--render-only`**.
+## The two sides
 
-## Two sides
+The product side is the subtree rooted at `[data-story-root]`. The design side is
+the handoff package's page, rendered offline with `#dc-root` pinned to the product
+root's measured width and height. Both sides are read as rendered. The judge does
+not hide controls or replace display values.
 
-The **story page** is the product's. It renders the presentational component at
-`[data-story-root]`. That element's box is what the pixel judge measures. No
-backend, no seed, no route, no controlled clock: the page itself puts the
-component in the scene.
+For each `[data-ui]` element, the common reader records these facts in document
+order:
 
-The **design page** is the handoff package, served by the existing baseline server
-and wrapper page. `#dc-root` is pinned to the box `[data-story-root]` measured
-(`frame_box`). `retired_ids` are hidden on this side only; `volatile_values` are
-masked on both. `navigate` still moves the design page's clock 200 ms of virtual
-time after each load, so `support.js`'s readiness poll fires.
+| field | fact |
+| --- | --- |
+| `id` | `data-ui`; repeated values become `<id>#<n>`, from 1 |
+| `visible` | false for `display: none`, `visibility: hidden`, `opacity: 0`, or a zero width or height |
+| `text` | own character data and descendants without `data-ui`, with whitespace collapsed |
+| `size` | integer `[width, height]` in CSS pixels |
+| `ancestor` | nearest `data-ui` ancestor, or null |
+| `offset` | top-left relative to that ancestor, or null |
+| `previous` | previous element with the same nearest `data-ui` ancestor, or null |
+| `gap` | `[left − previous.right, top − previous.bottom]`, or null |
+| `style` | `font-size`, `font-weight`, `color`, `background-color`, `border-radius` |
 
-`--pages` names the `pages.<page>.mount` values of the non-`App · ` design pages
-this ticket owns. Every scene of the contract whose page declares one of them is
-compared. `--scenes` narrows that to a subset.
+Class names, font families, line heights, hover styles and focus styles are not
+compared.
 
-## Pixels
+## The comparison
 
-Both screenshots are shrunk by 4 (each cell the average of a 4×4 block), and each
-cell is then compared with the other image's cells sampled at every sub-cell
-origin: a cell counts as differing only when no sub-cell alignment explains it.
-The share that still differs is held to `--max-pct`, 5% by default.
+The same id on each side is one pair. Repeated ids pair in document order. An id
+only on the design side is `missing`; one only on the product side is `extra`.
 
-The alignment is not a loosening, it is what makes the number mean what its name
-says. Shrinking by 4 does not remove offsets under 4 pixels — a line of text
-moving into or out of a cell changes that cell's average by about 64, far past the
-16 the comparison tolerates. With the alignment a 2 px shift is 0.0%; a shift of
-a whole cell or more still fails; a block of the wrong colour still fails; a
-shift laid on top of a real difference does not absolve it.
+If either paired element is not visible, the judge compares only `visible`. It does
+not report any descendant carrying `data-ui`, so hiding one parent produces one
+line. When both are visible it compares `text`, `size`, the five style facts,
+`parent`, and `position`:
 
-A `DIFF` line prints both numbers — `pixel 9.0% > 3.0% (unaligned 10.8%)`. Both
-high is drawn wrong; only the unaligned one high is merely out of position.
+- Width or height differs only when the difference exceeds 2 px.
+- A different nearest `data-ui` ancestor is one `parent` difference. The element's
+  offset is not compared in that case.
+- On each axis, `position` differs when `offset` differs by more than 2 px and one
+  of these is also true: the element has no `previous`; the two sides name different
+  `previous` elements; or the same-axis `gap` differs by more than 2 px. This leaves
+  a whole top-level block move unreported, reports the parent whose movement carried
+  its children, and does not report a later element merely pushed by a taller
+  previous element.
 
-The tree is the main judge and walks the whole subtree under `[data-story-root]`
-and `#dc-root`, below the fold included. Pixels see only that box intersected with
-the viewport.
-
-A display value the seed must not write is declared under the contract's
-`volatile_values`; both judges replace that node with one token before comparing.
+Any element difference exits 1. Pixel differences never decide the exit code, but
+every scene and viewport still writes its pixel difference image under `--out` as
+evidence.
 
 ## The criterion, in one shape
 
-Nobody types this command. It is written onto the ticket as a criterion, and a
-run of `verify-ticket.py` hands it to a shell months later with no model in
-between. The script is named bare — `verify-ticket.py` puts `<scripts>`
-on that shell's `PATH` (its `--tools`) — and nothing else on the line
-can go stale:
+The criterion names the judge bare because `verify-ticket.py` puts `<scripts>` on
+the shell's `PATH`:
 
 ```
 CHECK: story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <id,id>
 EXPECT: STORY OK <passed>/<total>
 ```
 
-`--pages` names the `pages.<page>.mount` values this ticket owns.
-`<total>` is scenes × viewports. The pixel threshold is the script's default; a
-ticket names `--max-pct` only when its scenes are known to need another number,
-and says why beside the criterion.
+`--pages` is a comma-separated list of contract mounts. `--scenes` may narrow the
+scenes belonging to those mounts. `<total>` is scene × viewport pairs.
+
+## The DIFF line
+
+One fact produces one line:
+
+```
+DIFF <mount> <scene> <W>x<H> <data-ui id> <property> design=<value> product=<value>
+DIFF <mount> <scene> <W>x<H> <data-ui id> missing
+DIFF <mount> <scene> <W>x<H> <data-ui id> extra
+```
+
+Repeated ids appear as `<id>#<n>`. `<property>` is `visible`, `text`, `size`,
+`position`, `parent`, `font-size`, `font-weight`, `color`, `background-color`, or
+`border-radius`. The named id and property are the complete repair target; pixel
+images are supporting evidence, not another verdict.
+
+## Negative controls
+
+Once per run, using its first scene and viewport, the judge proves both detection
+paths before trusting any result:
+
+1. It adds 7 px to every design-side `data-ui` element's computed font size and
+   requires at least one `font-size` difference.
+2. It removes every product-side `data-ui` attribute and requires at least one
+   `missing` difference.
+
+Either control reporting nothing exits 2 with `NEGATIVE CONTROL FAILED` and no
+`STORY OK`. A design page with no `data-ui` therefore cannot pass. These controls
+prevent accidental cheating caused by an agent following an old implementation
+habit; they are not intended to defeat deliberate sabotage.
 
 ## `--render-only`
 
-`--render-only` renders the design side of the selected scenes into `--out` and
-stops. It needs no product and does not read `.mmw/target.json`. Besides the
-screenshots under `--out/media`, it writes one values file per scene and
-viewport, taken from that same render:
+`--render-only` renders only the design side and does not read `.mmw/target.json`.
+It writes screenshots under `--out/media` and the element facts from that same
+render to:
 
 `--out/values/<mount>/<scene>-<W>x<H>.json`
 
-The file is a JSON array in document order. Each item is one `[data-ui]` element
-under `#dc-root`:
-
-| field | meaning |
-| --- | --- |
-| `id` | the `data-ui` value; a repeated id is written `<id>#<n>` in document order from 1 |
-| `visible` | `false` when `display: none`, `visibility: hidden`, `opacity: 0`, or width or height is 0 |
-| `text` | the element's own character data plus descendants that do not carry `data-ui` (a `span.sc-interp` counts; a nested `[data-ui]` child does not). Whitespace collapsed, ends trimmed |
-| `size` | `[width, height]` in CSS pixels, integers |
-| `ancestor` | id of the nearest `[data-ui]` ancestor, or `null`; a repeated id is written `<id>#<n>` as on `id` |
-| `offset` | `[x, y]` of this element's top-left relative to that ancestor's top-left, in CSS pixels, integers, or `null` |
-| `previous` | id of the previous `[data-ui]` element that shares this `ancestor`, or `null`; a repeated id is written `<id>#<n>` as on `id` |
-| `gap` | `[this.left − previous.right, this.top − previous.bottom]`, in CSS pixels, integers, or `null` |
-| `style` | `font-size`, `font-weight`, `color`, `background-color`, `border-radius` from `getComputedStyle` |
+The JSON array uses the fields in **The two sides** and preserves document order.
 
 ## Exit codes
 
-Three exit codes.
+- `0`: one line `STORY OK <passed>/<total>`.
+- `1`: one or more lines in **The DIFF line** shape.
+- `2`: a negative control failed, the story service did not start, a page could not
+  be reached, or the requested mount/scene is outside the contract. The refusal
+  names the fact it could not establish.
 
-- **`0`**, one line `STORY OK <passed>/<total> pixel<=<worst>%`: every scene
-  matched at every viewport. The number is the largest pixel share any pair had;
-  the `EXPECT` above matches it as a prefix, and a difference under the threshold
-  is on record without being a failure.
-- **`1`**: one `DIFF` line per failing scene and viewport.
-- **`2`** with `NEGATIVE CONTROL FAILED`: the run's own control was not caught —
-  the baseline server was made to serve, at the first scene's own address, that
-  scene with an error banner in the bytes it sends, the story page was captured
-  again, and the two compared equal, which means the product-side capture read
-  the design's server; nothing this run says about parity can be trusted, and no
-  story conclusion is printed at all. Exit 2 also when the `stories` command does
-  not come up, when a story page is 404, or when `--pages` names a mount the
-  contract does not declare, with the reason on stderr.
-
-A failure line reads
-`DIFF <scene> <viewport> <pct>% (unaligned <pct>%) — <reasons>`, and the reasons
-after the dash are where the failure is named. A tree difference brings lines out
-under it: `baseline`, `impl`, `only in baseline`, `only in impl`, each node with
-`(in <ancestor>)` when it sits under a named one. A pixel failure ends the line
-with `around: <role "name">, …`, the product's elements under the differing area,
-smallest first: that is the component to open.
-
-What to fix is what the line names: the tree lines, the elements after `around:`.
-A `DIFF` that names nothing you have not already fixed is not something to chase
-by changing fonts, line heights or renderer flags; run the criterion once more
-after the named fixes and take the result.
-
-`--out <dir>` keeps the screenshots, the trees and the differing-pixel pictures
-for the user to look at.
+`--out <dir>` keeps both screenshots, their pixel difference image and the design
+facts for inspection.

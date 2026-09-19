@@ -20,21 +20,97 @@
     </style>
   </head>
   <body>
-    <div data-story-root class="demo" data-screen="demo"></div>
+    <div data-story-root class="demo" data-screen="demo" data-ui="root"></div>
     <script>
       const COPY = {
         alpha: "Alpha scene copy",
         beta: "Beta scene copy",
-        gamma: "Gamma scene copy"
+        gamma: "Gamma scene copy",
+        app: "Alpha scene copy",
+        legacy: "Alpha scene copy"
       };
       const params = new URLSearchParams(location.search);
+      const page = params.get("page") || "";
       const scene = params.get("scene") || "";
+      const mutate = "__STORY_MUTATE__";
       const root = document.querySelector("[data-story-root]");
+      root.dataset.screen = page;
       root.innerHTML =
-        "<h1>Demo card</h1>" +
-        "<p>" + (COPY[scene] || "") + "</p>" +
-        '<div class="swatch" aria-hidden="true"></div>' +
-        '<button type="button">Continue</button>';
+        '<h1 data-ui="title">Demo card</h1>' +
+        '<p data-ui="body">' + (COPY[scene] || "") +
+          '<span data-ui="inner" aria-hidden="true" style="position: absolute; opacity: 0">inner copy</span></p>' +
+        '<div data-ui="group" style="height: 30px"><strong data-ui="metric" style="display: inline-block; width: 30px; height: 30px; line-height: 30px; font-size: 13px">13</strong></div>' +
+        '<div class="swatch" aria-hidden="true" data-ui="swatch"></div>' +
+        '<button type="button" data-ui="continue">Continue</button>' +
+        '<div data-ui="repeats" style="display: flex"><span data-ui="repeat">R</span><span data-ui="repeat">R</span><span data-ui="repeat">R</span></div>' +
+        '<div class="pixel-only" style="width: 10px; height: 10px; background: #111"></div>' +
+        '<span data-ui="hidden" aria-hidden="true" style="position: absolute; visibility: hidden">hidden copy</span>';
+      if (page === "legacy") {
+        root.removeAttribute("data-ui");
+        for (const el of root.querySelectorAll("[data-ui]")) el.removeAttribute("data-ui");
+      }
+      if (mutate === "font-size" && scene === "alpha") {
+        root.querySelector('[data-ui="metric"]').style.fontSize = "26px";
+      }
+      if (mutate === "weight" && scene === "alpha") {
+        root.querySelector('[data-ui="metric"]').style.fontWeight = "400";
+      }
+      if (mutate === "color" && scene === "alpha") {
+        root.querySelector('[data-ui="body"]').style.color = "rgb(255, 45, 85)";
+      }
+      if (mutate === "background" && scene === "alpha") {
+        root.style.backgroundColor = "rgb(255, 255, 255)";
+      }
+      if (mutate === "radius" && scene === "alpha") {
+        root.querySelector('[data-ui="group"]').style.borderRadius = "8px";
+      }
+      if (mutate === "repeat-missing" && scene === "alpha") {
+        root.querySelectorAll('[data-ui="repeat"]')[2].remove();
+      }
+      if (mutate === "pixel-only" && scene === "alpha") {
+        root.querySelector(".pixel-only").style.background = "#f00";
+      }
+      if (mutate === "move-alone" && scene === "alpha") {
+        const body = root.querySelector('[data-ui="body"]');
+        body.style.position = "relative";
+        body.style.top = "30px";
+      }
+      if (mutate === "block-down" && scene === "alpha") {
+        root.style.marginTop = "30px";
+      }
+      if (mutate === "move-parent" && scene === "alpha") {
+        const group = root.querySelector('[data-ui="group"]');
+        group.style.position = "relative";
+        group.style.top = "30px";
+      }
+      if (mutate === "taller-previous" && scene === "alpha") {
+        root.querySelector('[data-ui="title"]').style.height = "54px";
+      }
+      if ((mutate === "size-10" || mutate === "size-2") && scene === "alpha") {
+        root.querySelector('[data-ui="swatch"]').style.width =
+          mutate === "size-10" ? "90px" : "82px";
+      }
+      if (mutate === "missing" && scene === "alpha") {
+        root.querySelector('[data-ui="metric"]').remove();
+      }
+      if (mutate === "extra" && scene === "alpha") {
+        root.insertAdjacentHTML("beforeend", '<i data-ui="product-only">extra</i>');
+      }
+      if (mutate === "wrapper" && scene === "alpha") {
+        const body = root.querySelector('[data-ui="body"]');
+        const wrapper = document.createElement("div");
+        wrapper.style.display = "contents";
+        body.replaceWith(wrapper);
+        wrapper.appendChild(body);
+      }
+      if (mutate === "hidden-parent" && scene === "alpha") {
+        root.querySelector('[data-ui="group"]').style.visibility = "hidden";
+      }
+      if (mutate === "other-parent" && scene === "alpha") {
+        const group = root.querySelector('[data-ui="group"]');
+        group.style.minHeight = "24px";
+        root.appendChild(root.querySelector('[data-ui="metric"]'));
+      }
     </script>
   </body>
 </html>

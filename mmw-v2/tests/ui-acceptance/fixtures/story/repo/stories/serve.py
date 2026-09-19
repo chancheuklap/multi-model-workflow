@@ -2,9 +2,8 @@
 """Serve the fixture story page and print origin=http://127.0.0.1:<port>.
 
 Takes a port of the machine's choosing, as a story service does: it has no backend
-behind it and nothing has to reach it at an agreed address. STORY_MUTATE=copy|color
-patches the bytes this process serves, so the product side can be made to differ from
-the design.
+behind it and nothing has to reach it at an agreed address. STORY_MUTATE selects one
+isolated product-side variant from index.html.
 """
 from __future__ import annotations
 
@@ -16,16 +15,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 PAGE = (HERE / "index.html").read_text(encoding="utf-8")
-VALID_PAGES = {"demo"}
-VALID_SCENES = {"alpha", "beta", "gamma"}
+VALID_PAGES = {"demo", "app", "legacy"}
+VALID_SCENES = {"alpha", "beta", "gamma", "app", "legacy"}
 
 
 def body_for(mutate: str) -> str:
-    html = PAGE
+    html = PAGE.replace("__STORY_MUTATE__", mutate)
     if mutate == "copy":
         html = html.replace("Alpha scene copy", "Alpha scene COPY")
-    elif mutate == "color":
-        html = html.replace("#2f6fed", "#ff2d55")
     return html
 
 
