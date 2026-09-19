@@ -5,7 +5,7 @@ The product answers live in `.mmw/` at the repository root. mmw supplies the lea
 until this command exits 0:
 
 ```
-python3 <scripts>/screen_driver.py target --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
+python3 <scripts>/target_config.py --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
 ```
 
 It prints every field as `ok`, `missing` (one sentence and one example) or `absent`
@@ -14,7 +14,7 @@ field is shaped as it is are the fields below.
 
 ## What the repository answers
 
-Which of these a repository must answer is what `target --check` prints, field by
+Which of these a repository must answer is what `target_config.py --check` prints, field by
 field. This section says why each one is shaped the way it is.
 
 - **`start`.** One command brings the whole stack up and returns only once the
@@ -37,9 +37,9 @@ field. This section says why each one is shaped the way it is.
   bound to, and `journey.py` says so rather than printing `JOURNEY OK`.
 
 - **`discover`.** Prints one JSON object: an origin-class address (where the
-  product is served), `instance` (a readable name for this run), and
-  `instance_check` (one observe line, true only when the product answering is the
-  one this run started). Identity turns "answering" into "answering and mine".
+  product is served) and `instance` (a readable name for this run). After `stop`,
+  `journey.py` checks that this run's slot is empty; that is what "stopped" means,
+  not a second key on this object.
 
 - **`stories`.** Brings up the story page service and prints its `origin`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
@@ -107,7 +107,7 @@ are [harness-guard.md](harness-guard.md).
 
 ## Three rules
 
-`target --check` prints these. It can see that `leaves_machine` is answered; it
+`target_config.py --check` prints these. It can see that `leaves_machine` is answered; it
 cannot see a Gateway address in the environment or whether a key is a
 placeholder. Those two are `start`'s job.
 

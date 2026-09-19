@@ -21,15 +21,15 @@ from pathlib import Path
 
 
 def _load_driver():
-    here = Path(__file__).resolve().parent / "screen_driver.py"
-    spec = importlib.util.spec_from_file_location("screen_driver", here)
+    here = Path(__file__).resolve().parent / "design_render.py"
+    spec = importlib.util.spec_from_file_location("design_render", here)
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["screen_driver"] = mod
+    sys.modules["design_render"] = mod
     spec.loader.exec_module(mod)
     return mod
 
 
-sd = _load_driver()
+dr = _load_driver()
 
 # A pixel counts as identical while every channel is within this of the other image's.
 PIXEL_TOLERANCE = 16
@@ -51,15 +51,15 @@ NEGATIVE_CONTROL_HEAD = """<style>#dc-root::before{content:'NEGATIVE CONTROL';po
 
 # Re-exported for the tests and for `extract_skeleton.py`, which read the tree through
 # this module's name.
-normalize_aria = sd.normalize_aria
-aria_diff = sd.aria_diff
-resize = sd.resize
-wrapper_page = sd.wrapper_page
-serve_baseline = sd.serve_baseline
-cdn_path = sd.cdn_path
-CDN_PREFIX = sd.CDN_PREFIX
-frame_box = sd.frame_box
-parse_viewports = sd.parse_viewports
+normalize_aria = dr.normalize_aria
+aria_diff = dr.aria_diff
+resize = dr.resize
+wrapper_page = dr.wrapper_page
+serve_baseline = dr.serve_baseline
+cdn_path = dr.cdn_path
+CDN_PREFIX = dr.CDN_PREFIX
+frame_box = dr.frame_box
+parse_viewports = dr.parse_viewports
 
 
 # ---------------------------------------------------------------- pixels
@@ -304,7 +304,7 @@ def text_changes(diff: str) -> list[dict]:
         if line.startswith(("+++", "---", "@@")):
             continue
         sign, rest = (line[:1], line[1:]) if line[:1] in "+- " else (" ", line)
-        parsed = sd.ARIA_LINE.match(_split_ancestor(rest))
+        parsed = dr.ARIA_LINE.match(_split_ancestor(rest))
         if sign == " " or not parsed:
             flush()
             continue
@@ -364,9 +364,9 @@ def render_only(plan, viewports, media, origin, route_baseline, hide_js) -> int:
         ctx.route("**/*", route_baseline)
         page = ctx.new_page()
         for scene in plan:
-            sd.navigate(page, f"{origin}{sd.wrapper_path(scene.name)}")
-            sd.wait_for_mount(page, "#dc-root")
-            sd.capture(page, media / f"{scene.name}-baseline.png", selector="#dc-root",
+            dr.navigate(page, f"{origin}{dr.wrapper_path(scene.name)}")
+            dr.wait_for_mount(page, "#dc-root")
+            dr.capture(page, media / f"{scene.name}-baseline.png", selector="#dc-root",
                        extra_js=hide_js[scene.name])
             print(f"rendered {scene.name} -> {media / (scene.name + '-baseline.png')}")
         browser.close()

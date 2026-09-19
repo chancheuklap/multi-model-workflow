@@ -160,10 +160,10 @@ class TestPipelineFlags(unittest.TestCase):
         self.assertTrue(any("without --run" in f for f in findings))
 
     def test_an_address_on_the_line_is_refused(self):
-        stale = STORY + " --cdp http://127.0.0.1:9229 --impl http://127.0.0.1:5173/"
+        stale = STORY + " --impl http://127.0.0.1:5173/"
         findings = vt.lint_pipeline_flags("AC1", stale)
-        self.assertEqual(len(findings), 2)
-        self.assertTrue(all(".mmw/target.json" in f for f in findings))
+        self.assertEqual(len(findings), 1)
+        self.assertIn(".mmw/target.json", findings[0])
 
     def test_a_flag_help_does_not_list_is_refused(self):
         findings = vt.lint_pipeline_flags("AC1", STORY + " --reach-hook x")
@@ -171,10 +171,17 @@ class TestPipelineFlags(unittest.TestCase):
         self.assertIn("--reach-hook", findings[0])
         self.assertIn("--help", findings[0])
 
-    def test_the_seed_belongs_to_the_contract_now(self):
-        findings = vt.lint_pipeline_flags("AC1", STORY + ' --seed "uv run reach.py seed:x"')
-        self.assertEqual(len(findings), 1)
-        self.assertIn("--seed", findings[0])
+    def test_a_whole_product_flag_is_one_help_does_not_list(self):
+        """`--seed` is no longer a retired flag; `--help` does not list it, and
+        that is the refusal. `--cdp` is the same shape."""
+        seed = vt.lint_pipeline_flags("AC1", STORY + ' --seed "uv run reach.py seed:x"')
+        self.assertEqual(len(seed), 1)
+        self.assertIn("--seed", seed[0])
+        self.assertIn("--help does not list it", seed[0])
+        cdp = vt.lint_pipeline_flags("AC1", STORY + " --cdp http://127.0.0.1:9229")
+        self.assertEqual(len(cdp), 1)
+        self.assertIn("--cdp", cdp[0])
+        self.assertIn("--help does not list it", cdp[0])
 
     def test_a_flag_inside_a_quoted_run_value_belongs_to_that_command(self):
         """`--run` carries a whole command; `pnpm --dir <app>` is how this repository

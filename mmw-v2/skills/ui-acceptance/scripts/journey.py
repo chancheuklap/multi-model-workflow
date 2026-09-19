@@ -42,7 +42,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from screen_driver import command_env, discover, repo_root, run_command, target_config  # noqa: E402
+from target_config import command_env, discover, repo_root, run_command, target_config  # noqa: E402
 from lease import holder, judge_run, listener, ports_of, registered, worktree_of  # noqa: E402
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
@@ -134,9 +134,9 @@ def negative_env(env: dict[str, str], data: dict) -> dict[str, str]:
     """The environment the control pass gets: the same one, pointing nowhere.
 
     Only the keys `discover` printed are touched, and only those that carry a port —
-    `instance` and `instance_check` are left as they are, because a script may read them
-    to say which run it is rather than to reach anything. The lease variables stay too:
-    the control pass is the same run, not a different one.
+    `instance` is left as it is, because a script may read it to say which run it is
+    rather than to reach anything. The lease variables stay too: the control pass is
+    the same run, not a different one.
 
     `MMW_JOURNEY_NEGATIVE=1` is set so a script that wants to can fail fast instead of
     waiting out its own timeouts. Whether the pass counts does not depend on the script

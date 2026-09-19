@@ -448,11 +448,11 @@ class TestVolatileValues(unittest.TestCase):
     table the tree uses for matching, including table cells."""
 
     def test_volatile_paint_js_includes_the_cell_role_the_tree_would_see(self):
-        self.assertEqual(vp.sd.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
-        js = vp.sd.volatile_paint_js([vp.sd.VolatileTrigger("text", "鸭豆余额 12,480")])
+        self.assertEqual(vp.dr.VOLATILE_IMPLICIT_ROLES["TD"], "cell")
+        js = vp.dr.volatile_paint_js([vp.dr.VolatileTrigger("text", "鸭豆余额 12,480")])
         self.assertIn('TD: "cell"', js)
-        self.assertIn(vp.sd.VOLATILE_DIGITS.pattern, js)
-        self.assertIn(vp.sd.VOLATILE_FILL, js)
+        self.assertIn(vp.dr.VOLATILE_DIGITS.pattern, js)
+        self.assertIn(vp.dr.VOLATILE_FILL, js)
 
 
 
@@ -485,14 +485,14 @@ class TestClasses(unittest.TestCase):
 
     def test_a_missing_class_fails_the_scene_and_names_the_element(self):
         c = comparison()
-        c.classes = vp.sd.class_diff({"btn": 'button "开始生成"', "btn-primary": 'button "开始生成"'},
+        c.classes = vp.dr.class_diff({"btn": 'button "开始生成"', "btn-primary": 'button "开始生成"'},
                                      {"btn": 'button "开始生成"'})
         reasons = vp.failures(c, max_pct=3.0, console_limit=0)
         self.assertEqual([r.kind for r in reasons], ["classes"])
 
     def test_equal_sets_are_no_reason(self):
         c = comparison()
-        c.classes = vp.sd.class_diff({"a": "x"}, {"a": "y"})
+        c.classes = vp.dr.class_diff({"a": "x"}, {"a": "y"})
         self.assertEqual(vp.failures(c, max_pct=3.0, console_limit=0), [])
 
 

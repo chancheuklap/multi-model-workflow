@@ -70,7 +70,7 @@ CLASS_SPEC = "mmw:spec"
 # A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
 # is not one: it starts the story page service, which has no backend behind it and takes
 # a port of its own.
-PRODUCT_JUDGES = ("journey.py", "screen_driver.py", "lease.py")
+PRODUCT_JUDGES = ("journey.py", "lease.py")
 # Criteria whose CHECK names one of these are left off the claim-time baseline run:
 # they start the product or the story page service. Recorded on the event as `skipped`.
 BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
@@ -2654,7 +2654,7 @@ FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
 # Their addresses come from the repository's `.mmw/target.json`, never from the line.
 PIPELINE_SCRIPTS = {
     "story-parity.py": {"required": ("--contract", "--pages"),
-                        "retired": ("--baseline", "--impl", "--cdp", "--backend", "--seed",
+                        "retired": ("--baseline", "--impl",
                                     "--impl-title", "--viewports", "--mount")},
     "boundary-check.py": {"required": ("--run",), "retired": ()},
 }

@@ -59,7 +59,7 @@ on 2026-09-07 the same class of defect arrived three at a time, hours apart, eac
 a whole ticket.
 
 When the batch drives a screen contract, whether the consuming repository can be driven
-at all is a separate question, answered there by `python3 <ui-acceptance scripts>/screen_driver.py target --check`, which prints
+at all is a separate question, answered there by `python3 <ui-acceptance scripts>/target_config.py --check`, which prints
 every `.mmw/target.json` field still to answer and exits 0 once the file is complete.
 
 **A clean lint is not a finished contract.** It reads text, not a running product: a story

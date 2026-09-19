@@ -57,7 +57,8 @@ def _load(name: str, modname: str):
 
 
 vp = _load("pixel_diff.py", "pixel_diff")
-sd = vp.sd
+dr = vp.dr
+tc = _load("target_config.py", "target_config")
 
 # Reused from pixel_diff.py: do not copy.
 pixel_diff = vp.pixel_diff
@@ -120,14 +121,10 @@ def parse_origin(text: str) -> str | None:
 def product_root() -> Path:
     """Where `.mmw/target.json` lives for this run.
 
-    The criterion is invoked from the product repository (AC1–AC3 `cd` there). If that
-    directory holds the file, it is the product. Otherwise the git toplevel — the same
-    anchor `sd.repo_root()` uses.
+    The criterion is invoked from the product repository (AC1–AC3 `cd` there).
+    `repo_root` walks from the working directory to that file, then the git toplevel.
     """
-    cwd = Path.cwd().resolve()
-    if (cwd / ".mmw" / "target.json").exists():
-        return cwd
-    return sd.repo_root()
+    return tc.repo_root()
 
 
 def load_stories_config(root: Path) -> dict:
@@ -254,9 +251,9 @@ def negative_control(scene, viewport, pages, capture_impl, capture_baseline, med
     """The baseline server answers this scene's own address with the scene plus an
     error banner in the served bytes; the story page is captured again. If the two
     compare equal, the story capture went through the baseline server."""
-    path = sd.wrapper_path(scene.name)
+    path = dr.wrapper_path(scene.name)
     saved = pages[path]
-    pages[path] = sd.wrapper_page(sd.component_of(scene.page), scene.props,
+    pages[path] = dr.wrapper_page(dr.component_of(scene.page), scene.props,
                                   NEGATIVE_CONTROL_HEAD)
     tag_vp = f"{viewport[0]}x{viewport[1]}"
     stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}"
@@ -268,8 +265,8 @@ def negative_control(scene, viewport, pages, capture_impl, capture_baseline, med
     return Comparison(
         NEGATIVE_CONTROL_SCENE, tag_vp,
         pixel_diff(wrong.png, impl.png, Path(f"{stem}-diff.png")),
-        sd.aria_diff(wrong.aria, impl.aria, Path(f"{stem}.aria.diff")),
-        [], [], impl.elements, sd.class_diff(wrong.classes, impl.classes))
+        dr.aria_diff(wrong.aria, impl.aria, Path(f"{stem}.aria.diff")),
+        [], [], impl.elements, dr.class_diff(wrong.classes, impl.classes))
 
 
 def story_gate(control: Comparison, comparisons: list, max_pct: float,
@@ -318,7 +315,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def refuse_pages(mounts: list[str], doc: dict, catalogue: dict) -> str | None:
     """Why `--pages` cannot run, or None. Exit 2 for a mount the contract does not declare."""
-    declared = {s.mount for s in sd.scenes_of(doc, catalogue).values()}
+    declared = {s.mount for s in dr.scenes_of(doc, catalogue).values()}
     missing = [m for m in mounts if m not in declared]
     if missing:
         return (f"--pages names mount(s) the contract does not declare: "
@@ -328,17 +325,17 @@ def refuse_pages(mounts: list[str], doc: dict, catalogue: dict) -> str | None:
 
 def run(args) -> int:
     contract_path = Path(args.contract).resolve()
-    doc = sd.load_contract(contract_path)
+    doc = dr.load_contract(contract_path)
     look = doc["baselines"]["look"]
     if args.render_only:
         root = Path.cwd().resolve()
         if not (root / look).exists():
-            root = sd.repo_root()
+            root = tc.repo_root()
     else:
         root = product_root()
     baseline = (root / look).resolve()
-    catalogue = sd.load_catalogue(baseline)
-    viewports = sd.parse_viewports(doc["viewports"])
+    catalogue = dr.load_catalogue(baseline)
+    viewports = dr.parse_viewports(doc["viewports"])
     mounts = [m.strip() for m in args.pages.split(",") if m.strip()]
     if not mounts:
         print("--pages is empty", file=sys.stderr)
@@ -348,20 +345,20 @@ def run(args) -> int:
         print(why, file=sys.stderr)
         return 2
     explicit = [s.strip() for s in args.scenes.split(",") if s.strip()] if args.scenes else None
-    plan = sd.scene_plan(doc, catalogue, mounts, explicit)
+    plan = dr.scene_plan(doc, catalogue, mounts, explicit)
     out = Path(args.out).resolve() if args.out else Path("./story-shots").resolve()
     media = out / "media"
     media.mkdir(parents=True, exist_ok=True)
-    cache = Path(args.cdn).expanduser() if args.cdn else sd.DEFAULT_CACHE
+    cache = Path(args.cdn).expanduser() if args.cdn else dr.DEFAULT_CACHE
     cfg = None if args.render_only else load_stories_config(root)
 
-    pages = {sd.wrapper_path(s.name): sd.wrapper_page(sd.component_of(s.page), s.props)
+    pages = {dr.wrapper_path(s.name): dr.wrapper_page(dr.component_of(s.page), s.props)
              for s in plan}
-    server, port = sd.serve_baseline(baseline, pages)
+    server, port = dr.serve_baseline(baseline, pages)
     origin = f"http://127.0.0.1:{port}"
-    route_baseline = sd.baseline_router(origin, baseline, cache)
-    hide_js = {s.name: sd.hide_js_for(doc, s.page) for s in plan}
-    volatile = {s.name: sd.volatile_triggers(doc, s.page) for s in plan}
+    route_baseline = dr.baseline_router(origin, baseline, cache)
+    hide_js = {s.name: dr.hide_js_for(doc, s.page) for s in plan}
+    volatile = {s.name: dr.volatile_triggers(doc, s.page) for s in plan}
 
     try:
         if args.render_only:
@@ -396,7 +393,7 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
         design_page = design_ctx.new_page()
         try:
             def capture_story(scene, viewport, png):
-                sd.resize(story_page, viewport)
+                dr.resize(story_page, viewport)
                 url = story_url(story_origin, scene.mount, scene.name, viewport)
                 try:
                     response = story_page.goto(url, wait_until="domcontentloaded")
@@ -416,22 +413,22 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
                     raise SystemExit(
                         f"no visible {STORY_ROOT} at {url}: {exc}"
                     ) from exc
-                box = sd.visible_box(story_page, STORY_ROOT, viewport)
-                paint = (sd.volatile_paint_js(volatile[scene.name])
+                box = dr.visible_box(story_page, STORY_ROOT, viewport)
+                paint = (dr.volatile_paint_js(volatile[scene.name])
                          if volatile[scene.name] else None)
-                return sd.capture(story_page, png, selector=STORY_ROOT, clip=box,
+                return dr.capture(story_page, png, selector=STORY_ROOT, clip=box,
                                   extra_js=paint)
 
             def capture_design(scene, viewport, box, png):
                 w, h = box[2], box[3]
-                sd.resize(design_page, viewport)
-                sd.navigate(design_page, f"{design_origin}{sd.wrapper_path(scene.name)}")
-                sd.wait_for_mount(design_page, "#dc-root")
-                paint = (sd.volatile_paint_js(volatile[scene.name])
+                dr.resize(design_page, viewport)
+                dr.navigate(design_page, f"{design_origin}{dr.wrapper_path(scene.name)}")
+                dr.wait_for_mount(design_page, "#dc-root")
+                paint = (dr.volatile_paint_js(volatile[scene.name])
                          if volatile[scene.name] else None)
-                return sd.capture(
+                return dr.capture(
                     design_page, png, selector="#dc-root", clip=(0, 0, w, h),
-                    extra_css=sd.frame_box((w, h)),
+                    extra_css=dr.frame_box((w, h)),
                     extra_js=vp._join_js(hide_js[scene.name], paint))
 
             for scene in plan:
@@ -446,7 +443,7 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
                         scene.name, tag,
                         pixel_diff(base.png, impl.png,
                                    media / f"{scene.name}-{tag}-diff.png"),
-                        sd.aria_diff(base.aria, impl.aria,
+                        dr.aria_diff(base.aria, impl.aria,
                                      media / f"{scene.name}-{tag}.aria.diff",
                                      volatile=volatile[scene.name] or None),
                         [], [], impl.elements))

@@ -35,7 +35,7 @@
 | `<vertical-slice-rules>` | 删掉 `Each slice is sized to fit in a single fresh context window` 这一条。我们的 spec 通常很大，这条把 vertical slice 推得过细；粒度由 `### 6. Quiz the user` 那一步问 user 来定。上游改这条措辞 → 仍然删。上游把它换成别的尺寸规则 → 也删，保持 vertical slice 尺寸不设机械上限。其余段落我们没改，全取上游 |
 | 开头「issue tracker 与 triage label 词汇没给你就去装」那一句、第 4 步两处「回到 to-spec」、第 7 步 publish 那一句里「那个 tracker 是谁配置的」 | host 中立：四处点技能名的地方一律写成散文形式，开头那句与 `triage`、`wayfinder` 同一个说法。共同理由与三种替换写法见 [README.md](README.md#host-中立) |
 | 第 3 步 `<vertical-slice-rules>` 之后的 **contract ticket** 段、第 4 步 `CHECK:` 来源列表里的界面票判据条、`<issue-template>` `## Read first` 说明里界面票两条基线那几句、第 8 步 `--lint` 那条末尾的 `[screen-contract]` 一句 | 我们加的：spec 有 screen contract 时第一张固定是 contract ticket，交付 `.mmw/` 全部答案、story 页面骨架与 adapter 先例、`boundary-check.py` 交互助手先例、旅程骨架与守卫，判据 `journey.py run smoke`，其余票全被它阻塞；界面票按设计页拥有 `story-parity.py --pages` 与每条 `calls` 非 `none` 的行一条边界判据；`--lint` 的 `[screen-contract]` 把这些形状做成机器版。（它查的就是这些形状而已：`built_by`、`--scenes` 越界与未知 `--mount` 三条它从来没有查过——`--scenes` 那条规则是真的，由 `story-parity.py` 在运行时执行，不在 lint；`--mount` 对机器来说也不是 unknown，`PIPELINE_SCRIPTS` 把它列在 `story-parity.py` 的 retired 一栏里。）理由同 to-spec 那条。上游改这几处 → 收上游措辞，四处接回去（取代原先「observe 行出 wiring criterion」与「空壳 + addressing self-check」） |
-| 第 3 步 contract ticket 段里 `.mmw/target.json` 那句加「filled until `screen_driver.py target --check` of the `ui-acceptance` skill exits 0」 | 我们改的，来自 mmw #158：target 归 `ui-acceptance` 技能，字段由驱动器声明并由检查命令打印，contract ticket 的工人跑命令而不是读文档。上游改这一句 → 收上游措辞，检查命令与技能名保留 |
+| 第 3 步 contract ticket 段里 `.mmw/target.json` 那句加「filled until `target_config.py --check` of the `ui-acceptance` skill exits 0」 | 我们改的，来自 mmw #158：target 归 `ui-acceptance` 技能，字段由 `target_config.py` 声明并由检查命令打印，contract ticket 的工人跑命令而不是读文档。上游改这一句 → 收上游措辞，检查命令与技能名保留 |
 | 第 4 问「It is.」一支删掉「a screen composed against fixtures instead of the live client」那个例子；第 8 步 `## Owns` 一条加「跨仓库的工具改动不开票、当场改」；`<issue-template>` `## Read first` 加「界面票的 Read first 由行的 `source` 推导（baseline 类出处按文档去重，spec 小节与 story 经 Parent 到达）+ 目标树按行号两次查表」 | 我们改的，来自 mmw #115，#216 第 8 节未推翻的部分。fixtures 例子与「这正是本流水线要抓的失败」直接矛盾，删；推导 Read first 是正面修法。上游改这几处 → 收上游措辞，这几条保留 |
 | 开头两门表与 `references/ambiguity-scan.md` | 我们加的。见 `## 找漏 reference`。 |
 | 第 3 步 contract ticket 段的旅程落点与其后的 **acceptance ticket** 段 | 我们改的：旅程三种落点，spec 声明 **Cross-ticket flows** 时按行切 acceptance ticket。理由：#415 第 16 节。上游改合同票段 → 收上游措辞，三种落点与 acceptance ticket 段保留 |
@@ -88,7 +88,7 @@ adapter 读 `scenes.json` 的 `data` 在 `to-spec` 一句。这一段里的 `ui-
 `targets/README.md` 两个名字**不改**，尽管两份文件都已改名（`story-parity.md`、
 `product-answers.md`）：这一句描述的是集中**之前**东西散在哪儿，那时候它们真叫这两个名字，
 换成今天的名字这条理由本身就变成假的。后来 `rg` 老名字的人最容易在这里「顺手修好」，别修。造 story 页面的那个 worker 一份都不会
-打开，`screen_driver.py target --check` 给 `stories` 字段的整句说明也只有「brings up the
+打开，`target_config.py --check` 给 `stories` 字段的整句说明也只有「brings up the
 story page service and prints its origin」。它只能先造错，再被
 `no visible [data-story-root] at <url>` 退回来。
 

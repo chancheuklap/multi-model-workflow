@@ -117,7 +117,7 @@ class TestStoryGate(unittest.TestCase):
             (0, ["STORY OK 2/2 pixel<=1.52%"]))
 
     def test_a_diff_line_names_unaligned_and_not_the_class_set(self):
-        aria = sp.sd.aria_diff("- paragraph: Alpha scene copy\n",
+        aria = sp.dr.aria_diff("- paragraph: Alpha scene copy\n",
                                "- paragraph: Alpha scene COPY\n")
         c = comparison(
             pixel={"size_equal": True, "pct": 0.4, "pct_unaligned": 7.2,
