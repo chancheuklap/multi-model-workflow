@@ -211,7 +211,7 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
 # same for every kind; journeys connect with Playwright themselves.
 KINDS = ("electron", "web-spa", "web-server-rendered", "chrome-extension")
 
-# ---------------------------------------------------------------- target --check
+# ---------------------------------------------------------------- --check
 
 def contract_kind(repo: Path, contract: Path | None) -> str:
     """The `target.kind` of the repository's screen contract: the one given, else the

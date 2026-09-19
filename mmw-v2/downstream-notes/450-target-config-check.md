@@ -2,7 +2,7 @@
 
 ## 改了什么
 
-`screen_driver.py target --check` 改为 `target_config.py --check`。`screen_driver.py` 已删除，不留转发文件。离线渲染 design side 的代码在 `design_render.py`。输出与退出码与原先 `target --check` 相同。
+`screen_driver.py target --check` 改为 `target_config.py --check`。`screen_driver.py` 已删除，不留转发文件。离线渲染 design side 的代码在 `design_render.py`。退出码与原先 `target --check` 相同；`discover prints` 不再列出 `instance_check`（没有调用方求值那条 observe，产品是否已停由 `journey.py` 在 `stop` 之后检查 slot 已空）。
 
 ## 哪些产物失效
 

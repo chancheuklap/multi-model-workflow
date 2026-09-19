@@ -85,9 +85,6 @@ TOP_KEYS = {
 # `extract_skeleton.py`'s `load_driver()`.
 TOOLS: list[Path] = []
 
-_DR = None
-_TC = None
-
 
 def extract_skeleton_mod():
     """`extract_skeleton.py` from `--tools`; Python's import cache holds it."""
@@ -102,35 +99,23 @@ def extract_skeleton_mod():
 
 
 def design_render_mod():
-    """`design_render.py` from `--tools`, loaded the same way
-    `extract_skeleton.py` loads it. Cached after the first load.
-    Matching (`volatile_triggers` / `count_volatile_hits`) comes from this module."""
-    global _DR
-    if _DR is not None:
-        return _DR
-    _DR = extract_skeleton_mod().load_driver()
-    return _DR
+    """`design_render.py` from `--tools`. Matching (`volatile_triggers` /
+    `count_volatile_hits`) comes from this module."""
+    return extract_skeleton_mod().driver()
 
 
 def target_config_mod():
-    """`target_config.py` from `--tools`. Cached after the first load.
+    """`target_config.py` from `--tools`; Python's import cache holds it.
     Target kinds (`KINDS`) and the `.mmw/target.json` check (`target_main`) come
     from this module."""
-    global _TC
-    if _TC is not None:
-        return _TC
-    import importlib.util
     for directory in TOOLS:
-        path = directory / "target_config.py"
-        if path.is_file():
-            spec = importlib.util.spec_from_file_location("target_config", path)
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules["target_config"] = mod
-            spec.loader.exec_module(mod)
-            _TC = mod
-            return _TC
+        if (directory / "target_config.py").is_file():
+            if str(directory) not in sys.path:
+                sys.path.insert(0, str(directory))
+            import target_config
+            return target_config
     raise SystemExit("no target_config.py in any --tools directory; pass --tools <the "
-                     "ui-acceptance skill's scripts directory")
+                     "ui-acceptance skill's scripts directory>")
 
 
 def page_stem(page: str) -> str:
@@ -168,7 +153,7 @@ def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
     if code == 0:
         return None
     text = (buf_out.getvalue() or buf_err.getvalue()).strip()
-    return ("error", text or f"target --validate exited {code}")
+    return ("error", text or f"target_config.py --validate exited {code}")
 
 
 # The shapes a `source` may take. A story is legal for the audit trail and warned on:

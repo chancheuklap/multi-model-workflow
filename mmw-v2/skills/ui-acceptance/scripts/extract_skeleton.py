@@ -148,14 +148,14 @@ def read_target_hashes(path: Path) -> dict[str, str]:
 
 
 def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) -> None:
-    sd = load_driver()
+    dr = load_driver()
     scenes = json.loads((handoff / "scenes.json").read_text(encoding="utf-8"))
-    pages = {sd.wrapper_path(s["name"]): sd.wrapper_page(sd.component_of(s["page"]),
+    pages = {dr.wrapper_path(s["name"]): dr.wrapper_page(dr.component_of(s["page"]),
                                                           s.get("props") or {})
              for s in scenes}
-    server, port = sd.serve_baseline(handoff, pages)
+    server, port = dr.serve_baseline(handoff, pages)
     origin = f"http://127.0.0.1:{port}"
-    route = sd.baseline_router(origin, handoff, sd.DEFAULT_CACHE)
+    route = dr.baseline_router(origin, handoff, dr.DEFAULT_CACHE)
     doc = None
     if contract is not None:
         import yaml
@@ -175,13 +175,13 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
         ctx.route("**/*", route)
         page = ctx.new_page()
         for s in scenes:
-            sd.navigate(page, f"{origin}{sd.wrapper_path(s['name'])}")
-            sd.wait_for_mount(page, "#dc-root")
-            shot = sd.capture(page, tmp / f"{s['name']}.png", selector="#dc-root",
-                              extra_js=sd.hide_js_for(doc, s["page"]) if doc else None)
+            dr.navigate(page, f"{origin}{dr.wrapper_path(s['name'])}")
+            dr.wait_for_mount(page, "#dc-root")
+            shot = dr.capture(page, tmp / f"{s['name']}.png", selector="#dc-root",
+                              extra_js=dr.hide_js_for(doc, s["page"]) if doc else None)
             found = controls(shot.aria)
             per_scene[s["name"]] = len(found)
-            trees[s["name"]] = sd.normalize_aria(shot.aria)
+            trees[s["name"]] = dr.normalize_aria(shot.aria)
             snapshots[s["name"]] = shot.aria
             classes[s["name"]] = sorted(shot.classes)
             for role, name in found:
@@ -202,7 +202,7 @@ def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) 
     print(f"scenes={result['scenes']} scene_x_control={result['scene_x_control']} "
           f"rows={result['rows']} -> {out}")
     if targets is not None:
-        written = write_targets(targets, handoff, scenes, trees, classes, sd.SCENE_HEADER,
+        written = write_targets(targets, handoff, scenes, trees, classes, dr.SCENE_HEADER,
                                 snapshots)
         print(f"targets: {len(written)} files under {targets}")
 

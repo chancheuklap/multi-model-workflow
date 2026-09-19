@@ -31,7 +31,7 @@ def load(name: str, modname: str):
     return module
 
 
-sd = load("design_render.py", "design_render")
+dr = load("design_render.py", "design_render")
 es = load("extract_skeleton.py", "extract_skeleton")
 
 
@@ -63,7 +63,7 @@ class TestQuotedLines(unittest.TestCase):
         ])
 
     def test_normaliser_reads_a_quoted_key_as_it_reads_a_plain_one(self):
-        self.assertEqual(sd.normalize_aria(QUOTED), [
+        self.assertEqual(dr.normalize_aria(QUOTED), [
             "- text: 任务 3",
             '- button: "#98 · wayfinder 落地流水线改造 6/18 落地"',
             "- button: ▾",
@@ -74,7 +74,7 @@ class TestQuotedLines(unittest.TestCase):
 
     def test_a_quoted_option_is_named_from_the_dom(self):
         aria = '- combobox "runner":\n  - \'option "a: b" [selected]\'\n  - option "orca"'
-        self.assertEqual(sd.name_options_from_dom(aria, ["a: b", "orca"]).splitlines(), [
+        self.assertEqual(dr.name_options_from_dom(aria, ["a: b", "orca"]).splitlines(), [
             '- combobox "runner":',
             '  - option "a: b" [selected]',
             '  - option "orca"',

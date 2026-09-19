@@ -16,7 +16,14 @@ HOME = tempfile.mkdtemp(prefix="mmw-target-config-home-")
 
 
 def load():
-    """A fresh `target_config`, and with it a `lease` bound to `HOME`."""
+    """A fresh `target_config`, and with it a `lease` bound to `HOME`.
+
+    Every command `target_config` declares runs with this run's lease in its
+    environment, and claiming one writes to a registry `lease.py` fixes at import
+    from `MMW_HOME`. Without a registry of its own here, the suite claims real
+    slots and overwrites the record of a run that is live — after which `release`
+    refuses, because the ports are still listened on, and that slot is lost for good.
+    """
     with mock.patch.dict(os.environ, {"MMW_HOME": HOME}, clear=False):
         spec = importlib.util.spec_from_file_location("target_config", SCRIPT)
         module = importlib.util.module_from_spec(spec)
@@ -25,7 +32,7 @@ def load():
     return module
 
 
-sd = load()
+tc = load()
 
 
 def tearDownModule():
@@ -37,12 +44,12 @@ class TestTargetConfig(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             with self.assertRaises(SystemExit) as raised:
-                sd.target_config(root)
+                tc.target_config(root)
             self.assertIn("target.json", str(raised.exception))
             (root / ".mmw").mkdir()
             (root / ".mmw" / "target.json").write_text(json.dumps(
                 {"discover": "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'"}))
-            cfg = sd.target_config(root)
+            cfg = tc.target_config(root)
             self.assertEqual(cfg["discover"], "printf %s '{\"cdp\": \"http://127.0.0.1:9229\"}'")
 
 
@@ -59,7 +66,7 @@ class TestTargetCheck(unittest.TestCase):
         from contextlib import redirect_stdout, redirect_stderr
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            code = sd.target_main(list(argv))
+            code = tc.target_main(list(argv))
         return code, out.getvalue(), err.getvalue()
 
     def test_kinds_are_the_named_product_kinds(self):
@@ -72,7 +79,7 @@ class TestTargetCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             code, out, _ = self.run_target("--check", "--repo", d, "--kind", "electron")
         self.assertEqual(code, 1)
-        for f in sd.FIELDS:
+        for f in tc.FIELDS:
             self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
         self.assertIn("target.kind: electron", out)
         self.assertIn("    origin — where the product is served", out)
@@ -125,7 +132,7 @@ class TestTargetCheck(unittest.TestCase):
     def test_a_wrong_instance_shape_is_named(self):
         cfg = dict(self.COMPLETE)
         cfg["instance"] = {"max": 0}
-        problems = sd.target_problems("electron", cfg)
+        problems = tc.target_problems("electron", cfg)
         self.assertEqual([k for k, _ in problems], ["instance"])
 
     def test_a_file_that_is_not_json_is_a_fault_not_absence(self):
@@ -154,7 +161,7 @@ class TestTargetCheck(unittest.TestCase):
     def test_the_runtime_refusal_names_the_check_command(self):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaises(SystemExit) as raised:
-                sd.target_config(Path(d))
+                tc.target_config(Path(d))
         self.assertIn("target_config.py --check", str(raised.exception))
 
 

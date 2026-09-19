@@ -14,7 +14,7 @@ field is shaped as it is are the fields below.
 
 ## What the repository answers
 
-Which of these a repository must answer is what `target --check` prints, field by
+Which of these a repository must answer is what `target_config.py --check` prints, field by
 field. This section says why each one is shaped the way it is.
 
 - **`start`.** One command brings the whole stack up and returns only once the
@@ -107,7 +107,7 @@ are [harness-guard.md](harness-guard.md).
 
 ## Three rules
 
-`target --check` prints these. It can see that `leaves_machine` is answered; it
+`target_config.py --check` prints these. It can see that `leaves_machine` is answered; it
 cannot see a Gateway address in the environment or whether a key is a
 placeholder. Those two are `start`'s job.
 
