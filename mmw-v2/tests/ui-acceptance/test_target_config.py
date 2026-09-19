@@ -59,7 +59,7 @@ class TestTargetCheck(unittest.TestCase):
     is complete. The runtime reader `target_config` keeps its smaller bar."""
 
     COMPLETE = {"start": "s", "stop": "t", "discover": "d", "stories": "st",
-                "leaves_machine": []}
+                "leaves_machine": [], "harness_markers": []}
 
     def run_target(self, *argv):
         import io
@@ -163,6 +163,21 @@ class TestTargetCheck(unittest.TestCase):
             with self.assertRaises(SystemExit) as raised:
                 tc.target_config(Path(d))
         self.assertIn("target_config.py --check", str(raised.exception))
+
+    def test_harness_markers_is_required_as_a_list_of_strings(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / ".mmw").mkdir()
+            (Path(d) / ".mmw" / "target.json").write_text("{}")
+            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "web-spa")
+        self.assertEqual(code, 1)
+        self.assertIn("  missing  harness_markers (list of strings)", out)
+        problems = tc.target_problems(
+            "web-spa", {**self.COMPLETE, "harness_markers": "nope"})
+        self.assertEqual([k for k, _ in problems], ["harness_markers"])
+        leaves = tc.target_problems(
+            "web-spa", {**self.COMPLETE, "leaves_machine": "nope"})
+        self.assertEqual([k for k, _ in leaves], ["leaves_machine"])
+        self.assertIn("[] when nothing leaves", leaves[0][1])
 
 
 if __name__ == "__main__":
