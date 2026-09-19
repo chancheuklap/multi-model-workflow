@@ -6,8 +6,8 @@
 # unittest over the driver, the story judge, the lease and the refusal text.
 # No tracker, no terminal. The story fixture starts Chromium.
 #
-# Pixel classes need numpy and Pillow. The runner is
-# `uv run --with numpy --with pillow`; without uv on PATH the run fails rather than
+# Pixel classes need Pillow. The runner is
+# `uv run --with pillow`; without uv on PATH the run fails rather than
 # passing on a half suite.
 #
 # MMW_FORCE_SKIP=1: this runner skips one test. A skip count other than 0, or a
@@ -75,7 +75,7 @@ else:
 ')"
 export MMW_LEASE_PORT_BASE
 
-if uv run --quiet --with numpy --with pillow python -u - "$HERE" "$pattern" <<'PY'
+if uv run --quiet --with pillow python -u - "$HERE" "$pattern" <<'PY'
 import os
 import sys
 import unittest
