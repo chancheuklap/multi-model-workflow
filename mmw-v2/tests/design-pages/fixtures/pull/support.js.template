@@ -1,0 +1,34 @@
+"use strict";
+const REACT_URL = "__VENDOR_ORIGIN__/assets/react.production.min.js";
+const REACT_DOM_URL = "__VENDOR_ORIGIN__/assets/react-dom.production.min.js";
+const BABEL_URL = "__VENDOR_ORIGIN__/assets/babel.min.js";
+for (const src of [REACT_URL, REACT_DOM_URL, BABEL_URL]) {
+  const script = document.createElement("script");
+  script.src = src;
+  document.head.appendChild(script);
+}
+window.DCLogic = class DCLogic {};
+class DcImport extends HTMLElement {
+  connectedCallback() { this.renderPage(); }
+  async renderPage() {
+    let root = document.getElementById("dc-root");
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "dc-root";
+      document.body.appendChild(root);
+    }
+    const name = this.getAttribute("name") || "";
+    const response = await fetch("./" + encodeURIComponent(name) + ".dc.html");
+    const source = new DOMParser().parseFromString(await response.text(), "text/html");
+    const component = source.querySelector("x-dc");
+    const helmet = component && component.querySelector("helmet");
+    if (helmet) {
+      for (const node of helmet.querySelectorAll("style")) {
+        document.head.appendChild(document.importNode(node, true));
+      }
+      helmet.remove();
+    }
+    root.innerHTML = component ? component.innerHTML : "";
+  }
+}
+customElements.define("dc-import", DcImport);

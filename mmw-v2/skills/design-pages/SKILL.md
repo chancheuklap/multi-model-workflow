@@ -8,7 +8,7 @@ description: Move an interface between a repository and Claude Design. Porting t
 Two directions. Read the one this run is going in; each names the MCP tools it needs and the shape of its own work.
 
 - **[Porting](references/porting.md)** — a mockup or a prototype's winning variant becomes components, app pages and an overview inside a Claude Design project.
-- **[Handoff](references/handoff.md)** — a finished project comes down into the consuming repository as the package the implementation is copied from and `story-parity.py` later compares each product story against, through the screen contract's `baselines.look`. After `scenes.json` is written, `<scripts>/export_scene_data.py` fills each scene's `data`.
+- **[Handoff](references/handoff.md)** — a finished project comes down into the consuming repository as the package the implementation is copied from and `story-parity.py` later compares each product story against, through the screen contract's `baselines.look`.
 
 This skill drives a Claude Design project through MCP tools, and there is no path through either direction without them.
 
@@ -23,7 +23,7 @@ Two of these scripts are run from a copy instead, under their bare names: `mk.py
 | Command | 0 | 1 | 2 |
 | --- | --- | --- | --- |
 | `<scripts>/check_editable_selectors.py` | `every selector is editor-resolvable (<n> files)` | `<n> selectors the editor cannot reach`, one line each above it | no file given, or one of the CSS files will not open |
-| `<scripts>/export_scene_data.py` | `exported <n>/<n> scenes` | `scenes.json` will not open or is not a list, or a scene will not run | wrong number of arguments, or a scene's props set `standalone` |
+| `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | text files need `--reread` | invocation error or the package cannot be completed; the target is unchanged |
 | `mk.py`, `<scripts>/mkharness.py`, `<scripts>/deadsweep.py` | it ran | it raised; the Python traceback is on stderr | — |
 
 The three in the last row have no exit code of their own — Python's own is the whole of it.

@@ -4,24 +4,26 @@
 
 What this writes is what the implementation is built from and what `story-parity.py` later compares each product story against. It lands in the prototype leaf directory the port started from, beside that port's `src`, `styles` and `data`.
 
-MCP tools: `mcp__claude-design__get_project` confirms the project id, `mcp__claude-design__list_files` and `mcp__claude-design__read_file` read it. Confirm they are callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
+MCP tools: `mcp__claude-design__list_files` gives the inventory, `mcp__claude-design__render_preview` gives the short-lived file address, and `mcp__claude-design__read_file` supplies a text file only when the pull names it for rereading. Confirm they are callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
 
 ## What comes down
 
-Every `.dc.html` page the project has — components and app pages alike, since a scene's data and its render both come from the page — plus `styles/`, `data/`, and `support.js`. These are what the implementation is held to, so they stay exactly as downloaded.
+Every project file comes down from the inventory except `design_handoff_*/`. The package includes every `.dc.html` page, `styles/`, `data/`, `support.js`, a generated `design-manifest.json`, `scenes.json`, `vendor/`, and `README.md`. Files already beside the package remain in place; a prototype leaf's `README.md` keeps its `## State list` section.
 
-Beside them, write `scenes.json`: one entry per scene, with `name`, `page` (the `.dc.html` it pins) and `props` (the prop set that puts the design page in that state). Then run `python3 <scripts>/export_scene_data.py <package dir>` from the directory the package sits in: for each scene it reads the downloaded page the scene pins — the `data-props` defaults under the scene's own props, the scripts the page loads, and its logic class — and runs that class in Node the way `support.js` runs it in a browser (construct, `componentDidMount`, `renderVals`), writing `{state, vals}` into that scene's `data`. The page is the whole input: a page written inside Claude Design and an app page written by hand export like any other, nothing under `src/` is read, and a source that has drifted from the page it once built cannot change the result. A scene whose props set `standalone` is scaffolding — the script names it and stops. When the package is downloaded again, run the export again. The `.dc.html`, `styles/`, `data/`, `support.js`, `scenes.json` and `vendor/` are what the driver renders, so every scene can be rendered later without opening the project. Whoever runs the handoff writes `README.md`, recording where each exact value, verbatim copy and `viewports` came from; a spec and its tickets take those from it.
+Save the unchanged JSON array from `list_files` with `depth: -1`, set `MMW_DESIGN_PREVIEW_URL` to `render_preview`'s `serve_url`, and run `<scripts>/pull_design.py <manifest.json> <handoff dir>`. The script downloads the files without sending their content through the model, generates every package file named above, and renders every scene with the network blocked. If it exits 1, read only the text paths it names with `read_file`, preserve their project-relative paths under one directory, and rerun with `--reread <dir>`.
+
+`scenes.json` has one entry per scene, with `name`, `page`, `props`, and the rendered `data-ui` values in `data`. The `.dc.html` page is the whole input; nothing under `src/` changes the result. `README.md` records each viewport source, the measured offline render result, the pull time, and the Claude Design project id.
 
 ## `vendor/` — the three scripts `support.js` loads
 
-`support.js` loads `react@18.3.1`, `react-dom@18.3.1` and `@babel/standalone@7.29.0` from unpkg. Download the three files it names — read the `REACT_URL`, `REACT_DOM_URL` and `BABEL_URL` constants in the `support.js` that came down, versions and all — into `vendor/` under their own file names (`react.production.min.js`, `react-dom.production.min.js`, `babel.min.js`). The driver answers those URLs from `vendor/` first, then from a local cache, then from the network. A project that starts from zero renders the package twice before it has any product (skeleton extraction, target trees), and with a cold cache and no network both would come out empty.
+`pull_design.py` reads the `REACT_URL`, `REACT_DOM_URL` and `BABEL_URL` constants from the downloaded `support.js`, downloads exactly those three addresses into `vendor/` under their URL file names, and uses those files for its offline render check.
 
 ## Naming the scenes
 
 A scene name comes from the values of each page's `scene` prop in its `data-props`, under three rules:
 
 - **A name carries no `/`.** The driver serves each scene from a page at `/__parity-<name>.dc.html` that loads `./support.js`; a slash puts that page in a subdirectory that has no `support.js`, and the root never appears.
-- **A `scene` value that more than one page uses becomes `<page>.<value>`**, so every name pins one page.
+- **Every name is `<page>.<value>`**, where `<page>` is the page's file name without `.dc.html`, so every name pins one page and never changes when another page gains the same value.
 - **The overview page is not a scene.** Canvas mode gives its root `height: auto` inside absolutely positioned frames, so the root has no height and its screenshot is empty. The product has no such page either.
 
 Done when: every scene in `scenes.json` has been rendered once and produced a non-empty root, with the network off, and every scene's `data` is non-empty.
