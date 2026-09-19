@@ -4,7 +4,7 @@ Every test of the toolbox's own scripts (the own-script layer), one directory pe
 
 ## Key Conventions
 
-- Each directory's `run.sh` is run on its own; its header states what it tests and which runtime it needs. A new suite follows the same header.
+- Each directory's `run.sh` is run on its own; its header states what it tests and which runtime it needs. A new suite follows the same header. `lib/` is not a suite: `-k` parsing (`parse_k.sh`) and the unittest verdict (`run_unittests.py`) for `ui-acceptance/run.sh` and `design-pages/run.sh` live there. Each of those two still owns its runtime — ui-acceptance sets `MMW_HOME`, probes a port block, injects `MMW_FORCE_SKIP`, and runs under `uv run --with pillow`; design-pages runs under `uv run --with 'playwright>=1.58'`.
 - A test file climbs two levels to `mmw-v2/` and descends into `skills/<name>/scripts/`, loading the script under test by path with `importlib` (`verify-ticket.py` is no identifier; `verify-ticket/_load.py` does that load, stubs `ticket_spec` to return `None` so no test reaches the tracker, and builds the event fixtures). `board/` climbs one level more, to the repository root, for `.mmw/` and `mmw-v2/board/`.
 - A runner strips the session's identity from the environment before running: `MMW_TICKET`, `MMW_CATALOG_MODE`, `MMW_SPEC`, `MMW_TASK_SCOPE`, `MMW_KIND`, `MMW_EVENTS_PY`, every `NMEM_*` variable, `PASEO_AGENT_ID`; a suite that tests judge ownership also strips `MMW_JUDGE_LEASE_OWNER`, so an outer acceptance run cannot make its inner judge skip cleanup; `dispatch/test_dispatch.sh` also strips `ORCA_TERMINAL_HANDLE` and `HERDR_PANE_ID` so only its fake runner answers `self`. A new `MMW_*` variable or a new runner joins this list, so that a suite run from inside a worker session leaves that session's real ticket and Memory boundary alone.
 - `MMW_HOME` isolation: `verify-ticket` and `ui-acceptance` point it at a `mktemp -d` for the whole suite; `dispatch`, `relay` and `liveness` set it inside their test files; `board` sets it nowhere, so a new board test that reaches `models.py` or the supervisor sets its own or writes into the real `~/.mmw`.
@@ -28,6 +28,5 @@ Every test of the toolbox's own scripts (the own-script layer), one directory pe
 | Command | What it does |
 | --- | --- |
 | `bash dispatch/test_dispatch.sh <scenario>` / `bash relay/test_relay.sh <scenario>` | One scenario by name; `all` runs every scenario |
-| `bash ui-acceptance/run.sh -k <pattern>` | Run only cases whose full unittest name matches the same substring or `*` pattern accepted by `python3 -m unittest -k`; a pattern that selects zero cases is a failure |
-| `bash design-pages/run.sh -k <pattern>` | Same `-k` rule as `ui-acceptance/run.sh`; a pattern that selects zero cases is a failure |
+| `bash ui-acceptance/run.sh -k <pattern>` / `bash design-pages/run.sh -k <pattern>` | Run only cases whose full unittest name matches the same substring or `*` pattern accepted by `python3 -m unittest -k`; a pattern that selects zero cases is a failure. Parsing and the verdict are `mmw-v2/tests/lib/` |
 | `MMW_FORCE_SKIP=1 bash ui-acceptance/run.sh` | Expected to go red: proves the runner's no-skip rule still holds |
