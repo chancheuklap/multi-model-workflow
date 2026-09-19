@@ -24,8 +24,8 @@ part of the repository and does not decide whether a commit is green.
 
 `.mmw/target.json` supplies `harness_markers` (the leak strings), `leaves_machine`
 (extra files allowed to hold those strings), and `stories` (the command whose named
-files are story-service code). Without `harness_markers` as a list of strings, the
-guard refuses: it does not fall back to `/api/dev/`, `transport off` or `__stub`.
+files are story-service code, including a file at the repository root). Without
+`harness_markers` as a list of strings, the guard refuses (exit 2).
 
 ## The criterion, in one shape
 
@@ -55,6 +55,7 @@ a check that is evaded reports nothing about the leaks beside what evaded it.
   that reaches past this machine. A design-page hit is a story service rendering a
   design page: point it at `scenes.json` instead.
 - `2`: the argument was not one directory (`usage: harness-guard.py <repository-root>`
-  or `no such directory: <path>` on stderr), or `.mmw/target.json` does not declare
-  `harness_markers` as a list of strings. The latter names the key and
-  `target_config.py --check` (a `refusal.py` three-part).
+  or `no such directory: <path>` on stderr), or `.mmw/target.json` is missing,
+  unreadable, or does not declare `harness_markers` as a list of strings. The
+  refusal names the fact it found and `target_config.py --check --repo <root>`
+  (a `refusal.py` three-part).

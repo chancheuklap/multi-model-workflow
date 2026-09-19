@@ -174,6 +174,10 @@ class TestTargetCheck(unittest.TestCase):
         problems = tc.target_problems(
             "web-spa", {**self.COMPLETE, "harness_markers": "nope"})
         self.assertEqual([k for k, _ in problems], ["harness_markers"])
+        leaves = tc.target_problems(
+            "web-spa", {**self.COMPLETE, "leaves_machine": "nope"})
+        self.assertEqual([k for k, _ in leaves], ["leaves_machine"])
+        self.assertIn("[] when nothing leaves", leaves[0][1])
 
 
 if __name__ == "__main__":

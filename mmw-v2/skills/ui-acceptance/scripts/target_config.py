@@ -241,7 +241,11 @@ def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
         if f.shape in ("command", "directory"):
             if not isinstance(value, str) or not value.strip():
                 problems.append((f.key, f"must be a non-empty {f.shape} string — e.g. {f.example}"))
-        elif f.shape == "list of strings":
+        elif f.key == "leaves_machine":
+            if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+                problems.append((f.key, f"must be a list of strings ([] when nothing leaves) "
+                                        f"— e.g. {f.example}"))
+        elif f.key == "harness_markers":
             if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
                 problems.append((f.key, f"must be a list of strings — e.g. {f.example}"))
         elif f.key == "instance":

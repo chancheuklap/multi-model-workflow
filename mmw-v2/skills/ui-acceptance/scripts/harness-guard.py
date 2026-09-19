@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -64,61 +65,60 @@ def is_leak(line: str, markers: tuple[str, ...]) -> bool:
     return any(marker in line for marker in markers)
 
 
-def load_target(root: Path) -> dict | None:
-    path = root / ".mmw" / "target.json"
+def load_target(root: Path) -> tuple[dict | None, str | None]:
+    rel = ".mmw/target.json"
+    path = root / rel
     if not path.is_file():
-        return None
+        return None, f"{rel} is not there."
     try:
         cfg = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return cfg if isinstance(cfg, dict) else None
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"{rel} cannot be read as JSON: {exc}"
+    if not isinstance(cfg, dict):
+        return None, f"{rel} must hold one JSON object."
+    return cfg, None
 
 
-def markers_of(cfg: dict) -> tuple[str, ...] | None:
+def markers_of(cfg: dict) -> tuple[tuple[str, ...] | None, str | None]:
     if "harness_markers" not in cfg:
-        return None
+        return None, ".mmw/target.json has no harness_markers."
     value = cfg["harness_markers"]
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        return None
-    return tuple(item for item in value if item)
+        return None, ".mmw/target.json harness_markers must be a list of strings."
+    return tuple(item for item in value if item), None
 
 
-def refuse_markers(root: Path) -> int:
-    path = root / ".mmw" / "target.json"
+def refuse_markers(repo: str, what: str) -> int:
+    # Part 2 is the first clause of the rule only: `refusal()` keeps parts 2–3
+    # whole and trims part 1, and `--repo` plus a machine path already spend
+    # most of the 256-character host limit.
     print(refusal(
-        f"{path} has no harness_markers.",
-        "The guard does not fall back to built-in markers.",
-        "Run `target_config.py --check` and answer harness_markers "
-        "([] if this product has none).",
+        what,
+        "The guard has no markers of its own.",
+        f"Run `target_config.py --check --repo {repo}` and answer harness_markers "
+        "([] if none).",
     ), file=sys.stderr)
     return 2
 
 
-def load_named_files(root: Path, cfg: dict) -> set[Path]:
-    """Files each `leaves_machine` entry names — the whole string, or a path in it."""
+def files_named_in(root: Path, text: str) -> set[Path]:
+    """Existing files under `root` that `text` names as a path, a token, or a slash-path."""
     named: set[Path] = set()
     root_r = root.resolve()
-    for item in cfg.get("leaves_machine") or []:
-        if not isinstance(item, str):
+    candidates = [text.strip(), *PATH_TOKEN.findall(text)]
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        tokens = text.split()
+    for token in tokens:
+        if token.startswith("-"):
             continue
-        candidates = [item.strip(), *PATH_TOKEN.findall(item)]
-        for raw in candidates:
-            candidate = (root / raw).resolve()
-            try:
-                candidate.relative_to(root_r)
-            except ValueError:
-                continue
-            if candidate.is_file():
-                named.add(candidate)
-    return named
-
-
-def files_named_in(root: Path, command: str) -> set[Path]:
-    """Existing files under `root` that a command string names as a path."""
-    named: set[Path] = set()
-    root_r = root.resolve()
-    for raw in PATH_TOKEN.findall(command):
+        candidates.append(token)
+    seen: set[str] = set()
+    for raw in candidates:
+        if not raw or raw in seen:
+            continue
+        seen.add(raw)
         candidate = (root / raw).resolve()
         try:
             candidate.relative_to(root_r)
@@ -126,6 +126,15 @@ def files_named_in(root: Path, command: str) -> set[Path]:
             continue
         if candidate.is_file():
             named.add(candidate)
+    return named
+
+
+def load_named_files(root: Path, cfg: dict) -> set[Path]:
+    """Files each `leaves_machine` entry names — the whole string, or a path in it."""
+    named: set[Path] = set()
+    for item in cfg.get("leaves_machine") or []:
+        if isinstance(item, str):
+            named |= files_named_in(root, item)
     return named
 
 
@@ -213,19 +222,23 @@ def iter_files(root: Path):
             yield here / name
 
 
+def numbered_lines(root: Path, path: Path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return
+    rel = path.resolve().relative_to(root).as_posix()
+    for number, line in enumerate(text.splitlines(), 1):
+        yield rel, number, line
+
+
 def scan_leaks(root: Path, files: list[Path], named: set[Path],
                markers: tuple[str, ...]) -> list[str]:
     leaks: list[str] = []
-    root_r = root.resolve()
     for path in files:
         if allowed(path, root, named):
             continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        rel = path.resolve().relative_to(root_r).as_posix()
-        for number, line in enumerate(text.splitlines(), 1):
+        for rel, number, line in numbered_lines(root, path):
             if is_leak(line, markers):
                 leaks.append(f"HARNESS LEAK {rel}:{number}")
     return leaks
@@ -233,14 +246,8 @@ def scan_leaks(root: Path, files: list[Path], named: set[Path],
 
 def scan_design_pages(root: Path, files: list[Path]) -> list[str]:
     hits: list[str] = []
-    root_r = root.resolve()
     for path in files:
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        rel = path.resolve().relative_to(root_r).as_posix()
-        for number, line in enumerate(text.splitlines(), 1):
+        for rel, number, line in numbered_lines(root, path):
             if DESIGN_PAGE in line:
                 hits.append(f"HARNESS DESIGN PAGE {rel}:{number}")
                 break
@@ -252,15 +259,18 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) != 1:
         sys.stderr.write("usage: harness-guard.py <repository-root>\n")
         return 2
-    root = Path(argv[0])
+    given = argv[0]
+    root = Path(given)
     if not root.is_dir():
         print(f"no such directory: {root}", file=sys.stderr)
         return 2
     root = root.resolve()
-    cfg = load_target(root)
-    markers = None if cfg is None else markers_of(cfg)
-    if cfg is None or markers is None:
-        return refuse_markers(root)
+    cfg, why = load_target(root)
+    if why is not None:
+        return refuse_markers(given, why)
+    markers, why = markers_of(cfg)
+    if why is not None:
+        return refuse_markers(given, why)
     files = list(iter_files(root))
     leaks = scan_leaks(root, files, load_named_files(root, cfg), markers)
     pages = scan_design_pages(root, story_service_files(root, cfg, files))

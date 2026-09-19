@@ -121,6 +121,32 @@ class WhatTheGuardReads(unittest.TestCase):
         combined = out + self.err
         self.assertIn("harness_markers", combined)
         self.assertIn("target_config.py --check", combined)
+        self.assertIn(f"--repo {self.root}", combined)
+        self.assertIn("has no harness_markers", self.err)
+
+    def test_a_missing_target_json_names_that_the_file_is_not_there(self):
+        (self.root / ".mmw" / "target.json").unlink()
+        code, _ = self.guard()
+        self.assertEqual(code, 2)
+        self.assertIn(".mmw/target.json is not there", self.err)
+        self.assertNotIn("has no harness_markers", self.err)
+
+    def test_unreadable_target_json_names_that_it_cannot_be_read(self):
+        self.write(".mmw/target.json", "{bad\n")
+        code, _ = self.guard()
+        self.assertEqual(code, 2)
+        self.assertIn("cannot be read as JSON", self.err)
+        self.assertNotIn("has no harness_markers", self.err)
+
+    def test_a_non_list_harness_markers_names_the_shape(self):
+        self.declare()
+        cfg = json.loads((self.root / ".mmw" / "target.json").read_text(encoding="utf-8"))
+        cfg["harness_markers"] = "nope"
+        self.write(".mmw/target.json", json.dumps(cfg) + "\n")
+        code, _ = self.guard()
+        self.assertEqual(code, 2)
+        self.assertIn("must be a list of strings", self.err)
+        self.assertNotIn("has no harness_markers", self.err)
 
     def test_a_declared_marker_outside_the_allowed_places_is_a_leak(self):
         self.declare(markers=["__backdoor__"])
@@ -153,9 +179,18 @@ class WhatTheGuardReads(unittest.TestCase):
     def test_a_file_the_stories_command_names_is_read_as_story_service(self):
         self.declare(stories="python3 src/story_server.py")
         self.write("src/story_server.py", 'open("Demo.dc.html")\n')
+        self.write("src/other.py", 'x = "Other.dc.html"\n')
         code, text = self.guard()
         self.assertEqual(code, 1)
         self.assertEqual(text, "HARNESS DESIGN PAGE src/story_server.py:1\n")
+
+    def test_a_root_level_file_the_stories_command_names_is_story_service(self):
+        self.declare(stories="node story.mjs")
+        self.write("story.mjs", 'import x from "./A.dc.html";\n')
+        self.write("src/other.py", 'x = "Other.dc.html"\n')
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        self.assertEqual(text, "HARNESS DESIGN PAGE story.mjs:1\n")
 
     def test_a_story_service_reading_scenes_json_only_is_ok(self):
         self.write(".mmw/stories/serve.py", 'scenes = "scenes.json"\n')
