@@ -2994,7 +2994,7 @@ def lint_screen_contract(body: str, number: int | None = None,
     is a non-empty command; a `journey.py run <name>` exists under `.mmw/journeys/`
     unless this ticket's `## Owns` covers that directory;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
-    nock, fetch-mock) — mocking the product's API client module is not that; the
+    nock, fetch-mock) — mocking the product's outbound call module is not that; the
     pipeline scripts are given what they need and nothing they retired; every
     baseline-class source of an owned row is under `## Read first` and every
     spec-section source is named by `## Parent`.
@@ -3009,7 +3009,7 @@ def lint_screen_contract(body: str, number: int | None = None,
         findings.extend(lint_pipeline_flags(gate_id, check))
         if FETCH_STUB_RE.search(check):
             findings.append(f"{gate_id}: CHECK stubs the application's own network; mock "
-                            f"the product's API client module instead")
+                            f"the product's outbound call module instead")
         for value in run_values(check):
             if not value.strip():
                 findings.append(f"{gate_id}: boundary-check.py --run is empty")
