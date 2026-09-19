@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 import unittest
 import urllib.parse
@@ -143,6 +144,25 @@ class PullDesign(unittest.TestCase):
             text=True,
             env=env,
         )
+
+    def report(self) -> str:
+        return (self.target / "pull-report.md").read_text(encoding="utf-8")
+
+    def state_list(self, body: str) -> Path:
+        path = self.work / "prototype-readme.md"
+        path.write_text("# Prototype\n\n## State list\n\n" + body, encoding="utf-8")
+        return path
+
+    def add_page(self, name: str, body: str) -> None:
+        self.preview.files[name] = textwrap.dedent(body).encode("utf-8")
+        self.write_manifest()
+
+    def commit_target(self) -> None:
+        subprocess.run(["git", "init", "-q"], cwd=self.work, check=True)
+        subprocess.run(["git", "config", "user.email", "tests@example.invalid"], cwd=self.work, check=True)
+        subprocess.run(["git", "config", "user.name", "MMW tests"], cwd=self.work, check=True)
+        subprocess.run(["git", "add", "handoff"], cwd=self.work, check=True)
+        subprocess.run(["git", "commit", "-qm", "baseline handoff"], cwd=self.work, check=True)
 
     def test_a_clean_project_pulls_every_file_and_exits_0(self):
         result = self.pull()
@@ -331,7 +351,7 @@ class PullDesign(unittest.TestCase):
         readme = (self.target / "README.md").read_text(encoding="utf-8")
         self.assertIn("## State list\n\n### Header\n- ready", readme)
 
-    def test_an_empty_offline_root_refuses_without_changing_the_target(self):
+    def test_an_empty_offline_root_is_reported_without_blocking_the_pull(self):
         page = self.preview.files["Component · Demo.dc.html"]
         start = page.index(b'<main data-ui="root">')
         end = page.index(b"</main>", start) + len(b"</main>")
@@ -340,8 +360,9 @@ class PullDesign(unittest.TestCase):
         self.target.mkdir()
         (self.target / "existing.txt").write_text("unchanged", encoding="utf-8")
         result = self.pull()
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.target / "existing.txt").read_text(), "unchanged")
+        self.assertIn("渲染为空", self.report())
 
     def test_a_missing_preview_url_exits_2(self):
         result = self.pull(unset_preview=True)
@@ -374,6 +395,186 @@ class PullDesign(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("MMW_DESIGN_PREVIEW_URL", result.stdout + result.stderr)
         self.assertNotIn("Traceback", result.stdout + result.stderr)
+
+    def test_every_pull_writes_the_report_with_its_four_sections(self):
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        for heading in ("## 设计检查", "## 覆盖", "## 改动分类", "## 本地改过的说明"):
+            self.assertEqual(report.count(heading), 1)
+
+    def test_the_report_lists_selectors_the_editor_cannot_reach(self):
+        self.preview.files["styles/app.css"] += b"\n.a .b .c { color: red; }\n"
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(".a .b .c", self.report())
+
+    def test_the_report_lists_scenes_that_render_empty_or_log_errors(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"<main data-ui=\"root\">",
+            b'''<main data-ui="root"><img data-ui="broken" src="missing.png" onerror="console.error('fixture boom')">''',
+            1,
+        )
+        self.add_page("Component · Empty.dc.html", """
+            <!doctype html><html><head><script src="./support.js"></script></head><body>
+            <x-dc></x-dc>
+            <script type="text/x-dc" data-dc-script data-props='{
+              "$preview":{"width":320,"height":200},
+              "scene":{"editor":"enum","options":["empty"]}
+            }'></script></body></html>
+        """)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("Component · Empty.empty", report)
+        self.assertIn("fixture boom", report)
+
+    def test_the_report_lists_states_missing_from_the_scene_prop(self):
+        state_list = self.state_list("### Demo\n- ready\n- empty\n- loading\n")
+        result = self.pull("--state-list", str(state_list))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Demo", self.report())
+        self.assertIn("loading", self.report())
+
+    def test_the_report_lists_elements_and_controls_without_data_ui(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>", b"<p>Unidentified copy</p><button>Unidentified action</button></main>", 1,
+        )
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("Unidentified copy", report)
+        self.assertIn("Unidentified action", report)
+
+    def test_the_report_lists_pages_without_a_scene_prop(self):
+        self.add_page("Component · Static.dc.html", """
+            <!doctype html><html><body><x-dc><p data-ui="static.copy">Static</p></x-dc>
+            <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":320,"height":200}}'></script>
+            </body></html>
+        """)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Component · Static.dc.html", self.report())
+
+    def test_the_report_lists_out_of_scope_values(self):
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("out_of_scope", report)
+        self.assertIn("future", report)
+
+    def test_without_a_state_list_the_report_says_it_was_not_checked(self):
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("state list 未给出，未核对", report)
+        self.assertNotIn("state list 没有缺失", report)
+
+    def test_a_first_pull_is_classified_as_first(self):
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("分类：首次", self.report())
+
+    def test_a_colour_change_is_classified_look_or_copy_only(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        self.preview.files["styles/app.css"] = b"body { color: #456; }\n"
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("分类：只改外观或文案", self.report())
+
+    def test_a_report_with_problems_still_exits_0(self):
+        self.preview.files["styles/app.css"] += b"\n.a .b .c { color: red; }\n"
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(".a .b .c", self.report())
+
+    def test_an_added_control_is_classified_controls_or_flow(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>", b'<button data-ui="demo.add">Add</button></main>', 1,
+        )
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("分类：增删控件或改流转", report)
+        self.assertIn("demo.add", report)
+
+    def test_a_changed_contract_row_text_is_reported(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(b">Demo</h1>", b">Updated demo</h1>")
+        self.write_manifest()
+        contract = self.work / "screen-contract.yaml"
+        contract.write_text(textwrap.dedent("""
+            rows:
+              - id: title
+                trigger: {role: heading, name: "Demo"}
+        """), encoding="utf-8")
+        result = self.pull("--contract", str(contract))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("分类：增删控件或改流转", report)
+        self.assertIn("title", report)
+        self.assertIn("Demo", report)
+        self.assertIn("Updated demo", report)
+
+    def test_a_locally_edited_package_gets_a_note(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        page = self.target / "Component · Demo.dc.html"
+        page.write_text(page.read_text(encoding="utf-8") + "\n<!-- local edit -->\n", encoding="utf-8")
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("pull 前 handoff package 有本地改动", self.report())
+
+    def test_an_added_scene_value_is_classified_controls_or_flow(self):
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b'"options": ["ready", "empty", "future"]',
+            b'"options": ["ready", "empty", "added", "future"]',
+        )
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("分类：增删控件或改流转", report)
+        self.assertIn("added", report)
+
+    def test_a_state_missing_from_its_own_page_is_reported_even_if_another_page_has_it(self):
+        self.add_page("Component · Other.dc.html", """
+            <!doctype html><html><head><script src="./support.js"></script></head><body>
+            <x-dc><main data-ui="other.root">Other</main></x-dc>
+            <script type="text/x-dc" data-dc-script data-props='{
+              "$preview":{"width":320,"height":200},
+              "scene":{"editor":"enum","options":["loading"]}
+            }'></script></body></html>
+        """)
+        state_list = self.state_list("### Demo\n- loading\n\n### Missing page\n- ready\n")
+        result = self.pull("--state-list", str(state_list))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = self.report()
+        self.assertIn("Demo", report)
+        self.assertIn("loading", report)
+        self.assertIn("找不到同名页", report)
+        self.assertIn("Missing page", report)
 
 
 if __name__ == "__main__":

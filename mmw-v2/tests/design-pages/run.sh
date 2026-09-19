@@ -4,8 +4,9 @@
 #   bash mmw-v2/tests/design-pages/run.sh [-k <pattern>]
 #
 # unittest over miniature Claude Design projects. pull_design.py renders with real
-# headless Chromium through `uv run --with playwright`; page generator tests execute
-# JavaScript with Node. Missing uv, Chromium or Node fails rather than passing half the suite.
+# headless Chromium through `uv run --with playwright`; report tests parse the screen
+# contract through PyYAML; page generator tests execute JavaScript with Node. Missing uv,
+# Chromium or Node fails rather than passing half the suite.
 #
 # A skip count other than 0, or a run count of 0, exits non-zero and does not
 # print `all passed`.
@@ -33,7 +34,7 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-if uv run --quiet --with 'playwright>=1.58' python -u - "$HERE" "$pattern" <<'PY'
+if uv run --quiet --with 'playwright>=1.58' --with 'pyyaml>=6' python -u - "$HERE" "$pattern" <<'PY'
 import sys
 import unittest
 

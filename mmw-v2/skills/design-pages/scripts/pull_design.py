@@ -1,11 +1,12 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["playwright>=1.58"]
+# dependencies = ["playwright>=1.58", "pyyaml>=6"]
 # ///
 """Pull one Claude Design project into a complete handoff package.
 
 Usage: pull_design.py <manifest.json> <handoff-dir> [--reread <dir>] [--tools <dir>]
+                      [--state-list <README.md>] [--contract <screen-contract.yaml>]
 
 The manifest is the unchanged JSON result of `mcp__claude-design__list_files` with
 `depth: -1`. The short-lived preview address is read only from
@@ -20,6 +21,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import urllib.error
@@ -29,6 +31,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
+
+import yaml
 
 
 READ_FILE_LIMIT = 256 * 1024
@@ -56,6 +60,17 @@ class HandoffPackage:
     scenes: list[dict]
     sizes: dict[str, tuple[int, int]]
     state_list: str = ""
+
+
+@dataclass
+class RenderAudit:
+    rendered: int
+    empty_scenes: list[str]
+    console_errors: list[tuple[str, str]]
+    data_ui_ids: set[str]
+    text_by_id: dict[str, list[str]]
+    text_without_id: list[tuple[str, str]]
+    controls_without_id: list[tuple[str, str]]
 
 
 class PullRefused(Exception):
@@ -484,7 +499,7 @@ def load_design_render(tools: Path | None):
 
 def render_scenes(
     package: HandoffPackage, vendor: dict[str, Path], tools: Path | None,
-) -> int:
+) -> RenderAudit:
     dr = load_design_render(tools)
     try:
         from playwright.sync_api import sync_playwright
@@ -519,18 +534,82 @@ def render_scenes(
             page = context.new_page()
             try:
                 rendered = 0
+                empty_scenes: list[str] = []
+                console_errors: list[tuple[str, str]] = []
+                data_ui_ids: set[str] = set()
+                text_by_id: dict[str, list[str]] = {}
+                text_without_id: list[tuple[str, str]] = []
+                controls_without_id: list[tuple[str, str]] = []
+                current_scene = [""]
+
+                def console_message(message):
+                    if message.type == "error":
+                        console_errors.append((current_scene[0], message.text))
+
+                def page_error(error):
+                    console_errors.append((current_scene[0], str(error)))
+
+                page.on("console", console_message)
+                page.on("pageerror", page_error)
                 for scene in package.scenes:
+                    current_scene[0] = scene["name"]
                     dr.resize(page, package.sizes[scene["page"]])
                     dr.navigate(page, f"{origin}{dr.wrapper_path(scene['name'])}")
                     dr.wait_for_mount(page, "#dc-root")
                     root = page.locator("#dc-root").first
                     if not root.inner_html().strip():
-                        raise PullRefused(
-                            f"offline render produced an empty root for {scene['name']}.",
-                            "A handoff scene that renders nothing is not a usable baseline.",
-                            "Fix that design page and rerun; the target was not changed.",
-                        )
+                        empty_scenes.append(scene["name"])
                     scene["data"] = dr.nest_ui_values(dr.read_ui_values(page, "#dc-root"))
+                    audit = root.evaluate("""
+                        root => {
+                          const visible = el => {
+                            const style = getComputedStyle(el);
+                            return style.display !== 'none' && style.visibility !== 'hidden'
+                              && el.getClientRects().length > 0;
+                          };
+                          const clean = value => (value || '').replace(/\\s+/g, ' ').trim();
+                          const label = el => {
+                            const classes = Array.from(el.classList || []).slice(0, 2);
+                            const stem = el.tagName.toLowerCase() + classes.map(c => '.' + c).join('');
+                            return stem + (clean(el.innerText) ? ': ' + clean(el.innerText).slice(0, 120) : '');
+                          };
+                          const rows = Array.from(root.querySelectorAll('*')).filter(visible);
+                          if (visible(root)) rows.unshift(root);
+                          const ids = {};
+                          const textMissing = [];
+                          const controlsMissing = [];
+                          for (const el of rows) {
+                            const id = el.getAttribute('data-ui');
+                            if (id) {
+                              (ids[id] ||= []).push(clean(el.innerText));
+                            }
+                            const ownText = clean(Array.from(el.childNodes)
+                              .filter(node => node.nodeType === Node.TEXT_NODE)
+                              .map(node => node.textContent).join(' '));
+                            if (!id && ownText && !['script', 'style'].includes(el.tagName.toLowerCase())) {
+                              textMissing.push(label(el));
+                            }
+                            if (!id && el.matches('button,input,select,textarea,a[href],[role="button"],[role="textbox"],[contenteditable="true"]')) {
+                              controlsMissing.push(label(el));
+                            }
+                          }
+                          return {ids, textMissing, controlsMissing};
+                        }
+                    """)
+                    for data_id, values in audit["ids"].items():
+                        data_ui_ids.add(data_id)
+                        text_by_id.setdefault(data_id, [])
+                        for value in values:
+                            if value not in text_by_id[data_id]:
+                                text_by_id[data_id].append(value)
+                    for label in audit["textMissing"]:
+                        row = (scene["name"], label)
+                        if row not in text_without_id:
+                            text_without_id.append(row)
+                    for label in audit["controlsMissing"]:
+                        row = (scene["name"], label)
+                        if row not in controls_without_id:
+                            controls_without_id.append(row)
                     rendered += 1
             finally:
                 browser.close()
@@ -545,7 +624,15 @@ def render_scenes(
     finally:
         server.shutdown()
         server.server_close()
-    return rendered
+    return RenderAudit(
+        rendered=rendered,
+        empty_scenes=empty_scenes,
+        console_errors=console_errors,
+        data_ui_ids=data_ui_ids,
+        text_by_id=text_by_id,
+        text_without_id=text_without_id,
+        controls_without_id=controls_without_id,
+    )
 
 
 def manifest_for_package(project: str, files: list[ManifestFile]) -> dict:
@@ -595,6 +682,276 @@ def state_list_section(readme: Path) -> str:
         return ""
     match = re.search(r"(?ms)^## State list\s*\n.*?(?=^## |\Z)", text)
     return match.group(0).rstrip() if match else ""
+
+
+def state_list_regions(section: str) -> dict[str, list[str]]:
+    regions: dict[str, list[str]] = {}
+    current = None
+    for line in section.splitlines():
+        heading = re.match(r"^###\s+(.+?)\s*$", line)
+        if heading:
+            current = heading.group(1).strip()
+            regions.setdefault(current, [])
+            continue
+        item = re.match(r"^\s*[-*]\s+(.+?)\s*$", line)
+        if item and current:
+            raw = item.group(1).strip()
+            if raw.startswith("`") and "`" in raw[1:]:
+                value = raw[1:].split("`", 1)[0]
+            else:
+                value = re.split(r"\s+(?:—|–|-)\s+|:\s+|\s+", raw, maxsplit=1)[0]
+            if value:
+                regions[current].append(value)
+    return regions
+
+
+def page_inventory(root: Path) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str]]:
+    scene_values: dict[str, set[str]] = {}
+    excluded_values: dict[str, set[str]] = {}
+    no_scene: list[str] = []
+    for page in sorted(root.rglob("*.dc.html")):
+        rel = page.relative_to(root).as_posix()
+        if page.name.casefold() == "overview.dc.html":
+            continue
+        props = page_props(page)
+        scene = props.get("scene")
+        if (
+            not isinstance(scene, dict)
+            or scene.get("editor") != "enum"
+            or not isinstance(scene.get("options"), list)
+        ):
+            no_scene.append(rel)
+            continue
+        scene_values[rel] = {str(value) for value in scene["options"]}
+        excluded_values[rel] = {str(value) for value in (scene.get("out_of_scope") or [])}
+    return scene_values, excluded_values, no_scene
+
+
+def selector_findings(root: Path) -> list[str]:
+    css_files = sorted(root.rglob("*.css"))
+    if not css_files:
+        return []
+    check = Path(__file__).with_name("check_editable_selectors.py")
+    result = subprocess.run(
+        [sys.executable, str(check), *(str(path) for path in css_files)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode not in (0, 1):
+        said = " ".join((result.stdout + result.stderr).split())
+        return [f"选择器检查未完成：{said or f'exit {result.returncode}'}"]
+    prefix = str(root) + os.sep
+    return [
+        line.replace(prefix, "", 1)
+        for line in result.stdout.splitlines()
+        if line.strip() and not line.startswith("every selector")
+        and not re.match(r"^\d+ selectors the editor cannot reach$", line)
+    ]
+
+
+def git_context(target: Path) -> tuple[Path, str] | None:
+    start = target if target.exists() else target.parent
+    result = subprocess.run(
+        ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    root = Path(result.stdout.strip()).resolve()
+    try:
+        relative = target.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return None
+    return root, relative
+
+
+def committed_snapshot(target: Path, destination: Path) -> tuple[Path | None, bool]:
+    context = git_context(target)
+    if context is None:
+        return None, False
+    repo, relative = context
+    exists = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "-e", f"HEAD:{relative}"],
+        capture_output=True,
+    )
+    if exists.returncode != 0:
+        return None, False
+    status = subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain=v1", "--untracked-files=all", "--", relative],
+        capture_output=True,
+        text=True,
+    )
+    locally_edited = bool(status.stdout.strip())
+    listed = subprocess.run(
+        ["git", "-C", str(repo), "ls-tree", "-r", "-z", "--name-only", "HEAD", "--", relative],
+        capture_output=True,
+        check=True,
+    ).stdout.split(b"\0")
+    destination.mkdir(parents=True)
+    prefix = relative.rstrip("/") + "/"
+    for raw in listed:
+        if not raw:
+            continue
+        full = raw.decode("utf-8", "surrogateescape")
+        if not full.startswith(prefix):
+            continue
+        rel = full.removeprefix(prefix)
+        blob = subprocess.run(
+            ["git", "-C", str(repo), "show", f"HEAD:{full}"],
+            capture_output=True,
+            check=True,
+        ).stdout
+        path = destination.joinpath(*PurePosixPath(rel).parts)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(blob)
+    return destination, locally_edited
+
+
+def vendor_map(root: Path) -> dict[str, Path]:
+    urls = vendor_urls(root / "support.js")
+    return {
+        url: root / "vendor" / Path(urllib.parse.urlsplit(url).path).name
+        for url in urls.values()
+    }
+
+
+def changed_pages(previous: Path, current: Path) -> list[str]:
+    old = {path.relative_to(previous).as_posix(): path for path in previous.rglob("*.dc.html")}
+    new = {path.relative_to(current).as_posix(): path for path in current.rglob("*.dc.html")}
+    changed = []
+    for name in sorted(set(old) | set(new)):
+        if name not in old or name not in new or old[name].read_bytes() != new[name].read_bytes():
+            changed.append(name)
+    return changed
+
+
+def contract_row_ids(path: Path | None) -> set[str]:
+    if path is None:
+        return set()
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        raise PullRefused(
+            f"screen contract cannot be read: {path} ({type(exc).__name__}).",
+            "Contract-referenced copy cannot be classified without its row ids.",
+            "Pass a readable screen-contract.yaml to --contract and rerun.",
+        ) from exc
+    rows = doc.get("rows") if isinstance(doc, dict) else None
+    if not isinstance(rows, list):
+        return set()
+    return {
+        str(row["id"])
+        for row in rows
+        if isinstance(row, dict) and isinstance(row.get("id"), str)
+    }
+
+
+def display_text(audit: RenderAudit, data_id: str) -> str | None:
+    values = audit.text_by_id.get(data_id)
+    if not values:
+        return None
+    return " | ".join(values)
+
+
+def write_pull_report(
+    package: HandoffPackage,
+    audit: RenderAudit,
+    previous: Path | None,
+    previous_audit: RenderAudit | None,
+    locally_edited: bool,
+    state_list_given: bool,
+    contract: Path | None,
+) -> None:
+    selectors = selector_findings(package.root)
+    current_scenes, excluded, no_scene = page_inventory(package.root)
+    lines = ["# Pull report", "", "## 设计检查", ""]
+    for finding in selectors:
+        lines.append(f"- 编辑器点不中的选择器：{finding}")
+    for scene in audit.empty_scenes:
+        lines.append(f"- 渲染为空：`{scene}`")
+    for scene, message in audit.console_errors:
+        lines.append(f"- 控制台报错：`{scene}` — {message}")
+    if not selectors and not audit.empty_scenes and not audit.console_errors:
+        lines.append("- 未发现设计检查问题。")
+
+    lines.extend(["", "## 覆盖", ""])
+    if not state_list_given:
+        lines.append("- state list 未给出，未核对。")
+    else:
+        regions = state_list_regions(package.state_list)
+        components = {
+            PurePosixPath(page).name.removesuffix(".dc.html").removeprefix("Component · "): values
+            for page, values in current_scenes.items()
+            if PurePosixPath(page).name.startswith("Component · ")
+        }
+        for region, states in regions.items():
+            if region not in components:
+                lines.append(f"- state list 区域找不到同名页：`{region}`")
+                continue
+            for state in states:
+                if state not in components[region]:
+                    lines.append(f"- state list 状态缺失：`{region}` 的 `{state}` 不在该页 `scene` prop。")
+        if not regions:
+            lines.append("- state list 的 `## State list` 下没有可核对的区域。")
+    for scene, label in audit.text_without_id:
+        lines.append(f"- 带文字但没有 `data-ui` id：`{scene}` — {label}")
+    for scene, label in audit.controls_without_id:
+        lines.append(f"- 可点或可输入却没有 `data-ui` id：`{scene}` — {label}")
+    for page in no_scene:
+        lines.append(f"- 没有 `scene` prop 的页面：`{page}`")
+    for page, values in sorted(excluded.items()):
+        for value in sorted(values):
+            lines.append(f"- `out_of_scope`：`{page}` 的 `{value}`")
+
+    lines.extend(["", "## 改动分类", ""])
+    if previous is None or previous_audit is None:
+        lines.append("- 分类：首次")
+        lines.append("- 没有上一次提交的 handoff package 可比较。")
+    else:
+        old_scenes, _old_excluded, _old_no_scene = page_inventory(previous)
+        pages = changed_pages(previous, package.root)
+        added_ids = sorted(audit.data_ui_ids - previous_audit.data_ui_ids)
+        removed_ids = sorted(previous_audit.data_ui_ids - audit.data_ui_ids)
+        scene_changes = []
+        for page in sorted(set(old_scenes) | set(current_scenes)):
+            added = sorted(current_scenes.get(page, set()) - old_scenes.get(page, set()))
+            removed = sorted(old_scenes.get(page, set()) - current_scenes.get(page, set()))
+            if added or removed:
+                scene_changes.append((page, added, removed))
+        copy_changes = []
+        for data_id in sorted(contract_row_ids(contract)):
+            old_text = display_text(previous_audit, data_id)
+            new_text = display_text(audit, data_id)
+            if old_text != new_text:
+                copy_changes.append((data_id, old_text, new_text))
+        controls_or_flow = bool(
+            added_ids or removed_ids or scene_changes
+            or set(path.relative_to(previous).as_posix() for path in previous.rglob("*.dc.html"))
+            != set(path.relative_to(package.root).as_posix() for path in package.root.rglob("*.dc.html"))
+            or copy_changes
+        )
+        category = "增删控件或改流转" if controls_or_flow else "只改外观或文案"
+        lines.append(f"- 分类：{category}")
+        lines.append("- design page：" + ("、".join(f"`{page}`" for page in pages) if pages else "无变化"))
+        lines.append("- `data-ui` id 新增：" + ("、".join(f"`{item}`" for item in added_ids) if added_ids else "无"))
+        lines.append("- `data-ui` id 删除：" + ("、".join(f"`{item}`" for item in removed_ids) if removed_ids else "无"))
+        for page, added, removed in scene_changes:
+            lines.append(
+                f"- `scene` 取值变化：`{page}`；新增 {', '.join(added) or '无'}；删除 {', '.join(removed) or '无'}。"
+            )
+        for data_id, old, new in copy_changes:
+            lines.append(f"- 合同行引用的文字变化：`{data_id}`：`{old or '(无)'}` → `{new or '(无)'}`")
+
+    lines.extend(["", "## 本地改过的说明", ""])
+    if previous is None:
+        lines.append("- 没有上一次提交，未作本地改动比较。")
+    elif locally_edited:
+        lines.append("- pull 前 handoff package 有本地改动；pull 仍已完成。")
+    else:
+        lines.append("- pull 前 handoff package 与上次提交一致。")
+    lines.append("")
+    (package.root / "pull-report.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def previous_paths(target: Path) -> set[str]:
@@ -679,19 +1036,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("target", nargs="?")
     parser.add_argument("--reread")
     parser.add_argument("--tools")
+    parser.add_argument("--state-list")
+    parser.add_argument("--contract")
     try:
         args, unknown = parser.parse_known_args(argv)
     except SystemExit as exc:
         raise PullRefused(
             "pull_design.py arguments could not be parsed.",
             "The command shape is fixed.",
-            "Run: pull_design.py <manifest.json> <handoff dir> [--reread <dir>] [--tools <dir>].",
+            "Run: pull_design.py <manifest.json> <handoff dir> [--reread <dir>] "
+            "[--tools <dir>] [--state-list <README.md>] [--contract <screen-contract.yaml>].",
         ) from exc
     if unknown or not args.manifest or not args.target:
         raise PullRefused(
             f"pull_design.py received {len(argv)} arguments.",
             "The command needs a manifest and a handoff directory.",
-            "Run: pull_design.py <manifest.json> <handoff dir> [--reread <dir>] [--tools <dir>].",
+            "Run: pull_design.py <manifest.json> <handoff dir> [--reread <dir>] "
+            "[--tools <dir>] [--state-list <README.md>] [--contract <screen-contract.yaml>].",
         )
     return args
 
@@ -710,14 +1071,24 @@ def run(args: argparse.Namespace) -> None:
     tools = Path(args.tools) if args.tools else None
     project = project_id_from_preview(preview)
     files = load_manifest(manifest)
+    requested_state_list = Path(args.state_list) if args.state_list else None
+    requested_section = state_list_section(requested_state_list) if requested_state_list else ""
+    contract = Path(args.contract) if args.contract else None
     target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".{target.name}.pull-", dir=target.parent) as temp:
-        staged = Path(temp) / "package"
-        state_list = prepare_staging(target, staged, files)
+        temp_root = Path(temp)
+        previous, locally_edited = committed_snapshot(target, temp_root / "previous")
+        staged = temp_root / "package"
+        preserved_state_list = prepare_staging(target, staged, files)
+        state_list = requested_section if requested_state_list is not None else preserved_state_list
         write_project_files(files, preview, reread, target, staged)
         vendor = pull_vendor(staged)
         package = scenes_from_pages(staged, state_list)
-        rendered = render_scenes(package, vendor, tools)
+        audit = render_scenes(package, vendor, tools)
+        previous_audit = None
+        if previous is not None:
+            previous_package = scenes_from_pages(previous)
+            previous_audit = render_scenes(previous_package, vendor_map(previous), tools)
         (staged / "scenes.json").write_text(
             json.dumps(package.scenes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
@@ -725,9 +1096,18 @@ def run(args: argparse.Namespace) -> None:
             json.dumps(manifest_for_package(project, files), ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        write_readme(package, project, rendered)
+        write_readme(package, project, audit.rendered)
+        write_pull_report(
+            package,
+            audit,
+            previous,
+            previous_audit,
+            locally_edited,
+            requested_state_list is not None,
+            contract,
+        )
         install(staged, target)
-    print(f"pulled {len(files)} files and rendered {rendered} scenes")
+    print(f"pulled {len(files)} files and rendered {audit.rendered} scenes")
 
 
 def main() -> int:
