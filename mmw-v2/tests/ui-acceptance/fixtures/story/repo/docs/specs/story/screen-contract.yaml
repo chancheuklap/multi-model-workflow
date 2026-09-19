@@ -8,7 +8,7 @@ pages:
   "Component · Demo.dc.html":
     mount: demo
     route: "/"
-    component: demo
+    component: demo-card
 scenes:
   alpha:
     page: "Component · Demo.dc.html"

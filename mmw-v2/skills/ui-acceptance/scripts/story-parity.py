@@ -363,7 +363,7 @@ def run(args) -> int:
 
     try:
         if args.render_only:
-            return render_only(plan, viewports, out, origin, route_baseline, hide_js)
+            return render_only(plan, viewports, out, media, origin, route_baseline, hide_js)
         assert cfg is not None
         with Stories(root, cfg) as stories:
             return compare(plan=plan, viewports=viewports, media=media,
@@ -376,16 +376,15 @@ def run(args) -> int:
         server.server_close()
 
 
-def render_only(plan, viewports, out, origin, route_baseline, hide_js) -> int:
-    """Design side only: screenshots under `out/media`, values under `out/values`.
+def render_only(plan, viewports, out, media, origin, route_baseline, hide_js) -> int:
+    """Design side only: screenshots under `media`, values under `out/values`.
 
     No product, and `.mmw/target.json` is not read. Each scene at each viewport is
-    one render; the values file is taken from that same capture.
+    one render; the values file is taken from that same capture. `run()` creates
+    `media`.
     """
     from playwright.sync_api import sync_playwright
 
-    media = Path(out) / "media"
-    media.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         ctx = browser.new_context(device_scale_factor=1, reduced_motion="reduce",

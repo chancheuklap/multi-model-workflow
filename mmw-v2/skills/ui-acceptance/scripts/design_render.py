@@ -711,10 +711,8 @@ class Shot:
 # on `[data-story-root]`.
 UI_VALUES_JS = """(root) => {
   const els = [];
-  if (root && root.hasAttribute && root.hasAttribute('data-ui')) els.push(root);
-  if (root && root.querySelectorAll) {
-    for (const el of root.querySelectorAll('[data-ui]')) els.push(el);
-  }
+  if (root.hasAttribute('data-ui')) els.push(root);
+  for (const el of root.querySelectorAll('[data-ui]')) els.push(el);
   const counts = {};
   for (const el of els) {
     const id = el.getAttribute('data-ui');
@@ -738,8 +736,6 @@ UI_VALUES_JS = """(root) => {
     }
     return null;
   };
-  const ancestors = new Map();
-  for (const el of els) ancestors.set(el, nearest(el));
   const ownText = (el) => {
     const parts = [];
     const walk = (node) => {
@@ -751,30 +747,19 @@ UI_VALUES_JS = """(root) => {
     walk(el);
     return parts.join('').replace(/\\s+/g, ' ').trim();
   };
-  const visible = (el) => {
-    const cs = getComputedStyle(el);
-    const r = el.getBoundingClientRect();
-    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') {
-      return false;
-    }
-    if (r.width === 0 || r.height === 0) return false;
-    return true;
-  };
+  const lastByAncestor = new Map();
   const out = [];
   for (const el of els) {
     const r = el.getBoundingClientRect();
-    const anc = ancestors.get(el);
-    let prev = null;
-    for (const other of els) {
-      if (other === el) break;
-      if (ancestors.get(other) === anc) prev = other;
-    }
     const cs = getComputedStyle(el);
+    const anc = nearest(el);
+    const prev = lastByAncestor.has(anc) ? lastByAncestor.get(anc) : null;
     const pr = prev ? prev.getBoundingClientRect() : null;
     const ar = anc ? anc.getBoundingClientRect() : null;
     out.push({
       id: qualified.get(el),
-      visible: visible(el),
+      visible: cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0'
+        && r.width !== 0 && r.height !== 0,
       text: ownText(el),
       size: [Math.round(r.width), Math.round(r.height)],
       ancestor: anc ? qualified.get(anc) : null,
@@ -789,6 +774,7 @@ UI_VALUES_JS = """(root) => {
         'border-radius': cs.getPropertyValue('border-radius'),
       },
     });
+    lastByAncestor.set(anc, el);
   }
   return out;
 }"""
@@ -859,12 +845,13 @@ def wait_for_mount(page, selector: str) -> None:
 
 def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] | None = None,
             extra_css: str | None = None, extra_js: str | None = None) -> Shot:
-    """Screenshot, tree, elements and class set of the subtree under `selector`, on a
-    page that has already been navigated and settled.
+    """Screenshot, tree, elements, class set and `[data-ui]` values of the subtree
+    under `selector`, on a page that has already been navigated and settled.
 
     The pixel judge sees `clip` — the mount element's box intersected with the
-    viewport, in viewport coordinates; the tree and the class set walk the whole
-    subtree, below the fold included. Both sides accept `extra_css` and `extra_js`: the
+    viewport, in viewport coordinates; the tree, the class set and the values walk the
+    whole subtree, below the fold included. Values are the same DOM read on `#dc-root`
+    and on `[data-story-root]`. Both sides accept `extra_css` and `extra_js`: the
     baseline side takes its frame and the retired controls' hiding through them; both
     sides take the `volatile_values` paint through `extra_js`.
     """

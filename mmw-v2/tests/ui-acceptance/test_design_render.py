@@ -454,8 +454,9 @@ class TestUiValues(unittest.TestCase):
     """The values file path and the JSON array `--render-only` writes."""
 
     def test_values_path_joins_mount_scene_and_viewport(self):
-        path = dr.values_path(Path("/out"), "demo", "alpha", (400, 300))
-        self.assertEqual(path, Path("/out") / "values" / "demo" / "alpha-400x300.json")
+        path = dr.values_path(Path("/out"), "library-app", "alpha", (400, 300))
+        self.assertEqual(
+            path, Path("/out") / "values" / "library-app" / "alpha-400x300.json")
 
     def test_write_values_writes_a_json_array(self):
         with tempfile.TemporaryDirectory() as d:

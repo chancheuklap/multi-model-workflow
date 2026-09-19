@@ -10,9 +10,10 @@ with the design page rendered offline from the handoff package — by accessibil
 tree and by pixels, at every viewport the contract names. The class set is not
 compared.
 
-Three agents come here. The one **building** the story page and its adapter needs the
-next section. The one **writing** the criterion needs the shape below it. The one
-**reading** a `DIFF` line needs the last section.
+Four agents come here. The one **taking design values before writing an interface
+ticket's code** needs **`--render-only`**. The one **building** the story page and
+its adapter needs the next section. The one **writing** the criterion needs the
+shape below it. The one **reading** a `DIFF` line needs the last section.
 
 ## The story page the product serves
 
@@ -111,10 +112,6 @@ EXPECT: STORY OK <passed>/<total>
 ticket names `--max-pct` only when its scenes are known to need another number,
 and says why beside the criterion.
 
-`--render-only` renders the design side of the selected scenes into `--out` with
-no product at all, so a worker can look at what it is building. The values file
-it writes is under **`--render-only`**.
-
 ## `--render-only`
 
 `--render-only` renders the design side of the selected scenes into `--out` and
@@ -133,10 +130,10 @@ under `#dc-root`:
 | `visible` | `false` when `display: none`, `visibility: hidden`, `opacity: 0`, or width or height is 0 |
 | `text` | the element's own character data plus descendants that do not carry `data-ui` (a `span.sc-interp` counts; a nested `[data-ui]` child does not). Whitespace collapsed, ends trimmed |
 | `size` | `[width, height]` in CSS pixels, integers |
-| `ancestor` | id of the nearest `[data-ui]` ancestor, or `null` |
-| `offset` | `[x, y]` of this element's top-left relative to that ancestor's top-left, or `null` |
-| `previous` | id of the previous `[data-ui]` element that shares this `ancestor`, or `null` |
-| `gap` | `[this.left − previous.right, this.top − previous.bottom]`, or `null` |
+| `ancestor` | id of the nearest `[data-ui]` ancestor, or `null`; a repeated id is written `<id>#<n>` as on `id` |
+| `offset` | `[x, y]` of this element's top-left relative to that ancestor's top-left, in CSS pixels, integers, or `null` |
+| `previous` | id of the previous `[data-ui]` element that shares this `ancestor`, or `null`; a repeated id is written `<id>#<n>` as on `id` |
+| `gap` | `[this.left − previous.right, this.top − previous.bottom]`, in CSS pixels, integers, or `null` |
 | `style` | `font-size`, `font-weight`, `color`, `background-color`, `border-radius` from `getComputedStyle` |
 
 ## Exit codes
