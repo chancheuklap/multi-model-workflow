@@ -83,7 +83,6 @@ class TestTargetCheck(unittest.TestCase):
             self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
         self.assertIn("target.kind: electron", out)
         self.assertIn("    origin — where the product is served", out)
-        self.assertIn("start refuses a Gateway address that points elsewhere", out)
         self.assertNotIn("  missing  reach", out)
         self.assertNotIn("transport_off", out)
         self.assertIn("e.g.", out)
@@ -163,6 +162,16 @@ class TestTargetCheck(unittest.TestCase):
             with self.assertRaises(SystemExit) as raised:
                 tc.target_config(Path(d))
         self.assertIn("target_config.py --check", str(raised.exception))
+
+    def test_check_prints_no_gateway_rule(self):
+        """`target_config.py --check` prints the rules block without Gateway."""
+        with tempfile.TemporaryDirectory() as d:
+            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "web-spa")
+        self.assertEqual(code, 1)
+        self.assertNotIn("Gateway", out)
+        self.assertIn("rules:", out)
+        self.assertIn("automation uses placeholder keys, vendor stubs, and local accounts", out)
+        self.assertIn("leaves_machine actions record under MMW_AUTOMATION=1", out)
 
     def test_harness_markers_is_required_as_a_list_of_strings(self):
         with tempfile.TemporaryDirectory() as d:
