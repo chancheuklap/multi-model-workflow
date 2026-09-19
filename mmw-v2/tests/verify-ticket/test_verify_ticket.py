@@ -23,7 +23,7 @@ from _load import SCRIPT, checked, event, load, started
 
 vt = load()
 
-DRIVE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
+UI_ACCEPTANCE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
 
 
@@ -718,7 +718,7 @@ class TestOutsideOwns(unittest.TestCase):
 def lease_in(home: Path):
     """`lease.py` of the ui-acceptance skill, its registry under `home`, not ~/.mmw."""
     spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
-                                                  DRIVE / "lease.py")
+                                                  UI_ACCEPTANCE / "lease.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     # `lease.py` asks `home()` for the root every time it needs a path, so the test's
@@ -770,7 +770,7 @@ class TestTheProductSlot(unittest.TestCase):
         sh("worktree", "add", "-q", "-b", "issue-1", str(main / ".worktrees" / "issue-1"))
         return main, (main / ".worktrees" / "issue-1").resolve()
 
-    def run_in(self, root: Path, body: str, comments=(), tools=(DRIVE,), lease="patched",
+    def run_in(self, root: Path, body: str, comments=(), tools=(UI_ACCEPTANCE,), lease="patched",
                reverify=False, actor=None, post=None, wait_s=0):
         posted: list[str] = []
         real_run = vt.subprocess.run

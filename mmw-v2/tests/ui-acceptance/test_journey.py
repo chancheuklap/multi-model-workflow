@@ -202,9 +202,24 @@ class JourneyOrder(unittest.TestCase):
         self.assertIn(pidfile.read_text(encoding="utf-8").strip(), out, "no pid to go to")
         self.assertNotIn("JOURNEY OK", out)
         self.assertIn("Reclaiming a slot from a live process", err)
-        self.assertNotIn("Traceback", err)
-        self.assertNotIn("SystemExit", err)
+        # Repo.run returning proves the release refusal did not escape as SystemExit;
+        # an escaped exception would make this test error before `code` existed.
         self.assertIsNotNone(LEASE.registered(LEASE.worktree_of(self.repo.root)))
+
+    def test_a_release_refusal_cannot_leave_a_success_exit(self):
+        class RefusingRun:
+            def __enter__(self):
+                return None
+
+            def __exit__(self, *_):
+                raise SystemExit("release refused")
+
+        with mock.patch.object(jy, "judge_run", return_value=RefusingRun()), \
+             mock.patch.object(jy, "_run_named", return_value=0), \
+             redirect_stderr(io.StringIO()) as err:
+            code = jy.run_named("demo", self.repo.root)
+        self.assertEqual(code, 1)
+        self.assertIn("release refused", err.getvalue())
 
     def test_stop_runs_when_the_script_fails(self):
         self.repo.write_journey(

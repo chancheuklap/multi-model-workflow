@@ -6144,9 +6144,8 @@ JSON
     grep -qF "$retired_script" "$config" \
       && fail "$config kept the retired script registration"
   done
-  grep -q '^trusted_hash = "sha256:' "$home/.codex/config.toml" \
-    || fail "Codex did not receive trusted_hash entries for the installed hooks"
-
+  # --check recomputes and checks the trusted_hash for every Codex hook handler,
+  # including this tool guard; a generic trusted_hash line could belong to another hook.
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 0 ] || fail "install --check failed: $(cat "$TMP/err")"
   grep -qx 'HOOKS-INSTALLED' "$TMP/out" \
@@ -6250,7 +6249,8 @@ run_installer() {
     printf '%s\n' "$MMW_TEST_ROOT_COPY" > "$home/.mmw/installed-root"
   fi
   : > "$MMW_TEST_LOG"
-  (MMW_V2_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
+  (env -u CODEX_HOME -u PI_CODING_AGENT_DIR -u PI_HOME \
+    MMW_V2_HOME="$home" bash "$installer" "$@" > "$TMP/out" 2> "$TMP/err"; echo $? > "$TMP/code")
 }
 
 scenario_installorcashape() {

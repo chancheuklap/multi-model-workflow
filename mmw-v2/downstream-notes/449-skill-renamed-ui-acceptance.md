@@ -4,7 +4,7 @@
 
 界面验收技能由 `drive-target` 改名为 `ui-acceptance`，技能的脚本令牌由 `<drive-target scripts>` 改为 `<ui-acceptance scripts>`。同时，`visual-parity.py` 改名为 `pixel_diff.py`，`references/runtime-environment.md` 改名为 `references/product-answers.md`。
 
-host 的命令守卫由 `ui-acceptance` 的 `scripts/hook.py` 搬到 `dispatch` 的 `scripts/tool-guard.py`。这项注册由 `mmw-v2/install.sh` 迁移，不是 consuming repository 自己的配置。
+host 的命令守卫由 `drive-target` 的 `scripts/hook.py` 搬到 `dispatch` 的 `scripts/tool-guard.py`。这项注册由 `mmw-v2/install.sh` 迁移，不是 consuming repository 自己的配置。
 
 ## 哪些产物失效
 
@@ -19,4 +19,4 @@ agentflow 当前有 6 个受影响文件：`.gitignore`、`.mmw/harness/target.p
 1. 把 ticket、screen contract 周边的命令和 agent 指令中的 `<drive-target scripts>` 换成 `<ui-acceptance scripts>`；把 `~/.agents/skills/drive-target/scripts/` 换成 `~/.agents/skills/ui-acceptance/scripts/`。
 2. 把按文件名导入的 `visual-parity.py` 换成 `pixel_diff.py`，把文档链接 `references/runtime-environment.md` 换成 `references/product-answers.md`。
 3. agentflow 按上述规则更新列出的 6 个文件；其中 `.mmw/harness/target.py` 的命令常量和拒绝文案必须一起改，否则一处仍会把 agent 引回不存在的旧技能。
-4. 新版 MMW 安装后运行一次 `bash mmw-v2/install.sh`，让它清除旧 `hook.py` 注册、写入 `dispatch/scripts/tool-guard.py` 注册并更新 Codex `trusted_hash`；随后运行 `bash mmw-v2/install.sh --check`，结果应包含 `HOOKS-INSTALLED` 且退出 0。Codex 可能在这次迁移后只弹出一次 hooks review，后续检查不应再弹出。
+4. 新版 MMW 安装后运行一次 `bash mmw-v2/install.sh`，让它清除旧 `hook.py` 注册、写入 `dispatch/scripts/tool-guard.py` 注册并更新 Codex `trusted_hash`；随后运行 `bash mmw-v2/install.sh --check`，结果应包含 `HOOKS-INSTALLED` 且退出 0。Codex 可能在这次迁移后只弹出一次「hooks need review」，出现时确认一次；后续检查不应再弹出。

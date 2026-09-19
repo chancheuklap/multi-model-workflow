@@ -61,7 +61,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 **story judge**:
 `scripts/story-parity.py` beside the ui-acceptance `SKILL.md`: it decides whether a product story matches the design page it was built from. Given `--contract` and `--pages <mount,…>` (and `--scenes` to narrow), it starts the `stories` command, opens each scene at each contract viewport, captures `[data-story-root]`, renders the design page offline with `#dc-root` pinned to that box (`frame_box`), and compares the normalised accessibility tree and pixels after sub-cell alignment. The class set is not compared. It prints `STORY OK <passed>/<total> pixel<=<worst>%` (exit 0), or one `DIFF <scene> <viewport> <pct>% (unaligned <pct>%) — <reasons>` line per failing pair (exit 1), or `NEGATIVE CONTROL FAILED` (exit 2). `--render-only` renders the design side alone. No address is on its line: a `CHECK:` names it bare, and `verify-ticket.py --tools` puts the ui-acceptance skill's `scripts/` on the `PATH` of the shell that runs it.
 _Admitted_: `story-parity.py`
-_Avoid_: pixel_diff.py (as the judge), interface parity, PARITY OK (the whole-product judge's success line), visual parity
+_Avoid_: interface parity, PARITY OK (the whole-product judge's success line), visual parity
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story adapter**:

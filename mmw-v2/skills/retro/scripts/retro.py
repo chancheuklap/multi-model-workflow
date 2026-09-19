@@ -25,7 +25,7 @@ REPO = Path.cwd().resolve()
 REPOSITORY_OVERRIDE = ""
 SPACE_CACHE = ""
 VERIFY = MMW / "skills" / "verify-ticket" / "scripts"
-DRIVE = MMW / "skills" / "ui-acceptance" / "scripts"
+UI_ACCEPTANCE = MMW / "skills" / "ui-acceptance" / "scripts"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards",
               "Global AGENTS.md", "Tool economy", "No-ops", "Information access")
 DESTINATIONS = ("check", "script", "repository-agents", "repository-skill",
@@ -45,7 +45,7 @@ def load(name: str, directory: Path = VERIFY):
 
 tree = load("tree")
 events = load("events")
-refusal = load("refusal", DRIVE)
+refusal = load("refusal", UI_ACCEPTANCE)
 
 
 class RetroError(RuntimeError):

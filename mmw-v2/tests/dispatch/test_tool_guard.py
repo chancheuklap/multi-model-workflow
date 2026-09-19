@@ -54,6 +54,29 @@ EVENTS = {
 }
 
 
+class TestRecordedRefusalsFit(unittest.TestCase):
+    """The refusals this module records fit and tell the worker what to do next."""
+
+    def texts(self) -> dict[str, str]:
+        return {
+            "closeout": hk.REFUSAL.format(n=999999),
+            "question": hk.NO_QUESTION,
+            "kill": hk.no_kill("kill 12345"),
+        }
+
+    def test_all_of_them_fit_what_a_host_will_show(self):
+        for name, text in self.texts().items():
+            with self.subTest(refusal=name):
+                self.assertLessEqual(len(text), rf.REASON_LIMIT)
+
+    def test_all_of_them_say_what_to_do_next(self):
+        ways_out = ("--closeout", "Decisions I made on my own", "stop", "ABANDON")
+        for name, text in self.texts().items():
+            with self.subTest(refusal=name):
+                self.assertTrue(any(word in text for word in ways_out),
+                                f"{name} diagnoses without naming a way out")
+
+
 @contextmanager
 def named_cwd(basename: str):
     """A temporary directory whose basename is the only fact `pretool` reads."""
