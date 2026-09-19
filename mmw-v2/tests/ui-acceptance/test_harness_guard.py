@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 import subprocess
 import tempfile
 import unittest
@@ -52,16 +53,31 @@ class WhatTheGuardReads(unittest.TestCase):
         self.root = Path(self.tmp.name) / "repo"
         (self.root / "src").mkdir(parents=True)
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        self.err = ""
+        self.declare()
 
     def write(self, relative: str, text: str) -> None:
         path = self.root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
 
+    def declare(self, markers=(), *, stories="true", omit_markers=False) -> None:
+        cfg = {
+            "start": "true",
+            "stop": "true",
+            "discover": "true",
+            "stories": stories,
+            "leaves_machine": [],
+        }
+        if not omit_markers:
+            cfg["harness_markers"] = list(markers)
+        self.write(".mmw/target.json", json.dumps(cfg) + "\n")
+
     def guard(self) -> tuple[int, str]:
-        out = io.StringIO()
-        with redirect_stdout(out):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
             code = hg.main([str(self.root)])
+        self.err = err.getvalue()
         return code, out.getvalue()
 
     def test_a_file_git_ignores_is_not_judged(self):
@@ -95,6 +111,55 @@ class WhatTheGuardReads(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("src/widget.ts:1", text)
         self.assertNotIn("interact.ts", text)
+
+    def test_a_target_json_without_harness_markers_exits_2_naming_it(self):
+        """The refusal names `target_config.py --check`. This test does not load
+        that script and does not claim a lease, so it does not set MMW_HOME."""
+        self.declare(omit_markers=True)
+        code, out = self.guard()
+        self.assertEqual(code, 2)
+        combined = out + self.err
+        self.assertIn("harness_markers", combined)
+        self.assertIn("target_config.py --check", combined)
+
+    def test_a_declared_marker_outside_the_allowed_places_is_a_leak(self):
+        self.declare(markers=["__backdoor__"])
+        self.write("src/app.js", "const x = '__backdoor__';\n")
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        self.assertIn("HARNESS LEAK src/app.js:1", text)
+
+    def test_an_old_builtin_marker_not_declared_is_not_a_leak(self):
+        self.write("src/app.js", 'console.log("transport off");\n')
+        self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
+
+    def test_an_empty_marker_list_still_judges_mmw_reads(self):
+        self.write("src/app.js", self.LEAK)
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        self.assertIn("HARNESS LEAK src/app.js:1", text)
+
+    def test_a_story_service_file_naming_a_dc_html_is_one_line_per_file(self):
+        self.write(".mmw/stories/serve.py", 'a = "Foo.dc.html"\nb = "Bar.dc.html"\n')
+        self.write(".mmw/stories/other.py", 'c = "Baz.dc.html"\n')
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        lines = [ln for ln in text.splitlines() if ln.startswith("HARNESS DESIGN PAGE ")]
+        self.assertEqual(len(lines), 2, text)
+        self.assertIn("HARNESS DESIGN PAGE .mmw/stories/serve.py:1", lines)
+        self.assertIn("HARNESS DESIGN PAGE .mmw/stories/other.py:1", lines)
+        self.assertNotIn("serve.py:2", text)
+
+    def test_a_file_the_stories_command_names_is_read_as_story_service(self):
+        self.declare(stories="python3 src/story_server.py")
+        self.write("src/story_server.py", 'open("Demo.dc.html")\n')
+        code, text = self.guard()
+        self.assertEqual(code, 1)
+        self.assertEqual(text, "HARNESS DESIGN PAGE src/story_server.py:1\n")
+
+    def test_a_story_service_reading_scenes_json_only_is_ok(self):
+        self.write(".mmw/stories/serve.py", 'scenes = "scenes.json"\n')
+        self.assertEqual(self.guard(), (0, "HARNESS OK\n"))
 
 
 if __name__ == "__main__":

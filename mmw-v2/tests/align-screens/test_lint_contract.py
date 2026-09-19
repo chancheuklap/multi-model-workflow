@@ -101,7 +101,7 @@ class Repo:
         mmw.mkdir()
         (mmw / "target.json").write_text(json.dumps({
             "start": "s", "stop": "t", "discover": "d",
-            "stories": "st", "leaves_machine": [],
+            "stories": "st", "leaves_machine": [], "harness_markers": [],
         }))
 
     def write_targets(self, stale_page=None):

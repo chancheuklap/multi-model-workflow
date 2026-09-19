@@ -3,16 +3,22 @@
 
     harness-guard.py <repository-root>
 
-Reads of `MMW_` variables, `/api/dev/`, `transport off`, and `__stub` may appear in
-`.mmw/`, `tests/`, `scripts/dev/`, a test file that ships with no release
-(`__tests__/`, `__mocks__/`, `*.test.*`, `*.spec.*`), and files `leaves_machine`
-names. Anywhere else is a leak.
+Reads of `MMW_` variables, and the strings `.mmw/target.json`'s `harness_markers`
+lists, may appear in `.mmw/`, `tests/`, `scripts/dev/`, a test file that ships with
+no release (`__tests__/`, `__mocks__/`, `*.test.*`, `*.spec.*`), and files
+`leaves_machine` names. Anywhere else is a leak. `[]` is a legal answer: this
+product has no back-door markers. Missing or unusable `harness_markers` is a
+refusal, not a default.
+
+Story-service files — everything under `.mmw/stories/`, and files the `stories`
+command names — may reference `scenes.json` and must not reference `.dc.html`.
 
 What is read is what the repository tracks, or would track — `git ls-files --cached
 --others --exclude-standard`.
 
-    HARNESS LEAK <file>:<line>     exit 1
-    HARNESS OK                     exit 0
+    HARNESS LEAK <file>:<line>          exit 1
+    HARNESS DESIGN PAGE <file>:<line>   exit 1
+    HARNESS OK                          exit 0
 """
 
 from __future__ import annotations
@@ -24,6 +30,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+
+from refusal import refusal  # noqa: E402
+
 READ_MMW = re.compile(
     r"os\.environ(?:\.get)?\(\s*['\"]MMW_"
     r"|os\.getenv\(\s*['\"]MMW_"
@@ -31,7 +43,6 @@ READ_MMW = re.compile(
     r"|\$\{?MMW_[A-Z0-9_]+"
     r"|env\[['\"]MMW_"
 )
-MARKERS = ("/api/dev/", "transport off", "__stub")
 PATH_TOKEN = re.compile(r"(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+")
 SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build",
@@ -44,23 +55,48 @@ SKIP_DIRS = {
 # hides every real leak beside it.
 TEST_DIRS = {"__tests__", "__mocks__"}
 TEST_FILE_RE = re.compile(r".+\.(?:test|spec)\.[A-Za-z0-9]+$")
+DESIGN_PAGE = ".dc.html"
 
 
-def is_leak(line: str) -> bool:
+def is_leak(line: str, markers: tuple[str, ...]) -> bool:
     if READ_MMW.search(line):
         return True
-    return any(marker in line for marker in MARKERS)
+    return any(marker in line for marker in markers)
 
 
-def load_named_files(root: Path) -> set[Path]:
-    """Files each `leaves_machine` entry names — the whole string, or a path in it."""
+def load_target(root: Path) -> dict | None:
     path = root / ".mmw" / "target.json"
     if not path.is_file():
-        return set()
+        return None
     try:
         cfg = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return set()
+        return None
+    return cfg if isinstance(cfg, dict) else None
+
+
+def markers_of(cfg: dict) -> tuple[str, ...] | None:
+    if "harness_markers" not in cfg:
+        return None
+    value = cfg["harness_markers"]
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        return None
+    return tuple(item for item in value if item)
+
+
+def refuse_markers(root: Path) -> int:
+    path = root / ".mmw" / "target.json"
+    print(refusal(
+        f"{path} has no harness_markers.",
+        "The guard does not fall back to built-in markers.",
+        "Run `target_config.py --check` and answer harness_markers "
+        "([] if this product has none).",
+    ), file=sys.stderr)
+    return 2
+
+
+def load_named_files(root: Path, cfg: dict) -> set[Path]:
+    """Files each `leaves_machine` entry names — the whole string, or a path in it."""
     named: set[Path] = set()
     root_r = root.resolve()
     for item in cfg.get("leaves_machine") or []:
@@ -76,6 +112,45 @@ def load_named_files(root: Path) -> set[Path]:
             if candidate.is_file():
                 named.add(candidate)
     return named
+
+
+def files_named_in(root: Path, command: str) -> set[Path]:
+    """Existing files under `root` that a command string names as a path."""
+    named: set[Path] = set()
+    root_r = root.resolve()
+    for raw in PATH_TOKEN.findall(command):
+        candidate = (root / raw).resolve()
+        try:
+            candidate.relative_to(root_r)
+        except ValueError:
+            continue
+        if candidate.is_file():
+            named.add(candidate)
+    return named
+
+
+def story_service_files(root: Path, cfg: dict, files: list[Path]) -> list[Path]:
+    """Tracked files under `.mmw/stories/`, plus files the `stories` command names."""
+    stories_root = (root / ".mmw" / "stories").resolve()
+    named: set[Path] = set()
+    command = cfg.get("stories")
+    if isinstance(command, str):
+        named = files_named_in(root, command)
+    chosen: list[Path] = []
+    seen: set[Path] = set()
+    for path in files:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        try:
+            resolved.relative_to(stories_root)
+            under_stories = True
+        except ValueError:
+            under_stories = False
+        if under_stories or resolved in named:
+            seen.add(resolved)
+            chosen.append(path)
+    return chosen
 
 
 def allowed(path: Path, root: Path, named: set[Path]) -> bool:
@@ -138,21 +213,38 @@ def iter_files(root: Path):
             yield here / name
 
 
-def scan(root: Path) -> list[str]:
-    named = load_named_files(root)
+def scan_leaks(root: Path, files: list[Path], named: set[Path],
+               markers: tuple[str, ...]) -> list[str]:
     leaks: list[str] = []
-    for path in iter_files(root):
+    root_r = root.resolve()
+    for path in files:
         if allowed(path, root, named):
             continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        rel = path.resolve().relative_to(root.resolve()).as_posix()
+        rel = path.resolve().relative_to(root_r).as_posix()
         for number, line in enumerate(text.splitlines(), 1):
-            if is_leak(line):
+            if is_leak(line, markers):
                 leaks.append(f"HARNESS LEAK {rel}:{number}")
     return leaks
+
+
+def scan_design_pages(root: Path, files: list[Path]) -> list[str]:
+    hits: list[str] = []
+    root_r = root.resolve()
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        rel = path.resolve().relative_to(root_r).as_posix()
+        for number, line in enumerate(text.splitlines(), 1):
+            if DESIGN_PAGE in line:
+                hits.append(f"HARNESS DESIGN PAGE {rel}:{number}")
+                break
+    return hits
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -164,9 +256,17 @@ def main(argv: list[str] | None = None) -> int:
     if not root.is_dir():
         print(f"no such directory: {root}", file=sys.stderr)
         return 2
-    leaks = scan(root.resolve())
-    if leaks:
-        print("\n".join(leaks))
+    root = root.resolve()
+    cfg = load_target(root)
+    markers = None if cfg is None else markers_of(cfg)
+    if cfg is None or markers is None:
+        return refuse_markers(root)
+    files = list(iter_files(root))
+    leaks = scan_leaks(root, files, load_named_files(root, cfg), markers)
+    pages = scan_design_pages(root, story_service_files(root, cfg, files))
+    lines = leaks + pages
+    if lines:
+        print("\n".join(lines))
         return 1
     print("HARNESS OK")
     return 0
