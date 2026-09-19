@@ -31,11 +31,11 @@
 | `**Work only a person can do**` 那一段 | 挪到 `references/person-ticket.md`，`SKILL.md` 第 4 问的第 3、4 支和 `triage/SKILL.md` 都指向它；只有 criterion 停在问题 3 或 4 的那次 run 才读到这段。我们改的：分两类，且要求 ticket 上用一个词点明是哪一类——`reaction`（被判的性质就是一个人的反应，人是量具，消不掉）与 `reach`（机器判得了但够不着，补上一个测试账号、一台备用机、一个 runner、一个还没人 Owns 的到达机制、或 consuming repository 一条不给测试出口的可测试性规则就能消掉——后两样是第 4 问「It is.」一支缺名字或缺 Owns 时的落点，与缺设备、缺凭证同形）。上游给的四个理由（判断、只有人有的访问权、设计决定、手工测试）在这条 landing pipeline 里是混的：判断大半归了 code review，设计决定是 the five questions 的第 5 问，两样都不该进这个盒子。同时列明 the five things：`## Parent`、是哪一类、看什么（一个点开就能看的链接，不是一条要跑的命令）、什么算对、`## Blocked by`。理由：这是全 landing pipeline 唯一一个不向机器交代理由的出口，一行散文防不住，写不出自己是哪一类就说明它归错了档；而它的读者是早上、在手机上、没有上下文的人，缺「什么算对」他只能回答「我说不上来」。上游改这一段 → 收上游措辞，两类与 the five things 保留 |
 | 模板之后的路径规则那一句 | 我们改的：收窄成 `no implementation file paths`，并明写两个例外——`## Seam` 的测试目录或测试文件，`## Owns` 的路径。理由：禁令反对的是散在描述里、一改名就错的实现路径；`## Owns` 写的不是「代码在哪」而是「你可以写哪」，文件在它里面怎么挪都不影响真值，而且它过期是可见失效（glob 匹配不到任何现存路径），不是静默误导。上游改这一句 → 收上游措辞，两个例外保留 |
 | 第 7 步的 Local files 分支与 `<local-ticket-template>` | 删掉，publish 的地方只有 issue tracker；`description`、read-back 那一步与模板后那一句都不提本地形态，`description` 写的是每张 ticket 一个 issue、带 blocking link。理由：本仓的 ticket 必须有 issue 号才走得动——`dispatch.sh` 按 `issue-<n>` 开 branch、`verify-ticket.py <n>` 按 ticket number 跑 acceptance criteria 并把结论评论回去、`status.py` 从 spec 的 `sub_issues` 取当晚的 frontier，三样都只认 issue tracker 上的号；本地文件形态出的 ticket 一步都走不了，留着只是给写 ticket 的一方一个走不通的选项，而且它那套粗体行加 `**Status:**` 与 `<issue-template>` 的固定节名不同形，`--lint` 也只认 `<issue-template>` 那一种。上游再改那一段 → 不收 |
-| 第 4 步里 interface parity 那条 acceptance criterion | 我们改的：正文不抄那条 `CHECK:` 的全文，只指去 `drive-target` 技能的 `references/story-parity.md` § The criterion, in one shape 照抄，不再点名 `verify-ticket` 技能持有该形状。形状只在那一节。抄成两份必漂：改一处，另一处跟不上。上游给 acceptance criterion 加同类模板 → 收上游，指去 `story-parity.md` 那一节保留 |
+| 第 4 步里 interface parity 那条 acceptance criterion | 我们改的：正文不抄那条 `CHECK:` 的全文，只指去 `ui-acceptance` 技能的 `references/story-parity.md` § The criterion, in one shape 照抄，不再点名 `verify-ticket` 技能持有该形状。形状只在那一节。抄成两份必漂：改一处，另一处跟不上。上游给 acceptance criterion 加同类模板 → 收上游，指去 `story-parity.md` 那一节保留 |
 | `<vertical-slice-rules>` | 删掉 `Each slice is sized to fit in a single fresh context window` 这一条。我们的 spec 通常很大，这条把 vertical slice 推得过细；粒度由 `### 6. Quiz the user` 那一步问 user 来定。上游改这条措辞 → 仍然删。上游把它换成别的尺寸规则 → 也删，保持 vertical slice 尺寸不设机械上限。其余段落我们没改，全取上游 |
 | 开头「issue tracker 与 triage label 词汇没给你就去装」那一句、第 4 步两处「回到 to-spec」、第 7 步 publish 那一句里「那个 tracker 是谁配置的」 | host 中立：四处点技能名的地方一律写成散文形式，开头那句与 `triage`、`wayfinder` 同一个说法。共同理由与三种替换写法见 [README.md](README.md#host-中立) |
 | 第 3 步 `<vertical-slice-rules>` 之后的 **contract ticket** 段、第 4 步 `CHECK:` 来源列表里的界面票判据条、`<issue-template>` `## Read first` 说明里界面票两条基线那几句、第 8 步 `--lint` 那条末尾的 `[screen-contract]` 一句 | 我们加的：spec 有 screen contract 时第一张固定是 contract ticket，交付 `.mmw/` 全部答案、story 页面骨架与 adapter 先例、`boundary-check.py` 交互助手先例、旅程骨架与守卫，判据 `journey.py run smoke`，其余票全被它阻塞；界面票按设计页拥有 `story-parity.py --pages` 与每条 `calls` 非 `none` 的行一条边界判据；`--lint` 的 `[screen-contract]` 把这些形状做成机器版。（它查的就是这些形状而已：`built_by`、`--scenes` 越界与未知 `--mount` 三条它从来没有查过——`--scenes` 那条规则是真的，由 `story-parity.py` 在运行时执行，不在 lint；`--mount` 对机器来说也不是 unknown，`PIPELINE_SCRIPTS` 把它列在 `story-parity.py` 的 retired 一栏里。）理由同 to-spec 那条。上游改这几处 → 收上游措辞，四处接回去（取代原先「observe 行出 wiring criterion」与「空壳 + addressing self-check」） |
-| 第 3 步 contract ticket 段里 `.mmw/target.json` 那句加「filled until `screen_driver.py target --check` of the `drive-target` skill exits 0」 | 我们改的，来自 mmw #158：target 归 `drive-target` 技能，字段由驱动器声明并由检查命令打印，contract ticket 的工人跑命令而不是读文档。上游改这一句 → 收上游措辞，检查命令与技能名保留 |
+| 第 3 步 contract ticket 段里 `.mmw/target.json` 那句加「filled until `target_config.py --check` of the `ui-acceptance` skill exits 0」 | 我们改的，来自 mmw #158：target 归 `ui-acceptance` 技能，字段由 `target_config.py` 声明并由检查命令打印，contract ticket 的工人跑命令而不是读文档。上游改这一句 → 收上游措辞，检查命令与技能名保留 |
 | 第 4 问「It is.」一支删掉「a screen composed against fixtures instead of the live client」那个例子；第 8 步 `## Owns` 一条加「跨仓库的工具改动不开票、当场改」；`<issue-template>` `## Read first` 加「界面票的 Read first 由行的 `source` 推导（baseline 类出处按文档去重，spec 小节与 story 经 Parent 到达）+ 目标树按行号两次查表」 | 我们改的，来自 mmw #115，#216 第 8 节未推翻的部分。fixtures 例子与「这正是本流水线要抓的失败」直接矛盾，删；推导 Read first 是正面修法。上游改这几处 → 收上游措辞，这几条保留 |
 | 开头两门表与 `references/ambiguity-scan.md` | 我们加的。见 `## 找漏 reference`。 |
 | 第 3 步 contract ticket 段的旅程落点与其后的 **acceptance ticket** 段 | 我们改的：旅程三种落点，spec 声明 **Cross-ticket flows** 时按行切 acceptance ticket。理由：#415 第 16 节。上游改合同票段 → 收上游措辞，三种落点与 acceptance ticket 段保留 |
@@ -78,7 +78,7 @@
 ## 合同票的 Read first 点名 story 页面那一节
 
 合同票交付的「story-page skeleton and one adapter precedent」那一句后面加一句：它的
-**Read first** 点名 `drive-target` 技能 `references/story-parity.md` 的
+**Read first** 点名 `ui-acceptance` 技能 `references/story-parity.md` 的
 **The story page the product serves**。
 
 理由是那一节的内容原先散在三份写给别人的文件里——`[data-story-root]` 在 `ui-parity.md`
@@ -86,9 +86,9 @@
 `references/spec-reviewer.md`（reviewer 读的），地址形状在 `targets/README.md` 第 4 条，
 adapter 读 `scenes.json` 的 `data` 在 `to-spec` 一句。这一段里的 `ui-parity.md` 与
 `targets/README.md` 两个名字**不改**，尽管两份文件都已改名（`story-parity.md`、
-`runtime-environment.md`）：这一句描述的是集中**之前**东西散在哪儿，那时候它们真叫这两个名字，
+`product-answers.md`）：这一句描述的是集中**之前**东西散在哪儿，那时候它们真叫这两个名字，
 换成今天的名字这条理由本身就变成假的。后来 `rg` 老名字的人最容易在这里「顺手修好」，别修。造 story 页面的那个 worker 一份都不会
-打开，`screen_driver.py target --check` 给 `stories` 字段的整句说明也只有「brings up the
+打开，`target_config.py --check` 给 `stories` 字段的整句说明也只有「brings up the
 story page service and prints its origin」。它只能先造错，再被
 `no visible [data-story-root] at <url>` 退回来。
 

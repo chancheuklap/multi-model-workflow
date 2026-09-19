@@ -19,7 +19,7 @@ python3 <absolute path to that script>
 
 Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
 
-A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`, `harness-guard.py …`), and `<engine>` puts the directory that holds them on the `PATH` of the shell that runs it; nothing in a ticket says where this machine keeps its skills. That directory is the `scripts/` of the `drive-target` skill, which `<engine>` resolves from its own location, so no run has to name it. `--tools <directory>` overrides it and is repeatable. A run whose ticket names a judge that neither the directories in force nor `PATH` holds is refused before anything starts: exit 2, the script named on stderr, nothing run and no comment posted. A criterion failing `command not found` reads exactly like one that ran and did not pass.
+A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`, `harness-guard.py …`), and `<engine>` puts the directory that holds them on the `PATH` of the shell that runs it; nothing in a ticket says where this machine keeps its skills. That directory is the `scripts/` of the `ui-acceptance` skill, which `<engine>` resolves from its own location, so no run has to name it. `--tools <directory>` overrides it and is repeatable. A run whose ticket names a judge that neither the directories in force nor `PATH` holds is refused before anything starts: exit 2, the script named on stderr, nothing run and no comment posted. A criterion failing `command not found` reads exactly like one that ran and did not pass.
 
 ## Find your run
 
@@ -36,4 +36,4 @@ No run of this skill tells anybody anything. What a run posts on the ticket is t
 
 ## Reached from here
 
-- **A criterion has to launch, reach or observe the running product; you are writing a story, boundary or journey criterion, or reading a `MISS` or `DIFF` line; the repository has no `.mmw/target.json`; you are about to touch a process or a port** → the `drive-target` skill. Its five rules while the product is running bind every run of this skill.
+- **A criterion has to launch, reach or observe the running product; you are writing a story, boundary or journey criterion, or reading a `MISS` or `DIFF` line; the repository has no `.mmw/target.json`; you are about to touch a process or a port** → the `ui-acceptance` skill. Its five rules while the product is running bind every run of this skill.

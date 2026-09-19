@@ -1,0 +1,31 @@
+effort: story
+locale: zh-CN
+baselines:
+  look: docs/prototypes/story/claude-design
+target:
+  kind: web-spa
+viewports: [400x300]
+pages:
+  "Component · Demo.dc.html":
+    mount: demo
+    route: "/"
+    component: demo-card
+  "App · Demo.dc.html":
+    mount: app
+    route: "/"
+    component: demo-app
+  "Component · Legacy.dc.html":
+    mount: legacy
+    component: legacy-card
+scenes:
+  alpha:
+    page: "Component · Demo.dc.html"
+  beta:
+    page: "Component · Demo.dc.html"
+  gamma:
+    page: "Component · Demo.dc.html"
+  app:
+    page: "App · Demo.dc.html"
+  legacy:
+    page: "Component · Legacy.dc.html"
+rows: []

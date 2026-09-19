@@ -16,8 +16,8 @@ lc = importlib.util.module_from_spec(spec)
 sys.modules["lint_contract"] = lc
 spec.loader.exec_module(lc)
 
-# The drive-target scripts the lint asks for target kinds and volatile matching.
-TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "drive-target" / "scripts"
+# The ui-acceptance scripts the lint asks for target kinds and volatile matching.
+TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
 
 PAGE_A = "Component · 新建商品项目.dc.html"
 PAGE_B = "Component · 壳头.dc.html"
@@ -101,7 +101,7 @@ class Repo:
         mmw.mkdir()
         (mmw / "target.json").write_text(json.dumps({
             "start": "s", "stop": "t", "discover": "d",
-            "stories": "st", "leaves_machine": [],
+            "stories": "st", "leaves_machine": [], "harness_markers": [],
         }))
 
     def write_targets(self, stale_page=None):
@@ -150,7 +150,7 @@ class TestScreenAxis(unittest.TestCase):
         (self.repo.root / ".mmw" / "target.json").unlink()
         errors, warnings = self.lint(contract())
         self.assertFalse(any("target.json" in e for e in errors), errors)
-        self.assertTrue(any("no .mmw/target.json" in w and "target --check" in w
+        self.assertTrue(any("no .mmw/target.json" in w and "target_config.py --check" in w
                             for w in warnings), warnings)
 
     def test_an_incomplete_target_json_is_an_error(self):

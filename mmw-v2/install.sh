@@ -2,7 +2,7 @@
 # 把九样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   hook              drive-target 的 hook.py 与 dispatch 的 turn-guard.py，写进各 host 自己的配置
+#   hook              dispatch 的 tool-guard.py 与 turn-guard.py，写进各 host 自己的配置
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
@@ -309,8 +309,8 @@ done
 # ---------------- hook ----------------
 
 # 技能和 subagent 是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。
-# 三样东西：drive-target 的 hook.py 的 pretool gate（五个 host）与 question gate（起 session
-# 的三个 host），dispatch 的 turn-guard.py 挂在五个 host 的回合结束事件上（claude、codex、grok
+# 三样东西：dispatch 的 tool-guard.py 的 pretool gate（五个 host）与 question gate（起 session
+# 的三个 host），同一技能的 turn-guard.py 挂在五个 host 的回合结束事件上（claude、codex、grok
 # 的 Stop，cursor 的 stop，pi 的 agent_settled）。四家写 JSON，pi 写扩展文件；每一处都指向
 # ~/.agents/skills 下的脚本——那已经是指回仓库的软链，所以改脚本不用重装。
 #
@@ -323,12 +323,12 @@ done
 # 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
 
-HOOK_SRC="$SELF_SRC/drive-target/scripts/hook.py"
+HOOK_SRC="$SELF_SRC/dispatch/scripts/tool-guard.py"
 
 if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
   MMW_MODE="$mode" \
-  MMW_HOOK="$NEUTRAL_DIR/drive-target/scripts/hook.py" \
+  MMW_HOOK="$NEUTRAL_DIR/dispatch/scripts/tool-guard.py" \
   MMW_GUARD="$NEUTRAL_DIR/dispatch/scripts/turn-guard.py" \
   MMW_NEUTRAL="$NEUTRAL_DIR" \
   MMW_HOOK_HOME="$HOME_DIR" \
@@ -349,12 +349,12 @@ home = Path(os.environ["MMW_HOOK_HOME"])
 codex_home = Path(os.environ["MMW_CODEX"])
 pi_home = Path(os.environ["MMW_PI"])
 
-# hook.py 只比对命令文本，不跑任何东西，所以给它 host 默认之下的一个短超时就够。
+# tool-guard.py 只比对命令文本，不跑任何东西，所以给它 host 默认之下的一个短超时就够。
 TIMEOUT = 10
 
 PI_EXTENSION = """// installed by mmw-v2/install.sh
-// hook.py 在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 tool_call 上调
-// 同一个 hook.py，再把它的答案翻回 pi 的说法。
+// tool-guard.py 在 pi 这一侧的形状：pi 不读 JSON 配置，所以由这个扩展在 tool_call 上调
+// 同一个 tool-guard.py，再把它的答案翻回 pi 的说法。
 // @ts-nocheck
 
 import { spawnSync } from "node:child_process";
@@ -363,7 +363,7 @@ import { basename } from "node:path";
 const HOOK = "%(hook)s";
 
 export default function (pi) {
-  // cwd 的 basename 是 issue-<n> 才调 hook.py；main agent 不在这样的目录里。
+  // cwd 的 basename 是 issue-<n> 才调 tool-guard.py；main agent 不在这样的目录里。
   if (!/^issue-\\d+$/.test(basename(process.cwd()))) return;
 
   pi.on("tool_call", async (event, ctx) => {
@@ -388,7 +388,7 @@ QUESTION = f"python3 '{hook}' question "
 
 guard = os.environ["MMW_GUARD"]
 # turn-guard.py 在回合结束时可能要拉起 watchdog 并等它最多 5 秒，再问 runner 一次 self，
-# 所以给它比 hook.py 长的超时。
+# 所以给它比 tool-guard.py 长的超时。
 GUARD_TIMEOUT = 30
 STOP = f"python3 '{guard}' stop "
 # 写给 claude 的每一条命令前面都带它（见本段开头）。
@@ -654,7 +654,7 @@ def sweep(path, fmt, keep):
 
 
 # 一行一个安装点：host 根、配置文件、事件名（只出现在输出里）、装与查两个动作。
-# grok 把 hooks/*.json 全部合并读入，所以 hook.py 独占一个文件；claude 与 codex 只有一份
+# grok 把 hooks/*.json 全部合并读入，所以 tool-guard.py 独占一个文件；claude 与 codex 只有一份
 # 配置，几条都写进去。
 grouped_hosts = [
     ("claude", home / ".claude", home / ".claude/settings.json"),

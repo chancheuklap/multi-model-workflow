@@ -1,0 +1,64 @@
+"""A refusal is a deliverable with a shape, not an error string.
+
+Three parts, in order: what happened with a fact in it, why, and what to do next. The
+third is the one that must survive, because a refusal that only diagnoses is where the
+improvising starts — on 2026-09-05 three workers met one correct message and answered it
+three different wrong ways.
+"""
+
+import importlib.util
+import sys
+import unittest
+from pathlib import Path
+
+SKILLS = Path(__file__).resolve().parents[2] / "skills"
+SCRIPTS = SKILLS / "ui-acceptance" / "scripts"
+
+
+def load(name: str):
+    spec = importlib.util.spec_from_file_location(f"mmw_{name}_under_test",
+                                                  SCRIPTS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+rf = load("refusal")
+
+
+class Shape(unittest.TestCase):
+    def test_the_three_parts_come_out_in_order(self):
+        text = rf.refusal("Port 8794 is held by pid 12.", "It is another run's.",
+                          "Report the ticket blocked and stop.")
+        self.assertTrue(text.startswith("Port 8794 is held by pid 12."))
+        self.assertTrue(text.endswith("Report the ticket blocked and stop."))
+
+    def test_a_refusal_without_a_next_step_is_refused_itself(self):
+        with self.assertRaises(ValueError):
+            rf.refusal("Something went wrong.", "Because.", "")
+
+    def test_the_fact_is_trimmed_first_and_the_way_out_never(self):
+        """The reader can look a fact up. They cannot guess an instruction."""
+        text = rf.refusal("x" * 400, "It is another run's.",
+                          "Report the ticket blocked and stop.")
+        self.assertLessEqual(len(text), rf.REASON_LIMIT)
+        self.assertTrue(text.endswith("Report the ticket blocked and stop."))
+        self.assertIn("…", text, "the fact was dropped rather than trimmed")
+
+    def test_the_limit_is_the_one_a_host_measured(self):
+        self.assertEqual(rf.REASON_LIMIT, 256)
+
+
+class RecordedRefusalsFit(unittest.TestCase):
+    """The refusal this module records has to fit and say what to do."""
+
+    def test_all_of_them_fit_what_a_host_will_show(self):
+        self.assertLessEqual(len(rf.REPORT_BLOCKED), rf.REASON_LIMIT)
+
+    def test_all_of_them_say_what_to_do_next(self):
+        self.assertIn("stop", rf.REPORT_BLOCKED)
+
+
+if __name__ == "__main__":
+    unittest.main()

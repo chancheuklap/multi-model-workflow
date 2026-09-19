@@ -1,0 +1,7 @@
+#!/bin/sh
+# Write through one route, then read the result through another. The final assertion is
+# what the break control measures: a journey that stops after the write cannot detect a
+# failed result route, while this one can.
+set -e
+curl -sf --max-time 5 -X POST --data 'saved by journey' "$ORIGIN/write/42" >/dev/null
+curl -sf --max-time 5 "$ORIGIN/result/42" | grep -q '^saved by journey$'

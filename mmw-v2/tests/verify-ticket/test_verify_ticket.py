@@ -23,7 +23,7 @@ from _load import SCRIPT, checked, event, load, started
 
 vt = load()
 
-DRIVE = SCRIPT.parents[2] / "drive-target" / "scripts"
+UI_ACCEPTANCE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
 
 
@@ -716,9 +716,9 @@ class TestOutsideOwns(unittest.TestCase):
 
 
 def lease_in(home: Path):
-    """`lease.py` of the drive-target skill, its registry under `home`, not ~/.mmw."""
+    """`lease.py` of the ui-acceptance skill, its registry under `home`, not ~/.mmw."""
     spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
-                                                  DRIVE / "lease.py")
+                                                  UI_ACCEPTANCE / "lease.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     # `lease.py` asks `home()` for the root every time it needs a path, so the test's
@@ -735,6 +735,18 @@ PLAIN = ticket("- [ ] AC1: the importer writes six rows",
                "  CHECK: echo 'wrote 6 rows'",
                "  EXPECT: wrote 6 rows",
                "  EVIDENCE: pending")
+TARGET_CHECK = ticket("- [ ] AC1: the target file is complete",
+                      "  CHECK: python3 mmw-v2/skills/ui-acceptance/scripts/target_config.py --check",
+                      "  EXPECT: complete: the judges can drive this repository",
+                      "  EVIDENCE: pending")
+
+
+class TestTargetConfigCheckNeedsNoProduct(unittest.TestCase):
+    """Checking `.mmw/target.json` does not start the product, so it takes no slot."""
+
+    def test_target_config_check_needs_no_product(self):
+        self.assertFalse(vt.needs_product(TARGET_CHECK))
+        self.assertTrue(vt.needs_product(PRODUCT))
 
 
 class TestTheProductSlot(unittest.TestCase):
@@ -770,7 +782,7 @@ class TestTheProductSlot(unittest.TestCase):
         sh("worktree", "add", "-q", "-b", "issue-1", str(main / ".worktrees" / "issue-1"))
         return main, (main / ".worktrees" / "issue-1").resolve()
 
-    def run_in(self, root: Path, body: str, comments=(), tools=(DRIVE,), lease="patched",
+    def run_in(self, root: Path, body: str, comments=(), tools=(UI_ACCEPTANCE,), lease="patched",
                reverify=False, actor=None, post=None, wait_s=0):
         posted: list[str] = []
         real_run = vt.subprocess.run
