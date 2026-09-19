@@ -4,8 +4,8 @@
 #   bash mmw-v2/tests/design-pages/run.sh [-k <pattern>]
 #
 # unittest over miniature Claude Design projects. pull_design.py renders with real
-# headless Chromium through `uv run --with playwright`; page generator tests execute
-# JavaScript with Node. Missing uv, Chromium or Node fails rather than passing half the suite.
+# headless Chromium through `uv run --with playwright`. Missing uv or Chromium
+# fails rather than passing half the suite.
 #
 # A skip count other than 0, or a run count of 0, exits non-zero and does not
 # print `all passed`.
@@ -21,11 +21,6 @@ if [[ $# -ne 0 ]]; then
     exit 2
   fi
   pattern="$2"
-fi
-
-if ! command -v node >/dev/null 2>&1; then
-  echo "design-pages failed: node is not on PATH" >&2
-  exit 1
 fi
 
 if ! command -v uv >/dev/null 2>&1; then
