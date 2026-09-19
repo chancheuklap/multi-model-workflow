@@ -1,37 +1,32 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["numpy>=2", "Pillow>=10", "playwright>=1.58", "psutil>=7", "pyyaml>=6"]
+# dependencies = ["Pillow>=10", "playwright>=1.58", "psutil>=7", "pyyaml>=6"]
 # ///
-"""Compare a product story page with the design page it was built from, scene by scene.
+"""Compare a product story with its design page by `data-ui` element facts.
 
     uv run story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <mount,…>
 
-The screen contract names the handoff package (`baselines.look`), the sizes
-(`viewports`), and which design page each scene is on (`pages`, `scenes`). `--pages`
-names the `pages.<page>.mount` values this run covers — the non-`App · ` design pages.
-`--scenes` narrows that to a subset. Addresses come from `.mmw/target.json`'s `stories`
-command, which prints `origin`; the story URL is
+The screen contract names the handoff package, viewports, pages and scenes. `--pages`
+names the `pages.<page>.mount` values this run covers, including `App · ` pages;
+`--scenes` narrows that set. `.mmw/target.json`'s `stories` command prints the
+origin, and the story URL is
 `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`.
 
-The product side is the story page, captured at `[data-story-root]`. The design side is
-the existing baseline server and wrapper page, with `#dc-root` pinned to the box that
-root measured (`frame_box`). The two judges are the normalised accessibility tree and
-pixels after sub-cell alignment. Class names are not compared. No paused clock is
-installed on the story page; the design side uses `navigate`'s 200 ms of virtual time.
+The product side is `[data-story-root]`; the design side is `#dc-root`, pinned to
+that root's measured box. The same reader takes each side's `data-ui` facts. Pixel
+difference images are written as evidence and do not decide the result. Class names,
+font families, line heights, hover and focus styles are not compared.
 
 Exit codes
 ----------
-Exit 0 and one line `STORY OK <passed>/<total> pixel<=<worst>%` when every scene matches
-at every viewport. Exit 1 with one `DIFF` line per failing pair, each followed by the
-tree lines that differ. Exit 2 when the negative control fails, when the stories
-command does not come up, when a story page is 404, or when `--pages` names a mount
-the contract does not declare.
+Exit 0 and one line `STORY OK <passed>/<total>` when every pair matches. Exit 1
+with one `DIFF` line per differing element fact. Exit 2 when either negative control
+fails, the story service is unreachable, or the requested mount/scene is invalid.
 
-`--out` holds the screenshot, the tree and the differing-pixel picture for every scene
-and viewport. `--render-only` renders the design side of the selected scenes into
-`--out` and stops, needing no product: screenshots under `--out/media`, and one
-values file per scene and viewport at `--out/values/<mount>/<scene>-<W>x<H>.json`.
+`--out` holds screenshots, capture evidence and a pixel difference image for every
+pair. `--render-only` needs no product and writes the design facts to
+`--out/values/<mount>/<scene>-<W>x<H>.json`.
 """
 
 from __future__ import annotations
@@ -40,11 +35,13 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import urlencode
 
 
@@ -57,22 +54,33 @@ def _load(name: str, modname: str):
     return mod
 
 
-vp = _load("pixel_diff.py", "pixel_diff")
-dr = vp.dr
+dr = _load("design_render.py", "design_render")
 tc = _load("target_config.py", "target_config")
 
-# Reused from pixel_diff.py: do not copy.
-pixel_diff = vp.pixel_diff
-Comparison = vp.Comparison
-NEGATIVE_CONTROL_HEAD = vp.NEGATIVE_CONTROL_HEAD
-NEGATIVE_CONTROL_SCENE = vp.NEGATIVE_CONTROL_SCENE
-DEFAULT_MAX_PCT = vp.DEFAULT_MAX_PCT
+pixel_diff = _load("pixel_diff.py", "pixel_diff").pixel_diff
+refusal = _load("refusal.py", "refusal").refusal
+NEGATIVE_CONTROL_SCENE = "__negative_control__"
 
 STORY_ROOT = "[data-story-root]"
+STYLE_KEYS = ("font-size", "font-weight", "color", "background-color",
+              "border-radius")
 ORIGIN_WAIT_S = 15
 _BOOTSTRAP = "MMW_STORY_PARITY_BOOTSTRAPPED"
-# Tree, pixels, and a size mismatch. Not the class set, not console errors.
-JUDGED = {"aria", "pixel", "size"}
+FONT_CONTROL_JS = """(() => {
+  for (const el of document.querySelectorAll('[data-ui]')) {
+    el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) + 7) + 'px';
+  }
+})()"""
+REMOVE_IDS_JS = """(() => {
+  for (const el of document.querySelectorAll('[data-ui]')) el.removeAttribute('data-ui');
+})()"""
+
+
+class ElementDifference(NamedTuple):
+    uid: str
+    property: str
+    design: str | None = None
+    product: str | None = None
 
 
 def _ensure_script_env() -> None:
@@ -80,7 +88,6 @@ def _ensure_script_env() -> None:
     dependency block; `uv run --script` does. Re-exec once when the imports are
     missing, so both forms reach Chromium."""
     try:
-        import numpy  # noqa: F401
         import PIL  # noqa: F401
         import playwright.sync_api  # noqa: F401
         import psutil  # noqa: F401
@@ -88,7 +95,7 @@ def _ensure_script_env() -> None:
     except ImportError:
         if os.environ.get(_BOOTSTRAP) == "1":
             raise SystemExit(
-                "story-parity.py is missing numpy, Pillow, playwright, psutil or pyyaml "
+                "story-parity.py is missing Pillow, playwright, psutil or pyyaml "
                 "after uv run --script; install those with the script's metadata"
             )
         env = dict(os.environ)
@@ -247,63 +254,166 @@ def stop_tree(proc: subprocess.Popen, grace_s: float = 5.0) -> None:
     proc.poll()
 
 
-def negative_control(scene, viewport, pages, capture_impl, capture_baseline, media) -> Comparison:
-    """The baseline server answers this scene's own address with the scene plus an
-    error banner in the served bytes; the story page is captured again. If the two
-    compare equal, the story capture went through the baseline server."""
-    path = dr.wrapper_path(scene.name)
-    saved = pages[path]
-    pages[path] = dr.wrapper_page(dr.component_of(scene.page), scene.props,
-                                  NEGATIVE_CONTROL_HEAD)
-    tag_vp = f"{viewport[0]}x{viewport[1]}"
-    stem = media / f"{NEGATIVE_CONTROL_SCENE}-{tag_vp}"
-    try:
-        impl = capture_impl(scene, viewport, Path(f"{stem}-impl.png"))
-        wrong = capture_baseline(scene, viewport, impl.box, Path(f"{stem}-baseline.png"))
-    finally:
-        pages[path] = saved
-    return Comparison(
-        NEGATIVE_CONTROL_SCENE, tag_vp,
-        pixel_diff(wrong.png, impl.png, Path(f"{stem}-diff.png")),
-        dr.aria_diff(wrong.aria, impl.aria, Path(f"{stem}.aria.diff")),
-        [], [], impl.elements, dr.class_diff(wrong.classes, impl.classes))
+def element_differences(design: list[dict], product: list[dict]
+                        ) -> list[ElementDifference]:
+    """One structured record per element fact that differs."""
+    design, product = _align_repeated_ids(design, product)
+    design_by_id = {item["id"]: item for item in design}
+    product_by_id = {item["id"]: item for item in product}
+    differences = []
+    suppressed: set[str] = set()
+    for before in design:
+        uid = before["id"]
+        if uid in suppressed:
+            continue
+        if uid not in product_by_id:
+            differences.append(ElementDifference(uid, "missing"))
+            continue
+        after = product_by_id[uid]
+        if not (before["visible"] and after["visible"]):
+            if before["visible"] != after["visible"]:
+                differences.append(ElementDifference(
+                    uid, "visible",
+                    "yes" if before["visible"] else "no",
+                    "yes" if after["visible"] else "no"))
+            suppressed.update(_descendant_ids(design, uid))
+            suppressed.update(_descendant_ids(product, uid))
+            continue
+        if before["text"] != after["text"]:
+            differences.append(ElementDifference(
+                uid, "text", before["text"], after["text"]))
+        if any(abs(a - b) > 2 for a, b in zip(before["size"], after["size"])):
+            differences.append(ElementDifference(
+                uid, "size", f"{before['size'][0]}x{before['size'][1]}",
+                f"{after['size'][0]}x{after['size'][1]}"))
+        for key in STYLE_KEYS:
+            if before["style"][key] != after["style"][key]:
+                differences.append(ElementDifference(
+                    uid, key, before["style"][key], after["style"][key]))
+        if before["ancestor"] != after["ancestor"]:
+            differences.append(ElementDifference(
+                uid, "parent", before["ancestor"] or "null",
+                after["ancestor"] or "null"))
+        elif _position_differs(before, after):
+            differences.append(ElementDifference(
+                uid, "position", _pair(before["offset"]), _pair(after["offset"])))
+    for after in product:
+        uid = after["id"]
+        if uid not in suppressed and uid not in design_by_id:
+            differences.append(ElementDifference(uid, "extra"))
+    return differences
 
 
-def story_gate(control: Comparison, comparisons: list, max_pct: float,
-               console_limit: int = 0) -> tuple[int, list[str]]:
-    """Exit code and the lines to print. The negative control is judged first.
+def format_element_difference(mount: str, scene: str, viewport: str,
+                              difference: ElementDifference) -> str:
+    """The one public line for a structured element difference."""
+    prefix = f"DIFF {mount} {scene} {viewport} {difference.uid} {difference.property}"
+    if difference.design is None and difference.product is None:
+        return prefix
+    return f"{prefix} design={difference.design} product={difference.product}"
 
-    Scene failures are the tree and the pixels (and a size mismatch). Class-set and
-    console reasons from the shared `failures()` are dropped: this judge does not
-    compare those. The control still uses every reason `failures()` returns, so a
-    collapsed capture is caught even when only a class or a console error differs.
-    """
-    return vp.gate(control, comparisons, max_pct, console_limit,
-                   kinds=JUDGED, ok_label="STORY OK", unaligned_on_diff=True)
+
+def _align_repeated_ids(design: list[dict], product: list[dict]
+                        ) -> tuple[list[dict], list[dict]]:
+    """Give a lone occurrence `#1` when the other side repeats that raw id."""
+    suffix = re.compile(r"^(.*)#([1-9][0-9]*)$")
+    numbered: dict[str, set[int]] = {}
+    for item in [*design, *product]:
+        match = suffix.match(item["id"])
+        if match:
+            numbered.setdefault(match.group(1), set()).add(int(match.group(2)))
+    repeated = {base for base, occurrences in numbered.items()
+                if 1 in occurrences and any(n > 1 for n in occurrences)}
+
+    def aligned(values: list[dict]) -> list[dict]:
+        out = []
+        for original in values:
+            item = dict(original)
+            if item["id"] in repeated:
+                item["id"] += "#1"
+            for key in ("ancestor", "previous"):
+                if item.get(key) in repeated:
+                    item[key] += "#1"
+            out.append(item)
+        return out
+
+    return aligned(design), aligned(product)
+
+
+def negative_control_gate(design_differences: list[ElementDifference],
+                          missing_differences: list[ElementDifference]
+                          ) -> tuple[int, list[str]]:
+    """The two controls prove this run can see a changed style and absent ids."""
+    if not design_differences:
+        return 2, [refusal(
+            "NEGATIVE CONTROL FAILED: changing every design font-size reported no difference.",
+            "The judge could not prove that it can observe element differences.",
+            "Confirm the design page and product story carry corresponding data-ui ids, then rerun.")]
+    if not any(diff.property == "missing" for diff in missing_differences):
+        return 2, [refusal(
+            "NEGATIVE CONTROL FAILED: removing every product data-ui id reported no missing element.",
+            "The design page carries no data-ui id this judge can compare.",
+            "Add data-ui ids to the design page and product story as "
+            "mmw-v2/downstream-notes/453-element-parity.md says, then rerun.")]
+    return 0, []
+
+
+def _descendant_ids(values: list[dict], ancestor: str) -> set[str]:
+    by_id = {item["id"]: item for item in values}
+    descendants = set()
+    for item in values:
+        current = item.get("ancestor")
+        while current is not None:
+            if current == ancestor:
+                descendants.add(item["id"])
+                break
+            parent = by_id.get(current)
+            current = parent.get("ancestor") if parent else None
+    return descendants
+
+
+def _pair(value: list[int] | None) -> str:
+    return "null" if value is None else f"{value[0]},{value[1]}"
+
+
+def _position_differs(design: dict, product: dict) -> bool:
+    """Whether an element itself moved, excluding movement inherited from the
+    preceding element's changed size."""
+    before = design["offset"]
+    after = product["offset"]
+    if before is None or after is None:
+        return False
+    for axis in (0, 1):
+        if abs(before[axis] - after[axis]) <= 2:
+            continue
+        if (design["previous"] is None
+                or design["previous"] != product["previous"]):
+            return True
+        before_gap = design["gap"]
+        after_gap = product["gap"]
+        if (before_gap is not None and after_gap is not None
+                and abs(before_gap[axis] - after_gap[axis]) > 2):
+            return True
+    return False
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="story-parity.py",
         usage="story-parity.py --contract FILE --pages ID[,ID] [options]",
-        description="Compare a product story page with the design page it was built from, "
-                    "scene by scene, by accessibility tree and pixels.",
+        description="Compare a product story page with its design page by data-ui id.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("--contract", required=True, metavar="FILE",
                    help="the screen contract; it names the handoff package, the viewports "
                         "and every scene's page and mount")
     p.add_argument("--pages", required=True, metavar="IDS",
-                   help="comma-separated pages.mount values (non-App design pages); every "
+                   help="comma-separated pages.mount values; every "
                         "scene declaring one of them is compared")
     p.add_argument("--scenes", metavar="NAMES", default=None,
                    help="a subset of the scenes --pages derives")
-    p.add_argument("--max-pct", type=float, default=DEFAULT_MAX_PCT, metavar="PCT",
-                   help=f"largest share of differing cells a scene may have, after both "
-                        f"screenshots are shrunk by {vp.PIXEL_SCALE} "
-                        f"(default {DEFAULT_MAX_PCT})")
     p.add_argument("--out", metavar="DIR", default=None,
-                   help="where the screenshots and trees are written")
+                   help="where screenshots, element facts and pixel evidence are written")
     p.add_argument("--cdn", metavar="DIR", default=None,
                    help="cache for the scripts support.js loads, when the handoff package "
                         "carries no vendor/ copy")
@@ -358,25 +468,21 @@ def run(args) -> int:
     server, port = dr.serve_baseline(baseline, pages)
     origin = f"http://127.0.0.1:{port}"
     route_baseline = dr.baseline_router(origin, baseline, cache)
-    hide_js = {s.name: dr.hide_js_for(doc, s.page) for s in plan}
-    volatile = {s.name: dr.volatile_triggers(doc, s.page) for s in plan}
-
     try:
         if args.render_only:
-            return render_only(plan, viewports, out, media, origin, route_baseline, hide_js)
+            return render_only(plan, viewports, out, media, origin, route_baseline)
         assert cfg is not None
         with Stories(root, cfg) as stories:
             return compare(plan=plan, viewports=viewports, media=media,
-                           design_origin=origin, pages=pages,
-                           route_baseline=route_baseline, hide_js=hide_js,
-                           volatile=volatile, story_origin=stories.origin,
-                           args=args)
+                           design_origin=origin,
+                           route_baseline=route_baseline,
+                           story_origin=stories.origin)
     finally:
         server.shutdown()
         server.server_close()
 
 
-def render_only(plan, viewports, out, media, origin, route_baseline, hide_js) -> int:
+def render_only(plan, viewports, out, media, origin, route_baseline) -> int:
     """Design side only: screenshots under `media`, values under `out/values`.
 
     No product, and `.mmw/target.json` is not read. Each scene at each viewport is
@@ -400,7 +506,7 @@ def render_only(plan, viewports, out, media, origin, route_baseline, hide_js) ->
                     tag = f"{viewport[0]}x{viewport[1]}"
                     shot = dr.capture(
                         page, media / f"{scene.name}-{tag}-baseline.png",
-                        selector="#dc-root", extra_js=hide_js[scene.name])
+                        selector="#dc-root")
                     dr.write_values(
                         dr.values_path(out, scene.mount, scene.name, viewport),
                         shot.values)
@@ -410,13 +516,14 @@ def render_only(plan, viewports, out, media, origin, route_baseline, hide_js) ->
     return 0
 
 
-def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
-            hide_js, volatile, story_origin, args) -> int:
+def compare(*, plan, viewports, media, design_origin, route_baseline,
+            story_origin) -> int:
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
 
-    comparisons: list = []
-    control = None
+    pair_count = 0
+    element_lines: list[str] = []
+    controls: tuple[list[ElementDifference], list[ElementDifference]] | None = None
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         story_ctx = browser.new_context(device_scale_factor=1, reduced_motion="reduce",
@@ -427,7 +534,7 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
         story_page = story_ctx.new_page()
         design_page = design_ctx.new_page()
         try:
-            def capture_story(scene, viewport, png):
+            def capture_story(scene, viewport, png, extra_js=None):
                 dr.resize(story_page, viewport)
                 url = story_url(story_origin, scene.mount, scene.name, viewport)
                 try:
@@ -449,22 +556,18 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
                         f"no visible {STORY_ROOT} at {url}: {exc}"
                     ) from exc
                 box = dr.visible_box(story_page, STORY_ROOT, viewport)
-                paint = (dr.volatile_paint_js(volatile[scene.name])
-                         if volatile[scene.name] else None)
                 return dr.capture(story_page, png, selector=STORY_ROOT, clip=box,
-                                  extra_js=paint)
+                                  extra_js=extra_js)
 
-            def capture_design(scene, viewport, box, png):
+            def capture_design(scene, viewport, box, png, extra_js=None):
                 w, h = box[2], box[3]
                 dr.resize(design_page, viewport)
                 dr.navigate(design_page, f"{design_origin}{dr.wrapper_path(scene.name)}")
                 dr.wait_for_mount(design_page, "#dc-root")
-                paint = (dr.volatile_paint_js(volatile[scene.name])
-                         if volatile[scene.name] else None)
                 return dr.capture(
                     design_page, png, selector="#dc-root", clip=(0, 0, w, h),
                     extra_css=dr.frame_box((w, h)),
-                    extra_js=vp._join_js(hide_js[scene.name], paint))
+                    extra_js=extra_js)
 
             for scene in plan:
                 for viewport in viewports:
@@ -474,25 +577,40 @@ def compare(*, plan, viewports, media, design_origin, pages, route_baseline,
                     base = capture_design(
                         scene, viewport, impl.box,
                         media / f"{scene.name}-{tag}-baseline.png")
-                    comparisons.append(Comparison(
-                        scene.name, tag,
-                        pixel_diff(base.png, impl.png,
-                                   media / f"{scene.name}-{tag}-diff.png"),
-                        dr.aria_diff(base.aria, impl.aria,
-                                     media / f"{scene.name}-{tag}.aria.diff",
-                                     volatile=volatile[scene.name] or None),
-                        [], [], impl.elements))
-                    if control is None:
-                        control = negative_control(
-                            scene, viewport, pages, capture_story, capture_design, media)
+                    pair_count += 1
+                    pixel_diff(base.png, impl.png,
+                               media / f"{scene.name}-{tag}-diff.png")
+                    element_lines.extend(
+                        format_element_difference(scene.mount, scene.name, tag, difference)
+                        for difference in element_differences(base.values, impl.values))
+                    if controls is None:
+                        font_design = capture_design(
+                            scene, viewport, impl.box,
+                            media / f"{NEGATIVE_CONTROL_SCENE}-{tag}-font-design.png",
+                            FONT_CONTROL_JS)
+                        no_ids = capture_story(
+                            scene, viewport,
+                            media / f"{NEGATIVE_CONTROL_SCENE}-{tag}-no-ids-product.png",
+                            REMOVE_IDS_JS)
+                        controls = (
+                            element_differences(font_design.values, impl.values),
+                            element_differences(base.values, no_ids.values),
+                        )
         finally:
             browser.close()
 
-    code, lines = story_gate(control, comparisons, args.max_pct)
+    assert controls is not None
+    control_code, control_lines = negative_control_gate(*controls)
+    if control_code == 2:
+        code, lines = control_code, control_lines
+    elif element_lines:
+        code, lines = 1, element_lines
+    else:
+        code, lines = 0, [f"STORY OK {pair_count}/{pair_count}"]
     for line in lines:
         print(line)
     if code:
-        print(f"screenshots and trees: {media}", file=sys.stderr)
+        print(f"story evidence: {media}", file=sys.stderr)
     return code
 
 

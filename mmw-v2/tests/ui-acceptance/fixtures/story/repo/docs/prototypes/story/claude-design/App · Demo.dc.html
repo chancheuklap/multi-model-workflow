@@ -9,16 +9,7 @@
       <helmet data-dc-atomics>
         <style>
           html, body { margin: 0; }
-          .demo {
-            position: relative;
-            width: 320px;
-            height: 200px;
-            box-sizing: border-box;
-            padding: 16px;
-            background: #f4f1ec;
-            font: 16px/24px sans-serif;
-            color: #1a1a1a;
-          }
+          .demo { position: relative; width: 320px; height: 200px; box-sizing: border-box; padding: 16px; background: #f4f1ec; font: 16px/24px sans-serif; color: #1a1a1a; }
           .swatch { width: 80px; height: 80px; background: #2f6fed; }
           .pixel-only { position: absolute; left: 16px; top: 180px; width: 10px; height: 10px; background: #111; }
           h1 { margin: 0 0 8px; font-size: 20px; line-height: 24px; font-weight: 700; }
@@ -37,12 +28,5 @@
         <span data-ui="hidden" aria-hidden="true" style="position: absolute; visibility: hidden">hidden copy</span>
       </div>
     </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{
-  "scenario": {
-    "editor": "enum",
-    "default": "alpha",
-    "options": ["alpha", "beta", "gamma"]
-  }
-}'></script>
   </body>
 </html>
