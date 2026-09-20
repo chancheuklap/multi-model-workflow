@@ -1,4 +1,4 @@
-"""The remaining rules of `lint_contract.py`: one positive and one negative case each,
+"""The remaining rules of `lint_screen_contract.py`: one positive and one negative case each,
 over a small handoff package written into a temporary repository."""
 
 import hashlib
@@ -10,10 +10,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "align-screens" / "scripts" / "lint_contract.py"
-spec = importlib.util.spec_from_file_location("lint_contract", SCRIPT)
+SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "write-screen-contract" / "scripts" / "lint_screen_contract.py"
+spec = importlib.util.spec_from_file_location("lint_screen_contract", SCRIPT)
 lc = importlib.util.module_from_spec(spec)
-sys.modules["lint_contract"] = lc
+sys.modules["lint_screen_contract"] = lc
 spec.loader.exec_module(lc)
 
 # The ui-acceptance scripts the lint asks for target kinds and volatile matching.
@@ -396,6 +396,42 @@ class TestVolatileValues(unittest.TestCase):
             doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertFalse(any("volatile_values" in e for e in errors), errors)
         self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
+
+
+class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
+    """Both scripts find ui-acceptance `design_render.py` with TOOLS empty."""
+
+    def test_finds_ui_acceptance_without_tools(self):
+        expected = (
+            Path(__file__).resolve().parents[2]
+            / "skills" / "ui-acceptance" / "scripts" / "design_render.py"
+        ).resolve()
+        self.assertTrue(expected.is_file())
+        es = lc.extract_skeleton_mod()
+        saved_es_tools = list(es.TOOLS)
+        saved_lc_tools = list(lc.TOOLS)
+        saved_dr = sys.modules.pop("design_render", None)
+        saved_tc = sys.modules.pop("target_config", None)
+        try:
+            es.TOOLS[:] = []
+            lc.TOOLS[:] = []
+            loaded = es.load_driver()
+            self.assertEqual(Path(loaded.__file__).resolve(), expected)
+            sys.modules.pop("design_render", None)
+            loaded2 = lc.design_render_mod()
+            self.assertEqual(Path(loaded2.__file__).resolve(), expected)
+            tc = lc.target_config_mod()
+            self.assertEqual(
+                Path(tc.__file__).resolve(),
+                expected.parent / "target_config.py",
+            )
+        finally:
+            es.TOOLS[:] = saved_es_tools
+            lc.TOOLS[:] = saved_lc_tools
+            if saved_dr is not None:
+                sys.modules["design_render"] = saved_dr
+            if saved_tc is not None:
+                sys.modules["target_config"] = saved_tc
 
 
 if __name__ == "__main__":

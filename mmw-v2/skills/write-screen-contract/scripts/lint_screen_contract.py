@@ -4,20 +4,21 @@
 # ///
 """Lint a screen contract against the handoff skeleton and, when given, openapi.json.
 
-Usage: uv run python lint_contract.py --tools <ui-acceptance scripts> <screen-contract.yaml> <skeleton.json> [<openapi.json>]
+Usage: uv run python lint_screen_contract.py [--tools <ui-acceptance scripts>] <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
 
 A `uv run python` invocation (the form a ticket CHECK writes) does not read the
 metadata block above; `main` then re-execs through `uv run --script` so PyYAML
-comes from that block. `uv run --script lint_contract.py` skips the re-exec.
+comes from that block. `uv run --script lint_screen_contract.py` skips the re-exec.
 
-`--tools` is the `scripts/` directory of the ui-acceptance skill. Two things
-come from those scripts, and this file holds no copy of either: the `.mmw/target.json`
-check (`target_config.py --validate`), and matching (`volatile_triggers` /
-`count_volatile_hits` from `design_render.py`). Target kinds come from
-`target_config.py` (`KINDS`). Matching is loaded in-process through
-`extract_skeleton.py`'s `load_driver()`.
-Rules are the tables in ../references/contract-format.md.
+`--tools` is the `scripts/` directory of the ui-acceptance skill, an override.
+Without it this file finds that directory beside this skill under `skills/`. Two
+things come from those scripts, and this file holds no copy of either: the
+`.mmw/target.json` check (`target_config.py --validate`), and matching
+(`volatile_triggers` / `count_volatile_hits` from `design_render.py`). Target
+kinds come from `target_config.py` (`KINDS`). Matching is loaded in-process
+through `extract_skeleton.py`'s `load_driver()`.
+Rules are the tables in ../references/screen-contract-format.md.
 
 Printed on every run, before the findings: each `retired_ids` entry with its note,
 and each `volatile_values` entry with its reason — the two kinds of exclusion the
@@ -51,7 +52,7 @@ def _ensure_yaml() -> None:
         return
     if os.environ.get(_BOOTSTRAP) == "1":
         raise SystemExit(
-            "lint_contract.py is missing pyyaml after uv run --script; "
+            "lint_screen_contract.py is missing pyyaml after uv run --script; "
             "install it with the script's metadata"
         )
     env = dict(os.environ)
@@ -79,43 +80,48 @@ TOP_KEYS = {
     "backend_without_ui", "proposed_operations",
 }
 
-# The directories `--tools` named. The ui-acceptance scripts are found
-# there and nowhere else; `target_kinds()` and `target_file_problem()` ask
-# `target_config.py`, and matching asks `design_render.py` through
-# `extract_skeleton.py`'s `load_driver()`.
+HERE = Path(__file__).resolve().parent
+# The ui-acceptance skill sits beside this one under `skills/`; `--tools` overrides that.
+SIBLING_UA = HERE.parents[1] / "ui-acceptance" / "scripts"
+
+# The directories `--tools` named, else the sibling ui-acceptance scripts.
+# `target_kinds()` and `target_file_problem()` ask `target_config.py`, and
+# matching asks `design_render.py` through `extract_skeleton.py`'s `load_driver()`.
 TOOLS: list[Path] = []
 
 
+def tools_dirs() -> list[Path]:
+    return TOOLS or [SIBLING_UA]
+
+
 def extract_skeleton_mod():
-    """`extract_skeleton.py` from `--tools`; Python's import cache holds it."""
-    for directory in TOOLS:
-        if (directory / "extract_skeleton.py").is_file():
-            if str(directory) not in sys.path:
-                sys.path.insert(0, str(directory))
-            import extract_skeleton
-            return extract_skeleton
-    raise SystemExit("no extract_skeleton.py in any --tools directory; pass --tools <the "
-                     "ui-acceptance skill's scripts directory>")
+    """`extract_skeleton.py` beside this file; Python's import cache holds it."""
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    import extract_skeleton
+    extract_skeleton.TOOLS[:] = list(tools_dirs())
+    return extract_skeleton
 
 
 def design_render_mod():
-    """`design_render.py` from `--tools`. Matching (`volatile_triggers` /
-    `count_volatile_hits`) comes from this module."""
+    """`design_render.py` from `--tools` or the sibling ui-acceptance skill.
+    Matching (`volatile_triggers` / `count_volatile_hits`) comes from this module."""
     return extract_skeleton_mod().driver()
 
 
 def target_config_mod():
-    """`target_config.py` from `--tools`; Python's import cache holds it.
-    Target kinds (`KINDS`) and the `.mmw/target.json` check (`target_main`) come
-    from this module."""
-    for directory in TOOLS:
+    """`target_config.py` from `--tools` or the sibling ui-acceptance skill;
+    Python's import cache holds it. Target kinds (`KINDS`) and the `.mmw/target.json`
+    check (`target_main`) come from this module."""
+    for directory in tools_dirs():
         if (directory / "target_config.py").is_file():
             if str(directory) not in sys.path:
                 sys.path.insert(0, str(directory))
             import target_config
             return target_config
-    raise SystemExit("no target_config.py in any --tools directory; pass --tools <the "
-                     "ui-acceptance skill's scripts directory>")
+    raise SystemExit("no target_config.py in any --tools directory or the sibling "
+                     "ui-acceptance skill; pass --tools <the ui-acceptance skill's "
+                     "scripts directory>")
 
 
 def page_stem(page: str) -> str:
@@ -398,7 +404,7 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
 
 
 def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], list[str]]:
-    """The control axis: one row per behaviour, as ../references/contract-format.md says."""
+    """The control axis: one row per behaviour, as ../references/screen-contract-format.md says."""
     errors: list[str] = []
     warnings: list[str] = []
     rows = doc.get("rows") or []
@@ -557,7 +563,9 @@ def main(argv: list[str]) -> int:
             rest.append(argv[i])
             i += 1
     argv = [argv[0], *rest]
-    if len(argv) not in (3, 4) or not TOOLS:
+    if not TOOLS:
+        TOOLS.append(SIBLING_UA)
+    if len(argv) not in (3, 4):
         print(__doc__)
         return 2
     contract = Path(argv[1])

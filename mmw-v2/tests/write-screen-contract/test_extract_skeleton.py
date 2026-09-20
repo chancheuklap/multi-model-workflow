@@ -18,21 +18,22 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
+UA_SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
+WSC_SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "write-screen-contract" / "scripts"
 HOME = tempfile.mkdtemp(prefix="mmw-extract-skeleton-home-")
 
 
-def load(name: str, modname: str):
+def load(directory: Path, name: str, modname: str):
     with mock.patch.dict(os.environ, {"MMW_HOME": HOME}, clear=False):
-        spec = importlib.util.spec_from_file_location(modname, SCRIPTS / name)
+        spec = importlib.util.spec_from_file_location(modname, directory / name)
         module = importlib.util.module_from_spec(spec)
         sys.modules[modname] = module
         spec.loader.exec_module(module)
     return module
 
 
-dr = load("design_render.py", "design_render")
-es = load("extract_skeleton.py", "extract_skeleton")
+dr = load(UA_SCRIPTS, "design_render.py", "design_render")
+es = load(WSC_SCRIPTS, "extract_skeleton.py", "extract_skeleton")
 
 
 def tearDownModule():

@@ -39,7 +39,7 @@ The wayfinder ticket that produces the **handoff package** for a destination wit
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
 **component**:
-A `Component · <name>` design page: one region the user sees as a unit, split that way rather than by code modules or directories. It exposes a `scene` enum prop whose values are that region's accepted states, taken from the **state list**. Language and directory of the matching product component are the product's; this entry does not name either. The `component` column of a screen contract's `pages` is a different thing — the product component that owns that page — and is defined in `mmw-v2/skills/align-screens/references/contract-format.md`.
+A `Component · <name>` design page: one region the user sees as a unit, split that way rather than by code modules or directories. It exposes a `scene` enum prop whose values are that region's accepted states, taken from the **state list**. Language and directory of the matching product component are the product's; this entry does not name either. The `component` column of a screen contract's `pages` is a different thing — the product component that owns that page — and is defined in `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`.
 _Avoid_: design component, scenario, scenario 属性, 状态开关
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
@@ -167,33 +167,33 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
 ### Screen contract
 
 **screen contract**:
-`docs/specs/<effort>/screen-contract.yaml`. The **control axis**, `rows`: one row per user-visible behaviour — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), and whether design and backend agree (`gap`). `pages` names each design page's story id (`mount`) and the component that owns it; only an `App · ` page may carry `route`. `scenes` names which design page each scene of `scenes.json` belongs to. It also carries `effort`, `baselines`, `target.kind`, `viewports`, `retired_ids`, `volatile_values`, `readme_dispositions`, `backend_without_ui` and `proposed_operations`, and a key that is none of these is an error that names the key. It carries no address, no `observe`, no locating pin. Written by `align-screens` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, the story judge, the boundary check and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
+`docs/specs/<effort>/screen-contract.yaml`. The **control axis**, `rows`: one row per user-visible behaviour — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), and whether design and backend agree (`gap`). `pages` names each design page's story id (`mount`) and the component that owns it; only an `App · ` page may carry `route`. `scenes` names which design page each scene of `scenes.json` belongs to. It also carries `effort`, `baselines`, `target.kind`, `viewports`, `retired_ids`, `volatile_values`, `readme_dispositions`, `backend_without_ui` and `proposed_operations`, and a key that is none of these is an error that names the key. It carries no address, no `observe`, no locating pin. Written by `write-screen-contract` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, the story judge, the boundary check and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
 _Avoid_: UI contract, interaction table, 界面合同表, 对齐表
-_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 **alignment ticket**:
-The last ticket of a wayfinder map whose destination has an interface: a `grilling` ticket, blocked by every decision ticket and by the **handoff ticket**, resolved by running `align-screens` and closed when every row's `gap` is `aligned`.
+The last ticket of a wayfinder map whose destination has an interface: a `grilling` ticket, blocked by every decision ticket and by the **handoff ticket**, resolved by running `write-screen-contract` and closed when every row's `gap` is `aligned`.
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
 **gap list**:
-The rows of a screen contract whose `gap` is `design-only` or `backend-only`, written by `align-screens` for the person to settle — the one judgement in that skill that is theirs.
+The rows of a screen contract whose `gap` is `design-only` or `backend-only`, written by `write-screen-contract` for the person to settle — the one judgement in that skill that is theirs.
 _Avoid_: 差集
-_Home_: `mmw-v2/skills/align-screens/SKILL.md`
+_Home_: `mmw-v2/skills/write-screen-contract/SKILL.md`
 
 **`extract_skeleton.py`**:
-`scripts/extract_skeleton.py` beside the ui-acceptance `SKILL.md`: one offline render of every scene of a **handoff package**, through `design_render.py`, writing the **skeleton** and, with `--targets`, the **target trees**. It judges nothing and needs no product. `--contract` beside `--targets` hides that contract's `retired_ids` triggers before the tree is read; the story judge does not hide them. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
+`scripts/extract_skeleton.py` beside the write-screen-contract `SKILL.md`: one offline render of every scene of a **handoff package**, through `design_render.py`, writing the **skeleton** and, with `--targets`, the **target trees**. It judges nothing and needs no product. `--contract` beside `--targets` hides that contract's `retired_ids` triggers before the tree is read; the story judge does not hide them. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
 _Avoid_: the extractor, 骨架脚本
-_Home_: `mmw-v2/skills/ui-acceptance/scripts/extract_skeleton.py`
+_Home_: `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`
 
 **skeleton**:
-The JSON `extract_skeleton.py` writes from that render, and the **row inventory** a screen contract is linted against: every interactive control of the handoff package keyed by (page, role, accessible name) with the list of scenes it is visible in, plus each scene's normalised tree and the class names in that subtree. It is the design side's inventory of controls, never the contract's: a control the skeleton has and the contract lacks is a lint error, and so is the reverse, and a row's `trigger` is a role and an accessible name copied from it exactly, hint text the tree folded in included. It is written to a scratch path and read there by `lint_contract.py`, which is why `--tools` stays required for that script; what is kept out of the same render is the target trees.
+The JSON `extract_skeleton.py` writes from that render, and the **row inventory** a screen contract is linted against: every interactive control of the handoff package keyed by (page, role, accessible name) with the list of scenes it is visible in, plus each scene's normalised tree and the class names in that subtree. It is the design side's inventory of controls, never the contract's: a control the skeleton has and the contract lacks is a lint error, and so is the reverse, and a row's `trigger` is a role and an accessible name copied from it exactly, hint text the tree folded in included. It is written to a scratch path and read there by `lint_screen_contract.py`; `--tools` on that script is an override of the sibling ui-acceptance lookup; what is kept out of the same render is the target trees.
 _Avoid_: 骨架 (as a term), control inventory
-_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`, `mmw-v2/skills/ui-acceptance/scripts/extract_skeleton.py`
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`, `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`
 
 **`retired_ids`**:
 The top-level list on a screen contract of row ids that once had a row and no longer do: an id is never renumbered and never reused, and the lint prints every entry on every run. The lint uses an entry's `page` and `trigger` to stop asking for a row; the story judge refuses any entry that carries `trigger`.
 _Avoid_: 退役 id, deleted rows
-_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 **contract ticket**:
 The first ticket cut from a spec with a screen contract: `.mmw/` in full (target.json, harness, journeys, stories and adapters), the interaction helper the boundary check uses, a `journey.py run smoke` criterion that starts the stack and logs in, and the harness guard. Every other ticket of the batch is blocked by it. Interface tickets own by design page: one story criterion (`--pages`) and one boundary criterion per `calls` row.
@@ -212,12 +212,12 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 **mount**:
 A design page's `mount` in the contract's `pages`: the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from rows; lowercase `[a-z0-9-]`, unique across pages. A story criterion names the ticket's mounts with `--pages`. `--mount` is a retired flag of `story-parity.py`, listed under `retired` in `verify-ticket.py`'s `PIPELINE_SCRIPTS` and reported by `--lint` as `[screen-contract]`; the live name is `--pages <mount,…>`. It is also the value of `data-screen` on the one product element this page *is*, when the surface carries that attribute.
 _Avoid_: mount point (for this), 挂载点, data-screen-label, test hook (for this)
-_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 **target trees**:
 `docs/specs/<effort>/targets/<page>.aria` and `<page>.classes`, one pair per design page, written by `extract_skeleton.py --targets` with `normalize_aria` in `design_render.py`: every scene's normalised tree and the class names in that subtree, headed by the sha256 of `scenes.json` and of the page. The handoff package's behavioural counterpart and a derived view of it — the package is the baseline, the tree the view, the hashes what keeps them from disagreeing (the contract lint fails when they do). An interface ticket lists its pages' pair under `## Read first`.
 _Avoid_: 目标树, target elements, expected tree
-_Home_: `mmw-v2/skills/align-screens/references/contract-format.md`
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 ### The runtime a repository answers for
 
