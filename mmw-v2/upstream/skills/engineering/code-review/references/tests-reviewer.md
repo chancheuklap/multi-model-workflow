@@ -24,9 +24,15 @@ Read the diff for the source under test and for the test files in your scope.
 
 A test file in the diff that no `CHECK:` names is still worth a review finding, but say so — that lands it out-of-ticket rather than in-ticket.
 
-When no `CHECK:` names a test file, report one line — no test-backed criteria in this ticket — and stop. There is nothing here for this axis.
+Also collect every `boundary-check.py` criterion's `--run` product test, and every `journey.py` criterion's journey script. Those files are in scope too: read their assertions.
 
-A criterion that runs `boundary-check.py` is already under a mechanical mutation check: the judge runs the product test twice and writes `GREEN WITHOUT INTERACTION` when the skipped-interaction pass stays green. Confirm the `--run` command is the product test this ticket added. Do not judge whether that case can go red; the judge already did.
+When no `CHECK:` names a test file, a boundary test, or a journey, report one line — no test-backed criteria in this ticket — and stop. There is nothing here for this axis.
+
+A criterion that runs `boundary-check.py` is already under a mechanical mutation check: the judge runs the product test twice and writes `GREEN WITHOUT INTERACTION` when the skipped-interaction pass stays green. Confirm the `--run` command is the product test this ticket added. Then read that boundary test's assertions themselves — whether they can go red, whether they only watch a success banner, whether they assert the four columns. The judge having already run is not a reason to skip them.
+
+A criterion that runs `journey.py` is the same: read the journey script's assertions. A script that probes the break switch in order to stay green, or that asserts nothing which would fail when the named write is broken, is a finding on this axis. The judge does not look for that; this axis does, by reading the assertions.
+
+Do not add a marker file, a sentinel, or any other mechanism whose only job is to catch a worker who cheats on purpose. Deliberate cheating of that kind is visible in the assertions this axis already reads.
 
 ## 2. The test smell baseline
 
