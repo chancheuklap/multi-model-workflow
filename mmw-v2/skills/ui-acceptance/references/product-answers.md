@@ -26,6 +26,11 @@ These hold for every product. How a given repository meets them is its own.
   `data-screen="<mount>"` — the `pages.<page>.mount` of the screen contract, which is
   also what `?page=` addresses — and the same `data-ui` id the design page's root carries.
   Every other compared element carries that design page's matching `data-ui` id.
+- **A `data-ui` id repeats only on the repeating part of a list.** The same id on
+  two elements the design page shows as one each is a product defect: element
+  parity pairs by id, so a repeated id outside a list makes one of them
+  unpairable. The contract ticket's static guard is what holds this, alongside
+  the two above it.
 - **Time values come from scene data.** A client-rendered product loads the same
   paused clock the design side uses, so a clock reading is not a live instant.
 - **A boundary test replaces the outbound call module** the consuming repository
