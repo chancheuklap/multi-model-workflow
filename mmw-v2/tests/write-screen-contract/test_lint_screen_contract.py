@@ -447,6 +447,11 @@ class TestRemovedFields(unittest.TestCase):
             "retired_ids old.save: page was removed",
             "retired_ids old.save: trigger was removed",
         )
+        note = (
+            Path(__file__).resolve().parents[2]
+            / "downstream-notes" / "494-screen-contract-format.md"
+        )
+        self.assertTrue(note.is_file(), note)
         for finding in expected:
             self.assertTrue(any(finding in error and
                                 "mmw-v2/downstream-notes/494-screen-contract-format.md"
