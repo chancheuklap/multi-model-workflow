@@ -1,6 +1,6 @@
 # Running the session
 
-You are the reviewer session. You write three axis reports onto one ticket. On a host that can run subagents you run no axis yourself, and you verify every finding the axes report; on one that cannot, you run the three axis files yourself. You are the only one of the four agents that writes anything.
+You are the reviewer session. You write the axis reports onto one ticket. On a host that can run subagents you run no axis yourself, and you verify every finding the axes report; on one that cannot, you run the axis files yourself. You are the only one that writes on the ticket.
 
 The caller gives you two values: the base commit the diff starts from, and the ticket number.
 
@@ -12,23 +12,25 @@ git diff <base-commit>...HEAD --stat
 git log <base-commit>..HEAD --oneline
 ```
 
-Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before three subagents spend a context each on nothing. Report it on the ticket anyway, through the same call step 5 uses, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That report is what the worker is waiting for, so write it even when there is nothing to review. Then stop.
+Three dots, so the comparison runs against the merge-base. A ref that does not resolve or an empty diff is a failure here, before the axis subagents spend a context each on nothing. Report it on the ticket anyway, through the same call step 5 uses, first line `REVIEW <base commit>..<HEAD commit>` (the refs as you were given them, when one of them does not resolve), then one line saying which of the two failures it was. That report is what the worker is waiting for, so write it even when there is nothing to review. Then stop.
 
 Capture the base commit and the `HEAD` commit. Both go in the first line of the review comment.
 
-## 2. Run the three axes
+## 2. Run the axes
 
-When the host can run subagents, start three at once, one per axis. When it cannot, run the three axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The axis file's read-only rule binds that pass; step 5 is still yours to write.
+Read the ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`. `references/ui-reviewer.md` repeats this definition; change both together.
 
-On a host that can run subagents, that start is one message, three calls, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, or `Tests`:
+When the host can run subagents, start three at once, one per default axis — Standards, Spec, Tests. When the ticket has a story criterion, start a fourth in the same turn, axis `UI`. When the host cannot run subagents, run those axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The axis file's read-only rule binds that pass; step 5 is still yours to write.
+
+On a host that can run subagents, that start is one message, one call per axis you start, each to your host's general-purpose subagent, so they run at once and never see each other's review findings. Name no model and no thinking level: each axis runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading, searching and running commands. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, `Tests`, or `UI`:
 
 ```
 Use the code-review skill to review ticket #<ticket> from base commit <base commit>, axis Standards.
 ```
 
-Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for, no path. The skill is what they read, and the axis word is which door they take.
+Nothing else. No summary of the change, no list of files, no restatement of what that axis looks for, no path. The skill is what they read, and the axis word is which door they take. The UI prompt is the same sentence with `axis UI`.
 
-**Hold this turn until all three axis reports exist.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in step 5 — which cannot be made until the report exists. A turn ended here leaves the report unwritten, so nothing has gone out and the worker is still waiting.
+**Hold this turn until every axis you started has reported.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in step 5 — which cannot be made until the report exists. A turn ended here leaves the report unwritten, so nothing has gone out and the worker is still waiting.
 
 ## 3. Verify every finding the axes report
 
@@ -79,13 +81,13 @@ The review comment's first line is fixed:
 REVIEW <base commit>..<HEAD commit>
 ```
 
-Then the three axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order. Then `## Withdrawn`, each `false` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Both `## In-ticket` and `## Out-of-ticket` use this exact shape for every finding:
+Then the axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order, and `## UI` when that axis ran. Then `## Withdrawn`, each `false` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Both `## In-ticket` and `## Out-of-ticket` use this exact shape for every finding:
 
 ```
-- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>
+- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>
 ```
 
-Use the narrowest category already defined by that axis. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name from its smell baseline. Spec uses `Missing`, `Scope creep`, or `Built wrong`. Tests uses `Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`. These categories preserve the axis's own classification; they are not the retro environment-improvement categories and do not prove that two findings have the same cause.
+Use the narrowest category already defined by that axis. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name from its smell baseline. Spec uses `Missing`, `Scope creep`, or `Built wrong`. Tests uses `Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`. UI uses `undecorated`, `overall-look`, or `design-page`. These categories preserve the axis's own classification; they are not the retro environment-improvement categories and do not prove that two findings have the same cause.
 
 The source is the current URL, `path:line`, or `CHECK` evidence that proves the finding. When you could not tell, append `unverified: <what would settle it>` at the end of the same line. An empty list says `None`.
 
@@ -93,13 +95,17 @@ End with one line per axis: how many review findings it raised and the worst one
 
 The reviewer session ends; the ticket outlives it, and the worker who fixes these review findings reads the ticket, not your transcript. A report that exists only in this conversation reaches nobody.
 
-## Why three axes
+## Default axes and the UI pilot
 
-One change can pass one axis and fail another:
+Three axes run on every ticket. One change can pass one of them and fail another:
 
 - Follows every convention, builds the wrong thing → **Standards pass, Spec fail.**
 - Builds exactly what was asked, breaks the repository's conventions → **Spec pass, Standards fail.**
 - Does the right thing, proved by a test that would pass either way → **Standards and Spec pass, Tests fail.**
+
+A fourth axis, UI, is a pilot. Step 2 starts it only when the ticket has a story criterion. During the pilot the default set is still those three; after the pilot, keeping or dropping UI is a change to the door table in this skill's `SKILL.md` and to this file. The merge-note that records that switch, and any test that pins these sentences, follow those two files.
+
+New checks are a script that runs them mechanically, or a judgement of the diff, which is a reviewer axis. There is no separate verifier session (`docs/adr/0026-no-verifier.md` in the multi-model-workflow repository).
 
 ## Active Rules
 
