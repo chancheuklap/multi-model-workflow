@@ -19,15 +19,8 @@
 
 ## 目前有说明的改动
 
-- [201-trigger-after.md](201-trigger-after.md) — mmw #201
-- [207-negative-control-per-row.md](207-negative-control-per-row.md) — mmw #207
-- [216-story-judges.md](216-story-judges.md) — mmw #216
-- [220-target-json-fields.md](220-target-json-fields.md) — mmw #220
-- [221-contract-format.md](221-contract-format.md) — mmw #221
 - [255-journey-address-case.md](255-journey-address-case.md) — mmw #255
-- [298-scene-data-from-the-page.md](298-scene-data-from-the-page.md) — mmw #298
 - [341-origin-base-branch.md](341-origin-base-branch.md) — mmw #341
-- [344-quoted-accessible-names.md](344-quoted-accessible-names.md) — mmw #344
 - [359-landed-ticket-branch-deleted.md](359-landed-ticket-branch-deleted.md) — mmw #359
 - [370-lease-held-per-ticket.md](370-lease-held-per-ticket.md) — mmw #370
 - [373-truthful-ports-and-story-service.md](373-truthful-ports-and-story-service.md) — mmw #373
@@ -43,3 +36,14 @@
 - [491-skill-renamed-write-screen-contract.md](491-skill-renamed-write-screen-contract.md) — mmw #491
 - [492-skeleton-by-data-ui-id.md](492-skeleton-by-data-ui-id.md) — mmw #492
 - [494-screen-contract-format.md](494-screen-contract-format.md) — mmw #494
+- [514-interface-tickets.md](514-interface-tickets.md) — mmw #514
+
+## 已被取代
+
+- [201-trigger-after.md](archive/201-trigger-after.md) — mmw #201，由 [514-interface-tickets.md](514-interface-tickets.md) 取代
+- [207-negative-control-per-row.md](archive/207-negative-control-per-row.md) — mmw #207，由 [514-interface-tickets.md](514-interface-tickets.md) 取代
+- [216-story-judges.md](archive/216-story-judges.md) — mmw #216，由 [514-interface-tickets.md](514-interface-tickets.md) 取代
+- [220-target-json-fields.md](archive/220-target-json-fields.md) — mmw #220，由 [514-interface-tickets.md](514-interface-tickets.md) 取代
+- [221-contract-format.md](archive/221-contract-format.md) — mmw #221，由 [514-interface-tickets.md](514-interface-tickets.md) 取代
+- [298-scene-data-from-the-page.md](archive/298-scene-data-from-the-page.md) — mmw #298，由 [514-interface-tickets.md](514-interface-tickets.md) 取代
+- [344-quoted-accessible-names.md](archive/344-quoted-accessible-names.md) — mmw #344，由 [514-interface-tickets.md](514-interface-tickets.md) 取代
