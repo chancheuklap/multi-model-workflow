@@ -70,7 +70,7 @@ ROW_KEYS = {
 SCENE_KEYS = {"page"}
 PAGE_KEYS = {"mount", "component", "route"}
 TOP_KEYS = {
-    "effort", "baselines", "locale", "viewports", "pages", "scenes", "rows",
+    "effort", "baselines", "target", "locale", "viewports", "pages", "scenes", "rows",
     "retired_ids", "volatile_values", "readme_dispositions",
     "backend_without_ui", "proposed_operations",
 }

@@ -28,7 +28,9 @@ class DcImport extends HTMLElement {
       if (node.getAttribute("data-only-scene") !== scene) node.remove();
     }
     const viewport = root.querySelector('[data-ui="inventory.viewport"]');
-    viewport.textContent = navigator.language + " " + innerWidth + "x" + innerHeight;
+    if (viewport) {
+      viewport.textContent = navigator.language + " " + innerWidth + "x" + innerHeight;
+    }
   }
 }
 

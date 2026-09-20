@@ -49,18 +49,24 @@ class TestExtractSkeleton(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def row(self, data_ui: str) -> dict:
-        return next(row for row in self.skeleton["table"] if row["id"] == data_ui)
+    def row(self, data_ui: str, page: str = "Component · Inventory.dc.html") -> dict:
+        return next(row for row in self.skeleton["table"]
+                    if row["id"] == data_ui and row["page"] == page)
 
     def test_the_skeleton_is_keyed_by_page_and_data_ui_id(self):
-        identities = [(row["page"], row["id"]) for row in self.skeleton["table"]]
-        self.assertEqual(len(identities), len(set(identities)))
+        matches = [row for row in self.skeleton["table"]
+                   if row["id"] == "inventory.search"]
+        self.assertEqual(
+            [(row["page"], row["id"]) for row in matches],
+            [("Component · Details.dc.html", "inventory.search"),
+             ("Component · Inventory.dc.html", "inventory.search")],
+        )
         row = self.row("inventory.search")
         self.assertEqual(row["page"], "Component · Inventory.dc.html")
         self.assertEqual(row["scenes"], ["inventory.ready", "inventory.empty"])
         self.assertTrue(row["interactive"])
-        self.assertEqual(row["text"], ["Search items"])
-        self.assertEqual(row["names"], ["Search items"])
+        self.assertEqual(row["text"], [])
+        self.assertEqual(row["names"], ["Search: items"])
 
     def test_a_repeated_id_in_a_list_is_recorded_once(self):
         matches = [row for row in self.skeleton["table"]
@@ -71,14 +77,17 @@ class TestExtractSkeleton(unittest.TestCase):
         self.assertEqual(matches[0]["names"], ["Open Alpha", "Open Beta", "Open Gamma"])
 
     def test_a_control_only_in_out_of_scope_values_is_not_required(self):
+        source = (FIXTURE / "Component · Inventory.dc.html").read_text(encoding="utf-8")
+        self.assertIn('"out_of_scope": ["future"]', source)
+        self.assertIn('data-ui="inventory.future"', source)
         self.assertNotIn("inventory.future", {row["id"] for row in self.skeleton["table"]})
         self.assertEqual(set(self.skeleton["scene_pages"]),
-                         {"inventory.ready", "inventory.empty"})
+                         {"inventory.ready", "inventory.empty", "details.ready"})
 
     def test_each_scene_renders_once_per_declared_viewport_in_the_contract_locale(self):
         self.assertEqual(self.skeleton["locale"], "en-US")
         self.assertEqual(self.skeleton["viewports"], ["320x240", "640x480"])
-        self.assertEqual(self.skeleton["renders"], 4)
+        self.assertEqual(self.skeleton["renders"], 6)
         self.assertEqual(self.row("inventory.viewport")["text"],
                          ["en-US 320x240", "en-US 640x480"])
 
@@ -88,6 +97,7 @@ class TestExtractSkeleton(unittest.TestCase):
             with self.assertRaises(SystemExit) as raised:
                 es.main(FIXTURE, output, FIXTURE / "screen-contract-missing-locale.yaml")
             message = str(raised.exception)
+            self.assertIn("screen-contract-missing-locale.yaml", message)
             self.assertIn("`locale` is missing", message)
             self.assertIn("does not invent the product language", message)
             self.assertIn("Add `locale`", message)

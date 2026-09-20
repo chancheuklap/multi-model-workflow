@@ -37,6 +37,7 @@ def contract():
     return {
         "effort": "x",
         "baselines": {"look": "handoff"},
+        "target": {"kind": "electron"},
         "locale": "zh-CN",
         "viewports": ["1440x900", "1180x720"],
         "pages": {

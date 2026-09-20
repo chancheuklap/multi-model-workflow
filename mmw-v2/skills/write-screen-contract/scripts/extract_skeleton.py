@@ -24,7 +24,6 @@ import argparse
 import importlib.util
 import json
 import os
-import re
 import sys
 import tempfile
 from pathlib import Path
@@ -66,30 +65,42 @@ def load_driver():
     return mod
 
 
-def load_conditions(dr, contract: Path) -> tuple[str, list[tuple[int, int]]]:
+def load_refusal():
+    """Load the ui-acceptance skill's refusal formatter from the resolved tools."""
+    for directory in tools_dirs():
+        path = directory / "refusal.py"
+        if not path.is_file():
+            continue
+        spec = importlib.util.spec_from_file_location("_extract_skeleton_refusal", path)
+        if spec is None or spec.loader is None:
+            break
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        return mod
+    paths = ", ".join(str(directory / "refusal.py") for directory in tools_dirs())
+    raise SystemExit(f"no refusal.py in the resolved ui-acceptance scripts ({paths})")
+
+
+def load_conditions(dr, refusal, contract: Path) -> tuple[str, list[tuple[int, int]]]:
     """The two rendering conditions this command reads from the contract."""
     doc = dr.load_yaml(contract)
     locale = doc.get("locale")
     if not isinstance(locale, str) or not locale.strip():
-        raise SystemExit(dr._refusal(
-            f"Top-level `locale` is missing from {contract}.",
+        raise SystemExit(refusal.refusal(
+            f"Top-level `locale` is missing from {contract.name}.",
             "extract_skeleton.py does not invent the product language.",
             "Add `locale` to the screen contract, then rerun."
         ))
     try:
         viewports = dr.parse_viewports(doc.get("viewports"))
     except (TypeError, ValueError) as exc:
-        raise SystemExit(dr._refusal(
-            f"{contract} has invalid top-level `viewports` ({exc}).",
+        raise SystemExit(refusal.refusal(
+            f"{contract.name} has invalid top-level `viewports` ({exc}).",
             "Every scene must be rendered at the contract's declared sizes.",
             "Add `viewports` as WIDTHxHEIGHT values, then rerun."
         )) from None
     return locale.strip(), viewports
-
-
-def plain_id(value: str) -> str:
-    """Remove the occurrence suffix the shared reader adds to repeated ids."""
-    return re.sub(r"#\d+$", "", value)
 
 
 def append_unique(values: list[str], value: str) -> None:
@@ -99,7 +110,7 @@ def append_unique(values: list[str], value: str) -> None:
 
 def accessible_name(dr, locator) -> str:
     """The first named or valued node in one element's accessibility snapshot."""
-    snapshot = getattr(locator, "aria_snapshot")()
+    snapshot = locator.aria_snapshot()
     for raw in snapshot.splitlines():
         match = dr.ARIA_LINE.match(dr.unquote_key(raw))
         if not match:
@@ -111,17 +122,9 @@ def accessible_name(dr, locator) -> str:
     return ""
 
 
-INTERACTIVE_JS = """elements => elements.map(el => el.matches(
-  'button,input,select,textarea,a[href],[role="button"],[role="textbox"],'
-  + '[role="checkbox"],[role="combobox"],[role="link"],[role="tab"],'
-  + '[role="radio"],[role="switch"],[role="slider"],[role="menuitem"],'
-  + '[role="searchbox"],[role="spinbutton"],[contenteditable="true"]'
-))"""
-
-
 def main(handoff: Path, out: Path, contract: Path) -> None:
     dr = load_driver()
-    locale, viewports = load_conditions(dr, contract)
+    locale, viewports = load_conditions(dr, load_refusal(), contract)
     scenes = json.loads((handoff / "scenes.json").read_text(encoding="utf-8"))
     pages = {
         dr.wrapper_path(scene["name"]): dr.wrapper_page(
@@ -157,15 +160,14 @@ def main(handoff: Path, out: Path, contract: Path) -> None:
                                 selector="#dc-root")
                             locators = page.locator(
                                 "#dc-root[data-ui], #dc-root [data-ui]")
-                            interactive_values = locators.evaluate_all(INTERACTIVE_JS)
                             for index, value in enumerate(shot.values):
                                 if not value.get("visible"):
                                     continue
                                 text = str(value.get("text") or "")
-                                interactive = bool(interactive_values[index])
+                                interactive = bool(value.get("interactive"))
                                 if not interactive and not text:
                                     continue
-                                data_ui = plain_id(str(value.get("id") or ""))
+                                data_ui = dr.plain_ui_id(str(value.get("id") or ""))
                                 if not data_ui:
                                     continue
                                 key = (scene["page"], data_ui)
@@ -181,7 +183,7 @@ def main(handoff: Path, out: Path, contract: Path) -> None:
                                     row["scenes"].append(scene["name"])
                                 row["interactive"] = row["interactive"] or interactive
                                 name = accessible_name(dr, locators.nth(index))
-                                append_unique(row["text"], text or name)
+                                append_unique(row["text"], text)
                                 append_unique(row["names"], name)
                                 per_scene[scene["name"]].add(key)
                             render_count += 1

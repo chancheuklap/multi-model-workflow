@@ -105,13 +105,21 @@ class TestScreenAxis(unittest.TestCase):
         with self.assertRaises(SystemExit):
             dr.scene_plan(CONTRACT, CATALOGUE, ["nowhere"], None)
 
-    def test_a_contract_without_the_axis_is_refused(self):
+    def test_a_contract_without_pages_is_refused(self):
         with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
-            f.write("rows: []\n")
+            f.write("scenes: {}\nrows: []\n")
         try:
             with self.assertRaises(SystemExit) as raised:
                 dr.load_contract(Path(f.name))
-            self.assertIn("target", str(raised.exception))
+            self.assertIn("pages", str(raised.exception))
+        finally:
+            os.unlink(f.name)
+
+    def test_a_contract_does_not_need_target_kind(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
+            f.write("pages: {}\nscenes: {}\n")
+        try:
+            self.assertEqual(dr.load_contract(Path(f.name)), {"pages": {}, "scenes": {}})
         finally:
             os.unlink(f.name)
 
@@ -266,17 +274,13 @@ class TestBoxes(unittest.TestCase):
             dr.visible_box(self.Page(None), "[data-screen=x]", (1440, 900))
 
 
-class TestTree(unittest.TestCase):
-    def test_nearest_named_ancestor_not_landmark_not_wrapper(self):
-        tree = ('- main "页面":\n  - list:\n    - dialog "确认":\n      - generic:\n'
-                '        - button "删除"\n  - button "取消"')
-        self.assertEqual(dr.normalize_aria(tree),
-                         ['- dialog "确认"', '- button "删除" < dialog "确认"', '- button "取消"'])
-
-
-class TestClassSets(unittest.TestCase):
-    def test_runtime_prefixes_are_not_design(self):
-        self.assertTrue(all(p in ("sc-", "dc-") for p in dr.RUNTIME_CLASS_PREFIXES))
+class TestAccessibleNames(unittest.TestCase):
+    def test_a_quoted_option_key_is_named_from_the_dom(self):
+        tree = "  - 'option \"Credit: main\" [selected]'"
+        self.assertEqual(
+            dr.name_options_from_dom(tree, ["Credit: main"]),
+            '  - option "Credit: main" [selected]',
+        )
 
 
 

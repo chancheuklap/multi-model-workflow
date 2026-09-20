@@ -47,17 +47,17 @@ It renders every scene in `scenes.json` at every declared viewport, through the 
 visible `[data-ui]` control keyed by `(page, data-ui id)`, once even when the same id is
 repeated in a list, with the scenes, text, interactivity and accessible names seen there.
 The id is the row identity. Text and accessible names explain the rendered control; they
-do not identify it. A control shown only by a `scenes.json` value listed in
-`out_of_scope_values` is absent because that value is not a scene to render.
+do not identify it. A control shown only by a value in the design page's `scene` prop
+`out_of_scope` list is absent because `pull_design.py` does not put that value in
+`scenes.json`.
 
 ### 2. Declare pages, name components and split preconditions
 
 For each page in `scenes.json`, write one `pages` entry: its **`mount`** — the short stable id the product will serve as the story page (`?page=<mount>`), and carry as `data-screen` on the one element that *is* this page. `mount` is your declaration, not a derivation: a page holds several components' rows, and the one with most rows can be a shared control borrowed from another page. For a `Component · ` page also name the **`component`** the implementation will own it under — the repository's existing feature directory when there is one, otherwise the page name; every row of that page's controls uses the same value. An `App · ` page is a whole-surface root and names no component; only an `App · ` page may also name its **`route`**, the address journeys compare.
 
-Then a control whose behaviour differs by state gets one row per state — `precondition` is the column that tells them apart (`material: none` and `material: added` are two rows for the same button). Three cases that come up on every page:
+Then a control whose behaviour differs by state gets one row per state — `precondition` is the column that tells them apart (`material: none` and `material: added` are two rows for the same button). Two cases that come up on every page:
 
 - **A disabled state is a row.** The user sees the control; the row says `calls: [none]` and `next` is the scene the user stays in.
-- **A control whose accessible name embeds a shown value** (`附件_报告.pdf 已添加 …`) appears in the skeleton once per value. Keep the name as the skeleton reports it — the trigger is on the look side of the split — and put the value's field in `shows`. One row per state, as above.
 - **A state the handoff never shows** (the form complete, ready to submit) is still a row when the backend decisions reach it. Its `scenes` is `[]`; the lint reports it as a warning so the handoff gap is on record.
 
 A name the accessibility tree gets from a placeholder or a hint is copied all the same, and reported as an accessibility defect of the handoff in the run's notes.
@@ -80,7 +80,13 @@ Walk the map's decisions and the backend contract the other way: every decision 
 
 ### 5. Write the gap list and stop for the person
 
-Collect every row whose `gap` is `design-only` or `backend-only`, and every scene a person has judged cannot be captured (record that as a `retired_ids` entry whose `note` carries the date and the verdict, as `screen-contract-format.md` shows; there is no exemption field, and the lint prints every retirement on every run). Write them to `<scratch>/gap-list.md`: one entry each, with the row id, what the design shows, what the backend decides, the options, and the one you would take. Then hand the list to the person — this is the one judgement in this skill that is theirs, and it is a grilling, not a form. Expect a handful of entries, not dozens; dozens means a decision ticket was skipped upstream, and that goes back to the wayfinder map.
+Collect every row whose `gap` is `design-only` or `backend-only`, and every scene a
+person has judged cannot be captured. Write them to `<scratch>/gap-list.md`: one entry
+each, with the row id or scene, what the design shows, what the backend decides, the
+options, and the one you would take. Then hand the list to the person — this is the one
+judgement in this skill that is theirs, and it is a grilling, not a form. Expect a
+handful of entries, not dozens; dozens means a decision ticket was skipped upstream,
+and that goes back to the wayfinder map.
 
 When the person is not reachable in this run (a batch, a test run), write the gap list and stop. The contract stays in the run's scratch directory with its `gap` values as they are; the lint reports each unresolved gap as an error, and that is the intended state. Nothing is written under `docs/specs/` until every gap is `aligned`.
 
@@ -89,14 +95,7 @@ Two things a gap list does not carry: an implementation that today does less tha
 ### 6. Publish and lint
 
 1. Write `docs/specs/<effort>/screen-contract.yaml`.
-2. Extract once more from the published contract so the skeleton records the published
-   locale and viewports:
-
-   ```
-   uv run python <scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --contract docs/specs/<effort>/screen-contract.yaml
-   ```
-
-3. Lint to zero errors:
+2. Lint to zero errors:
 
    ```
    uv run python <scripts>/lint_screen_contract.py docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
@@ -111,7 +110,7 @@ Two things a gap list does not carry: an implementation that today does less tha
    not cover. `App · ` pages are outside that warning: the story judge's `--pages` takes
    only non-App mounts. Zero errors, or fix the file.
 
-4. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
+3. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions.
 
 ## Re-runs
 
@@ -119,9 +118,9 @@ Two things a gap list does not carry: an implementation that today does less tha
   may change without changing row identity; a changed or missing `data-ui` id is the
   control-inventory change to resolve.
 - A spec decision changed: edit the rows that cite it, rerun step 6, and put the changed rows through step 5 again.
-- Row ids are never renumbered or reused. A retired behaviour loses its row; record
-  the decision in the contract as the current format reference specifies. The design
-  renderer does not hide controls or change the handoff package.
+- Row ids are never renumbered or reused. A retired behaviour loses its row; record the
+  decision in the spec or its decision ticket. The design renderer does not hide
+  controls or change the handoff package.
 
 ## Done when
 

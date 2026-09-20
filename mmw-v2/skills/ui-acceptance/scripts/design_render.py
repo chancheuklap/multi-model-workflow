@@ -2,8 +2,7 @@
 """Offline rendering of a handoff package's design side.
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
-server, the wrapper page, capture, the `[data-ui]` reader, and the accessibility-tree
-normaliser.
+server, the wrapper page, capture, and the `[data-ui]` reader.
 """
 
 from __future__ import annotations
@@ -39,20 +38,6 @@ FRAME_MS = 16
 # Every design page starts the fake clock here and moves it forward only; `pause_at`
 # refuses to go back.
 CLOCK_EPOCH_MS = 1_700_000_000_000
-
-# Roles whose accessible name is dropped: a product page labels its `<main>`, a
-# component page does not, and the landmark itself is what matters.
-LANDMARKS = {"main", "navigation", "banner", "contentinfo", "region", "complementary"}
-# Roles the *comparison* keeps even with no accessible name: a dialog is on screen, so a
-# product that stopped drawing one has to fail, and until this list existed an unnamed
-# dialog was dropped and no judge could see it. This is a statement about what counts as
-# structure on screen, and it is the only place a role is named — **locating** a control
-# uses the whole ancestor chain and needs no list, so a product built from `nav`, `table`
-# or a repeated `article` needs nothing added here.
-COMPARED_UNNAMED = {"dialog", "alertdialog"}
-# Classes the Claude Design runtime adds around interpolated text and hosts; a product
-# never carries them, and they are not part of the design.
-RUNTIME_CLASS_PREFIXES = ("sc-", "dc-")
 
 VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)$")
 
@@ -100,7 +85,7 @@ def load_contract(path: Path, doc: dict | None = None) -> dict:
     """Read the contract, or reuse a dict already loaded from `path`."""
     if doc is None:
         doc = load_yaml(Path(path))
-    for key in ("target", "pages", "scenes"):
+    for key in ("pages", "scenes"):
         if key not in doc:
             raise SystemExit(f"{path}: contract has no top-level `{key}`; run write-screen-contract "
                              f"step 2 to declare pages")
@@ -191,48 +176,6 @@ def unquote_key(line: str) -> str:
     return m.group("indent") + m.group("key").replace("''", "'") + (m.group("rest") or "")
 
 
-def normalize_aria(text: str) -> list[str]:
-    """The named nodes of a Playwright ARIA snapshot, in reading order, each with its
-    nearest named ancestor.
-
-    Each line is `- <role> "<name>"<attrs>` or `- <role>: <value>`, followed by
-    ` < <role> "<name>"` naming the closest ancestor that itself carries a name or a
-    value. Kept: every node that carries a name or a value — a control, a heading, a line
-    of copy — with its attributes (`[level=2]`, `[checked]`). Dropped: nodes with
-    neither, the accessible name of a landmark role, and lines that are not nodes. An
-    unnamed wrapper is not an ancestor: an app page wraps a component in one more `main`
-    and a product page in `list` and `article`, and none of that shows on screen. A
-    button that moved out of its dialog does show, and its ancestor line says so.
-    """
-    out = []
-    # (indent, rendered node) for every named node on the path from the root.
-    stack: list[tuple[int, str]] = []
-    for ln in text.splitlines():
-        m = ARIA_LINE.match(unquote_key(ln))
-        if not m:
-            continue
-        indent = len(m.group("indent").expandtabs(2))
-        while stack and stack[-1][0] >= indent:
-            stack.pop()
-        role, name, attrs, value = (m.group("role"), m.group("name"),
-                                    m.group("attrs") or "", m.group("value"))
-        if role in LANDMARKS:
-            name = None
-        if name is None and not value and not attrs.strip() and role not in COMPARED_UNNAMED:
-            continue
-        if value:
-            node = f"- {role}: {value.strip()}"
-        elif name is not None:
-            node = f'- {role} "{name}"{attrs}'
-        else:
-            node = f"- {role}{attrs}"
-        parent = stack[-1][1] if stack else None
-        out.append(f"{node} < {parent[2:]}" if parent else node)
-        if name is not None or value or role in COMPARED_UNNAMED:
-            stack.append((indent, node))
-    return out
-
-
 # An `<option>`'s accessible name is computed from its own child text nodes alone. The
 # Claude Design runtime wraps every `{{ }}` hole in a `span.sc-interp`, which takes the
 # text out of those nodes, so a handoff package reports its options unnamed while any
@@ -256,28 +199,6 @@ def name_options_from_dom(aria: str, texts: list[str]) -> str:
         head, attrs = m.group(1), m.group(2)
         out.append(f'{head} "{text}"{attrs}' if text else f"{head}{attrs}")
     return "\n".join(out)
-
-
-# ---------------------------------------------------------------- class sets
-CLASSES_JS = """(root) => {
-  const out = {};
-  for (const el of root.querySelectorAll('*')) {
-    const raw = typeof el.className === 'string' ? el.className : (el.className.baseVal || '');
-    const label = ((el.getAttribute('aria-label') || el.innerText || '').trim()
-      .replace(/\\s+/g, ' ').slice(0, 30));
-    for (const c of raw.split(/\\s+/).filter(Boolean)) {
-      if (!(c in out)) out[c] = el.tagName.toLowerCase() + (label ? ' "' + label + '"' : '');
-    }
-  }
-  return out;
-}"""
-
-
-def class_set(page, selector: str) -> dict[str, str]:
-    """Every class name in the subtree, each with the first element that wears it."""
-    found = page.locator(selector).first.evaluate(CLASSES_JS)
-    return {c: label for c, label in found.items()
-            if not c.startswith(RUNTIME_CLASS_PREFIXES)}
 
 
 # ---------------------------------------------------------------- baseline server
@@ -392,7 +313,6 @@ def baseline_router(origin: str, baseline: Path, cache: Path):
 class Shot:
     png: Path
     aria: str
-    classes: dict[str, str]
     box: tuple[int, int, int, int]  # x, y, w, h in viewport CSS pixels
     values: list[dict]
 
@@ -452,6 +372,11 @@ UI_VALUES_JS = """(root) => {
     const ar = anc ? anc.getBoundingClientRect() : null;
     out.push({
       id: qualified.get(el),
+      interactive: el.matches('button,input,select,textarea,a[href],[role="button"],'
+        + '[role="textbox"],[role="checkbox"],[role="combobox"],[role="link"],'
+        + '[role="tab"],[role="radio"],[role="switch"],[role="slider"],'
+        + '[role="menuitem"],[role="searchbox"],[role="spinbutton"],'
+        + '[contenteditable="true"]'),
       visible: cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0'
         && r.width !== 0 && r.height !== 0,
       text: ownText(el),
@@ -520,12 +445,12 @@ def wait_for_mount(page, selector: str) -> None:
 
 def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] | None = None,
             extra_js: str | None = None) -> Shot:
-    """Screenshot, accessibility tree, class set and `[data-ui]` values under
-    `selector`, on a page that has already been navigated and settled.
+    """Screenshot, accessibility tree and `[data-ui]` values under `selector`, on a
+    page that has already been navigated and settled.
 
-    `clip` is the screenshot rectangle in viewport coordinates. The tree, class set
-    and values walk the whole subtree. `extra_js` applies a negative-control
-    mutation before capture.
+    `clip` is the screenshot rectangle in viewport coordinates. The tree and values
+    walk the whole subtree. `extra_js` applies a negative-control mutation before
+    capture.
     """
     if extra_js:
         page.evaluate(extra_js)
@@ -541,15 +466,19 @@ def capture(page, png: Path, *, selector: str, clip: tuple[int, int, int, int] |
                     clip={"x": x, "y": y, "width": max(1, w), "height": max(1, h)})
     aria = name_options_from_dom(target.aria_snapshot(),
                                  target.evaluate(OPTION_TEXT_JS))
-    classes = class_set(page, selector)
     values = read_ui_values(page, selector)
     aria_path(png).write_text(aria, encoding="utf-8")
-    return Shot(png, aria, classes, (x, y, w, h), values)
+    return Shot(png, aria, (x, y, w, h), values)
 
 
 def read_ui_values(page, selector: str) -> list[dict]:
     """Every `[data-ui]` element under `selector`, document order, as one dict each."""
     return page.locator(selector).first.evaluate(UI_VALUES_JS)
+
+
+def plain_ui_id(qualified: str) -> str:
+    """Remove the occurrence suffix the shared reader adds to repeated ids."""
+    return re.sub(r"#\d+$", "", qualified)
 
 
 def nest_ui_values(values: list[dict]) -> dict:
@@ -569,9 +498,6 @@ def nest_ui_values(values: list[dict]) -> dict:
             ancestor = None
         children.setdefault(ancestor, []).append(row)
 
-    def plain_id(qualified: str) -> str:
-        return re.sub(r"#\d+$", "", qualified)
-
     def add(target: dict, key: str, value) -> None:
         if key not in target:
             target[key] = value
@@ -589,12 +515,12 @@ def nest_ui_values(values: list[dict]) -> dict:
         if own:
             out["_text"] = own
         for child in descendants:
-            add(out, plain_id(str(child["id"])), value_of(child))
+            add(out, plain_ui_id(str(child["id"])), value_of(child))
         return out
 
     out = {}
     for row in children.get(None, []):
-        add(out, plain_id(str(row["id"])), value_of(row))
+        add(out, plain_ui_id(str(row["id"])), value_of(row))
     return out
 
 
