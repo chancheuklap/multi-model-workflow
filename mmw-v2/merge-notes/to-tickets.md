@@ -31,14 +31,11 @@
 | `**Work only a person can do**` 那一段 | 挪到 `references/person-ticket.md`，`SKILL.md` 第 4 问的第 3、4 支和 `triage/SKILL.md` 都指向它；只有 criterion 停在问题 3 或 4 的那次 run 才读到这段。我们改的：分两类，且要求 ticket 上用一个词点明是哪一类——`reaction`（被判的性质就是一个人的反应，人是量具，消不掉）与 `reach`（机器判得了但够不着，补上一个测试账号、一台备用机、一个 runner、一个还没人 Owns 的到达机制、或 consuming repository 一条不给测试出口的可测试性规则就能消掉——后两样是第 4 问「It is.」一支缺名字或缺 Owns 时的落点，与缺设备、缺凭证同形）。上游给的四个理由（判断、只有人有的访问权、设计决定、手工测试）在这条 landing pipeline 里是混的：判断大半归了 code review，设计决定是 the five questions 的第 5 问，两样都不该进这个盒子。同时列明 the five things：`## Parent`、是哪一类、看什么（一个点开就能看的链接，不是一条要跑的命令）、什么算对、`## Blocked by`。理由：这是全 landing pipeline 唯一一个不向机器交代理由的出口，一行散文防不住，写不出自己是哪一类就说明它归错了档；而它的读者是早上、在手机上、没有上下文的人，缺「什么算对」他只能回答「我说不上来」。上游改这一段 → 收上游措辞，两类与 the five things 保留 |
 | 模板之后的路径规则那一句 | 我们改的：收窄成 `no implementation file paths`，并明写两个例外——`## Seam` 的测试目录或测试文件，`## Owns` 的路径。理由：禁令反对的是散在描述里、一改名就错的实现路径；`## Owns` 写的不是「代码在哪」而是「你可以写哪」，文件在它里面怎么挪都不影响真值，而且它过期是可见失效（glob 匹配不到任何现存路径），不是静默误导。上游改这一句 → 收上游措辞，两个例外保留 |
 | 第 7 步的 Local files 分支与 `<local-ticket-template>` | 删掉，publish 的地方只有 issue tracker；`description`、read-back 那一步与模板后那一句都不提本地形态，`description` 写的是每张 ticket 一个 issue、带 blocking link。理由：本仓的 ticket 必须有 issue 号才走得动——`dispatch.sh` 按 `issue-<n>` 开 branch、`verify-ticket.py <n>` 按 ticket number 跑 acceptance criteria 并把结论评论回去、`status.py` 从 spec 的 `sub_issues` 取当晚的 frontier，三样都只认 issue tracker 上的号；本地文件形态出的 ticket 一步都走不了，留着只是给写 ticket 的一方一个走不通的选项，而且它那套粗体行加 `**Status:**` 与 `<issue-template>` 的固定节名不同形，`--lint` 也只认 `<issue-template>` 那一种。上游再改那一段 → 不收 |
-| 第 4 步里 interface parity 那条 acceptance criterion | 我们改的：正文不抄那条 `CHECK:` 的全文，只指去 `ui-acceptance` 技能的 `references/story-parity.md` § The criterion, in one shape 照抄，不再点名 `verify-ticket` 技能持有该形状。形状只在那一节。抄成两份必漂：改一处，另一处跟不上。上游给 acceptance criterion 加同类模板 → 收上游，指去 `story-parity.md` 那一节保留 |
+| 第 3 步 contract ticket 段与 acceptance ticket 段、第 4 步界面判据与「A layer with no precedent yet」、第 5 步 prefactor 里 contract ticket 那一句、模板 `## Read first` 的界面部分 | 我们加的。见 `## 界面 ticket 的规则 cutting-interface-tickets.md`。 |
 | `<vertical-slice-rules>` | 删掉 `Each slice is sized to fit in a single fresh context window` 这一条。我们的 spec 通常很大，这条把 vertical slice 推得过细；粒度由 `### 6. Quiz the user` 那一步问 user 来定。上游改这条措辞 → 仍然删。上游把它换成别的尺寸规则 → 也删，保持 vertical slice 尺寸不设机械上限。其余段落我们没改，全取上游 |
 | 开头「issue tracker 与 triage label 词汇没给你就去装」那一句、第 4 步两处「回到 to-spec」、第 7 步 publish 那一句里「那个 tracker 是谁配置的」 | host 中立：四处点技能名的地方一律写成散文形式，开头那句与 `triage`、`wayfinder` 同一个说法。共同理由与三种替换写法见 [README.md](README.md#host-中立) |
-| 第 3 步 `<vertical-slice-rules>` 之后的 **contract ticket** 段、第 4 步 `CHECK:` 来源列表里的界面票判据条、`<issue-template>` `## Read first` 说明里界面票两条基线那几句、第 8 步 `--lint` 那条末尾的 `[screen-contract]` 一句 | 我们加的：spec 有 screen contract 时第一张固定是 contract ticket，交付 `.mmw/` 全部答案、story 页面骨架与 adapter 先例、`boundary-check.py` 交互助手先例、旅程骨架与守卫，判据 `journey.py run smoke`，其余票全被它阻塞；界面票按设计页拥有 `story-parity.py --pages` 与每条 `calls` 非 `none` 的行一条边界判据；`--lint` 的 `[screen-contract]` 把这些形状做成机器版。（它查的就是这些形状而已：`built_by`、`--scenes` 越界与未知 `--mount` 三条它从来没有查过——`--scenes` 那条规则是真的，由 `story-parity.py` 在运行时执行，不在 lint；`--mount` 对机器来说也不是 unknown，`PIPELINE_SCRIPTS` 把它列在 `story-parity.py` 的 retired 一栏里。）理由同 to-spec 那条。上游改这几处 → 收上游措辞，四处接回去（取代原先「observe 行出 wiring criterion」与「空壳 + addressing self-check」） |
-| 第 3 步 contract ticket 段里 `.mmw/target.json` 那句加「filled until `target_config.py --check` of the `ui-acceptance` skill exits 0」 | 我们改的，来自 mmw #158：target 归 `ui-acceptance` 技能，字段由 `target_config.py` 声明并由检查命令打印，contract ticket 的工人跑命令而不是读文档。上游改这一句 → 收上游措辞，检查命令与技能名保留 |
-| 第 4 问「It is.」一支删掉「a screen composed against fixtures instead of the live client」那个例子；第 8 步 `## Owns` 一条加「跨仓库的工具改动不开票、当场改」；`<issue-template>` `## Read first` 加「界面票的 Read first 由行的 `source` 推导（baseline 类出处按文档去重，spec 小节与 story 经 Parent 到达）+ 目标树按行号两次查表」 | 我们改的，来自 mmw #115，#216 第 8 节未推翻的部分。fixtures 例子与「这正是本流水线要抓的失败」直接矛盾，删；推导 Read first 是正面修法。上游改这几处 → 收上游措辞，这几条保留 |
+| 第 4 问「It is.」一支删掉「a screen composed against fixtures instead of the live client」那个例子；第 8 步 `## Owns` 一条加「跨仓库的工具改动不开票、当场改」；界面票 `## Read first` 由行的 `source` 推导（baseline 类出处按文档去重，spec 小节与 story 经 Parent 到达） | 我们改的，来自 mmw #115，#216 第 8 节未推翻的部分。fixtures 例子与「这正是本流水线要抓的失败」直接矛盾，删；推导 Read first 在 `cutting-interface-tickets.md`，含 `scenes.json`，target trees 一条已删。上游改 `SKILL.md` 这几处 → 收上游对第 4 问与 Owns 的措辞；界面 Read first 仍在新文件且不含 target trees |
 | 开头两门表与 `references/ambiguity-scan.md` | 我们加的。见 `## 找漏 reference`。 |
-| 第 3 步 contract ticket 段的旅程落点与其后的 **acceptance ticket** 段 | 我们改的：旅程三种落点，spec 声明 **Cross-ticket flows** 时按行切 acceptance ticket。理由：#415 第 16 节。上游改合同票段 → 收上游措辞，三种落点与 acceptance ticket 段保留 |
 | 第 6 步开头的找漏 subagent 与 `Choices` 行 | 我们加的：quiz 前列切分之前跑一轮找漏。理由：#415 第 14 节。上游改 quiz 那一步 → 收上游的问题清单，找漏那段与 `Choices` 的并入保留 |
 
 ### agents/openai.yaml
@@ -65,7 +62,7 @@
 
 第 5 步在上游那一句之后加一整块，`<issue-template>` 的 `## Owns` 第一段与第 8 步 read-back 的 `## Owns` 那一条各加一句。三处说的是同一件事：一张票新建的文件，要有另一处既有文件点它的名，它才会被渲染出来、才会被自己的判据看见；那几处既有文件也归这张票的 `## Owns`。
 
-- 第 5 步：对每条标了 `(new)` 的路径做三步推导——找同类里最近的那一个（批次从零起步时，就是本批次另一张票落下的第一个）；对它 `grep` 两次（那个同类还没造出来时，读落它那张票的 `## Owns`）：文件名答出清单/manifest、路由、include 或 import 它的父模板、导出它的 index、给它摆场景的 story adapter；它对外声明的那一个标识（根 class 名、导出的符号、路由路径）答出样式表、打包入口或表——这一处**光按文件名 grep 到不了**，`agentflow` 那批里 `work_monitor.css` 与局部模板之间只有 class 名（`pt-rail`、`wm-day-rule`）这一条联系，而它正是冲突文件之一。把答出来的每个文件收进本票 `## Owns`。随后按重叠程度分两支：两张重叠走 `## Owns` 已有的 `## Blocked by` 边；三张及以上共用同一组文件，改切一张 prefactor ticket 排在它们前面，由它一次落下全部登记、路由、include 与导出（各指一个占位），并把「只是一串互不相干条目」的那种共用文件（样式表、登记表、打包入口）拆成一票一份、由共用的那份 include 一次，其余票只被它一张阻塞、于是能并行。spec 有 screen contract 时这张票就是第 3 步的 contract ticket，它登记合同里每个设计页的场景与路由，而不只是当先例的那一页。共用文件本身是一整段逻辑（几张票各往同一个路由模块加 handler）时既不预落也不拆——写进去的内容就是各票自己的活——那几张票仍然串行。这一条是为了不误伤 #753 那种形状：它与 #745、#746 共用 `src/gateway/routes/org_work_monitor.py`，走的就是串行，而且它本来就把这个文件写进了自己的 `## Owns` 并连了 `## Blocked by` 边。
+- 第 5 步：对每条标了 `(new)` 的路径做三步推导——找同类里最近的那一个（批次从零起步时，就是本批次另一张票落下的第一个）；对它 `grep` 两次（那个同类还没造出来时，读落它那张票的 `## Owns`）：文件名答出清单/manifest、路由、include 或 import 它的父模板、导出它的 index、给它摆场景的 story adapter；它对外声明的那一个标识（根 class 名、导出的符号、路由路径）答出样式表、打包入口或表——这一处**光按文件名 grep 到不了**，`agentflow` 那批里 `work_monitor.css` 与局部模板之间只有 class 名（`pt-rail`、`wm-day-rule`）这一条联系，而它正是冲突文件之一。把答出来的每个文件收进本票 `## Owns`。随后按重叠程度分两支：两张重叠走 `## Owns` 已有的 `## Blocked by` 边；三张及以上共用同一组文件，改切一张 prefactor ticket 排在它们前面，由它一次落下全部登记、路由、include 与导出（各指一个占位），并把「只是一串互不相干条目」的那种共用文件（样式表、登记表、打包入口）拆成一票一份、由共用的那份 include 一次，其余票只被它一张阻塞、于是能并行。「spec 有 screen contract 时这张票就是 contract ticket」那一句在 `references/cutting-interface-tickets.md`：它登记合同里每个设计页的场景与路由，而不只是当先例的那一页。共用文件本身是一整段逻辑（几张票各往同一个路由模块加 handler）时既不预落也不拆——写进去的内容就是各票自己的活——那几张票仍然串行。这一条是为了不误伤 #753 那种形状：它与 #745、#746 共用 `src/gateway/routes/org_work_monitor.py`，走的就是串行，而且它本来就把这个文件写进了自己的 `## Owns` 并连了 `## Blocked by` 边。
 - `<issue-template>` 的 `## Owns`：明写「本票必须改才能让它新建的东西投入使用的文件也写在这里，哪怕是别的票建的」。不另开一节记「我要改但不拥有的文件」——同一件事记两份账，而 `## Owns` 本来就是「你可以写哪」不是「你的代码在哪」。
 - 第 8 步 read-back 的 `## Owns` 那一条：末尾加一句，每条 `(new)` 路径在同一张票上要有那个让它投入使用的既有文件。没有这一句，推导被跳过时 read-back 查不出来——票与票的 `## Owns` 恰恰因为漏了那几个文件而不重叠，重叠那条检查照样过。
 
@@ -75,11 +72,22 @@
 
 上游改第 5 步、`## Owns` 一节或 read-back → 收上游措辞，三步推导、两支、`## Owns` 那一句与 read-back 那一句保留；第 5 步永远排在 acceptance criterion 之后（推导要先知道每条判据得看见什么），在 quiz 之前（prefactor ticket 是批次里多出来的一张，得让 user 在 quiz 上看见）。
 
+## 界面 ticket 的规则 `cutting-interface-tickets.md`
+
+`references/cutting-interface-tickets.md` 是新文件。理由：#447 第 1 节、方案 K5。
+
+| 段落 | 我们的意图 |
+| --- | --- |
+| `SKILL.md` 第 3 步 contract ticket 段与 acceptance ticket 段、第 4 步「A layer with no precedent yet」与两条 story criterion、第 5 步 prefactor 里 contract ticket 那一句、模板 `## Read first` 的界面部分、第 8 步 `built_by` 一句 | 前几段移进新文件。`SKILL.md` 两处指向它：第 3 步一行，模板 `## Read first` 一行（`dispatch` 的 `night.md` 关票时只读模板）。规则不写回 `SKILL.md`。`built_by` 删除（合同里没有这个键），到达机制仍须在某张 ticket 的 **Owns** 里。上游把规则写回 `SKILL.md` → 不收进正文，接到新文件 |
+| `references/cutting-interface-tickets.md` | 新文件，装有 screen contract 时怎么切界面 ticket。上游给 to-tickets 加同类 reference → 收上游对调用句式的措辞，这份文件的五种 ticket、共用 helper、reaction 与行变更的规则保留 |
+| 五种 ticket | **design-system ticket**（新产品才有，排在 contract ticket 之前并挡住它，criterion 不依赖 `.mmw/`）；**contract ticket**（已有产品只补 `target_config.py --check` 报缺的，没有要补的就不切；新产品落地整套 `.mmw/`，挡住 design-system ticket 以外的所有 ticket）；**interface ticket**（按 `Component · ` 页，一条 element parity 的 story criterion，每个 `calls` 不为 `none` 或 `next` 不是 `stay` 的行一条 boundary criterion）；**app page ticket**（认领 `App · ` 页，一条 story criterion，每条 cross-component row 一条 boundary criterion，被引用的 `Component · ` 页的 interface ticket 挡住它）；**acceptance ticket**（Testing Decisions 的关键流程每条一张，criterion 带 break，默认取该流程合同行里最后一个写操作，红了 `HANDOFF REQUIRED`）。每种 criterion 的形状只点名 `ui-acceptance` 的 `references/story-parity.md`、`boundary-check.md`、`journey.md` 各自的 **The criterion** 一节。上游改其中一种 → 收上游措辞接到新文件，五种与「点名、不另写命令形状」保留 |
+| 共用 journey helper | 一批里有两张以上 journey ticket 需要同样的产品访问时，由 contract ticket（有的话）或这批第一张 journey ticket 在 `.mmw/harness/` 下建一个共用 helper 并列进自己的 **Owns**；之后的 journey ticket import 它，**Owns** 除 `.mmw/journeys/<flow>/` 外包括向这个 helper 添加，**Seam** 可以禁止改产品代码、不禁止向这个 helper 添加。理由：#443，#447 第 5 节。上游加同类共用 helper → 收上游措辞，落点 `.mmw/harness/` 与 Owns 规则保留 |
+
 ## 合同票的 Read first 点名 story 页面那一节
 
-合同票交付的「story-page skeleton and one adapter precedent」那一句后面加一句：它的
+这句话在 `references/cutting-interface-tickets.md` 的 contract ticket 段：它的
 **Read first** 点名 `ui-acceptance` 技能 `references/story-parity.md` 的
-**The story page the product serves**。
+**The story page the product serves**，以及 `references/journey.md` 与 `references/product-answers.md`。
 
 理由是那一节的内容原先散在三份写给别人的文件里——`[data-story-root]` 在 `ui-parity.md`
 的 `Two sides`（收信人是写判据的人和读 `DIFF` 的人）与 `code-review` 的
@@ -95,4 +103,4 @@ story page service and prints its origin」。它只能先造错，再被
 把要求集中到 `story-parity.md` 之后，还要有人把 worker 带过去，而带它的只能是票的
 **Read first**——这一句就是那个动作。同一句一并点名 `references/journey.md`：合同票也交付
 旅程骨架，而每条旅程会在产品停掉之后被再跑一遍，什么都不断言的脚本会被报出来而不是放过
-（mmw #297 决策 7）。上游改写合同票那一段 → 收上游措辞，这一句保留。
+（mmw #297 决策 7）。#447 第 2 节再点名 `references/product-answers.md`。上游改写合同票那一段 → 收上游措辞接到 `cutting-interface-tickets.md`，点名这三节保留。
