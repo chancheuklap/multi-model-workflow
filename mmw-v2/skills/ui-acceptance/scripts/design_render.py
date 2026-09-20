@@ -176,6 +176,11 @@ def unquote_key(line: str) -> str:
     return m.group("indent") + m.group("key").replace("''", "'") + (m.group("rest") or "")
 
 
+def accessibility_snapshot(locator) -> str:
+    """The Playwright accessibility snapshot for one locator."""
+    return locator.aria_snapshot()
+
+
 # An `<option>`'s accessible name is computed from its own child text nodes alone. The
 # Claude Design runtime wraps every `{{ }}` hole in a `span.sc-interp`, which takes the
 # text out of those nodes, so a handoff package reports its options unnamed while any

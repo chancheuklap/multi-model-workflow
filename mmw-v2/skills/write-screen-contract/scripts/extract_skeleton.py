@@ -110,7 +110,7 @@ def append_unique(values: list[str], value: str) -> None:
 
 def accessible_name(dr, locator) -> str:
     """The first named or valued node in one element's accessibility snapshot."""
-    snapshot = locator.aria_snapshot()
+    snapshot = dr.accessibility_snapshot(locator)
     for raw in snapshot.splitlines():
         match = dr.ARIA_LINE.match(dr.unquote_key(raw))
         if not match:
