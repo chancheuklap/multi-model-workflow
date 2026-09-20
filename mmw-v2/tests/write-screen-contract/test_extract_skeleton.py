@@ -37,6 +37,21 @@ def tearDownModule():
     shutil.rmtree(HOME, ignore_errors=True)
 
 
+class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
+    """`extract_skeleton.py` finds the sibling skill's `design_render.py` with no --tools."""
+
+    def test_the_skeleton_runs_without_tools(self):
+        expected = (UA_SCRIPTS / "design_render.py").resolve()
+        self.assertTrue(expected.is_file())
+        self.assertEqual((es.SIBLING_UA / "design_render.py").resolve(), expected)
+        saved = list(es.TOOLS)
+        try:
+            es.TOOLS[:] = []
+            self.assertEqual(Path(es.load_driver().__file__).resolve(), expected)
+        finally:
+            es.TOOLS[:] = saved
+
+
 class TestExtractSkeleton(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
