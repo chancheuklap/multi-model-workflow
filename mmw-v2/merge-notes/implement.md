@@ -22,7 +22,7 @@
 
 ## writing-interface-code.md
 
-`references/writing-interface-code.md` 是新文件。理由：#447 第 8 节。`SKILL.md` 读入一步加一行指向它；文件开头一次定义 `<ui-acceptance scripts>`（ui-acceptance 技能的 `scripts/`，从那个技能的 `SKILL.md` 解析）。内容：写代码前用 `uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --render-only --out <mktemp 目录>` 取各 scene 的截图与每个 `data-ui` id 的文字、位置尺寸、样式值；`[data-story-root]` 放在组件自己的根上，对应元素带 design page 上同一个 `data-ui` id；同一轮写 story adapter 与四列 boundary test；design system 从代码同步时照抄 design page 上的产品类名；就地改是运行 → 读 `DIFF` 行 → 改 → 再运行，修的是行点名的 id 与属性；设计值明显可疑、改一处必然违背另一处、design page 缺控件或流转与合同对不上时，`<engine> <n> --sub-issue contract <file>`，正文第一行写「由 design-pages 的 pull 入口处理：在 Claude Design 里改，再 pull」，附 Claude Design 页面，handoff package 仍由 design-pages 的 pull 入口写，本票其余部分继续；一条代码路径按 story 说法：story 页的数据只来自 story adapter 读的 scene data，产品的请求路径不因数据来源、查询参数或构建开关换投影。
+`references/writing-interface-code.md` 是新文件。理由：#447 第 8 节。`SKILL.md` 读入一步加一行指向它；文件开头一次定义 `<ui-acceptance scripts>`（ui-acceptance 技能的 `scripts/`，从那个技能的 `SKILL.md` 解析）。内容：写代码前用 `uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --render-only --out <mktemp 目录>` 取各 scene 的截图与每个 `data-ui` id 的文字、位置尺寸、样式值；`[data-story-root]` 放在组件自己的根上，该根带 design page 根上同一个 `data-ui` id，对应元素也带同一个 id；同一轮写 story adapter 与四列 boundary test；design system 从代码同步时照抄 design page 上的产品类名；就地改是运行 → 读 `DIFF` 行 → 改 → 再运行，修的是行点名的 id 与属性，轮数与 `ABANDON:` 仍在 `SKILL.md` 收尾第 1 步；设计值明显可疑、改一处必然违背另一处、design page 缺控件或流转与合同对不上时，`<engine> <n> --sub-issue contract <file>`，正文第一行是 Claude Design 页面和站不住的值（它就是 child 的标题），下一行写「由 design-pages 的 pull 入口处理：在 Claude Design 里改，再 pull」，其余引用站不住的原文和同一出处里仍成立的部分，handoff package 仍由 design-pages 的 pull 入口写，本票其余部分继续；一条代码路径按 story 说法：story 页的数据只来自 story adapter 读的 scene data，产品的请求路径不因数据来源、查询参数或构建开关换投影。两份基线的分工仍在 `SKILL.md`。
 
 上游把界面写码规则写回 `SKILL.md` → 挪进这份文件，指针保留。上游改收尾第 1 步去解释 `DIFF` 行 → 那几句仍只住在这份文件。
 
@@ -111,7 +111,7 @@ Upstream rewrites the "Once done" paragraph → take its wording and put the tab
 
 ## Where a failing `story-parity.py` criterion is read
 
-The two sentences that used to sit in closing step 1 live in `references/writing-interface-code.md` under **Fix in place**. That script prints one `DIFF` line per difference — a `data-ui` id, one property, its design and product values — and what those lines and `NEGATIVE CONTROL FAILED` mean is written only in the ui-acceptance skill's `references/story-parity.md`. The second sentence says to fix only the named id and property and run once more, and that the pixel difference image is evidence rather than a verdict to shrink: on ticket #548 of the chameleon repository a worker whose tree already matched spent sixteen parity runs changing fonts, line heights and renderer flags against a 1% pixel threshold, and abandoned the criterion. Upstream rewrites step 1 → keep both sentences in that reference, not in `SKILL.md`.
+The two sentences that used to sit in closing step 1 live in `references/writing-interface-code.md` under **Fix in place**. That script prints one `DIFF` line per difference — a `data-ui` id, one property, its design and product values — and what those lines and `NEGATIVE CONTROL FAILED` mean is written only in the ui-acceptance skill's `references/story-parity.md`. The second sentence says to fix only the named id and property and run once more, and that the pixel difference image is evidence rather than a verdict to shrink: on ticket #548 of the chameleon repository a worker whose tree already matched spent sixteen parity runs changing fonts, line heights and renderer flags against a 1% pixel threshold, and abandoned the criterion. How many rounds a criterion gets, and the `ABANDON:` line, stay in `SKILL.md` closing step 1; the reference points at that step and does not repeat them. Upstream rewrites step 1 → keep the `DIFF` sentences in that reference, not in `SKILL.md`, and keep rounds and `ABANDON:` in step 1.
 
 ## Two baselines with separate jurisdictions, and one code path
 
@@ -124,8 +124,12 @@ Three kinds live in the writing rules: `contract` when the contract does not fit
 question would change what the ticket delivers. Closing step 2 uses `finding`. The
 paragraph that resolves `<engine>` uses `fault` (a fault in `verify-ticket.py`,
 hook, driver, `.mmw/target.json` — the file's body is the command it ran and the
-output it saw, then stop), and so does step 4's start that exits 2. All five are
-parented to this ticket.
+output it saw, then stop), and so does step 4's start that exits 2.
+`references/writing-interface-code.md` uses `contract` when the design side is the
+defect: the file's first line is the Claude Design page and the value that does not
+hold (that line is the child issue's title); the next line names the design-pages
+pull entry; the rest quotes what does not hold and what in the same source still
+holds. All five are parented to this ticket.
 `Put no question on the screen` is still the leading sentence of that bullet.
 
 The five were `baseline`, `outside-owns`, `review`, `decision` and `pipeline` until
