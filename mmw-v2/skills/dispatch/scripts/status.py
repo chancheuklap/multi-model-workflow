@@ -10,13 +10,13 @@
 
 One program, six forms, reading one source, so there is never a second truth to
 reconcile. The source is the tracker (`gh`): the spec's tree of tickets and their
-children, read in one query by `tree.py`, and each ticket's state, labels, assignees,
+children, read in one query by `issue_tree.py`, and each ticket's state, labels, assignees,
 blocking links and comments. Where a ticket stands — which agent sessions were started
 on it and on which runner, whether its worker is still live or waiting for a product
 slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
 its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
 (`MMW_EVENTS_PY` names `events.py` when `dispatch.sh` resolved it somewhere else, and
-`tree.py` is read from beside it). Nothing here asks a runner what it is running: a
+`issue_tree.py` is read from beside it). Nothing here asks a runner what it is running: a
 runner answers for one machine, and the ticket answers for all of them. Nothing this
 program does needs a model, and nothing it does writes to the tracker. Each invocation is
 a full re-read.
@@ -50,7 +50,7 @@ def _load(name: str, filename: str):
 
 
 events = _load("mmw_events", "events.py")
-tree = _load("mmw_tree", "tree.py")
+tree = _load("mmw_tree", "issue_tree.py")
 
 # --------------------------------------------------------------------- reading
 
@@ -93,7 +93,7 @@ def _gh_run(args: list[str]) -> tuple[int, str, str]:
 
 
 def spec_tree(spec: int) -> dict:
-    """The spec's tickets and each ticket's children, in one query (`tree.py`).
+    """The spec's tickets and each ticket's children, in one query (`issue_tree.py`).
 
     A tree the tracker could not answer for whole raises `RuntimeError`: a batch read
     with a ticket missing looks exactly like a smaller batch, and every plan this

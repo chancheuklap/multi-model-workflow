@@ -38,10 +38,10 @@ def _load(name: str, filename: str):
     return module
 
 
-# `events.py`: the event vocabulary and the fold. `tree.py`: the tree of issues under a
-# spec, read with one query.
+# `events.py`: the event vocabulary and the fold. `issue_tree.py`: the tree of issues
+# under a spec, read with one query.
 events = _load("mmw_events", "events.py")
-tree = _load("mmw_tree", "tree.py")
+tree = _load("mmw_tree", "issue_tree.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
 LEDGER_NAME = "AC.md"
@@ -352,7 +352,7 @@ def _gh(args: list[str]) -> tuple[int, str, str]:
 
 def fetch_tree(number: int, root: str = "spec") -> dict:
     """The tree of issues under `number`, an issue of layer `root`, in one query
-    (`tree.py`). Raises `SubIssuesUnreadable` when the tracker could not answer for the
+    (`issue_tree.py`). Raises `SubIssuesUnreadable` when the tracker could not answer for the
     whole of it. Patched out in tests."""
     try:
         return tree.read(number, root, gh=_gh)

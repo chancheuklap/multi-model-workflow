@@ -71,7 +71,7 @@ Write the report to a file, then hand that file to the `verify-ticket` skill's e
 <engine> <ticket> --review <file>
 ```
 
-What that run does with the file, and what it refuses, is the `verify-ticket` skill's `references/reporting.md`.
+What that run does with the file, and what it refuses, is the `verify-ticket` skill's `references/review-report.md`.
 
 The review comment's first line is fixed:
 
