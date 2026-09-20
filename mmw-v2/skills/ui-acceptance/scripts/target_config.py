@@ -279,7 +279,7 @@ def target_main(argv: list[str]) -> int:
             print(f"  absent   {f.key} ({f.shape}, optional) — {f.what}")
     field_keys = {f.key for f in FIELDS}
     for key in sorted(set(cfg) - field_keys):
-        print(f"  stale    {key} — not used by the acceptance runtime; delete it")
+        print(f"  stale  {key} — not used by the acceptance runtime; delete it")
     print("rules:")
     print("  automation uses placeholder keys, vendor stubs, and local accounts")
     print("  leaves_machine actions record under MMW_AUTOMATION=1")

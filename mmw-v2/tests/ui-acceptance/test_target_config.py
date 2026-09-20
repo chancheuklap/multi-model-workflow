@@ -143,8 +143,8 @@ class TestTargetCheck(unittest.TestCase):
                 {**self.COMPLETE, "kind": "electron", "unknown": True}))
             code, out, _ = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 0, out)
-        self.assertIn("stale    kind", out)
-        self.assertIn("stale    unknown", out)
+        self.assertIn("  stale  kind", out)
+        self.assertIn("  stale  unknown", out)
 
     def test_the_runtime_refusal_names_the_check_command(self):
         with tempfile.TemporaryDirectory() as d:
