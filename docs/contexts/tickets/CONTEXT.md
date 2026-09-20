@@ -94,27 +94,27 @@ _Avoid_: scaffolding ticket (scaffolding is the prototype's mount points), 脚�
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **design-system ticket**:
-Only a new product gets one. It copies the design system's style tokens and shared components into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it. Its criterion does not depend on `.mmw/`. Whether those styles match, value by value, is each later **interface ticket**'s element parity.
+Only a new product gets one. It copies the design system's style tokens and shared components into the product, ahead of the **contract ticket**. Distinct from later **interface ticket**s, which judge whether those styles match.
 _Avoid_: 设计系统票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **contract ticket**:
-The ticket that lands or completes `.mmw/` so later tickets have a precedent to copy. A new product: `.mmw/` in full, blocking every ticket except the **design-system ticket**. An existing product: only what `target_config.py --check` of the `ui-acceptance` skill still reports missing, and none when that command reports nothing. It is not an **interface ticket**: it does not own a design page. Where the spec has a screen contract, it is also the **prefactor ticket**.
+The ticket that lands or completes `.mmw/` so later tickets have a precedent to copy. Distinct from an **interface ticket**, which owns a design page, and from a **design-system ticket**, which does not depend on `.mmw/`. Where the spec has a screen contract, it is also the **prefactor ticket**.
 _Avoid_: 合同票, addressing self-check
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **interface ticket**:
-Owns by design page, `Component · ` pages. One story criterion covers the mounts it owns; each owned row whose `calls` is not `none`, or whose `next` is not `stay`, gets one boundary criterion. Distinct from the **app page ticket**, which owns an `App · ` page, and from the **contract ticket**, which lands the runtime rather than a page.
+Owns `Component · ` design pages. Distinct from the **app page ticket**, which owns an `App · ` page, and from the **contract ticket**, which lands the runtime rather than a page.
 _Avoid_: 界面票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **app page ticket**:
-Owns an `App · ` page. One story criterion covers that page's mount. Each **cross-component row** on that page gets one boundary criterion. Blocked by the **interface ticket** of every `Component · ` page this App page composes.
+Owns an `App · ` page. Blocked by the **interface ticket** of every `Component · ` page this App page composes.
 _Avoid_: App 页票, 组合页票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **acceptance ticket**:
-One per **Critical flows** line. It writes and runs that flow's journey with `--break`, on the merged base branch after the **interface ticket** and **app page ticket** whose work the flow uses have landed. Distinct from the **contract ticket**, whose smoke journey omits `--break` and comes first. Cut none when `.mmw/target.json` cannot start the whole product. `senior-worker`.
+One per **Critical flows** line, after the page tickets of that flow have landed. Distinct from the **contract ticket**, which comes first and whose smoke journey has no `--break`.
 _Avoid_: 验收票, flow ticket
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
