@@ -85,7 +85,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 - This repository's own changes are numbered tickets; the one that invalidates a consuming repository's artifacts lands with its downstream-note.
 </important>
 
-<important if="you are editing events.py or tree.py in verify-ticket, or ghlist.py or models.py in dispatch">
+<important if="you are editing events.py or issue_tree.py in verify-ticket, or ghlist.py or models.py in dispatch">
 - The task board imports those four scripts by file path (`mmw-v2/board/board_data.py`, `settings_api.py`); a change to them is a change to the board. Run `mmw-v2/tests/board/run.sh` together with the `relay` suite.
 </important>
 

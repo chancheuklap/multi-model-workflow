@@ -126,7 +126,7 @@ ticket --native parent--> spec --native parent--> map
 - Parent spec 正文：只描述一个 seam，不能代表同一 map 下其他并行 spec；
 - semantic similarity：只能判断内容相似，不能证明两个 agent 属于同一项任务。
 
-**依据**：Artifact 2.1、第 6 节“布局”和第 9 节“Nowledge Mem 布局”；`docs/contexts/tickets/CONTEXT.md` 的 `map`、`spec` 与 `sub-issue`；`mmw-v2/skills/verify-ticket/scripts/tree.py` 的 native parent graph；Nowledge Mem `Spaces`、`Agent identity`、`Background Intelligence` 与 `Context`。
+**依据**：Artifact 2.1、第 6 节“布局”和第 9 节“Nowledge Mem 布局”；`docs/contexts/tickets/CONTEXT.md` 的 `map`、`spec` 与 `sub-issue`；`mmw-v2/skills/verify-ticket/scripts/issue_tree.py` 的 native parent graph；Nowledge Mem `Spaces`、`Agent identity`、`Background Intelligence` 与 `Context`。
 
 ### 2. Nowledge Mem 的能力约束
 
@@ -1115,7 +1115,7 @@ repository-local skill 只有同时满足以下条件才生成：方法已经在
 上述参考项目都没有 MMW 的 GitHub native parent、event fold、`route`、closing pass、frozen runtime 或 Nowledge Mem Space。发生冲突时，以下现有 authority 决定 MMW 对象和执行入口；外部 prompt 只在不改变这些合同的范围内适配：
 
 - [Nowledge Mem Background Intelligence](https://mem.nowledge.co/docs/concepts/background-intelligence)、[Spaces](https://mem.nowledge.co/docs/spaces)、[Context](https://mem.nowledge.co/docs/ai-context)、[Customize Integration Behavior](https://mem.nowledge.co/docs/integrations/customize-behavior) 与 [CLI](https://mem.nowledge.co/docs/cli)：Space、Identity、Memory、Thread、Working Memory、Context Bundle、multi-agent 环境路由、shared retrieval 与 CLI 行为。
-- `docs/contexts/tickets/CONTEXT.md` 的 `spec`、`ticket`、`sub-issue` 与 `map`，以及 `mmw-v2/skills/verify-ticket/scripts/tree.py` 的 module docstring 和 `LAYERS`：native parent graph 与 task root。
+- `docs/contexts/tickets/CONTEXT.md` 的 `spec`、`ticket`、`sub-issue` 与 `map`，以及 `mmw-v2/skills/verify-ticket/scripts/issue_tree.py` 的 module docstring 和 `LAYERS`：native parent graph 与 task root。
 - `docs/contexts/task-board/CONTEXT.md` 的 `The Night`；`docs/contexts/night/CONTEXT.md` 的 `main agent`、`closing pass`、`route`、`summary` 与 `spec.closed`：map 级任务与 spec night 的不同范围。
 - `mmw-v2/skills/dispatch/references/night.md` 的 `## 4. The closing pass` 与 `## 5. The night is over`；`mmw-v2/skills/dispatch/scripts/dispatch.sh` 的 `summary_spec()` 与 `route_finding()`；`mmw-v2/skills/dispatch/scripts/status.py` 的 `summary()`、`ROUTES` 与 `routed_counts()`：现有收口流程。
 - `mmw-v2/skills/verify-ticket/scripts/events.py` 的 `EVENTS`、`CHILD_RESOLUTIONS` 与 `fold()`；`mmw-v2/upstream/skills/engineering/code-review/references/session.md` 的第 4、5 步：event 与 review finding 合同。

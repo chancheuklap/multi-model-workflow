@@ -27,7 +27,7 @@ Infer the repo from `git remote -v` — `gh` does this automatically when run in
 The work is four layers deep — a map, its specs, each spec's tickets, each ticket's children —
 joined by GitHub's sub-issue link. Read over REST that is one request per issue per layer, and a
 page left unread raises no error. So the tree below an issue is read in GraphQL, by
-`scripts/tree.py` of the `verify-ticket` skill (`python3 <that script> <issue> --root map|spec|ticket`,
+`scripts/issue_tree.py` of the `verify-ticket` skill (`python3 <that script> <issue> --root map|spec|ticket`,
 default `spec`), which `status.py` and `verify-ticket.py --lint` use too. Each layer has a largest
 page: 50 specs under a map, 100 tickets under a spec (GitHub's own cap on one issue's children), 50
 children under a ticket; each issue comes back with its number, title and state, and each issue with a
@@ -44,7 +44,7 @@ about eleven points. Entered at a spec or a ticket the largest pages already cos
 and the read stays a single query. A list that comes back short of its count is read again at the
 largest pages, so an answer is never smaller than the largest pages alone would have given.
 
-`tree.py` exits 2, and answers nothing, when a list comes back shorter than the count GitHub gives for
+`issue_tree.py` exits 2, and answers nothing, when a list comes back shorter than the count GitHub gives for
 it even at the largest pages, or the answer carries `errors`.
 
 ## Three label sets

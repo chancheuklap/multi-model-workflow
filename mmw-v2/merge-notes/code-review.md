@@ -49,7 +49,7 @@
 `references/session.md` 第 1 节与第 5 节都不用 `gh issue comment`，改用 `verify-ticket` 技能的
 `<engine> <ticket> --review <file>`：它贴出评论，并在同一次调用里告诉起这个 reviewer 的
 session 报告已经落地。记号与另外三个调用方一致，都写 `<engine>`、都说从 `verify-ticket` 技能自己的
-`SKILL.md` 解析它。这一条 run 的行为与它的 exit code 写在那份技能的 `references/reporting.md`；
+`SKILL.md` 解析它。这一条 run 的行为与它的 exit code 写在那份技能的 `references/review-report.md`；
 `session.md` 留下的是固定首行 `REVIEW <base commit>..<HEAD commit>` 与它的理由，那是调用方要照着写的政策。
 
 这是本仓 `docs/adr/0010-agents-are-woken-not-polled.md` 已经为 worker 定下的那条规矩，reviewer

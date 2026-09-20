@@ -23,7 +23,7 @@ def _load(name: str, directory: Path = SCRIPTS):
 
 
 events = _load("events")
-tree = _load("tree")
+tree = _load("issue_tree")
 ghlist = _load("ghlist", DISPATCH_SCRIPTS)
 
 

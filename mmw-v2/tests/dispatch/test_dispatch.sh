@@ -1294,7 +1294,7 @@ print(json.dumps({
 }))
 ' ;;
   "api graphql "*)
-    # The tree of issues under `root=<n>`, the way `tree.py` asks for it: any number that
+    # The tree of issues under `root=<n>`, the way `issue_tree.py` asks for it: any number that
     # is not one of the fixture tickets is the spec, whose children are every ticket; a
     # ticket's children are its own `children` numbers. FAKE_GH_TREE_SHORT answers with
     # one ticket fewer than the count it gives, the way a page left unread would.
@@ -2223,7 +2223,7 @@ skill_copy_for() {
      "$(dirname "$SKILL")/ui-acceptance/scripts/refusal.py" \
      "$TMP/fake/skills/ui-acceptance/scripts/"
   cp "$(dirname "$SKILL")/verify-ticket/scripts/events.py" \
-     "$(dirname "$SKILL")/verify-ticket/scripts/tree.py" \
+     "$(dirname "$SKILL")/verify-ticket/scripts/issue_tree.py" \
      "$TMP/fake/skills/verify-ticket/scripts/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"

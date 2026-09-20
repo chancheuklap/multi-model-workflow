@@ -17,7 +17,7 @@ BOARD = Path(__file__).resolve().parent
 SKILLS = BOARD.parent / "skills"
 LOADED = (
     SKILLS / "verify-ticket" / "scripts" / "events.py",
-    SKILLS / "verify-ticket" / "scripts" / "tree.py",
+    SKILLS / "verify-ticket" / "scripts" / "issue_tree.py",
     SKILLS / "dispatch" / "scripts" / "ghlist.py",
     SKILLS / "dispatch" / "scripts" / "models.py",
     SKILLS / "dispatch" / "scripts" / "statedir.py",
