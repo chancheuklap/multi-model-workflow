@@ -69,19 +69,12 @@ class TestTargetCheck(unittest.TestCase):
             code = tc.target_main(list(argv))
         return code, out.getvalue(), err.getvalue()
 
-    def test_kinds_are_the_named_product_kinds(self):
-        code, out, _ = self.run_target("--kinds")
-        self.assertEqual(code, 0)
-        self.assertEqual(out.split(),
-                         ["electron", "web-spa", "web-server-rendered", "chrome-extension"])
-
     def test_a_repository_without_the_file_is_told_every_required_field(self):
         with tempfile.TemporaryDirectory() as d:
-            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "electron")
+            code, out, _ = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 1)
         for f in tc.FIELDS:
             self.assertIn(("  missing  " if f.required else "  absent   ") + f.key, out)
-        self.assertIn("target.kind: electron", out)
         self.assertIn("    origin — where the product is served", out)
         self.assertNotIn("  missing  reach", out)
         self.assertNotIn("transport_off", out)
@@ -91,10 +84,10 @@ class TestTargetCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / ".mmw").mkdir()
             (Path(d) / ".mmw" / "target.json").write_text(json.dumps(self.COMPLETE))
-            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "web-spa")
+            code, out, _ = self.run_target("--check", "--repo", d)
             self.assertEqual(code, 0, out)
             self.assertIn("complete", out)
-            code, out, _ = self.run_target("--validate", "--repo", d, "--kind", "web-spa")
+            code, out, _ = self.run_target("--validate", "--repo", d)
             self.assertEqual(code, 0, out)
 
     def test_check_without_repo_uses_the_target_json_above_cwd(self):
@@ -109,7 +102,7 @@ class TestTargetCheck(unittest.TestCase):
             here = Path.cwd()
             os.chdir(nested)
             try:
-                code, out, _ = self.run_target("--check", "--kind", "web-spa")
+                code, out, _ = self.run_target("--check")
             finally:
                 os.chdir(here)
             self.assertEqual(code, 0, out)
@@ -123,7 +116,7 @@ class TestTargetCheck(unittest.TestCase):
             cfg["start"] = ""
             cfg["leaves_machine"] = "browser"
             (Path(d) / ".mmw" / "target.json").write_text(json.dumps(cfg))
-            code, out, _ = self.run_target("--validate", "--repo", d, "--kind", "electron")
+            code, out, _ = self.run_target("--validate", "--repo", d)
         self.assertEqual(code, 1)
         self.assertIn("start must be a non-empty command", out)
         self.assertIn("(+1 more)", out)
@@ -131,31 +124,27 @@ class TestTargetCheck(unittest.TestCase):
     def test_a_wrong_instance_shape_is_named(self):
         cfg = dict(self.COMPLETE)
         cfg["instance"] = {"max": 0}
-        problems = tc.target_problems("electron", cfg)
+        problems = tc.target_problems(cfg)
         self.assertEqual([k for k, _ in problems], ["instance"])
 
     def test_a_file_that_is_not_json_is_a_fault_not_absence(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / ".mmw").mkdir()
             (Path(d) / ".mmw" / "target.json").write_text("{bad")
-            code, _, err = self.run_target("--check", "--repo", d, "--kind", "electron")
+            code, _, err = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 2)
         self.assertIn("cannot be read as JSON", err)
 
-    def test_an_unknown_kind_is_refused_first(self):
+    def test_stale_keys_are_reported_without_failing_a_complete_file(self):
         with tempfile.TemporaryDirectory() as d:
-            code, out, _ = self.run_target("--validate", "--repo", d, "--kind", "vt100")
-        self.assertEqual(code, 1)
-        self.assertIn("target.kind", out)
-
-    def test_the_kind_is_read_from_the_one_contract(self):
-        with tempfile.TemporaryDirectory() as d:
-            spec = Path(d) / "docs" / "specs" / "x"
-            spec.mkdir(parents=True)
-            (spec / "screen-contract.yaml").write_text("target:\n  kind: web-server-rendered\n")
+            root = Path(d)
+            (root / ".mmw").mkdir()
+            (root / ".mmw" / "target.json").write_text(json.dumps(
+                {**self.COMPLETE, "kind": "electron", "unknown": True}))
             code, out, _ = self.run_target("--check", "--repo", d)
-        self.assertEqual(code, 1)
-        self.assertIn("target.kind: web-server-rendered", out)
+        self.assertEqual(code, 0, out)
+        self.assertIn("  stale  kind", out)
+        self.assertIn("  stale  unknown", out)
 
     def test_the_runtime_refusal_names_the_check_command(self):
         with tempfile.TemporaryDirectory() as d:
@@ -166,7 +155,7 @@ class TestTargetCheck(unittest.TestCase):
     def test_check_prints_no_gateway_rule(self):
         """`target_config.py --check` prints the rules block without Gateway."""
         with tempfile.TemporaryDirectory() as d:
-            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "web-spa")
+            code, out, _ = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 1)
         self.assertNotIn("Gateway", out)
         self.assertIn("rules:", out)
@@ -177,14 +166,12 @@ class TestTargetCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / ".mmw").mkdir()
             (Path(d) / ".mmw" / "target.json").write_text("{}")
-            code, out, _ = self.run_target("--check", "--repo", d, "--kind", "web-spa")
+            code, out, _ = self.run_target("--check", "--repo", d)
         self.assertEqual(code, 1)
         self.assertIn("  missing  harness_markers (list of strings)", out)
-        problems = tc.target_problems(
-            "web-spa", {**self.COMPLETE, "harness_markers": "nope"})
+        problems = tc.target_problems({**self.COMPLETE, "harness_markers": "nope"})
         self.assertEqual([k for k, _ in problems], ["harness_markers"])
-        leaves = tc.target_problems(
-            "web-spa", {**self.COMPLETE, "leaves_machine": "nope"})
+        leaves = tc.target_problems({**self.COMPLETE, "leaves_machine": "nope"})
         self.assertEqual([k for k, _ in leaves], ["leaves_machine"])
         self.assertIn("[] when nothing leaves", leaves[0][1])
 

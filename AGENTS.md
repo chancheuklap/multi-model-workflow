@@ -16,7 +16,7 @@ When this repository consumes its own landing pipeline, the MMW runtime for the 
 
 ## Package Manager
 
-No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; the verify-ticket and gate-check tests need `node`; the board and ui-acceptance tests need Playwright's browsers.
+No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; the verify-ticket and gate-check tests need `node`; the board, ui-acceptance, design-pages and write-screen-contract tests need Playwright's browsers.
 
 ## Commands
 
@@ -26,7 +26,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | `bash mmw-v2/install.sh --check` | Read-only: exit 0 when complete, 1 when something is missing or stale. Run from another checkout it hands over to the installed checkout's own `install.sh` and only reports. It also reads each runner adapter's `# MMW_USES:` header and asks the binary on `PATH`: `没查` when the help page is unreadable, `不一致` when a flag is gone; a binary absent from `PATH` skips that adapter silently. `dispatch.sh check <spec>` runs it before every night, repairs from the installed checkout, and reports what remains as a warning |
 | `python3 mmw-v2/prompt/render.py --adopt` | Once per machine: the AGENTS.md already at a target is not a generated file, and `render.py` refuses to overwrite it otherwise |
 | `bash mmw-v2/prompt/tests/run.sh` | Tests `render.py`; needs only `python3` |
-| `bash mmw-v2/tests/<name>/run.sh` | One skill's or subsystem's suite, twelve of them: `verify-ticket`, `ui-acceptance`, `align-screens`, `dispatch`, `retro`, `exe-release`, `manage-agents-md`, `design-pages`, `board`, `liveness`, `relay`, `migrations`. `advisor` and `code-checkers` have none. There is no aggregate runner; each `run.sh` header names what it tests and what runtime it needs (the `board` one does not: `uv`, Playwright and a real headless Chromium) |
+| `bash mmw-v2/tests/<name>/run.sh` | One skill's or subsystem's suite, twelve of them: `verify-ticket`, `ui-acceptance`, `write-screen-contract`, `dispatch`, `retro`, `exe-release`, `manage-agents-md`, `design-pages`, `board`, `liveness`, `relay`, `migrations`. `advisor` and `code-checkers` have none. There is no aggregate runner; each `run.sh` header names what it tests and what runtime it needs (the `board` one does not: `uv`, Playwright and a real headless Chromium) |
 | `bash mmw-v2/tests/dispatch/test_dispatch.sh <scenario>` | One dispatch scenario (about seventy; `all` runs them all); `mmw-v2/tests/relay/test_relay.sh` takes the same argument |
 | `bash mmw-v2/hooks/tests/run.sh` | Tests `rule-at-moment.py`, a hook kept in the repository that `install.sh` leaves alone; whoever wants it registers it by hand under `~/.claude/hooks/` |
 | `cd mmw-v2/upstream-unlazy/tests && node run-tests.mjs && node lint-tests.mjs` | gate-check's own tests, the two of unlazy's suites that cover what verify-ticket uses (the vendored layer); `verify-ticket`'s `run.sh` runs them too. unlazy's other suites there cover what this repository removed or does not use and are not run |

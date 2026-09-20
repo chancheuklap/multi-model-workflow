@@ -37,36 +37,57 @@ def ticket(read_first, *criteria, parent="", blocked_by="", owns=""):
 ROWS = "- docs/specs/x/screen-contract.yaml rows: create-project.add-material (baseline)"
 
 CONTRACT = """
-target: {kind: electron, adapter: verify-ticket/references/targets/electron.md}
+effort: x
+baselines:
+  look: docs/prototypes/x/claude-design
+  precedence: "look and copy -> handoff; behaviour -> contract"
+locale: zh-CN
 viewports: [1440x900]
 pages:
-  "Component · 新建商品项目.dc.html": {mount: create-project, route: '#/new-project', component: cp}
-  "Component · 壳头.dc.html": {mount: shell-header, route: '#/', component: sh}
-  "App · 工作台.dc.html": {mount: app-shell, route: '#/', component: app}
-mechanisms:
-  seed:library-ready: {via: api, built_by: '#637'}
-  seed:draft-existing: {via: storage, built_by: '#639', proven_by: '#639 AC4'}
+  "Component · 新建商品项目.dc.html": {mount: create-project, component: cp}
+  "Component · 壳头.dc.html": {mount: shell-header, component: sh}
+  "App · 工作台.dc.html": {mount: app-shell}
 scenes:
-  empty: {page: "Component · 新建商品项目.dc.html", reach: [seed:library-ready]}
-  material-added: {page: "Component · 新建商品项目.dc.html", reach: [seed:draft-existing]}
-  shell-header.ready: {page: "Component · 壳头.dc.html", reach: [seed:library-ready]}
+  empty: {page: "Component · 新建商品项目.dc.html"}
+  material-added: {page: "Component · 新建商品项目.dc.html"}
+  shell-header.ready: {page: "Component · 壳头.dc.html"}
+states: [app-awaiting-browser]
+backend_without_ui: []
+proposed_operations: []
+retired_ids: []
 rows:
 - id: create-project.add-material
   component: cp
+  trigger: create-project.add-material
+  precondition: {material: none}
+  scenes: [empty]
   calls: ['POST /x']
-  observe: ['GET /x -> .ok == true']
-  reach: seed:library-ready
+  shows: {}
+  next: material-added
+  on_failure: {failed: toast}
   source: ['#537 story 2', '#537 Implementation Decisions 2', 'ADR-0021', '#420', 'docs/context/chameleon-product.md 新建商品项目', 'README §4.1']
+  gap: aligned
 - id: create-project.name
   component: cp
+  trigger: create-project.name
+  precondition: {}
+  scenes: [empty, material-added]
   calls: [none]
-  reach: seed:library-ready
+  shows: {}
+  next: stay
   source: ['#537 Testing Decisions']
+  gap: aligned
 - id: shell.sign-in
   component: sh
+  trigger: shell.sign-in
+  precondition: {}
+  scenes: [shell-header.ready]
   calls: ['ipc x']
-  reach: seed:library-ready
+  shows: {}
+  next: app-awaiting-browser
+  on_failure: {failed: toast}
   source: ['#536 Implementation Decisions 3']
+  gap: aligned
 """
 
 
@@ -225,13 +246,9 @@ class TestParentSections(unittest.TestCase):
         parsed = vt.parent_sections("#535, Implementation Decisions sections 5 and 7")
         self.assertEqual(parsed[535]["sections"], {5, 7})
 
-
-
-
-class TestSourcesAndMechanisms(ContractFixture, unittest.TestCase):
+class TestSources(ContractFixture, unittest.TestCase):
     """What a worker cannot see does not exist: every baseline-class source of an owned
-    row is under `## Read first`, every spec section under `## Parent`, and every
-    mechanism used is built by a ticket this one is blocked by."""
+    row is under `## Read first`, and every spec section is under `## Parent`."""
 
     def setUp(self):
         super().setUp()
@@ -307,10 +324,10 @@ class TestContractPathInBackticks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "screen-contract.yaml")
             with open(path, "w", encoding="utf-8") as f:
-                f.write("pages:\n  'Component · A.dc.html': {mount: create-project, route: '#/'}\n"
+                f.write("pages:\n  'Component · A.dc.html': {mount: create-project, component: a}\n"
                         "scenes:\n  s: {page: 'Component · A.dc.html'}\n"
-                        "rows:\n- id: a.view\n  calls: [none]\n- id: a.save\n  "
-                        "calls: ['POST /x']\n  observe: ['GET /x -> .ok']\n")
+                        "rows:\n- id: a.view\n  trigger: a.view\n  calls: [none]\n"
+                        "- id: a.save\n  trigger: a.save\n  calls: ['POST /x']\n")
             read_first = f"- `{path} rows: a.view, a.save`（基线）"
             findings = vt.lint_screen_contract(ticket(read_first, gate("AC1", STORY)))
         self.assertFalse(any("could not be read" in f for f in findings), findings)

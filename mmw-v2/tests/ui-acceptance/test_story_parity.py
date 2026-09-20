@@ -611,7 +611,7 @@ class TestRenderOnlyValues(unittest.TestCase):
             for row in rows:
                 self.assertEqual(
                     set(row),
-                    {"id", "visible", "text", "size", "ancestor", "offset",
+                    {"id", "interactive", "visible", "text", "size", "ancestor", "offset",
                      "previous", "gap", "style"})
 
     def test_render_only_values_carry_the_design_numbers(self):

@@ -1,0 +1,4 @@
+effort: inventory
+baselines:
+  look: mmw-v2/tests/write-screen-contract/fixtures/extract
+viewports: [320x240, 640x480]

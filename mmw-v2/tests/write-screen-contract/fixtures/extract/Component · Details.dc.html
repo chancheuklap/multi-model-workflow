@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <main data-ui="details.root">
+        <h1 data-ui="details.title">Details</h1>
+        <input data-ui="inventory.search" aria-label="Details: search" />
+      </main>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+      "$preview": {"width": 640, "height": 480},
+      "scene": {"editor": "enum", "default": "ready", "options": ["ready"]}
+    }'>
+      class Component extends DCLogic { renderVals() { return {}; } }
+    </script>
+  </body>
+</html>

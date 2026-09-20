@@ -5,7 +5,7 @@ The product answers live in `.mmw/` at the repository root. mmw supplies the lea
 until this command exits 0:
 
 ```
-python3 <scripts>/target_config.py --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
+python3 <scripts>/target_config.py --check [--repo <dir>]
 ```
 
 It prints every field as `ok`, `missing` (one sentence and one example) or `absent`
@@ -23,7 +23,8 @@ These hold for every product. How a given repository meets them is its own.
   carries a Claude Design runtime (the markers [story-parity.md](story-parity.md)
   lists).
 - **`[data-story-root]` sits on the component's own root element**, together with
-  `data-screen="<mount>"` and the same `data-ui` id the design page's root carries.
+  `data-screen="<mount>"` — the `pages.<page>.mount` of the screen contract, which is
+  also what `?page=` addresses — and the same `data-ui` id the design page's root carries.
   Every other compared element carries that design page's matching `data-ui` id.
 - **Time values come from scene data.** A client-rendered product loads the same
   paused clock the design side uses, so a clock reading is not a live instant.

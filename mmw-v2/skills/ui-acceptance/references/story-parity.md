@@ -41,7 +41,7 @@ the handoff package's page, rendered offline in the same contract `viewports`
 window; `#dc-root` keeps the size the design page renders at in that window.
 `viewports` is a top-level list of `WIDTHxHEIGHT` entries. `locale` is a top-level
 BCP 47 tag (`zh-CN`, `en-US`). Both are required; there is no fallback. The form
-is in align-screens `references/contract-format.md` under Top level. Both browser
+is in write-screen-contract `references/screen-contract-format.md` under Top level. Both browser
 contexts take `locale` from the contract. Neither side reads a live clock: the
 design side keeps its paused clock, and the product's time values come from scene
 data. Both sides are read as rendered. The judge does not hide controls or replace
