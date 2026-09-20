@@ -1,8 +1,12 @@
-# Reader: ticket #221 AC1 CHECK — `lint_screen_contract.py` run against this directory.
-# The unittest suite does not load these files.
+# Reader: `test_the_lint_runs_without_tools` invokes the lint command against this fixture.
 effort: removed-fields
+baselines:
+  look: handoff
 target:
   kind: web-spa
+volatile_values: []
+readme_dispositions: []
+locale: en-US
 viewports: [400x300]
 pages:
   "Component · Demo.dc.html":
@@ -12,10 +16,15 @@ pages:
 scenes:
   empty:
     page: "Component · Demo.dc.html"
+retired_ids:
+  - id: demo.old-save
+    note: retired
+    page: "Component · Demo.dc.html"
+    trigger: demo.save
 rows:
   - id: demo.save
     component: demo
-    trigger: { role: button, name: "Save" }
+    trigger: demo.save
     precondition: {}
     scenes: [empty]
     calls: [none]
