@@ -5,11 +5,11 @@
 """Render every scene of a handoff package once, offline, and write what the rest of the
 pipeline reads from that render.
 
-Usage: uv run python extract_skeleton.py <handoff dir> <out.json> [--targets <dir> [--contract <yaml>]]
+Usage: uv run python extract_skeleton.py <handoff dir> <out.json> [--targets <dir> [--contract <yaml>]] [--tools <dir>]
 
 One render per scene in `scenes.json`, through the same renderer the story judge uses
-(`design_render.py`, beside this script), so what comes out here is what the judge will
-read. The `align-screens` skill calls this script for its row inventory. Three things
+(`design_render.py` of the ui-acceptance skill), so what comes out here is what the
+judge will read. This skill calls this script for its row inventory. Three things
 come out:
 
 - `<out.json>`, the skeleton: every interactive control keyed by (page, role,
@@ -51,10 +51,37 @@ DERIVED_LINE = ("# derived by extract_skeleton.py — the handoff package is the
                 "baseline and this file is its readable view; the lint fails when the hashes "
                 "below no longer match the package")
 
+HERE = Path(__file__).resolve().parent
+# The ui-acceptance skill sits beside this one under `skills/`; `--tools` overrides that.
+SIBLING_UA = HERE.parents[1] / "ui-acceptance" / "scripts"
+TOOLS: list[Path] = []
+
+
+def tools_dirs() -> list[Path]:
+    return TOOLS or [SIBLING_UA]
+
 
 def load_driver():
-    here = Path(__file__).resolve().parent / "design_render.py"
-    spec = importlib.util.spec_from_file_location("design_render", here)
+    looked = tools_dirs()
+    path = None
+    for directory in looked:
+        candidate = directory / "design_render.py"
+        if candidate.is_file():
+            path = candidate
+            break
+    if path is None:
+        paths = ", ".join(str(d) for d in looked)
+        if TOOLS:
+            raise SystemExit(
+                f"no design_render.py in any --tools directory ({paths}). "
+                "That file belongs to the ui-acceptance skill. "
+                "Pass --tools <the ui-acceptance skill's scripts directory>."
+            )
+        raise SystemExit(
+            f"no design_render.py in the sibling ui-acceptance skill ({paths}). "
+            "Pass --tools <the ui-acceptance skill's scripts directory>."
+        )
+    spec = importlib.util.spec_from_file_location("design_render", path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules["design_render"] = mod
     spec.loader.exec_module(mod)
@@ -62,7 +89,7 @@ def load_driver():
 
 
 def driver():
-    """The design renderer beside this script: the one already loaded, else loaded now."""
+    """The design renderer of the ui-acceptance skill: the one already loaded, else loaded now."""
     return sys.modules.get("design_render") or load_driver()
 
 
@@ -216,6 +243,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                    help="write one .aria and one .classes file per design page here")
     p.add_argument("--contract", type=Path, default=None,
                    help="hide this contract's retired_ids triggers before reading the tree")
+    p.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
+                   help="the ui-acceptance skill's scripts/; overrides the sibling lookup")
     return p.parse_args(argv)
 
 
@@ -225,7 +254,7 @@ _BOOTSTRAP = "MMW_EXTRACT_SKELETON_BOOTSTRAPPED"
 def _ensure_script_env() -> None:
     """A `uv run python extract_skeleton.py` does not read the dependency block above;
     `uv run --script` does. Re-exec once when an import is missing, so both forms reach
-    Chromium. Called from the command line only: `lint_contract.py` imports this module
+    Chromium. Called from the command line only: `lint_screen_contract.py` imports this module
     for its helpers and has no Playwright."""
     try:
         import playwright.sync_api  # noqa: F401
@@ -243,6 +272,7 @@ def _ensure_script_env() -> None:
 if __name__ == "__main__":
     _ensure_script_env()
     a = parse_args(sys.argv[1:])
+    TOOLS[:] = [d.resolve() for d in a.tools]
     main(a.handoff.resolve(), a.out.resolve(),
          a.targets.resolve() if a.targets else None,
          a.contract.resolve() if a.contract else None)

@@ -40,7 +40,7 @@ MCP tools cannot create a comment on a design page, so this does not go through 
 
 Read `改动分类` in the pull report, then:
 
-- **首次**, or **增删控件或改流转** — the `align-screens` skill (full contract on a first pull; later, only the rows its **Re-runs** section names). Then the `to-spec` skill's step 5, to revise the published spec. Tickets already cut are corrected against the new text.
+- **首次**, or **增删控件或改流转** — the `write-screen-contract` skill (full contract on a first pull; later, only the rows its **Re-runs** section names). Then the `to-spec` skill's step 5, to revise the published spec. Tickets already cut are corrected against the new text.
 - **只改外观或文案** — the screen contract does not change. Open tickets pick up the new package on their next run. Closed tickets are re-run by the main agent with the `verify-ticket` skill as `references/running-criteria.md` describes in **The two runs that execute a `CHECK:`**. A criterion that then fails is cut as a fix ticket whose acceptance criterion is the same as the original.
 
 Git is the design's version history. Claude Design has none (help centre, **Known limitations**).

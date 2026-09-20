@@ -1,6 +1,6 @@
 ---
 name: ui-acceptance
-description: Make a repository an automatable acceptance runtime — three judges (story, boundary, journey) and the lease, start/stop and harness they need. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, rendering a handoff package skeleton, or giving a run its own ports. Also: before writing an interface ticket's code, take the design side's values.
+description: Make a repository an automatable acceptance runtime — three judges (story, boundary, journey) and the lease, start/stop and harness they need. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, or giving a run its own ports. Also: before writing an interface ticket's code, take the design side's values.
 ---
 
 # UI acceptance
@@ -20,7 +20,6 @@ A **target** is the product a consuming repository runs under automation. What t
 | Writing the criterion that compares a product story with its design page by element parity, or reading the `DIFF` line one printed | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
 | Writing the criterion that runs one named journey against the real product, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md); [references/product-answers.md](references/product-answers.md) names `start`, `stop`, `discover` and the journeys directory |
-| Rendering a handoff package for its row inventory and target trees (the `align-screens` skill sends you here) | `uv run python <scripts>/extract_skeleton.py <handoff dir> <out.json> [--targets <dir> --contract <yaml>]` — needs Playwright with Chromium |
 | Making a repository drivable (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/target_config.py --check` in that repository. It prints every field still to answer, one sentence and one example each; fill them and run it again until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
 | Checking that acceptance names are not scattered through the consuming repository | `python3 <scripts>/harness-guard.py <repository-root>` — [references/harness-guard.md](references/harness-guard.md) |
 | Giving a run its own ports and directories, or reading what `lease.py` refused | Run `python3 <scripts>/lease.py claim \| env \| run \| release \| list \| count \| remove-instance`. `claim` exits 4 when no slot may be taken. `release` exits 0 when it gives one back, 3 when none exists, and 2 when `--stop` cannot read `.mmw/target.json`. Its lifecycle and two limits are in [references/product-answers.md](references/product-answers.md) under **`instance`** |

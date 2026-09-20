@@ -107,7 +107,7 @@ def load_contract(path: Path, doc: dict | None = None) -> dict:
         doc = load_yaml(Path(path))
     for key in ("target", "pages", "scenes"):
         if key not in doc:
-            raise SystemExit(f"{path}: contract has no top-level `{key}`; run align-screens "
+            raise SystemExit(f"{path}: contract has no top-level `{key}`; run write-screen-contract "
                              f"step 2 to declare pages")
     return doc
 

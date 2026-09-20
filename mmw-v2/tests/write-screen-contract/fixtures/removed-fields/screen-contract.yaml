@@ -1,4 +1,4 @@
-# Reader: ticket #221 AC1 CHECK — `lint_contract.py` run against this directory.
+# Reader: ticket #221 AC1 CHECK — `lint_screen_contract.py` run against this directory.
 # The unittest suite does not load these files.
 effort: removed-fields
 target:
