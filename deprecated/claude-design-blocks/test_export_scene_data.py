@@ -14,13 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = (
-    Path(__file__).resolve().parents[2]
-    / "skills"
-    / "claude-design-blocks"
-    / "scripts"
-    / "export_scene_data.py"
-)
+SCRIPT = Path(__file__).resolve().parent / "export_scene_data.py"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "handoff"
 
 

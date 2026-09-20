@@ -20,9 +20,9 @@
 | 编号 | 标题 | 日期 | 改写了哪几份 | 被哪几份改写 |
 | --- | --- | --- | --- | --- |
 | [0001](0001-tracker-repo-authority.md) | tracker 与仓库文件的权威归属 | 2026-08-11 | 无 | 无 |
-| [0002](0002-ui-qa-binds-format-not-tool.md) | 界面 QA 绑设计系统的格式规范，不绑生成它的工具 | 2026-08-13 | 无 | 0004（见表下注） |
+| [0002](0002-ui-qa-binds-format-not-tool.md) | 界面 QA 绑设计系统的格式规范，不绑生成它的工具 | 2026-08-13 | 无 | 0004（见表下注：设计时截图检查 edit-pages，pull report） |
 | [0003](0003-no-plugin-packaging.md) | MMW 不打包成插件，五个宿主由 `install.sh` 统一散装 | 2026-08-18 | 无 | 0006、0015 |
-| [0004](0004-design-system-trust-comes-from-lint.md) | 设计系统文件可不可信，由校验结果定，不由来源定 | 2026-08-21 | 0002 | 无（见表下注） |
+| [0004](0004-design-system-trust-comes-from-lint.md) | 设计系统文件可不可信，由校验结果定，不由来源定 | 2026-08-21 | 0002 | 无（见表下注：设计时截图检查 edit-pages，pull report） |
 | [0005](0005-docs-layer-adopted-by-v2.md) | docs 文档层过继到 v2：tracker 配置落地，索引与编号脱离冻结 CLI | 2026-08-25 | 无 | 无 |
 | [0006](0006-skills-install-to-neutral-dir.md) | 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份 | 2026-08-26 | 0003 | 0015 |
 | [0007](0007-prompt-source-lives-in-repo.md) | 用户级提示词的源放在仓库里，host 目录只放软链或生成物 | 2026-09-05 | 无 | 无 |
@@ -47,8 +47,9 @@
 | [0026](0026-no-verifier.md) | 取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria | 2026-09-14 | 0018、0019、0020、0021、0022、0023、0024 | 无 |
 | [0027](0027-a-bounce-returns-once.md) | 同一夜第一次 landing conflict 把 ticket 交回 worker 队列，第二次才交 triage | 2026-09-14 | 0023 | 无 |
 | [0028](0028-element-parity-invariant-answers.md) | 外观按 data-ui id 做 element parity，App 页纳入 story；boundary test 断言四列；product answers 只写不变要求；judge 不遮不藏；journey 第二遍弄坏一个接口 | 2026-09-20 | 0011 | 无 |
+| [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 无 |
 
-0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`，两份 ADR 里的 A3（设计系统 token 越界）与 B1（设计系统规则违反）由 `mmw-v2/skills/ui-acceptance/scripts/story-parity.py` 部分承接。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
+0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由设计时截图检查（design-pages `references/edit-pages.md`）与 pull report（`references/pull.md`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
 ## 编号在本仓库以外仍会出现
 

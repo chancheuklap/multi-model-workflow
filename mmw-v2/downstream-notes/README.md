@@ -37,3 +37,6 @@
 - [454-story-inputs-and-refusals.md](454-story-inputs-and-refusals.md) — mmw #454
 - [455-journey-break.md](455-journey-break.md) — mmw #455
 - [456-harness-markers.md](456-harness-markers.md) — mmw #456
+- [472-skill-renamed-design-pages.md](472-skill-renamed-design-pages.md) — mmw #472
+- [473-handoff-package-by-pull.md](473-handoff-package-by-pull.md) — mmw #473
+- [476-design-project-claude-md.md](476-design-project-claude-md.md) — mmw #476

@@ -1,12 +1,12 @@
 """mk.py: the generated <script data-dc-script> is valid JavaScript.
 
-The seam is the same miniature handoff package as test_export_scene_data.py:
-mk.py writes a page, Node checks the script body, no browser.
+The seam is the miniature package under `fixtures/handoff`: mk.py writes a page,
+Node checks the script body, no browser.
 
-MMW_MK_MUTATE=1: this file copies mk.py and deletes one character from the
-wrapper (`super(props);` → `super(props;`) so node --check fails. This file
-reads it. The standing suite also has a case that always applies that
-mutation, so run.sh exercises both directions.
+This file copies mk.py and can delete one character from the wrapper
+(`super(props);` → `super(props;`) so node --check fails. One case always
+applies that mutation; another applies it only when MMW_MK_MUTATE=1.
+Nothing in the live design-pages suite invokes this file.
 """
 
 import os
@@ -18,13 +18,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-MK = (
-    Path(__file__).resolve().parents[2]
-    / "skills"
-    / "claude-design-blocks"
-    / "scripts"
-    / "mk.py"
-)
+MK = Path(__file__).resolve().parent / "mk.py"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "handoff"
 SRC = Path("src") / "Component · list.py"
 PAGE = "Component · list.dc.html"

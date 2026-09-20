@@ -16,15 +16,9 @@
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-
-pattern=""
-if [[ $# -ne 0 ]]; then
-  if [[ $# -ne 2 || "$1" != "-k" || -z "$2" ]]; then
-    echo "usage: $0 [-k <pattern>]" >&2
-    exit 2
-  fi
-  pattern="$2"
-fi
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/parse_k.sh
+. "$HERE/../lib/parse_k.sh"  # mmw-v2/tests/lib/parse_k.sh
 
 # No parent to tell. These tests exercise session-bound paths against made-up agents, so
 # an inherited Paseo identity must not turn their output into news about work nobody is doing.
@@ -75,38 +69,21 @@ else:
 ')"
 export MMW_LEASE_PORT_BASE
 
-if uv run --quiet --with pillow python -u - "$HERE" "$pattern" <<'PY'
+if uv run --quiet --with pillow python -u - "$HERE/../lib" "$HERE" "$pattern" <<'PY'
 import os
 import sys
 import unittest
 
-here = sys.argv[1]
-name_pattern = sys.argv[2]
-loader = unittest.defaultTestLoader
-if name_pattern:
-    if "*" not in name_pattern:
-        name_pattern = f"*{name_pattern}*"
-    loader.testNamePatterns = [name_pattern]
-suite = loader.discover(here, pattern="test_*.py")
+sys.path.insert(0, sys.argv[1])
+import run_unittests
+
+suite = run_unittests.discover(sys.argv[2], sys.argv[3])
 if os.environ.get("MMW_FORCE_SKIP") == "1":
     class _ForceSkip(unittest.TestCase):
         def test_mmw_force_skip(self):
             self.skipTest("MMW_FORCE_SKIP=1")
     suite.addTest(_ForceSkip("test_mmw_force_skip"))
-result = unittest.TextTestRunner(verbosity=1).run(suite)
-ran = result.testsRun
-skipped = len(result.skipped)
-print(f"ran {ran} skipped {skipped}")
-if skipped:
-    print(f"refusing: skipped {skipped}", file=sys.stderr)
-    sys.exit(1)
-if ran < 1:
-    print("refusing: ran 0", file=sys.stderr)
-    sys.exit(1)
-if not result.wasSuccessful():
-    print("failures above", file=sys.stderr)
-    sys.exit(1)
-sys.exit(0)
+sys.exit(run_unittests.run(suite))
 PY
 then
   echo "all passed"
