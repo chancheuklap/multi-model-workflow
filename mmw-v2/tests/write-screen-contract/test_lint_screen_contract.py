@@ -407,6 +407,7 @@ class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
             / "skills" / "ui-acceptance" / "scripts" / "design_render.py"
         ).resolve()
         self.assertTrue(expected.is_file())
+        self.assertEqual((lc.SIBLING_UA / "design_render.py").resolve(), expected)
         es = lc.extract_skeleton_mod()
         saved_es_tools = list(es.TOOLS)
         saved_lc_tools = list(lc.TOOLS)
@@ -425,6 +426,13 @@ class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
                 Path(tc.__file__).resolve(),
                 expected.parent / "target_config.py",
             )
+            fixture = Path(__file__).resolve().parent / "fixtures" / "removed-fields"
+            code = lc.main([
+                str(SCRIPT),
+                str(fixture / "screen-contract.yaml"),
+                str(fixture / "skeleton.json"),
+            ])
+            self.assertIn(code, (0, 1))
         finally:
             es.TOOLS[:] = saved_es_tools
             lc.TOOLS[:] = saved_lc_tools

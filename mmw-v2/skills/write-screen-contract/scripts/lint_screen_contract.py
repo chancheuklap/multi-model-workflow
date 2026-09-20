@@ -113,15 +113,23 @@ def target_config_mod():
     """`target_config.py` from `--tools` or the sibling ui-acceptance skill;
     Python's import cache holds it. Target kinds (`KINDS`) and the `.mmw/target.json`
     check (`target_main`) come from this module."""
-    for directory in tools_dirs():
+    looked = tools_dirs()
+    for directory in looked:
         if (directory / "target_config.py").is_file():
             if str(directory) not in sys.path:
                 sys.path.insert(0, str(directory))
             import target_config
             return target_config
-    raise SystemExit("no target_config.py in any --tools directory or the sibling "
-                     "ui-acceptance skill; pass --tools <the ui-acceptance skill's "
-                     "scripts directory>")
+    paths = ", ".join(str(d) for d in looked)
+    if TOOLS:
+        raise SystemExit(
+            f"no target_config.py in any --tools directory ({paths}). "
+            "Pass --tools <the ui-acceptance skill's scripts directory>."
+        )
+    raise SystemExit(
+        f"no target_config.py in the sibling ui-acceptance skill ({paths}). "
+        "Pass --tools <the ui-acceptance skill's scripts directory>."
+    )
 
 
 def page_stem(page: str) -> str:
@@ -563,8 +571,6 @@ def main(argv: list[str]) -> int:
             rest.append(argv[i])
             i += 1
     argv = [argv[0], *rest]
-    if not TOOLS:
-        TOOLS.append(SIBLING_UA)
     if len(argv) not in (3, 4):
         print(__doc__)
         return 2

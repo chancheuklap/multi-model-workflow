@@ -53,18 +53,34 @@ DERIVED_LINE = ("# derived by extract_skeleton.py — the handoff package is the
 
 HERE = Path(__file__).resolve().parent
 # The ui-acceptance skill sits beside this one under `skills/`; `--tools` overrides that.
+SIBLING_UA = HERE.parents[1] / "ui-acceptance" / "scripts"
 TOOLS: list[Path] = []
 
 
+def tools_dirs() -> list[Path]:
+    return TOOLS or [SIBLING_UA]
+
+
 def load_driver():
+    looked = tools_dirs()
     path = None
-    for directory in TOOLS:
+    for directory in looked:
         candidate = directory / "design_render.py"
         if candidate.is_file():
             path = candidate
             break
     if path is None:
-        path = HERE.parents[1] / "ui-acceptance" / "scripts" / "design_render.py"
+        paths = ", ".join(str(d) for d in looked)
+        if TOOLS:
+            raise SystemExit(
+                f"no design_render.py in any --tools directory ({paths}). "
+                "That file belongs to the ui-acceptance skill. "
+                "Pass --tools <the ui-acceptance skill's scripts directory>."
+            )
+        raise SystemExit(
+            f"no design_render.py in the sibling ui-acceptance skill ({paths}). "
+            "Pass --tools <the ui-acceptance skill's scripts directory>."
+        )
     spec = importlib.util.spec_from_file_location("design_render", path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules["design_render"] = mod

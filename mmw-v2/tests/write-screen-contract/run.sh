@@ -12,6 +12,11 @@
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# A suite run from inside a worker session must not inherit that session's ticket
+# or Memory boundary. These tests do not read the variables; stripping them is
+# the runner convention in mmw-v2/tests/AGENTS.md.
+unset MMW_TICKET MMW_CATALOG_MODE MMW_SPEC MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
+unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/parse_k.sh
 . "$HERE/../lib/parse_k.sh"  # mmw-v2/tests/lib/parse_k.sh

@@ -13,7 +13,7 @@ The file's shape is in [references/screen-contract-format.md](references/screen-
 
 `<scripts>` in every command below is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
 
-Every one of this skill's own scripts is run as `uv run python <scripts>/…`, never `python3`: `<scripts>/lint_screen_contract.py` carries a `# /// script` dependency block (`pyyaml>=6`), and `<scripts>/dump_openapi.py` imports the consuming repository's own application module. Both need the environment `uv` builds.
+Every one of this skill's own scripts is run as `uv run python <scripts>/…`, never `python3`: `<scripts>/lint_screen_contract.py` carries a `# /// script` dependency block (`pyyaml>=6`), `<scripts>/extract_skeleton.py` carries its own (`playwright>=1.58`, `pyyaml>=6`), and `<scripts>/dump_openapi.py` imports the consuming repository's own application module. All three need the environment `uv` builds.
 
 ## Inputs
 
