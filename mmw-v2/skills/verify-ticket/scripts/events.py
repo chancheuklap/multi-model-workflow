@@ -127,6 +127,10 @@ EVENTS: dict[str, dict] = {
                           "required": ("reason",), "closed": {"reason": RELEASE_REASONS}},
     "ticket.landed":     {"stage": "land",     "actor": "main"},
     "ticket.regressed":  {"stage": "regress",  "actor": "main", "required": ("commit",)},
+    # The way back from `ticket.regressed`: the cause was repaired on the base branch and
+    # every criterion of the ticket was met again there, so the ticket reads as passed and
+    # landed once more. `commit` is the base-branch commit they were met on.
+    "ticket.recovered":  {"stage": "regress",  "actor": "main", "required": ("commit",)},
     "ticket.bounced":    {"stage": "land",     "actor": "main",
                           "required": ("reason", "commit"),
                           "closed": {"reason": BOUNCE_REASONS}},
@@ -608,6 +612,8 @@ def apply(state: dict, event: dict) -> None:
         state["landed"] = True
     elif name == "ticket.regressed":
         state.update(passed=False, landed=False, regressed=True, outcome=None)
+    elif name == "ticket.recovered":
+        state.update(passed=True, landed=True, regressed=False, outcome=event)
     elif name == "ticket.bounced":
         state.update(passed=False, landed=False, bounced=True, outcome=None)
     elif name == "spec.suspended":

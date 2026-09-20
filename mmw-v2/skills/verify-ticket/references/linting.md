@@ -29,6 +29,8 @@ A flag inside a quoted `--run` value belongs to the command that value carries, 
 
 After the ticket graph, the same run reads `## Implementation Decisions` on the spec for each `### <n>.` heading and, from every sub-issue's `## Parent` (open and closed), the section numbers `parent_sections` finds. Each spec section no ticket names is one line `WARN #<spec> Implementation Decisions section <n> is named by no ticket's ## Parent [uncovered-section]`. The run ends that pass with `sections named by a ticket: <k>/<n>`. A WARN does not change the exit code. Only an explicit section number in `## Parent` counts; a keyword in the ticket body does not.
 
+Two `CHECK:` shapes are refused as `[undecidable-check]`, because neither can decide the criterion it is written under: one ending in a `grep` whose EXPECT is satisfied by exactly what a run that selected nothing prints, which no code can ever make exit 0; and one that sends the command's stdout and stderr to `/dev/null` and matches a line the CHECK itself echoes from `$?`, which any command exiting that way passes, including one that failed for another reason.
+
 The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
 The `[screen-contract]` findings are those interface rules made mechanical, plus a pipeline script called without `--contract` (and `--pages` or `--run`), with a flag its `--help` does not list, or with an address that belongs in `.mmw/target.json`; a story criterion whose `--pages` mount is absent from the contract; an interface ticket that omitted `screen-contract.yaml rows: …`; and a row source that is not under **Read first** or a spec section **Parent** does not name.

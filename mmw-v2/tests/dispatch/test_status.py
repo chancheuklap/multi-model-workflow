@@ -696,6 +696,28 @@ class ReverifyPlan(Plans):
         self.assertEqual(out, ["REVERIFY 61"])
         self.assertIn("#62 passed and has not landed", "\n".join(err))
 
+    def test_a_ticket_an_earlier_reverify_reopened_is_run_again_to_recover_it(self):
+        regressed = ev("ticket.regressed", "Reverify failed", 62, commit="a" * 40)
+        self.tickets = {
+            61: self.closed(61, "2026-08-31T01:00:00Z", passed(61), landed(61)),
+            62: ticket(62, labels=("needs-triage",),
+                       comments=[passed(62), landed(62), regressed]),
+        }
+        out, _ = self.run_form(status.reverify_plan, 76)
+        self.assertEqual(sorted(out), ["RECOVER 62", "REVERIFY 61"])
+
+    def test_a_reopened_ticket_triage_has_handed_on_is_not_run_again(self):
+        regressed = ev("ticket.regressed", "Reverify failed", 62, commit="a" * 40)
+        self.tickets = {62: ticket(62, labels=("ready-for-agent",),
+                                   comments=[passed(62), landed(62), regressed])}
+        out, _ = self.run_form(status.reverify_plan, 76)
+        self.assertEqual(out, [])
+
+    def test_a_ticket_open_for_its_first_run_is_not_a_recovery(self):
+        self.tickets = {62: ticket(62, labels=("needs-triage",), comments=[])}
+        out, _ = self.run_form(status.reverify_plan, 76)
+        self.assertEqual(out, [])
+
 
 class LandPlan(Plans):
     """`--land-plan`: a handed-back ticket keeps its branch to itself until it passes."""

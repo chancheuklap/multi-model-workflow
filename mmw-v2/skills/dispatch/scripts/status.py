@@ -210,6 +210,18 @@ def landed(ticket: dict) -> bool:
     return ticket.get("state") == "CLOSED" and fold["passed"] and fold["landed"]
 
 
+def regressed_in_triage(ticket: dict) -> bool:
+    """Reopened by a red reverify and untouched since: open, `ticket.regressed` is the
+    newest word on its landing, and it still wears the `needs-triage` reverify gave it.
+
+    The label is what says nobody has taken the ticket on since. Triage hands it to a
+    worker by swapping that label for `ready-for-agent`, and from then on the ticket is
+    someone's work, not a landing to re-judge.
+    """
+    return (ticket.get("state") == "OPEN" and ticket["fold"]["regressed"]
+            and "needs-triage" in (ticket.get("labels") or []))
+
+
 def unreadable_reason(ticket: dict) -> str:
     """Why this ticket's events cannot be decided on, or empty when they can."""
     if ticket.get("unread_raw"):
@@ -682,10 +694,14 @@ def reverify_plan(spec: int) -> int:
     """The tickets `dispatch.sh reverify` runs again on the base branch, in closing order.
 
         REVERIFY <ticket>   closed with a pass, and landed
+        RECOVER <ticket>    an earlier reverify reopened it, and nobody has taken it on
 
     A ticket that passed and has not landed is not recorded in `origin/<base branch>`, so running its
     criteria there would fail it for work that is not there yet; it is named on stderr
     instead.
+
+    A `RECOVER` ticket is run exactly as a `REVERIFY` one is; the two differ only in what
+    the caller does with a green run — see `dispatch.sh reverify`.
     """
     tickets = [read_ticket(n) for n in sub_issues(spec)]
     for ticket in sorted(tickets, key=lambda t: t["closed_at"]):
@@ -694,6 +710,8 @@ def reverify_plan(spec: int) -> int:
                   f"({unreadable_reason(ticket)})", file=sys.stderr)
         elif landed(ticket):
             print(f"REVERIFY {ticket['number']}")
+        elif regressed_in_triage(ticket):
+            print(f"RECOVER {ticket['number']}")
         elif passed_unlanded(ticket):
             print(f"#{ticket['number']} passed and has not landed, so it is not re-run "
                   f"on the base branch", file=sys.stderr)
