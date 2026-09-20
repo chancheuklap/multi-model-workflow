@@ -1,0 +1,12 @@
+[
+  {
+    "name": "inventory.ready",
+    "page": "Component · Inventory.dc.html",
+    "props": {"scene": "ready"}
+  },
+  {
+    "name": "inventory.empty",
+    "page": "Component · Inventory.dc.html",
+    "props": {"scene": "empty"}
+  }
+]

@@ -3,8 +3,7 @@
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
 server, the wrapper page, capture, the `[data-ui]` reader, and the accessibility-tree
-normaliser. The contract lint loads `volatile_triggers` and `count_volatile_hits` from
-this file.
+normaliser.
 """
 
 from __future__ import annotations
@@ -22,7 +21,6 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple
 
 # ---------------------------------------------------------------- constants
 # The three scripts `support.js` loads from unpkg. Answered from the handoff package's
@@ -57,9 +55,6 @@ COMPARED_UNNAMED = {"dialog", "alertdialog"}
 RUNTIME_CLASS_PREFIXES = ("sc-", "dc-")
 
 VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)$")
-# Scene marker `extract_skeleton.py` writes into target trees; `count_volatile_hits`
-# splits on the same string.
-SCENE_HEADER = "## scene "
 
 
 # ---------------------------------------------------------------- the contract
@@ -392,161 +387,6 @@ def baseline_router(origin: str, baseline: Path, cache: Path):
     return route_baseline
 
 
-def hide_retired_js(triggers: list[tuple[str, str]]) -> str:
-    """Hide every retired control on the baseline side — not merely drop it from the
-    tree: it takes up room, and a tree-only exclusion leaves a pixel difference and a
-    shift of everything below."""
-    wanted = json.dumps([{"role": r, "name": n} for r, n in triggers], ensure_ascii=False)
-    return """(() => {
-  const wanted = %s;
-  const name = el => (el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\\s+/g, ' ');
-  const roleOf = el => el.getAttribute('role') || ({button: 'button', a: 'link', input: 'textbox',
-    select: 'combobox', textarea: 'textbox'}[el.tagName.toLowerCase()] || '');
-  for (const el of document.querySelectorAll('button, a, input, select, textarea, [role]')) {
-    for (const w of wanted) {
-      if (roleOf(el) === w.role && name(el) === w.name) { el.style.display = 'none'; }
-    }
-  }
-})()""" % wanted
-
-
-# A display value the seed must not write (a wallet balance belonging to an external
-# account). Both judges replace it with one token before they compare, so the two
-# sides may show different numbers and still match. The trigger is the handoff's
-# role and accessible name; a product node matches when its role is the same and the
-# non-digit stem of the name is the same. An optional `after` (the previous named
-# node) splits siblings that share that stem, and row triggers that share role
-# and name.
-VOLATILE_DIGITS = re.compile(r"[\d,]+")
-# A `text` trigger also matches these computed roles: a `<td>` snapshots as `cell`.
-VOLATILE_TEXT_LIKE = (
-    "text", "generic", "cell", "columnheader", "rowheader", "definition",
-    "term", "caption", "time", "code", "",
-)
-
-
-def volatile_stem(name: str) -> str:
-    return VOLATILE_DIGITS.sub("", name).strip()
-
-
-class VolatileTrigger(NamedTuple):
-    """A `volatile_values` entry: role, accessible name, and optional `after`
-    (the previous named node) when that pair is not unique on the scene."""
-    role: str
-    name: str
-    after: tuple[str, str] | None = None
-
-
-def volatile_name_matches(role: str, name: str, wanted_role: str, wanted_name: str) -> bool:
-    """Role and non-digit stem. A `text` trigger also matches the computed roles
-    a static string snapshots as (`cell`, `generic`, …), the same set the pixel
-    paint already used, so lint and the two judges name one node."""
-    if role != wanted_role and not (wanted_role == "text" and role in VOLATILE_TEXT_LIKE):
-        return False
-    if name == wanted_name:
-        return True
-    stem = volatile_stem(wanted_name)
-    return bool(stem) and volatile_stem(name) == stem
-
-
-def after_of(entry: dict) -> tuple[str, str] | None:
-    """`after` on a `volatile_values` entry: the previous named node, or None."""
-    raw = entry.get("after")
-    if isinstance(raw, dict) and raw.get("role") and raw.get("name"):
-        return (str(raw.get("role")), str(raw.get("name")))
-    return None
-
-
-
-
-
-def named_nodes(lines: list[str], chains: list[tuple[tuple[str, str], ...]] | None = None):
-    """Yield `(role, name, previous, ancestor)` in reading order; yield `None` at a
-    `## scene` boundary so a consumer can take the maximum per scene.
-    Accessible name wins when a node carries both a name and a value, matching
-    `get_by_role(..., exact=True)`.
-
-    `ancestor` is the node the line already names after ` < `. It was parsed off and
-    thrown away here, so the one fact that tells a dialog's confirm button from the page
-    button that opened it reached the tree comparison and nothing else — a trigger could
-    not be pinned by it because the matcher never saw it."""
-    previous: tuple[str, str] | None = None
-    i = -1
-    for raw in lines:
-        line = raw.rstrip("\n")
-        i += 1
-        if line.startswith(SCENE_HEADER):
-            previous = None
-            yield None
-            continue
-        own, sep, ancestor = line.partition(" < ")
-        parsed = _own_role_name(own)
-        if parsed is None:
-            continue
-        # The whole chain when the caller has it, else the one ancestor the line carries.
-        # A stored comparison line keeps only that one, which is why the offline readers
-        # take their lines from the snapshot beside it.
-        if chains is not None and i < len(chains):
-            chain = chains[i]
-        else:
-            under = _own_role_name(f"- {ancestor}") if sep else None
-            chain = (under,) if under else ()
-        yield parsed[0], parsed[1], previous, chain
-        if parsed[1]:
-            previous = parsed
-
-
-
-
-
-
-def matches_volatile(role: str, name: str, triggers: list[VolatileTrigger],
-                     previous: tuple[str, str] | None = None,
-                     chain: tuple[tuple[str, str], ...] = ()) -> bool:
-    for trigger in triggers:
-        if not volatile_name_matches(role, name, trigger.role, trigger.name):
-            continue
-        if trigger.after is None:
-            return True
-        if previous is not None and volatile_name_matches(
-                previous[0], previous[1], trigger.after[0], trigger.after[1]):
-            return True
-    return False
-
-
-def _own_role_name(own: str) -> tuple[str, str] | None:
-    m = ARIA_LINE.match(own)
-    if not m:
-        return None
-    name, value = m.group("name"), m.group("value")
-    if name is not None:
-        label = name
-    elif value:
-        label = value.strip()
-    else:
-        label = ""
-    return m.group("role"), label
-
-
-def count_volatile_hits(lines: list[str], triggers: list[VolatileTrigger],
-                        chains=None) -> int:
-    """Most named nodes that match `triggers` in any one scene. A `## scene` line
-    starts a new scene; a file with none is one scene. The matcher is
-    `matches_volatile`, walked in reading order so `after` sees the previous
-    named node."""
-    best = 0
-    current = 0
-    for item in named_nodes(lines, chains):
-        if item is None:
-            best = max(best, current)
-            current = 0
-            continue
-        role, name, previous, chain = item
-        if matches_volatile(role, name, triggers, previous, chain):
-            current += 1
-    return max(best, current)
-
-
 # ---------------------------------------------------------------- capture
 @dataclass
 class Shot:
@@ -824,52 +664,3 @@ def mount_rect(page, selector: str) -> dict | None:
 def aria_path(png: Path) -> Path:
     """The ARIA snapshot saved beside a screenshot, under the same name."""
     return png.with_name(png.name.removesuffix(".png") + ".aria.yml")
-
-
-def _scoped_entries(doc: dict, key: str, page: str | None = None):
-    """Entries of `doc[key]` whose `page` applies, or that name no page.
-
-    A control's role and name are not unique across pages (a retired 查看 on one
-    page, a live 查看 on another). An entry that names its `page` applies there
-    only.
-    """
-    for entry in doc.get(key) or []:
-        if not (isinstance(entry, dict) and isinstance(entry.get("trigger"), dict)):
-            continue
-        scope = entry.get("page")
-        if page is not None and scope and scope != page:
-            continue
-        yield entry
-
-
-def _triggers(doc: dict, key: str, page: str | None = None) -> list[tuple[str, str]]:
-    """`(role, name)` pairs from `doc[key]`, scoped to `page` when an entry names one."""
-    out = []
-    for entry in _scoped_entries(doc, key, page):
-        t = entry["trigger"]
-        out.append((str(t.get("role")), str(t.get("name"))))
-    return out
-
-
-def retired_triggers(doc: dict, page: str | None = None) -> list[tuple[str, str]]:
-    """The retired controls to hide on the design side — for one design page when
-    `page` is given."""
-    return _triggers(doc, "retired_ids", page)
-
-
-def hide_js_for(doc: dict, page: str) -> str | None:
-    triggers = retired_triggers(doc, page)
-    return hide_retired_js(triggers) if triggers else None
-
-
-def volatile_triggers(doc: dict, page: str | None = None
-                      ) -> list[VolatileTrigger]:
-    """The display values not compared, for one design page when `page` is given.
-    Each item is a `VolatileTrigger`; `after` is the previous named node, or
-    None."""
-    out: list[VolatileTrigger] = []
-    for entry in _scoped_entries(doc, "volatile_values", page):
-        t = entry["trigger"]
-        out.append(VolatileTrigger(str(t.get("role")), str(t.get("name")),
-                                   after_of(entry)))
-    return out

@@ -2,26 +2,15 @@
 # requires-python = ">=3.11"
 # dependencies = ["playwright>=1.58", "pyyaml>=6"]
 # ///
-"""Render every scene of a handoff package once, offline, and write what the rest of the
-pipeline reads from that render.
+"""Render the handoff package's declared scenes and write its row inventory.
 
-Usage: uv run python extract_skeleton.py <handoff dir> <out.json> [--targets <dir> [--contract <yaml>]] [--tools <dir>]
+Usage: uv run python extract_skeleton.py <handoff dir> <out.json> --contract <yaml> [--tools <dir>]
 
-One render per scene in `scenes.json`, through the same renderer the story judge uses
-(`design_render.py` of the ui-acceptance skill), so what comes out here is what the
-judge will read. This skill calls this script for its row inventory. Three things
-come out:
-
-- `<out.json>`, the skeleton: every interactive control keyed by (page, role,
-  accessible name) with the scenes it is visible in — the row inventory the contract
-  is linted against — plus, per scene, its normalised tree and the class names in that subtree.
-- With `--targets <dir>`: one `<page>.aria` and one `<page>.classes` file per design
-  page under that directory, holding every scene of the page. These are the handoff
-  package's behavioural counterpart — the half of it a worker and the judge read
-  directly — and a derived view: the package is the baseline, and each file carries the
-  sha256 of `scenes.json` and of its page so the lint can tell when it has gone stale.
-- With `--contract <yaml>` beside `--targets`: the contract's `retired_ids` triggers are
-  hidden before the tree is read, as the judge hides them.
+Every scene in `scenes.json` is rendered at every viewport declared by the contract,
+with the contract locale, through the same `design_render.py` the story judge uses.
+The output has one entry per (design page, `data-ui` id). Each entry says which
+declared scenes show that element, whether it is clickable or editable, the displayed
+text values, and its accessible names as explanation rather than identity.
 
 Needs Chromium installed for Playwright. Playwright and PyYAML come from the dependency
 block above: `uv run --script` reads it, and a `uv run python` invocation, which does not,
@@ -32,7 +21,6 @@ local cache, else fetched once.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import json
 import os
@@ -40,16 +28,6 @@ import re
 import sys
 import tempfile
 from pathlib import Path
-
-INTERACTIVE = {"button", "textbox", "checkbox", "combobox", "link", "tab", "radio",
-               "switch", "slider", "menuitem", "searchbox", "spinbutton"}
-LINE = re.compile(r'^\s*-\s+(\w+)(?:\s+"((?:[^"\\]|\\.)*)")?')
-TARGET_HEADER = "# target trees of the handoff package page: "
-CLASSES_HEADER = "# class sets of the handoff package page: "
-SNAPSHOT_HEADER = "# raw accessibility snapshots of the handoff package page: "
-DERIVED_LINE = ("# derived by extract_skeleton.py — the handoff package is the "
-                "baseline and this file is its readable view; the lint fails when the hashes "
-                "below no longer match the package")
 
 HERE = Path(__file__).resolve().parent
 # The ui-acceptance skill sits beside this one under `skills/`; `--tools` overrides that.
@@ -88,174 +66,167 @@ def load_driver():
     return mod
 
 
-def driver():
-    """The design renderer of the ui-acceptance skill: the one already loaded, else loaded now."""
-    return sys.modules.get("design_render") or load_driver()
+def load_conditions(dr, contract: Path) -> tuple[str, list[tuple[int, int]]]:
+    """The two rendering conditions this command reads from the contract."""
+    doc = dr.load_yaml(contract)
+    locale = doc.get("locale")
+    if not isinstance(locale, str) or not locale.strip():
+        raise SystemExit(dr._refusal(
+            f"Top-level `locale` is missing from {contract}.",
+            "extract_skeleton.py does not invent the product language.",
+            "Add `locale` to the screen contract, then rerun."
+        ))
+    try:
+        viewports = dr.parse_viewports(doc.get("viewports"))
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(dr._refusal(
+            f"{contract} has invalid top-level `viewports` ({exc}).",
+            "Every scene must be rendered at the contract's declared sizes.",
+            "Add `viewports` as WIDTHxHEIGHT values, then rerun."
+        )) from None
+    return locale.strip(), viewports
 
 
-def controls(aria: str) -> list[tuple[str, str]]:
-    """Every interactive node of a snapshot as (role, accessible name). A line whose key
-    Playwright wrote in single quotes is read through the driver's `unquote_key`, the
-    same reading the normaliser gives it."""
-    unquote = driver().unquote_key
-    found = []
-    for raw in aria.splitlines():
-        m = LINE.match(unquote(raw))
-        if m and m.group(1) in INTERACTIVE:
-            found.append((m.group(1), m.group(2) or ""))
-    return found
+def plain_id(value: str) -> str:
+    """Remove the occurrence suffix the shared reader adds to repeated ids."""
+    return re.sub(r"#\d+$", "", value)
 
 
-def sha256_of(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def append_unique(values: list[str], value: str) -> None:
+    if value and value not in values:
+        values.append(value)
 
 
-def page_stem(page: str) -> str:
-    return re.sub(r"\.dc\.html$", "", page)
+def accessible_name(dr, locator) -> str:
+    """The first named or valued node in one element's accessibility snapshot."""
+    snapshot = getattr(locator, "aria_snapshot")()
+    for raw in snapshot.splitlines():
+        match = dr.ARIA_LINE.match(dr.unquote_key(raw))
+        if not match:
+            continue
+        if match.group("name") is not None:
+            return match.group("name")
+        if match.group("value"):
+            return match.group("value").strip()
+    return ""
 
 
-def target_files(targets: Path, page: str) -> tuple[Path, Path, Path]:
-    stem = page_stem(page)
-    return (targets / f"{stem}.aria", targets / f"{stem}.classes",
-            targets / f"{stem}.snapshot")
+INTERACTIVE_JS = """elements => elements.map(el => el.matches(
+  'button,input,select,textarea,a[href],[role="button"],[role="textbox"],'
+  + '[role="checkbox"],[role="combobox"],[role="link"],[role="tab"],'
+  + '[role="radio"],[role="switch"],[role="slider"],[role="menuitem"],'
+  + '[role="searchbox"],[role="spinbutton"],[contenteditable="true"]'
+))"""
 
 
-def write_targets(targets: Path, handoff: Path, scenes: list[dict], trees: dict[str, list[str]],
-                  classes: dict[str, list[str]], scene_header: str,
-                  snapshots: dict[str, str] | None = None) -> list[Path]:
-    targets.mkdir(parents=True, exist_ok=True)
-    scenes_hash = sha256_of(handoff / "scenes.json")
-    written = []
-    by_page: dict[str, list[dict]] = {}
-    for s in scenes:
-        by_page.setdefault(s["page"], []).append(s)
-    for page, entries in sorted(by_page.items()):
-        page_hash = sha256_of(handoff / page)
-        aria_file, classes_file, snapshot_file = target_files(targets, page)
-        head = [f"# scenes.json sha256={scenes_hash}", f"# page sha256={page_hash}"]
-        lines = [TARGET_HEADER + page, DERIVED_LINE, *head, ""]
-        for s in entries:
-            lines.append(scene_header + s["name"])
-            lines.extend(trees[s["name"]])
-            lines.append("")
-        aria_file.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
-        if snapshots:
-            # The snapshot the two views are derived from, kept beside them. A comparison
-            # line carries one named ancestor, which is all a diff should say; deciding
-            # *which* control a contract row means wants the whole ancestor chain, and
-            # only this file still has it. Written from the same render, so the three can
-            # never disagree.
-            raw = [SNAPSHOT_HEADER + page, DERIVED_LINE, *head, ""]
-            for s2 in entries:
-                raw.append(scene_header + s2["name"])
-                raw.extend((snapshots.get(s2["name"]) or "").splitlines())
-                raw.append("")
-            snapshot_file.write_text("\n".join(raw).rstrip("\n") + "\n", encoding="utf-8")
-            written.append(snapshot_file)
-        lines = [CLASSES_HEADER + page, DERIVED_LINE, *head, ""]
-        for s in entries:
-            lines.append(scene_header + s["name"])
-            lines.extend(classes[s["name"]])
-            lines.append("")
-        classes_file.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
-        written += [aria_file, classes_file]
-    return written
-
-
-def read_target_hashes(path: Path) -> dict[str, str]:
-    """`{"scenes.json": sha, "page": sha}` from a target file's header, `{}` if absent."""
-    out = {}
-    if not path.exists():
-        return out
-    for line in path.read_text(encoding="utf-8").splitlines()[:6]:
-        m = re.match(r"^# (scenes\.json|page) sha256=([0-9a-f]{64})$", line)
-        if m:
-            out[m.group(1)] = m.group(2)
-    return out
-
-
-def main(handoff: Path, out: Path, targets: Path | None, contract: Path | None) -> None:
+def main(handoff: Path, out: Path, contract: Path) -> None:
     dr = load_driver()
+    locale, viewports = load_conditions(dr, contract)
     scenes = json.loads((handoff / "scenes.json").read_text(encoding="utf-8"))
-    pages = {dr.wrapper_path(s["name"]): dr.wrapper_page(dr.component_of(s["page"]),
-                                                          s.get("props") or {})
-             for s in scenes}
+    pages = {
+        dr.wrapper_path(scene["name"]): dr.wrapper_page(
+            dr.component_of(scene["page"]), scene.get("props") or {})
+        for scene in scenes
+    }
     server, port = dr.serve_baseline(handoff, pages)
     origin = f"http://127.0.0.1:{port}"
     route = dr.baseline_router(origin, handoff, dr.DEFAULT_CACHE)
-    doc = None
-    if contract is not None:
-        import yaml
-        doc = yaml.safe_load(contract.read_text(encoding="utf-8")) or {}
 
     from playwright.sync_api import sync_playwright
-    rows: dict[tuple[str, str, str], dict] = {}
-    per_scene: dict[str, int] = {}
-    trees: dict[str, list[str]] = {}
-    snapshots: dict[str, str] = {}
-    classes: dict[str, list[str]] = {}
-    tmp = Path(tempfile.mkdtemp())
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch()
-        ctx = browser.new_context(viewport={"width": 1440, "height": 900}, device_scale_factor=1,
-                                  reduced_motion="reduce", locale="zh-CN")
-        ctx.route("**/*", route)
-        page = ctx.new_page()
-        for s in scenes:
-            dr.navigate(page, f"{origin}{dr.wrapper_path(s['name'])}")
-            dr.wait_for_mount(page, "#dc-root")
-            shot = dr.capture(page, tmp / f"{s['name']}.png", selector="#dc-root",
-                              extra_js=dr.hide_js_for(doc, s["page"]) if doc else None)
-            found = controls(shot.aria)
-            per_scene[s["name"]] = len(found)
-            trees[s["name"]] = dr.normalize_aria(shot.aria)
-            snapshots[s["name"]] = shot.aria
-            classes[s["name"]] = sorted(shot.classes)
-            for role, name in found:
-                row = rows.setdefault((s["page"], role, name),
-                                      {"page": s["page"], "role": role, "name": name, "scenes": []})
-                if s["name"] not in row["scenes"]:
-                    row["scenes"].append(s["name"])
-        browser.close()
-    server.shutdown()
-    result = {"handoff": str(handoff), "scenes": len(scenes),
-              "scene_x_control": sum(per_scene.values()), "rows": len(rows),
-              "per_scene": per_scene,
-              "scene_pages": {s["name"]: s["page"] for s in scenes},
-              "trees": trees, "classes": classes,
-              "table": sorted(rows.values(), key=lambda r: (r["page"], r["role"], r["name"]))}
+    rows: dict[tuple[str, str], dict] = {}
+    per_scene: dict[str, set[tuple[str, str]]] = {scene["name"]: set() for scene in scenes}
+    render_count = 0
+    try:
+        with tempfile.TemporaryDirectory(prefix="mmw-skeleton-") as tmp_name:
+            tmp = Path(tmp_name)
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch()
+                try:
+                    context = browser.new_context(
+                        device_scale_factor=1, reduced_motion="reduce", locale=locale)
+                    context.route("**/*", route)
+                    page = context.new_page()
+                    for scene in scenes:
+                        for viewport in viewports:
+                            dr.resize(page, viewport)
+                            dr.navigate(page, f"{origin}{dr.wrapper_path(scene['name'])}")
+                            dr.wait_for_mount(page, "#dc-root")
+                            width, height = viewport
+                            shot = dr.capture(
+                                page, tmp / f"{scene['name']}-{width}x{height}.png",
+                                selector="#dc-root")
+                            locators = page.locator(
+                                "#dc-root[data-ui], #dc-root [data-ui]")
+                            interactive_values = locators.evaluate_all(INTERACTIVE_JS)
+                            for index, value in enumerate(shot.values):
+                                if not value.get("visible"):
+                                    continue
+                                text = str(value.get("text") or "")
+                                interactive = bool(interactive_values[index])
+                                if not interactive and not text:
+                                    continue
+                                data_ui = plain_id(str(value.get("id") or ""))
+                                if not data_ui:
+                                    continue
+                                key = (scene["page"], data_ui)
+                                row = rows.setdefault(key, {
+                                    "page": scene["page"],
+                                    "id": data_ui,
+                                    "scenes": [],
+                                    "interactive": False,
+                                    "text": [],
+                                    "names": [],
+                                })
+                                if scene["name"] not in row["scenes"]:
+                                    row["scenes"].append(scene["name"])
+                                row["interactive"] = row["interactive"] or interactive
+                                name = accessible_name(dr, locators.nth(index))
+                                append_unique(row["text"], text or name)
+                                append_unique(row["names"], name)
+                                per_scene[scene["name"]].add(key)
+                            render_count += 1
+                finally:
+                    browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    table = sorted(rows.values(), key=lambda row: (row["page"], row["id"]))
+    result = {
+        "handoff": str(handoff),
+        "locale": locale,
+        "viewports": [f"{width}x{height}" for width, height in viewports],
+        "scenes": len(scenes),
+        "renders": render_count,
+        "scene_x_element": sum(len(entries) for entries in per_scene.values()),
+        "rows": len(table),
+        "per_scene": {name: len(entries) for name, entries in per_scene.items()},
+        "scene_pages": {scene["name"]: scene["page"] for scene in scenes},
+        "table": table,
+    }
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"scenes={result['scenes']} scene_x_control={result['scene_x_control']} "
-          f"rows={result['rows']} -> {out}")
-    if targets is not None:
-        written = write_targets(targets, handoff, scenes, trees, classes, dr.SCENE_HEADER,
-                                snapshots)
-        print(f"targets: {len(written)} files under {targets}")
+    print(f"scenes={result['scenes']} renders={render_count} "
+          f"scene_x_element={result['scene_x_element']} rows={result['rows']} -> {out}")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("handoff", type=Path)
-    p.add_argument("out", type=Path)
-    p.add_argument("--targets", type=Path, default=None,
-                   help="write one .aria and one .classes file per design page here")
-    p.add_argument("--contract", type=Path, default=None,
-                   help="hide this contract's retired_ids triggers before reading the tree")
-    p.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
-                   help="the ui-acceptance skill's scripts/; overrides the sibling lookup")
-    return p.parse_args(argv)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("handoff", type=Path)
+    parser.add_argument("out", type=Path)
+    parser.add_argument("--contract", type=Path, required=True,
+                        help="read locale and viewports from this screen contract")
+    parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
+                        help="the ui-acceptance skill's scripts/; overrides the sibling lookup")
+    return parser.parse_args(argv)
 
 
 _BOOTSTRAP = "MMW_EXTRACT_SKELETON_BOOTSTRAPPED"
 
 
 def _ensure_script_env() -> None:
-    """A `uv run python extract_skeleton.py` does not read the dependency block above;
-    `uv run --script` does. Re-exec once when an import is missing, so both forms reach
-    Chromium. Called from the command line only: `lint_screen_contract.py` imports this module
-    for its helpers and has no Playwright."""
+    """Re-exec through the PEP 723 block when the caller used `uv run python`."""
     try:
         import playwright.sync_api  # noqa: F401
         import yaml  # noqa: F401
@@ -271,8 +242,6 @@ def _ensure_script_env() -> None:
 
 if __name__ == "__main__":
     _ensure_script_env()
-    a = parse_args(sys.argv[1:])
-    TOOLS[:] = [d.resolve() for d in a.tools]
-    main(a.handoff.resolve(), a.out.resolve(),
-         a.targets.resolve() if a.targets else None,
-         a.contract.resolve() if a.contract else None)
+    args = parse_args(sys.argv[1:])
+    TOOLS[:] = [directory.resolve() for directory in args.tools]
+    main(args.handoff.resolve(), args.out.resolve(), args.contract.resolve())

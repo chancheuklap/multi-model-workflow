@@ -3,8 +3,8 @@
 #
 #   bash mmw-v2/tests/write-screen-contract/run.sh [-k <pattern>]
 #
-# unittest over fixed contracts and a temporary handoff package; no browser, no tracker.
-# `lint_screen_contract.py` imports pyyaml, so the tests run through `uv` with it.
+# unittest over fixed contracts and a hand-written handoff package; no tracker.
+# The skeleton cases render that package with real headless Chromium.
 #
 # A skip count other than 0, or a run count of 0, exits non-zero and does not
 # print `all passed`.
@@ -26,7 +26,8 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-if uv run --quiet --with pyyaml python -u "$HERE/../lib/run_unittests.py" "$HERE" "$pattern"; then
+if uv run --quiet --with pyyaml --with 'playwright>=1.58' \
+  python -u "$HERE/../lib/run_unittests.py" "$HERE" "$pattern"; then
   echo "all passed"
 else
   exit 1

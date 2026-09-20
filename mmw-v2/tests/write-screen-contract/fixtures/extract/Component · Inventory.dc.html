@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <style>
+          html, body { margin: 0; font: 16px sans-serif; }
+          [data-ui="inventory.root"] { width: 100%; min-height: 160px; }
+        </style>
+      </helmet>
+      <main data-ui="inventory.root">
+        <h1 data-ui="inventory.title">Inventory</h1>
+        <label>Search items <input data-ui="inventory.search" aria-label="Search items" /></label>
+        <p data-ui="inventory.viewport"></p>
+        <ul data-only-scene="ready">
+          <li><button data-ui="inventory.open">Open Alpha</button></li>
+          <li><button data-ui="inventory.open">Open Beta</button></li>
+          <li><button data-ui="inventory.open">Open Gamma</button></li>
+        </ul>
+        <p data-ui="inventory.empty" data-only-scene="empty">No items</p>
+        <button data-ui="inventory.future" data-only-scene="future">Future only</button>
+      </main>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+      "$preview": {"width": 640, "height": 480},
+      "scene": {
+        "editor": "enum",
+        "default": "ready",
+        "options": ["ready", "empty", "future"],
+        "out_of_scope": ["future"]
+      }
+    }'>
+      class Component extends DCLogic { renderVals() { return {}; } }
+    </script>
+  </body>
+</html>

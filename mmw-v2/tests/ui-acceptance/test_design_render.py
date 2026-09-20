@@ -48,7 +48,6 @@ CONTRACT = {
         "workbench-shell.default": {"page": "Component · 工作台壳.dc.html",
                                     "reach": ["seed:project-with-subjects"]},
     },
-    "retired_ids": [{"id": "x.y", "note": "n", "trigger": {"role": "button", "name": "查看账务状态"}}],
     "rows": [
         {"id": "workbench-shell.delete.preview.allowed",
          "trigger": {"role": "button", "name": "删除商品项目"}, "next": "library-delete-confirm"},
@@ -115,15 +114,6 @@ class TestScreenAxis(unittest.TestCase):
             self.assertIn("target", str(raised.exception))
         finally:
             os.unlink(f.name)
-
-    def test_retired_triggers_are_scoped_to_a_page(self):
-        self.assertEqual(dr.retired_triggers(CONTRACT), [("button", "查看账务状态")])
-        scoped = {"retired_ids": [{"id": "a", "page": "Component · 自由模式.dc.html",
-                                   "trigger": {"role": "button", "name": "查看"}}]}
-        self.assertEqual(dr.retired_triggers(scoped, "Component · 自由模式.dc.html"), [("button", "查看")])
-        self.assertEqual(dr.retired_triggers(scoped, "Component · 任务详情.dc.html"), [])
-        self.assertIsNone(dr.hide_js_for(scoped, "Component · 任务详情.dc.html"))
-
 
 class FakePage:
     """Enough of a Playwright page for `navigate`.
@@ -302,65 +292,6 @@ class TestBaselineServing(unittest.TestCase):
             (baseline / dr.VENDOR_DIR / "react.production.min.js").write_text("//")
             self.assertEqual(dr.vendor_path(baseline, dr.CDN_PREFIX + "react@18.3.1/umd/react.production.min.js"),
                              baseline / dr.VENDOR_DIR / "react.production.min.js")
-
-    def test_hide_retired_js_names_the_controls(self):
-        js = dr.hide_retired_js([("button", "查看账务状态")])
-        self.assertIn('"查看账务状态"', js)
-        self.assertIn("display = 'none'", js)
-
-    def test_volatile_text_trigger_matches_a_table_cell(self):
-        self.assertIn("cell", dr.VOLATILE_TEXT_LIKE)
-        cell_lines = dr.normalize_aria("- cell: 鸭豆余额 12,480\n")
-        self.assertEqual(dr.count_volatile_hits(cell_lines, [dr.VolatileTrigger("text", "鸭豆余额 12,480")]), 1)
-        scoped = {"volatile_values": [
-            {"page": "App · 商品项目库.dc.html",
-             "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
-             "reason": "wallet balance is an external account; seed does not write it"}]}
-        self.assertEqual(dr.volatile_triggers(scoped, "App · 商品项目库.dc.html"),
-                         [dr.VolatileTrigger("text", "鸭豆余额 12,480")])
-        self.assertEqual(dr.volatile_triggers(scoped, "Component · 工作台壳.dc.html"), [])
-
-    def test_three_same_stem_siblings_the_after_coordinate_hits_one(self):
-        """Three strongs share the stem 鸭豆. A trigger with no second coordinate
-        matches all three; `after` (the previous named node) matches only the
-        one that follows that node — agentflow#654's free-gate counterexample."""
-        tree = (
-            "- text: 每张费用\n"
-            "- strong: 20 鸭豆\n"
-            "- text: 最大预扣\n"
-            "- strong: 40 鸭豆\n"
-            "- text: 当前余额\n"
-            "- strong: 12,480 鸭豆\n"
-        )
-        lines = dr.normalize_aria(tree)
-        bare = [dr.VolatileTrigger("strong", "12,480 鸭豆")]
-        pinned = [dr.VolatileTrigger("strong", "12,480 鸭豆", ("text", "当前余额"))]
-        self.assertEqual(dr.count_volatile_hits(lines, bare), 3)
-        self.assertEqual(dr.count_volatile_hits(lines, pinned), 1)
-        unique = dr.normalize_aria("- text: 当前余额\n- strong: 12,480 鸭豆\n")
-        mixed = ["## scene free-gate", *lines, "## scene free-hold-unknown", *unique]
-        self.assertEqual(dr.count_volatile_hits(mixed, bare), 3)
-        self.assertEqual(dr.count_volatile_hits(mixed, pinned), 1)
-        scoped = {"volatile_values": [
-            {"page": "Component · 自由模式.dc.html",
-             "trigger": {"role": "strong", "name": "12,480 鸭豆"},
-             "after": {"role": "text", "name": "当前余额"},
-             "reason": "wallet balance is an external account; seed does not write it"}]}
-        got = dr.volatile_triggers(scoped, "Component · 自由模式.dc.html")
-        self.assertEqual(got, [dr.VolatileTrigger("strong", "12,480 鸭豆",
-                                                  ("text", "当前余额"))])
-        self.assertEqual(got[0].after, ("text", "当前余额"))
-
-    def test_volatile_hits_count_same_stem_names(self):
-        """`count_volatile_hits` matches on role plus the non-digit stem, so
-        `删除 2` also counts `删除 1`."""
-        lines = dr.normalize_aria(
-            '- button "删除 1"\n'
-            '- heading "确认"\n'
-            '- button "删除 2"\n'
-        )
-        self.assertEqual(
-            dr.count_volatile_hits(lines, [dr.VolatileTrigger("button", "删除 2")]), 2)
 
     def test_wrapper_page_carries_inline_head_and_scene(self):
         page = dr.wrapper_page("Component · 壳头", {"scenario": "ready", "standalone": False},

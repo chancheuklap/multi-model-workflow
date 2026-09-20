@@ -12,12 +12,8 @@ metadata block above; `main` then re-execs through `uv run --script` so PyYAML
 comes from that block. `uv run --script lint_screen_contract.py` skips the re-exec.
 
 `--tools` is the `scripts/` directory of the ui-acceptance skill, an override.
-Without it this file finds that directory beside this skill under `skills/`. Two
-things come from those scripts, and this file holds no copy of either: the
-`.mmw/target.json` check (`target_config.py --validate`), and matching
-(`volatile_triggers` / `count_volatile_hits` from `design_render.py`). Target
-kinds come from `target_config.py` (`KINDS`). Matching is loaded in-process
-through `extract_skeleton.py`'s `load_driver()`.
+Without it this file finds that directory beside this skill under `skills/`. The
+`.mmw/target.json` check comes from those scripts (`target_config.py --validate`).
 Rules are the tables in ../references/screen-contract-format.md.
 
 Printed on every run, before the findings: each `retired_ids` entry with its note,
@@ -26,7 +22,6 @@ judges honour, kept in sight so they are never a silent allowance.
 """
 from __future__ import annotations
 
-import hashlib
 import io
 import json
 import os
@@ -75,7 +70,7 @@ ROW_KEYS = {
 SCENE_KEYS = {"page"}
 PAGE_KEYS = {"mount", "component", "route"}
 TOP_KEYS = {
-    "effort", "baselines", "target", "viewports", "pages", "scenes", "rows",
+    "effort", "baselines", "locale", "viewports", "pages", "scenes", "rows",
     "retired_ids", "volatile_values", "readme_dispositions",
     "backend_without_ui", "proposed_operations",
 }
@@ -85,8 +80,7 @@ HERE = Path(__file__).resolve().parent
 SIBLING_UA = HERE.parents[1] / "ui-acceptance" / "scripts"
 
 # The directories `--tools` named, else the sibling ui-acceptance scripts.
-# `target_kinds()` and `target_file_problem()` ask `target_config.py`, and
-# matching asks `design_render.py` through `extract_skeleton.py`'s `load_driver()`.
+# `target_file_problem()` asks `target_config.py`.
 TOOLS: list[Path] = []
 
 
@@ -94,25 +88,10 @@ def tools_dirs() -> list[Path]:
     return TOOLS or [SIBLING_UA]
 
 
-def extract_skeleton_mod():
-    """`extract_skeleton.py` beside this file; Python's import cache holds it."""
-    if str(HERE) not in sys.path:
-        sys.path.insert(0, str(HERE))
-    import extract_skeleton
-    extract_skeleton.TOOLS[:] = list(tools_dirs())
-    return extract_skeleton
-
-
-def design_render_mod():
-    """`design_render.py` from `--tools` or the sibling ui-acceptance skill.
-    Matching (`volatile_triggers` / `count_volatile_hits`) comes from this module."""
-    return extract_skeleton_mod().driver()
-
-
 def target_config_mod():
     """`target_config.py` from `--tools` or the sibling ui-acceptance skill;
-    Python's import cache holds it. Target kinds (`KINDS`) and the `.mmw/target.json`
-    check (`target_main`) come from this module."""
+    Python's import cache holds it. The `.mmw/target.json` check (`target_main`) comes
+    from this module."""
     looked = tools_dirs()
     for directory in looked:
         if (directory / "target_config.py").is_file():
@@ -132,24 +111,7 @@ def target_config_mod():
     )
 
 
-def page_stem(page: str) -> str:
-    """The design page without its `.dc.html` suffix, as `extract_skeleton.py`
-    strips it: the two must agree or the lint looks for target files under a name
-    nothing writes."""
-    return extract_skeleton_mod().page_stem(page)
-
-
-def target_hashes(path: Path) -> dict[str, str]:
-    """`{"scenes.json": sha, "page": sha}` from a target file's header, read by the
-    same writer that put them there."""
-    return extract_skeleton_mod().read_target_hashes(path)
-
-
-def target_kinds() -> set[str]:
-    return set(target_config_mod().KINDS)
-
-
-def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
+def target_file_problem(repo: Path) -> tuple[str, str] | None:
     """`("error", line)` or `("warning", line)` about the repository's `.mmw/target.json`,
     from `target_config.py`'s own validation; `None` when the file is complete.
 
@@ -162,8 +124,7 @@ def target_file_problem(repo: Path, kind: str) -> tuple[str, str] | None:
                            "`target_config.py --check` (the ui-acceptance skill) there")
     buf_out, buf_err = io.StringIO(), io.StringIO()
     with redirect_stdout(buf_out), redirect_stderr(buf_err):
-        code = target_config_mod().target_main(
-            ["--validate", "--repo", str(repo), "--kind", kind])
+        code = target_config_mod().target_main(["--validate", "--repo", str(repo)])
     if code == 0:
         return None
     text = (buf_out.getvalue() or buf_err.getvalue()).strip()
@@ -235,24 +196,16 @@ def latest_story_out(contract_dir: Path) -> Path | None:
 
 def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                       contract_dir: Path | None) -> tuple[list[str], list[str]]:
-    """Target, viewports, pages, scenes, target trees, volatile_values, and
-    story coverage. Every finding names the key it is about."""
+    """Viewports, pages, scenes, target config, and story coverage.
+    Every finding names the key it is about."""
     errors: list[str] = []
     warnings: list[str] = []
     rows = {str(r.get("id")): r for r in doc.get("rows") or [] if isinstance(r, dict)}
     for key in unknown_keys(doc, TOP_KEYS):
         errors.append(f"{key} is not a contract field")
-    # -- target
-    target = doc.get("target") or {}
-    kind = str(target.get("kind") or "")
-    kinds = target_kinds()
-    if kind not in kinds:
-        errors.append(f"target.kind {kind!r} is not one of {sorted(kinds)}")
-    if "adapter" in target:
-        errors.append("target.adapter is not read by anything; the ui-acceptance skill picks "
-                      "the adapter by target.kind — drop the key")
-    if kind in kinds and contract_dir is not None:
-        problem = target_file_problem(repo_root(Path(contract_dir)), kind)
+    # -- target runtime
+    if contract_dir is not None:
+        problem = target_file_problem(repo_root(Path(contract_dir)))
         if problem is not None:
             (errors if problem[0] == "error" else warnings).append(problem[1])
     # -- viewports
@@ -336,59 +289,6 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
         if page != scene_pages[name]:
             errors.append(f"scenes: {name!r} page {page!r} but scenes.json has "
                           f"{scene_pages[name]!r}")
-    # -- target trees
-    aria_of: dict[str, Path] = {}
-    if contract_dir is not None and baseline is not None and handoff_pages:
-        targets = contract_dir / "targets"
-        scenes_hash = (hashlib.sha256((baseline / "scenes.json").read_bytes()).hexdigest()
-                       if (baseline / "scenes.json").exists() else "")
-        for page in sorted(handoff_pages):
-            stem = page_stem(page)
-            aria_of[page] = targets / f"{stem}.aria"
-            for suffix in (".aria", ".classes"):
-                f = targets / f"{stem}{suffix}"
-                if not f.exists():
-                    errors.append(f"targets: {f.name} missing; run extract_skeleton.py "
-                                  f"--targets {targets}")
-                    continue
-                hashes = target_hashes(f)
-                page_file = baseline / page
-                page_hash = (hashlib.sha256(page_file.read_bytes()).hexdigest()
-                             if page_file.exists() else "")
-                if hashes.get("scenes.json") != scenes_hash or hashes.get("page") != page_hash:
-                    errors.append(f"targets: {f.name} is stale — its hashes no longer match "
-                                  f"scenes.json or {page}; regenerate with extract_skeleton.py")
-    # -- volatile_values
-    def tree_of(page: str) -> list[str]:
-        """The page's target tree, as lines. `aria_of` holds the pages the target
-        directory declared; a page it does not name is looked for where
-        `extract_skeleton.py --targets` would have written it."""
-        aria = aria_of.get(page)
-        if aria is None:
-            aria = contract_dir / "targets" / f"{page_stem(page)}.aria"
-        return aria.read_text(encoding="utf-8").splitlines() if aria.exists() else []
-
-    for entry in doc.get("volatile_values") or []:
-        if not isinstance(entry, dict):
-            continue
-        trigger = entry.get("trigger") or {}
-        page = str(entry.get("page") or "")
-        role, name = str(trigger.get("role") or ""), str(trigger.get("name") or "")
-        if not page or not role or not name:
-            warnings.append("volatile_values: an entry is missing page or trigger "
-                            "(role and name); the judges cannot replace it")
-            continue
-        if contract_dir is None:
-            continue
-        hits = design_render_mod().count_volatile_hits(
-            tree_of(page),
-            design_render_mod().volatile_triggers({"volatile_values": [entry]}))
-        if hits == 0:
-            warnings.append(f"volatile_values: {role} {name!r} on {page} is not in the "
-                            f"target tree")
-        elif hits > 1:
-            errors.append(f"volatile_values: {role} {name!r} on {page} matches {hits} "
-                          f"nodes")
     # -- story coverage: the newest story-parity --out under the contract dir.
     # App pages are outside this warning: story-parity.py --pages takes only
     # non-App mounts, so an App-page miss can never be repaired.
