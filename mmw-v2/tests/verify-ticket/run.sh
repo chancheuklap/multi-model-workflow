@@ -16,25 +16,20 @@
 # Neither needs the tracker, a terminal or a browser. `node` has to be on PATH for
 # the second one; without it the run fails rather than passing on half the tests.
 #
-# A skip count other than 0, or a run count of 0, exits non-zero and does not
-# print `all passed`.
+# Under `-k`, a skip count other than 0, or a run count of 0, exits non-zero and
+# does not print `all passed`.
 
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 GATE_TESTS="$(dirname -- "$(dirname -- "$HERE")")/upstream-unlazy/tests"
 
-# A suite run from inside a worker session must not inherit that session's ticket
-# or Memory boundary. These tests do not read the variables; stripping them is
-# the runner convention in mmw-v2/tests/AGENTS.md.
 # `verify-ticket.py` takes the ticket it is about from `MMW_TICKET` when no number is on
 # the command line, and a worker session sets it. Under one, a test that means to
 # exercise a made-up ticket would act on the real one that session is working. Measured
 # 2026-09-10 on #320. The suite also tests judge ownership itself, so an outer acceptance
 # run's ownership marker must not make those inner judges skip their release.
-unset MMW_TICKET MMW_CATALOG_MODE MMW_SPEC MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
-unset MMW_JUDGE_LEASE_OWNER
-unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
+unset MMW_TICKET MMW_JUDGE_LEASE_OWNER
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/parse_k.sh
 . "$HERE/../lib/parse_k.sh"  # mmw-v2/tests/lib/parse_k.sh

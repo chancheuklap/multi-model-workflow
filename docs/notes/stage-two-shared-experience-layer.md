@@ -32,9 +32,9 @@ reviewer 的 MMW review packet 不放 Memory 检索结果；`dispatch.sh start <
 
 #### MMW 已有的任务归属
 
-- `tree.py`、Task Board 和 tracker 文档共同定义四层 native parent graph：`map → specs → tickets → children`。
+- `issue_tree.py`、Task Board 和 tracker 文档共同定义四层 native parent graph：`map → specs → tickets → children`。
 - Task Board 的 `The Night` 是一个顶层 map 及其全部 specs/tickets；没有 open map parent 的 spec 自己成为一项 task。小写 `night` 仍是 `dispatch.sh` 对一份 spec 的一次运行。
-- 真实 tracker 已验证 `#384 map → #374 spec → #375 ticket`；同一个 `tree.py 384 --root map` 调用读出了 #374 下的七张 tickets。
+- 真实 tracker 已验证 `#384 map → #374 spec → #375 ticket`；同一个 `issue_tree.py 384 --root map` 调用读出了 #374 下的七张 tickets。
 - `dispatch.sh read_ticket()` 已经从 ticket native parent 取得 spec。`## Parent` 是给 agent 读的 spec section 指针，不是机器归属关系。
 
 一条经验的完整地址由两部分组成：
