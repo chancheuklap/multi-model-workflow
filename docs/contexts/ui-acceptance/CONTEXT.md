@@ -101,7 +101,8 @@ _Avoid_: interface parity, PARITY OK (the whole-product judge's success line)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story adapter**:
-What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that mapping field by field. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies. `adapter` is a dead word on the **target** side only; this is the sense that stays.
+What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that mapping field by field. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies.
+_Avoid_: adapter (for anything `.mmw/target.json` answers; the file name `.release-adapter.json` and the key template's `--adapter` flag are literals a program reads and stay)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **boundary**:
@@ -159,21 +160,20 @@ The pair each judge builds to prove it can fail. The story judge's perturbs a de
 _Avoid_: 负控制, GREEN WITHOUT TRANSPORT
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/story-parity.py`, `mmw-v2/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v2/skills/ui-acceptance/scripts/journey.py`
 
-**normalisation**:
-How an accessibility tree is read as the sequence of its named nodes in reading order, each with its nearest named ancestor, unnamed wrappers and landmark names dropped. `normalize_aria` in `design_render.py` serves `extract_skeleton.py` and the **target trees**; the story judge no longer compares trees.
-_Avoid_: 归一化, ARIA 归一化, ARIA 树, 视口
-_Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
-
 ### Screen contract
 
 **screen contract**:
-`docs/specs/<effort>/screen-contract.yaml`. The **control axis**, `rows`: one row per user-visible behaviour — the control (`trigger`, by role and accessible name), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), and whether design and backend agree (`gap`). `pages` names each design page's story id (`mount`) and the component that owns it; only an `App · ` page may carry `route`. `scenes` names which design page each scene of `scenes.json` belongs to. It also carries `effort`, `baselines`, `target.kind`, `viewports`, `retired_ids`, `volatile_values`, `readme_dispositions`, `backend_without_ui` and `proposed_operations`, and a key that is none of these is an error that names the key. It carries no address, no `observe`, no locating pin. Written by `write-screen-contract` on the alignment ticket; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, the story judge, the boundary check and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
+`docs/specs/<effort>/screen-contract.yaml`. The **control axis**, `rows`: one row per user-visible behaviour — the control (`trigger`, a **`data-ui` id**), its `precondition`, the `scenes` it is visible in, what it `calls`, which field feeds each value it `shows`, what state is `next`, what `on_failure` shows, where the behaviour was decided (`source`), and whether design and backend agree (`gap`). A **cross-component row** additionally carries `app`. `pages` names each design page's story id (`mount`) and the component that owns it; `scenes` names which design page each scene of `scenes.json` belongs to. A key that is not in the format's top-level list is an error that names the key. It carries no address and no `observe`. Written by `write-screen-contract`; read by `to-spec`, `to-tickets`, `implement`, the Spec axis, the story judge, the boundary check and `verify-ticket --lint`. It is the behaviour baseline of an interface, beside the handoff package as its look-and-copy baseline; the two never bind the same thing.
 _Avoid_: UI contract, interaction table, 界面合同表, 对齐表
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
+**cross-component row**:
+A screen-contract row written on an `App · ` page that records region A's action affecting region B. It carries `app`; `trigger` is region A's **`data-ui` id**; `next` is the scene region B enters. Distinct from an ordinary row, whose `next` stays in the trigger's own region.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`, `mmw-v2/skills/write-screen-contract/scripts/lint_screen_contract.py`
+
 **alignment ticket**:
-The last ticket of a wayfinder map whose destination has an interface: a `grilling` ticket, blocked by every decision ticket and by the **handoff ticket**, resolved by running `write-screen-contract` and closed when every row's `gap` is `aligned`.
-_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
+The last ticket of a wayfinder map whose destination has an interface: a `grilling` ticket, blocked by every decision ticket and by the **handoff ticket**, resolved by running `write-screen-contract` and closed when every row's `gap` is `aligned`. A row's `source` may be a map decision or a conversation (`conversation YYYY-MM-DD` plus the conclusion). When there is no map, there is no alignment ticket: prototype, design, pull and `write-screen-contract` run in one session with the person, then `to-spec`.
+_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`, `mmw-v2/skills/write-screen-contract/SKILL.md`
 
 **gap list**:
 The rows of a screen contract whose `gap` is `design-only` or `backend-only`, written by `write-screen-contract` for the person to settle — the one judgement in that skill that is theirs.
@@ -181,19 +181,19 @@ _Avoid_: 差集
 _Home_: `mmw-v2/skills/write-screen-contract/SKILL.md`
 
 **`extract_skeleton.py`**:
-`scripts/extract_skeleton.py` beside the write-screen-contract `SKILL.md`: one offline render of every scene of a **handoff package**, through `design_render.py`, writing the **skeleton** and, with `--targets`, the **target trees**. It judges nothing and needs no product. `--contract` beside `--targets` hides that contract's `retired_ids` triggers before the tree is read; the story judge does not hide them. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
+`scripts/extract_skeleton.py` beside the write-screen-contract `SKILL.md`: one offline render of every scene of a **handoff package**, through the same `design_render.py` the story judge uses, writing the **skeleton**. It judges nothing and needs no product. It takes the locale and viewports from the screen contract, which it requires. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
 _Avoid_: the extractor, 骨架脚本
 _Home_: `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`
 
 **skeleton**:
-The JSON `extract_skeleton.py` writes from that render, and the **row inventory** a screen contract is linted against: every interactive control of the handoff package keyed by (page, role, accessible name) with the list of scenes it is visible in, plus each scene's normalised tree and the class names in that subtree. It is the design side's inventory of controls, never the contract's: a control the skeleton has and the contract lacks is a lint error, and so is the reverse, and a row's `trigger` is a role and an accessible name copied from it exactly, hint text the tree folded in included. It is written to a scratch path and read there by `lint_screen_contract.py`; `--tools` on that script is an override of the sibling ui-acceptance lookup; what is kept out of the same render is the target trees.
+The JSON `extract_skeleton.py` writes from that render, and the **row inventory** a screen contract is linted against: every visible `[data-ui]` control of the handoff package keyed by (page, **`data-ui` id**), once even when the same id repeats in a list. It is the design side's inventory of controls, never the contract's: a clickable or editable control the skeleton has and the contract lacks is a lint error, and so is the reverse. A row's `trigger` is that id copied from it.
 _Avoid_: 骨架 (as a term), control inventory
-_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`, `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`
+_Home_: `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`, `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 **`retired_ids`**:
-The top-level list on a screen contract of row ids that once had a row and no longer do: an id is never renumbered and never reused, and the lint prints every entry on every run. The lint uses an entry's `page` and `trigger` to stop asking for a row; the story judge refuses any entry that carries `trigger`.
+The top-level list on a screen contract of row ids that once had a row and no longer do. An id is never renumbered and never reused. Distinct from a live row, which must not reuse that id.
 _Avoid_: 退役 id, deleted rows
-_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`, `mmw-v2/skills/write-screen-contract/scripts/lint_screen_contract.py`
 
 **contract ticket**:
 The first ticket cut from a spec with a screen contract: `.mmw/` in full (target.json, harness, journeys, stories and adapters), the interaction helper the boundary check uses, a `journey.py run smoke` criterion that starts the stack and logs in, and the harness guard. Every other ticket of the batch is blocked by it. Interface tickets own by design page: one story criterion (`--pages`) and one boundary criterion per `calls` row.
@@ -210,30 +210,20 @@ An optional bullet of a spec's `## Testing Decisions`: one line per user flow th
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **mount**:
-A design page's `mount` in the contract's `pages`: the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from rows; lowercase `[a-z0-9-]`, unique across pages. A story criterion names the ticket's mounts with `--pages`. `--mount` is a retired flag of `story-parity.py`, listed under `retired` in `verify-ticket.py`'s `PIPELINE_SCRIPTS` and reported by `--lint` as `[screen-contract]`; the live name is `--pages <mount,…>`. It is also the value of `data-screen` on the one product element this page *is*, when the surface carries that attribute.
+A design page's `mount` in the contract's `pages`: the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from rows; lowercase `[a-z0-9-]`, unique across pages. A story criterion names the ticket's mounts with `--pages`. `--mount` is a retired flag of `story-parity.py`, listed under `retired` in `verify-ticket.py`'s `PIPELINE_SCRIPTS` and reported by `--lint` as `[screen-contract]`; the live name is `--pages <mount,…>`.
 _Avoid_: mount point (for this), 挂载点, data-screen-label, test hook (for this)
-_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
-
-**target trees**:
-`docs/specs/<effort>/targets/<page>.aria` and `<page>.classes`, one pair per design page, written by `extract_skeleton.py --targets` with `normalize_aria` in `design_render.py`: every scene's normalised tree and the class names in that subtree, headed by the sha256 of `scenes.json` and of the page. The handoff package's behavioural counterpart and a derived view of it — the package is the baseline, the tree the view, the hashes what keeps them from disagreeing (the contract lint fails when they do). An interface ticket lists its pages' pair under `## Read first`.
-_Avoid_: 目标树, target elements, expected tree
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 ### The runtime a repository answers for
 
 **`design_render.py`**:
-`scripts/design_render.py` beside the ui-acceptance `SKILL.md`: the shared runtime `story-parity.py` and `extract_skeleton.py` import — the contract's pages and scenes, the baseline server and its CDN answering (`vendor/`, cache, network), `capture`, the wrapper page, and the normaliser. Nothing in it judges. The contract lint loads this file in-process for `volatile_triggers` and `count_volatile_hits`.
+`scripts/design_render.py` beside the ui-acceptance `SKILL.md`: the shared runtime `story-parity.py` and `extract_skeleton.py` import — the baseline server and its CDN answering (`vendor/`, cache, network), the wrapper page, `capture`, and the `[data-ui]` reader. Nothing in it judges.
 _Avoid_: the driver module, 共用驱动, Adapter (the driver class)
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
 
 **`target_config.py`**:
-`scripts/target_config.py` beside the ui-acceptance `SKILL.md`: reads and checks `.mmw/target.json`. Run as a command, `target_config.py --check` is the setup-time bar for one repository. The contract lint loads this file in-process for the product kinds and that check.
+`scripts/target_config.py` beside the ui-acceptance `SKILL.md`: reads and checks `.mmw/target.json`. Run as a command, `target_config.py --check` is the setup-time bar for one repository. The contract lint loads this file in-process for that check.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
-
-**target**:
-What kind of product this repository is, named in the contract as `target.kind` — `electron`, `web-spa`, `web-server-rendered`, `chrome-extension`. The repository answers for this product on this machine in `.mmw/target.json`, in the fields `target_config.py`'s `FIELDS` declares, which `target_config.py --check` prints with one sentence and one example each, exiting 0 once the file is complete. The list does not change with the kind. The contract carries no `adapter` key.
-_Avoid_: platform (bare), 目标 (as a term), 适配器 (and `adapter`, as a word for anything on the target side; the file name `.release-adapter.json` and the key template's `--adapter` flag are literals a program reads and stay), target.adapter, the nine questions
-_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`.mmw/target.json`**:
 The consuming repository's machine facts, read by the runtime and never written in a contract or a criterion: what brings this product up on this machine, what takes it down, where it answers, where its story pages and journeys are, and what it does that reaches past the machine. Which fields those are is `target_config.py`'s `FIELDS`, printed one sentence and one example each by `target_config.py --check`. Addresses change per machine and per worktree; this file is where they are answered afresh.
@@ -280,6 +270,5 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
 
 | name | values |
 | --- | --- |
-| `target.kind` | `electron` · `web-spa` · `web-server-rendered` · `chrome-extension` |
 | lease environment | `MMW_INSTANCE` · `MMW_SLOT` · `MMW_PORT_BASE` · `MMW_PORT_COUNT` · `MMW_DATA_DIR` · `MMW_AUTOMATION` |
 | `lease.py` constants | `MMW_LEASE_SLOTS = 8` · `MMW_LEASE_PORT_BASE = 21000` · `MMW_LEASE_PORT_STRIDE = 20` |
