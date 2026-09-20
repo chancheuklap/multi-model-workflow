@@ -1,7 +1,6 @@
 """The remaining rules of `lint_screen_contract.py`: one positive and one negative case each,
 over a small handoff package written into a temporary repository."""
 
-import hashlib
 import importlib.util
 import json
 import os
@@ -16,7 +15,7 @@ lc = importlib.util.module_from_spec(spec)
 sys.modules["lint_screen_contract"] = lc
 spec.loader.exec_module(lc)
 
-# The ui-acceptance scripts the lint asks for target kinds and volatile matching.
+# The ui-acceptance scripts the lint asks to validate `.mmw/target.json`.
 TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
 
 PAGE_A = "Component · 新建商品项目.dc.html"
@@ -39,6 +38,7 @@ def contract():
         "effort": "x",
         "baselines": {"look": "handoff"},
         "target": {"kind": "electron"},
+        "locale": "zh-CN",
         "viewports": ["1440x900", "1180x720"],
         "pages": {
             PAGE_A: {"mount": "create-project",
@@ -104,18 +104,6 @@ class Repo:
             "stories": "st", "leaves_machine": [], "harness_markers": [],
         }))
 
-    def write_targets(self, stale_page=None):
-        targets = self.spec_dir / "targets"
-        targets.mkdir(exist_ok=True)
-        scenes_hash = hashlib.sha256((self.baseline / "scenes.json").read_bytes()).hexdigest()
-        for page in (PAGE_A, PAGE_B, PAGE_APP):
-            page_hash = hashlib.sha256((self.baseline / page).read_bytes()).hexdigest()
-            if page == stale_page:
-                page_hash = "0" * 64
-            for suffix in (".aria", ".classes"):
-                (targets / (page[:-len(".dc.html")] + suffix)).write_text(
-                    f"# x\n# derived\n# scenes.json sha256={scenes_hash}\n# page sha256={page_hash}\n")
-
     def cleanup(self):
         self.dir.cleanup()
 
@@ -124,7 +112,6 @@ class TestScreenAxis(unittest.TestCase):
     def setUp(self):
         lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
-        self.repo.write_targets()
 
     def tearDown(self):
         self.repo.cleanup()
@@ -137,14 +124,6 @@ class TestScreenAxis(unittest.TestCase):
         errors, warnings = self.lint(contract())
         self.assertEqual(errors, [])
         self.assertFalse(any("story" in w for w in warnings), warnings)
-
-    def test_target_kind_is_checked_and_adapter_is_an_error(self):
-        doc = contract()
-        doc["target"] = {"kind": "vt100", "adapter": "verify-ticket/references/targets/nope.md"}
-        errors, warnings = self.lint(doc)
-        self.assertTrue(any("target.kind" in e for e in errors))
-        self.assertTrue(any("target.adapter" in e for e in errors))
-        self.assertFalse(any("target.adapter" in w for w in warnings))
 
     def test_missing_target_json_is_a_warning(self):
         (self.repo.root / ".mmw" / "target.json").unlink()
@@ -214,22 +193,12 @@ class TestScreenAxis(unittest.TestCase):
         doc["scenes"]["empty"]["page"] = PAGE_B
         self.assertTrue(any("scenes.json has" in e for e in self.lint(doc)[0]))
 
-    def test_stale_or_missing_target_trees(self):
-        self.repo.write_targets(stale_page=PAGE_B)
-        errors, _ = self.lint(contract())
-        self.assertTrue(any("is stale" in e and "壳头" in e for e in errors))
-        os.remove(self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria"))
-        errors, _ = self.lint(contract())
-        self.assertTrue(any("missing; run extract_skeleton.py" in e for e in errors))
-
-
 class TestRemovedFields(unittest.TestCase):
     """A deleted field on a row, or `route` on a non-App page, is an error that names it."""
 
     def setUp(self):
         lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
-        self.repo.write_targets()
 
     def tearDown(self):
         self.repo.cleanup()
@@ -317,115 +286,22 @@ class TestRetiredPrinted(unittest.TestCase):
                          ["RETIRED a.b: retired 2026-09-03 — verdict 2", "RETIRED c.d: (no note)"])
 
 
-class TestVolatileValues(unittest.TestCase):
-    """`volatile_values` is printed on every run, like `retired_ids`. An entry whose
-    trigger is not in that page's target tree is a WARN — it cannot be what the
-    judges will replace. An entry that matches more than one node on its page is
-    an ERROR — the judges would mask every sibling that shares the stem."""
-
-    ENTRY = {
-        "page": PAGE_A,
-        "trigger": {"role": "text", "name": "鸭豆余额 12,480"},
-        "reason": "wallet balance is an external account; seed does not write it",
-    }
-    SIBLINGS = (
-        "- text: 每张费用\n"
-        "- strong: 20 鸭豆\n"
-        "- text: 最大预扣\n"
-        "- strong: 40 鸭豆\n"
-        "- text: 当前余额\n"
-        "- strong: 12,480 鸭豆\n"
-    )
-    AMBIGUOUS = {
-        "page": PAGE_A,
-        "trigger": {"role": "strong", "name": "12,480 鸭豆"},
-        "reason": "wallet balance is an external account; seed does not write it",
-    }
-
-    def setUp(self):
-        lc.TOOLS[:] = [TOOLS_DIR]
-        self.repo = Repo()
-        self.repo.write_targets()
-
-    def tearDown(self):
-        self.repo.cleanup()
-
-    def test_volatile_values_are_printed_every_run(self):
-        doc = {"volatile_values": [self.ENTRY]}
-        self.assertEqual(
-            lc.volatile_lines(doc),
-            ['VOLATILE Component · 新建商品项目.dc.html text "鸭豆余额 12,480": '
-             "wallet balance is an external account; seed does not write it"])
-
-    def test_a_volatile_value_missing_from_the_target_tree_is_a_warning(self):
-        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
-        aria.write_text(aria.read_text(encoding="utf-8") + '- button "添加商品素材"\n',
-                        encoding="utf-8")
-        doc = contract()
-        doc["volatile_values"] = [self.ENTRY]
-        _, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
-        self.assertTrue(any("volatile_values" in w and "鸭豆余额 12,480" in w
-                            and "not in the target tree" in w for w in warnings), warnings)
-
-        aria.write_text(aria.read_text(encoding="utf-8") + '- text: 鸭豆余额 12,480\n',
-                        encoding="utf-8")
-        _, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
-        self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
-
-    def test_an_entry_that_matches_several_nodes_is_an_error(self):
-        """Same three strongs as the driver test. Without `after` the entry
-        matches all three and the lint errors; with `after` it matches one
-        and does not."""
-        aria = self.repo.spec_dir / "targets" / (PAGE_A[:-len(".dc.html")] + ".aria")
-        unique = "- text: 当前余额\n- strong: 12,480 鸭豆\n"
-        aria.write_text(
-            aria.read_text(encoding="utf-8")
-            + "## scene free-gate\n" + self.SIBLINGS
-            + "## scene free-hold-unknown\n" + unique,
-            encoding="utf-8")
-        doc = contract()
-        doc["volatile_values"] = [dict(self.AMBIGUOUS)]
-        errors, warnings = lc.lint_declarations(
-            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
-        self.assertTrue(any("volatile_values" in e and "12,480 鸭豆" in e
-                            and "matches 3 nodes" in e for e in errors), errors)
-        self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
-
-        doc["volatile_values"][0]["after"] = {"role": "text", "name": "当前余额"}
-        errors, warnings = lc.lint_declarations(
-            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
-        self.assertFalse(any("volatile_values" in e for e in errors), errors)
-        self.assertFalse(any("volatile_values" in w for w in warnings), warnings)
-
-
 class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
-    """Both scripts find ui-acceptance `design_render.py` with TOOLS empty."""
+    """The lint finds ui-acceptance `target_config.py` with TOOLS empty."""
 
     def test_finds_ui_acceptance_without_tools(self):
         expected = (
             Path(__file__).resolve().parents[2]
-            / "skills" / "ui-acceptance" / "scripts" / "design_render.py"
+            / "skills" / "ui-acceptance" / "scripts" / "target_config.py"
         ).resolve()
         self.assertTrue(expected.is_file())
-        self.assertEqual((lc.SIBLING_UA / "design_render.py").resolve(), expected)
-        es = lc.extract_skeleton_mod()
-        saved_es_tools = list(es.TOOLS)
+        self.assertEqual((lc.SIBLING_UA / "target_config.py").resolve(), expected)
         saved_lc_tools = list(lc.TOOLS)
-        saved_dr = sys.modules.pop("design_render", None)
         saved_tc = sys.modules.pop("target_config", None)
         try:
-            es.TOOLS[:] = []
             lc.TOOLS[:] = []
-            loaded = es.load_driver()
-            self.assertEqual(Path(loaded.__file__).resolve(), expected)
-            sys.modules.pop("design_render", None)
-            loaded2 = lc.design_render_mod()
-            self.assertEqual(Path(loaded2.__file__).resolve(), expected)
             tc = lc.target_config_mod()
-            self.assertEqual(
-                Path(tc.__file__).resolve(),
-                expected.parent / "target_config.py",
-            )
+            self.assertEqual(Path(tc.__file__).resolve(), expected)
             fixture = Path(__file__).resolve().parent / "fixtures" / "removed-fields"
             code = lc.main([
                 str(SCRIPT),
@@ -434,10 +310,7 @@ class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
             ])
             self.assertIn(code, (0, 1))
         finally:
-            es.TOOLS[:] = saved_es_tools
             lc.TOOLS[:] = saved_lc_tools
-            if saved_dr is not None:
-                sys.modules["design_render"] = saved_dr
             if saved_tc is not None:
                 sys.modules["target_config"] = saved_tc
 

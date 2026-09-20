@@ -3,13 +3,12 @@
 
 Which keys a repository answers is declared here, once, on `FIELDS`, and printed by
 
-    target_config.py --check [--repo <dir>] [--kind <kind> | --contract <yaml>]
+    target_config.py --check [--repo <dir>]
 
 which names every field still missing, with one sentence and one example each, and
 exits 0 once the file is complete. `discover` prints an origin-class address plus
-`instance`. `--validate` prints the first problem only; `--kinds` lists the product
-kinds a contract may name. `journey.py` runs every command `.mmw/target.json` declares
-through `run_command`, and imports `discover`.
+`instance`. `--validate` prints the first problem only. `journey.py` runs every command
+`.mmw/target.json` declares through `run_command`, and imports `discover`.
 """
 
 from __future__ import annotations
@@ -28,23 +27,6 @@ if str(_HERE) not in sys.path:
 
 from lease import leased_environment, worktree_of  # noqa: E402
 
-
-def load_yaml(path: Path) -> dict:
-    """`pyyaml` when the interpreter has it (the scripts declare it); else through `uv`,
-    which every criterion of this pipeline already relies on."""
-    try:
-        import yaml
-    except ImportError:
-        out = subprocess.run(
-            ["uv", "run", "--with", "pyyaml", "python", "-c",
-             "import json,sys,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1], "
-             "encoding='utf-8')) or {}))", str(path)],
-            capture_output=True, text=True)
-        if out.returncode != 0:
-            raise SystemExit(f"cannot read {path}: pyyaml is not importable and uv failed: "
-                             f"{out.stderr.strip()}")
-        return json.loads(out.stdout)
-    return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
 
 # ---------------------------------------------------------------- repository config
 @dataclass(frozen=True)
@@ -209,26 +191,9 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
     return data
 
 
-# ---------------------------------------------------------------- product kinds
-# Named in the contract as `target.kind`. Fields of `.mmw/target.json` are the
-# same for every kind; journeys connect with Playwright themselves.
-KINDS = ("electron", "web-spa", "web-server-rendered", "chrome-extension")
-
 # ---------------------------------------------------------------- --check
 
-def contract_kind(repo: Path, contract: Path | None) -> str:
-    """The `target.kind` of the repository's screen contract: the one given, else the
-    single `docs/specs/*/screen-contract.yaml` under the repository."""
-    if contract is None:
-        found = sorted((repo / "docs" / "specs").glob("*/screen-contract.yaml"))
-        if len(found) != 1:
-            raise SystemExit(f"{len(found)} screen contracts under {repo / 'docs' / 'specs'}; "
-                             f"name one with --contract or the kind with --kind")
-        contract = found[0]
-    return str((load_yaml(contract).get("target") or {}).get("kind") or "")
-
-
-def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
+def target_problems(cfg: dict) -> list[tuple[str, str]]:
     """What `.mmw/target.json` still has to answer: `(key, problem)` pairs, in the
     order `FIELDS` lists them. Empty when the file is complete."""
     problems: list[tuple[str, str]] = []
@@ -254,8 +219,6 @@ def target_problems(kind: str, cfg: dict) -> list[tuple[str, str]]:
             if not ok:
                 problems.append((f.key, f"must be {{\"max\": <n>, \"why\": \"<text>\"}} "
                                         f"— e.g. {f.example}"))
-    if kind and kind not in KINDS:
-        problems.insert(0, ("target.kind", f"{kind!r} is not one of {list(KINDS)}"))
     return problems
 
 
@@ -264,33 +227,20 @@ def target_main(argv: list[str]) -> int:
 
     `--check` prints every field of `.mmw/target.json` as `ok` or `missing`, so a
     person filling the file reads one screen and nothing else; exit 0 complete, 1
-    something missing, 2 the repository or the contract cannot be read.
-    `--validate` prints the first problem only. `--kinds` prints the product kinds.
+    something missing, 2 the repository cannot be read. `--validate` prints the first
+    problem only. Keys outside `FIELDS` are stale and reported without changing exit.
     """
     import argparse
     parser = argparse.ArgumentParser(prog="target_config.py")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="print every field, ok or missing")
     mode.add_argument("--validate", action="store_true", help="print the first problem only")
-    mode.add_argument("--kinds", action="store_true", help="list the product kinds a contract may name")
     parser.add_argument("--repo", type=Path, default=None,
                         help="the repository (default: the one the working directory is in)")
-    parser.add_argument("--kind", default=None, help="the product kind, instead of reading the contract")
-    parser.add_argument("--contract", type=Path, default=None,
-                        help="the screen contract to read the kind from")
     args = parser.parse_args(argv)
-    if args.kinds:
-        for kind in KINDS:
-            print(kind)
-        return 0
     repo = (args.repo or repo_root()).resolve()
     if not repo.is_dir():
         print(f"no such directory: {repo}", file=sys.stderr)
-        return 2
-    try:
-        kind = args.kind or contract_kind(repo, args.contract)
-    except SystemExit as exc:
-        print(str(exc), file=sys.stderr)
         return 2
     path = repo / ".mmw" / "target.json"
     cfg: dict = {}
@@ -303,15 +253,14 @@ def target_main(argv: list[str]) -> int:
         if not isinstance(cfg, dict):
             print(f"{path} must hold one JSON object", file=sys.stderr)
             return 2
-    problems = target_problems(kind, cfg)
+    problems = target_problems(cfg)
     if args.validate:
         if problems:
             key, why = problems[0]
             print(f"{path}: {key} {why}" + (f" (+{len(problems) - 1} more)" if len(problems) > 1 else ""))
             return 1
-        print(f"{path}: complete for target.kind {kind}")
+        print(f"{path}: complete")
         return 0
-    print(f"target.kind: {kind or '(none)'}")
     print("  discover prints:")
     for key, what in DISCOVER_PRINTS:
         print(f"    {key} — {what}")
@@ -328,8 +277,9 @@ def target_main(argv: list[str]) -> int:
             print(f"  ok       {f.key}")
         else:
             print(f"  absent   {f.key} ({f.shape}, optional) — {f.what}")
-    if kind and kind not in KINDS:
-        print(f"  target.kind {kind!r} is not one of {list(KINDS)}")
+    field_keys = {f.key for f in FIELDS}
+    for key in sorted(set(cfg) - field_keys):
+        print(f"  stale  {key} — not used by the acceptance runtime; delete it")
     print("rules:")
     print("  automation uses placeholder keys, vendor stubs, and local accounts")
     print("  leaves_machine actions record under MMW_AUTOMATION=1")
