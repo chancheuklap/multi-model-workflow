@@ -101,7 +101,7 @@ _Avoid_: interface parity, PARITY OK (the whole-product judge's success line)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story adapter**:
-What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that mapping field by field. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies.
+What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that every `shows` name is a property of the component; whether the field is fed correctly is the boundary test's to decide. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies.
 _Avoid_: adapter (for anything `.mmw/target.json` answers; the file name `.release-adapter.json` and the key template's `--adapter` flag are literals a program reads and stay)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
@@ -126,7 +126,7 @@ _Avoid_: wiring criterion, wiring-check.py, WIRING OK
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **mutation check**:
-The second pass of a boundary criterion: the same command, with `MMW_NEGATIVE=1`, must go red. The product's shared interaction helper does nothing under that variable, so an assertion that does not depend on the click stays green and is refused. It is mechanical; a reviewer does not read the test to decide whether it can fail.
+The second pass of a boundary criterion: the same command, with `MMW_NEGATIVE=1`, must go red. The product's shared interaction helper does nothing under that variable, so an assertion that does not depend on the click stays green and is refused. It is mechanical, and the Tests axis reads the assertions themselves as well.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **interaction helper**:
@@ -201,12 +201,13 @@ _Avoid_: 合同票, prefactor ticket (for this one), addressing self-check
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **acceptance ticket**:
-The ticket `to-tickets` cuts per line of a spec's **Cross-ticket flows**: it builds and runs that flow's journey on the merged base branch after every ticket the flow involves has landed. Unlike the **contract ticket**, it comes after the batch rather than before it.
+The ticket `to-tickets` cuts per line of a spec's **Critical flows**: it builds and runs that flow's journey on the merged base branch after every ticket the flow involves has landed. Unlike the **contract ticket**, it comes after the batch rather than before it.
 _Avoid_: 验收票, flow ticket
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
-**Cross-ticket flows**:
-An optional bullet of a spec's `## Testing Decisions`: one line per user flow that spans tickets, naming the flow (the directory under `.mmw/journeys/<flow>/`) and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. A spec that omits the bullet cuts none.
+**Critical flows**:
+An optional bullet of a spec's `## Testing Decisions`: one line per flow worth a whole-product run — money, signing in, one submit chain; a product with none of those gets no line — naming the flow (the directory under `.mmw/journeys/<flow>/`) and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. A spec that omits the bullet cuts none.
+_Avoid_: Cross-ticket flows
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **mount**:

@@ -18,5 +18,5 @@ One vocabulary, six bounded contexts. A term is defined in exactly one of them; 
 - **Night → Tickets**: `advance` reads the frontier off ticket labels and blocking links; `reverify` hands a red landed ticket back to the `needs-triage` queue
 - **Tickets ↔ UI acceptance**: an interface ticket's story, boundary and journey criteria name the judges bare and cite the screen contract and handoff package as baselines; the contract lint runs inside `--lint`
 - **UI acceptance → Night**: the lease's product slot is what `worker.queued` waits on and what landing gives back
-- **Task board → Ticket run, Night**: the board reads ticket state through `events.py`, `tree.py` and `ghlist.py`, and writes the same `models.json` as `models.py config`
+- **Task board → Ticket run, Night**: the board reads ticket state through `events.py`, `issue_tree.py` and `ghlist.py`, and writes the same `models.json` as `models.py config`
 - **Toolbox → all**: `install.sh`, `skills.txt`, `models.json` and the notes decide what every other context runs on; `host`, `subagent` and `--tools` are shared vocabulary defined here

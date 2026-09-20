@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The tree of issues under one issue, read at the size that tree really is.
 
-    tree.py <issue> [--root map|spec|ticket]
+    issue_tree.py <issue> [--root map|spec|ticket]
 
 The work is four layers deep — a map, its specs, each spec's tickets, each ticket's
 children — and the tracker's sub-issue link is what joins each layer to the one above.
@@ -268,14 +268,14 @@ def children(tree: dict) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="tree.py", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(prog="issue_tree.py", description=__doc__.splitlines()[0])
     parser.add_argument("issue", type=int)
     parser.add_argument("--root", choices=LAYERS[:-1], default="spec")
     args = parser.parse_args(argv)
     try:
         tree = read(args.issue, args.root)
     except TreeUnreadable as exc:
-        sys.stderr.write(f"tree: {exc}\n")
+        sys.stderr.write(f"issue_tree: {exc}\n")
         return 2
     print(json.dumps(tree, ensure_ascii=False, indent=2))
     return 0

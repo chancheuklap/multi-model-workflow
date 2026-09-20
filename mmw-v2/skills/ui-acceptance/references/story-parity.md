@@ -32,7 +32,7 @@ tickets add one story adapter per design page.
   an id; the judge pairs them in document order.
 - The adapter takes the scene's `scene data` and maps it to the presentational
   component. No backend, seed, route or alternate preview projection runs. The
-  screen contract's `shows` columns bind the mapping and code review checks it.
+  screen contract's `shows` columns bind the mapping; code review checks that each `shows` name is a property of the component.
 
 ## The two sides
 

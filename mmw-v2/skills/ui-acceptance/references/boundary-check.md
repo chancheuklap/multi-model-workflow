@@ -36,7 +36,7 @@ That pairing is what makes the second pass mechanical. Skip the click, and a tes
 
 ## Why the second pass is not optional
 
-An assertion that does not depend on the click reads exactly like one that does: both exit 0, both print a pass. The question a gate is judged by is whether a run that did nothing at all would be noticed (`docs/adr/0008-silence-is-never-a-pass.md`). The second pass is that notice. A reviewer does not read the test to decide whether it can go red; the judge writes `GREEN WITHOUT INTERACTION` when it cannot.
+An assertion that does not depend on the click reads exactly like one that does: both exit 0, both print a pass. The question a gate is judged by is whether a run that did nothing at all would be noticed (`docs/adr/0008-silence-is-never-a-pass.md`). The second pass is that notice. The judge writes `GREEN WITHOUT INTERACTION` when it cannot; the Tests axis of code review reads the assertions themselves on top of that.
 
 ## Exit codes
 

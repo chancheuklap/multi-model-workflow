@@ -22,7 +22,7 @@ The route most work travels. You have an idea and want it built.
    - **Yes** → **the `to-spec` skill** (turn the thread into a spec), then **the `to-tickets` skill** to split it into tracer-bullet tickets, each declaring its **blocking edges** as native blocking links on the tracker, so any ticket whose blockers are done can be grabbed: kick off **the `implement` skill** per ticket, **clearing the context between each one, however your host does that**. Each ticket is self-contained, so the last one's context is disposable.
    - **No** → **the `implement` skill** right here, in the same context window.
 
-   Either way, **the `implement` skill** builds each issue by driving **the `tdd` skill** internally (one red-green slice at a time), then closes out by running **the `code-review` skill**, a three-axis review (Standards, Spec, Tests) of the diff. Reach for **the `tdd` skill** on its own when you just want to build a concrete behaviour test-first without a full spec, and **the `code-review` skill** on its own whenever you want to review a branch or PR against a fixed point.
+   Either way, **the `implement` skill** builds each issue by driving **the `tdd` skill** internally (one red-green slice at a time), then closes out by running **the `code-review` skill**, a review of the diff along Standards, Spec and Tests, plus a pilot UI axis on a ticket with a story criterion. Reach for **the `tdd` skill** on its own when you just want to build a concrete behaviour test-first without a full spec, and **the `code-review` skill** on its own whenever you want to review a branch or PR against a fixed point.
 
 ### Context hygiene
 

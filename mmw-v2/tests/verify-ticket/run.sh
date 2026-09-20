@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run this skill's tests. Run after any change under scripts/.
 #
-#   bash mmw-v2/tests/verify-ticket/run.sh
+#   bash mmw-v2/tests/verify-ticket/run.sh [-k <pattern>]
 #
 # Two engines, two test runners:
 #
@@ -10,13 +10,29 @@
 #                                     lint-tests.mjs; unlazy's other suites there cover
 #                                     parts this skill does not use and are not run
 #
+# `-k` selects unittest cases by the same substring / glob `python3 -m unittest -k`
+# accepts, and skips the node suites. Without `-k` both engines run.
+#
 # Neither needs the tracker, a terminal or a browser. `node` has to be on PATH for
 # the second one; without it the run fails rather than passing on half the tests.
+#
+# Under `-k`, a skip count other than 0, or a run count of 0, exits non-zero and
+# does not print `all passed`.
 
 set -euo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 GATE_TESTS="$(dirname -- "$(dirname -- "$HERE")")/upstream-unlazy/tests"
+
+# `verify-ticket.py` takes the ticket it is about from `MMW_TICKET` when no number is on
+# the command line, and a worker session sets it. Under one, a test that means to
+# exercise a made-up ticket would act on the real one that session is working. Measured
+# 2026-09-10 on #320. The suite also tests judge ownership itself, so an outer acceptance
+# run's ownership marker must not make those inner judges skip their release.
+unset MMW_TICKET MMW_JUDGE_LEASE_OWNER
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/parse_k.sh
+. "$HERE/../lib/parse_k.sh"  # mmw-v2/tests/lib/parse_k.sh
 
 # A lease registry of its own. The driver claims this machine's instance slots before it
 # runs any command a repository declares, so a suite that exercises that path would
@@ -56,12 +72,13 @@ else:
 ')"
 export MMW_LEASE_PORT_BASE
 
-# `verify-ticket.py` takes the ticket it is about from `MMW_TICKET` when no number is on
-# the command line, and a worker session sets it. Under one, a test that means to
-# exercise a made-up ticket would act on the real one that session is working. Measured
-# 2026-09-10 on #320. The suite also tests judge ownership itself, so an outer acceptance
-# run's ownership marker must not make those inner judges skip their release.
-unset MMW_TICKET MMW_JUDGE_LEASE_OWNER
+if [[ -n "$pattern" ]]; then
+  if python3 -u "$HERE/../lib/run_unittests.py" "$HERE" "$pattern"; then
+    echo "all passed"
+    exit 0
+  fi
+  exit 1
+fi
 
 rc=0
 

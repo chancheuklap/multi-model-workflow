@@ -58,12 +58,12 @@ Group by the three kinds, then `Decisions`. One entry per review finding, each c
 
 ## What is not yours
 
-**The handoff package is the one baseline you do not open.** A ticket with UI acceptance criteria names a handoff package under `## Read first`, and whether the implementation matches it is decided by the `story-parity.py` command a criterion runs: a pixel and accessibility-tree comparison, not a reading. Do not open it, and do not report on how closely the UI follows it.
+**The handoff package is the one baseline you do not open.** A ticket with UI acceptance criteria names a handoff package under `## Read first`. Appearance is decided by element parity — the `story-parity.py` command a criterion runs — not by reading the package. Do not open it, and do not report on how closely the UI follows it.
 
 **The screen contract you do open.** The same `## Read first` names `screen-contract.yaml` and the row ids the ticket owns. Each row is a requirement in the shape this axis reads: `calls`, `shows`, `next`, `on_failure`. A control in the diff that calls nothing where its row names a call, shows a literal where its row names a field, or lands somewhere other than its `next`, is **Missing** or **Built wrong**, quoted from the row. A `Missing` against a row's `calls` is the finding that blocks closeout, so word it with the row id first.
 
 **The story page you open too.** For every mount the ticket's story criterion names under `--pages`, the contract's `pages` entry declares that mount, and the diff renders a story whose `[data-story-root]` sits on the root of that design page's block — not a wrapper around it and not a child. A `--pages` value the contract does not declare, or a story root on the wrong element, is **Built wrong**, quoted from `pages`.
 
-**The story adapter you open too.** The product's story adapter maps `scenes.json` data onto the surface component's props. Each field the contract's `shows` column names for an owned row must appear in that mapping, pointing at the same source field. A `shows` value with no adapter entry, or an adapter entry that reads a different field, is **Built wrong**, quoted from the row.
+**The story adapter you open too.** The product's story adapter maps `scenes.json` data onto the surface component's props. Each name in an owned row's `shows` column must be a property of that component. Whether the interface field that feeds the shown value is the right field is a question for the boundary test, not this axis. A `shows` name that is not a property of the component is **Built wrong**, quoted from the row.
 
 How the code is written, and whether its tests are worth trusting, belong to two other reviewers running beside you. Leave their two questions alone.

@@ -14,7 +14,7 @@ _Avoid_: board
 _Home_: `~/.mmw/models.json`
 
 **session**:
-A host process a runner started, or the main agent the user started themselves. It carries a host. A session `dispatch.sh start` started is named on its ticket by its started event — `worker.started` or `reviewer.started` — whose payload carries the runner that runs it and that runner's own id for it, always as a pair, together with the machine it was started on. The main agent, a worker, a reviewer and the advisor are sessions; the three code-review axes are not — they run inside the reviewer session, as its subagents where the host can run them and as its own passes where it cannot.
+A host process a runner started, or the main agent the user started themselves. It carries a host. A session `dispatch.sh start` started is named on its ticket by its started event — `worker.started` or `reviewer.started` — whose payload carries the runner that runs it and that runner's own id for it, always as a pair, together with the machine it was started on. The main agent, a worker, a reviewer and the advisor are sessions; a code-review axis is not — the axes run inside the reviewer session, as its subagents where the host can run them and as its own passes where it cannot.
 _Avoid_: 会话 (as a term), pane, terminal (for this)
 _Home_: `~/.mmw/models.json`
 
@@ -206,7 +206,7 @@ The same main agent's evidence-first step immediately after `summary` records `s
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **status.py**:
-`scripts/status.py` of the dispatch skill, seven read-only forms: `--table <spec>` (the `status` table), `--advance-plan <spec>` (what `advance` has to do, in order), `--reverify-plan <spec>` (the landed tickets `reverify` runs), `--land-plan <n>…` (what `land` has to do), `--worker-grades <spec>` (the worker-grade labels of every ticket in the queue), `--closeout-ready <spec>` (whether writing `spec.closed` is safe), and `--summary <spec>` (prints the night summary; does not post it). Its one source is the tracker: the spec's tree of tickets and their children, read in one query by `tree.py`, and each ticket's state, labels, assignees, blocking links and comments. Where a ticket stands — which sessions were started on it and on which runner, whether it is held, passed, landed or returned — is the fold, through `events.py`; no runner is asked. It keeps no state file. The criteria count comes off the newest `ticket.checked` of the criteria.
+`scripts/status.py` of the dispatch skill, seven read-only forms: `--table <spec>` (the `status` table), `--advance-plan <spec>` (what `advance` has to do, in order), `--reverify-plan <spec>` (the landed tickets `reverify` runs), `--land-plan <n>…` (what `land` has to do), `--worker-grades <spec>` (the worker-grade labels of every ticket in the queue), `--closeout-ready <spec>` (whether writing `spec.closed` is safe), and `--summary <spec>` (prints the night summary; does not post it). Its one source is the tracker: the spec's tree of tickets and their children, read in one query by `issue_tree.py`, and each ticket's state, labels, assignees, blocking links and comments. Where a ticket stands — which sessions were started on it and on which runner, whether it is held, passed, landed or returned — is the fold, through `events.py`; no runner is asked. It keeps no state file. The criteria count comes off the newest `ticket.checked` of the criteria.
 _Avoid_: board.py, board
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 

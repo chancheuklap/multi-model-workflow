@@ -1294,7 +1294,7 @@ print(json.dumps({
 }))
 ' ;;
   "api graphql "*)
-    # The tree of issues under `root=<n>`, the way `tree.py` asks for it: any number that
+    # The tree of issues under `root=<n>`, the way `issue_tree.py` asks for it: any number that
     # is not one of the fixture tickets is the spec, whose children are every ticket; a
     # ticket's children are its own `children` numbers. FAKE_GH_TREE_SHORT answers with
     # one ticket fewer than the count it gives, the way a page left unread would.
@@ -2223,7 +2223,7 @@ skill_copy_for() {
      "$(dirname "$SKILL")/ui-acceptance/scripts/refusal.py" \
      "$TMP/fake/skills/ui-acceptance/scripts/"
   cp "$(dirname "$SKILL")/verify-ticket/scripts/events.py" \
-     "$(dirname "$SKILL")/verify-ticket/scripts/tree.py" \
+     "$(dirname "$SKILL")/verify-ticket/scripts/issue_tree.py" \
      "$TMP/fake/skills/verify-ticket/scripts/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
@@ -4283,7 +4283,7 @@ scenario_retro_review_evidence() {
 import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 needles = (
-    "- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>",
+    "- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>",
     "`documented-standard`, `less-code`, `pass-through`",
     "`Missing`, `Scope creep`, or `Built wrong`",
     "`Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`",
@@ -7376,12 +7376,12 @@ import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 for needle in (
     "## 1. Pin the diff",
-    "## 2. Run the three axes",
+    "## 2. Run the axes",
     "## 3. Verify every finding the axes report",
     "## 4. Sort every review finding into in-ticket or out-of-ticket",
     "## 5. Write one review comment on the ticket",
     "git diff <base-commit>...HEAD --stat",
-    "The axis word is exactly `Standards`, `Spec`, or `Tests`",
+    "The axis word is exactly `Standards`, `Spec`, `Tests`, or `UI`",
     "## Active Rules",
     "Apply every active Rule only within its stated scope.",
     "every finding still needs a current source",
