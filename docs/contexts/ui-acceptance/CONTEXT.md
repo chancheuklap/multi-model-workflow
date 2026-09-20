@@ -101,7 +101,8 @@ _Avoid_: interface parity, PARITY OK (the whole-product judge's success line)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story adapter**:
-What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that mapping field by field. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies. `adapter` is a dead word for anything `.mmw/target.json` answers; this is the sense that stays.
+What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that mapping field by field. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies.
+_Avoid_: adapter (for anything `.mmw/target.json` answers; the file name `.release-adapter.json` and the key template's `--adapter` flag are literals a program reads and stay)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **boundary**:
@@ -172,7 +173,7 @@ _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.m
 
 **alignment ticket**:
 The last ticket of a wayfinder map whose destination has an interface: a `grilling` ticket, blocked by every decision ticket and by the **handoff ticket**, resolved by running `write-screen-contract` and closed when every row's `gap` is `aligned`. A row's `source` may be a map decision or a conversation (`conversation YYYY-MM-DD` plus the conclusion). When there is no map, there is no alignment ticket: prototype, design, pull and `write-screen-contract` run in one session with the person, then `to-spec`.
-_Home_: `mmw-v2/skills/write-screen-contract/SKILL.md`
+_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`, `mmw-v2/skills/write-screen-contract/SKILL.md`
 
 **gap list**:
 The rows of a screen contract whose `gap` is `design-only` or `backend-only`, written by `write-screen-contract` for the person to settle — the one judgement in that skill that is theirs.
@@ -180,17 +181,17 @@ _Avoid_: 差集
 _Home_: `mmw-v2/skills/write-screen-contract/SKILL.md`
 
 **`extract_skeleton.py`**:
-`scripts/extract_skeleton.py` beside the write-screen-contract `SKILL.md`: one offline render of every scene of a **handoff package**, through the same `design_render.py` the story judge uses, writing the **skeleton**. It judges nothing and needs no product. `--contract` is required and supplies `locale` and `viewports`; `--tools` overrides the sibling ui-acceptance lookup. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
+`scripts/extract_skeleton.py` beside the write-screen-contract `SKILL.md`: one offline render of every scene of a **handoff package**, through the same `design_render.py` the story judge uses, writing the **skeleton**. It judges nothing and needs no product. It takes the locale and viewports from the screen contract, which it requires. It drives a real browser, so Chromium has to be installed for Playwright before it will run at all.
 _Avoid_: the extractor, 骨架脚本
 _Home_: `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`
 
 **skeleton**:
-The JSON `extract_skeleton.py` writes from that render, and the **row inventory** a screen contract is linted against: every visible `[data-ui]` control of the handoff package keyed by (page, **`data-ui` id**), once even when the same id repeats in a list, with the scenes it is visible in, whether it is clickable or editable, the displayed text, and its accessible names as explanation rather than identity. It is the design side's inventory of controls, never the contract's: a clickable or editable control the skeleton has and the contract lacks is a lint error, and so is the reverse. A row's `trigger` is that id copied from it. It is written to a scratch path and read there by `lint_screen_contract.py`.
+The JSON `extract_skeleton.py` writes from that render, and the **row inventory** a screen contract is linted against: every visible `[data-ui]` control of the handoff package keyed by (page, **`data-ui` id**), once even when the same id repeats in a list. It is the design side's inventory of controls, never the contract's: a clickable or editable control the skeleton has and the contract lacks is a lint error, and so is the reverse. A row's `trigger` is that id copied from it.
 _Avoid_: 骨架 (as a term), control inventory
 _Home_: `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`, `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 **`retired_ids`**:
-The top-level list on a screen contract of row ids that once had a row and no longer do: each entry is `id` and `note` (the date and the verdict). An id is never renumbered and never reused. The lint prints every entry on every run. Distinct from a live row, which must not reuse that id.
+The top-level list on a screen contract of row ids that once had a row and no longer do. An id is never renumbered and never reused. Distinct from a live row, which must not reuse that id.
 _Avoid_: 退役 id, deleted rows
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`, `mmw-v2/skills/write-screen-contract/scripts/lint_screen_contract.py`
 
