@@ -2085,6 +2085,21 @@ write_batch() {
 JSON
 }
 
+# Ticket <n> of the written batch as a red reverify leaves it: open again, unassigned,
+# and wearing the label that run put on it — `needs-triage`, or whatever triage swapped
+# in for it.
+reopened_in_triage() {
+  MMW_N="$1" MMW_LABEL="${2:-needs-triage}" python3 - "$TMP/tickets.json" <<'REOPEN'
+import json, os, sys
+rows = json.load(open(sys.argv[1]))
+for row in rows:
+    if row["number"] == int(os.environ["MMW_N"]):
+        row.update(state="OPEN", labels=[os.environ["MMW_LABEL"]],
+                   assignees=[], closedAt="")
+json.dump(rows, open(sys.argv[1], "w"))
+REOPEN
+}
+
 write_one_passed() {
   local number="$1" commit="$2" extra="${3:-}"
   cat > "$TMP/tickets.json" <<JSON
@@ -3549,6 +3564,55 @@ PY
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: reopen"
+
+  echo "--- a ticket an earlier reverify reopened is run again, and a green run closes it"
+  reset_log
+  write_batch
+  reopened_in_triage 62
+  post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
+  post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
+  post_ev 62 ticket.regressed --ticket 62 --line "Reverify failed: AC3" \
+    --field "commit=$(printf 'c%.0s' $(seq 40))" --json-field 'failed=["AC3"]'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 0 ] || fail "expected exit 0 once the reopened ticket is green, got $code: $(cat "$TMP/err")"
+  has "verify-ticket :: 62 :: --reverify :: --actor :: main"
+  has "gh :: issue :: edit :: 62 :: --remove-label :: needs-triage"
+  has "gh :: issue :: close :: 62 :: --reason :: completed"
+  posted_events 62 commit | grep -q "^ticket.recovered commit=" \
+    || fail "#62 should carry ticket.recovered: $(posted_events 62 commit)"
+  grep -q "reverify #76: 2 green, 0 red, 1 recovered" "$TMP/out" \
+    || fail "the summary line should count the recovery: $(cat "$TMP/out")"
+
+  echo "--- a reopened ticket that is still red is left where it is, and is not regressed twice"
+  reset_log
+  write_batch
+  reopened_in_triage 62
+  post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
+  post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
+  post_ev 62 ticket.regressed --ticket 62 --line "Reverify failed: AC3" \
+    --field "commit=$(printf 'c%.0s' $(seq 40))" --json-field 'failed=["AC3"]'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL=62 \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 1 ] || fail "expected exit 1 while the reopened ticket is red, got $code: $(cat "$TMP/err")"
+  hasnt "gh :: issue :: reopen :: 62"
+  hasnt "gh :: issue :: close :: 62"
+  [ "$(posted_events 62 | grep -c ticket.regressed)" = 1 ] \
+    || fail "#62 should carry one ticket.regressed, not a second: $(posted_events 62)"
+
+  echo "--- a reopened ticket triage has handed to a worker is left alone"
+  reset_log
+  write_batch
+  reopened_in_triage 62 ready-for-agent
+  post_ev 61 ticket.landed --ticket 61 --line "Landed issue-61 into main"
+  post_ev 62 ticket.landed --ticket 62 --line "Landed issue-62 into main"
+  post_ev 62 ticket.regressed --ticket 62 --line "Reverify failed: AC3" \
+    --field "commit=$(printf 'c%.0s' $(seq 40))" --json-field 'failed=["AC3"]'
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
+  [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
+  hasnt "verify-ticket :: 62 :: --reverify"
+  hasnt "gh :: issue :: close :: 62"
 }
 
 seed_closing_memories() {

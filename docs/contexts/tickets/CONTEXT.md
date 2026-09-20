@@ -265,7 +265,7 @@ _Avoid_: 角色 (bare)
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-triage`**:
-Nobody has judged it yet: an issue from outside, a ticket its worker closed out as `HANDOFF REQUIRED`, or a closed ticket reopened after the night because a criterion failed on the base branch (label added, assignee removed, the failing `AC<n>` and the base-branch commit in its `ticket.regressed` event). `triage` reads this queue and recommends one of the four outcomes. A child a worker opens carries it beside `mmw:child`, under its ticket, until a `became-ticket` route makes it a ticket under the spec.
+Nobody has judged it yet: an issue from outside, a ticket its worker closed out as `HANDOFF REQUIRED`, or a closed ticket reopened after the night because a criterion failed on the base branch (label added, assignee removed, the failing `AC<n>` and the base-branch commit in its `ticket.regressed` event) — that last one leaves the queue on its own if the next `reverify` finds its criteria met again, which is how a regression repaired during the closing pass gets out of the way of `finish`. `triage` reads this queue and recommends one of the four outcomes. A child a worker opens carries it beside `mmw:child`, under its ticket, until a `became-ticket` route makes it a ticket under the spec.
 _Home_: `docs/agents/triage-labels.md`
 
 **`needs-info`**:

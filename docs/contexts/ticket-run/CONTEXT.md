@@ -98,7 +98,7 @@ A comment carrying an `<!-- mmw` block the fold cannot read: never closed, two b
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **landed**:
-What `status.py` calls a ticket that is `CLOSED` on the tracker and whose fold shows a `ticket.passed` with a `ticket.landed` after it: the passed commit is in `origin/<base branch>`, and the `ticket.landed` event records it — the branch, the base branch, the commit, and, when a merge brought it in, that merge and its first parent, whose compare and commit links open the whole-ticket diff. A pass posted after a landing takes the landing back, and so do `ticket.regressed` and `ticket.bounced`.
+What `status.py` calls a ticket that is `CLOSED` on the tracker and whose fold shows a `ticket.passed` with a `ticket.landed` after it: the passed commit is in `origin/<base branch>`, and the `ticket.landed` event records it — the branch, the base branch, the commit, and, when a merge brought it in, that merge and its first parent, whose compare and commit links open the whole-ticket diff. A pass posted after a landing takes the landing back, and so do `ticket.regressed` and `ticket.bounced`; `ticket.recovered` puts both back.
 _Avoid_: closed (for this), merged (as the state of a ticket), done
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
@@ -132,6 +132,10 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`ticket.regressed`**:
 The event `dispatch.sh reverify` posts on a landed ticket whose criteria went red on the base branch, with that `commit` and the `failed` criteria, in the same pass that reopens it, labels it `needs-triage` and removes its assignee. It takes back the ticket's pass and its landing.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`ticket.recovered`**:
+The event `dispatch.sh reverify` posts on a reopened ticket whose criteria are all met again on the base branch, with that `commit`, in the same pass that takes `needs-triage` off it and closes it. It puts the ticket's pass and its landing back, so a later reverify runs it as a landed ticket again and `finish` is not held by it. A run that is still red writes nothing: the ticket's one `ticket.regressed` still stands.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.bounced`**:
@@ -285,7 +289,7 @@ _Avoid_: 认领 (as a term), assign to oneself, release (in prose, for taking a 
 _Home_: `docs/agents/issue-tracker.md`
 
 **hand back**:
-Swapping `ready-for-agent` for `needs-triage` and leaving the ticket open: `--closeout` does it on `HANDOFF REQUIRED`, taking the claim off in the same edit (printing `HANDED BACK: #<n> is now needs-triage and stays open`). `reverify` does a related move on a landed ticket that went red: reopen, add `needs-triage`, remove the assignee, write `ticket.regressed`. `triage` reads such a ticket from its comment trail instead of reproducing it.
+Swapping `ready-for-agent` for `needs-triage` and leaving the ticket open: `--closeout` does it on `HANDOFF REQUIRED`, taking the claim off in the same edit (printing `HANDED BACK: #<n> is now needs-triage and stays open`). `reverify` does a related move on a landed ticket that went red: reopen, add `needs-triage`, remove the assignee, write `ticket.regressed`. `triage` reads such a ticket from its comment trail instead of reproducing it. The way back is the same command: while the ticket still wears that label, the next `reverify` runs its criteria again and, all met, writes `ticket.recovered`, takes the label off and closes it.
 _Avoid_: 交回, handed back (as a name)
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
@@ -339,7 +343,7 @@ _Home_: `mmw-v2/merge-notes/implement.md`
 
 | name | values |
 | --- | --- |
-| event | `spec.opened` · `spec.suspended` · `spec.closed` · `spec.retroed` · `spec.merged` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.bounced` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `child.opened` · `child.closed` |
+| event | `spec.opened` · `spec.suspended` · `spec.closed` · `spec.retroed` · `spec.merged` · `ticket.claimed` · `ticket.refused` · `ticket.passed` · `ticket.returned` · `ticket.released` · `ticket.landed` · `ticket.regressed` · `ticket.recovered` · `ticket.bounced` · `ticket.checked` · `worker.started` · `worker.resumed` · `worker.retracted` · `worker.replaced` · `worker.decided` · `worker.queued` · `worker.touched` · `worker.lost` · `reviewer.started` · `reviewer.reported` · `reviewer.lost` · `child.opened` · `child.closed` |
 | event subject | `spec` · `ticket` · `worker` · `reviewer` · `child` |
 | common payload field | `v` · `event` · `stage` · `actor` · `spec` · `ticket` · `at` |
 | ends every hold | `ticket.landed` · `ticket.returned` · `ticket.released` · `ticket.bounced` · `spec.suspended` |

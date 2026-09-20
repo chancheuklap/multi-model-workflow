@@ -239,6 +239,8 @@ Step 4 left no open finding. From any checkout in this repository:
 
 `reverify` exit 0 means every landed ticket is green. Exit 1 means each red ticket is already reopened in `needs-triage`, unassigned and carrying `ticket.regressed`; do not close it. Exit 2 means one ticket established no result, so no ticket was changed and the remainder was skipped; fix stderr's named condition and run `reverify` again.
 
+A ticket reverify reopened is taken back by `reverify` itself. Repair the cause on the base branch, push it, and run `reverify <spec>` again: the reopened ticket runs with the rest, and all met, the run writes `ticket.recovered`, takes `needs-triage` off and closes it, counted on the summary line as `<n> recovered`. Never close such a ticket by hand — the ticket would still read as regressed, a later reverify would not run it, and `summary` would not count it. Still red, it stays exactly where it is for triage.
+
 `summary` lists the exact label again; the file is a decision, not evidence that the list
 is still the same. A complete object is accepted only when its counts and ids match that
 fresh list and every decision has its required fields. It performs only the incomplete

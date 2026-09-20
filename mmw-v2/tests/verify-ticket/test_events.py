@@ -47,12 +47,12 @@ def started(session="term_7", runner="orca", kind="worker"):
 
 
 class TheVocabulary(unittest.TestCase):
-    """The 27 live events have one shape and closed sets."""
+    """The 28 live events have one shape and closed sets."""
 
-    def test_there_are_twenty_seven_events(self):
-        self.assertEqual(len(events.EVENTS), 27)
+    def test_there_are_twenty_eight_events(self):
+        self.assertEqual(len(events.EVENTS), 28)
         for name in ("ticket.checked", "worker.touched", "worker.queued", "reviewer.lost",
-                     "ticket.bounced", "spec.retroed"):
+                     "ticket.bounced", "ticket.recovered", "spec.retroed"):
             with self.subTest(name=name):
                 self.assertIn(name, events.EVENTS)
 
@@ -382,6 +382,22 @@ class Replays(unittest.TestCase):
         self.assertEqual((state["passed"], state["landed"], state["regressed"]),
                          (False, False, True))
         self.assertIsNone(state["outcome"])
+
+    def test_a_recovery_puts_the_pass_and_the_landing_back(self):
+        state = events.fold([
+            started(), ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.regressed", "Reverify failed", commit="a" * 40, failed=["AC3"]),
+            ev("ticket.recovered", "ALL MET again", commit="b" * 40)])
+        self.assertEqual((state["passed"], state["landed"], state["regressed"]),
+                         (True, True, False))
+        self.assertEqual(state["outcome"]["payload"]["commit"], "b" * 40)
+
+    def test_a_recovered_blocker_has_let_go(self):
+        state = events.fold([
+            ev("ticket.passed", "ALL MET"), ev("ticket.landed", "Landed"),
+            ev("ticket.regressed", "Reverify failed", commit="a" * 40),
+            ev("ticket.recovered", "ALL MET again", commit="b" * 40)])
+        self.assertEqual(events.blocker_hold("CLOSED", state), "")
 
     def test_bounced_withdraws_the_pass(self):
         state = events.fold([

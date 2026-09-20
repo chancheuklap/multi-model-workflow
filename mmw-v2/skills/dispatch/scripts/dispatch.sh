@@ -3539,6 +3539,26 @@ red_reverify_of() {
   printf '%s\n' "${failed[*]+"${failed[*]}"}"
 }
 
+# A ticket an earlier reverify reopened, all of whose criteria are met again on the base
+# branch: write the `ticket.recovered` that puts its events back to passed and landed,
+# take `needs-triage` off, and close it. All three are needed for the night to end — a
+# later reverify runs no ticket that no longer reads as landed, and `finish` refuses while
+# any ticket of the spec is open — so a ticket left half-recovered is reported, not
+# counted. Returns 1 when any of the three did not happen.
+recover_ticket() {
+  local number="$1" spec="$2" commit="$3" left=0
+  post_event "$number" ticket.recovered --ticket "$number" --spec "$spec" \
+      --line "Reverify on $commit: ALL MET again after the regression was repaired" \
+      --field "commit=$commit" \
+    || { echo "dispatch: #$number is green again on $commit, but its ticket.recovered event was not written, so its events still read as regressed; it was left open for triage" >&2
+         return 1; }
+  gh_ issue edit "$number" --remove-label needs-triage >/dev/null 2>&1 \
+    || { echo "dispatch: #$number is recovered, but needs-triage could not be taken off it, so it still reads as waiting for triage" >&2; left=1; }
+  gh_ issue close "$number" --reason completed >/dev/null 2>&1 \
+    || { echo "dispatch: #$number is recovered, but it could not be closed, so finish $spec will refuse while it is open" >&2; left=1; }
+  return "$left"
+}
+
 reverify_spec() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
@@ -3552,7 +3572,7 @@ reverify_spec() {
 
   plan="$(python3 "$STATUS" --reverify-plan "$spec")" \
     || refuse "could not read the batch under #$spec"
-  first="$(printf '%s\n' "$plan" | awk '$1 == "REVERIFY" { print $2; exit }')"
+  first="$(printf '%s\n' "$plan" | awk '$1 == "REVERIFY" || $1 == "RECOVER" { print $2; exit }')"
   into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" || into=""
   if [ -z "$into" ] && [ -n "$first" ]; then
     into="$(ticket_into "$first" "$spec")" \
@@ -3564,8 +3584,14 @@ reverify_spec() {
   root="$MERGE_ROOT"
   commit="$(git -C "$root" rev-parse HEAD)"
 
-  local green=0 red=0
-  for number in $(printf '%s\n' "$plan" | awk '$1 == "REVERIFY" { print $2 }'); do
+  # `RECOVER` is a ticket an earlier reverify reopened and nobody has taken on since. It
+  # runs exactly as a landed one does, on the same commit; only a green run parts them,
+  # and `recover_ticket` is what it does.
+  local green=0 red=0 recovered=0 verb entry
+  for entry in $(printf '%s\n' "$plan" \
+                   | awk '$1 == "REVERIFY" || $1 == "RECOVER" { print $1 ":" $2 }'); do
+    verb="${entry%%:*}"
+    number="${entry#*:}"
     # `--tools` is forwarded because the judges of a criterion are named bare and are
     # found only in the directories it names. Without it every interface criterion of
     # every ticket fails `command not found`, and the branch below would reopen and hand
@@ -3591,9 +3617,22 @@ reverify_spec() {
     fi
     if [ "$rc" -eq 0 ]; then
       green=$((green + 1))
-    else
-      red=$((red + 1))
-      echo "dispatch: #$number reverify failed" >&2
+      if [ "$verb" = RECOVER ]; then
+        if recover_ticket "$number" "$spec" "$commit"; then
+          recovered=$((recovered + 1))
+        else
+          red=$((red + 1))
+          green=$((green - 1))
+        fi
+      fi
+      continue
+    fi
+    red=$((red + 1))
+    echo "dispatch: #$number reverify failed" >&2
+    # A `RECOVER` ticket is already open, already unassigned and already carrying
+    # `needs-triage` and a `ticket.regressed` from the run that put it there. Doing that
+    # again would write a second regression for one.
+    if [ "$verb" = REVERIFY ]; then
       gh_ issue reopen "$number" >/dev/null 2>&1
       login="$(gh_ issue view "$number" --json assignees 2>/dev/null | python3 -c '
 import json, sys
@@ -3618,7 +3657,9 @@ print((rows[0].get("login") or "") if rows else "")
 
   printf '%s %s %s\n' "$green" "$red" "$commit" > "$git_dir/mmw-reverify-$spec"
   release_merge_lock
-  echo "reverify #$spec: $green green, $red red"
+  local also=""
+  [ "$recovered" -eq 0 ] || also=", $recovered recovered"
+  echo "reverify #$spec: $green green, $red red$also"
   [ "$red" -eq 0 ] || exit 1
 }
 
