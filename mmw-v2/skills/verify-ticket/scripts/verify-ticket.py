@@ -49,9 +49,9 @@ LEDGER_NAME = "AC.md"
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
 IN_TICKET_ITEM_RE = re.compile(
-    r"^- (Standards|Spec|Tests) (\S+):(\d+) — (.+)$")
+    r"^- (Standards|Spec|Tests|UI) (\S+):(\d+) — (.+)$")
 CAT_IN_TICKET_ITEM_RE = re.compile(
-    r"^- (Standards|Spec|Tests) \[([^\]]+)\] (\S+):(\d+) — (.+?) — source: (.+)$")
+    r"^- (Standards|Spec|Tests|UI) \[([^\]]+)\] (\S+):(\d+) — (.+?) — source: (.+)$")
 IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
 FILL = "<fill>"

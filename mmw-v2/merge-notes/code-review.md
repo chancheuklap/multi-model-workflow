@@ -25,7 +25,7 @@
 | 无 | `references/spec-reviewer.md` 末节 handoff 与 story adapter 两段；`references/tests-reviewer.md` 范围段之后读 boundary 与 journey 断言的一条；`references/ui-reviewer.md` 整份 | 我们改的，来自 #447 第 9 节：handoff package 仍不打开，理由改为外观由 element parity 判定；story adapter 只查每个 `shows` 名都是组件的一个属性，接口字段是否喂对由 boundary test 判；Tests axis 读 boundary test 与 journey 的断言本身，不因 judge 已判过就跳过，不为防存心作弊加标记文件，journey 探测 break switch 由读断言时看。UI axis 见下方专节。上游改这几处 → 收上游措辞，这几条规则保留 |
 | 无 | `references/tests-reviewer.md` 整个文件 | 我们加的第三个 axis，见下一节 |
 | 第 6 行 dispatcher 段与第 2 节标题、首段 | `SKILL.md` 的两扇门与 `references/session.md` 第 2 节 | 我们改的：会话自称 `reviewer session`，默认三个轴是 host 自带的通用 subagent，再调一次本技能并带上 axis 名（`Standards` / `Spec` / `Tests`），ticket 有 story criterion 时再起 `UI`，不写 model、不写路径。`SKILL.md` 入口表加一行 axis UI → `references/ui-reviewer.md`。第 8 行原有 `When either is missing, ask for it.` 删去：`dispatch.sh` 起 reviewer 时两个值必带，而 reviewer 与等它的 worker 之间只有票上 `^REVIEW ` 一条通道，问不到人，屏幕上一张 form 只会被 board 关掉。上游改这两处 → 收上游措辞，通用 subagent、再调本技能、不问值、UI 入口行这几条保留 |
-| frontmatter 的 `description` | `SKILL.md` 第 3 行，改写了 | 收窄成两扇门：一张 ticket、一个 base commit、三个 axis；轴 subagent 再给一个 axis 名。末句给的是这个技能要的值，不写调用形状（理由见末节）。上游那句招揽「review a branch / a PR / review since X」的用法在正文里没有落点。上游改这一行 → 收上游对三个 axis 的措辞，两扇门与 ticket number 保留 |
+| frontmatter 的 `description` | `SKILL.md` 第 3 行，改写了 | 收窄成两扇门：一张 ticket、一个 base commit、三个默认 axis，ticket 有 story criterion 时加 UI；轴 subagent 再给一个 axis 名（含 `UI`）。末句给的是这个技能要的值，不写调用形状（理由见末节）。上游那句招揽「review a branch / a PR / review since X」的用法在正文里没有落点。上游改这一行 → 收上游对默认三个 axis 的措辞，两扇门、ticket number、UI 条件保留 |
 | 第 1 步「say which one it was and stop」 | `references/session.md` 第 1 节，改写了 | base commit 解析不了或 diff 为空时，也要写到 ticket 上，走第 5 节同一条通道，first line 仍是 `REVIEW <base commit>..<HEAD commit>`，正文一行说是哪一种失败。理由是同一份文件末尾自己写的原则（只存在于 session 里的 report 谁也读不到），而 worker 在票上只找 first line `^REVIEW `：不写 ticket，它什么也找不到。两条失败路径与成功路径同一条通道，所以「报告落地」与「告诉 worker」在这三种结局下都不会各走各的。上游改这一步 → 收上游的判断，写到 ticket 上与走同一条通道这两条保留 |
 | 无 | `references/session.md` 第 2 节末尾一段 | 我们加的：要求 dispatcher 在三个 axis subagent 都回话之前不结束回合，并对「subagent 默认后台跑」的 host 明写要等。措辞按能力说，不点 host 名。理由是第 5 节那一次调用——它贴出报告并在同一次调用里报信，那是叫醒 worker 的唯一一条路；中途结束回合时报告还没写出来，那一次调用也就还没发生，等它的 worker 只剩下反复问。上游若写明并行 subagent 的等待语义 → 收上游措辞，「不在中途结束回合」保留，理由不要写成「session 停下来本身会叫醒 worker」——那不是真的 |
 | 第 2 步 subagent 表里的 reference 路径 | `SKILL.md` 的轴门与 `references/session.md` 第 2 节 | 不再把绝对路径交给 subagent。prompt 是一句 `Use the code-review skill … axis <Name>`，轴门用相对链接指向各 axis 的 reference（含 UI 的 `ui-reviewer.md`）。上游改这张表 → 收上游的行，不写路径、再调本技能、UI 入口行按我们的 |
@@ -48,7 +48,7 @@
 
 `references/ui-reviewer.md` 是新文件。`SKILL.md` 入口表加一行 axis UI → 这份文件。`references/session.md` 第 2 步：ticket 有 story criterion（`CHECK:` 点名 `story-parity.py`）时再起第四个 subagent，prompt 形状与其他三个相同；第 5 步报告多一节 `## UI`；末节改写成三个默认 axis 加一个试点 axis，并写明不另起 verifier（ADR 0026）。试点期内默认仍是三个 axis；去留只改入口表与 `session.md`。
 
-文件内容：只读；跑该票 story criterion 并加 `--out`，看最终提交的 story 截图与像素差异图，找 element parity 覆盖不到的问题（没带 `data-ui` id 的装饰、整体观感、design page 自己画错）；每张 interface ticket 一次，不进 worker 的 `DIFF` 反复修改循环；发现由 session 第 4 节分拣。类别是 `undecorated`、`look`、`design-page`。
+文件内容：只读；跑该票 story criterion 并加 `--out`，看最终提交的 story 截图与像素差异图，找 element parity 覆盖不到的问题（没带 `data-ui` id 的装饰、整体观感、design page 自己画错）；每张 interface ticket 一次，不进 worker 的 `DIFF` 反复修改循环；发现由 session 第 4 节分拣。类别是 `undecorated`、`overall-look`、`design-page`。引用是仓库里的 `path:line` 或 story criterion 的 `CHECK` 证据，不是 `--out` 下的临时 PNG。
 
 上游加同类第四轴 → 与这份合并还是并列，看它问的是不是「element parity 覆盖不到的外观」；并列则入口表与第 2 步再加一行。上游删掉三个默认轴的对照段 → 三个默认、UI 试点条件、ADR 0026 仍写回「Default axes and the UI pilot」。
 
@@ -133,13 +133,13 @@ or the sorting step → keep both the four-angle pass and this ownership rule.
 
 ### docs page
 
-`mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`. Its opening sentence carries the same capability branch as `session.md` § 2: subagents where the host can run them, the three axis files run in sequence by the session where it cannot.
+`mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`. During the UI pilot that page still describes the three default axes; UI lives in the `SKILL.md` door table and `session.md`. If UI is kept after the pilot, put it on the docs page too. Its opening sentence carries the same capability branch as `session.md` § 2: subagents where the host can run them, the axis files run in sequence by the session where it cannot.
 
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |
 | --- | --- |
-| `interface.short_description` | 改成「一张 ticket 的 diff」加三个 axis，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
+| `interface.short_description` | 改成「一张 ticket 的 diff」加三个默认 axis 与 UI，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
 
 ## Active reviewer Rules stay in the session contract
 
@@ -151,7 +151,7 @@ If upstream rewrites `session.md` → take its wording for the existing steps, p
 
 ## Review findings carry axis categories and sources
 
-`references/session.md` section 5 fixes every `## In-ticket` and `## Out-of-ticket` entry as `- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>`, with any unverified statement appended on that line. The category is the narrowest classification the axis already owns: Standards uses `documented-standard`, `less-code`, `pass-through` or the original smell name; Spec uses `Missing`, `Scope creep` or `Built wrong`; Tests uses the six names from its test smell baseline; UI uses `undecorated`, `look` or `design-page`. The retro environment-improvement categories remain separate, and equal categories do not prove an equal cause. The report includes a `## UI` section when that axis ran.
+`references/session.md` section 5 fixes every `## In-ticket` and `## Out-of-ticket` entry as `- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>`, with any unverified statement appended on that line. The category is the narrowest classification the axis already owns: Standards uses `documented-standard`, `less-code`, `pass-through` or the original smell name; Spec uses `Missing`, `Scope creep` or `Built wrong`; Tests uses the six names from its test smell baseline; UI uses `undecorated`, `overall-look` or `design-page`. The retro environment-improvement categories remain separate, and equal categories do not prove an equal cause. The report includes a `## UI` section when that axis ran.
 
 Reason: the retro can aggregate review evidence only when the ticket preserves both the reviewer's classification and the source that established the claim. A category without its source is not evidence; a source without the category forces the retro to infer the axis's judgement from prose.
 
@@ -159,7 +159,7 @@ If upstream rewrites the report format → keep the category and source fields o
 
 ## A host that cannot run subagents
 
-`references/session.md` section 2 gained the capability branch, in the form `manage-agents-md/references/survey.md` § Dispatch already uses: a host that can run subagents starts three at once, and a fourth (UI) when the ticket has a story criterion; one that cannot runs those axis files itself, one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The opening paragraph states the same branch. The section heading is `Run the three axes`. The launch and prompt sentences are marked as the can-run path. Hold-the-turn waits until every axis the session started has reported. The axis file's read-only rule binds the axis pass; step 5 still writes the review comment. Reason: a reviewer session on a host without subagents had no path (spec #374 Implementation Decisions section 3). If upstream rewrites section 2 → take its wording and put the capability branch back, including the UI start condition.
+`references/session.md` section 2 gained the capability branch, in the form `manage-agents-md/references/survey.md` § Dispatch already uses: a host that can run subagents starts three at once, and a fourth (UI) when the ticket has a story criterion; one that cannot runs those axis files itself, one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The opening paragraph states the same branch. The section heading is `Run the axes`. The launch and prompt sentences are marked as the can-run path. Hold-the-turn waits until every axis the session started has reported. The axis file's read-only rule binds the axis pass; step 5 still writes the review comment. Reason: a reviewer session on a host without subagents had no path (spec #374 Implementation Decisions section 3). If upstream rewrites section 2 → take its wording and put the capability branch back, including the UI start condition.
 
 ## The session verifies every finding before it sorts
 

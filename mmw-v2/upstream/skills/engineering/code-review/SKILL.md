@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review one ticket's diff from a base commit along three axes — Standards, Spec, Tests — or review one named axis of that diff when started as a subagent. The session writes the three axis reports as one review comment on the ticket. A session is given a base commit and a ticket number; an axis subagent is also given the axis name (Standards, Spec, or Tests).
+description: Review one ticket's diff from a base commit along three default axes — Standards, Spec, Tests — and UI when the session starts it, or review one named axis of that diff when started as a subagent. The session writes the axis reports as one review comment on the ticket. A session is given a base commit and a ticket number; an axis subagent is also given the axis name (Standards, Spec, Tests, or UI).
 ---
 
 # Code review

@@ -4283,7 +4283,7 @@ scenario_retro_review_evidence() {
 import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 needles = (
-    "- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>",
+    "- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>",
     "`documented-standard`, `less-code`, `pass-through`",
     "`Missing`, `Scope creep`, or `Built wrong`",
     "`Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`",
@@ -7376,12 +7376,12 @@ import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 for needle in (
     "## 1. Pin the diff",
-    "## 2. Run the three axes",
+    "## 2. Run the axes",
     "## 3. Verify every finding the axes report",
     "## 4. Sort every review finding into in-ticket or out-of-ticket",
     "## 5. Write one review comment on the ticket",
     "git diff <base-commit>...HEAD --stat",
-    "The axis word is exactly `Standards`, `Spec`, or `Tests`",
+    "The axis word is exactly `Standards`, `Spec`, `Tests`, or `UI`",
     "## Active Rules",
     "Apply every active Rule only within its stated scope.",
     "every finding still needs a current source",

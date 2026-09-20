@@ -16,9 +16,9 @@ Three dots, so the comparison runs against the merge-base. A ref that does not r
 
 Capture the base commit and the `HEAD` commit. Both go in the first line of the review comment.
 
-## 2. Run the three axes
+## 2. Run the axes
 
-Read the ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`.
+Read the ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`. `references/ui-reviewer.md` repeats this definition; change both together.
 
 When the host can run subagents, start three at once, one per default axis — Standards, Spec, Tests. When the ticket has a story criterion, start a fourth in the same turn, axis `UI`. When the host cannot run subagents, run those axis files yourself one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The axis file's read-only rule binds that pass; step 5 is still yours to write.
 
@@ -87,7 +87,7 @@ Then the axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim o
 - <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>
 ```
 
-Use the narrowest category already defined by that axis. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name from its smell baseline. Spec uses `Missing`, `Scope creep`, or `Built wrong`. Tests uses `Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`. UI uses `undecorated`, `look`, or `design-page`. These categories preserve the axis's own classification; they are not the retro environment-improvement categories and do not prove that two findings have the same cause.
+Use the narrowest category already defined by that axis. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name from its smell baseline. Spec uses `Missing`, `Scope creep`, or `Built wrong`. Tests uses `Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`. UI uses `undecorated`, `overall-look`, or `design-page`. These categories preserve the axis's own classification; they are not the retro environment-improvement categories and do not prove that two findings have the same cause.
 
 The source is the current URL, `path:line`, or `CHECK` evidence that proves the finding. When you could not tell, append `unverified: <what would settle it>` at the end of the same line. An empty list says `None`.
 
@@ -103,9 +103,9 @@ Three axes run on every ticket. One change can pass one of them and fail another
 - Builds exactly what was asked, breaks the repository's conventions → **Spec pass, Standards fail.**
 - Does the right thing, proved by a test that would pass either way → **Standards and Spec pass, Tests fail.**
 
-A fourth axis, UI, is a pilot. Step 2 starts it only when the ticket has a story criterion. During the pilot the default set is still those three; after the pilot, keeping or dropping UI is a change to the door table in this skill's `SKILL.md` and to this file, and to nowhere else.
+A fourth axis, UI, is a pilot. Step 2 starts it only when the ticket has a story criterion. During the pilot the default set is still those three; after the pilot, keeping or dropping UI is a change to the door table in this skill's `SKILL.md` and to this file. The merge-note that records that switch, and any test that pins these sentences, follow those two files.
 
-New checks are a script that runs them mechanically, or a judgement of the diff, which is a reviewer axis. There is no separate verifier session (ADR 0026).
+New checks are a script that runs them mechanically, or a judgement of the diff, which is a reviewer axis. There is no separate verifier session (`docs/adr/0026-no-verifier.md` in the multi-model-workflow repository).
 
 ## Active Rules
 
