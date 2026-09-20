@@ -1,0 +1,57 @@
+# Writing interface code
+
+Read this file when the ticket's **Read first** lists a screen contract. It is every rule for writing the interface.
+
+## Resolve `<ui-acceptance scripts>` once
+
+`<ui-acceptance scripts>` in every command below is the `scripts/` directory of the `ui-acceptance` skill. Resolve it from that skill's own `SKILL.md`. The path differs by machine and by host, and `install.sh` puts that skill wherever the host that gave it to you reads its skills from. You already read that skill's **Five rules while the product is running** for every run. `<engine>` is the token this skill's `SKILL.md` already resolved.
+
+## Before the first line
+
+Read the screen-contract rows this ticket owns.
+
+Then take the design side's values. `--contract` is the screen contract **Read first** names; `--pages` is the `pages` mounts this ticket owns; `--out` is a directory `mktemp` makes:
+
+```
+uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --render-only --out <mktemp directory>
+```
+
+`--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id — text, size, position, style — to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is the ui-acceptance skill's `references/story-parity.md` under **The two sides**; what the flag writes is that file's **`--render-only`**.
+
+This step is done when every owned scene has a screenshot and a values file in that directory.
+
+## Write the product
+
+Put `[data-story-root]` on the product component's own root element, not a wrapper around it and not a child inside it. Every other product element being compared carries the same `data-ui` id as the corresponding element on the design page.
+
+In the same pass write that page's story adapter and a four-column boundary test for each owned row. The story adapter takes the scene's scene data and maps it onto the component. The four-column boundary test asserts `calls`, `shows`, `next` and `on_failure` of one row.
+
+When the design system was built from code that already runs, the design page already uses the product's class names: copy them.
+
+This step is done when the component, its story adapter and its four-column boundary tests exist.
+
+## Fix in place
+
+Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one property, with its design and product values; that id and property are the complete repair. Fix them, run again. The loop stays on this machine.
+
+The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds is your judgement: keep fixing while a fix is in sight. When none is, write `ABANDON: AC<n> failed <what each round tried>` and carry on with the rest — the closeout counts no rounds, so that line is the whole record of the trying.
+
+What the lines mean is the ui-acceptance skill's `references/story-parity.md` under **The DIFF line**.
+
+## When the design side is the defect
+
+A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. Keep working the rest of this ticket.
+
+```
+<engine> <n> --sub-issue contract <file>
+```
+
+The file's first line is exactly:
+
+由 design-pages 的 pull 入口处理：在 Claude Design 里改，再 pull
+
+Then name the Claude Design page. Leave the handoff package as it is: **pull** of the design-pages skill is what writes it.
+
+## One code path
+
+The story page's data comes only from the story adapter reading scene data. No request path of the product chooses its projection by whether a data source is present, by a query parameter, or by a build switch.
