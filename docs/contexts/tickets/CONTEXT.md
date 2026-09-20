@@ -40,8 +40,14 @@ The spec section of decisions made, in numbered subsections `### 1.` … that ti
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
-The spec section whose first sentence says in plain words where a test looks at the result (a browser page, an HTTP endpoint, or a function call) and whose second names the seam, what is real on each side of it, and which external seams may be stubbed; then what makes a good test; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; then, where the effort has a screen contract, the **Test surfaces** that make the repository a runnable environment; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
+The spec section whose first sentence says in plain words where a test looks at the result (a browser page, an HTTP endpoint, or a function call) and whose second names the seam, what is real on each side of it, and which external seams may be stubbed; then what makes a good test; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; then, where the effort has a screen contract, the **Test surfaces** that make the repository a runnable environment; then **Critical flows** when the product has them; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
 _Avoid_: 测试怎么到达状态
+_Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
+
+**Critical flows**:
+An optional bullet of a spec's `## Testing Decisions`: money, sign-in, a submit chain; none when the product has none. One line per such flow, naming the directory under `.mmw/journeys/<flow>/` and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. Omit the bullet when `.mmw/target.json` cannot start the whole product.
+_Admitted_: 关键流程
+_Avoid_: Cross-ticket flows
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Out of Scope`**:
@@ -83,9 +89,34 @@ _Avoid_: 纵切, slice (as a name)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **prefactor ticket**:
-The ticket cut ahead of a frontier whose tickets would otherwise every one of them edit the same files nobody owns. It owns those files and lands in one pass each entry, route, include and export the tickets behind it need, every one of them naming a placeholder its ticket fills; and it splits a shared file that is only a list of independent entries — a stylesheet, a registry, a bundle index — into one file per ticket that the shared one includes once. Each of those tickets is then blocked by this one alone, so they run in the same night instead of bouncing one another on the merge. It is the **vertical slice**'s deliberate exception, the rule that prefactoring is done first. Two neighbours it is not: a shared file that is one body of logic — a route module several tickets add handlers to — is not prefactored at all, because what each ticket writes there is that ticket's own work, and those tickets keep their chain; and where the spec has a screen contract, this ticket and the ui-acceptance context's contract ticket are one ticket doing both jobs, registering every design page in the contract rather than only the page it makes the precedent from.
+The ticket cut ahead of a frontier whose tickets would otherwise every one of them edit the same files nobody owns. It owns those files and lands in one pass each entry, route, include and export the tickets behind it need, every one of them naming a placeholder its ticket fills; and it splits a shared file that is only a list of independent entries — a stylesheet, a registry, a bundle index — into one file per ticket that the shared one includes once. Each of those tickets is then blocked by this one alone, so they run in the same night instead of bouncing one another on the merge. It is the **vertical slice**'s deliberate exception, the rule that prefactoring is done first. Two neighbours it is not: a shared file that is one body of logic — a route module several tickets add handlers to — is not prefactored at all, because what each ticket writes there is that ticket's own work, and those tickets keep their chain; and where the spec has a screen contract, this ticket and the **contract ticket** are one ticket doing both jobs, registering every design page in the contract rather than only the page it makes the precedent from.
 _Avoid_: scaffolding ticket (scaffolding is the prototype's mount points), 脚手架票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+
+**design-system ticket**:
+Only a new product gets one. It copies the design system's style tokens and shared components into the product, ahead of the **contract ticket**. Distinct from later **interface ticket**s, which judge whether those styles match.
+_Avoid_: 设计系统票
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
+
+**contract ticket**:
+The ticket that lands or completes `.mmw/` so later tickets have a precedent to copy. Distinct from an **interface ticket**, which owns a design page, and from a **design-system ticket**, which does not depend on `.mmw/`. Where the spec has a screen contract, it is also the **prefactor ticket**.
+_Avoid_: 合同票, addressing self-check
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
+
+**interface ticket**:
+Owns `Component · ` design pages. Distinct from the **app page ticket**, which owns an `App · ` page, and from the **contract ticket**, which lands the runtime rather than a page.
+_Avoid_: 界面票
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
+
+**app page ticket**:
+Owns an `App · ` page. Blocked by the **interface ticket** of every `Component · ` page this App page composes.
+_Avoid_: App 页票, 组合页票
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
+
+**acceptance ticket**:
+One per **Critical flows** line, after the page tickets of that flow have landed. Distinct from the **contract ticket**, which comes first and whose smoke journey has no `--break`.
+_Avoid_: 验收票, flow ticket
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **`<issue-template>`**:
 The ticket template in `to-tickets/SKILL.md`: `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`. Sections read by position downstream keep these exact headings; renaming one means changing `implement` too.
@@ -101,8 +132,8 @@ The end-to-end behaviour this ticket makes work, from the user's point of view, 
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Read first`**:
-The sources the ticket's spec subsections cite, `None` when there are none. Each item is read to its conclusion before work: a research file's last section, an ADR's decision (its `# ` heading and the prose under it), a handoff package, a prototype's leaf README.md to its verdict. Items that record a settled conclusion are baselines and are marked as such on their line. On an interface ticket the rest of the section is derived rather than hand-picked, from the row ids this ticket owns: `scenes.json` and every baseline-class `source` of those rows, deduplicated by document. It is re-read at the Audit, and searched before a helper is written.
-_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`, `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+The sources the ticket's spec subsections cite, `None` when there are none. Each item is read to its conclusion before work: a research file's last section, an ADR's decision (its `# ` heading and the prose under it), a handoff package, a prototype's leaf README.md to its verdict. Items that record a settled conclusion are baselines and are marked as such on their line. On an **interface ticket** or **app page ticket** the section carries two baseline lines — the handoff package, and the screen contract with the row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c` — then the rest is derived from those ids: `scenes.json` and every baseline-class `source`, listed once per document. It is re-read at the Audit, and searched before a helper is written.
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`, `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **baseline**:
 An item under `## Read first` that records a settled conclusion: a decision ticket's resolution, an ADR's decision (its `# ` heading and the prose under it), a research file's conclusion, a handoff package, a prototype's chosen artifact. To the worker it is a contract, not a reference; a handoff package is copied verbatim, a prototype is rewritten to production standard. The Spec axis reads the baselines against the diff, and a deviation is `Built wrong`. The screen contract's `baselines.look` names the handoff package directory, and the story judge's output word for that side is `baseline`.
@@ -295,7 +326,7 @@ _Avoid_: 票图核对, the linter (for this), 启动层级
 _Home_: `mmw-v2/skills/verify-ticket/references/linting.md`
 
 **problem tag**:
-The label a lint finding carries: from gate-lint `parse`, `tautological-check`, `weak-expect`, `path-read-as-regex`, `manual-gate`, `unmeasured-number`, `activity-not-outcome`, `mostly-manual`; from `verify-ticket.py` `dollar-without-m` (`ERROR`), `bad-timeout` (`ERROR`), `shared-state`, `cross-batch`, `cycle`, `duplicate-ticket`, `blocker-not-a-ticket`, `no-sub-issues`, `worker-label` (`ERROR`: both worker-grade labels; `WARN`: none, so the ticket starts on the default row), `closed-ticket` (`WARN`), `uncovered-section` (`WARN`: an Implementation Decisions section no ticket names in its `## Parent`), `screen-contract` (`ERROR`: an interface ticket naming no contract rows, a `--pages` mount the contract does not declare or that names an `App · ` page, an empty `boundary-check.py --run`, a `journey.py run <name>` with no directory under `.mmw/journeys/`, a `CHECK:` that stubs the application's own network, a pipeline script called without `--contract`, with a flag its `--help` does not list, or with an address that belongs in `.mmw/target.json`, or a baseline-class source missing from `## Read first`).
+The label a lint finding carries: from gate-lint `parse`, `tautological-check`, `weak-expect`, `path-read-as-regex`, `manual-gate`, `unmeasured-number`, `activity-not-outcome`, `mostly-manual`; from `verify-ticket.py` `dollar-without-m` (`ERROR`), `bad-timeout` (`ERROR`), `shared-state`, `cross-batch`, `cycle`, `duplicate-ticket`, `blocker-not-a-ticket`, `no-sub-issues`, `worker-label` (`ERROR`: both worker-grade labels; `WARN`: none, so the ticket starts on the default row), `closed-ticket` (`WARN`), `uncovered-section` (`WARN`: an Implementation Decisions section no ticket names in its `## Parent`), `screen-contract` (`ERROR`: an interface ticket naming no contract rows, a `--pages` mount the contract does not declare, a claimed mount — `App · ` included — missing from a story criterion, an empty `boundary-check.py --run`, a `journey.py run <name>` with no directory under `.mmw/journeys/` unless `## Owns` covers that directory, an **acceptance ticket** journey that omits `--break`, a `CHECK:` that stubs the application's own network, a pipeline script called without `--contract`, with a flag its `--help` does not list, or with an address that belongs in `.mmw/target.json`, or a baseline-class source missing from `## Read first`).
 _Avoid_: 问题标签
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
