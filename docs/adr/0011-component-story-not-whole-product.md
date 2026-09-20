@@ -31,5 +31,5 @@ amends: []
 ## Consequences
 
 - 一张界面票的外观判据不起产品、不 seed、不走路由。
-- 消费仓库里仍写 `wiring-check.py` / 整机 `visual-parity.py`、或 `.mmw/target.json` 仍写 `reach` / `transport_*` 的产物失效；迁移路径在 `mmw-v2/downstream-notes/216-story-judges.md`。
+- 消费仓库里仍写 `wiring-check.py` / 整机 `visual-parity.py`、或 `.mmw/target.json` 仍写 `reach` / `transport_*` 的产物失效；迁移路径在 `mmw-v2/downstream-notes/archive/216-story-judges.md`。
 - 半年后再发明「必须把整个产品摆进每个设计场景」的人，读这一份。

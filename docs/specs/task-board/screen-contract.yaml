@@ -116,7 +116,7 @@ scenes:
 readme_dispositions: []   # the package has no README.md: the Claude Design project holds none
 backend_without_ui:
   - "GET /api/board on page load and every 60 s while the page is open and in the foreground tab — no control; the top bar's read time shows it (#318 Implementation Decisions 11)"
-  - "board process: whole-tree GraphQL read (tree.py plus labels and blockedBy) every 10 minutes and at once after child.opened or a became-ticket child.closed — no control (#318 Implementation Decisions 11)"
+  - "board process: whole-tree GraphQL read (issue_tree.py plus labels and blockedBy) every 10 minutes and at once after child.opened or a became-ticket child.closed — no control (#318 Implementation Decisions 11)"
   - "board process: comment reads of unlanded tickets with ETag, 304 not counted against the quota — no control (#318 Implementation Decisions 11)"
   - "board process: one host scan at start-up, held in memory with its time, never written to a file — no control; the sheet shows its result (#318 Implementation Decisions 13)"
   - "board process: binds 127.0.0.1, checks Host and Origin, a per-start token on every write — no control; a refused write is settings.save's on_failure (#318 Implementation Decisions 16)"

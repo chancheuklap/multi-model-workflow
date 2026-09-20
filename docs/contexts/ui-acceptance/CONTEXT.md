@@ -201,12 +201,13 @@ _Avoid_: 合同票, prefactor ticket (for this one), addressing self-check
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **acceptance ticket**:
-The ticket `to-tickets` cuts per line of a spec's **Cross-ticket flows**: it builds and runs that flow's journey on the merged base branch after every ticket the flow involves has landed. Unlike the **contract ticket**, it comes after the batch rather than before it.
+The ticket `to-tickets` cuts per line of a spec's **Critical flows**: it builds and runs that flow's journey on the merged base branch after every ticket the flow involves has landed. Unlike the **contract ticket**, it comes after the batch rather than before it.
 _Avoid_: 验收票, flow ticket
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
-**Cross-ticket flows**:
-An optional bullet of a spec's `## Testing Decisions`: one line per user flow that spans tickets, naming the flow (the directory under `.mmw/journeys/<flow>/`) and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. A spec that omits the bullet cuts none.
+**Critical flows**:
+An optional bullet of a spec's `## Testing Decisions`: one line per flow worth a whole-product run — money, signing in, one submit chain; a product with none of those gets no line — naming the flow (the directory under `.mmw/journeys/<flow>/`) and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. A spec that omits the bullet cuts none.
+_Avoid_: Cross-ticket flows
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **mount**:
