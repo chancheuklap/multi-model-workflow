@@ -58,7 +58,7 @@ retired_ids: []
 rows:
 - id: create-project.add-material
   component: cp
-  trigger: create-project.add-material
+  trigger: create-project.add-material-button
   precondition: {material: none}
   scenes: [empty]
   calls: ['POST /x']
@@ -86,7 +86,19 @@ rows:
   shows: {}
   next: app-awaiting-browser
   on_failure: {failed: toast}
-  source: ['#536 Implementation Decisions 3']
+  source: ['#537 Implementation Decisions 2']
+  gap: aligned
+- id: desk.filter-customer
+  component: sh
+  app: "App · 工作台.dc.html"
+  trigger: shell.filter-customer
+  precondition: {}
+  scenes: [shell-header.ready]
+  calls: ['GET /x']
+  shows: {}
+  next: material-added
+  on_failure: {failed: toast}
+  source: ['#537 Implementation Decisions 2']
   gap: aligned
 """
 
@@ -124,13 +136,116 @@ class TestLintScreenContract(ContractFixture, unittest.TestCase):
         self.assertIn("names no", findings[0])
 
     def test_a_story_criterion_with_row_ids_is_fine(self):
-        self.assertEqual(self.lint(gate("AC1", self.story("create-project"))), [])
+        self.assertEqual(self.lint(gate("AC1", self.story("create-project")),
+                                   gate("AC2", BOUNDARY)), [])
+
+    def test_a_ticket_with_rows_and_no_story_criterion_is_an_error(self):
+        findings = self.lint(gate("AC1", BOUNDARY))
+        self.assertTrue(any("create-project" in f and "story" in f for f in findings),
+                        findings)
+
+    def test_a_ticket_with_rows_and_its_story_criterion_is_clean(self):
+        self.assertEqual(self.lint(gate("AC1", self.story()), gate("AC2", BOUNDARY)), [])
+
+    def test_each_claimed_design_page_needs_its_mount_in_a_story_criterion(self):
+        self.rows = self.rows.replace("rows: create-project.add-material`",
+                                      "rows: create-project.add-material, shell.sign-in`")
+        findings = self.lint(gate("AC1", self.story("create-project")),
+                             gate("AC2", BOUNDARY))
+        self.assertTrue(any("shell-header" in finding and "story" in finding
+                            for finding in findings), findings)
+
+    def test_a_row_without_its_boundary_criterion_is_named(self):
+        self.rows = self.rows.replace("rows: create-project.add-material`",
+                                      "rows: create-project.add-material, shell.sign-in`")
+        path = os.path.join(self.dir.name, "one-row.test.ts")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("clickByDataUi('create-project.add-material-button')\n")
+        findings = self.lint(gate("AC1", self.story("create-project,shell-header")),
+                             gate("AC2", self.boundary_for(path)))
+        self.assertTrue(any("shell.sign-in" in f and "boundary" in f
+                            for f in findings), findings)
+
+    def test_a_row_with_its_boundary_criterion_is_clean(self):
+        self.rows = self.rows.replace("rows: create-project.add-material`",
+                                      "rows: create-project.add-material, shell.sign-in`")
+        path = os.path.join(self.dir.name, "both-rows.test.ts")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("clickByDataUi('create-project.add-material-button')\n"
+                    "clickByDataUi('shell.sign-in')\n")
+        self.assertEqual(
+            self.lint(gate("AC1", self.story("create-project,shell-header")),
+                      gate("AC2", self.boundary_for(path))), [])
+
+    def test_a_cross_component_row_without_a_boundary_criterion_is_an_error(self):
+        self.rows = f"- `{self.path} rows: desk.filter-customer`（基线）"
+        findings = self.lint(gate("AC1", self.story("app-shell")))
+        self.assertTrue(any("desk.filter-customer" in f and "cross-component" in f
+                            for f in findings), findings)
+
+    def test_a_cross_component_row_with_a_boundary_criterion_is_clean(self):
+        self.rows = f"- `{self.path} rows: desk.filter-customer`（基线）"
+        self.assertEqual(self.lint(gate("AC1", self.story("app-shell")),
+                                   gate("AC2", BOUNDARY)), [])
+
+    def boundary_for(self, path):
+        return f'boundary-check.py --run "pnpm vitest run {path}"'
+
+    def test_a_boundary_test_without_the_row_trigger_id_is_an_error(self):
+        path = os.path.join(self.dir.name, "add-material.test.ts")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("test('submits a material', () => {})\n")
+        findings = self.lint(gate("AC1", self.story()),
+                             gate("AC2", self.boundary_for(path)))
+        self.assertTrue(any("create-project.add-material" in f
+                            and "create-project.add-material-button" in f
+                            and "does not appear" in f for f in findings), findings)
+
+    def test_a_boundary_test_with_the_row_trigger_id_is_clean(self):
+        path = os.path.join(self.dir.name, "add-material.test.ts")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("clickByDataUi('create-project.add-material-button')\n")
+        self.assertEqual(self.lint(gate("AC1", self.story()),
+                                   gate("AC2", self.boundary_for(path))), [])
+
+    def test_an_unreadable_boundary_test_file_is_said_so(self):
+        path = os.path.join(self.dir.name, "unreadable.test.ts")
+        os.makedirs(path)
+        findings = self.lint(gate("AC1", self.story()),
+                             gate("AC2", self.boundary_for(path)))
+        self.assertTrue(any(path in f and "could not be read" in f for f in findings),
+                        findings)
+
+    def test_a_boundary_test_file_not_written_yet_is_a_warning(self):
+        path = os.path.join(self.dir.name, "not-written.test.ts")
+        warnings = []
+        body = ticket(self.rows, gate("AC1", self.story()),
+                      gate("AC2", self.boundary_for(path)), parent=self.parent)
+        findings = vt.lint_screen_contract(body, 639, root=self.dir.name,
+                                            warnings=warnings)
+        self.assertEqual(findings, [])
+        self.assertTrue(any(path in warning and "not written yet" in warning
+                            for warning in warnings), warnings)
 
     def test_a_check_that_stubs_fetch_is_an_error(self):
         stubbed = "pnpm vitest run src/__tests__/live.spec.ts  # vi.stubGlobal('fetch', ...)"
-        findings = self.lint(gate("AC1", self.story("create-project")), gate("AC2", stubbed))
+        findings = self.lint(gate("AC1", self.story("create-project")),
+                             gate("AC2", BOUNDARY), gate("AC3", stubbed))
         self.assertEqual(len(findings), 1)
-        self.assertIn("AC2", findings[0])
+        self.assertIn("AC3", findings[0])
+
+    def test_a_word_that_merely_contains_a_library_name_is_no_stub(self):
+        check = "printf dreamsweeper"
+        self.assertEqual(
+            self.lint(gate("AC1", self.story("create-project")), gate("AC2", BOUNDARY),
+                      gate("AC3", check)), [])
+
+    def test_a_real_fetch_stub_is_still_refused(self):
+        check = "pnpm vitest run live.test.ts  # vi.stubGlobal('fetch', replacement)"
+        findings = self.lint(gate("AC1", self.story("create-project")),
+                             gate("AC2", BOUNDARY), gate("AC3", check))
+        self.assertEqual(len(findings), 1)
+        self.assertIn("own network", findings[0])
 
     def test_msw_nock_and_fetch_mock_are_refused(self):
         for check in (
@@ -138,14 +253,15 @@ class TestLintScreenContract(ContractFixture, unittest.TestCase):
             "nock('https://api.example').get('/x').reply(200)",
             "import fetchMock from 'fetch-mock'",
         ):
-            findings = self.lint(gate("AC1", self.story("create-project")), gate("AC2", check))
+            findings = self.lint(gate("AC1", self.story("create-project")),
+                                 gate("AC2", BOUNDARY), gate("AC3", check))
             self.assertEqual(len(findings), 1, check)
-            self.assertIn("AC2", findings[0])
+            self.assertIn("AC3", findings[0])
 
     def test_mocking_the_product_api_client_is_fine(self):
         mocked = "pnpm vitest run tests/boundary/add-material.test.ts  # vi.mock('@/api/client')"
         self.assertEqual(self.lint(gate("AC1", self.story("create-project")),
-                                   gate("AC2", mocked)), [])
+                                   gate("AC2", BOUNDARY), gate("AC3", mocked)), [])
 
     def test_a_ticket_without_interface_or_rows_has_nothing_to_say(self):
         self.assertEqual(vt.lint_screen_contract(ticket("- ADR-0013 (baseline)", gate("AC1", "pytest -q"))), [])
@@ -350,6 +466,11 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
         os.makedirs(os.path.join(self.root, ".mmw", "journeys", "smoke"), exist_ok=True)
 
     def lint(self, *criteria, owns=""):
+        criteria = list(criteria)
+        if not any("story-parity.py" in criterion for criterion in criteria):
+            criteria.append(gate("AC90", self.story("create-project")))
+        if not any("boundary-check.py" in criterion for criterion in criteria):
+            criteria.append(gate("AC91", BOUNDARY))
         return vt.lint_screen_contract(
             ticket(self.rows, *criteria, parent=self.parent, blocked_by="- #637", owns=owns),
             639, root=self.root)
@@ -361,24 +482,24 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
         findings = self.lint(gate("AC1", self.story("nowhere")))
         self.assertTrue(any("nowhere" in f and "no page" in f for f in findings), findings)
 
-    def test_an_app_page_in_pages_is_an_error(self):
-        findings = self.lint(gate("AC1", self.story("app-shell")))
-        self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
+    def test_an_app_page_mount_is_allowed_in_pages(self):
+        self.rows = f"- `{self.path} rows: desk.filter-customer`（基线）"
+        self.assertEqual(self.lint(gate("AC1", self.story("app-shell"))), [])
 
-    def test_an_app_page_in_a_comma_list_is_an_error(self):
-        findings = self.lint(gate("AC1", self.story("create-project,app-shell")))
-        self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
+    def test_an_app_page_in_a_comma_list_is_allowed(self):
+        self.rows = f"- `{self.path} rows: desk.filter-customer`（基线）"
+        self.assertEqual(self.lint(gate("AC1", self.story("create-project,app-shell"))), [])
 
     def test_an_equals_pages_flag_is_read(self):
+        self.rows = f"- `{self.path} rows: desk.filter-customer`（基线）"
         check = STORY.replace("docs/specs/x/screen-contract.yaml", self.path).replace(
             "--pages create-project", "--pages=app-shell")
-        findings = self.lint(gate("AC1", check))
-        self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
+        self.assertEqual(self.lint(gate("AC1", check)), [])
 
     def test_a_second_pages_flag_is_read(self):
+        self.rows = f"- `{self.path} rows: desk.filter-customer`（基线）"
         check = self.story("create-project") + " --pages app-shell"
-        findings = self.lint(gate("AC1", check))
-        self.assertTrue(any("app-shell" in f and "App" in f for f in findings), findings)
+        self.assertEqual(self.lint(gate("AC1", check)), [])
 
     def test_boundary_run_must_not_be_empty(self):
         findings = self.lint(gate("AC1", 'boundary-check.py --run ""'))
@@ -440,6 +561,54 @@ class TestCriterionShapes(ContractFixture, unittest.TestCase):
         self.assertEqual(
             self.lint(gate("AC1", "cd fixtures/repo && journey.py run absent"),
                       owns="- `fixtures/repo/.mmw/journeys/absent/**`"), [])
+
+
+class TestJourneyBreakRules(unittest.TestCase):
+    SPEC = """## Testing Decisions
+
+- **Critical flows** (关键流程):
+  - `checkout` — Implementation Decisions sections 2 and 3
+"""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        for name in ("smoke", "checkout", "owner-demo"):
+            os.makedirs(os.path.join(self.dir.name, ".mmw", "journeys", name))
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def lint(self, flow, *, break_value="", owns="", spec_body=None):
+        check = f"journey.py run {flow}" + (f' --break "{break_value}"' if break_value else "")
+        body = ticket("- ADR-0008 (baseline)", gate("AC1", check),
+                      parent="#537, Implementation Decisions sections 2 and 3",
+                      owns=owns)
+        warnings = []
+        findings = vt.lint_screen_contract(
+            body, 639, root=self.dir.name, warnings=warnings,
+            spec_bodies={537: spec_body} if spec_body is not None else {})
+        return findings, warnings
+
+    def test_an_acceptance_journey_without_break_is_an_error(self):
+        findings, warnings = self.lint("checkout", spec_body=self.SPEC)
+        self.assertTrue(any("checkout" in f and "--break" in f for f in findings), findings)
+        self.assertEqual(warnings, [])
+
+    def test_an_acceptance_journey_with_break_is_clean(self):
+        self.assertEqual(
+            self.lint("checkout", break_value="POST /items", spec_body=self.SPEC), ([], []))
+
+    def test_a_contract_smoke_journey_needs_no_break(self):
+        self.assertEqual(self.lint("smoke", owns="- `.mmw/**`"), ([], []))
+
+    def test_an_owner_named_journey_without_break_is_a_warning(self):
+        findings, warnings = self.lint("owner-demo")
+        self.assertEqual(findings, [])
+        self.assertTrue(any("owner-demo" in warning and "--break" in warning
+                            for warning in warnings), warnings)
+
+    def test_an_owner_named_journey_with_break_is_clean(self):
+        self.assertEqual(self.lint("owner-demo", break_value="POST /demo"), ([], []))
 
 
 if __name__ == "__main__":
