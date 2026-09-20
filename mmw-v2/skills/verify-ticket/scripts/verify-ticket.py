@@ -117,6 +117,17 @@ STATEFUL_COMMAND_RE = re.compile(
 # The two git config keys the pipeline retired with #341. Nothing writes them, so a
 # criterion reading one compares against an empty string instead of a base commit.
 RETIRED_BASE_RE = re.compile(r"branch\.[A-Za-z0-9._/-]*\.mmw-base(-branch)?\b")
+# A `grep` — plain, `git grep`, `egrep`, `fgrep` — as the command whose exit code the
+# CHECK hands back. GNU and BSD grep both exit 1 when they selected no line.
+GREP_STAGE_RE = re.compile(r"^(?:git\s+)?[ef]?grep\b")
+COUNT_FLAG_RE = re.compile(r"(?<!\S)(?:--count\b|-[A-Za-z]*c)")
+# Both of the command's streams thrown away, in the four spellings a CHECK uses.
+DISCARDS_BOTH_RE = re.compile(
+    r">\s*/dev/null\s+2>\s*(?:&1|/dev/null)"
+    r"|2>\s*/dev/null\s+>\s*/dev/null"
+    r"|&>\s*/dev/null")
+# An `echo` or `printf` of the exit code as the CHECK's last command.
+ECHOED_EXIT_RE = re.compile(r"^(?:echo|printf)\b.*\$\?")
 
 
 # ----------------------------------------------------------------- ticket text
@@ -2624,6 +2635,88 @@ def lint_retired_base(body: str) -> list[str]:
     return findings
 
 
+def final_stage(check: str) -> str:
+    """The command whose exit code a CHECK's shell hands back: the text after the last
+    `|`, `;` or `&` the shell reads as a separator.
+
+    Quoting is followed, because a grep pattern holds those characters as often as a
+    shell does: `grep -c 'a\\|b' f` is one command, not two.
+    """
+    start, quote, index = 0, "", 0
+    while index < len(check):
+        char = check[index]
+        if quote:
+            if char == "\\" and quote == '"':
+                index += 2
+                continue
+            if char == quote:
+                quote = ""
+        elif char in "'\"":
+            quote = char
+        elif char == "\\":
+            index += 2
+            continue
+        elif char in "|;&":
+            start = index + 1
+        index += 1
+    return check[start:].strip()
+
+
+def expect_satisfied_by(expect: str, text: str) -> bool:
+    """Whether `text` alone satisfies this EXPECT. A plain-text EXPECT is a substring
+    test; a regex one is read with its anchors taken off, which is as far as this file
+    goes into a JavaScript regex."""
+    m = REGEX_EXPECT_RE.match(expect)
+    if not m:
+        return expect == text
+    source = m.group(1)
+    if source.startswith("^"):
+        source = source[1:]
+    if source.endswith("$") and not source.endswith("\\$"):
+        source = source[:-1]
+    return source == text
+
+
+def lint_undecidable_checks(body: str) -> list[str]:
+    """Two CHECK shapes that cannot decide the criterion they are written under.
+
+    A criterion passes on exit 0 and a matched EXPECT together, so a command whose exit
+    code and whose output do not both answer the criterion's question is not a check.
+
+    The first shape ends in a `grep` and expects the output of a run that selected
+    nothing. Measured on #449 AC9 (2026-09-19): `grep -c 'harness-guard' <file>` printed
+    `0`, matched EXPECT `/^0$/m`, exited 1, and the run recorded the criterion unmet with
+    no way for any code to satisfy it.
+
+    The second throws the command's stdout and stderr away and matches a line the CHECK
+    itself echoes from `$?`. Measured on #472 AC6 (2026-09-20): `bash .../run.sh --bogus
+    >/dev/null 2>&1; echo "exit $?"` with EXPECT `/^exit 2$/m` passed on any runner that
+    exits 2, including one with a syntax error, while the criterion's own text asked for
+    a usage line the CHECK had discarded.
+    """
+    findings = []
+    for gate_id, check, expect in criteria_lines(body):
+        stage = final_stage(check)
+        if GREP_STAGE_RE.match(stage):
+            empty_run = "0" if COUNT_FLAG_RE.search(stage) else ""
+            if expect_satisfied_by(expect, empty_run):
+                findings.append(
+                    f"{gate_id}: CHECK ends in `{stage}`, and grep exits 1 when it "
+                    f"selected no line, while EXPECT {expect} is satisfied by exactly "
+                    f"what that run prints. No code can make this criterion pass. Send "
+                    f"the count through a stage of its own — "
+                    f"`... | wc -l | tr -d ' '` — so the exit code is that stage's.")
+        elif ECHOED_EXIT_RE.match(stage) and DISCARDS_BOTH_RE.search(check):
+            findings.append(
+                f"{gate_id}: CHECK sends the command's stdout and stderr to /dev/null "
+                f"and ends in `{stage}`, so EXPECT {expect} is matched by a line the "
+                f"CHECK writes itself from an exit code. Every command that exits that "
+                f"way passes it, including one that failed for another reason. Keep the "
+                f"output — `out=\"$(<command> 2>&1)\"; code=$?` — and require the line "
+                f"the criterion names as well as the code.")
+    return findings
+
+
 def lint_check_effects(body: str) -> list[str]:
     """Which criteria leave the repository or the ticket somewhere new.
 
@@ -3393,6 +3486,10 @@ def lint_criteria(number: int, body: str, labels: list[str],
     for finding in retired_base:
         print("  ERROR " + finding + "  [retired-base]")
     broken = broken + retired_base
+    undecidable = lint_undecidable_checks(body)
+    for finding in undecidable:
+        print("  ERROR " + finding + "  [undecidable-check]")
+    broken = broken + undecidable
     for finding in lint_check_effects(body):
         print("  WARN  " + finding + "  [shared-state]")
     report_worker()
