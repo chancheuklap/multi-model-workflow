@@ -102,6 +102,7 @@ class Repo:
                      if page.startswith("Component · ") else '{}')
             (self.baseline / page).write_text(
                 f'<html><body><button data-ui="fixture.action">Action</button>'
+                f'<input data-ui="fixture.editor">'
                 f'<script type="text/x-dc" data-dc-script data-props=\'{props}\'></script>'
                 f'</body></html>')
         self.spec_dir = self.root / "docs" / "specs" / "x"
@@ -198,6 +199,44 @@ class TestScreenAxis(unittest.TestCase):
             contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertFalse(any("data-ui" in error for error in errors), errors)
 
+    def test_editable_and_aria_controls_without_a_data_ui_id_are_errors(self):
+        page = self.repo.baseline / PAGE_A
+        good = page.read_text()
+        for control in ('<input>', '<div role="checkbox"></div>'):
+            page.write_text(good.replace(
+                '<input data-ui="fixture.editor">', control))
+            errors, _ = self.lint(contract())
+            self.assertTrue(any("data-ui" in error for error in errors),
+                            (control, errors))
+
+    def test_a_hidden_input_without_a_data_ui_id_is_ignored(self):
+        page = self.repo.baseline / PAGE_A
+        page.write_text(page.read_text().replace(
+            '<input data-ui="fixture.editor">', '<input type="hidden">'))
+        errors, _ = self.lint(contract())
+        self.assertFalse(any("input" in error and "data-ui" in error for error in errors),
+                         errors)
+
+    def test_controls_on_one_line_report_distinct_columns(self):
+        page = self.repo.baseline / PAGE_A
+        page.write_text(page.read_text().replace(
+            '<button data-ui="fixture.action">Action</button>',
+            '<button>First</button><button>Second</button>'))
+        errors, _ = self.lint(contract())
+        missing = [error for error in errors if "button has no data-ui" in error]
+        self.assertEqual(len(missing), 2, errors)
+        self.assertNotEqual(missing[0].split(":", 3)[:3], missing[1].split(":", 3)[:3])
+
+    def test_every_page_named_by_scenes_json_must_exist(self):
+        (self.repo.baseline / PAGE_B).unlink()
+        errors, _ = self.lint(contract())
+        self.assertTrue(any(PAGE_B in error and "missing" in error for error in errors), errors)
+
+    def test_pages_not_named_by_scenes_json_are_not_audit_targets(self):
+        (self.repo.baseline / "Overview.dc.html").write_text("<button>Overview</button>")
+        errors, _ = self.lint(contract())
+        self.assertFalse(any("Overview.dc.html" in error for error in errors), errors)
+
     def test_a_component_page_without_a_scene_prop_is_an_error(self):
         page = self.repo.baseline / PAGE_A
         good = page.read_text()
@@ -271,48 +310,54 @@ class TestScreenAxis(unittest.TestCase):
         self.assertTrue(any("create-project.add-material: next 'not-declared'" in error
                             for error in errors), errors)
 
-    def test_duplicate_row_identity_is_an_error(self):
-        skeleton = {
-            "scene_pages": SKELETON["scene_pages"],
-            "table": [
-                {"page": PAGE_A, "id": "create-project.add-material",
-                 "scenes": ["empty"], "interactive": True},
-                {"page": PAGE_A, "id": "create-project.name",
-                 "scenes": ["empty", "material-added"], "interactive": True},
-                {"page": PAGE_B, "id": "shell.sign-in",
-                 "scenes": ["shell-header.ready"], "interactive": True},
-            ],
-        }
+    def test_next_without_states_accepts_only_rows_scenes_and_stay(self):
         doc = contract()
-        for row, trigger in zip(doc["rows"],
-                                ("create-project.add-material", "create-project.name",
-                                 "shell.sign-in")):
-            row["trigger"] = trigger
+        del doc["states"]
+        doc["rows"][2]["next"] = "stay"
+        for value in ("create-project.name", "material-added", "stay"):
+            doc["rows"][0]["next"] = value
+            errors, _ = lc.lint(doc, SKELETON, None)
+            self.assertFalse(any(": next " in error for error in errors), (value, errors))
+        doc["rows"][0]["next"] = "app-awaiting-browser"
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertTrue(any("next 'app-awaiting-browser'" in error for error in errors), errors)
+
+    def test_missing_next_has_an_explicit_diagnostic(self):
+        doc = contract()
+        del doc["rows"][0]["next"]
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertIn("create-project.add-material: next missing (use a row id, scene, state, or stay)",
+                      errors)
+
+    def test_duplicate_row_identity_is_an_error(self):
+        doc = contract()
         duplicate = dict(doc["rows"][0])
         duplicate["id"] = "create-project.add-material-again"
         doc["rows"].append(duplicate)
-        errors, _ = lc.lint(doc, skeleton, None)
+        errors, _ = lc.lint(doc, SKELETON, None)
         self.assertTrue(any("trigger 'create-project.add-material': rows share a precondition"
                             in error for error in errors), errors)
 
         doc = contract()
-        for row, trigger in zip(doc["rows"],
-                                ("create-project.add-material", "create-project.name",
-                                 "shell.sign-in")):
-            row["trigger"] = trigger
         doc["rows"][1]["id"] = doc["rows"][0]["id"]
-        errors, _ = lc.lint(doc, skeleton, None)
+        errors, _ = lc.lint(doc, SKELETON, None)
         self.assertTrue(any("create-project.add-material: duplicate id" in error
                             for error in errors), errors)
 
         doc = contract()
-        for row, trigger in zip(doc["rows"],
-                                ("create-project.add-material", "create-project.name",
-                                 "shell.sign-in")):
-            row["trigger"] = trigger
-        errors, _ = lc.lint(doc, skeleton, None)
+        errors, _ = lc.lint(doc, SKELETON, None)
         self.assertFalse(any("duplicate id" in error or "rows share a precondition" in error
                              for error in errors), errors)
+
+    def test_one_trigger_with_distinct_preconditions_is_clean(self):
+        doc = contract()
+        second = dict(doc["rows"][0])
+        second["id"] = "create-project.add-material-again"
+        second["precondition"] = {"material": "present"}
+        doc["rows"].append(second)
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertFalse(any("rows share a precondition" in error for error in errors), errors)
+
 
 class TestRemovedFields(unittest.TestCase):
     """A deleted field is an error that names the migration note."""
@@ -394,11 +439,18 @@ class TestRemovedFields(unittest.TestCase):
             doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         row_errors, _ = lc.lint(doc, SKELETON, {"paths": {}})
         errors += row_errors
-        for key in ("target", "volatile_values", "readme_dispositions", "route", "page",
-                    "trigger"):
-            self.assertTrue(any(key in error and "removed" in error
-                                and "migration note" in error for error in errors),
-                            (key, errors))
+        expected = (
+            "target was removed",
+            "volatile_values was removed",
+            "readme_dispositions was removed",
+            f"pages: {PAGE_A!r} route was removed",
+            "retired_ids old.save: page was removed",
+            "retired_ids old.save: trigger was removed",
+        )
+        for finding in expected:
+            self.assertTrue(any(finding in error and
+                                "mmw-v2/downstream-notes/494-screen-contract-format.md"
+                                in error for error in errors), (finding, errors))
 
         errors, _ = lc.lint_declarations(
             contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
@@ -437,9 +489,14 @@ class TestCallInventory(unittest.TestCase):
         doc["rows"][0]["calls"] = ["POST /items"]
         openapi = {"paths": {"/items": {"post": {}}, "/orphan": {"get": {}}}}
         errors, _ = lc.lint(doc, SKELETON, openapi)
+        self.assertFalse(any("POST /items" in error for error in errors), errors)
         self.assertTrue(any("GET /orphan" in error and "no row" in error
                             for error in errors), errors)
         doc["backend_without_ui"] = ["GET /orphan — startup refresh"]
+        errors, _ = lc.lint(doc, SKELETON, openapi)
+        self.assertFalse(any("GET /orphan" in error for error in errors), errors)
+        del doc["backend_without_ui"]
+        doc["proposed_operations"] = ["GET /orphan"]
         errors, _ = lc.lint(doc, SKELETON, openapi)
         self.assertFalse(any("GET /orphan" in error for error in errors), errors)
 
@@ -527,6 +584,14 @@ class TestCrossComponentRows(unittest.TestCase):
         errors, _ = lc.lint(doc, self.composed_skeleton(), {"paths": {}})
         self.assertFalse(any("page has no rows" in error for error in errors), errors)
 
+    def test_page_coverage_uses_table_fallback_without_scene_pages(self):
+        skeleton = self.composed_skeleton()
+        del skeleton["scene_pages"]
+        doc = contract()
+        doc["rows"] = [row for row in doc["rows"] if row["trigger"] != "shell.sign-in"]
+        errors, _ = lc.lint(doc, skeleton, {"paths": {}})
+        self.assertTrue(any(f"page has no rows: {PAGE_B}" in error for error in errors), errors)
+
 
 class TestRetiredPrinted(unittest.TestCase):
 
@@ -560,13 +625,28 @@ class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
                     str(fixture / "screen-contract.yaml"),
                     str(fixture / "skeleton.json"),
                 ])
-            self.assertIn(code, (0, 1))
+            self.assertEqual(code, 1)
             self.assertRegex(output.getvalue().splitlines()[-1],
                              r"^\d+ errors, \d+ warnings over 1 rows$")
         finally:
             lc.TOOLS[:] = saved_lc_tools
             if saved_tc is not None:
                 sys.modules["target_config"] = saved_tc
+
+    def test_explicit_tools_forms_reach_main(self):
+        fixture = Path(__file__).resolve().parent / "fixtures" / "removed-fields"
+        forms = (["--tools", str(TOOLS_DIR)], [f"--tools={TOOLS_DIR}"])
+        for form in forms:
+            with self.subTest(form=form):
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    code = lc.main([
+                        str(SCRIPT), *form,
+                        str(fixture / "screen-contract.yaml"),
+                        str(fixture / "skeleton.json"),
+                    ])
+                self.assertEqual(code, 1, output.getvalue())
+                self.assertEqual(lc.TOOLS, [TOOLS_DIR.resolve()])
 
 
 if __name__ == "__main__":

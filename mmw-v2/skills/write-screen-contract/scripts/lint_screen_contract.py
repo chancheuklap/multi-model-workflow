@@ -63,6 +63,11 @@ LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 IMPL_PNG = re.compile(r"^(.+)-(\d+x\d+)-impl\.png$")
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 BREAKPOINT = re.compile(r"@media[^{]*\((?:max|min)-width:\s*(\d+)px\)")
+INTERACTIVE_TAGS = {"button", "input", "select", "textarea"}
+INTERACTIVE_ROLES = {
+    "button", "textbox", "checkbox", "combobox", "link", "tab", "radio", "switch",
+    "slider", "menuitem", "searchbox", "spinbutton",
+}
 
 ROW_KEYS = {
     "id", "component", "trigger", "precondition", "scenes", "calls", "app",
@@ -155,13 +160,8 @@ def source_shape(src: str) -> str:
     return "unknown"
 
 
-def is_http_call(call) -> bool:
-    """A call whose first token is an HTTP method. `ipc …`,
-    `chrome.runtime.sendMessage …`, and `none` are not."""
-    return str(call).partition(" ")[0].upper() in HTTP_METHODS
-
-
 def operation(entry) -> tuple[str, str] | None:
+    """Return the HTTP method/path prefix; non-HTTP calls and `none` return None."""
     parts = str(entry).split()
     if len(parts) < 2 or parts[0].upper() not in HTTP_METHODS:
         return None
@@ -187,28 +187,48 @@ def unknown_keys(value: dict, allowed: set[str]) -> list[str]:
 
 
 def removed_field(location: str, key: str) -> str:
-    return f"{location}{key} was removed; see the migration note for the replacement"
+    return (f"{location}{key} was removed; see migration note "
+            "mmw-v2/downstream-notes/494-screen-contract-format.md for the replacement")
+
+
+def skeleton_scene_pages(skeleton: dict) -> dict[str, str]:
+    declared = skeleton.get("scene_pages") or {}
+    if declared:
+        return {str(scene): str(page) for scene, page in declared.items()}
+    return {str(scene): str(row["page"])
+            for row in skeleton.get("table") or []
+            for scene in row.get("scenes") or []}
 
 
 class HandoffPageParser(HTMLParser):
-    """The two source-level page conventions the renderer cannot inventory."""
+    """Source checks complementing the renderer's inventory."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.controls_without_id: list[tuple[int, str]] = []
+        self.controls_without_id: list[tuple[int, int, str]] = []
         self.props: dict | None = None
 
     def handle_starttag(self, tag: str, attrs) -> None:
         attr = dict(attrs)
         role = str(attr.get("role") or "").lower()
+        style = re.sub(r"\s+", "", str(attr.get("style") or "").lower())
+        hidden = (
+            "hidden" in attr
+            or str(attr.get("aria-hidden") or "").lower() == "true"
+            or (tag == "input" and str(attr.get("type") or "").lower() == "hidden")
+            or "display:none" in style
+            or "visibility:hidden" in style
+            or "opacity:0" in style
+        )
         interactive = (
-            tag in {"button", "input", "select", "textarea"}
+            tag in INTERACTIVE_TAGS
             or (tag == "a" and "href" in attr)
-            or role in {"button", "textbox"}
+            or role in INTERACTIVE_ROLES
             or str(attr.get("contenteditable") or "").lower() == "true"
         )
-        if interactive and not str(attr.get("data-ui") or "").strip():
-            self.controls_without_id.append((self.getpos()[0], tag))
+        if interactive and not hidden and not str(attr.get("data-ui") or "").strip():
+            line, column = self.getpos()
+            self.controls_without_id.append((line, column + 1, tag))
         if tag == "script" and "data-dc-script" in attr:
             raw = attr.get("data-props")
             if raw:
@@ -219,13 +239,18 @@ class HandoffPageParser(HTMLParser):
                 self.props = value if isinstance(value, dict) else None
 
 
-def handoff_page_errors(baseline: Path) -> list[str]:
+def handoff_page_errors(baseline: Path, pages: set[str]) -> list[str]:
     errors: list[str] = []
-    for page in sorted(baseline.glob("*.dc.html")):
+    for page_name in sorted(pages):
+        page = baseline / page_name
+        if not page.is_file():
+            errors.append(f"handoff page missing: {page_name} (named by scenes.json)")
+            continue
         parser = HandoffPageParser()
         parser.feed(page.read_text(encoding="utf-8"))
-        for line, tag in parser.controls_without_id:
-            errors.append(f"{page.name}:{line}: clickable or editable {tag} has no data-ui id")
+        for line, column, tag in parser.controls_without_id:
+            errors.append(
+                f"{page.name}:{line}:{column}: clickable or editable {tag} has no data-ui id")
         if page.name.startswith("Component · ") and not (
                 isinstance(parser.props, dict) and "scene" in parser.props):
             errors.append(f"{page.name}: Component page has no scene prop in data-props")
@@ -253,8 +278,11 @@ def latest_story_out(contract_dir: Path) -> Path | None:
 
 def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                       contract_dir: Path | None) -> tuple[list[str], list[str]]:
-    """Viewports, pages, scenes, target config, and story coverage.
-    Every finding names the key it is about."""
+    """Validate removed/unknown fields, baseline pages, locale, target config,
+    viewports, page/component mappings, scenes, and story coverage.
+
+    Every finding names the key or artifact it is about.
+    """
     errors: list[str] = []
     warnings: list[str] = []
     rows = {str(r.get("id")): r for r in doc.get("rows") or [] if isinstance(r, dict)}
@@ -266,8 +294,6 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
         errors.append("baselines.look is missing")
     elif not baseline.is_dir():
         errors.append(f"baselines.look path does not exist: {baseline}")
-    else:
-        errors.extend(handoff_page_errors(baseline))
     locale = doc.get("locale")
     if not locale:
         errors.append("locale missing (use the product's BCP 47 language tag)")
@@ -297,10 +323,10 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                               f"stylesheets; a render there compares two reflows")
     # -- pages
     pages = doc.get("pages") or {}
-    scene_pages: dict[str, str] = skeleton.get("scene_pages") or {}
-    if not scene_pages:
-        scene_pages = {sc: r["page"] for r in skeleton.get("table") or [] for sc in r["scenes"]}
+    scene_pages = skeleton_scene_pages(skeleton)
     handoff_pages = set(scene_pages.values())
+    if baseline is not None and baseline.is_dir():
+        errors.extend(handoff_page_errors(baseline, handoff_pages))
     component_values = {str(r.get("component")) for r in rows.values() if r.get("component")}
     declared_mounts: dict[str, str] = {}
     component_pages: dict[str, str] = {}
@@ -448,13 +474,14 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
         if not calls:
             errors.append(f"{rid}: calls is empty (use [none])")
         for call in calls:
-            if not is_http_call(call):
+            parsed = operation(call)
+            if parsed is None:
                 if str(call) != "none":
                     warnings.append(
                         f"UNVERIFIED {rid}: no machine-readable source for {call}")
                 continue
-            method, _, path = str(call).partition(" ")
-            accounted.add((method.upper(), path))
+            method, path = parsed
+            accounted.add(parsed)
             known = op_known(method, path)
             if known == "proposed":
                 warnings.append(f"{rid}: call is a proposed operation, not in openapi yet: {call}")
@@ -470,7 +497,9 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             if re.search(r"(?<![\w{])\d+(?![\w}])", str(expr)):
                 errors.append(f"{rid}: shows.{shown} carries a literal number: {expr!r}")
         next_value = str(row.get("next") or "")
-        if next_value not in next_values:
+        if not next_value:
+            errors.append(f"{rid}: next missing (use a row id, scene, state, or stay)")
+        elif next_value not in next_values:
             errors.append(f"{rid}: next {next_value!r} is not a row id, scene, state, or stay")
         app = row.get("app")
         if app:
@@ -530,7 +559,7 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
                      and not str(r["page"]).startswith("App · ")}
     covered_pages.update(str(row.get("app")) for row in rows
                          if isinstance(row, dict) and row.get("app"))
-    all_pages = {str(page) for page in (skeleton.get("scene_pages") or {}).values()}
+    all_pages = set(skeleton_scene_pages(skeleton).values())
     untouched = sorted(all_pages - covered_pages)
     for page, trigger in sorted(controls):
         if trigger not in seen_triggers:
