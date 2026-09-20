@@ -614,7 +614,7 @@ class PullDesign(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("screen contract 没有 `rows`，合同行文字未核对", self.report())
 
-    def test_without_css_the_report_says_selector_check_was_not_run(self):
+    def test_without_css_the_report_says_the_editor_check_was_not_run(self):
         self.preview.files.pop("styles/app.css")
         self.write_manifest()
         result = self.pull()
