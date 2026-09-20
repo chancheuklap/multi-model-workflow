@@ -24,6 +24,7 @@ import sys
 import tempfile
 import time
 from collections import Counter, defaultdict, deque
+from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -2646,8 +2647,7 @@ def lint_check_effects(body: str) -> list[str]:
 
 SCREEN_CONTRACT_ROWS_RE = re.compile(r"screen-contract\.yaml\s+rows?:\s*([^\n]+)")
 FETCH_STUB_RE = re.compile(
-    r"stubGlobal\(\s*['\"]fetch['\"]|(?<![\w-])msw(?![\w-])|"
-    r"(?<![\w-])nock(?=\s*\()|(?<![\w-])fetch-mock(?![\w-])",
+    r"stubGlobal\(\s*['\"]fetch['\"]|\bmsw\b|\bnock\b|\bfetch-mock\b",
     re.IGNORECASE,
 )
 FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
@@ -2803,30 +2803,21 @@ def page_mounts(doc: dict) -> dict[str, str]:
     return out
 
 
-def claimed_rows(row_ids: list[str], doc: dict) -> list[dict]:
-    """The contract rows named by this ticket, in ticket order."""
-    rows = {str(row.get("id") or ""): row for row in doc.get("rows") or []
-            if isinstance(row, dict)}
-    return [rows[rid] for rid in row_ids if rid in rows]
-
-
-def row_page_mount(row: dict, doc: dict) -> tuple[str, str] | None:
-    """The (page, mount) this row makes the ticket claim.
+def row_mount(row: dict, doc: dict) -> str:
+    """The design-page mount this row makes the ticket claim.
 
     Ordinary rows belong to the Component page whose declaration owns their
     `component`. A cross-component row belongs to the App page its `app` column names.
     """
     pages = doc.get("pages") or {}
     app = str(row.get("app") or "")
-    for name, decl in pages.items():
+    if app:
+        return str((pages.get(app) or {}).get("mount") or "")
+    for decl in pages.values():
         decl = decl or {}
-        if app and str(name) == app:
-            mount = str(decl.get("mount") or "")
-            return str(name), mount
-        if not app and str(decl.get("component") or "") == str(row.get("component") or ""):
-            mount = str(decl.get("mount") or "")
-            return str(name), mount
-    return None
+        if str(decl.get("component") or "") == str(row.get("component") or ""):
+            return str(decl.get("mount") or "")
+    return ""
 
 
 def row_needs_boundary(row: dict) -> bool:
@@ -2868,7 +2859,7 @@ def boundary_test_paths(command: str, root: Path) -> list[Path]:
         candidate = Path(value)
         if not candidate.is_absolute():
             candidate = root / candidate
-        if candidate.exists() or value.lower().endswith(TEST_FILE_SUFFIXES):
+        if candidate.is_file() or value.lower().endswith(TEST_FILE_SUFFIXES):
             if candidate not in found:
                 found.append(candidate)
     return found
@@ -2984,16 +2975,16 @@ def load_contract_doc(read_first: str) -> tuple[dict | None, str | None]:
     return load_yaml_file(m.group(1)), m.group(1)
 
 
-def source_findings(row_ids: list[str], doc: dict, read_first: str, parent_text: str) -> list[str]:
+def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
+                    read_first: str, parent_text: str) -> list[str]:
     """Every baseline-class source of an owned row must be in `## Read first`; every
     spec-section source must be named by `## Parent`. A story reaches no worker and is
     reported as such."""
     findings = []
-    rows = {str(r.get("id")): r for r in doc.get("rows") or []}
     parents = parent_sections(parent_text)
     seen: set[str] = set()
     for rid in row_ids:
-        row = rows.get(rid)
+        row = rows_by_id.get(rid)
         if row is None:
             continue
         for src in row.get("source") or []:
@@ -3050,14 +3041,24 @@ def source_findings(row_ids: list[str], doc: dict, read_first: str, parent_text:
     return findings
 
 
-def critical_flows(spec_body: str) -> dict[str, set[int]]:
-    """Flow name → Implementation Decisions sections from Testing Decisions."""
+def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
+    """Flow name → Implementation Decisions sections from Testing Decisions.
+
+    The to-spec contract fixes the information, not whether the flow is on the marker
+    line or a nested line, nor whether the section numbers precede or follow the words
+    `Implementation Decisions`.
+    """
     out: dict[str, set[int]] = {}
+    unreadable: list[str] = []
     active = False
     for line in section(spec_body, "Testing Decisions"):
-        if CRITICAL_FLOWS_RE.search(line):
+        marker = CRITICAL_FLOWS_RE.search(line)
+        if marker:
             active = True
-            continue
+            line = re.sub(r"^\*{0,2}\s*(?:\([^)]*\))?\s*[:：]?\s*", "",
+                          line[marker.end():])
+            if not line:
+                continue
         if not active:
             continue
         if re.match(r"^\s*-\s+\*\*", line):
@@ -3069,38 +3070,44 @@ def critical_flows(spec_body: str) -> dict[str, set[int]]:
         plain = re.match(r"^\s*[-*]\s+([a-z0-9][a-z0-9-]*)\b", line)
         name = (path.group(1) if path else quoted.group(1) if quoted else
                 plain.group(1) if plain else "")
-        decision = re.search(r"Implementation Decisions(.+)$", line)
-        sections = {int(value) for value in re.findall(r"\d+", decision.group(1))} \
-            if decision else set()
+        after = re.search(r"Implementation Decisions\s*(.+)$", line)
+        before = re.search(r"sections?\s+(.+?)\s+of\s+Implementation Decisions", line,
+                           re.IGNORECASE)
+        decision = after.group(1) if after else before.group(1) if before else ""
+        sections = {int(value) for value in re.findall(r"\d+", decision)}
         if name and sections:
             out[name] = sections
-    return out
+        else:
+            unreadable.append(line.strip())
+    return out, unreadable
 
 
-def acceptance_journeys(parent_text: str, spec_bodies: dict[int, str]) -> set[str]:
+def acceptance_journeys(
+    parent_text: str, spec_bodies: dict[int, str]
+) -> tuple[set[str], list[tuple[int, str]]]:
     """Critical-flow journeys whose decision sections this ticket's Parent names."""
     parents = parent_sections(parent_text)
     out: set[str] = set()
+    unreadable: list[tuple[int, str]] = []
     for spec, parent in parents.items():
         body = spec_bodies.get(spec)
         if not body:
             continue
-        for name, required in critical_flows(body).items():
+        flows, bad_lines = critical_flows(body)
+        unreadable.extend((spec, line) for line in bad_lines)
+        for name, required in flows.items():
             if required <= set(parent.get("sections") or ()):
                 out.add(name)
-    return out
+    return out, unreadable
 
 
-def owns_contract_runtime(owns: list[str]) -> bool:
-    """Whether Owns claims the whole `.mmw/` runtime, not one journey or helper."""
-    return any(glob_covers(pattern, ".mmw/target.json")
-               and glob_covers(pattern, ".mmw/stories") for pattern in owns)
-
-
-def lint_screen_contract(body: str, number: int | None = None,
-                         root: Path | str | None = None,
-                         warnings: list[str] | None = None,
-                         spec_bodies: dict[int, str] | None = None) -> list[str]:
+def lint_screen_contract(
+    body: str,
+    number: int | None = None,
+    root: Path | str | None = None,
+    spec_bodies: dict[int, str] | None = None,
+    fetch_spec_body: Callable[[int], str] | None = None,
+) -> tuple[list[str], list[str]]:
     """The interface rules of `to-tickets`, made mechanical.
 
     A `screen-contract.yaml rows: …` line makes this an interface ticket. Its rows
@@ -3117,13 +3124,44 @@ def lint_screen_contract(body: str, number: int | None = None,
     spec-section source is named by `## Parent`.
     """
     findings: list[str] = []
-    warning_findings = warnings if warnings is not None else []
+    warning_findings: list[str] = []
     repo = Path(root) if root is not None else repo_root()
     read_first = "\n".join(section(body, "Read first"))
     parent_text = "\n".join(section(body, "Parent"))
     owns = owns_globs(body)
     checks = criteria_lines(body)
-    acceptance = acceptance_journeys(parent_text, spec_bodies or {})
+    loaded_spec_bodies = dict(spec_bodies or {})
+    acceptance: set[str] | None = None
+    acceptance_readable: bool | None = None
+    unreadable_specs_reported: set[int] = set()
+    contract_runtime = all(
+        any(glob_covers(pattern, required) for pattern in owns)
+        for required in (".mmw/target.json", ".mmw/stories")
+    )
+
+    def load_acceptance_journeys() -> tuple[set[str], bool]:
+        """Read parent specs once; False means at least one could not be read."""
+        readable = True
+        parents = parent_sections(parent_text)
+        for spec in parents:
+            if spec not in loaded_spec_bodies and fetch_spec_body is not None:
+                loaded_spec_bodies[spec] = fetch_spec_body(spec)
+            if not loaded_spec_bodies.get(spec):
+                readable = False
+                if spec not in unreadable_specs_reported:
+                    findings.append(
+                        f"spec #{spec} could not be read, so --lint cannot decide whether "
+                        f"this journey is a Critical flow; restore tracker access and run "
+                        f"--lint again")
+                    unreadable_specs_reported.add(spec)
+        journeys, unreadable_lines = acceptance_journeys(parent_text, loaded_spec_bodies)
+        for spec, line in unreadable_lines:
+            findings.append(
+                f"spec #{spec} Critical flows line `{line}` could not be read, so --lint "
+                f"cannot decide whether this journey needs --break; write the flow name "
+                f"and its Implementation Decisions section numbers")
+        return journeys, readable and not unreadable_lines
+
     for gate_id, check, _ in checks:
         findings.extend(lint_pipeline_flags(gate_id, check))
         if FETCH_STUB_RE.search(check):
@@ -3156,7 +3194,12 @@ def lint_screen_contract(body: str, number: int | None = None,
                 exists_or_owned = any(glob_covers(g, path) for g in owns)
             if not exists_or_owned:
                 findings.append(f"{gate_id}: journey.py run {name} is not under .mmw/journeys/")
-            if journey_has_break or name == "smoke" or owns_contract_runtime(owns):
+                continue
+            if journey_has_break or name == "smoke" or contract_runtime:
+                continue
+            if acceptance is None:
+                acceptance, acceptance_readable = load_acceptance_journeys()
+            if not acceptance_readable:
                 continue
             if name in acceptance:
                 findings.append(
@@ -3174,7 +3217,7 @@ def lint_screen_contract(body: str, number: int | None = None,
         if interface_ticket:
             findings.append("interface ticket (a criterion runs story-parity.py) names no "
                             "`screen-contract.yaml rows: <id, id>` line under `## Read first`")
-        return findings
+        return findings, warning_findings
     row_ids = ROW_ID_RE.findall(m.group(1))
     doc, contract_path = load_contract_doc(read_first)
     if doc is None and contract_path:
@@ -3183,7 +3226,15 @@ def lint_screen_contract(body: str, number: int | None = None,
                         f"source rules did not run")
     if doc is not None:
         mounts_of = page_mounts(doc)
-        rows = claimed_rows(row_ids, doc)
+        rows_by_id = {str(row.get("id") or ""): row for row in doc.get("rows") or []
+                      if isinstance(row, dict)}
+        missing_rows = [row_id for row_id in row_ids if row_id not in rows_by_id]
+        for row_id in missing_rows:
+            findings.append(
+                f"screen-contract.yaml rows names `{row_id}`, but the contract has no such "
+                f"row; no page or boundary requirement can be derived; correct the row id "
+                f"under `## Read first`")
+        rows = [rows_by_id[row_id] for row_id in row_ids if row_id in rows_by_id]
         for gate_id, check, _ in checks:
             if "story-parity.py" not in check:
                 continue
@@ -3195,9 +3246,9 @@ def lint_screen_contract(body: str, number: int | None = None,
         story_mount_set = {mount for _, check, _ in checks for mount in story_mounts(check)}
         expected_pages: dict[str, list[str]] = defaultdict(list)
         for row in rows:
-            page = row_page_mount(row, doc)
-            if page and page[1]:
-                expected_pages[page[1]].append(str(row.get("id") or ""))
+            mount = row_mount(row, doc)
+            if mount:
+                expected_pages[mount].append(str(row.get("id") or ""))
         for mount, ids in expected_pages.items():
             if mount not in story_mount_set:
                 findings.append(
@@ -3206,9 +3257,15 @@ def lint_screen_contract(body: str, number: int | None = None,
                     f"add one story-parity.py criterion whose --pages includes `{mount}`")
 
         boundary_present = False
-        boundary_unverified = False
-        boundary_unreadable = False
-        readable_boundary_files: list[tuple[str, Path, str]] = []
+        missing_boundary_files: list[tuple[str, Path]] = []
+        readable_boundary_files: list[tuple[Path, str]] = []
+
+        def shown(path: Path) -> str:
+            try:
+                return str(path.relative_to(repo))
+            except ValueError:
+                return str(path)
+
         for gate_id, check, _ in checks:
             for command in run_values(check):
                 if not command.strip():
@@ -3216,60 +3273,73 @@ def lint_screen_contract(body: str, number: int | None = None,
                 boundary_present = True
                 paths = boundary_test_paths(command, repo)
                 if not paths:
-                    boundary_unverified = True
-                    warning_findings.append(
-                        f"{gate_id}: boundary-check.py --run names no test file, so the "
-                        f"screen-contract row triggers were not checked; the command may "
-                        f"still build the file later; name the test file in --run")
+                    findings.append(
+                        f"{gate_id}: boundary-check.py --run names no test file, so no "
+                        f"screen-contract trigger can be checked; a boundary criterion must "
+                        f"name the test it runs; add that test file path to --run")
                     continue
                 for path in paths:
                     if not path.exists():
-                        boundary_unverified = True
-                        warning_findings.append(
-                            f"{gate_id}: boundary test file {path} is not written yet, so "
-                            f"its data-ui ids were not checked; batch publication precedes "
-                            f"implementation; write the file with each owned row's trigger")
+                        missing_boundary_files.append((gate_id, path))
                         continue
                     try:
                         text = path.read_text(encoding="utf-8")
-                    except OSError as exc:
-                        boundary_unreadable = True
+                    except (OSError, UnicodeError) as exc:
                         findings.append(
-                            f"{gate_id}: boundary test file {path} could not be read "
+                            f"{gate_id}: boundary test file {shown(path)} could not be read "
                             f"({exc}); an unreadable test cannot prove which rows it covers; "
-                            f"make that file readable and run --lint again")
+                            f"replace it with a readable UTF-8 test file and run --lint again")
                         continue
-                    readable_boundary_files.append((gate_id, path, text))
+                    readable_boundary_files.append((path, text))
 
+        boundary_rows: list[tuple[str, str, str]] = []
         for row in rows:
             if not row_needs_boundary(row):
                 continue
             rid = str(row.get("id") or "")
-            trigger = str(row.get("trigger") or "")
             kind = "cross-component row" if row.get("app") else "screen-contract row"
+            trigger_value = row.get("trigger")
+            if not isinstance(trigger_value, str):
+                findings.append(
+                    f"{kind} {rid} trigger is not a string, so its data-ui id cannot be "
+                    f"checked against a boundary test; the contract row is unreadable to "
+                    f"this rule; write `trigger` as the skeleton's data-ui id string")
+                continue
+            trigger = trigger_value
+            boundary_rows.append((kind, rid, trigger))
             if not boundary_present:
                 findings.append(
                     f"{kind} {rid} has no boundary criterion; its calls/next/app columns "
                     f"require an interaction check; add boundary-check.py --run for the "
                     f"test that exercises `{trigger}`")
                 continue
-            if any(trigger in text for _, _, text in readable_boundary_files):
+            if any(trigger in text for _, text in readable_boundary_files):
                 continue
-            if boundary_unverified or boundary_unreadable:
+            if not readable_boundary_files:
                 continue
-            named = ", ".join(str(path) for _, path, _ in readable_boundary_files)
+            named = ", ".join(shown(path) for path, _ in readable_boundary_files)
             findings.append(
                 f"{kind} {rid} trigger `{trigger}` does not appear in the boundary test "
                 f"file(s) {named or '(none)'}; without the data-ui id no criterion is tied "
                 f"to this row; add `{trigger}` to the test named by boundary-check.py --run")
-        findings.extend(source_findings(row_ids, doc, read_first, parent_text))
-    return findings
+
+        unchecked_rows = [rid for _, rid, trigger in boundary_rows
+                          if not any(trigger in text for _, text in readable_boundary_files)]
+        for gate_id, path in missing_boundary_files:
+            rows_text = ", ".join(unchecked_rows) or "none"
+            warning_findings.append(
+                f"{gate_id}: boundary test file {shown(path)} is not written yet, so rows "
+                f"{rows_text} were not checked for their data-ui ids; batch publication "
+                f"precedes implementation; write the file with each owned row's trigger")
+        findings.extend(source_findings(row_ids, rows_by_id, read_first, parent_text))
+    return findings, warning_findings
 
 
 def lint_criteria(number: int, body: str, labels: list[str],
-                  spec_bodies: dict[int, str] | None = None) -> int:
+                  spec_bodies: dict[int, str] | None = None,
+                  fetch_spec_body: Callable[[int], str] | None = None) -> int:
     """Everything `--lint` says about one ticket's own text: its worker label, how its
-    criteria are written, and the three criterion shapes. The batch graph is not here;
+    criteria are written, and their interface rules. The batch graph is not here;
     `run_lint` checks that once per batch."""
     require_judges(body)
     worker_errors, worker_warnings = lint_worker(labels)
@@ -3312,9 +3382,8 @@ def lint_criteria(number: int, body: str, labels: list[str],
     for finding in bad_timeouts:
         print("  ERROR " + finding + "  [bad-timeout]")
     broken = broken + bad_timeouts
-    contract_warnings: list[str] = []
-    contract_findings = lint_screen_contract(
-        body, number, warnings=contract_warnings, spec_bodies=spec_bodies)
+    contract_findings, contract_warnings = lint_screen_contract(
+        body, number, spec_bodies=spec_bodies, fetch_spec_body=fetch_spec_body)
     for finding in contract_findings:
         print("  ERROR " + finding + "  [screen-contract]")
     for finding in contract_warnings:
@@ -3376,14 +3445,7 @@ def run_lint(number: int) -> int:
             print(f"  ERROR the tracker could not list the children of #{number} "
                   f"({exc})  [sub-issues-unreadable]")
             return 1
-    journey_without_break = any(
-        name != "smoke" and "--break" not in segment_flags(script_segment(check, "journey.py"))
-        for _, check, _ in criteria_lines(body)
-        for name in JOURNEY_NAME_RE.findall(script_segment(check, "journey.py")))
-    parents = parent_sections("\n".join(section(body, "Parent")))
-    spec_bodies = ({spec: fetch_body(spec) for spec in parents}
-                   if journey_without_break else {})
-    ticket_rc = lint_criteria(number, body, labels, spec_bodies)
+    ticket_rc = lint_criteria(number, body, labels, fetch_spec_body=fetch_body)
     graph = lint_ticket_graph(number, body)
     return 1 if (ticket_rc or graph) else 0
 
