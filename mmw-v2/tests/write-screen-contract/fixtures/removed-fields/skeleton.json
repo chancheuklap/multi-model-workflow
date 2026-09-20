@@ -5,9 +5,11 @@
   "table": [
     {
       "page": "Component · Demo.dc.html",
-      "role": "button",
-      "name": "Save",
-      "scenes": ["empty"]
+      "id": "demo.save",
+      "scenes": ["empty"],
+      "interactive": true,
+      "text": ["Save"],
+      "names": ["Save"]
     }
   ]
 }

@@ -2,11 +2,13 @@
 over a small handoff package written into a temporary repository."""
 
 import importlib.util
+import io
 import json
 import os
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "write-screen-contract" / "scripts" / "lint_screen_contract.py"
@@ -26,9 +28,12 @@ SKELETON = {
     "scene_pages": {"empty": PAGE_A, "material-added": PAGE_A, "shell-header.ready": PAGE_B,
                     "library.ready": PAGE_APP},
     "table": [
-        {"page": PAGE_A, "role": "button", "name": "添加商品素材", "scenes": ["empty"]},
-        {"page": PAGE_A, "role": "textbox", "name": "商品名称", "scenes": ["empty", "material-added"]},
-        {"page": PAGE_B, "role": "button", "name": "登录", "scenes": ["shell-header.ready"]},
+        {"page": PAGE_A, "id": "create-project.add-material",
+         "scenes": ["empty"], "interactive": True},
+        {"page": PAGE_A, "id": "create-project.name",
+         "scenes": ["empty", "material-added"], "interactive": True},
+        {"page": PAGE_B, "id": "shell.sign-in",
+         "scenes": ["shell-header.ready"], "interactive": True},
     ],
 }
 
@@ -37,7 +42,6 @@ def contract():
     return {
         "effort": "x",
         "baselines": {"look": "handoff"},
-        "target": {"kind": "electron"},
         "locale": "zh-CN",
         "viewports": ["1440x900", "1180x720"],
         "pages": {
@@ -45,7 +49,7 @@ def contract():
                      "component": "features/project-setup/CreateProjectView"},
             PAGE_B: {"mount": "shell-header",
                      "component": "renderer/components/ShellHeader"},
-            PAGE_APP: {"mount": "library-app", "route": "#/"},
+            PAGE_APP: {"mount": "library-app"},
         },
         "scenes": {
             "empty": {"page": PAGE_A},
@@ -53,22 +57,23 @@ def contract():
             "shell-header.ready": {"page": PAGE_B},
             "library.ready": {"page": PAGE_APP},
         },
+        "states": ["app-awaiting-browser"],
         "rows": [
             {"id": "create-project.add-material",
              "component": "features/project-setup/CreateProjectView",
-             "trigger": {"role": "button", "name": "添加商品素材"}, "precondition": {},
+             "trigger": "create-project.add-material", "precondition": {},
              "scenes": ["empty"], "calls": ["ipc x"], "shows": {}, "next": "material-added",
              "on_failure": {"cancelled": "stay"},
              "source": ["#537 Implementation Decisions 2", "ADR-0021"],
              "gap": "aligned"},
             {"id": "create-project.name",
              "component": "features/project-setup/CreateProjectView",
-             "trigger": {"role": "textbox", "name": "商品名称"}, "precondition": {},
+             "trigger": "create-project.name", "precondition": {},
              "scenes": ["empty", "material-added"], "calls": ["none"], "shows": {},
              "next": "material-added", "source": ["#537 Implementation Decisions 2"],
              "gap": "aligned"},
             {"id": "shell.sign-in", "component": "renderer/components/ShellHeader",
-             "trigger": {"role": "button", "name": "登录"}, "precondition": {},
+             "trigger": "shell.sign-in", "precondition": {},
              "scenes": ["shell-header.ready"], "calls": ["ipc y"], "shows": {},
              "next": "app-awaiting-browser",
              "on_failure": {"failed": "toast"},
@@ -93,7 +98,12 @@ class Repo:
         scenes = [{"name": n, "page": p, "props": {}} for n, p in SKELETON["scene_pages"].items()]
         (self.baseline / "scenes.json").write_text(json.dumps(scenes, ensure_ascii=False))
         for page in (PAGE_A, PAGE_B, PAGE_APP):
-            (self.baseline / page).write_text(f"<html>{page}</html>")
+            props = ('{"scene":{"editor":"enum","options":["ready"]}}'
+                     if page.startswith("Component · ") else '{}')
+            (self.baseline / page).write_text(
+                f'<html><body><button data-ui="fixture.action">Action</button>'
+                f'<script type="text/x-dc" data-dc-script data-props=\'{props}\'></script>'
+                f'</body></html>')
         self.spec_dir = self.root / "docs" / "specs" / "x"
         self.spec_dir.mkdir(parents=True)
         self.contract = self.spec_dir / "screen-contract.yaml"
@@ -121,7 +131,8 @@ class TestScreenAxis(unittest.TestCase):
         return errors, warnings
 
     def test_a_complete_contract_has_no_errors(self):
-        errors, warnings = self.lint(contract())
+        errors, warnings = lc.lint_declarations(
+            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
         self.assertEqual(errors, [])
         self.assertFalse(any("story" in w for w in warnings), warnings)
 
@@ -151,6 +162,55 @@ class TestScreenAxis(unittest.TestCase):
         self.assertTrue(any("1100 is a breakpoint" in e for e in errors))
         doc["viewports"] = ["1440x900"]
         self.assertFalse(any("breakpoint" in e for e in self.lint(doc)[0]))
+
+    def test_a_missing_handoff_package_path_is_an_error(self):
+        for child in sorted(self.repo.baseline.rglob("*"), reverse=True):
+            child.unlink() if child.is_file() else child.rmdir()
+        self.repo.baseline.rmdir()
+        errors, _ = self.lint(contract())
+        self.assertTrue(any("baselines.look" in error and "does not exist" in error
+                            for error in errors), errors)
+
+    def test_a_contract_without_locale_is_an_error(self):
+        doc = contract()
+        del doc["locale"]
+        errors, _ = self.lint(doc)
+        self.assertTrue(any("locale" in error and "missing" in error for error in errors),
+                        errors)
+        doc["locale"] = "not a locale"
+        errors, _ = self.lint(doc)
+        self.assertTrue(any("locale" in error and "BCP 47" in error for error in errors),
+                        errors)
+        doc["locale"] = "en"
+        errors, _ = self.lint(doc)
+        self.assertFalse(any("locale" in error for error in errors), errors)
+
+    def test_a_clickable_control_without_a_data_ui_id_is_an_error(self):
+        page = self.repo.baseline / PAGE_A
+        good = page.read_text()
+        page.write_text(good.replace(' data-ui="fixture.action"', ""))
+        errors, _ = lc.lint_declarations(
+            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any(PAGE_A in error and "button" in error and "data-ui" in error
+                            for error in errors), errors)
+        page.write_text(good)
+        errors, _ = lc.lint_declarations(
+            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("data-ui" in error for error in errors), errors)
+
+    def test_a_component_page_without_a_scene_prop_is_an_error(self):
+        page = self.repo.baseline / PAGE_A
+        good = page.read_text()
+        page.write_text(good.replace(
+            '{"scene":{"editor":"enum","options":["ready"]}}', '{}'))
+        errors, _ = lc.lint_declarations(
+            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertTrue(any(PAGE_A in error and "scene prop" in error for error in errors),
+                        errors)
+        page.write_text(good)
+        errors, _ = lc.lint_declarations(
+            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("scene prop" in error for error in errors), errors)
 
     def test_every_page_declares_mount(self):
         doc = contract()
@@ -193,8 +253,69 @@ class TestScreenAxis(unittest.TestCase):
         doc["scenes"]["empty"]["page"] = PAGE_B
         self.assertTrue(any("scenes.json has" in e for e in self.lint(doc)[0]))
 
+    def test_next_rejects_unknown_and_accepts_rows_scenes_states_and_stay(self):
+        doc = contract()
+        doc["states"] = ["app-awaiting-browser"]
+        allowed = [
+            "create-project.name",
+            "material-added",
+            "app-awaiting-browser",
+            "stay",
+        ]
+        for value in allowed:
+            doc["rows"][0]["next"] = value
+            errors, _ = lc.lint(doc, SKELETON, None)
+            self.assertFalse(any(": next " in error for error in errors), (value, errors))
+        doc["rows"][0]["next"] = "not-declared"
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertTrue(any("create-project.add-material: next 'not-declared'" in error
+                            for error in errors), errors)
+
+    def test_duplicate_row_identity_is_an_error(self):
+        skeleton = {
+            "scene_pages": SKELETON["scene_pages"],
+            "table": [
+                {"page": PAGE_A, "id": "create-project.add-material",
+                 "scenes": ["empty"], "interactive": True},
+                {"page": PAGE_A, "id": "create-project.name",
+                 "scenes": ["empty", "material-added"], "interactive": True},
+                {"page": PAGE_B, "id": "shell.sign-in",
+                 "scenes": ["shell-header.ready"], "interactive": True},
+            ],
+        }
+        doc = contract()
+        for row, trigger in zip(doc["rows"],
+                                ("create-project.add-material", "create-project.name",
+                                 "shell.sign-in")):
+            row["trigger"] = trigger
+        duplicate = dict(doc["rows"][0])
+        duplicate["id"] = "create-project.add-material-again"
+        doc["rows"].append(duplicate)
+        errors, _ = lc.lint(doc, skeleton, None)
+        self.assertTrue(any("trigger 'create-project.add-material': rows share a precondition"
+                            in error for error in errors), errors)
+
+        doc = contract()
+        for row, trigger in zip(doc["rows"],
+                                ("create-project.add-material", "create-project.name",
+                                 "shell.sign-in")):
+            row["trigger"] = trigger
+        doc["rows"][1]["id"] = doc["rows"][0]["id"]
+        errors, _ = lc.lint(doc, skeleton, None)
+        self.assertTrue(any("create-project.add-material: duplicate id" in error
+                            for error in errors), errors)
+
+        doc = contract()
+        for row, trigger in zip(doc["rows"],
+                                ("create-project.add-material", "create-project.name",
+                                 "shell.sign-in")):
+            row["trigger"] = trigger
+        errors, _ = lc.lint(doc, skeleton, None)
+        self.assertFalse(any("duplicate id" in error or "rows share a precondition" in error
+                             for error in errors), errors)
+
 class TestRemovedFields(unittest.TestCase):
-    """A deleted field on a row, or `route` on a non-App page, is an error that names it."""
+    """A deleted field is an error that names the migration note."""
 
     def setUp(self):
         lc.TOOLS[:] = [TOOLS_DIR]
@@ -205,7 +326,8 @@ class TestRemovedFields(unittest.TestCase):
 
     def lint(self, doc):
         e1, w1 = lc.lint(doc, SKELETON, None)
-        e2, w2 = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        e2, w2 = lc.lint_declarations(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         return e1 + e2, w1 + w2
 
     def test_a_row_with_observe_or_after_is_an_error(self):
@@ -224,15 +346,17 @@ class TestRemovedFields(unittest.TestCase):
         errors, _ = self.lint(doc)
         self.assertTrue(any("mount" in e and "empty" in e for e in errors), errors)
 
-    def test_a_non_app_page_with_route_is_an_error(self):
+    def test_a_removed_page_route_is_an_error(self):
         doc = contract()
         doc["pages"][PAGE_A]["route"] = "#/new-project"
         errors, _ = self.lint(doc)
         self.assertTrue(any("route" in e and PAGE_A in e for e in errors), errors)
         doc = contract()
+        doc["rows"][0]["app"] = PAGE_APP
+        doc["rows"][0]["next"] = "shell-header.ready"
         self.assertEqual(self.lint(doc)[0], [])
 
-    def test_story_coverage_warns_when_a_page_scene_is_missing(self):
+    def test_story_coverage_warns_for_app_pages_too(self):
         older = self.repo.spec_dir / "story-shots-old" / "media"
         older.mkdir(parents=True)
         for name in ("empty", "material-added", "shell-header.ready"):
@@ -243,17 +367,42 @@ class TestRemovedFields(unittest.TestCase):
         media.mkdir(parents=True)
         (media / "empty-1440x900-impl.png").write_bytes(b"x")
         (media / "shell-header.ready-1440x900-impl.png").write_bytes(b"x")
-        errors, warnings = self.lint(contract())
+        errors, warnings = lc.lint_declarations(
+            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
         story = [w for w in warnings if w.startswith("story coverage:")]
         self.assertEqual(story, [
+            f"story coverage: {PAGE_APP} scenes library.ready are not "
+            f"in the latest element parity --out inventory",
             f"story coverage: {PAGE_A} scenes material-added are not "
-            f"in the latest story-parity --out inventory",
+            f"in the latest element parity --out inventory",
         ], warnings)
         self.assertFalse(any("empty" in w and "story coverage:" in w for w in warnings),
                          warnings)
         self.assertFalse(any("shell-header.ready" in w for w in warnings), warnings)
-        self.assertFalse(any("library.ready" in w for w in warnings), warnings)
+        self.assertTrue(any("library.ready" in w for w in warnings), warnings)
         self.assertFalse(any("story" in e for e in errors), errors)
+
+    def test_a_removed_key_is_an_error_naming_the_migration_note(self):
+        doc = contract()
+        doc["target"] = {"kind": "web-spa"}
+        doc["volatile_values"] = []
+        doc["readme_dispositions"] = []
+        doc["pages"][PAGE_A]["route"] = "/create"
+        doc["retired_ids"] = [{"id": "old.save", "note": "retired",
+                                "page": PAGE_A, "trigger": "create-project.save"}]
+        errors, _ = lc.lint_declarations(
+            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        row_errors, _ = lc.lint(doc, SKELETON, {"paths": {}})
+        errors += row_errors
+        for key in ("target", "volatile_values", "readme_dispositions", "route", "page",
+                    "trigger"):
+            self.assertTrue(any(key in error and "removed" in error
+                                and "migration note" in error for error in errors),
+                            (key, errors))
+
+        errors, _ = lc.lint_declarations(
+            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+        self.assertFalse(any("removed" in error for error in errors), errors)
 
 
 class TestSources(unittest.TestCase):
@@ -277,6 +426,107 @@ class TestSources(unittest.TestCase):
             self.assertNotEqual(lc.source_shape(src), "unknown", src)
         self.assertEqual(lc.source_shape("#537 story 2"), "story")
 
+    def test_a_conversation_source_is_accepted(self):
+        self.assertEqual(lc.source_shape("conversation 2026-09-19 — states confirmed"),
+                         "conversation")
+
+
+class TestCallInventory(unittest.TestCase):
+    def test_an_operation_with_no_row_and_no_entry_is_an_error(self):
+        doc = contract()
+        doc["rows"][0]["calls"] = ["POST /items"]
+        openapi = {"paths": {"/items": {"post": {}}, "/orphan": {"get": {}}}}
+        errors, _ = lc.lint(doc, SKELETON, openapi)
+        self.assertTrue(any("GET /orphan" in error and "no row" in error
+                            for error in errors), errors)
+        doc["backend_without_ui"] = ["GET /orphan — startup refresh"]
+        errors, _ = lc.lint(doc, SKELETON, openapi)
+        self.assertFalse(any("GET /orphan" in error for error in errors), errors)
+
+    def test_a_non_http_call_is_unverified_and_not_red(self):
+        errors, warnings = lc.lint(contract(), SKELETON, {"paths": {}})
+        self.assertFalse(any("ipc x" in error or "ipc y" in error for error in errors), errors)
+        self.assertEqual([warning for warning in warnings if warning.startswith("UNVERIFIED")], [
+            "UNVERIFIED create-project.add-material: no machine-readable source for ipc x",
+            "UNVERIFIED shell.sign-in: no machine-readable source for ipc y",
+        ])
+
+    def test_without_an_openapi_the_reverse_sweep_is_unverified(self):
+        errors, warnings = lc.lint(contract(), SKELETON, None)
+        self.assertFalse(any("reverse sweep" in error for error in errors), errors)
+        self.assertTrue(any(warning.startswith("UNVERIFIED") and "reverse sweep" in warning
+                            and "machine-readable interface inventory" in warning
+                            for warning in warnings), warnings)
+
+
+class TestCommandOutput(unittest.TestCase):
+    def setUp(self):
+        lc.TOOLS[:] = [TOOLS_DIR]
+        self.repo = Repo()
+
+    def tearDown(self):
+        self.repo.cleanup()
+
+    def run_lint(self, doc):
+        doc = json.loads(json.dumps(doc))
+        doc["baselines"]["look"] = "handoff"
+        self.repo.contract.write_text(lc.yaml.safe_dump(doc, allow_unicode=True))
+        skeleton = self.repo.spec_dir / "skeleton.json"
+        skeleton.write_text(json.dumps(SKELETON, ensure_ascii=False))
+        argv = [str(SCRIPT), str(self.repo.contract), str(skeleton)]
+        openapi_path = self.repo.spec_dir / "openapi.json"
+        openapi_path.write_text(json.dumps({"paths": {}}))
+        argv.append(str(openapi_path))
+        output = io.StringIO()
+        with redirect_stdout(output):
+            code = lc.main(argv)
+        return code, output.getvalue().splitlines()
+
+    def test_a_clean_contract_exits_0_with_the_count_line(self):
+        doc = contract()
+        doc["rows"][0]["app"] = PAGE_APP
+        doc["rows"][0]["next"] = "shell-header.ready"
+        code, lines = self.run_lint(doc)
+        self.assertEqual(code, 0, lines)
+        self.assertRegex(lines[-1], r"^0 errors, \d+ warnings over 3 rows$")
+
+
+class TestCrossComponentRows(unittest.TestCase):
+    def composed_skeleton(self):
+        skeleton = json.loads(json.dumps(SKELETON))
+        skeleton["table"].append({
+            "page": PAGE_APP,
+            "id": "create-project.add-material",
+            "scenes": ["library.ready"],
+            "interactive": True,
+        })
+        return skeleton
+
+    def test_a_cross_component_row_pointing_at_another_region_is_clean(self):
+        doc = contract()
+        doc["rows"][0]["app"] = PAGE_APP
+        doc["rows"][0]["next"] = "shell-header.ready"
+        errors, _ = lc.lint(doc, self.composed_skeleton(), {"paths": {}})
+        self.assertEqual(errors, [])
+
+    def test_a_cross_component_row_pointing_at_its_own_region_is_an_error(self):
+        doc = contract()
+        doc["rows"][0]["app"] = PAGE_APP
+        doc["rows"][0]["next"] = "material-added"
+        errors, _ = lc.lint(doc, self.composed_skeleton(), {"paths": {}})
+        self.assertTrue(any("create-project.add-material: cross-component next" in error
+                            and PAGE_A in error for error in errors), errors)
+
+    def test_a_design_page_with_no_row_is_an_error(self):
+        doc = contract()
+        errors, _ = lc.lint(doc, self.composed_skeleton(), {"paths": {}})
+        self.assertTrue(any(f"page has no rows: {PAGE_APP}" in error for error in errors),
+                        errors)
+        doc["rows"][0]["app"] = PAGE_APP
+        doc["rows"][0]["next"] = "shell-header.ready"
+        errors, _ = lc.lint(doc, self.composed_skeleton(), {"paths": {}})
+        self.assertFalse(any("page has no rows" in error for error in errors), errors)
+
 
 class TestRetiredPrinted(unittest.TestCase):
 
@@ -289,7 +539,7 @@ class TestRetiredPrinted(unittest.TestCase):
 class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
     """The lint finds ui-acceptance `target_config.py` with TOOLS empty."""
 
-    def test_finds_ui_acceptance_without_tools(self):
+    def test_the_lint_runs_without_tools(self):
         expected = (
             Path(__file__).resolve().parents[2]
             / "skills" / "ui-acceptance" / "scripts" / "target_config.py"
@@ -303,12 +553,16 @@ class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
             tc = lc.target_config_mod()
             self.assertEqual(Path(tc.__file__).resolve(), expected)
             fixture = Path(__file__).resolve().parent / "fixtures" / "removed-fields"
-            code = lc.main([
-                str(SCRIPT),
-                str(fixture / "screen-contract.yaml"),
-                str(fixture / "skeleton.json"),
-            ])
+            output = io.StringIO()
+            with redirect_stdout(output):
+                code = lc.main([
+                    str(SCRIPT),
+                    str(fixture / "screen-contract.yaml"),
+                    str(fixture / "skeleton.json"),
+                ])
             self.assertIn(code, (0, 1))
+            self.assertRegex(output.getvalue().splitlines()[-1],
+                             r"^\d+ errors, \d+ warnings over 1 rows$")
         finally:
             lc.TOOLS[:] = saved_lc_tools
             if saved_tc is not None:

@@ -17,8 +17,7 @@ Without it this file finds that directory beside this skill under `skills/`. The
 Rules are the tables in ../references/screen-contract-format.md.
 
 Printed on every run, before the findings: each `retired_ids` entry with its note,
-and each `volatile_values` entry with its reason — the two kinds of exclusion the
-judges honour, kept in sight so they are never a silent allowance.
+kept in sight so a retired identity is never a silent allowance.
 """
 from __future__ import annotations
 
@@ -28,6 +27,7 @@ import os
 import re
 import sys
 from contextlib import redirect_stderr, redirect_stdout
+from html.parser import HTMLParser
 from pathlib import Path
 
 _BOOTSTRAP = "MMW_LINT_CONTRACT_BOOTSTRAPPED"
@@ -59,21 +59,24 @@ GAPS = {"aligned", "design-only", "backend-only"}
 ID = re.compile(r"^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$")
 MOUNT = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 VIEWPORT = re.compile(r"^(\d+)x(\d+)$")
+LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 IMPL_PNG = re.compile(r"^(.+)-(\d+x\d+)-impl\.png$")
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 BREAKPOINT = re.compile(r"@media[^{]*\((?:max|min)-width:\s*(\d+)px\)")
 
 ROW_KEYS = {
-    "id", "component", "trigger", "precondition", "scenes", "calls",
+    "id", "component", "trigger", "precondition", "scenes", "calls", "app",
     "shows", "next", "on_failure", "source", "gap",
 }
 SCENE_KEYS = {"page"}
-PAGE_KEYS = {"mount", "component", "route"}
+PAGE_KEYS = {"mount", "component"}
 TOP_KEYS = {
-    "effort", "baselines", "target", "locale", "viewports", "pages", "scenes", "rows",
-    "retired_ids", "volatile_values", "readme_dispositions",
+    "effort", "baselines", "locale", "viewports", "pages", "scenes", "states", "rows",
+    "retired_ids",
     "backend_without_ui", "proposed_operations",
 }
+REMOVED_TOP_KEYS = {"target", "volatile_values", "readme_dispositions"}
+REMOVED_PAGE_KEYS = {"route"}
 
 HERE = Path(__file__).resolve().parent
 # The ui-acceptance skill sits beside this one under `skills/`; `--tools` overrides that.
@@ -134,6 +137,7 @@ def target_file_problem(repo: Path) -> tuple[str, str] | None:
 # The shapes a `source` may take. A story is legal for the audit trail and warned on:
 # no worker ever reads a story, so a behaviour decided only there reaches nobody.
 SOURCE_SHAPES = (
+    ("conversation", re.compile(r"^conversation \d{4}-\d{2}-\d{2}\b")),
     ("story", re.compile(r"^#\d+ story \d+")),
     ("spec-section", re.compile(r"^#\d+ (Implementation Decisions|Testing Decisions)\b")),
     ("ticket", re.compile(r"^#\d+(\s|$)")),
@@ -157,6 +161,13 @@ def is_http_call(call) -> bool:
     return str(call).partition(" ")[0].upper() in HTTP_METHODS
 
 
+def operation(entry) -> tuple[str, str] | None:
+    parts = str(entry).split()
+    if len(parts) < 2 or parts[0].upper() not in HTTP_METHODS:
+        return None
+    return parts[0].upper(), parts[1]
+
+
 def repo_root(contract: Path) -> Path:
     for parent in [contract.resolve()] + list(contract.resolve().parents):
         if (parent / ".git").exists():
@@ -173,6 +184,52 @@ def stylesheet_breakpoints(baseline: Path) -> set[int]:
 
 def unknown_keys(value: dict, allowed: set[str]) -> list[str]:
     return sorted(k for k in value if k not in allowed)
+
+
+def removed_field(location: str, key: str) -> str:
+    return f"{location}{key} was removed; see the migration note for the replacement"
+
+
+class HandoffPageParser(HTMLParser):
+    """The two source-level page conventions the renderer cannot inventory."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.controls_without_id: list[tuple[int, str]] = []
+        self.props: dict | None = None
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        attr = dict(attrs)
+        role = str(attr.get("role") or "").lower()
+        interactive = (
+            tag in {"button", "input", "select", "textarea"}
+            or (tag == "a" and "href" in attr)
+            or role in {"button", "textbox"}
+            or str(attr.get("contenteditable") or "").lower() == "true"
+        )
+        if interactive and not str(attr.get("data-ui") or "").strip():
+            self.controls_without_id.append((self.getpos()[0], tag))
+        if tag == "script" and "data-dc-script" in attr:
+            raw = attr.get("data-props")
+            if raw:
+                try:
+                    value = json.loads(raw)
+                except json.JSONDecodeError:
+                    value = None
+                self.props = value if isinstance(value, dict) else None
+
+
+def handoff_page_errors(baseline: Path) -> list[str]:
+    errors: list[str] = []
+    for page in sorted(baseline.glob("*.dc.html")):
+        parser = HandoffPageParser()
+        parser.feed(page.read_text(encoding="utf-8"))
+        for line, tag in parser.controls_without_id:
+            errors.append(f"{page.name}:{line}: clickable or editable {tag} has no data-ui id")
+        if page.name.startswith("Component · ") and not (
+                isinstance(parser.props, dict) and "scene" in parser.props):
+            errors.append(f"{page.name}: Component page has no scene prop in data-props")
+    return errors
 
 
 def latest_story_out(contract_dir: Path) -> Path | None:
@@ -201,8 +258,21 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
     errors: list[str] = []
     warnings: list[str] = []
     rows = {str(r.get("id")): r for r in doc.get("rows") or [] if isinstance(r, dict)}
-    for key in unknown_keys(doc, TOP_KEYS):
+    for key in sorted(REMOVED_TOP_KEYS & set(doc)):
+        errors.append(removed_field("", key))
+    for key in unknown_keys(doc, TOP_KEYS | REMOVED_TOP_KEYS):
         errors.append(f"{key} is not a contract field")
+    if baseline is None:
+        errors.append("baselines.look is missing")
+    elif not baseline.is_dir():
+        errors.append(f"baselines.look path does not exist: {baseline}")
+    else:
+        errors.extend(handoff_page_errors(baseline))
+    locale = doc.get("locale")
+    if not locale:
+        errors.append("locale missing (use the product's BCP 47 language tag)")
+    elif not LOCALE.match(str(locale)):
+        errors.append(f"locale {locale!r} is not a BCP 47 language tag")
     # -- target runtime
     if contract_dir is not None:
         problem = target_file_problem(repo_root(Path(contract_dir)))
@@ -220,7 +290,7 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                 errors.append(f"viewports entry {vp!r} is not WIDTHxHEIGHT")
             else:
                 widths.append(int(m.group(1)))
-    if baseline is not None and widths:
+    if baseline is not None and baseline.is_dir() and widths:
         for w in widths:
             if w in stylesheet_breakpoints(baseline):
                 errors.append(f"viewports: width {w} is a breakpoint of the handoff "
@@ -242,7 +312,9 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
         if not isinstance(decl, dict):
             errors.append(f"pages: {page!r} must be a mapping")
             continue
-        for key in unknown_keys(decl, PAGE_KEYS):
+        for key in sorted(REMOVED_PAGE_KEYS & set(decl)):
+            errors.append(removed_field(f"pages: {page!r} ", key))
+        for key in unknown_keys(decl, PAGE_KEYS | REMOVED_PAGE_KEYS):
             errors.append(f"pages: {page!r} {key} is not a contract field")
         if page not in handoff_pages:
             errors.append(f"pages: {page!r} is not a page of scenes.json")
@@ -254,8 +326,6 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                           f"and {page!r}")
         else:
             declared_mounts[mount] = page
-        if decl.get("route") and not page.startswith("App · "):
-            errors.append(f"pages: {page!r} is not an App page and must not have route")
         if page.startswith("Component · "):
             comp = str(decl.get("component") or "")
             if not comp:
@@ -289,9 +359,7 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
         if page != scene_pages[name]:
             errors.append(f"scenes: {name!r} page {page!r} but scenes.json has "
                           f"{scene_pages[name]!r}")
-    # -- story coverage: the newest story-parity --out under the contract dir.
-    # App pages are outside this warning: story-parity.py --pages takes only
-    # non-App mounts, so an App-page miss can never be repaired.
+    # -- story coverage: the newest element-parity --out under the contract dir.
     if contract_dir is not None:
         media = latest_story_out(contract_dir)
         if media is not None:
@@ -299,15 +367,13 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                     if p.is_file() and (m := IMPL_PNG.match(p.name))}
             by_page: dict[str, list[str]] = {}
             for sname, page in scene_pages.items():
-                if page.startswith("App · "):
-                    continue
                 by_page.setdefault(page, []).append(sname)
             for page, names in sorted(by_page.items()):
                 missing = [n for n in names if n not in seen]
                 if missing:
                     warnings.append(
                         f"story coverage: {page} scenes {', '.join(missing)} are not "
-                        f"in the latest story-parity --out inventory")
+                        f"in the latest element parity --out inventory")
     return errors, warnings
 
 
@@ -318,24 +384,26 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
     rows = doc.get("rows") or []
     retired_entries = [e if isinstance(e, dict) else {"id": e} for e in doc.get("retired_ids") or []]
     retired = {str(e.get("id")) for e in retired_entries}
-    retired_triggers = {(e["trigger"].get("role"), e["trigger"].get("name"))
-                        for e in retired_entries if isinstance(e.get("trigger"), dict)}
-    for e in retired_entries:
-        t = e.get("trigger")
-        if isinstance(t, dict) and not e.get("page"):
-            pages_with = {r["page"] for r in skeleton["table"]
-                          if (r["role"], r["name"]) == (t.get("role"), t.get("name"))}
-            if len(pages_with) > 1:
-                warnings.append(f"retired {e.get('id')}: trigger {t.get('role')} {t.get('name')!r} "
-                                f"exists on {len(pages_with)} pages and the entry names no `page`; "
-                                f"the judges would hide it everywhere")
-    triggers: dict[tuple[str, str], set[str]] = {}
+    for entry in retired_entries:
+        for key in ("page", "trigger"):
+            if key in entry:
+                errors.append(removed_field(f"retired_ids {entry.get('id')}: ", key))
+    triggers: dict[str, set[str]] = {}
     for r in skeleton["table"]:
-        triggers.setdefault((r["role"], r["name"]), set()).update(r["scenes"])
-    ops = ({(m.upper(), p) for p, methods in openapi["paths"].items() for m in methods}
-           if openapi else None)
-    proposed = {tuple(str(o).split(" ", 1)) for o in doc.get("proposed_operations") or []}
-    proposed = {(m.upper(), p) for m, p in proposed}
+        triggers.setdefault(str(r["id"]), set()).update(r["scenes"])
+    ops = ({(m.upper(), p) for p, methods in openapi.get("paths", {}).items()
+            for m in methods if m.upper() in HTTP_METHODS}
+           if openapi is not None else None)
+    proposed = {parsed for raw in doc.get("proposed_operations") or []
+                if (parsed := operation(raw)) is not None}
+    accounted = set(proposed)
+    accounted.update(parsed for raw in doc.get("backend_without_ui") or []
+                     if (parsed := operation(raw)) is not None)
+    region_pages: dict[str, set[str]] = {}
+    for entry in skeleton["table"]:
+        region = str(entry.get("id") or "").partition(".")[0]
+        if region:
+            region_pages.setdefault(region, set()).add(str(entry.get("page") or ""))
 
     def op_known(method: str, path: str) -> str:
         if ops is not None and (method.upper(), path) in ops:
@@ -345,7 +413,13 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
         return "no"
 
     seen_ids: set[str] = set()
-    seen_triggers: dict[tuple[str, str], list[dict]] = {}
+    seen_triggers: dict[str, list[dict]] = {}
+    next_values = {
+        "stay",
+        *(str(row.get("id")) for row in rows if isinstance(row, dict) and row.get("id")),
+        *(str(name) for name in (doc.get("scenes") or {})),
+        *(str(name) for name in (doc.get("states") or [])),
+    }
     for row in rows:
         if not isinstance(row, dict):
             errors.append(f"{row!r}: row must be a mapping")
@@ -360,24 +434,27 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
         seen_ids.add(rid)
         if rid in retired:
             errors.append(f"{rid}: id is in retired_ids and still has a row")
-        t = row.get("trigger") or {}
-        key = (t.get("role"), t.get("name"))
-        if key not in triggers:
-            errors.append(f"{rid}: trigger {key[0]} {key[1]!r} not in handoff skeleton")
+        trigger = str(row.get("trigger") or "")
+        if trigger not in triggers:
+            errors.append(f"{rid}: trigger {trigger!r} not in handoff skeleton")
         else:
             if not (row.get("scenes") or []):
                 warnings.append(f"{rid}: scenes is [] — the handoff shows no scene for this precondition")
             for sc in row.get("scenes") or []:
-                if sc not in triggers[key]:
+                if sc not in triggers[trigger]:
                     errors.append(f"{rid}: scene {sc!r} does not show this trigger in the skeleton")
-        seen_triggers.setdefault(key, []).append(row.get("precondition") or {})
+        seen_triggers.setdefault(trigger, []).append(row.get("precondition") or {})
         calls = row.get("calls") or []
         if not calls:
             errors.append(f"{rid}: calls is empty (use [none])")
         for call in calls:
             if not is_http_call(call):
+                if str(call) != "none":
+                    warnings.append(
+                        f"UNVERIFIED {rid}: no machine-readable source for {call}")
                 continue
             method, _, path = str(call).partition(" ")
+            accounted.add((method.upper(), path))
             known = op_known(method, path)
             if known == "proposed":
                 warnings.append(f"{rid}: call is a proposed operation, not in openapi yet: {call}")
@@ -392,6 +469,27 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
                 errors.append(f"{rid}: shows.{shown} names no field@operation: {expr!r}")
             if re.search(r"(?<![\w{])\d+(?![\w}])", str(expr)):
                 errors.append(f"{rid}: shows.{shown} carries a literal number: {expr!r}")
+        next_value = str(row.get("next") or "")
+        if next_value not in next_values:
+            errors.append(f"{rid}: next {next_value!r} is not a row id, scene, state, or stay")
+        app = row.get("app")
+        if app:
+            if app not in (doc.get("pages") or {}) or not str(app).startswith("App · "):
+                errors.append(f"{rid}: app {app!r} is not a declared App page")
+            next_decl = (doc.get("scenes") or {}).get(next_value)
+            if not isinstance(next_decl, dict):
+                errors.append(f"{rid}: cross-component next {next_value!r} must name a scene")
+            else:
+                region = trigger.partition(".")[0]
+                owners = region_pages.get(region, set()) - {str(app)}
+                next_page = str(next_decl.get("page") or "")
+                if not owners:
+                    errors.append(f"{rid}: trigger region {region!r} belongs to no skeleton page")
+                elif len(owners) > 1:
+                    errors.append(f"{rid}: trigger region {region!r} appears on multiple skeleton pages")
+                elif next_page in owners:
+                    errors.append(f"{rid}: cross-component next {next_value!r} points to its own "
+                                  f"region page {next_page}")
         sources = row.get("source") or []
         if not sources:
             errors.append(f"{rid}: source is empty")
@@ -407,26 +505,38 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             elif shape == "unknown":
                 warnings.append(f"{rid}: source {s!r} has no recognised shape (#n, "
                                 f"#n Implementation Decisions k, ADR-nnnn, docs/…, README §, "
-                                f"code:…)")
+                                f"code:…, conversation YYYY-MM-DD)")
         gap = row.get("gap")
         if gap not in GAPS:
             errors.append(f"{rid}: gap {gap!r} not one of {sorted(GAPS)}")
         elif gap != "aligned":
             errors.append(f"{rid}: gap {gap} unresolved")
 
-    for key, pres in seen_triggers.items():
+    if ops is None:
+        warnings.append(
+            "UNVERIFIED no machine-readable interface inventory; reverse sweep was not run")
+    else:
+        for method, path in sorted(ops - accounted):
+            errors.append(f"reverse sweep: {method} {path} has no row, backend_without_ui, "
+                          "or proposed_operations entry")
+
+    for trigger, pres in seen_triggers.items():
         if len(pres) > 1 and len({json.dumps(p, sort_keys=True, ensure_ascii=False) for p in pres}) < len(pres):
-            errors.append(f"trigger {key[0]} {key[1]!r}: rows share a precondition")
-    controls = {(r["page"], r["role"], r["name"]) for r in skeleton["table"]}
-    covered_pages = {page for page, role, name in controls if (role, name) in seen_triggers}
-    untouched = sorted({r["page"] for r in skeleton["table"]} - covered_pages)
-    for page, role, name in sorted(controls):
-        if (role, name) in retired_triggers:
-            continue
-        if page in covered_pages and (role, name) not in seen_triggers:
-            errors.append(f"skeleton control without a row: {page} / {role} {name!r}")
+            errors.append(f"trigger {trigger!r}: rows share a precondition")
+    controls = {(str(r["page"]), str(r["id"])) for r in skeleton["table"]
+                if r.get("interactive")}
+    covered_pages = {str(r["page"]) for r in skeleton["table"]
+                     if str(r["id"]) in seen_triggers
+                     and not str(r["page"]).startswith("App · ")}
+    covered_pages.update(str(row.get("app")) for row in rows
+                         if isinstance(row, dict) and row.get("app"))
+    all_pages = {str(page) for page in (skeleton.get("scene_pages") or {}).values()}
+    untouched = sorted(all_pages - covered_pages)
+    for page, trigger in sorted(controls):
+        if trigger not in seen_triggers:
+            errors.append(f"skeleton control without a row: {page} / {trigger}")
     for page in untouched:
-        warnings.append(f"page has no rows yet: {page}")
+        errors.append(f"page has no rows: {page}")
     return errors, warnings
 
 
@@ -437,21 +547,6 @@ def retired_lines(doc: dict) -> list[str]:
             out.append(f"RETIRED {e.get('id')}: {e.get('note') or '(no note)'}")
         else:
             out.append(f"RETIRED {e}: (no note)")
-    return out
-
-
-def volatile_lines(doc: dict) -> list[str]:
-    out = []
-    for e in doc.get("volatile_values") or []:
-        if not isinstance(e, dict):
-            out.append(f"VOLATILE {e}: (no reason)")
-            continue
-        trigger = e.get("trigger") or {}
-        page = e.get("page") or "(no page)"
-        role = trigger.get("role") or "?"
-        name = trigger.get("name") or ""
-        reason = e.get("reason") or "(no reason)"
-        out.append(f'VOLATILE {page} {role} "{name}": {reason}')
     return out
 
 
@@ -480,11 +575,7 @@ def main(argv: list[str]) -> int:
     openapi = json.loads(Path(argv[3]).read_text(encoding="utf-8")) if len(argv) == 4 else None
     look = (doc.get("baselines") or {}).get("look")
     baseline = (repo_root(contract) / look) if look else None
-    if baseline is not None and not baseline.exists():
-        baseline = None
     for line in retired_lines(doc):
-        print(line)
-    for line in volatile_lines(doc):
         print(line)
     errors, warnings = lint(doc, skeleton, openapi)
     e2, w2 = lint_declarations(doc, skeleton, baseline, contract.resolve().parent)
