@@ -12,7 +12,7 @@
 每份说明固定这三个标题字面，按这个顺序：
 
 - `## 改了什么`。
-- `## 哪些产物失效`：consuming repository 里哪些产物因此失效，按 `## 什么改动必须写一份` 的三类点名；target trees 随 screen contract 一起。
+- `## 哪些产物失效`：consuming repository 里哪些产物因此失效，按 `## 什么改动必须写一份` 的三类点名。
 - `## 怎么迁`：能一条命令说清的就给命令，说不清的给判断依据。
 
 文件名是造成这次改动的 ticket 号加一个 slug（`158-drive-target-judges.md`）。索引每行 `[<文件>](<文件>) — mmw #<n>`。
@@ -40,3 +40,6 @@
 - [472-skill-renamed-design-pages.md](472-skill-renamed-design-pages.md) — mmw #472
 - [473-handoff-package-by-pull.md](473-handoff-package-by-pull.md) — mmw #473
 - [476-design-project-claude-md.md](476-design-project-claude-md.md) — mmw #476
+- [491-skill-renamed-write-screen-contract.md](491-skill-renamed-write-screen-contract.md) — mmw #491
+- [492-skeleton-by-data-ui-id.md](492-skeleton-by-data-ui-id.md) — mmw #492
+- [494-screen-contract-format.md](494-screen-contract-format.md) — mmw #494

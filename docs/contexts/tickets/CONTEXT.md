@@ -101,7 +101,7 @@ The end-to-end behaviour this ticket makes work, from the user's point of view, 
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Read first`**:
-The sources the ticket's spec subsections cite, `None` when there are none. Each item is read to its conclusion before work: a research file's last section, an ADR's decision (its `# ` heading and the prose under it), a handoff package, a prototype's leaf README.md to its verdict. Items that record a settled conclusion are baselines and are marked as such on their line. On an interface ticket the rest of the section is derived rather than hand-picked, from the row ids this ticket owns: the baseline sources those rows cite, and the target trees of its design pages. It is re-read at the Audit, and searched before a helper is written.
+The sources the ticket's spec subsections cite, `None` when there are none. Each item is read to its conclusion before work: a research file's last section, an ADR's decision (its `# ` heading and the prose under it), a handoff package, a prototype's leaf README.md to its verdict. Items that record a settled conclusion are baselines and are marked as such on their line. On an interface ticket the rest of the section is derived rather than hand-picked, from the row ids this ticket owns: `scenes.json` and every baseline-class `source` of those rows, deduplicated by document. The values the worker writes toward are the ones the story judge renders from the handoff package. It is re-read at the Audit, and searched before a helper is written.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **baseline**:
