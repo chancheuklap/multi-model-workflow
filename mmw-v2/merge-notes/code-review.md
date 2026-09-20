@@ -18,17 +18,17 @@
 | 第 4 步 Spec subagent prompt 的 brief（Missing、Scope creep、Built wrong 三类，每条引 spec 原文） | `references/spec-reviewer.md` 第 3 节与末节 What is not yours | 三类保留，引用来源从「ticket 或 spec」扩到「ticket、spec 或 baseline」：baseline 既不是 ticket 也不是 spec，不扩这一句，第 2 节读出来的 baseline 偏离会被这一节自己的引用规则否掉。加了一条我们自己的禁令，首句把范围钉在 handoff package 这一件东西上——「The handoff package is the one baseline you do not open」：不读 handoff package（位置以 ticket 的 `## Read first` 为准），照不照它由某条 acceptance criterion 跑的 `story-parity.py` 判，是像素与 accessibility tree 比对，不是读出来的。范围不钉住，这段就是 Spec axis 关于 `## Read first` 收到的唯一一句话，读起来像整节都不许碰；钉住之后哪些 baseline 要读由第 2 节正面说，这里不再反过来补一遍。上游改 brief → 收上游，这条禁令与它的范围限定一并保留 |
 | 第 4 步「把 smell baseline 全文粘进 subagent prompt」 | 退场 | 上游让 dispatcher 把 smell baseline 粘进 prompt。我们让轴 subagent 自己走技能的轴门、读 reference file：粘贴会产生第二份副本，与 reference file 里的那份各自漂移。`references/session.md` 第 2 节明写 prompt 只含技能名、ticket、base commit、axis 名 |
 | 第 5 步 aggregate（两份 report 分列、不合并不重排、末尾一行汇总） | `references/session.md` 第 5 节 | 「不合并、不跨 axis 重排」原样保留。落点从「present 给 user」改成写到 ticket 上，成为一条 review comment，first line 固定 `REVIEW <base commit>..<HEAD commit>`：reviewer session 会结束，修它的 worker 读的是 ticket。写这条 comment 的是 `verify-ticket` 技能的 `--review`，不是 `gh issue comment`，理由见下面「报告和报信是同一次调用」。上游改这一步 → 收上游对 report 形状的措辞，落点与调用方式按我们的 |
-| 「Why two axes」 | `references/session.md` 末尾的「Why three axes」 | 多一行 Tests axis 的对照 |
+| 「Why two axes」 | `references/session.md` 末尾的「Default axes and the UI pilot」 | 三个默认 axis 加一个试点 UI axis；不另起 verifier（ADR 0026）。上游改这一节 → 收上游对照写法，三个默认、UI 试点条件、ADR 0026 一并保留 |
 | 末节「What you do not do」的修法一句 | `references/session.md` 末节 | 改成「修法在 `implement`：in-ticket 修一轮，其余开 `finding` child」。上游写的是「three-round cap」，而 `implement` 的收尾不数轮次。上游改这句 → 收上游措辞，不带回任何轮次上限 |
 | 无 | `references/session.md` 第 4 节（in-ticket / out-of-ticket 分类） | 我们加的。六条算 in-ticket：碰本 ticket 的 acceptance criteria、碰 ticket 点名的 spec 决策、碰 ticket `## Read first` 里的 baseline、碰 spec 的 `## Out of Scope`、碰 spec 的 `## Testing Decisions`、碰本 ticket `## Owns` 之内的文件；其余是 out-of-ticket。后两条是白天规划的一部分，落地内容要与白天规划一致：`## Out of Scope` 是白天写的「这次不做」，列在那里却做了是 Spec axis 最清楚的 `Scope creep`，归 out-of-ticket 就只开一张不阻塞的 sub-issue、越界代码随票合并；`## Testing Decisions` 定的是测试层与 precedent，偏离它的测试同样该当晚修。dispatcher 做这个分类而不是留给读者，因为两类的下一步不同——in-ticket 修一轮，out-of-ticket 由 worker 开成本票的 `finding` child（`--sub-issue finding`，mmw #315 第 3 节前叫 `review`）且不阻塞，不按属于谁分流；worker 开、reviewer 列。上游重写 §4 → 本票 parent 与 `--sub-issue finding` 保留，第六条与「`## Owns` 之外仍然不许改」按文末那一节取舍。baseline、`## Out of Scope`、`## Testing Decisions` 三条与 `references/spec-reviewer.md` 第 2 节让 Spec axis 读它们是一对，拆开做无效：dispatcher 按这一句的字面条件路由，只加读不改这里，baseline 偏离会被判成 out-of-ticket、开一个不阻塞的 sub-issue，本 ticket 照样关掉。怎么修不在这里，在 `implement` 的 closing steps：in-ticket 修一轮，out-of-ticket 开 sub-issue，轮次不设上限 |
 | 无 | `references/spec-reviewer.md` 第 2 节读 `DECISIONS` 的那一句、第 3 节的 `Decisions` 一条、第 4 节的分组；`references/session.md` 第 4 节 `should not` 归 in-ticket 的那一段 | 我们加的：Spec axis 读票上最新的 `DECISIONS` 评论（worker 在派 reviewer 之前留的，两节：`Decisions I made on my own` 与 `Outside Owns`），对每一条给一句判断——`reasonable`（票或 spec 没写全、这是它们最可能要的补救）或 `should not`（违背票、点名 spec 小节、`## Out of Scope` 或 baseline 的某一行，引原文）；`should not` 是三类之一的 review finding，dispatcher 归 in-ticket，worker 走已有的修一轮。理由：这两类东西不一定是错，常常正说明票写得不全，该由 reviewer 判，不合理的当晚修掉而不是早上才有人看。上游若给 Spec axis 加同类判断 → 收上游措辞，读 `DECISIONS` 与 `should not` 归 in-ticket 保留 |
-| 无 | `references/spec-reviewer.md` 末节「The screen contract you do open」之后的两段：「The contract's screen axis you open too」与「The story adapter you open too」；`references/tests-reviewer.md` 范围段之后确认 `boundary-check.py` 的一条 | 我们加的：Spec axis 仍审画面轴，并核对 story adapter 与合同 `shows` 的字段对应；Tests axis 确认边界测试经 `boundary-check.py`，不自判能否变红。来自 mmw #115 与 #216 第 8 节。上游改这两处 → 收上游措辞，画面轴 / adapter / boundary-check 三条保留 |
+| 无 | `references/spec-reviewer.md` 末节 handoff 与 story adapter 两段；`references/tests-reviewer.md` 范围段之后读 boundary 与 journey 断言的一条；`references/ui-reviewer.md` 整份 | 我们改的，来自 #447 第 9 节：handoff package 仍不打开，理由改为外观由 element parity 判定；story adapter 只查每个 `shows` 名都是组件的一个属性，接口字段是否喂对由 boundary test 判；Tests axis 读 boundary test 与 journey 的断言本身，不因 judge 已判过就跳过，不为防存心作弊加标记文件，journey 探测 break switch 由读断言时看。UI axis 见下方专节。上游改这几处 → 收上游措辞，这几条规则保留 |
 | 无 | `references/tests-reviewer.md` 整个文件 | 我们加的第三个 axis，见下一节 |
-| 第 6 行 dispatcher 段与第 2 节标题、首段 | `SKILL.md` 的两扇门与 `references/session.md` 第 2 节 | 我们改的：会话自称 `reviewer session`，三个轴是 host 自带的通用 subagent，再调一次本技能并带上 axis 名（`Standards` / `Spec` / `Tests`），不写 model、不写路径。第 8 行原有 `When either is missing, ask for it.` 删去：`dispatch.sh` 起 reviewer 时两个值必带，而 reviewer 与等它的 worker 之间只有票上 `^REVIEW ` 一条通道，问不到人，屏幕上一张 form 只会被 board 关掉。上游改这两处 → 收上游措辞，通用 subagent、再调本技能、不问值这三条保留 |
-| frontmatter 的 `description` | `SKILL.md` 第 3 行，改写了 | 收窄成两扇门：一张 ticket、一个 base commit、三个 axis；轴 subagent 再给一个 axis 名。末句给的是这个技能要的值，不写调用形状（理由见末节）。上游那句招揽「review a branch / a PR / review since X」的用法在正文里没有落点。上游改这一行 → 收上游对三个 axis 的措辞，两扇门与 ticket number 保留 |
+| 第 6 行 dispatcher 段与第 2 节标题、首段 | `SKILL.md` 的两扇门与 `references/session.md` 第 2 节 | 我们改的：会话自称 `reviewer session`，默认三个轴是 host 自带的通用 subagent，再调一次本技能并带上 axis 名（`Standards` / `Spec` / `Tests`），ticket 有 story criterion 时再起 `UI`，不写 model、不写路径。`SKILL.md` 入口表加一行 axis UI → `references/ui-reviewer.md`。第 8 行原有 `When either is missing, ask for it.` 删去：`dispatch.sh` 起 reviewer 时两个值必带，而 reviewer 与等它的 worker 之间只有票上 `^REVIEW ` 一条通道，问不到人，屏幕上一张 form 只会被 board 关掉。上游改这两处 → 收上游措辞，通用 subagent、再调本技能、不问值、UI 入口行这几条保留 |
+| frontmatter 的 `description` | `SKILL.md` 第 3 行，改写了 | 收窄成两扇门：一张 ticket、一个 base commit、三个默认 axis，ticket 有 story criterion 时加 UI；轴 subagent 再给一个 axis 名（含 `UI`）。末句给的是这个技能要的值，不写调用形状（理由见末节）。上游那句招揽「review a branch / a PR / review since X」的用法在正文里没有落点。上游改这一行 → 收上游对默认三个 axis 的措辞，两扇门、ticket number、UI 条件保留 |
 | 第 1 步「say which one it was and stop」 | `references/session.md` 第 1 节，改写了 | base commit 解析不了或 diff 为空时，也要写到 ticket 上，走第 5 节同一条通道，first line 仍是 `REVIEW <base commit>..<HEAD commit>`，正文一行说是哪一种失败。理由是同一份文件末尾自己写的原则（只存在于 session 里的 report 谁也读不到），而 worker 在票上只找 first line `^REVIEW `：不写 ticket，它什么也找不到。两条失败路径与成功路径同一条通道，所以「报告落地」与「告诉 worker」在这三种结局下都不会各走各的。上游改这一步 → 收上游的判断，写到 ticket 上与走同一条通道这两条保留 |
 | 无 | `references/session.md` 第 2 节末尾一段 | 我们加的：要求 dispatcher 在三个 axis subagent 都回话之前不结束回合，并对「subagent 默认后台跑」的 host 明写要等。措辞按能力说，不点 host 名。理由是第 5 节那一次调用——它贴出报告并在同一次调用里报信，那是叫醒 worker 的唯一一条路；中途结束回合时报告还没写出来，那一次调用也就还没发生，等它的 worker 只剩下反复问。上游若写明并行 subagent 的等待语义 → 收上游措辞，「不在中途结束回合」保留，理由不要写成「session 停下来本身会叫醒 worker」——那不是真的 |
-| 第 2 步 subagent 表里的 reference 路径 | `SKILL.md` 的轴门与 `references/session.md` 第 2 节 | 不再把绝对路径交给 subagent。prompt 是一句 `Use the code-review skill … axis <Name>`，轴门用相对链接指向三份 reference。上游改这张表 → 收上游的行，不写路径、再调本技能按我们的 |
+| 第 2 步 subagent 表里的 reference 路径 | `SKILL.md` 的轴门与 `references/session.md` 第 2 节 | 不再把绝对路径交给 subagent。prompt 是一句 `Use the code-review skill … axis <Name>`，轴门用相对链接指向各 axis 的 reference（含 UI 的 `ui-reviewer.md`）。上游改这张表 → 收上游的行，不写路径、再调本技能、UI 入口行按我们的 |
 | 第 3 步 identify the standards sources 的来源清单 | `references/standards-reviewer.md` 第 2 节，加了一条 | 加 `codebase-design` 技能的 `SKILL.md`（按技能名点名，不写安装路径，subagent 从自己 host 装技能的位置解析）：`to-tickets` 把「接口是不是 pass-through」这类判断路由到 Standards axis，路由的终点得存在，而 depth / seam / adapter 这套 vocabulary 只在那个技能里。上游把这套 vocabulary 接进来 → 收上游措辞 |
 | 无 | `references/standards-reviewer.md` 第 3 节末尾的 deletion test，与第 4 节的对应一行 | 我们加的：判 depth 的那一条，措辞照抄 `codebase-design/SKILL.md` 的 deletion test（删掉这个模块，复杂度是消失还是在 N 个调用方那里重新出现）。与 code smell 同级，是 judgement call，「The repository overrides」同样管它 |
 | 每个 axis brief 末尾的字数上限 | 三份 reference file 各自的 report 段 | 我们改的：report 的长度由 finding 数决定——每条 finding 一项、带引用行，不是 finding 的不写；不设字数上限。上游改 report 格式 → 收上游格式，字数上限不收 |
@@ -42,7 +42,15 @@
 
 两条禁令写在文件末尾，都有出处：不报 coverage（`tdd/SKILL.md` 的「Test only at pre-agreed seams」——这条 landing pipeline 故意不追 coverage），不追加 ticket 上没有的 acceptance criterion（一个 axis 自设通过标准，正是 `## Acceptance criteria` 这一节存在要防的事）。
 
-审哪些测试文件不由 dispatcher 告诉它：subagent 自己 `gh issue view`，从每条 `CHECK:` 里点名的测试文件与用例名取出清单，清单之外的测试文件仍可报但归 out-of-ticket。
+审哪些测试文件不由 dispatcher 告诉它：subagent 自己 `gh issue view`，从每条 `CHECK:` 里点名的测试文件与用例名取出清单，再加上 `boundary-check.py` 的 `--run` 产品测试与 `journey.py` 的 journey 脚本；清单之外的测试文件仍可报但归 out-of-ticket。读这些断言本身，不因 judge 已判过就跳过；不为防存心作弊加标记文件。
+
+## UI axis（试点）
+
+`references/ui-reviewer.md` 是新文件。`SKILL.md` 入口表加一行 axis UI → 这份文件。`references/session.md` 第 2 步：ticket 有 story criterion（`CHECK:` 点名 `story-parity.py`）时再起第四个 subagent，prompt 形状与其他三个相同；第 5 步报告多一节 `## UI`；末节改写成三个默认 axis 加一个试点 axis，并写明不另起 verifier（ADR 0026）。试点期内默认仍是三个 axis；去留只改入口表与 `session.md`。
+
+文件内容：只读；跑该票 story criterion 并加 `--out`，看最终提交的 story 截图与像素差异图，找 element parity 覆盖不到的问题（没带 `data-ui` id 的装饰、整体观感、design page 自己画错）；每张 interface ticket 一次，不进 worker 的 `DIFF` 反复修改循环；发现由 session 第 4 节分拣。类别是 `undecorated`、`overall-look`、`design-page`。引用是仓库里的 `path:line` 或 story criterion 的 `CHECK` 证据，不是 `--out` 下的临时 PNG。
+
+上游加同类第四轴 → 与这份合并还是并列，看它问的是不是「element parity 覆盖不到的外观」；并列则入口表与第 2 步再加一行。上游删掉三个默认轴的对照段 → 三个默认、UI 试点条件、ADR 0026 仍写回「Default axes and the UI pilot」。
 
 ## 报告和报信是同一次调用
 
@@ -68,7 +76,7 @@ session 报告已经落地。记号与另外三个调用方一致，都写 `<eng
 
 1. 拿到冲突后，先看上游改的是哪一步，对着上表第一列找到它现在住在哪里。落在某个 axis 的 reference file 里的，把改动搬进那个文件；落在 dispatcher 步骤里的，改 `references/session.md`；落在门口分门上的，改 `SKILL.md`。
 2. 上游给 `SKILL.md` 加了新的一步：它是 dispatcher 的动作就进 `references/session.md`，是某一个 axis 要照的规则就进那个 axis 的 reference file。
-3. 上游加了第三个 axis：与我们的 Tests axis 合并还是并列，看它问的是不是同一个问题；并列的话 `SKILL.md` 的轴门和 `references/session.md` 第 2 节都要加一行。
+3. 上游加了第三个 axis：与我们的 Tests axis 合并还是并列，看它问的是不是同一个问题；并列的话 `SKILL.md` 的轴门和 `references/session.md` 第 2 节都要加一行。UI axis 是试点第四轴，只由 story criterion 打开；去留只改 `SKILL.md` 入口表与 `session.md`。
 4. `SKILL.md` 只做分门，不含 smell baseline 正文与任何 subagent brief 原文。收上游时这些进了门口，就是有 axis 要照的规则没搬进 reference file。
 5. frontmatter 的 `description` 不带引号（值里没有冒号加空格）。Markdown 文件一律英文，不写出处、不写落地记录。`references/` 下 axis 各一份，dispatcher 的步骤在 `references/session.md`，门口在 `SKILL.md`。
 
@@ -92,12 +100,11 @@ files. The axis subagent is told to use this skill and which axis; it is not han
 `references/spec-reviewer.md`, same section, two more paragraphs after the screen-contract
 one. **The story page**: every mount the ticket's story criterion names under `--pages` is
 declared by the contract's `pages`, and the diff puts `[data-story-root]` on the root of
-that design page's block. **The story adapter**: every field a row's `shows` column names
-appears in the product's adapter from `scenes.json` to the surface component's props,
-pointing at the same source field. Reason: `story-parity.py` compares a rendered story
-against the design page offline, so a mount the contract does not declare and an adapter
-reading the wrong field both come back as a pixel or tree difference with no name on it;
-this axis is where they get one. Neither paragraph mentions `--mount`, the contract's
+that design page's block. **The story adapter**: each name in a row's `shows` column is a property of
+the surface component; whether the interface field that feeds the shown value is
+the right field is the boundary test's, not this axis's. Reason: requiring the
+adapter to point at a backend source field is a check the story page cannot
+satisfy. A `shows` name that is not a component property is **Built wrong**. Neither paragraph mentions `--mount`, the contract's
 `open` chain, the addressing self-check or interface parity — those are retired words
 (`docs/adr/0011-component-story-not-whole-product.md`), and an axis file that names them
 sends every later review down a path the tools no longer have. If upstream rewrites that
@@ -126,25 +133,25 @@ or the sorting step → keep both the four-angle pass and this ownership rule.
 
 ### docs page
 
-`mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`. Its opening sentence carries the same capability branch as `session.md` § 2: subagents where the host can run them, the three axis files run in sequence by the session where it cannot.
+`mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`. During the UI pilot that page still describes the three default axes; UI lives in the `SKILL.md` door table and `session.md`. If UI is kept after the pilot, put it on the docs page too. Its opening sentence carries the same capability branch as `session.md` § 2: subagents where the host can run them, the axis files run in sequence by the session where it cannot.
 
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |
 | --- | --- |
-| `interface.short_description` | 改成「一张 ticket 的 diff」加三个 axis，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
+| `interface.short_description` | 改成「一张 ticket 的 diff」加三个默认 axis 与 UI，与 `SKILL.md` 的 `description` 同一个形态。上游改这一行 → 收上游措辞，axis 数与 ticket 按我们的 |
 
 ## Active reviewer Rules stay in the session contract
 
-`references/session.md` gained an **Active Rules** section after **Why three axes**. It states that a stable reviewer Rule is applied only within its stated scope, every finding still needs a current source, and repository-specific standards remain repository authority and checks rather than a global Rule. The start prompt in `dispatch.sh` is the verbatim packet from `docs/notes/stage-two-shared-experience-layer.md` “### 8. reviewer 的独立性”; this file is the session contract that packet binds to, not a second copy of the packet.
+`references/session.md` gained an **Active Rules** section after **Default axes and the UI pilot**. It states that a stable reviewer Rule is applied only within its stated scope, every finding still needs a current source, and repository-specific standards remain repository authority and checks rather than a global Rule. The start prompt in `dispatch.sh` is the verbatim packet from `docs/notes/stage-two-shared-experience-layer.md` “### 8. reviewer 的独立性”; this file is the session contract that packet binds to, not a second copy of the packet.
 
-The three axis steps, the verification step, the in-ticket / out-of-ticket sort, and `--review` reporting stay as they are. `code-review` does not search ordinary Memory. Upstream sentences in those steps were kept; MMW only added the Rule-scope and current-source bound.
+The axis steps, the verification step, the in-ticket / out-of-ticket sort, and `--review` reporting stay as they are. `code-review` does not search ordinary Memory. Upstream sentences in those steps were kept; MMW only added the Rule-scope and current-source bound.
 
-If upstream rewrites `session.md` → take its wording for the existing steps, put the Active Rules section back after Why three axes, and do not add Memory retrieval.
+If upstream rewrites `session.md` → take its wording for the existing steps, put the Active Rules section back after Default axes and the UI pilot, and do not add Memory retrieval.
 
 ## Review findings carry axis categories and sources
 
-`references/session.md` section 5 fixes every `## In-ticket` and `## Out-of-ticket` entry as `- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>`, with any unverified statement appended on that line. The category is the narrowest classification the axis already owns: Standards uses `documented-standard`, `less-code`, `pass-through` or the original smell name; Spec uses `Missing`, `Scope creep` or `Built wrong`; Tests uses the six names from its test smell baseline. The retro environment-improvement categories remain separate, and equal categories do not prove an equal cause.
+`references/session.md` section 5 fixes every `## In-ticket` and `## Out-of-ticket` entry as `- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>`, with any unverified statement appended on that line. The category is the narrowest classification the axis already owns: Standards uses `documented-standard`, `less-code`, `pass-through` or the original smell name; Spec uses `Missing`, `Scope creep` or `Built wrong`; Tests uses the six names from its test smell baseline; UI uses `undecorated`, `overall-look` or `design-page`. The retro environment-improvement categories remain separate, and equal categories do not prove an equal cause. The report includes a `## UI` section when that axis ran.
 
 Reason: the retro can aggregate review evidence only when the ticket preserves both the reviewer's classification and the source that established the claim. A category without its source is not evidence; a source without the category forces the retro to infer the axis's judgement from prose.
 
@@ -152,7 +159,7 @@ If upstream rewrites the report format → keep the category and source fields o
 
 ## A host that cannot run subagents
 
-`references/session.md` section 2 gained the capability branch, in the form `manage-agents-md/references/survey.md` § Dispatch already uses: a host that can run subagents starts three at once; one that cannot runs the three axis files itself, one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The opening paragraph states the same branch. The section heading is `Run the three axes`. The launch and prompt sentences are marked as the can-run path. Hold-the-turn waits until all three axis reports exist. The axis file's read-only rule binds the axis pass; step 5 still writes the review comment. Reason: a reviewer session on a host without subagents had no path (spec #374 Implementation Decisions section 3). If upstream rewrites section 2 → take its wording and put the capability branch back.
+`references/session.md` section 2 gained the capability branch, in the form `manage-agents-md/references/survey.md` § Dispatch already uses: a host that can run subagents starts three at once, and a fourth (UI) when the ticket has a story criterion; one that cannot runs those axis files itself, one after another, writing each axis report to a file before opening the next, so no report depends on memory of the previous one. The opening paragraph states the same branch. The section heading is `Run the axes`. The launch and prompt sentences are marked as the can-run path. Hold-the-turn waits until every axis the session started has reported. The axis file's read-only rule binds the axis pass; step 5 still writes the review comment. Reason: a reviewer session on a host without subagents had no path (spec #374 Implementation Decisions section 3). If upstream rewrites section 2 → take its wording and put the capability branch back, including the UI start condition.
 
 ## The session verifies every finding before it sorts
 
