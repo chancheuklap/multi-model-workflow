@@ -1,8 +1,8 @@
 ## What it does
 
-`code-review` reviews one ticket's committed diff from a fixed base commit along three axes. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the ticket and its named spec sections asked for, including interactions with tickets already integrated into the base branch. **Tests** asks whether the ticket's checks prove their stated behavior. On a host that can run subagents each axis runs in its own [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent) so none sees another's reasoning; on a host that cannot, the session runs the three axis files itself one after another, writing each report to a file before opening the next.
+`code-review` reviews one ticket's committed diff from a fixed base commit along three default axes, plus a pilot UI axis. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the ticket and its named spec sections asked for, including interactions with tickets already integrated into the base branch. **Tests** asks whether the ticket's checks prove their stated behavior. On a host that can run subagents each axis runs in its own [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent) so none sees another's reasoning; on a host that cannot, the session runs the three axis files itself one after another, writing each report to a file before opening the next.
 
-The three axes are never merged and never re-ranked. The report ends with a worst issue *per axis* and refuses to name a single winner across them, because a change can pass one axis and fail another: code that follows every convention while implementing the wrong thing passes Standards and fails Spec; code that does the right thing with a test that would pass either way fails Tests. A blended verdict lets a passing axis hide a failing one.
+Those axes are never merged and never re-ranked. The report ends with a worst issue *per axis* and refuses to name a single winner across them, because a change can pass one axis and fail another: code that follows every convention while implementing the wrong thing passes Standards and fails Spec; code that does the right thing with a test that would pass either way fails Tests. A blended verdict lets a passing axis hide a failing one.
 
 ## When to reach for it
 
@@ -17,7 +17,7 @@ Type `/code-review`, or the agent reaches for it automatically when you ask to r
 | The whole codebase has drifted, not one diff | [improve-codebase-architecture](https://aihero.dev/skills-improve-codebase-architecture) |
 | Something is broken and you do not know why | [diagnosing-bugs](https://aihero.dev/skills-diagnosing-bugs) |
 
-The caller supplies the ticket number and fixed base commit. The skill checks that the ref resolves and the diff is non-empty before spawning anything, so a bad commit fails before three sub-agents are started.
+The caller supplies the ticket number and fixed base commit. The skill checks that the ref resolves and the diff is non-empty before spawning anything, so a bad commit fails before the axis sub-agents are started.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ The Spec axis needs a spec to exist and be findable. It looks in this order:
 
 Step 1 depends on `docs/agents/issue-tracker.md`, which [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) writes. Without it the axis still works if you hand it a path. With no spec at all, the Spec sub-agent is skipped and the report says "no spec available" rather than inventing requirements.
 
-## The three axes
+## The axes
 
 | | Standards | Spec | Tests |
 | --- | --- | --- | --- |
@@ -57,7 +57,7 @@ This is the most reported problem with the skill, and it is not fixed. Claude Co
 
 **Its sub-agents keep invoking `/code-review` again and spawn more agents.**
 
-Each axis sub-agent enters the named axis door of the skill and performs that review directly. The session starts exactly Standards, Spec and Tests, then waits for all three before writing the report.
+Each axis sub-agent enters the named axis door of the skill and performs that review directly. The session starts Standards, Spec and Tests — and, on a ticket with a story criterion, a fourth, UI — then waits for all of them before writing the report.
 
 **Should I run it in the same [session](https://www.aihero.dev/ai-coding-dictionary/session) that wrote the code?**
 
@@ -69,7 +69,7 @@ Both work, and the skill does not decide for you. Per-ticket keeps each diff sma
 
 **Can I trust the findings?**
 
-Not without checking. Sub-agent output is a hypothesis, not evidence. The skill aggregates the three reports verbatim or lightly cleaned rather than re-verifying each claim against the files, so a finding can cite the wrong location or overstate an impact. Read the citation on each finding before acting on it. Every finding must carry a repository rule, a requirement, or a check and test line, which makes it checkable.
+Not without checking. Sub-agent output is a hypothesis, not evidence. The skill aggregates the axis reports verbatim or lightly cleaned rather than re-verifying each claim against the files, so a finding can cite the wrong location or overstate an impact. Read the citation on each finding before acting on it. Every finding must carry a repository rule, a requirement, or a check and test line, which makes it checkable.
 
 **Why does it find new problems every single time I run it?**
 

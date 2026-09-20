@@ -101,7 +101,7 @@ _Avoid_: interface parity, PARITY OK (the whole-product judge's success line)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story adapter**:
-What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that mapping field by field. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies.
+What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that every `shows` name is a property of the component; whether the field is fed correctly is the boundary test's to decide. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies.
 _Avoid_: adapter (for anything `.mmw/target.json` answers; the file name `.release-adapter.json` and the key template's `--adapter` flag are literals a program reads and stay)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
@@ -126,7 +126,7 @@ _Avoid_: wiring criterion, wiring-check.py, WIRING OK
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **mutation check**:
-The second pass of a boundary criterion: the same command, with `MMW_NEGATIVE=1`, must go red. The product's shared interaction helper does nothing under that variable, so an assertion that does not depend on the click stays green and is refused. It is mechanical; a reviewer does not read the test to decide whether it can fail.
+The second pass of a boundary criterion: the same command, with `MMW_NEGATIVE=1`, must go red. The product's shared interaction helper does nothing under that variable, so an assertion that does not depend on the click stays green and is refused. It is mechanical, and the Tests axis reads the assertions themselves as well.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **interaction helper**:

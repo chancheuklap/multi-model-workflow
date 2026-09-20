@@ -14,7 +14,7 @@ _Avoid_: board
 _Home_: `~/.mmw/models.json`
 
 **session**:
-A host process a runner started, or the main agent the user started themselves. It carries a host. A session `dispatch.sh start` started is named on its ticket by its started event — `worker.started` or `reviewer.started` — whose payload carries the runner that runs it and that runner's own id for it, always as a pair, together with the machine it was started on. The main agent, a worker, a reviewer and the advisor are sessions; the three code-review axes are not — they run inside the reviewer session, as its subagents where the host can run them and as its own passes where it cannot.
+A host process a runner started, or the main agent the user started themselves. It carries a host. A session `dispatch.sh start` started is named on its ticket by its started event — `worker.started` or `reviewer.started` — whose payload carries the runner that runs it and that runner's own id for it, always as a pair, together with the machine it was started on. The main agent, a worker, a reviewer and the advisor are sessions; a code-review axis is not — the axes run inside the reviewer session, as its subagents where the host can run them and as its own passes where it cannot.
 _Avoid_: 会话 (as a term), pane, terminal (for this)
 _Home_: `~/.mmw/models.json`
 
