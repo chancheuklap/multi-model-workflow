@@ -4,7 +4,7 @@
 
 The **control axis** is `rows`: one row per user-visible behaviour, keyed by the control's `data-ui` id. `pages` names each design page's story id (`mount`) and the component that owns it; `scenes` names which design page each scene of `scenes.json` belongs to. The control axis and these declarations cannot be derived from each other — a page holds many rows, a row is visible on many scenes — so both are written, and the lint holds them to each other.
 
-A server-rendered product and a desktop product use the same keys. The two examples below are one of each; neither is a default the other must copy.
+A server-rendered product and a desktop product use the same keys. The two labelled examples under **A row** are one of each; neither is a default the other must copy. The listing in **Top level** is the same server-rendered orders desk.
 
 ## Top level
 
@@ -43,9 +43,9 @@ retired_ids:                              # ids that once had a row; never reuse
 rows: [...]
 ```
 
-The lint checks these top-level keys: `effort`, `baselines`, `locale`, `viewports`, `pages`, `scenes`, `states`, `backend_without_ui`, `proposed_operations`, `retired_ids`, `rows`. A key that is not in this list, or in the Column rules table below, is an error that names the key.
+The lint checks these top-level keys: `effort`, `baselines`, `locale`, `viewports`, `pages`, `scenes`, `states`, `backend_without_ui`, `proposed_operations`, `retired_ids`, `rows`. A key that is not in this list at the top level is an error that names the key. The same rule holds on a page (only `mount` and `component`), a scene (only `page`), a row (only the Column rules columns, plus `app` on a cross-component row), and a `retired_ids` entry (only `id` and `note`). A Column-rules name written at the top level is an error.
 
-## Pages, scenes, viewports, locale, states
+## Pages, scenes, viewports, locale, states, retired_ids
 
 | Key | Rule | Lint |
 | --- | --- | --- |
@@ -69,6 +69,8 @@ A row is identified by `trigger` plus `precondition`. `trigger` is the control's
 
 The same control in different states is several rows, split by `precondition`. A disabled state is a row: `calls: [none]`, `next: stay`. A part that repeats in a list is one row; the values that change go in `shows`, not extra rows.
 
+Server-rendered product — a form POST against an HTTP API:
+
 ```yaml
 - id: orders.confirm                      # <component-short>.<behaviour>; stable once published
   component: features/orders/OrderList    # where the implementation owns it
@@ -83,7 +85,7 @@ The same control in different states is several rows, split by `precondition`. A
   gap: aligned                            # aligned | design-only | backend-only
 ```
 
-A desktop product talking to a local HTTP API uses the same columns:
+Desktop product — a non-HTTP host call. The lint prints `UNVERIFIED` (no machine-readable source) and does not fail the run:
 
 ```yaml
 - id: notes.save
@@ -91,11 +93,11 @@ A desktop product talking to a local HTTP API uses the same columns:
   trigger: editor.save
   precondition: { dirty: true }
   scenes: [editor-dirty]
-  calls: ["PUT /api/notes/{note_id}"]
-  shows: { title: "title@GET /api/notes/{note_id}" }
+  calls: ["host notes.save"]
+  shows: { title: "title@host notes.save" }
   next: editor-clean
-  on_failure: { save_4xx: toast:SAVE_FAILED }
-  source: ["conversation 2026-09-18 — save writes the open note through the local API"]
+  on_failure: { save_failed: toast:SAVE_FAILED }
+  source: ["conversation 2026-09-18 — save writes the open note through the host"]
   gap: aligned
 ```
 
@@ -104,7 +106,7 @@ A desktop product talking to a local HTTP API uses the same columns:
 | Column | Rule | Lint |
 | --- | --- | --- |
 | `id` | `<component-short>.<behaviour>`, lowercase, dots and dashes. Never renumbered, never reused. | unique; every id in `retired_ids` absent from rows |
-| `component` | A path or name the implementation owns the control under, inside the repository. It is not the name of a `.dc.html` page in the handoff package — that name is a `pages.<page>` key under **Pages, scenes, viewports, locale, states**. | one `Component · ` page claims it |
+| `component` | A path or name the implementation owns the control under, inside the repository. It is not the name of a `.dc.html` page in the handoff package — that name is a `pages.<page>` key under **Pages, scenes, viewports, locale, states, retired_ids**. | one `Component · ` page claims it |
 | `trigger` | The control's `data-ui` id, a string, copied from the skeleton. | the id exists in the skeleton; every skeleton control that is clickable or editable has ≥1 row |
 | `precondition` | Key/value state that selects this row among rows with the same trigger. | rows sharing a trigger have distinct preconditions |
 | `scenes` | Names from `scenes.json`. `[]` when the handoff shows no scene for this precondition — allowed, and reported. A control that several pages share is one trigger; its scenes are the union over those pages, and a row that must tell the pages apart puts `screen: <page>` in `precondition`. | each exists in the skeleton for this trigger; `[]` is a warning |
@@ -122,9 +124,9 @@ A design page with no row is an error. Reverse sweep: every operation in `openap
 
 A **cross-component row** records that region A's action affects region B. It is written on an `App · ` page, one row per place the page's `dc-import` wiring passes a callback or state from one region to another.
 
-The row carries `app: "<App · page name>"`. `trigger` is region A's `data-ui` id. `calls` names the other region's state the request must carry. `next` is the scene region B enters.
+The row carries `app: "<App · page name>"`. `trigger` is region A's `data-ui` id. `calls` is the OpenAPI operation (`METHOD /path` with no query string); name the other region's state the request must carry beside it, not spliced into the path. `next` is the scene region B enters.
 
-区域 is the substring of a `data-ui` id before the first `.`. The lint takes the skeleton pages that id prefix appears on, drops the row's own `App · ` page (an App page composes the Component pages, so it repeats their ids), and requires the remaining owner to be unique. `next` must name a scene whose `page` is not that owner — the other 区域, not the one that owns the trigger.
+A **region** (`区域`) is the substring of a `data-ui` id before the first `.`. The lint takes the skeleton pages that id prefix appears on, drops the row's own `App · ` page (an App page composes the Component pages, so it repeats their ids), and requires the remaining owner to be unique. `next` must name a scene whose `page` is not that owner — the other region, not the one that owns the trigger.
 
 ```yaml
 - id: desk.filter-customer
@@ -133,9 +135,9 @@ The row carries `app: "<App · page name>"`. `trigger` is region A's `data-ui` i
   trigger: customer-bar.pick
   precondition: {}
   scenes: [desk-ready]
-  calls: ["GET /api/orders?customer={customer_id}"]
-  shows: { count: "count@GET /api/orders?customer={customer_id}" }
-  next: orders-ready                      # the order-list 区域's scene, not customer-bar's
+  calls: ["GET /api/orders"]              # carries customer-bar's selected customer
+  shows: { count: "count@GET /api/orders" }
+  next: orders-ready                      # the order-list region's scene, not customer-bar's
   on_failure: { list_4xx: toast:LIST_FAILED }
   source: ["#440 Implementation Decisions 4"]
   gap: aligned
@@ -143,7 +145,7 @@ The row carries `app: "<App · page name>"`. `trigger` is region A's `data-ui` i
 
 ## What the downstream skills take from it
 
-- `to-spec`: `calls` and `shows` → the **API contract** subsection; `baselines` → Sources; the **visual acceptance** paragraph cites `pages` and the story judge instead of restating any command. Testing Decisions' **Test surfaces** seven answers are the ui-acceptance skill's [`references/product-answers.md`](../../ui-acceptance/references/product-answers.md).
+- `to-spec`: `calls` and `shows` → the **API contract** subsection; `baselines` → Sources; the **visual acceptance** paragraph cites `pages` and the story judge instead of restating any command. Testing Decisions' **Test surfaces** seven answers are the ui-acceptance skill's `references/product-answers.md`.
 - `to-tickets`: an interface ticket owns by design page: one story criterion (`story-parity.py --pages <mount,…>`), and one boundary criterion per row whose `calls` is not `[none]` (several rows may share one test file). **Read first** lists `scenes.json` and every baseline-class `source` of those rows, deduplicated by document. Journeys are written only on the contract ticket and on tickets the owner named. There is no partition of scenes by mount, and no wiring criterion.
 - `implement`: `precedence` is the rule for a conflict between the handoff package and this file; the worker writes the display component together with its story adapter and its boundary tests; the values the worker writes toward are the ones the story judge renders from the handoff package.
 - `code-review` Spec axis: reviews the diff row by row for the ids the ticket cites, and checks that the story adapter's field mapping matches each cited row's `shows`. Tests axis: the boundary tests run through `boundary-check.py`.

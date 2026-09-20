@@ -15,6 +15,8 @@ The file's shape is in [references/screen-contract-format.md](references/screen-
 
 Every one of this skill's own scripts is run as `uv run python <scripts>/…`, never `python3`: `<scripts>/lint_screen_contract.py` carries a `# /// script` dependency block (`pyyaml>=6`), `<scripts>/extract_skeleton.py` carries its own (`playwright>=1.58`, `pyyaml>=6`), and `<scripts>/dump_openapi.py` imports the consuming repository's own application module. All three need the environment `uv` builds.
 
+`<scratch>` is a directory this run created (`mktemp`); write every path under it out in full. Some hosts refuse `uv run … $VAR`.
+
 ## Inputs
 
 - The handoff package directory as `pull_design.py` of the `design-pages` skill wrote it: `README.md`, `pull-report.md`, `design-manifest.json`, the `.dc.html` pages, `styles/`, `data/`, `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a **baseline for look and copy**; you never edit it.
@@ -22,8 +24,6 @@ Every one of this skill's own scripts is run as `uv run python <scripts>/…`, n
 - The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
 - The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title. A run with no map takes the effort name the person gives, or the directory that will hold the spec.
 - The scope. A full run covers every page in `scenes.json`. A scoped run names the pages it covers; the reverse sweep then stays inside those pages.
-
-Write every path in a command out in full. Some hosts refuse `uv run … $VAR`.
 
 ## Decision sources
 
@@ -67,7 +67,7 @@ Then a control whose behaviour differs by state gets one row per state — `prec
 - **A disabled state is a row.** The user sees the control; the row says `calls: [none]` and `next: stay`.
 - **A state the handoff never shows** (the form complete, ready to submit) is still a row when the backend decisions reach it. Its `scenes` is `[]`; the lint reports it as a warning so the handoff gap is on record.
 
-A name the accessibility tree gets from a placeholder or a hint is copied all the same, and reported as an accessibility defect of the handoff in the run's notes.
+A placeholder or hint that the accessibility tree folds into a name is an accessibility defect of the handoff; record it in the run's notes. It is not a contract field.
 
 ### 3. Fill the behaviour columns and the scene declarations from the backend sources
 
@@ -83,7 +83,7 @@ A behaviour the conversation settled that the page does not show is still a row 
 
 ### 4. Write each cross-component row from the App-page wiring
 
-Read every `App · ` page's wiring: the callbacks and state passed between its `dc-import`s. Each place region A's action affects region B becomes one **cross-component row** on that App page. The row carries `app: "<App · page name>"`; `trigger` is region A's `data-ui` id; `calls` names the other region's state the request must carry; `next` is the scene region B enters. A region is the part of a `data-ui` id before the first dot. The lint requires `next` to name a scene of the other region, not the page that owns the trigger's region.
+Read every `App · ` page's wiring: the callbacks and state passed between its `dc-import`s. Each place region A's action affects region B becomes one **cross-component row** on that App page. The keys, the region rule, and what the lint requires of `next` are in the format reference.
 
 ### 5. Reverse sweep
 
