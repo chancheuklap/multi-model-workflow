@@ -23,7 +23,7 @@ Pull when the user has signed the design off. After that, pull only in a session
 3. Read `pull-report.md` in the handoff directory. Its sections are `设计检查`, `覆盖`, `改动分类`, and `本地改过的说明`. A first pull records `分类：首次`. Later pulls record `增删控件或改流转` or `只改外观或文案`. Problems in the report do not fail the command. The command runs `check_editable_selectors.py` as a module on the downloaded stylesheets; those findings land under `设计检查`. Do not invoke that script as a separate command.
 4. Commit the handoff package and `pull-report.md` together.
 
-Done when: `pull-report.md` is in the handoff directory, the package and the report are committed, and `改动分类` has been read so **Next** can name the following skill.
+Done when: `pull-report.md` is in the handoff directory, the package and the report are committed, and `改动分类` has been read so **Reached from here** can name the following skill.
 
 ## After the first pull
 
@@ -36,11 +36,12 @@ Go to the prototype skill's `UI.md` step 7, **Take the scaffolding down**. How t
 
 MCP tools cannot create a comment on a design page, so this does not go through comments.
 
-## Next
+## Reached from here
 
-Read `改动分类` in the pull report, then:
+Read `改动分类` in the pull report. It decides which skill this run hands to, and there is no default:
 
-- **首次**, or **增删控件或改流转** — the `write-screen-contract` skill (full contract on a first pull; later, only the rows its **Re-runs** section names). Then the `to-spec` skill's step 5, to revise the published spec. Tickets already cut are corrected against the new text.
-- **只改外观或文案** — the screen contract does not change. Open tickets pick up the new package on their next run. Closed tickets are re-run by the main agent with the `verify-ticket` skill as `references/running-criteria.md` describes in **The two runs that execute a `CHECK:`**. A criterion that then fails is cut as a fix ticket whose acceptance criterion is the same as the original.
+- **首次** — the `write-screen-contract` skill, for the whole contract: this is the first time each control is bound to what it calls. Then the `to-spec` skill from its **Process** step 1, which writes the spec this effort does not have yet.
+- **增删控件或改流转** — the `write-screen-contract` skill at its **Re-runs** section, which edits only the rows those controls belong to. Then the `to-spec` skill at its **Process** step 5, revising the published spec; tickets already cut are corrected against the new text, the way the `to-tickets` skill's `references/cutting-interface-tickets.md` describes under **When the rows change**.
+- **只改外观或文案** — the screen contract does not change, because no `data-ui` id did. An open ticket picks up the new package on its next run. A landed ticket is re-run by the main agent with `--reverify --actor main`, which the `verify-ticket` skill's `references/running-criteria.md` gives in **The two runs that execute a `CHECK:`**, in the paragraph that adds the main agent's run to the worker's two. A criterion that then fails is cut as a correction ticket whose criterion is the same as the original's.
 
 Git is the design's version history. Claude Design has none (help centre, **Known limitations**).

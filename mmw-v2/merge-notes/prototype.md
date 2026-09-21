@@ -56,6 +56,7 @@
 | 第 6 步 | 结论进 leaf `README.md`；`## State list`；点名 `design-pages` 的 design system 入口。上游仍在这一步把 winner 折进真实代码并拆 scaffolding → 不收那一半，收到第 7 步 |
 | 第 6 步 `## State list` | README 在固定标题 `## State list` 下按区域列出 winning variant 的全部状态：每个区域一个三级标题（即之后 `Component · <区域>` 页名），每个状态一个列表项且以状态名开头。`scene` prop、pull report、会改变页面状态的 decision ticket 都按这些名字核对。上游没有这一段 |
 | 第 7 步「拆 scaffolding」 | 由原第 6 步后半段拆出。第一次 pull 之后才执行，`design-pages` 的 `pull.md` 指回这里。挂在已有页面上的删挂载点、切换条与 import；单独路由的删 prototype 路由与切换条；完成条件是 leaf directory 外无人 import。上游把拆 scaffolding 写在第 6 步；我们改到第 7 步且改时机。上游改原第 6 步后半段措辞 → 收到第 7 步 |
+| `## Next`（文末） | 我们加的整节：winner 要进 Claude Design 时，点名 `design-pages` 技能与它的 **design system** 入口（先建设计系统，再 edit pages，再 pull 并指回第 7 步）；不进 Claude Design 的 winner 停在第 6 步。理由：原来全文没有往下一步的出口，唯一的路藏在第 6 步讲 scaffolding 的从句里，于是没有人负责建 design system。上游给 `UI.md` 加收尾步 → 收上游措辞，这一节接在它后面 |
 | 第 1、4、5 步、反模式 | 上游的，照收 |
 
 ### EXP.md、evidence-page.md

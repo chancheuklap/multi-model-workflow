@@ -74,7 +74,7 @@ A placeholder or hint that the accessibility tree folds into a name is an access
 For every row: `calls`, `shows`, `next`, `on_failure`, `source`, `gap`. The rules that decide each column are in the format reference; the ones people get wrong:
 
 - `shows` names fields, never values: `balance@GET /api/wallet`, `title@GET /api/notes/{note_id}`, `unit_price@RuntimePolicy` — not a literal number, and not a status code either. The literals in `data/fixtures.js` are seed data for tests, not copy — and so are their **counts**: a seed makes as many rows as the fixtures draw.
-- `calls` names what the control does to the system: an HTTP operation as it appears in `openapi.json`, a non-HTTP form as the product issues it, or `none`. A control that only changes local view state is `none` and still a row; its `next` is the row or scene the user is in afterwards. An operation the decisions require and `openapi.json` lacks goes in the row as it will be named, and once more under `proposed_operations`; the API contract draft in step 7 describes it.
+- `calls` names what the control does to the system: an HTTP operation as it appears in `openapi.json`, a non-HTTP form as the product issues it, or `none`. A control that only changes local view state is `none` and still a row; its `next` is the row or scene the user is in afterwards. An operation the decisions require and `openapi.json` lacks goes in the row as it will be named, and once more under `proposed_operations`; the spec's **API contract** subsection is what describes it. Where such an operation is new or changed and other products share this backend, say so in the run's notes, so the spec carries it.
 - `source` quotes where the behaviour was decided, in the shapes the format reference lists: a decision ticket, a spec section, an ADR, a domain-doc term, `conversation <YYYY-MM-DD>` plus the conclusion, a README section. A story is an audit trail no worker reads; cite the Implementation Decisions subsection that carries its conclusion. Existing code counts only as a last resort, written `code:<path>`, and a row whose sources are all `code:` and README is a `design-only` candidate — check the decisions again before marking it.
 
 Then one `scenes` entry per scene of `scenes.json`: its `page` only. Everything here is filled offline; nothing needs the product.
@@ -120,7 +120,6 @@ Two things a gap list does not carry: an implementation that today does less tha
    contract directory, the lint warns if a page has a scene that inventory does not
    cover, `App · ` pages included. Zero errors, or fix the file.
 
-3. Write the **API contract** draft — one entry per distinct operation in `calls`, with the request and response fields the rows' `shows` and `on_failure` imply — to `<scratch>/api-contract.md`, for the `to-spec` skill to fold into the spec's Implementation Decisions. For each new or changed operation, say whether other products that share the same backend are affected.
 
 ## Re-runs
 
@@ -132,11 +131,14 @@ Two things a gap list does not carry: an implementation that today does less tha
 
 ## Done when
 
-`screen-contract.yaml` lints clean, every row's `gap` is `aligned`, every scene of `scenes.json` has a declaration, every page has a `mount`, every `Component · ` page has a `component`, `api-contract.md` exists, and the person has answered every entry of the gap list — or, in a run without the person, the gap list is written and the run has said so.
+`screen-contract.yaml` lints clean, every row's `gap` is `aligned`, every scene of `scenes.json` has a declaration, every page has a `mount`, every `Component · ` page has a `component`, and the person has answered every entry of the gap list — or, in a run without the person, the gap list is written and the run has said so.
 
 ## Next
 
-The `to-spec` skill, taking `<scratch>/api-contract.md`.
+The `to-spec` skill, which reads this contract in full and derives the spec's **API contract** subsection from the rows' `calls`, `shows` and `on_failure`.
+
+- A contract written for the first time: `to-spec` from its **Process** step 1, which writes the spec this effort does not have yet.
+- A contract changed by **Re-runs**: `to-spec` at its **Process** step 5, revising the published spec, with the tickets already cut corrected against the new text.
 
 ## Exit codes
 

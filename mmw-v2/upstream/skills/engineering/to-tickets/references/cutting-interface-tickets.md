@@ -77,7 +77,7 @@ The spec's **Critical flows** bullet names them: money, sign-in, one submit chai
 
 The ticket-cutting session writes the journey criterion, with `--break`, taking as default the last write among the contract rows that flow involves. The worker who writes the journey script leaves that choice as it is.
 
-**Parent** names the Implementation Decisions sections that flow lists. It is blocked by the **component page ticket** and **app page ticket** whose work that flow uses. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for morning triage, and the closing comment names the step that broke.
+**Parent** names the Implementation Decisions sections that flow lists. It is blocked by every ticket of this batch whose work that flow uses: the **component page ticket** and **app page ticket** of the pages it walks, and the tickets that build the operations those rows' `calls` name. A journey drives the real product with nothing mocked, so an operation that does not exist yet fails it at the first write, and the blockers are derived from the flow's rows, not from the list of ticket kinds. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for morning triage, and the closing comment names the step that broke.
 
 **Owns** is `.mmw/journeys/<flow>/`, plus adding to the shared helper when there is one. **Seam** may forbid edits to product code; it does not forbid adding to that helper. The `verify-ticket` skill's `references/linting.md` already treats an **Owns** covering `.mmw/journeys/<flow>/` as the ticket that builds it; the shared helper is covered by the ticket that creates it.
 

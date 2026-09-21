@@ -5,11 +5,15 @@ description: Build a design system from running code, edit pages or handle comme
 
 # design-pages — a Claude Design project is the only source of the design
 
-Three entries, in this order. Each names the next. Read the one this run is going in.
+Three doors, in this order, and each names the next.
 
-- **[design system](references/design-system.md)** — build the design system from code that already runs, before any page is drawn.
-- **[edit pages](references/edit-pages.md)** — create the project, write pages, check the preview, act on comments, and take the user's sign-off.
-- **[pull](references/pull.md)** — bring the signed-off project into the repository as the handoff package.
+## Find your door
+
+| You are | Read |
+| --- | --- |
+| Starting an interface for a product with no design system yet, or remaking one whose look is changing | [references/design-system.md](references/design-system.md) — built from code that already runs, before any page is drawn. A product whose design system exists and whose shared components have not changed skips this door |
+| Creating the project, writing or revising pages, checking a preview, acting on comments, or taking the user's sign-off | [references/edit-pages.md](references/edit-pages.md) |
+| The user has signed the design off, or this session is handling a `contract` child whose body names the pull door | [references/pull.md](references/pull.md) — brings the project into the repository as the handoff package. Never while a worker is mid-run |
 
 Page conventions live in [template-project-claude-md.md](references/template-project-claude-md.md) and are written into the project root as `CLAUDE.md`. The design-system `readme.md` template is [template-design-system-readme.md](references/template-design-system-readme.md).
 

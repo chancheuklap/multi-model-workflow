@@ -125,3 +125,5 @@ acceptance ticket 那一段原来写 `Testing Decisions names the key flows`。s
 `SKILL.md` 模板 `## Read first` 的 `a handoff package downloaded from Claude Design` 改成 `pulled into the repository`。ADR 0029 定下 pull 是这个包的唯一写入者；`downloaded` 会让 worker 去找 MCP 工具或 `edit-pages.md` 明令禁用的 "Handoff to Claude Code" 导出，而不是读 `## Read first` 已经点名的那个已提交目录。同一句里的 `journey skeleton` 改成 `first journey script, as the precedent`，因为 `skeleton` 在合同侧已经是 `extract_skeleton.py` 产出的控件清单。
 
 上游改这三处 → 收上游措辞，`component page ticket`、`Critical flows` / `sign-in`、`pulled` 三个名字保留。
+
+acceptance ticket 的阻塞句原来只写 **component page ticket** 与 **app page ticket**。journey 要启动真实产品、什么都不 mock，而这两种票交付的 boundary test 恰恰是把产品对外调用那一层换掉的；五种界面票没有一种负责建后端接口。于是批次里最贵的那一张（`senior-worker`、最后一张、在合并后的基线上跑）会在后端还不存在时被派出去，journey 过不了第一个写操作，变成 `HANDOFF REQUIRED` 等早上人工处理。现在改成从流程的行推导：它走过的页面的两种票，加上建出这些行 `calls` 所点名接口的那些票。上游改这一句 → 收上游措辞，「阻塞边从行推导、不按 ticket 种类枚举」这一点保留。

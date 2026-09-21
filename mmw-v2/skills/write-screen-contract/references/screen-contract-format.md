@@ -36,7 +36,7 @@ states:                                   # domain state names `next` may use; t
 backend_without_ui:                       # decisions or operations with no control; one line each
   - "POST /api/orders/expire — runs on a timer, no control"
 proposed_operations:                      # operations the rows need and openapi.json lacks yet; each is
-  - "POST /api/orders/{order_id}/hold"    # described in api-contract.md
+  - "POST /api/orders/{order_id}/hold"    # described in the spec's API contract subsection
 retired_ids:                              # ids that once had a row; never reused; printed by the lint on every run
   - id: orders.legacy-export
     note: "retired 2026-09-18 — #440 Implementation Decisions 3: export left the product"
@@ -110,7 +110,7 @@ Desktop product — a non-HTTP host call. The lint prints `UNVERIFIED` (no machi
 | `trigger` | The control's `data-ui` id, a string, copied from the skeleton. | the id exists in the skeleton; every skeleton control that is clickable or editable has ≥1 row |
 | `precondition` | Key/value state that selects this row among rows with the same trigger. | rows sharing a trigger have distinct preconditions |
 | `scenes` | Names from `scenes.json`. `[]` when the handoff shows no scene for this precondition — allowed, and reported. A control that several pages share is one trigger; its scenes are the union over those pages, and a row that must tell the pages apart puts `screen: <page>` in `precondition`. | each exists in the skeleton for this trigger; `[]` is a warning |
-| `calls` | `METHOD /path` exactly as in `openapi.json`; `none`; or a non-HTTP form written as the product issues it. Order is the order of effect. An operation the backend does not have yet is listed under `proposed_operations` and described in `api-contract.md`. A server-rendered form post is `POST /path`. | HTTP entries exist in `openapi.json` or in `proposed_operations` (a warning); without an `openapi.json`, reported as `unverified`; a non-HTTP form prints `UNVERIFIED` (no machine-readable source) and does not fail the run |
+| `calls` | `METHOD /path` exactly as in `openapi.json`; `none`; or a non-HTTP form written as the product issues it. Order is the order of effect. An operation the backend does not have yet is listed under `proposed_operations`; the spec's **API contract** subsection describes it. A server-rendered form post is `POST /path`. | HTTP entries exist in `openapi.json` or in `proposed_operations` (a warning); without an `openapi.json`, reported as `unverified`; a non-HTTP form prints `UNVERIFIED` (no machine-readable source) and does not fail the run |
 | `shows` | Displayed name → `field@METHOD /path`, `field@<non-HTTP call>`, `key@RuntimePolicy`, or an expression over those. No literal numbers or strings — a status code is a number too. | value contains `@`; no digits outside `{…}` |
 | `next` | Where the user is after the call succeeds; for `calls: [none]`, where the user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). | a row id, a scene name, a name in `states`, or `stay` |
 | `on_failure` | Failure kind → what the user sees. Every non-`none` call has at least one. The four-column boundary test of the ui-acceptance skill reads this column. | present when `calls` is not `[none]` |

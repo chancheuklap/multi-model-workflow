@@ -122,3 +122,9 @@ Done when nothing outside the leaf directory imports it: the leaf directory can 
 - **Sharing too much code between variants.** A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
 - **Wiring variants to real mutations.** Read-only prototypes are fine. If a variant needs to mutate, point it at a stub: the question is "what should this look like", not "does the backend work".
 - **Promoting the prototype directly to production.** The variant code was written under prototype constraints (no tests, minimal error handling). Rewrite it properly when you fold it in.
+
+## Next
+
+A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md` and take its **design system** entry first: it reads this winner's style variables and components and builds the design system from them, and no page is drawn before that exists. Its **edit pages** entry writes the pages against the winner still running behind the scaffolding, and its **pull** entry brings the result back and sends you to step 7 above.
+
+A winner that is not going into Claude Design, because the interface is not being designed there or the question was a logic or experiment one, stops at step 6, folded into the real code the way the [SKILL](SKILL.md) describes.
