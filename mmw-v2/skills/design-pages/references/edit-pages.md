@@ -35,7 +35,7 @@ Follow that same `CLAUDE.md`. Build each `Component · ` page from design-system
 
 The state list fixes the names. It is the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, which on a wayfinder map is the handoff ticket's leaf: each `### <region>` heading there is one `Component · <region>` page, and each list item's leading name is one value of that page's `scene`. Pull's `覆盖` section matches the two, name by name. The agent inside the project cannot see that file, so when the user has it write pages, give it the state list in the conversation.
 
-Every `write_files` call carries `if_match`, so an edit the user just made in the editor is not overwritten.
+Every `write_files` call carries `if_match`, so an edit the user just made in the editor is not overwritten. A page written on disk and uploaded by `localPath` goes through the design-sync tool, which takes no `if_match`: `list_files` first, and upload only while each page's etag still equals the one your last write left.
 
 The user may also talk to Claude Design in the browser and have its agent write the pages.
 

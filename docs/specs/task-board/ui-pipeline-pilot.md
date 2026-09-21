@@ -49,6 +49,24 @@
 
 **做法。** design system 全部由本地 agent 完成，用户不参与：在 `prototypes/<task>/design-system/` 写出完整目录，`check_design_system.py` 核对 Claude Design 的全部要求与 MMW 的四条规则，`build_ds_bundle.py` 打包组件，design-sync 工具按本地路径上传。中途一度改为"把建库说明交给用户贴进 Claude Design"，实测本地可以完成后撤回。
 
+### 7. 按新流程建任务板的 design system（本地完成）
+
+**真实产物。** `prototypes/task-board/design-system/`，上传到"MMW Task Board 2"（204 个文件）：
+
+- 令牌与组件样式由生产版 `tokens.css`、`board.css`、`settings.css` 与 `index.html` 按原有分节切开，逐行核对无遗漏；
+- 46 个组件，各带 `.d.ts` 与 `.prompt.md`，每组一张组件卡；15 张基础卡；UI kit 两张整页与 5 个起步界面；`readme.md`、`SKILL.md`、两个 Lucide 图标；
+- `check_design_system.py` 报告完整；`build_ds_bundle.py` 打出 46 KB 的组件包。
+
+**核对。**
+
+- 用同一份示例数据分别跑生产页面与 UI kit，逐区域比较去掉 `data-ui` 后的 HTML：顶栏、任务列表、详情栏完全相同；画布只差初始平移位置（生产页面先渲染后选中卡片，UI kit 一开始就带着选中），卡片本身相同。
+- 本地与 Claude Design 线上预览渲染全部 21 张卡片与起步界面，无报错。
+- 未核实：Claude Design 没有根据新文件重新生成 `_ds_manifest.json`（仍是 05:57 的版本），Design System 面板能否显示新卡片，要在浏览器里打开才能看到。设计页与 Claude Design 里的 AI 都不依赖这个文件。
+
+### 8. 设计页改用组件
+
+设计项目的 `_ds/` 换成新样式、字体与组件包；7 个页面里的 5 个 `Component · ` 页改为用 `x-import` 挂组件，页面只负责按 `scene` 算出要显示的数据。`x-import` 在组件外包一层 `display: contents`，不影响排版。所有场景本地渲染无报错；App 页的点任务、点齿轮与画布拖动、缩放、`F` 键都已点测；线上整页无报错。
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（提交 `0f79b971`） |
@@ -67,6 +85,7 @@
 | 12 | design system | `design-pages/references/design-system.md` 整篇 | MMW 的非 React 路只上传样式表与类名表，缺 Claude Design 要求的令牌拆分、基础卡、组件、UI kit、`SKILL.md`；而 Claude Design 的编译器只在它自己的建库流程里运行，外部写入的组件不会进组件包 | Design System 面板为空；Claude Design 里的 agent 与起步界面都用不上它；页面只能手写类名 | 重写：先列 Claude Design 的全部要求，再列 MMW 追加的四条（组件输出与来源相同的 DOM、组件接受 `data-ui` 并给部件编号、每个区域一个起步界面、数值与字体原样照抄），再列本地 agent、Claude Design 里的 AI、用户三方各能读写什么；步骤全部归本地 agent。新增 `scripts/check_design_system.py`（核对目录）与 `scripts/build_ds_bundle.py`（打包组件），各带测试 |
 | 13 | edit pages / pull | `edit-pages.md` 第 4 步、`pull.md` | 旧流程默认绑定后的项目里有一份 `_ds/`；实际上网页端绑定的旧项目里也没有 | pull 取不到 design system 的样式，离线渲染没有样式 | 第 4 步把样式表闭包、字体、`_ds_bundle.js` 一起拷进 `_ds/`；页面约定改为从 `_ds/` 加载组件包并用组件拼区域 |
 | 14 | edit pages | `edit-pages.md` 的 Write pages | "对照胜出方案核对交互"没有说要核对哪些；这次漏了画布拖动 | 设计页少了产品已有的交互 | 写明：区域里每个控件的点击、拖动、滚动、键盘行为都要与胜出方案一致 |
+| 15 | edit pages | `edit-pages.md` 的 Write pages | 本地生成的页面按本地路径上传时，上传工具不带版本号核对，技能只写了"每次写入都带 `if_match`" | 可能覆盖用户刚在编辑器里做的修改 | 写明：先 `list_files`，版本号仍等于上次写入留下的才上传 |
 
 ## 产品侧的发现（不属于流水线，本试点不改）
 
