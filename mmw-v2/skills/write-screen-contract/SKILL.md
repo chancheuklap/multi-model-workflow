@@ -19,8 +19,8 @@ Every one of this skill's own scripts is run as `uv run python <scripts>/…`, n
 
 ## Inputs
 
-- The handoff package directory as `pull_design.py` of the `design-pages` skill wrote it: `README.md`, `pull-report.md`, `design-manifest.json`, the `.dc.html` pages, every other file the project holds (the bound design system under `_ds/<folder>/`, data, scripts), `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a **baseline for look and copy**; you never edit it.
-- The backend decisions. On a wayfinder map that is the map issue: its **Decisions so far** and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too. When the decisions were settled in conversation instead, those conclusions are the source — see **Decision sources**.
+- The handoff package directory as `pull_design.py` of the `design-pages` skill wrote it: `README.md`, `pull-report.md`, `design-manifest.json` (the next pull's record, not read here), the `.dc.html` pages, every other file the project holds (the bound design system under `_ds/<folder>/`, data, scripts), `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a **baseline for look and copy**; you never edit it.
+- The backend decisions. On a wayfinder map that is the map issue: its **Decisions so far** (in the issue body, not a comment) and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too. When the decisions were settled in conversation instead, those conclusions are the source — see **Decision sources**.
 - The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A server that has neither an exporter nor an app factory (a standard-library server, for one) gets an `openapi.json` written by hand in `<scratch>`, describing exactly the routes, methods, fields and status codes its routing code implements. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
 - The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title. A run with no map takes the effort name the person gives, or the directory that will hold the spec.
 
@@ -35,13 +35,15 @@ When an existing product gains a surface there is usually no map. Do not open a 
 ### 1. Declare the rendering inputs and extract the skeleton
 
 Start `<scratch>/screen-contract.yaml` with the top-level `effort`, `baselines`, `locale`
-and `viewports`. `locale` is the locale the design must render under: the product's own `<html lang>` when it has one, otherwise the person names it; the package itself names none. `viewports`
-holds one entry per distinct size the package `README.md` lists under
-`## Viewport and size source`, where `pull_design.py` writes each page's `$preview` size.
-Never choose a stylesheet breakpoint: a viewport equal to one
-compares two reflows and verifies nothing. `extract_skeleton.py` reads only `locale` and
-`viewports`; the other two fields establish the contract that the remaining steps fill.
-On a re-run the file is already there: keep those four keys and extract again.
+and `viewports`. `locale` is the locale the design must render under: the product's own `<html lang>` when it has one, otherwise the person names it; the package itself names none. The package `README.md` lists each page's `$preview` size under
+`## Viewport and size source`. `viewports` holds the size most pages share; a page drawn
+at another size gets that size as its own `pages.<page>.viewports` (write the `pages`
+entry now with that key; step 2 fills `mount` and `component`), so its scenes are
+rendered and compared only there. Never choose a stylesheet breakpoint: a viewport
+equal to one compares two reflows and verifies nothing. `extract_skeleton.py` reads
+`locale`, `viewports` and each page's own `viewports`; the rest establishes the
+contract that the remaining steps fill. On a re-run the file is already there: keep
+those keys and extract again.
 
 ```
 uv run python <scripts>/extract_skeleton.py <handoff dir> <scratch>/skeleton.json --contract <scratch>/screen-contract.yaml

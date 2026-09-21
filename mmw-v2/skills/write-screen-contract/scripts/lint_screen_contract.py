@@ -74,7 +74,8 @@ ROW_KEYS = {
     "shows", "next", "on_failure", "source", "gap",
 }
 SCENE_KEYS = {"page", "input"}
-PAGE_KEYS = {"mount", "component"}
+PAGE_KEYS = {"mount", "component", "viewports"}
+TOAST = re.compile(r"toast:[A-Z][A-Z0-9_]*")
 TOP_KEYS = {
     "effort", "baselines", "locale", "viewports", "pages", "scenes", "states", "rows",
     "retired_ids",
@@ -383,6 +384,19 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
             errors.append(f"pages: {page!r} {key} is not a contract field")
         if page not in handoff_pages:
             errors.append(f"pages: {page!r} is not a page of scenes.json")
+        if "viewports" in decl:
+            own = decl.get("viewports")
+            entries = own if isinstance(own, list) else [own]
+            if not own:
+                errors.append(f"pages: {page!r} viewports is empty; omit it to use the top-level list")
+            for vp in entries if own else []:
+                m = VIEWPORT.match(str(vp).strip())
+                if not m:
+                    errors.append(f"pages: {page!r} viewports entry {vp!r} is not WIDTHxHEIGHT")
+                elif baseline is not None and baseline.is_dir() and \
+                        int(m.group(1)) in stylesheet_breakpoints(baseline):
+                    errors.append(f"pages: {page!r} viewports width {m.group(1)} is a breakpoint "
+                                  "of the handoff stylesheets; a render there compares two reflows")
         mount = str(decl.get("mount") or "")
         if not MOUNT.match(mount):
             errors.append(f"pages: {page!r} mount {mount!r} must be a short lowercase id")
@@ -533,10 +547,22 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
         if calls != ["none"] and not (row.get("on_failure") or {}):
             errors.append(f"{rid}: on_failure missing for a row with calls")
         for shown, expr in (row.get("shows") or {}).items():
-            if "@" not in str(expr):
+            # `<field@operation …> → <what is drawn from it>`: the binding is before the
+            # arrow; the description after it is prose and may name a ticket.
+            binding = str(expr).split(" → ", 1)[0]
+            if "@" not in binding:
                 errors.append(f"{rid}: shows.{shown} names no field@operation: {expr!r}")
-            if re.search(r"(?<![\w{])\d+(?![\w}])", str(expr)):
+            if re.search(r"(?<![\w{])\d+(?![\w}])", binding):
                 errors.append(f"{rid}: shows.{shown} carries a literal number: {expr!r}")
+        failures = row.get("on_failure")
+        if failures not in (None, {}) and not isinstance(failures, dict):
+            errors.append(f"{rid}: on_failure must map each failure kind to an outcome")
+        for kind, outcome in (failures.items() if isinstance(failures, dict) else ()):
+            where = str(outcome).split(" — ", 1)[0].strip()
+            if where not in next_values and not TOAST.fullmatch(where):
+                errors.append(f"{rid}: on_failure.{kind} starts with {where!r}, not a row id, "
+                              "scene, state, stay or toast:<KEY> (then ' — ' and what the "
+                              "user sees)")
         next_value = str(row.get("next") or "")
         if not next_value:
             errors.append(f"{rid}: next missing (use a row id, scene, state, or stay)")
@@ -607,6 +633,21 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             errors.append(f"skeleton control without a row: {page} / {trigger}")
     for page in untouched:
         errors.append(f"page has no rows: {page}")
+    # A disabled state is a row: every scene a control is disabled in is listed by a
+    # row for that trigger that calls nothing and stays.
+    inert_scenes: dict[str, set[str]] = {}
+    for row in rows:
+        if isinstance(row, dict) and row.get("calls") in (["none"], "none") \
+                and row.get("next") == "stay":
+            inert_scenes.setdefault(str(row.get("trigger") or ""), set()).update(
+                str(sc) for sc in row.get("scenes") or [])
+    for entry in skeleton["table"]:
+        trigger = str(entry.get("id") or "")
+        for scene in entry.get("disabled_in") or []:
+            if trigger in seen_triggers and scene not in inert_scenes.get(trigger, set()):
+                errors.append(f"disabled state without a row: {trigger} is disabled in "
+                              f"{scene!r}; add a row with calls [none] and next stay "
+                              "that lists that scene")
     return errors, warnings
 
 

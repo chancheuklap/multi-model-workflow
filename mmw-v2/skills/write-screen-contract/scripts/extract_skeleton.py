@@ -6,10 +6,12 @@
 
 Usage: uv run python extract_skeleton.py <handoff dir> <out.json> --contract <yaml> [--tools <dir>]
 
-Every scene in `scenes.json` is rendered at every viewport declared by the contract,
+Every scene in `scenes.json` is rendered at its page's own `pages.<page>.viewports`
+when the contract declares them, else at every top-level viewport,
 with the contract locale, through the same `design_render.py` the story judge uses.
 The output has one entry per (design page, `data-ui` id). Each entry says which
-declared scenes show that element, whether it is clickable or editable, the displayed
+declared scenes show that element, whether it is clickable or editable, the scenes it
+is disabled in (`disabled_in`: the `disabled` attribute or `aria-disabled="true"`), the displayed
 text values, and its accessible names as explanation rather than identity.
 
 Needs Chromium installed for Playwright. Playwright and PyYAML come from the dependency
@@ -82,8 +84,10 @@ def load_refusal():
     raise SystemExit(f"no refusal.py in the resolved ui-acceptance scripts ({paths})")
 
 
-def load_conditions(dr, refusal, contract: Path) -> tuple[str, list[tuple[int, int]]]:
-    """The two rendering conditions this command reads from the contract."""
+def load_conditions(dr, refusal, contract: Path
+                    ) -> tuple[str, list[tuple[int, int]], dict[str, list[tuple[int, int]]]]:
+    """The rendering conditions this command reads from the contract: the locale, the
+    top-level viewports, and each page's own `pages.<page>.viewports`."""
     doc = dr.load_yaml(contract)
     locale = doc.get("locale")
     if not isinstance(locale, str) or not locale.strip():
@@ -100,7 +104,15 @@ def load_conditions(dr, refusal, contract: Path) -> tuple[str, list[tuple[int, i
             "Every scene must be rendered at the contract's declared sizes.",
             "Add `viewports` as WIDTHxHEIGHT values, then rerun."
         )) from None
-    return locale.strip(), viewports
+    try:
+        own = dr.page_viewports(doc)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(refusal.refusal(
+            f"{contract.name} has an invalid `pages.<page>.viewports` ({exc}).",
+            "A page's own sizes decide where its scenes are rendered.",
+            "Write them as WIDTHxHEIGHT values, then rerun."
+        )) from None
+    return locale.strip(), viewports, own
 
 
 def append_unique(values: list[str], value: str) -> None:
@@ -124,7 +136,7 @@ def accessible_name(dr, locator) -> str:
 
 def main(handoff: Path, out: Path, contract: Path) -> None:
     dr = load_driver()
-    locale, viewports = load_conditions(dr, load_refusal(), contract)
+    locale, viewports, own_viewports = load_conditions(dr, load_refusal(), contract)
     scenes = json.loads((handoff / "scenes.json").read_text(encoding="utf-8"))
     pages = {
         dr.wrapper_path(scene["name"]): dr.wrapper_page(
@@ -150,7 +162,8 @@ def main(handoff: Path, out: Path, contract: Path) -> None:
                     context.route("**/*", route)
                     page = context.new_page()
                     for scene in scenes:
-                        for viewport in viewports:
+                        for viewport in dr.viewports_for(
+                                scene["page"], own_viewports, viewports):
                             dr.resize(page, viewport)
                             dr.navigate(page, f"{origin}{dr.wrapper_path(scene['name'])}")
                             dr.wait_for_mount(page, "#dc-root")
@@ -176,12 +189,16 @@ def main(handoff: Path, out: Path, contract: Path) -> None:
                                     "id": data_ui,
                                     "scenes": [],
                                     "interactive": False,
+                                    "disabled_in": [],
                                     "text": [],
                                     "names": [],
                                 })
                                 if scene["name"] not in row["scenes"]:
                                     row["scenes"].append(scene["name"])
                                 row["interactive"] = row["interactive"] or interactive
+                                if interactive and value.get("disabled") \
+                                        and scene["name"] not in row["disabled_in"]:
+                                    row["disabled_in"].append(scene["name"])
                                 name = accessible_name(dr, locators.nth(index))
                                 append_unique(row["text"], text)
                                 append_unique(row["names"], name)

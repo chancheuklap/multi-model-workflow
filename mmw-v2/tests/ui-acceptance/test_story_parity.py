@@ -376,6 +376,15 @@ class TestStoryFixture(unittest.TestCase):
                          "DIFF demo alpha 400x300 root size "
                          "design=320x200 product=300x200")
 
+    def test_a_page_with_its_own_viewports_is_compared_only_there(self):
+        root = self.copied_fixture()
+        self._rewrite_contract(root, lambda text: text.replace(
+            "viewports: [400x300]", "viewports: [400x300, 500x400]").replace(
+            "    mount: demo\n", "    mount: demo\n    viewports: [400x300]\n"))
+        proc = self.run_story(cwd=root)
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
+
     def test_a_contract_without_viewports_exits_2_naming_it(self):
         root = self.copied_fixture()
         self._drop_contract_key(root, "viewports")
@@ -611,7 +620,7 @@ class TestRenderOnlyValues(unittest.TestCase):
             for row in rows:
                 self.assertEqual(
                     set(row),
-                    {"id", "interactive", "visible", "text", "size", "ancestor", "offset",
+                    {"id", "interactive", "disabled", "visible", "text", "size", "ancestor", "offset",
                      "previous", "gap", "style"})
 
     def test_render_only_values_carry_the_design_numbers(self):

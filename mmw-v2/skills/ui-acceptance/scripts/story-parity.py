@@ -562,7 +562,7 @@ def render_only(plan, viewports, out, media, origin, route_baseline, locale) -> 
         page = ctx.new_page()
         try:
             for scene in plan:
-                for viewport in viewports:
+                for viewport in scene.viewports or viewports:
                     dr.resize(page, viewport)
                     dr.navigate(page, f"{origin}{dr.wrapper_path(scene.name)}")
                     dr.wait_for_mount(page, "#dc-root")
@@ -645,7 +645,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                     design_page, png, selector="#dc-root", extra_js=extra_js)
 
             for scene in plan:
-                for viewport in viewports:
+                for viewport in scene.viewports or viewports:
                     tag = f"{viewport[0]}x{viewport[1]}"
                     impl = capture_story(
                         scene, viewport, media / f"{scene.name}-{tag}-impl.png")

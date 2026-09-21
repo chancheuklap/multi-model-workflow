@@ -89,6 +89,15 @@ class TestScreenAxis(unittest.TestCase):
         self.assertEqual(s.mount, "create-project")
         self.assertEqual(s.props, {"scenario": "library-name-duplicate"})
 
+    def test_a_page_s_own_viewports_flow_into_its_scenes(self):
+        pages = {k: dict(v) for k, v in CONTRACT["pages"].items()}
+        first = next(iter(pages))
+        pages[first]["viewports"] = ["236x848"]
+        contract = dict(CONTRACT, pages=pages)
+        scenes = dr.scenes_of(contract, CATALOGUE)
+        for s in scenes.values():
+            self.assertEqual(s.viewports, ((236, 848),) if s.page == first else ())
+
     def test_the_plan_is_derived_from_mounts(self):
         plan = dr.scene_plan(CONTRACT, CATALOGUE, ["workbench-shell"], None)
         self.assertEqual(sorted(s.name for s in plan),

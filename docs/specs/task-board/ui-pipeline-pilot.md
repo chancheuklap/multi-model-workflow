@@ -132,7 +132,7 @@
 | 27 | pull | `pull_design.py` 的补读提示 | 补读清单嵌在拒绝语句里，被固定长度截断（第三个文件名后是"…"） | agent 不知道要补读哪些文件 | 补读的路径逐行完整打印在拒绝语句上方；加测试 |
 | 28 | pull | `pull_design.py` 的 `state_list_regions` | 状态名只在空格处截断；中文清单写"名字：说明"，整串被当作状态名 | `覆盖` 一节把 40 个状态全报缺失 | 状态名在空格、英文或中文冒号、带空格的破折号处截断；加测试 |
 | 29 | pull | `pull_design.py` 的 `fetch` | 约 200 个文件里有一个下载时连接出错一次，整次 pull 失败 | 要人工重跑 | 连接错误重试两次，HTTP 状态码不重试；加测试 |
-| 30 | pull | `pull.md` 第 1 步 | 要求把 `list_files` 的 JSON 原样存成文件，但这份 JSON 只在 MCP 回复里，agent 只能逐行抄写（本次 195 行） | 费上下文，抄错一行 pull 就对不上 | 未修：需要一个能直接把清单写到磁盘的途径（MCP 工具或 pull 自己列清单），留作后续 |
+| 30 | pull | `pull.md` 第 1 步 | 要求把 `list_files` 的 JSON 原样存成文件，但这份 JSON 只在 MCP 回复里，agent 只能逐行抄写（本次 195 行） | 费上下文，抄错一行 pull 就对不上 | MMW 内修不了：预览地址不提供文件列表（2026-09-21 实测：目录请求 400，列表接口要网页登录，预览口令 401），只有 MCP 的 `list_files` 能列，而 MCP 的回答只进上下文；需要 Claude Design 提供落盘的列表 |
 | 31 | 写合同 | `write-screen-contract/SKILL.md` 的 Inputs | 交接包的内容列表还写 `styles/`，实际样式在 `_ds/<folder>/` | 读者按旧目录找样式 | 改为"项目里的其他文件（绑定的 design system 在 `_ds/<folder>/`）" |
 | 32 | 写合同 | `lint_screen_contract.py` 的 `repo_root` | 合同还在 scratch 时不在任何仓库里，lint 静默改用当前目录，从 scratch 跑就报 `baselines.look` 不存在、`.mmw/target.json` 缺失，两条都是假的 | agent 以为合同有错 | 合同不在仓库里时，从 lint 的运行目录往上找仓库；第 7 步写明在仓库里运行；加测试 |
 | 33 | 写合同 | `write-screen-contract/SKILL.md` 第 1 步 | `locale` 没有来源，交接包里也没有语言信息 | agent 只能猜 | 写明取产品自己的 `<html lang>`，没有就由用户给 |
@@ -140,16 +140,16 @@
 | 35 | 写合同 | 同上第 2 步 | `component` 只说"已有的功能目录"，任务板是一个功能一个文件 | agent 要自己判断 | 改为"功能目录或模块文件" |
 | 36 | 写合同 | `screen-contract-format.md` 的 A cross-component row | "每处回调一行"与"按控件编号区分行"冲突；没说控件同时影响本区域时要不要另写一行、整页从不画这个控件时 `scenes` 填什么 | agent 各自定规矩 | 改为每个控件一行；影响本区域的另留区域页那一行；整页没画到时 `scenes` 为 `[]` 并由 lint 提示 |
 | 37 | 写合同 | 同上 Pages … states | `states` 只说领域状态，缩放、展开、关闭弹窗这类本地视图变化无处可写 | agent 自己造了 9 个名字又不确定是否合规 | 写明本地视图状态也放在 `states` |
-| 38 | 写合同 | `extract_skeleton.py`、格式的 `viewports` | 视口是一张平表，每个场景在每个视口都渲染一遍（236 宽的任务列表也按 1440x52 渲染），用时是按页面尺寸的三倍，还产生没人要的截断渲染 | 慢；不影响行的正确性 | 未修：要把视口改成按页面声明，牵涉 story judge 读同一字段，留作后续 |
-| 39 | 写合同 | 格式的 `on_failure`、`shows` | `on_failure` 没有写法规定、lint 也不查；`shows` 的"表达式"没有语法 | 各 agent 写法不一 | 未修：需要先定写法再改 lint，留作后续 |
-| 40 | 写合同 | `extract_skeleton.py` 的输出 | 骨架只记控件"能否交互"，不记"在哪个场景里被禁用"，而技能要求禁用状态单独成行 | agent 要读生产代码推出来，lint 查不到这些行的场景 | 未修：需要骨架按场景记禁用，留作后续 |
+| 38 | 写合同 | `extract_skeleton.py`、格式的 `viewports` | 视口是一张平表，每个场景在每个视口都渲染一遍（236 宽的任务列表也按 1440x52 渲染），用时是按页面尺寸的三倍，还产生没人要的截断渲染 | 慢；不影响行的正确性 | 合同加 `pages.<page>.viewports`，这一页的场景只在自己的尺寸渲染与比对；共用渲染器、骨架与 story judge 都按它走，lint 查格式与断点；各加测试。任务板合同改为四个区域各用自己的尺寸：渲染从 220 次降到 44 次，148 秒降到 30 秒，控件数不变 |
+| 39 | 写合同 | 格式的 `on_failure`、`shows` | `on_failure` 没有写法规定、lint 也不查；`shows` 的"表达式"没有语法 | 各 agent 写法不一 | 定写法：`shows` 是绑定（`字段@接口`）加可选的 ` → ` 说明，数字检查只查绑定；`on_failure` 每项是去向（行 id、场景、状态、`stay` 或 `toast:<KEY>`）加可选的 ` — ` 说明，lint 查去向；加测试；任务板合同 15 处全部合规 |
+| 40 | 写合同 | `extract_skeleton.py` 的输出 | 骨架只记控件"能否交互"，不记"在哪个场景里被禁用"，而技能要求禁用状态单独成行 | agent 要读生产代码推出来，lint 查不到这些行的场景 | 渲染器记下控件是否禁用，骨架记 `disabled_in`，lint 要求每个禁用的场景都有一行 `calls: [none]`、`next: stay` 列出它；加测试。对任务板合同一跑就查出一处漏写：整页空场景里"需要你"是禁用的，没有行，已补 |
 | 41 | 写合同 | 各决定票的解决评论 | 决定票以上一代 spec #318 为依据；地图上没有一张票管左侧任务列表，合同只能引 #318 | 已被取代的 spec 能否当来源，技能没说 | `write-screen-contract/SKILL.md` 的 Decision sources 写明：决定票引为依据的旧 spec 可以引用，先引决定票，决定票没覆盖的才引旧 spec |
 | 42 | story 验收 | `ui-acceptance/references/story-parity.md`、词表 **scene data** / **story adapter** | story adapter 只能读 scene data（显示文字），状态靠类名与计算布局的组件（灯色、画布）进不了设计页的状态 | 四个页面的 element parity 永远判不出通过 | 屏幕合同加 `scenes.<name>.input`，story adapter 从设计页自己用的数据喂组件；lint 查形状与文件在交接包内；加测试；词表加 **scene input** |
 | 43 | 切票 | `to-tickets/references/cutting-interface-tickets.md` 的 contract ticket | "`--check` 什么都不缺就不切"：`--check` 只看答案在不在，看不出 story 服务读的是旧交接包、helper 不按 `data-ui` id 找控件、`start` 没有 break switch | 照原文本批一张 contract ticket 都不切，四种裁判都跑不起来 | 写明这几种也算缺，由 spec 的 How a test arrives at a state 写出；merge-note 同步 |
 | 44 | 写 spec | `to-spec/SKILL.md` 的 How a test arrives at a state | 写"三个机制都归 contract ticket"，而 `story-parity.md` 与词表写"contract ticket 建第一个 adapter，之后每页的 ticket 加自己的" | 两条规则冲突 | 与 `story-parity.md` 对齐；已有 `.mmw/` 的产品，缺的包括为别一代建的答案；merge-note 同步 |
 | 45 | 写 spec | `to-spec/SKILL.md` 的 Sources | 决定票引为依据的旧 spec 算不算上游 spec 没写 | agent 要猜 | 写明算 |
 | 46 | 切票 | `cutting-interface-tickets.md` 的 design-system ticket | `_ds/` 本来就是从产品自己的样式表建的，照规则仍要切一张"抄回产品"的票 | 多一张什么都不改的票 | 写明这种情况不切；merge-note 同步 |
-| 47 | journey | `product-answers.md` 的 `leaves_machine`、`target_config.py` | 没有检查能看出 journey 保存配置时会写这台机器真的 `~/.mmw/models.json` | 一次验收就改掉本机配置 | 未改 MMW：这是产品的 `start` 该隔离的，本 spec 第 12 节要求 `start` 给 board 自己的 `MMW_HOME` |
+| 47 | journey | `product-answers.md` 的 `leaves_machine`、`target_config.py` | 没有检查能看出 journey 保存配置时会写这台机器真的 `~/.mmw/models.json` | 一次验收就改掉本机配置 | `product-answers.md` 的 `start` 写明：产品默认读写的每个用户级位置（配置目录、XDG 目录、用户设置文件）由 `start` 指到 `MMW_DATA_DIR` 里并放好初值，挪不走的列进 `leaves_machine`；spec #555 第 12 节对任务板提同样要求 |
 
 ## 产品侧的发现（不属于流水线，本试点不改）
 

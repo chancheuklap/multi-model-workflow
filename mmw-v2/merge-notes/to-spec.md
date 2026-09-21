@@ -53,3 +53,7 @@
 ## 谁建 story adapter；scene input；旧 spec 算上游 spec
 
 **How a test arrives at a state**：新产品上 contract ticket 建 story service 与第一个 story adapter、interaction helper、`start`，之后每张 component page ticket 加本页的 adapter，与 `ui-acceptance` 的 `story-parity.md` 和词表一致（原文写「三个都归 contract ticket」，两边冲突）；已有 `.mmw/` 的产品，缺的除了 `--check` 报的，还有为别一代交接包、scene 形状或控件查找方式建的答案。story adapter 一句加「或合同的 scene input」。`## Sources` 的上游 spec 一类写明包括决定票引为依据的旧 spec。理由：任务板试点 #541。上游改这几句 → 收上游措辞，这几处保留。
+
+## 没有合同行的决定；外观验收那一段放哪
+
+第 2 步加一句：没有合同行、交接包也没画成控件的决定（例如一段文字的行为），写进它所属的小节并注明来源，算本 spec 的决定。模板的 visual acceptance 一段写明放在自己的编号小节或带 `data-ui` id 的那一节。理由：任务板试点 #541 起草 spec 时两处都要猜。上游改这两处 → 收上游措辞，这两句保留。

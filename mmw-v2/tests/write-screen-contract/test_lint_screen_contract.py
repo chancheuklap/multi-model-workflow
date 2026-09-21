@@ -76,7 +76,7 @@ def contract():
              "trigger": "shell.sign-in", "precondition": {},
              "scenes": ["shell-header.ready"], "calls": ["ipc y"], "shows": {},
              "next": "app-awaiting-browser",
-             "on_failure": {"failed": "toast"},
+             "on_failure": {"failed": "toast:SIGN_IN_FAILED"},
              "source": ["#536 Implementation Decisions 3"],
              "gap": "aligned"},
         ],
@@ -164,6 +164,16 @@ class TestScreenAxis(unittest.TestCase):
         self.assertTrue(any("input.extra is not a contract field" in e for e in errs), errs)
         decl["input"] = "data/scenes.js S.ready"
         self.assertTrue(any("input must be a mapping" in e for e in self.lint(doc)[0]))
+
+    def test_a_page_may_declare_its_own_viewports(self):
+        doc = contract()
+        page = next(iter(doc["pages"]))
+        doc["pages"][page]["viewports"] = ["236x848"]
+        self.assertFalse(any("viewports" in e for e in self.lint(doc)[0]))
+        doc["pages"][page]["viewports"] = ["wide"]
+        self.assertTrue(any("viewports entry 'wide'" in e for e in self.lint(doc)[0]))
+        doc["pages"][page]["viewports"] = ["1100x720"]
+        self.assertTrue(any("width 1100 is a breakpoint" in e for e in self.lint(doc)[0]))
 
     def test_a_complete_contract_has_no_errors(self):
         errors, warnings = lc.lint_declarations(
@@ -344,6 +354,43 @@ class TestScreenAxis(unittest.TestCase):
         doc = contract()
         doc["scenes"]["empty"]["page"] = PAGE_B
         self.assertTrue(any("scenes.json has" in e for e in self.lint(doc)[0]))
+
+    def test_on_failure_outcomes_and_shows_bindings_have_a_checked_shape(self):
+        doc = contract()
+        row = doc["rows"][0]
+        row["on_failure"] = {"x_4xx": "stay — the page shows nothing",
+                             "y_4xx": "toast:SAVE_FAILED",
+                             "z_4xx": "material-added — the list shows the new item"}
+        row["shows"] = {"count": "items@ipc x → the #547 lamp count"}
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertFalse(any("on_failure" in e or "shows" in e for e in errors), errors)
+        row["on_failure"] = {"x_4xx": "the page shakes"}
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertTrue(any("on_failure.x_4xx starts with 'the page shakes'" in e for e in errors), errors)
+        row["on_failure"] = "toast:X"
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertTrue(any("on_failure must map" in e for e in errors), errors)
+        row["shows"] = {"count": "items@ipc 3 → x"}
+        errors, _ = lc.lint(doc, SKELETON, None)
+        self.assertTrue(any("carries a literal number" in e for e in errors), errors)
+
+    def test_a_disabled_state_needs_a_row_that_calls_nothing_and_stays(self):
+        import copy
+        skeleton = copy.deepcopy(SKELETON)
+        skeleton["table"][0]["scenes"] = ["empty", "material-added"]
+        skeleton["table"][0]["disabled_in"] = ["material-added"]
+        doc = contract()
+        errors, _ = lc.lint(doc, skeleton, None)
+        self.assertTrue(any("disabled state without a row: create-project.add-material" in e
+                            for e in errors), errors)
+        doc["rows"].append({
+            "id": "create-project.add-material-disabled",
+            "component": doc["rows"][0]["component"],
+            "trigger": "create-project.add-material", "precondition": {"material": "added"},
+            "scenes": ["material-added"], "calls": ["none"], "shows": {}, "next": "stay",
+            "source": ["#537 Implementation Decisions 2"], "gap": "aligned"})
+        errors, _ = lc.lint(doc, skeleton, None)
+        self.assertFalse(any("disabled state" in e for e in errors), errors)
 
     def test_next_rejects_unknown_and_accepts_rows_scenes_states_and_stay(self):
         doc = contract()

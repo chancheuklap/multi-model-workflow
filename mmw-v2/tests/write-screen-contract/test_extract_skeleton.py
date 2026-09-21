@@ -83,6 +83,12 @@ class TestExtractSkeleton(unittest.TestCase):
         self.assertEqual(row["text"], [])
         self.assertEqual(row["names"], ["Search: items"])
 
+    def test_a_disabled_control_records_the_scenes_it_is_disabled_in(self):
+        row = self.row("details.close", page="Component · Details.dc.html")
+        self.assertTrue(row["interactive"])
+        self.assertEqual(row["disabled_in"], ["details.ready"])
+        self.assertEqual(self.row("inventory.search")["disabled_in"], [])
+
     def test_a_repeated_id_in_a_list_is_recorded_once(self):
         matches = [row for row in self.skeleton["table"]
                    if row["id"] == "inventory.open"]
@@ -105,6 +111,18 @@ class TestExtractSkeleton(unittest.TestCase):
         self.assertEqual(self.skeleton["renders"], 6)
         self.assertEqual(self.row("inventory.viewport")["text"],
                          ["en-US 320x240", "en-US 640x480"])
+
+    def test_a_page_with_its_own_viewports_renders_only_there(self):
+        with tempfile.TemporaryDirectory() as directory:
+            contract = Path(directory) / "screen-contract.yaml"
+            contract.write_text(
+                (FIXTURE / "screen-contract.yaml").read_text(encoding="utf-8")
+                + 'pages:\n  "Component · Details.dc.html":\n    viewports: [320x240]\n',
+                encoding="utf-8")
+            output = Path(directory) / "skeleton.json"
+            es.main(FIXTURE, output, contract)
+            skeleton = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(skeleton["renders"], 5)
 
     def test_a_contract_without_locale_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:

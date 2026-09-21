@@ -57,7 +57,11 @@ field. This section says why each one is shaped the way it is.
   the product needs — which backing service, which data directory, which log — is
   found or chosen inside this command, from the lease in its environment
   (`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`,
-  `MMW_AUTOMATION`). It refuses to start with no lease and prints the command that
+  `MMW_AUTOMATION`). Every per-user location the product reads or writes by default
+  (a configuration home such as `~/.<product>` or the variable that moves it, an XDG
+  directory, a user-level settings file) is pointed inside `MMW_DATA_DIR` here and
+  seeded there, so a journey that saves changes nothing of this machine's own; a
+  location that cannot be moved is listed under `leaves_machine`. It refuses to start with no lease and prints the command that
   supplies one: `python3 <scripts>/lease.py run -- <the start command>`. When
   `MMW_BREAK` is in that command's environment, this is also the process that
   arms the break switch.

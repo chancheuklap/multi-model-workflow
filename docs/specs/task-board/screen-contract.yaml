@@ -5,24 +5,28 @@ baselines:
 locale: zh-CN
 viewports:
 - 1440x900
-- 236x848
-- 864x848
-- 340x848
-- 1440x52
 pages:
   App · 任务板.dc.html:
     mount: board
   Component · 顶栏.dc.html:
     mount: topbar
+    viewports:
+    - 1440x52
     component: mmw-v2/board/page/topbar.mjs
   Component · 任务列表.dc.html:
     mount: tasks
+    viewports:
+    - 236x848
     component: mmw-v2/board/page/tasks.mjs
   Component · 画布.dc.html:
     mount: canvas
+    viewports:
+    - 864x848
     component: mmw-v2/board/page/canvas.mjs
   Component · 详情.dc.html:
     mount: detail
+    viewports:
+    - 340x848
     component: mmw-v2/board/page/detail.mjs
   Component · 本机配置.dc.html:
     mount: settings
@@ -313,6 +317,7 @@ rows:
     needs_you: none
   scenes:
   - Component · 顶栏.empty
+  - App · 任务板.empty
   calls:
   - none
   shows:

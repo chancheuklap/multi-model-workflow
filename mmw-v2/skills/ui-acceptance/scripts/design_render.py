@@ -50,6 +50,8 @@ class Scene:
     page: str
     mount: str
     props: dict
+    # The page's own `pages.<page>.viewports`; empty means the top-level list.
+    viewports: tuple = ()
 
 
 def _refusal(what: str, why: str, next_step: str) -> str:
@@ -110,9 +112,27 @@ def parse_viewports(raw) -> list[tuple[int, int]]:
 
 
 
+def page_viewports(doc: dict) -> dict[str, list[tuple[int, int]]]:
+    """`pages.<page>.viewports` for every page that declares its own sizes.
+
+    A page drawn at one size is compared at that size only; the top-level
+    `viewports` list is the size of every page that declares none."""
+    out = {}
+    for page, decl in (doc.get("pages") or {}).items():
+        if isinstance(decl, dict) and decl.get("viewports") not in (None, [], ""):
+            out[str(page)] = parse_viewports(decl["viewports"])
+    return out
+
+
+def viewports_for(page: str, own: dict[str, list[tuple[int, int]]],
+                  default: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    return own.get(page) or default
+
+
 def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
     """Every screen declaration, with page-level `mount` filled in."""
     pages = doc.get("pages") or {}
+    own = page_viewports(doc)
     out = {}
     for name, decl in (doc.get("scenes") or {}).items():
         decl = decl or {}
@@ -121,7 +141,8 @@ def scenes_of(doc: dict, catalogue: dict[str, dict]) -> dict[str, Scene]:
         out[name] = Scene(
             name=name, page=page,
             mount=str(page_decl.get("mount") or ""),
-            props=catalogue.get(name, {}).get("props") or {})
+            props=catalogue.get(name, {}).get("props") or {},
+            viewports=tuple(own.get(page) or ()))
     return out
 
 
@@ -382,6 +403,7 @@ UI_VALUES_JS = """(root) => {
         + '[role="tab"],[role="radio"],[role="switch"],[role="slider"],'
         + '[role="menuitem"],[role="searchbox"],[role="spinbutton"],'
         + '[contenteditable="true"]'),
+      disabled: el.matches(':disabled') || el.getAttribute('aria-disabled') === 'true',
       visible: cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0'
         && r.width !== 0 && r.height !== 0,
       text: ownText(el),

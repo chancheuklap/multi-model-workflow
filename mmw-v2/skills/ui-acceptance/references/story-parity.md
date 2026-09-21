@@ -42,9 +42,10 @@ tickets add one story adapter per design page.
 ## The two sides
 
 The product side is the subtree rooted at `[data-story-root]`. The design side is
-the handoff package's page, rendered offline in the same contract `viewports`
-window; `#dc-root` keeps the size the design page renders at in that window.
-`viewports` is a top-level list of `WIDTHxHEIGHT` entries. `locale` is a top-level
+the handoff package's page, rendered offline in the same contract viewport window;
+`#dc-root` keeps the size the design page renders at in that window.
+`viewports` is a top-level list of `WIDTHxHEIGHT` entries; a page that declares its own
+`pages.<page>.viewports` is compared at those sizes only. `locale` is a top-level
 BCP 47 tag (`zh-CN`, `en-US`). Both are required; there is no fallback. The form
 is in write-screen-contract `references/screen-contract-format.md` under Top level. Both browser
 contexts take `locale` from the contract. Neither side reads a live clock: the
@@ -58,6 +59,7 @@ order:
 | field | fact |
 | --- | --- |
 | `id` | `data-ui`; repeated values become `<id>#<n>`, from 1, and a lone match on the other side becomes `<id>#1` |
+| `disabled` | true for a control matching `:disabled` or carrying `aria-disabled="true"`; recorded for the skeleton's `disabled_in`, not compared |
 | `visible` | false for `display: none`, `visibility: hidden`, `opacity: 0`, or a zero width or height |
 | `text` | own character data and descendants without `data-ui`, including `span.sc-interp`, with whitespace collapsed |
 | `size` | integer `[width, height]` in CSS pixels |
