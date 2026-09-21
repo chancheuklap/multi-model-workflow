@@ -23,7 +23,6 @@ Every one of this skill's own scripts is run as `uv run python <scripts>/…`, n
 - The backend decisions. On a wayfinder map that is the map issue: its **Decisions so far** and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too. When the decisions were settled in conversation instead, those conclusions are the source — see **Decision sources**.
 - The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
 - The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title. A run with no map takes the effort name the person gives, or the directory that will hold the spec.
-- The scope. A full run covers every page in `scenes.json`. A scoped run names the pages it covers; the reverse sweep then stays inside those pages.
 
 ## Decision sources
 
@@ -37,8 +36,9 @@ When an existing product gains a surface there is usually no map. Do not open a 
 
 Start `<scratch>/screen-contract.yaml` with the top-level `effort`, `baselines`, `locale`
 and `viewports`. `locale` is the locale the design must render under. `viewports`
-contains the design size and a second, narrower size only when the package `README.md`
-declares a minimum width. Never choose a stylesheet breakpoint: a viewport equal to one
+holds one entry per distinct size the package `README.md` lists under
+`## Viewport and size source`, where `pull_design.py` writes each page's `$preview` size.
+Never choose a stylesheet breakpoint: a viewport equal to one
 compares two reflows and verifies nothing. `extract_skeleton.py` reads only `locale` and
 `viewports`; the other two fields establish the contract that the remaining steps fill.
 On a re-run the file is already there: keep those four keys and extract again.
@@ -85,14 +85,17 @@ A behaviour the conversation settled that the page does not show is still a row 
 
 Read every `App · ` page's wiring: the callbacks and state passed between its `dc-import`s. Each place region A's action affects region B becomes one **cross-component row** on that App page. The keys, the region rule, and what the lint requires of `next` are in the format reference.
 
+Every declared `App · ` page carries at least one cross-component row: the lint counts an App page as covered only through its own `app:` rows, and reports `page has no rows: App · <name>` otherwise. When an App page's wiring passes nothing from one region to another, that is a finding for the person: put it in the gap list of step 6.
+
 ### 5. Reverse sweep
 
-Walk the decisions and the backend contract the other way: every decision line that a user can observe, and every operation in `openapi.json`, lands in at least one row's `source` or `calls`. One that does not is a `backend-only` row (the interface has no place for it) or is marked `no-ui` in `backend_without_ui` with one line saying why. In a scoped run, judge only the decisions and operations that belong to the pages in scope; the rest is not listed — a list of "out of scope" lines carries no judgement and hides the ones that do.
+Walk the decisions and the backend contract the other way: every decision line that a user can observe, and every operation in `openapi.json`, lands in at least one row's `source` or `calls`. One that does not is a `backend-only` row (the interface has no place for it) or is marked `no-ui` in `backend_without_ui` with one line saying why. The sweep covers every page of the package and every operation of `openapi.json`, and so does the lint.
 
 ### 6. Write the gap list and stop for the person
 
-Collect every row whose `gap` is `design-only` or `backend-only`, and every scene a
-person has judged cannot be captured. Write them to `<scratch>/gap-list.md`: one entry
+Collect every row whose `gap` is `design-only` or `backend-only`, every scene a
+person has judged cannot be captured, and every `App · ` page step 4 found no
+cross-component row for. Write them to `<scratch>/gap-list.md`: one entry
 each, with the row id or scene, what the design shows, what the backend decides, the
 options, and the one you would take. Then hand the list to the person — this is the one
 judgement in this skill that is theirs, and it is a grilling, not a form. Expect a

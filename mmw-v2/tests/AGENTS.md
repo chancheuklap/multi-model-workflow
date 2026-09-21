@@ -15,7 +15,7 @@ Every test of the toolbox's own scripts (the own-script layer), one directory pe
 
 ## Gotchas
 
-- `ui-acceptance/run.sh` exits non-zero on any skipped test (`refusing: skipped 1`), and the suite skips a case when `node` is missing, so a machine with `uv` and no `node` goes red. `MMW_FORCE_SKIP=1` injects one skip to prove that rule. Chromium comes from `story-parity.py`'s own PEP 723 block, which is why `run.sh` asks only for Pillow.
+- `ui-acceptance/run.sh` exits non-zero on any skipped test (`refusing: skipped 1`). `MMW_FORCE_SKIP=1` injects one skip to prove that rule. Chromium comes from `story-parity.py`'s own PEP 723 block, which is why `run.sh` asks only for Pillow.
 - `verify-ticket/run.sh` runs two node suites (`run-tests.mjs`, `lint-tests.mjs`) and a missing `node` is a hard failure; `test_fenced_check.py` calls `node` directly. `design-pages` runs its Python unittests under `uv` with Playwright and starts a real headless Chromium for pull fixtures; a missing `uv` or Chromium fails the suite.
 - `board/run.sh` starts one `uv run --with playwright` per `test_*.py` and one `node --test` per `*.test.mjs`; four cases launch a real headless Chromium, and `--with playwright` supplies only the Python package, so the browser is installed separately. The suite depends on the root `.mmw/` (`story_helper.py` starts `.mmw/stories/serve.py`, `test_harness.py` runs `.mmw/harness/bin/gh`), so a change to `.mmw/` shows up here.
 - `board/github/gh` and `.mmw/harness/bin/gh` are two fake `gh` implementations and are not interchangeable: the first plays a `scenario.json` from `MMW_BOARD_FAKE_DIR` (`fail_all`, `fail_comments`, several tree versions, calls logged to `calls.jsonl`); the second answers from an exact-argument catalog.

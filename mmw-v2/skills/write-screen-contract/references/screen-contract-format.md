@@ -14,7 +14,7 @@ baselines:
   look: docs/prototypes/<task>/claude-design   # the handoff package directory, unchanged
   precedence: "look & verbatim copy -> handoff package; calls, shows, next, on_failure -> this file"
 locale: en-US                             # BCP 47 tag; required; the story judge sets both browser contexts; no fallback
-viewports: [1280x800, 800x600]            # the design size, and its declared minimum when the README states one
+viewports: [1280x800, 800x600]            # each distinct size under the README's "Viewport and size source"
 pages:                                    # one per .dc.html page of scenes.json
   "App · 订单台.dc.html":
     mount: orders-app                     # the story page id; the product story is addressed by this value
@@ -49,7 +49,7 @@ The lint checks these top-level keys: `effort`, `baselines`, `locale`, `viewport
 
 | Key | Rule | Lint |
 | --- | --- | --- |
-| `viewports` | `WIDTHxHEIGHT` entries, declared by whoever writes this file: the design size the handoff pages were built at, plus its declared minimum when the package README states one. Whoever runs the handoff writes that README; one entry is a complete answer when it states no minimum. A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. Copy the sizes from the handoff README's fixed viewport heading. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of `styles/*.css`; missing is an error |
+| `viewports` | `WIDTHxHEIGHT` entries, one per distinct size the handoff package's `README.md` lists under `## Viewport and size source`. `pull_design.py` writes that section, one line per page, from each page's `$preview` size. A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of `styles/*.css`; missing is an error |
 | `locale` | BCP 47 tag (`zh-CN`, `en-US`) the story judge sets on both browser contexts. The story judge reads it and does not fall back. | present; matches a BCP 47 language tag |
 | `states` | The domain state names this product allows in `next`. Omit the key when `next` never names a domain state. | `next` that is not a row id, a scene name, or `stay` must be a member of this list |
 | `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from the `component` column (a page holds several components' rows, and the one with most rows can be a borrowed shared control). | present, `[a-z0-9-]`, unique across pages |
@@ -123,6 +123,8 @@ A design page with no row is an error. Reverse sweep: every operation in `openap
 ## A cross-component row
 
 A **cross-component row** records that region A's action affects region B. It is written on an `App · ` page, one row per place the page's `dc-import` wiring passes a callback or state from one region to another.
+
+Every declared `App · ` page carries at least one such row: the lint covers an App page only through its own `app:` rows and otherwise reports `page has no rows`. An App page whose wiring passes nothing between regions goes to the person in the gap list, not into an invented row.
 
 The row carries `app: "<App · page name>"`. `trigger` is region A's `data-ui` id. `calls` is the OpenAPI operation (`METHOD /path` with no query string); name the other region's state the request must carry beside it, not spliced into the path. `next` is the scene region B enters.
 

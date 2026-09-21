@@ -141,3 +141,9 @@ acceptance ticket 的阻塞句原来只写 **component page ticket** 与 **app p
 | design-system ticket 声明为纵切的第二个例外 | 它只落一层（样式）、没有自己的行为，对着 `SKILL.md` 第 3 步「vertical, NOT a horizontal slice」。照第 3 步 wide refactor 那一句的句式声明例外并附理由。上游改 wide refactor 那一句 → 收上游措辞，这一处例外保留 |
 | harness-guard 判据从 contract ticket 移到这一批最后一张 ticket | `harness-guard.py .` 扫整棵树，而第 4 步「A criterion is also exposed to the rest of its own batch」把全仓库扫一遍的判据放到批次最后一张。留在 contract ticket 上，后面任一张票漏一个验收名字，收尾 reverify 就把批次第一张票判红、重开进 `needs-triage`，而能修它的 worker 已经走了。放到最后一张：有 acceptance ticket 就是最后一张 acceptance ticket，否则是最后一张 app page / component page ticket，并由它被本批其余每张 agent ticket 阻塞来保证它真是最后一张。contract ticket 仍交付 harness guard 本身。`ui-acceptance` 的 `references/harness-guard.md` 与 `docs/contexts/ui-acceptance/CONTEXT.md` 同步改掉「contract ticket carries this criterion」。上游改第 4 步那条规则 → 收上游措辞，这一处归属随之保留 |
 | reaction ticket 收窄 | 原先覆盖「没带 `data-ui` id 的装饰、整体观感」，与 `code-review` 试点 UI axis 的 `undecorated` / `overall-look` 两类同词；五问停在第一个 yes，第二问（机器能到达的判断 → 代码审查）先于第三问（人的感受）。现在 reaction ticket 只管 story 渲染看不见的：在运行中的真实产品上用起来的感受、整个界面读起来像不像一个产品；story 渲染看得见的归 UI axis。`code-review` 的 `references/ui-reviewer.md` **What is not yours** 加对称的一句。UI axis 试点若结束被去掉，story 渲染看得见的那一类外观要重新找归属（回到这一行，或回到 reaction ticket），别让它静默失去主人。上游改 reaction ticket 那一段 → 收上游措辞，这条分界保留 |
+
+## contract ticket 已有产品一支的条件
+
+| 段落 | 我们的意图 |
+| --- | --- |
+| `references/cutting-interface-tickets.md` contract ticket 段第一句 | 原先写「An existing product whose `.mmw/` is already complete」，与后一句「A new product」组成两支；`.mmw/` 只完成了一部分的已有产品两支都对不上，离它最近的是「整套落地」，正是本段要停掉的重搭。现在只写「An existing product」，由 `target_config.py --check` 报缺什么就补什么，没缺的就不切。理由：#540。上游改这一句 → 收上游措辞，「已有产品只补报缺的、不按 `.mmw/` 完整与否分支」保留 |

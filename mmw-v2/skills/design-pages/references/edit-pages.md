@@ -1,6 +1,6 @@
 # edit pages — a project, its pages, comments, and sign-off
 
-Page conventions are [template-project-claude-md.md](template-project-claude-md.md); write that file into the project root as `CLAUDE.md` and follow it here. Confirm the tools below as `SKILL.md` says.
+Page conventions are the fenced block in [template-project-claude-md.md](template-project-claude-md.md); write that block into the project root as `CLAUDE.md` and follow it here. Confirm the tools below as `SKILL.md` says.
 
 ## MCP tools
 
@@ -25,11 +25,13 @@ Four steps, in this order:
 1. `get_claude_design_prompt` with the design system, and read the format it returns.
 2. `create_project` bound to that design system.
 3. `create_support_js`.
-4. `write_files`: the contents of [template-project-claude-md.md](template-project-claude-md.md), unchanged, as the project root `CLAUDE.md`.
+4. `write_files`: the fenced block of [template-project-claude-md.md](template-project-claude-md.md), unchanged and without the fence, as the project root `CLAUDE.md`.
 
 ## Write pages
 
 Follow that same `CLAUDE.md`. Use design-system components for `Component · ` pages and `App · ` pages. Compare interaction against the winning variant while its scaffolding is still up.
+
+The prototype leaf `README.md`'s `## State list` fixes the names: each `### <region>` heading there is one `Component · <region>` page, and each list item's leading name is one value of that page's `scene`. Pull's `覆盖` section matches the two, name by name. The agent inside the project cannot see that file, so when the user has it write pages, give it the state list in the conversation.
 
 Every `write_files` call carries `if_match`, so an edit the user just made in the editor is not overwritten.
 

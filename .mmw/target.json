@@ -6,5 +6,6 @@
   "journeys": ".mmw/journeys",
   "leaves_machine": [
     "board reads GitHub through gh; .mmw/harness/bin/gh records calls in $MMW_DATA_DIR/gh-calls during automation"
-  ]
+  ],
+  "harness_markers": []
 }

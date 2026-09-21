@@ -210,20 +210,7 @@ The top-level list on a screen contract of row ids that once had a row and no lo
 _Avoid_: 退役 id, deleted rows
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`, `mmw-v2/skills/write-screen-contract/scripts/lint_screen_contract.py`
 
-**contract ticket**:
-The first ticket cut from a spec with a screen contract: `.mmw/` in full (target.json, harness, journeys, stories and adapters), the interaction helper the boundary check uses, a `journey.py run smoke` criterion that starts the stack and logs in, and the harness guard. Every other ticket of the batch is blocked by it. Interface tickets own by design page: one story criterion (`--pages`) and one boundary criterion per `calls` row.
-_Avoid_: 合同票, prefactor ticket (for this one), addressing self-check
-_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
-
-**acceptance ticket**:
-The ticket `to-tickets` cuts per line of a spec's **Critical flows**: it builds and runs that flow's journey on the merged base branch after every ticket the flow involves has landed. Unlike the **contract ticket**, it comes after the batch rather than before it.
-_Avoid_: 验收票, flow ticket
-_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
-
-**Critical flows**:
-An optional bullet of a spec's `## Testing Decisions`: one line per flow worth a whole-product run — money, signing in, one submit chain; a product with none of those gets no line — naming the flow (the directory under `.mmw/journeys/<flow>/`) and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. A spec that omits the bullet cuts none.
-_Avoid_: Cross-ticket flows, key flows
-_Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
+The ticket kinds a screen contract produces (contract ticket, acceptance ticket and the rest) and a spec's Critical flows bullet are defined in `docs/contexts/tickets/CONTEXT.md`.
 
 **mount**:
 A design page's `mount` in the contract's `pages`: the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from rows; lowercase `[a-z0-9-]`, unique across pages. A story criterion names the ticket's mounts with `--pages`. `--mount` is a retired flag of `story-parity.py`, listed under `retired` in `verify-ticket.py`'s `PIPELINE_SCRIPTS` and reported by `--lint` as `[screen-contract]`; the live name is `--pages <mount,…>`.

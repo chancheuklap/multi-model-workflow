@@ -1,3 +1,8 @@
+# Design project `CLAUDE.md`
+
+Write the block below, unchanged, into the Claude Design project root as `CLAUDE.md`. It instructs the agent inside that project, not you: that agent reads it on every conversation and sees nothing of this repository. What only you can do with these conventions, such as supplying the prototype's state list, is in [edit-pages.md](edit-pages.md).
+
+```markdown
 # Page conventions
 
 This file is the only source of page conventions for this project. The title of a page, the `dc-import` name, and the file name are the same string.
@@ -20,10 +25,10 @@ Default Claude Design guidance ("one page, one design, unless the user asks for 
 
 Every `Component · ` page and every `App · ` page exposes one enum prop named `scene`.
 
-- On a `Component · ` page the values are every state that will be accepted, including combined states. Reuse the names from the prototype's state list: each region there is one `Component · <region>` page, and each list item's leading name is one value.
+- On a `Component · ` page the values are every state that will be accepted, including combined states.
 - On an `App · ` page each value is one whole-page combination that will be accepted.
 
-A feature that is not shipping is not a scene. If it must stay in the file, list its values under `out_of_scope` in the `scene` prop definition. Those values do not enter `scenes.json` and so do not enter the screen contract.
+A feature that is not shipping is not a scene. If it must stay in the file, keep its value in `options` and list it again under `out_of_scope`, a key inside the `scene` prop itself, beside `editor` and `options`: `"scene": {"editor": "enum", "options": ["ready", "empty", "future"], "out_of_scope": ["future"]}`. Those values do not enter `scenes.json` and so do not enter the screen contract.
 
 ## `data-ui`
 
@@ -44,3 +49,4 @@ Every `Component · ` page and every `App · ` page declares `$preview` in `data
 ## Style
 
 Use only design-system class names, and only selectors the editor can direct-edit: a single class, a comma pair `.a,.b`, a two-class compound `.a.b`, or a two-class descendant `.a .b` (pseudo-classes allowed).
+```

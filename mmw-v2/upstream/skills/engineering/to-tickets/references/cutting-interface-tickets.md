@@ -37,7 +37,7 @@ Its criterion is one comparison, written under question 1 of **the five question
 
 ## contract ticket
 
-An existing product whose `.mmw/` is already complete: fill only what `target_config.py --check` of the `ui-acceptance` skill still reports missing. When something is missing, this ticket blocks the tickets that need those deliverables. When the command reports nothing missing, cut none.
+An existing product: fill only what `target_config.py --check` of the `ui-acceptance` skill reports missing. When something is missing, this ticket blocks the tickets that need those deliverables. When the command reports nothing missing, cut none.
 
 A new product: land `.mmw/` in full. It blocks every ticket in the batch except the **design-system ticket**. What it lands is the precedent later tickets copy.
 

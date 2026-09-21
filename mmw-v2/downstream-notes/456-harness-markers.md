@@ -8,6 +8,7 @@
 ## 哪些产物失效
 
 - `.mmw/target.json`：没有 `harness_markers` 的，`harness-guard.py` 从绿变红（退出 2）；`target_config.py --check` 报缺。agentflow 原来靠写死的 Gateway 标记，现在要自己列出。
+- 本仓库（multi-model-workflow）根目录的 `.mmw/target.json` 同样缺这个键。任务板的 shipped 代码里没有只为验收而存在的字符串（`mmw-page-token` 是生产用的请求令牌，假 `gh` 只在 `.mmw/harness/` 下），所以答 `[]`。答完之后 `harness-guard.py .` 在本仓库退出 1：它把 `.mmw/`、`tests/`、`scripts/dev/` 之外对 `MMW_` 变量的每一次读取算作后门，而在本仓库 `MMW_` 变量是 MMW 自己的接口，`mmw-v2/skills/`、`mmw-v2/tests/`、`archive/` 下共 944 行命中。本仓库的 ticket 不能用 `CHECK: harness-guard.py .`。
 - story service：直接打开或渲染 `.dc.html` 的捷径现在是 `HARNESS DESIGN PAGE`。ticket 的 `CHECK: harness-guard.py .` 形状不变，但缺键或引用 design page 都会让它不再打印 `HARNESS OK`。
 - screen contract 与 target trees 不因此失效。
 

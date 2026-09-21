@@ -47,7 +47,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 **Critical flows**:
 An optional bullet of a spec's `## Testing Decisions`: money, sign-in, a submit chain; none when the product has none. One line per such flow, naming the directory under `.mmw/journeys/<flow>/` and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. Omit the bullet when `.mmw/target.json` cannot start the whole product.
 _Admitted_: 关键流程
-_Avoid_: Cross-ticket flows
+_Avoid_: Cross-ticket flows, key flows
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Out of Scope`**:
