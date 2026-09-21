@@ -17,7 +17,7 @@
         <script src="./data/board-empty.js"></script>
         <script src="./data/settings.js"></script>
       </helmet>
-      <main class="app-shell board" data-screen-label="任务板" style="{{ shellStyle }}">
+      <main data-ui="任务板.root" class="app-shell board" data-screen-label="任务板" style="{{ shellStyle }}">
         <div class="app-top">
           <dc-import name="Component · 顶栏" scene="{{ scene }}" settingsOpen="{{ settingsOpen }}" onJumpNeedYou="{{ jump }}" onOpenSettings="{{ openSettings }}" hint-size="1440px,52px"></dc-import>
         </div>

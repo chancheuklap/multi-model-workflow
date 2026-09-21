@@ -556,6 +556,37 @@ def page_props(path: Path) -> dict:
     return parser.props
 
 
+class _RootParser(HTMLParser):
+    """The page's root: the first element inside `<x-dc>` outside its `<helmet>`."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.in_xdc = False
+        self.in_helmet = False
+        self.root: tuple[str, str] | None = None
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "helmet":
+            self.in_helmet = False
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag == "x-dc":
+            self.in_xdc = True
+        elif tag == "helmet":
+            self.in_helmet = True
+        elif self.in_xdc and not self.in_helmet and self.root is None:
+            self.root = (tag, str(dict(attrs).get("data-ui") or "").strip())
+
+
+def page_root(path: Path) -> tuple[str, str] | None:
+    parser = _RootParser()
+    try:
+        parser.feed(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError):
+        return None
+    return parser.root
+
+
 def design_pages(root: Path) -> list[PageInfo]:
     pages = []
     for page in sorted(root.rglob("*.dc.html")):
@@ -1226,6 +1257,13 @@ def coverage_lines(
         lines.append(f"- 可点或可输入却没有 `data-ui` id：`{scene}` — {label}")
     for page in no_scene:
         lines.append(f"- 没有 `scene` prop 的页面：`{page}`")
+    for page in package.pages:
+        if not PurePosixPath(page.path).name.startswith(("Component · ", "App · ")):
+            continue
+        found = page_root(package.root / page.path)
+        if found is not None and not found[1]:
+            lines.append(f"- 页面根元素 `<{found[0]}>` 没有 `data-ui` id：`{page.path}`"
+                         "（产品 story 的根元素与它按 id 配对）")
     for page, values in sorted(excluded.items()):
         for value in sorted(values):
             lines.append(f"- `out_of_scope`：`{page}` 的 `{value}`")

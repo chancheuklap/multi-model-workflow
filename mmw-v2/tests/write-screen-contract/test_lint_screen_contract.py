@@ -208,6 +208,21 @@ class TestScreenAxis(unittest.TestCase):
         doc["viewports"] = ["1440x900"]
         self.assertFalse(any("breakpoint" in e for e in self.lint(doc)[0]))
 
+    def test_a_page_root_without_data_ui_is_an_error(self):
+        page = self.repo.baseline / "Component · Rooted.dc.html"
+        page.write_text(
+            "<html><body><x-dc><helmet><link rel=\"stylesheet\" href=\"a.css\"></helmet>"
+            "<header class=\"bar\"><span data-ui=\"rooted.title\">T</span></header></x-dc>"
+            "<script type=\"text/x-dc\" data-dc-script data-props='{\"scene\":{}}'></script>"
+            "</body></html>")
+        errors, _ = self.lint(contract())
+        self.assertTrue(any("Component · Rooted.dc.html:1: the page's root <header> has no data-ui"
+                            in e for e in errors), errors)
+        page.write_text(page.read_text().replace('<header class="bar">',
+                                                 '<header class="bar" data-ui="rooted.root">'))
+        errors, _ = self.lint(contract())
+        self.assertFalse(any("root <header>" in e for e in errors), errors)
+
     def test_a_component_page_without_a_scene_prop_is_an_error(self):
         (self.repo.baseline / "Component · Unaccepted.dc.html").write_text(
             '<html><body><script type="text/x-dc" data-dc-script data-props=\'{}\'></script></body></html>')

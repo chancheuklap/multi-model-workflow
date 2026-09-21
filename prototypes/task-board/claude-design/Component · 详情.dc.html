@@ -16,7 +16,7 @@
         <script src="./data/board-bad-data.js"></script>
         <script src="./data/board-empty.js"></script>
       </helmet>
-      <aside class="detail board" aria-label="详情" data-screen-label="详情" style="{{ rootStyle }}">
+      <aside data-ui="详情.root" class="detail board" aria-label="详情" data-screen-label="详情" style="{{ rootStyle }}">
         <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
           <x-import component-from-global-scope="MMWTaskBoard2_34b698.DetailEmpty" dc-props="{{ empty }}" hint-size="100%,120px"></x-import>
         </sc-if>

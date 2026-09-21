@@ -13,7 +13,7 @@
         <script src="./lib/board.js"></script>
         <script src="./data/settings.js"></script>
       </helmet>
-      <div data-screen-label="本机配置" style="{{ frameStyle }}">
+      <div data-ui="本机配置.root" data-screen-label="本机配置" style="{{ frameStyle }}">
         <x-import component-from-global-scope="MMWTaskBoard2_34b698.Sheet" dc-props="{{ sheet }}" hint-size="100%,100%">
           <sc-if value="{{ refused }}" hint-placeholder-val="{{ false }}">
             <x-import component-from-global-scope="MMWTaskBoard2_34b698.RefusedBanner" dc-props="{{ banner }}" hint-size="100%,48px"></x-import>

@@ -32,7 +32,7 @@ Every `Component · ` and `App · ` page declares `$preview` in `data-props` wit
 
 ## `data-ui`
 
-Every control that can be clicked or typed into, and every element whose look will be checked, carries `data-ui="<region>.<part>"`, where `<region>` is the name of the `Component · ` page it belongs to. Repeated parts of a list share one id. An `App · ` page repeats the ids of the `Component · ` pages it shows (a `dc-import` of those pages does this by itself); no two `Component · ` pages use the same `<region>`.
+Every control that can be clicked or typed into, and every element whose look will be checked, carries `data-ui="<region>.<part>"`, where `<region>` is the name of the `Component · ` page it belongs to. The page's root element (the first element inside `<x-dc>`, outside `<helmet>`) carries `data-ui="<region>.root"`, and an `App · ` page's root `data-ui="<name>.root"` with its own name: the product's region is compared from that element down. Repeated parts of a list share one id. An `App · ` page repeats the ids of the `Component · ` pages it shows (a `dc-import` of those pages does this by itself); no two `Component · ` pages use the same `<region>`.
 
 When a page is edited, an existing `data-ui` stays with the element that still means that part; it goes only when that element is deleted. The ids are how the repository recognises a control across edits.
 

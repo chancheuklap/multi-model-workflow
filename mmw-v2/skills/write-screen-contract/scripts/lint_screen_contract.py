@@ -244,9 +244,24 @@ class HandoffPageParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.controls_without_id: list[tuple[int, int, str]] = []
         self.props: dict | None = None
+        # The page's root: the first element inside `<x-dc>` outside its `<helmet>`.
+        # The product story's root pairs with it by `data-ui` id.
+        self.in_xdc = False
+        self.in_helmet = False
+        self.root: tuple[int, str, str] | None = None
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "helmet":
+            self.in_helmet = False
 
     def handle_starttag(self, tag: str, attrs) -> None:
         attr = dict(attrs)
+        if tag == "x-dc":
+            self.in_xdc = True
+        elif tag == "helmet":
+            self.in_helmet = True
+        elif self.in_xdc and not self.in_helmet and self.root is None:
+            self.root = (self.getpos()[0], tag, str(attr.get("data-ui") or "").strip())
         role = str(attr.get("role") or "").lower()
         style = re.sub(r"\s+", "", str(attr.get("style") or "").lower())
         hidden = (
@@ -294,6 +309,11 @@ def handoff_page_errors(baseline: Path, pages: set[str]) -> list[str]:
         if page.name.startswith("Component · ") and not (
                 isinstance(parser.props, dict) and "scene" in parser.props):
             errors.append(f"{page.name}: Component page has no scene prop in data-props")
+        if parser.root is not None and not parser.root[2] \
+                and page.name.startswith(("Component · ", "App · ")):
+            line, tag, _ = parser.root
+            errors.append(f"{page.name}:{line}: the page's root <{tag}> has no data-ui id; "
+                          "the product story's root carries the same id and pairs with it")
     return errors
 
 

@@ -16,7 +16,7 @@
         <script src="./data/board-bad-data.js"></script>
         <script src="./data/board-empty.js"></script>
       </helmet>
-      <main class="{{ rootCls }}" ref="{{ rootRef }}" aria-label="画布：拖动平移，按住 ⌘ 或双指捏合缩放" data-screen-label="画布" style="{{ rootStyle }}">
+      <main data-ui="画布.root" class="{{ rootCls }}" ref="{{ rootRef }}" aria-label="画布：拖动平移，按住 ⌘ 或双指捏合缩放" data-screen-label="画布" style="{{ rootStyle }}">
         <sc-if value="{{ noTask }}" hint-placeholder-val="{{ false }}">
           <x-import component-from-global-scope="MMWTaskBoard2_34b698.CanvasEmpty" data-ui="画布.empty" hint-size="100%,100%"></x-import>
         </sc-if>

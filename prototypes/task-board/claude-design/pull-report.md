@@ -113,11 +113,11 @@
 
 ## 改动分类
 
-- 分类：只改外观或文案
-- design page：无变化
-- `data-ui` id 新增：无
+- 分类：增删控件或改流转
+- design page：`App · 任务板.dc.html`、`Component · 任务列表.dc.html`、`Component · 本机配置.dc.html`、`Component · 画布.dc.html`、`Component · 详情.dc.html`、`Component · 顶栏.dc.html`
+- `data-ui` id 新增：`任务列表.root`、`任务板.root`、`本机配置.root`、`画布.root`、`详情.root`、`顶栏.root`
 - `data-ui` id 删除：无
 
 ## 本地改过的说明
 
-- pull 前 handoff package 有本地改动；pull 仍已完成。
+- pull 前 handoff package 与上次提交一致。

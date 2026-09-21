@@ -581,6 +581,15 @@ class PullDesign(unittest.TestCase):
             "### 顶栏\n\n- morning：一夜之后 · 四盏灯\n- bad-data: 读 GitHub 失败\n- `empty` 还没有\n")
         self.assertEqual(regions, {"顶栏": ["morning", "bad-data", "empty"]})
 
+    def test_a_page_root_without_data_ui_is_reported(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b'<main data-ui="root">', b'<main>', 1)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("页面根元素 `<main>` 没有 `data-ui` id：`Component · Demo.dc.html`",
+                      self.report_section("覆盖"))
+
     def test_only_prefixed_pages_without_scene_are_reported(self):
         self.preview.files["Component · Bare.dc.html"] = (
             b"<!doctype html><html><body><x-dc><p>Bare</p></x-dc></body></html>")

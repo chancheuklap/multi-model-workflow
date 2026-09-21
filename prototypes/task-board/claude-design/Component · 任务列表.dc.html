@@ -16,7 +16,7 @@
         <script src="./data/board-bad-data.js"></script>
         <script src="./data/board-empty.js"></script>
       </helmet>
-      <nav class="tasks board" aria-label="The Night" data-screen-label="任务列表" style="{{ rootStyle }}">
+      <nav data-ui="任务列表.root" class="tasks board" aria-label="The Night" data-screen-label="任务列表" style="{{ rootStyle }}">
         <x-import component-from-global-scope="MMWTaskBoard2_34b698.ColumnEyebrow" dc-props="{{ eyebrow }}" hint-size="100%,37px"></x-import>
         <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
           <x-import component-from-global-scope="MMWTaskBoard2_34b698.TasksEmpty" data-ui="任务列表.empty" hint-size="100%,20px"></x-import>
