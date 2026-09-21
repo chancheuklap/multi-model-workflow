@@ -251,6 +251,43 @@ class TestLintScreenContract(ContractFixture, unittest.TestCase):
         command = f'boundary-check.py --run "pnpm --dir {app} exec vitest run {test_path}"'
         self.assertEqual(self.lint(gate("AC1", self.story()), gate("AC2", command)), [])
 
+    def test_unittest_discover_names_its_file_as_directory_and_pattern(self):
+        """`-s <dir> -p <file>` names `<dir>/<file>`; read as bare words, the file was
+        looked for at the repository root and warned about as not written forever."""
+        tests = os.path.join(self.dir.name, "tests", "board")
+        os.makedirs(tests)
+        with open(os.path.join(tests, "test_rows.py"), "w", encoding="utf-8") as f:
+            f.write("click('create-project.add-material-button')\n")
+        root = __import__("pathlib").Path(self.dir.name)
+        for command in (
+            "python -m unittest discover -s tests/board -p test_rows.py -k '*.test_x'",
+            "python -m unittest discover --start-directory=tests/board --pattern=test_rows.py",
+            "python -m unittest discover tests/board test_rows.py",
+            "uv run --with playwright python -m unittest discover -s tests/board -p 'test_r*.py'",
+        ):
+            self.assertEqual(vt.boundary_test_paths(command, root),
+                             [root / "tests" / "board" / "test_rows.py"], command)
+        body = ticket(self.rows, gate("AC1", self.story()), gate(
+            "AC2", 'boundary-check.py --run "python -m unittest discover -s tests/board '
+                   '-p test_rows.py"'), parent=self.parent)
+        self.assertEqual(vt.lint_screen_contract(body, 639, root=self.dir.name), ([], []))
+
+    def test_unittest_discover_of_a_file_not_written_yet_warns_at_its_real_path(self):
+        root = __import__("pathlib").Path(self.dir.name)
+        self.assertEqual(
+            vt.boundary_test_paths("python -m unittest discover -s tests/b -p test_new.py", root),
+            [root / "tests" / "b" / "test_new.py"])
+
+    def test_a_file_after_a_directory_flag_is_read_from_that_directory(self):
+        app = os.path.join(self.dir.name, "app")
+        os.makedirs(os.path.join(app, "tests"))
+        with open(os.path.join(app, "tests", "rows.test.ts"), "w", encoding="utf-8") as f:
+            f.write("x\n")
+        root = __import__("pathlib").Path(self.dir.name)
+        self.assertEqual(
+            vt.boundary_test_paths("pnpm --dir app exec vitest run tests/rows.test.ts", root),
+            [root / "app" / "tests" / "rows.test.ts"])
+
     def test_a_boundary_test_file_not_written_yet_is_a_warning(self):
         path = os.path.join(self.dir.name, "not-written.test.ts")
         body = ticket(self.rows, gate("AC1", self.story()),
@@ -458,6 +495,28 @@ class TestSources(ContractFixture, unittest.TestCase):
                  "- [两道门（#420）](u)（基线）\n- `docs/context/chameleon-product.md`——正名")
         parent = "[Spec（#537）](u)，Implementation Decisions 第 2 节与 Testing Decisions"
         self.assertEqual(self._lint(extra, parent), [])
+
+    def test_an_earlier_spec_named_after_the_parent_spec_satisfies_its_row_sources(self):
+        """A contract row may cite an earlier spec's section; the to-tickets template
+        names that spec after the parent spec in `## Parent`, and both are read."""
+        rows = {"tasks.pick": {"source": ["#555 Implementation Decisions 4",
+                                          "#318 Implementation Decisions 4"]}}
+        parent = ("#555, Implementation Decisions sections 4 and 11; "
+                  "#318 Implementation Decisions section 4")
+        self.assertEqual(vt.source_findings(["tasks.pick"], rows, "", parent), [])
+        self.assertEqual(vt.parent_spec("## Parent\n\n" + parent + "\n"), 555)
+        self.assertEqual(vt.parent_order_findings("## Parent\n\n" + parent + "\n", 555), [])
+        missing = vt.source_findings(["tasks.pick"], rows, "",
+                                     "#555, Implementation Decisions sections 4 and 11")
+        self.assertEqual(len(missing), 1)
+        self.assertIn("#318 Implementation Decisions section 4", missing[0])
+
+    def test_an_earlier_spec_named_first_is_a_parent_order_finding(self):
+        body = ("## Parent\n\n#318 Implementation Decisions section 4; "
+                "#555, Implementation Decisions section 11\n")
+        findings = vt.parent_order_findings(body, 555)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("names #318 first", findings[0])
 
     def test_a_story_page_the_contract_does_not_declare_is_named(self):
         body = ticket(self.rows, gate("AC1", self.story_check.replace(
@@ -754,6 +813,61 @@ class TestJourneyBreakRules(unittest.TestCase):
 
     def test_an_owner_named_journey_with_break_is_clean(self):
         self.assertEqual(self.lint("owner-demo", break_value="POST /demo"), ([], []))
+
+    def test_the_critical_flows_list_ends_where_its_own_bullet_ends(self):
+        """The next bullet of Testing Decisions is not a flow, whether or not it opens
+        with bold text: spec #555's `- 提交前运行：…` was read as one and reported."""
+        flows, unreadable = vt.critical_flows("""## Testing Decisions
+
+- **Critical flows** (关键流程):
+  - `checkout`: Implementation Decisions sections 2 and 3
+- 提交前运行：run `uv run python -m unittest` on each changed file 1 and 2
+- **Test surfaces**: none
+""")
+        self.assertEqual(flows, {"checkout": {2, 3}})
+        self.assertEqual(unreadable, [])
+
+    def test_a_flow_on_the_marker_line_does_not_take_the_next_bullet(self):
+        flows, unreadable = vt.critical_flows("""## Testing Decisions
+
+- **Critical flows**: `checkout`: Implementation Decisions sections 2 and 3
+- before committing: run the suite 4 times
+""")
+        self.assertEqual(flows, {"checkout": {2, 3}})
+        self.assertEqual(unreadable, [])
+
+    def test_a_marker_that_is_a_paragraph_owns_the_list_under_it(self):
+        flows, unreadable = vt.critical_flows("""## Testing Decisions
+
+Critical flows:
+
+- `checkout`: Implementation Decisions section 2
+- `sign-in`: Implementation Decisions section 5
+
+Before committing, run the suite 4 times.
+""")
+        self.assertEqual(flows, {"checkout": {2}, "sign-in": {5}})
+        self.assertEqual(unreadable, [])
+
+    def test_the_chinese_section_words_read_once_the_heading_is_named(self):
+        flows, unreadable = vt.critical_flows("""## Testing Decisions
+
+- **Critical flows** (关键流程)：
+  - `settings-save`：打开、改一格、保存、读回；Implementation Decisions 第 6、8、9 节。
+""")
+        self.assertEqual(flows, {"settings-save": {6, 8, 9}})
+        self.assertEqual(unreadable, [])
+
+    def test_a_flow_line_without_the_heading_name_says_the_shape_it_wants(self):
+        spec = """## Testing Decisions
+
+- **Critical flows** (关键流程)：
+  - `checkout`：打开、改一格、保存、读回；第 6、8、9 节。
+"""
+        findings, _ = self.lint("checkout", spec_body=spec)
+        self.assertTrue(any("could not be read" in finding
+                            and "- `<flow>`: Implementation Decisions sections <n>, <n>"
+                            in finding for finding in findings), findings)
 
 
 if __name__ == "__main__":

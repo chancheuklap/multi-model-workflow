@@ -205,3 +205,24 @@ pass, at the seam the ticket's **Seam** names.
 
 If upstream rewrites `tdd`'s loop rules → take its wording in `tdd`; keep this
 exception, and keep its reason tied to element parity comparing rendered sides.
+
+## A file a parallel ticket owns is never changed from here
+
+The **Owns** bullet of the writing rules keeps its two grades (change a file outside
+**Owns** when a criterion needs it; open `deferred` when the change is only convenient)
+and adds one exception: a file owned by a ticket that can run beside this one, meaning
+neither blocks the other directly or down a chain, is never changed from here, and the
+worker opens a `contract` child instead.
+
+The reason is the task-board pilot #541, cutting spec #555. `to-tickets` step 5 keeps
+two tickets of one frontier from overlapping in **Owns**, so that two tickets running at
+the same time never write one file; the worker-side rule let either of them write the
+other's file anyway whenever a criterion needed it, which is the merge conflict the
+**Owns** rule exists to prevent (a shared stylesheet was the case in hand). One rule now
+holds in three places: `to-tickets` step 5 (a shared file is owned by one ticket and the
+others are blocked by it), the `verify-ticket` skill's `references/sub-issues.md`
+question 5, and this bullet. A file owned by a ticket this one waits on, or by one that
+waits on this one, can still be changed, and `--touched` still tells its owner.
+
+If upstream rewrites the writing rules → take its wording; keep the exception and the
+`contract` child it sends the worker to.

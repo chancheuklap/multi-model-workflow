@@ -995,6 +995,11 @@ def git_problems(base: str, root: Path | None = None) -> list[str]:
 # so `in_batch` takes them out before the graph is built, and `blockers_not_tickets`,
 # `cross_batch_findings` and `waiting_outside` say what was taken out and what it means.
 
+def ref(ticket: int | str) -> str:
+    """How a ticket is named in a finding: `#<n>` for an issue, the bare name for a draft."""
+    return f"#{ticket}" if isinstance(ticket, int) else str(ticket)
+
+
 def validate_dag(entries: list[dict]) -> list[str]:
     """Check unique ids and no cycles. Dependencies are already this batch's.
 
@@ -1006,7 +1011,7 @@ def validate_dag(entries: list[dict]) -> list[str]:
     seen = set()
     for entry in entries:
         if entry["id"] in seen:
-            errors.append(f"duplicate ticket: #{entry['id']}  [duplicate-ticket]")
+            errors.append(f"duplicate ticket: {ref(entry['id'])}  [duplicate-ticket]")
         seen.add(entry["id"])
 
     if not errors:
@@ -1043,9 +1048,9 @@ def _detect_cycles(entries: list[dict]) -> list[str]:
     unvisited = [e["id"] for e in entries if in_degree[e["id"]] > 0]
     cycle = _trace_cycle(dep_map, unvisited)
     if cycle:
-        return ["cycle detected: " + " -> ".join(f"#{i}" for i in cycle) + "  [cycle]"]
+        return ["cycle detected: " + " -> ".join(ref(i) for i in cycle) + "  [cycle]"]
     return ["cycle detected involving: "
-            + ", ".join(f"#{i}" for i in sorted(unvisited)) + "  [cycle]"]
+            + ", ".join(ref(i) for i in sorted(unvisited)) + "  [cycle]"]
 
 
 def _trace_cycle(dep_map: dict, unvisited_ids: list) -> list | None:
@@ -1135,8 +1140,8 @@ def blockers_not_tickets(entries: list[dict]) -> list[str]:
         for dep in entry["dependencies"]:
             if dep in ids or _outside(entry, dep).get("spec"):
                 continue
-            errors.append(f"#{entry['id']} is blocked by #{dep}, which is not a ticket "
-                          f"under any spec  [blocker-not-a-ticket]")
+            errors.append(f"{ref(entry['id'])} is blocked by {ref(dep)}, which is not a "
+                          f"ticket under any spec  [blocker-not-a-ticket]")
     return errors
 
 
@@ -1154,7 +1159,7 @@ def cross_batch_findings(entries: list[dict]) -> list[str]:
         for dep, where in sorted((entry.get("outside") or {}).items()):
             if not where.get("spec"):
                 continue
-            findings.append(f"#{entry['id']} is blocked by #{dep}, a ticket under spec "
+            findings.append(f"{ref(entry['id'])} is blocked by #{dep}, a ticket under spec "
                             f"#{where['spec']} ({where.get('state') or 'unknown'}); the "
                             f"start levels below are this spec's own order only")
     return findings
@@ -1170,7 +1175,7 @@ def waiting_outside(entries: list[dict]) -> list[str]:
     for entry in entries:
         for dep, where in sorted((entry.get("outside") or {}).items()):
             if where.get("spec") and where.get("state") != "CLOSED":
-                lines.append(f"waiting on another spec: #{entry['id']} ← #{dep} "
+                lines.append(f"waiting on another spec: {ref(entry['id'])} ← #{dep} "
                              f"({where.get('state') or 'unknown'}, spec #{where['spec']})")
     return lines
 
@@ -2516,13 +2521,18 @@ def lint_ticket_graph(number: int, body: str) -> int:
     return lint_batch_graph(spec, numbers)
 
 
-def lint_batch_graph(spec: int, numbers: list[int]) -> int:
-    """Check that `numbers`, the sub-issues of `spec`, form a startable graph."""
-    if not numbers:
+def lint_batch_graph(spec: int, numbers: list[int],
+                     entries: list[dict] | None = None) -> int:
+    """Check that `numbers`, the sub-issues of `spec`, form a startable graph.
+
+    `entries` replaces the tracker's blocking links with ones read elsewhere: the
+    `BLOCKED BY:` headers of a directory of drafts, whose ids are draft names."""
+    if not numbers and not entries:
         print(f"  ERROR #{spec} has no sub-issues — publish tickets as sub-issues of the "
               f"spec, or the graph cannot be checked  [no-sub-issues]")
         return 1
-    entries = ticket_entries(numbers)
+    if entries is None:
+        entries = ticket_entries(numbers)
     # Printed before the errors, because an error returns here and a disagreement about
     # an edge is often what the error is: a cycle, or a blocker that is no ticket.
     for finding in cross_batch_findings(entries):
@@ -2542,7 +2552,7 @@ def lint_batch_graph(spec: int, numbers: list[int]) -> int:
     for ticket, level in levels.items():
         by_level[level].append(ticket)
     for level in sorted(by_level):
-        print(f"level {level}: " + ", ".join(f"#{t}" for t in sorted(by_level[level])))
+        print(f"level {level}: " + ", ".join(ref(t) for t in sorted(by_level[level])))
     for line in waiting_outside(entries):
         print(line)
     return 0
@@ -2933,28 +2943,117 @@ def run_values(check: str) -> list[str]:
 TEST_FILE_SUFFIXES = (".py", ".sh", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx")
 
 
+# `python -m unittest discover`: the flags that take a value, and which of them name the
+# start directory and the file pattern. Its positionals are `[start] [pattern] [top]`.
+DISCOVER_VALUE_FLAGS = ("-s", "--start-directory", "-p", "--pattern", "-t",
+                        "--top-level-directory", "-k", "--durations")
+DISCOVER_START_FLAGS = ("-s", "--start-directory")
+DISCOVER_PATTERN_FLAGS = ("-p", "--pattern")
+DISCOVER_DEFAULT_PATTERN = "test*.py"
+# A runner flag whose value is the directory the rest of the command runs in, so a
+# relative test file after it is read from there: `pnpm --dir <d>`, `npm --prefix <d>`,
+# `yarn --cwd <d>`, `make -C <d>`.
+CHDIR_FLAGS = ("--dir", "--prefix", "--cwd", "-C")
+
+
+def _discover_paths(words: list[str], base: Path) -> tuple[list[Path], set[int]]:
+    """The files `unittest discover` would load, and the indices of the words that said so.
+
+    `-s <dir> -p <file>` (or `--start-directory`, `--pattern`, `=` forms, or discover's
+    positional `<dir> <pattern>`) names one file as the two joined. A pattern with
+    `*`, `?` or `[` names every file it matches in that directory; one that matches none
+    is kept as written, so the caller reports it as not written yet rather than as a
+    command that names no test."""
+    if "discover" not in words:
+        return [], set()
+    start = pattern = None
+    consumed: set[int] = set()
+    positional: list[tuple[int, str]] = []
+    j = words.index("discover") + 1
+    while j < len(words):
+        word = words[j]
+        flag, eq, value = word.partition("=")
+        if eq and flag in DISCOVER_VALUE_FLAGS:
+            index = j
+            j += 1
+        elif word in DISCOVER_VALUE_FLAGS and j + 1 < len(words):
+            flag, value, index = word, words[j + 1], j + 1
+            j += 2
+        else:
+            if not word.startswith("-"):
+                positional.append((j, word))
+            j += 1
+            continue
+        if flag in DISCOVER_START_FLAGS:
+            start = value
+            consumed.add(index)
+        elif flag in DISCOVER_PATTERN_FLAGS:
+            pattern = value
+            consumed.add(index)
+    if start is None and positional:
+        index, start = positional.pop(0)
+        consumed.add(index)
+    if pattern is None and positional:
+        index, pattern = positional.pop(0)
+        consumed.add(index)
+    directory = base / (start or ".")
+    pattern = pattern or DISCOVER_DEFAULT_PATTERN
+    if any(ch in pattern for ch in "*?["):
+        matches = sorted(path for path in directory.glob(pattern) if path.is_file())
+        return (matches or [directory / pattern]), consumed
+    return [directory / pattern], consumed
+
+
 def boundary_test_paths(command: str, root: Path) -> list[Path]:
     """Test files named by one boundary `--run` command.
 
     A case suffix (`file.py::Case.test`) still names `file.py`. Existing paths are
     accepted even when their suffix is unusual; otherwise the standard script/test
     suffixes distinguish a future file from command names and case selectors.
+
+    A runner that takes the directory and the file apart is read as the two joined:
+    `unittest discover -s <dir> -p <file>` (`_discover_paths`), and a relative file
+    after a flag that moves the command into another directory (`CHDIR_FLAGS`) is read
+    from that directory when it is there, from the repository root otherwise.
     """
     try:
         words = shlex.split(command)
     except ValueError:
         words = command.split()
     found: list[Path] = []
-    for word in words:
+
+    def add(candidate: Path) -> None:
+        if candidate not in found:
+            found.append(candidate)
+
+    base = root
+    for i, word in enumerate(words[:-1]):
+        flag, eq, value = word.partition("=")
+        if eq and flag in CHDIR_FLAGS:
+            base = root / value
+        elif word in CHDIR_FLAGS:
+            base = root / words[i + 1]
+    discovered, consumed = _discover_paths(words, base)
+    for path in discovered:
+        add(path)
+    after_chdir = False
+    for i, word in enumerate(words):
+        if i in consumed:
+            continue
+        flag = word.partition("=")[0]
+        if flag in CHDIR_FLAGS:
+            after_chdir = True
         value = word.split("::", 1)[0].rstrip(",;:")
         if value.startswith("-") or not value:
             continue
         candidate = Path(value)
         if not candidate.is_absolute():
-            candidate = root / candidate
+            moved = base / candidate
+            candidate = (moved if after_chdir and (moved.is_file() or
+                                                  not (root / candidate).is_file())
+                         else root / candidate)
         if candidate.is_file() or value.lower().endswith(TEST_FILE_SUFFIXES):
-            if candidate not in found:
-                found.append(candidate)
+            add(candidate)
     return found
 
 
@@ -3134,29 +3233,52 @@ def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
     return findings
 
 
+CRITICAL_FLOW_SHAPE = "- `<flow>`: Implementation Decisions sections <n>, <n>"
+LIST_ITEM_RE = re.compile(r"^(\s*)[-*+]\s")
+
+
 def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
     """Flow name → Implementation Decisions sections from Testing Decisions.
 
-    The to-spec contract fixes the information, not whether the flow is on the marker
-    line or a nested line, nor whether the section numbers precede or follow the words
-    `Implementation Decisions`.
+    The **Critical flows** bullet holds one line per flow, in the shape
+    `CRITICAL_FLOW_SHAPE`, nested under the marker or on the marker line itself: the
+    flow is the backticked name (or `.mmw/journeys/<flow>/`, or the bare first word of
+    the item), and the section numbers are the ones after the words
+    `Implementation Decisions` (`sections 2 and 3 of Implementation Decisions` reads the
+    same). The section is named by its heading in the spec, in English whatever language
+    the rest of the spec is in, because that heading is what `## Parent` names too; a
+    line without those words is returned as unreadable.
+
+    The bullet ends where its own list ends: at the first non-blank line indented no
+    deeper than the marker's own list item, or at a heading. A marker that is not a list
+    item (a paragraph or a heading) owns the list items that follow it.
     """
     out: dict[str, set[int]] = {}
     unreadable: list[str] = []
     active = False
-    for line in section(spec_body, "Testing Decisions"):
-        marker = CRITICAL_FLOWS_RE.search(line)
+    marker_indent: int | None = None
+    for raw in section(spec_body, "Testing Decisions"):
+        line = raw
+        marker = None if active else CRITICAL_FLOWS_RE.search(line)
         if marker:
             active = True
+            item = LIST_ITEM_RE.match(line)
+            marker_indent = len(item.group(1)) if item else None
             line = re.sub(r"^\*{0,2}\s*(?:\([^)]*\))?\s*[:：]?\s*", "",
                           line[marker.end():])
-            if not line:
+            if not line.strip():
                 continue
-        if not active:
-            continue
-        if re.match(r"^\s*-\s+\*\*", line):
-            break
-        if not line.strip():
+        elif active:
+            if not line.strip():
+                continue
+            if line.lstrip().startswith("#"):
+                break
+            indent = len(line) - len(line.lstrip())
+            if marker_indent is not None and indent <= marker_indent:
+                break
+            if marker_indent is None and not LIST_ITEM_RE.match(line) and indent == 0:
+                break
+        else:
             continue
         path = JOURNEY_PATH_RE.search(line)
         quoted = re.search(r"`([a-z0-9][a-z0-9-]*)`", line)
@@ -3251,8 +3373,9 @@ def lint_screen_contract(
         for spec, line in unreadable_lines:
             findings.append(
                 f"spec #{spec} Critical flows line `{line}` could not be read, so --lint "
-                f"cannot decide whether this journey needs --break; write the flow name "
-                f"and its Implementation Decisions section numbers")
+                f"cannot decide whether this journey needs --break; write each flow as "
+                f"`{CRITICAL_FLOW_SHAPE}`, with the words Implementation Decisions in "
+                f"English, as `## Parent` names them")
         return journeys, readable and not unreadable_lines
 
     for gate_id, check, _ in checks:
@@ -3428,34 +3551,81 @@ def lint_screen_contract(
     return findings, warning_findings
 
 
+GATE_LINT_VERDICT_RE = re.compile(
+    r"^LINT (?:OK(?: \((\d+) warning\(s\)\))?|FINDINGS: (\d+) error\(s\), (\d+) warning\(s\))\s*$")
+
+
+def parent_order_findings(body: str, spec: int) -> list[str]:
+    """`## Parent` names the spec this ticket sits under first.
+
+    `parent_spec` reads the first issue number there as the ticket's spec, and it is
+    what `spec_of` falls back to, what `fetch_outsider` asks of a blocker in another
+    batch, and what `--drafts` has in place of a tracker link. An earlier spec whose
+    sections a contract row cites as its source is named after it, in the same words."""
+    first = parent_spec(body)
+    if first is None or first == spec:
+        return []
+    return [f"`## Parent` names #{first} first, but this ticket sits under spec #{spec}; "
+            f"the first issue in `## Parent` is read as the ticket's spec; write "
+            f"`#{spec}, Implementation Decisions sections <n>, <n>` first and an earlier "
+            f"spec's sections after it (`; #{first} Implementation Decisions section <n>`)"]
+
+
 def lint_criteria(number: int, body: str, labels: list[str],
                   spec_bodies: dict[int, str] | None = None,
-                  fetch_spec_body: Callable[[int], str] | None = None) -> int:
+                  fetch_spec_body: Callable[[int], str] | None = None,
+                  spec: int | None = None, name: str | None = None) -> int:
     """Everything `--lint` says about one ticket's own text: its worker label, how its
     criteria are written, and their interface rules. The batch graph is not here;
-    `run_lint` checks that once per batch."""
-    require_judges(body)
-    worker_errors, worker_warnings = lint_worker(labels)
+    `run_lint` checks that once per batch.
 
-    def report_worker() -> None:
+    `spec`, when known, is the spec this ticket sits under, and `## Parent` must name it
+    first. `name` is how the ticket is named in what is printed: `#<number>` unless a
+    draft's name stands in for it. The ticket's verdict is the last line printed for it
+    and counts every finding above it: gate-lint's own `LINT OK` / `LINT FINDINGS` line
+    covers only gate-lint's findings, so it is taken out and this one printed instead."""
+    require_judges(body)
+    who = name or f"#{number}"
+    worker_errors, worker_warnings = lint_worker(labels)
+    counts = {"error": 0, "warn": 0}
+
+    def say(level: str, finding: str, rule: str) -> None:
+        label = "ERROR" if level == "error" else "WARN "
+        print(f"  {label} {finding}  [{rule}]")
+        counts[level] += 1
+
+    def verdict() -> None:
+        if counts["error"]:
+            print(f"{who} LINT FINDINGS: {counts['error']} error(s), "
+                  f"{counts['warn']} warning(s)")
+        elif counts["warn"]:
+            print(f"{who} LINT OK ({counts['warn']} warning(s))")
+        else:
+            print(f"{who} LINT OK")
+
+    def report_worker_and_parent() -> None:
         for finding in worker_errors:
-            print(f"  ERROR #{number} " + finding + "  [worker-label]")
+            say("error", f"{who} " + finding, "worker-label")
         for finding in worker_warnings:
-            print(f"  WARN  #{number} " + finding + "  [worker-label]")
+            say("warn", f"{who} " + finding, "worker-label")
+        if spec is not None:
+            for finding in parent_order_findings(body, spec):
+                say("error", f"{who} " + finding, "parent-order")
 
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
     # saying "zero live gates" would report the ticket's correct shape as a fault.
     if not section(body, "Acceptance criteria"):
-        print(f"#{number} carries no `## Acceptance criteria`, so only its worker label "
+        print(f"{who} carries no `## Acceptance criteria`, so only its worker label "
               f"and its place in the batch are checked")
         if not any(label in CLASS_LABELS for label in labels):
-            print(f"  WARN  #{number} carries no layer label, so its layer was read off "
-                  f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
-                  f"without it a spec attached to a map leaves its batch unlinted here  "
-                  f"[layer-label]")
-        report_worker()
-        return 1 if worker_errors else 0
+            say("warn", f"{who} carries no layer label, so its layer was read off "
+                f"its place in the tree; the label on a spec is `{CLASS_SPEC}`, and "
+                f"without it a spec attached to a map leaves its batch unlinted here",
+                "layer-label")
+        report_worker_and_parent()
+        verdict()
+        return 1 if counts["error"] else 0
 
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp))
@@ -3466,34 +3636,39 @@ def lint_criteria(number: int, body: str, labels: list[str],
             ["node", str(GATE_LINT), str(ledger)],
             capture_output=True, text=True,
         )
-    sys.stdout.write((result.stdout or "") + (result.stderr or ""))
+    gate_verdict = None
+    for line in ((result.stdout or "") + (result.stderr or "")).splitlines():
+        found = GATE_LINT_VERDICT_RE.match(line)
+        if found:
+            gate_verdict = found
+            continue
+        print(line)
+    if gate_verdict is not None:
+        counts["warn"] += int(gate_verdict.group(1) or gate_verdict.group(3) or 0)
+        counts["error"] += int(gate_verdict.group(2) or 0)
+    elif result.returncode:
+        # gate-lint could not read the ledger at all (exit 2), and said why above.
+        counts["error"] += 1
 
-    broken = lint_expectations(body)
-    for finding in broken:
-        print("  ERROR " + finding + "  [dollar-without-m]")
-    bad_timeouts = lint_timeouts(body)
-    for finding in bad_timeouts:
-        print("  ERROR " + finding + "  [bad-timeout]")
-    broken = broken + bad_timeouts
+    for finding in lint_expectations(body):
+        say("error", finding, "dollar-without-m")
+    for finding in lint_timeouts(body):
+        say("error", finding, "bad-timeout")
     contract_findings, contract_warnings = lint_screen_contract(
         body, number, spec_bodies=spec_bodies, fetch_spec_body=fetch_spec_body)
     for finding in contract_findings:
-        print("  ERROR " + finding + "  [screen-contract]")
+        say("error", finding, "screen-contract")
     for finding in contract_warnings:
-        print("  WARN  " + finding + "  [screen-contract]")
-    broken = broken + contract_findings
-    retired_base = lint_retired_base(body)
-    for finding in retired_base:
-        print("  ERROR " + finding + "  [retired-base]")
-    broken = broken + retired_base
-    undecidable = lint_undecidable_checks(body)
-    for finding in undecidable:
-        print("  ERROR " + finding + "  [undecidable-check]")
-    broken = broken + undecidable
+        say("warn", finding, "screen-contract")
+    for finding in lint_retired_base(body):
+        say("error", finding, "retired-base")
+    for finding in lint_undecidable_checks(body):
+        say("error", finding, "undecidable-check")
     for finding in lint_check_effects(body):
-        print("  WARN  " + finding + "  [shared-state]")
-    report_worker()
-    return result.returncode or (1 if broken or worker_errors else 0)
+        say("warn", finding, "shared-state")
+    report_worker_and_parent()
+    verdict()
+    return result.returncode or (1 if counts["error"] else 0)
 
 
 def ticket_labels(number: int) -> list[str]:
@@ -3542,7 +3717,11 @@ def run_lint(number: int) -> int:
             print(f"  ERROR the tracker could not list the children of #{number} "
                   f"({exc})  [sub-issues-unreadable]")
             return 1
-    ticket_rc = lint_criteria(number, body, labels, fetch_spec_body=fetch_body)
+    try:
+        linked = fetch_parent(number)
+    except ParentUnreadable:
+        linked = None  # the graph step below reports it
+    ticket_rc = lint_criteria(number, body, labels, fetch_spec_body=fetch_body, spec=linked)
     graph = lint_ticket_graph(number, body)
     return 1 if (ticket_rc or graph) else 0
 
@@ -3563,7 +3742,7 @@ def lint_spec(spec: int) -> int:
         named |= set(parent_sections("\n".join(section(body, "Parent")))
                      .get(spec, {}).get("sections") or ())
         print(f"\n## #{child} ({state})")
-        if lint_criteria(child, body, labels_of(ticket), {spec: spec_body}):
+        if lint_criteria(child, body, labels_of(ticket), {spec: spec_body}, spec=spec):
             if state == "CLOSED":
                 print(f"  WARN  #{child} is closed, so the ERROR above does not stop the batch  [closed-ticket]")
             else:
@@ -3576,6 +3755,136 @@ def lint_spec(spec: int) -> int:
     return 1 if (failed or graph) else 0
 
 
+DRAFT_HEADER_RE = re.compile(r"^([A-Z][A-Z ]*[A-Z]):\s*(.*)$")
+DRAFT_REQUIRED = ("TITLE", "LABELS", "BLOCKED BY")
+DRAFT_ISSUE_RE = re.compile(r"^#(\d+)$")
+# What `--lint` on a published batch checks and `--drafts` cannot, because only the
+# tracker holds it. Printed at the end of every drafts run, so a clean run is not taken
+# for the published batch's.
+DRAFTS_NOT_CHECKED = (
+    "that each ticket is a sub-issue of the spec and carries the labels on the tracker "
+    "(the LABELS: header is checked instead)",
+    "the blocking links the tracker records (the BLOCKED BY: headers are checked instead)",
+    "each ticket's title against its `## What to build` (the read-back of to-tickets step 8)",
+)
+
+
+class DraftUnreadable(ValueError):
+    """A draft file whose header cannot be read."""
+
+
+def read_draft(path: Path) -> dict:
+    """One draft: `KEY: value` header lines, a line `---`, then the issue body.
+
+    `TITLE:`, `LABELS:` (comma-separated) and `BLOCKED BY:` (comma-separated draft names,
+    or `#<n>` for a published issue, or `(none)`) are required; other header keys are
+    the drafter's notes and are not read. The draft's name is its file name without
+    `.md`, and it stands in for the issue number the ticket does not have yet."""
+    text = path.read_text(encoding="utf-8")
+    head, sep, body = text.partition("\n---\n")
+    if not sep:
+        raise DraftUnreadable(f"{path.name}: no `---` line between the header and the body")
+    meta: dict[str, str] = {}
+    for line in head.splitlines():
+        if not line.strip():
+            continue
+        found = DRAFT_HEADER_RE.match(line)
+        if not found:
+            raise DraftUnreadable(f"{path.name}: header line `{line[:60]}` is not `KEY: value`")
+        meta[found.group(1)] = found.group(2).strip()
+    missing = [key for key in DRAFT_REQUIRED if key not in meta]
+    if missing:
+        raise DraftUnreadable(f"{path.name}: the header has no " + ", ".join(
+            f"`{key}:`" for key in missing))
+    blocked_raw = meta["BLOCKED BY"]
+    blocked = ([] if blocked_raw.lower() in ("", "none", "(none)")
+               else [x.strip() for x in blocked_raw.split(",") if x.strip()])
+    return {"name": path.stem, "title": meta["TITLE"], "body": body,
+            "labels": [x.strip() for x in meta["LABELS"].split(",") if x.strip()],
+            "blocked": blocked}
+
+
+def lint_drafts(spec: int, directory: Path) -> int:
+    """`--lint` over the tickets of a batch before they are published.
+
+    Every `*.md` in `directory` is one draft (`read_draft`). Each goes through the same
+    `lint_criteria` a published ticket gets, with the labels of its header and `spec` as
+    the spec it will sit under; then the graph its `BLOCKED BY:` headers make goes through
+    `lint_batch_graph`, and the spec's Implementation Decisions sections are counted
+    against every draft's `## Parent`. The spec itself, and any `#<n>` a draft is
+    blocked by, are read from the tracker. What only a published batch can show is
+    listed at the end as not checked."""
+    paths = sorted(directory.glob("*.md"))
+    if not paths:
+        print(f"  ERROR {directory} holds no `*.md` drafts, so there is nothing to lint  "
+              f"[no-drafts]")
+        return 1
+    drafts: list[dict] = []
+    failed: list[str] = []
+    for path in paths:
+        try:
+            drafts.append(read_draft(path))
+        except (DraftUnreadable, OSError, UnicodeError) as exc:
+            print(f"  ERROR {exc}; write the header as TITLE:, LABELS:, BLOCKED BY: lines, "
+                  f"then `---`, then the body  [draft-unreadable]")
+            failed.append(path.stem)
+    try:
+        spec_body = fetch_body(spec)
+    except TrackerReadError as exc:
+        spec_body = ""
+        print(f"  WARN  spec #{spec} could not be read ({exc.detail}), so the Critical "
+              f"flows rule and the section count below did not run; restore tracker "
+              f"access and run --drafts again  [spec-unreadable]")
+    names = {d["name"] for d in drafts}
+    print(f"#{spec}: {len(drafts)} drafts in {directory}; linting each, then the graph "
+          f"their BLOCKED BY: headers make")
+    named: set[int] = set()
+    entries: list[dict] = []
+    for draft in drafts:
+        name = draft["name"]
+        body = draft["body"]
+        named |= set(parent_sections("\n".join(section(body, "Parent")))
+                     .get(spec, {}).get("sections") or ())
+        print(f"\n## {name} (draft)")
+        dependencies: list[int | str] = []
+        bad = False
+        for blocker in draft["blocked"]:
+            issue = DRAFT_ISSUE_RE.match(blocker)
+            if issue:
+                dependencies.append(int(issue.group(1)))
+            elif blocker in names:
+                dependencies.append(blocker)
+            else:
+                print(f"  ERROR {name} is blocked by `{blocker}`, which is neither a draft "
+                      f"in {directory} nor `#<issue number>`; name a draft by its file name "
+                      f"without `.md`  [unknown-draft]")
+                bad = True
+        if "mmw:ticket" not in draft["labels"]:
+            print(f"  ERROR {name}: LABELS: has no `mmw:ticket`, the layer label every "
+                  f"ticket is published with  [layer-label]")
+            bad = True
+        entries.append({"id": name, "dependencies": dependencies})
+        if lint_criteria(0, body, draft["labels"], {spec: spec_body} if spec_body else {},
+                         spec=spec, name=name) or bad:
+            failed.append(name)
+    found: dict[int, dict] = {}
+    for entry in entries:
+        for dep in entry["dependencies"]:
+            if isinstance(dep, int) and dep not in found:
+                found[dep] = fetch_outsider(dep)
+        entry["outside"] = {d: found[d] for d in entry["dependencies"] if isinstance(d, int)}
+    print("\n## ticket graph (from BLOCKED BY:)")
+    graph = lint_batch_graph(spec, [], entries) if entries else 1
+    if spec_body:
+        print_uncovered_sections(spec, spec_body, named)
+    print("\nnot checked on drafts; run --lint on the published spec for these:")
+    for line in DRAFTS_NOT_CHECKED:
+        print("  - " + line)
+    if failed:
+        print("  ERROR drafts with findings: " + ", ".join(failed))
+    return 1 if (failed or graph) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("ticket", type=int)
@@ -3583,6 +3892,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="re-run every criterion, including the ones already ticked")
     parser.add_argument("--lint", action="store_true",
                         help="audit how the criteria are written; runs no CHECK, posts no comment")
+    parser.add_argument("--drafts", type=Path, metavar="DIR",
+                        help="with --lint, the ticket being the spec: lint the unpublished "
+                             "drafts in DIR (TITLE:/LABELS:/BLOCKED BY: header, `---`, body) "
+                             "instead of the spec's sub-issues")
     parser.add_argument("--preflight", action="store_true",
                         help="claim the ticket, or refuse and say why on the ticket")
     parser.add_argument("--closeout", type=Path, metavar="DRAFT",
@@ -3626,6 +3939,10 @@ def main(argv: list[str] | None = None) -> int:
                ("--review", args.review is not None)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
+    if args.drafts is not None and not args.lint:
+        parser.error("--drafts belongs to --lint")
+    if args.drafts is not None and not args.drafts.is_dir():
+        parser.error(f"no directory at {args.drafts}")
     if args.check_only and args.closeout is None:
         parser.error("--check-only belongs to --closeout")
     if args.actor is not None and not args.reverify:
@@ -3654,6 +3971,8 @@ def main(argv: list[str] | None = None) -> int:
             if not args.review.is_file():
                 parser.error(f"no file at {args.review}")
             return run_review(args.ticket, args.review)
+        if args.lint and args.drafts is not None:
+            return lint_drafts(args.ticket, args.drafts)
         if args.lint:
             return run_lint(args.ticket)
         return run_checks(args.ticket, args.reverify, args.timeout, args.actor)

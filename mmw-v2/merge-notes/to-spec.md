@@ -57,3 +57,9 @@
 ## 没有合同行的决定；外观验收那一段放哪
 
 第 2 步加一句：没有合同行、交接包也没画成控件的决定（例如一段文字的行为），写进它所属的小节并注明来源，算本 spec 的决定。模板的 visual acceptance 一段写明放在自己的编号小节或带 `data-ui` id 的那一节。理由：任务板试点 #541 起草 spec 时两处都要猜。上游改这两处 → 收上游措辞，这两句保留。
+
+## Critical flows 每一行的形状
+
+模板 `## Testing Decisions` 的 **Critical flows** 一项加两句：每条流程一行，嵌在这一项下面，写成 ``- `<flow>`: Implementation Decisions sections <n>, <n>``；`Implementation Decisions` 这两个词不论 spec 用什么语言写都保持英文，与票的 `## Parent` 点名小节的写法一致，节号跟在它后面（`Implementation Decisions 第 6、8、9 节` 也读得出）；`verify-ticket` 技能的 `--lint` 读这些行来判定哪些 journey 必须带 `--break`，读不出的行报 ERROR 并给出这个形状。
+
+理由：任务板试点 #541 的 spec #555 用中文写成 ``- `settings-save`：…；第 6、8、9 节``，`critical_flows()` 只认 `Implementation Decisions` 这两个词，读不出节号；它又只在下一个以 `- **` 开头的行才停，把后面一条普通 bullet（「提交前运行」）也当成流程行报错。脚本那一侧改成在这一项自己的列表结束处停；接受的形状只留一种，写在这里，ERROR 原样引用它。上游改 `## Testing Decisions` 的这一项 → 收上游措辞，这个形状与「节名保持英文」保留。

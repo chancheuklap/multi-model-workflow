@@ -28,8 +28,9 @@ These hold for every product. How a given repository meets them is its own.
 - **A `data-ui` id repeats only on the repeating part of a list.** The same id on
   two elements the design page shows as one each is a product defect: element
   parity pairs by id, so a repeated id outside a list makes one of them
-  unpairable. The contract ticket's static guard is what holds this, alongside
-  the two above it.
+  unpairable. The static guard the contract ticket delivers is what holds this,
+  alongside the two above it; its criterion sits on the batch's last ticket,
+  because it sweeps the whole tree.
 - **Time values come from scene data.** A client-rendered product loads the same
   paused clock the design side uses, so a clock reading is not a live instant.
 - **A boundary test replaces the outbound call module** the consuming repository

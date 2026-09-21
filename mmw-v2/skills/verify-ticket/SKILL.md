@@ -30,7 +30,7 @@ A criterion names a judge by its bare name (`story-parity.py …`, `boundary-che
 | Closing the ticket out | [references/closeout.md](references/closeout.md) |
 | Cutting something out of the ticket | [references/sub-issues.md](references/sub-issues.md) |
 | The **reviewer**, with the report written to a file | [references/review-report.md](references/review-report.md) |
-| Publishing a batch, or opening a night on a spec | [references/linting.md](references/linting.md) |
+| About to publish a batch (its drafts), having published one, or opening a night on a spec | [references/linting.md](references/linting.md) |
 
 No run of this skill tells anybody anything. What a run posts on the ticket is the news: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue fault` or `decision`, and the worker for a `--review`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
 

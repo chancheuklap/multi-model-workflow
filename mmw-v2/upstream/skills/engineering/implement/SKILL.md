@@ -26,7 +26,7 @@ While writing code:
 - Before adding a file, a dependency or a configuration entry, say why the existing one is not enough.
 - Never simplify away: security, error handling that prevents data loss, accessibility, or anything the ticket explicitly asks for — **What to build**, every acceptance criterion, the baseline, the interface under **Seam**.
 - At the end, write `skipped: [X], add when [Y]`.
-- For a file outside **Owns**: change it when a criterion cannot pass otherwise — it lands under `Outside Owns:` in the closing comment; when the change is merely convenient, leave it and run `<engine> <n> --sub-issue deferred <file>`.
+- For a file outside **Owns**: change it when a criterion cannot pass otherwise — it lands under `Outside Owns:` in the closing comment; when the change is merely convenient, leave it and run `<engine> <n> --sub-issue deferred <file>`. A file owned by a ticket that can run beside this one (neither blocks the other, directly or down a chain) is never changed from here, whatever needs it: run `<engine> <n> --sub-issue contract <file>`, because one file has one writer at a time and the cut missed an edge.
 
 ## Shared experience while implementing
 

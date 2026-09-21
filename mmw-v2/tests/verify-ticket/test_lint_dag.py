@@ -439,13 +439,16 @@ class TestBorrowedFromUpstream(unittest.TestCase):
         return "\n".join(out)
 
     def test_what_differs_is_only_the_shape_of_an_entry(self):
-        # Upstream translates `pr-3` back into `PR 3` for its messages; an issue number
-        # needs no translation, and that is the whole of the eight-line difference.
+        # Upstream translates `pr-3` back into `PR 3` for its messages; here `ref` writes
+        # an issue number as `#<n>` and a draft's name as itself, and that is the whole
+        # of the difference.
         theirs = self.source(self.UPSTREAM, "validate_dag")
         ours = self.source(SCRIPT, "validate_dag")
         self.assertIn('replace("pr-", "PR ", 1)', theirs)
         self.assertNotIn("pr-", ours)
-        self.assertIn("#{entry['id']}", ours)
+        self.assertIn("{ref(entry['id'])}", ours)
+        self.assertEqual(vt.ref(301), "#301")
+        self.assertEqual(vt.ref("T2-topbar"), "T2-topbar")
 
 if __name__ == "__main__":
     unittest.main()

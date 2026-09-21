@@ -109,6 +109,8 @@ What overlaps there now decides the shape of the batch:
 
 A shared file that is one body of logic — a route module several tickets add handlers to — is neither pre-landed nor split, because what each ticket writes there is the ticket's own work. Those tickets keep their chain.
 
+**Every branch above keeps one rule: no two tickets that can run at the same time write the same file.** Two tickets can run at the same time when neither blocks the other, directly or down a chain. A shared file several tickets need, a shared stylesheet for one, is owned by one ticket, and every other ticket that needs it is blocked by that one; where two of those others must also write it, they are chained as well, or the file is split by the prefactor branch. The worker holds the same rule from its side: the `verify-ticket` skill's `references/sub-issues.md`, question 5, lets a worker change a file outside its **Owns** when a criterion cannot pass without it, except a file owned by a ticket that can run beside its own. Such a file means this step missed an edge, and the worker opens a `contract` child instead of editing it.
+
 ### 6. Quiz the user
 
 Write the spec body and the drafted tickets to a file `mktemp` makes. When the host can run subagents, start one: a call to your host's general-purpose subagent. Name no model and no thinking level: the scan runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading and searching. The prompt is one sentence naming this skill, the spec, and that file:
@@ -116,6 +118,8 @@ Write the spec body and the drafted tickets to a file `mktemp` makes. When the h
 ```
 Use the to-tickets skill to scan spec #<spec> and the drafted tickets in <file> for ambiguities.
 ```
+
+When the host offers no such restriction, the prompt carries a second sentence, `You may only read: change no file and nothing on the tracker.`, and the check moves to you. Run `git status --porcelain` before starting the subagent and again when it returns; the two outputs are the same when the scan wrote nothing, and a difference is a write it made, which you undo before going on.
 
 Nothing else. No summary of the spec, no list of tickets, no restatement of what the scan looks for, no path but that file. The skill is what they read, and the door table is which file they take.
 
@@ -147,6 +151,8 @@ Iterate until the user approves the breakdown. Write each answered choice that o
 
 ### 7. Publish the tickets to the configured tracker
 
+Lint the batch before anything is live. Write each approved ticket as one draft file, in the shape the `verify-ticket` skill's `references/linting.md` gives under **`--drafts` before publishing** (`TITLE:`, `LABELS:`, `BLOCKED BY:` naming other drafts, a line `---`, then the body as it will be published), all in one directory `mktemp -d` makes, and run that skill's `--lint` with the spec's number and `--drafts <that directory>`. Fix every ERROR it reports in the drafts and read every WARN once, then publish the drafts as they now stand. The run ends by naming what only a published batch shows; step 8 lints again for that.
+
 Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`, which tells the board that this issue is a ticket without its counting how deep it is nested; a repository that lacks the label gets it first, with `gh label create mmw:ticket --color 0e8a16 --description "MMW layer: a ticket, one unit of work"`. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
 Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker landed (merged into the base branch, not merely closed), and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
@@ -165,13 +171,13 @@ Then each kind of ticket, for the sections that kind must carry. On the ones an 
 - **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline — anything that records a settled conclusion — its line marks it as one.
 - **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets on the same frontier overlap there. Every path marked `(new)` has, on the same ticket, the existing file that puts it in service. A change a ticket needs in a tool skill outside the repository is not a ticket and not an **Owns** entry: the toolbox is improved in use, the change is made there at once.
 - Every thing a criterion needs to reach its state — the ones the spec's Testing Decisions names under **How a test arrives at a state** — is under some ticket's **Owns**. That the owner truly builds it is yours to check: a criterion that assumes a mechanism nobody builds fails on the night it first runs, and by then the batch is out.
-- The `verify-ticket` skill's `--lint` has been run on the ticket's issue number, and every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. What that run reads and what it reports is that skill's `references/linting.md`.
+- The `verify-ticket` skill's `--lint` has been run again on the published batch, with the spec's issue number, which lints every ticket under it and the graph the tracker's blocking links make; the drafts run of step 7 does not stand in for it. Every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. What that run reads and what it reports is that skill's `references/linting.md`.
 
 On the `ready-for-human` ones — no agent can repair one, so all of the five things it holds are checked:
 
 - **Parent** is there.
 - The kind is named, *reaction* or *reach*.
-- **What to look at** is a link that opens.
+- **What to look at** is a link that opens, or, in a repository that consumes its own landing pipeline, the one command that starts the product under test and prints that link ([references/person-ticket.md](references/person-ticket.md)).
 - **What makes it right** is there to judge against.
 - **Blocked by** names the ticket that produces the thing.
 
@@ -181,7 +187,7 @@ Fix what fails before reporting the batch as published. When the batch is a spec
 
 ## Parent
 
-A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements ("#535, Implementation Decisions sections 5 and 7"). Omit the section only when the source was not an existing issue.
+A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements ("#535, Implementation Decisions sections 5 and 7"). When a contract row this ticket owns cites a section of an earlier spec as its source, name that spec and its sections after the parent's, in the same words, and never first: "#535, Implementation Decisions sections 5 and 7; #318 Implementation Decisions section 4". The first issue here is read as the ticket's spec. Omit the section only when the source was not an existing issue.
 
 ## What to build
 

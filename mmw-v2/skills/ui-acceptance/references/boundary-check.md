@@ -13,6 +13,18 @@ EXPECT: BOUNDARY OK <n>/<n>
 
 `<n>` is how many `--run` flags were given. Commands that share a test file may share a criterion; `--run` may be repeated. `--run` takes one command, not a shell line: `&&`, `||`, `;` and `|` are refused.
 
+## Selecting one row's test
+
+One row's test is named after the row id, dots and hyphens turned to underscores: `detail.close` → `test_detail_close`. Row ids can be prefixes of one another (`detail.close`, `detail.close-event`), and a runner that selects by substring then picks both: `python -m unittest … -k test_detail_close` runs `test_detail_close` and `test_detail_close_event`. A `--run` meant for one row then passes on the other row's test when its own is missing or renamed, and the criterion judges the wrong row.
+
+A `--run` that names one row's test selects it by a pattern anchored at both ends, so it matches that name and nothing longer:
+
+- unittest: `-k '*.test_detail_close'`. A `-k` value holding `*` is matched against the whole test name (`module.Class.test_detail_close`), so the leading `*.` and the missing trailing `*` match only a name ending in exactly `.test_detail_close`.
+- pytest: the node id, `tests/test_rows.py::test_detail_close`, which names one test exactly.
+- A runner whose filter is a regular expression: `^…$` around the name.
+
+Before the criterion is published, run its command twice by hand: once as written, which must report exactly one test run, and once with the name changed to one no test has, which must exit non-zero. unittest exits 5 and prints `NO TESTS RAN` when a pattern selects nothing (measured on Python 3.14, 2026-09-21). A runner that exits 0 when its filter selects nothing turns a renamed test into a `MISS` only if the command is changed to fail on zero tests; find its flag for that before relying on it.
+
 ## The four-column boundary test
 
 A **four-column boundary test** is the product's own test that asserts all four behaviour columns of one screen-contract row in the same test. This is what the criterion above runs.

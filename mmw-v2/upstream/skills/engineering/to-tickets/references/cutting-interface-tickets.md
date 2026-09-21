@@ -19,7 +19,7 @@ Each of these shapes is question 1 of **the five questions** in `SKILL.md`: a co
 - A story criterion observes the product's story page for a mount, rendered with no backend behind it. The story adapter reading that scene's scene data is what puts the product there.
 - A boundary criterion observes the product's own outbound call module, replaced for the test. The interaction helper acting on the row's `data-ui` id is what puts the product there.
 - A journey criterion observes the real product, brought up by `start` in `.mmw/target.json`.
-- The design-system criterion and the harness-guard criterion observe the repository tree: a shell command reads the files, and nothing has to put the product anywhere.
+- The design-system criterion, the static-guard criteria and the harness-guard criterion observe the repository tree: a shell command reads the files, and nothing has to put the product anywhere.
 
 **Seam** also names the precedent to copy: on a product from zero it is what the **contract ticket** lands, and a later ticket copies it rather than deriving its own.
 
@@ -46,15 +46,17 @@ What it delivers:
 - `.mmw/target.json`, including `harness_markers`
 - the story service and the first story adapter
 - the interaction helper that finds a control by its `data-ui` id
-- this product's element parity precedent
+- this product's element parity precedent: one existing component made comparable, with the design page's `data-ui` ids written onto its elements and `[data-story-root]` on its root, rendered by the first story adapter
 - the static guards: the interface takes no fake data; `mount` is unique in one render; a `data-ui` id repeats only on the repeating part of a list
 - the **break switch** under `.mmw/harness/`: `start` reads `MMW_BREAK` and the switch acts only on the product process
 - the smoke journey
 - the **harness guard**
 
-Which of those carry a criterion follows **the five questions** in `SKILL.md`, and most do not. Question 1 reaches the smoke journey, one journey criterion, and the static guards, one command each. The story service, the first story adapter, the interaction helper, the element parity precedent and the break switch carry none of their own: each is a precedent, and a precedent is first decided by a command on the ticket that copies it, the first **component page ticket** for the adapter and the precedent, the first **acceptance ticket** for the break switch. Whether any of them is built well is question 2, for the `Standards` and `Tests` axes of code review. None of it is a judgement written into `## Acceptance criteria`.
+Which of those carry a criterion follows **the five questions** in `SKILL.md`, and most do not. Question 1 reaches the smoke journey, one journey criterion on this ticket, and the static guards, one command each, on the batch's last ticket (below). The story service, the first story adapter, the interaction helper, the element parity precedent and the break switch carry none of their own: each is a precedent, and a precedent is first decided by a command on the ticket that copies it: the first **component page ticket** for the story service, the adapter, the interaction helper and the element parity precedent (next paragraph), the first **acceptance ticket** for the break switch. Whether any of them is built well is question 2, for the `Standards` and `Tests` axes of code review. None of it is a judgement written into `## Acceptance criteria`.
 
-The **harness guard** is delivered here and its criterion is not. It sweeps the whole repository, and step 4 of `SKILL.md` puts a sweep on the batch's last ticket: any ticket landing after this one can leak an acceptance name, and the closing pass re-runs every criterion of the batch on the base branch, so left here it turns the batch's first ticket red for another ticket's work and `reverify` reopens it into `needs-triage` once the batch is already out. Put the harness-guard criterion on the batch's last ticket instead, which is the last **acceptance ticket** where the batch has one, and otherwise the last **app page ticket** or **component page ticket**. Only **Blocked by** makes a ticket last, so that ticket is blocked by every other agent ticket of the batch.
+The element parity precedent is written here and judged on the **component page ticket** that takes its component's page. This ticket writes the `data-ui` ids onto that component and builds the story adapter for its page, and its **Owns** lists those component files beside `.mmw/`. That component page ticket is blocked by this one, like every page ticket, and carries the story criterion and the boundary criteria of that page, which are the first commands to judge the precedent's ids and adapter. Its **Owns** lists the same component directory; the **Blocked by** edge orders the two, as step 5 of `SKILL.md` asks of two tickets writing one file.
+
+The **harness guard** and the static guards are delivered here and their criteria are not. Each sweeps the whole repository: no product module reads scene data, `mount` unique in one render, a `data-ui` id repeated only on the repeating part of a list, no acceptance name outside its allowed places. Step 4 of `SKILL.md` puts a sweep on the batch's last ticket: every page ticket landing after this one adds components the sweep reads, and the closing pass re-runs every criterion of the batch on the base branch, so left here each of them fails until the last page ticket lands, turns the batch's first ticket red for other tickets' work, and `reverify` reopens it into `needs-triage` once the batch is already out. Put the static-guard criteria and the harness-guard criterion on the batch's last ticket instead, which is the last **acceptance ticket** where the batch has one, and otherwise the last **app page ticket** or **component page ticket**. Only **Blocked by** makes a ticket last, so that ticket is blocked by every other agent ticket of the batch.
 
 What every product answer must still guarantee is the `ui-acceptance` skill's `references/product-answers.md`. One product's shape is an example, not a requirement on the next.
 
@@ -69,6 +71,8 @@ Where the spec has a screen contract, the **prefactor ticket** of step 5 is this
 ## component page ticket
 
 Cut by design page, `Component · ` pages. One story criterion (element parity) covers the mounts of the pages it takes. Each owned row whose `calls` is not `none`, or whose `next` is not `stay`, gets one boundary criterion; rows that share a test file may share one.
+
+A row whose `next` is a scene of another page (`topbar.needs-you-jump` → `Component · 详情.ticket-returned`) is tested where the component stands alone, and that other page is not in its render. Its boundary test asserts `calls`, `shows` and `on_failure` as for any row, and for `next` asserts what this component hands on: the event, route change or state it emits, carrying what the target scene needs (the ticket number to open). That the other page then enters the named scene is asserted once, by the `App · ` cross-component row the contract repeats this behaviour as, on the **app page ticket** that owns it.
 
 **Owns** is the `component` directory the contract's `pages` declares for each page it takes, and the test files it adds. The design page names which rows the ticket is answerable for, never where it may write.
 
