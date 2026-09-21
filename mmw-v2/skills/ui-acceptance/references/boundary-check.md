@@ -40,7 +40,7 @@ One test asserts the four columns of one screen-contract row:
 
 A row whose `calls` is `none` and whose `next` is not `stay` still has one test: the click emits no outbound call and the page enters that `next`.
 
-The consuming repository's contract ticket delivers one shared interaction helper (click, fill). Tests call only that helper, never the page directly; the helper finds the control by its `data-ui` id. Under `MMW_NEGATIVE=1` the helper does nothing.
+The consuming repository's contract ticket delivers one shared interaction helper (click, fill). Tests call only that helper, never the page directly; the helper finds the control by its `data-ui` id. Under `MMW_NEGATIVE=1` the helper does nothing. A control repeated in a list shares one id, so the helper also takes `<id>#<n>`, the n-th element with that id in document order counted from 1, the name the story judge gives repeated ids; a bare id is the first. A row about choosing one item of a list (a task, a card) clicks one the starting scene has not already chosen, or its assertion holds without the click.
 
 The test replaces the outbound call module with a mock. Mocking that module is the allowed seam. Stubbing `fetch`, msw, nock or fetch-mock is still a cheat. `verify-ticket.py --lint` reports `ERROR` when those names appear on a `CHECK:` line; a stub inside a test file is not that line, so lint does not catch it. This section and code review are what hold the test-file half.
 
