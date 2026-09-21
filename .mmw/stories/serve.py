@@ -27,6 +27,10 @@ CONTRACT = ROOT / "docs" / "specs" / "task-board" / "screen-contract.yaml"
 ADAPTERS = HERE / "adapters"
 
 
+class BurstServer(http.server.ThreadingHTTPServer):
+    request_queue_size = 128
+
+
 def scene_inputs() -> dict[str, dict]:
     """Read the bounded scene-input shape from the screen contract."""
     inputs: dict[str, dict] = {}
@@ -157,7 +161,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = BurstServer(("127.0.0.1", 0), Handler)
     port = server.server_address[1]
     print(f"origin=http://127.0.0.1:{port}", flush=True)
     try:
