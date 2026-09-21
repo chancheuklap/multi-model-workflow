@@ -1,0 +1,4367 @@
+[
+  {
+    "name": "App · 任务板.morning",
+    "page": "App · 任务板.dc.html",
+    "props": {
+      "scene": "morning"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "3"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "3",
+        "顶栏.running.sub": "waiting for a slot 1"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "9"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "9"
+      },
+      "顶栏.read-state": "只读 · 07:39 读取",
+      "顶栏.refresh": "",
+      "顶栏.settings": "",
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "3"
+      },
+      "任务列表.task": [
+        {
+          "任务列表.task.lamp": "",
+          "任务列表.task.meta": "#98 · map",
+          "任务列表.task.title": "落地流水线改造",
+          "任务列表.task.count": "6/18 landed"
+        },
+        {
+          "任务列表.task.lamp": "",
+          "任务列表.task.meta": "#77 · map",
+          "任务列表.task.title": "交接包比对",
+          "任务列表.task.count": "3/3 landed"
+        },
+        {
+          "任务列表.task.lamp": "",
+          "任务列表.task.meta": "#101 · map",
+          "任务列表.task.title": "子 issue 五种改名",
+          "任务列表.task.count": "0/3 landed"
+        }
+      ],
+      "画布.lane-label": [
+        "decision tickets · 6",
+        "spec · 3"
+      ],
+      "画布.container-card": [
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#98 · map",
+          "画布.container-card.count": "6/18",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "落地流水线改造",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#123",
+          "画布.container-card.count": "4/4",
+          "画布.container-card.expand": "▸",
+          "画布.container-card.title": "事件评论格式",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#131",
+          "画布.container-card.count": "2/10",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "唤醒回路",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#140",
+          "画布.container-card.count": "0/4",
+          "画布.container-card.expand": "▸",
+          "画布.container-card.title": "判活三层"
+        }
+      ],
+      "画布.decision-card": [
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#99",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "事件格式怎么定"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#100",
+          "画布.decision-card.kind": "research",
+          "画布.decision-card.title": "读票用什么"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#104",
+          "画布.decision-card.kind": "prototype",
+          "画布.decision-card.title": "唤醒要不要队列"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#105",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "槽位推到哪一步"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#106",
+          "画布.decision-card.kind": "task",
+          "画布.decision-card.title": "判活放哪一层"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#107",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "团队版什么时候做"
+        }
+      ],
+      "画布.ticket-card": [
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#132",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "中继进程骨架",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#133",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "折叠接入中继",
+          "画布.ticket-card.run": "grok · grok 4.6 · xhigh"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#134",
+          "画布.ticket-card.phase": "review",
+          "画布.ticket-card.title": "唤醒队列持久化",
+          "画布.ticket-card.run": "codex · gpt-5.5 · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#142",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "唤醒日志落盘",
+          "画布.ticket-card.run": "codex · gpt 5.6 sol · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#139",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "槽位交还后叫醒",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#138",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "离线时唤醒去向",
+          "画布.ticket-card.run": "grok · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#141",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "中继日志轮转",
+          "画布.ticket-card.run": "cursor · composer 2.5 · —"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#136",
+          "画布.ticket-card.phase": "waiting",
+          "画布.ticket-card.title": "重试与退避",
+          "画布.ticket-card.run": "waiting for a slot · since 07:32"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#135",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "投递回执",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#137",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "中继自检命令",
+          "画布.ticket-card.run": "not dispatched"
+        }
+      ],
+      "画布.legend": {
+        "画布.legend.walked": "contains · released",
+        "画布.legend.flow": "released · working",
+        "画布.legend.blocked": "blocked",
+        "画布.legend.closeout": "closing pass"
+      },
+      "画布.zoom": {
+        "画布.zoom.out": "−",
+        "画布.zoom.level": "90%",
+        "画布.zoom.in": "+",
+        "画布.zoom.fit": "fit"
+      },
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "折叠接入中继",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#133",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "1h02m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "grok · grok 4.6 · xhigh",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-133",
+          "wake-relay",
+          "…/.worktrees/133-fold-relay",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.why": {
+        "详情.why.title": "Needs you",
+        "详情.why.item": [
+          "#150 contract spec 没写队列为空时中继读什么。spec 本身不成立，要回到写 spec 的人",
+          "#151 decision 唤醒要不要跨过已暂停的 spec。只有你能拍板；worker 先按默认值继续"
+        ]
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#132",
+          "详情.blocker.title": "中继进程骨架",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.blocking": {
+        "详情.blocking.title": "Blocking",
+        "详情.blocking.count": "1",
+        "详情.blocks": {
+          "详情.blocks.lamp": "",
+          "详情.blocks.number": "#135",
+          "详情.blocks.title": "投递回执",
+          "详情.blocks.hold": "held"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "5",
+        "详情.event-block": {
+          "详情.event-block.toggle": {
+            "详情.event-block.chev": "▾",
+            "详情.event-block.phase": "working",
+            "详情.event-block.time": "06:38–07:31"
+          },
+          "详情.event": [
+            {
+              "详情.event.time": "06:38",
+              "详情.event.name": "Worker started",
+              "详情.event.text": "grok grok 4.6, xhigh effort"
+            },
+            {
+              "详情.event.time": "06:38",
+              "详情.event.name": "Ticket claimed"
+            },
+            {
+              "详情.event.time": "06:51",
+              "详情.event.name": "Spec does not hold",
+              "详情.event.text": "spec 没写队列为空时中继读什么"
+            },
+            {
+              "详情.event.time": "07:10",
+              "详情.event.name": "Left for a later ticket",
+              "详情.event.text": "status.py 的表头还是旧词"
+            },
+            {
+              "详情.event.time": "07:31",
+              "详情.event.name": "Your decision needed",
+              "详情.event.text": "唤醒要不要跨过已暂停的 spec"
+            }
+          ]
+        }
+      },
+      "详情.sub-issues": {
+        "详情.sub-issues.title": "Sub-issues",
+        "详情.sub-issues.count": "3",
+        "详情.sub-issue": [
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#150",
+            "详情.sub-issue.title": "spec 没写队列为空时中继读什么",
+            "详情.sub-issue.kind": "contract"
+          },
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#151",
+            "详情.sub-issue.title": "唤醒要不要跨过已暂停的 spec",
+            "详情.sub-issue.kind": "decision"
+          },
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#152",
+            "详情.sub-issue.title": "status.py 的表头还是旧词",
+            "详情.sub-issue.kind": "deferred"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "App · 任务板.twenty-tickets",
+    "page": "App · 任务板.dc.html",
+    "props": {
+      "scene": "twenty-tickets"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "2"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "4",
+        "顶栏.running.sub": "waiting for a slot 1"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "7"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "7"
+      },
+      "顶栏.read-state": "只读 · 07:39 读取",
+      "顶栏.refresh": "",
+      "顶栏.settings": "",
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "1"
+      },
+      "任务列表.task": {
+        "任务列表.task.lamp": "",
+        "任务列表.task.meta": "#210 · map",
+        "任务列表.task.title": "判活三层落地",
+        "任务列表.task.count": "7/20 landed"
+      },
+      "画布.lane-label": [
+        "decision tickets · 2",
+        "spec · 1"
+      ],
+      "画布.container-card": [
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#210 · map",
+          "画布.container-card.count": "7/20",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "判活三层落地",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#211",
+          "画布.container-card.count": "7/20",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "判活：心跳、回合、扫描",
+          "画布.container-card.bar": ""
+        }
+      ],
+      "画布.decision-card": [
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#208",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "三层各看什么"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#209",
+          "画布.decision-card.kind": "research",
+          "画布.decision-card.title": "runner 能不能证明它停了"
+        }
+      ],
+      "画布.ticket-card": [
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#212",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "心跳文件格式",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#213",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "心跳写入钩子",
+          "画布.ticket-card.run": "codex · gpt-5.5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#214",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "回合守卫骨架",
+          "画布.ticket-card.run": "grok · grok 4.6 · xhigh"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#216",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "Paseo 回合字段读取",
+          "画布.ticket-card.run": "cursor · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#217",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "Herdr 状态读取",
+          "画布.ticket-card.run": "codex · gpt-5.5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#218",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "Orca tui-idle 等待",
+          "画布.ticket-card.run": "cursor · composer 2.5 · —"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#219",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "tmux pane 探活",
+          "画布.ticket-card.run": "grok · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#229",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "远程 --on 探活",
+          "画布.ticket-card.run": "grok · grok 4.6 · xhigh"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#215",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "Stop hook 叠挂",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#220",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "判活扫描循环",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#223",
+          "画布.ticket-card.phase": "review",
+          "画布.ticket-card.title": "扫描间隔配置",
+          "画布.ticket-card.run": "codex · gpt-5.5 · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#225",
+          "画布.ticket-card.phase": "waiting",
+          "画布.ticket-card.title": "陈旧绑定检测",
+          "画布.ticket-card.run": "waiting for a slot · since 07:26"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#228",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "install --check 覆盖叠挂",
+          "画布.ticket-card.run": "grok · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#221",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "worker.lost 写入",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#222",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "「不知道」与「死了」分开",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#224",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "误判回放测试",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#226",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "retract 联动",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#227",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "夜间摘要一行",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#230",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "判活文档",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#231",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "端到端夜跑",
+          "画布.ticket-card.run": "not dispatched"
+        }
+      ],
+      "画布.legend": {
+        "画布.legend.walked": "contains · released",
+        "画布.legend.flow": "released · working",
+        "画布.legend.blocked": "blocked",
+        "画布.legend.closeout": "closing pass"
+      },
+      "画布.zoom": {
+        "画布.zoom.out": "−",
+        "画布.zoom.level": "90%",
+        "画布.zoom.in": "+",
+        "画布.zoom.fit": "fit"
+      },
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "判活扫描循环",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#220",
+        "详情.origin.link": [
+          "spec #211",
+          "map #210"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "3h34m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "claude · opus 5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-220",
+          "main",
+          "…/.worktrees/220-work",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.why": {
+        "详情.why.title": "Needs you",
+        "详情.why.item": "#241 decision 扫描发现心跳停了 5 分钟，算死还是算不知道。只有你能拍板；worker 先按默认值继续"
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "2",
+        "详情.blocker": [
+          {
+            "详情.blocker.lamp": "",
+            "详情.blocker.number": "#213",
+            "详情.blocker.title": "心跳写入钩子",
+            "详情.blocker.phase": "landed"
+          },
+          {
+            "详情.blocker.lamp": "",
+            "详情.blocker.number": "#214",
+            "详情.blocker.title": "回合守卫骨架",
+            "详情.blocker.phase": "landed"
+          }
+        ]
+      },
+      "详情.blocking": {
+        "详情.blocking.title": "Blocking",
+        "详情.blocking.count": "1",
+        "详情.blocks": {
+          "详情.blocks.lamp": "",
+          "详情.blocks.number": "#221",
+          "详情.blocks.title": "worker.lost 写入",
+          "详情.blocks.hold": "held"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "3",
+        "详情.event-block": {
+          "详情.event-block.toggle": {
+            "详情.event-block.chev": "▾",
+            "详情.event-block.phase": "working",
+            "详情.event-block.time": "04:06–06:47"
+          },
+          "详情.event": [
+            {
+              "详情.event.time": "04:06",
+              "详情.event.name": "Worker started",
+              "详情.event.text": "claude opus 5, high effort"
+            },
+            {
+              "详情.event.time": "04:06",
+              "详情.event.name": "Ticket claimed"
+            },
+            {
+              "详情.event.time": "06:47",
+              "详情.event.name": "Your decision needed",
+              "详情.event.text": "扫描发现心跳停了 5 分钟，算死还是算不知道"
+            }
+          ]
+        }
+      },
+      "详情.sub-issues": {
+        "详情.sub-issues.title": "Sub-issues",
+        "详情.sub-issues.count": "1",
+        "详情.sub-issue": {
+          "详情.sub-issue.lamp": "",
+          "详情.sub-issue.number": "#241",
+          "详情.sub-issue.title": "扫描发现心跳停了 5 分钟，算死还是算不知道",
+          "详情.sub-issue.kind": "decision"
+        }
+      }
+    }
+  },
+  {
+    "name": "App · 任务板.bad-data",
+    "page": "App · 任务板.dc.html",
+    "props": {
+      "scene": "bad-data"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "1"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "1"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "3"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "1"
+      },
+      "顶栏.read-state": "读 GitHub 失败 · 下面是 07:12 的数据（28 分钟前）",
+      "顶栏.refresh": "",
+      "顶栏.settings": "",
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "1"
+      },
+      "任务列表.task": {
+        "任务列表.task.lamp": "",
+        "任务列表.task.meta": "#300 · map",
+        "任务列表.task.title": "端口租约回收",
+        "任务列表.task.count": "1/6 landed"
+      },
+      "画布.lane-label": "spec · 1",
+      "画布.container-card": [
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#300 · map",
+          "画布.container-card.count": "1/6",
+          "画布.container-card.title": "端口租约回收",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#301",
+          "画布.container-card.count": "1/6",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "租约回收",
+          "画布.container-card.bar": ""
+        }
+      ],
+      "画布.ticket-card": [
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#302",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "租约登记表",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#303",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "回收脚本",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#304",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "占用探测",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#305",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "回收日志",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#307",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "回收冲突告警",
+          "画布.ticket-card.run": "stopped · grok · grok 4.6"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#306",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "lease --check",
+          "画布.ticket-card.run": "codex · gpt-5.5 · high"
+        }
+      ],
+      "画布.legend": {
+        "画布.legend.walked": "contains · released",
+        "画布.legend.flow": "released · working",
+        "画布.legend.blocked": "blocked",
+        "画布.legend.closeout": "closing pass"
+      },
+      "画布.zoom": {
+        "画布.zoom.out": "−",
+        "画布.zoom.level": "90%",
+        "画布.zoom.in": "+",
+        "画布.zoom.fit": "fit"
+      },
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "lease --check",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#306",
+        "详情.origin.link": [
+          "spec #301",
+          "map #300"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "running",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "1h41m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "codex · gpt-5.5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-306",
+          "main",
+          "…/.worktrees/306-work",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#302",
+          "详情.blocker.title": "租约登记表",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "2",
+        "详情.event-block": {
+          "详情.event-block.toggle": {
+            "详情.event-block.chev": "▾",
+            "详情.event-block.phase": "working",
+            "详情.event-block.time": "05:59"
+          },
+          "详情.event": [
+            {
+              "详情.event.time": "05:59",
+              "详情.event.name": "Worker started",
+              "详情.event.text": "codex gpt-5.5, high effort"
+            },
+            {
+              "详情.event.time": "05:59",
+              "详情.event.name": "Ticket claimed"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "App · 任务板.empty",
+    "page": "App · 任务板.dc.html",
+    "props": {
+      "scene": "empty"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "0"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "0"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "0"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "0"
+      },
+      "顶栏.read-state": "只读 · 07:39 读取",
+      "顶栏.refresh": "",
+      "顶栏.settings": "",
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "0"
+      },
+      "任务列表.empty": "没有带 mmw:map label 的 ticket。",
+      "画布.empty": {
+        "画布.empty.title": "The Night 还没开始",
+        "画布.empty.text": "The Night 是一次讨论开出的那张 ticket。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。"
+      }
+    }
+  },
+  {
+    "name": "Component · 任务列表.morning",
+    "page": "Component · 任务列表.dc.html",
+    "props": {
+      "scene": "morning"
+    },
+    "data": {
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "3"
+      },
+      "任务列表.task": [
+        {
+          "任务列表.task.lamp": "",
+          "任务列表.task.meta": "#98 · map",
+          "任务列表.task.title": "落地流水线改造",
+          "任务列表.task.count": "6/18 landed"
+        },
+        {
+          "任务列表.task.lamp": "",
+          "任务列表.task.meta": "#77 · map",
+          "任务列表.task.title": "交接包比对",
+          "任务列表.task.count": "3/3 landed"
+        },
+        {
+          "任务列表.task.lamp": "",
+          "任务列表.task.meta": "#101 · map",
+          "任务列表.task.title": "子 issue 五种改名",
+          "任务列表.task.count": "0/3 landed"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Component · 任务列表.twenty-tickets",
+    "page": "Component · 任务列表.dc.html",
+    "props": {
+      "scene": "twenty-tickets"
+    },
+    "data": {
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "1"
+      },
+      "任务列表.task": {
+        "任务列表.task.lamp": "",
+        "任务列表.task.meta": "#210 · map",
+        "任务列表.task.title": "判活三层落地",
+        "任务列表.task.count": "7/20 landed"
+      }
+    }
+  },
+  {
+    "name": "Component · 任务列表.bad-data",
+    "page": "Component · 任务列表.dc.html",
+    "props": {
+      "scene": "bad-data"
+    },
+    "data": {
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "1"
+      },
+      "任务列表.task": {
+        "任务列表.task.lamp": "",
+        "任务列表.task.meta": "#300 · map",
+        "任务列表.task.title": "端口租约回收",
+        "任务列表.task.count": "1/6 landed"
+      }
+    }
+  },
+  {
+    "name": "Component · 任务列表.empty",
+    "page": "Component · 任务列表.dc.html",
+    "props": {
+      "scene": "empty"
+    },
+    "data": {
+      "任务列表.eyebrow": {
+        "任务列表.eyebrow.label": "The Night",
+        "任务列表.eyebrow.count": "0"
+      },
+      "任务列表.empty": "没有带 mmw:map label 的 ticket。"
+    }
+  },
+  {
+    "name": "Component · 本机配置.mine",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "mine"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "2 个 model",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "没有改动",
+        "本机配置.sheet.status-note": "上面就是下一个新起的 agent 会用的配置。",
+        "本机配置.sheet.cancel": "关闭",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.fresh",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "fresh"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "本机没装",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrok · 本机没装claudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6",
+                "本机配置.role.effort": "high",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "这台机器上没装 grok 的 CLI（grok），换一个这台机器有的"
+                }
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrok · 本机没装claudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrok · 本机没装claudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrok · 本机没装claudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "有 1 处 start 会拒绝，改好之前不能保存",
+        "本机配置.sheet.status-note": "带斜线的格子，下面一行写着哪里不对。",
+        "本机配置.sheet.cancel": "关闭",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.retired",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "retired"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:30 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "2 个 model",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "3 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "fable 5 · 本机已经没有opus 5sonnet 5fable 5.1",
+                "本机配置.role.effort": "medium",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "这台机器的 claude 已经不提供 fable 5"
+                }
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "有 1 处 start 会拒绝，改好之前不能保存",
+        "本机配置.sheet.status-note": "带斜线的格子，下面一行写着哪里不对。",
+        "本机配置.sheet.cancel": "关闭",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.paseo-off",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "paseo-off"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问 Paseo ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "Paseo 没开",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "Paseo 没开",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "Paseo 没开",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "Paseo 没开",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "Paseo 没开",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursor · Paseo 没开grok · Paseo 没开claude · Paseo 没开codex · Paseo 没开pi · Paseo 没开",
+                "本机配置.role.model": "grok 4.6",
+                "本机配置.role.effort": "high",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "Paseo 服务没开，问不到 grok 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr"
+                }
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursor · Paseo 没开grok · Paseo 没开claude · Paseo 没开codex · Paseo 没开pi · Paseo 没开",
+                "本机配置.role.model": "gpt 5.6 sol",
+                "本机配置.role.effort": "high",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "Paseo 服务没开，问不到 codex 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr"
+                }
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursor · Paseo 没开grok · Paseo 没开claude · Paseo 没开codex · Paseo 没开pi · Paseo 没开",
+                "本机配置.role.model": "opus 5",
+                "本机配置.role.effort": "high",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "Paseo 服务没开，问不到 claude 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr"
+                }
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursor · Paseo 没开grok · Paseo 没开claude · Paseo 没开codex · Paseo 没开pi · Paseo 没开",
+                "本机配置.role.model": "fable 5.1",
+                "本机配置.role.effort": "medium",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "Paseo 服务没开，问不到 claude 的 model；先开 Paseo，或者把 runner 换回 orca 或 herdr"
+                }
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "有 4 处 start 会拒绝，改好之前不能保存",
+        "本机配置.sheet.status-note": "带斜线的格子，下面一行写着哪里不对。",
+        "本机配置.sheet.cancel": "关闭",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.changed",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "changed"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.refused": {
+          "本机配置.refused.text": "没有保存。这一页打开之后，本机配置在 07:44 被别处改过（一个 agent 从命令行改的）。重新读取会换成现在保存着的内容，你刚才改的 1 处要再改一次。",
+          "本机配置.refused.reread": "重新读取"
+        },
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "2 个 model",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "没有保存",
+        "本机配置.sheet.status-note": "这一页打开之后，本机配置被别处改过，先重新读取。",
+        "本机配置.sheet.cancel": "取消",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.edited",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "edited"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "2 个 model",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "改了 1 处：senior-worker 的 host、model",
+        "本机配置.sheet.status-note": "保存后，下一个新起的 agent 就用新值；已经在跑的不受影响。",
+        "本机配置.sheet.cancel": "取消",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.incomplete",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "incomplete"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "2 个 model",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "选一个 modelgpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "—",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "还没选 model"
+                }
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "有 1 处 start 会拒绝，改好之前不能保存",
+        "本机配置.sheet.status-note": "带斜线的格子，下面一行写着哪里不对。",
+        "本机配置.sheet.cancel": "取消",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.scanning",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "scanning"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": "正在问每个 host 的 CLI 有哪些 model…",
+          "本机配置.host": [
+            {
+              "_text": "…",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "…",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "…",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "…",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "…",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "正在扫描本机的 host",
+        "本机配置.sheet.status-note": "扫描完之前不能保存。",
+        "本机配置.sheet.cancel": "关闭",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.saved",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "saved"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "2 个 model",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "已保存 · 07:41",
+        "本机配置.sheet.status-note": "从下一个新起的 agent 开始用；已经在跑的不受影响。",
+        "本机配置.sheet.cancel": "关闭",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 本机配置.refused",
+    "page": "Component · 本机配置.dc.html",
+    "props": {
+      "scene": "refused"
+    },
+    "data": {
+      "本机配置.sheet": {
+        "本机配置.sheet.eyebrow": "本机配置",
+        "本机配置.sheet.title": "这台机器上，每个 agent 跑在哪",
+        "本机配置.sheet.intro": "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 start 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ~/.mmw/models.json；这一页不写 GitHub。",
+        "本机配置.sheet.close": "×",
+        "本机配置.hosts": {
+          "本机配置.hosts.title": "本机的 host",
+          "本机配置.scan": {
+            "_text": "07:02 问各 host 的 CLI ·",
+            "本机配置.scan.rescan": "重新扫描"
+          },
+          "本机配置.host": [
+            {
+              "_text": "9 个 model",
+              "本机配置.host.name": "cursor"
+            },
+            {
+              "_text": "2 个 model",
+              "本机配置.host.name": "grok"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "claude"
+            },
+            {
+              "_text": "4 个 model",
+              "本机配置.host.name": "codex"
+            },
+            {
+              "_text": "orca、herdr 起不了",
+              "本机配置.host.name": "pi"
+            }
+          ]
+        },
+        "本机配置.runner-block": {
+          "本机配置.runner": {
+            "本机配置.runner.label": "runner",
+            "本机配置.runner.what": "用什么起 session",
+            "本机配置.runner.select": "herdrorcapaseo按所在环境判断"
+          },
+          "本机配置.runner-note": "环境变量 MMW_RUNNER 设了时，它优先于这一格。「按所在环境判断」让 start 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，start 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"
+        },
+        "本机配置.roles-block": {
+          "本机配置.roles-block.title": "一个 agent 一行",
+          "本机配置.roles": {
+            "本机配置.roles.head": "agenthostmodeleffort",
+            "本机配置.role": [
+              {
+                "本机配置.role.agent": "junior-worker",
+                "本机配置.role.what": "贴 junior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "grok 4.6grok 4.5",
+                "本机配置.role.effort": "lowmediumhighxhigh"
+              },
+              {
+                "本机配置.role.agent": "senior-worker",
+                "本机配置.role.what": "贴 senior-worker label 的 ticket",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5",
+                "本机配置.role.effort": "lowmediumhighxhighmaxultra"
+              },
+              {
+                "本机配置.role.agent": "reviewer",
+                "本机配置.role.what": "review 每张 ticket 的改动",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax"
+              },
+              {
+                "本机配置.role.agent": "advisor",
+                "本机配置.role.what": "被问到时给第二意见",
+                "本机配置.role.host": "cursorgrokclaudecodexpi · orca、herdr 起不了",
+                "本机配置.role.model": "opus 5sonnet 5fable 5.1fable 5",
+                "本机配置.role.effort": "lowmediumhighxhighmax",
+                "本机配置.role.problem": {
+                  "本机配置.role.problem.item": "fable 5.1 在 claude 上没有 high 这一档"
+                }
+              }
+            ]
+          },
+          "本机配置.initial-note": "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"
+        },
+        "本机配置.sheet.status": "有 1 处 start 会拒绝，改好之前不能保存",
+        "本机配置.sheet.status-note": "带斜线的格子，下面一行写着哪里不对。",
+        "本机配置.sheet.cancel": "取消",
+        "本机配置.sheet.save": "保存"
+      }
+    }
+  },
+  {
+    "name": "Component · 画布.morning",
+    "page": "Component · 画布.dc.html",
+    "props": {
+      "scene": "morning"
+    },
+    "data": {
+      "画布.lane-label": [
+        "decision tickets · 6",
+        "spec · 3"
+      ],
+      "画布.container-card": [
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#98 · map",
+          "画布.container-card.count": "6/18",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "落地流水线改造",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#123",
+          "画布.container-card.count": "4/4",
+          "画布.container-card.expand": "▸",
+          "画布.container-card.title": "事件评论格式",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#131",
+          "画布.container-card.count": "2/10",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "唤醒回路",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#140",
+          "画布.container-card.count": "0/4",
+          "画布.container-card.expand": "▸",
+          "画布.container-card.title": "判活三层"
+        }
+      ],
+      "画布.decision-card": [
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#99",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "事件格式怎么定"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#100",
+          "画布.decision-card.kind": "research",
+          "画布.decision-card.title": "读票用什么"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#104",
+          "画布.decision-card.kind": "prototype",
+          "画布.decision-card.title": "唤醒要不要队列"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#105",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "槽位推到哪一步"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#106",
+          "画布.decision-card.kind": "task",
+          "画布.decision-card.title": "判活放哪一层"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#107",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "团队版什么时候做"
+        }
+      ],
+      "画布.ticket-card": [
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#132",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "中继进程骨架",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#133",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "折叠接入中继",
+          "画布.ticket-card.run": "grok · grok 4.6 · xhigh"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#134",
+          "画布.ticket-card.phase": "review",
+          "画布.ticket-card.title": "唤醒队列持久化",
+          "画布.ticket-card.run": "codex · gpt-5.5 · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#142",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "唤醒日志落盘",
+          "画布.ticket-card.run": "codex · gpt 5.6 sol · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#139",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "槽位交还后叫醒",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#138",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "离线时唤醒去向",
+          "画布.ticket-card.run": "grok · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#141",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "中继日志轮转",
+          "画布.ticket-card.run": "cursor · composer 2.5 · —"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#136",
+          "画布.ticket-card.phase": "waiting",
+          "画布.ticket-card.title": "重试与退避",
+          "画布.ticket-card.run": "waiting for a slot · since 07:32"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#135",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "投递回执",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#137",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "中继自检命令",
+          "画布.ticket-card.run": "not dispatched"
+        }
+      ],
+      "画布.legend": {
+        "画布.legend.walked": "contains · released",
+        "画布.legend.flow": "released · working",
+        "画布.legend.blocked": "blocked",
+        "画布.legend.closeout": "closing pass"
+      },
+      "画布.zoom": {
+        "画布.zoom.out": "−",
+        "画布.zoom.level": "90%",
+        "画布.zoom.in": "+",
+        "画布.zoom.fit": "fit"
+      }
+    }
+  },
+  {
+    "name": "Component · 画布.twenty-tickets",
+    "page": "Component · 画布.dc.html",
+    "props": {
+      "scene": "twenty-tickets"
+    },
+    "data": {
+      "画布.lane-label": [
+        "decision tickets · 2",
+        "spec · 1"
+      ],
+      "画布.container-card": [
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#210 · map",
+          "画布.container-card.count": "7/20",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "判活三层落地",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#211",
+          "画布.container-card.count": "7/20",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "判活：心跳、回合、扫描",
+          "画布.container-card.bar": ""
+        }
+      ],
+      "画布.decision-card": [
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#208",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "三层各看什么"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#209",
+          "画布.decision-card.kind": "research",
+          "画布.decision-card.title": "runner 能不能证明它停了"
+        }
+      ],
+      "画布.ticket-card": [
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#212",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "心跳文件格式",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#213",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "心跳写入钩子",
+          "画布.ticket-card.run": "codex · gpt-5.5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#214",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "回合守卫骨架",
+          "画布.ticket-card.run": "grok · grok 4.6 · xhigh"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#216",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "Paseo 回合字段读取",
+          "画布.ticket-card.run": "cursor · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#217",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "Herdr 状态读取",
+          "画布.ticket-card.run": "codex · gpt-5.5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#218",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "Orca tui-idle 等待",
+          "画布.ticket-card.run": "cursor · composer 2.5 · —"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#219",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "tmux pane 探活",
+          "画布.ticket-card.run": "grok · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#229",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "远程 --on 探活",
+          "画布.ticket-card.run": "grok · grok 4.6 · xhigh"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#215",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "Stop hook 叠挂",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#220",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "判活扫描循环",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#223",
+          "画布.ticket-card.phase": "review",
+          "画布.ticket-card.title": "扫描间隔配置",
+          "画布.ticket-card.run": "codex · gpt-5.5 · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#225",
+          "画布.ticket-card.phase": "waiting",
+          "画布.ticket-card.title": "陈旧绑定检测",
+          "画布.ticket-card.run": "waiting for a slot · since 07:26"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#228",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "install --check 覆盖叠挂",
+          "画布.ticket-card.run": "grok · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#221",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "worker.lost 写入",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#222",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "「不知道」与「死了」分开",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#224",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "误判回放测试",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#226",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "retract 联动",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#227",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "夜间摘要一行",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#230",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "判活文档",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#231",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "端到端夜跑",
+          "画布.ticket-card.run": "not dispatched"
+        }
+      ],
+      "画布.legend": {
+        "画布.legend.walked": "contains · released",
+        "画布.legend.flow": "released · working",
+        "画布.legend.blocked": "blocked",
+        "画布.legend.closeout": "closing pass"
+      },
+      "画布.zoom": {
+        "画布.zoom.out": "−",
+        "画布.zoom.level": "90%",
+        "画布.zoom.in": "+",
+        "画布.zoom.fit": "fit"
+      }
+    }
+  },
+  {
+    "name": "Component · 画布.bad-data",
+    "page": "Component · 画布.dc.html",
+    "props": {
+      "scene": "bad-data"
+    },
+    "data": {
+      "画布.lane-label": "spec · 1",
+      "画布.container-card": [
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#300 · map",
+          "画布.container-card.count": "1/6",
+          "画布.container-card.title": "端口租约回收",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#301",
+          "画布.container-card.count": "1/6",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "租约回收",
+          "画布.container-card.bar": ""
+        }
+      ],
+      "画布.ticket-card": [
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#302",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "租约登记表",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#303",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "回收脚本",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#304",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "占用探测",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#305",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "回收日志",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#307",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "回收冲突告警",
+          "画布.ticket-card.run": "stopped · grok · grok 4.6"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#306",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "lease --check",
+          "画布.ticket-card.run": "codex · gpt-5.5 · high"
+        }
+      ],
+      "画布.legend": {
+        "画布.legend.walked": "contains · released",
+        "画布.legend.flow": "released · working",
+        "画布.legend.blocked": "blocked",
+        "画布.legend.closeout": "closing pass"
+      },
+      "画布.zoom": {
+        "画布.zoom.out": "−",
+        "画布.zoom.level": "90%",
+        "画布.zoom.in": "+",
+        "画布.zoom.fit": "fit"
+      }
+    }
+  },
+  {
+    "name": "Component · 画布.empty",
+    "page": "Component · 画布.dc.html",
+    "props": {
+      "scene": "empty"
+    },
+    "data": {
+      "画布.empty": {
+        "画布.empty.title": "The Night 还没开始",
+        "画布.empty.text": "The Night 是一次讨论开出的那张 ticket。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。"
+      }
+    }
+  },
+  {
+    "name": "Component · 画布.nothing-selected",
+    "page": "Component · 画布.dc.html",
+    "props": {
+      "scene": "nothing-selected"
+    },
+    "data": {
+      "画布.lane-label": [
+        "decision tickets · 6",
+        "spec · 3"
+      ],
+      "画布.container-card": [
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#98 · map",
+          "画布.container-card.count": "6/18",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "落地流水线改造",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#123",
+          "画布.container-card.count": "4/4",
+          "画布.container-card.expand": "▸",
+          "画布.container-card.title": "事件评论格式",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#131",
+          "画布.container-card.count": "2/10",
+          "画布.container-card.expand": "▾",
+          "画布.container-card.title": "唤醒回路",
+          "画布.container-card.bar": ""
+        },
+        {
+          "画布.container-card.open": "",
+          "画布.container-card.lamp": "",
+          "画布.container-card.num": "#140",
+          "画布.container-card.count": "0/4",
+          "画布.container-card.expand": "▸",
+          "画布.container-card.title": "判活三层"
+        }
+      ],
+      "画布.decision-card": [
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#99",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "事件格式怎么定"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#100",
+          "画布.decision-card.kind": "research",
+          "画布.decision-card.title": "读票用什么"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#104",
+          "画布.decision-card.kind": "prototype",
+          "画布.decision-card.title": "唤醒要不要队列"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#105",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "槽位推到哪一步"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#106",
+          "画布.decision-card.kind": "task",
+          "画布.decision-card.title": "判活放哪一层"
+        },
+        {
+          "画布.decision-card.open": "",
+          "画布.decision-card.lamp": "",
+          "画布.decision-card.num": "#107",
+          "画布.decision-card.kind": "grilling",
+          "画布.decision-card.title": "团队版什么时候做"
+        }
+      ],
+      "画布.ticket-card": [
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#132",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "中继进程骨架",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#133",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "折叠接入中继",
+          "画布.ticket-card.run": "grok · grok 4.6 · xhigh"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#134",
+          "画布.ticket-card.phase": "review",
+          "画布.ticket-card.title": "唤醒队列持久化",
+          "画布.ticket-card.run": "codex · gpt-5.5 · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#142",
+          "画布.ticket-card.phase": "landed",
+          "画布.ticket-card.title": "唤醒日志落盘",
+          "画布.ticket-card.run": "codex · gpt 5.6 sol · medium"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#139",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "槽位交还后叫醒",
+          "画布.ticket-card.run": "claude · opus 5 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#138",
+          "画布.ticket-card.phase": "verify",
+          "画布.ticket-card.title": "离线时唤醒去向",
+          "画布.ticket-card.run": "grok · grok 4.6 · high"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#141",
+          "画布.ticket-card.phase": "working",
+          "画布.ticket-card.title": "中继日志轮转",
+          "画布.ticket-card.run": "cursor · composer 2.5 · —"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#136",
+          "画布.ticket-card.phase": "waiting",
+          "画布.ticket-card.title": "重试与退避",
+          "画布.ticket-card.run": "waiting for a slot · since 07:32"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#135",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "投递回执",
+          "画布.ticket-card.run": "not dispatched"
+        },
+        {
+          "画布.ticket-card.open": "",
+          "画布.ticket-card.lamp": "",
+          "画布.ticket-card.num": "#137",
+          "画布.ticket-card.phase": "queued",
+          "画布.ticket-card.title": "中继自检命令",
+          "画布.ticket-card.run": "not dispatched"
+        }
+      ],
+      "画布.legend": {
+        "画布.legend.walked": "contains · released",
+        "画布.legend.flow": "released · working",
+        "画布.legend.blocked": "blocked",
+        "画布.legend.closeout": "closing pass"
+      },
+      "画布.zoom": {
+        "画布.zoom.out": "−",
+        "画布.zoom.level": "90%",
+        "画布.zoom.in": "+",
+        "画布.zoom.fit": "fit"
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.morning",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "morning"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "折叠接入中继",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#133",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "1h02m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "grok · grok 4.6 · xhigh",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-133",
+          "wake-relay",
+          "…/.worktrees/133-fold-relay",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.why": {
+        "详情.why.title": "Needs you",
+        "详情.why.item": [
+          "#150 contract spec 没写队列为空时中继读什么。spec 本身不成立，要回到写 spec 的人",
+          "#151 decision 唤醒要不要跨过已暂停的 spec。只有你能拍板；worker 先按默认值继续"
+        ]
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#132",
+          "详情.blocker.title": "中继进程骨架",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.blocking": {
+        "详情.blocking.title": "Blocking",
+        "详情.blocking.count": "1",
+        "详情.blocks": {
+          "详情.blocks.lamp": "",
+          "详情.blocks.number": "#135",
+          "详情.blocks.title": "投递回执",
+          "详情.blocks.hold": "held"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "5",
+        "详情.event-block": {
+          "详情.event-block.toggle": {
+            "详情.event-block.chev": "▾",
+            "详情.event-block.phase": "working",
+            "详情.event-block.time": "06:38–07:31"
+          },
+          "详情.event": [
+            {
+              "详情.event.time": "06:38",
+              "详情.event.name": "Worker started",
+              "详情.event.text": "grok grok 4.6, xhigh effort"
+            },
+            {
+              "详情.event.time": "06:38",
+              "详情.event.name": "Ticket claimed"
+            },
+            {
+              "详情.event.time": "06:51",
+              "详情.event.name": "Spec does not hold",
+              "详情.event.text": "spec 没写队列为空时中继读什么"
+            },
+            {
+              "详情.event.time": "07:10",
+              "详情.event.name": "Left for a later ticket",
+              "详情.event.text": "status.py 的表头还是旧词"
+            },
+            {
+              "详情.event.time": "07:31",
+              "详情.event.name": "Your decision needed",
+              "详情.event.text": "唤醒要不要跨过已暂停的 spec"
+            }
+          ]
+        }
+      },
+      "详情.sub-issues": {
+        "详情.sub-issues.title": "Sub-issues",
+        "详情.sub-issues.count": "3",
+        "详情.sub-issue": [
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#150",
+            "详情.sub-issue.title": "spec 没写队列为空时中继读什么",
+            "详情.sub-issue.kind": "contract"
+          },
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#151",
+            "详情.sub-issue.title": "唤醒要不要跨过已暂停的 spec",
+            "详情.sub-issue.kind": "decision"
+          },
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#152",
+            "详情.sub-issue.title": "status.py 的表头还是旧词",
+            "详情.sub-issue.kind": "deferred"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.twenty-tickets",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "twenty-tickets"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "判活扫描循环",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#220",
+        "详情.origin.link": [
+          "spec #211",
+          "map #210"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "3h34m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "claude · opus 5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-220",
+          "main",
+          "…/.worktrees/220-work",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.why": {
+        "详情.why.title": "Needs you",
+        "详情.why.item": "#241 decision 扫描发现心跳停了 5 分钟，算死还是算不知道。只有你能拍板；worker 先按默认值继续"
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "2",
+        "详情.blocker": [
+          {
+            "详情.blocker.lamp": "",
+            "详情.blocker.number": "#213",
+            "详情.blocker.title": "心跳写入钩子",
+            "详情.blocker.phase": "landed"
+          },
+          {
+            "详情.blocker.lamp": "",
+            "详情.blocker.number": "#214",
+            "详情.blocker.title": "回合守卫骨架",
+            "详情.blocker.phase": "landed"
+          }
+        ]
+      },
+      "详情.blocking": {
+        "详情.blocking.title": "Blocking",
+        "详情.blocking.count": "1",
+        "详情.blocks": {
+          "详情.blocks.lamp": "",
+          "详情.blocks.number": "#221",
+          "详情.blocks.title": "worker.lost 写入",
+          "详情.blocks.hold": "held"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "3",
+        "详情.event-block": {
+          "详情.event-block.toggle": {
+            "详情.event-block.chev": "▾",
+            "详情.event-block.phase": "working",
+            "详情.event-block.time": "04:06–06:47"
+          },
+          "详情.event": [
+            {
+              "详情.event.time": "04:06",
+              "详情.event.name": "Worker started",
+              "详情.event.text": "claude opus 5, high effort"
+            },
+            {
+              "详情.event.time": "04:06",
+              "详情.event.name": "Ticket claimed"
+            },
+            {
+              "详情.event.time": "06:47",
+              "详情.event.name": "Your decision needed",
+              "详情.event.text": "扫描发现心跳停了 5 分钟，算死还是算不知道"
+            }
+          ]
+        }
+      },
+      "详情.sub-issues": {
+        "详情.sub-issues.title": "Sub-issues",
+        "详情.sub-issues.count": "1",
+        "详情.sub-issue": {
+          "详情.sub-issue.lamp": "",
+          "详情.sub-issue.number": "#241",
+          "详情.sub-issue.title": "扫描发现心跳停了 5 分钟，算死还是算不知道",
+          "详情.sub-issue.kind": "decision"
+        }
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.bad-data",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "bad-data"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "lease --check",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#306",
+        "详情.origin.link": [
+          "spec #301",
+          "map #300"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "running",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "1h41m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "codex · gpt-5.5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-306",
+          "main",
+          "…/.worktrees/306-work",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#302",
+          "详情.blocker.title": "租约登记表",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "2",
+        "详情.event-block": {
+          "详情.event-block.toggle": {
+            "详情.event-block.chev": "▾",
+            "详情.event-block.phase": "working",
+            "详情.event-block.time": "05:59"
+          },
+          "详情.event": [
+            {
+              "详情.event.time": "05:59",
+              "详情.event.name": "Worker started",
+              "详情.event.text": "codex gpt-5.5, high effort"
+            },
+            {
+              "详情.event.time": "05:59",
+              "详情.event.name": "Ticket claimed"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.empty",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "empty"
+    },
+    "data": {
+      "详情.empty": {
+        "_text": "The Night 开起来之后，点画布上的卡，它的细节显示在这一栏。",
+        "详情.empty.title": "这里是详情"
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-returned",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-returned"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "离线时唤醒去向",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#138",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.phase": "verify",
+        "详情.status.elapsed": "48m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "grok · grok 4.6 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine",
+          "slot"
+        ],
+        "详情.runtime.value": [
+          "issue-138",
+          "wake-relay",
+          "…/.worktrees/138-work",
+          "cheuk-mbp",
+          "1"
+        ]
+      },
+      "详情.why": {
+        "详情.why.title": "Needs you",
+        "详情.why.item": "handed back: AC3 放弃（stuck）。离线投递要一个真的 main 会话来收，夜里起不来"
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#132",
+          "详情.blocker.title": "中继进程骨架",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "8",
+        "详情.event-block": [
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▾",
+              "详情.event-block.phase": "working",
+              "详情.event-block.time": "06:38–06:58"
+            },
+            "详情.event": [
+              {
+                "详情.event.time": "06:38",
+                "详情.event.name": "Worker started",
+                "详情.event.text": "grok grok 4.6, high effort"
+              },
+              {
+                "详情.event.time": "06:38",
+                "详情.event.name": "Ticket claimed"
+              },
+              {
+                "详情.event.time": "06:58",
+                "详情.event.name": "Criteria run",
+                "详情.event.text": "3 of 4 criteria met — AC3 unmet"
+              }
+            ]
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "review",
+              "详情.event-block.summary": "Review posted — the three-axis review is on the ticket",
+              "详情.event-block.time": "07:00"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Decisions recorded — the calls the worker made on its own, written down for the review",
+              "详情.event-block.time": "07:16"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▾",
+              "详情.event-block.phase": "verify",
+              "详情.event-block.time": "07:22–07:26"
+            },
+            "详情.event": [
+              {
+                "详情.event.time": "07:22",
+                "详情.event.name": "Final criteria run",
+                "详情.event.text": "3 of 4 criteria met — AC3 unmet"
+              },
+              {
+                "详情.event.time": "07:26",
+                "详情.event.name": "Ticket handed back",
+                "详情.event.text": "handed back with criteria it could not meet"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-bounced",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-bounced"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "槽位交还后叫醒",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#139",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.phase": "verify",
+        "详情.status.elapsed": "51m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "claude · opus 5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine",
+          "slot"
+        ],
+        "详情.runtime.value": [
+          "issue-139",
+          "wake-relay",
+          "…/.worktrees/139-work",
+          "cheuk-mbp",
+          "2"
+        ]
+      },
+      "详情.why": {
+        "详情.why.title": "Needs you",
+        "详情.why.item": "合不进 wake-relay（f3bebc0）：冲突在 mmw-v2/skills/dispatch/scripts/relay.py、mmw-v2/tests/relay/test_relay.py。等早上 triage"
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#132",
+          "详情.blocker.title": "中继进程骨架",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "10",
+        "详情.event-block": [
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Criteria run — 4 of 4 criteria met",
+              "详情.event-block.time": "06:38"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "review",
+              "详情.event-block.summary": "Review posted — the three-axis review is on the ticket",
+              "详情.event-block.time": "07:02"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Decisions recorded — the calls the worker made on its own, written down for the review",
+              "详情.event-block.time": "07:17"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▾",
+              "详情.event-block.phase": "verify",
+              "详情.event-block.time": "07:24–07:29"
+            },
+            "详情.event": [
+              {
+                "详情.event.time": "07:24",
+                "详情.event.name": "Final criteria run",
+                "详情.event.text": "4 of 4 criteria met"
+              },
+              {
+                "详情.event.time": "07:27",
+                "详情.event.name": "Repository checks",
+                "详情.event.text": "3 of 3 repository checks passed"
+              },
+              {
+                "详情.event.time": "07:28",
+                "详情.event.name": "Ticket passed",
+                "详情.event.text": "4 of 4 criteria met, ticket closed"
+              },
+              {
+                "详情.event.time": "07:29",
+                "详情.event.name": "Merge bounced",
+                "详情.event.text": "conflict with wake-relay in 2 files"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-closeout",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-closeout"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "中继日志轮转",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#141",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "running",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "1h02m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "cursor · composer 2.5 · —",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine",
+          "slot"
+        ],
+        "详情.runtime.value": [
+          "issue-141",
+          "wake-relay",
+          "…/.worktrees/141-work",
+          "cheuk-mbp",
+          "1"
+        ]
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#132",
+          "详情.blocker.title": "中继进程骨架",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "6",
+        "详情.event-block": [
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Criteria run — 4 of 4 criteria met",
+              "详情.event-block.time": "06:38"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "review",
+              "详情.event-block.summary": "Review posted — the three-axis review is on the ticket",
+              "详情.event-block.time": "07:04"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▾",
+              "详情.event-block.phase": "working",
+              "详情.event-block.time": "07:28"
+            },
+            "详情.event": {
+              "详情.event.time": "07:28",
+              "详情.event.name": "Decisions recorded",
+              "详情.event.text": "the calls the worker made on its own, written down for the review"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-waiting",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-waiting"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "重试与退避",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#136",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "running",
+        "详情.status.phase": "waiting",
+        "详情.status.elapsed": "1h02m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "claude · opus 5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-136",
+          "wake-relay",
+          "…/.worktrees/136-work",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#132",
+          "详情.blocker.title": "中继进程骨架",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "3",
+        "详情.event-block": [
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Worker started — claude opus 5, high effort",
+              "详情.event-block.time": "06:38"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▾",
+              "详情.event-block.phase": "waiting",
+              "详情.event-block.time": "07:32"
+            },
+            "详情.event": {
+              "详情.event.time": "07:32",
+              "详情.event.name": "Waiting for a slot",
+              "详情.event.text": "every instance of the product was in use"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-review",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-review"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "唤醒队列持久化",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#134",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "running",
+        "详情.status.phase": "review",
+        "详情.status.elapsed": "1h02m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "codex · gpt-5.5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine",
+          "slot"
+        ],
+        "详情.runtime.value": [
+          "issue-134",
+          "wake-relay",
+          "…/.worktrees/134-work",
+          "cheuk-mbp",
+          "2"
+        ]
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#132",
+          "详情.blocker.title": "中继进程骨架",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.blocking": {
+        "详情.blocking.title": "Blocking",
+        "详情.blocking.count": "1",
+        "详情.blocks": {
+          "详情.blocks.lamp": "",
+          "详情.blocks.number": "#135",
+          "详情.blocks.title": "投递回执",
+          "详情.blocks.hold": "held"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "4",
+        "详情.event-block": [
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Criteria run — 4 of 4 criteria met",
+              "详情.event-block.time": "06:38"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▾",
+              "详情.event-block.phase": "review",
+              "详情.event-block.time": "07:22"
+            },
+            "详情.event": {
+              "详情.event.time": "07:22",
+              "详情.event.name": "Reviewer started",
+              "详情.event.text": "codex gpt-5.5, medium effort"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-queued",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-queued"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "投递回执",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#135",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "queued",
+        "详情.status.phase": "queued"
+      },
+      "详情.runtime": "not dispatched yet",
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "2",
+        "详情.blocker": [
+          {
+            "详情.blocker.lamp": "",
+            "详情.blocker.number": "#133",
+            "详情.blocker.title": "折叠接入中继",
+            "详情.blocker.hold": "held"
+          },
+          {
+            "详情.blocker.lamp": "",
+            "详情.blocker.number": "#134",
+            "详情.blocker.title": "唤醒队列持久化",
+            "详情.blocker.hold": "held"
+          }
+        ]
+      },
+      "详情.blocking": {
+        "详情.blocking.title": "Blocking",
+        "详情.blocking.count": "1",
+        "详情.blocks": {
+          "详情.blocks.lamp": "",
+          "详情.blocks.number": "#137",
+          "详情.blocks.title": "中继自检命令",
+          "详情.blocks.hold": "held"
+        }
+      },
+      "详情.events": {
+        "_text": "no events yet",
+        "详情.events.title": "Events",
+        "详情.events.count": "0"
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-landed",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-landed"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "中继进程骨架",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#132",
+        "详情.origin.link": [
+          "spec #131",
+          "map #98"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "done",
+        "详情.status.phase": "landed",
+        "详情.status.elapsed": "2h06m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "claude · opus 5 · high",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine",
+          "slot"
+        ],
+        "详情.runtime.value": [
+          "issue-132",
+          "wake-relay",
+          "…/.worktrees/132-relay-skeleton",
+          "cheuk-mbp",
+          "1"
+        ]
+      },
+      "详情.blocking": {
+        "详情.blocking.title": "Blocking",
+        "详情.blocking.count": "7",
+        "详情.blocks": [
+          {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#133",
+            "详情.blocks.title": "折叠接入中继",
+            "详情.blocks.phase": "working"
+          },
+          {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#134",
+            "详情.blocks.title": "唤醒队列持久化",
+            "详情.blocks.phase": "review"
+          },
+          {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#142",
+            "详情.blocks.title": "唤醒日志落盘",
+            "详情.blocks.phase": "landed"
+          },
+          {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#139",
+            "详情.blocks.title": "槽位交还后叫醒",
+            "详情.blocks.phase": "verify"
+          },
+          {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#138",
+            "详情.blocks.title": "离线时唤醒去向",
+            "详情.blocks.phase": "verify"
+          },
+          {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#141",
+            "详情.blocks.title": "中继日志轮转",
+            "详情.blocks.phase": "working"
+          },
+          {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#136",
+            "详情.blocks.title": "重试与退避",
+            "详情.blocks.phase": "waiting"
+          }
+        ]
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "14",
+        "详情.event-block": [
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Left for a later ticket — status 表头少一列 runner",
+              "详情.event-block.time": "04:30"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "review",
+              "详情.event-block.summary": "Review posted — the three-axis review is on the ticket",
+              "详情.event-block.time": "05:20"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "working",
+              "详情.event-block.summary": "Finding raised — 中继日志不轮转，一夜能写满磁盘",
+              "详情.event-block.time": "05:50"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▸",
+              "详情.event-block.phase": "verify",
+              "详情.event-block.summary": "Ticket passed — 4 of 4 criteria met, ticket closed",
+              "详情.event-block.time": "06:10"
+            }
+          },
+          {
+            "详情.event-block.toggle": {
+              "详情.event-block.chev": "▾",
+              "详情.event-block.phase": "landed",
+              "详情.event-block.time": "06:36"
+            },
+            "详情.event": [
+              {
+                "详情.event.time": "06:36",
+                "详情.event.name": "Sub-issue closed",
+                "详情.event.text": "#148: fixed"
+              },
+              {
+                "详情.event.time": "06:36",
+                "详情.event.name": "Finding became a ticket",
+                "详情.event.text": "#147 became ticket #141"
+              },
+              {
+                "详情.event.time": "06:36",
+                "详情.event.name": "Landed",
+                "详情.event.text": "merged into wake-relay"
+              }
+            ]
+          }
+        ]
+      },
+      "详情.sub-issues": {
+        "详情.sub-issues.title": "Sub-issues",
+        "详情.sub-issues.count": "2",
+        "详情.sub-issue": [
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#147",
+            "详情.sub-issue.title": "中继日志不轮转，一夜能写满磁盘",
+            "详情.sub-issue.kind": "finding"
+          },
+          {
+            "详情.sub-issue.lamp": "",
+            "详情.sub-issue.number": "#148",
+            "详情.sub-issue.title": "status 表头少一列 runner",
+            "详情.sub-issue.kind": "deferred"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-fault",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-fault"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "回收冲突告警",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#307",
+        "详情.origin.link": [
+          "spec #301",
+          "map #300"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.phase": "working",
+        "详情.status.elapsed": "1h41m"
+      },
+      "详情.runtime": {
+        "详情.runtime.grade": "senior-worker",
+        "详情.runtime.model": "grok · grok 4.6 · xhigh",
+        "详情.runtime.key": [
+          "ticket branch",
+          "base branch",
+          "worktree",
+          "machine"
+        ],
+        "详情.runtime.value": [
+          "issue-307",
+          "main",
+          "…/.worktrees/307-reclaim-alert",
+          "cheuk-mbp"
+        ]
+      },
+      "详情.why": {
+        "详情.why.title": "Needs you",
+        "详情.why.item": "#310 fault verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了。MMW 自己坏了，开它的 agent 已停下"
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#302",
+          "详情.blocker.title": "租约登记表",
+          "详情.blocker.phase": "landed"
+        }
+      },
+      "详情.events": {
+        "详情.events.title": "Events",
+        "详情.events.count": "3",
+        "详情.event-block": {
+          "详情.event-block.toggle": {
+            "详情.event-block.chev": "▾",
+            "详情.event-block.phase": "working",
+            "详情.event-block.time": "05:59–06:34"
+          },
+          "详情.event": [
+            {
+              "详情.event.time": "05:59",
+              "详情.event.name": "Worker started",
+              "详情.event.text": "grok grok 4.6, xhigh effort"
+            },
+            {
+              "详情.event.time": "05:59",
+              "详情.event.name": "Ticket claimed"
+            },
+            {
+              "详情.event.time": "06:34",
+              "详情.event.name": "MMW itself broke",
+              "详情.event.text": "verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了"
+            }
+          ]
+        }
+      },
+      "详情.sub-issues": {
+        "详情.sub-issues.title": "Sub-issues",
+        "详情.sub-issues.count": "1",
+        "详情.sub-issue": {
+          "详情.sub-issue.lamp": "",
+          "详情.sub-issue.number": "#310",
+          "详情.sub-issue.title": "verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了",
+          "详情.sub-issue.kind": "fault"
+        }
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.ticket-missing-blocker",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-missing-blocker"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Ticket",
+        "详情.head.github": "GitHub ↗",
+        "详情.head.close": "×"
+      },
+      "详情.title": "回收日志",
+      "详情.origin": {
+        "_text": "··",
+        "详情.origin.number": "#305",
+        "详情.origin.link": [
+          "spec #301",
+          "map #300"
+        ]
+      },
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "queued",
+        "详情.status.phase": "queued"
+      },
+      "详情.runtime": "not dispatched yet",
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.number": "#399",
+          "详情.blocker.title": "不在这棵树里，读不到它的状态",
+          "详情.blocker.state": "unknown"
+        }
+      },
+      "详情.events": {
+        "_text": "no events yet",
+        "详情.events.title": "Events",
+        "详情.events.count": "0"
+      }
+    }
+  },
+  {
+    "name": "Component · 详情.spec",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "spec"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Spec",
+        "详情.head.close": "×"
+      },
+      "详情.origin": {
+        "_text": "·",
+        "详情.origin.number": "#131",
+        "详情.origin.link": "map #98"
+      },
+      "详情.title": "唤醒回路",
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.elapsed": "2/10 landed"
+      },
+      "详情.summary": {
+        "详情.summary.title": "Its tickets",
+        "详情.summary.count": "10",
+        "详情.lamp-counts": {
+          "详情.lamp-counts.item": [
+            "needs you3",
+            "running3",
+            "queued2",
+            "done2"
+          ]
+        },
+        "详情.phase-counts": {
+          "详情.phase-counts.item": [
+            "queued · 2",
+            "working · 2",
+            "waiting · 1",
+            "review · 1",
+            "verify · 2",
+            "landed · 2"
+          ]
+        }
+      },
+      "详情.by-number": {
+        "详情.by-number.title": "By number",
+        "详情.ticket-row": [
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#132",
+            "详情.ticket-row.title": "中继进程骨架",
+            "详情.ticket-row.phase": "landed"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#133",
+            "详情.ticket-row.title": "折叠接入中继",
+            "详情.ticket-row.phase": "working"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#134",
+            "详情.ticket-row.title": "唤醒队列持久化",
+            "详情.ticket-row.phase": "review"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#142",
+            "详情.ticket-row.title": "唤醒日志落盘",
+            "详情.ticket-row.phase": "landed"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#139",
+            "详情.ticket-row.title": "槽位交还后叫醒",
+            "详情.ticket-row.phase": "verify"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#138",
+            "详情.ticket-row.title": "离线时唤醒去向",
+            "详情.ticket-row.phase": "verify"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#141",
+            "详情.ticket-row.title": "中继日志轮转",
+            "详情.ticket-row.phase": "working"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#136",
+            "详情.ticket-row.title": "重试与退避",
+            "详情.ticket-row.phase": "waiting"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#135",
+            "详情.ticket-row.title": "投递回执",
+            "详情.ticket-row.phase": "queued"
+          },
+          {
+            "详情.ticket-row.lamp": "",
+            "详情.ticket-row.number": "#137",
+            "详情.ticket-row.title": "中继自检命令",
+            "详情.ticket-row.phase": "queued"
+          }
+        ]
+      },
+      "详情.github": "在 GitHub 打开 #131 ↗"
+    }
+  },
+  {
+    "name": "Component · 详情.map",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "map"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "The Night",
+        "详情.head.close": "×"
+      },
+      "详情.origin": {
+        "详情.origin.number": "#98 · map"
+      },
+      "详情.title": "落地流水线改造",
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "needs you",
+        "详情.status.elapsed": "6/18 landed"
+      },
+      "详情.summary": {
+        "详情.summary.title": "All tickets",
+        "详情.summary.count": "18",
+        "详情.lamp-counts": {
+          "详情.lamp-counts.item": [
+            "needs you3",
+            "running3",
+            "queued6",
+            "done6"
+          ]
+        },
+        "详情.phase-counts": {
+          "详情.phase-counts.item": [
+            "queued · 6",
+            "working · 2",
+            "waiting · 1",
+            "review · 1",
+            "verify · 2",
+            "landed · 6"
+          ]
+        }
+      },
+      "详情.specs": {
+        "详情.specs.title": "spec",
+        "详情.specs.count": "3",
+        "详情.spec-row": [
+          {
+            "详情.spec-row.lamp": "",
+            "详情.spec-row.number": "#123",
+            "详情.spec-row.title": "事件评论格式",
+            "详情.spec-row.state": "4/4"
+          },
+          {
+            "详情.spec-row.lamp": "",
+            "详情.spec-row.number": "#131",
+            "详情.spec-row.title": "唤醒回路",
+            "详情.spec-row.state": "2/10"
+          },
+          {
+            "详情.spec-row.lamp": "",
+            "详情.spec-row.number": "#140",
+            "详情.spec-row.title": "判活三层",
+            "详情.spec-row.state": "0/4"
+          }
+        ]
+      },
+      "详情.decisions": {
+        "详情.decisions.title": "Decision tickets",
+        "详情.decisions.count": "6",
+        "详情.decision-row": [
+          {
+            "详情.decision-row.lamp": "",
+            "详情.decision-row.number": "#99",
+            "详情.decision-row.title": "事件格式怎么定",
+            "详情.decision-row.state": "closed"
+          },
+          {
+            "详情.decision-row.lamp": "",
+            "详情.decision-row.number": "#100",
+            "详情.decision-row.title": "读票用什么",
+            "详情.decision-row.state": "closed"
+          },
+          {
+            "详情.decision-row.lamp": "",
+            "详情.decision-row.number": "#104",
+            "详情.decision-row.title": "唤醒要不要队列",
+            "详情.decision-row.state": "closed"
+          },
+          {
+            "详情.decision-row.lamp": "",
+            "详情.decision-row.number": "#105",
+            "详情.decision-row.title": "槽位推到哪一步",
+            "详情.decision-row.state": "closed"
+          },
+          {
+            "详情.decision-row.lamp": "",
+            "详情.decision-row.number": "#106",
+            "详情.decision-row.title": "判活放哪一层",
+            "详情.decision-row.state": "closed"
+          },
+          {
+            "详情.decision-row.lamp": "",
+            "详情.decision-row.number": "#107",
+            "详情.decision-row.title": "团队版什么时候做",
+            "详情.decision-row.state": "open"
+          }
+        ]
+      },
+      "详情.github": "在 GitHub 打开 #98 ↗"
+    }
+  },
+  {
+    "name": "Component · 详情.decision",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "decision"
+    },
+    "data": {
+      "详情.head": {
+        "详情.head.eyebrow": "Decision ticket · grilling",
+        "详情.head.close": "×"
+      },
+      "详情.origin": {
+        "_text": "·",
+        "详情.origin.number": "#107",
+        "详情.origin.link": "map #98"
+      },
+      "详情.title": "团队版什么时候做",
+      "详情.status": {
+        "详情.status.lamp": "",
+        "详情.status.status": "还开着"
+      },
+      "详情.blocked-by": {
+        "详情.blocked-by.title": "Blocked by",
+        "详情.blocked-by.count": "1",
+        "详情.blocker": {
+          "详情.blocker.lamp": "",
+          "详情.blocker.number": "#105",
+          "详情.blocker.title": "槽位推到哪一步",
+          "详情.blocker.state": "closed"
+        }
+      },
+      "详情.blocking": {
+        "_text": "none",
+        "详情.blocking.title": "Blocking"
+      },
+      "详情.github": "在 GitHub 打开 #107 ↗"
+    }
+  },
+  {
+    "name": "Component · 详情.nothing-selected",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "nothing-selected"
+    },
+    "data": {
+      "详情.empty": {
+        "_text": "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
+        "详情.empty.title": "点一张卡"
+      }
+    }
+  },
+  {
+    "name": "Component · 顶栏.morning",
+    "page": "Component · 顶栏.dc.html",
+    "props": {
+      "scene": "morning"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "3"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "3",
+        "顶栏.running.sub": "waiting for a slot 1"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "9"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "9"
+      },
+      "顶栏.read-state": "只读 · 07:39 读取",
+      "顶栏.refresh": "",
+      "顶栏.settings": ""
+    }
+  },
+  {
+    "name": "Component · 顶栏.twenty-tickets",
+    "page": "Component · 顶栏.dc.html",
+    "props": {
+      "scene": "twenty-tickets"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "2"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "4",
+        "顶栏.running.sub": "waiting for a slot 1"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "7"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "7"
+      },
+      "顶栏.read-state": "只读 · 07:39 读取",
+      "顶栏.refresh": "",
+      "顶栏.settings": ""
+    }
+  },
+  {
+    "name": "Component · 顶栏.bad-data",
+    "page": "Component · 顶栏.dc.html",
+    "props": {
+      "scene": "bad-data"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "1"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "1"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "3"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "1"
+      },
+      "顶栏.read-state": "读 GitHub 失败 · 下面是 07:12 的数据（28 分钟前）",
+      "顶栏.refresh": "",
+      "顶栏.settings": ""
+    }
+  },
+  {
+    "name": "Component · 顶栏.empty",
+    "page": "Component · 顶栏.dc.html",
+    "props": {
+      "scene": "empty"
+    },
+    "data": {
+      "顶栏.brand": {
+        "顶栏.brand.mark": "MMW",
+        "顶栏.brand.name": "task board",
+        "顶栏.brand.repo": "chancheuklap/multi-model-workflow"
+      },
+      "顶栏.needs-you": {
+        "_text": "needs you",
+        "顶栏.needs-you.lamp": "",
+        "顶栏.needs-you.count": "0"
+      },
+      "顶栏.running": {
+        "_text": "running",
+        "顶栏.running.lamp": "",
+        "顶栏.running.count": "0"
+      },
+      "顶栏.queued": {
+        "_text": "queued",
+        "顶栏.queued.lamp": "",
+        "顶栏.queued.count": "0"
+      },
+      "顶栏.done": {
+        "_text": "done",
+        "顶栏.done.lamp": "",
+        "顶栏.done.count": "0"
+      },
+      "顶栏.read-state": "只读 · 07:39 读取",
+      "顶栏.refresh": "",
+      "顶栏.settings": ""
+    }
+  }
+]

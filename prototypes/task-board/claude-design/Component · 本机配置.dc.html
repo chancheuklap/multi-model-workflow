@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
+        <script src="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
+        <script src="./lib/board.js"></script>
+        <script src="./data/settings.js"></script>
+      </helmet>
+      <div data-screen-label="本机配置" style="{{ frameStyle }}">
+        <x-import component-from-global-scope="MMWTaskBoard2_34b698.Sheet" dc-props="{{ sheet }}" hint-size="100%,100%">
+          <sc-if value="{{ refused }}" hint-placeholder-val="{{ false }}">
+            <x-import component-from-global-scope="MMWTaskBoard2_34b698.RefusedBanner" dc-props="{{ banner }}" hint-size="100%,48px"></x-import>
+          </sc-if>
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetBlock" dc-props="{{ hosts }}" hint-size="100%,70px">
+            <div class="hostscan">
+              <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="5">
+                <x-import component-from-global-scope="MMWTaskBoard2_34b698.HostChip" dc-props="{{ chip }}" hint-size="90px,24px"></x-import>
+              </sc-for>
+            </div>
+          </x-import>
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetBlock" dc-props="{{ runnerBlock }}" hint-size="100%,90px">
+            <x-import component-from-global-scope="MMWTaskBoard2_34b698.RunnerRow" dc-props="{{ runner }}" hint-size="100%,30px"></x-import>
+            <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetNote" data-ui="本机配置.runner-note" hint-size="100%,40px">环境变量 <x-import component-from-global-scope="MMWTaskBoard2_34b698.CodeText" hint-size="80px,14px">MMW_RUNNER</x-import> 设了时，它优先于这一格。「按所在环境判断」让 <x-import component-from-global-scope="MMWTaskBoard2_34b698.CodeText" hint-size="40px,14px">start</x-import> 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，<x-import component-from-global-scope="MMWTaskBoard2_34b698.CodeText" hint-size="40px,14px">start</x-import> 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。</x-import>
+          </x-import>
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetBlock" dc-props="{{ rolesBlock }}" hint-size="100%,300px">
+            <x-import component-from-global-scope="MMWTaskBoard2_34b698.RolesTable" data-ui="本机配置.roles" hint-size="100%,260px">
+              <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
+                <x-import component-from-global-scope="MMWTaskBoard2_34b698.RoleRow" dc-props="{{ row }}" hint-size="100%,52px"></x-import>
+              </sc-for>
+            </x-import>
+            <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetNote" data-ui="本机配置.initial-note" hint-size="100%,20px">一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。</x-import>
+          </x-import>
+        </x-import>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+  "$preview": { "width": 1440, "height": 900 },
+  "scene": { "editor": "enum", "options": ["mine", "fresh", "retired", "paseo-off", "changed", "edited", "incomplete", "scanning", "saved", "refused"], "default": "mine" }
+}'>
+      class Component extends DCLogic {
+        componentDidMount() {
+          const wait = () => {
+            if (window.MMW && window.MMWTaskBoard2_34b698 && window.SETTINGS_SCENES) this.forceUpdate();
+            else setTimeout(wait, 20);
+          };
+          wait();
+        }
+        model() {
+          const key = this.props.scene || "mine";
+          if (this.state && this.state.model && this.state.modelFor === key) return this.state.model;
+          const scene = window.SETTINGS_SCENES[key];
+          const M = window.MMW;
+          const model = M.settings.fromPayload(scene.payload);
+          const page = scene.page || {};
+          for (const [agent, cell, value] of page.edit || []) M.LocalConfig.setCell(model.scan, model.st.draft, agent, cell, value);
+          if (page.scanning) model.st.scanning = true;
+          if (page.refused) model.st.refused = page.refused;
+          if (page.modifiedAt) model.st.modifiedAt = page.modifiedAt;
+          if (page.saveAt) { model.st.saved = JSON.parse(JSON.stringify(model.st.draft)); model.st.savedAt = page.saveAt; }
+          if (page.serverFlags) model.st.serverFlags = page.serverFlags.map(e => {
+            const [k, c] = String(e.cell).split(".");
+            return {key: k, cell: c || k, text: e.reason};
+          });
+          return model;
+        }
+        renderVals() {
+          const frameStyle = {width: (this.props.width || 1440) + "px", height: (this.props.height || 900) + "px",
+            position: "relative", background: this.props.onClose ? "transparent" : "#e6e3df"};
+          if (!window.MMW || !window.SETTINGS_SCENES) return {frameStyle, sheet: {}, refused: false, banner: {}, hosts: {}, chips: [],
+            runnerBlock: {}, runner: {}, rolesBlock: {}, rows: []};
+          const M = window.MMW;
+          const key = this.props.scene || "mine";
+          const model = this.model();
+          const v = M.settingsView(model.st, model.scan, model.catalog);
+          const keep = () => this.setState({model, modelFor: key});
+          const close = () => { if (this.props.onClose) this.props.onClose(); };
+          const setCell = (agent, cell, value) => {
+            const before = {runner: model.st.draft.runner};
+            M.LocalConfig.setCell(model.scan, model.st.draft, agent, cell, value);
+            model.st.savedAt = null;
+            model.st.serverFlags = [];
+            if (agent === "runner" && M.LocalConfig.needsRescan(before, model.st.draft)) model.st.scanning = true;
+            keep();
+          };
+          return {
+            frameStyle, refused: v.refused,
+            sheet: {store: v.store, strong: v.strong, quiet: v.quiet, hatch: v.hatch, closeLabel: v.closeLabel, saveOff: v.saveOff,
+              changed: v.changed, onClose: close, "data-ui": "本机配置.sheet",
+              onSave: () => {
+                model.st.saved = JSON.parse(JSON.stringify(model.st.draft));
+                model.st.savedAt = "2026-09-10T23:41:00Z";
+                model.st.refused = 0;
+                model.st.serverFlags = [];
+                keep();
+              }},
+            banner: {text: v.refusedText, onReread: () => this.setState({model: null, modelFor: null}), "data-ui": "本机配置.refused"},
+            hosts: {title: "本机的 host", "data-ui": "本机配置.hosts",
+              aside: window.React.createElement(window.MMWTaskBoard2_34b698.ScanStatus, {scanning: v.scanning, scanningText: v.scanningText,
+                scannedText: v.scannedText, onRescan: () => { model.st.scanning = true; keep(); }, "data-ui": "本机配置.scan"})},
+            chips: v.chips.map(chip => ({chip, "data-ui": "本机配置.host"})),
+            runnerBlock: {ruled: true, "data-ui": "本机配置.runner-block"},
+            runner: {cls: v.runnerCls, value: v.runner, disabled: v.runnerOff, opts: v.runnerOpts, bads: v.runnerBads,
+              onChange: value => setCell("runner", "runner", value), "data-ui": "本机配置.runner"},
+            rolesBlock: {ruled: true, title: "一个 agent 一行", "data-ui": "本机配置.roles-block"},
+            rows: v.rows.map(row => ({row, onCell: setCell, "data-ui": "本机配置.role"})),
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

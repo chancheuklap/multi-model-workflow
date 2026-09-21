@@ -1,0 +1,1 @@
+(window.BOARD_SCENES = window.BOARD_SCENES || {})["empty"] = {"name":"还没有任务","now":"2026-09-10T23:40:00Z","select":{},"payload":{"tasks":[],"repo":"chancheuklap/multi-model-workflow","read_at":"2026-09-10T23:39:00Z"}};

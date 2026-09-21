@@ -1,0 +1,980 @@
+{
+  "project_id": "c9e1a903-013c-411c-9a1f-7c6b2f85f58a",
+  "files": [
+    {
+      "path": ".thumbnail",
+      "size": 5357,
+      "etag": "1789970856597775"
+    },
+    {
+      "path": "App · 任务板.dc.html",
+      "size": 5261,
+      "etag": "1789978922339221"
+    },
+    {
+      "path": "CLAUDE.md",
+      "size": 2832,
+      "etag": "1789978857623930"
+    },
+    {
+      "path": "Component · 任务列表.dc.html",
+      "size": 3219,
+      "etag": "1789978922339221"
+    },
+    {
+      "path": "Component · 本机配置.dc.html",
+      "size": 7881,
+      "etag": "1789978922339221"
+    },
+    {
+      "path": "Component · 画布.dc.html",
+      "size": 10745,
+      "etag": "1789978922339221"
+    },
+    {
+      "path": "Component · 详情.dc.html",
+      "size": 14406,
+      "etag": "1789978922339221"
+    },
+    {
+      "path": "Component · 顶栏.dc.html",
+      "size": 4947,
+      "etag": "1789978922339221"
+    },
+    {
+      "path": "Overview.dc.html",
+      "size": 3328,
+      "etag": "1789978922339221"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_adherence.oxlintrc.json",
+      "size": 18874,
+      "etag": "1789978873144797"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js",
+      "size": 598615,
+      "etag": "1789978872390557"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_manifest.json",
+      "size": 22647,
+      "etag": "1789978872945517"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/assets/icons/rotate-cw.svg",
+      "size": 8058,
+      "etag": "1789978890048151"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/assets/icons/settings.svg",
+      "size": 8585,
+      "etag": "1789978890371878"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/_shared/ui.js",
+      "size": 198,
+      "etag": "1789978873696260"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/CanvasEmpty.d.ts",
+      "size": 259,
+      "etag": "1789978873776662"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/CanvasEmpty.jsx",
+      "size": 649,
+      "etag": "1789978873862445"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/CanvasEmpty.prompt.md",
+      "size": 182,
+      "etag": "1789978873941992"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/ContainerCard.d.ts",
+      "size": 645,
+      "etag": "1789978874027949"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/ContainerCard.jsx",
+      "size": 1003,
+      "etag": "1789978874194180"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/ContainerCard.prompt.md",
+      "size": 280,
+      "etag": "1789978874324136"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/DecisionCard.d.ts",
+      "size": 479,
+      "etag": "1789978874416242"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/DecisionCard.jsx",
+      "size": 543,
+      "etag": "1789978874573747"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/DecisionCard.prompt.md",
+      "size": 251,
+      "etag": "1789978874701224"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/Edges.d.ts",
+      "size": 308,
+      "etag": "1789978874837033"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/Edges.jsx",
+      "size": 348,
+      "etag": "1789978874931789"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/Edges.prompt.md",
+      "size": 182,
+      "etag": "1789978875032048"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/LaneLabel.d.ts",
+      "size": 329,
+      "etag": "1789978875113511"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/LaneLabel.jsx",
+      "size": 291,
+      "etag": "1789978875194671"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/LaneLabel.prompt.md",
+      "size": 220,
+      "etag": "1789978875261216"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/Legend.d.ts",
+      "size": 269,
+      "etag": "1789978875319152"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/Legend.jsx",
+      "size": 639,
+      "etag": "1789978875395098"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/Legend.prompt.md",
+      "size": 203,
+      "etag": "1789978875462224"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/TicketCard.d.ts",
+      "size": 523,
+      "etag": "1789978875524379"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/TicketCard.jsx",
+      "size": 595,
+      "etag": "1789978875591365"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/TicketCard.prompt.md",
+      "size": 234,
+      "etag": "1789978875649392"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/ZoomBar.d.ts",
+      "size": 350,
+      "etag": "1789978875706688"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/ZoomBar.jsx",
+      "size": 756,
+      "etag": "1789978875755629"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/ZoomBar.prompt.md",
+      "size": 245,
+      "etag": "1789978875816520"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/canvas.card.html",
+      "size": 2259,
+      "etag": "1789978875882121"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/canvas.css",
+      "size": 6856,
+      "etag": "1789978875950529"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/canvas/card-shell.jsx",
+      "size": 974,
+      "etag": "1789978876003801"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailEmpty.d.ts",
+      "size": 299,
+      "etag": "1789978876071692"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailEmpty.jsx",
+      "size": 375,
+      "etag": "1789978876143367"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailEmpty.prompt.md",
+      "size": 198,
+      "etag": "1789978876198648"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailHead.d.ts",
+      "size": 410,
+      "etag": "1789978876251937"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailHead.jsx",
+      "size": 1131,
+      "etag": "1789978876318912"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailHead.prompt.md",
+      "size": 225,
+      "etag": "1789978876398993"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailTitle.d.ts",
+      "size": 294,
+      "etag": "1789978876484525"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailTitle.jsx",
+      "size": 272,
+      "etag": "1789978876561985"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/DetailTitle.prompt.md",
+      "size": 214,
+      "etag": "1789978876636107"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/EventBlock.d.ts",
+      "size": 481,
+      "etag": "1789978876718498"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/EventBlock.jsx",
+      "size": 1080,
+      "etag": "1789978876804587"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/EventBlock.prompt.md",
+      "size": 230,
+      "etag": "1789978876873675"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/EventRow.d.ts",
+      "size": 435,
+      "etag": "1789978876940802"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/EventRow.jsx",
+      "size": 1149,
+      "etag": "1789978877026848"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/EventRow.prompt.md",
+      "size": 238,
+      "etag": "1789978877092313"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/GithubButton.d.ts",
+      "size": 333,
+      "etag": "1789978877157918"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/GithubButton.jsx",
+      "size": 283,
+      "etag": "1789978877244436"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/GithubButton.prompt.md",
+      "size": 238,
+      "etag": "1789978877294780"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/LampCounts.d.ts",
+      "size": 310,
+      "etag": "1789978877353375"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/LampCounts.jsx",
+      "size": 547,
+      "etag": "1789978877441245"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/LampCounts.prompt.md",
+      "size": 170,
+      "etag": "1789978877533454"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/NeedsYou.d.ts",
+      "size": 321,
+      "etag": "1789978877603415"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/NeedsYou.jsx",
+      "size": 536,
+      "etag": "1789978877681039"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/NeedsYou.prompt.md",
+      "size": 224,
+      "etag": "1789978877756635"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/NoneNote.d.ts",
+      "size": 271,
+      "etag": "1789978877832024"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/NoneNote.jsx",
+      "size": 325,
+      "etag": "1789978877895542"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/NoneNote.prompt.md",
+      "size": 153,
+      "etag": "1789978877953843"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/Origin.d.ts",
+      "size": 362,
+      "etag": "1789978878025544"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/Origin.jsx",
+      "size": 760,
+      "etag": "1789978878102069"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/Origin.prompt.md",
+      "size": 234,
+      "etag": "1789978878192506"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/PhaseCounts.d.ts",
+      "size": 293,
+      "etag": "1789978878264039"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/PhaseCounts.jsx",
+      "size": 442,
+      "etag": "1789978878343957"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/PhaseCounts.prompt.md",
+      "size": 170,
+      "etag": "1789978878424929"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/RelationRow.d.ts",
+      "size": 592,
+      "etag": "1789978878506303"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/RelationRow.jsx",
+      "size": 2314,
+      "etag": "1789978878580915"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/RelationRow.prompt.md",
+      "size": 265,
+      "etag": "1789978878649893"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/RunBox.d.ts",
+      "size": 359,
+      "etag": "1789978878718455"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/RunBox.jsx",
+      "size": 1106,
+      "etag": "1789978878808735"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/RunBox.prompt.md",
+      "size": 244,
+      "etag": "1789978878867809"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/Section.d.ts",
+      "size": 351,
+      "etag": "1789978878929246"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/Section.jsx",
+      "size": 693,
+      "etag": "1789978879000475"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/Section.prompt.md",
+      "size": 217,
+      "etag": "1789978879071114"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/StatusLine.d.ts",
+      "size": 384,
+      "etag": "1789978879142719"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/StatusLine.jsx",
+      "size": 1091,
+      "etag": "1789978879193182"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/StatusLine.prompt.md",
+      "size": 266,
+      "etag": "1789978879237715"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/SubIssueRow.d.ts",
+      "size": 337,
+      "etag": "1789978879297045"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/SubIssueRow.jsx",
+      "size": 672,
+      "etag": "1789978879351971"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/SubIssueRow.prompt.md",
+      "size": 193,
+      "etag": "1789978879409276"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/detail.card.html",
+      "size": 1697,
+      "etag": "1789978879460539"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/detail/detail.css",
+      "size": 8927,
+      "etag": "1789978879557675"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/frame/frame.css",
+      "size": 937,
+      "etag": "1789978879618624"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Button.d.ts",
+      "size": 347,
+      "etag": "1789978879695274"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Button.jsx",
+      "size": 445,
+      "etag": "1789978879766569"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Button.prompt.md",
+      "size": 192,
+      "etag": "1789978879839383"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/CodeText.d.ts",
+      "size": 272,
+      "etag": "1789978879905410"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/CodeText.jsx",
+      "size": 246,
+      "etag": "1789978879972770"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/CodeText.prompt.md",
+      "size": 174,
+      "etag": "1789978880072459"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/HostChip.d.ts",
+      "size": 302,
+      "etag": "1789978880140594"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/HostChip.jsx",
+      "size": 427,
+      "etag": "1789978880216066"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/HostChip.prompt.md",
+      "size": 194,
+      "etag": "1789978880309177"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/ProblemList.d.ts",
+      "size": 290,
+      "etag": "1789978880372919"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/ProblemList.jsx",
+      "size": 459,
+      "etag": "1789978880440690"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/ProblemList.prompt.md",
+      "size": 180,
+      "etag": "1789978880515616"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RefusedBanner.d.ts",
+      "size": 321,
+      "etag": "1789978880590830"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RefusedBanner.jsx",
+      "size": 562,
+      "etag": "1789978880651937"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RefusedBanner.prompt.md",
+      "size": 205,
+      "etag": "1789978880707308"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RoleRow.d.ts",
+      "size": 407,
+      "etag": "1789978880775568"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RoleRow.jsx",
+      "size": 1339,
+      "etag": "1789978880839314"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RoleRow.prompt.md",
+      "size": 266,
+      "etag": "1789978880912591"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RolesTable.d.ts",
+      "size": 274,
+      "etag": "1789978880983250"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RolesTable.jsx",
+      "size": 467,
+      "etag": "1789978881045045"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RolesTable.prompt.md",
+      "size": 175,
+      "etag": "1789978881104825"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RunnerRow.d.ts",
+      "size": 418,
+      "etag": "1789978881191737"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RunnerRow.jsx",
+      "size": 840,
+      "etag": "1789978881260479"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/RunnerRow.prompt.md",
+      "size": 212,
+      "etag": "1789978881320990"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/ScanStatus.d.ts",
+      "size": 377,
+      "etag": "1789978881378880"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/ScanStatus.jsx",
+      "size": 596,
+      "etag": "1789978881441738"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/ScanStatus.prompt.md",
+      "size": 244,
+      "etag": "1789978881518713"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Select.d.ts",
+      "size": 430,
+      "etag": "1789978881595052"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Select.jsx",
+      "size": 650,
+      "etag": "1789978881676039"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Select.prompt.md",
+      "size": 234,
+      "etag": "1789978881748645"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/SetBlock.d.ts",
+      "size": 306,
+      "etag": "1789978881814163"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/SetBlock.jsx",
+      "size": 596,
+      "etag": "1789978881889373"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/SetBlock.prompt.md",
+      "size": 188,
+      "etag": "1789978881959904"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/SetNote.d.ts",
+      "size": 266,
+      "etag": "1789978882038474"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/SetNote.jsx",
+      "size": 235,
+      "etag": "1789978882111602"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/SetNote.prompt.md",
+      "size": 167,
+      "etag": "1789978882176265"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Sheet.d.ts",
+      "size": 498,
+      "etag": "1789978882242849"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Sheet.jsx",
+      "size": 2307,
+      "etag": "1789978882335549"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/Sheet.prompt.md",
+      "size": 308,
+      "etag": "1789978882414468"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/settings.card.html",
+      "size": 1610,
+      "etag": "1789978882493732"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/settings/settings.css",
+      "size": 7107,
+      "etag": "1789978882571991"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/Lamp.d.ts",
+      "size": 451,
+      "etag": "1789978882635521"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/Lamp.jsx",
+      "size": 405,
+      "etag": "1789978882695191"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/Lamp.prompt.md",
+      "size": 311,
+      "etag": "1789978882756105"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/StepPill.d.ts",
+      "size": 496,
+      "etag": "1789978882837469"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/StepPill.jsx",
+      "size": 449,
+      "etag": "1789978882914084"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/StepPill.prompt.md",
+      "size": 282,
+      "etag": "1789978882958116"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/status.card.html",
+      "size": 1971,
+      "etag": "1789978882998749"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status/status.css",
+      "size": 1654,
+      "etag": "1789978883039472"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/ColumnEyebrow.d.ts",
+      "size": 320,
+      "etag": "1789978883100342"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/ColumnEyebrow.jsx",
+      "size": 439,
+      "etag": "1789978883161297"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/ColumnEyebrow.prompt.md",
+      "size": 201,
+      "etag": "1789978883237028"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/TaskRow.d.ts",
+      "size": 554,
+      "etag": "1789978883291804"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/TaskRow.jsx",
+      "size": 921,
+      "etag": "1789978883356428"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/TaskRow.prompt.md",
+      "size": 252,
+      "etag": "1789978883422398"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/TasksEmpty.d.ts",
+      "size": 273,
+      "etag": "1789978883500543"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/TasksEmpty.jsx",
+      "size": 279,
+      "etag": "1789978883544807"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/TasksEmpty.prompt.md",
+      "size": 175,
+      "etag": "1789978883586402"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/tasks.card.html",
+      "size": 1731,
+      "etag": "1789978883631896"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/tasks/tasks.css",
+      "size": 1506,
+      "etag": "1789978883685111"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/Brand.d.ts",
+      "size": 298,
+      "etag": "1789978883775280"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/Brand.jsx",
+      "size": 498,
+      "etag": "1789978883861697"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/Brand.prompt.md",
+      "size": 235,
+      "etag": "1789978883934921"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/Counter.d.ts",
+      "size": 575,
+      "etag": "1789978884003005"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/Counter.jsx",
+      "size": 966,
+      "etag": "1789978884095918"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/Counter.prompt.md",
+      "size": 381,
+      "etag": "1789978884168592"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/IconButton.d.ts",
+      "size": 441,
+      "etag": "1789978884235078"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/IconButton.jsx",
+      "size": 1597,
+      "etag": "1789978884299243"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/IconButton.prompt.md",
+      "size": 288,
+      "etag": "1789978884361028"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/ReadState.d.ts",
+      "size": 340,
+      "etag": "1789978884432697"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/ReadState.jsx",
+      "size": 296,
+      "etag": "1789978884486613"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/ReadState.prompt.md",
+      "size": 238,
+      "etag": "1789978884543410"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/topbar.card.html",
+      "size": 1809,
+      "etag": "1789978884609605"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/topbar/topbar.css",
+      "size": 2377,
+      "etag": "1789978884681920"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-cyrillic-ext.woff2",
+      "size": 7252,
+      "etag": "1789978885146508"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-cyrillic.woff2",
+      "size": 14900,
+      "etag": "1789978885491451"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-latin-ext.woff2",
+      "size": 16540,
+      "etag": "1789978885927303"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-latin.woff2",
+      "size": 29288,
+      "etag": "1789978886248783"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-mono-cyrillic-ext.woff2",
+      "size": 6204,
+      "etag": "1789978886605455"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-mono-cyrillic.woff2",
+      "size": 12872,
+      "etag": "1789978886925732"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-mono-latin-ext.woff2",
+      "size": 14712,
+      "etag": "1789978887230046"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-mono-latin.woff2",
+      "size": 23108,
+      "etag": "1789978887486973"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-mono-symbols2.woff2",
+      "size": 5892,
+      "etag": "1789978887824770"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-mono-vietnamese.woff2",
+      "size": 7728,
+      "etag": "1789978888163357"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/geist-vietnamese.woff2",
+      "size": 7968,
+      "etag": "1789978888465883"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/instrument-serif-latin-ext-italic.woff2",
+      "size": 8444,
+      "etag": "1789978888769324"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/instrument-serif-latin-ext.woff2",
+      "size": 7828,
+      "etag": "1789978889114851"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/instrument-serif-latin-italic.woff2",
+      "size": 15684,
+      "etag": "1789978889361354"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/fonts/instrument-serif-latin.woff2",
+      "size": 15040,
+      "etag": "1789978889670429"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/readme.md",
+      "size": 6215,
+      "etag": "1789978872783615"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css",
+      "size": 370,
+      "etag": "1789978872612388"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/colors.css",
+      "size": 875,
+      "etag": "1789978873372256"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/fonts.css",
+      "size": 12176,
+      "etag": "1789978873442829"
+    },
+    {
+      "path": "_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/typography.css",
+      "size": 543,
+      "etag": "1789978873509349"
+    },
+    {
+      "path": "data/board-bad-data.js",
+      "size": 28544,
+      "etag": "1789970621670595"
+    },
+    {
+      "path": "data/board-empty.js",
+      "size": 229,
+      "etag": "1789970621670595"
+    },
+    {
+      "path": "data/board-morning.js",
+      "size": 214584,
+      "etag": "1789970621670595"
+    },
+    {
+      "path": "data/board-twenty-tickets.js",
+      "size": 168739,
+      "etag": "1789970621670595"
+    },
+    {
+      "path": "data/settings.js",
+      "size": 23044,
+      "etag": "1789970621670595"
+    },
+    {
+      "path": "lib/board.js",
+      "size": 102572,
+      "etag": "1789970621670595"
+    },
+    {
+      "path": "state-list.md",
+      "size": 2138,
+      "etag": "1789978857623930"
+    },
+    {
+      "path": "support.js",
+      "size": 66404,
+      "etag": "1789970460179679"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
+        <script src="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
+        <script src="./lib/board.js"></script>
+        <script src="./data/board-morning.js"></script>
+        <script src="./data/board-twenty-tickets.js"></script>
+        <script src="./data/board-bad-data.js"></script>
+        <script src="./data/board-empty.js"></script>
+      </helmet>
+      <nav class="tasks board" aria-label="The Night" data-screen-label="任务列表" style="{{ rootStyle }}">
+        <x-import component-from-global-scope="MMWTaskBoard2_34b698.ColumnEyebrow" dc-props="{{ eyebrow }}" hint-size="100%,37px"></x-import>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.TasksEmpty" data-ui="任务列表.empty" hint-size="100%,20px"></x-import>
+        </sc-if>
+        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="3">
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.TaskRow" dc-props="{{ row }}" hint-size="100%,82px"></x-import>
+        </sc-for>
+      </nav>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+  "$preview": { "width": 236, "height": 848 },
+  "scene": { "editor": "enum", "options": ["morning", "twenty-tickets", "bad-data", "empty"], "default": "morning" }
+}'>
+      class Component extends DCLogic {
+        componentDidMount() {
+          const wait = () => {
+            if (window.MMW && window.MMWTaskBoard2_34b698 && window.BOARD_SCENES && window.BOARD_SCENES.empty) this.forceUpdate();
+            else setTimeout(wait, 20);
+          };
+          wait();
+        }
+        renderVals() {
+          const rootStyle = {width: (this.props.width || 236) + "px", height: (this.props.height || 848) + "px"};
+          const key = this.props.scene || "morning";
+          const scene = window.BOARD_SCENES && window.BOARD_SCENES[key];
+          if (!window.MMW || !scene) return {rootStyle, eyebrow: {}, empty: false, rows: []};
+          const tasks = scene.payload.tasks || [];
+          const selected = this.props.task !== undefined ? this.props.task
+            : this.state && this.state.task != null ? this.state.task
+            : scene.select.task != null ? scene.select.task : (tasks[0] ? tasks[0].n : null);
+          const view = window.MMW.tasks.taskListView(tasks, selected);
+          const pick = n => () => {
+            this.setState({task: n});
+            if (this.props.onSelectTask) this.props.onSelectTask(n);
+          };
+          return {
+            rootStyle, empty: view.empty,
+            eyebrow: {label: "The Night", count: view.count, "data-ui": "任务列表.eyebrow"},
+            rows: view.rows.map(row => ({row, onPick: pick(row.n), "data-ui": "任务列表.task"})),
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

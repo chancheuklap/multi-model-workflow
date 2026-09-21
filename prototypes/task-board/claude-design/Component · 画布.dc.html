@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
+        <script src="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
+        <script src="./lib/board.js"></script>
+        <script src="./data/board-morning.js"></script>
+        <script src="./data/board-twenty-tickets.js"></script>
+        <script src="./data/board-bad-data.js"></script>
+        <script src="./data/board-empty.js"></script>
+      </helmet>
+      <main class="{{ rootCls }}" ref="{{ rootRef }}" aria-label="画布：拖动平移，按住 ⌘ 或双指捏合缩放" data-screen-label="画布" style="{{ rootStyle }}">
+        <sc-if value="{{ noTask }}" hint-placeholder-val="{{ false }}">
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.CanvasEmpty" data-ui="画布.empty" hint-size="100%,100%"></x-import>
+        </sc-if>
+        <sc-if value="{{ hasTask }}" hint-placeholder-val="{{ true }}">
+          <div class="world" style="{{ worldStyle }}">
+            <x-import component-from-global-scope="MMWTaskBoard2_34b698.Edges" svg="{{ svg }}" hint-size="0px,0px"></x-import>
+            <sc-for list="{{ labels }}" as="l" hint-placeholder-count="2">
+              <x-import component-from-global-scope="MMWTaskBoard2_34b698.LaneLabel" dc-props="{{ l }}" hint-size="0px,0px"></x-import>
+            </sc-for>
+            <sc-for list="{{ containers }}" as="c" hint-placeholder-count="2">
+              <x-import component-from-global-scope="MMWTaskBoard2_34b698.ContainerCard" dc-props="{{ c }}" hint-size="0px,0px"></x-import>
+            </sc-for>
+            <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="3">
+              <x-import component-from-global-scope="MMWTaskBoard2_34b698.DecisionCard" dc-props="{{ d }}" hint-size="0px,0px"></x-import>
+            </sc-for>
+            <sc-for list="{{ tickets }}" as="t" hint-placeholder-count="4">
+              <x-import component-from-global-scope="MMWTaskBoard2_34b698.TicketCard" dc-props="{{ t }}" hint-size="0px,0px"></x-import>
+            </sc-for>
+          </div>
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.Legend" data-ui="画布.legend" hint-size="0px,0px"></x-import>
+          <x-import component-from-global-scope="MMWTaskBoard2_34b698.ZoomBar" dc-props="{{ zoom }}" hint-size="0px,0px"></x-import>
+        </sc-if>
+      </main>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+  "$preview": { "width": 864, "height": 848 },
+  "scene": { "editor": "enum", "options": ["morning", "twenty-tickets", "bad-data", "empty", "nothing-selected"], "default": "morning" }
+}'>
+      class Component extends DCLogic {
+        componentDidMount() {
+          const wait = () => {
+            if (window.MMW && window.MMWTaskBoard2_34b698 && window.BOARD_SCENES && window.BOARD_SCENES.empty) this.forceUpdate();
+            else setTimeout(wait, 20);
+          };
+          wait();
+          this.bindPointer();
+        }
+        componentDidUpdate() { this.bindPointer(); }
+        componentWillUnmount() { if (this.unbind) this.unbind(); }
+        bindPointer() {
+          const root = this.rootRef && this.rootRef.current;
+          if (!root || this.unbind) return;
+          let drag = null;
+          const down = event => {
+            if (event.button !== 0 || !this._view || (event.target.closest && event.target.closest(".zoom, .legend, .chev"))) return;
+            drag = {x: event.clientX, y: event.clientY, vx: this._view.x, vy: this._view.y, moved: false, id: event.pointerId};
+          };
+          const move = event => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+            if (!drag.moved && Math.hypot(dx, dy) > 4) { drag.moved = true; this.setState({dragging: true}); }
+            if (drag.moved) this.setView({...this._view, x: drag.vx + dx, y: drag.vy + dy});
+          };
+          const up = event => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const moved = drag.moved;
+            drag = null;
+            this.setState({dragging: false});
+            if (moved) { this.suppress = true; setTimeout(() => { this.suppress = false; }, 0); }
+          };
+          const wheel = event => {
+            if (!this._view) return;
+            event.preventDefault();
+            const r = root.getBoundingClientRect();
+            if (event.ctrlKey || event.metaKey) this.zoomAt(this._view.k * Math.exp(-event.deltaY * 0.01), event.clientX - r.left, event.clientY - r.top);
+            else this.setView({...this._view, x: this._view.x - event.deltaX, y: this._view.y - event.deltaY});
+          };
+          const key = event => {
+            if (event.target.closest && event.target.closest("input, textarea, [contenteditable]")) return;
+            if ((event.key === "f" || event.key === "F") && !event.metaKey && !event.ctrlKey && this._fit) this._fit();
+          };
+          root.addEventListener("pointerdown", down);
+          root.addEventListener("wheel", wheel, {passive: false});
+          window.addEventListener("pointermove", move);
+          window.addEventListener("pointerup", up);
+          window.addEventListener("keydown", key);
+          this.unbind = () => {
+            root.removeEventListener("pointerdown", down);
+            root.removeEventListener("wheel", wheel);
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            window.removeEventListener("keydown", key);
+          };
+        }
+        setView(next) { this.setState({view: next, viewFor: this._taskKey}); }
+        clampK(k) { return Math.min(1.6, Math.max(0.3, k)); }
+        zoomAt(k, cx, cy) {
+          const v = this._view, k2 = this.clampK(k);
+          this.setView({x: cx - (cx - v.x) * (k2 / v.k), y: cy - (cy - v.y) * (k2 / v.k), k: k2});
+        }
+        frame() { return {width: this.props.width || 864, height: this.props.height || 848}; }
+        sceneOf() {
+          const key = this.props.scene || "morning";
+          const data = window.BOARD_SCENES && window.BOARD_SCENES[key === "nothing-selected" ? "morning" : key];
+          if (!data) return null;
+          const tasks = data.payload.tasks || [];
+          const taskN = this.props.task !== undefined ? this.props.task
+            : data.select.task != null ? data.select.task : (tasks[0] ? tasks[0].n : null);
+          const task = tasks.find(item => item.n === taskN) || null;
+          const sel = this.props.sel !== undefined ? this.props.sel
+            : this.state && this.state.picked ? this.state.sel
+            : key === "nothing-selected" ? null : (data.select.node != null ? data.select.node : null);
+          return {data, task, sel};
+        }
+        startView(layout, sel) {
+          const r = this.frame();
+          const kFit = Math.min((r.width - 40) / layout.W, (r.height - 70) / layout.H);
+          const v = {k: this.clampK(Math.max(0.9, Math.min(1, kFit))), x: 20, y: 12};
+          const b = sel != null ? layout.nodes.find(node => node.id === sel) : null;
+          if (b) {
+            if ((b.y + b.h) * v.k + v.y > r.height - 70) v.y = Math.min(12, r.height * 0.45 - (b.y + b.h / 2) * v.k);
+            if ((b.x + b.w) * v.k + v.x > r.width - 24) v.x = Math.min(20, r.width - 24 - (b.x + b.w) * v.k);
+          }
+          return v;
+        }
+        renderVals() {
+          this.rootRef = this.rootRef || React.createRef();
+          const st = this.state || {};
+          const rootStyle = {width: this.frame().width + "px", height: this.frame().height + "px"};
+          const rootCls = st.dragging ? "canvas board dragging" : "canvas board";
+          const blank = {rootStyle, rootCls, rootRef: this.rootRef, noTask: false, hasTask: false, worldStyle: {}, svg: "",
+            labels: [], containers: [], decisions: [], tickets: [], zoom: {}};
+          if (!window.MMW) return blank;
+          const s = this.sceneOf();
+          if (!s) return blank;
+          window.MMW_NOW = s.data.now;
+          const M = window.MMW;
+          const taskKey = s.task ? s.task.n : null;
+          const expanded = st.expandedFor === taskKey && st.expanded ? st.expanded : (s.task ? [...M.defaultExpanded(s.task)] : []);
+          const v = M.canvas.canvasView(s.task, s.sel, expanded, true);
+          if (!v.hasTask) return {...blank, noTask: true};
+          const view = st.viewFor === taskKey && st.view ? st.view : this.startView(v.layout, s.sel);
+          this._view = view;
+          this._taskKey = taskKey;
+          const center = () => [this.frame().width / 2, this.frame().height / 2];
+          const fit = () => {
+            const r = this.frame();
+            const k = this.clampK(Math.min(1, (r.width - 40) / v.layout.W, (r.height - 70) / v.layout.H));
+            this.setView({k, x: Math.max(12, (r.width - v.layout.W * k) / 2), y: 12});
+          };
+          this._fit = fit;
+          const pick = n => () => {
+            if (this.suppress) return;
+            this.setState({picked: true, sel: n});
+            if (this.props.onSelectNode) this.props.onSelectNode(n);
+          };
+          const toggle = n => {
+            const set = new Set(expanded);
+            if (set.has(n)) set.delete(n); else set.add(n);
+            this.setState({expanded: [...set], expandedFor: taskKey});
+          };
+          return {
+            rootStyle, rootCls, rootRef: this.rootRef, noTask: false, hasTask: true, svg: v.svg,
+            worldStyle: {...v.worldSize, transform: "translate(" + view.x + "px, " + view.y + "px) scale(" + view.k + ")"},
+            labels: v.labels.map(label => ({label, "data-ui": "画布.lane-label"})),
+            containers: v.containers.map(item => ({item, onPick: pick(item.n), onToggle: toggle, "data-ui": "画布.container-card"})),
+            decisions: v.decisions.map(item => ({item, onPick: pick(item.n), "data-ui": "画布.decision-card"})),
+            tickets: v.tickets.map(item => ({item, onPick: pick(item.n), "data-ui": "画布.ticket-card"})),
+            zoom: {level: Math.round(view.k * 100) + "%", "data-ui": "画布.zoom",
+              onOut: () => { const [cx, cy] = center(); this.zoomAt(view.k / 1.2, cx, cy); },
+              onIn: () => { const [cx, cy] = center(); this.zoomAt(view.k * 1.2, cx, cy); },
+              onFit: fit},
+          };
+        }
+      }
+    </script>
+  </body>
+</html>
