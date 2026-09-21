@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 
 def _control(page, data_ui: str):
-    selector = f"[data-ui={json.dumps(data_ui, ensure_ascii=False)}]"
-    return page.locator(selector).first
+    repeated = re.fullmatch(r"(.+)#([1-9][0-9]*)", data_ui)
+    control_id = repeated.group(1) if repeated else data_ui
+    index = int(repeated.group(2)) - 1 if repeated else 0
+    selector = f"[data-ui={json.dumps(control_id, ensure_ascii=False)}]"
+    return page.locator(selector).nth(index)
 
 
 def click(page, data_ui: str) -> None:

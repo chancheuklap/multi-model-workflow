@@ -36,6 +36,36 @@ class InteractTest(unittest.TestCase):
             self.assertEqual(page.evaluate("window.clicks"), 1)
             browser.close()
 
+    def test_helpers_address_repeated_controls_in_document_order(self):
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_content(
+                '<button data-ui="row.pick" onclick="window.picks.push(1)">一</button>'
+                '<button data-ui="row.pick" onclick="window.picks.push(2)">二</button>'
+                '<input data-ui="row.name" value="first">'
+                '<input data-ui="row.name" value="second">'
+                '<select data-ui="row.host"><option value="a">A</option>'
+                '<option value="b">B</option></select>'
+                '<select data-ui="row.host"><option value="a">A</option>'
+                '<option value="b">B</option></select>'
+                '<script>window.picks = []</script>'
+            )
+
+            interact.click(page, "row.pick#2")
+            interact.fill(page, "row.name#2", "changed")
+            interact.select(page, "row.host#2", "b")
+
+            self.assertEqual(page.evaluate("window.picks"), [2])
+            self.assertEqual(page.locator('[data-ui="row.name"]').nth(0).input_value(), "first")
+            self.assertEqual(page.locator('[data-ui="row.name"]').nth(1).input_value(), "changed")
+            self.assertEqual(page.locator('[data-ui="row.host"]').nth(0).input_value(), "a")
+            self.assertEqual(page.locator('[data-ui="row.host"]').nth(1).input_value(), "b")
+
+            interact.click(page, "row.pick")
+            self.assertEqual(page.evaluate("window.picks"), [2, 1])
+            browser.close()
+
     def test_helpers_do_nothing_under_negative(self):
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
