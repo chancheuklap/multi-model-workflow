@@ -27,7 +27,7 @@
 | Pick a branch | 三枝，第三枝指向 `EXP.md`；兜底规则里库/算法/集成 → experiment |
 | 标题「Rules that apply to …」、规则 2、规则 5 | 覆盖三枝（every branch；experiment 也一条命令起；experiment 每次跑写 evidence page） |
 | 规则 2「A logic demo is …」 | host 能发布就是在线页，否则双击 |
-| 规则 1 | 存放约定：leaf directory `prototypes/<task>/<issue>/<UI\|LOGIC\|EXP>/` + leaf `README.md`，`<issue>` 是 ticket number；`<task>` 的来源分级按「有没有 wayfinder map」判，不按「有没有 ticket」（map 标题 → 问 user → 分支名，`/` 换 `-`）；main 上先停；UI 自建路由仍守项目路由约定 |
+| 规则 1 | 存放约定：leaf directory `prototypes/<task>/<issue>/<UI\|LOGIC\|EXP>/` + leaf `README.md`，`<issue>` 是 ticket number；`<task>` 是这次工作的目录名（小写 ASCII 单词用 `-` 连），来源分级按「有没有 wayfinder map」判，不按「有没有 ticket」（map 的 `## Notes` 写的那个 → 问 user → 分支名，`/` 换 `-`）；main 上先停；UI 自建路由仍守项目路由约定 |
 | 规则 4 | 保留「无测试」并写明测试归正式代码；「不抽象」放宽为「复用部分要有清楚边界」 |
 | 规则 6 | 结论进 leaf `README.md`；决定并进正式代码并按正式标准重写；落地后 leaf directory 是 prototype 唯一的家；有 ticket 就把 leaf directory 链为 asset。**没有** throwaway branch |
 
@@ -54,7 +54,7 @@
 | `SKILL.md` 第 6 条 | UI prototype 的 winner 不在这里折进真实代码，而是交给 Claude Design、再从拿回来的 design page 写真实代码（指向 `UI.md` 第 6、7 步）。上游只写「折进真实代码」，对 LOGIC 与 EXP 仍然成立，所以收上游措辞、保留这一句 |
 | 第 6 步第二段 | winning variant 进 Claude Design 时 scaffolding 保留到第 7 步：design system 入口读它的样式与组件，edit pages 入口对照它的交互。上游没有这一段 |
 | 第 6 步 | 结论进 leaf `README.md`；`## State list`；点名 `design-pages` 的 design system 入口。上游仍在这一步把 winner 折进真实代码并拆 scaffolding → 不收那一半，收到第 7 步 |
-| 第 6 步 `## State list` | README 在固定标题 `## State list` 下按区域列出 winning variant 的全部状态：每个区域一个三级标题（即之后 `Component · <区域>` 页名），每个状态一个列表项且以状态名开头。`scene` prop、pull report、会改变页面状态的 decision ticket 都按这些名字核对。上游没有这一段 |
+| 第 6 步 `## State list` | README 在固定标题 `## State list` 下按区域列出 winning variant 的全部状态：每个区域一个三级标题（即之后 `Component · <区域>` 页名），每个状态一个列表项且以状态名开头。`scene` prop、pull report、会改变页面状态的 decision ticket 都按这些名字核对。一个界面只有一份 state list：有 wayfinder map 时写在 handoff ticket 的 leaf `README.md`，汇总 map 上每张 UI prototype 票的 winner；每张 prototype 票自己的 leaf `README.md` 留结论并写明定了哪些区域（任务板试点 #541：`design-pages` 与 pull 只认一份）。上游没有这一段 |
 | 第 7 步「拆 scaffolding」 | 由原第 6 步后半段拆出。第一次 pull 之后才执行，`design-pages` 的 `pull.md` 指回这里。挂在已有页面上的删挂载点、切换条与 import；单独路由的删 prototype 路由与切换条；完成条件是 leaf directory 外无人 import。上游把拆 scaffolding 写在第 6 步；我们改到第 7 步且改时机。上游改原第 6 步后半段措辞 → 收到第 7 步 |
 | `## Next`（文末） | 我们加的整节：winner 要进 Claude Design 时，点名 `design-pages` 技能与它的 **design system** 入口（先建设计系统，再 edit pages，再 pull 并指回第 7 步）；不进 Claude Design 的 winner 停在第 6 步。理由：原来全文没有往下一步的出口，唯一的路藏在第 6 步讲 scaffolding 的从句里，于是没有人负责建 design system。上游给 `UI.md` 加收尾步 → 收上游措辞，这一节接在它后面 |
 | 第 1、4、5 步、反模式 | 上游的，照收 |

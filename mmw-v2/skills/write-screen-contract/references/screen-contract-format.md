@@ -11,7 +11,7 @@ A server-rendered product and a desktop product use the same keys. The two label
 ```yaml
 effort: orders-v1                         # the wayfinder map's title, as in docs/specs/<effort>/
 baselines:
-  look: docs/prototypes/<task>/claude-design   # the handoff package directory, unchanged
+  look: prototypes/<task>/claude-design   # the handoff package directory, unchanged
   precedence: "look & verbatim copy -> handoff package; calls, shows, next, on_failure -> this file"
 locale: en-US                             # BCP 47 tag; required; the story judge sets both browser contexts; no fallback
 viewports: [1280x800, 800x600]            # each distinct size under the README's "Viewport and size source"

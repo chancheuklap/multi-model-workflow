@@ -31,11 +31,11 @@ _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
 **state list**:
-The fixed heading `## State list` in a UI prototype's leaf `README.md`: every state of the winning variant, one third-level heading per region and one list item per state starting with the state name. `scene` prop values reuse those names; the **pull report** matches them by name.
+The fixed heading `## State list` in a UI prototype's leaf `README.md`: every state of the winning variant, one third-level heading per region and one list item per state starting with the state name. An interface has one; on a wayfinder map it is in the **handoff ticket**'s leaf `README.md` and gathers every UI prototype ticket's winner. `scene` prop values reuse those names; the **pull report** matches them by name.
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/UI.md`
 
 **handoff ticket**:
-The wayfinder ticket that produces the **handoff package** for a destination with an interface: a `prototype` ticket, HITL, blocked by every `prototype` decision ticket and by every decision ticket that will change a page's states, worked with the design-pages skill. The first line of its body names that skill's **edit pages** and **pull** entries. It is what blocks the **alignment ticket**.
+The wayfinder ticket that produces the **handoff package** for a destination with an interface: a `prototype` ticket, HITL, blocked by every `prototype` decision ticket and by every decision ticket that will change a page's states, worked with the design-pages skill. Its body opens, above `## Question`, with a line naming that skill's **design system**, **edit pages** and **pull** entries, and its leaf `README.md` holds the **state list**. It is what blocks the **alignment ticket**.
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
 **component**:
@@ -54,7 +54,7 @@ _Avoid_: 区域 (as the term), area, zone
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **handoff package**:
-The Claude Design project as it sits in the repository, written only by **pull** into the directory the command names — the project's `.dc.html` pages and what **pull** writes beside them. The screen contract's `baselines.look` names it; once pulled it is a contract, copied verbatim. A local edit is not blocked; the next pull overwrites it and the **pull report** says so.
+The Claude Design project as it sits in the repository, written only by **pull** into `prototypes/<task>/claude-design/`: the project's `.dc.html` pages and what **pull** writes beside them. The screen contract's `baselines.look` names it; once pulled it is a contract, copied verbatim. A local edit is not blocked; the next pull overwrites it and the **pull report** says so.
 _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
@@ -78,7 +78,7 @@ _Avoid_: throwaway (for this), 一次性分支, 原型 (as a term), 研究件, U
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
 **leaf directory**:
-`prototypes/<task>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind; `<task>` is the development effort — the wayfinder map's title where there is one — and `<issue>` is the ticket number, or a short feature name when there is no ticket. A UI prototype's variants live in the `UI/` one; **pull** writes the **handoff package** into the directory the command names, which may be that leaf. Once folded in, it is the only home a prototype has. Its `README.md` is the **leaf README.md**, read to its verdict as a `## Read first` item.
+`prototypes/<task>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind; `<task>` is the development effort's directory name, lowercase ASCII words joined by `-`, which a wayfinder map names in its `## Notes`, and `<issue>` is the ticket number, or a short feature name when there is no ticket. A UI prototype's variants live in the `UI/` one; **pull** writes the **handoff package** beside the effort's leaves, into `prototypes/<task>/claude-design/`. Once folded in, it is the only home a prototype has. Its `README.md` is the **leaf README.md**, read to its verdict as a `## Read first` item.
 _Avoid_: 叶子目录, the leaf (bare)
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
