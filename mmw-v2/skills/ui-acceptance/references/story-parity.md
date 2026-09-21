@@ -25,8 +25,8 @@ tickets add one story adapter per design page.
   contract's `pages`; `name` comes from `scenes.json`. `Component · ` and `App · `
   pages use the same request and comparison.
 - `[data-story-root]` is on the product component's own root element. That same
-  element carries `data-screen="<mount>"` and the `data-ui` id on the design page's
-  root. It is not a wrapper around the component and not a child inside it.
+  element carries the `data-ui` id on the design page's root. It is not a wrapper
+  around the component and not a child inside it.
 - Every other product element being compared carries the same `data-ui` id as the
   corresponding element on the design page. Repeated component instances may reuse
   an id; the judge pairs them in document order.

@@ -23,9 +23,8 @@ These hold for every product. How a given repository meets them is its own.
   carries a Claude Design runtime (the markers [story-parity.md](story-parity.md)
   lists).
 - **`[data-story-root]` sits on the component's own root element**, together with
-  `data-screen="<mount>"` — the `pages.<page>.mount` of the screen contract, which is
-  also what `?page=` addresses — and the same `data-ui` id the design page's root carries.
-  Every other compared element carries that design page's matching `data-ui` id.
+  the same `data-ui` id the design page's root carries. Every other compared element
+  carries that design page's matching `data-ui` id.
 - **A `data-ui` id repeats only on the repeating part of a list.** The same id on
   two elements the design page shows as one each is a product defect: element
   parity pairs by id, so a repeated id outside a list makes one of them

@@ -4,7 +4,7 @@
 
 `story-parity.py` 现在按 `data-ui` id 逐元素比较存在、可见、文字、尺寸、位置、父元素和五项计算样式。成功行是 `STORY OK <passed>/<total>`；像素差异图仍写入 `--out`，但不决定通过或失败。`Component · ` 与 `App · ` 页使用同一套判定。
 
-产品 story 的组件根元素同时带 `[data-story-root]`、`data-screen="<mount>"` 和 design page 根元素使用的同一个 `data-ui` id；组件内其它被比较的元素也使用 design page 上相同的 `data-ui` id。
+产品 story 的组件根元素同时带 `[data-story-root]` 和 design page 根元素使用的同一个 `data-ui` id；组件内其它被比较的元素也使用 design page 上相同的 `data-ui` id。
 
 ## 哪些产物失效
 
@@ -16,6 +16,6 @@
 ## 怎么迁
 
 1. 在 design page 的每个需要比较的元素上写稳定的 `data-ui` id；重复组件实例可复用 id，judge 按文档顺序配对。
-2. 在产品组件的对应元素上复制同一个 id。把 `[data-story-root]` 放到组件自己的根元素上，并让该元素同时带 `data-screen="<mount>"` 与 design page 根元素的 `data-ui` id。
+2. 在产品组件的对应元素上复制同一个 id。把 `[data-story-root]` 放到组件自己的根元素上，并让该元素同时带 design page 根元素的 `data-ui` id。judge 不读 `data-screen`：已经带它的产品不必删掉，产品自己的代码若靠它找组件（任务板的 `app.mjs` 就靠 `[data-screen="settings"]` 判断设置面板是否已挂载），照旧保留。
 3. 从 story `CHECK:` 删除 `--max-pct`，把成功 `EXPECT:` 改为 `STORY OK <scene × viewport 总数>/<同一总数>`。
 4. 运行该 ticket 的 story criterion；逐行修正 `DIFF <mount> <scene> <viewport> <id> <property> …` 点名的元素与属性。`--out` 中的像素差异图只用于人工查看。

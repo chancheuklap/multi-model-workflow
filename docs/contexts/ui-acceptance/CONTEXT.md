@@ -214,7 +214,7 @@ The ticket kinds a screen contract produces (contract ticket, acceptance ticket 
 
 **mount**:
 A design page's `mount` in the contract's `pages`: the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from rows; lowercase `[a-z0-9-]`, unique across pages. A story criterion names the ticket's mounts with `--pages`. `--mount` is a retired flag of `story-parity.py`, listed under `retired` in `verify-ticket.py`'s `PIPELINE_SCRIPTS` and reported by `--lint` as `[screen-contract]`; the live name is `--pages <mount,…>`.
-_Avoid_: mount point (for this), 挂载点, data-screen-label, test hook (for this)
+_Avoid_: mount point (for this), 挂载点, data-screen-label (for this), test hook (for this)
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 ### The runtime a repository answers for
