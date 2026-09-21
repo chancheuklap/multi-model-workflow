@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 TARGET = ROOT / ".mmw" / "harness" / "target.py"
 GH = ROOT / ".mmw" / "harness" / "bin" / "gh"
+GH_RESPONSES = ROOT / ".mmw" / "harness" / "github" / "responses.json"
 
 
 def free_port() -> int:
@@ -102,6 +103,41 @@ class HarnessTest(unittest.TestCase):
         after = (machine.exists(), machine.read_bytes() if machine.exists() else None,
                  machine.stat().st_mtime_ns if machine.exists() else None)
         self.assertEqual(after, before)
+
+    def test_start_returns_only_after_fixture_tasks_are_read(self):
+        with running_target() as (_data_dir, _env, state, _stdout):
+            status, board = request_json(state["origin"], "GET", "/api/board")
+        self.assertEqual(status, 200)
+        self.assertNotIn("read_failed", board)
+        self.assertTrue(board["tasks"])
+
+    def test_start_refuses_and_names_an_unanswered_gh_call(self):
+        missing_call = ["repo", "view", "--json", "nameWithOwner", "--jq",
+                        ".nameWithOwner"]
+        missing_key = json.dumps(missing_call, separators=(",", ":"))
+        catalog = json.loads(GH_RESPONSES.read_text(encoding="utf-8"))
+        catalog.pop(missing_key, None)
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory)
+            (data_dir / "github-responses.json").write_text(
+                json.dumps(catalog) + "\n", encoding="utf-8"
+            )
+            env = {
+                **os.environ,
+                "MMW_DATA_DIR": str(data_dir),
+                "MMW_PORT_BASE": str(free_port()),
+                "MMW_INSTANCE": "board-harness-missing-answer",
+            }
+            started = subprocess.run(
+                ["python3", str(TARGET), "start"], cwd=ROOT, env=env,
+                text=True, capture_output=True,
+            )
+            subprocess.run(
+                ["python3", str(TARGET), "stop"], cwd=ROOT, env=env,
+                text=True, capture_output=True,
+            )
+        self.assertNotEqual(started.returncode, 0)
+        self.assertIn(missing_key, started.stderr)
 
     def test_start_offers_every_saved_cell(self):
         with running_target() as (_data_dir, _env, state, _stdout):

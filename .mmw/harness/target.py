@@ -73,6 +73,59 @@ def page_token(origin: str) -> str | None:
     return match.group(1) if match else None
 
 
+def board_answer(origin: str) -> dict | None:
+    try:
+        with urllib.request.urlopen(origin + "/api/board", timeout=2) as response:
+            if response.status != 200:
+                return None
+            answer = json.loads(response.read())
+            return answer if isinstance(answer, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def gh_catalog_path() -> Path:
+    data_dir = state_path().parent
+    override = data_dir / "github-responses.json"
+    return override if override.is_file() else HARNESS / "github" / "responses.json"
+
+
+def unanswered_gh_call() -> str | None:
+    calls_path = state_path().parent / "gh-calls"
+    try:
+        catalog = json.loads(gh_catalog_path().read_text(encoding="utf-8"))
+        calls = calls_path.read_text(encoding="utf-8").splitlines()
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    return next((call for call in reversed(calls) if call not in catalog), None)
+
+
+def require_usable_board(origin: str) -> tuple[bool, str]:
+    answer = board_answer(origin)
+    if answer is None:
+        return False, f"GET {origin}/api/board did not return a JSON object"
+    if "read_failed" in answer:
+        call = unanswered_gh_call()
+        if call:
+            return False, f"unanswered gh call {call}"
+        failure = answer["read_failed"]
+        detail = failure.get("message") if isinstance(failure, dict) else str(failure)
+        return False, f"GET /api/board reported read_failed: {detail}"
+    if not answer.get("tasks"):
+        return False, "GET /api/board returned no fixture tasks"
+    return True, ""
+
+
+def refuse_unusable_board(reason: str) -> int:
+    catalog = gh_catalog_path()
+    stop()
+    sys.stderr.write(
+        f"board first read failed: {reason}. Add the exact call to {catalog}, "
+        f"then rerun {start_command()}\n"
+    )
+    return 2
+
+
 def owns(state: dict) -> bool:
     pid = state.get("pid")
     if not isinstance(pid, int):
@@ -155,6 +208,9 @@ def start() -> int:
     if (old and old.get("origin") == origin and owns(old)
             and old.get("token") == page_token(origin)
             and old.get("break", "") == armed_break):
+        usable, reason = require_usable_board(origin)
+        if not usable:
+            return refuse_unusable_board(reason)
         if armed_break:
             print(f"BREAK ARMED {armed_break}", flush=True)
         return 0
@@ -203,6 +259,9 @@ def start() -> int:
             current = read_state()
             current["token"] = token
             state_path().write_text(json.dumps(current) + "\n", encoding="utf-8")
+            usable, reason = require_usable_board(origin)
+            if not usable:
+                return refuse_unusable_board(reason)
             if armed_break:
                 print(f"BREAK ARMED {armed_break}", flush=True)
             return 0
