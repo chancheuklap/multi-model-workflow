@@ -2,7 +2,7 @@
   "cli": {
     "cursor": {"offerings": []},
     "grok": {"offerings": [
-      {"id": "grok-4.6", "name": "Grok 4.6", "thinkingOptionIds": ["high", "xhigh"]}
+      {"id": "grok-4.7", "name": "Grok 4.7", "thinkingOptionIds": ["high", "xhigh"]}
     ]},
     "claude": {"offerings": [
       {"id": "claude-opus-5", "name": "Opus 5", "thinkingOptionIds": ["high"]},

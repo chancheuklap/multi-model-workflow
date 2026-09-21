@@ -723,7 +723,7 @@ def fillable_rows(host: str, offerings: list[dict]) -> list[tuple[str, str]]:
         ))
         return rows
 
-    skip = {"opus", "sonnet", "fable"} if host == "claude" else set()
+    skip = {"claude": {"opus", "sonnet", "fable"}, "grok": {"grok-4.6"}}.get(host, set())
     rows = []
     seen = set()
     for offering in offerings:

@@ -21,7 +21,7 @@ from board_process import RunningBoard  # noqa: E402
 
 def config(version=1):
     return {"version": version, "runner": "orca", "rows": {
-        "junior-worker": {"host": "grok", "model": "grok 4.6", "effort": "high"},
+        "junior-worker": {"host": "grok", "model": "grok 4.7", "effort": "high"},
         "senior-worker": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
         "reviewer": {"host": "claude", "model": "opus 5", "effort": "high"},
         "advisor": {"host": "claude", "model": "fable 5.1", "effort": "medium"}}}

@@ -4,7 +4,7 @@
       {"id": "cursor-grok-4.6-high", "name": "Grok 4.6 High", "thinkingOptionIds": ["high"]},
       {"id": "cursor-grok-4.6-xhigh", "name": "Grok 4.6 Extra High", "thinkingOptionIds": ["xhigh"]}
     ]},
-    "grok": {"offerings": [{"id": "grok-4.6", "name": "Grok 4.6", "thinkingOptionIds": ["high"]}]},
+    "grok": {"offerings": [{"id": "grok-4.7", "name": "Grok 4.7", "thinkingOptionIds": ["high"]}]},
     "claude": {"offerings": [
       {"id": "claude-opus-5", "name": "Opus 5", "thinkingOptionIds": ["high"]},
       {"id": "claude-sonnet-5", "name": "Sonnet 5", "thinkingOptionIds": ["high"]},
@@ -15,7 +15,7 @@
   },
   "paseo": {
     "cursor": {"offerings": [{"id": "grok-4.6", "name": "Grok 4.6", "thinkingOptionIds": ["high"]}]},
-    "grok": {"offerings": [{"id": "grok-4.6", "name": "Grok 4.6", "thinkingOptionIds": ["high"]}]},
+    "grok": {"offerings": [{"id": "grok-4.7", "name": "Grok 4.7", "thinkingOptionIds": ["high"]}]},
     "claude": {"offerings": [
       {"id": "claude-opus-5", "name": "Opus 5", "thinkingOptionIds": ["high"]},
       {"id": "claude-sonnet-5", "name": "Sonnet 5", "thinkingOptionIds": ["high"]},
