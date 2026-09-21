@@ -309,6 +309,7 @@ rows:
   source:
   - '#544 — 顶栏读取时间旁边有刷新按钮，立刻按同一范围读一次'
   - '#552 — POST /api/board/refresh 顶栏刷新按钮，形状同 GET /api/board'
+  - conversation 2026-09-21 — 读失败时的时间：今天写 HH:MM、非今天写 M 月 D 日 HH:MM，一小时内写 N 分钟前、以上写 N 小时前；从未读成功时只写「读 GitHub 失败」
   gap: aligned
 - id: topbar.needs-you-none
   component: mmw-v2/board/page/topbar.mjs
