@@ -38,6 +38,14 @@
 - 示例数据由 `prototypes/task-board/553/UI/build_scenes.py` 生成：事件用 `events.build` 写，每个看板场景再经生产版后端的 `BoardStore._shape` 整形，与 `GET /api/board` 的回答同形。
 - 每个场景都在本地按 pull 的方式（包装页固定场景、Chromium、虚拟时钟）渲染检查过，没有控制台错误；App 页的两个跨区域联动已点测：点任务列表的另一个任务，画布换成它的树；点齿轮，本机配置弹出、看板在下面透出。
 
+### 6. 按 Claude Design 的基础要求重建 design system
+
+**为什么重来。** 第 4 步建的 design system 只有样式表、readme 和字体，在 Claude Design 里的 Design System 面板是空的。对照 Claude Design 自己的建库说明和内置的 Classical：它要求令牌文件、12 张以上基础卡、按来源完整列出的 React 组件（由它的编译器打成 `_ds_bundle.js`，页面用 `x-import` 挂载）、UI kit 与起步界面、`SKILL.md`。MMW 原来的"只给样式表和类名"是自己发明的路，Claude Design 的面板、组件包、起步界面都用不上。
+
+**实测。** 往 design system 写入一个组件（`Lamp`）后，`_ds_bundle.js` 与 `_ds_manifest.json` 都没有重新生成；在浏览器里打开它、用它的 id 读系统提示，也都不触发。编译器只在 Claude Design 自己建库的流程里运行。
+
+**做法。** 非 React 产品的 design system 改由 Claude Design 按它自己的建库流程建：MMW 从代码填一份建库说明（来源、完整的组件清单、MMW 追加的四条规则），用户在 Claude Design 里贴进去；建完后 MMW 经 MCP 按清单核对。任务板的说明在 `prototypes/task-board/553/UI/design-system-brief.md`，36 个组件族，每个注明来源文件与行号。
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（提交 `0f79b971`） |
@@ -52,6 +60,10 @@
 | 8 | edit pages | 同上，第 4 步 | 项目 `CLAUDE.md` 是保留路径，项目级授权不覆盖它，写入被拒；技能没说 | agent 卡在这一步，或绕开授权 | 第 5 步写明：单独用 `finalize_plan` 点名 `CLAUDE.md`，用户批准后写入，`if_match` 为 `"0"` |
 | 9 | edit pages | `edit-pages.md` 的 Write pages | 页面依赖的大文件（示例数据 430 KB、打包的逻辑 100 KB）只能用 `write_files` 内联上传，内容要经过模型 | 费上下文，且可能超过单次读取上限 | 写明：本地生成的文件用 design-sync 工具按本地路径上传；已实测它对普通页面项目同样可用 |
 | 10 | edit pages | `template-project-claude-md.md` 的 Composition | 页面根元素写 `height: 100%` 时，在项目预览里高度为 0，页面空白；pull 的包装页给了高度，所以 pull 看不出来 | 用户在 Claude Design 里看到空白页 | 模板写明：页面根元素取 `$preview` 的像素宽高，或 `App · ` 页传给它的尺寸；设计项目里的 `CLAUDE.md` 已同步 |
+| 11 | 写合同 | `write-screen-contract/scripts/lint_screen_contract.py` 第 59 行 | （撤回）曾以为合同检查拒绝中文 `data-ui` id。核实后：被检查的是合同行自己的编号 `id`，按规定就是英文；`data-ui` 在 `trigger` 字段，不限字符 | 无 | 不改 |
+| 12 | design system | `design-pages/references/design-system.md` 整篇 | MMW 的非 React 路只上传样式表与类名表，缺 Claude Design 要求的令牌拆分、基础卡、组件、UI kit、`SKILL.md`；而 Claude Design 的编译器只在它自己的建库流程里运行，外部写入的组件不会进组件包 | Design System 面板为空；Claude Design 里的 agent 与起步界面都用不上它；页面只能手写类名 | 重写：先列 Claude Design 的全部要求，再列 MMW 追加的四条（组件输出与来源相同的 DOM、组件接受 `data-ui` 前缀并给部件编号、每个区域一个起步界面、数值与字体原样照抄）；非 React 产品改为由 Claude Design 按 MMW 的建库说明（新模板 `template-design-system-brief.md`，取代原 readme 模板）来建，MMW 经 MCP 核对 |
+| 13 | edit pages / pull | `edit-pages.md` 第 4 步、`pull.md` | 旧流程默认绑定后的项目里有一份 `_ds/`；实际上网页端绑定的旧项目里也没有 | pull 取不到 design system 的样式，离线渲染没有样式 | 第 4 步把样式表闭包、字体、`_ds_bundle.js` 一起拷进 `_ds/`；页面约定改为从 `_ds/` 加载组件包并用组件拼区域 |
+| 14 | edit pages | `edit-pages.md` 的 Write pages | "对照胜出方案核对交互"没有说要核对哪些；这次漏了画布拖动 | 设计页少了产品已有的交互 | 写明：区域里每个控件的点击、拖动、滚动、键盘行为都要与胜出方案一致 |
 
 ## 产品侧的发现（不属于流水线，本试点不改）
 

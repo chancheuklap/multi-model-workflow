@@ -125,6 +125,6 @@ Done when nothing outside the leaf directory imports it: the leaf directory can 
 
 ## Next
 
-A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md` and take its **design system** entry first: it reads this winner's style variables and components and builds the design system from them, and no page is drawn before that exists. Its **edit pages** entry writes the pages against the winner still running behind the scaffolding, and its **pull** entry brings the result back and sends you to step 7 above.
+A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md` and take its **design system** entry first: it has Claude Design build the design system from this winner's code, its style variables and components, and no page is drawn before that exists. Its **edit pages** entry writes the pages against the winner still running behind the scaffolding, and its **pull** entry brings the result back and sends you to step 7 above.
 
 A winner that is not going into Claude Design, because the interface is not being designed there or the question was a logic or experiment one, stops at step 6, folded into the real code the way the [SKILL](SKILL.md) describes.

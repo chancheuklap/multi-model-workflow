@@ -46,7 +46,9 @@ Every page carries `data-screen-label`.
 
 Every `Component · ` page and every `App · ` page declares `$preview` in `data-props`, with `$preview.width` and `$preview.height` as positive integers — the size the page is drawn at. A later pull refuses a page that has `scene` and no `$preview`. The page's root element takes that width and height in pixels, or the sizes an `App · ` page passes it as props; a root at `height: 100%` has no height in the project preview.
 
-## Style
+## Components and style
 
-Use only design-system class names, and only selectors the editor can direct-edit: a single class, a comma pair `.a,.b`, a two-class compound `.a.b`, or a two-class descendant `.a .b` (pseudo-classes allowed).
+Build each region from the bound design system's components. Every page links `./_ds/styles.css` and loads `./_ds/_ds_bundle.js` in its `<helmet>`, and mounts a component with `<x-import component-from-global-scope="<Namespace>.<Name>" data-ui="<region>.<part>" hint-size="…">`; the namespace is the `window.` name in the first lines of `_ds/_ds_bundle.js`. A component stamps `data-ui` ids on its own parts from the one it is given.
+
+An element no component covers uses design-system class names only, and only selectors the editor can direct-edit: a single class, a comma pair `.a,.b`, a two-class compound `.a.b`, or a two-class descendant `.a .b` (pseudo-classes allowed).
 ```

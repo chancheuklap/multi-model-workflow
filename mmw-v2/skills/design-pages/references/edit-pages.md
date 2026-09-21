@@ -27,12 +27,12 @@ Five steps, in this order:
 1. `get_claude_design_prompt` with the design system's id (the `projectId` [design-system.md](design-system.md) created, or the UUID in the link the user gave), and read the format it returns.
 2. `create_project` bound to that design system.
 3. `finalize_plan` with `scope: "project"`, then `create_support_js` with that token. Every write below that is not `CLAUDE.md` carries the same token.
-4. `copy_files` from the design system into `_ds/`: `styles.css`, `readme.md`, and every file the stylesheet reaches (fonts, images) at the same relative path, with `src_project_id` on each entry. A project created this way starts empty, and pages link `./_ds/styles.css`.
+4. `copy_files` from the design system into `_ds/`: `styles.css` and every file it reaches (token and component stylesheets, fonts, images) at the same relative path, plus `_ds_bundle.js` and `readme.md`, with `src_project_id` on each entry. A project starts with none of it, and every page loads `./_ds/styles.css` and `./_ds/_ds_bundle.js` from this copy, which is also what pull brings into the repository.
 5. `CLAUDE.md` is a reserved path, which a project token does not cover: `finalize_plan` naming `CLAUDE.md` in `writes`, the user approves it, then `write_files` with that token and `if_match: "0"`. The content is the fenced block of [template-project-claude-md.md](template-project-claude-md.md), unchanged and without the fence.
 
 ## Write pages
 
-Follow that same `CLAUDE.md`. Use design-system components for `Component · ` pages and `App · ` pages. Compare interaction against the winning variant while its scaffolding is still up.
+Follow that same `CLAUDE.md`. Start each `Component · ` page from the design system's `@startingPoint` screen for its region, built from design-system components, and compose `App · ` pages from the `Component · ` pages. Compare interaction against the winning variant while its scaffolding is still up: every control of the region (click, drag, scroll, keyboard) behaves as the winner's does.
 
 The state list fixes the names. It is the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, which on a wayfinder map is the handoff ticket's leaf: each `### <region>` heading there is one `Component · <region>` page, and each list item's leading name is one value of that page's `scene`. Pull's `覆盖` section matches the two, name by name. The agent inside the project cannot see that file, so when the user has it write pages, give it the state list in the conversation.
 

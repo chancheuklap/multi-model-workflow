@@ -15,7 +15,7 @@ Three doors, in this order, and each names the next.
 | Creating the project, writing or revising pages, checking a preview, acting on comments, or taking the user's sign-off | [references/edit-pages.md](references/edit-pages.md) |
 | The user has signed the design off, or this session is handling a `contract` child whose body names the pull door | [references/pull.md](references/pull.md) — brings the project into the repository as the handoff package. Never while a worker is mid-run |
 
-Page conventions are the body of [template-project-claude-md.md](references/template-project-claude-md.md), the fenced block that is written into the project root as `CLAUDE.md`. The design-system `readme.md` template is [template-design-system-readme.md](references/template-design-system-readme.md).
+Page conventions are the body of [template-project-claude-md.md](references/template-project-claude-md.md), the fenced block that is written into the project root as `CLAUDE.md`. The brief Claude Design builds the design system from is [template-design-system-brief.md](references/template-design-system-brief.md).
 
 [edit pages](references/edit-pages.md) and [pull](references/pull.md) each list the MCP tools they need. Confirm each listed tool is callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
 
