@@ -54,7 +54,7 @@ field. This section says why each one is shaped the way it is.
   product is usable, not merely alive. It is run every time, and is idempotent in
   both directions: it leaves its own current product alone, clears its own stale
   leftovers first (by its own `stop`, on its own record of what it started), and
-  refuses over anything else holding its ports, naming what it found. Everything
+  refuses over anything else holding its ports, naming what it found. A port check tests for a listener the way the product's server binds (with `SO_REUSEADDR`, as Python's `http.server` does), because a product it just stopped leaves its closed connections in `TIME_WAIT` for a while and a plain `bind` then refuses a port nothing holds (measured 2026-09-21: 9 connections in `TIME_WAIT`, `Errno 48`, no listener). Everything
   the product needs — which backing service, which data directory, which log — is
   found or chosen inside this command, from the lease in its environment
   (`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`,
