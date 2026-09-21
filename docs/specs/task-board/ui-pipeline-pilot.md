@@ -28,6 +28,16 @@
 
 **真实产物。** design system "MMW Task Board 2"（https://claude.ai/design/p/34b69870-86b7-4125-a104-b9560bcf3956 ）：`styles.css` 由 `tokens.css`、`board.css`、`settings.css` 与页面框架的样式拼成；`readme.md` 按 `template-design-system-readme.md` 填写，列出 18 个组件；另有 `fonts/` 下 15 个字体文件。用它的 id 调 `get_claude_design_prompt`，返回的系统提示里已嵌入这份 `readme.md`。它不出现在 `list_design_systems` 的结果里。
 
+### 5. handoff ticket：设计项目与页面（`design-pages` 的 edit pages 入口）
+
+**技能怎样执行。** 用 design system 的 id 读 Claude Design 的系统提示，新建绑定它的项目，写入 support.js、design system 的样式副本 `_ds/` 与项目 `CLAUDE.md`，然后按 `CLAUDE.md` 的约定写页面：每个区域一个 `Component · ` 页，`scene` 取状态清单里的名字，控件和要验收外观的元素带 `data-ui` id；每改一次就看一次预览。
+
+**真实产物。** 项目"MMW 任务板 · #553"（https://claude.ai/design/p/c9e1a903-013c-411c-9a1f-7c6b2f85f58a ）：五个 `Component · ` 页（顶栏、任务列表、画布、详情、本机配置）、`App · 任务板` 与 `Overview`。
+
+- 页面上的逻辑不是重写的：`prototypes/task-board/553/UI/bundle_logic.py` 把生产版 `mmw-v2/board/page/` 的纯逻辑模块打包成一个普通脚本 `lib/board.js`，页面调用的是生产版自己的函数。
+- 示例数据由 `prototypes/task-board/553/UI/build_scenes.py` 生成：事件用 `events.build` 写，每个看板场景再经生产版后端的 `BoardStore._shape` 整形，与 `GET /api/board` 的回答同形。
+- 每个场景都在本地按 pull 的方式（包装页固定场景、Chromium、虚拟时钟）渲染检查过，没有控制台错误；App 页的两个跨区域联动已点测：点任务列表的另一个任务，画布换成它的树；点齿轮，本机配置弹出、看板在下面透出。
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（提交 `0f79b971`） |
@@ -38,3 +48,12 @@
 | 4 | pull | `design-pages/references/pull.md` 第 2 步、`write-screen-contract/references/screen-contract-format.md` 的示例 | handoff package 放在哪个目录没有任何地方规定。pull 只收一个参数；合同格式的示例写 `docs/prototypes/<task>/claude-design`，而 prototype 的目录在 `prototypes/<task>/<issue>/UI/`，两处连根目录都不一样 | 每次 pull 的位置各不相同，后面的合同和 ticket 要跟着猜 | `pull.md` 第 2 步定下 `<handoff dir>` 是 `prototypes/<task>/claude-design/`；`screen-contract-format.md` 的示例改成同一路径；词表同步 |
 | 5 | design system | `design-pages/references/design-system.md` 的 Which path | 非 React 路只说上传两个文件。产品自带字体时，字体文件没有说怎么进 design system | 设计侧用替代字体排版，行高不同，element parity 会在文字上报出大量差异（旧 README 记录过同样的问题） | `design-system.md` 的非 React 路改为：连同样式表引用的字体、图片一起整理，由 agent 用 design-sync 工具自己建 design system 并按本地路径上传；没有这个工具的会话才交给用户在网页上建（网页上传能否收字体文件，未核实） |
 | 6 | design system | `design-pages/references/edit-pages.md` 的 Create the project 第 1 步 | 要用 design system 的 id 调 `get_claude_design_prompt`，但 `list_design_systems` 只列出内置的 Classical 与 Modernist，用户自己的"MMW Task Board"不在里面（`get_project` 能查到它）。技能没说 id 从哪来 | 新建的 "MMW Task Board 2" 同样不在列表里（已核实）；技能不写 id 的来源，agent 就拿不到它 | `design-system.md` 写明 design system 的 id 就是 `create_project` 返回的 `projectId`，并记下 `list_design_systems` 不列它（2026-09-21 实测）；`edit-pages.md` 第 1 步指向这个 id |
+| 7 | edit pages | `design-pages/references/edit-pages.md` 的 Create the project | 经 MCP 新建的项目是空的，没有 `_ds/`；四步里没有把 design system 拷进项目这一步 | 页面引用 `./_ds/styles.css` 时 404，页面没有样式 | 改成五步：第 4 步用 `copy_files` 把 design system 的样式、readme 与样式表引用的文件拷进 `_ds/`；MCP 工具清单补上 `finalize_plan`、`copy_files` |
+| 8 | edit pages | 同上，第 4 步 | 项目 `CLAUDE.md` 是保留路径，项目级授权不覆盖它，写入被拒；技能没说 | agent 卡在这一步，或绕开授权 | 第 5 步写明：单独用 `finalize_plan` 点名 `CLAUDE.md`，用户批准后写入，`if_match` 为 `"0"` |
+| 9 | edit pages | `edit-pages.md` 的 Write pages | 页面依赖的大文件（示例数据 430 KB、打包的逻辑 100 KB）只能用 `write_files` 内联上传，内容要经过模型 | 费上下文，且可能超过单次读取上限 | 写明：本地生成的文件用 design-sync 工具按本地路径上传；已实测它对普通页面项目同样可用 |
+| 10 | edit pages | `template-project-claude-md.md` 的 Composition | 页面根元素写 `height: 100%` 时，在项目预览里高度为 0，页面空白；pull 的包装页给了高度，所以 pull 看不出来 | 用户在 Claude Design 里看到空白页 | 模板写明：页面根元素取 `$preview` 的像素宽高，或 `App · ` 页传给它的尺寸；设计项目里的 `CLAUDE.md` 已同步 |
+
+## 产品侧的发现（不属于流水线，本试点不改）
+
+- 旧 prototype 的示例数据生成脚本 `prototypes/board-orchestration/task-board/UI/mockup/build_fixtures.py` 已经跑不起来：它还在写 #415 取消的 `verifier.started`。新脚本 `prototypes/task-board/553/UI/build_scenes.py` 由它改写而来。
+- 生产代码 `mmw-v2/board/page/event-history.mjs` 没有任何模块引用它，详情栏的事件分块已经改由 `board-logic.mjs` 的 `eventBlocks` 生成。

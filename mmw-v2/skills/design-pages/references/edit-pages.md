@@ -6,6 +6,8 @@ Page conventions are the fenced block in [template-project-claude-md.md](templat
 
 - `mcp__claude-design__get_claude_design_prompt`
 - `mcp__claude-design__create_project`
+- `mcp__claude-design__finalize_plan`
+- `mcp__claude-design__copy_files`
 - `mcp__claude-design__create_support_js`
 - `mcp__claude-design__write_files`
 - `mcp__claude-design__read_file`
@@ -14,18 +16,19 @@ Page conventions are the fenced block in [template-project-claude-md.md](templat
 - `mcp__claude-design__list_comments`
 - `mcp__claude-design__ack_comments`
 
-Write pages with `write_files`. The design-sync tool writes only the design system ([design-system.md](design-system.md)).
+Write pages with `write_files`. A file you generate on disk rather than type, such as example data or a bundled script larger than a page, goes up through the design-sync tool's `finalize_plan` and `write_files` by `localPath`, as [design-system.md](design-system.md) uploads the design system's files: its bytes never pass through the model. That tool writes to a page project as well as to a design system (checked 2026-09-21).
 
 Read the Design Components format from `get_claude_design_prompt` (with the design system bound). This skill does not restate `<x-dc>`, helmet, `sc-if` / `sc-for`, `{{ }}`, `data-props`, or `dc-import`.
 
 ## Create the project
 
-Four steps, in this order:
+Five steps, in this order:
 
 1. `get_claude_design_prompt` with the design system's id (the `projectId` [design-system.md](design-system.md) created, or the UUID in the link the user gave), and read the format it returns.
 2. `create_project` bound to that design system.
-3. `create_support_js`.
-4. `write_files`: the fenced block of [template-project-claude-md.md](template-project-claude-md.md), unchanged and without the fence, as the project root `CLAUDE.md`.
+3. `finalize_plan` with `scope: "project"`, then `create_support_js` with that token. Every write below that is not `CLAUDE.md` carries the same token.
+4. `copy_files` from the design system into `_ds/`: `styles.css`, `readme.md`, and every file the stylesheet reaches (fonts, images) at the same relative path, with `src_project_id` on each entry. A project created this way starts empty, and pages link `./_ds/styles.css`.
+5. `CLAUDE.md` is a reserved path, which a project token does not cover: `finalize_plan` naming `CLAUDE.md` in `writes`, the user approves it, then `write_files` with that token and `if_match: "0"`. The content is the fenced block of [template-project-claude-md.md](template-project-claude-md.md), unchanged and without the fence.
 
 ## Write pages
 

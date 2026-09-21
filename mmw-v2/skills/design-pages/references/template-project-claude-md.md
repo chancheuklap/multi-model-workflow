@@ -44,7 +44,7 @@ An `App · ` page `dc-import`s `Component · ` pages and passes `scene` down. A 
 
 Every page carries `data-screen-label`.
 
-Every `Component · ` page and every `App · ` page declares `$preview` in `data-props`, with `$preview.width` and `$preview.height` as positive integers — the size the page is drawn at. A later pull refuses a page that has `scene` and no `$preview`.
+Every `Component · ` page and every `App · ` page declares `$preview` in `data-props`, with `$preview.width` and `$preview.height` as positive integers — the size the page is drawn at. A later pull refuses a page that has `scene` and no `$preview`. The page's root element takes that width and height in pixels, or the sizes an `App · ` page passes it as props; a root at `height: 100%` has no height in the project preview.
 
 ## Style
 
