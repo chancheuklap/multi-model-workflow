@@ -5,20 +5,26 @@
 # ///
 """Pull one Claude Design project into a complete handoff package.
 
-Usage: pull_design.py <manifest.json> <handoff-dir> [--reread <dir>] [--tools <dir>]
+Usage: pull_design.py <handoff-dir> --pages <page.dc.html>... [--tools <dir>]
                       [--state-list <README.md>] [--contract <screen-contract.yaml>]
+       pull_design.py <list_files.json> <handoff-dir> [the same options]
 
-The manifest is the unchanged JSON result of `mcp__claude-design__list_files` with
-`depth: -1`. The short-lived preview address is read only from
+The pages are the `.dc.html` files at the project root, by name; a saved
+`mcp__claude-design__list_files` result may give them instead (its root `.dc.html`
+paths are taken, everything else in it is ignored). Every other file is found from
+the pages: the files they and their stylesheets reference, then every project file
+the offline render requests. The short-lived preview address is read only from
 `MMW_DESIGN_PREVIEW_URL`; it is never printed or persisted.
 """
 
 from __future__ import annotations
 
 import argparse
+import http.client
 import importlib.util
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -28,29 +34,17 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
 
-READ_FILE_LIMIT = 256 * 1024
-MEDIA_SUFFIXES = {
-    ".apng", ".avif", ".gif", ".ico", ".jpeg", ".jpg", ".m4v", ".mov",
-    ".mp4", ".mpeg", ".mpg", ".png", ".svg", ".webm", ".webp",
-}
-TEXT_SUFFIXES = {
-    ".css", ".csv", ".html", ".js", ".json", ".md", ".mjs",
-    ".txt", ".xml", ".yaml", ".yml",
-}
 VENDOR_CONSTANTS = ("REACT_URL", "REACT_DOM_URL", "BABEL_URL")
-
-
-@dataclass(frozen=True)
-class ManifestFile:
-    path: str
-    size: int
-    etag: str | None
+# Renders of the whole scene set before the inventory must stop growing. Each render
+# after the first exists only because the one before requested a file not yet pulled.
+RENDER_ROUNDS = 5
+RENDER_REQUEST = "渲染时请求"
 
 
 @dataclass
@@ -60,6 +54,9 @@ class HandoffPackage:
     sizes: dict[str, tuple[int, int]]
     pages: list[PageInfo]
     state_list: str = ""
+    # Referenced or requested paths the project does not have (HTTP 404), each with
+    # the file that referenced it or `RENDER_REQUEST`.
+    missing: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -134,9 +131,10 @@ class PullRefused(Exception):
 
 
 class DownloadFailed(Exception):
-    def __init__(self, status: str):
+    def __init__(self, status: str, http_code: int | None = None):
         super().__init__(status)
         self.status = status
+        self.http_code = http_code
 
 
 class _PropsParser(HTMLParser):
@@ -190,68 +188,53 @@ def safe_path(raw: object) -> str:
     pure = PurePosixPath(path)
     if not path or pure.is_absolute() or ".." in pure.parts:
         raise PullRefused(
-            f"manifest path is unsafe: {raw!r}.",
+            f"project path is unsafe: {raw!r}.",
             "A project file must be a non-empty project-relative path.",
-            "Fix the manifest path and rerun.",
+            "Name the page by its project-relative path and rerun.",
         )
     return pure.as_posix()
 
 
-def load_manifest(path: Path) -> list[ManifestFile]:
+def page_name(raw: str) -> str:
+    path = safe_path(raw)
+    if not path.endswith(".dc.html"):
+        raise PullRefused(
+            f"{raw!r} is not a design page.",
+            "--pages takes the project's `.dc.html` pages by name.",
+            "Pass the `.dc.html` names list_files shows at the project root and rerun.",
+        )
+    return path
+
+
+def pages_from_list_files(path: Path) -> list[str]:
+    """The root `.dc.html` paths of a saved list_files result; nothing else in it is
+    read."""
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise PullRefused(
-            f"manifest cannot be read: {path} ({type(exc).__name__}).",
-            "The pull has no trustworthy file inventory.",
-            "Save a readable list_files JSON result at that path and rerun.",
+            f"list_files result cannot be read: {path} ({type(exc).__name__}).",
+            "The pages to pull are unknown.",
+            "Pass the pages with --pages <name>... instead, and rerun.",
         ) from exc
+    if isinstance(raw, dict):
+        raw = raw.get("files", raw.get("entries"))
     if not isinstance(raw, list):
         raise PullRefused(
-            f"manifest {path} is not a list_files array.",
-            "The pull needs the unchanged JSON array returned by list_files.",
-            "Run list_files with depth -1, save its JSON result, and rerun.",
+            f"{path} is not a list_files array.",
+            "The pages to pull are unknown.",
+            "Pass the pages with --pages <name>... instead, and rerun.",
         )
-    files = []
+    pages = []
     for row in raw:
-        if not isinstance(row, dict):
+        if not isinstance(row, dict) or str(row.get("type") or "").lower() == "directory":
             continue
-        if str(row.get("type") or "").lower() == "directory":
-            continue
-        if "size" not in row:
-            continue
-        try:
-            size = int(row["size"])
-        except (TypeError, ValueError) as exc:
-            raise PullRefused(
-                f"manifest size is invalid for {row.get('path')!r}.",
-                "Every file needs the byte size reported by list_files.",
-                "Run list_files with depth -1, save its JSON result, and rerun.",
-            ) from exc
-        files.append(ManifestFile(
-            safe_path(row.get("path")),
-            size,
-            str(row["etag"]) if row.get("etag") is not None else None,
-        ))
-    if not files:
-        raise PullRefused(
-            f"manifest {path} contains 0 files.",
-            "A silent empty pull cannot produce a handoff package.",
-            "Run list_files with depth -1 for the intended project and rerun.",
-        )
-    return files
-
-
-# Files Claude Design writes for itself and rewrites on its own: `.thumbnail` is the
-# project card image, regenerated after page edits (seen 2026-09-21: 5357 bytes in
-# list_files, 11128 when downloaded minutes later). Nothing downstream reads them.
-NOT_PULLED = {".thumbnail"}
-
-
-def handoff_path(path: str) -> bool:
-    return path in NOT_PULLED or any(
-        part.startswith("design_handoff_") for part in PurePosixPath(path).parts
-    )
+        name = str(row.get("path") or "")
+        while name.startswith("./"):
+            name = name[2:]
+        if name.endswith(".dc.html") and "/" not in name and name not in pages:
+            pages.append(name)
+    return pages
 
 
 def preview_file_url(preview: str, path: str) -> str:
@@ -289,9 +272,9 @@ def project_id_from_preview(preview: str) -> str:
     return project
 
 
-# A connection error is retried; an HTTP status is an answer and is not. One pull
-# downloads about two hundred files, and on 2026-09-21 one of them failed once with
-# URLError and succeeded on the next run.
+# A connection error or a short read is retried; an HTTP status is an answer and is
+# not. On 2026-09-21 one download of about two hundred failed once with URLError and
+# succeeded on the next run.
 FETCH_ATTEMPTS = 3
 
 
@@ -302,8 +285,8 @@ def fetch(url: str, attempts: int = FETCH_ATTEMPTS, pause: float = 1.0) -> bytes
             with urllib.request.urlopen(request, timeout=30) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
-            raise DownloadFailed(f"HTTP {exc.code}") from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise DownloadFailed(f"HTTP {exc.code}", exc.code) from exc
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:
             if attempt == attempts:
                 raise DownloadFailed(type(exc).__name__) from exc
             time.sleep(pause * attempt)
@@ -315,34 +298,30 @@ INJECTED_TAG = re.compile(
     br"<(style|script)\b(?=[^>]*\bdata-omelette-injected\b)[^>]*>.*?</\1>",
     re.IGNORECASE | re.DOTALL,
 )
+INJECTED_MARKER = b"data-omelette-injected"
 
 
-def strip_injected_head(raw: bytes, expected_size: int | None = None) -> bytes:
+def strip_injected_head(raw: bytes) -> bytes:
     """Remove the preview server's injected `<style>`/`<script>` right after `<head>`.
 
-    Measured 2026-09-21 on a live project, the injection is `\n<style …></style><script
-    …></script>\n`: its closing newline stays behind when the tags are removed, and
-    beside a page's own newline after `<head>` the two cannot be told apart by bytes
-    alone. When removing the tags leaves exactly one byte more than list_files
-    reported and the byte after `<head>` is a newline, that newline is removed too.
+    Measured 2026-09-21 on a live project, the injection is `\\n<style …></style><script
+    …></script>\\n`, both newlines its own: that exact shape is removed whole. Any other
+    run of injected tags after `<head>`, with whitespace between them, is removed up to
+    the end of its last tag; whitespace the injection brought and that removal leaves
+    behind is not an error.
     """
-    stripped = _strip_injected_tags(raw)
-    if (
-        expected_size is not None
-        and stripped is not raw
-        and len(stripped) == expected_size + 1
-    ):
-        head = HEAD.search(stripped)
-        if head is not None and stripped[head.end():head.end() + 1] == b"\n":
-            return stripped[:head.end()] + stripped[head.end() + 1:]
-    return stripped
-
-
-def _strip_injected_tags(raw: bytes) -> bytes:
     head = HEAD.search(raw)
     if head is None:
         return raw
     cursor = head.end()
+    if raw[cursor:cursor + 1] == b"\n":
+        end = cursor + 1
+        tags = 0
+        while (tag := INJECTED_TAG.match(raw, end)) is not None:
+            end = tag.end()
+            tags += 1
+        if tags and raw[end:end + 1] == b"\n":
+            return raw[:cursor] + raw[end + 1:]
     removed_to = cursor
     while True:
         start = cursor
@@ -358,101 +337,157 @@ def _strip_injected_tags(raw: bytes) -> bytes:
     return raw[:head.end()] + raw[removed_to:]
 
 
-def previous_etags(target: Path) -> dict[str, str | None]:
-    path = target / "design-manifest.json"
-    try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    rows = doc.get("files") if isinstance(doc, dict) else None
-    if not isinstance(rows, list):
-        return {}
-    return {
-        str(row.get("path")): row.get("etag")
-        for row in rows
-        if isinstance(row, dict) and row.get("path")
-    }
+# ---------------------------------------------------------------- discovery
+CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+CSS_URL = re.compile(r"""url\(\s*(?:"([^"]*)"|'([^']*)'|([^)'"\s]*))\s*\)""", re.I)
+CSS_IMPORT = re.compile(r"""@import\s+(?:"([^"]*)"|'([^']*)')""", re.I)
+# Attributes that make the browser load a file. `<a href>` is a link, not a load.
+LOADING_ATTRS = {"src", "poster", "data", "xlink:href"}
+HREF_LOADS = {"link", "use", "image", "feimage"}
+IMPORT_TAGS = {"dc-import", "x-import"}
 
 
-def is_media(path: str) -> bool:
-    return PurePosixPath(path).suffix.lower() in MEDIA_SUFFIXES
+def css_references(text: str) -> list[str]:
+    text = CSS_COMMENT.sub("", text)
+    refs = [next(g for g in match.groups() if g is not None) for match in CSS_IMPORT.finditer(text)]
+    refs += [next(g for g in match.groups() if g is not None) for match in CSS_URL.finditer(text)]
+    return refs
 
 
-def is_text(path: str, body: bytes | None = None) -> bool:
-    if PurePosixPath(path).suffix.lower() in TEXT_SUFFIXES:
-        return True
-    if body is None:
-        return False
-    try:
-        body.decode("utf-8")
-        return True
-    except UnicodeDecodeError:
-        return False
+class _ReferenceParser(HTMLParser):
+    """Relative references a page loads: resource attributes, `srcset`, inline and
+    `<style>` CSS, and the page each `dc-import`/`x-import` names."""
 
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.refs: list[str] = []
+        self.pages: list[str] = []
+        self._in_style = False
 
-def reread_body(reread: Path | None, path: str) -> bytes | None:
-    if reread is None:
-        return None
-    candidate = reread.joinpath(*PurePosixPath(path).parts)
-    try:
-        return candidate.read_bytes()
-    except OSError:
-        return None
-
-
-def write_project_files(
-    files: list[ManifestFile], preview: str, reread: Path | None,
-    target: Path, staged: Path,
-) -> None:
-    old_etags = previous_etags(target)
-    needs_reread: list[str] = []
-    for entry in files:
-        if handoff_path(entry.path):
-            continue
-        dest = staged.joinpath(*PurePosixPath(entry.path).parts)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if (
-            is_media(entry.path)
-            and entry.etag is not None
-            and old_etags.get(entry.path) == entry.etag
-            and (target / entry.path).is_file()
-        ):
-            shutil.copy2(target / entry.path, dest)
-            continue
-        body = reread_body(reread, entry.path)
-        if body is None:
-            try:
-                body = fetch(preview_file_url(preview, entry.path))
-            except DownloadFailed as exc:
-                if entry.size <= READ_FILE_LIMIT and is_text(entry.path):
-                    needs_reread.append(entry.path)
-                    continue
-                raise PullRefused(
-                    f"download failed for {entry.path} ({exc.status}).",
-                    f"The {entry.size}-byte file has no faithful read_file fallback.",
-                    "Restore the preview download, then rerun; the target was not changed.",
-                ) from exc
-        if entry.path.lower().endswith(".html"):
-            body = strip_injected_head(body, entry.size)
-        if not is_media(entry.path) and len(body) != entry.size:
-            if is_text(entry.path, body) and entry.size <= READ_FILE_LIMIT:
-                needs_reread.append(entry.path)
+    def handle_starttag(self, tag, attrs):
+        self._in_style = tag == "style"
+        for name, value in attrs:
+            if value is None:
                 continue
-            raise PullRefused(
-                f"downloaded size differs for {entry.path}: {len(body)} != {entry.size}.",
-                "The bytes cannot be trusted and the file has no text reread route.",
-                "Restore the preview download, then rerun; the target was not changed.",
-            )
-        dest.write_bytes(body)
-    if needs_reread:
-        raise PullRefused(
-            f"{len(needs_reread)} text files need rereading (listed above).",
-            "Their downloaded bytes do not match the list_files sizes.",
-            "Read those paths with mcp__claude-design__read_file into one directory, "
-            "then rerun with --reread <dir>.",
-            code=1,
-            paths=needs_reread,
-        )
+            if name in LOADING_ATTRS or (name == "href" and tag in HREF_LOADS):
+                self.refs.append(value)
+            elif name == "srcset":
+                self.refs.extend(
+                    part.strip().split()[0] for part in value.split(",") if part.strip()
+                )
+            elif name == "style":
+                self.refs.extend(css_references(value))
+            elif name == "name" and tag in IMPORT_TAGS and "{{" not in value:
+                self.pages.append(value if value.endswith(".dc.html") else value + ".dc.html")
+
+    def handle_endtag(self, tag):
+        if tag == "style":
+            self._in_style = False
+
+    def handle_data(self, data):
+        if self._in_style:
+            self.refs.extend(css_references(data))
+
+
+def resolve_reference(base: str, raw: str) -> str | None:
+    """The project path a reference in `base` points to, or None when it leaves the
+    project (another origin, a scheme, a fragment, a template expression)."""
+    raw = raw.strip()
+    if not raw or raw.startswith("#") or "{{" in raw:
+        return None
+    parts = urllib.parse.urlsplit(raw)
+    if parts.scheme or parts.netloc:
+        return None
+    path = urllib.parse.unquote(parts.path)
+    if not path:
+        return None
+    joined = path.lstrip("/") if path.startswith("/") else posixpath.join(posixpath.dirname(base), path)
+    norm = posixpath.normpath(joined)
+    if norm in ("", ".") or norm == ".." or norm.startswith("../"):
+        return None
+    return norm
+
+
+def file_references(path: str, body: bytes) -> list[str]:
+    lower = path.lower()
+    text = body.decode("utf-8", "replace")
+    refs: list[str] = []
+    if lower.endswith((".html", ".htm")):
+        parser = _ReferenceParser()
+        parser.feed(text)
+        parser.close()
+        refs = [ref for raw in parser.refs if (ref := resolve_reference(path, raw))]
+        refs += [ref for raw in parser.pages if (ref := resolve_reference("", raw))]
+    elif lower.endswith(".css"):
+        refs = [ref for raw in css_references(text) if (ref := resolve_reference(path, raw))]
+    return refs
+
+
+@dataclass
+class Inventory:
+    """The project files pulled so far, found from the pages outward."""
+    preview: str
+    staged: Path
+    pulled: set[str] = field(default_factory=set)
+    missing: dict[str, str] = field(default_factory=dict)
+
+    def known(self, path: str) -> bool:
+        return path in self.pulled or path in self.missing
+
+    def download(self, path: str) -> bytes:
+        body = fetch(preview_file_url(self.preview, path))
+        if path.lower().endswith((".html", ".htm")):
+            body = strip_injected_head(body)
+            if INJECTED_MARKER in body:
+                raise PullRefused(
+                    f"{INJECTED_MARKER.decode()} is still in the page printed above after "
+                    "the preview's injection was removed.",
+                    "The preview injects in a shape pull does not know, or the page holds "
+                    "that attribute; the bytes would not be the stored page.",
+                    "Tell the user which page; the target was not changed.",
+                    paths=[path],
+                )
+        return body
+
+    def pull(self, paths: list[str], referrer: str | None) -> int:
+        """Download `paths` and everything they reference, transitively. A path that
+        answers 404 is recorded as missing, except a page named on the command line,
+        which is refused. Returns how many files were added."""
+        added = 0
+        queue = [(path, referrer) for path in paths]
+        while queue:
+            path, source = queue.pop(0)
+            if self.known(path):
+                continue
+            try:
+                body = self.download(path)
+            except DownloadFailed as exc:
+                if exc.http_code == 404 and source is not None:
+                    self.missing[path] = source
+                    continue
+                what = (
+                    f"page {path} is not in the project (HTTP 404)."
+                    if exc.http_code == 404 else
+                    f"download failed for {path} ({exc.status})."
+                )
+                raise PullRefused(
+                    what,
+                    "The handoff package would be incomplete.",
+                    "Check the page name against list_files, or restore the preview "
+                    "download, then rerun; the target was not changed.",
+                    paths=[path],
+                ) from exc
+            dest = self.staged.joinpath(*PurePosixPath(path).parts)
+            if dest.is_dir():
+                shutil.rmtree(dest)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(body)
+            self.pulled.add(path)
+            added += 1
+            for ref in file_references(path, body):
+                if not self.known(ref):
+                    queue.append((ref, path))
+        return added
 
 
 def vendor_urls(support: Path) -> dict[str, str]:
@@ -669,7 +704,10 @@ def scene_data_audit(scenes: list[dict]) -> tuple[set[str], dict[str, list[str]]
 
 def render_scenes(
     package: HandoffPackage, vendor: dict[str, Path], tools: Path | None,
+    requested: set[str] | None = None,
 ) -> RenderAudit:
+    """Render every scene with external requests blocked. Each same-origin path the
+    render asks for, other than the scene wrappers, is added to `requested`."""
     dr = load_design_render(tools)
     try:
         from playwright.sync_api import sync_playwright
@@ -688,8 +726,15 @@ def render_scenes(
     server, port = dr.serve_baseline(package.root, pages)
     origin = f"http://127.0.0.1:{port}"
 
+    wrappers = {path.lstrip("/") for path in pages}
+
     def route_offline(route, request):
         if request.url.startswith(origin):
+            if requested is not None:
+                path = urllib.parse.unquote(urllib.parse.urlsplit(request.url).path)
+                path = posixpath.normpath(path.lstrip("/")) if path.strip("/") else ""
+                if path and path not in wrappers and not path.startswith(".."):
+                    requested.add(path)
             route.continue_()
         elif request.url in vendor:
             route.fulfill(path=str(vendor[request.url]), content_type="application/javascript")
@@ -795,13 +840,15 @@ def render_scenes(
     )
 
 
-def manifest_for_package(project: str, files: list[ManifestFile]) -> dict:
+def manifest_for_package(project: str, pages: list[str], inventory: Inventory) -> dict:
+    """What this pull brought down. The next pull reads `files` to remove what the
+    project no longer serves; the re-pull comparison reads the committed package
+    itself, not this file."""
     return {
         "project_id": project,
-        "files": [
-            {"path": row.path, "size": row.size, "etag": row.etag}
-            for row in files
-        ],
+        "pages": pages,
+        "files": sorted(inventory.pulled),
+        "missing": dict(sorted(inventory.missing.items())),
     }
 
 
@@ -1110,10 +1157,13 @@ def contract_copy_changes(
     unmatched = []
     for reference in contract.references:
         old_values = _texts_for(previous, reference.data_id, reference.scenes)
-        if not old_values:
-            unmatched.append(reference.row_id)
-            continue
         new_values = _texts_for(current, reference.data_id, reference.scenes)
+        if not old_values and not new_values:
+            # An icon button or a card whose text sits on child ids has no text of
+            # its own to compare; only a control the last render never drew is news.
+            if reference.data_id not in previous.data_ui_ids:
+                unmatched.append(reference.row_id)
+            continue
         if old_values != new_values:
             changes.append((
                 reference.row_id,
@@ -1130,11 +1180,17 @@ def design_check_lines(package: HandoffPackage, audit: RenderAudit) -> list[str]
         lines.append(f"- {selectors.issue}")
     for finding in selectors.findings:
         lines.append(f"- 编辑器点不中的选择器：{finding}")
+    for path, source in sorted(package.missing.items()):
+        by = "渲染时请求" if source == RENDER_REQUEST else f"`{source}` 引用"
+        lines.append(f"- 项目里没有的文件：`{path}`（{by}）")
     for scene in audit.empty_scenes:
         lines.append(f"- 渲染为空：`{scene}`")
     for scene, message in audit.console_errors:
         lines.append(f"- 控制台报错：`{scene}` — {message}")
-    if selectors.checked and not selectors.findings and not audit.empty_scenes and not audit.console_errors:
+    if (
+        selectors.checked and not selectors.findings and not package.missing
+        and not audit.empty_scenes and not audit.console_errors
+    ):
         lines.append("- 未发现设计检查问题。")
     return lines
 
@@ -1236,7 +1292,7 @@ def classification_lines(
     for row_id, old, new in copy_changes:
         lines.append(f"- 合同行引用的文字变化：`{row_id}`：`{old}` → `{new}`")
     for row_id in unmatched:
-        lines.append(f"- 合同行 `{row_id}` 的 `trigger` 在上次渲染结果中没有文字，未核对。")
+        lines.append(f"- 合同行 `{row_id}` 的 `trigger` 不在上次渲染结果里，文字未核对。")
     return lines
 
 
@@ -1269,24 +1325,29 @@ def write_pull_report(
 
 
 def previous_paths(target: Path) -> set[str]:
+    """The project files the last pull wrote, from its `design-manifest.json`: `files`
+    is a list of paths, or of `{"path": …}` rows in a package pulled before that."""
     path = target / "design-manifest.json"
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return set()
     rows = doc.get("files") if isinstance(doc, dict) else None
     if not isinstance(rows, list):
         return set()
-    return {
-        str(row["path"])
-        for row in rows
-        if isinstance(row, dict) and isinstance(row.get("path"), str)
-    }
+    paths = set()
+    for row in rows:
+        value = row.get("path") if isinstance(row, dict) else row
+        if isinstance(value, str):
+            paths.add(value)
+    return paths
 
 
-def prepare_staging(
-    target: Path, staged: Path, files: list[ManifestFile],
-) -> str:
+def prepare_staging(target: Path, staged: Path) -> str:
+    """Copy the target to `staged` without the files the last pull wrote, so every
+    project file in the result comes from this pull and a file the project no longer
+    serves is gone. Files beside the package (a prototype, the state list in
+    README.md) stay."""
     state_list = state_list_section(target / "README.md")
     old_paths = previous_paths(target)
     if target.exists():
@@ -1300,8 +1361,7 @@ def prepare_staging(
     else:
         staged.mkdir()
 
-    current = {entry.path for entry in files if not handoff_path(entry.path)}
-    for stale in old_paths - current:
+    for stale in old_paths:
         try:
             path = staged.joinpath(*PurePosixPath(safe_path(stale)).parts)
         except PullRefused:
@@ -1316,6 +1376,28 @@ def prepare_staging(
     elif vendor.exists():
         vendor.unlink()
     return state_list
+
+
+def render_until_settled(
+    inventory: Inventory, vendor: dict[str, Path], state_list: str, tools: Path | None,
+) -> tuple[HandoffPackage, RenderAudit]:
+    """Render, pull every project file the render requested that is not pulled yet,
+    and render again, until a render requests nothing new."""
+    for _round in range(RENDER_ROUNDS):
+        package = scenes_from_pages(inventory.staged, state_list, design_pages(inventory.staged))
+        requested: set[str] = set()
+        audit = render_scenes(package, vendor, tools, requested)
+        new = sorted(path for path in requested if not inventory.known(path))
+        if not new or not inventory.pull(new, RENDER_REQUEST):
+            package.missing = dict(inventory.missing)
+            return package, audit
+    raise PullRefused(
+        f"the offline render still requested new files after {RENDER_ROUNDS} renders "
+        "(the last ones are printed above).",
+        "The file set did not settle, so the package cannot be shown complete.",
+        "Tell the user which files; the target was not changed.",
+        paths=new,
+    )
 
 
 def install(staged: Path, target: Path) -> None:
@@ -1344,11 +1426,16 @@ def install(staged: Path, target: Path) -> None:
             )
 
 
+USAGE = (
+    "Run: pull_design.py <handoff dir> --pages <page.dc.html>... [--tools <dir>] "
+    "[--state-list <README.md>] [--contract <screen-contract.yaml>]."
+)
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("manifest", nargs="?")
-    parser.add_argument("target", nargs="?")
-    parser.add_argument("--reread")
+    parser.add_argument("positional", nargs="*")
+    parser.add_argument("--pages", nargs="+")
     parser.add_argument("--tools")
     parser.add_argument("--state-list")
     parser.add_argument("--contract")
@@ -1358,16 +1445,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         raise PullRefused(
             "pull_design.py arguments could not be parsed.",
             "The command shape is fixed.",
-            "Run: pull_design.py <manifest.json> <handoff dir> [--reread <dir>] "
-            "[--tools <dir>] [--state-list <README.md>] [--contract <screen-contract.yaml>].",
+            USAGE,
         ) from exc
-    if unknown or not args.manifest or not args.target:
+    expected = 1 if args.pages else 2
+    if unknown or len(args.positional) != expected:
         raise PullRefused(
             f"pull_design.py received {len(argv)} arguments.",
-            "The command needs a manifest and a handoff directory.",
-            "Run: pull_design.py <manifest.json> <handoff dir> [--reread <dir>] "
-            "[--tools <dir>] [--state-list <README.md>] [--contract <screen-contract.yaml>].",
+            "It needs a handoff directory and the pages (or a list_files JSON before it).",
+            USAGE,
         )
+    args.list_files = None if args.pages else args.positional[0]
+    args.target = args.positional[-1]
     return args
 
 
@@ -1379,12 +1467,17 @@ def run(args: argparse.Namespace) -> None:
             "The pull has no short-lived Claude Design preview address.",
             "Set MMW_DESIGN_PREVIEW_URL from render_preview serve_url and rerun.",
         )
-    manifest = Path(args.manifest)
     target = Path(args.target)
-    reread = Path(args.reread) if args.reread else None
     tools = Path(args.tools) if args.tools else None
     project = project_id_from_preview(preview)
-    files = load_manifest(manifest)
+    names = args.pages if args.pages else pages_from_list_files(Path(args.list_files))
+    pages = list(dict.fromkeys(page_name(name) for name in names))
+    if not pages:
+        raise PullRefused(
+            f"{args.list_files} lists 0 `.dc.html` pages at the project root.",
+            "A pull starts from the project's pages.",
+            "Pass the pages with --pages <name>... and rerun.",
+        )
     requested_state_list = Path(args.state_list) if args.state_list else None
     state_list_input = read_state_list_input(requested_state_list)
     contract = contract_input(Path(args.contract) if args.contract else None, tools)
@@ -1397,17 +1490,17 @@ def run(args: argparse.Namespace) -> None:
             if previous_root is not None else None
         )
         staged = temp_root / "package"
-        preserved_state_list = prepare_staging(target, staged, files)
-        write_project_files(files, preview, reread, target, staged)
+        preserved_state_list = prepare_staging(target, staged)
+        inventory = Inventory(preview, staged)
+        inventory.pull(pages, None)
         vendor = pull_vendor(staged)
-        pages = design_pages(staged)
-        package = scenes_from_pages(staged, preserved_state_list, pages)
-        audit = render_scenes(package, vendor, tools)
+        package, audit = render_until_settled(inventory, vendor, preserved_state_list, tools)
         (staged / "scenes.json").write_text(
             json.dumps(package.scenes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         (staged / "design-manifest.json").write_text(
-            json.dumps(manifest_for_package(project, files), ensure_ascii=False, indent=2) + "\n",
+            json.dumps(manifest_for_package(project, pages, inventory), ensure_ascii=False, indent=2)
+            + "\n",
             encoding="utf-8",
         )
         write_readme(package, project, audit.rendered)
@@ -1419,7 +1512,7 @@ def run(args: argparse.Namespace) -> None:
             contract,
         )
         install(staged, target)
-    print(f"pulled {len(files)} files and rendered {audit.rendered} scenes")
+    print(f"pulled {len(inventory.pulled)} files and rendered {audit.rendered} scenes")
 
 
 def main() -> int:

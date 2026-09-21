@@ -1,7 +1,8 @@
-"""pull_design.py: one manifest becomes one complete handoff package.
+"""pull_design.py: a project's pages become one complete handoff package.
 
-The command is the seam. A local preview server supplies the exact project files and
-the three vendor scripts; assertions observe only its exit, output, and target tree.
+The command is the seam. A local preview server supplies the project files and the
+three vendor scripts; assertions observe only its exit, output, the target tree, and
+which paths the server was asked for.
 """
 
 from __future__ import annotations
@@ -54,6 +55,9 @@ class Preview:
             "styles/app.css": (FIXTURE / "styles" / "app.css").read_bytes(),
             "assets/logo.png": b"fixture-png-with-source-metadata",
         }
+        # Paths under this prefix answer 200 with any name, for a page that asks for a
+        # new file on every render.
+        self.any_name_prefix: str | None = None
         self.vendors = {
             "react.production.min.js": b"window.__reactVendor = true;\n",
             "react-dom.production.min.js": b"window.__reactDomVendor = true;\n",
@@ -83,7 +87,13 @@ class Preview:
                 owner.requests[path] += 1
                 if path.startswith(SERVE_PREFIX):
                     rel = path.removeprefix(SERVE_PREFIX)
-                    body = owner.files.get(rel)
+                    if owner.any_name_prefix and rel.startswith(owner.any_name_prefix):
+                        body = b"{}"
+                    elif rel not in owner.files:
+                        self.send_error(404)
+                        return
+                    else:
+                        body = owner.files[rel]
                     if body is None:
                         self.send_error(503)
                         return
@@ -128,25 +138,18 @@ class PullDesign(unittest.TestCase):
         self.preview = Preview()
         self.addCleanup(self.preview.close)
         self.work = Path(self.tmp.name)
-        self.manifest = self.work / "manifest.json"
         self.target = self.work / "handoff"
-        self.write_manifest()
 
-    def write_manifest(self, extra: list[dict] | None = None):
-        files = [
-            {"path": path, "type": "file", "size": len(body), "etag": f'etag-{i}'}
-            for i, (path, body) in enumerate(self.preview.files.items())
-            if body is not None
-        ]
-        files.extend(extra or [])
-        self.manifest.write_text(
-            json.dumps(files, indent=2),
-            encoding="utf-8",
+    def root_pages(self) -> list[str]:
+        return sorted(
+            path for path in self.preview.files
+            if path.endswith(".dc.html") and "/" not in path
         )
 
     def pull(
         self, *extra: str, preview_url: str | None = None,
         unset_preview: bool = False, script: Path = SCRIPT,
+        pages: list[str] | None = None, args: list[str] | None = None,
     ):
         env = os.environ.copy()
         if unset_preview:
@@ -155,8 +158,10 @@ class PullDesign(unittest.TestCase):
             env["MMW_DESIGN_PREVIEW_URL"] = preview_url
         else:
             env["MMW_DESIGN_PREVIEW_URL"] = self.preview.preview_url
+        if args is None:
+            args = [str(self.target), "--pages", *(pages or self.root_pages())]
         return subprocess.run(
-            [sys.executable, str(script), str(self.manifest), str(self.target), *extra],
+            [sys.executable, str(script), *args, *extra],
             capture_output=True,
             text=True,
             env=env,
@@ -178,7 +183,14 @@ class PullDesign(unittest.TestCase):
 
     def add_page(self, name: str, body: str) -> None:
         self.preview.files[name] = textwrap.dedent(body).encode("utf-8")
-        self.write_manifest()
+
+    def refer_from_demo(self, markup: bytes) -> None:
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</head>", markup + b"\n  </head>", 1)
+
+    def pulled_tree(self) -> list[str]:
+        return sorted(p.relative_to(self.target).as_posix() for p in self.target.rglob("*") if p.is_file())
 
     def commit_target(self) -> None:
         subprocess.run(
@@ -191,125 +203,188 @@ class PullDesign(unittest.TestCase):
         subprocess.run(["git", "add", "handoff"], cwd=self.work, check=True)
         subprocess.run(["git", "commit", "-qm", "baseline handoff"], cwd=self.work, check=True)
 
-    def test_a_clean_project_pulls_every_file_and_exits_0(self):
+    def test_a_clean_project_pulls_every_referenced_file_and_exits_0(self):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         for path, body in self.preview.files.items():
             self.assertEqual((self.target / path).read_bytes(), body, path)
+        self.assertIn("pulled 5 files", result.stdout)
 
-    def test_injected_head_snippets_are_stripped_before_the_size_check(self):
+    def test_injected_head_snippets_are_stripped(self):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         page = (self.target / "Component · Demo.dc.html").read_bytes()
         self.assertNotIn(b"data-omelette-injected", page)
         self.assertEqual(page, self.preview.files["Component · Demo.dc.html"])
 
-    def test_the_live_injection_shape_is_stripped_to_the_listed_bytes(self):
+    def test_the_live_injection_shape_is_stripped_to_the_stored_bytes(self):
         self.preview.injected = INJECTED_LIVE
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         page = (self.target / "Component · Demo.dc.html").read_bytes()
         self.assertEqual(page, self.preview.files["Component · Demo.dc.html"])
 
-    def test_a_text_file_whose_size_differs_exits_1_naming_it(self):
-        self.preview.files["styles/app.css"] += b"/* changed in preview */\n"
-        result = self.pull()
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("styles/app.css", result.stdout + result.stderr)
-        self.assertFalse(self.target.exists())
-
-    def test_every_text_file_to_reread_is_printed_whole(self):
-        names = [f"notes/long-file-name-number-{i:02d}.md" for i in range(12)]
-        for name in names:
-            self.preview.files[name] = b"listed size differs"
-        self.write_manifest()
-        rows = json.loads(self.manifest.read_text(encoding="utf-8"))
-        for row in rows:
-            if row["path"] in names:
-                row["size"] = 1
-        self.manifest.write_text(json.dumps(rows), encoding="utf-8")
-        result = self.pull()
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        lines = result.stderr.splitlines()
-        for name in names:
-            self.assertIn(name, lines)
-
-    def test_a_second_run_with_a_reread_directory_uses_those_files(self):
-        correct = self.preview.files["styles/app.css"]
-        self.preview.files["styles/app.css"] += b"/* changed in preview */\n"
-        reread = self.work / "reread" / "styles"
-        reread.mkdir(parents=True)
-        (reread / "app.css").write_bytes(correct)
-        result = self.pull("--reread", str(self.work / "reread"))
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.target / "styles/app.css").read_bytes(), correct)
-
-    def test_a_failed_download_over_256_kib_exits_2_and_writes_nothing(self):
+    def test_an_injection_marker_left_in_a_page_exits_2_naming_it(self):
         self.target.mkdir()
         (self.target / "existing.txt").write_text("unchanged", encoding="utf-8")
-        self.preview.files["data/large.txt"] = None
-        self.write_manifest([
-            {"path": "data/large.txt", "size": 300 * 1024, "etag": "text-v1"}
-        ])
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"<body>", b"<body><style data-omelette-injected>x{}</style>", 1)
         result = self.pull()
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("data/large.txt", result.stdout + result.stderr)
-        self.assertEqual(
-            [path.relative_to(self.target).as_posix() for path in self.target.rglob("*")],
-            ["existing.txt"],
+        self.assertIn("Component · Demo.dc.html", result.stderr.splitlines())
+        self.assertIn("data-omelette-injected", result.stderr)
+        self.assertEqual(self.pulled_tree(), ["existing.txt"])
+
+    def test_a_file_referenced_only_from_css_url_is_pulled(self):
+        self.preview.files["styles/app.css"] = (
+            b"@font-face { font-family: Body; src: url('../fonts/body.woff2') format('woff2'); }\n")
+        self.preview.files["fonts/body.woff2"] = b"wOF2 fixture font"
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((self.target / "fonts/body.woff2").read_bytes(), b"wOF2 fixture font")
+
+    def test_css_imports_are_followed_recursively(self):
+        self.preview.files["styles/app.css"] = b'@import "tokens/colors.css";\nbody { color: #222; }\n'
+        self.preview.files["styles/tokens/colors.css"] = b"@import url(fonts.css);\n"
+        self.preview.files["styles/tokens/fonts.css"] = b"a { background: url(\"../../img/bg.svg\"); }\n"
+        self.preview.files["img/bg.svg"] = b"<svg xmlns='http://www.w3.org/2000/svg'/>"
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for path in ("styles/tokens/colors.css", "styles/tokens/fonts.css", "img/bg.svg"):
+            self.assertEqual((self.target / path).read_bytes(), self.preview.files[path], path)
+
+    def test_a_file_requested_only_by_a_script_at_render_time_is_pulled(self):
+        # A data: image is never pulled; its onload fetch is the only thing that names
+        # the JSON, so nothing but the render can find it.
+        pixel = b"data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b'<main data-ui="root">',
+            b'<main data-ui="root"><img alt="" src="' + pixel
+            + b'" onload="fetch(\'./data/late.json\')">',
+            1,
         )
+        self.preview.files["data/late.json"] = b'{"rows": []}\n'
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((self.target / "data/late.json").read_bytes(), b'{"rows": []}\n')
+        manifest = json.loads((self.target / "design-manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("data/late.json", manifest["files"])
+        self.assertNotIn("data/late.json", self.report_section("设计检查"))
+
+    def test_a_render_that_never_stops_requesting_new_files_exits_2(self):
+        self.target.mkdir()
+        (self.target / "existing.txt").write_text("unchanged", encoding="utf-8")
+        self.preview.any_name_prefix = "data/r-"
+        pixel = b"data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b'<main data-ui="root">',
+            b'<main data-ui="root"><img alt="" src="' + pixel
+            + b'" onload="fetch(\'./data/r-\' + Math.random() + \'.json\')">',
+            1,
+        )
+        result = self.pull()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("after 5 renders", result.stderr)
+        self.assertTrue(any(line.startswith("data/r-") for line in result.stderr.splitlines()))
+        self.assertEqual(self.pulled_tree(), ["existing.txt"])
+
+    def test_a_dc_imported_page_is_pulled_though_not_named(self):
+        self.add_page("Shell.dc.html", """
+            <!doctype html><html><head><script src="./support.js"></script></head><body>
+            <x-dc><dc-import name="Inner" hint-size="100%,100%"></dc-import></x-dc>
+            <script type="text/x-dc" data-dc-script data-props='{}'></script></body></html>
+        """)
+        self.preview.files["Inner.dc.html"] = (
+            b"<!doctype html><html><head><link rel='stylesheet' href='./inner.css'></head>"
+            b"<body><x-dc><p>Inner</p></x-dc></body></html>")
+        self.preview.files["inner.css"] = b"p { margin: 0; }\n"
+        result = self.pull(pages=["Component · Demo.dc.html", "Shell.dc.html"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((self.target / "Inner.dc.html").read_bytes(), self.preview.files["Inner.dc.html"])
+        self.assertEqual((self.target / "inner.css").read_bytes(), b"p { margin: 0; }\n")
+        self.assertFalse((self.target / "Overview.dc.html").exists())
+
+    def test_files_nothing_references_are_not_pulled(self):
+        for path in ("CLAUDE.md", "state-list.md", "notes/idea.md", ".thumbnail",
+                     "design_handoff_previous/old.txt"):
+            self.preview.files[path] = b"not part of the package"
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for path in ("CLAUDE.md", "state-list.md", "notes/idea.md", ".thumbnail",
+                     "design_handoff_previous/old.txt"):
+            self.assertFalse((self.target / path).exists(), path)
+            self.assertEqual(self.preview.requests[SERVE_PREFIX + path], 0, path)
+
+    def test_a_referenced_file_the_project_lacks_is_reported_not_refused(self):
+        self.refer_from_demo(b'<script src="./lib/gone.js"></script>')
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "项目里没有的文件：`lib/gone.js`（`Component · Demo.dc.html` 引用）",
+            self.report_section("设计检查"),
+        )
+        self.assertNotIn("未发现设计检查问题", self.report_section("设计检查"))
+
+    def test_a_failed_download_of_a_referenced_file_exits_2_and_writes_nothing(self):
+        self.target.mkdir()
+        (self.target / "existing.txt").write_text("unchanged", encoding="utf-8")
+        self.preview.files["styles/app.css"] = b"body { background: url(../fonts/body.woff2); }\n"
+        self.preview.files["fonts/body.woff2"] = None
+        result = self.pull()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("fonts/body.woff2", result.stderr.splitlines())
+        self.assertIn("HTTP 503", result.stderr)
+        self.assertEqual(self.pulled_tree(), ["existing.txt"])
         self.assertEqual((self.target / "existing.txt").read_text(), "unchanged")
 
-    def test_a_binary_with_the_same_etag_is_kept_from_the_target(self):
-        manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
-        image = next(row for row in manifest if row["path"] == "assets/logo.png")
-        kept = b"existing-image-with-claude-source-metadata"
-        (self.target / "assets").mkdir(parents=True)
-        (self.target / "assets" / "logo.png").write_bytes(kept)
-        (self.target / "design-manifest.json").write_text(
-            json.dumps({"project_id": "fixture-project", "files": [image]}),
-            encoding="utf-8",
-        )
-        result = self.pull()
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((self.target / "assets/logo.png").read_bytes(), kept)
-        self.assertEqual(self.preview.requests[SERVE_PREFIX + "assets/logo.png"], 0)
-
-    def test_a_binary_with_a_changed_etag_is_downloaded(self):
-        manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
-        image = next(row for row in manifest if row["path"] == "assets/logo.png")
-        previous = dict(image, etag="older-etag")
-        (self.target / "assets").mkdir(parents=True)
-        (self.target / "assets" / "logo.png").write_bytes(b"old-image")
-        (self.target / "design-manifest.json").write_text(
-            json.dumps({"project_id": "fixture-project", "files": [previous]}),
-            encoding="utf-8",
-        )
-        result = self.pull()
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(
-            (self.target / "assets/logo.png").read_bytes(),
-            self.preview.files["assets/logo.png"],
-        )
-        self.assertEqual(self.preview.requests[SERVE_PREFIX + "assets/logo.png"], 1)
-
-    def test_a_failed_small_binary_download_exits_2_not_1(self):
-        self.preview.files["fonts/body.woff2"] = None
-        self.write_manifest([
-            {"path": "fonts/body.woff2", "size": 1024, "etag": "font-v1"}
-        ])
-        result = self.pull()
+    def test_a_named_page_the_project_lacks_exits_2(self):
+        result = self.pull(pages=["Component · Demo.dc.html", "Component · Gone.dc.html"])
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("fonts/body.woff2", result.stdout + result.stderr)
+        self.assertIn("Component · Gone.dc.html", result.stderr.splitlines())
+        self.assertFalse(self.target.exists())
 
-    def test_design_handoff_directories_are_skipped(self):
-        path = "design_handoff_previous/old.txt"
-        self.preview.files[path] = b"must not come down"
-        self.write_manifest()
-        result = self.pull()
+    def test_a_name_that_is_not_a_page_exits_2(self):
+        result = self.pull(pages=["styles/app.css"])
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("is not a design page", result.stderr)
+
+    def test_a_saved_list_files_result_gives_the_root_pages_and_nothing_else(self):
+        self.preview.files["notes/Draft.dc.html"] = b"<html><head></head><body></body></html>"
+        listing = self.work / "list_files.json"
+        listing.write_text(json.dumps([
+            {"path": "Component · Demo.dc.html", "type": "file", "size": 1, "etag": "x"},
+            {"path": "Overview.dc.html", "type": "file", "size": 99999},
+            {"path": "notes/Draft.dc.html", "type": "file", "size": 5},
+            {"path": "styles", "type": "directory"},
+            {"path": "styles/app.css", "type": "file", "size": 0},
+        ]), encoding="utf-8")
+        result = self.pull(args=[str(listing), str(self.target)])
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertFalse((self.target / path).exists())
-        self.assertEqual(self.preview.requests[SERVE_PREFIX + path], 0)
+        manifest = json.loads((self.target / "design-manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["pages"], ["Component · Demo.dc.html", "Overview.dc.html"])
+        self.assertFalse((self.target / "notes/Draft.dc.html").exists())
+        self.assertEqual(
+            (self.target / "styles/app.css").read_bytes(), self.preview.files["styles/app.css"])
+
+    def test_the_manifest_records_pages_and_pulled_paths_and_a_repull_drops_stale_ones(self):
+        self.preview.files["styles/extra.css"] = b"p { color: red; }\n"
+        self.refer_from_demo(b'<link rel="stylesheet" href="./styles/extra.css" />')
+        first = self.pull()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        manifest = json.loads((self.target / "design-manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["project_id"], "fixture-project")
+        self.assertEqual(manifest["pages"], self.root_pages())
+        self.assertIn("styles/extra.css", manifest["files"])
+        self.assertNotIn("vendor/babel.min.js", manifest["files"])
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b'<link rel="stylesheet" href="./styles/extra.css" />', b"")
+        second = self.pull()
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        self.assertFalse((self.target / "styles/extra.css").exists())
 
     def test_scenes_json_is_generated_from_each_page_scene_prop(self):
         result = self.pull()
@@ -339,8 +414,7 @@ class PullDesign(unittest.TestCase):
     def test_a_page_in_a_subfolder_uses_only_its_filename_in_scene_names(self):
         body = self.preview.files.pop("Component · Demo.dc.html")
         self.preview.files["pages/Component · Demo.dc.html"] = body
-        self.write_manifest()
-        result = self.pull()
+        result = self.pull(pages=["pages/Component · Demo.dc.html", "Overview.dc.html"])
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         rows = json.loads((self.target / "scenes.json").read_text(encoding="utf-8"))
         self.assertEqual(
@@ -406,7 +480,6 @@ class PullDesign(unittest.TestCase):
         start = page.index(b'<main data-ui="root">')
         end = page.index(b"</main>", start) + len(b"</main>")
         self.preview.files["Component · Demo.dc.html"] = page[:start] + page[end:]
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("渲染为空", self.report())
@@ -427,9 +500,8 @@ class PullDesign(unittest.TestCase):
             if path.is_file():
                 self.assertNotIn(secret, path.read_bytes(), str(path.relative_to(self.target)))
 
-        self.preview.files["styles/app.css"] += b"/* mismatched */\n"
-        refused = self.pull()
-        self.assertEqual(refused.returncode, 1, refused.stdout + refused.stderr)
+        refused = self.pull(pages=["Component · Missing.dc.html"])
+        self.assertEqual(refused.returncode, 2, refused.stdout + refused.stderr)
         self.assertNotIn(secret.decode(), refused.stdout + refused.stderr)
 
     def test_tools_override_supplies_refusal_and_renderer_modules(self):
@@ -487,28 +559,31 @@ class PullDesign(unittest.TestCase):
         finally:
             module.urllib.request.urlopen = original
 
+    def test_a_textless_trigger_is_not_reported_and_a_missing_one_is(self):
+        module = load_script_module()
+        audit = module.RenderAudit(
+            rendered=1, empty_scenes=[], console_errors=[],
+            data_ui_ids={"bar.icon", "bar.title"}, text_by_id={"bar.title": ["Hi"]},
+            scene_text_by_id={"s": {"bar.title": ["Hi"]}},
+            text_without_id=[], controls_without_id=[])
+        contract = module.ContractInput(provided=True, references=(
+            module.ContractReference("bar.icon-row", "bar.icon", ("s",)),
+            module.ContractReference("bar.gone-row", "bar.gone", ("s",)),
+            module.ContractReference("bar.title-row", "bar.title", ("s",)),
+        ))
+        changes, unmatched = module.contract_copy_changes(contract, audit, audit)
+        self.assertEqual(changes, [])
+        self.assertEqual(unmatched, ["bar.gone-row"])
+
     def test_a_state_name_ends_at_a_full_width_colon(self):
         module = load_script_module()
         regions = module.state_list_regions(
             "### 顶栏\n\n- morning：一夜之后 · 四盏灯\n- bad-data: 读 GitHub 失败\n- `empty` 还没有\n")
         self.assertEqual(regions, {"顶栏": ["morning", "bad-data", "empty"]})
 
-    def test_the_project_thumbnail_is_not_pulled(self):
-        self.preview.files[".thumbnail"] = b"\x89PNG changed after listing"
-        self.write_manifest()
-        rows = json.loads(self.manifest.read_text(encoding="utf-8"))
-        for row in rows:
-            if row["path"] == ".thumbnail":
-                row["size"] = 3
-        self.manifest.write_text(json.dumps(rows), encoding="utf-8")
-        result = self.pull()
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertFalse((self.target / ".thumbnail").exists())
-
     def test_only_prefixed_pages_without_scene_are_reported(self):
         self.preview.files["Component · Bare.dc.html"] = (
             b"<!doctype html><html><body><x-dc><p>Bare</p></x-dc></body></html>")
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         coverage = self.report_section("覆盖")
@@ -517,7 +592,6 @@ class PullDesign(unittest.TestCase):
 
     def test_the_report_lists_selectors_the_editor_cannot_reach(self):
         self.preview.files["styles/app.css"] += b"\n.a .b .c { color: red; }\n"
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(".a .b .c", self.report_section("设计检查"))
@@ -527,7 +601,7 @@ class PullDesign(unittest.TestCase):
         self.preview.files["Component · Demo.dc.html"] = page.replace(
             b"</style>", b"  .p .q .r { color: red; }\n</style>", 1)
         self.preview.files["_ds/kit-1/components/x.css"] = b".d .e .f { color: red; }\n"
-        self.write_manifest()
+        self.refer_from_demo(b'<link rel="stylesheet" href="./_ds/kit-1/components/x.css" />')
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         design = self.report_section("设计检查")
@@ -570,7 +644,6 @@ class PullDesign(unittest.TestCase):
         self.preview.files["Component · Demo.dc.html"] = page.replace(
             b"</main>", b"<p>Unidentified copy</p><button>Unidentified action</button></main>", 1,
         )
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         coverage = self.report_section("覆盖")
@@ -613,7 +686,6 @@ class PullDesign(unittest.TestCase):
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
         self.commit_target()
         self.preview.files["styles/app.css"] = b"body { color: #456; }\n"
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("分类：只改外观或文案", self.report())
@@ -625,7 +697,6 @@ class PullDesign(unittest.TestCase):
         start = page.index(b'<main data-ui="root">')
         end = page.index(b"</main>", start) + len(b"</main>")
         self.preview.files["Component · Demo.dc.html"] = page[:start] + page[end:]
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("渲染为空", self.report())
@@ -638,7 +709,6 @@ class PullDesign(unittest.TestCase):
         self.preview.files["Component · Demo.dc.html"] = page.replace(
             b"</main>", b'<button data-ui="demo.add">Add</button></main>', 1,
         )
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         report = self.report()
@@ -651,7 +721,6 @@ class PullDesign(unittest.TestCase):
         self.commit_target()
         page = self.preview.files["Component · Demo.dc.html"]
         self.preview.files["Component · Demo.dc.html"] = page.replace(b">Demo</h1>", b">Updated demo</h1>")
-        self.write_manifest()
         contract = self.work / "screen-contract.yaml"
         contract.write_text(textwrap.dedent("""
             rows:
@@ -686,7 +755,6 @@ class PullDesign(unittest.TestCase):
             b'"options": ["ready", "empty", "future"]',
             b'"options": ["ready", "empty", "added", "future"]',
         )
-        self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         report = self.report()
@@ -734,8 +802,7 @@ class PullDesign(unittest.TestCase):
         self.preview.files.pop("styles/app.css")
         page = self.preview.files["Component · Demo.dc.html"]
         self.preview.files["Component · Demo.dc.html"] = re.sub(
-            rb"<style\b[^>]*>.*?</style>", b"", page, flags=re.S)
-        self.write_manifest()
+            rb"<style\b[^>]*>.*?</style>|<link rel=\"stylesheet\"[^>]*>", b"", page, flags=re.S)
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         design = self.report_section("设计检查")
@@ -764,7 +831,6 @@ class PullDesign(unittest.TestCase):
             b".old-value { display: none !important; }\n          .new-value { display: block !important; }",
             b".old-value { display: block !important; }\n          .new-value { display: none !important; }",
         )
-        self.write_manifest()
         contract = self.work / "screen-contract.yaml"
         contract.write_text(textwrap.dedent("""
             rows:

@@ -113,10 +113,11 @@
 
 ## 改动分类
 
-- 分类：首次
-- 没有上一次提交的 handoff package 可比较。
-- screen contract 未给出，合同行文字未核对。
+- 分类：只改外观或文案
+- design page：无变化
+- `data-ui` id 新增：无
+- `data-ui` id 删除：无
 
 ## 本地改过的说明
 
-- 没有上一次提交，未作本地改动比较。
+- pull 前 handoff package 有本地改动；pull 仍已完成。

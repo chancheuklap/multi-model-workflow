@@ -54,7 +54,7 @@ _Avoid_: 区域 (as the term), area, zone
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **handoff package**:
-The Claude Design project as it sits in the repository, written only by **pull** into `prototypes/<task>/claude-design/`: the project's `.dc.html` pages and what **pull** writes beside them. The screen contract's `baselines.look` names it; once pulled it is a contract, copied verbatim. A local edit is not blocked; the next pull overwrites it and the **pull report** says so.
+The Claude Design project as it sits in the repository, written only by **pull** into `prototypes/<task>/claude-design/`: the project's `.dc.html` pages, every project file they load (found from the pages' references and the offline render's requests; a file nothing loads is not in it), and what **pull** writes beside them. The screen contract's `baselines.look` names it; once pulled it is a contract, copied verbatim. A local edit is not blocked; the next pull overwrites it and the **pull report** says so.
 _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
