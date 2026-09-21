@@ -42,6 +42,8 @@ class PageLayoutTest(unittest.TestCase):
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             page.goto(board.origin, wait_until="networkidle")
             page.wait_for_selector(".card", timeout=30_000)
+            self.assertEqual(page.locator('[data-board-root][data-ui="任务板.root"]').count(), 1)
+            self.assertEqual(page.locator("[data-board-root] [data-mount]").count(), 5)
 
             nothing_picked = shell(page)
             self.assertEqual((nothing_picked["panels"], nothing_picked["slotShown"]), (0, False))

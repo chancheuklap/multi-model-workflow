@@ -10,8 +10,11 @@ import {startBoardFeed} from "./board-feed.mjs";
 function nextOrange(tasks, current) {
   const list = [];
   for (const task of tasks) {
-    for (const ticket of Board.allTickets(task)) {
-      if (Board.lamp(ticket) === "orange") list.push({task: task.n, node: ticket.n});
+    const nodes = Board.layout(task, defaultExpanded(task)).nodes
+      .filter(node => node.type === "ticket" && Board.lamp(node.ref) === "orange")
+      .sort((left, right) => left.y - right.y || left.x - right.x);
+    for (const node of nodes) {
+      list.push({task: task.n, node: node.id});
     }
   }
   if (!list.length) return null;
@@ -19,21 +22,77 @@ function nextOrange(tasks, current) {
   return list[(index + 1) % list.length];
 }
 
-export function mountPage(doc = document) {
-  const slots = {
-    topbar: doc.querySelector('[data-mount="topbar"]'),
-    tasks: doc.querySelector('[data-mount="tasks"]'),
-    canvas: doc.querySelector('[data-mount="canvas"]'),
-    detail: doc.querySelector('[data-mount="detail"]'),
-    settings: doc.querySelector('[data-mount="settings"]'),
+function pageRoot(target) {
+  const existing = target.matches?.("[data-board-root]")
+    ? target
+    : target.querySelector?.("[data-board-root]");
+  if (existing) return existing;
+  const doc = target.ownerDocument || target;
+  const root = doc.createElement("main");
+  root.className = "app-shell board";
+  root.dataset.screen = "board";
+  root.dataset.boardRoot = "";
+  root.dataset.ui = "任务板.root";
+  const slot = (className, mount) => {
+    const node = doc.createElement("div");
+    node.className = className;
+    node.dataset.mount = mount;
+    return node;
   };
+  root.append(
+    slot("app-top", "topbar"),
+    slot("app-slot", "tasks"),
+    slot("app-slot", "canvas"),
+    slot("app-slot", "detail"),
+    slot("app-sheet", "settings"),
+  );
+  (target.body || target).append(root);
+  return root;
+}
+
+function sizeShell(root, slots, hasDetail) {
+  Object.assign(root.style, {
+    position: "relative",
+    width: "100%",
+    height: "100vh",
+    display: "grid",
+    gridTemplateRows: "52px minmax(0, 1fr)",
+    gridTemplateColumns: hasDetail
+      ? "236px minmax(0, 1fr) 340px"
+      : "236px minmax(0, 1fr)",
+    background: "var(--panel)",
+  });
+  Object.assign(slots.topbar.style, {gridColumn: "1 / -1", minWidth: "0"});
+  for (const name of ["tasks", "canvas", "detail"]) {
+    Object.assign(slots[name].style, {minWidth: "0", minHeight: "0", overflow: "hidden"});
+  }
+  slots.detail.style.display = hasDetail ? "" : "none";
+  Object.assign(slots.settings.style, {
+    position: "absolute", inset: "0", zIndex: "30",
+    pointerEvents: root.querySelector('[data-screen="settings"]') ? "auto" : "none",
+  });
+}
+
+export function mountPage(target = document, options = {}) {
+  const root = pageRoot(target);
+  const slots = {
+    topbar: root.querySelector('[data-mount="topbar"]'),
+    tasks: root.querySelector('[data-mount="tasks"]'),
+    canvas: root.querySelector('[data-mount="canvas"]'),
+    detail: root.querySelector('[data-mount="detail"]'),
+    settings: root.querySelector('[data-mount="settings"]'),
+  };
+  const input = options.data || {};
+  const apiClient = options.api || api;
+  const fixedNow = input.now ? new Date(input.now) : null;
   const state = {
-    payload: {tasks: []},
-    task: null,
-    sel: null,
+    payload: input.payload || {tasks: []},
+    task: input.select?.task ?? null,
+    sel: input.select?.node ?? null,
     expanded: null,
     settingsOpen: false,
     settingsPayload: null,
+    hasSuccessfulPayload: Boolean(input.payload && !input.payload.read_failed),
   };
 
   const taskOf = n => (state.payload.tasks || []).find(task => task.n === n) || null;
@@ -43,6 +102,18 @@ export function mountPage(doc = document) {
     state.task = n;
     const task = taskOf(n);
     state.expanded = task ? [...defaultExpanded(task)] : [];
+  };
+
+  const revealNode = n => {
+    const found = find(state.payload.tasks || [], n);
+    if (!found) return false;
+    setTask(found.task.n);
+    const expanded = new Set(state.expanded || []);
+    if (found.type === "ticket") expanded.add(found.spec.n);
+    if (found.type === "decision") expanded.add(found.task.n);
+    state.expanded = [...expanded];
+    state.sel = n;
+    return true;
   };
 
   const closeSettings = () => {
@@ -68,19 +139,27 @@ export function mountPage(doc = document) {
     const list = state.payload.tasks || [];
     if (state.task == null && list[0]) setTask(list[0].n);
     const listSign = JSON.stringify(list);
-    const topbarView = topbarFromBoard({...state.payload, settingsOpen: state.settingsOpen});
+    const topbarView = topbarFromBoard(
+      {...state.payload, settingsOpen: state.settingsOpen},
+      fixedNow || new Date(),
+    );
     if (changed("topbar", JSON.stringify(topbarView))) {
-      topbar(slots.topbar, topbarView, api, {
+      topbar(slots.topbar, topbarView, apiClient, {
         onJumpNeedYou() {
           const next = nextOrange(list, state.sel);
-          if (next) {
-            setTask(next.task);
-            state.sel = next.node;
-            paint();
-          }
+          if (next && revealNode(next.node)) paint();
         },
         onRefresh(data) {
-          state.payload = data;
+          if (data.read_failed && state.hasSuccessfulPayload) {
+            state.payload = {
+              ...state.payload,
+              read_at: data.read_at,
+              read_failed: data.read_failed,
+            };
+          } else {
+            state.payload = data;
+            if (!data.read_failed) state.hasSuccessfulPayload = true;
+          }
           paint();
         },
         onOpenSettings(data) {
@@ -117,15 +196,10 @@ export function mountPage(doc = document) {
     }
     // Nothing picked, nothing to show: the column comes off the page rather than standing
     // there empty, and the canvas takes the width back. The stylesheet follows the slot.
-    const detailView = detailFromBoard(state.payload, state.sel);
+    const detailView = detailFromBoard(state.payload, state.sel, fixedNow || new Date());
     const detailHooks = {
       onGoto(n) {
-        const found = find(list, n);
-        if (found) {
-          setTask(found.task.n);
-          state.sel = n;
-          paint();
-        }
+        if (revealNode(n)) paint();
       },
       onClose() {
         state.sel = null;
@@ -136,34 +210,43 @@ export function mountPage(doc = document) {
       if (detailView.empty) {
         unmountDetail(slots.detail);
       } else {
-        detail(slots.detail, detailView, api, detailHooks);
+        detail(slots.detail, detailView, apiClient, detailHooks);
       }
     }
     if (!slots.settings) return;
     const open = slots.settings.querySelector('[data-screen="settings"]');
     if (state.settingsOpen && state.settingsPayload && !open) {
-      settings(slots.settings, settingsFromPayload(state.settingsPayload), api, {
+      settings(slots.settings, settingsFromPayload(state.settingsPayload), apiClient, {
         onClose: closeSettings,
       });
     } else if (!state.settingsOpen && open) {
       unmountSettings(slots.settings);
     }
+    sizeShell(root, slots, !detailView.empty);
   };
 
-  startBoardFeed({
-    read: async () => {
-      try {
-        const response = await api.board();
-        if (response.ok) return await response.json();
-      } catch {}
-      return state.payload;
-    },
-    isVisible: () => doc.visibilityState !== "hidden",
-    onData(data) {
-      state.payload = data;
-      paint();
-    },
-  });
+  paint();
+  if (options.live !== false) {
+    const doc = root.ownerDocument;
+    startBoardFeed({
+      read: async () => {
+        try {
+          const response = await apiClient.board();
+          if (response.ok) return await response.json();
+        } catch {}
+        return state.payload;
+      },
+      isVisible: () => doc.visibilityState !== "hidden",
+      onData(data) {
+        state.payload = data;
+        if (!data.read_failed) state.hasSuccessfulPayload = true;
+        paint();
+      },
+    });
+  }
+  return root;
 }
 
-if (typeof document !== "undefined") mountPage(document);
+if (typeof document !== "undefined" && document.querySelector("[data-board-root]")) {
+  mountPage(document);
+}
