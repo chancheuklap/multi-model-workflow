@@ -155,25 +155,34 @@ function present(data, sel, expanded, reduced) {
   return markSelected(view, sel);
 }
 
-function cardHit(n, title, onPick) {
+function dataUi(node, id) {
+  node.setAttribute("data-ui", id);
+  return node;
+}
+
+function cardHit(n, title, onPick, ui) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "card-hit";
   button.setAttribute("aria-label", `#${n} ${title}`);
+  dataUi(button, `${ui}.open`);
   button.addEventListener("click", () => onPick(n));
   return button;
 }
 
-function cardShell(item, onPick, {lampTitle, titled, titleCls, right, after}) {
+function cardShell(item, onPick, {ui, lampTitle, titled, titleCls, right, after}) {
   const card = document.createElement("div");
   card.className = item.cls;
+  dataUi(card, ui);
   Object.assign(card.style, item.pos);
   if (titled) card.title = item.title;
   const lamp = document.createElement("span");
   lamp.className = item.lampCls;
+  dataUi(lamp, `${ui}.lamp`);
   if (lampTitle) lamp.title = item.lampWord;
   const num = document.createElement("span");
   num.className = "card-num";
+  dataUi(num, `${ui}.num`);
   num.textContent = item.num;
   const rightEl = document.createElement("span");
   rightEl.className = "card-right";
@@ -183,14 +192,17 @@ function cardShell(item, onPick, {lampTitle, titled, titleCls, right, after}) {
   top.append(lamp, num, rightEl);
   const title = document.createElement("div");
   title.className = titleCls;
+  dataUi(title, `${ui}.title`);
   title.textContent = item.title;
-  card.append(cardHit(item.n, item.title, onPick), top, title, ...after);
+  card.append(cardHit(item.n, item.title, onPick, ui), top, title, ...after);
   return card;
 }
 
 function containerCard(item, onPick, onToggle) {
+  const ui = "画布.container-card";
   const count = document.createElement("span");
   count.className = "card-count";
+  dataUi(count, `${ui}.count`);
   count.textContent = item.count;
   const right = [count];
   if (item.canExpand) {
@@ -198,6 +210,7 @@ function containerCard(item, onPick, onToggle) {
     chev.type = "button";
     chev.className = "chev";
     chev.setAttribute("aria-label", item.toggleLabel);
+    dataUi(chev, `${ui}.expand`);
     chev.textContent = item.chev;
     chev.addEventListener("click", event => {
       event.stopPropagation();
@@ -207,40 +220,50 @@ function containerCard(item, onPick, onToggle) {
   }
   const fill = document.createElement("div");
   fill.className = "card-bar-fill";
+  dataUi(fill, `${ui}.bar`);
   fill.style.width = item.barStyle.width;
   const bar = document.createElement("div");
   bar.className = "card-bar";
   bar.append(fill);
-  return cardShell(item, onPick, {lampTitle: true, titled: true, titleCls: item.titleCls, right, after: [bar]});
+  return cardShell(item, onPick, {
+    ui, lampTitle: true, titled: true, titleCls: item.titleCls, right, after: [bar],
+  });
 }
 
 function decisionCard(item, onPick) {
+  const ui = "画布.decision-card";
   const kind = document.createElement("span");
   kind.className = "card-kind";
+  dataUi(kind, `${ui}.kind`);
   kind.textContent = item.kind;
   return cardShell(item, onPick, {
-    lampTitle: false, titled: true, titleCls: "card-title decision", right: [kind], after: [],
+    ui, lampTitle: false, titled: true, titleCls: "card-title decision", right: [kind], after: [],
   });
 }
 
 function ticketCard(item, onPick) {
+  const ui = "画布.ticket-card";
   const pill = document.createElement("span");
   pill.className = item.pillCls;
+  dataUi(pill, `${ui}.phase`);
   pill.textContent = item.phase;
   const run = document.createElement("div");
   run.className = item.runCls;
+  dataUi(run, `${ui}.run`);
   run.textContent = item.run;
   return cardShell(item, onPick, {
-    lampTitle: true, titled: true, titleCls: "card-title", right: [pill], after: [run],
+    ui, lampTitle: true, titled: true, titleCls: "card-title", right: [pill], after: [run],
   });
 }
 
 function legend() {
   const root = document.createElement("div");
   root.className = "legend";
-  const item = (lineClass, text) => {
+  dataUi(root, "画布.legend");
+  const item = (lineClass, text, name) => {
     const span = document.createElement("span");
     span.className = "legend-item";
+    dataUi(span, `画布.legend.${name}`);
     const line = document.createElement("span");
     line.className = lineClass;
     span.append(line, text);
@@ -248,13 +271,14 @@ function legend() {
   };
   const bar = document.createElement("span");
   bar.className = "legend-item";
+  dataUi(bar, "画布.legend.closeout");
   const mark = document.createElement("span");
   mark.className = "legend-bar";
   bar.append(mark, "closing pass");
   root.append(
-    item("legend-line", "contains · released"),
-    item("legend-line flow", "released · working"),
-    item("legend-line blocked", "blocked"),
+    item("legend-line", "contains · released", "walked"),
+    item("legend-line flow", "released · working", "flow"),
+    item("legend-line blocked", "blocked", "blocked"),
     bar,
   );
   return root;
@@ -263,19 +287,23 @@ function legend() {
 function zoomBar(onOut, onIn, onFit, level) {
   const root = document.createElement("div");
   root.className = "zoom";
+  dataUi(root, "画布.zoom");
   const out = document.createElement("button");
   out.type = "button";
   out.className = "zoom-btn";
   out.setAttribute("aria-label", "zoom out");
+  dataUi(out, "画布.zoom.out");
   out.textContent = "−";
   out.addEventListener("click", onOut);
   const zoomLevel = document.createElement("span");
   zoomLevel.className = "zoom-level";
+  dataUi(zoomLevel, "画布.zoom.level");
   zoomLevel.textContent = level;
   const inn = document.createElement("button");
   inn.type = "button";
   inn.className = "zoom-btn";
   inn.setAttribute("aria-label", "zoom in");
+  dataUi(inn, "画布.zoom.in");
   inn.textContent = "+";
   inn.addEventListener("click", onIn);
   const sep = document.createElement("span");
@@ -283,6 +311,7 @@ function zoomBar(onOut, onIn, onFit, level) {
   const fit = document.createElement("button");
   fit.type = "button";
   fit.className = "zoom-btn text";
+  dataUi(fit, "画布.zoom.fit");
   fit.textContent = "fit";
   fit.addEventListener("click", onFit);
   root.append(out, zoomLevel, inn, sep, fit);
@@ -292,12 +321,15 @@ function zoomBar(onOut, onIn, onFit, level) {
 function emptyState() {
   const root = document.createElement("div");
   root.className = "canvas-empty";
+  dataUi(root, "画布.empty");
   const wrap = document.createElement("div");
   const title = document.createElement("p");
   title.className = "canvas-empty-title";
+  dataUi(title, "画布.empty.title");
   title.textContent = "The Night 还没开始";
   const text = document.createElement("p");
   text.className = "canvas-empty-text";
+  dataUi(text, "画布.empty.text");
   text.append("The Night 是一次讨论开出的那张 ticket。给它打上 ");
   const code = document.createElement("span");
   code.className = "code";
@@ -343,6 +375,7 @@ export function render(host, data = {}, api = undefined) {
   const root = document.createElement("main");
   root.dataset.screen = "canvas";
   root.className = "canvas board";
+  dataUi(root, "画布.root");
   root.setAttribute("aria-label", "画布：拖动平移，按住 ⌘ 或双指捏合缩放");
 
   let worldEl, zoomEl, lastView;
@@ -380,6 +413,7 @@ export function render(host, data = {}, api = undefined) {
     v.y = cy - (cy - v.y) * (k2 / v.k);
     v.k = k2;
     applyView();
+    data.onViewport?.("canvas-zoomed", {...v});
   };
 
   const fitView = () => {
@@ -389,6 +423,7 @@ export function render(host, data = {}, api = undefined) {
     const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
     state.view = {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
     applyView();
+    data.onViewport?.("canvas-fitted", {...state.view});
   };
 
   // The smallest pan that puts the selected card inside the viewport; zoom is left alone.
@@ -435,6 +470,7 @@ export function render(host, data = {}, api = undefined) {
     for (const label of lastView.labels) {
       const node = document.createElement("div");
       node.className = label.cls;
+      dataUi(node, "画布.lane-label");
       Object.assign(node.style, label.pos);
       node.textContent = label.text;
       world.append(node);
