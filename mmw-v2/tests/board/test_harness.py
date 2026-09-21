@@ -174,6 +174,61 @@ class HarnessTest(unittest.TestCase):
         self.assertEqual(put_status, 503)
         self.assertIn(broken, body["error"])
 
+    def test_start_succeeds_immediately_after_stop_following_page_traffic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory)
+            env = {
+                **os.environ,
+                "MMW_DATA_DIR": str(data_dir),
+                "MMW_PORT_BASE": str(free_port()),
+                "MMW_INSTANCE": "board-harness-restart",
+            }
+            first = subprocess.run(
+                ["python3", str(TARGET), "start"], cwd=ROOT, env=env,
+                text=True, capture_output=True,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+            state = json.loads((data_dir / "board-process.json").read_text())
+            for path in ("/", "/app.mjs", "/styles/tokens.css") * 3:
+                with urllib.request.urlopen(state["origin"] + path, timeout=5) as response:
+                    self.assertEqual(response.status, 200)
+                    response.read()
+            stopped = subprocess.run(
+                ["python3", str(TARGET), "stop"], cwd=ROOT, env=env,
+                text=True, capture_output=True,
+            )
+            self.assertEqual(stopped.returncode, 0, stopped.stderr)
+            restarted = subprocess.run(
+                ["python3", str(TARGET), "start"], cwd=ROOT, env=env,
+                text=True, capture_output=True,
+            )
+            try:
+                self.assertEqual(restarted.returncode, 0, restarted.stderr)
+            finally:
+                subprocess.run(
+                    ["python3", str(TARGET), "stop"], cwd=ROOT, env=env,
+                    text=True, capture_output=True,
+                )
+
+    def test_start_still_refuses_a_real_listener(self):
+        with tempfile.TemporaryDirectory() as directory, socket.socket() as listener:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            port = listener.getsockname()[1]
+            env = {
+                **os.environ,
+                "MMW_DATA_DIR": directory,
+                "MMW_PORT_BASE": str(port),
+                "MMW_INSTANCE": "board-harness-held-port",
+            }
+            started = subprocess.run(
+                ["python3", str(TARGET), "start"], cwd=ROOT, env=env,
+                text=True, capture_output=True,
+            )
+        self.assertNotEqual(started.returncode, 0)
+        self.assertIn(f"127.0.0.1:{port} is held by", started.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

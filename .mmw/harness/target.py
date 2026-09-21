@@ -218,6 +218,7 @@ def start() -> int:
         stop()
     probe = socket.socket()
     try:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind(("127.0.0.1", port))
     except OSError as exc:
         holder = port_holder(port)
