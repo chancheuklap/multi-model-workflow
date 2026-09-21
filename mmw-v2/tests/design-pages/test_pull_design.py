@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -411,12 +412,34 @@ class PullDesign(unittest.TestCase):
         for heading in ("## 设计检查", "## 覆盖", "## 改动分类", "## 本地改过的说明"):
             self.assertEqual(report.count(heading), 1)
 
+    def test_only_prefixed_pages_without_scene_are_reported(self):
+        self.preview.files["Component · Bare.dc.html"] = (
+            b"<!doctype html><html><body><x-dc><p>Bare</p></x-dc></body></html>")
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        coverage = self.report_section("覆盖")
+        self.assertIn("没有 `scene` prop 的页面：`Component · Bare.dc.html`", coverage)
+        self.assertNotIn("Overview.dc.html", coverage)
+
     def test_the_report_lists_selectors_the_editor_cannot_reach(self):
         self.preview.files["styles/app.css"] += b"\n.a .b .c { color: red; }\n"
         self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(".a .b .c", self.report_section("设计检查"))
+
+    def test_the_selector_check_reads_page_style_blocks_and_skips_the_design_system(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</style>", b"  .p .q .r { color: red; }\n</style>", 1)
+        self.preview.files["_ds/kit-1/components/x.css"] = b".d .e .f { color: red; }\n"
+        self.write_manifest()
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        design = self.report_section("设计检查")
+        self.assertIn(".p .q .r", design)
+        self.assertNotIn(".d .e .f", design)
 
     def test_the_report_lists_scenes_that_render_empty_or_log_errors(self):
         page = self.preview.files["Component · Demo.dc.html"]
@@ -540,7 +563,7 @@ class PullDesign(unittest.TestCase):
         contract.write_text(textwrap.dedent("""
             rows:
               - id: demo.open
-                trigger: {role: heading, name: "Demo"}
+                trigger: title
                 scenes: ["Component · Demo.ready"]
         """), encoding="utf-8")
         result = self.pull("--contract", str(contract))
@@ -616,11 +639,14 @@ class PullDesign(unittest.TestCase):
 
     def test_without_css_the_report_says_the_editor_check_was_not_run(self):
         self.preview.files.pop("styles/app.css")
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = re.sub(
+            rb"<style\b[^>]*>.*?</style>", b"", page, flags=re.S)
         self.write_manifest()
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         design = self.report_section("设计检查")
-        self.assertIn("没有 `.css` 文件，选择器未核对", design)
+        self.assertIn("选择器未核对", design)
         self.assertNotIn("未发现设计检查问题", design)
 
     def test_a_legacy_committed_package_does_not_block_the_next_pull(self):
@@ -650,7 +676,7 @@ class PullDesign(unittest.TestCase):
         contract.write_text(textwrap.dedent("""
             rows:
               - id: demo.status-copy
-                trigger: {role: text, name: "After override"}
+                trigger: status
                 scenes: ["Component · Demo.ready"]
         """), encoding="utf-8")
         result = self.pull("--contract", str(contract))

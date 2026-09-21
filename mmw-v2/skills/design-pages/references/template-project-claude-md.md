@@ -1,54 +1,44 @@
 # Design project `CLAUDE.md`
 
-Write the block below, unchanged, into the Claude Design project root as `CLAUDE.md`. It instructs the agent inside that project, not you: that agent reads it on every conversation and sees nothing of this repository. What only you can do with these conventions, such as supplying the prototype's state list, is in [edit-pages.md](edit-pages.md).
+Write the block below, unchanged, into the Claude Design project root as `CLAUDE.md`. It instructs the agent inside that project, not you: that agent reads it on every conversation and sees nothing of this repository.
+
+The block holds only what the repository reads back from the pages: [pull](pull.md) renders each `scene` at its `$preview` size, and the `write-screen-contract` and `ui-acceptance` skills address controls by `data-ui` id and regions by page name. How the pages look, how they are split into files beyond that, and which components or styles they use are left to the user and the agent inside Claude Design.
 
 ```markdown
 # Page conventions
 
-This file is the only source of page conventions for this project. The title of a page, the `dc-import` name, and the file name are the same string.
+These conventions are what the repository reads back from this project when the design is pulled. Everything else about how pages are designed is open. Keep `scene` and `$preview` on every page below even where general guidance says to drop props nothing reads.
 
 ## Page names
 
-Every page name starts with its kind, then ` · ` (space, U+00B7, space), then the name:
+A page's title, its file name (without `.dc.html`) and its `dc-import` name are the same string.
 
-| Kind | Prefix | What this page does |
-| --- | --- | --- |
-| app page | `App · <name>` | compose regions and switch whole-page states |
-| component | `Component · <name>` | one region the user sees as a unit |
-| overview | `Overview` | pan and zoom over every page at 50% |
+- `Component · <name>`: one region of the screen (title bar, list, form, sidebar, a group of dialogs). This is the unit acceptance checks.
+- `App · <name>`: a whole screen made of `Component · ` pages. Needed only when the regions' states have to be checked together.
 
-Split `Component · ` pages by the regions the user perceives (title bar, list, form, sidebar, a group of dialogs). An `App · ` page only composes those pages and switches states; it does not define interface calls. When the product has no component boundary, one design for the whole page is allowed.
-
-Default Claude Design guidance ("one page, one design, unless the user asks for reusable components"; "do not add props a component does not read") is overridden here.
+` · ` is space, U+00B7, space. Other pages (notes, overviews, explorations) may use any name without these prefixes; they are not pulled into acceptance.
 
 ## `scene`
 
-Every `Component · ` page and every `App · ` page exposes one enum prop named `scene`.
+Every `Component · ` and `App · ` page exposes one enum prop named `scene` in `data-props`. Its values are the states that will be checked: on a `Component · ` page every state of that region, combined states included; on an `App · ` page each whole-screen combination. A value contains no `/`.
 
-- On a `Component · ` page the values are every state that will be accepted, including combined states.
-- On an `App · ` page each value is one whole-page combination that will be accepted.
+A state that is not shipping may stay in `options` if it is also listed under `out_of_scope` inside the `scene` prop: `"scene": {"editor": "enum", "options": ["ready", "empty", "future"], "out_of_scope": ["future"]}`.
 
-A feature that is not shipping is not a scene. If it must stay in the file, keep its value in `options` and list it again under `out_of_scope`, a key inside the `scene` prop itself, beside `editor` and `options`: `"scene": {"editor": "enum", "options": ["ready", "empty", "future"], "out_of_scope": ["future"]}`. Those values do not enter `scenes.json` and so do not enter the screen contract.
+If `state-list.md` exists in this project, each `### <region>` heading in it is one `Component · <region>` page and each list item's leading name is one `scene` value of that page.
+
+## `$preview`
+
+Every `Component · ` and `App · ` page declares `$preview` in `data-props` with `width` and `height` as positive integers: the size each scene is rendered and checked at.
 
 ## `data-ui`
 
-Every control that can be clicked or typed into, and every element whose look will be accepted, carries `data-ui="<region>.<part>"`. Repeated parts in a list share the same id.
+Every control that can be clicked or typed into, and every element whose look will be checked, carries `data-ui="<region>.<part>"`, where `<region>` is the name of the `Component · ` page it belongs to. Repeated parts of a list share one id. An `App · ` page repeats the ids of the `Component · ` pages it shows (a `dc-import` of those pages does this by itself); no two `Component · ` pages use the same `<region>`.
 
-The `<region>` is the name of the `Component · ` page the element lives on. That is what lets one region own an id prefix: an App page repeats the ids of the Component pages it composes, so the owner of a prefix can only be found again if every id on a page carries that page's name.
+When a page is edited, an existing `data-ui` stays with the element that still means that part; it goes only when that element is deleted. The ids are how the repository recognises a control across edits.
 
-When a page is edited or rewritten, an existing `data-ui` attribute moves with the element that still means that part. It is removed only when that element is deleted.
+When a page passes `scene` down to a `dc-import`ed child, the child's `renderVals()` does not return a key named `scene`.
 
-## Composition
+## Files
 
-An `App · ` page `dc-import`s `Component · ` pages and passes `scene` down. A child page's `renderVals()` does not return a key named `scene`.
-
-Every page carries `data-screen-label`.
-
-Every `Component · ` page and every `App · ` page declares `$preview` in `data-props`, with `$preview.width` and `$preview.height` as positive integers — the size the page is drawn at. A later pull refuses a page that has `scene` and no `$preview`. The page's root element takes that width and height in pixels, or the sizes an `App · ` page passes it as props; a root at `height: 100%` has no height in the project preview.
-
-## Components and style
-
-Build each region from the bound design system's components. Every page links `./_ds/styles.css` and loads `./_ds/_ds_bundle.js` in its `<helmet>`, and mounts a component with `<x-import component-from-global-scope="<Namespace>.<Name>" data-ui="<region>.<part>" hint-size="…">`; the namespace is the `window.` name in the first lines of `_ds/_ds_bundle.js`. A component stamps `data-ui` ids on its own parts from the one it is given.
-
-An element no component covers uses design-system class names only, and only selectors the editor can direct-edit: a single class, a comma pair `.a,.b`, a two-class compound `.a.b`, or a two-class descendant `.a .b` (pseudo-classes allowed).
+A page loads only files inside this project (the bound design system is under `_ds/`), so it renders the same after it is pulled.
 ```

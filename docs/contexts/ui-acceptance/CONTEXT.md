@@ -9,20 +9,20 @@ How to read an entry: the bold line is the term's only name; a term whose name i
 ### The design side
 
 **Claude Design**:
-The design tool whose project is the only source of the design. Pages are written and signed off there; the repository's **handoff package** is written only by **pull**. Its page format is what `get_claude_design_prompt` returns when the **design system** is bound.
+The design tool whose project is the only source of the design. Pages are written and signed off there; the repository's **handoff package** is written only by **pull**. Its page format is what `get_claude_design_prompt` returns. The user designs there, with the agent inside it; the repository sets only the page conventions **pull** reads back.
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **design system**:
-The first of the three design-pages entries, and the Claude Design artifact built from code that already runs, before any page is drawn: tokens, foundation cards, components that render the source's own markup, UI kits and their starting-point screens. Its source is a directory in the repository, uploaded to Claude Design. Distinct from **`DESIGN.md`**, which is not that source.
+An optional Claude Design project holding a product's tokens, foundation cards, components and UI kits, from which pages in a bound project are drawn; Claude Design copies it into that project's `_ds/<folder>/`. Built by the user in Claude Design, or here from code that already runs through the design-pages entry of that name. Nothing downstream of **pull** reads it. Distinct from **`DESIGN.md`**, which is not that source.
 _Home_: `mmw-v2/skills/design-pages/references/design-system.md`
 
 **edit pages**:
-The second of the three design-pages entries: create the Claude Design project, write pages, check the preview after every change, act on comments, and take the user's sign-off. Page conventions live only in the project root `CLAUDE.md`, copied from `template-project-claude-md.md`.
+The design-pages entry around the user's design work: create the Claude Design project, act on comments sent to Claude, draw pages when the user asks, and take the sign-off. Page conventions live only in the project root `CLAUDE.md`, copied from `template-project-claude-md.md`, and hold only what **pull** reads back.
 _Avoid_: Porting (as an entry name)
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **pull**:
-The third of the three design-pages entries, and the command that writes the **handoff package**. It runs after sign-off, and later only in a session handling a design-class `contract` child.
+The design-pages entry, and the command that writes the **handoff package**. It runs after sign-off, and later only in a session handling a design-class `contract` child.
 _Avoid_: Handoff (as an entry name)
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
@@ -35,11 +35,11 @@ The fixed heading `## State list` in a UI prototype's leaf `README.md`: every st
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/UI.md`
 
 **handoff ticket**:
-The wayfinder ticket that produces the **handoff package** for a destination with an interface: a `prototype` ticket, HITL, blocked by every `prototype` decision ticket and by every decision ticket that will change a page's states, worked with the design-pages skill. Its body opens, above `## Question`, with a line naming that skill's **design system**, **edit pages** and **pull** entries, and its leaf `README.md` holds the **state list**. It is what blocks the **alignment ticket**.
+The wayfinder ticket that produces the **handoff package** for a destination with an interface: a `prototype` ticket, HITL, blocked by every `prototype` decision ticket and by every decision ticket that will change a page's states, worked with the design-pages skill. Its body opens, above `## Question`, with a line naming that skill's **edit pages** and **pull** entries, and its leaf `README.md` holds the **state list**. It is what blocks the **alignment ticket**.
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
 **component**:
-A `Component · <name>` design page: one region the user sees as a unit, split that way rather than by code modules or directories. It exposes a `scene` enum prop whose values are that region's accepted states, taken from the **state list**. Language and directory of the matching product component are the product's; this entry does not name either. The `component` column of a screen contract's `pages` is a different thing — the product component that owns that page — and is defined in `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`.
+A `Component · <name>` design page: one region of the screen, the unit acceptance checks. It exposes a `scene` enum prop whose values are that region's accepted states, taken from the **state list**. Language and directory of the matching product component are the product's; this entry does not name either. The `component` column of a screen contract's `pages` is a different thing — the product component that owns that page — and is defined in `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`.
 _Avoid_: design component, scenario, scenario 属性, 状态开关
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
@@ -49,7 +49,7 @@ _Avoid_: surface component, presentational component (as a name for it), display
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **region**:
-One `Component · ` page's area of a screen, named by that page. It is the `<region>` half of a **`data-ui` id** (`<region>.<part>`) and so the substring before the first `.`; the contract lint reads it that way to find which page owns a **cross-component row**'s trigger. Splitting pages by the regions a user perceives and naming every id on a page after that page are the same rule seen from two ends.
+One `Component · ` page's area of a screen, named by that page. It is the `<region>` half of a **`data-ui` id** (`<region>.<part>`) and so the substring before the first `.`; the contract lint reads it that way to find which page owns a **cross-component row**'s trigger. Every id on a page is named after that page, so the owner of an id prefix is one `Component · ` page.
 _Avoid_: 区域 (as the term), area, zone
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 

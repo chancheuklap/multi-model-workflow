@@ -49,14 +49,14 @@
 | 开头「throws the rest away」 | 没赢的 variant 留作参考 |
 | 子形态 B 及第 16 行「throwaway route」 | 叫 prototype route；其余判断照收 |
 | 第 3 步 sub-shape B 那句 | 删掉 `/prototype/<name>` 这个路径，只留「B 也挂同一个切换条」。路径规则的唯一出处是子形态 B 那节（跟项目现有约定走，别造新顶层）；写在这里会和它冲突——B 的前提就是项目里还没有这类页面，`/prototype/` 必然是新顶层。上游若改这句措辞，仍然只收挂载语义，不收路径 |
-| 第 2 步末句 | 样式用变量，界面按可复用组件拆，因为要从它建 design system。上游没有这一句 |
+| 第 2 步末句 | 样式用变量，界面按可复用组件拆，需要时可以从它建 design system。上游没有这一句 |
 | 第 3 步末尾新增段 | variant 组件住在 leaf directory，路由只留 mount point；mount point 连同 symlink 定性为 scaffolding，第 7 步拆掉；import 不过去就 symlink；迭代只改 leaf directory |
 | `SKILL.md` 第 6 条 | UI prototype 的 winner 不在这里折进真实代码，而是交给 Claude Design、再从拿回来的 design page 写真实代码（指向 `UI.md` 第 6、7 步）。上游只写「折进真实代码」，对 LOGIC 与 EXP 仍然成立，所以收上游措辞、保留这一句 |
-| 第 6 步第二段 | winning variant 进 Claude Design 时 scaffolding 保留到第 7 步：design system 入口读它的样式与组件，edit pages 入口对照它的交互。上游没有这一段 |
-| 第 6 步 | 结论进 leaf `README.md`；`## State list`；点名 `design-pages` 的 design system 入口。上游仍在这一步把 winner 折进真实代码并拆 scaffolding → 不收那一半，收到第 7 步 |
+| 第 6 步第二段 | winning variant 进 Claude Design 时 scaffolding 保留到第 7 步：跑着的 winner 是画页面时的参照，从它建 design system 时读它的样式与组件。上游没有这一段 |
+| 第 6 步 | 结论进 leaf `README.md`；`## State list`；点名 `design-pages`。上游仍在这一步把 winner 折进真实代码并拆 scaffolding → 不收那一半，收到第 7 步 |
 | 第 6 步 `## State list` | README 在固定标题 `## State list` 下按区域列出 winning variant 的全部状态：每个区域一个三级标题（即之后 `Component · <区域>` 页名），每个状态一个列表项且以状态名开头。`scene` prop、pull report、会改变页面状态的 decision ticket 都按这些名字核对。一个界面只有一份 state list：有 wayfinder map 时写在 handoff ticket 的 leaf `README.md`，汇总 map 上每张 UI prototype 票的 winner；每张 prototype 票自己的 leaf `README.md` 留结论并写明定了哪些区域（任务板试点 #541：`design-pages` 与 pull 只认一份）。上游没有这一段 |
 | 第 7 步「拆 scaffolding」 | 由原第 6 步后半段拆出。第一次 pull 之后才执行，`design-pages` 的 `pull.md` 指回这里。挂在已有页面上的删挂载点、切换条与 import；单独路由的删 prototype 路由与切换条；完成条件是 leaf directory 外无人 import。上游把拆 scaffolding 写在第 6 步；我们改到第 7 步且改时机。上游改原第 6 步后半段措辞 → 收到第 7 步 |
-| `## Next`（文末） | 我们加的整节：winner 要进 Claude Design 时，点名 `design-pages` 技能与它的 **design system** 入口（先建设计系统，再 edit pages，再 pull 并指回第 7 步）；不进 Claude Design 的 winner 停在第 6 步。理由：原来全文没有往下一步的出口，唯一的路藏在第 6 步讲 scaffolding 的从句里，于是没有人负责建 design system。上游给 `UI.md` 加收尾步 → 收上游措辞，这一节接在它后面。design system 从 winner 的代码建：写成 Claude Design 要求的完整目录（令牌、基础卡、组件、UI kit、`SKILL.md`），本地打包组件并上传（任务板试点 #541，2026-09-21） |
+| `## Next`（文末） | 我们加的整节：winner 要进 Claude Design 时，点名 `design-pages` 技能的 **edit pages** 入口（建用户在里面设计的项目，winner 留在 scaffolding 后面当参照）、可选的 **design system** 入口（需要时从 winner 的代码建）与 **pull** 入口（拉回并指回第 7 步）；不进 Claude Design 的 winner 停在第 6 步。理由：原来全文没有往下一步的出口，唯一的路藏在第 6 步讲 scaffolding 的从句里。design system 不是前置步骤：拉回、合同与验收都不读它，设计本身由用户在 Claude Design 里做（任务板试点 #541，2026-09-21）。上游给 `UI.md` 加收尾步 → 收上游措辞，这一节接在它后面 |
 | 第 1、4、5 步、反模式 | 上游的，照收 |
 
 ### EXP.md、evidence-page.md

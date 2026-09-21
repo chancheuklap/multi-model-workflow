@@ -164,6 +164,25 @@ class TestScreenAxis(unittest.TestCase):
         doc["viewports"] = ["1440x900"]
         self.assertFalse(any("breakpoint" in e for e in self.lint(doc)[0]))
 
+    def test_a_component_page_without_a_scene_prop_is_an_error(self):
+        (self.repo.baseline / "Component · Unaccepted.dc.html").write_text(
+            '<html><body><script type="text/x-dc" data-dc-script data-props=\'{}\'></script></body></html>')
+        errors, _ = self.lint(contract())
+        self.assertTrue(any("Component · Unaccepted.dc.html: Component page has no scene prop" in e
+                            for e in errors), errors)
+
+    def test_a_breakpoint_in_the_design_system_or_a_page_style_block_counts(self):
+        ds = self.repo.baseline / "_ds" / "kit-1234" / "components"
+        ds.mkdir(parents=True)
+        (ds / "bar.css").write_text("@media (min-width: 900px) { a { b: c } }")
+        (self.repo.baseline / "Component · Styled.dc.html").write_text(
+            "<style>@media (max-width: 640px) { a { b: c } }</style>")
+        doc = contract()
+        for width in ("900", "640"):
+            doc["viewports"] = [f"{width}x720"]
+            errors, _ = self.lint(doc)
+            self.assertTrue(any(f"{width} is a breakpoint" in e for e in errors), errors)
+
     def test_a_missing_handoff_package_path_is_an_error(self):
         for child in sorted(self.repo.baseline.rglob("*"), reverse=True):
             child.unlink() if child.is_file() else child.rmdir()

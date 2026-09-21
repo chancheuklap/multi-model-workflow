@@ -27,7 +27,7 @@ Each of these shapes is question 1 of **the five questions** in `SKILL.md`: a co
 
 ## design-system ticket
 
-Only a new product gets one. It copies the design system's style tokens and shared components into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. Its criterion does not depend on `.mmw/`.
+Only a new product whose handoff package carries a design system under `_ds/` gets one; without one, each interface ticket writes the styles its component needs from the design pages. It copies the design system's style tokens and shared components into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. Its criterion does not depend on `.mmw/`.
 
 **The design-system ticket is the second exception to vertical slicing**, beside the wide refactor `SKILL.md` step 3 names. It lands one layer, the styles, and demonstrates no behaviour of its own. Forcing it into a tracer bullet would mean drawing a whole screen to show that a colour variable exists, and every element parity behind it would then be comparing against styles that arrived with the screen rather than before it.
 

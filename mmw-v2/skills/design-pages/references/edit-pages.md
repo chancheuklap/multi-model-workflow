@@ -1,10 +1,11 @@
-# edit pages — a project, its pages, comments, and sign-off
+# edit pages — set up the project, act on comments, draw when asked
 
-Page conventions are the fenced block in [template-project-claude-md.md](template-project-claude-md.md); write that block into the project root as `CLAUDE.md` and follow it here. Confirm the tools below as `SKILL.md` says.
+The design itself is made by the user in Claude Design, with the agent inside it. This entry does four things around that work: it creates the project so its pages carry what the repository reads back, it acts on comments the user sends to Claude, it draws pages when the user asks this session to, and it records sign-off. Confirm the tools below as `SKILL.md` says.
 
 ## MCP tools
 
 - `mcp__claude-design__get_claude_design_prompt`
+- `mcp__claude-design__read_design_skill`
 - `mcp__claude-design__create_project`
 - `mcp__claude-design__finalize_plan`
 - `mcp__claude-design__create_support_js`
@@ -15,41 +16,37 @@ Page conventions are the fenced block in [template-project-claude-md.md](templat
 - `mcp__claude-design__list_comments`
 - `mcp__claude-design__ack_comments`
 
-Write pages with `write_files`. A file you generate on disk rather than type, such as example data or a bundled script larger than a page, goes up through the design-sync tool's `finalize_plan` and `write_files` by `localPath`, as [design-system.md](design-system.md) uploads the design system's files: its bytes never pass through the model. That tool writes to a page project as well as to a design system (checked 2026-09-21).
+## Who can do what
 
-Read the Design Components format from `get_claude_design_prompt` (with the design system bound). This skill does not restate `<x-dc>`, helmet, `sc-if` / `sc-for`, `{{ }}`, `data-props`, or `dc-import`.
+| | Reads | Writes |
+| --- | --- | --- |
+| This session | the repository; any Claude Design project through MCP | any project through MCP; cannot talk to the agent inside Claude Design |
+| The agent inside Claude Design | its own project, the bound design system, and the project `CLAUDE.md` on every conversation | its own project, when the user asks in the browser; cannot see this repository |
+| The user | everything in the browser | edits, comments, sign-off |
+
+So what the agent inside Claude Design has to know goes into the project as a file, never through the user's clipboard.
 
 ## Create the project
 
-Five steps, in this order:
+Skip this when the user already has a project; take its id from the link they give, and check that `CLAUDE.md` holds the block of [template-project-claude-md.md](template-project-claude-md.md).
 
-1. `get_claude_design_prompt` with the design system's id (the `projectId` [design-system.md](design-system.md) created, or the UUID in the link the user gave), and read the format it returns.
-2. `create_project` bound to that design system.
-3. `finalize_plan` with `scope: "project"`, then `create_support_js` with that token. Every write below that is not `CLAUDE.md` carries the same token.
-4. Upload the design system's directory (`prototypes/<task>/design-system/`, with its `_ds_bundle.js`) into `_ds/` with the design-sync tool's `finalize_plan` and `write_files` by `localPath`, the way [design-system.md](design-system.md) step 5 uploads it. A project starts with none of it, and every page loads `./_ds/styles.css` and `./_ds/_ds_bundle.js` from this copy, which is also what pull brings into the repository.
-5. `CLAUDE.md` is a reserved path, which a project token does not cover: `finalize_plan` naming `CLAUDE.md` in `writes`, the user approves it, then `write_files` with that token and `if_match: "0"`. The content is the fenced block of [template-project-claude-md.md](template-project-claude-md.md), unchanged and without the fence.
-
-## Write pages
-
-Follow that same `CLAUDE.md`. Build each `Component · ` page from design-system components, starting from the design system's `@startingPoint` screen for its region, and compose `App · ` pages from the `Component · ` pages. Compare interaction against the winning variant while its scaffolding is still up: every control of the region (click, drag, scroll, keyboard) behaves as the winner's does.
-
-The state list fixes the names. It is the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, which on a wayfinder map is the handoff ticket's leaf: each `### <region>` heading there is one `Component · <region>` page, and each list item's leading name is one value of that page's `scene`. Pull's `覆盖` section matches the two, name by name. The agent inside the project cannot see that file, so when the user has it write pages, give it the state list in the conversation.
-
-Every `write_files` call carries `if_match`, so an edit the user just made in the editor is not overwritten. A page written on disk and uploaded by `localPath` goes through the design-sync tool, which takes no `if_match`: `list_files` first, and upload only while each page's etag still equals the one your last write left.
-
-The user may also talk to Claude Design in the browser and have its agent write the pages.
-
-Done when: the last `write_files` in this run carried `if_match`, and the preview check below has been run on that change.
-
-## Check the preview
-
-After every page change, `render_preview`, open the preview, and look for console errors, resource 404s, and a blank page; screenshot to confirm the change landed. After three rounds that do not fix it, measure the failing element; if that still does not fix it, hand the user what you saw and what you expected. This check is for design time, not for a worker's acceptance loop.
-
-`render_preview` returns `serve_url` and `open_url`. `serve_url` goes only to scripts and browser tools; the user receives `open_url`.
+1. `create_project`, bound to a design system when the product has one (its UUID from the link the user gives, or from [design-system.md](design-system.md)). Without one, create it unbound.
+2. `CLAUDE.md` is a reserved path: `finalize_plan` naming `CLAUDE.md` in `writes`, the user approves it, then `write_files` with that token and `if_match: "0"`. The content is the fenced block of [template-project-claude-md.md](template-project-claude-md.md), unchanged and without the fence.
+3. When a state list exists (the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names), write that section into the project as `state-list.md` in the same approved plan. The template tells the agent inside Claude Design how to read it, and [pull](pull.md) checks the pages against the same file in the repository.
+4. Tell the user the project is ready and give its link. When the project is bound to a design system, Claude Design copies that design system into the project's `_ds/<folder>/` the first time the user opens the project in the browser; pages load it from there, and that copy is pulled with them. The copy does not follow later changes to the design system (see [design-system.md](design-system.md), **After the design system changes**).
 
 ## Comments
 
-The user edits in the editor, or leaves a comment and sends it to Claude. Take queued comments with `list_comments` (`queued_for_claude`), change the pages, then `ack_comments`. When the comment's author is not the user, show it to the user and wait for agreement before changing anything — that is the rule in the `list_comments` description.
+The user leaves a comment and sends it to Claude. Take queued comments with `list_comments` (`queued_for_claude`), change the pages, then `ack_comments`. When the comment's author is not the user, show it to the user and wait for agreement before changing anything; that is the rule in the `list_comments` description. Changing a page follows **When this session draws** below.
+
+## When this session draws
+
+Only when the user asks this session to write or change pages.
+
+1. `get_claude_design_prompt` with the design system's id and the project id, and follow the workflow and the Design Components format it returns. `read_design_skill` `hifi-design` before a polished screen, or `frontend-design` when there is no design system.
+2. Follow the project `CLAUDE.md`. When a prototype's winning variant exists, it is the reference for layout and interaction.
+3. `finalize_plan` with `scope: "project"` once per session, and `create_support_js` in each directory that will hold `.dc.html` pages if the project lacks it. Every `write_files` carries `if_match`, so an edit the user just made in the editor is not overwritten. A file generated on disk rather than typed, such as example data, goes up through the design-sync tool's `finalize_plan` and `write_files` by `localPath`, whose bytes never pass through the model; it takes no `if_match`, so `list_files` first and upload only while each etag is still the one your last write left.
+4. `render_preview` of each changed page and look for console errors, missing files and a blank render. `render_preview` returns `serve_url` and `open_url`: `serve_url` goes only to scripts and browser tools; the user receives `open_url`.
 
 ## Sign-off
 
@@ -57,16 +54,8 @@ When the user says the design is signed off, that is the moment. A handoff ticke
 
 Do not use Claude Design's "Handoff to Claude Code" export. That path has the in-browser agent rewrite the design as a README; the README does not follow later design changes, and it would be a third account beside the design pages and the screen contract.
 
-After sign-off, every design change is made in Claude Design. The handoff package in the repository is written only by [pull](pull.md). There is no hook that blocks a local edit; the next pull overwrites it and the pull report says so.
-
-## Who follows which file
-
-| Who | What they follow |
-| --- | --- |
-| The main agent writing pages through MCP | this file and the project `CLAUDE.md` |
-| The user talking in the Claude Design browser | the in-browser agent, following that same `CLAUDE.md` |
-| The user editing the canvas directly | neither file; whether the conventions landed is what the pull report and the write-screen-contract lint report |
+After sign-off, every design change is made in Claude Design. The handoff package in the repository is written only by [pull](pull.md); a local edit is overwritten by the next pull, and the pull report says so.
 
 ## Next
 
-[pull](pull.md).
+[pull](pull.md). Whether the pages kept the conventions is what the pull report and the `write-screen-contract` lint report; nothing checks them before that.

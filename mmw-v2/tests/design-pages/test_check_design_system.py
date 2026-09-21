@@ -117,9 +117,11 @@ class CheckDesignSystem(unittest.TestCase):
         (self.root / "components" / "status" / "status.card.html").unlink()
         self.assertMiss("components/status: 0 @dsCard files in group Components, want 1")
 
-    def test_ui_kit_without_starting_point(self):
+    def test_ui_kit_without_starting_point_is_complete(self):
         (self.root / "ui_kits" / "board" / "TopBar.html").unlink()
-        self.assertMiss("ui_kits/board: no @startingPoint screen")
+        result = run(self.root)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("0 starting points", result.stdout)
 
     def test_generated_file_written_by_hand(self):
         (self.root / "_ds_manifest.json").write_text("{}")

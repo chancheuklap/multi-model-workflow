@@ -99,7 +99,7 @@ class StateListInput:
 @dataclass(frozen=True)
 class ContractReference:
     row_id: str
-    name: str
+    data_id: str
     scenes: tuple[str, ...]
 
 
@@ -847,30 +847,54 @@ def page_inventory(
         for page in pages
         if page.scene_values is not None
     }
-    no_scene = [page.path for page in pages if page.scene_values is None]
+    # Pages without a `Component · ` or `App · ` prefix are notes or explorations,
+    # never accepted, so a missing `scene` there is not reported.
+    no_scene = [
+        page.path for page in pages
+        if page.scene_values is None
+        and PurePosixPath(page.path).name.startswith(("Component · ", "App · "))
+    ]
     return scene_values, excluded_values, no_scene
 
 
+STYLE_BLOCK = re.compile(r"<style\b[^>]*>(.*?)</style>", re.S | re.I)
+
+
 def selector_audit(root: Path) -> SelectorAudit:
-    css_files = sorted(root.rglob("*.css"))
-    if not css_files:
-        return SelectorAudit(False, (), "没有 `.css` 文件，选择器未核对。")
-    check = Path(__file__).with_name("check_editable_selectors.py")
+    """Selectors the Claude Design editor cannot reach, in the CSS the pages own: each
+    `.css` outside `_ds/` and each page's `<style>` blocks. The bound design system
+    under `_ds/` is copied from its source and not edited in the editor, so it is
+    not audited."""
+    sources: list[tuple[str, str]] = []
     try:
-        checker = _load_module("_pull_design_selectors", check)
-        findings = []
-        for path in css_files:
-            css = path.read_text(encoding="utf-8")
-            for selector in checker.selectors(css):
-                reason = checker.why(selector)
-                if reason:
-                    findings.append(
-                        f"{path.relative_to(root).as_posix()}: {selector}  ({reason})"
-                    )
-    except (OSError, UnicodeError, ImportError) as exc:
+        for path in sorted(root.rglob("*.css")):
+            rel = path.relative_to(root)
+            if rel.parts[0] == "_ds":
+                continue
+            sources.append((rel.as_posix(), path.read_text(encoding="utf-8")))
+        for path in sorted(root.glob("*.dc.html")):
+            blocks = STYLE_BLOCK.findall(path.read_text(encoding="utf-8"))
+            if blocks:
+                sources.append((f"{path.name} <style>", "\n".join(blocks)))
+    except (OSError, UnicodeError) as exc:
         return SelectorAudit(
             False, (), f"选择器检查未完成：{type(exc).__name__}，未核对。",
         )
+    if not sources:
+        return SelectorAudit(False, (), "页面没有自己的样式（`_ds/` 以外的 `.css` 或 `<style>`），选择器未核对。")
+    check = Path(__file__).with_name("check_editable_selectors.py")
+    try:
+        checker = _load_module("_pull_design_selectors", check)
+    except (OSError, ImportError) as exc:
+        return SelectorAudit(
+            False, (), f"选择器检查未完成：{type(exc).__name__}，未核对。",
+        )
+    findings = []
+    for name, css in sources:
+        for selector in checker.selectors(css):
+            reason = checker.why(selector)
+            if reason:
+                findings.append(f"{name}: {selector}  ({reason})")
     return SelectorAudit(True, tuple(findings))
 
 
@@ -963,18 +987,18 @@ def contract_input(path: Path | None, tools: Path | None) -> ContractInput:
         if not isinstance(row, dict) or not isinstance(row.get("id"), str):
             continue
         trigger = row.get("trigger")
-        if not isinstance(trigger, dict) or not isinstance(trigger.get("name"), str):
+        if not isinstance(trigger, str) or not trigger.strip():
             continue
         scenes = row.get("scenes")
         references.append(ContractReference(
             row_id=row["id"],
-            name=" ".join(trigger["name"].split()),
+            data_id=trigger.strip(),
             scenes=tuple(str(scene) for scene in scenes) if isinstance(scenes, list) else (),
         ))
     if rows and not references:
         return ContractInput(
             provided=True,
-            issue="screen contract 的 `rows` 没有可核对的 `trigger.name`，合同行文字未核对。",
+            issue="screen contract 的 `rows` 没有可核对的 `trigger`，合同行文字未核对。",
         )
     return ContractInput(provided=True, references=tuple(references))
 
@@ -1039,25 +1063,11 @@ def contract_copy_changes(
     changes = []
     unmatched = []
     for reference in contract.references:
-        old_ids = []
-        scene_names = reference.scenes or tuple(previous.scene_text_by_id)
-        for scene in scene_names:
-            for data_id, texts in previous.scene_text_by_id.get(scene, {}).items():
-                if reference.name in (" ".join(text.split()) for text in texts):
-                    if data_id not in old_ids:
-                        old_ids.append(data_id)
-        if not old_ids:
+        old_values = _texts_for(previous, reference.data_id, reference.scenes)
+        if not old_values:
             unmatched.append(reference.row_id)
             continue
-        old_values = []
-        new_values = []
-        for data_id in old_ids:
-            for value in _texts_for(previous, data_id, reference.scenes):
-                if value not in old_values:
-                    old_values.append(value)
-            for value in _texts_for(current, data_id, reference.scenes):
-                if value not in new_values:
-                    new_values.append(value)
+        new_values = _texts_for(current, reference.data_id, reference.scenes)
         if old_values != new_values:
             changes.append((
                 reference.row_id,
@@ -1180,7 +1190,7 @@ def classification_lines(
     for row_id, old, new in copy_changes:
         lines.append(f"- 合同行引用的文字变化：`{row_id}`：`{old}` → `{new}`")
     for row_id in unmatched:
-        lines.append(f"- 合同行 `{row_id}` 的 `trigger.name` 未在上次渲染结果中找到，未核对。")
+        lines.append(f"- 合同行 `{row_id}` 的 `trigger` 在上次渲染结果中没有文字，未核对。")
     return lines
 
 

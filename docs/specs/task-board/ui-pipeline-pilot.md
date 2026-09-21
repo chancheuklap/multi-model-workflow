@@ -67,9 +67,17 @@
 
 设计项目的 `_ds/` 换成新样式、字体与组件包；7 个页面里的 5 个 `Component · ` 页改为用 `x-import` 挂组件，页面只负责按 `scene` 算出要显示的数据。`x-import` 在组件外包一层 `display: contents`，不影响排版。所有场景本地渲染无报错；App 页的点任务、点齿轮与画布拖动、缩放、`F` 键都已点测；线上整页无报错。
 
+### 9. 收窄 MMW 在设计上的职责
+
+**为什么。** 用户的决定：真实的设计由用户在 Claude Design 里和它的 AI 完成，MMW 只管把设计拿回仓库、为界面验收做好适配；只有用户要本地 agent 画页面时，本地 agent 才按 Claude Design 的设计师提示词（`get_claude_design_prompt` 返回的工作流、`hifi-design`）去画。试点也不再把任务板当新产品继续模拟。
+
+**依据。** 派 agent 逐条查了 `design-pages`、`prototype`、`wayfinder`、`ask-matt` 里每一条对设计的规定，看 pull、`write-screen-contract` 的 lint、`ui-acceptance` 的四种裁判和 `verify-ticket` 有没有读它。被读到的只有：页面名前缀 `Component · ` / `App · `，文件名与 `dc-import` 名相同，`scene` 枚举（取值不含 `/`），`$preview` 正整数，控件带 `data-ui` 且编辑后不变，每个 id 前缀只属于一个 `Component · ` 页，页面只加载项目里的文件。design system、样式与选择器写法、组件用法、`data-screen-label`、`Overview`、交互核对、每次改完看预览、起步界面，都没有下游读取。
+
+**做法。** 项目 `CLAUDE.md` 模板只留上面那些约定；`edit-pages.md` 改为建项目、写约定、处理转给 Claude 的评论、被要求时才画、记录定稿；`design-system.md` 改为可选入口，写明它对 Claude Design 有用、对验收没用、什么时候值得建、两种建法；handoff ticket 的固定句不再点名 design system 入口。
+
 ## 发现
 
-| # | 步骤 | 位置 | 现象 | 影响 | 修复（提交 `0f79b971`） |
+| # | 步骤 | 位置 | 现象 | 影响 | 修复（第 1–10 行在提交 `0f79b971`） |
 | --- | --- | --- | --- | --- | --- |
 | 1 | 画地图 | `wayfinder/SKILL.md` 的 `### Tickets` 与 `### Chart the map` 第 4 步 | ticket 正文的模板以 `## Question` 开头，第 4 步又要求 handoff ticket 与 alignment ticket 的"正文第一行"是一句固定的话。两条不能同时成立 | agent 要自己猜。把固定句放在标题下面时，它就不是第一行，接手的 agent 可能照 `grilling` 类型去做访谈，而不是用 `write-screen-contract`。本次把固定句放在 `## Question` 之前 | `wayfinder/SKILL.md` 第 4 步改为：固定句在 `## Question` 之上，作为正文开头一行；merge-note 与词表同步 |
 | 2 | prototype → design-pages | `design-pages/references/design-system.md` 的 Which code、`edit-pages.md` 的 Write pages、`pull.md` 第 2 步 `--state-list` | 三处都假定只有一个胜出方案、一份 `## State list`。而 `wayfinder` 会把"长什么样"拆成几张 prototype ticket，每张一个叶目录，没有规则说怎么合并 | pull 的 `覆盖` 一节只能对照其中一份，其他区域不被核对；design system 也不知道从哪一个变体建。本次把合并后的状态清单放在 handoff ticket 自己的叶目录 | 定下一个界面只有一份状态清单：有地图时写在 handoff ticket 的叶目录 `README.md`，汇总每张 UI prototype 票的胜出方案（`prototype/UI.md` 第 6 步）；`design-pages` 的 `design-system.md`、`edit-pages.md`、`pull.md` 改为指向这一份；merge-note 与词表同步 |
@@ -86,6 +94,13 @@
 | 13 | edit pages / pull | `edit-pages.md` 第 4 步、`pull.md` | 旧流程默认绑定后的项目里有一份 `_ds/`；实际上网页端绑定的旧项目里也没有 | pull 取不到 design system 的样式，离线渲染没有样式 | 第 4 步把样式表闭包、字体、`_ds_bundle.js` 一起拷进 `_ds/`；页面约定改为从 `_ds/` 加载组件包并用组件拼区域 |
 | 14 | edit pages | `edit-pages.md` 的 Write pages | "对照胜出方案核对交互"没有说要核对哪些；这次漏了画布拖动 | 设计页少了产品已有的交互 | 写明：区域里每个控件的点击、拖动、滚动、键盘行为都要与胜出方案一致 |
 | 15 | edit pages | `edit-pages.md` 的 Write pages | 本地生成的页面按本地路径上传时，上传工具不带版本号核对，技能只写了"每次写入都带 `if_match`" | 可能覆盖用户刚在编辑器里做的修改 | 写明：先 `list_files`，版本号仍等于上次写入留下的才上传 |
+| 16 | pull | `design-pages/scripts/pull_design.py` 的 `contract_input` | 重新 pull 时带 `--contract`，脚本把合同行的 `trigger` 当作带 `name` 的映射来读；合同里 `trigger` 是 `data-ui` id 字符串。每一行都被跳过，合同行文字的比对从来没有运行；测试用的也是旧格式 | 设计改了合同行引用的文字，`改动分类` 不报 | 按 `data-ui` id 取上次与这次渲染里该 id 的文字比较；测试改成合同的真实格式 |
+| 17 | 写合同 | `write-screen-contract/scripts/lint_screen_contract.py` 的 `stylesheet_breakpoints` | 只读交接包里 `styles/*.css`；页面的样式在 `_ds/<folder>/` 或页面自己的 `<style>` 里 | 视口正好落在断点上时不报，这条检查形同虚设 | 改为读交接包里全部 `.css` 和页面的 `<style>`；加测试；`screen-contract-format.md` 同步 |
+| 18 | pull | `pull_design.py` 的 `selector_audit` | "编辑器点不中的选择器"检查读全部 `.css`，包括照抄来源的 `_ds/`，却不读页面自己的 `<style>` | 报告里全是 design system 的行，页面自己的写法反而没查 | 只查页面自己的样式（`_ds/` 以外的 `.css` 与页面 `<style>`），作为提示写进报告；加测试 |
+| 19 | 写合同 | `lint_screen_contract.py` 的 `handoff_page_errors` | "`Component · ` 页没有 `scene`"只在 `scenes.json` 列出的页上查，而没有 `scene` 的页不会进 `scenes.json` | 一整个区域没有 `scene`、不被验收时，lint 不报 | 改为查交接包里全部 `Component · ` 页；加测试 |
+| 20 | pull | `pull_design.py` 的 `page_inventory` | 没有前缀的页面（笔记、`Overview`）也被报"没有 `scene`" | 报告里有无关的行 | 只报 `Component · ` / `App · ` 页；加测试 |
+| 21 | design system | `check_design_system.py` | 要求每个 UI kit 至少一个起步界面；Claude Design 并不要求 | 多一条无下游用处的硬要求 | 改为只统计、不要求；测试同步 |
+| 22 | 第 7、13、14 行的修复被第 9 步取代 | `edit-pages.md` | 手工把 design system 上传到项目 `_ds/`、页面必须用组件拼、逐项核对交互，都是 MMW 替设计者定的做法 | 与"设计交给用户"冲突；手工副本还与 Claude Design 自己放的 `_ds/<folder>/` 重复 | 删去；绑定后的副本由 Claude Design 在用户第一次打开项目时放入，pull 一并拉回 |
 
 ## 产品侧的发现（不属于流水线，本试点不改）
 

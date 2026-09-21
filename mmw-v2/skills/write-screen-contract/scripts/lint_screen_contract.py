@@ -176,9 +176,17 @@ def repo_root(contract: Path) -> Path:
 
 
 def stylesheet_breakpoints(baseline: Path) -> set[int]:
+    """Every width a media query names anywhere the pages take CSS from: each `.css`
+    under the package (`styles/`, the design system's `_ds/<folder>/`) and each page's
+    `<style>` blocks."""
     widths: set[int] = set()
-    for css in sorted((baseline / "styles").glob("*.css")) if (baseline / "styles").exists() else []:
-        widths.update(int(w) for w in BREAKPOINT.findall(css.read_text(encoding="utf-8")))
+    sources = sorted(baseline.rglob("*.css")) + sorted(baseline.glob("*.dc.html"))
+    for path in sources:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        widths.update(int(w) for w in BREAKPOINT.findall(text))
     return widths
 
 
@@ -241,7 +249,10 @@ class HandoffPageParser(HTMLParser):
 
 def handoff_page_errors(baseline: Path, pages: set[str]) -> list[str]:
     errors: list[str] = []
-    for page_name in sorted(pages):
+    # A Component page with no scene prop never reaches scenes.json, so read every
+    # Component page on disk, not only the ones scenes.json names.
+    on_disk = {p.name for p in baseline.glob("Component · *.dc.html")}
+    for page_name in sorted(pages | on_disk):
         page = baseline / page_name
         if not page.is_file():
             errors.append(f"handoff page missing: {page_name} (named by scenes.json)")

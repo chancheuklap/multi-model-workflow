@@ -1,19 +1,19 @@
 ---
 name: design-pages
-description: Build a design system from running code, edit pages or handle comments in Claude Design, and pull a signed-off project back as the handoff package. Use when the design system has to exist before pages are drawn; when creating, iterating, previewing, or commenting on Claude Design pages; or when a finished design must land in the repository.
+description: Pull a signed-off Claude Design project into the repository as the handoff package; set up a Claude Design project so its pages carry what acceptance reads; act on comments sent to Claude or draw pages when asked; build a design system from running code when one is wanted. Use when a design must land in the repository, when a Claude Design project is created or its comments are queued, or when a design system is to be built.
 ---
 
 # design-pages — a Claude Design project is the only source of the design
 
-Three doors, in this order, and each names the next.
+The user designs in Claude Design, with the agent inside it. This skill covers what happens around that work: the project is set up so its pages carry what the repository reads back, and the signed-off project is pulled into the repository for the screen contract and acceptance.
 
 ## Find your door
 
 | You are | Read |
 | --- | --- |
-| Starting an interface for a product with no design system yet, or remaking one whose look is changing | [references/design-system.md](references/design-system.md) — built from code that already runs, before any page is drawn. A product whose design system exists and whose shared components have not changed skips this door |
-| Creating the project, writing or revising pages, checking a preview, acting on comments, or taking the user's sign-off | [references/edit-pages.md](references/edit-pages.md) |
-| The user has signed the design off, or this session is handling a `contract` child whose body names the pull door | [references/pull.md](references/pull.md) — brings the project into the repository as the handoff package. Never while a worker is mid-run |
+| Creating a Claude Design project, acting on comments sent to Claude, drawing pages because the user asked, or taking the user's sign-off | [references/edit-pages.md](references/edit-pages.md) |
+| The user has signed the design off, or this session is handling a `contract` child whose body names the pull door | [references/pull.md](references/pull.md): brings the project into the repository as the handoff package. Never while a worker is mid-run |
+| Asked to build a design system, or deciding whether one is worth building | [references/design-system.md](references/design-system.md): optional; what it is for, when, and two ways to build it |
 
 Page conventions are the body of [template-project-claude-md.md](references/template-project-claude-md.md), the fenced block that is written into the project root as `CLAUDE.md`.
 

@@ -94,7 +94,7 @@ _Avoid_: scaffolding ticket (scaffolding is the prototype's mount points), 脚�
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **design-system ticket**:
-Only a new product gets one. It copies the design system's style tokens and shared components into the product, ahead of the **contract ticket**. Distinct from the later **component page ticket**s, which judge whether those styles match.
+Only a new product whose handoff package carries a design system under `_ds/` gets one. It copies the design system's style tokens and shared components into the product, ahead of the **contract ticket**. Distinct from the later **component page ticket**s, which judge whether those styles match.
 _Avoid_: 设计系统票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 

@@ -17,8 +17,8 @@ What it checks:
 - every `<Name>.jsx` has `export function <Name>`, a sibling `<Name>.d.ts` that
   declares a `data-ui` prop and a sibling `<Name>.prompt.md`, and its directory holds
   one `@dsCard` file in group Components;
-- each `ui_kits/<surface>/` has an `index.html` tagged `@dsCard` and at least one
-  `@startingPoint` screen;
+- each `ui_kits/<surface>/` has an `index.html` tagged `@dsCard`; `@startingPoint`
+  screens are counted, not required;
 - nothing Claude Design generates is written by hand (`_ds_manifest.json`,
   `_adherence.oxlintrc.json`). `_ds_bundle.js` is `build_ds_bundle.py`'s output and passes.
 """
@@ -150,10 +150,8 @@ def check_cards(root: Path, misses: list[str]) -> tuple[int, int]:
             misses.append(f"{kit.relative_to(root)}/index.html: missing or not tagged @dsCard")
         else:
             kit_groups.add(index[1].get("group", ""))
-        screens = [p for p in kit.glob("*.html") if (t := first_tag(p)) and t[0] == "startingPoint"]
-        if not screens:
-            misses.append(f"{kit.relative_to(root)}: no @startingPoint screen")
-        starting += len(screens)
+        starting += sum(1 for p in kit.glob("*.html")
+                        if (t := first_tag(p)) and t[0] == "startingPoint")
     foundations = 0
     for html in root.rglob("*.html"):
         tag = first_tag(html)
