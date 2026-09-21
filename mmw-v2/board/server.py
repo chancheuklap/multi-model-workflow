@@ -20,6 +20,10 @@ import settings_api
 PAGE = Path(__file__).resolve().parent / "page"
 
 
+class BurstServer(http.server.ThreadingHTTPServer):
+    request_queue_size = 128
+
+
 def make_handler(token: str, board_module=board_data, settings_module=settings_api,
                  gate_module=gates):
     class Handler(http.server.SimpleHTTPRequestHandler):
@@ -96,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     watch = codeversion.Watch()
     token = secrets.token_urlsafe(32)
     settings_api.initialize()
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(token))
+    server = BurstServer(("127.0.0.1", args.port), make_handler(token))
     host, port = server.server_address
     print(f"http://{host}:{port}", flush=True)
     threading.Thread(target=stop_when_code_changes, args=(server, watch, args.watch_interval),

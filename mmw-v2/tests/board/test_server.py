@@ -49,6 +49,9 @@ class RunningHandler(RunningBoard):
         self.thread.join(timeout=5)
 
 class ServerTest(unittest.TestCase):
+    def test_server_queues_a_page_burst(self):
+        self.assertGreaterEqual(board_server.BurstServer.request_queue_size, 64)
+
     def test_shell_carries_a_fresh_token(self):
         tokens = []
         for _ in range(2):
