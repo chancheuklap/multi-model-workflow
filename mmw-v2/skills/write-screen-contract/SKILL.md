@@ -21,7 +21,7 @@ Every one of this skill's own scripts is run as `uv run python <scripts>/…`, n
 
 - The handoff package directory as `pull_design.py` of the `design-pages` skill wrote it: `README.md`, `pull-report.md`, `design-manifest.json`, the `.dc.html` pages, every other file the project holds (the bound design system under `_ds/<folder>/`, data, scripts), `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a **baseline for look and copy**; you never edit it.
 - The backend decisions. On a wayfinder map that is the map issue: its **Decisions so far** and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too. When the decisions were settled in conversation instead, those conclusions are the source — see **Decision sources**.
-- The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
+- The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls the app factory and writes its OpenAPI document. A server that has neither an exporter nor an app factory (a standard-library server, for one) gets an `openapi.json` written by hand in `<scratch>`, describing exactly the routes, methods, fields and status codes its routing code implements. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
 - The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title. A run with no map takes the effort name the person gives, or the directory that will hold the spec.
 
 ## Decision sources
@@ -35,7 +35,7 @@ When an existing product gains a surface there is usually no map. Do not open a 
 ### 1. Declare the rendering inputs and extract the skeleton
 
 Start `<scratch>/screen-contract.yaml` with the top-level `effort`, `baselines`, `locale`
-and `viewports`. `locale` is the locale the design must render under. `viewports`
+and `viewports`. `locale` is the locale the design must render under: the product's own `<html lang>` when it has one, otherwise the person names it; the package itself names none. `viewports`
 holds one entry per distinct size the package `README.md` lists under
 `## Viewport and size source`, where `pull_design.py` writes each page's `$preview` size.
 Never choose a stylesheet breakpoint: a viewport equal to one
@@ -60,7 +60,7 @@ do not identify it. A control shown only by a value in the design page's `scene`
 
 ### 2. Declare pages, name components and split preconditions
 
-For each page in `scenes.json`, write one `pages` entry: its **`mount`** — the short stable id the product will serve as the story page (`?page=<mount>`). `mount` is your declaration, not a derivation: a page holds several components' rows, and the one with most rows can be a shared control borrowed from another page. For a `Component · ` page also name the **`component`** the implementation will own it under — the repository's existing feature directory when there is one, otherwise the page name; every row of that page's controls uses the same value. An `App · ` page is a whole-surface root and names no component.
+For each page in `scenes.json`, write one `pages` entry: its **`mount`** — the short stable id the product will serve as the story page (`?page=<mount>`). `mount` is your declaration, not a derivation: a page holds several components' rows, and the one with most rows can be a shared control borrowed from another page. For a `Component · ` page also name the **`component`** the implementation will own it under — the repository's existing feature directory or module file when there is one, otherwise the page name; every row of that page's controls uses the same value. An `App · ` page is a whole-surface root and names no component.
 
 Then a control whose behaviour differs by state gets one row per state — `precondition` is the column that tells them apart (`material: none` and `material: added` are two rows for the same button). Two cases that come up on every page:
 
@@ -109,7 +109,7 @@ Two things a gap list does not carry: an implementation that today does less tha
 ### 7. Publish and lint
 
 1. Write `docs/specs/<effort>/screen-contract.yaml`.
-2. Lint to zero errors:
+2. Lint to zero errors, from inside the repository (a contract still in `<scratch>` finds `baselines.look` and `.mmw/target.json` through the directory the lint runs in):
 
    ```
    uv run python <scripts>/lint_screen_contract.py docs/specs/<effort>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]

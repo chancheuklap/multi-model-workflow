@@ -85,6 +85,14 @@
 
 **本试点的偏离。** 拉回在用户说定稿之前做：设计页取自生产版，拉回可以重做；用户在 Claude Design 里改过之后再拉一次。第 7 步拆 scaffolding 不适用：胜出方案就是生产版，没有挂载点。
 
+### 11. 写屏幕合同（alignment ticket #554，`write-screen-contract`）
+
+**做法。** 派一个 agent 按技能从头写到 gap list：从交接包抽出控件骨架（44 个场景 × 5 个视口，239 个控件），逐行对照 #543–#552 的决定与生产代码。任务板是标准库写的服务器，没有 OpenAPI 导出，agent 照 `server.py`、`board_data.py`、`settings_api.py` 的路由手写了只含五个接口的 `openapi.json`。gap list 两条交用户裁决：整页刷新按生产版写；保存时配置锁被占用不设界面状态（用户：本机单人写配置，不会发生）。
+
+**真实产物。** `docs/specs/task-board/screen-contract.yaml`，68 行（顶栏 4、任务列表 1、画布 8、详情 16、本机配置 23，整页跨区域 16），lint 0 错误、5 条提示（设计稿没有画到的状态）。旧合同 222 行，由新流程产物替换。
+
+**生产代码做得比决定少的地方**（交给实现票，不是合同缺口）：读 GitHub 失败时顶栏显示的是失败的时间而不是旧数据的时间（`board_data.py` 的 `read_failed.at`），与 #544 相反；打开本机配置 503、重新扫描失败时页面无提示；详情栏的子 issue 编号与"需要你"里的票号不能点，与 #548 不符。
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（第 1–10 行在提交 `0f79b971`） |
@@ -120,6 +128,16 @@
 | 29 | pull | `pull_design.py` 的 `fetch` | 约 200 个文件里有一个下载时连接出错一次，整次 pull 失败 | 要人工重跑 | 连接错误重试两次，HTTP 状态码不重试；加测试 |
 | 30 | pull | `pull.md` 第 1 步 | 要求把 `list_files` 的 JSON 原样存成文件，但这份 JSON 只在 MCP 回复里，agent 只能逐行抄写（本次 195 行） | 费上下文，抄错一行 pull 就对不上 | 未修：需要一个能直接把清单写到磁盘的途径（MCP 工具或 pull 自己列清单），留作后续 |
 | 31 | 写合同 | `write-screen-contract/SKILL.md` 的 Inputs | 交接包的内容列表还写 `styles/`，实际样式在 `_ds/<folder>/` | 读者按旧目录找样式 | 改为"项目里的其他文件（绑定的 design system 在 `_ds/<folder>/`）" |
+| 32 | 写合同 | `lint_screen_contract.py` 的 `repo_root` | 合同还在 scratch 时不在任何仓库里，lint 静默改用当前目录，从 scratch 跑就报 `baselines.look` 不存在、`.mmw/target.json` 缺失，两条都是假的 | agent 以为合同有错 | 合同不在仓库里时，从 lint 的运行目录往上找仓库；第 7 步写明在仓库里运行；加测试 |
+| 33 | 写合同 | `write-screen-contract/SKILL.md` 第 1 步 | `locale` 没有来源，交接包里也没有语言信息 | agent 只能猜 | 写明取产品自己的 `<html lang>`，没有就由用户给 |
+| 34 | 写合同 | 同上 Inputs | `openapi.json` 只给了导出器和 app factory 两条路，标准库服务器两者都没有 | agent 不知道能否手写 | 写明可以照路由代码手写 |
+| 35 | 写合同 | 同上第 2 步 | `component` 只说"已有的功能目录"，任务板是一个功能一个文件 | agent 要自己判断 | 改为"功能目录或模块文件" |
+| 36 | 写合同 | `screen-contract-format.md` 的 A cross-component row | "每处回调一行"与"按控件编号区分行"冲突；没说控件同时影响本区域时要不要另写一行、整页从不画这个控件时 `scenes` 填什么 | agent 各自定规矩 | 改为每个控件一行；影响本区域的另留区域页那一行；整页没画到时 `scenes` 为 `[]` 并由 lint 提示 |
+| 37 | 写合同 | 同上 Pages … states | `states` 只说领域状态，缩放、展开、关闭弹窗这类本地视图变化无处可写 | agent 自己造了 9 个名字又不确定是否合规 | 写明本地视图状态也放在 `states` |
+| 38 | 写合同 | `extract_skeleton.py`、格式的 `viewports` | 视口是一张平表，每个场景在每个视口都渲染一遍（236 宽的任务列表也按 1440x52 渲染），用时是按页面尺寸的三倍，还产生没人要的截断渲染 | 慢；不影响行的正确性 | 未修：要把视口改成按页面声明，牵涉 story judge 读同一字段，留作后续 |
+| 39 | 写合同 | 格式的 `on_failure`、`shows` | `on_failure` 没有写法规定、lint 也不查；`shows` 的"表达式"没有语法 | 各 agent 写法不一 | 未修：需要先定写法再改 lint，留作后续 |
+| 40 | 写合同 | `extract_skeleton.py` 的输出 | 骨架只记控件"能否交互"，不记"在哪个场景里被禁用"，而技能要求禁用状态单独成行 | agent 要读生产代码推出来，lint 查不到这些行的场景 | 未修：需要骨架按场景记禁用，留作后续 |
+| 41 | 写合同 | 各决定票的解决评论 | 决定票以上一代 spec #318 为依据；地图上没有一张票管左侧任务列表，合同只能引 #318 | 已被取代的 spec 能否当来源，技能没说 | 未修：本试点按规则 1 允许；留作后续在 `write-screen-contract` 的 Decision sources 里写明 |
 
 ## 产品侧的发现（不属于流水线，本试点不改）
 

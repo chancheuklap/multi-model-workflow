@@ -131,6 +131,18 @@ class TestScreenAxis(unittest.TestCase):
         errors, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
         return errors, warnings
 
+    def test_a_contract_outside_the_repository_resolves_against_the_run_directory(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            outside = Path(scratch) / "screen-contract.yaml"
+            outside.write_text("effort: x\n")
+            nested = self.repo.root / "docs"
+            before = os.getcwd()
+            os.chdir(nested)
+            try:
+                self.assertEqual(lc.repo_root(outside).resolve(), self.repo.root.resolve())
+            finally:
+                os.chdir(before)
+
     def test_a_complete_contract_has_no_errors(self):
         errors, warnings = lc.lint_declarations(
             contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)

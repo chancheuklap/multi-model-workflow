@@ -51,7 +51,7 @@ The lint checks these top-level keys: `effort`, `baselines`, `locale`, `viewport
 | --- | --- | --- |
 | `viewports` | `WIDTHxHEIGHT` entries, one per distinct size the handoff package's `README.md` lists under `## Viewport and size source`. `pull_design.py` writes that section, one line per page, from each page's `$preview` size. A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of any `.css` in the package (including `_ds/`) or a page's `<style>` block; missing is an error |
 | `locale` | BCP 47 tag (`zh-CN`, `en-US`) the story judge sets on both browser contexts. The story judge reads it and does not fall back. | present; matches a BCP 47 language tag |
-| `states` | The domain state names this product allows in `next`. Omit the key when `next` never names a domain state. | `next` that is not a row id, a scene name, or `stay` must be a member of this list |
+| `states` | The state names this product allows in `next` that are not a scene: domain states, and local view states no scene draws (a zoomed canvas, an expanded container, a closed dialog). Omit the key when `next` never names one. | `next` that is not a row id, a scene name, or `stay` must be a member of this list |
 | `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. Declared by the person writing the contract, never derived from the `component` column (a page holds several components' rows, and the one with most rows can be a borrowed shared control). | present, `[a-z0-9-]`, unique across pages |
 | `pages.<page>.component` | For a `Component · ` page: the rows' `component` value this page owns. `App · ` pages are whole-surface roots and carry none. | Component pages ↔ distinct `component` values one to one |
 | `scenes.<name>.page` | The `.dc.html` from `scenes.json`. | equals scenes.json; every scene of scenes.json has one entry and nothing else does |
@@ -122,7 +122,7 @@ A design page with no row is an error. Reverse sweep: every operation in `openap
 
 ## A cross-component row
 
-A **cross-component row** records that region A's action affects region B. It is written on an `App · ` page, one row per place the page's `dc-import` wiring passes a callback or state from one region to another.
+A **cross-component row** records that region A's action affects region B. It is written on an `App · ` page, one row per control whose action the page's `dc-import` wiring carries from one region to another: a callback that several controls fire is one row for each of them. A control whose action also changes its own region keeps its row on its `Component · ` page as well. When no scene of the `App · ` page draws the control, the row's `scenes` is `[]` and the lint warns.
 
 Every declared `App · ` page carries at least one such row: the lint covers an App page only through its own `app:` rows and otherwise reports `page has no rows`. An App page whose wiring passes nothing between regions goes to the person in the gap list, not into an invented row.
 

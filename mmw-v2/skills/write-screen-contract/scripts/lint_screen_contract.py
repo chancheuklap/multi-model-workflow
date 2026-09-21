@@ -169,9 +169,15 @@ def operation(entry) -> tuple[str, str] | None:
 
 
 def repo_root(contract: Path) -> Path:
-    for parent in [contract.resolve()] + list(contract.resolve().parents):
-        if (parent / ".git").exists():
-            return parent
+    """The repository `baselines.look` and `.mmw/target.json` are relative to.
+
+    A contract still in a run's scratch directory (step 6 keeps it there until every
+    gap is aligned) sits in no repository; the repository is then the one the lint
+    is run from, found from the current directory rather than taken as it."""
+    for start in (contract.resolve(), Path.cwd().resolve()):
+        for parent in [start] + list(start.parents):
+            if (parent / ".git").exists():
+                return parent
     return Path.cwd()
 
 
