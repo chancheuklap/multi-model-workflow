@@ -49,6 +49,7 @@
     "data/board-morning.js",
     "data/board-twenty-tickets.js",
     "data/settings.js",
+    "data/tasks-scenes.js",
     "lib/board.js",
     "support.js"
   ],

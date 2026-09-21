@@ -55,23 +55,23 @@ scenes:
   Component · 任务列表.morning:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.morning
   Component · 任务列表.twenty-tickets:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-twenty-tickets.js
-      value: BOARD_SCENES.twenty-tickets
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.twenty-tickets
   Component · 任务列表.bad-data:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.bad-data
   Component · 任务列表.empty:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-empty.js
-      value: BOARD_SCENES.empty
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.empty
   Component · 本机配置.mine:
     page: Component · 本机配置.dc.html
     input:

@@ -9,20 +9,26 @@
     <x-dc>
       <helmet data-dc-atomics>
         <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
-        <script src="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
-        <script src="./lib/board.js"></script>
-        <script src="./data/board-morning.js"></script>
-        <script src="./data/board-twenty-tickets.js"></script>
-        <script src="./data/board-bad-data.js"></script>
-        <script src="./data/board-empty.js"></script>
+        <script src="./data/tasks-scenes.js"></script>
       </helmet>
       <nav data-ui="任务列表.root" class="tasks board" aria-label="The Night" data-screen-label="任务列表" style="{{ rootStyle }}">
-        <x-import component-from-global-scope="MMWTaskBoard2_34b698.ColumnEyebrow" dc-props="{{ eyebrow }}" hint-size="100%,37px"></x-import>
+        <div class="col-eyebrow" data-ui="任务列表.eyebrow">
+          <span data-ui="任务列表.eyebrow.label">The Night</span>
+          <span data-ui="任务列表.eyebrow.count">{{ count }}</span>
+        </div>
         <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.TasksEmpty" data-ui="任务列表.empty" hint-size="100%,20px"></x-import>
+          <p class="tasks-empty" data-ui="任务列表.empty">没有带 mmw:map label 的 ticket。</p>
         </sc-if>
         <sc-for list="{{ rows }}" as="row" hint-placeholder-count="3">
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.TaskRow" dc-props="{{ row }}" hint-size="100%,82px"></x-import>
+          <button type="button" class="{{ row.cls }}" data-ui="任务列表.task" onClick="{{ row.pick }}">
+            <span class="{{ row.lampCls }}" title="{{ row.lampWord }}" data-ui="任务列表.task.lamp"></span>
+            <span class="task-meta" data-ui="任务列表.task.meta">{{ row.meta }}</span>
+            <span class="{{ row.titleCls }}" data-ui="任务列表.task.title">{{ row.title }}</span>
+            <span class="task-progress">
+              <span class="bar"><span class="bar-fill" style="{{ row.barStyle }}" data-ui="任务列表.task.bar"></span></span>
+              <span class="task-count" data-ui="任务列表.task.count">{{ row.count }}</span>
+            </span>
+          </button>
         </sc-for>
       </nav>
     </x-dc>
@@ -33,30 +39,37 @@
       class Component extends DCLogic {
         componentDidMount() {
           const wait = () => {
-            if (window.MMW && window.MMWTaskBoard2_34b698 && window.BOARD_SCENES && window.BOARD_SCENES.empty) this.forceUpdate();
+            if (window.TASK_SCENES) this.forceUpdate();
             else setTimeout(wait, 20);
           };
           wait();
         }
         renderVals() {
+          const LAMP_WORD = {orange: "needs you", green: "running", hollow: "queued", ink: "done"};
           const rootStyle = {width: (this.props.width || 236) + "px", height: (this.props.height || 848) + "px"};
-          const key = this.props.scene || "morning";
-          const scene = window.BOARD_SCENES && window.BOARD_SCENES[key];
-          if (!window.MMW || !scene) return {rootStyle, eyebrow: {}, empty: false, rows: []};
-          const tasks = scene.payload.tasks || [];
+          const scene = window.TASK_SCENES && window.TASK_SCENES[this.props.scene || "morning"];
+          if (!scene) return {rootStyle, count: 0, empty: false, rows: []};
           const selected = this.props.task !== undefined ? this.props.task
             : this.state && this.state.task != null ? this.state.task
-            : scene.select.task != null ? scene.select.task : (tasks[0] ? tasks[0].n : null);
-          const view = window.MMW.tasks.taskListView(tasks, selected);
-          const pick = n => () => {
-            this.setState({task: n});
-            if (this.props.onSelectTask) this.props.onSelectTask(n);
-          };
-          return {
-            rootStyle, empty: view.empty,
-            eyebrow: {label: "The Night", count: view.count, "data-ui": "任务列表.eyebrow"},
-            rows: view.rows.map(row => ({row, onPick: pick(row.n), "data-ui": "任务列表.task"})),
-          };
+            : scene.selected;
+          const rows = scene.tasks.map(t => {
+            const on = t.n === selected;
+            return {
+              cls: on ? "task on" : "task",
+              titleCls: on ? "task-title on" : "task-title",
+              lampCls: "lamp " + t.lamp,
+              lampWord: LAMP_WORD[t.lamp],
+              meta: "#" + t.n + " · " + t.kind,
+              title: t.title,
+              barStyle: {width: (t.total ? 100 * t.landed / t.total : 0) + "%"},
+              count: t.landed + "/" + t.total + " landed",
+              pick: () => {
+                this.setState({task: t.n});
+                if (this.props.onSelectTask) this.props.onSelectTask(t.n);
+              },
+            };
+          });
+          return {rootStyle, count: scene.tasks.length, empty: !scene.tasks.length, rows};
         }
       }
     </script>

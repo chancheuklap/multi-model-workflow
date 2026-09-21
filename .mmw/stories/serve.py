@@ -85,6 +85,11 @@ def handoff_values(path: Path) -> dict:
     settings = re.fullmatch(r"window\.SETTINGS_SCENES = (\{.*\});?\n?", source)
     if settings:
         return {"SETTINGS_SCENES": json.loads(settings.group(1))}
+    # A design page's own example data: optional `//` comment lines, then
+    # `window.<NAME> = <JSON object>;`.
+    own = re.fullmatch(r"(?:\s*//[^\n]*\n)*\s*window\.(\w+) = (\{.*\});?\s*", source, re.S)
+    if own:
+        return {own.group(1): json.loads(own.group(2))}
     raise ValueError(f"unsupported scene input file: {path}")
 
 

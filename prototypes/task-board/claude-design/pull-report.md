@@ -6,13 +6,51 @@
 
 ## 覆盖
 
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 3
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: #98 · map
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 落地流水线改造
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 6/18 landed
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: #77 · map
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 交接包比对
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 3/3 landed
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: #101 · map
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 子 issue 五种改名
+- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 0/3 landed
 - 带文字但没有 `data-ui` id：`App · 任务板.morning` — span: ·
 - 带文字但没有 `data-ui` id：`App · 任务板.morning` — b: #150 contract
 - 带文字但没有 `data-ui` id：`App · 任务板.morning` — b: #151 decision
+- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: 1
+- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: #210 · map
+- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: 判活三层落地
+- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: 7/20 landed
 - 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span: ·
 - 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — b: #241 decision
+- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: 1
+- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: #300 · map
+- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: 端口租约回收
+- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: 1/6 landed
 - 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span: ·
+- 带文字但没有 `data-ui` id：`App · 任务板.empty` — span.sc-interp: 0
 - 带文字但没有 `data-ui` id：`App · 任务板.empty` — span.code: mmw:map
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 3
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: #98 · map
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 落地流水线改造
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 6/18 landed
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: #77 · map
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 交接包比对
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 3/3 landed
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: #101 · map
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 子 issue 五种改名
+- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 0/3 landed
+- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: 1
+- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: #210 · map
+- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: 判活三层落地
+- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: 7/20 landed
+- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: 1
+- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: #300 · map
+- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: 端口租约回收
+- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: 1/6 landed
+- 带文字但没有 `data-ui` id：`Component · 任务列表.empty` — span.sc-interp: 0
 - 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.sheet-code: start
 - 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.sheet-code: ~/.mmw/models.json
 - 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.sheet-code: MMW_RUNNER
@@ -113,9 +151,9 @@
 
 ## 改动分类
 
-- 分类：增删控件或改流转
-- design page：`App · 任务板.dc.html`、`Component · 任务列表.dc.html`、`Component · 本机配置.dc.html`、`Component · 画布.dc.html`、`Component · 详情.dc.html`、`Component · 顶栏.dc.html`
-- `data-ui` id 新增：`任务列表.root`、`任务板.root`、`本机配置.root`、`画布.root`、`详情.root`、`顶栏.root`
+- 分类：只改外观或文案
+- design page：`Component · 任务列表.dc.html`
+- `data-ui` id 新增：无
 - `data-ui` id 删除：无
 
 ## 本地改过的说明
