@@ -13,11 +13,11 @@ The design tool whose project is the only source of the design. Pages are writte
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **design system**:
-An optional Claude Design project holding a product's tokens, foundation cards, components and UI kits, from which pages in a bound project are drawn; Claude Design copies it into that project's `_ds/<folder>/`. Built by the user in Claude Design, or here from code that already runs through the design-pages entry of that name. Nothing downstream of **pull** reads it. Distinct from **`DESIGN.md`**, which is not that source.
+A Claude Design project holding a product's look: variables, fonts, icons and reusable parts (one class name each, with its variants and a card), from which pages in a bound project are drawn; Claude Design copies it into that project's `_ds/<folder>/`. It holds no page regions, example data or product logic. Built by the agent inside Claude Design from a look that already exists (production code, a prototype's winner, signed-off pages), unifying the code's inconsistencies into the `Unifications` table of its `readme.md`. Nothing downstream of **pull** reads it. Distinct from **`DESIGN.md`**, which is not that source.
 _Home_: `mmw-v2/skills/design-pages/references/design-system.md`
 
 **edit pages**:
-The design-pages entry around the user's design work: create the Claude Design project, act on comments sent to Claude, draw pages when the user asks, and take the sign-off. Page conventions live only in the project root `CLAUDE.md`, copied from `template-project-claude-md.md`, and hold only what **pull** reads back.
+The design-pages entry around the user's design work: create the Claude Design project, bring an existing product's screens into it, act on comments sent to Claude, draw pages when the user asks, and take the sign-off. Page conventions live only in the project root `CLAUDE.md`, copied from `template-project-claude-md.md`, and hold only what **pull** reads back.
 _Avoid_: Porting (as an entry name)
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
@@ -105,7 +105,7 @@ _Avoid_: interface parity, visual parity
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story**:
-A product page that renders the product's own components from the same scene data the design page used, addressed as `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. A `Component · ` page is that component in one scene; an `App · ` page is the story service composing those components into a whole page. It lives in `.mmw/stories/`; the product's `stories` command prints `origin`. No backend, no seed, no route — and no lease: the service takes a port the machine hands out, so a story criterion costs no instance slot.
+A product page that renders the product's own components from the same scene data the design page used, addressed as `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. A `Component · ` page is that component in one scene; an `App · ` page mounts the product's own composition module, the code that wires the regions together in the running product. It lives in `.mmw/stories/`; the product's `stories` command prints `origin`. No backend, no seed, no route — and no lease: the service takes a port the machine hands out, so a story criterion costs no instance slot.
 _Avoid_: storybook (when this page is meant), preview page
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 

@@ -45,7 +45,7 @@ _Avoid_: 测试怎么到达状态
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **Critical flows**:
-An optional bullet of a spec's `## Testing Decisions`: money, sign-in, a submit chain; none when the product has none. One line per such flow, naming the directory under `.mmw/journeys/<flow>/` and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. Omit the bullet when `.mmw/target.json` cannot start the whole product.
+An optional bullet of a spec's `## Testing Decisions`: money, sign-in, a submit chain; none when the product has none. One line per such flow, naming the directory under `.mmw/journeys/<flow>/` and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. Omit the bullet only when the product can never be started whole; a product whose `.mmw/target.json` does not exist yet still writes it.
 _Admitted_: 关键流程
 _Avoid_: Cross-ticket flows, key flows
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
@@ -94,7 +94,7 @@ _Avoid_: scaffolding ticket (scaffolding is the prototype's mount points), 脚�
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **design-system ticket**:
-Only a new product whose handoff package carries a design system under `_ds/` gets one. It copies the design system's style tokens and shared components into the product, ahead of the **contract ticket**. Distinct from the later **component page ticket**s, which judge whether those styles match.
+Cut when the handoff package carries a design system under `_ds/` whose variables or part stylesheets the product does not yet have. It copies the design system's variables, fonts and part stylesheets into the product, ahead of the **contract ticket**. Distinct from the later **component page ticket**s, which judge whether those styles match.
 _Avoid_: 设计系统票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 

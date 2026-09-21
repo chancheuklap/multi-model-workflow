@@ -745,6 +745,49 @@ class PullDesign(unittest.TestCase):
         self.assertIn("Demo", report)
         self.assertIn("Updated demo", report)
 
+    def add_app_page(self, logic: str, props: str) -> None:
+        self.add_page("App · Shell.dc.html", f"""
+            <!doctype html><html><head><script src="./support.js"></script></head><body>
+            <x-dc><main data-ui="shell"><dc-import name="Inner" props='{props}'></dc-import></main></x-dc>
+            <script type="text/x-dc" data-dc-script data-props='{{}}'>{logic}</script></body></html>
+        """)
+        self.preview.files["Inner.dc.html"] = (
+            b"<!doctype html><html><head></head><body><x-dc><p>Inner</p></x-dc></body></html>")
+
+    def pull_app_twice(self, logic: str, props: str) -> str:
+        self.add_app_page("class App extends DCLogic { open() { this.props.onOpen(); } }",
+                          '{"onPick": "open"}')
+        pages = ["Component · Demo.dc.html", "App · Shell.dc.html"]
+        first = self.pull(pages=pages)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        self.add_app_page(logic, props)
+        result = self.pull(pages=pages)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return self.report_section("改动分类")
+
+    def test_a_changed_app_logic_block_is_classified_controls_or_flow(self):
+        section = self.pull_app_twice(
+            "class App extends DCLogic { open() { this.props.onClose(); } }",
+            '{"onPick": "open"}')
+        self.assertIn("分类：增删控件或改流转", section)
+        self.assertIn("- `App · ` 页接线变化：`App · Shell.dc.html` — "
+                      "`data-dc-script` 逻辑块与上次不同。", section)
+
+    def test_changed_dc_import_props_on_an_app_page_are_classified_controls_or_flow(self):
+        section = self.pull_app_twice(
+            "class App extends DCLogic { open() { this.props.onOpen(); } }",
+            '{"onPick": "close"}')
+        self.assertIn("分类：增删控件或改流转", section)
+        self.assertIn("`App · Shell.dc.html` — `dc-import` 属性与上次不同。", section)
+
+    def test_whitespace_in_app_wiring_is_not_a_change(self):
+        section = self.pull_app_twice(
+            "class App extends DCLogic {\n  open() {  this.props.onOpen(); }\n}",
+            '{"onPick":  "open"}')
+        self.assertIn("分类：只改外观或文案", section)
+        self.assertNotIn("接线变化", section)
+
     def test_a_locally_edited_package_gets_a_note(self):
         first = self.pull()
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)

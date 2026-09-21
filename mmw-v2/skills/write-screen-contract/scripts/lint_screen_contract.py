@@ -121,12 +121,13 @@ def target_config_mod():
 
 
 def target_file_problem(repo: Path) -> tuple[str, str] | None:
-    """`("error", line)` or `("warning", line)` about the repository's `.mmw/target.json`,
-    from `target_config.py`'s own validation; `None` when the file is complete.
+    """`("warning", line)` about the repository's `.mmw/target.json`, from
+    `target_config.py`'s own validation; `None` when the file is complete.
 
-    The file is missing until the contract ticket lands it, so that case is a warning
-    and names `target_config.py --check`. A file that is there and fails
-    `--validate` is an error.
+    Both a missing file and one that fails `--validate` are warnings naming
+    `target_config.py --check`: the contract ticket, cut after the spec that needs this
+    lint clean, is the ticket that lands `.mmw/` or brings a file written for an earlier
+    MMW version to the current shape.
     """
     if not (repo / ".mmw" / "target.json").exists():
         return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
@@ -137,7 +138,10 @@ def target_file_problem(repo: Path) -> tuple[str, str] | None:
     if code == 0:
         return None
     text = (buf_out.getvalue() or buf_err.getvalue()).strip()
-    return ("error", text or f"target_config.py --validate exited {code}")
+    text = " ".join(text.split()) or f"exited {code}"
+    return ("warning", f".mmw/target.json fails `target_config.py --validate`: {text}; "
+                       "the contract ticket brings .mmw/ to the current shape — run "
+                       "`target_config.py --check` (the ui-acceptance skill) there")
 
 
 # The shapes a `source` may take. A story is legal for the audit trail and warned on:

@@ -31,6 +31,10 @@ Before committing to sub-shape B, sanity-check: is there really no existing page
 
 In both sub-shapes the floating bottom bar is identical.
 
+### When there is no app yet
+
+A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `prototypes/<task>/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them, so there is no scaffolding to take down in step 7.
+
 ## Process
 
 ### 1. State the question and pick N
@@ -125,6 +129,6 @@ Done when nothing outside the leaf directory imports it: the leaf directory can 
 
 ## Next
 
-A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md`: its **edit pages** entry sets up the Claude Design project the user designs in, with the winner still running behind the scaffolding as the reference; its optional **design system** entry builds a design system from the winner's code when one is wanted; its **pull** entry brings the signed-off result back and sends you to step 7 above.
+A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md`: its **edit pages** entry sets up the Claude Design project the user designs in, with the winner still running behind the scaffolding as the reference; its optional **design system** entry has the agent inside Claude Design build a design system from the winner's code when one is wanted; its **pull** entry brings the signed-off result back and sends you to step 7 above.
 
 A winner that is not going into Claude Design, because the interface is not being designed there or the question was a logic or experiment one, stops at step 6, folded into the real code the way the [SKILL](SKILL.md) describes.

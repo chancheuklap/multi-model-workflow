@@ -18,9 +18,11 @@ whatever shape the product takes, is the next section.
 These hold for every product. How a given repository meets them is its own.
 
 - **Story pages render the product's own components.** A `Component · ` page is
-  that component in one scene. An `App · ` page is the story service composing
-  those same components into a whole page from **scene data**. Neither page
-  carries a Claude Design runtime (the markers [story-parity.md](story-parity.md)
+  that component in one scene. An `App · ` page mounts the product's own
+  composition module (the code that wires the regions together in the running
+  product) and feeds it **scene data**; it does not wire the components itself,
+  so a region the product leaves unwired stays unwired on the story page.
+  Neither page carries a Claude Design runtime (the markers [story-parity.md](story-parity.md)
   lists).
 - **`[data-story-root]` sits on the component's own root element**, together with
   the same `data-ui` id the design page's root carries. Every other compared element

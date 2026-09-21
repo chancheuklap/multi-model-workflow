@@ -111,6 +111,14 @@
 
 **结果。** 8 张实现票全部通过并关闭；#556、#558、#560、#563 各退回一次（第 60–63 行与"产品侧的发现"）。合并后六个页面 44 个场景与设计页逐元素一致（`STORY OK 44/44`），board 测试集通过；验收全程没有写到本机 `~/.mmw/models.json`（修改时间仍是 9 月 18 日）。用户 2026-09-22 看过 #564，认可。
 
+### 15. 复盘：design system 做成了产品副本（2026-09-22）
+
+**发现。** 第 6–8 步建的 design system 是产品前端的副本：46 个 React 组件逐块照抄生产标记，连同产品逻辑 `lib/board.js` 与示例数据；设计页挂这些组件、调用产品逻辑。结果是 element parity 拿产品和产品自己比（44/44 全过的原因），用户在编辑器里改不动页面，想改外观得先改代码。第 6 步“Claude Design 要求按来源完整列出的 React 组件”的依据不成立：内置的 Classical 组件包是 `"components":[]`，组件卡只展示 CSS 类。之后改成“只含样式”的版本，仍按产品页面区块切样式表，组件卡是整块区域，变量只有颜色和字体名（代码里有 16 种字号、14 种圆角、13 种间距）。
+
+**试跑（R0）。** 任务列表页改写成普通标记，示例数据放进设计项目自己的 `data/tasks-scenes.js`，合同的 scene input 指向它，story adapter 从它生成产品的行：`STORY OK 4/4`，整页 `STORY OK 4/4`。设计页用自己的数据，验收照样对得上。
+
+**做法（ADR 0030）。** design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观，代码里的不一致全部统一并记进它的 `Unifications` 表；MMW 写它的 `CLAUDE.md`、指明代码与数据、事后检查。“MMW Task Board 2”已清空到只剩字体与图标并写入说明；设计项目 #553 的 `CLAUDE.md` 换成新模板，并放入产品现有的 223 个 `data-ui` id（`ui-ids.md`）。本地的 design system 源目录与 `check_design_system.py`、`build_ds_bundle.py` 删除。八种情形走查出的独立缺口按句修在 prototype、to-spec、to-tickets、implement、wayfinder、ui-acceptance、write-screen-contract 与 design-pages 里。
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（第 1–10 行在提交 `0f79b971`） |

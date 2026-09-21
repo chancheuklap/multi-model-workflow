@@ -1,49 +1,37 @@
-# design system — optional: the product's look as parts Claude Design builds pages from
+# design system — a product's look, built in Claude Design by its own agent
 
-A Claude Design design system is a separate project holding a product's colours, type, spacing, icons and components, each shown as a card in Claude Design's Design System tab. A page project bound to it gets a copy under `_ds/<folder>/`, and the user and the agent inside Claude Design draw pages from those parts instead of redrawing the look each time.
+A Claude Design design system is a separate project holding a product's visual vocabulary: variables (colour, type scale, weights, spacing, radius, shadow, borders), the fonts and icons, and the reusable parts (a button, a lamp, a pill, a list row, a card shell), each part one class name with its variants and one card in the Design System tab that shows every state. A page project bound to it gets a copy under `_ds/<folder>/`, and the pages are drawn from those variables and parts.
 
-## What it is for, and what it is not
+It holds no page regions (a whole title bar, a sidebar, a settings dialog: those are `Component · ` pages in the design project), no example data and no product logic. A part is a class name and its stylesheet, not a React component, unless the product itself is a React component library.
 
-- **For Claude Design**: new pages come out in the product's real look, and the agent inside Claude Design has the components to mount rather than guessing at colours and spacing.
-- **Not for acceptance**: nothing in the repository reads the design system. [pull](pull.md), the screen contract and the story judge work from the pulled pages and the running product, however the pages were built. The one link: a component a page mounts must set on its elements the `data-ui` ids the page gives it, because the ids on the rendered page are what acceptance reads.
+## What it is for
 
-## When
+- **For Claude Design**: every page drawn in the product's project uses one look, and the agent inside Claude Design has named parts to compose instead of guessing values.
+- **For the product**: when it is built from an existing product, inconsistent values in the code (three sizes for one kind of heading, two close buttons) are unified into one scale, and each unification is recorded; the product follows through element parity once pages drawn with it are pulled.
+- **Not for acceptance**: nothing in the repository reads the design system. Pull, the screen contract and the story judge work from the pulled pages.
 
-- **Build one** when the look already exists in code (a live product, or a prototype's winning variant) and more than a page or two will be drawn against it.
-- **Skip it** for a one-page change, while the look is still being explored (draw first; build it from the winner afterwards), or when the project is already bound to a design system that matches the code.
+## When, and from what
 
-It is not a gate: pages can be drawn and pulled with no design system. When one is built, build it before the page project is first opened in the browser, because that first opening is when Claude Design copies it in.
+A design system is built from a look that already exists. There are three sources, and a new product has none of them at its start:
 
-## Two ways to build it
+| The product is | Build it from | When |
+| --- | --- | --- |
+| an existing product | its production code | before its first page is drawn in Claude Design; once |
+| new, with a prototype | the winning variant's code | after the user picks the winner, before the page project is opened |
+| new, its look explored in Claude Design | the pages the user signed off | after sign-off, before more pages are drawn |
 
-1. **In Claude Design, by the user**: create a design system there and give its agent the code (a GitHub connection or uploaded files). Claude Design builds and compiles it itself, and MMW has no step in it. Not yet run end to end on one of this toolbox's products.
-2. **From here, when the user asks this session**: the steps below. The directory in the repository is then the design system's source, and the copy in Claude Design is what pages use.
+Skip it for a one-page change, or when the page project is already bound to a design system that matches the code.
 
-## Building it from here
+## Who builds it
 
-`<scripts>` is resolved by `SKILL.md`'s section **Resolve `<scripts>` once**. The code it is built from: a prototype's winning variant, or the style variables and shared components of the running product. Extracted values are reviewed before they become the standard; current defects are not copied in as rules.
+The agent inside Claude Design builds it; this session prepares what it reads and checks what it made. That agent cannot see this repository or this conversation. What it reads is the files in its own project, and it reads the project-root `CLAUDE.md` on every conversation.
 
-Claude Design's shape for a design system (its own design-system instructions and the built-in Classical system, checked 2026-09-21), which `check_design_system.py` checks:
-
-- `styles.css` at the root, made of `@import` lines only, reaching the token files (custom properties on `:root`), the `@font-face` rules with their font files, and the component stylesheets.
-- `readme.md` with the headings `Sources`, `CONTENT FUNDAMENTALS`, `VISUAL FOUNDATIONS`, `ICONOGRAPHY`, `Index` and `Intentional additions`.
-- Twelve or more foundation cards: HTML files whose first line is `<!-- @dsCard group="…" viewport="700x<height>" name="…" subtitle="…" -->`, split by sub-concept.
-- Components: `<Name>.jsx` exporting `function <Name>` (React), `<Name>.d.ts` with the props, `<Name>.prompt.md` with what, when and an example; one `@dsCard` card in group `Components` per component directory.
-- One directory per product surface under `ui_kits/`, with an `index.html` tagged `@dsCard`. A screen tagged `<!-- @startingPoint section="…" subtitle="…" viewport="WxH" -->` seeds new pages; it is optional.
-- `SKILL.md` with `name` and `description` frontmatter. Assets copied from the source, never drawn.
-
-Built from code for this toolbox, the components also follow the source closely: the same elements, class names and nesting the source renders, styled by the source's own CSS, values and font files copied exactly; and each takes a `data-ui` prop, sets it on its root, and sets `<data-ui>.<part>` on the parts a page's acceptance reads (the `.d.ts` declares it; the check requires that).
-
-1. **Write the directory** `prototypes/<task>/design-system/` (`<task>` as the `prototype` skill's rule 1 defines it). List every shared piece of markup the code renders, with its source file, before writing any of it; the inventory is the source's, none added and none left out.
-2. **Check it**: `<scripts>/check_design_system.py prototypes/<task>/design-system`. Done when it prints `design system complete`.
-3. **Create the design system in Claude Design**: the design-sync tool's `create_project` (it returns `projectId`); read the namespace from the `window.` name in the first lines of its placeholder `_ds_bundle.js` (`read_file`).
-4. **Bundle**: `<scripts>/build_ds_bundle.py prototypes/<task>/design-system --namespace <Namespace>`, so pages can mount the components before Claude Design compiles its own bundle in step 6.
-5. **Upload** with the design-sync tool: `finalize_plan` (writes: the directory's paths; deletes: `_ds_manifest.json` when the new project has one; `localDir`: the directory), `write_files` by `localPath`, then `delete_files` for the manifest. File bytes never pass through the model.
-6. **Compile**: ask the user to open the design system once in the browser. With no `_ds_manifest.json` present, Claude Design compiles on that opening: it fills the Design System tab and writes its own `_ds_bundle.js` and `_ds_manifest.json` (observed 2026-09-21; writing files from outside, reading the design prompt or creating a bound project did not trigger it).
-7. **See it**: `render_preview` of one component card; it renders with no console error. The `projectId` is what [edit pages](edit-pages.md) binds a page project to; `list_design_systems` lists only published systems, so it will not appear there.
+1. **The project**: the user creates the design system in Claude Design and gives its link; its id is the UUID in that link. `list_design_systems` does not list it.
+2. **Its `CLAUDE.md`**: `finalize_plan` naming `CLAUDE.md` in `writes` (the user approves), then `write_files` with `if_match: "0"`. The content is the fenced block of [template-design-system-claude-md.md](template-design-system-claude-md.md) with its three fields filled: the product, the source (a public repository URL with branch and directory, or "the files uploaded to this project"), and the example data.
+3. **The source code**: when the repository is public, the URL in `CLAUDE.md` is enough. Otherwise the user uploads the product's front-end directory into the project, or connects the repository in Claude Design.
+4. **Hand over**: tell the user to open the design system in Claude Design and send its agent: `读 CLAUDE.md，按它建 design system。拿不准的统一取舍问我。` The user answers its questions about unifications in that conversation.
+5. **Check it** when the user says it is done: `list_files` and `read_file` its `readme.md`; `render_preview` each card and look at it. It is done when every card renders with no console error, no card is a page region, and `readme.md` ends with the `Unifications` table. Report what fails to the user as a sentence they can send to that agent.
 
 ## After the design system changes
 
-From here: change the code, then the directory, and run steps 2 to 6 again (step 5 deletes the manifest Claude Design wrote, so step 6 compiles again).
-
-A page project's `_ds/<folder>/` copy does not follow the design system, and the copy Claude Design first makes holds only `styles.css`, `readme.md`, fonts and a placeholder `_ds_bundle.js`. Refresh it with `copy_files` (`src_project_id` set to the design system) over that folder: `_ds_bundle.js`, `styles.css`, `readme.md`, and the `tokens/`, `components/`, `fonts/` and `assets/` directories. Claude Design's compiled bundle keeps the namespace, so pages that mount `<Namespace>.<Name>` keep working (checked 2026-09-21 on a live project). Pull again after the copy changes.
+Changes are made in Claude Design, by the user or by its agent. A bound page project's `_ds/<folder>/` copy does not follow by itself: the user refreshes it from that page project's design-systems panel. Pull again after the copy changes.

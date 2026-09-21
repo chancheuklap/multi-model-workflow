@@ -188,17 +188,19 @@ class TestScreenAxis(unittest.TestCase):
         self.assertTrue(any("no .mmw/target.json" in w and "target_config.py --check" in w
                             for w in warnings), warnings)
 
-    def test_an_incomplete_target_json_is_an_error(self):
+    def test_an_incomplete_target_json_is_a_warning(self):
         (self.repo.root / ".mmw" / "target.json").write_text('{"start": "s"}')
-        errors, _ = self.lint(contract())
-        self.assertTrue(any("start" in e or "missing" in e or "target.json" in e
-                            for e in errors), errors)
+        errors, warnings = self.lint(contract())
+        self.assertFalse(any("target.json" in e for e in errors), errors)
+        self.assertTrue(any("fails `target_config.py --validate`" in w
+                            and "target_config.py --check" in w for w in warnings), warnings)
 
-    def test_target_validate_exit_2_is_an_error(self):
+    def test_target_validate_exit_2_is_a_warning(self):
         (self.repo.root / ".mmw" / "target.json").write_text("{bad")
-        errors, _ = self.lint(contract())
-        self.assertTrue(any("cannot be read as JSON" in e or "exited 2" in e for e in errors),
-                        errors)
+        errors, warnings = self.lint(contract())
+        self.assertFalse(any("target.json" in e for e in errors), errors)
+        self.assertTrue(any("cannot be read as JSON" in w or "exited 2" in w
+                            for w in warnings), warnings)
 
     def test_a_viewport_on_a_breakpoint(self):
         doc = contract()

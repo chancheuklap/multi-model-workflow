@@ -226,3 +226,9 @@ waits on this one, can still be changed, and `--touched` still tells its owner.
 
 If upstream rewrites the writing rules → take its wording; keep the exception and the
 `contract` child it sends the worker to.
+
+## A DIFF value is checked before it is copied
+
+`references/writing-interface-code.md` **Fix in place** says that a `DIFF` line's id and property are the complete repair, and **When the design side is the defect**, placed after it, says that a clearly wrong design value is a `contract` child. Read in order, a worker had already copied the wrong value before it reached the second section. **Fix in place** now checks the design value first, against the same-role elements beside it and the design system's scale; a value that is clearly wrong goes to the `contract` child and is not copied. **When the design side is the defect** states the outcome: the criterion it blocks stays red, closing step 1 records it with an `ABANDON:` line of kind `stuck` pointing at that child (the kind for "cannot be done within the task", whose reason points at the sub-issue), and the ticket ends as `HANDOFF REQUIRED` for daytime, while the rest of the ticket continues. Reason: a walk of the real workflow in which a design page carried a wrong value; the text did not say which rule came first or how the ticket ends.
+
+If upstream rewrites closing step 1 or the `ABANDON` kinds → take its wording and keep the order (check, then copy or open the child) and the red criterion ending the ticket as `HANDOFF REQUIRED`.

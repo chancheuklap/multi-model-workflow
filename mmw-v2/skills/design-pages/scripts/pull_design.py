@@ -587,6 +587,65 @@ def page_root(path: Path) -> tuple[str, str] | None:
     return parser.root
 
 
+class _WiringParser(HTMLParser):
+    """An `App · ` page's wiring: the text of its `data-dc-script` logic block and the
+    attributes of each `<dc-import>`, in document order, whitespace collapsed."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.in_logic = False
+        self.logic: list[str] = []
+        self.imports: list[tuple[tuple[str, str], ...]] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag == "dc-import":
+            self.imports.append(tuple(
+                (name, " ".join(str(value or "").split())) for name, value in attrs))
+        elif tag == "script":
+            found = dict(attrs)
+            self.in_logic = found.get("type") == "text/x-dc" and "data-dc-script" in found
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script":
+            self.in_logic = False
+
+    def handle_data(self, data: str) -> None:
+        if self.in_logic:
+            self.logic.append(data)
+
+
+def app_page_wiring(path: Path) -> tuple[str, tuple] | None:
+    """`(logic text, dc-import attributes)` of one page; `None` when it cannot be read."""
+    parser = _WiringParser()
+    try:
+        parser.feed(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError):
+        return None
+    return " ".join("".join(parser.logic).split()), tuple(parser.imports)
+
+
+def wiring_changes(previous: Path, current: Path) -> list[tuple[str, str]]:
+    """Each `App · ` page present in both packages whose logic block or `dc-import`
+    attributes differ, with what differs. A page either side cannot read
+    counts as changed, as an unreadable previous package does."""
+    old = {p.relative_to(previous).as_posix(): p for p in previous.rglob("App · *.dc.html")}
+    new = {p.relative_to(current).as_posix(): p for p in current.rglob("App · *.dc.html")}
+    changes = []
+    for name in sorted(set(old) & set(new)):
+        before, after = app_page_wiring(old[name]), app_page_wiring(new[name])
+        if before is None or after is None:
+            changes.append((name, "页面无法读取，接线未核对"))
+            continue
+        parts = []
+        if before[0] != after[0]:
+            parts.append("`data-dc-script` 逻辑块")
+        if before[1] != after[1]:
+            parts.append("`dc-import` 属性")
+        if parts:
+            changes.append((name, "、".join(parts) + "与上次不同"))
+    return changes
+
+
 def design_pages(root: Path) -> list[PageInfo]:
     pages = []
     for page in sorted(root.rglob("*.dc.html")):
@@ -1303,6 +1362,7 @@ def classification_lines(
         removed = sorted(old_scenes.get(page, set()) - current_scenes.get(page, set()))
         if added or removed:
             scene_changes.append((page, added, removed))
+    wiring = wiring_changes(previous.root, package.root)
     copy_changes = []
     unmatched = []
     if contract.provided and not contract.issue and previous.audit is not None:
@@ -1310,7 +1370,7 @@ def classification_lines(
     comparison_incomplete = previous.audit is None or previous.pages is None
     controls_or_flow = bool(
         comparison_incomplete or added_ids or removed_ids or scene_changes
-        or page_structure_changed or copy_changes
+        or page_structure_changed or copy_changes or wiring
     )
     category = "增删控件或改流转" if controls_or_flow else "只改外观或文案"
     lines = [
@@ -1327,6 +1387,8 @@ def classification_lines(
         lines.append(
             f"- `scene` 取值变化：`{page}`；新增 {', '.join(added) or '无'}；删除 {', '.join(removed) or '无'}。"
         )
+    for page, what in wiring:
+        lines.append(f"- `App · ` 页接线变化：`{page}` — {what}。")
     for row_id, old, new in copy_changes:
         lines.append(f"- 合同行引用的文字变化：`{row_id}`：`{old}` → `{new}`")
     for row_id in unmatched:

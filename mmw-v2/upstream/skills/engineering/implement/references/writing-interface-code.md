@@ -34,7 +34,7 @@ When the design system was built from code that already runs, the design page al
 
 ## Fix in place
 
-Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one property, with its design and product values; that id and property are the complete repair. Fix them, run again. The loop stays on this machine.
+Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one property, with its design and product values. Before changing the product to the design value, check that the design value itself is plausible: against the same-role elements beside it and the design system's scale. A value that is clearly wrong is not copied; it goes to **When the design side is the defect** below. Otherwise that id and property are the complete repair. Fix them, run again. The loop stays on this machine.
 
 The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are closing step 1's.
 
@@ -44,7 +44,7 @@ What the lines mean is the ui-acceptance skill's `references/story-parity.md` un
 
 ## When the design side is the defect
 
-A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. Keep working the rest of this ticket.
+A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: closing step 1 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED` for daytime. Keep working the rest of this ticket.
 
 ```
 <engine> <n> --sub-issue contract <file>

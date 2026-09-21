@@ -118,8 +118,9 @@ Two things a gap list does not carry: an implementation that today does less tha
    ```
 
    The lint asks the ui-acceptance skill's `target_config.py` for the state of the
-   repository's `.mmw/target.json` (a warning while the contract ticket has not landed
-   it; an error once the file is there and a field is still missing). It finds that
+   repository's `.mmw/target.json`: a warning, never an error, both while the contract
+   ticket has not landed it and while a file written for an earlier MMW version fails
+   `--validate`, because that ticket brings `.mmw/` to the current shape. It finds that
    skill's `scripts/` beside this one under `skills/`; `--tools` overrides that for a
    copy somewhere else. When a `story-parity.py --out` directory sits under the
    contract directory, the lint warns if a page has a scene that inventory does not
