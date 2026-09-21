@@ -27,7 +27,7 @@ A seam says where a test **observes**. Ask the other half in the same breath: fo
 
 The seam is yours to decide, not the user's: they are not asked to confirm it. What they see of it is the plain-words opening sentence of Testing Decisions, which says where a test looks at the result.
 
-4. Write the spec using the template below, then publish it to the project issue tracker with one label, the layer label `mmw:spec` — create it first when the repository lacks it, with `gh label create mmw:spec --color 1d76db --description "MMW layer: a spec, the container of one batch of tickets"`. Give it no triage label: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. A layer label puts it in no queue; it tells the board which layer this issue is without counting how deep it is nested. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
+4. Write the spec using the template below, then publish it to the project issue tracker with one label, the layer label `mmw:spec` — create it first when the repository lacks it, with `gh label create mmw:spec --color 1d76db --description "MMW layer: a spec, the container of one batch of tickets"`. Give it no triage label: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
 
 When the reference is a wayfinder map and the tracker is GitHub, publish each spec from that map as a native sub-issue of the map. Create the spec with `gh issue create --parent <map>`, then read the created issue back and require its native `parent.number` to equal the map number before reporting the publish as complete. A missing or different native parent is a failed publish and is corrected before the spec is handed on. `## Sources`, `## Further Notes`, the spec title, and semantic similarity do not replace the native parent.
 
@@ -35,7 +35,7 @@ When the reference is not a wayfinder map, do not invent a map parent. A spec fr
 
 Other trackers keep using their native sub-issue relationship; do not add a custom Parent field or a second task-root metadata store.
 
-5. Revising a published spec. When a section of a spec already on the tracker has to change — a mechanism added under **How a test arrives at a state**, a decision under `## Implementation Decisions` altered, a judgement written into one of its subsections — edit that spec, never publish a new one: a new issue gets a new number, and every ticket's **Parent** points at the old one. Read the issue body in full, rewrite the section so it reads as if written that way from the start, and write the body back (`gh issue edit <n> --body-file <file>`). The body carries no trace of the change: no strikethrough, no "updated", no dated note, no history. What changed and why goes in one comment on the spec, so the body stays the clean current version and the reasons stay findable. Tickets already cut from the section are checked against the new text and corrected where they no longer match. A published spec, a ticket body and its acceptance criteria are edited only by the main agent or the user.
+5. Revising a published spec. When a section of a spec already on the tracker has to change — a mechanism added under **How a test arrives at a state**, a decision under `## Implementation Decisions` altered, a judgement written into one of its subsections — edit that spec, never publish a new one: a new issue gets a new number, and every ticket's **Parent** points at the old one. Read the issue body in full, rewrite the section so it reads as if written that way from the start, and write the body back (`gh issue edit <n> --body-file <file>`). What changed and why goes in one comment on the spec. Tickets already cut from the section are checked against the new text and corrected where they no longer match. A published spec, a ticket body and its acceptance criteria are edited only by the main agent or the user.
 
 <spec-template>
 
@@ -124,4 +124,4 @@ Any further notes about the feature. When step 1 divided the work into several s
 
 ## Next
 
-The `to-tickets` skill. On a wayfinder map, **Work through the map** step 6 already names both this skill and that one; a run with no map is handed on from here.
+The `to-tickets` skill.

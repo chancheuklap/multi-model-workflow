@@ -8,7 +8,7 @@ Write in the language the repository's existing instruction files use; in the cr
 
 ## Steps
 
-1. **List the nested directories**: the directories that earned a pair in [ask.md](ask.md). One entry was enough.
+1. **List the nested directories**: the directories that earned a pair in [ask.md](ask.md).
 2. **Write the root `AGENTS.md`** on the root template below, from the entries whose place is `root`.
 3. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` line listed under `## Imports found in old CLAUDE.md files` in `inputs.md` that came from the root `CLAUDE.md`. Nothing else.
 4. **Write each nested pair** on the nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`, replacing whatever was there.
@@ -93,11 +93,9 @@ Every section after the purpose line appears only when it has rows. An entry who
 
 ### 1. Foundational context stays bare, domain guidance gets wrapped
 
-Not everything should be in an `<important if>` block. Context that is relevant to virtually every task — identity, package manager, commands, external references, key conventions, gotchas — should be left as plain markdown at the top of the file. This is onboarding context the agent always needs.
+Not everything should be in an `<important if>` block. Context that is relevant to virtually every task — identity, package manager, commands, external references, key conventions, gotchas — should be left as plain markdown at the top of the file.
 
 Domain-specific guidance that only matters for certain tasks — testing patterns, API conventions, state management, i18n — gets wrapped in `<important if>` blocks with targeted conditions. Such a block is a **domain section**; in the survey list it is every entry that carries a `when` line, and entries with the same `when` value share one block.
-
-The rule: inline what every task needs, and wrap what only some tasks reach.
 
 ### 2. Conditions must be specific and targeted
 

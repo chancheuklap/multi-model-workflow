@@ -17,9 +17,9 @@ The ticket is the only state. Every run reads it fresh, writes its events, and c
 python3 <absolute path to that script>
 ```
 
-Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
+Resolve it from this file's own location; the path differs by machine and by host.
 
-A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`, `harness-guard.py …`), and `<engine>` puts the directory that holds them on the `PATH` of the shell that runs it; nothing in a ticket says where this machine keeps its skills. That directory is the `scripts/` of the `ui-acceptance` skill, which `<engine>` resolves from its own location, so no run has to name it. `--tools <directory>` overrides it and is repeatable. A run whose ticket names a judge that neither the directories in force nor `PATH` holds is refused before anything starts: exit 2, the script named on stderr, nothing run and no comment posted. A criterion failing `command not found` reads exactly like one that ran and did not pass.
+A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`, `harness-guard.py …`), and `<engine>` puts the `scripts/` of the `ui-acceptance` skill, resolved from its own location, on the `PATH` of the shell that runs it. `--tools <directory>` overrides it and is repeatable. A run whose ticket names a judge that neither the directories in force nor `PATH` holds is refused before anything starts: exit 2, the script named on stderr, nothing run and no comment posted.
 
 ## Find your run
 
@@ -32,7 +32,7 @@ A criterion names a judge by its bare name (`story-parity.py …`, `boundary-che
 | The **reviewer**, with the report written to a file | [references/review-report.md](references/review-report.md) |
 | About to publish a batch (its drafts), having published one, or opening a night on a spec | [references/linting.md](references/linting.md) |
 
-No run of this skill tells anybody anything. What a run posts on the ticket is the news: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue fault` or `decision`, and the worker for a `--review`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
+What a run posts on the ticket is the whole of telling: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue` of kind `contract`, `fault` or `decision`, and the worker for a `--review`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
 
 ## Reached from here
 

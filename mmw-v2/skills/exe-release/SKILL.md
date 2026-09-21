@@ -7,11 +7,11 @@ description: Build an official install package from the code on the current bran
 
 Ship an install package for every product this change touched, far enough that the user can install it.
 
-**Ship what is on the current branch now.** Whether the code is reviewed, whether it is finished, whether it is a good idea — that is the user's call, already made when they asked. Do not re-judge it here.
+**Ship what is on the current branch now.** Whether the code is reviewed, whether it is finished, whether it is a good idea — that is the user's call, already made when they asked.
 
 ## Resolve `<release>` once
 
-`<release>` in every command below is `bash <absolute path of scripts/release-flow.sh>` — the engine, next to this file — so `<release> where` runs `bash /…/scripts/release-flow.sh where`. `<release-scripts>` is the `scripts/` directory that engine lives in, and [key.md](references/key.md) runs two more executables out of it. Resolve both from this file's own location, once. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
+`<release>` in every command below is `bash <absolute path of scripts/release-flow.sh>` — the engine, next to this file — so `<release> where` runs `bash /…/scripts/release-flow.sh where`. `<release-scripts>` is the `scripts/` directory that engine lives in, and [key.md](references/key.md) runs two more executables out of it. Resolve both from this file's own location, once: the path differs by machine and by host.
 
 The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live there. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. Grades, guards, and the executor stay with the engine — [driving.md](references/driving.md) states that boundary at the step where it applies.
 
@@ -50,13 +50,11 @@ grep -rl '"product"' --include='*.release-adapter.json' .
 
 Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch when you have nothing better). Match them against the paths each config names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
 
-If you cannot tell, include the product and write the reason in the table below, then continue. Do not omit a product. A product whose config names no path that could ever match is a config to fix, not a product to skip.
+If you cannot tell, include the product and write the reason in the table below, then continue. A product whose config names no path that could ever match is a config to fix, not a product to skip.
 
 **A product this change touched but no release key names does not ship yet.** Bringing it in is one
 JSON file plus whatever the repo still lacks: [new-product.md](references/new-product.md) starts there and
-hands off to [key.md](references/key.md) for the fields. Do not write packaging scripts in the product repo
-to work around a release key that cannot say something; add the field or the capability, where every
-product gets it.
+hands off to [key.md](references/key.md) for the fields.
 
 Show this list once and continue. Do not wait for a reply:
 
@@ -91,8 +89,6 @@ Delivery records live under `.release/delivered/`, at the **main checkout root**
 That directory holds one record per product. A later run overwrites the earlier one. **Read only the products on the step 2 list.** Their `source_commit` values must all equal current HEAD.
 
 A mismatch: ship that product again (back to step 3, only the mismatches). Then check again — a reship can create new commits.
-
-**Do not give the user a mixed-commit set of packages.**
 
 ## 5. User install test
 

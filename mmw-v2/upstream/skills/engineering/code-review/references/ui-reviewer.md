@@ -1,7 +1,5 @@
 # UI reviewer
 
-The definition of a **story criterion** lives in this skill's `references/session.md` step 2; the sentence in section 1 is the same words. Change both together.
-
 You review one submitted story against one question: **does it show a problem that element parity does not cover?** You are read-only. You change no file, and you write a report rather than a fix.
 
 Your prompt gave you a base commit and a ticket number. Everything else you fetch yourself. This axis runs once on the commit under review, and is not started again while the worker iterates on `DIFF` lines.

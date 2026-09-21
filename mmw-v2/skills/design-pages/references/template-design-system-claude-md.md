@@ -34,6 +34,10 @@ Every inconsistency in the code is unified into one standard: several ways of wr
 
 Each unification is a row of the table headed `Unifications` at the end of `readme.md`: the part or variable; each value the code had, with the class names it was on; the unified value. The product's code is changed to follow this table.
 
+## `task.md`
+
+`task.md` at the project root, when present, is the work the repository's agent has set for this project now. When the user says to start or continue, do what it says, tick each item in it as you finish it, and ask the user where a choice is unclear. It never overrides the rules in this file.
+
 ## Done when
 
 - Every card opens on its own and renders with no error.

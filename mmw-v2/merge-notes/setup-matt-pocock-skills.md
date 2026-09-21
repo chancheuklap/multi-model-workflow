@@ -28,7 +28,7 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| Conventions 开头新增的 **Every list read is a whole list** | 本仓加的，种子里没有。`gh issue list` 不带 `-L` 停在 30 条，`gh api` 的列表端点不带 `--paginate` 只回第一页，两者都不在输出里留任何标记，所以读了一半的集合看起来和完整的一模一样。agent 照这份文件写命令，看不见的票它当作不存在。上游若自己加了同义的一条 → 收上游措辞；上游改这一段 → 保留本仓这条，它是行为要求不是文风 |
+| Conventions 开头新增的 **Every list read is a whole list** | 本仓加的，种子里没有。`gh issue list` 不带 `-L` 停在 30 条，`gh api` 的列表端点不带 `--paginate` 只回第一页，两者都不在输出里留任何标记，所以读了一半的集合看起来和完整的一模一样。agent 照这份文件写命令，看不见的票它当作不存在。正文只留这两个事实与命令要求，不加修辞句。上游若自己加了同义的一条 → 收上游措辞；上游改这一段 → 保留本仓这条，它是行为要求不是文风 |
 | **List issues**、**Frontier query**、两条 Morning queries 的命令 | 一律补 `--limit 500`。上游改这几条命令 → 收上游的其余部分，`--limit` 必须留着 |
 | **Child ticket** 里读子票的命令 | 从 `gh api` on the sub-issues endpoint 写成完整的 `gh api --paginate repos/<owner>/<repo>/issues/<map>/sub_issues?per_page=100`。理由同上：2026-09-06 在 agentflow 上，spec #537 有 37 个子票，不分页只看得到 30 个，7 张票在读的人眼里不存在 |
 | `## Pull requests as a triage surface` 的 `**PRs as a request surface: no.**` 一句括号里，与 `## Wayfinding operations` 的 `Used by …` 一句 | host 中立：两处技能点名写成散文形式。共同理由见 [README.md](README.md#host-中立) |

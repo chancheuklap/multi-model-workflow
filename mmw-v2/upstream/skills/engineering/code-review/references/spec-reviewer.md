@@ -30,7 +30,7 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ### Read tickets already integrated into the base branch
 
-Read the newest `worker.started.base` from this ticket's events: a replacement worker records the same base as the one before it, and a ticket started again after it landed records where its new run leaves the base branch, so its own earlier landing is not among the tickets you read. Between that commit and the base commit from your prompt, follow the base branch's first-parent history and select commits whose subject is exactly `Merge branch 'issue-<n>'`. For each ticket those commits name, read the whole ticket and the closeout comment that carries `ticket.passed` or `ticket.returned`; do not trust its verdict as proof that the combined result is correct.
+Read the newest `worker.started.base` from this ticket's events. Between that commit and the base commit from your prompt, follow the base branch's first-parent history and select commits whose subject is exactly `Merge branch 'issue-<n>'`. For each ticket those commits name, read the whole ticket and the closeout comment that carries `ticket.passed` or `ticket.returned`; do not trust its verdict as proof that the combined result is correct.
 
 Review the current ticket together with those tickets from four angles:
 
@@ -58,7 +58,7 @@ Group by the three kinds, then `Decisions`. One entry per review finding, each c
 
 ## What is not yours
 
-**The handoff package is the one baseline you do not open.** A ticket with UI acceptance criteria names a handoff package under `## Read first`. Appearance is decided by element parity — the `story-parity.py` command a criterion runs — not by reading the package. Do not open it, and do not report on how closely the UI follows it.
+**The handoff package is the one baseline you do not open.** A ticket with UI acceptance criteria names a handoff package under `## Read first`. Appearance is decided by element parity — the `story-parity.py` command a criterion runs — not by reading the package, and how closely the UI follows it is not yours to report.
 
 **The screen contract you do open.** The same `## Read first` names `screen-contract.yaml` and the row ids the ticket owns. Each row is a requirement in the shape this axis reads: `calls`, `shows`, `next`, `on_failure`. A control in the diff that calls nothing where its row names a call, shows a literal where its row names a field, or lands somewhere other than its `next`, is **Missing** or **Built wrong**, quoted from the row. A `Missing` against a row's `calls` is the finding that blocks closeout, so word it with the row id first.
 

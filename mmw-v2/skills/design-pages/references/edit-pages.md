@@ -10,6 +10,8 @@ The design itself is made by the user in Claude Design, with the agent inside it
 - `mcp__claude-design__finalize_plan`
 - `mcp__claude-design__create_support_js`
 - `mcp__claude-design__write_files`
+- `mcp__claude-design__copy_files`
+- `mcp__claude-design__delete_files`
 - `mcp__claude-design__read_file`
 - `mcp__claude-design__list_files`
 - `mcp__claude-design__render_preview`
@@ -39,19 +41,15 @@ Skip this when the user already has a project; take its id from the link they gi
 An existing product's screens are brought into Claude Design once, redrawn with its design system, and from then on they are designed there.
 
 1. **Design system**: built from the production code as [design-system.md](design-system.md) says, unifying what the code does inconsistently.
-2. **Project**: **Create the project** above, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows) and `ui-ids.md`. The agent inside Claude Design derives each region's data file from the product's real data for those states, which it reads from the repository through Claude Design's GitHub connection; the redraw message names that directory.
-3. **Redraw**: the user asks the agent inside Claude Design to draw one `Component · ` page per region from the design system, and an `App · ` page when regions' states are checked together (the sentence to send is under **Talking to the agent inside Claude Design**).
+2. **Project**: **Create the project** above, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows) and `ui-ids.md`. The agent inside Claude Design derives each region's data file from the product's real data for those states, which it reads from the repository through Claude Design's GitHub connection; `task.md` names that directory.
+3. **Redraw**: `task.md` asks the agent inside Claude Design to draw one `Component · ` page per region from the design system, and an `App · ` page when regions' states are checked together, first one region for the user to look at; see **Talking to the agent inside Claude Design**.
 4. **Sign-off and pull**: as for any design. On the first pull the pages differ from the product wherever the design system unified a value; element parity names each of those elements, and the tickets cut from the contract bring the product to the design.
 
 ## Talking to the agent inside Claude Design
 
-That agent sees only its project. Rules that hold for every conversation are files in the project (`CLAUDE.md`, `state-list.md`, `ui-ids.md`); what to do now is one message the user sends in the project's chat. Give the user that message, ready to send, naming the files it relies on. The ones this skill uses:
+That agent sees only its project, and reads its `CLAUDE.md` on every conversation. Rules that always hold are files there (`CLAUDE.md`, `state-list.md`, `ui-ids.md`); the work to do now is `task.md` at the project root, written by this session: one checkbox item per piece of work, each naming the pages, files or repository paths it needs and what done looks like. The project's `CLAUDE.md` tells that agent to do `task.md` when the user says to start or continue, and to tick items as it finishes them. So the user never composes instructions: write or replace `task.md` (`finalize_plan` naming it, then `write_files` with its etag, or `if_match: "0"` when new), and tell the user to say `开始` in that project.
 
-- Building a design system: `读 CLAUDE.md，按它建 design system。拿不准的统一取舍问我。`
-- Redrawing an existing product: `读 CLAUDE.md、state-list.md 和 ui-ids.md。用绑定的 design system，把 state-list.md 里每个区域画成一个 Component 页，每个状态一个 scene，示例数据从仓库 <数据目录> 取，放在 data/ 下；再画一个 App 页把它们拼起来。先画一个区域给我看。`
-- A change during implementation: the change itself in one sentence, naming the page and the element (`在 Component · 订单列表 的标题行右边加一个"只看待付款"按钮`).
-
-The user reviews in the browser, answers the agent's questions there, and says here when the pages are ready or signed off.
+A change the user thinks of while looking at a page, they say to that agent directly, or edit in the editor. When the user says the work is done, read `task.md` back: an unticked item is what to ask about.
 
 ## Comments
 

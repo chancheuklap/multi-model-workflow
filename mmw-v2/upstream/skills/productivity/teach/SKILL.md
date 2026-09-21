@@ -53,7 +53,7 @@ The lesson should be short, and completable very quickly. Learners' working memo
 
 The reader knows nothing about this topic. Pictures show what things are and how they connect. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn.
 
-Hand the finished lesson over by serving the workspace root over a local HTTP server and giving the user the lesson's URL. A page opened straight from disk sits under `file://`, where some browsers refuse to reach anything outside the page's own directory — cross-document links go dead and the reader cannot tell why.
+Hand the finished lesson over by serving the workspace root over a local HTTP server and giving the user the lesson's URL.
 
 Each lesson should link via HTML anchors to other lessons and reference documents.
 
@@ -70,8 +70,6 @@ Reuse is the default, not the exception. Before authoring a lesson, read `./asse
 A shared stylesheet is the first component every workspace earns, so the lessons look like one consistent course rather than a pile of one-offs. As the workspace grows, so should the component library.
 
 ### Self-contained pages
-
-A lesson opened away from its folder — an editor preview, a rendering pane, a copy someone was sent — loses every file it points at, and arrives as unstyled text.
 
 Embed each component the page uses as a `<style>` or `<script>` block between `<!--CSS-->` and `<!--JS-->` markers. `./assets/` stays the editable source: write `./assets/build.py` alongside the first component so it refills those markers across `./lessons/` and `./reference/`, and re-run it after editing a component.
 

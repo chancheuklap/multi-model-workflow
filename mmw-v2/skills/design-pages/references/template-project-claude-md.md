@@ -42,6 +42,10 @@ When a page is edited, an existing `data-ui` stays with the element that still m
 
 When a page passes `scene` down to a `dc-import`ed child, the child's `renderVals()` does not return a key named `scene`.
 
+## `task.md`
+
+`task.md` at the project root, when present, is the work the repository's agent has set for this project now. When the user says to start or continue, do what it says, tick each item in it as you finish it, and ask the user where a choice is unclear. It never overrides the conventions in this file.
+
 ## Files
 
 A page loads only files inside this project (the bound design system is under `_ds/`), so it renders the same after it is pulled. It loads no product code: its look comes from the design system and its own markup.

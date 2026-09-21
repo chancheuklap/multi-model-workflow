@@ -15,11 +15,11 @@ Each run lands one `ticket.checked` event on the ticket. Its first line names th
 
 The worker's run takes the criteria not yet met. `--reverify` reads the ticket and runs every criterion again, including the ones the newest run ticked, so the worker's ticks are re-run rather than trusted. The main agent re-runs a landed ticket on the base branch the same way with `--reverify --actor main` (the `dispatch` skill's `reverify` does it), and that run's event names the main agent as its writer.
 
-`verify-ticket.py` reads the ticket and writes its events. The ticket body, the `CHECK` commands and what a criterion means are yours. A wrong `CHECK` is a `--sub-issue contract`: name the acceptance criterion, quote what is wrong, and state what it should be. Continue every part that does not depend on that criterion; after the main agent corrects the contract and wakes you with `resume`, run it again. Once a batch is published, only its main agent or the user edits a spec, ticket body or acceptance criterion.
+`verify-ticket.py` reads the ticket and writes its events; it runs the ticket body and the `CHECK` commands as written. A wrong `CHECK` is a `--sub-issue contract`: name the acceptance criterion, quote what is wrong, and state what it should be. Continue every part that does not depend on that criterion; after the main agent corrects the contract and wakes you with `resume`, run it again. Once a batch is published, only its main agent or the user edits a spec, ticket body or acceptance criterion.
 
 ## A criterion that runs the product
 
-Before running a `CHECK:` that names `journey.py` or `lease.py`, this run asks the `ui-acceptance` skill's `lease.py` for the worktree's product slot. A `CHECK:` naming `story-parity.py` asks for none: the story page service it starts has no backend behind it and takes a port the machine hands out. A `CHECK:` naming `target_config.py` asks for none: checking `.mmw/target.json` does not start the product. The slot is in that run's `ticket.checked` event. Its lifecycle and limits are in that skill's `references/product-answers.md` under **`instance`**.
+Before running a `CHECK:` that names `journey.py` or `lease.py`, this run asks the `ui-acceptance` skill's `lease.py` for the worktree's product slot. A `CHECK:` naming `story-parity.py` or `target_config.py` asks for none. The slot is in that run's `ticket.checked` event. Its lifecycle and limits are in that skill's `references/product-answers.md` under **`instance`**.
 
 When no product slot is free, the run posts one `worker.queued` event and runs nothing; the ticket gets no second `worker.queued` for the same wait. What happens next depends on whose run it is.
 

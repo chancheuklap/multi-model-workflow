@@ -13,4 +13,4 @@ Two doors, and this run is at one of them.
 | An axis reviewer: your prompt names this skill, a ticket, a base commit, and one axis — Standards, Spec, or Tests | the matching file: [Standards](references/standards-reviewer.md), [Spec](references/spec-reviewer.md), or [Tests](references/tests-reviewer.md) |
 | An axis reviewer: your prompt names this skill, a ticket, a base commit, and axis UI | [UI](references/ui-reviewer.md) |
 
-The two sides are asymmetric on purpose. The session owns pinning the diff, starting the axes, sorting findings, and writing the ticket. Each axis owns what it looks for and writes nothing on the ticket.
+The session owns pinning the diff, starting the axes, sorting findings, and writing the ticket. Each axis owns what it looks for and writes nothing on the ticket.

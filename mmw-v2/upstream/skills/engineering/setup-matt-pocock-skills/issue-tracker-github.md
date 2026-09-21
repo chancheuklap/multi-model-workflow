@@ -7,9 +7,9 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Every list read is a whole list.** `gh issue list` stops at 30 without `-L`, and a `gh api` list
   endpoint returns only its first page without `--paginate`. Both truncate in silence: the output
   carries no marker, so a half-read set reads exactly like a complete one. A spec's tickets, a map's
-  children, a frontier and a morning queue are sets, and acting on part of a set is not a short answer
-  but a wrong one — an agent that cannot see a ticket treats it as absent. Pass `-L <n>` above any count
-  this repository can reach, or `--paginate` with `?per_page=100`, on every one of them.
+  children, a frontier and a morning queue are sets, and an agent that cannot see a ticket treats it
+  as absent. Pass `-L <n>` above any count this repository can reach, or `--paginate` with
+  `?per_page=100`, on every one of them.
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
 - **List issues**: `gh issue list --state open --limit 500 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
