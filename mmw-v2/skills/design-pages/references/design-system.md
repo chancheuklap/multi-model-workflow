@@ -46,4 +46,4 @@ Built from code for this toolbox, the components also follow the source closely:
 
 From here: change the code, then the directory, and run steps 2 to 6 again (step 5 deletes the manifest Claude Design wrote, so step 6 compiles again).
 
-A page project's `_ds/<folder>/` copy does not follow the design system. `copy_files` with `src_project_id` set to the design system can copy its files over that folder; not yet run against a live project. Pull again after the copy changes.
+A page project's `_ds/<folder>/` copy does not follow the design system, and the copy Claude Design first makes holds only `styles.css`, `readme.md`, fonts and a placeholder `_ds_bundle.js`. Refresh it with `copy_files` (`src_project_id` set to the design system) over that folder: `_ds_bundle.js`, `styles.css`, `readme.md`, and the `tokens/`, `components/`, `fonts/` and `assets/` directories. Claude Design's compiled bundle keeps the namespace, so pages that mount `<Namespace>.<Name>` keep working (checked 2026-09-21 on a live project). Pull again after the copy changes.

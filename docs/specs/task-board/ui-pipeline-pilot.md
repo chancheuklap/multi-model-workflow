@@ -75,6 +75,16 @@
 
 **做法。** 项目 `CLAUDE.md` 模板只留上面那些约定；`edit-pages.md` 改为建项目、写约定、处理转给 Claude 的评论、被要求时才画、记录定稿；`design-system.md` 改为可选入口，写明它对 Claude Design 有用、对验收没用、什么时候值得建、两种建法；handoff ticket 的固定句不再点名 design system 入口。
 
+### 10. 项目约定、绑定副本与拉回（`design-pages` 的 edit pages 与 pull）
+
+**做法。** 项目 `CLAUDE.md` 换成新模板，其中写明画页或改页前先读 `state-list.md`；`state-list.md` 由 handoff ticket 叶目录的状态清单生成，写进项目。Claude Design 在用户第一次打开项目时放进来的 `_ds/mmw-task-board-2-…/` 只有样式、字体和一个 315 字节的空组件包，用 `copy_files` 从 design system 拷全（组件包、令牌、组件、字体、图标），页面改从这里加载，原先手工放在 `_ds/` 根目录的副本删掉。
+
+**核对。** 在线整页渲染无报错、282 个 `data-ui`、47 个组件挂在 `MMWTaskBoard2_34b698` 下：Claude Design 自己编译的 598 KB 组件包与本地打包的用法相同。
+
+**真实产物。** 交接包 `prototypes/task-board/claude-design/`（提交 `8b089dff`）：195 个文件，44 个场景离线渲染通过；`pull-report.md` 的 `覆盖` 一节对上全部 40 个状态，另有 104 行"带文字但没有 `data-ui`"的提示（表头、分隔点、代码片段），`改动分类` 为首次。拉回前先按 pull 的规定把 `list_files` 的结果存成文件：195 行，只能由 agent 逐行抄进文件。
+
+**本试点的偏离。** 拉回在用户说定稿之前做：设计页取自生产版，拉回可以重做；用户在 Claude Design 里改过之后再拉一次。第 7 步拆 scaffolding 不适用：胜出方案就是生产版，没有挂载点。
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（第 1–10 行在提交 `0f79b971`） |
@@ -101,6 +111,15 @@
 | 20 | pull | `pull_design.py` 的 `page_inventory` | 没有前缀的页面（笔记、`Overview`）也被报"没有 `scene`" | 报告里有无关的行 | 只报 `Component · ` / `App · ` 页；加测试 |
 | 21 | design system | `check_design_system.py` | 要求每个 UI kit 至少一个起步界面；Claude Design 并不要求 | 多一条无下游用处的硬要求 | 改为只统计、不要求；测试同步 |
 | 22 | 第 7、13、14 行的修复被第 9 步取代 | `edit-pages.md` | 手工把 design system 上传到项目 `_ds/`、页面必须用组件拼、逐项核对交互，都是 MMW 替设计者定的做法 | 与"设计交给用户"冲突；手工副本还与 Claude Design 自己放的 `_ds/<folder>/` 重复 | 删去；绑定后的副本由 Claude Design 在用户第一次打开项目时放入，pull 一并拉回 |
+| 23 | edit pages | `template-project-claude-md.md` 的 `scene` 一节 | 模板只写"项目里若有 `state-list.md`，按这样读"；Claude Design 的 AI 不会主动去找，用户也会忘记它存在；试点项目里也还没写这个文件 | 状态清单写了也没人读 | 改为明确指令：画页或改页前先读 `state-list.md`，页面与清单不一致时问用户，不自己改清单；试点项目已写入 `state-list.md` 与新 `CLAUDE.md` |
+| 24 | edit pages | `design-system.md` 的 After the design system changes | 用 `copy_files` 刷新绑定副本原先写着"未实际跑过" | 无法确认刷新办法可用 | 已在试点项目实跑：拷贝成功，页面改用绑定文件夹后线上正常；Claude Design 首次放入的副本只有样式与空组件包，这一点写进 `edit-pages.md` 第 4 步 |
+| 25 | pull | `pull_design.py` 的 `strip_injected_head` | 预览服务器现在注入 `\n<style…><script…>\n`，去掉标签后多留一个换行，每个页面都与清单大小差 1 字节 | 7 个页面全部要求补读，pull 走不通 | 去掉标签后若恰好多 1 字节且 `<head>` 后是换行，一并去掉；按实测形状加测试 |
+| 26 | pull | `pull_design.py` 的清单读取 | `.thumbnail` 是 Claude Design 的项目卡片图，改页后会自己重新生成（清单 5357 字节，几分钟后下载 11128 字节），而二进制文件没有补读办法 | pull 直接拒绝，改一次页面就要重列清单 | 不再拉 `.thumbnail`；加测试 |
+| 27 | pull | `pull_design.py` 的补读提示 | 补读清单嵌在拒绝语句里，被固定长度截断（第三个文件名后是"…"） | agent 不知道要补读哪些文件 | 补读的路径逐行完整打印在拒绝语句上方；加测试 |
+| 28 | pull | `pull_design.py` 的 `state_list_regions` | 状态名只在空格处截断；中文清单写"名字：说明"，整串被当作状态名 | `覆盖` 一节把 40 个状态全报缺失 | 状态名在空格、英文或中文冒号、带空格的破折号处截断；加测试 |
+| 29 | pull | `pull_design.py` 的 `fetch` | 约 200 个文件里有一个下载时连接出错一次，整次 pull 失败 | 要人工重跑 | 连接错误重试两次，HTTP 状态码不重试；加测试 |
+| 30 | pull | `pull.md` 第 1 步 | 要求把 `list_files` 的 JSON 原样存成文件，但这份 JSON 只在 MCP 回复里，agent 只能逐行抄写（本次 195 行） | 费上下文，抄错一行 pull 就对不上 | 未修：需要一个能直接把清单写到磁盘的途径（MCP 工具或 pull 自己列清单），留作后续 |
+| 31 | 写合同 | `write-screen-contract/SKILL.md` 的 Inputs | 交接包的内容列表还写 `styles/`，实际样式在 `_ds/<folder>/` | 读者按旧目录找样式 | 改为"项目里的其他文件（绑定的 design system 在 `_ds/<folder>/`）" |
 
 ## 产品侧的发现（不属于流水线，本试点不改）
 
