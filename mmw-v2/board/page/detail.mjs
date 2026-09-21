@@ -1,114 +1,10 @@
 import {Board, LAMP_WORD, PHASES, eventBlocks, blockSummary} from "./board-logic.mjs";
-import {el} from "./shared.mjs";
+import {el, minutes} from "./shared.mjs";
 
 const NEEDS_YOU = new Set(["decision", "fault", "contract"]);
-
-function lampFrom(cls) {
-  if (!cls) return "hollow";
-  if (/\borange\b/.test(cls)) return "orange";
-  if (/\bgreen\b/.test(cls)) return "green";
-  if (/\bink\b/.test(cls)) return "ink";
-  if (/\bnone\b/.test(cls)) return "none";
-  return "hollow";
-}
-
-function kindOf(d) {
-  if (d.isTicket) return "ticket";
-  if (d.isMap) return "map";
-  if (d.isSpec) return "spec";
-  if (d.isDecision) return "decision";
-  return "empty";
-}
-
-function firstRows(...candidates) {
-  return candidates.find(rows => Array.isArray(rows) && rows.length) || [];
-}
-
-function relFrom(row) {
-  return {
-    n: row.n,
-    num: row.num,
-    title: row.title,
-    where: row.where || "",
-    lamp: lampFrom(row.lampCls),
-    state: row.state,
-    phase: row.phase,
-    hold: Boolean(row.hold || row.showHold),
-    unknown: Boolean(row.unknown || row.known === false),
-  };
-}
-
-function phaseItemFrom(item) {
-  return {
-    event: item.event, time: item.time, name: item.name, text: item.text || "",
-    hasText: item.hasText ?? Boolean(item.text),
-    tone: item.tone || "plain",
-    detail: item.detail || [],
-  };
-}
-
-export function fromScene(data = {}) {
-  const vals = data.vals || {};
-  const d = vals.d || {};
-  const hasCard = d.hasCard ?? Boolean(d.isTicket || d.isMap || d.isSpec || d.isDecision || d.isContainer);
-  if (!hasCard) {
-    return {
-      empty: true,
-      emptyTitle: vals.emptyTitle || "点一张卡",
-      emptyText: vals.emptyText
-        || "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。",
-    };
-  }
-  const rawEvents = vals.rawEvents || d.rawEvents || [];
-  const phaseBlocks = (vals.phaseBlocks || d.phaseBlocks || []).map(block => ({
-    phase: block.phase,
-    tone: block.tone || "plain",
-    openByDefault: Boolean(block.openByDefault),
-    summary: block.summary || "",
-    from: block.from,
-    span: block.span || (block.from !== block.to ? `${block.from}–${block.to}` : block.from),
-    items: (block.items || []).map(phaseItemFrom),
-  }));
-  return {
-    empty: false,
-    repo: vals.repo,
-    kind: kindOf(d),
-    eyebrow: d.eyebrow,
-    num: d.num,
-    title: d.title,
-    lamp: lampFrom(d.lampCls),
-    statusWord: d.statusWord,
-    elapsed: d.elapsed || "",
-    phase: d.phase,
-    why: d.why || [],
-    links: vals.links || d.links || [],
-    blockers: firstRows(vals.blockedBy, d.blockedBy, vals.blockers, d.blockers).map(relFrom),
-    blocks: firstRows(vals.blocking, d.blocking, vals.blocks, d.blocks).map(relFrom),
-    kids: firstRows(vals.kids, d.kids).map(row => ({
-      num: row.num, kind: row.kind, title: row.title,
-      lamp: lampFrom(row.lampCls),
-      hot: Boolean(row.kindCls && row.kindCls.includes("hot")) || NEEDS_YOU.has(row.kind),
-    })),
-    rawEvents,
-    eventCount: d.eventCount ?? rawEvents.length,
-    phaseBlocks,
-    runtime: d.hasRun ? {grade: d.runGrade, model: d.runModel, rows: d.runRows || []} : null,
-    noRunText: d.noRunText || "not dispatched yet",
-    gh: d.gh,
-    ghLabel: d.ghLabel,
-    listTitle: d.listTitle,
-    listCount: d.listCount,
-    lamps: (d.lamps || []).map(item => ({lamp: lampFrom(item.cls), word: item.word, n: item.n})),
-    phases: (d.phases || []).map(item => ({
-      phase: (item.cls || "").replace(/^pill\s+/, ""), label: item.label,
-    })),
-    ticketRows: (vals.ticketRows || d.ticketRows || []).map(relFrom),
-    specRows: (vals.specRows || d.specRows || []).map(relFrom),
-    decisionRows: (vals.decisionRows || d.decisionRows || []).map(relFrom),
-    specCount: d.specCount,
-    decisionCount: d.decisionCount,
-  };
-}
+const duration = value => value < 60
+  ? `${value}m`
+  : `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}m`;
 
 export function find(tasks, n) {
   if (n == null) return null;
@@ -178,7 +74,19 @@ function phaseBlocksFrom(events) {
   }));
 }
 
-function ticketView(tasks, found) {
+function elapsedAt(ticket, now) {
+  if (now == null) return Board.elapsed(ticket);
+  const first = ticket.fold.sessions[0]?.started_at;
+  if (!first) return "";
+  const landed = ticket.events.find(event => event.event === "ticket.landed");
+  if (ticket.fold.landed && landed) return duration(minutes(first, landed.at));
+  if (Board.handedBack(ticket)) return duration(minutes(first, ticket.fold.outcome.at));
+  const bounce = Board.bounce(ticket);
+  if (bounce) return duration(minutes(first, bounce.at));
+  return duration(minutes(first, now));
+}
+
+function ticketView(tasks, found, now) {
   const ticket = found.ref, fold = ticket.fold, lamp = Board.lamp(ticket), phase = Board.phase(ticket);
   const started = [...ticket.events].reverse().find(event => event.event === "worker.started");
   const hasRun = Boolean(fold.worker && started);
@@ -200,7 +108,7 @@ function ticketView(tasks, found) {
   return {
     empty: false, kind: "ticket", eyebrow: "Ticket", num: `#${ticket.n}`,
     links: [{label: `spec #${found.spec.n}`, n: found.spec.n}, {label: `map #${found.task.n}`, n: found.task.n}],
-    title: ticket.title, lamp, statusWord: LAMP_WORD[lamp], elapsed: Board.elapsed(ticket),
+    title: ticket.title, lamp, statusWord: LAMP_WORD[lamp], elapsed: elapsedAt(ticket, now),
     phase,
     why: Board.why(ticket).map(item => item.child
       ? {head: `#${item.child} ${item.kind}`, body: `${item.title}。${item.text}`}
@@ -271,7 +179,7 @@ function decisionView(tasks, found) {
   };
 }
 
-export function fromBoard(payload = {}, selected) {
+export function fromBoard(payload = {}, selected, now) {
   const tasks = payload.tasks || [];
   const found = find(tasks, selected);
   const empty = {
@@ -283,7 +191,7 @@ export function fromBoard(payload = {}, selected) {
     repo: payload.repo,
   };
   if (!found) return empty;
-  const view = found.type === "ticket" ? ticketView(tasks, found)
+  const view = found.type === "ticket" ? ticketView(tasks, found, now)
     : found.type === "decision" ? decisionView(tasks, found)
       : containerView(tasks, found);
   view.repo = payload.repo;
@@ -301,93 +209,101 @@ function openGithub(view) {
   }
 }
 
-function relRow(hooks, row) {
+function relRow(hooks, row, ui) {
   const last = row.phase
-    ? el("span", {class: `pill ${row.phase}`}, row.phase)
-    : el("span", {class: row.state === "not landed" ? "rel-state open" : "rel-state"}, row.state);
+    ? el("span", {class: `pill ${row.phase}`, "data-ui": `${ui}.phase`}, row.phase)
+    : el("span", {class: row.state === "not landed" ? "rel-state open" : "rel-state",
+      "data-ui": `${ui}.state`}, row.state);
   const body = [
-    el("span", {class: `lamp ${row.lamp}`}),
-    el("span", {class: "rel-num"}, row.num),
-    el("span", {class: "rel-title"}, row.title, " ", el("span", {class: "rel-where"}, row.where || "")),
+    el("span", {class: `lamp ${row.lamp}`, "data-ui": `${ui}.lamp`}),
+    el("span", {class: "rel-num", "data-ui": `${ui}.number`}, row.num),
+    el("span", {class: "rel-title", "data-ui": `${ui}.title`}, row.title, " ",
+      el("span", {class: "rel-where", "data-ui": `${ui}.where`}, row.where || "")),
     last,
   ];
-  if (row.unknown) return el("div", {class: "rel-static"}, ...body);
-  return el("button", {type: "button", class: "rel", onClick: () => goto(hooks, row.n)}, ...body);
+  if (row.unknown) return el("div", {class: "rel-static", "data-ui": ui}, ...body);
+  return el("button", {type: "button", class: "rel", "data-ui": ui,
+    onClick: () => goto(hooks, row.n)}, ...body);
 }
 
-function section(title, note, ...rows) {
-  return el("section", {class: "dp-section"},
+function section(ui, title, note, ...rows) {
+  return el("section", {class: "dp-section", "data-ui": ui},
     el("div", {class: "dp-section-title"},
-      el("span", {}, title), note == null ? null : el("span", {}, note)),
+      el("span", {"data-ui": `${ui}.title`}, title),
+      note == null ? null : el("span", {"data-ui": `${ui}.count`}, note)),
     ...rows);
 }
 
 function blockingSection(hooks, view, noneText) {
   return [
-    section("Blocked by", view.blockers?.length || null,
-      ...(view.blockers || []).map(row => relRow(hooks, row)),
+    section("详情.blocked-by", "Blocked by", view.blockers?.length || null,
+      ...(view.blockers || []).map(row => relRow(hooks, row, "详情.blocker")),
       !view.blockers?.length ? el("p", {class: "rel-none"}, noneText) : null),
-    section("Blocking", view.blocks?.length || null,
-      ...(view.blocks || []).map(row => relRow(hooks, row)),
+    section("详情.blocking", "Blocking", view.blocks?.length || null,
+      ...(view.blocks || []).map(row => relRow(hooks, row, "详情.blocks")),
       !view.blocks?.length ? el("p", {class: "rel-none"}, "none") : null),
   ];
 }
 
 function origin(hooks, view) {
-  const parts = [el("span", {}, view.num)];
+  const parts = [el("span", {"data-ui": "详情.origin.number"}, view.num)];
   for (const link of view.links || []) {
     parts.push(el("span", {}, "·"), el("button", {
-      type: "button", class: "dp-link", onClick: () => goto(hooks, link.n),
+      type: "button", class: "dp-link", "data-ui": "详情.origin.link",
+      onClick: () => goto(hooks, link.n),
     }, link.label));
   }
-  return el("div", {class: "dp-origin"}, ...parts);
+  return el("div", {class: "dp-origin", "data-ui": "详情.origin"}, ...parts);
 }
 
-function ticketRelation(hooks, row) {
-  const last = row.hold ? el("span", {class: "pv-rel-hold"}, "held")
-    : row.phase ? el("span", {class: `pill ${row.phase}`}, row.phase)
-      : el("span", {class: "pv-rel-s"}, row.state);
+function ticketRelation(hooks, row, ui) {
+  const last = row.hold ? el("span", {class: "pv-rel-hold", "data-ui": `${ui}.hold`}, "held")
+    : row.phase ? el("span", {class: `pill ${row.phase}`, "data-ui": `${ui}.phase`}, row.phase)
+      : el("span", {class: "pv-rel-s", "data-ui": `${ui}.state`}, row.state);
   const body = [
-    el("span", {class: `lamp ${row.lamp}`}),
-    el("span", {class: "pv-rel-n"}, row.num),
-    el("span", {class: "pv-rel-t"}, row.title,
+    el("span", {class: `lamp ${row.lamp}`, "data-ui": `${ui}.lamp`}),
+    el("span", {class: "pv-rel-n", "data-ui": `${ui}.number`}, row.num),
+    el("span", {class: "pv-rel-t", "data-ui": `${ui}.title`}, row.title,
       row.where ? " " : null,
-      row.where ? el("span", {class: "rel-where"}, row.where) : null),
+      row.where ? el("span", {class: "rel-where", "data-ui": `${ui}.where`}, row.where) : null),
     last,
   ];
   if (row.unknown) {
-    return el("button", {type: "button", class: "pv-rel"}, ...body);
+    return el("button", {type: "button", class: "pv-rel", "data-ui": ui}, ...body);
   }
   return el("button", {
-    type: "button", class: row.hold ? "pv-rel hold" : "pv-rel",
+    type: "button", class: row.hold ? "pv-rel hold" : "pv-rel", "data-ui": ui,
     onClick: () => goto(hooks, row.n),
   }, ...body);
 }
 
-function ticketSection(title, count, ...rows) {
-  return el("section", {class: "pv-sec"},
-    el("div", {class: "pv-sec-title"}, el("span", {}, title), el("span", {}, count)),
+function ticketSection(ui, title, count, ...rows) {
+  return el("section", {class: "pv-sec", "data-ui": ui},
+    el("div", {class: "pv-sec-title"},
+      el("span", {"data-ui": `${ui}.title`}, title),
+      el("span", {"data-ui": `${ui}.count`}, count)),
     ...rows);
 }
 
 function ticketRuntime(view) {
   if (view.runtime) {
-    return el("div", {class: "pv-run"},
+    return el("div", {class: "pv-run", "data-ui": "详情.runtime"},
       el("div", {class: "pv-run-who"},
-        el("span", {class: "pv-run-grade"}, view.runtime.grade || ""),
-        view.runtime.model ? el("span", {class: "pv-run-model"}, view.runtime.model) : null),
+        el("span", {class: "pv-run-grade", "data-ui": "详情.runtime.grade"}, view.runtime.grade || ""),
+        view.runtime.model ? el("span", {class: "pv-run-model", "data-ui": "详情.runtime.model"}, view.runtime.model) : null),
       view.runtime.rows?.length ? el("div", {class: "pv-run-where"},
         ...view.runtime.rows.flatMap(row => [
-          el("span", {class: "pv-run-k"}, row.k),
-          el("span", {class: "pv-run-v"}, row.v),
+          el("span", {class: "pv-run-k", "data-ui": "详情.runtime.key"}, row.k),
+          el("span", {class: "pv-run-v", "data-ui": "详情.runtime.value"}, row.v),
         ])) : null);
   }
-  return el("p", {class: "pv-none"}, view.noRunText || "not dispatched yet");
+  return el("p", {class: "pv-none", "data-ui": "详情.runtime"},
+    view.noRunText || "not dispatched yet");
 }
 
 function backendDetail(rows) {
   return el("span", {class: "va-x"},
-    el("span", {class: "pv-detail"},
+    el("span", {class: "pv-detail", "data-ui": "详情.event.detail"},
       ...rows.flatMap(row => [
         el("span", {class: "pv-detail-k"}, row.k),
         el("span", {class: "pv-detail-v"}, row.v),
@@ -400,10 +316,12 @@ function eventRow(item, key, ui, repaint) {
     onClick: () => {
       if (opened) ui.openEvents.delete(key); else ui.openEvents.add(key);
       repaint();
-    }},
-  el("span", {class: "va-t"}, item.time),
-  el("span", {class: item.tone === "warn" || item.tone === "needs-you" ? "va-n warn" : "va-n"}, item.name),
-  item.hasText ? el("span", {class: "va-x"}, item.text) : null,
+      ui.hooks.onEventToggle?.(!opened);
+    }, "data-ui": "详情.event"},
+  el("span", {class: "va-t", "data-ui": "详情.event.time"}, item.time),
+  el("span", {class: item.tone === "warn" || item.tone === "needs-you" ? "va-n warn" : "va-n",
+    "data-ui": "详情.event.name"}, item.name),
+  item.hasText ? el("span", {class: "va-x", "data-ui": "详情.event.text"}, item.text) : null,
   opened ? backendDetail(item.detail) : null);
 }
 
@@ -412,15 +330,18 @@ function phaseBlock(block, index, view, ui, repaint) {
   const defaultOpen = block.openByDefault;
   const opened = ui.toggledBlocks.has(key) ? !defaultOpen : defaultOpen;
   const header = el("button", {type: "button", class: "va-bhead", "data-detail-key": key,
+    "data-ui": "详情.event-block.toggle",
     onClick: () => {
       if (ui.toggledBlocks.has(key)) ui.toggledBlocks.delete(key); else ui.toggledBlocks.add(key);
       repaint();
+      ui.hooks.onEventBlockToggle?.(!opened);
     }},
-  el("span", {class: "va-chev"}, opened ? "▾" : "▸"),
-  el("span", {class: `pill ${block.phase}`}, block.phase),
-  el("span", {class: "va-bsum"}, opened ? "" : block.summary),
-  el("span", {class: "va-btime"}, opened ? block.span : block.from));
-  const card = el("div", {class: block.tone === "plain" ? "va-block" : "va-block warn"}, header);
+  el("span", {class: "va-chev", "data-ui": "详情.event-block.chev"}, opened ? "▾" : "▸"),
+  el("span", {class: `pill ${block.phase}`, "data-ui": "详情.event-block.phase"}, block.phase),
+  el("span", {class: "va-bsum", "data-ui": "详情.event-block.summary"}, opened ? "" : block.summary),
+  el("span", {class: "va-btime", "data-ui": "详情.event-block.time"}, opened ? block.span : block.from));
+  const card = el("div", {class: block.tone === "plain" ? "va-block" : "va-block warn",
+    "data-ui": "详情.event-block"}, header);
   if (opened) {
     card.append(el("div", {class: "va-body"},
       ...(block.items || []).map((item, itemIndex) =>
@@ -432,70 +353,79 @@ function phaseBlock(block, index, view, ui, repaint) {
 function ticketCard(hooks, view, ui, repaint) {
   const blocks = view.phaseBlocks || [];
   const parts = [
-    el("div", {class: "pv-head"},
-      el("span", {class: "pv-eyebrow"}, view.eyebrow || "Ticket"),
-      el("button", {type: "button", class: "pv-gh", onClick: () => openGithub(view)}, "GitHub ↗"),
+    el("div", {class: "pv-head", "data-ui": "详情.head"},
+      el("span", {class: "pv-eyebrow", "data-ui": "详情.head.eyebrow"}, view.eyebrow || "Ticket"),
+      el("button", {type: "button", class: "pv-gh", "data-ui": "详情.head.github",
+        onClick: () => openGithub(view)}, "GitHub ↗"),
       el("button", {type: "button", class: "pv-close", "aria-label": "关闭详情",
+        "data-ui": "详情.head.close",
         onClick: () => hooks.onClose?.()}, "×")),
-    el("h2", {class: "pv-title"}, view.title),
-    el("div", {class: "pv-links"},
-      el("span", {}, view.num),
+    el("h2", {class: "pv-title", "data-ui": "详情.title"}, view.title),
+    el("div", {class: "pv-links", "data-ui": "详情.origin"},
+      el("span", {"data-ui": "详情.origin.number"}, view.num),
       ...(view.links || []).flatMap(link => [
         el("span", {}, "·"),
-        el("button", {type: "button", class: "pv-link", onClick: () => goto(hooks, link.n)}, link.label),
+        el("button", {type: "button", class: "pv-link", "data-ui": "详情.origin.link",
+          onClick: () => goto(hooks, link.n)}, link.label),
       ])),
-    el("div", {class: "va-status"},
-      el("span", {class: `lamp big ${view.lamp}`}),
-      el("span", {class: `va-word ${view.lamp}`}, view.statusWord),
-      el("span", {class: `pill big ${view.phase}`}, view.phase),
-      el("span", {class: "va-elapsed"}, view.elapsed || "")),
+    el("div", {class: "va-status", "data-ui": "详情.status"},
+      el("span", {class: `lamp big ${view.lamp}`, "data-ui": "详情.status.lamp"}),
+      el("span", {class: `va-word ${view.lamp}`, "data-ui": "详情.status.status"}, view.statusWord),
+      el("span", {class: `pill big ${view.phase}`, "data-ui": "详情.status.phase"}, view.phase),
+      el("span", {class: "va-elapsed", "data-ui": "详情.status.elapsed"}, view.elapsed || "")),
     ticketRuntime(view),
   ];
   if (view.why?.length) {
-    parts.push(el("div", {class: "pv-why"},
-      el("span", {class: "pv-why-t"}, "Needs you"),
-      ...view.why.map(item => el("span", {}, el("b", {}, item.head), " ", item.body))));
+    parts.push(el("div", {class: "pv-why", "data-ui": "详情.why"},
+      el("span", {class: "pv-why-t", "data-ui": "详情.why.title"}, "Needs you"),
+      ...view.why.map(item => el("span", {"data-ui": "详情.why.item"},
+        el("b", {}, item.head), " ", item.body))));
   }
   if (view.blockers?.length) {
-    parts.push(ticketSection("Blocked by", view.blockers.length,
-      ...heldFirst(view.blockers).map(row => ticketRelation(hooks, row))));
+    parts.push(ticketSection("详情.blocked-by", "Blocked by", view.blockers.length,
+      ...heldFirst(view.blockers).map(row => ticketRelation(hooks, row, "详情.blocker"))));
   }
   if (view.blocks?.length) {
-    parts.push(ticketSection("Blocking", view.blocks.length,
-      ...heldFirst(view.blocks).map(row => ticketRelation(hooks, row))));
+    parts.push(ticketSection("详情.blocking", "Blocking", view.blocks.length,
+      ...heldFirst(view.blocks).map(row => ticketRelation(hooks, row, "详情.blocks"))));
   }
-  parts.push(ticketSection("Events", view.eventCount ?? (view.rawEvents || []).length,
+  parts.push(ticketSection("详情.events", "Events", view.eventCount ?? (view.rawEvents || []).length,
     view.rawEvents?.length || blocks.length
       ? null : el("p", {class: "pv-none"}, "no events yet"),
     ...(blocks.length ? blocks.map((block, index) => phaseBlock(block, index, view, ui, repaint)) : [])));
   if (view.kids?.length) {
-    parts.push(ticketSection("Sub-issues", view.kids.length,
-      ...view.kids.map(kid => el("div", {class: "pv-rel"},
-        el("span", {class: `lamp ${kid.lamp}`}),
-        el("span", {class: "pv-rel-n"}, kid.num),
-        el("span", {class: "pv-rel-t"}, kid.title),
-        el("span", {class: kid.hot ? "pv-kind hot" : "pv-kind"}, kid.kind)))));
+    parts.push(ticketSection("详情.sub-issues", "Sub-issues", view.kids.length,
+      ...view.kids.map(kid => el("div", {class: "pv-rel", "data-ui": "详情.sub-issue"},
+        el("span", {class: `lamp ${kid.lamp}`, "data-ui": "详情.sub-issue.lamp"}),
+        el("span", {class: "pv-rel-n", "data-ui": "详情.sub-issue.number"}, kid.num),
+        el("span", {class: "pv-rel-t", "data-ui": "详情.sub-issue.title"}, kid.title),
+        el("span", {class: kid.hot ? "pv-kind hot" : "pv-kind",
+          "data-ui": "详情.sub-issue.kind"}, kid.kind)))));
   }
   return el("div", {class: "pv"}, ...parts);
 }
 
 function containerBody(hooks, view) {
   const kids = [
-    section(view.listTitle, view.listCount,
-      el("div", {class: "lamps-count"},
-        ...(view.lamps || []).map(item => el("span", {class: "lc-item"},
+    section("详情.summary", view.listTitle, view.listCount,
+      el("div", {class: "lamps-count", "data-ui": "详情.lamp-counts"},
+        ...(view.lamps || []).map(item => el("span", {class: "lc-item",
+          "data-ui": "详情.lamp-counts.item"},
           el("span", {class: `lamp ${item.lamp}`}), item.word, el("span", {class: "lc-n"}, item.n)))),
-      el("div", {class: "phases-count"},
-        ...(view.phases || []).map(item => el("span", {class: `pill ${item.phase}`}, item.label)))),
+      el("div", {class: "phases-count", "data-ui": "详情.phase-counts"},
+        ...(view.phases || []).map(item => el("span", {class: `pill ${item.phase}`,
+          "data-ui": "详情.phase-counts.item"}, item.label)))),
   ];
   if (view.kind === "spec") {
-    kids.push(section("By number", null, ...(view.ticketRows || []).map(row => relRow(hooks, row))));
+    kids.push(section("详情.by-number", "By number", null,
+      ...(view.ticketRows || []).map(row => relRow(hooks, row, "详情.ticket-row"))));
   }
   if (view.kind === "map") {
-    kids.push(section("spec", view.specCount, ...(view.specRows || []).map(row => relRow(hooks, row))));
+    kids.push(section("详情.specs", "spec", view.specCount,
+      ...(view.specRows || []).map(row => relRow(hooks, row, "详情.spec-row"))));
     if (view.decisionRows?.length) {
-      kids.push(section("Decision tickets", view.decisionCount,
-        ...(view.decisionRows || []).map(row => relRow(hooks, row))));
+      kids.push(section("详情.decisions", "Decision tickets", view.decisionCount,
+        ...(view.decisionRows || []).map(row => relRow(hooks, row, "详情.decision-row"))));
     }
   }
   return kids;
@@ -503,21 +433,22 @@ function containerBody(hooks, view) {
 
 function card(hooks, view) {
   const parts = [
-    el("div", {class: "dp-head"},
-      el("span", {class: "dp-eyebrow"}, view.eyebrow),
+    el("div", {class: "dp-head", "data-ui": "详情.head"},
+      el("span", {class: "dp-eyebrow", "data-ui": "详情.head.eyebrow"}, view.eyebrow),
       el("button", {type: "button", class: "dp-close", "aria-label": "关闭详情",
+        "data-ui": "详情.head.close",
         onClick: () => hooks.onClose?.()}, "×")),
     origin(hooks, view),
-    el("h2", {class: "dp-title"}, view.title),
-    el("div", {class: "dp-status"},
-      el("span", {class: `lamp big ${view.lamp}`}),
-      el("span", {class: `status-word ${view.lamp}`}, view.statusWord),
-      el("span", {class: "dp-elapsed"}, view.elapsed || "")),
+    el("h2", {class: "dp-title", "data-ui": "详情.title"}, view.title),
+    el("div", {class: "dp-status", "data-ui": "详情.status"},
+      el("span", {class: `lamp big ${view.lamp}`, "data-ui": "详情.status.lamp"}),
+      el("span", {class: `status-word ${view.lamp}`, "data-ui": "详情.status.status"}, view.statusWord),
+      el("span", {class: "dp-elapsed", "data-ui": "详情.status.elapsed"}, view.elapsed || "")),
   ];
   if (view.kind === "spec" || view.kind === "map") parts.push(...containerBody(hooks, view));
   if (view.kind === "decision") parts.push(...blockingSection(hooks, view, "none"));
   parts.push(el("button", {
-    type: "button", class: "dp-gh",
+    type: "button", class: "dp-gh", "data-ui": "详情.github",
     onClick: () => openGithub(view),
   }, view.ghLabel));
   return el("div", {class: "dp"}, ...parts);
@@ -535,18 +466,19 @@ export function unmount(host) {
 export function render(host, view = {}, api, hooks = {}) {
   let root = host._detailRoot;
   if (!root) {
-    root = el("aside", {class: "detail board", "aria-label": "详情"});
+    root = el("aside", {class: "detail board", "aria-label": "详情", "data-ui": "详情.root"});
     root.dataset.screen = "detail";
     host._detailRoot = root;
     host.replaceChildren(root);
   }
-  const ui = host._detailUi ||= {openEvents: new Set(), toggledBlocks: new Set()};
+  const ui = host._detailUi ||= {openEvents: new Set(), toggledBlocks: new Set(), hooks};
+  ui.hooks = hooks;
   const repaint = () => render(host, view, api, hooks);
   if (!view.empty && view.kind === "ticket") root.replaceChildren(ticketCard(hooks, view, ui, repaint));
   else if (!view.empty && view.kind) root.replaceChildren(card(hooks, view));
   else {
-    root.replaceChildren(el("div", {class: "dp-empty"},
-      el("p", {class: "dp-empty-title"}, view.emptyTitle || "点一张卡"),
+    root.replaceChildren(el("div", {class: "dp-empty", "data-ui": "详情.empty"},
+      el("p", {class: "dp-empty-title", "data-ui": "详情.empty.title"}, view.emptyTitle || "点一张卡"),
       view.emptyText || "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。"));
   }
   if (host._detailEsc) document.removeEventListener("keydown", host._detailEsc);
