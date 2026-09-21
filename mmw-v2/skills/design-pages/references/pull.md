@@ -41,7 +41,7 @@ MCP tools cannot create a comment on a design page, so this does not go through 
 
 Read `改动分类` in the pull report. It decides which skill this run hands to, and there is no default:
 
-- **首次** — the `write-screen-contract` skill, for the whole contract: this is the first time each control is bound to what it calls. Then the `to-spec` skill from its **Process** step 1, which writes the spec this effort does not have yet.
+- **首次** — the `write-screen-contract` skill, for the whole contract. Then the `to-spec` skill from its **Process** step 1, which writes the spec this effort does not have yet.
 - **增删控件或改流转** — the `write-screen-contract` skill at its **Re-runs** section, which edits only the rows those controls belong to. Then the `to-spec` skill at its **Process** step 5, revising the published spec; tickets already cut are corrected against the new text, the way the `to-tickets` skill's `references/cutting-interface-tickets.md` describes under **When the rows change**.
 - **只改外观或文案** — the screen contract does not change, because no `data-ui` id did. An open ticket picks up the new package on its next run. Landed tickets are re-run by the `dispatch` skill's `reverify`, which reopens a red one into triage with `ticket.regressed`; that reopened ticket is the correction.
 
@@ -49,4 +49,4 @@ Read `改动分类` in the pull report. It decides which skill this run hands to
 
 When the pull answered a `contract` child, finish it after the package is committed and pushed to `origin/<base branch>` and the skill **Reached from here** names has run. Do it the way the `dispatch` skill's `references/night.md` finishes a corrected `contract` child: comment on the child with the commit, route it `fixed`, move the not-yet-started tickets the night moved to `needs-triage` back to `ready-for-agent`, and resume the held worker with that commit to integrate from and `continue`. The worker then runs its criteria on the new package.
 
-Git is the design's version history. Claude Design has none (help centre, **Known limitations**).
+Git is the design's version history; Claude Design keeps none.

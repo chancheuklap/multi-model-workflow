@@ -56,7 +56,7 @@ field. This section says why each one is shaped the way it is.
   product is usable, not merely alive. It is run every time, and is idempotent in
   both directions: it leaves its own current product alone, clears its own stale
   leftovers first (by its own `stop`, on its own record of what it started), and
-  refuses over anything else holding its ports, naming what it found. A port check tests for a listener the way the product's server binds (with `SO_REUSEADDR`, as Python's `http.server` does), because a product it just stopped leaves its closed connections in `TIME_WAIT` for a while and a plain `bind` then refuses a port nothing holds (measured 2026-09-21: 9 connections in `TIME_WAIT`, `Errno 48`, no listener). Everything
+  refuses over anything else holding its ports, naming what it found. A port check tests for a listener the way the product's server binds (with `SO_REUSEADDR`, as Python's `http.server` does), because a product it just stopped leaves its closed connections in `TIME_WAIT` for a while and a plain `bind` then refuses a port nothing holds. Everything
   the product needs — which backing service, which data directory, which log — is
   found or chosen inside this command, from the lease in its environment
   (`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`,
@@ -80,9 +80,7 @@ field. This section says why each one is shaped the way it is.
   bound to, and `journey.py` says so rather than printing `JOURNEY OK`.
 
 - **`discover`.** Prints one JSON object: an origin-class address (where the
-  product is served) and `instance` (a readable name for this run). After `stop`,
-  `journey.py` checks that this run's slot is empty; that is what "stopped" means,
-  not a second key on this object.
+  product is served) and `instance` (a readable name for this run).
 
 - **`stories`.** Brings up the story page service and prints its `origin`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
@@ -96,15 +94,9 @@ field. This section says why each one is shaped the way it is.
 
 - **`journeys`.** The directory of journey scripts, default `.mmw/journeys`. Each
   `<name>` is a directory with an executable `run`, or a `package.json` that
-  declares `scripts.run`. `python3 <scripts>/journey.py run <name>` claims the
-  lease, runs `start`, runs `discover`, puts each discover key into the
-  environment under its uppercase spelling (so `origin` arrives as `ORIGIN`)
-  together with the lease variables, runs that script, and runs `stop`
-  whether the script succeeded or not. With `--break`, it starts the product
-  again with the break switch armed and requires the script to fail. Without
-  `--break`, it runs the script once more with the product down and the addresses
-  moved. What a journey script has to assert for either control to work, and what
-  each line it prints means, are [journey.md](journey.md).
+  declares `scripts.run`. What `journey.py run <name>` does with it, what a
+  journey script has to assert, and what each line it prints means, are
+  [journey.md](journey.md).
 
 - **`leaves_machine`.** Each thing this product does in a run that reaches past
   this machine — opening the system browser, calling a paid service, writing a
@@ -150,20 +142,6 @@ Product answers live here, not scattered through the repository:
 
 Scripts a person runs on their own machine may stay where they are, provided they
 call the same start code `harness/` uses.
-
-Reads of `MMW_` variables and the strings `harness_markers` lists belong in
-`.mmw/`, `tests/`, `scripts/dev/`, a test file kept beside the code it tests, and
-the files `leaves_machine` names; anywhere else is a leak. The command that
-judges that, and the criterion that carries it, are
-[harness-guard.md](harness-guard.md).
-
-## An example, not a rule
-
-工作监控 meets the same guarantees by a different shape: its story service
-renders the production templates rather than a per-page module; one module
-covers every design page; a boundary test parses the server-rendered HTML and
-infers the request from that. Those are facts about one product. They are not
-requirements on the next one.
 
 ## Rules
 

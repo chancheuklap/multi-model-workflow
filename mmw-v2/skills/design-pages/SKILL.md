@@ -30,4 +30,4 @@ Only a session whose host has the Claude Design MCP tools can do this skill's wo
 | `<scripts>/check_editable_selectors.py` | `every selector is editor-resolvable (<n> files)` | `<n> selectors the editor cannot reach`, one line each above it | no file given, or one of the CSS files will not open |
 | `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | not used | invocation error or the package cannot be completed (a named page or a referenced file does not download, a page still holds the preview's injection marker, the offline render keeps requesting new files); the files concerned are printed one per line above the refusal and the target is unchanged |
 
-[pull](references/pull.md) runs `check_editable_selectors.py` as a module; those findings land in `pull-report.md` under `设计检查`. The CLI row above is what the script still prints when invoked on its own.
+[pull](references/pull.md) runs `check_editable_selectors.py` as a module; those findings land in `pull-report.md` under `设计检查`.

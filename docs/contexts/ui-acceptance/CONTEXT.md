@@ -155,7 +155,7 @@ _Avoid_: click helper, 交互 helper, page object (for this)
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **break switch**:
-The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on the second start. It is what distinguishes a journey's **negative control** from stopping the product.
+The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on the second start. It is what distinguishes a journey's **negative control** from stopping the product: a run against pre-change code or through a forwarding proxy would not prove that this product's own failure path is walked, so the product fails the one named interface itself.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **journey**:

@@ -137,9 +137,7 @@ paths before trusting any result:
    `missing` difference.
 
 Either control reporting nothing exits 2 with `NEGATIVE CONTROL FAILED` and no
-`STORY OK`. A design page with no `data-ui` therefore cannot pass. These controls
-prevent accidental cheating caused by an agent following an old implementation
-habit; they are not intended to defeat deliberate sabotage.
+`STORY OK`. A design page with no `data-ui` therefore cannot pass.
 
 ## `--render-only`
 
@@ -167,5 +165,4 @@ The JSON array uses the fields in **The two sides** and preserves document order
   and do not apply.
 
 `--out <dir>` keeps both screenshots, their pixel difference image and the ARIA
-capture beside each screenshot. `--render-only` additionally writes the design
-facts described above.
+capture beside each screenshot.

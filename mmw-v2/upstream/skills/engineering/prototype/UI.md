@@ -111,7 +111,7 @@ When the winner goes into Claude Design, leave the scaffolding up until step 7: 
 
 ### 7. Take the scaffolding down
 
-Run this after the first pull. The `pull.md` of `design-pages` points back here.
+Run this after the first pull.
 
 - **Sub-shape A**: delete the mount point, the switcher, and the import of the leaf directory.
 - **Sub-shape B**: delete the prototype route and the switcher.
@@ -129,6 +129,4 @@ Done when nothing outside the leaf directory imports it: the leaf directory can 
 
 ## Next
 
-A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md`: its **edit pages** entry sets up the Claude Design project the user designs in, with the winner still running behind the scaffolding as the reference; its optional **design system** entry has the agent inside Claude Design build a design system from the winner's code when one is wanted; its **pull** entry brings the signed-off result back and sends you to step 7 above.
-
-A winner that is not going into Claude Design, because the interface is not being designed there or the question was a logic or experiment one, stops at step 6, folded into the real code the way the [SKILL](SKILL.md) describes.
+A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md`: its **edit pages** entry sets up the Claude Design project the user designs in; its optional **design system** entry has the agent inside Claude Design build a design system from the winner's code when one is wanted; its **pull** entry brings the signed-off result back and sends you to step 7 above.

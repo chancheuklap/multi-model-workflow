@@ -1,6 +1,6 @@
 # Writing interface code
 
-Read this file when the ticket's **Read first** lists a screen contract. It is the interface-writing rules that apply then. The two baselines — handoff package for look and verbatim copy, screen contract for calls, shown values, transitions, failure and timing — stay in this skill's `SKILL.md`.
+Read this file when the ticket's **Read first** lists a screen contract. The two baselines — handoff package for look and verbatim copy, screen contract for calls, shown values, transitions, failure and timing — are in this skill's `SKILL.md`.
 
 ## Resolve `<ui-acceptance scripts>` once
 

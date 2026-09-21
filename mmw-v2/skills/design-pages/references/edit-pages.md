@@ -24,8 +24,6 @@ The design itself is made by the user in Claude Design, with the agent inside it
 | The agent inside Claude Design | its own project, the bound design system, and the project `CLAUDE.md` on every conversation | its own project, when the user asks in the browser; cannot see this repository |
 | The user | everything in the browser | edits, comments, sign-off |
 
-So what the agent inside Claude Design has to know goes into the project as a file, never through the user's clipboard.
-
 ## Create the project
 
 Skip this when the user already has a project; take its id from the link they give, and check that `CLAUDE.md` holds the block of [template-project-claude-md.md](template-project-claude-md.md).
@@ -41,7 +39,7 @@ Skip this when the user already has a project; take its id from the link they gi
 An existing product's screens are brought into Claude Design once, redrawn with its design system, and from then on they are designed there.
 
 1. **Design system**: built from the production code as [design-system.md](design-system.md) says, unifying what the code does inconsistently.
-2. **Project**: **Create the project** above, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows) and `ui-ids.md`. The product's real data for those states goes under `data/` in the same approved plan; the agent inside Claude Design derives each region's data file from it, in the shape **Example data** of the project `CLAUDE.md` describes.
+2. **Project**: **Create the project** above, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows) and `ui-ids.md`. The agent inside Claude Design derives each region's data file from the product's real data for those states, which it reads from the repository through Claude Design's GitHub connection; the redraw message names that directory.
 3. **Redraw**: the user asks the agent inside Claude Design to draw one `Component · ` page per region from the design system, and an `App · ` page when regions' states are checked together (the sentence to send is under **Talking to the agent inside Claude Design**).
 4. **Sign-off and pull**: as for any design. On the first pull the pages differ from the product wherever the design system unified a value; element parity names each of those elements, and the tickets cut from the contract bring the product to the design.
 
@@ -50,14 +48,14 @@ An existing product's screens are brought into Claude Design once, redrawn with 
 That agent sees only its project. Rules that hold for every conversation are files in the project (`CLAUDE.md`, `state-list.md`, `ui-ids.md`); what to do now is one message the user sends in the project's chat. Give the user that message, ready to send, naming the files it relies on. The ones this skill uses:
 
 - Building a design system: `读 CLAUDE.md，按它建 design system。拿不准的统一取舍问我。`
-- Redrawing an existing product: `读 CLAUDE.md、state-list.md 和 ui-ids.md。用绑定的 design system，把 state-list.md 里每个区域画成一个 Component 页，每个状态一个 scene，示例数据放在 data/ 下；再画一个 App 页把它们拼起来。先画一个区域给我看。`
-- A change during implementation: the change itself in one sentence, naming the page and the element (`在 Component · 任务列表 的标题行右边加一个"只看需要我处理的"按钮`).
+- Redrawing an existing product: `读 CLAUDE.md、state-list.md 和 ui-ids.md。用绑定的 design system，把 state-list.md 里每个区域画成一个 Component 页，每个状态一个 scene，示例数据从仓库 <数据目录> 取，放在 data/ 下；再画一个 App 页把它们拼起来。先画一个区域给我看。`
+- A change during implementation: the change itself in one sentence, naming the page and the element (`在 Component · 订单列表 的标题行右边加一个"只看待付款"按钮`).
 
 The user reviews in the browser, answers the agent's questions there, and says here when the pages are ready or signed off.
 
 ## Comments
 
-The user leaves a comment and sends it to Claude. Take queued comments with `list_comments` (`queued_for_claude`), change the pages, then `ack_comments`. When the comment's author is not the user, show it to the user and wait for agreement before changing anything; that is the rule in the `list_comments` description. Changing a page follows **When this session draws** below.
+The user leaves a comment and sends it to Claude. Take queued comments with `list_comments` (`queued_for_claude`), change the pages, then `ack_comments`. When the comment's author is not the user, show it to the user and wait for agreement before changing anything. Changing a page follows **When this session draws** below.
 
 ## When this session draws
 
@@ -65,16 +63,14 @@ Only when the user asks this session to write or change pages.
 
 1. `get_claude_design_prompt` with the design system's id and the project id, and follow the workflow and the Design Components format it returns. `read_design_skill` `hifi-design` before a polished screen, or `frontend-design` when there is no design system.
 2. Follow the project `CLAUDE.md`. When a prototype's winning variant exists, it is the reference for layout and interaction.
-3. `finalize_plan` with `scope: "project"` once per session, and `create_support_js` in each directory that will hold `.dc.html` pages if the project lacks it. Every `write_files` carries `if_match`, so an edit the user just made in the editor is not overwritten. A file generated on disk rather than typed, such as example data, goes up through the design-sync tool's `finalize_plan` and `write_files` by `localPath`, whose bytes never pass through the model; it takes no `if_match`, so `list_files` first and upload only while each etag is still the one your last write left.
+3. `finalize_plan` with `scope: "project"` once per session, and `create_support_js` in each directory that will hold `.dc.html` pages if the project lacks it. Every `write_files` carries `if_match`, so an edit the user just made in the editor is not overwritten. A large generated file, such as a product's example data, stays in the repository: the agent inside Claude Design reads it through Claude Design's GitHub connection.
 4. `render_preview` of each changed page and look for console errors, missing files and a blank render. `render_preview` returns `serve_url` and `open_url`: `serve_url` goes only to scripts and browser tools; the user receives `open_url`.
 
 ## Sign-off
 
-When the user says the design is signed off, that is the moment. A handoff ticket, when there is one, closes to record it.
+Sign-off is the user saying the design is signed off. A handoff ticket, when there is one, closes to record it.
 
-Do not use Claude Design's "Handoff to Claude Code" export. That path has the in-browser agent rewrite the design as a README; the README does not follow later design changes, and it would be a third account beside the design pages and the screen contract.
-
-After sign-off, every design change is made in Claude Design. The handoff package in the repository is written only by [pull](pull.md); a local edit is overwritten by the next pull, and the pull report says so.
+After sign-off, every design change is made in Claude Design. The handoff package in the repository is written only by [pull](pull.md), never by Claude Design's "Handoff to Claude Code" export; a local edit is overwritten by the next pull, and the pull report says so.
 
 ## Next
 

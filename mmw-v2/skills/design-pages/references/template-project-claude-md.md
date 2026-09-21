@@ -2,8 +2,6 @@
 
 Write the block below, unchanged, into the Claude Design project root as `CLAUDE.md`. It instructs the agent inside that project, not you: that agent reads it on every conversation and sees nothing of this repository.
 
-The block holds only what the repository reads back from the pages: [pull](pull.md) renders each `scene` at its `$preview` size; the `write-screen-contract` and `ui-acceptance` skills address controls by `data-ui` id and regions by page name; the story adapter feeds the product each scene's entry of the page's data file (the screen contract's scene input); and a page drawn from product code would make element parity compare the product with itself. How the pages look, how they are split into files beyond that, and which components or styles they use are left to the user and the agent inside Claude Design.
-
 ```markdown
 # Page conventions
 
