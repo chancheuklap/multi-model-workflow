@@ -1,0 +1,18 @@
+<!-- @dsCard group="Spacing" viewport="700x130" name="Elevation" subtitle="Flat panels; only the selected card, the zoom bar and the sheet cast a shadow" -->
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+html, body { margin: 0; background: var(--panel); }
+.g-row { display: flex; gap: 12px; padding: 16px; flex-wrap: wrap; align-items: flex-end; }
+.g-sw { width: 96px; font: 10px var(--mono); color: var(--muted); }
+.g-chip { height: 48px; border-radius: 8px; border: 1px solid var(--rule); margin-bottom: 6px; }
+.g-line { padding: 4px 16px; }
+</style>
+</head>
+<body class="board">
+<div class="g-row" style="background:var(--canvas)"><div class="g-sw"><div class="g-chip" style="background:var(--panel)"></div>flat</div><div class="g-sw"><div class="g-chip" style="background:var(--panel);box-shadow:0 4px 16px rgba(45,49,66,0.14);border-color:var(--ink)"></div>selected card</div><div class="g-sw"><div class="g-chip" style="background:var(--panel);box-shadow:0 2px 8px rgba(45,49,66,0.06)"></div>zoom bar</div><div class="g-sw"><div class="g-chip" style="background:var(--panel);box-shadow:0 24px 64px rgba(20,22,34,0.28)"></div>sheet</div></div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!-- @startingPoint section="Task board" subtitle="本机配置: the settings sheet over a dimmed board" viewport="1440x900" -->
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<title>MMW task board — 本机配置</title>
+<link rel="stylesheet" href="../../styles.css" />
+<style>html, body { margin: 0; background: #e6e3df; }</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="lib/board.js"></script>
+<script src="data/board-morning.js"></script>
+<script src="data/settings.js"></script>
+<script type="text/babel" src="screens.jsx"></script>
+</head>
+<body>
+<div id="root" style="width:1440px;height:900px;position:relative;overflow:hidden"></div>
+<script type="text/babel">
+const S = window.TaskBoardScreens;
+const scene = window.BOARD_SCENES.morning;
+const task = scene.payload.tasks.find(t => t.n === scene.select.task);
+S.mount(<div style={{position: 'relative', width: 1440, height: 900}}><S.Settings /></div>);
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!-- @dsCard group="Components" viewport="700x150" name="Status" subtitle="Lamp in four tones and three sizes; the step pill for every step" -->
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<style>html, body { margin: 0; background: #ffffff; }</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="../../ui_kits/task-board/lib/board.js"></script>
+<script src="../../ui_kits/task-board/data/board-morning.js"></script>
+<script src="../../ui_kits/task-board/data/settings.js"></script>
+<script type="text/babel" src="../../ui_kits/task-board/screens.jsx"></script>
+</head>
+<body>
+<div id="root" style="width:700px;height:150px;position:relative;overflow:hidden"></div>
+<script type="text/babel">
+const C = window.MMWTaskBoard2_34b698;
+const S = window.TaskBoardScreens;
+const scene = window.BOARD_SCENES.morning;
+window.MMW_NOW = scene.now;
+const task = scene.payload.tasks.find(t => t.n === scene.select.task);
+const canvas = window.MMW.canvas.canvasView(task, 133, [...window.MMW.defaultExpanded(task)], true);
+S.mount(<div className="board" style={{padding: 16, display: "flex", flexDirection: "column", gap: 14}}><div style={{display: "flex", gap: 14, alignItems: "center"}}>{["orange","green","ink","hollow"].map(t => <C.Lamp key={t} tone={t} />)}<C.Lamp tone="orange" size="big" /><C.Lamp tone="ink" size="small" /></div><div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>{["queued","working","waiting","review","verify","landed"].map(p => <C.StepPill key={p} phase={p} />)}<C.StepPill phase="working" big /></div></div>);
+</script>
+</body>
+</html>

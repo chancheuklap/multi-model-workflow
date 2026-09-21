@@ -1,0 +1,23 @@
+/* ── the lamp: one dot, four colours ─────────────────────── */
+.lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.lamp.orange { background: var(--orange); box-shadow: 0 0 0 3px rgba(235, 108, 54, 0.18); }
+.lamp.green { background: var(--led-green); }
+.lamp.ink { background: var(--ink); }
+.lamp.hollow { background: transparent; border: 1.5px solid rgba(45, 49, 66, 0.30); }
+.lamp.big { width: 12px; height: 12px; }
+.lamp.small { width: 8px; height: 8px; }
+.lamp.none { visibility: hidden; }
+
+/* ── the pill: the name of the current phase ─────────────── */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 18px; padding-inline: 8px;
+  border-radius: 9px; border: 1px solid; font: 500 9.5px/1 var(--mono); letter-spacing: 0.02em;
+  white-space: nowrap; flex: none;
+}
+.pill.queued { border-color: rgba(45, 49, 66, 0.24); color: var(--soft); background: transparent; }
+.pill.working { border-color: var(--s-working); color: var(--s-working-ink); background: rgba(124, 143, 111, 0.18); }
+.pill.waiting { border-color: var(--s-waiting); color: var(--s-waiting-ink); background: rgba(154, 140, 88, 0.18); }
+.pill.review { border-color: var(--s-review);  color: var(--s-review-ink);  background: rgba(123, 106, 155, 0.16); }
+.pill.verify { border-color: var(--s-verify);  color: var(--s-verify-ink);  background: rgba(79, 135, 131, 0.16); }
+.pill.landed { border-color: var(--ink); color: #ffffff; background: var(--ink); }
+.pill.big { height: 24px; padding-inline: 12px; border-radius: 12px; font-size: 11px; }

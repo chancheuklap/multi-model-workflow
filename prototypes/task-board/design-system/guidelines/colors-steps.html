@@ -1,0 +1,18 @@
+<!-- @dsCard group="Colors" viewport="700x110" name="Steps" subtitle="The four step colours of the pill, fill and text" -->
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+html, body { margin: 0; background: var(--panel); }
+.g-row { display: flex; gap: 12px; padding: 16px; flex-wrap: wrap; align-items: flex-end; }
+.g-sw { width: 96px; font: 10px var(--mono); color: var(--muted); }
+.g-chip { height: 48px; border-radius: 8px; border: 1px solid var(--rule); margin-bottom: 6px; }
+.g-line { padding: 4px 16px; }
+</style>
+</head>
+<body class="board">
+<div class="g-row"><div class="g-sw"><div class="g-chip" style="background:var(--s-working)"></div>--s-working</div><div class="g-sw"><div class="g-chip" style="background:var(--s-working-ink)"></div>--s-working-ink</div><div class="g-sw"><div class="g-chip" style="background:var(--s-waiting)"></div>--s-waiting</div><div class="g-sw"><div class="g-chip" style="background:var(--s-waiting-ink)"></div>--s-waiting-ink</div><div class="g-sw"><div class="g-chip" style="background:var(--s-review)"></div>--s-review</div><div class="g-sw"><div class="g-chip" style="background:var(--s-verify)"></div>--s-verify</div></div>
+</body>
+</html>
