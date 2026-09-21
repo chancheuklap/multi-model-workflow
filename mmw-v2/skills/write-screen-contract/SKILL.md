@@ -26,7 +26,7 @@ Every one of this skill's own scripts is run as `uv run python <scripts>/…`, n
 
 ## Decision sources
 
-A row's `source` may cite a wayfinder map's decision ticket, a spec section, an ADR, a domain document — or a conversation. A conversation source is `conversation <YYYY-MM-DD>` plus one sentence of the conclusion; the lint accepts that shape.
+A row's `source` may cite a wayfinder map's decision ticket, a spec section, an ADR, a domain document — or a conversation. A conversation source is `conversation <YYYY-MM-DD>` plus one sentence of the conclusion; the lint accepts that shape. An earlier spec that a decision ticket cites as its basis is citable too, as `#<n> <section>`: cite the decision ticket first, and the earlier spec for what no decision ticket covers.
 
 When an existing product gains a surface there is usually no map. Do not open a prototype decision ticket, a handoff ticket, or an alignment ticket. In one session with the person present, run prototype, design, pull, and this skill; write the spec only after the contract is aligned (`to-spec` requires that alignment, so an alignment ticket cannot hang on a spec that does not exist yet). Each of those steps needs the person; if the session breaks, the leaf directory's `README.md` and the committed handoff package are enough to continue.
 
