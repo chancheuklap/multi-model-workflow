@@ -72,6 +72,22 @@ CATALOGUE = {
 }
 
 
+class TestBaselineServer(unittest.TestCase):
+    def test_a_burst_of_connections_is_queued_not_reset(self):
+        import socket
+        import tempfile
+        with tempfile.TemporaryDirectory() as root:
+            srv, port = dr.serve_baseline(Path(root), {})
+            try:
+                self.assertGreaterEqual(srv.request_queue_size, 64)
+                socks = [socket.create_connection(("127.0.0.1", port)) for _ in range(40)]
+                for s in socks:
+                    s.close()
+            finally:
+                srv.shutdown()
+                srv.server_close()
+
+
 class TestScreenAxis(unittest.TestCase):
     """`mount` is declared on the page, and only there; a scene takes its page's."""
 

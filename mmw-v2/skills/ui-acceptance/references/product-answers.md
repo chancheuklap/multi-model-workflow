@@ -67,6 +67,8 @@ field. This section says why each one is shaped the way it is.
   `MMW_BREAK` is in that command's environment, this is also the process that
   arms the break switch.
 
+- **Servers under a burst.** A page opens many connections at once (stylesheets, scripts, data). Every server the judges load a page from, the story service and the product itself, accepts at least 64 pending connections (`request_queue_size` for Python's `socketserver`, whose default of 5 lets a busy machine reset the rest and the page render empty).
+
 - **`stop`.** The only way a run ends a process. It ends only what this run
   recorded as its own, leaves a neighbour's product alone, exits 0 with nothing to
   end, and does not release the lease. It ends the containers of this run's stack

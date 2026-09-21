@@ -267,6 +267,11 @@ def wrapper_path(scene: str) -> str:
 class _Server(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
+    # A page opens a burst of connections at once (stylesheets, scripts, data). The
+    # standard library's listen backlog of 5 lets a busy machine reset the rest, and
+    # the page renders empty (measured 2026-09-21: 6 parallel story runs, resets on
+    # every round at 5, none in 24 runs at 128).
+    request_queue_size = 128
 
 
 def serve_baseline(root: Path, pages: dict[str, str]) -> tuple[_Server, int]:
