@@ -113,3 +113,15 @@ story page service and prints its origin」。它只能先造错，再被
 理由：连着两晚同一类。spec #445 的 #472 AC4 是全仓库查旧名（`git grep -l -e 'claude-design-blocks' … | wc -l`），同批次后面的 ticket 又写了旧名，收尾 reverify 把已落地的 #472 判红；spec #446 的 #491 AC5 点名测试用例 `test_finds_ui_acceptance_without_tools`，同批次后面的 #493 把它改名为 `test_the_lint_runs_without_tools`，判据选不中任何用例，#491 被重开。两次都由 main agent 在收尾那一趟手工修因、手工重跑、手工关票。
 
 上游给第 4 步加同类的批次内相互影响的规则 → 收上游措辞，两种形态与「最后一张 ticket 或唯一 Owns」这个二选一保留。
+
+## 一个概念一个名字：component page ticket、Critical flows、pull
+
+三处措辞，都是同一个毛病——一个概念两个名字，下游 agent 认不出是同一样东西。
+
+`references/cutting-interface-tickets.md` 的 `## interface ticket` 一节改名 **`## component page ticket`**，与已有的 **app page ticket** 对称。理由：`interface ticket` 同时是广义和窄义。广义是 `verify-ticket.py --lint` 打印的那个——`## Read first` 带 `screen-contract.yaml rows:` 行的任何一张票，app page 与 acceptance 都算；窄义只认领 `Component · ` 页。切票的 agent 读 `linting.md` 会以为 app page ticket 不算 interface ticket，于是不写 `rows:` 行，发布时 `--lint` 报 ERROR。窄义改名后，`interface ticket` 只剩脚本打印的那一个意思，文件开头加一句写明这层包含关系。凡与 **app page ticket** 并列的地方（app page 的阻塞句、acceptance 的阻塞句、reaction 的阻塞句）都改成窄名；`docs/contexts/tickets/CONTEXT.md` 两条词条同步。
+
+acceptance ticket 那一段原来写 `Testing Decisions names the key flows`。spec 里的小节叫 **Critical flows**（关键流程），`verify-ticket.py` 的 `CRITICAL_FLOWS_RE` 也只认这两种拼法；写成第三个名字，切票的 agent 在 spec 里搜不到这一节，一张 acceptance ticket 都不会切，而且下游没有任何检查发现它们缺席。同句的 `the login gate` 统一为 `sign-in`，与 `to-spec` 和两份 `CONTEXT.md` 一致。
+
+`SKILL.md` 模板 `## Read first` 的 `a handoff package downloaded from Claude Design` 改成 `pulled into the repository`。ADR 0029 定下 pull 是这个包的唯一写入者；`downloaded` 会让 worker 去找 MCP 工具或 `edit-pages.md` 明令禁用的 "Handoff to Claude Code" 导出，而不是读 `## Read first` 已经点名的那个已提交目录。同一句里的 `journey skeleton` 改成 `first journey script, as the precedent`，因为 `skeleton` 在合同侧已经是 `extract_skeleton.py` 产出的控件清单。
+
+上游改这三处 → 收上游措辞，`component page ticket`、`Critical flows` / `sign-in`、`pulled` 三个名字保留。

@@ -43,6 +43,16 @@ A `Component · <name>` design page: one region the user sees as a unit, split t
 _Avoid_: design component, scenario, scenario 属性, 状态开关
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
+**product component**:
+The product's own component that a **story** page renders — the thing a **component** design page is the design of, and the thing a `pages` entry's `component` column names. It is presentational on a story page: the **story adapter** hands it that scene's **scene data** and it reaches for no backend, seed or route of its own. Language and directory are the product's.
+_Avoid_: surface component, presentational component (as a name for it), display component
+_Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
+
+**region**:
+One `Component · ` page's area of a screen, named by that page. It is the `<region>` half of a **`data-ui` id** (`<region>.<part>`) and so the substring before the first `.`; the contract lint reads it that way to find which page owns a **cross-component row**'s trigger. Splitting pages by the regions a user perceives and naming every id on a page after that page are the same rule seen from two ends.
+_Avoid_: 区域 (as the term), area, zone
+_Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+
 **handoff package**:
 The Claude Design project as it sits in the repository, written only by **pull** into the directory the command names — the project's `.dc.html` pages and what **pull** writes beside them. The screen contract's `baselines.look` names it; once pulled it is a contract, copied verbatim. A local edit is not blocked; the next pull overwrites it and the **pull report** says so.
 _Avoid_: 交接包, 开发交接包, 基线目录, UI 基线
@@ -74,6 +84,11 @@ _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
 ### The judges
 
+**judge**:
+One of the four scripts an acceptance criterion names by its bare name: the **story judge**, `boundary-check.py`, `journey.py` and the **harness guard**. `verify-ticket.py` holds that list, puts the ui-acceptance skill's `scripts/` on the `PATH` of every `CHECK:`, and refuses the whole run — exit 2, nothing run, nothing posted — when a criterion names one it cannot reach, because `command not found` reads exactly like a criterion that ran and failed. Each carries its own **negative control**.
+_Avoid_: 判官, checker
+_Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
+
 **`data-ui` id**:
 The common element identity on a design page and on the matching product element. The **story judge** pairs by this id; a **four-column boundary test** finds the control by it.
 _Avoid_: test hook (for this), data-testid (when this identity is meant)
@@ -101,7 +116,7 @@ _Avoid_: interface parity, PARITY OK (the whole-product judge's success line)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story adapter**:
-What puts a product's presentational component into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that every `shows` name is a property of the component; whether the field is fed correctly is the boundary test's to decide. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later interface ticket copies.
+What puts a **product component** into one scene on a **story** page: one adapter per design page, identified by that page's `mount`, so a `?page=` with no adapter is a 404. Language and directory are the product's; the adapter takes the scene's **scene data** and maps those fields onto the component. The screen contract's `shows` column for each row says which field feeds which displayed value, and the `code-review` Spec axis checks that every `shows` name is a property of the component; whether the field is fed correctly is the boundary test's to decide. It reaches for no backend, no seed and no route — the page puts the component in the scene by itself. The contract ticket lands the first one as the precedent every later component page ticket copies.
 _Avoid_: adapter (for anything `.mmw/target.json` answers; the file name `.release-adapter.json` and the key template's `--adapter` flag are literals a program reads and stay)
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
@@ -139,7 +154,7 @@ The product-owned switch in `.mmw/harness/` that a journey criterion with `--bre
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **journey**:
-One Playwright path run against the real product on this machine: a directory under `.mmw/target.json`'s `journeys` key (default `.mmw/journeys`). `scripts/journey.py run <name>` starts the product, runs the script against the discovered addresses, and stops it; with `--break` the **negative control** arms the **break switch**, without `--break` it is the contract smoke journey with the product down. The script reads only those addresses and starts nothing itself. Quantity and content are the owner's; the default three are money, the login gate, and one submit chain.
+One Playwright path run against the real product on this machine: a directory under `.mmw/target.json`'s `journeys` key (default `.mmw/journeys`). `scripts/journey.py run <name>` starts the product, runs the script against the discovered addresses, and stops it; with `--break` the **negative control** arms the **break switch**, without `--break` it is the contract smoke journey with the product down. The script reads only those addresses and starts nothing itself. Quantity and content are the owner's; the default three are money, sign-in, and one submit chain.
 _Admitted_: `journey.py`
 _Avoid_: wiring check (when a whole-product run is meant), parity run
 _Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
@@ -207,7 +222,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **Critical flows**:
 An optional bullet of a spec's `## Testing Decisions`: one line per flow worth a whole-product run — money, signing in, one submit chain; a product with none of those gets no line — naming the flow (the directory under `.mmw/journeys/<flow>/`) and the Implementation Decisions sections it involves. `to-tickets` cuts one **acceptance ticket** per line. A spec that omits the bullet cuts none.
-_Avoid_: Cross-ticket flows
+_Avoid_: Cross-ticket flows, key flows
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **mount**:
@@ -221,6 +236,11 @@ _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.m
 `scripts/design_render.py` beside the ui-acceptance `SKILL.md`: the shared runtime `story-parity.py` and `extract_skeleton.py` import — the baseline server and its CDN answering (`vendor/`, cache, network), the wrapper page, `capture`, and the `[data-ui]` reader. Nothing in it judges.
 _Avoid_: the driver module, 共用驱动, Adapter (the driver class)
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
+
+**product answers**:
+What a consuming repository answers in `.mmw/` so this skill can drive it: `.mmw/target.json`'s machine facts, `.mmw/harness/`, `.mmw/journeys/` and `.mmw/stories/`. Answering them is what makes the repository an **acceptance runtime**. Each answer's invariant — what it must guarantee, never how one product implements it — is in `_Home_`; `target_config.py --check` is the list of what is still unanswered.
+_Avoid_: runnable environment, runtime environment, drivable (as a name for this set)
+_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`target_config.py`**:
 `scripts/target_config.py` beside the ui-acceptance `SKILL.md`: reads and checks `.mmw/target.json`. Run as a command, `target_config.py --check` is the setup-time bar for one repository. The contract lint loads this file in-process for that check.

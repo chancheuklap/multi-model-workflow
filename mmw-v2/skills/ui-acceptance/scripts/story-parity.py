@@ -174,7 +174,7 @@ def story_url(origin: str, mount: str, scene: str, viewport: tuple[int, int]) ->
 class Stories:
     """The `stories` command, started for this run alone, stopped when we finish.
 
-    It takes no lease. A story page is the product's presentational components rendered
+    It takes no lease. A story page is the product components rendered
     from scene data, with no backend, no seed and no route behind it, so the one thing
     this service needs is a port, and a port it picks for itself is free of every other
     run on the machine. A lease would instead cost the run one of the product's

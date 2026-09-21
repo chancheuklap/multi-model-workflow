@@ -1,11 +1,11 @@
 ---
 name: ui-acceptance
-description: Make a repository an automatable acceptance runtime — three judges (story, boundary, journey) and the lease, start/stop and harness they need. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, or giving a run its own ports. Also: before writing an interface ticket's code, take the design side's values.
+description: Make a repository an acceptance runtime — four judges (story, boundary, journey, harness guard) and the lease, start/stop they need. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, or giving a run its own ports. Also: before writing an interface ticket's code, take the design side's values.
 ---
 
 # UI acceptance
 
-A **target** is the product a consuming repository runs under automation. What this skill cannot know on its own, the repository answers in `.mmw/`. Three judges use that answer, and the lease, `start` / `stop` / `discover` and harness guard are the runtime they need: the story judge starts the product's `stories` command, renders the design side offline, and compares both by `data-ui` id (element parity); the boundary check runs the product's own four-column boundary test twice, the second time without the click; a journey starts the real product, runs one Playwright script, and on a second pass breaks one named interface.
+A **target** is the product a consuming repository runs under automation. What this skill cannot know on its own, the repository answers in `.mmw/`. Four **judges** read that answer — a judge is a script a `CHECK:` names by its bare name, and `verify-ticket.py` refuses the whole run when it cannot reach one — and the lease with `start` / `stop` / `discover` is the runtime they need: the story judge starts the product's `stories` command, renders the design side offline, and compares both by `data-ui` id (element parity); the boundary check runs the product's own four-column boundary test twice, the second time without the click; a journey starts the real product, runs one Playwright script, and on a second pass breaks one named interface; the harness guard decides whether the names a repository uses only to make itself drivable have stayed in the places it allows.
 
 ## Resolve `<scripts>` once
 
@@ -16,11 +16,11 @@ A **target** is the product a consuming repository runs under automation. What t
 | You are | Run or read |
 | --- | --- |
 | Writing an interface ticket's code, before the first line: the design side's values | [references/story-parity.md](references/story-parity.md), **`--render-only`** |
-| Building the product's story page service and its scene adapter (the contract ticket's, and every surface component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
+| Building the product's story page service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
 | Writing the criterion that compares a product story with its design page by element parity, or reading the `DIFF` line one printed | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
 | Writing the criterion that runs one named journey against the real product, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md); [references/product-answers.md](references/product-answers.md) names `start`, `stop`, `discover` and the journeys directory |
-| Making a repository drivable (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/target_config.py --check` in that repository. It prints every field still to answer, one sentence and one example each; fill them and run it again until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
+| Making a repository an acceptance runtime (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/target_config.py --check` in that repository. It prints every field still to answer, one sentence and one example each; fill them and run it again until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
 | Checking that acceptance names are not scattered through the consuming repository | `python3 <scripts>/harness-guard.py <repository-root>` — [references/harness-guard.md](references/harness-guard.md) |
 | Giving a run its own ports and directories, or reading what `lease.py` refused | Run `python3 <scripts>/lease.py claim \| env \| run \| release \| list \| count \| remove-instance`. `claim` exits 4 when no slot may be taken. `release` exits 0 when it gives one back, 3 when none exists, and 2 when `--stop` cannot read `.mmw/target.json`. Its lifecycle and two limits are in [references/product-answers.md](references/product-answers.md) under **`instance`** |
 

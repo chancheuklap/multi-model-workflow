@@ -1,6 +1,6 @@
-# How a repository becomes an automatable acceptance runtime
+# How a repository becomes an acceptance runtime
 
-The product answers live in `.mmw/` at the repository root. mmw supplies the lease,
+The **product answers** live in `.mmw/` at the repository root. mmw supplies the lease,
 `start` / `stop` protocol, journey runner, and harness guard. Fill `.mmw/target.json`
 until this command exits 0:
 
@@ -79,11 +79,12 @@ field. This section says why each one is shaped the way it is.
 - **`stories`.** Brings up the story page service and prints its `origin`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
   pages themselves live in `.mmw/stories/`. It takes **no lease**: a story page
-  renders presentational components from scene data, with no backend, no seed and
-  no route behind it, so the one thing it needs is a port, and it asks the machine
-  for a free one (bind port `0`, then print the port that came back) rather than
-  deriving one from `MMW_PORT_BASE`. Its environment carries `MMW_AUTOMATION=1`
-  and nothing else of the lease.
+  renders product components from scene data — presentational, fed by that data
+  and nothing else — with no backend, no seed and no route behind it, so the one
+  thing it needs is a port, and it asks the machine for a free one (bind port `0`,
+  then print the port that came back) rather than deriving one from
+  `MMW_PORT_BASE`. Its environment carries `MMW_AUTOMATION=1` and nothing else of
+  the lease.
 
 - **`journeys`.** The directory of journey scripts, default `.mmw/journeys`. Each
   `<name>` is a directory with an executable `run`, or a `package.json` that

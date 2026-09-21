@@ -11,7 +11,7 @@ Three entries, in this order. Each names the next. Read the one this run is goin
 - **[edit pages](references/edit-pages.md)** — create the project, write pages, check the preview, act on comments, and take the user's sign-off.
 - **[pull](references/pull.md)** — bring the signed-off project into the repository as the handoff package.
 
-Page conventions live in [template-project-claude-md.md](references/template-project-claude-md.md) and are written into the project root as `CLAUDE.md`. The design-system `readme.md` skeleton is [template-design-system-readme.md](references/template-design-system-readme.md).
+Page conventions live in [template-project-claude-md.md](references/template-project-claude-md.md) and are written into the project root as `CLAUDE.md`. The design-system `readme.md` template is [template-design-system-readme.md](references/template-design-system-readme.md).
 
 [edit pages](references/edit-pages.md) and [pull](references/pull.md) each list the MCP tools they need. Confirm each listed tool is callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
 

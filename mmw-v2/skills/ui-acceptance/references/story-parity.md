@@ -1,10 +1,10 @@
 # Story parity
 
-`<scripts>/story-parity.py` decides whether a product story matches the Claude
-Design page it was built from. `<scripts>` is the token defined by this skill's
-**Resolve `<scripts>` once** section. The judge reads the screen contract and the
-handoff package's `scenes.json`, starts the story service, and compares every
-selected scene at every contract viewport by `data-ui` id.
+`<scripts>/story-parity.py`, the **story judge**, decides whether a product story
+matches the Claude Design page it was built from. `<scripts>` is the token defined
+by this skill's **Resolve `<scripts>` once** section. The judge reads the screen
+contract and the handoff package's `scenes.json`, starts the story service, and
+compares every selected scene at every contract viewport by `data-ui` id.
 
 Four agents use this page. An agent taking design facts before implementation uses
 **`--render-only`**. An agent building a story reads **The story page the product
@@ -30,7 +30,7 @@ tickets add one story adapter per design page.
 - Every other product element being compared carries the same `data-ui` id as the
   corresponding element on the design page. Repeated component instances may reuse
   an id; the judge pairs them in document order.
-- The adapter takes the scene's `scene data` and maps it to the presentational
+- The adapter takes the scene's `scene data` and maps it to the product
   component. No backend, seed, route or alternate preview projection runs. The
   screen contract's `shows` columns bind the mapping; code review checks that each `shows` name is a property of the component.
 
@@ -65,10 +65,11 @@ order:
 Class names, font families, line heights, hover styles and focus styles are not
 compared.
 
-## The comparison
+## Element parity
 
-The same id on each side is one pair. Repeated ids pair in document order. An id
-only on the design side is `missing`; one only on the product side is `extra`.
+The judge's comparison is **element parity**. The same id on each side is one
+pair. Repeated ids pair in document order. An id only on the design side is
+`missing`; one only on the product side is `extra`.
 
 If either paired element is not visible, the judge compares only `visible`. It does
 not report any descendant carrying `data-ui`, so hiding one parent produces one

@@ -166,3 +166,18 @@ If upstream rewrites the report format → keep the category and source fields o
 `references/session.md` gained a step between running the axes and sorting in-ticket / out-of-ticket. The opening sentence is `On a host that can run subagents you run no axis yourself, and you verify every finding the axes report`. The session reads each finding at the cited `file:line` and keeps three conclusions, copied from BMAD-METHOD `94b6727b` `skills/bmad-build/step-04-review.md` lines 36–40: the finding holds; `false` (the bad outcome does not happen at the cited location — "A true fact about nearby code that does not disprove the claim does not count."); or it could not tell (`unverified: <what would settle it>` on the in-ticket / out-of-ticket line). `false` findings go under `## Withdrawn` with the refutation. Severity grades and "drop low because the fix is large" are not copied: `session.md` still says the session does not decide whether a finding is worth fixing (ADR 0012). The current `## In-ticket` and `## Out-of-ticket` entry shape is recorded under **Review findings carry axis categories and sources**.
 
 If upstream rewrites the session steps → keep this verification step between the axes and the sort, keep `## Withdrawn`, and keep the three conclusions without severity.
+
+## The component a story renders is the product component
+
+`references/spec-reviewer.md` described the story adapter as mapping `scenes.json`
+data onto `the surface component's props`. The same object had four names across the
+toolbox — `surface component`, `presentational component`, `product component`,
+`display component` — and this axis's whole rule turns on it ("every `shows` name
+must be a property of that component"), so a reviewer had to decide for itself
+whether the four were one thing. `product component` wins: it is the name
+`story-parity.md`, `writing-interface-code.md` and `ui-reviewer.md` already used,
+and it matches the judge's own `product=` output. It is registered in
+`docs/contexts/ui-acceptance/CONTEXT.md` with the other three as `_Avoid_`.
+
+If upstream rewrites the story-adapter paragraph → take its wording and keep
+`product component`.

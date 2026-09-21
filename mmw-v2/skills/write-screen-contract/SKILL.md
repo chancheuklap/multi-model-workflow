@@ -39,7 +39,7 @@ Start `<scratch>/screen-contract.yaml` with the top-level `effort`, `baselines`,
 and `viewports`. `locale` is the locale the design must render under. `viewports`
 contains the design size and a second, narrower size only when the package `README.md`
 declares a minimum width. Never choose a stylesheet breakpoint: a viewport equal to one
-compares two reflows and verifies nothing. The extractor reads only `locale` and
+compares two reflows and verifies nothing. `extract_skeleton.py` reads only `locale` and
 `viewports`; the other two fields establish the contract that the remaining steps fill.
 On a re-run the file is already there: keep those four keys and extract again.
 

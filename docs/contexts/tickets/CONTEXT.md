@@ -40,7 +40,7 @@ The spec section of decisions made, in numbered subsections `### 1.` … that ti
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
-The spec section whose first sentence says in plain words where a test looks at the result (a browser page, an HTTP endpoint, or a function call) and whose second names the seam, what is real on each side of it, and which external seams may be stubbed; then what makes a good test; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; then, where the effort has a screen contract, the **Test surfaces** that make the repository a runnable environment; then **Critical flows** when the product has them; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
+The spec section whose first sentence says in plain words where a test looks at the result (a browser page, an HTTP endpoint, or a function call) and whose second names the seam, what is real on each side of it, and which external seams may be stubbed; then what makes a good test; then, per test layer, its directory and the precedent to copy; then **How a test arrives at a state** — the mechanism that puts the system into each state the behaviour turns on, which must be named here and owned by some ticket's `## Owns`, else `to-tickets` cuts a `reach` ticket for it; then, where the effort has a screen contract, the **Test surfaces** that make the repository an acceptance runtime; then **Critical flows** when the product has them; last, the commands to run before committing. `CHECK:`, `EXPECT:`, and the ticket's `## Seam` are derived from it; a review finding that touches it is in-ticket.
 _Avoid_: 测试怎么到达状态
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
@@ -64,7 +64,7 @@ _Avoid_: boundary (for a seam)
 _Home_: `mmw-v2/upstream/skills/engineering/tdd/SKILL.md`
 
 **precedent**:
-The similar existing test `## Testing Decisions` names per test layer. It is copied into the ticket's `## Seam`; the ticket writer opens it to copy its framework and single-file invocation into `CHECK:` and runs it once to take the `EXPECT:` marker. A layer with no precedent yet — a project from zero — gets one from the contract ticket, whose adapter, interaction helper and journey skeleton are the precedents the tickets behind it copy; nothing about a missing precedent sends the batch back to `to-spec`.
+The similar existing test `## Testing Decisions` names per test layer. It is copied into the ticket's `## Seam`; the ticket writer opens it to copy its framework and single-file invocation into `CHECK:` and runs it once to take the `EXPECT:` marker. A layer with no precedent yet — a project from zero — gets one from the contract ticket, whose adapter, interaction helper and first journey script are the precedents the tickets behind it copy; nothing about a missing precedent sends the batch back to `to-spec`.
 _Admitted_: the precedent to copy
 _Avoid_: prior art, 先例, the precedent it names
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
@@ -94,22 +94,27 @@ _Avoid_: scaffolding ticket (scaffolding is the prototype's mount points), 脚�
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **design-system ticket**:
-Only a new product gets one. It copies the design system's style tokens and shared components into the product, ahead of the **contract ticket**. Distinct from later **interface ticket**s, which judge whether those styles match.
+Only a new product gets one. It copies the design system's style tokens and shared components into the product, ahead of the **contract ticket**. Distinct from the later **component page ticket**s, which judge whether those styles match.
 _Avoid_: 设计系统票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **contract ticket**:
-The ticket that lands or completes `.mmw/` so later tickets have a precedent to copy. Distinct from an **interface ticket**, which owns a design page, and from a **design-system ticket**, which does not depend on `.mmw/`. Where the spec has a screen contract, it is also the **prefactor ticket**.
+The ticket that lands or completes `.mmw/` so later tickets have a precedent to copy. Distinct from a **component page ticket**, which owns a design page, and from a **design-system ticket**, which does not depend on `.mmw/`. Where the spec has a screen contract, it is also the **prefactor ticket**.
 _Avoid_: 合同票, addressing self-check
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **interface ticket**:
-Owns `Component · ` design pages. Distinct from the **app page ticket**, which owns an `App · ` page, and from the **contract ticket**, which lands the runtime rather than a page.
+Any ticket a screen contract produces — **contract**, **design-system**, **component page**, **app page** or **acceptance**. `verify-ticket.py --lint` calls a ticket one when its `## Read first` carries a `screen-contract.yaml rows:` line, and reports it under that name. The **component page ticket** is one kind, not the whole class.
+_Avoid_: 界面票, interface ticket (for the component page ticket alone)
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
+
+**component page ticket**:
+Owns `Component · ` design pages. Distinct from the **app page ticket**, which owns an `App · ` page, and from the **contract ticket**, which lands the runtime rather than a page. It is one kind of **interface ticket**, not the whole class.
 _Avoid_: 界面票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **app page ticket**:
-Owns an `App · ` page. Blocked by the **interface ticket** of every `Component · ` page this App page composes.
+Owns an `App · ` page. Blocked by the **component page ticket** of every `Component · ` page this App page composes.
 _Avoid_: App 页票, 组合页票
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
@@ -132,7 +137,7 @@ The end-to-end behaviour this ticket makes work, from the user's point of view, 
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Read first`**:
-The sources the ticket's spec subsections cite, `None` when there are none. Each item is read to its conclusion before work: a research file's last section, an ADR's decision (its `# ` heading and the prose under it), a handoff package, a prototype's leaf README.md to its verdict. Items that record a settled conclusion are baselines and are marked as such on their line. On an **interface ticket** or **app page ticket** the section carries two baseline lines — the handoff package, and the screen contract with the row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c` — then the rest is derived from those ids: `scenes.json` and every baseline-class `source`, listed once per document. It is re-read at the Audit, and searched before a helper is written.
+The sources the ticket's spec subsections cite, `None` when there are none. Each item is read to its conclusion before work: a research file's last section, an ADR's decision (its `# ` heading and the prose under it), a handoff package, a prototype's leaf README.md to its verdict. Items that record a settled conclusion are baselines and are marked as such on their line. On a **component page ticket** or **app page ticket** the section carries two baseline lines — the handoff package, and the screen contract with the row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c` — then the rest is derived from those ids: `scenes.json` and every baseline-class `source`, listed once per document. It is re-read at the Audit, and searched before a helper is written.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`, `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **baseline**:

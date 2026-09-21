@@ -170,3 +170,17 @@ Closing step 2's internal order only. The eight closing steps stay in the same o
 Reason: the previous order opened the sub-issues from the review comment as written, so they were filed from text the in-ticket round then overturned (#235 is the instance: its body said to close the issue if a condition already held, and the in-ticket round had already made that condition hold).
 
 If upstream rewrites step 2 → take its wording and put this internal order back. Do not reorder the eight steps.
+
+## The handoff package is pulled, not downloaded
+
+The read-yourself-in step listed `a handoff package downloaded from Claude Design`
+among the baselines to read to their conclusion. ADR 0029 makes **pull** the only
+writer of that package, and `docs/contexts/ui-acceptance/CONTEXT.md` lists `Handoff`
+as a dead word for the entry name. `downloaded from Claude Design` points the worker
+at the MCP tools, or at the "Handoff to Claude Code" export that
+`design-pages/references/edit-pages.md` forbids, instead of at the committed
+directory its own `## Read first` already names. It now reads `a handoff package
+pulled into the repository`.
+
+If upstream rewrites that sentence → take its wording and keep `pulled into the
+repository`; do not take `downloaded from Claude Design` back.

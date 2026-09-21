@@ -29,6 +29,8 @@ A feature that is not shipping is not a scene. If it must stay in the file, list
 
 Every control that can be clicked or typed into, and every element whose look will be accepted, carries `data-ui="<region>.<part>"`. Repeated parts in a list share the same id.
 
+The `<region>` is the name of the `Component · ` page the element lives on. That is what lets one region own an id prefix: an App page repeats the ids of the Component pages it composes, so the owner of a prefix can only be found again if every id on a page carries that page's name.
+
 When a page is edited or rewritten, an existing `data-ui` attribute moves with the element that still means that part. It is removed only when that element is deleted.
 
 ## Composition

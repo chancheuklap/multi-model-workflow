@@ -1,6 +1,6 @@
 # Cutting interface tickets
 
-Reached from step 3 of [`SKILL.md`](../SKILL.md) when the spec has a screen contract, and from that file's `<issue-template>` `## Read first`. The five kinds of ticket, the shared journey helper, the extra *reaction* ticket, and what to do after the rows change, are all here.
+Reached from step 3 of [`SKILL.md`](../SKILL.md) when the spec has a screen contract, and from that file's `<issue-template>` `## Read first`. The five kinds of ticket, the shared journey helper, the extra *reaction* ticket, and what to do after the rows change, are all here. An **interface ticket** is any of the five — `verify-ticket.py --lint` calls a ticket that carries a `screen-contract.yaml rows:` line one; the **component page ticket** below is one kind.
 
 Copy each criterion from the named section of the `ui-acceptance` skill; the shape lives only there:
 
@@ -8,7 +8,7 @@ Copy each criterion from the named section of the `ui-acceptance` skill; the sha
 - A boundary criterion: `references/boundary-check.md` § **The criterion, in one shape**. The product's test asserts the four columns of that row.
 - A journey criterion: `references/journey.md` § **The criterion, in one shape**.
 
-**A layer with no precedent yet:** a product from zero takes its adapter, its interaction helper and its journey skeleton from the **contract ticket**. Cut that ticket first. The criteria of the tickets behind it copy their `CHECK:` and `EXPECT:` from what it lands. Nothing here sends you back to the `to-spec` skill for a precedent the spec cannot have.
+**A layer with no precedent yet:** a product from zero takes its adapter, its interaction helper and its first journey script, as the precedent, from the **contract ticket**. Cut that ticket first. The criteria of the tickets behind it copy their `CHECK:` and `EXPECT:` from what it lands. Nothing here sends you back to the `to-spec` skill for a precedent the spec cannot have.
 
 ## design-system ticket
 
@@ -45,7 +45,7 @@ Journeys appear on the contract ticket, on tickets the owner named, and on each 
 
 Where the spec has a screen contract, the **prefactor ticket** of step 5 is this ticket. It registers the scenes and routes of every design page in the contract, not only of the page it makes the precedent from.
 
-## interface ticket
+## component page ticket
 
 Owns by design page, `Component · ` pages. One story criterion (element parity) covers the mounts of the pages it owns. Each owned row whose `calls` is not `none`, or whose `next` is not `stay`, gets one boundary criterion; rows that share a test file may share one.
 
@@ -60,7 +60,7 @@ A `CHECK:` that stubs the application's own network (`vi.stubGlobal('fetch')`, m
 
 ## app page ticket
 
-Owns an `App · ` page. One story criterion covers that page's mount. Each **cross-component row** on that page gets one boundary criterion. The **interface ticket** of every `Component · ` page this App page composes blocks it.
+Owns an `App · ` page. One story criterion covers that page's mount. Each **cross-component row** on that page gets one boundary criterion. The **component page ticket** of every `Component · ` page this App page composes blocks it.
 
 **Read first** carries two baseline lines, and the App page name for a person to read:
 
@@ -73,11 +73,11 @@ The rest of **Read first** is derived from those row ids, not hand-picked: `scen
 
 Cut none when the repository's `.mmw/target.json` cannot start the whole product.
 
-Testing Decisions names the key flows: money, the login gate, one submit chain; none when the product has none. One **acceptance ticket** per flow.
+The spec's **Critical flows** bullet names them: money, sign-in, one submit chain; none when the product has none. One **acceptance ticket** per flow.
 
 The ticket-cutting session writes the journey criterion, with `--break`, taking as default the last write among the contract rows that flow involves. The worker who writes the journey script leaves that choice as it is.
 
-**Parent** names the Implementation Decisions sections that flow lists. It is blocked by the **interface ticket** and **app page ticket** whose work that flow uses. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for morning triage, and the closing comment names the step that broke.
+**Parent** names the Implementation Decisions sections that flow lists. It is blocked by the **component page ticket** and **app page ticket** whose work that flow uses. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for morning triage, and the closing comment names the step that broke.
 
 **Owns** is `.mmw/journeys/<flow>/`, plus adding to the shared helper when there is one. **Seam** may forbid edits to product code; it does not forbid adding to that helper. The `verify-ticket` skill's `references/linting.md` already treats an **Owns** covering `.mmw/journeys/<flow>/` as the ticket that builds it; the shared helper is covered by the ticket that creates it.
 
@@ -87,7 +87,7 @@ When two or more journey tickets in the batch (an **acceptance ticket**, or anot
 
 ## reaction ticket
 
-One extra *reaction* ticket: the user looks at this spec's interface on the real product and finds appearance the scripts do not cover (decoration with no `data-ui` id, the overall look). It is blocked by every **interface ticket** and **app page ticket**. The rest of a *reaction* ticket is [person-ticket.md](person-ticket.md).
+One extra *reaction* ticket: the user looks at this spec's interface on the real product and finds appearance the scripts do not cover (decoration with no `data-ui` id, the overall look). It is blocked by every **component page ticket** and **app page ticket**. The rest of a *reaction* ticket is [person-ticket.md](person-ticket.md).
 
 ## When the rows change
 

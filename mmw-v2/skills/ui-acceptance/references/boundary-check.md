@@ -4,7 +4,7 @@ Whether a control's click produces the behaviour its screen-contract row names i
 
 ## The criterion, in one shape
 
-Written onto the ticket, run by a shell months later with no model between. The script is named bare: `verify-ticket.py` puts `<scripts>` on the `PATH` of the shell that runs the line (its `--tools`).
+The **boundary criterion** is the line written onto the ticket, run by a shell months later with no model between. The script is named bare: `verify-ticket.py` puts `<scripts>` on the `PATH` of the shell that runs the line (its `--tools`).
 
 ```
 CHECK: boundary-check.py --run "<the product's test command, a file or a case>"
@@ -13,7 +13,9 @@ EXPECT: BOUNDARY OK <n>/<n>
 
 `<n>` is how many `--run` flags were given. Commands that share a test file may share a criterion; `--run` may be repeated. `--run` takes one command, not a shell line: `&&`, `||`, `;` and `|` are refused.
 
-## What the product's test must do
+## The four-column boundary test
+
+A **four-column boundary test** is the product's own test that asserts all four behaviour columns of one screen-contract row in the same test. This is what the criterion above runs.
 
 The outbound call module is the layer the consuming repository names as the one that emits outbound calls, whether they travel as HTTP, IPC, or an extension message.
 

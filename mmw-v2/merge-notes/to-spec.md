@@ -35,3 +35,9 @@
 | 字段 | 我们的意图 |
 | --- | --- |
 | `policy` 整块（`allow_implicit_invocation: false`） | 删掉。跟 `SKILL.md` 的 `disable-model-invocation` 同步去掉，两处必须同增同删 |
+
+## 一个概念一个名字：product answers / acceptance runtime
+
+`## Testing Decisions` 的 **Test surfaces** 那一条原来写 `the answers that make the repository a runnable environment`。同一样东西在工具箱里有过四个名字——`automatable acceptance runtime`、`product answers`、`runnable environment`、`drivable`——而写 spec 的 agent 被这一句送去 `ui-acceptance` 的 `references/product-answers.md`，打开却是第四个说法，分不清是不是同一个文件。定名：**内容**叫 `product answers`（它是那个 reference 的文件名，也是 ADR 0028 的用词），**状态**叫 `acceptance runtime`；两个都登记在 `docs/contexts/ui-acceptance/CONTEXT.md`。这一条因此写成 `the **product answers** that make the repository an acceptance runtime`。
+
+上游改 **Test surfaces** → 收上游措辞，`product answers` 与 `acceptance runtime` 两个名字保留，不收回 `runnable environment`。

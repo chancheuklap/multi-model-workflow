@@ -12,7 +12,7 @@ every discovered address to a closed port before the same script runs again.
 
 A journey is the only judge in this skill that starts the whole product. There are few
 of them on purpose: the owner names which paths are worth one, and the default three are
-money, the login gate, and one submit chain.
+money, sign-in, and one submit chain.
 
 Two agents come here. The one **writing** the criterion needs the next two sections. The
 one **reading** a line it printed needs the last.
