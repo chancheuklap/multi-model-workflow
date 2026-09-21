@@ -7,9 +7,10 @@ function copy(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function selectEl(cls, value, disabled, label, opts, onChange) {
+function selectEl(cls, value, disabled, label, opts, onChange, dataUi) {
   const node = el("select", {
     class: cls, "aria-label": label, disabled: !!disabled,
+    "data-ui": dataUi,
     onChange: event => onChange(event.target.value),
   }, (opts || []).map(option => el("option", {
     value: option.value, disabled: !!option.disabled, label: option.text,
@@ -19,10 +20,11 @@ function selectEl(cls, value, disabled, label, opts, onChange) {
   return node;
 }
 
-function roleFoot(items) {
+function roleFoot(items, dataUi = null) {
   if (!items?.length) return null;
-  return el("div", {class: "role-foot"}, items.map(item =>
-    el("div", {class: "role-bad"}, el("span", {class: "hatch"}), item.text)));
+  return el("div", {class: "role-foot", "data-ui": dataUi}, items.map(item =>
+    el("div", {class: "role-bad", "data-ui": dataUi ? `${dataUi}.item` : null},
+      el("span", {class: "hatch"}), item.text)));
 }
 
 function flagsFromErrors(errors) {
@@ -41,13 +43,6 @@ function detachEsc(host) {
 export function unmount(host) {
   detachEsc(host);
   host.replaceChildren();
-}
-
-export function fromScene(data = {}) {
-  const st = copy(data.state.st);
-  st.version = st.saved?.version ?? 1;
-  st.serverFlags = [];
-  return {view: data.vals.v, st, catalog: CATALOG, scan: {}};
 }
 
 export function fromPayload(payload) {
@@ -92,8 +87,10 @@ async function readJson(response) {
 
 function paint(host, model, api, hooks) {
   const v = viewOf(model);
+  const state = name => hooks.onState?.(name);
   const close = () => {
     unmount(host);
+    state("closed");
     hooks.onClose?.();
   };
   const redraw = () => {
@@ -111,6 +108,7 @@ function paint(host, model, api, hooks) {
 
   const rescan = async source => {
     model.st.scanning = true;
+    state("scanning");
     redraw();
     const response = await hand(() => api.scanSettings({source}));
     if (!response?.ok) {
@@ -136,6 +134,8 @@ function paint(host, model, api, hooks) {
       void rescan(LocalConfig.source(model.st.draft));
       return;
     }
+    state(LocalConfig.problems(model.scan, model.st.draft, model.catalog).length
+      ? "incomplete" : "edited");
     redraw();
   };
 
@@ -146,11 +146,13 @@ function paint(host, model, api, hooks) {
     if (response.status === 409) {
       model.st.refused = LocalConfig.changes(model.st.draft, model.st.saved).length || 1;
       model.st.modifiedAt = body.modified_at;
+      state("changed");
       redraw();
       return;
     }
     if (response.status === 422) {
       model.st.serverFlags = flagsFromErrors(body.errors);
+      state("refused");
       redraw();
       return;
     }
@@ -160,6 +162,7 @@ function paint(host, model, api, hooks) {
     model.st.savedAt = body.saved_at;
     model.st.refused = 0;
     model.st.serverFlags = [];
+    state("saved");
     redraw();
   };
 
@@ -171,66 +174,76 @@ function paint(host, model, api, hooks) {
     const next = fromPayload(body);
     Object.assign(model, next);
     model.st.reread = true;
+    state("mine");
     redraw();
   };
 
   const root = el("div", {
-    class: "scrim board",
+    class: `settings-root${hooks.onClose ? " transparent" : ""}`,
+    "data-ui": "本机配置.root",
+  });
+  root.dataset.screen = "settings";
+  const scrim = el("div", {
+    class: "scrim board", "data-ui": "本机配置.sheet",
     onClick: event => {
       if (event.target === event.currentTarget && !v.changed) close();
     },
   });
-  root.dataset.screen = "settings";
 
   const sheet = el("div", {class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "本机配置"});
   sheet.append(
     el("div", {class: "sheet-head"},
       el("div", {class: "sheet-head-text"},
-        el("span", {class: "dp-eyebrow"}, "本机配置"),
-        el("h2", {class: "sheet-title"}, "这台机器上，每个 agent 跑在哪"),
-        el("p", {class: "sheet-sub"},
+        el("span", {class: "dp-eyebrow", "data-ui": "本机配置.sheet.eyebrow"}, "本机配置"),
+        el("h2", {class: "sheet-title", "data-ui": "本机配置.sheet.title"}, "这台机器上，每个 agent 跑在哪"),
+        el("p", {class: "sheet-sub", "data-ui": "本机配置.sheet.intro"},
           "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 ",
           el("span", {class: "sheet-code"}, "start"),
           " 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ",
           el("span", {class: "sheet-code"}, v.store),
           "；这一页不写 GitHub。"),
       ),
-      el("button", {type: "button", class: "dp-close", "aria-label": "关闭本机配置", onClick: close}, "×"),
+      el("button", {type: "button", class: "dp-close", "aria-label": "关闭本机配置",
+        "data-ui": "本机配置.sheet.close", onClick: close}, "×"),
     ),
   );
 
   const body = el("div", {class: "sheet-body"});
   if (v.refused) {
-    body.append(el("div", {class: "refused", role: "alert"},
-      el("p", {class: "refused-text"}, el("b", {}, "没有保存。"), v.refusedText),
-      el("button", {type: "button", class: "btn", onClick: reread}, "重新读取")));
+    body.append(el("div", {class: "refused", role: "alert", "data-ui": "本机配置.refused"},
+      el("p", {class: "refused-text", "data-ui": "本机配置.refused.text"},
+        el("b", {}, "没有保存。"), v.refusedText),
+      el("button", {type: "button", class: "btn", "data-ui": "本机配置.refused.reread",
+        onClick: reread}, "重新读取")));
   }
   body.append(
-    el("section", {class: "set-block"},
+    el("section", {class: "set-block", "data-ui": "本机配置.hosts"},
       el("div", {class: "set-block-head"},
-        el("span", {class: "dp-section-title"}, "本机的 host"),
-        el("span", {class: "scan"},
+        el("span", {class: "dp-section-title", "data-ui": "本机配置.hosts.title"}, "本机的 host"),
+        el("span", {class: "scan", "data-ui": "本机配置.scan"},
           v.scanning ? [el("span", {class: "spin"}), v.scanningText] : [
             v.scannedText,
             el("button", {type: "button", class: "linkbtn",
+              "data-ui": "本机配置.scan.rescan",
               onClick: () => void rescan(LocalConfig.source(model.st.draft))},
               "重新扫描"),
           ],
         ),
       ),
       el("div", {class: "hostscan"}, (v.chips || []).map(chip =>
-        el("span", {class: chip.cls}, el("span", {class: "hs-name"}, chip.host), chip.what))),
+        el("span", {class: chip.cls, "data-ui": "本机配置.host"},
+          el("span", {class: "hs-name", "data-ui": "本机配置.host.name"}, chip.host), chip.what))),
     ),
-    el("section", {class: "set-block ruled"},
-      el("div", {class: "runner-row"},
+    el("section", {class: "set-block ruled", "data-ui": "本机配置.runner-block"},
+      el("div", {class: "runner-row", "data-ui": "本机配置.runner"},
         el("div", {class: "role-name"},
-          el("span", {class: "role-agent"}, "runner"),
-          el("span", {class: "role-what"}, "用什么起 session")),
+          el("span", {class: "role-agent", "data-ui": "本机配置.runner.label"}, "runner"),
+          el("span", {class: "role-what", "data-ui": "本机配置.runner.what"}, "用什么起 session")),
         selectEl(v.runnerCls, v.runner, v.runnerOff, "runner", v.runnerOpts,
-          value => setCell("runner", "runner", value)),
+          value => setCell("runner", "runner", value), "本机配置.runner.select"),
         v.runnerHasBad ? roleFoot(v.runnerBads) : null,
       ),
-      el("p", {class: "set-note"},
+      el("p", {class: "set-note", "data-ui": "本机配置.runner-note"},
         "环境变量 ", el("span", {class: "sheet-code"}, "MMW_RUNNER"),
         " 设了时，它优先于这一格。「按所在环境判断」让 ",
         el("span", {class: "sheet-code"}, "start"),
@@ -238,42 +251,46 @@ function paint(host, model, api, hooks) {
         el("span", {class: "sheet-code"}, "start"),
         " 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"),
     ),
-    el("section", {class: "set-block ruled"},
+    el("section", {class: "set-block ruled", "data-ui": "本机配置.roles-block"},
       el("div", {class: "set-block-head"},
-        el("span", {class: "dp-section-title"}, "一个 agent 一行")),
-      el("div", {class: "roles"},
-        el("div", {class: "roles-head"},
+        el("span", {class: "dp-section-title", "data-ui": "本机配置.roles-block.title"}, "一个 agent 一行")),
+      el("div", {class: "roles", "data-ui": "本机配置.roles"},
+        el("div", {class: "roles-head", "data-ui": "本机配置.roles.head"},
           el("span", {}, "agent"), el("span", {}, "host"),
           el("span", {}, "model"), el("span", {}, "effort")),
-        (v.rows || []).map(row => el("div", {class: "role"},
+        (v.rows || []).map(row => el("div", {class: "role", "data-ui": "本机配置.role"},
           el("div", {class: "role-name"},
-            el("span", {class: "role-agent"}, row.agent),
-            el("span", {class: "role-what"}, row.what)),
+            el("span", {class: "role-agent", "data-ui": "本机配置.role.agent"}, row.agent),
+            el("span", {class: "role-what", "data-ui": "本机配置.role.what"}, row.what)),
           selectEl(row.hostCls, row.host, row.hostOff, row.hostLabel, row.hostOpts,
-            value => setCell(row.agent, "host", value)),
+            value => setCell(row.agent, "host", value), "本机配置.role.host"),
           selectEl(row.modelCls, row.model, row.modelOff, row.modelLabel, row.modelOpts,
-            value => setCell(row.agent, "model", value)),
+            value => setCell(row.agent, "model", value), "本机配置.role.model"),
           selectEl(row.effortCls, row.effort, row.effortOff, row.effortLabel, row.effortOpts,
-            value => setCell(row.agent, "effort", value)),
-          row.hasBad ? roleFoot(row.bads) : null,
+            value => setCell(row.agent, "effort", value), "本机配置.role.effort"),
+          row.hasBad ? roleFoot(row.bads, "本机配置.role.problem") : null,
         )),
       ),
-      el("p", {class: "set-note"},
+      el("p", {class: "set-note", "data-ui": "本机配置.initial-note"},
         "一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。"),
     ),
   );
   sheet.append(body);
   sheet.append(el("div", {class: "sheet-foot"},
     el("div", {class: "foot-status", "aria-live": "polite"},
-      el("span", {class: "foot-strong"}, v.hatch ? el("span", {class: "hatch"}) : null, v.strong),
-      el("span", {class: "foot-quiet"}, v.quiet)),
+      el("span", {class: "foot-strong", "data-ui": "本机配置.sheet.status"},
+        v.hatch ? el("span", {class: "hatch"}) : null, v.strong),
+      el("span", {class: "foot-quiet", "data-ui": "本机配置.sheet.status-note"}, v.quiet)),
     el("div", {class: "foot-actions"},
-      el("button", {type: "button", class: "btn", onClick: close}, v.closeLabel),
+      el("button", {type: "button", class: "btn", "data-ui": "本机配置.sheet.cancel",
+        onClick: close}, v.closeLabel),
       el("button", {
-        type: "button", class: "btn primary", disabled: !!v.saveOff, onClick: save,
+        type: "button", class: "btn primary", "data-ui": "本机配置.sheet.save",
+        disabled: !!v.saveOff, onClick: save,
       }, "保存")),
   ));
-  root.append(sheet);
+  scrim.append(sheet);
+  root.append(scrim);
 
   detachEsc(host);
   host._settingsEsc = event => {
