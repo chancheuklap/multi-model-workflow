@@ -13,6 +13,11 @@
 .gear-icon { width: 15px; height: 15px; }
 
 /* the sheet, centred over whatever frame it is mounted in */
+.settings-root {
+  position: absolute; inset: 0; font-size: 16px; font-weight: 400; color: #000000;
+  background: #e6e3df;
+}
+.settings-root.transparent { background: transparent; }
 .scrim {
   position: absolute; inset: 0; z-index: 25; display: grid; place-items: center;
   padding: 24px 16px; background: rgba(29, 32, 48, 0.46);
