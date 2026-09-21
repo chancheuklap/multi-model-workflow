@@ -99,6 +99,12 @@
 
 **发现的根本问题。** story 页面按规则只能从 scene data 进入状态，而 scene data 是 pull 记下的按 `data-ui` id 的显示文字：灯的颜色、画布的阻塞边与分列、下拉选中的哪一项都不在里面。任务列表、画布、详情、整页四页的 element parity 因此无法判出通过（#541 待回答问题 6）。设计页本身是从交接包里 `GET /api/board` 形状的数据文件画出来的。决定（工程判断）：屏幕合同的 scene 声明加可选的 `input`（数据文件、其中的值、页面在其上另设的字段 `with`），story adapter 从这同一份值喂产品组件。改动在 `write-screen-contract`（格式、lint 与测试、第 3 步）、`ui-acceptance` 的 `story-parity.md` 与词表的 **scene input**。任务板合同为 44 个 scene 全部声明了 input，逐个核对值存在。
 
+### 13. 切票（`to-tickets`）并发布
+
+**做法。** 派一个 agent 按技能起草票并扫歧义；歧义里两处归用户（顶栏从未读成功时写什么、旧数据的时间写法）、一处关于时机（人工看板在 night 中看试运行版），用户已决定并写进 spec #555 与合同。共用样式 `board.css`、`tokens.css` 归顶栏票所有，其余四个区域票等它落地（工程判断：灯色与令牌在这两个文件里，先定再比）。
+
+**真实产物。** #556（contract ticket）、#557 顶栏、#558 任务列表、#559 画布、#560 详情、#561 本机配置、#562 整页、#563 `settings-save` 验收、#564 人工看板（`ready-for-human`）；发布前用新增的草稿 lint、发布后用 `--lint 555` 各查一遍，0 错误。次序：#556 → #557 → #558–#561 → #562 → #563、#564。
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（第 1–10 行在提交 `0f79b971`） |
@@ -150,6 +156,18 @@
 | 45 | 写 spec | `to-spec/SKILL.md` 的 Sources | 决定票引为依据的旧 spec 算不算上游 spec 没写 | agent 要猜 | 写明算 |
 | 46 | 切票 | `cutting-interface-tickets.md` 的 design-system ticket | `_ds/` 本来就是从产品自己的样式表建的，照规则仍要切一张"抄回产品"的票 | 多一张什么都不改的票 | 写明这种情况不切；merge-note 同步 |
 | 47 | journey | `product-answers.md` 的 `leaves_machine`、`target_config.py` | 没有检查能看出 journey 保存配置时会写这台机器真的 `~/.mmw/models.json` | 一次验收就改掉本机配置 | `product-answers.md` 的 `start` 写明：产品默认读写的每个用户级位置（配置目录、XDG 目录、用户设置文件）由 `start` 指到 `MMW_DATA_DIR` 里并放好初值，挪不走的列进 `leaves_machine`；spec #555 第 12 节对任务板提同样要求 |
+| 48 | 切票 | `verify-ticket.py --lint` | 只能读已发布的票，而技能要求发布后才 lint，一批票没法在上线前查 | 错票先上线再改 | 加 `--lint --drafts <dir>`，并写明哪几项草稿查不了；to-tickets 第 7 步先查草稿、第 8 步发布后再查；加测试 |
+| 49 | 切票 | `critical_flows()` | 读不懂"第 6、8、9 节"的写法，还一路读进下一条 | 关键流程被误读 | 只读到自己那一段为止；唯一接受的写法写进报错与 to-spec 模板；spec #555 改成该写法；加测试 |
+| 50 | 切票 | `cutting-interface-tickets.md` 的 contract ticket | 静态守卫放在 contract ticket 上，而它们扫全仓库，其他票落地前必然失败 | 第一张票过不了 | 判据放到最后一张票，与 harness guard 同理 |
+| 51 | 切票 | 同上 | 没说 contract ticket 是否给先例组件写 `data-ui` | 两张票都以为是对方的 | 写明 contract ticket 写，第一张区域票的判据来判 |
+| 52 | 切票 | `boundary_test_paths` | 只认完整路径，`-s 目录 -p 文件` 写法永远报"还没写" | 假警告 | 认目录加文件的几种写法；加测试 |
+| 53 | 切票 | `boundary-check.md` | `detail.close` 与 `detail.close-event` 在 `-k` 子串匹配下互相命中 | 一条判据跑两条测试 | 写明两头锚定的选择方式与发布前的自检 |
+| 54 | 切票 | to-tickets 模板的 `## Parent` 与 `source_findings` | 合同行引旧 spec 时，Parent 该怎么写两边说法不一 | lint 报错或取错 spec | Parent 先写所属 spec，再写旧 spec 的小节；lint 查次序；加测试 |
+| 55 | 切票 | `cutting-interface-tickets.md` 的 component page ticket | `next` 是别的页面的场景时，区域票的测试断言什么没写 | 各写各的 | 区域票断言交出去的事件，另一页进入场景由整页票断言 |
+| 56 | 切票 | `sub-issues.md` 第 5 问与 to-tickets 第 5 步 | 一边允许改 Owns 以外的文件，一边要求同时可跑的票不重叠 | 共用文件在夜里撞车 | 统一为：同时可跑的票不写同一个文件，共用文件归一张票、其余被它挡；implement 同步 |
+| 57 | 切票 | `person-ticket.md` | 人工看板要"一个能打开的链接"，而本仓库常驻的是冻结的安装版 | 看到的是旧界面 | 自托管仓库给一条命令，在租约上用测试数据起新版并打印地址 |
+| 58 | 切票 | to-tickets 第 6 步 | 要求扫歧义的子 agent 只读，但宿主可能没有按次限制工具的能力 | 无法照做 | 写明在提示里说明只读，前后用 `git status` 核对 |
+| 59 | 切票 | lint 输出 | 先打印 `LINT OK`，后面才列出错误 | 读的人以为通过了 | 每张票的结论行放在它所有发现之后并反映它们；加测试 |
 
 ## 产品侧的发现（不属于流水线）
 
