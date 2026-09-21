@@ -13,7 +13,7 @@ The design tool whose project is the only source of the design. Pages are writte
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **design system**:
-The first of the three design-pages entries, and the Claude Design artifact that Claude Design itself builds from code that already runs, before any page is drawn: tokens, foundation cards, components that render the source's own markup, UI kits and their starting-point screens. Distinct from **`DESIGN.md`**, which is not that source.
+The first of the three design-pages entries, and the Claude Design artifact built from code that already runs, before any page is drawn: tokens, foundation cards, components that render the source's own markup, UI kits and their starting-point screens. Its source is a directory in the repository, uploaded to Claude Design. Distinct from **`DESIGN.md`**, which is not that source.
 _Home_: `mmw-v2/skills/design-pages/references/design-system.md`
 
 **edit pages**:
