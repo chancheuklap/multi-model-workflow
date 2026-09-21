@@ -165,7 +165,7 @@ _Avoid_: reach script, `scripts/testing/` (when this directory is meant)
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **harness guard**:
-`scripts/harness-guard.py` beside the ui-acceptance `SKILL.md`: given the repository root, it decides whether the names a repository uses only to make itself drivable have stayed in the allowed places. The leak strings are `.mmw/target.json`'s `harness_markers`; `MMW_` reads are judged regardless; story-service files must not name a `.dc.html`. What widens the allowed set is `leaves_machine`. It judges names in files, not a running product: it starts nothing and takes no lease. The **contract ticket** carries its criterion and names it bare.
+`scripts/harness-guard.py` beside the ui-acceptance `SKILL.md`: given the repository root, it decides whether the names a repository uses only to make itself drivable have stayed in the allowed places. The leak strings are `.mmw/target.json`'s `harness_markers`; `MMW_` reads are judged regardless; story-service files must not name a `.dc.html`. What widens the allowed set is `leaves_machine`. It judges names in files, not a running product: it starts nothing and takes no lease. The **contract ticket** delivers it; because it sweeps the whole tree, the batch's last ticket carries its criterion and names it bare.
 _Admitted_: `harness-guard.py`
 _Avoid_: leak check, back-door check
 _Home_: `mmw-v2/skills/ui-acceptance/references/harness-guard.md`

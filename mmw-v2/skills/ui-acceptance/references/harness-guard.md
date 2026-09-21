@@ -39,10 +39,14 @@ EXPECT: HARNESS OK
 ```
 
 The one argument is the repository root, and a `CHECK:` line runs there, so it is `.`.
-The contract ticket carries this criterion. What widens the allowed set for one file is
-`.mmw/target.json`'s `leaves_machine`, never an exception written into the check and
-never a name assembled at run time to get past it (`process.env["MMW_" + "NEGATIVE"]`):
-a check that is evaded reports nothing about the leaks beside what evaded it.
+It sweeps the whole tree, so any ticket of a batch can turn it red; the batch's last
+ticket carries it, and the contract ticket only delivers the guard (the `to-tickets`
+skill's `references/cutting-interface-tickets.md`, **contract ticket**).
+
+What widens the allowed set for one file is `.mmw/target.json`'s `leaves_machine`, never
+an exception written into the check and never a name assembled at run time to get past it
+(`process.env["MMW_" + "NEGATIVE"]`): a check that is evaded reports nothing about the
+leaks beside what evaded it.
 
 ## Exit codes
 

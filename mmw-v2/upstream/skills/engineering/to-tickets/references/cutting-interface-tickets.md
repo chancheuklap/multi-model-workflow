@@ -8,13 +8,30 @@ Copy each criterion from the named section of the `ui-acceptance` skill; the sha
 - A boundary criterion: `references/boundary-check.md` § **The criterion, in one shape**. The product's test asserts the four columns of that row.
 - A journey criterion: `references/journey.md` § **The criterion, in one shape**.
 
+Each of these shapes is question 1 of **the five questions** in `SKILL.md`: a command decides it. Whatever else a ticket below wants said about the interface goes where questions 2 to 5 send it.
+
 **A layer with no precedent yet:** a product from zero takes its adapter, its interaction helper and its first journey script, as the precedent, from the **contract ticket**. Cut that ticket first. The criteria of the tickets behind it copy their `CHECK:` and `EXPECT:` from what it lands. Nothing here sends you back to the `to-spec` skill for a precedent the spec cannot have.
+
+## Seam and Owns on these tickets
+
+**Seam** says where this ticket is verified and what puts the product into the state it is verified in. Each criterion shape above answers both, so a ticket's **Seam** names the ones its criteria use:
+
+- A story criterion observes the product's story page for a mount, rendered with no backend behind it. The story adapter reading that scene's scene data is what puts the product there.
+- A boundary criterion observes the product's own outbound call module, replaced for the test. The interaction helper acting on the row's `data-ui` id is what puts the product there.
+- A journey criterion observes the real product, brought up by `start` in `.mmw/target.json`.
+- The design-system criterion and the harness-guard criterion observe the repository tree: a shell command reads the files, and nothing has to put the product anywhere.
+
+**Seam** also names the precedent to copy: on a product from zero it is what the **contract ticket** lands, and a later ticket copies it rather than deriving its own.
+
+**Owns** says where this ticket may write, so no design page is ever an entry there: the handoff package is a baseline under **Read first**, and the worker is forbidden to edit it. Translate the pages a ticket takes into product paths through the contract, whose `pages.<page>.component` names the directory the implementation owns each `Component · ` page under. Everything else follows step 5 of `SKILL.md`: the test files this ticket adds, and the files it must edit to put what it creates in service.
 
 ## design-system ticket
 
 Only a new product gets one. It copies the design system's style tokens and shared components into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. Its criterion does not depend on `.mmw/`.
 
-**Read first** names the `_ds/` copy in the handoff package, the design system Claude Design used to draw the pages.
+**The design-system ticket is the second exception to vertical slicing**, beside the wide refactor `SKILL.md` step 3 names. It lands one layer, the styles, and demonstrates no behaviour of its own. Forcing it into a tracer bullet would mean drawing a whole screen to show that a colour variable exists, and every element parity behind it would then be comparing against styles that arrived with the screen rather than before it.
+
+**Read first** names the `_ds/` copy in the handoff package, the design system Claude Design used to draw the pages. **Owns** is the product files the style tokens and shared components land in.
 
 Its criterion is one comparison, written under question 1 of **the five questions** in `SKILL.md`: a shell command that the style tokens and the shared components exist in the product code. Whether those styles match the design system, value by value, is each later **interface ticket**'s element parity.
 
@@ -35,11 +52,15 @@ What it delivers:
 - the smoke journey
 - the **harness guard**
 
+Which of those carry a criterion follows **the five questions** in `SKILL.md`, and most do not. Question 1 reaches the smoke journey, one journey criterion, and the static guards, one command each. The story service, the first story adapter, the interaction helper, the element parity precedent and the break switch carry none of their own: each is a precedent, and a precedent is first decided by a command on the ticket that copies it, the first **component page ticket** for the adapter and the precedent, the first **acceptance ticket** for the break switch. Whether any of them is built well is question 2, for the `Standards` and `Tests` axes of code review. None of it is a judgement written into `## Acceptance criteria`.
+
+The **harness guard** is delivered here and its criterion is not. It sweeps the whole repository, and step 4 of `SKILL.md` puts a sweep on the batch's last ticket: any ticket landing after this one can leak an acceptance name, and the closing pass re-runs every criterion of the batch on the base branch, so left here it turns the batch's first ticket red for another ticket's work and `reverify` reopens it into `needs-triage` once the batch is already out. Put the harness-guard criterion on the batch's last ticket instead, which is the last **acceptance ticket** where the batch has one, and otherwise the last **app page ticket** or **component page ticket**. Only **Blocked by** makes a ticket last, so that ticket is blocked by every other agent ticket of the batch.
+
 What every product answer must still guarantee is the `ui-acceptance` skill's `references/product-answers.md`. One product's shape is an example, not a requirement on the next.
 
 The smoke journey uses the journey criterion and omits `--break`. It requires the product to come up and answer; it signs in when the product has a login. Its second pass is the product-down pass that section already names. The first **acceptance ticket**'s journey is what proves the break switch.
 
-**Read first** names three sections of the `ui-acceptance` skill: `references/story-parity.md` **The story page the product serves**; `references/journey.md`; and `references/product-answers.md`.
+**Read first** names three sections of the `ui-acceptance` skill: `references/story-parity.md` **The story page the product serves**; `references/journey.md`; and `references/product-answers.md`. **Owns** is `.mmw/`, the story service and the interaction helper, and, as the prefactor ticket below, every file that registers a design page's scenes and routes.
 
 Journeys appear on the contract ticket, on tickets the owner named, and on each acceptance ticket.
 
@@ -47,7 +68,9 @@ Where the spec has a screen contract, the **prefactor ticket** of step 5 is this
 
 ## component page ticket
 
-Owns by design page, `Component · ` pages. One story criterion (element parity) covers the mounts of the pages it owns. Each owned row whose `calls` is not `none`, or whose `next` is not `stay`, gets one boundary criterion; rows that share a test file may share one.
+Cut by design page, `Component · ` pages. One story criterion (element parity) covers the mounts of the pages it takes. Each owned row whose `calls` is not `none`, or whose `next` is not `stay`, gets one boundary criterion; rows that share a test file may share one.
+
+**Owns** is the `component` directory the contract's `pages` declares for each page it takes, and the test files it adds. The design page names which rows the ticket is answerable for, never where it may write.
 
 **Read first** carries two baseline lines, and the design page names for a person to read:
 
@@ -60,7 +83,9 @@ A `CHECK:` that stubs the application's own network (`vi.stubGlobal('fetch')`, m
 
 ## app page ticket
 
-Owns an `App · ` page. One story criterion covers that page's mount. Each **cross-component row** on that page gets one boundary criterion. The **component page ticket** of every `Component · ` page this App page composes blocks it.
+Takes one `App · ` page. One story criterion covers that page's mount. Each **cross-component row** on that page gets one boundary criterion. The **component page ticket** of every `Component · ` page this App page composes blocks it.
+
+**Owns** is the story page that composes those components into the whole page, and the test files it adds. An `App · ` page names no `component` in the contract, so there is no product directory to translate it into; the App page itself stays a baseline under **Read first**.
 
 **Read first** carries two baseline lines, and the App page name for a person to read:
 
@@ -79,7 +104,7 @@ The ticket-cutting session writes the journey criterion, with `--break`, taking 
 
 **Parent** names the Implementation Decisions sections that flow lists. It is blocked by every ticket of this batch whose work that flow uses: the **component page ticket** and **app page ticket** of the pages it walks, and the tickets that build the operations those rows' `calls` name. A journey drives the real product with nothing mocked, so an operation that does not exist yet fails it at the first write, and the blockers are derived from the flow's rows, not from the list of ticket kinds. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for morning triage, and the closing comment names the step that broke.
 
-**Owns** is `.mmw/journeys/<flow>/`, plus adding to the shared helper when there is one. **Seam** may forbid edits to product code; it does not forbid adding to that helper. The `verify-ticket` skill's `references/linting.md` already treats an **Owns** covering `.mmw/journeys/<flow>/` as the ticket that builds it; the shared helper is covered by the ticket that creates it.
+**Owns** is `.mmw/journeys/<flow>/`, plus adding to the shared helper when there is one; product code is not in it. The `verify-ticket` skill's `references/linting.md` already treats an **Owns** covering `.mmw/journeys/<flow>/` as the ticket that builds it; the shared helper is covered by the ticket that creates it.
 
 ## Shared journey helper
 
@@ -87,7 +112,7 @@ When two or more journey tickets in the batch (an **acceptance ticket**, or anot
 
 ## reaction ticket
 
-One extra *reaction* ticket: the user looks at this spec's interface on the real product and finds appearance the scripts do not cover (decoration with no `data-ui` id, the overall look). It is blocked by every **component page ticket** and **app page ticket**. The rest of a *reaction* ticket is [person-ticket.md](person-ticket.md).
+One extra *reaction* ticket: the user uses this spec's interface on the running product and judges what no story render shows, how it feels in use and whether the whole surface reads as one product. Appearance a story render does show, decoration with no `data-ui` id included, stops at question 2 first: it is the `UI` axis of code review, which looks at those renders. It is blocked by every **component page ticket** and **app page ticket**. The rest of a *reaction* ticket is [person-ticket.md](person-ticket.md).
 
 ## When the rows change
 

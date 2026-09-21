@@ -48,4 +48,4 @@ Say plainly, in one line, when a scene you opened is sound.
 
 ## What is not yours
 
-Element facts the story criterion already names — `text`, `size`, `position`, `parent`, `visible`, the five style facts — belong to that criterion, not to this axis. How the code is written, whether it builds the right thing, and whether its tests are worth trusting, belong to the other axes. Leave their questions alone.
+Element facts the story criterion already names — `text`, `size`, `position`, `parent`, `visible`, the five style facts — belong to that criterion, not to this axis. How the code is written, whether it builds the right thing, and whether its tests are worth trusting, belong to the other axes. How the interface feels in use on the running product belongs to the batch's *reaction* ticket: you look at a story render, and the person looks at the product. Leave their questions alone.

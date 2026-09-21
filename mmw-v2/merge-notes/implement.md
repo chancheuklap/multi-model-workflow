@@ -184,3 +184,24 @@ pulled into the repository`.
 
 If upstream rewrites that sentence → take its wording and keep `pulled into the
 repository`; do not take `downloaded from Claude Design` back.
+
+## The story criterion is a declared exception to red before green
+
+`references/writing-interface-code.md` under **Write the product** tells the
+worker to write the component, then its story adapter and boundary tests, in one
+pass. That is the mirror of `tdd`'s **Horizontal slicing** anti-pattern and runs
+against its **Red before green**, and until #539 no file in the interface chain
+named `tdd` at all, while `SKILL.md` still says to use it at pre-agreed seams. A
+worker had two house disciplines and nothing to choose between them with, and
+either choice could be called wrong by a review axis.
+
+A paragraph now declares the exception in the house form `to-tickets` uses for
+wide refactors: it names `tdd`, says the story criterion cannot run until the
+component renders because element parity compares two rendered sides, and says
+its expected values are not imagined, which is the thing `tdd`'s objection is
+about, because they are the design side's values taken in the step before. Each
+owned row's four-column boundary test stays its own red-green slice inside the
+pass, at the seam the ticket's **Seam** names.
+
+If upstream rewrites `tdd`'s loop rules → take its wording in `tdd`; keep this
+exception, and keep its reason tied to element parity comparing rendered sides.

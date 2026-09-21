@@ -26,6 +26,8 @@ Put `[data-story-root]` on the product component's own root element, not a wrapp
 
 In the same pass write that page's story adapter and a four-column boundary test for each owned row. The story adapter takes the scene's scene data and maps it onto the component. The four-column boundary test asserts `calls`, `shows`, `next` and `on_failure` of one row.
 
+**The story criterion is the exception to red before green.** The `tdd` skill writes one failing test and then only the code that passes it, and calls tests written ahead of the code **Horizontal slicing**, because they verify imagined behaviour. Element parity compares two rendered sides, so the story criterion has nothing to compare until the component renders, and its expected values are not imagined: they are the design side's, taken in the step above. So the component comes first here, written to those values. Each owned row's four-column boundary test is still its own red-green slice inside this pass, at the seam this ticket's **Seam** names: write it against the row, watch it fail, wire that row, watch it pass.
+
 When the design system was built from code that already runs, the design page already uses the product's class names: copy them.
 
 **Done when** the component, its story adapter and its four-column boundary tests exist.

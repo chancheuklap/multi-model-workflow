@@ -181,3 +181,20 @@ and it matches the judge's own `product=` output. It is registered in
 
 If upstream rewrites the story-adapter paragraph → take its wording and keep
 `product component`.
+
+## The UI axis and the reaction ticket divide appearance by what a render shows
+
+`references/ui-reviewer.md` **What is not yours** gains one sentence: how the
+interface feels in use on the running product belongs to the batch's *reaction*
+ticket, because this axis looks at a story render and the person looks at the
+product. The `to-tickets` skill's `references/cutting-interface-tickets.md`
+narrowed its reaction ticket the same way in #539. Before that, both files named
+decoration with no `data-ui` id and the overall look, so the owner could be asked
+the morning after to look at what this axis had already reported. The five
+questions stop at the first yes, and question 2 (a judgement a machine reaches)
+comes before question 3 (a person's reaction), so what a story render shows is
+this axis's.
+
+When the UI pilot ends, re-home the appearance a story render shows before the
+axis is dropped, or it silently loses its owner. If upstream rewrites **What is
+not yours** → take its wording and keep the reaction-ticket boundary.

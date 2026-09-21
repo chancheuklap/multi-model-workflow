@@ -41,3 +41,11 @@
 `## Testing Decisions` 的 **Test surfaces** 那一条原来写 `the answers that make the repository a runnable environment`。同一样东西在工具箱里有过四个名字——`automatable acceptance runtime`、`product answers`、`runnable environment`、`drivable`——而写 spec 的 agent 被这一句送去 `ui-acceptance` 的 `references/product-answers.md`，打开却是第四个说法，分不清是不是同一个文件。定名：**内容**叫 `product answers`（它是那个 reference 的文件名，也是 ADR 0028 的用词），**状态**叫 `acceptance runtime`；两个都登记在 `docs/contexts/ui-acceptance/CONTEXT.md`。这一条因此写成 `the **product answers** that make the repository an acceptance runtime`。
 
 上游改 **Test surfaces** → 收上游措辞，`product answers` 与 `acceptance runtime` 两个名字保留，不收回 `runnable environment`。
+
+## 有 screen contract 时，How a test arrives at a state 仍点名机制与主人
+
+`## Testing Decisions` 的 **How a test arrives at a state** 那一条，原先有 screen contract 时的结尾是「从这个产品 contract ticket 在现场定下的做法来填……Do not write a second copy of those mechanisms here」。这一句把同一条自己的用途关掉了：同一条前面写着切票的人读这一节来判断一条判据写不写得出来、并由其中一张票负责建这里点名的每个机制；`to-tickets` 第 4 问要求把系统摆进某个状态的东西在这一节被点名、并落在某张票的 **Owns** 里，缺一样就切 `reach` ticket，第 8 步还回读核对。这一节对界面批次一留空，整批界面判据就都判第四问失败，或者切票的 agent 索性不问第四问。新产品更糟：它的 contract ticket 正是从这份 spec 切出来的，写 spec 时还什么都没「在现场定下」。
+
+现在改成点名：有 screen contract 时，这一节写三个机制各自归哪张票建——从 scene data 把 story 页摆进一个 scene 的 story adapter、按 `data-ui` id 把控件摆上屏给 four-column boundary test 用的 interaction helper、给 journey 起产品的 `.mmw/target.json` 的 `start`。新产品三个都归 contract ticket；`.mmw/` 已经能回答的产品，写出建 `target_config.py --check` 报缺之物的那张票，或写明什么都不缺。「不写第二份」原本想说的是**形状**：每个机制怎么搭写在 `ui-acceptance` 技能的 reference 里，这里只点名、不复述。理由：#539。
+
+上游改 **How a test arrives at a state** → 收上游措辞，「有 screen contract 时点名三个机制与主人、形状不复述」保留，不收回「不写第二份」那种留空的写法。
