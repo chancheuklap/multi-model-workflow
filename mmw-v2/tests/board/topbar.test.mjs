@@ -2,31 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {makeApi} from "../../board/page/api.mjs";
-import {fromBoard, fromScene, render} from "../../board/page/topbar.mjs";
+import {fromBoard, render} from "../../board/page/topbar.mjs";
+import {hhmm} from "../../board/page/shared.mjs";
 import {installDom, namedButton, walk} from "./fake-dom.mjs";
 
-const morningScene = {
-  vals: {
-    v: {
-      orangeN: 3, greenN: 3, hollowN: 9, inkN: 9, hot: true,
-      needCls: "counter hot", needNCls: "counter-n hot", needLightCls: "lamp orange",
-      waitingSub: "waiting for a slot 1", readCls: "readstate", readText: "只读 · 07:39 读取",
-      noNeed: false, hasWaiting: true,
-    },
-    gearCls: "gear",
-  },
+const morningView = {
+  orangeN: 3, greenN: 3, hollowN: 9, inkN: 9, waiting: 1,
+  readFailed: false, readClock: "07:39", readAgo: "1 分钟前", settingsOpen: false,
 };
 
-const emptyScene = {
-  vals: {
-    v: {
-      orangeN: 0, greenN: 0, hollowN: 0, inkN: 0, hot: false,
-      needCls: "counter", needNCls: "counter-n", needLightCls: "lamp hollow",
-      waitingSub: "", readCls: "readstate", readText: "只读 · 07:39 读取",
-      noNeed: true, hasWaiting: false,
-    },
-    gearCls: "gear",
-  },
+const emptyView = {
+  orangeN: 0, greenN: 0, hollowN: 0, inkN: 0, waiting: 0,
+  readFailed: false, readClock: "07:39", readAgo: "1 分钟前", settingsOpen: false,
 };
 
 function counterNs(root) {
@@ -41,8 +28,8 @@ function mount(view, api, hooks) {
   return {document, host, root: render(host, view, api, hooks)};
 }
 
-test("morning vals show the four counts and the waiting sub-line", () => {
-  const {root} = mount(fromScene(morningScene));
+test("a populated view shows the four counts and the waiting sub-line", () => {
+  const {root} = mount(morningView);
   assert.equal(root.dataset.screen, "topbar");
   assert.deepEqual(counterNs(root), ["3", "3", "9", "9"]);
   assert.match(root.textContent, /waiting for a slot 1/);
@@ -50,8 +37,8 @@ test("morning vals show the four counts and the waiting sub-line", () => {
   assert.equal(namedButton(root, "needs you 3").disabled, false);
 });
 
-test("empty vals disable needs you and hide the waiting sub-line", () => {
-  const {root} = mount(fromScene(emptyScene));
+test("an empty view disables needs you and hides the waiting sub-line", () => {
+  const {root} = mount(emptyView);
   assert.equal(namedButton(root, "needs you 0").disabled, true);
   assert.deepEqual(counterNs(root), ["0", "0", "0", "0"]);
   assert.equal(walk(root).some(node => (node.className || "").includes("counter-sub")), false);
@@ -65,7 +52,7 @@ test("立刻重读 GitHub calls POST /api/board/refresh", async () => {
       calls.push({method, path, fields});
       return {ok: true, json: async () => body};
     });
-    const {root} = mount(fromScene(morningScene), api, {onRefresh: resolve});
+    const {root} = mount(morningView, api, {onRefresh: resolve});
     namedButton(root, "立刻重读 GitHub").click();
   });
   assert.equal(await received, body);
@@ -79,7 +66,7 @@ test("本机配置 calls GET /api/settings and hands the body to onOpenSettings"
       assert.deepEqual({method, path, fields}, {method: "GET", path: "/api/settings", fields: undefined});
       return {ok: true, json: async () => sheet};
     });
-    const {root} = mount(fromScene(morningScene), api, {onOpenSettings: resolve});
+    const {root} = mount(morningView, api, {onOpenSettings: resolve});
     namedButton(root, "本机配置").click();
   });
   assert.equal(await opened, sheet);
@@ -87,7 +74,7 @@ test("本机配置 calls GET /api/settings and hands the body to onOpenSettings"
 
 test("本机配置 does not open the sheet when the read fails", async () => {
   let opened = false;
-  const {root} = mount(fromScene(morningScene), {
+  const {root} = mount(morningView, {
     settings: async () => ({ok: false, json: async () => ({})}),
   }, {onOpenSettings: () => { opened = true; }});
   namedButton(root, "本机配置").click();
@@ -96,12 +83,12 @@ test("本机配置 does not open the sheet when the read fails", async () => {
 });
 
 test("topbar actions keep parse and hook failures silent", async () => {
-  const malformed = mount(fromScene(morningScene), {
+  const malformed = mount(morningView, {
     settings: async () => ({ok: true, json: async () => { throw new Error("bad json"); }}),
   }, {onOpenSettings: () => { throw new Error("must not run"); }});
   namedButton(malformed.root, "本机配置").click();
 
-  const hookFailure = mount(fromScene(morningScene), {
+  const hookFailure = mount(morningView, {
     settings: async () => ({ok: true, json: async () => ({version: 1})}),
   }, {onOpenSettings: () => { throw new Error("hook failed"); }});
   namedButton(hookFailure.root, "本机配置").click();
@@ -111,15 +98,15 @@ test("topbar actions keep parse and hook failures silent", async () => {
 test("needs you fires onJumpNeedYou only when some ticket is orange", () => {
   let jumps = 0;
   const hooks = {onJumpNeedYou: () => { jumps += 1; }};
-  const {root: hot} = mount(fromScene(morningScene), undefined, hooks);
+  const {root: hot} = mount(morningView, undefined, hooks);
   namedButton(hot, "needs you 3").click();
   assert.equal(jumps, 1);
-  const {root: cold} = mount(fromScene(emptyScene), undefined, hooks);
+  const {root: cold} = mount(emptyView, undefined, hooks);
   namedButton(cold, "needs you 0").click();
   assert.equal(jumps, 1);
 });
 
-test("fromBoard maps GET /api/board lamps and a failed read onto the top bar", () => {
+test("a failed read shows the time and age of the data below", () => {
   const orange = {
     n: 3, title: "work", blocked: [], children: [{number: 9, state: "OPEN"}], events: [],
     fold: {
@@ -135,8 +122,31 @@ test("fromBoard maps GET /api/board lamps and a failed read onto the top bar", (
   }, new Date("2026-09-11T08:08:00Z"));
   assert.equal(view.orangeN, 1);
   assert.equal(view.readFailed, true);
-  assert.equal(view.readAgo, 28);
   const {root} = mount(view);
-  assert.match(root.textContent, /读 GitHub 失败 · 下面是 \d{2}:\d{2} 的数据（28 分钟前）/);
+  assert.match(root.textContent,
+    new RegExp(`读 GitHub 失败 · 下面是 ${hhmm("2026-09-11T07:12:00Z")} 的数据（56 分钟前）`));
   assert.equal(namedButton(root, "needs you 1").disabled, false);
+});
+
+test("an old read names its day and counts in hours", () => {
+  const readAt = new Date(2026, 8, 20, 22, 10);
+  const now = new Date(2026, 8, 21, 9, 30);
+  const view = fromBoard({
+    tasks: [],
+    read_at: readAt.toISOString(),
+    read_failed: {at: now.toISOString(), message: "offline"},
+  }, now);
+  const {root} = mount(view);
+  assert.match(root.textContent,
+    /读 GitHub 失败 · 下面是 9 月 20 日 22:10 的数据（11 小时前）/);
+});
+
+test("a board never read names no time", () => {
+  const view = fromBoard({
+    tasks: [],
+    read_failed: {at: "2026-09-11T07:40:00Z", message: "offline"},
+  }, new Date("2026-09-11T08:08:00Z"));
+  const {root} = mount(view);
+  const readState = walk(root).find(node => node.getAttribute("data-ui") === "顶栏.read-state");
+  assert.equal(readState.textContent, "读 GitHub 失败");
 });

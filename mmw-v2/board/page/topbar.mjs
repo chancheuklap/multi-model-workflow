@@ -4,27 +4,21 @@ import {el, hand, hhmm, minutes} from "./shared.mjs";
 const REFRESH_ICON = '<svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>';
 const GEAR_ICON = '<svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
 
-function clockFrom(text) {
-  return (text || "").match(/(\d{2}:\d{2})/)?.[1] || "";
+function sameLocalDay(left, right) {
+  return left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate();
 }
 
-function agoFrom(text) {
-  return Number((text || "").match(/（(\d+) 分钟前）/)?.[1] || 0);
+function dataTime(value, now) {
+  const read = new Date(value);
+  if (sameLocalDay(read, now)) return hhmm(read);
+  return `${read.getMonth() + 1} 月 ${read.getDate()} 日 ${hhmm(read)}`;
 }
 
-export function fromScene(data = {}) {
-  const v = data.vals?.v || {};
-  return {
-    orangeN: v.orangeN ?? 0,
-    greenN: v.greenN ?? 0,
-    hollowN: v.hollowN ?? 0,
-    inkN: v.inkN ?? 0,
-    waiting: v.hasWaiting ? Number((v.waitingSub || "").match(/(\d+)/)?.[1] || 0) : 0,
-    readFailed: (v.readCls || "").includes("failed"),
-    readClock: clockFrom(v.readText),
-    readAgo: agoFrom(v.readText),
-    settingsOpen: (data.vals?.gearCls || "gear") === "gear on",
-  };
+function age(value, now) {
+  const elapsed = minutes(value, now);
+  return elapsed < 60 ? `${elapsed} 分钟前` : `${Math.floor(elapsed / 60)} 小时前`;
 }
 
 export function fromBoard(payload = {}, now = new Date()) {
@@ -32,16 +26,17 @@ export function fromBoard(payload = {}, now = new Date()) {
   const all = tasks.flatMap(task => Board.allTickets(task));
   const count = lamp => all.filter(ticket => Board.lamp(ticket) === lamp).length;
   const waiting = all.filter(ticket => Board.phase(ticket) === "waiting").length;
-  const readAt = payload.read_failed?.at || payload.read_at;
+  const readAt = payload.read_at;
+  const failed = Boolean(payload.read_failed);
   return {
     orangeN: count("orange"),
     greenN: count("green"),
     hollowN: count("hollow"),
     inkN: count("ink"),
     waiting,
-    readFailed: Boolean(payload.read_failed),
-    readClock: readAt ? hhmm(readAt) : "",
-    readAgo: readAt ? minutes(readAt, now) : 0,
+    readFailed: failed,
+    readClock: readAt ? (failed ? dataTime(readAt, now) : hhmm(readAt)) : "",
+    readAgo: readAt ? age(readAt, now) : "",
     settingsOpen: Boolean(payload.settingsOpen),
   };
 }
@@ -58,7 +53,9 @@ export function render(host, view = {}, api, hooks = {}) {
   const hot = orangeN > 0;
   const waiting = view.waiting || 0;
   const read = view.readFailed
-    ? {cls: "readstate failed", text: `读 GitHub 失败 · 下面是 ${view.readClock} 的数据（${view.readAgo} 分钟前）`}
+    ? {cls: "readstate failed", text: view.readClock
+      ? `读 GitHub 失败 · 下面是 ${view.readClock} 的数据（${view.readAgo}）`
+      : "读 GitHub 失败"}
     : {cls: "readstate", text: view.readClock ? `只读 · ${view.readClock} 读取` : ""};
   const root = el("header", {class: "topbar board", "data-ui": "顶栏.root"});
   root.dataset.screen = "topbar";
