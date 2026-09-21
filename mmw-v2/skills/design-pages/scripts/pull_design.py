@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -120,12 +121,16 @@ class PreviousPackage:
 
 
 class PullRefused(Exception):
-    def __init__(self, what: str, why: str, next_step: str, code: int = 2):
+    def __init__(self, what: str, why: str, next_step: str, code: int = 2,
+                 paths: list[str] | None = None):
         super().__init__(what)
         self.what = what
         self.why = why
         self.next_step = next_step
         self.code = code
+        # Printed whole, one per line, above the refusal: the refusal line is trimmed
+        # to a fixed length and a list inside it would lose its tail.
+        self.paths = paths or []
 
 
 class DownloadFailed(Exception):
@@ -237,8 +242,16 @@ def load_manifest(path: Path) -> list[ManifestFile]:
     return files
 
 
+# Files Claude Design writes for itself and rewrites on its own: `.thumbnail` is the
+# project card image, regenerated after page edits (seen 2026-09-21: 5357 bytes in
+# list_files, 11128 when downloaded minutes later). Nothing downstream reads them.
+NOT_PULLED = {".thumbnail"}
+
+
 def handoff_path(path: str) -> bool:
-    return any(part.startswith("design_handoff_") for part in PurePosixPath(path).parts)
+    return path in NOT_PULLED or any(
+        part.startswith("design_handoff_") for part in PurePosixPath(path).parts
+    )
 
 
 def preview_file_url(preview: str, path: str) -> str:
@@ -276,15 +289,25 @@ def project_id_from_preview(preview: str) -> str:
     return project
 
 
-def fetch(url: str) -> bytes:
+# A connection error is retried; an HTTP status is an answer and is not. One pull
+# downloads about two hundred files, and on 2026-09-21 one of them failed once with
+# URLError and succeeded on the next run.
+FETCH_ATTEMPTS = 3
+
+
+def fetch(url: str, attempts: int = FETCH_ATTEMPTS, pause: float = 1.0) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": "mmw-pull-design/1"})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return response.read()
-    except urllib.error.HTTPError as exc:
-        raise DownloadFailed(f"HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise DownloadFailed(type(exc).__name__) from exc
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            raise DownloadFailed(f"HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt == attempts:
+                raise DownloadFailed(type(exc).__name__) from exc
+            time.sleep(pause * attempt)
+    raise AssertionError("unreachable")
 
 
 HEAD = re.compile(br"<head\b[^>]*>", re.IGNORECASE)
@@ -294,7 +317,28 @@ INJECTED_TAG = re.compile(
 )
 
 
-def strip_injected_head(raw: bytes) -> bytes:
+def strip_injected_head(raw: bytes, expected_size: int | None = None) -> bytes:
+    """Remove the preview server's injected `<style>`/`<script>` right after `<head>`.
+
+    Measured 2026-09-21 on a live project, the injection is `\n<style …></style><script
+    …></script>\n`: its closing newline stays behind when the tags are removed, and
+    beside a page's own newline after `<head>` the two cannot be told apart by bytes
+    alone. When removing the tags leaves exactly one byte more than list_files
+    reported and the byte after `<head>` is a newline, that newline is removed too.
+    """
+    stripped = _strip_injected_tags(raw)
+    if (
+        expected_size is not None
+        and stripped is not raw
+        and len(stripped) == expected_size + 1
+    ):
+        head = HEAD.search(stripped)
+        if head is not None and stripped[head.end():head.end() + 1] == b"\n":
+            return stripped[:head.end()] + stripped[head.end() + 1:]
+    return stripped
+
+
+def _strip_injected_tags(raw: bytes) -> bytes:
     head = HEAD.search(raw)
     if head is None:
         return raw
@@ -389,7 +433,7 @@ def write_project_files(
                     "Restore the preview download, then rerun; the target was not changed.",
                 ) from exc
         if entry.path.lower().endswith(".html"):
-            body = strip_injected_head(body)
+            body = strip_injected_head(body, entry.size)
         if not is_media(entry.path) and len(body) != entry.size:
             if is_text(entry.path, body) and entry.size <= READ_FILE_LIMIT:
                 needs_reread.append(entry.path)
@@ -401,13 +445,13 @@ def write_project_files(
             )
         dest.write_bytes(body)
     if needs_reread:
-        names = ", ".join(needs_reread)
         raise PullRefused(
-            f"text files need rereading: {names}.",
+            f"{len(needs_reread)} text files need rereading (listed above).",
             "Their downloaded bytes do not match the list_files sizes.",
             "Read those paths with mcp__claude-design__read_file into one directory, "
             "then rerun with --reread <dir>.",
             code=1,
+            paths=needs_reread,
         )
 
 
@@ -828,7 +872,9 @@ def state_list_regions(section: str) -> dict[str, list[str]]:
             if raw.startswith("`") and "`" in raw[1:]:
                 value = raw[1:].split("`", 1)[0]
             else:
-                value = re.split(r"\s+(?:—|–|-)\s+|:\s+|\s+", raw, maxsplit=1)[0]
+                # The name ends at the first space, colon (ASCII or full-width `：`),
+                # or spaced dash; state lists written in Chinese use `name：description`.
+                value = re.split(r"\s+(?:—|–|-)\s+|\s*[:：]\s*|\s+", raw, maxsplit=1)[0]
             if value:
                 regions[current].append(value)
     return regions
@@ -1384,6 +1430,8 @@ def main() -> int:
         run(args)
         return 0
     except PullRefused as exc:
+        for path in exc.paths:
+            print(path, file=sys.stderr)
         print(refusal_text(exc.what, exc.why, exc.next_step, tools), file=sys.stderr)
         return exc.code
     except Exception as exc:

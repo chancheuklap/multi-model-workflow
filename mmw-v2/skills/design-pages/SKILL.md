@@ -30,6 +30,6 @@ Page conventions are the body of [template-project-claude-md.md](references/temp
 | `<scripts>/check_editable_selectors.py` | `every selector is editor-resolvable (<n> files)` | `<n> selectors the editor cannot reach`, one line each above it | no file given, or one of the CSS files will not open |
 | `<scripts>/check_design_system.py` | `design system complete: <n> components, <n> foundation cards, <n> starting points` | one line per miss above `<n> missing` | the directory cannot be read |
 | `<scripts>/build_ds_bundle.py` | `bundled <n> components into <file>` | esbuild failed; its error follows | usage error, no component, or no `npx` |
-| `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | text files need `--reread` | invocation error or the package cannot be completed; the target is unchanged |
+| `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | text files need `--reread`; their paths are printed one per line above the refusal | invocation error or the package cannot be completed; the target is unchanged |
 
 [pull](references/pull.md) runs `check_editable_selectors.py` as a module; those findings land in `pull-report.md` under `设计检查`. The CLI row above is what the script still prints when invoked on its own.

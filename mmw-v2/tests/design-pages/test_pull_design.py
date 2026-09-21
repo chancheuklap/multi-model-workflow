@@ -23,10 +23,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "mmw-v2" / "skills" / "design-pages" / "scripts" / "pull_design.py"
+
+
+def load_script_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_pull_design_under_test", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "pull"
 INJECTED = (
     b'\n    <style data-omelette-injected>body{outline:0}</style>\n    '
     b'<script data-omelette-injected>window.__preview=true</script>'
+)
+# The shape measured on a live project on 2026-09-21: tags back to back, wrapped in
+# newlines.
+INJECTED_LIVE = (
+    b'\n<style data-omelette-injected>html,body{background:transparent}</style>'
+    b'<script data-omelette-injected>(()=>{})();</script>\n'
 )
 SERVE_PREFIX = "/v1/design/projects/fixture-project/serve/"
 
@@ -45,6 +60,7 @@ class Preview:
             "babel.min.js": b"window.__babelVendor = true;\n",
         }
         self.requests = Counter()
+        self.injected = INJECTED
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
         self.port = self.server.server_address[1]
         vendor_origin = f"http://localhost:{self.port}"
@@ -72,7 +88,7 @@ class Preview:
                         self.send_error(503)
                         return
                     if rel.endswith(".html"):
-                        body = body.replace(b"<head>", b"<head>" + INJECTED, 1)
+                        body = body.replace(b"<head>", b"<head>" + owner.injected, 1)
                     self.send_response(200)
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers()
@@ -188,12 +204,35 @@ class PullDesign(unittest.TestCase):
         self.assertNotIn(b"data-omelette-injected", page)
         self.assertEqual(page, self.preview.files["Component · Demo.dc.html"])
 
+    def test_the_live_injection_shape_is_stripped_to_the_listed_bytes(self):
+        self.preview.injected = INJECTED_LIVE
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        page = (self.target / "Component · Demo.dc.html").read_bytes()
+        self.assertEqual(page, self.preview.files["Component · Demo.dc.html"])
+
     def test_a_text_file_whose_size_differs_exits_1_naming_it(self):
         self.preview.files["styles/app.css"] += b"/* changed in preview */\n"
         result = self.pull()
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("styles/app.css", result.stdout + result.stderr)
         self.assertFalse(self.target.exists())
+
+    def test_every_text_file_to_reread_is_printed_whole(self):
+        names = [f"notes/long-file-name-number-{i:02d}.md" for i in range(12)]
+        for name in names:
+            self.preview.files[name] = b"listed size differs"
+        self.write_manifest()
+        rows = json.loads(self.manifest.read_text(encoding="utf-8"))
+        for row in rows:
+            if row["path"] in names:
+                row["size"] = 1
+        self.manifest.write_text(json.dumps(rows), encoding="utf-8")
+        result = self.pull()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        lines = result.stderr.splitlines()
+        for name in names:
+            self.assertIn(name, lines)
 
     def test_a_second_run_with_a_reread_directory_uses_those_files(self):
         correct = self.preview.files["styles/app.css"]
@@ -411,6 +450,60 @@ class PullDesign(unittest.TestCase):
         report = self.report()
         for heading in ("## 设计检查", "## 覆盖", "## 改动分类", "## 本地改过的说明"):
             self.assertEqual(report.count(heading), 1)
+
+    def test_a_connection_error_is_retried_and_an_http_status_is_not(self):
+        module = load_script_module()
+        calls = []
+
+        class Body:
+            def __enter__(self):
+                return self
+            def __exit__(self, *_):
+                return False
+            def read(self):
+                return b"ok"
+
+        def flaky(request, timeout):
+            calls.append(request.full_url)
+            if len(calls) == 1:
+                raise module.urllib.error.URLError("reset")
+            return Body()
+
+        original = module.urllib.request.urlopen
+        module.urllib.request.urlopen = flaky
+        try:
+            self.assertEqual(module.fetch("http://x/a", pause=0), b"ok")
+            self.assertEqual(len(calls), 2)
+            calls.clear()
+
+            def gone(request, timeout):
+                calls.append(request.full_url)
+                raise module.urllib.error.HTTPError(request.full_url, 404, "x", {}, None)
+
+            module.urllib.request.urlopen = gone
+            with self.assertRaises(module.DownloadFailed):
+                module.fetch("http://x/b", pause=0)
+            self.assertEqual(len(calls), 1)
+        finally:
+            module.urllib.request.urlopen = original
+
+    def test_a_state_name_ends_at_a_full_width_colon(self):
+        module = load_script_module()
+        regions = module.state_list_regions(
+            "### 顶栏\n\n- morning：一夜之后 · 四盏灯\n- bad-data: 读 GitHub 失败\n- `empty` 还没有\n")
+        self.assertEqual(regions, {"顶栏": ["morning", "bad-data", "empty"]})
+
+    def test_the_project_thumbnail_is_not_pulled(self):
+        self.preview.files[".thumbnail"] = b"\x89PNG changed after listing"
+        self.write_manifest()
+        rows = json.loads(self.manifest.read_text(encoding="utf-8"))
+        for row in rows:
+            if row["path"] == ".thumbnail":
+                row["size"] = 3
+        self.manifest.write_text(json.dumps(rows), encoding="utf-8")
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((self.target / ".thumbnail").exists())
 
     def test_only_prefixed_pages_without_scene_are_reported(self):
         self.preview.files["Component · Bare.dc.html"] = (

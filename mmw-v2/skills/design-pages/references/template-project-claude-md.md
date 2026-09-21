@@ -24,7 +24,7 @@ Every `Component · ` and `App · ` page exposes one enum prop named `scene` in 
 
 A state that is not shipping may stay in `options` if it is also listed under `out_of_scope` inside the `scene` prop: `"scene": {"editor": "enum", "options": ["ready", "empty", "future"], "out_of_scope": ["future"]}`.
 
-If `state-list.md` exists in this project, each `### <region>` heading in it is one `Component · <region>` page and each list item's leading name is one `scene` value of that page.
+`state-list.md` at the project root, when present, is the list of regions and states to draw. Read it before drawing or changing a page: each `### <region>` heading in it is one `Component · <region>` page, and each list item's leading name is one `scene` value of that page. When a page and the list disagree, ask the user which one changes; do not edit `state-list.md` yourself.
 
 ## `$preview`
 
