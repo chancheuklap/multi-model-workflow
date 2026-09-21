@@ -17,7 +17,7 @@ The user designs in Claude Design, with the agent inside it. This skill covers w
 
 Page conventions are the body of [template-project-claude-md.md](references/template-project-claude-md.md), the fenced block that is written into the project root as `CLAUDE.md`.
 
-[edit pages](references/edit-pages.md) and [pull](references/pull.md) each list the MCP tools they need. Confirm each listed tool is callable before anything else. If one is missing, stop and tell the user this session cannot reach Claude Design, and which tool is absent.
+Only a session whose host has the Claude Design MCP tools can do this skill's work; a host without them cannot be given them from here, and a dispatched worker never runs this skill. [edit pages](references/edit-pages.md) and [pull](references/pull.md) each list the MCP tools they need. Confirm each listed tool is callable before anything else. If one is missing, stop before writing anything and tell the user three things: this session cannot reach Claude Design, which tool is absent, and that the work has to be picked up again in a session whose host has those tools.
 
 ## Resolve `<scripts>` once
 

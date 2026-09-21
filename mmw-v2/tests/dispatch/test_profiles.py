@@ -99,6 +99,30 @@ class LaunchLineTest(unittest.TestCase):
         self.assertIn("cannot build the launch line for grok", err)
 
 
+class RowCommandTest(unittest.TestCase):
+    def row(self, role: str) -> tuple[int, str, str]:
+        from io import StringIO
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.dict(os.environ, {"MMW_HOME": tmp}), \
+                mock.patch.object(models, "fetch_offerings", return_value=[
+                    {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol"}]), \
+                mock.patch("sys.stdout", new_callable=StringIO) as out, \
+                mock.patch("sys.stderr", new_callable=StringIO) as err:
+            rows = dict(models.default_local_config()["rows"])
+            rows["senior-worker"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
+            models.models_json_path().write_text(json.dumps(config_with(rows)) + "\n")
+            code = models.main(["row", role])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_the_everyday_name_is_printed_as_the_host_id(self):
+        self.assertEqual(self.row("senior-worker"), (0, "codex\tgpt-5.6-sol\thigh\n", ""))
+
+    def test_an_unknown_role_is_refused(self):
+        code, out, err = self.row("planner")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("cannot resolve the planner row", err)
+
+
 class SessionRowsTest(unittest.TestCase):
     def test_one_row_per_agent_is_read_in_fixed_order(self):
         config = models.default_local_config()

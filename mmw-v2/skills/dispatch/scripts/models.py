@@ -1129,6 +1129,10 @@ def launch_line(host: str, model: str, effort: str, name: str,
     """The whole command that starts a host: its binary, then `bypass_argv`, then the
     first prompt when there is one.
 
+    The model is the host's own id, passed through unchanged. models.json keeps everyday
+    names (`gpt 5.6 sol`), which a host refuses; `row <role>` prints the row with the
+    name resolved against the runner's catalog, which is what `dispatch.sh` hands here.
+
     Each host with a launch block takes an initial prompt as its last positional
     argument (`grok [PROMPT]`, `codex [PROMPT]`, `claude [prompt]`, `cursor-agent
     [prompt]`), so a runner that starts the host from this line does not type the prompt
@@ -1149,8 +1153,9 @@ USAGE = ("usage: models.py config show\n"
          "       models.py config set <role> <host> <model> <effort>\n"
          "       models.py runner\n"
          "       models.py paseo-args <host> <model> <effort>\n"
-         "       models.py bypass-argv <host> <model> <effort> <name>\n"
-         "       models.py launch-line <host> <model> <effort> <name> [<prompt>]\n")
+         "       models.py row <role>\n"
+         "       models.py bypass-argv <host> <model-id> <effort> <name>\n"
+         "       models.py launch-line <host> <model-id> <effort> <name> [<prompt>]\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1197,6 +1202,13 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join(paseo_run_args(*args[1:])))
         except (ValueError, OSError) as exc:
             sys.stderr.write(f"models.py: {exc}\n")
+            return 2
+        return 0
+    if len(args) == 2 and args[0] == "row":
+        try:
+            print(row_tsv(args[1]))
+        except (ValueError, OSError) as exc:
+            sys.stderr.write(f"models.py: cannot resolve the {args[1]} row: {exc}\n")
             return 2
         return 0
     if (len(args) == 5 and args[0] == "bypass-argv") or (

@@ -52,7 +52,7 @@ A design value that is clearly wrong (a metric number and the label beside it bo
 
 The file's first line is the child issue's title: the Claude Design page and the value that does not hold. The next line is:
 
-由 design-pages 的 pull 入口处理：在 Claude Design 里改，再 pull
+由 design-pages 的 pull 入口处理：在能调用 Claude Design MCP 工具的会话里，在 Claude Design 里改，再 pull
 
 The rest of the body quotes what does not hold and states what in the same source still holds and must be preserved. Leave the handoff package as it is: **pull** of the design-pages skill is what writes it.
 

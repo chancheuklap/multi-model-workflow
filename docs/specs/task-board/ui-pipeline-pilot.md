@@ -169,10 +169,14 @@
 | 58 | 切票 | to-tickets 第 6 步 | 要求扫歧义的子 agent 只读，但宿主可能没有按次限制工具的能力 | 无法照做 | 写明在提示里说明只读，前后用 `git status` 核对 |
 | 59 | 切票 | lint 输出 | 先打印 `LINT OK`，后面才列出错误 | 读的人以为通过了 | 每张票的结论行放在它所有发现之后并反映它们；加测试 |
 | 60 | 实现（Codex worker 做 #556） | 项目 `CLAUDE.md` 模板的 `data-ui` 一节；`lint_screen_contract.py`；`pull_design.py` | story judge 要求产品区域的根元素带 `[data-story-root]` 和设计页根元素同一个 `data-ui`，而约定从没要求设计页根元素带 id，六个页面都没有；lint 与拉回都不查。Codex 在动手前的渲染检查里发现，按指示停下没有改任何文件 | 任何一张区域票的外观验收都无法通过 | 约定写明页面根元素带 `<区域>.root`（整页用自己的名字）；合同 lint 对没有的页面报错，拉回报告在 `覆盖` 里列出；加测试。六个设计页补上根 id、项目 `CLAUDE.md` 同步，重新拉回（改动分类：新增六个根 id），合同 lint 0 错误 |
+| 61 | 实现（Codex worker 做 #558） | `ui-acceptance/references/boundary-check.md`；`mmw-v2/tests/board/interact.py` | 任务列表的每张任务卡共用一个 `data-ui` id `任务列表.task`（id 按元素的种类编，设计页的示例数据与产品的真实数据才能一一对上，合同 `tasks.pick` 一行覆盖所有卡）；交互 helper 只按 id 找，只能点到第一张，而起始场景里第一张已经选中 | 选任务那条判据点与不点结果相同，判不出 | helper 接受 `<id>#<n>`：同一 id 按文档顺序的第 n 个，从 1 数，与 story judge 给重复 id 的叫法相同；`boundary-check.md` 写明"从列表里选一项"的行点一张起始场景没选中的；加测试（提交 `62ae3304`、`d8e97517`） |
+| 62 | 实现（board 测试集并行运行） | `ui-acceptance/scripts/design_render.py` 的基准服务器；`mmw-v2/board/server.py`；`.mmw/stories/serve.py` | 这些服务器只排队 5 个待处理连接（Python 默认值），一个页面同时发出约 10 个请求，超出的连接被重置 | 页面渲染为空，测试时好时坏；6 份测试并行可复现 | 基准服务器排队 128，`product-answers.md` 要求 story 服务与产品至少 64，任务板两处同样调大；调到 128 后 24 次全部通过（提交 `dd3584d9`、`1df06539`） |
+| 63 | journey 验收（#563） | `ui-acceptance/references/product-answers.md` 的 `start`；`.mmw/harness/target.py` | journey 连跑两遍，第一遍结束关掉任务板后，第二遍（break pass）的 `start` 报端口被认不出的进程占着；实测端口上 9 条连接处在 `TIME_WAIT`，没有进程监听。`start` 检查端口时没有像产品服务器那样开 `SO_REUSEADDR` | break pass 起不来，journey 判不出接口坏掉 | `start` 的端口检查与产品服务器用同样的绑定方式，只在真有程序监听时拒绝；规则写进 `product-answers.md`；加两个测试：关掉后立即能重启，真被占时仍拒绝（提交 `a546cfa1`、`dd98a576`） |
+| 64 | 全流程 | `design-pages/SKILL.md`；`wayfinder/SKILL.md` 第 4 步 handoff ticket 的开头句；`implement/references/writing-interface-code.md` 的设计侧 `contract` child；`dispatch/references/night.md` 第 3 节 | 只有宿主接了 Claude Design MCP 工具的会话能建项目、改页和拉回（用户告知：本机只有 Claude Code 能用 Claude Design，其他宿主未实测）；流水线只在 `design-pages` 开头查工具，缺了就停，停下时不说下一步，上游各步也不标明 | 用别的宿主接手，要做到一半才发现 | `design-pages/SKILL.md` 写明只有这样的会话能做、dispatch 起的 worker 从不做，缺工具时告诉用户须换到接了这些工具的会话；handoff ticket 开头句、设计侧 `contract` child 的第二行、夜里留给白天的那一行都写明需要这样的会话；按仓库规则只写能力，不写宿主名；merge-note 同步 |
 
 ## 不属于界面流水线、另行处理的发现
 
-- 本机配置的 senior-worker 一行存的是显示名 `gpt 5.6 sol`，`models.py launch-line` 原样传给 `codex -m`；这台机器上 Codex 用 ChatGPT 账号登录，只接受 `gpt-5.6-sol`，报 400 拒绝。走命令行起 Codex 的 night 会在这一步失败（2026-09-21 手动起 worker 时实测）。未修：属于 dispatch 与本机配置，不在本试点范围。
+- 手动起 #556 的 worker 时，直接把 `~/.mmw/models.json` 里的日常名 `gpt 5.6 sol` 传给 `models.py launch-line`，Codex 报 400 拒绝，只接受 `gpt-5.6-sol`。night 不受影响：`dispatch.sh` 先经 `models.py` 的 `resolve_session` 按 runner 的目录把日常名解析成 id，再交给 `launch-line`（2026-09-22 在安装版上核实，得到 `gpt-5.6-sol`）。容易踩到的原因是 `launch-line` 的用法行没写它要解析后的 id，也没有命令行办法取得解析结果：用法行改为 `<model-id>`，新增 `models.py row <role>` 打印解析后的 `host`、model id 与 `effort`；加测试。
 
 ## 产品侧的发现（不属于流水线）
 

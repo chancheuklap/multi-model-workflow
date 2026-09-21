@@ -100,7 +100,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | Repeated `resume` exit 3 with no new event | `<dispatch> start <n> worker`; exit 2 means nothing was replaced or started |
 | `child.opened` of kind `fault` | Read `python3 <events.py> fold <n>`, fix the child, then `<dispatch> resume <n> "… continue"` |
 | `child.opened` of kind `contract` | Read the child and the authority it cites. Apply the authority order below; then either correct the published contract and every unlanded derived ticket, close the child and resume its worker, or move the affected not-yet-started tickets to `needs-triage` and leave the child open |
-| `child.opened` of kind `contract` naming a Claude Design page | The handoff package is written only by the `design-pages` skill's pull door, so there is nothing to correct tonight. Move the affected not-yet-started tickets to `needs-triage`, comment on the child with the pages it names, and leave it open for the day |
+| `child.opened` of kind `contract` naming a Claude Design page | The handoff package is written only by the `design-pages` skill's pull door, so there is nothing to correct tonight. Move the affected not-yet-started tickets to `needs-triage`, comment on the child with the pages it names and that it needs a session whose host has the Claude Design MCP tools, and leave it open for the day |
 | `child.opened` of kind `decision` | Nothing tonight; the worker took the default |
 | A live worker at `reviewer.started` | Nothing; its result wakes the worker |
 | `ticket.returned` | Leave its workspace for triage; step 4 continues the batch |
