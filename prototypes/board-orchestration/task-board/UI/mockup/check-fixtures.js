@@ -1,8 +1,8 @@
 // Checks the mockup's example data against the pipeline it depicts.
 // Usage: node check-fixtures.js <task-board-mockup.html>
 // Every rule names where it comes from; one line per violation, exit 1 when there is any.
-// The events themselves are already valid: build_fixtures.py writes each with events.build,
-// which refuses a payload the vocabulary does not allow. This checks what no single event
+// Each event was written with events.build, which refuses a payload the vocabulary
+// does not allow. This checks what no single event
 // can: their order across a ticket, and across the tickets of a spec.
 const fs = require('fs');
 const html = fs.readFileSync(process.argv[2], 'utf8');

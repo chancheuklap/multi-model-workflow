@@ -151,7 +151,7 @@
 | 46 | 切票 | `cutting-interface-tickets.md` 的 design-system ticket | `_ds/` 本来就是从产品自己的样式表建的，照规则仍要切一张"抄回产品"的票 | 多一张什么都不改的票 | 写明这种情况不切；merge-note 同步 |
 | 47 | journey | `product-answers.md` 的 `leaves_machine`、`target_config.py` | 没有检查能看出 journey 保存配置时会写这台机器真的 `~/.mmw/models.json` | 一次验收就改掉本机配置 | `product-answers.md` 的 `start` 写明：产品默认读写的每个用户级位置（配置目录、XDG 目录、用户设置文件）由 `start` 指到 `MMW_DATA_DIR` 里并放好初值，挪不走的列进 `leaves_machine`；spec #555 第 12 节对任务板提同样要求 |
 
-## 产品侧的发现（不属于流水线，本试点不改）
+## 产品侧的发现（不属于流水线）
 
-- 旧 prototype 的示例数据生成脚本 `prototypes/board-orchestration/task-board/UI/mockup/build_fixtures.py` 已经跑不起来：它还在写 #415 取消的 `verifier.started`。新脚本 `prototypes/task-board/553/UI/build_scenes.py` 由它改写而来。
-- 生产代码 `mmw-v2/board/page/event-history.mjs` 没有任何模块引用它，详情栏的事件分块已经改由 `board-logic.mjs` 的 `eventBlocks` 生成。
+- 旧 prototype 的示例数据生成脚本 `prototypes/board-orchestration/task-board/UI/mockup/build_fixtures.py` 跑不起来（它还在写 #415 取消的 `verifier.started`），已删除；那份 mockup 里的数据写明为固定数据。新脚本 `prototypes/task-board/553/UI/build_scenes.py` 由它改写而来。
+- 生产代码 `mmw-v2/board/page/event-history.mjs` 没有任何模块引用它（详情栏的事件分块由 `board-logic.mjs` 的 `eventBlocks` 生成），已删除；board 测试集通过。
