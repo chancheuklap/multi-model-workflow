@@ -143,6 +143,28 @@ class TestScreenAxis(unittest.TestCase):
             finally:
                 os.chdir(before)
 
+    def test_a_scene_input_must_name_a_package_file_and_a_value(self):
+        (self.repo.baseline / "data").mkdir()
+        (self.repo.baseline / "data" / "scenes.js").write_text("window.S = {};")
+        doc = contract()
+        name = next(iter(doc["scenes"]))
+        decl = doc["scenes"][name]
+        decl["input"] = {"file": "data/scenes.js", "value": "S.ready", "with": {"select": {"node": 3}}}
+        errors, _ = self.lint(doc)
+        self.assertFalse(any("input" in e for e in errors), errors)
+        decl["input"] = {"file": "data/missing.js", "value": "S.ready"}
+        self.assertTrue(any("input file 'data/missing.js'" in e for e in self.lint(doc)[0]))
+        decl["input"] = {"file": "data/scenes.js"}
+        self.assertTrue(any("needs file and value" in e for e in self.lint(doc)[0]))
+        decl["input"] = {"file": "../outside.js", "value": "S.ready"}
+        self.assertTrue(any("not in the handoff package" in e for e in self.lint(doc)[0]))
+        decl["input"] = {"file": "data/scenes.js", "value": "S.ready", "with": "x", "extra": 1}
+        errs = self.lint(doc)[0]
+        self.assertTrue(any("input.with must be a mapping" in e for e in errs), errs)
+        self.assertTrue(any("input.extra is not a contract field" in e for e in errs), errs)
+        decl["input"] = "data/scenes.js S.ready"
+        self.assertTrue(any("input must be a mapping" in e for e in self.lint(doc)[0]))
+
     def test_a_complete_contract_has_no_errors(self):
         errors, warnings = lc.lint_declarations(
             contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)

@@ -73,7 +73,7 @@ ROW_KEYS = {
     "id", "component", "trigger", "precondition", "scenes", "calls", "app",
     "shows", "next", "on_failure", "source", "gap",
 }
-SCENE_KEYS = {"page"}
+SCENE_KEYS = {"page", "input"}
 PAGE_KEYS = {"mount", "component"}
 TOP_KEYS = {
     "effort", "baselines", "locale", "viewports", "pages", "scenes", "states", "rows",
@@ -194,6 +194,28 @@ def stylesheet_breakpoints(baseline: Path) -> set[int]:
             continue
         widths.update(int(w) for w in BREAKPOINT.findall(text))
     return widths
+
+
+SCENE_INPUT_KEYS = {"file", "value", "with"}
+
+
+def scene_input_errors(name: str, spec: object, baseline: Path | None) -> list[str]:
+    """`scenes.<name>.input`: {file, value, with?}; the file lies inside the package."""
+    if not isinstance(spec, dict):
+        return [f"scenes: {name!r} input must be a mapping with file and value"]
+    errors = [f"scenes: {name!r} input.{key} is not a contract field"
+              for key in unknown_keys(spec, SCENE_INPUT_KEYS)]
+    file, value = spec.get("file"), spec.get("value")
+    if not isinstance(file, str) or not file or not isinstance(value, str) or not value:
+        errors.append(f"scenes: {name!r} input needs file and value")
+        return errors
+    if "with" in spec and not isinstance(spec["with"], dict):
+        errors.append(f"scenes: {name!r} input.with must be a mapping")
+    if baseline is not None and baseline.is_dir():
+        target = (baseline / file).resolve()
+        if baseline.resolve() not in target.parents or not target.is_file():
+            errors.append(f"scenes: {name!r} input file {file!r} is not in the handoff package")
+    return errors
 
 
 def unknown_keys(value: dict, allowed: set[str]) -> list[str]:
@@ -402,6 +424,8 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
         if page != scene_pages[name]:
             errors.append(f"scenes: {name!r} page {page!r} but scenes.json has "
                           f"{scene_pages[name]!r}")
+        if "input" in decl:
+            errors += scene_input_errors(name, decl.get("input"), baseline)
     # -- story coverage: the newest element-parity --out under the contract dir.
     if contract_dir is not None:
         media = latest_story_out(contract_dir)

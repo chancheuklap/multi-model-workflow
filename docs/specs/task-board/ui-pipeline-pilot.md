@@ -89,9 +89,15 @@
 
 **做法。** 派一个 agent 按技能从头写到 gap list：从交接包抽出控件骨架（44 个场景 × 5 个视口，239 个控件），逐行对照 #543–#552 的决定与生产代码。任务板是标准库写的服务器，没有 OpenAPI 导出，agent 照 `server.py`、`board_data.py`、`settings_api.py` 的路由手写了只含五个接口的 `openapi.json`。gap list 两条交用户裁决：整页刷新按生产版写；保存时配置锁被占用不设界面状态（用户：本机单人写配置，不会发生）。
 
-**真实产物。** `docs/specs/task-board/screen-contract.yaml`，68 行（顶栏 4、任务列表 1、画布 8、详情 16、本机配置 23，整页跨区域 16），lint 0 错误、5 条提示（设计稿没有画到的状态）。旧合同 222 行，由新流程产物替换。
+**真实产物。** `docs/specs/task-board/screen-contract.yaml`，68 行（顶栏 4、任务列表 1、画布 8、详情 16、本机配置 22，整页跨区域 17），lint 0 错误、5 条提示（设计稿没有画到的状态）。旧合同 222 行，由新流程产物替换。
 
-**生产代码做得比决定少的地方**（交给实现票，不是合同缺口）：读 GitHub 失败时顶栏显示的是失败的时间而不是旧数据的时间（`board_data.py` 的 `read_failed.at`），与 #544 相反；打开本机配置 503、重新扫描失败时页面无提示；详情栏的子 issue 编号与"需要你"里的票号不能点，与 #548 不符。
+**生产代码做得比决定少的地方**（交给实现票，不是合同缺口）：读 GitHub 失败时顶栏显示的是失败的时间而不是旧数据的时间（`board_data.py` 的 `read_failed.at`），与 #544 相反。起草合同的 agent 另报了两处，写 spec 时核对后不算：打开本机配置 503、重新扫描失败时无提示，合同行本来就写"不提示"，没有决定要求提示；子 issue 编号不能点，因为子 issue 在画布上没有卡片（#545），"票号可点"指跳到那张卡片（#318 第 7 节）。
+
+### 12. 写 spec（`to-spec`），与 scene input
+
+**做法。** 派一个 agent 按技能从地图 #542、#543–#554、屏幕合同与生产代码起草 spec。判断为一个 spec：全部决定落在同一个 seam（board 页面与五个接口）上。
+
+**发现的根本问题。** story 页面按规则只能从 scene data 进入状态，而 scene data 是 pull 记下的按 `data-ui` id 的显示文字：灯的颜色、画布的阻塞边与分列、下拉选中的哪一项都不在里面。任务列表、画布、详情、整页四页的 element parity 因此无法判出通过（#541 待回答问题 6）。设计页本身是从交接包里 `GET /api/board` 形状的数据文件画出来的。决定（工程判断）：屏幕合同的 scene 声明加可选的 `input`（数据文件、其中的值、页面在其上另设的字段 `with`），story adapter 从这同一份值喂产品组件。改动在 `write-screen-contract`（格式、lint 与测试、第 3 步）、`ui-acceptance` 的 `story-parity.md` 与词表的 **scene input**。任务板合同为 44 个 scene 全部声明了 input，逐个核对值存在。
 
 ## 发现
 
@@ -138,6 +144,12 @@
 | 39 | 写合同 | 格式的 `on_failure`、`shows` | `on_failure` 没有写法规定、lint 也不查；`shows` 的"表达式"没有语法 | 各 agent 写法不一 | 未修：需要先定写法再改 lint，留作后续 |
 | 40 | 写合同 | `extract_skeleton.py` 的输出 | 骨架只记控件"能否交互"，不记"在哪个场景里被禁用"，而技能要求禁用状态单独成行 | agent 要读生产代码推出来，lint 查不到这些行的场景 | 未修：需要骨架按场景记禁用，留作后续 |
 | 41 | 写合同 | 各决定票的解决评论 | 决定票以上一代 spec #318 为依据；地图上没有一张票管左侧任务列表，合同只能引 #318 | 已被取代的 spec 能否当来源，技能没说 | `write-screen-contract/SKILL.md` 的 Decision sources 写明：决定票引为依据的旧 spec 可以引用，先引决定票，决定票没覆盖的才引旧 spec |
+| 42 | story 验收 | `ui-acceptance/references/story-parity.md`、词表 **scene data** / **story adapter** | story adapter 只能读 scene data（显示文字），状态靠类名与计算布局的组件（灯色、画布）进不了设计页的状态 | 四个页面的 element parity 永远判不出通过 | 屏幕合同加 `scenes.<name>.input`，story adapter 从设计页自己用的数据喂组件；lint 查形状与文件在交接包内；加测试；词表加 **scene input** |
+| 43 | 切票 | `to-tickets/references/cutting-interface-tickets.md` 的 contract ticket | "`--check` 什么都不缺就不切"：`--check` 只看答案在不在，看不出 story 服务读的是旧交接包、helper 不按 `data-ui` id 找控件、`start` 没有 break switch | 照原文本批一张 contract ticket 都不切，四种裁判都跑不起来 | 写明这几种也算缺，由 spec 的 How a test arrives at a state 写出；merge-note 同步 |
+| 44 | 写 spec | `to-spec/SKILL.md` 的 How a test arrives at a state | 写"三个机制都归 contract ticket"，而 `story-parity.md` 与词表写"contract ticket 建第一个 adapter，之后每页的 ticket 加自己的" | 两条规则冲突 | 与 `story-parity.md` 对齐；已有 `.mmw/` 的产品，缺的包括为别一代建的答案；merge-note 同步 |
+| 45 | 写 spec | `to-spec/SKILL.md` 的 Sources | 决定票引为依据的旧 spec 算不算上游 spec 没写 | agent 要猜 | 写明算 |
+| 46 | 切票 | `cutting-interface-tickets.md` 的 design-system ticket | `_ds/` 本来就是从产品自己的样式表建的，照规则仍要切一张"抄回产品"的票 | 多一张什么都不改的票 | 写明这种情况不切；merge-note 同步 |
+| 47 | journey | `product-answers.md` 的 `leaves_machine`、`target_config.py` | 没有检查能看出 journey 保存配置时会写这台机器真的 `~/.mmw/models.json` | 一次验收就改掉本机配置 | 未改 MMW：这是产品的 `start` 该隔离的，本 spec 第 12 节要求 `start` 给 board 自己的 `MMW_HOME` |
 
 ## 产品侧的发现（不属于流水线，本试点不改）
 

@@ -31,7 +31,12 @@ tickets add one story adapter per design page.
   corresponding element on the design page. Repeated component instances may reuse
   an id; the judge pairs them in document order.
 - The adapter takes the scene's `scene data` and maps it to the product
-  component. No backend, seed, route or alternate preview projection runs. The
+  component. When the contract declares `scenes.<name>.input`, the adapter takes
+  that value from the handoff package file instead, with the input's `with` fields
+  merged over it: it is what the design page
+  itself drew the scene from, so lamp colours, layout and other state that the
+  displayed text does not carry reach the product component too. No backend, seed,
+  route or alternate preview projection runs. The
   screen contract's `shows` columns bind the mapping; code review checks that each `shows` name is a property of the component.
 
 ## The two sides

@@ -63,8 +63,13 @@ One value of a design page's `scene` prop, and the matching `scenes.json` entry 
 _Avoid_: 场景 (when a scene is meant), 场景列表, scenario, 状态
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
+**scene input**:
+The value in a handoff-package data file that a design page draws one scene from, declared in the screen contract as `scenes.<name>.input` (the package `file`, the `value` in it, and the fields the page sets on top `with` it). Declared only when the page runs logic over backend-shaped data instead of printing literals; the **story adapter** then feeds the product component from that same value in place of the **scene data**, so state the displayed text does not carry (a lamp's colour, a canvas layout) reaches both sides alike.
+_Avoid_: fixture, seed (when this value is meant)
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
 **scene data**:
-The `data` field of a `scenes.json` entry: displayed values keyed by `data-ui` id, nested where an element with that id contains another, a document-order list where the same id appears more than once. **pull** writes it from the same offline render the story judge uses. The product story's **story adapter** reads the same object.
+The `data` field of a `scenes.json` entry: displayed values keyed by `data-ui` id, nested where an element with that id contains another, a document-order list where the same id appears more than once. **pull** writes it from the same offline render the story judge uses. The product story's **story adapter** reads the same object, unless the scene declares a **scene input**.
 _Avoid_: fixture props (when this field is meant)
 _Home_: `mmw-v2/skills/design-pages/scripts/pull_design.py`
 

@@ -27,7 +27,7 @@ Each of these shapes is question 1 of **the five questions** in `SKILL.md`: a co
 
 ## design-system ticket
 
-Only a new product whose handoff package carries a design system under `_ds/` gets one; without one, each interface ticket writes the styles its component needs from the design pages. It copies the design system's style tokens and shared components into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. Its criterion does not depend on `.mmw/`.
+Only a new product whose handoff package carries a design system under `_ds/` gets one, and only when that design system was not built from the product's own stylesheets (copying those back changes nothing); otherwise each interface ticket writes the styles its component needs from the design pages. It copies the design system's style tokens and shared components into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. Its criterion does not depend on `.mmw/`.
 
 **The design-system ticket is the second exception to vertical slicing**, beside the wide refactor `SKILL.md` step 3 names. It lands one layer, the styles, and demonstrates no behaviour of its own. Forcing it into a tracer bullet would mean drawing a whole screen to show that a colour variable exists, and every element parity behind it would then be comparing against styles that arrived with the screen rather than before it.
 
@@ -37,7 +37,7 @@ Its criterion is one comparison, written under question 1 of **the five question
 
 ## contract ticket
 
-An existing product: fill only what `target_config.py --check` of the `ui-acceptance` skill reports missing. When something is missing, this ticket blocks the tickets that need those deliverables. When the command reports nothing missing, cut none.
+An existing product: fill only what `target_config.py --check` of the `ui-acceptance` skill reports missing. That command sees whether each answer is there, not what it was built for: a story service or story adapter that reads a handoff package or scene shape other than the current one, an interaction helper that finds controls by anything but `data-ui` id, or a `start` without the break switch counts as missing too, and the spec's **How a test arrives at a state** says which. When something is missing, this ticket blocks the tickets that need those deliverables. When nothing is, cut none.
 
 A new product: land `.mmw/` in full. It blocks every ticket in the batch except the **design-system ticket**. What it lands is the precedent later tickets copy.
 

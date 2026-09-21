@@ -49,3 +49,7 @@
 现在改成点名：有 screen contract 时，这一节写三个机制各自归哪张票建——从 scene data 把 story 页摆进一个 scene 的 story adapter、按 `data-ui` id 把控件摆上屏给 four-column boundary test 用的 interaction helper、给 journey 起产品的 `.mmw/target.json` 的 `start`。新产品三个都归 contract ticket；`.mmw/` 已经能回答的产品，写出建 `target_config.py --check` 报缺之物的那张票，或写明什么都不缺。「不写第二份」原本想说的是**形状**：每个机制怎么搭写在 `ui-acceptance` 技能的 reference 里，这里只点名、不复述。理由：#539。
 
 上游改 **How a test arrives at a state** → 收上游措辞，「有 screen contract 时点名三个机制与主人、形状不复述」保留，不收回「不写第二份」那种留空的写法。
+
+## 谁建 story adapter；scene input；旧 spec 算上游 spec
+
+**How a test arrives at a state**：新产品上 contract ticket 建 story service 与第一个 story adapter、interaction helper、`start`，之后每张 component page ticket 加本页的 adapter，与 `ui-acceptance` 的 `story-parity.md` 和词表一致（原文写「三个都归 contract ticket」，两边冲突）；已有 `.mmw/` 的产品，缺的除了 `--check` 报的，还有为别一代交接包、scene 形状或控件查找方式建的答案。story adapter 一句加「或合同的 scene input」。`## Sources` 的上游 spec 一类写明包括决定票引为依据的旧 spec。理由：任务板试点 #541。上游改这几句 → 收上游措辞，这几处保留。
