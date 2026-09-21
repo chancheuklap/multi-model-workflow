@@ -3,8 +3,8 @@
 Write the block below into the design system project's root as `CLAUDE.md`, with the three fields in `<…>` filled and nothing else changed. It instructs the agent inside Claude Design that builds and later edits the design system; that agent reads it on every conversation and sees nothing of this repository. [design-system.md](design-system.md) says when and how.
 
 - `<product>`: one sentence on what the product is and which screens it has.
-- `<source>`: where the code is. A public repository: its URL, the branch, and the directory that holds the front end, with one line on which files decide what (markup and states, stylesheets, page shell). Otherwise: "the files uploaded to this project".
-- `<example data>`: where real data for the product's states is (a directory in the same repository, or uploaded files), or "none".
+- `<source>`: where the code is: the repository URL, the branch, and the directory that holds the front end, with one line on which files decide what (markup and states, stylesheets, page shell). The agent reads it through Claude Design's GitHub connection.
+- `<example data>`: where real data for the product's states is (a directory in the same repository), or "none".
 
 ```markdown
 # What this design system is and where it comes from
