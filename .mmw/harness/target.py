@@ -16,6 +16,8 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+HARNESS = ROOT / ".mmw" / "harness"
+BOARD_SERVER = HARNESS / "board_server.py"
 
 
 def start_command() -> str:
@@ -99,6 +101,42 @@ def port_holder(port: int) -> str:
     return "a process that lsof could not identify"
 
 
+def seed_mmw_home() -> Path:
+    """Give this lease a private copy of the machine configuration."""
+    home = state_path().parent / "mmw-home"
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    config_path = home / "models.json"
+    if not config_path.exists():
+        hosts = json.loads(
+            (ROOT / "mmw-v2" / "skills" / "dispatch" / "hosts.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        rows = {
+            row["agent"]: {
+                "host": row["host"],
+                "model": row["model"],
+                "effort": row["effort"],
+            }
+            for row in hosts["defaults"]
+        }
+        config = {"version": 1, "runner": "orca", "rows": rows}
+        config_path.write_text(
+            json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+    return home
+
+
+def break_value() -> str:
+    raw = os.environ.get("MMW_BREAK", "").strip()
+    if not raw:
+        return ""
+    parts = raw.split(maxsplit=1)
+    if len(parts) != 2 or parts[0] != parts[0].upper() or not parts[1].startswith("/"):
+        raise ValueError("MMW_BREAK must be <UPPERCASE METHOD> </route>")
+    return raw
+
+
 def start() -> int:
     port_raw = os.environ.get("MMW_PORT_BASE")
     if not port_raw:
@@ -106,9 +144,19 @@ def start() -> int:
         return 2
     port = int(port_raw)
     origin = f"http://127.0.0.1:{port}"
+    try:
+        armed_break = break_value()
+    except ValueError as exc:
+        sys.stderr.write(f"{exc}. Fix MMW_BREAK, then rerun {start_command()}\n")
+        return 2
+    mmw_home = seed_mmw_home()
+    host_catalog = HARNESS / "catalog.json"
     old = read_state()
     if (old and old.get("origin") == origin and owns(old)
-            and old.get("token") == page_token(origin)):
+            and old.get("token") == page_token(origin)
+            and old.get("break", "") == armed_break):
+        if armed_break:
+            print(f"BREAK ARMED {armed_break}", flush=True)
         return 0
     if old:
         stop()
@@ -125,25 +173,38 @@ def start() -> int:
         probe.close()
 
     env = os.environ.copy()
-    env["PATH"] = str(ROOT / ".mmw" / "harness" / "bin") + os.pathsep + env.get("PATH", "")
-    env["MMW_HOST_CATALOG"] = str(ROOT / ".mmw" / "harness" / "catalog.json")
+    env["PATH"] = str(HARNESS / "bin") + os.pathsep + env.get("PATH", "")
+    env["MMW_HOME"] = str(mmw_home)
+    env["MMW_HOST_CATALOG"] = str(host_catalog)
+    if armed_break:
+        env["MMW_BREAK"] = armed_break
+    else:
+        env.pop("MMW_BREAK", None)
     log_path = state_path().with_name("board.log")
     log = log_path.open("ab")
     process = subprocess.Popen(
-        [sys.executable, str(ROOT / "mmw-v2" / "board" / "server.py"), "--port", str(port)],
+        [sys.executable, str(BOARD_SERVER), "--port", str(port)],
         cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
     )
     log.close()
     instance = os.environ.get("MMW_INSTANCE", f"board-{port}")
-    state_path().write_text(json.dumps({"pid": process.pid, "origin": origin, "instance": instance,
-                                       "server": str(ROOT / "mmw-v2" / "board" / "server.py")}) + "\n",
-                            encoding="utf-8")
+    state_path().write_text(json.dumps({
+        "pid": process.pid,
+        "origin": origin,
+        "instance": instance,
+        "server": str(BOARD_SERVER),
+        "mmw_home": str(mmw_home),
+        "host_catalog": str(host_catalog),
+        "break": armed_break,
+    }) + "\n", encoding="utf-8")
     for _ in range(50):
         token = page_token(origin)
         if token:
             current = read_state()
             current["token"] = token
             state_path().write_text(json.dumps(current) + "\n", encoding="utf-8")
+            if armed_break:
+                print(f"BREAK ARMED {armed_break}", flush=True)
             return 0
         if process.poll() is not None:
             sys.stderr.write(f"board exited {process.returncode}; read {log_path}\n")

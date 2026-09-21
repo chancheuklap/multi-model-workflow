@@ -131,9 +131,8 @@ The pipeline's own long strings are cut on the way in: `跑了 1h02m 后交回` 
 sentence and C's per-run cards are both worth stealing from if A's blocks turn out to
 hide too much.
 
-A is also the ticket column of the task board's Claude Design project, `Component · 详情`
-(https://claude.ai/design/p/457777fa-6ee0-43e9-85f1-e78e457f0629). Its handoff package, the
-baseline the implementation is copied from and compared against, is
-`prototypes/board-orchestration/task-board/UI/work/`, which the screen contract
-`docs/specs/task-board/screen-contract.yaml` names as `baselines.look`; the ticket scenes of
-that page (`ticket-landed`, `ticket-returned`, …) are where A is held.
+A is also the ticket column of the signed-off task-board handoff page
+`prototypes/task-board/claude-design/Component · 详情.dc.html`. The screen contract
+`docs/specs/task-board/screen-contract.yaml` names that package as `baselines.look`; the
+page's ticket scenes (`Component · 详情.ticket-landed`,
+`Component · 详情.ticket-returned`, …) are where A is held.
