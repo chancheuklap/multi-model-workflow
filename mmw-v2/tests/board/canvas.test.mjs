@@ -166,6 +166,44 @@ test("a container title is one clipped line and the whole title rides on the car
   assert.equal(view.containers[0].title, long);
 });
 
+test("a scene-shaped tree is drawn from the lamp, phase and run it already carries", () => {
+  const task = {
+    n: 98, kind: "map", title: "落地流水线改造",
+    decisions: [
+      {n: 99, kind: "grilling", title: "事件格式怎么定", closed: true, blocked: []},
+      {n: 107, kind: "grilling", title: "团队版什么时候做", closed: false, blocked: []},
+    ],
+    specs: [{
+      n: 131, title: "唤醒回路",
+      tickets: [
+        {n: 132, title: "中继进程骨架", lamp: "ink", phase: "landed",
+          run: "claude · opus 5 · high", runFlag: false, done: true, released: true,
+          running: false, closeout: false, blocked: []},
+        {n: 133, title: "折叠接入中继", lamp: "orange", phase: "working",
+          run: "grok · grok 4.6 · xhigh", runFlag: false, done: false, released: false,
+          running: true, closeout: false, blocked: [132]},
+      ],
+    }],
+  };
+  const view = canvasView(task, 133, [98, 131], true);
+  const byN = Object.fromEntries(view.tickets.map(item => [item.n, item]));
+  assert.equal(byN[132].lampCls, "lamp ink");
+  assert.equal(byN[132].phase, "landed");
+  assert.equal(byN[132].run, "claude · opus 5 · high");
+  assert.equal(byN[132].runCls, "card-run");
+  assert.equal(byN[133].lampCls, "lamp orange");
+  assert.equal(byN[133].cls, "card on");
+  assert.equal(byN[133].pillCls, "pill working");
+  assert.equal(view.decisions.find(item => item.n === 99).lampCls, "lamp small ink");
+  assert.equal(view.decisions.find(item => item.n === 107).lampCls, "lamp small hollow");
+  const map = view.containers.find(item => item.n === 98);
+  assert.equal(map.lampCls, "lamp orange");
+  assert.equal(map.count, "1/2");
+  const spec = view.containers.find(item => item.n === 131);
+  assert.equal(spec.count, "1/2");
+  assert.match(view.svg, /e-beam still/);
+});
+
 test("a first-layer ticket being worked gets the flow beam on its expand edge", () => {
   const working = ticket({n: 41, title: "working", fold: {sessions: [worker()]}});
   const idle = ticket({n: 42, title: "idle"});

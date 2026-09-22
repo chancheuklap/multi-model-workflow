@@ -72,6 +72,76 @@ export function stillEdges(svg) {
     .replace(/<circle class="e-pulse"[^>]*>[\s\S]*?<\/circle>/g, "");
 }
 
+// A scene tree already carries the lamp, phase and run the design page drew.
+// The layout engine reads the fold, so those fields are copied onto the shape
+// it already understands. Display text stays the scene's own; nothing is invented.
+function sceneShaped(task) {
+  return Boolean(task?.specs?.some(spec => spec.tickets?.some(ticket => ticket.lamp))
+    || task?.decisions?.some(decision => typeof decision.closed === "boolean"));
+}
+
+function forLayout(task) {
+  if (!task || !sceneShaped(task)) return task;
+  const ticketForLayout = ticket => {
+    if (ticket.fold) return ticket;
+    return {
+      ...ticket,
+      events: ticket.events || [],
+      children: ticket.children || [],
+      blocker_hold: ticket.released ? "" : "held",
+      fold: {
+        sessions: ticket.running ? [{live: true, kind: "worker"}] : [],
+        children: {},
+        landed: false,
+        held: Boolean(ticket.running),
+      },
+    };
+  };
+  return {
+    ...task,
+    decisions: (task.decisions || []).map(decision => (
+      decision.state ? decision : {...decision, state: decision.closed ? "closed" : "open"}
+    )),
+    specs: (task.specs || []).map(spec => ({
+      ...spec,
+      tickets: (spec.tickets || []).map(ticketForLayout),
+    })),
+  };
+}
+
+function lampOf(ticket) {
+  return ticket.lamp || Board.lamp(ticket);
+}
+
+function phaseOf(ticket) {
+  return ticket.phase || Board.phase(ticket);
+}
+
+function runOf(ticket) {
+  if (ticket.run != null) return {text: ticket.run, flag: Boolean(ticket.runFlag)};
+  return Board.runLine(ticket);
+}
+
+function doneOf(ticket) {
+  return typeof ticket.done === "boolean" ? ticket.done : Board.done(ticket);
+}
+
+function decisionLampOf(decision) {
+  if (typeof decision.closed === "boolean") return decision.closed ? "ink" : "hollow";
+  return Board.decisionLamp(decision);
+}
+
+function aggregateOf(list) {
+  if (list.some(ticket => ticket.lamp)) {
+    const lamps = list.map(ticket => ticket.lamp);
+    if (lamps.includes("orange")) return "orange";
+    if (lamps.includes("green")) return "green";
+    if (lamps.length && lamps.every(lamp => lamp === "ink")) return "ink";
+    return "hollow";
+  }
+  return Board.aggregate(list);
+}
+
 export function canvasView(task, sel, expandedList, reduced) {
   if (!task) {
     return {
@@ -80,7 +150,7 @@ export function canvasView(task, sel, expandedList, reduced) {
     };
   }
   const expanded = new Set(expandedList);
-  const layout = Board.layout(task, expanded);
+  const layout = Board.layout(forLayout(task), expanded);
   const selNode = layout.nodes.find(node => node.id === sel);
   const selIsIssue = Boolean(selNode && (selNode.type === "ticket" || selNode.type === "decision"));
   const pos = node => ({left: px(node.x), top: px(node.y), width: px(node.w), height: px(node.h)});
@@ -88,7 +158,7 @@ export function canvasView(task, sel, expandedList, reduced) {
   for (const node of layout.nodes) {
     const on = node.id === sel;
     if (node.type === "ticket") {
-      const ticket = node.ref, lamp = Board.lamp(ticket), phase = Board.phase(ticket), run = Board.runLine(ticket);
+      const ticket = node.ref, lamp = lampOf(ticket), phase = phaseOf(ticket), run = runOf(ticket);
       tickets.push({
         n: ticket.n, pos: pos(node), title: ticket.title, num: "#" + ticket.n, phase,
         pillCls: "pill " + phase,
@@ -101,13 +171,13 @@ export function canvasView(task, sel, expandedList, reduced) {
       decisions.push({
         n: decision.n, pos: pos(node), title: decision.title, num: "#" + decision.n, kind: decision.kind,
         cls: "card" + (on ? " on" : "") + (node.cyclic ? " cycle" : ""),
-        lampCls: "lamp small " + Board.decisionLamp(decision),
+        lampCls: "lamp small " + decisionLampOf(decision),
       });
     } else {
       const container = node.ref, isMap = node.type === "map";
       const list = isMap ? Board.allTickets(container) : container.tickets;
-      const lamp = Board.aggregate(list);
-      const done = list.filter(ticket => Board.done(ticket)).length;
+      const lamp = aggregateOf(list);
+      const done = list.filter(doneOf).length;
       const canExpand = isMap ? container.decisions.length > 0 : container.tickets.length > 0;
       const open = expanded.has(container.n);
       containers.push({
@@ -208,7 +278,7 @@ function containerCard(item, onPick, onToggle) {
   if (item.canExpand) {
     const chev = document.createElement("button");
     chev.type = "button";
-    chev.className = "chev";
+    chev.className = "iconbtn sm bare";
     chev.setAttribute("aria-label", item.toggleLabel);
     dataUi(chev, `${ui}.expand`);
     chev.textContent = item.chev;
@@ -286,31 +356,31 @@ function legend() {
 
 function zoomBar(onOut, onIn, onFit, level) {
   const root = document.createElement("div");
-  root.className = "zoom";
+  root.className = "toolbar";
   dataUi(root, "画布.zoom");
   const out = document.createElement("button");
   out.type = "button";
-  out.className = "zoom-btn";
+  out.className = "iconbtn sm bare round";
   out.setAttribute("aria-label", "zoom out");
   dataUi(out, "画布.zoom.out");
   out.textContent = "−";
   out.addEventListener("click", onOut);
   const zoomLevel = document.createElement("span");
-  zoomLevel.className = "zoom-level";
+  zoomLevel.className = "toolbar-value";
   dataUi(zoomLevel, "画布.zoom.level");
   zoomLevel.textContent = level;
   const inn = document.createElement("button");
   inn.type = "button";
-  inn.className = "zoom-btn";
+  inn.className = "iconbtn sm bare round";
   inn.setAttribute("aria-label", "zoom in");
   dataUi(inn, "画布.zoom.in");
   inn.textContent = "+";
   inn.addEventListener("click", onIn);
   const sep = document.createElement("span");
-  sep.className = "zoom-sep";
+  sep.className = "toolbar-sep";
   const fit = document.createElement("button");
   fit.type = "button";
-  fit.className = "zoom-btn text";
+  fit.className = "iconbtn sm bare round fit";
   dataUi(fit, "画布.zoom.fit");
   fit.textContent = "fit";
   fit.addEventListener("click", onFit);
@@ -320,23 +390,21 @@ function zoomBar(onOut, onIn, onFit, level) {
 
 function emptyState() {
   const root = document.createElement("div");
-  root.className = "canvas-empty";
+  root.className = "empty center";
   dataUi(root, "画布.empty");
-  const wrap = document.createElement("div");
   const title = document.createElement("p");
-  title.className = "canvas-empty-title";
+  title.className = "display";
   dataUi(title, "画布.empty.title");
   title.textContent = "The Night 还没开始";
   const text = document.createElement("p");
-  text.className = "canvas-empty-text";
+  text.className = "empty-text";
   dataUi(text, "画布.empty.text");
   text.append("The Night 是一次讨论开出的那张 ticket。给它打上 ");
   const code = document.createElement("span");
   code.className = "code";
   code.textContent = "mmw:map";
   text.append(code, " label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。");
-  wrap.append(title, text);
-  root.append(wrap);
+  root.append(title, text);
   return root;
 }
 
@@ -395,13 +463,8 @@ export function render(host, data = {}, api = undefined) {
     if (!layout) return;
     const r = size();
     if (!r.width || !r.height) return;
-    const kFit = Math.min((r.width - 40) / layout.W, (r.height - 70) / layout.H);
-    const v = state.view = {k: clampK(Math.max(0.9, Math.min(1, kFit))), x: 20, y: 12};
-    const b = state.sel != null ? box(state.sel) : null;
-    if (b) {
-      if ((b.y + b.h) * v.k + v.y > r.height - 70) v.y = Math.min(12, r.height * 0.45 - (b.y + b.h / 2) * v.k);
-      if ((b.x + b.w) * v.k + v.x > r.width - 24) v.x = Math.min(20, r.width - 24 - (b.x + b.w) * v.k);
-    }
+    const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
+    state.view = {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
     applyView();
     state.didInit = true;
   };
@@ -507,7 +570,7 @@ export function render(host, data = {}, api = undefined) {
   };
 
   const onPointerDown = event => {
-    if (event.button !== 0 || event.target.closest?.(".zoom, .legend, .chev")) return;
+    if (event.button !== 0 || event.target.closest?.(".toolbar, .legend, .iconbtn")) return;
     state.drag = {
       x: event.clientX, y: event.clientY,
       vx: state.view.x, vy: state.view.y,

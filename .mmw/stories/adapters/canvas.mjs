@@ -1,15 +1,17 @@
 import {render as renderProduct} from "/product/canvas.mjs";
 
+// The scene input is the design page's own example data (`CANVAS_SCENES.<scene>`):
+// which node is selected, which containers are open, and the tree with the lamp,
+// phase and run the page draws. The component lays that tree out. A field the
+// scene does not carry is not filled in here.
 export function render(host, data, api) {
   const transitions = [];
   window.storyTransitions = () => structuredClone(transitions);
   const move = (scene, value) => transitions.push({scene, data: value});
-  const tasks = data.payload?.tasks || [];
-  const taskN = data.select?.task ?? tasks[0]?.n ?? null;
-  const task = tasks.find(candidate => candidate.n === taskN) || null;
   const root = renderProduct(host, {
-    task,
-    sel: data.select?.node ?? null,
+    task: data.task ?? null,
+    sel: data.selected ?? null,
+    expanded: data.expanded ?? [],
     onSelectNode(node) {
       move("Component · 画布.morning", {node});
     },
