@@ -113,7 +113,7 @@ export function canvasView(task, sel, expandedList, reduced) {
       containers.push({
         n: container.n, pos: pos(node), title: container.title,
         num: "#" + container.n + (isMap ? " · " + container.kind : ""),
-        cls: "card" + (on ? " on" : ""), titleCls: isMap ? "card-title map container" : "card-title container",
+        cls: "card" + (on ? " on" : ""), titleCls: "card-title one-line",
         lampCls: "lamp " + lamp, lampWord: LAMP_WORD[lamp], count: `${done}/${list.length}`,
         canExpand, chev: open ? "▾" : "▸", toggleLabel: (open ? "collapse #" : "expand #") + container.n,
         barStyle: {width: (list.length ? 100 * done / list.length : 0) + "%"},
@@ -123,7 +123,7 @@ export function canvasView(task, sel, expandedList, reduced) {
   return {
     hasTask: true, noTask: false, containers, decisions, tickets,
     labels: layout.labels.map(label => ({
-      cls: label.warn ? "lane-label warn" : "lane-label",
+      cls: label.warn ? "eyebrow warn" : "eyebrow",
       pos: {left: px(label.x), top: px(label.y)},
       text: label.text,
     })),
@@ -147,6 +147,7 @@ function markSelected(view, sel) {
 }
 
 function present(data, sel, expanded, reduced) {
+  if (typeof data.project === "function") return data.project(sel, expanded, reduced);
   if (data.task && typeof data.task === "object") {
     return canvasView(data.task, sel, expanded, reduced);
   }
@@ -208,7 +209,7 @@ function containerCard(item, onPick, onToggle) {
   if (item.canExpand) {
     const chev = document.createElement("button");
     chev.type = "button";
-    chev.className = "chev";
+    chev.className = "iconbtn sm bare";
     chev.setAttribute("aria-label", item.toggleLabel);
     dataUi(chev, `${ui}.expand`);
     chev.textContent = item.chev;
@@ -219,11 +220,11 @@ function containerCard(item, onPick, onToggle) {
     right.push(chev);
   }
   const fill = document.createElement("div");
-  fill.className = "card-bar-fill";
+  fill.className = "bar-fill";
   dataUi(fill, `${ui}.bar`);
   fill.style.width = item.barStyle.width;
   const bar = document.createElement("div");
-  bar.className = "card-bar";
+  bar.className = "bar thin";
   bar.append(fill);
   return cardShell(item, onPick, {
     ui, lampTitle: true, titled: true, titleCls: item.titleCls, right, after: [bar],
@@ -286,31 +287,31 @@ function legend() {
 
 function zoomBar(onOut, onIn, onFit, level) {
   const root = document.createElement("div");
-  root.className = "zoom";
+  root.className = "toolbar";
   dataUi(root, "画布.zoom");
   const out = document.createElement("button");
   out.type = "button";
-  out.className = "zoom-btn";
+  out.className = "iconbtn sm bare round";
   out.setAttribute("aria-label", "zoom out");
   dataUi(out, "画布.zoom.out");
   out.textContent = "−";
   out.addEventListener("click", onOut);
   const zoomLevel = document.createElement("span");
-  zoomLevel.className = "zoom-level";
+  zoomLevel.className = "toolbar-value";
   dataUi(zoomLevel, "画布.zoom.level");
   zoomLevel.textContent = level;
   const inn = document.createElement("button");
   inn.type = "button";
-  inn.className = "zoom-btn";
+  inn.className = "iconbtn sm bare round";
   inn.setAttribute("aria-label", "zoom in");
   dataUi(inn, "画布.zoom.in");
   inn.textContent = "+";
   inn.addEventListener("click", onIn);
   const sep = document.createElement("span");
-  sep.className = "zoom-sep";
+  sep.className = "toolbar-sep";
   const fit = document.createElement("button");
   fit.type = "button";
-  fit.className = "zoom-btn text";
+  fit.className = "iconbtn sm bare round fit";
   dataUi(fit, "画布.zoom.fit");
   fit.textContent = "fit";
   fit.addEventListener("click", onFit);
@@ -320,23 +321,21 @@ function zoomBar(onOut, onIn, onFit, level) {
 
 function emptyState() {
   const root = document.createElement("div");
-  root.className = "canvas-empty";
+  root.className = "empty center";
   dataUi(root, "画布.empty");
-  const wrap = document.createElement("div");
   const title = document.createElement("p");
-  title.className = "canvas-empty-title";
+  title.className = "display";
   dataUi(title, "画布.empty.title");
   title.textContent = "The Night 还没开始";
   const text = document.createElement("p");
-  text.className = "canvas-empty-text";
+  text.className = "empty-text";
   dataUi(text, "画布.empty.text");
   text.append("The Night 是一次讨论开出的那张 ticket。给它打上 ");
   const code = document.createElement("span");
   code.className = "code";
   code.textContent = "mmw:map";
   text.append(code, " label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。");
-  wrap.append(title, text);
-  root.append(wrap);
+  root.append(title, text);
   return root;
 }
 
@@ -374,7 +373,7 @@ export function render(host, data = {}, api = undefined) {
 
   const root = document.createElement("main");
   root.dataset.screen = "canvas";
-  root.className = "canvas board";
+  root.className = "canvas canvas-surface board";
   dataUi(root, "画布.root");
   root.setAttribute("aria-label", "画布：拖动平移，按住 ⌘ 或双指捏合缩放");
 
@@ -390,18 +389,17 @@ export function render(host, data = {}, api = undefined) {
 
   const box = n => lastView?.layout?.nodes.find(node => node.id === n) || null;
 
+  const fitted = (layout, r) => {
+    const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
+    return {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
+  };
+
   const initialView = () => {
     const layout = lastView?.layout;
     if (!layout) return;
     const r = size();
     if (!r.width || !r.height) return;
-    const kFit = Math.min((r.width - 40) / layout.W, (r.height - 70) / layout.H);
-    const v = state.view = {k: clampK(Math.max(0.9, Math.min(1, kFit))), x: 20, y: 12};
-    const b = state.sel != null ? box(state.sel) : null;
-    if (b) {
-      if ((b.y + b.h) * v.k + v.y > r.height - 70) v.y = Math.min(12, r.height * 0.45 - (b.y + b.h / 2) * v.k);
-      if ((b.x + b.w) * v.k + v.x > r.width - 24) v.x = Math.min(20, r.width - 24 - (b.x + b.w) * v.k);
-    }
+    state.view = fitted(layout, r);
     applyView();
     state.didInit = true;
   };
@@ -420,8 +418,7 @@ export function render(host, data = {}, api = undefined) {
     const layout = lastView?.layout;
     if (!layout) return;
     const r = size();
-    const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
-    state.view = {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
+    state.view = fitted(layout, r);
     applyView();
     data.onViewport?.("canvas-fitted", {...state.view});
   };
@@ -507,7 +504,7 @@ export function render(host, data = {}, api = undefined) {
   };
 
   const onPointerDown = event => {
-    if (event.button !== 0 || event.target.closest?.(".zoom, .legend, .chev")) return;
+    if (event.button !== 0 || event.target.closest?.(".toolbar, .legend, .iconbtn")) return;
     state.drag = {
       x: event.clientX, y: event.clientY,
       vx: state.view.x, vy: state.view.y,
