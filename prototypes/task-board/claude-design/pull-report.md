@@ -119,7 +119,7 @@
 ## 改动分类
 
 - 分类：只改外观或文案
-- design page：`Component · 画布.dc.html`
+- design page：`Component · 本机配置.dc.html`
 - `data-ui` id 新增：无
 - `data-ui` id 删除：无
 

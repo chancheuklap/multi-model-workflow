@@ -63,6 +63,7 @@
     "data/canvas-scenes.js",
     "data/detail-scenes.js",
     "data/settings-scenes.js",
+    "data/settings.js",
     "data/tasks-scenes.js",
     "data/topbar-scenes.js",
     "support.js"
