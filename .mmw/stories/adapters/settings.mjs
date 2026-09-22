@@ -1,9 +1,11 @@
 import {LocalConfig} from "/product/local-config.mjs";
-import {render as renderProduct, fromPayload} from "/product/settings.mjs";
+import {fromPayload, render as renderProduct} from "/product/settings.mjs";
 
-function modelFromInput(data) {
-  const model = fromPayload(data.payload);
-  const page = data.page || {};
+// Scene input is SETTINGS_SCENES.<scene>: the settings answer (payload) plus
+// this scene's page edits. The sheet's own logic turns that into the view.
+// Element parity compares the result with the design page's SETTINGS_VIEWS.
+
+function applyPage(model, page) {
   for (const [agent, cell, value] of page.edit || []) {
     LocalConfig.setCell(model.scan, model.st.draft, agent, cell, value);
   }
@@ -26,9 +28,11 @@ function modelFromInput(data) {
 export function render(host, data, api) {
   const transitions = [];
   window.storyTransitions = () => structuredClone(transitions);
-  const root = renderProduct(host, modelFromInput(data), api, {
+  const root = renderProduct(host, applyPage(fromPayload(data.payload), data.page || {}), api, {
     onState(state) {
-      transitions.push({scene: state === "closed" ? "settings-closed" : `Component · 本机配置.${state}`});
+      transitions.push({
+        scene: state === "closed" ? "settings-closed" : `Component · 本机配置.${state}`,
+      });
     },
   });
   root.dataset.storyRoot = "";

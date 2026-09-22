@@ -8,23 +8,36 @@ function copy(value) {
 }
 
 function selectEl(cls, value, disabled, label, opts, onChange, dataUi) {
+  // Element parity joins a select's own text. The design page has whitespace
+  // between its options; without a space node here the words are glued together.
+  const options = opts || [];
   const node = el("select", {
     class: cls, "aria-label": label, disabled: !!disabled,
     "data-ui": dataUi,
     onChange: event => onChange(event.target.value),
-  }, (opts || []).map(option => el("option", {
-    value: option.value, disabled: !!option.disabled, label: option.text,
-    selected: option.selected || option.value === value,
-  }, option.text)));
+  }, options.flatMap((option, index) => [
+    index ? " " : null,
+    el("option", {
+      value: option.value, disabled: !!option.disabled, label: option.text,
+      selected: option.selected || option.value === value,
+    }, option.text),
+  ]));
   if (value != null) node.value = value;
   return node;
+}
+
+// Same split the design page uses when it paints a host chip: answered is a
+// solid tag, every other state is dashed.
+function chipClass(cls) {
+  const state = String(cls || "").trim().split(/\s+/)[1] || "";
+  return state === "" || state === "ok" ? "pill tag" : "pill tag dashed";
 }
 
 function roleFoot(items, dataUi = null) {
   if (!items?.length) return null;
   return el("div", {class: "role-foot", "data-ui": dataUi}, items.map(item =>
-    el("div", {class: "role-bad", "data-ui": dataUi ? `${dataUi}.item` : null},
-      el("span", {class: "hatch"}), item.text)));
+    el("div", {class: "hatch-bar", "data-ui": dataUi ? `${dataUi}.item` : null},
+      el("span", {class: "hatch-swatch"}), item.text)));
 }
 
 function flagsFromErrors(errors) {
@@ -179,7 +192,7 @@ function paint(host, model, api, hooks) {
   };
 
   const root = el("div", {
-    class: `settings-root${hooks.onClose ? " transparent" : ""}`,
+    class: `settings-root board${hooks.onClose ? " transparent" : ""}`,
     "data-ui": "本机配置.root",
   });
   root.dataset.screen = "settings";
@@ -194,36 +207,36 @@ function paint(host, model, api, hooks) {
   sheet.append(
     el("div", {class: "sheet-head"},
       el("div", {class: "sheet-head-text"},
-        el("span", {class: "dp-eyebrow", "data-ui": "本机配置.sheet.eyebrow"}, "本机配置"),
-        el("h2", {class: "sheet-title", "data-ui": "本机配置.sheet.title"}, "这台机器上，每个 agent 跑在哪"),
-        el("p", {class: "sheet-sub", "data-ui": "本机配置.sheet.intro"},
+        el("span", {class: "eyebrow", "data-ui": "本机配置.sheet.eyebrow"}, "本机配置"),
+        el("h2", {class: "title", "data-ui": "本机配置.sheet.title"}, "这台机器上，每个 agent 跑在哪"),
+        el("p", {class: "sheet-intro", "data-ui": "本机配置.sheet.intro"},
           "下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 ",
-          el("span", {class: "sheet-code"}, "start"),
+          el("span", {class: "code"}, "start"),
           " 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 ",
-          el("span", {class: "sheet-code"}, v.store),
+          el("span", {class: "code"}, v.store),
           "；这一页不写 GitHub。"),
       ),
-      el("button", {type: "button", class: "dp-close", "aria-label": "关闭本机配置",
+      el("button", {type: "button", class: "iconbtn close", "aria-label": "关闭本机配置",
         "data-ui": "本机配置.sheet.close", onClick: close}, "×"),
     ),
   );
 
   const body = el("div", {class: "sheet-body"});
   if (v.refused) {
-    body.append(el("div", {class: "refused", role: "alert", "data-ui": "本机配置.refused"},
-      el("p", {class: "refused-text", "data-ui": "本机配置.refused.text"},
+    body.append(el("div", {class: "hatch-bar block refused-banner", role: "alert", "data-ui": "本机配置.refused"},
+      el("p", {"data-ui": "本机配置.refused.text"},
         el("b", {}, "没有保存。"), v.refusedText),
-      el("button", {type: "button", class: "btn", "data-ui": "本机配置.refused.reread",
+      el("button", {type: "button", class: "btn sm", "data-ui": "本机配置.refused.reread",
         onClick: reread}, "重新读取")));
   }
   body.append(
     el("section", {class: "set-block", "data-ui": "本机配置.hosts"},
       el("div", {class: "set-block-head"},
-        el("span", {class: "dp-section-title", "data-ui": "本机配置.hosts.title"}, "本机的 host"),
+        el("span", {class: "eyebrow", "data-ui": "本机配置.hosts.title"}, "本机的 host"),
         el("span", {class: "scan", "data-ui": "本机配置.scan"},
           v.scanning ? [el("span", {class: "spin"}), v.scanningText] : [
             v.scannedText,
-            el("button", {type: "button", class: "linkbtn",
+            el("button", {type: "button", class: "link",
               "data-ui": "本机配置.scan.rescan",
               onClick: () => void rescan(LocalConfig.source(model.st.draft))},
               "重新扫描"),
@@ -231,8 +244,8 @@ function paint(host, model, api, hooks) {
         ),
       ),
       el("div", {class: "hostscan"}, (v.chips || []).map(chip =>
-        el("span", {class: chip.cls, "data-ui": "本机配置.host"},
-          el("span", {class: "hs-name", "data-ui": "本机配置.host.name"}, chip.host), chip.what))),
+        el("span", {class: chipClass(chip.cls), "data-ui": "本机配置.host"},
+          el("span", {class: "pill-name", "data-ui": "本机配置.host.name"}, chip.host), chip.what))),
     ),
     el("section", {class: "set-block ruled", "data-ui": "本机配置.runner-block"},
       el("div", {class: "runner-row", "data-ui": "本机配置.runner"},
@@ -244,18 +257,17 @@ function paint(host, model, api, hooks) {
         v.runnerHasBad ? roleFoot(v.runnerBads) : null,
       ),
       el("p", {class: "set-note", "data-ui": "本机配置.runner-note"},
-        "环境变量 ", el("span", {class: "sheet-code"}, "MMW_RUNNER"),
+        "环境变量 ", el("span", {class: "code"}, "MMW_RUNNER"),
         " 设了时，它优先于这一格。「按所在环境判断」让 ",
-        el("span", {class: "sheet-code"}, "start"),
+        el("span", {class: "code"}, "start"),
         " 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，",
-        el("span", {class: "sheet-code"}, "start"),
+        el("span", {class: "code"}, "start"),
         " 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。"),
     ),
     el("section", {class: "set-block ruled", "data-ui": "本机配置.roles-block"},
-      el("div", {class: "set-block-head"},
-        el("span", {class: "dp-section-title", "data-ui": "本机配置.roles-block.title"}, "一个 agent 一行")),
+      el("span", {class: "eyebrow", "data-ui": "本机配置.roles-block.title"}, "一个 agent 一行"),
       el("div", {class: "roles", "data-ui": "本机配置.roles"},
-        el("div", {class: "roles-head", "data-ui": "本机配置.roles.head"},
+        el("div", {class: "eyebrow plain roles-head", "data-ui": "本机配置.roles.head"},
           el("span", {}, "agent"), el("span", {}, "host"),
           el("span", {}, "model"), el("span", {}, "effort")),
         (v.rows || []).map(row => el("div", {class: "role", "data-ui": "本机配置.role"},
@@ -279,7 +291,7 @@ function paint(host, model, api, hooks) {
   sheet.append(el("div", {class: "sheet-foot"},
     el("div", {class: "foot-status", "aria-live": "polite"},
       el("span", {class: "foot-strong", "data-ui": "本机配置.sheet.status"},
-        v.hatch ? el("span", {class: "hatch"}) : null, v.strong),
+        v.hatch ? el("span", {class: "hatch-swatch"}) : null, v.strong),
       el("span", {class: "foot-quiet", "data-ui": "本机配置.sheet.status-note"}, v.quiet)),
     el("div", {class: "foot-actions"},
       el("button", {type: "button", class: "btn", "data-ui": "本机配置.sheet.cancel",
