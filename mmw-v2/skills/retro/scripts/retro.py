@@ -43,7 +43,7 @@ def load(name: str, directory: Path = VERIFY):
     return module
 
 
-tree = load("tree")
+tree = load("issue_tree")
 events = load("events")
 refusal = load("refusal", UI_ACCEPTANCE)
 
