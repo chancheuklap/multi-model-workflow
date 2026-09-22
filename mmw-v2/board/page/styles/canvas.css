@@ -63,18 +63,18 @@
 .card-run { margin-top: auto; font: var(--t-micro) var(--mono); color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-run.flag { color: var(--ink); font-weight: var(--w-bold); }
 .card-count { font: var(--t-micro) var(--mono); color: var(--soft); font-variant-numeric: tabular-nums; }
-.card .iconbtn.sm { position: relative; z-index: 1; font-size: 10px; }
+.card .iconbtn.sm { position: relative; z-index: 1; font-size: var(--t-meta); }
 .card > .bar.thin {
   position: absolute; left: var(--sp-16); right: var(--sp-12); bottom: var(--sp-8); flex: none;
 }
 
 .canvas .toolbar { position: absolute; right: var(--sp-16); bottom: var(--sp-16); }
-.canvas .toolbar .iconbtn.round { font-size: 14px; }
+.canvas .toolbar .iconbtn.round { font-size: var(--t-body); }
 .canvas .toolbar .iconbtn.fit {
   width: auto; padding-inline: var(--sp-8); font: var(--t-meta) var(--mono);
 }
 .canvas .legend {
-  position: absolute; right: var(--sp-16); top: 14px; max-width: calc(100% - 32px);
+  position: absolute; right: var(--sp-16); top: var(--sp-16); max-width: calc(100% - 32px);
 }
 .canvas .empty.center { position: absolute; inset: 0; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
