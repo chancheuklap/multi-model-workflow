@@ -119,7 +119,7 @@
 ## 改动分类
 
 - 分类：只改外观或文案
-- design page：`Component · 任务列表.dc.html`、`Component · 本机配置.dc.html`、`Component · 画布.dc.html`、`Component · 详情.dc.html`、`Component · 顶栏.dc.html`
+- design page：无变化
 - `data-ui` id 新增：无
 - `data-ui` id 删除：无
 
