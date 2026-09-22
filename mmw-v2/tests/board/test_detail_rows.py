@@ -72,8 +72,9 @@ class DetailRowsTest(unittest.TestCase):
             loaded(page)
             interact.click(page, "详情.blocker")
             self.assert_transition(page, "Component · 详情.decision")
-            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#99")
-            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "事件格式怎么定")
+            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#100")
+            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "读票用什么")
+            self.assertEqual(page.locator('[data-ui="详情.status.status"]').inner_text(), "settled")
 
     def test_detail_goto_blocked(self):
         with story_page(self.browser, "detail", "Component · 详情.ticket-review") as page:

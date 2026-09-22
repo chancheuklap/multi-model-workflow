@@ -198,9 +198,11 @@ export function fromBoard(payload = {}, selected, now) {
   return view;
 }
 
-function goto(hooks, n) {
+function goto(hooks, n, ui) {
   if (n == null) return;
-  hooks.onGoto?.(n);
+  // ui is the control's data-ui id. The board follows n; a story uses ui to
+  // tell which screen-contract row fired.
+  hooks.onGoto?.(n, ui);
 }
 
 function openGithub(view) {
@@ -233,7 +235,7 @@ function relation(hooks, row, ui, {where, holdClass}) {
   ];
   return el("button", {
     type: "button", class: holdClass && row.hold ? "row hold" : "row", "data-ui": ui,
-    onClick: row.unknown ? null : () => goto(hooks, row.n),
+    onClick: row.unknown ? null : () => goto(hooks, row.n, ui),
   }, ...body);
 }
 
@@ -264,7 +266,7 @@ function origin(hooks, view) {
   for (const link of view.links || []) {
     parts.push(el("span", {}, "·"), " ", el("button", {
       type: "button", class: "link", "data-ui": "详情.origin.link",
-      onClick: () => goto(hooks, link.n),
+      onClick: () => goto(hooks, link.n, "详情.origin.link"),
     }, link.label));
   }
   return el("div", {class: "links", "data-ui": "详情.origin"}, ...parts);

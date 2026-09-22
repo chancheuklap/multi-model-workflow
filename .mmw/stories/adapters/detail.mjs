@@ -1,8 +1,9 @@
 import {render as renderProduct} from "/product/detail.mjs";
 
-// The scene input is the design page's own example data (`DETAIL_SCENES.<scene>`).
-// A click draws another of those views when one of them is that issue, and records
-// the scene name for that kind. An issue with no scene is not given a made-up view.
+// Scene input is the design page's example data (`DETAIL_SCENES.<scene>`).
+// An issue that has a scene is drawn as that view, and the recorded scene name
+// is the one for its kind. An issue with no scene enters the screen-contract
+// row's `next` and is drawn as that scene's own entry.
 const DETAIL = "Component · 详情.";
 const KIND_SCENE = {
   ticket: `${DETAIL}morning`,
@@ -10,6 +11,18 @@ const KIND_SCENE = {
   map: `${DETAIL}map`,
   decision: `${DETAIL}decision`,
 };
+
+function contractNext(ui, kind) {
+  if (ui === "详情.blocker" && kind === "decision") return `${DETAIL}decision`;
+  if (ui === "详情.blocker" || ui === "详情.blocks" || ui === "详情.ticket-row") {
+    return `${DETAIL}morning`;
+  }
+  if (ui === "详情.spec-row") return `${DETAIL}spec`;
+  if (ui === "详情.decision-row") return `${DETAIL}decision`;
+  if (ui === "详情.origin.link" && kind === "spec") return `${DETAIL}map`;
+  if (ui === "详情.origin.link") return `${DETAIL}spec`;
+  return null;
+}
 
 async function loadScenes() {
   const response = await fetch("/scenes.json");
@@ -21,7 +34,7 @@ async function loadScenes() {
   return Promise.all(names.map(async name => {
     const scene = await fetch(`/scene-input.json?scene=${encodeURIComponent(name)}`);
     if (!scene.ok) throw new Error(`scene input ${name} returned ${scene.status}`);
-    return scene.json();
+    return {name, view: await scene.json()};
   }));
 }
 
@@ -29,14 +42,18 @@ export function render(host, data, api) {
   const transitions = [];
   window.storyTransitions = () => structuredClone(transitions);
   const byGh = new Map();
+  const byScene = new Map();
   const index = sceneView => {
     if (sceneView && !sceneView.empty && sceneView.gh != null && !byGh.has(sceneView.gh)) {
       byGh.set(sceneView.gh, sceneView);
     }
   };
   index(data);
-  const ready = loadScenes().then(sceneViews => {
-    for (const sceneView of sceneViews) index(sceneView);
+  const ready = loadScenes().then(loaded => {
+    for (const {name, view: sceneView} of loaded) {
+      byScene.set(name, sceneView);
+      index(sceneView);
+    }
     window.storyDetailLoaded = true;
   });
   window.storyDetailReady = ready;
@@ -54,15 +71,24 @@ export function render(host, data, api) {
   };
   const paint = () => {
     const root = renderProduct(host, view, api, {
-      onGoto(n) {
+      onGoto(n, ui) {
         if (window.storyDetailError || !window.storyDetailLoaded) {
           unloaded(n);
           return;
         }
         const known = byGh.get(n);
-        const scene = known && KIND_SCENE[known.kind];
-        if (!scene) return;
-        view = known;
+        if (known) {
+          const scene = KIND_SCENE[known.kind];
+          if (!scene) return;
+          view = known;
+          move(scene);
+          paint();
+          return;
+        }
+        const scene = contractNext(ui, view && view.kind);
+        const entry = scene && byScene.get(scene);
+        if (!entry) return;
+        view = entry;
         move(scene);
         paint();
       },
