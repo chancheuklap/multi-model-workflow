@@ -661,6 +661,14 @@ class PullDesign(unittest.TestCase):
         self.assertIn("可点或可输入却没有 `data-ui` id：", coverage)
         self.assertIn("button: Unidentified action", coverage)
 
+    def test_a_bound_design_system_brings_its_readme(self):
+        self.preview.files["_ds/kit-1/components/x.css"] = b".x { color: red; }\n"
+        self.preview.files["_ds/kit-1/readme.md"] = b"## Unifications\n"
+        self.refer_from_demo(b'<link rel="stylesheet" href="./_ds/kit-1/components/x.css" />')
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((self.target / "_ds" / "kit-1" / "readme.md").read_bytes(), b"## Unifications\n")
+
     def test_interpolated_text_belongs_to_the_element_that_holds_it(self):
         page = self.preview.files["Component · Demo.dc.html"]
         self.preview.files["Component · Demo.dc.html"] = page.replace(
