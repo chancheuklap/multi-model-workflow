@@ -129,7 +129,7 @@
   background: var(--panel-veil); border-radius: var(--r-md); padding: var(--sp-8) var(--sp-12);
 }
 .board .legend-item { display: inline-flex; align-items: center; gap: var(--sp-6); }
-.board .legend-line { width: 24px; height: 0; border-top: 2px solid var(--line-grey); border-radius: var(--r-pill); }
+.board .legend-line { width: 24px; height: 0; border-top: 2px solid var(--line-grey); }
 .board .legend-line.flow { border-top-color: var(--led-green); box-shadow: 0 0 5px rgba(34, 160, 107, 0.7); }
 .board .legend-line.blocked { border-top-color: var(--led-red); }
 .board .legend-line.cyc { border-top-style: dashed; }
