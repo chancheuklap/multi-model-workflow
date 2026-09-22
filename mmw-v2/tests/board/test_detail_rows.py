@@ -59,11 +59,11 @@ class DetailRowsTest(unittest.TestCase):
         with story_page(self.browser, "detail", "Component · 详情.decision") as page:
             interact.click(page, "详情.blocker")
             self.assert_transition(page, "Component · 详情.decision")
-            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#105")
-            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "槽位推到哪一步")
+            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#99")
+            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "事件格式怎么定")
 
     def test_detail_goto_blocked(self):
-        with story_page(self.browser, "detail", "Component · 详情.morning") as page:
+        with story_page(self.browser, "detail", "Component · 详情.ticket-review") as page:
             interact.click(page, "详情.blocks")
             self.assert_transition(page, "Component · 详情.morning")
             self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#135")
@@ -99,7 +99,7 @@ class DetailRowsTest(unittest.TestCase):
             self.assertEqual(page.locator('[data-ui="详情.event-block.chev"]').first.inner_text(), "▾")
 
     def test_detail_close_event_block(self):
-        with story_page(self.browser, "detail", "Component · 详情.morning") as page:
+        with story_page(self.browser, "detail", "Component · 详情.ticket-fault") as page:
             self.assertGreater(page.locator('[data-ui="详情.event"]').count(), 0)
             interact.click(page, "详情.event-block.toggle")
             self.assert_transition(page, "event-block-closed")
@@ -112,8 +112,8 @@ class DetailRowsTest(unittest.TestCase):
             self.assert_transition(page, "event-detail-open")
             detail = page.locator('[data-ui="详情.event.detail"]')
             self.assertEqual(detail.count(), 1)
-            self.assertIn("host", detail.inner_text())
-            self.assertIn("grok", detail.inner_text())
+            self.assertIn("comment", detail.inner_text())
+            self.assertIn("DECISIONS", detail.inner_text())
 
     def test_detail_close_event(self):
         with story_page(self.browser, "detail", "Component · 详情.morning") as page:

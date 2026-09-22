@@ -1,30 +1,81 @@
-import {find, fromBoard, render as renderProduct} from "/product/detail.mjs";
+import {render as renderProduct} from "/product/detail.mjs";
+
+// The scene input is the design page's own example data (`DETAIL_SCENES.<scene>`).
+// A click renders another of those views when one of them is that node; otherwise
+// it renders the row the click was on, and records the scene name for that kind.
+const KIND_SCENE = {
+  ticket: "Component · 详情.morning",
+  spec: "Component · 详情.spec",
+  map: "Component · 详情.map",
+  decision: "Component · 详情.decision",
+};
+
+const LISTS = ["links", "blockers", "blocks", "ticketRows", "specRows", "decisionRows"];
+
+function rowKind(source, row, list) {
+  if (list === "links") {
+    if (String(row.label || "").startsWith("spec")) return "spec";
+    if (String(row.label || "").startsWith("map")) return "map";
+    return null;
+  }
+  if (list === "specRows") return "spec";
+  if (list === "decisionRows") return "decision";
+  if (list === "ticketRows") return "ticket";
+  return source?.kind === "decision" ? "decision" : "ticket";
+}
+
+function findRow(source, n) {
+  for (const list of LISTS) {
+    const row = (source?.[list] || []).find(item => item.n === n);
+    if (row) return {row, kind: rowKind(source, row, list)};
+  }
+  return null;
+}
+
+function rowView(row, kind, repo) {
+  return {
+    empty: false, kind, num: row.num || "", title: row.title || "", lamp: row.lamp || "",
+    phase: kind === "ticket" ? (row.phase || "") : "",
+    links: [], blockers: [], blocks: [], kids: [], why: [],
+    gh: row.n, repo,
+  };
+}
 
 export function render(host, data, api) {
   const transitions = [];
-  let selected = data.select?.node ?? null;
   window.storyTransitions = () => structuredClone(transitions);
-
-  const move = scene => transitions.push({scene, data: null});
-  const sceneFor = n => {
-    const target = find(data.payload.tasks || [], n);
-    if (!target) return null;
-    if (target.type === "map") return "Component · 详情.map";
-    if (target.type === "spec") return "Component · 详情.spec";
-    if (target.type === "decision") return "Component · 详情.decision";
-    return "Component · 详情.morning";
+  const byGh = new Map();
+  const index = view => {
+    if (view && !view.empty && view.gh != null && !byGh.has(view.gh)) byGh.set(view.gh, view);
   };
+  index(data);
+  fetch("/scenes.json").then(response => response.json()).then(async scenes => {
+    const names = scenes
+      .map(scene => scene.name)
+      .filter(name => String(name || "").startsWith("Component · 详情."));
+    const views = await Promise.all(names.map(async name => {
+      const response = await fetch(`/scene-input.json?scene=${encodeURIComponent(name)}`);
+      return response.ok ? response.json() : null;
+    }));
+    for (const view of views) index(view);
+  });
+
+  let view = data;
+  const move = scene => transitions.push({scene, data: null});
   const paint = () => {
-    const root = renderProduct(host, fromBoard(data.payload, selected, new Date(data.now)), api, {
+    const root = renderProduct(host, view, api, {
       onGoto(n) {
-        const scene = sceneFor(n);
+        const known = byGh.get(n);
+        const found = findRow(view, n);
+        const kind = known?.kind || found?.kind;
+        const scene = KIND_SCENE[kind];
         if (!scene) return;
-        selected = n;
+        view = known || rowView(found.row, kind, data.repo);
         move(scene);
         paint();
       },
       onClose() {
-        selected = null;
+        view = {empty: true};
         move("Component · 详情.nothing-selected");
         paint();
       },
