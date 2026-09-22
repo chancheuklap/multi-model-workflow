@@ -80,37 +80,100 @@
    green is "running", on the lamp and on the moving blocking line alike. */
 :root {
   color-scheme: light;
-  --paper: #f3f3f1;
-  --canvas: #ebecee;
-  --panel: #ffffff;
+
   --ink: #2d3142;
+  --ink-hover: #1f2231;
   --muted: #4f5d75;
   --soft: #7a8399;
   --faint: #a3aabb;
   --ghost: #c3c9d4;
-  --rule: rgba(45, 49, 66, 0.12);
+  --on-ink: #ffffff;
+
+  --desk: #e6e3df;
+  --paper: #f3f3f1;
+  --canvas: #ebecee;
+  --canvas-dot: radial-gradient(rgba(45, 49, 66, 0.13) 0.9px, transparent 1px);
+  --panel: #ffffff;
+  --panel-2: #fbfbfa;
+  --panel-veil: rgba(255, 255, 255, 0.86);
+  --scrim: rgba(29, 32, 48, 0.46);
+
   --rule-2: rgba(45, 49, 66, 0.07);
+  --rule: rgba(45, 49, 66, 0.14);
+  --rule-strong: rgba(45, 49, 66, 0.30);
+  --fill: rgba(45, 49, 66, 0.04);
+  --fill-strong: rgba(45, 49, 66, 0.08);
+  --line-grey: var(--rule-strong);
+
   --orange: #eb6c36;
   --orange-ink: #b8471a;
   --orange-tint: rgba(235, 108, 54, 0.10);
-  --focus: #2e5aa8;
-  --closeout: #5e7a9b;
+  --orange-tint-strong: rgba(235, 108, 54, 0.18);
+  --orange-line: rgba(235, 108, 54, 0.45);
   --led-green: #22a06b;
   --led-green-ink: #17784f;
   --led-red: #c9304f;
-  --line-grey: rgba(45, 49, 66, 0.30);
-  --s-working: #7c8f6f;  --s-working-ink: #46553d;
-  --s-waiting: #9a8c58;  --s-waiting-ink: #5d5430;
-  --s-review:  #7b6a9b;  --s-review-ink:  #4b3f63;
-  --s-verify:  #4f8783;  --s-verify-ink:  #2c5552;
+  --focus: #2e5aa8;
+  --closeout: #5e7a9b;
+
+  --s-working: #7c8f6f;  --s-working-ink: #46553d;  --s-working-tint: rgba(124, 143, 111, 0.18);
+  --s-waiting: #9a8c58;  --s-waiting-ink: #5d5430;  --s-waiting-tint: rgba(154, 140, 88, 0.18);
+  --s-review:  #7b6a9b;  --s-review-ink:  #4b3f63;  --s-review-tint:  rgba(123, 106, 155, 0.18);
+  --s-verify:  #4f8783;  --s-verify-ink:  #2c5552;  --s-verify-tint:  rgba(79, 135, 131, 0.18);
+
+  --hatch: repeating-linear-gradient(135deg, rgba(45, 49, 66, 0.05) 0 6px, transparent 6px 12px);
+  --hatch-dense: repeating-linear-gradient(135deg, rgba(45, 49, 66, 0.28) 0 2px, transparent 2px 4px);
+
   --sans: 'Geist', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
   --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --serif: 'Instrument Serif', 'Times New Roman', serif;
+
+  --t-micro: 9px;
+  --t-meta: 11px;
+  --t-body: 13px;
+  --t-title: 18px;
+  --t-display: 24px;
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-bold: 600;
+  --lh-flat: 1;
+  --lh-title: 1.3;
+  --lh-body: 1.45;
+  --lh-prose: 1.6;
+  --track-wide: 0.18em;
+  --track: 0.14em;
+  --track-loose: 0.02em;
+
+  --sp-2: 2px;
+  --sp-4: 4px;
+  --sp-6: 6px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-40: 40px;
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+  --r-round: 50%;
+  --stroke-thin: 1.5;
+  --stroke: 1.8;
+  --stroke-bold: 2.4;
+  --o-flow: 0.3;
+  --o-flow-hot: 0.45;
+  --o-solid: 0.85;
+  --shadow-1: 0 2px 8px rgba(45, 49, 66, 0.08);
+  --shadow-2: 0 4px 16px rgba(45, 49, 66, 0.14);
+  --shadow-3: 0 24px 64px rgba(20, 22, 34, 0.28);
 }
 *,
     *::before,
     *::after { box-sizing: border-box; }
 button { font: inherit; color: inherit; }
-a { color: var(--ink); }
+a { color: var(--ink); text-underline-offset: 2px; }
 a:hover { color: var(--muted); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

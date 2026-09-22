@@ -1,5 +1,4 @@
-import {render as renderProduct} from "/product/tasks.mjs";
-import {LAMP_WORD} from "/product/board-logic.mjs";
+import {render as renderProduct, taskRowView} from "/product/tasks.mjs";
 
 // The scene input is the design page's own example data (`TASK_SCENES.<scene>`):
 // one entry per task with the lamp and landed count the page draws, so the
@@ -8,15 +7,7 @@ function view(tasks) {
   return {
     count: tasks.length,
     empty: !tasks.length,
-    rows: tasks.map(t => ({
-      n: t.n,
-      lampCls: "lamp " + t.lamp,
-      lampWord: LAMP_WORD[t.lamp],
-      meta: `#${t.n} · ${t.kind}`,
-      title: t.title,
-      barStyle: {width: (t.total ? 100 * t.landed / t.total : 0) + "%"},
-      count: `${t.landed}/${t.total} landed`,
-    })),
+    rows: tasks.map(taskRowView),
   };
 }
 
@@ -26,7 +17,7 @@ export function render(host, data, api) {
 
   const selectedTask = data.selected ?? null;
   const root = renderProduct(host, {
-    view: view(data.tasks || []),
+    view: view(data.rows || []),
     selectedTask,
     onSelectTask(task) {
       transitions.push({scene: "Component · 任务列表.morning", data: {task}});
