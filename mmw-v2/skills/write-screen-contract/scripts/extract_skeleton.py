@@ -140,7 +140,7 @@ def main(handoff: Path, out: Path, contract: Path) -> None:
     scenes = json.loads((handoff / "scenes.json").read_text(encoding="utf-8"))
     pages = {
         dr.wrapper_path(scene["name"]): dr.wrapper_page(
-            dr.component_of(scene["page"]), scene.get("props") or {})
+            dr.component_of(scene["page"]), scene.get("props") or {}, lang=locale)
         for scene in scenes
     }
     server, port = dr.serve_baseline(handoff, pages)

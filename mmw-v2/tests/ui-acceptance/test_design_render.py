@@ -332,6 +332,10 @@ class TestBaselineServing(unittest.TestCase):
         self.assertEqual(dr.component_of("Component · 壳头.dc.html"), "Component · 壳头")
 
 
+    def test_wrapper_page_declares_the_contract_locale(self):
+        self.assertIn('<html lang="zh-CN">', dr.wrapper_page("Component · 壳头", {}, lang="zh-CN"))
+        self.assertIn("<html><head>", dr.wrapper_page("Component · 壳头", {}))
+
 class TestUiValues(unittest.TestCase):
     """The values file path and the JSON array `--render-only` writes."""
 

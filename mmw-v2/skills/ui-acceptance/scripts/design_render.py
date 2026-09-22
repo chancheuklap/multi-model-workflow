@@ -228,20 +228,23 @@ def name_options_from_dom(aria: str, texts: list[str]) -> str:
 
 
 # ---------------------------------------------------------------- baseline server
-def wrapper_page(component: str, props: dict, inline_head: str = "") -> str:
+def wrapper_page(component: str, props: dict, inline_head: str = "", lang: str | None = None) -> str:
     """One page holding one `dc-import`, pinned to a scene.
 
     One `dc-import` with the scene written into the attribute, rather than driven
     from state by a `<select>`. `inline_head` is
     served as part of the page, which is what the negative control needs: an error that
     is in the bytes the server sends, not injected by the client.
+    `lang` is the contract's locale, written on `<html>`: the browser picks the fallback
+    face for Chinese, Japanese and Korean text from it, as it does on the product's page.
     """
     attrs = []
     for key, value in props.items():
         literal = value if isinstance(value, str) else "{{ %s }}" % json.dumps(value)
         attrs.append(f'{key}="{_attr(literal)}"')
+    lang_attr = f' lang="{_attr(lang)}"' if lang else ""
     return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><script src="./support.js"></script>{inline_head}</head>
+<html{lang_attr}><head><meta charset="utf-8" /><script src="./support.js"></script>{inline_head}</head>
 <body><x-dc>
 <helmet data-dc-atomics><style>html, body {{ margin: 0; height: 100%; }}
 #dc-root, #dc-root .sc-host {{ height: 100%; }}</style></helmet>
