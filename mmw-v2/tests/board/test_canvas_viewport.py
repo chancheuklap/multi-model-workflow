@@ -162,6 +162,31 @@ class CanvasViewportTest(unittest.TestCase):
             self.assertLessEqual(bounds["bottom"], 0)
             browser.close()
 
+    def test_f_shrinks_a_tree_wider_than_the_canvas(self):
+        path = str(FAKE_BIN) + os.pathsep + os.environ.get("PATH", "")
+        with RunningBoard(environment={"PATH": path}, fixture=two_tasks()) as board, \
+                sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 720, "height": 480})
+            page.goto(board.origin, wait_until="networkidle")
+            page.wait_for_selector('[data-ui="画布.ticket-card"]', timeout=30_000)
+            page.keyboard.press("F")
+            page.wait_for_timeout(50)
+            level = int(page.locator('[data-ui="画布.zoom.level"]').inner_text().rstrip("%"))
+            self.assertLess(level, 100)
+            self.assertGreaterEqual(level, 30)
+            bounds = page.evaluate("""() => {
+              const canvas = document.querySelector('[data-ui="画布.root"]').getBoundingClientRect();
+              const world = document.querySelector('.world').getBoundingClientRect();
+              return {left: world.left - canvas.left, top: world.top - canvas.top,
+                right: world.right - canvas.right, bottom: world.bottom - canvas.bottom};
+            }""")
+            self.assertGreaterEqual(bounds["left"], 0)
+            self.assertGreaterEqual(bounds["top"], 0)
+            self.assertLessEqual(bounds["right"], 0)
+            self.assertLessEqual(bounds["bottom"], 0)
+            browser.close()
+
     def test_cmd_wheel_zoom_stays_between_30_and_160_percent(self):
         path = str(FAKE_BIN) + os.pathsep + os.environ.get("PATH", "")
         with RunningBoard(environment={"PATH": path}, fixture=two_tasks()) as board, \
