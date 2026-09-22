@@ -26,7 +26,7 @@ A state that is not shipping may stay in `options` if it is also listed under `o
 
 ## Example data
 
-Each `Component · ` page draws its scenes from one data file under `data/` that holds one entry per `scene` value, written `window.<NAME> = { "<scene>": { ... }, ... };`. The page's own `renderVals()` turns the entry into what it shows. Whatever decides the look but is not visible text (a lamp's colour, which row is selected, which option is chosen) is a field of the entry, so the repository can hand the product the same values. An `App · ` page passes its `scene` down to the pages it shows.
+Each `Component · ` page draws its scenes from one data file under `data/` that holds one entry per `scene` value, written `window.<NAME> = { "<scene>": { ... }, ... };`. The page's own `renderVals()` turns the entry into what it shows. Whatever decides the look but is not visible text (a lamp's colour, which row is selected, which option is chosen) is a field of the entry, so the repository can hand the product the same values. A page whose controls change what it shows or send a request also loads, from `data/`, the backend-shaped data its entries were computed from, one entry per `scene` value under the same names: the product's own logic runs on that data when its controls are checked. An `App · ` page passes its `scene` down to the pages it shows.
 
 ## `$preview`
 
