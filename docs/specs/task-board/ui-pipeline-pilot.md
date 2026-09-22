@@ -119,6 +119,20 @@
 
 **做法（ADR 0030）。** design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观，代码里的不一致全部统一并记进它的 `Unifications` 表；MMW 写它的 `CLAUDE.md`、指明代码与数据、事后检查。“MMW Task Board 2”已清空到只剩字体与图标并写入说明；设计项目 #553 的 `CLAUDE.md` 换成新模板，并放入产品现有的 223 个 `data-ui` id（`ui-ids.md`）。本地的 design system 源目录与 `check_design_system.py`、`build_ds_bundle.py` 删除。八种情形走查出的独立缺口按句修在 prototype、to-spec、to-tickets、implement、wayfinder、ui-acceptance、write-screen-contract 与 design-pages 里。
 
+### 16. 按统一后的 design system 重画并重新 pull（2026-09-22）
+
+**做法。** "MMW Task Board 2" 由 Claude Design 的 agent 按 `CLAUDE.md` 从生产版代码建成：20 个零件样式表、33 张卡片、`readme.md` 末尾的 `Unifications` 表（字号收成 9/11/13/18/24 五档，圆角、灰阶、间距、阴影同样收档，二十多组重复零件合并）。设计项目 #553 清掉试点的旧页与旧副本，换上新副本；此后每一步都由本地 agent 写进项目的 `task.md`，用户只说"开始""继续"：先画任务列表给用户看，再画其余四个区域与整页。六个页面都是普通标记，每页从自己的 `data/<区域>-scenes.js` 画 scene。
+
+**拉回。** 46 个 scene 全部渲染、无报错、`state-list.md` 的状态一个不缺；`改动分类` 为 `增删控件或改流转`。屏幕合同的 scene input 改指向各区域数据文件，三行去掉新示例数据里不再出现的 scene，整页两个新 scene 补上声明，lint 0 错误。spec #555 第 11 节与 Testing Decisions 修订，并切更正票。
+
+**这一轮修掉的 MMW 问题。**
+
+| 位置 | 现象 | 修复 |
+| --- | --- | --- |
+| `pull_design.py` 的覆盖检查 | Claude Design 运行时把与其他文字同处的 `{{ }}` 值包成 `span.sc-interp`，检查把每个这样的包装当成"带文字但没有 `data-ui` id"，报出约 1600 行假问题 | 包装里的文字算作外层元素自己的文字；加测试（提交 `d80702ff`） |
+| handoff package 与示例数据 | 后端形状的真实数据放在 `prototypes/task-board/claude-design/data/`，而 pull 把交接包重写成页面实际加载的文件，数据被删，看板测试与 Claude Design 的 agent 都读不到 | 数据移到 `prototypes/task-board/example-data/`；`edit-pages.md` 与 design system 模板写明真实数据放在交接包之外（提交 `f8f84f18`） |
+| 设计项目 `CLAUDE.md` 的 `$preview` | 只说"每个 scene 按这个尺寸渲染与检查"；agent 给区域页自选尺寸（任务列表 236x720，整页里是 236x848），验收会在产品从不显示的尺寸上检查区域 | 模板加一句：显示在 `App · ` 页上的区域页取它在整页里占的尺寸；#553 的 `CLAUDE.md` 已同步，改尺寸写进 `task.md`（提交 `d9187981`） |
+
 ## 发现
 
 | # | 步骤 | 位置 | 现象 | 影响 | 修复（第 1–10 行在提交 `0f79b971`） |
