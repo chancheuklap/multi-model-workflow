@@ -13,6 +13,7 @@ from __future__ import annotations
 import http.server
 import json
 import re
+import subprocess
 import sys
 import urllib.parse
 from copy import deepcopy
@@ -74,23 +75,37 @@ def merge(base, overlay):
     return result
 
 
+JAVASCRIPT_EXPORTS = r"""
+const fs = require("node:fs");
+const vm = require("node:vm");
+const path = process.argv[1];
+const sandbox = {window: {}};
+vm.runInNewContext(fs.readFileSync(path, "utf8"), sandbox, {filename: path, timeout: 1000});
+process.stdout.write(JSON.stringify(sandbox.window));
+"""
+
+
 def handoff_values(path: Path) -> dict:
-    source = path.read_text(encoding="utf-8")
-    board = re.fullmatch(
-        r'\(window\.BOARD_SCENES = window\.BOARD_SCENES \|\| \{}\)\["([^"]+)"\] = (\{.*\});?\n?',
-        source,
-    )
-    if board:
-        return {"BOARD_SCENES": {board.group(1): json.loads(board.group(2))}}
-    settings = re.fullmatch(r"window\.SETTINGS_SCENES = (\{.*\});?\n?", source)
-    if settings:
-        return {"SETTINGS_SCENES": json.loads(settings.group(1))}
-    # A design page's own example data: optional `//` comment lines, then
-    # `window.<NAME> = <JSON object>;`.
-    own = re.fullmatch(r"(?:\s*//[^\n]*\n)*\s*window\.(\w+) = (\{.*\});?\s*", source, re.S)
-    if own:
-        return {own.group(1): json.loads(own.group(2))}
-    raise ValueError(f"unsupported scene input file: {path}")
+    """Run one trusted handoff data file and return the values it writes to window."""
+    try:
+        completed = subprocess.run(
+            ["node", "-e", JAVASCRIPT_EXPORTS, str(path)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(f"scene input timed out: {path}") from exc
+    if completed.returncode != 0:
+        reason = completed.stderr.strip() or f"node exited {completed.returncode}"
+        raise ValueError(f"scene input failed: {path}: {reason}")
+    try:
+        values = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"scene input did not produce JSON values: {path}") from exc
+    if not isinstance(values, dict):
+        raise ValueError(f"scene input did not produce a window object: {path}")
+    return values
 
 
 def resolve_scene_input(name: str):

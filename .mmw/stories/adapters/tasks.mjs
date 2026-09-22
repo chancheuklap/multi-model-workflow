@@ -14,8 +14,8 @@ function view(tasks) {
       lampWord: LAMP_WORD[t.lamp],
       meta: `#${t.n} · ${t.kind}`,
       title: t.title,
-      barStyle: {width: (t.total ? 100 * t.landed / t.total : 0) + "%"},
-      count: `${t.landed}/${t.total} landed`,
+      barStyle: {width: (t.total ? Math.round(1000 * t.done / t.total) / 10 : 0) + "%"},
+      count: `${t.done}/${t.total} landed`,
     })),
   };
 }
@@ -26,7 +26,7 @@ export function render(host, data, api) {
 
   const selectedTask = data.selected ?? null;
   const root = renderProduct(host, {
-    view: view(data.tasks || []),
+    view: view(data.rows || []),
     selectedTask,
     onSelectTask(task) {
       transitions.push({scene: "Component · 任务列表.morning", data: {task}});

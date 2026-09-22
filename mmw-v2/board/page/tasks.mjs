@@ -2,7 +2,7 @@ import {Board, LAMP_WORD} from "./board-logic.mjs";
 
 function markOn(row, selectedTask) {
   const on = row.n === selectedTask;
-  return {...row, cls: on ? "task on" : "task", titleCls: on ? "task-title on" : "task-title"};
+  return {...row, cls: on ? "task on" : "task"};
 }
 
 export function taskListView(tasks, selectedTask) {
@@ -55,7 +55,7 @@ function rowButton(row, onPick) {
   meta.dataset.ui = "任务列表.task.meta";
 
   const title = document.createElement("span");
-  title.className = row.titleCls;
+  title.className = "task-title";
   title.textContent = row.title;
   title.dataset.ui = "任务列表.task.title";
 
@@ -88,7 +88,7 @@ export function render(host, data = {}, api = undefined) {
   const paint = (selectedTask) => {
     const next = rowsFor(data, selectedTask);
     const eyebrow = document.createElement("div");
-    eyebrow.className = "col-eyebrow";
+    eyebrow.className = "eyebrow spread";
     eyebrow.dataset.ui = "任务列表.eyebrow";
     const label = document.createElement("span");
     label.textContent = "The Night";
@@ -100,7 +100,7 @@ export function render(host, data = {}, api = undefined) {
     const kids = [eyebrow];
     if (next.empty) {
       const empty = document.createElement("p");
-      empty.className = "tasks-empty";
+      empty.className = "empty inline empty-text";
       empty.textContent = "没有带 mmw:map label 的 ticket。";
       empty.dataset.ui = "任务列表.empty";
       kids.push(empty);

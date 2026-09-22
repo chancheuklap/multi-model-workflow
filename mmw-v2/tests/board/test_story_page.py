@@ -19,13 +19,13 @@ class StoryPageTest(unittest.TestCase):
         cls.browser.close()
         cls.playwright.stop()
 
-    def test_topbar_uses_the_complete_scene_name_and_product_root(self):
-        with story_page(self.browser, "topbar", "Component · 顶栏.morning") as page:
-            root = page.locator('[data-story-root][data-ui="顶栏.root"]')
+    def test_tasks_uses_the_complete_scene_name_and_product_root(self):
+        with story_page(self.browser, "tasks", "Component · 任务列表.morning") as page:
+            root = page.locator('[data-story-root][data-ui="任务列表.root"]')
             self.assertEqual(root.count(), 1)
-            self.assertEqual(page.locator('[data-ui="顶栏.needs-you.count"]').inner_text(), "3")
-            self.assertEqual(page.locator('[data-ui="顶栏.read-state"]').inner_text(),
-                             "只读 · 07:39 读取")
+            self.assertEqual(page.locator('[data-ui="任务列表.eyebrow.count"]').inner_text(), "3")
+            self.assertEqual(page.locator('[data-ui="任务列表.task.title"]').first.inner_text(),
+                             "落地流水线改造")
 
     def test_service_gives_the_adapter_the_contract_scene_input(self):
         def inspect_input(page):
@@ -43,8 +43,37 @@ class StoryPageTest(unittest.TestCase):
         scene = "Component · 详情.ticket-returned"
         with story_page(self.browser, "detail", scene, before_goto=inspect_input) as page:
             value = json.loads(page.locator("[data-story-root]").get_attribute("data-input"))
-            self.assertEqual(value["select"]["node"], 138)
-            self.assertEqual(value["payload"]["read_at"], "2026-09-10T23:39:00Z")
+            self.assertEqual(value["num"], "#138")
+            self.assertEqual(value["title"], "离线时唤醒去向")
+            self.assertEqual(value["phase"], "verify")
+
+    def test_scene_input_is_read_by_running_the_data_file(self):
+        def inspect_input(page):
+            page.route("**/adapters/tasks.mjs", lambda route: route.fulfill(
+                content_type="text/javascript",
+                body="""export function render(host, data) {
+                  const root = document.createElement('nav');
+                  root.dataset.storyRoot = '';
+                  root.dataset.ui = '任务列表.root';
+                  root.dataset.input = JSON.stringify(data);
+                  host.replaceChildren(root);
+                }""",
+            ))
+
+        scene = "Component · 任务列表.morning"
+        with story_page(self.browser, "tasks", scene, before_goto=inspect_input) as page:
+            root = page.locator("[data-story-root]")
+            root.wait_for(state="attached")
+            value = json.loads(root.get_attribute("data-input"))
+            self.assertEqual(value["selected"], 98)
+            self.assertEqual(value["rows"][0], {
+                "n": 98,
+                "kind": "map",
+                "title": "落地流水线改造",
+                "lamp": "orange",
+                "done": 6,
+                "total": 18,
+            })
 
     def test_response_table_returns_any_status_and_body_without_fetch(self):
         escaped = []
@@ -100,20 +129,19 @@ class StoryPageTest(unittest.TestCase):
 
     def test_adapter_renders_the_product_module(self):
         def replace_product(page):
-            page.route("**/product/topbar.mjs", lambda route: route.fulfill(
+            page.route("**/product/tasks.mjs", lambda route: route.fulfill(
                 content_type="text/javascript",
-                body="""export function fromBoard(payload) { return {count: payload.tasks.length}; }
-                export function render(host, view) {
-                  const root = document.createElement('header');
-                  root.dataset.ui = '顶栏.root';
-                  root.dataset.screen = 'topbar';
-                  root.dataset.productProbe = String(view.count);
+                body="""export function render(host, data) {
+                  const root = document.createElement('nav');
+                  root.dataset.ui = '任务列表.root';
+                  root.dataset.screen = 'tasks';
+                  root.dataset.productProbe = String(data.view.count);
                   host.replaceChildren(root);
                   return root;
                 }""",
             ))
 
-        with story_page(self.browser, "topbar", "Component · 顶栏.morning",
+        with story_page(self.browser, "tasks", "Component · 任务列表.morning",
                         before_goto=replace_product) as page:
             root = page.locator('[data-story-root][data-product-probe="3"]')
             self.assertEqual(root.count(), 1)
