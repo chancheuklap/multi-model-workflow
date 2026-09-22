@@ -8,12 +8,12 @@ import {installDom, namedButton, walk} from "./fake-dom.mjs";
 
 const morningView = {
   orangeN: 3, greenN: 3, hollowN: 9, inkN: 9, waiting: 1,
-  readFailed: false, readClock: "07:39", readAgo: "1 分钟前", settingsOpen: false,
+  readFailed: false, readText: "只读 · 07:39 读取", settingsOpen: false,
 };
 
 const emptyView = {
   orangeN: 0, greenN: 0, hollowN: 0, inkN: 0, waiting: 0,
-  readFailed: false, readClock: "07:39", readAgo: "1 分钟前", settingsOpen: false,
+  readFailed: false, readText: "只读 · 07:39 读取", settingsOpen: false,
 };
 
 function counterNs(root) {
