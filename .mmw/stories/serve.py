@@ -129,27 +129,23 @@ def resolve_scene_input(name: str):
     return merge(value, declaration.get("with", {}))
 
 
-def declared_input_files() -> set[str]:
-    return {item["file"] for item in SCENE_INPUTS.values() if item.get("file")}
+def example_board(name: str) -> dict:
+    """The example payload a board scene names.
 
-
-def window_keys(file: str, keys: list[str]) -> dict:
-    """Return named window bindings from a handoff file the contract already loads.
-
-    A scene input is one value (`APP_SCENES.morning`). The design page also reads
-    the bindings beside it in that same file (`APP_TREES`, `APP_DETAILS`). The
-    file has to be one a scene input already names, and each key has to be a
-    window binding that file writes.
+    `APP_SCENES.<scene>.board` is the dataset name. The file
+    `prototypes/task-board/example-data/board-<name>.js` is that dataset: the
+    `GET /api/board` answer the design views were computed from, plus `now`.
     """
-    if file not in declared_input_files() or ".." in Path(file).parts:
-        raise ValueError(f"file is not a scene input: {file}")
-    if not keys or any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) for key in keys):
-        raise ValueError("window key was not named")
-    values = handoff_values(HANDOFF / file)
-    missing = [key for key in keys if key not in values]
-    if missing:
-        raise ValueError(f"window key was not found: {', '.join(missing)}")
-    return {key: values[key] for key in keys}
+    if not re.fullmatch(r"[a-z0-9-]+", name or ""):
+        raise ValueError(f"board name is not a dataset name: {name!r}")
+    path = ROOT / "prototypes" / "task-board" / "example-data" / f"board-{name}.js"
+    if not path.is_file():
+        raise ValueError(f"no example dataset board-{name}.js")
+    values = handoff_values(path)
+    scenes = values.get("BOARD_SCENES")
+    if not isinstance(scenes, dict) or name not in scenes:
+        raise ValueError(f"board-{name}.js did not set BOARD_SCENES[{name!r}]")
+    return scenes[name]
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -184,14 +180,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     message.encode(), "text/plain; charset=utf-8", status=404
                 )
             return self.send_bytes(body, "application/json; charset=utf-8")
-        if path == "/window-keys.json":
+        if path == "/example-board.json":
             query = urllib.parse.parse_qs(parsed.query)
-            file = (query.get("file") or [""])[0]
-            keys = query.get("key") or []
+            name = (query.get("name") or [""])[0]
             try:
-                body = (json.dumps(window_keys(file, keys), ensure_ascii=False) + "\n").encode()
+                body = (json.dumps(example_board(name), ensure_ascii=False) + "\n").encode()
             except (ValueError, FileNotFoundError) as exc:
-                message = f"window keys unavailable for {file}: {exc}\n"
+                message = (
+                    f"example board unavailable for {name}: {exc}. "
+                    "APP_SCENES names the dataset; the file is "
+                    "prototypes/task-board/example-data/board-<name>.js and must set "
+                    "BOARD_SCENES[<name>]. Add that file, or point the scene's board "
+                    "field at a dataset that exists.\n"
+                )
                 return self.send_bytes(
                     message.encode(), "text/plain; charset=utf-8", status=404
                 )

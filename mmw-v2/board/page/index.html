@@ -14,16 +14,6 @@
     <link rel="stylesheet" href="./styles/settings.css">
     <style>
       html, body { margin: 0; height: 100%; background: var(--desk); }
-      .app-shell { position: relative; height: 100%; display: flex; flex-direction: column; background: var(--panel); overflow: hidden; }
-      .app-top { flex: none; min-width: 0; }
-      .app-row { flex: 1; min-height: 0; display: flex; align-items: stretch; }
-      .app-slot { min-width: 0; min-height: 0; overflow: hidden; }
-      .app-slot[data-mount="tasks"] { flex: none; width: 236px; }
-      .app-slot[data-mount="canvas"] { flex: 1; }
-      .app-slot[data-mount="detail"] { flex: none; width: 340px; }
-      .app-slot[data-mount="detail"]:empty { display: none; }
-      .app-sheet { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
-      .app-sheet:has([data-screen="settings"]) { pointer-events: auto; }
     </style>
   </head>
   <body>

@@ -69,10 +69,10 @@ class BoardRowsTest(unittest.TestCase):
             detail = page.locator('[data-ui="详情.root"]')
             detail.wait_for(timeout=1000)
             self.assertEqual(recorded_requests(page), [])
-            self.assertEqual(detail.locator('[data-ui="详情.origin.number"]').inner_text(), "#139")
-            self.assertEqual(detail.locator('[data-ui="详情.title"]').inner_text(), "槽位交还后叫醒")
+            self.assertEqual(detail.locator('[data-ui="详情.origin.number"]').inner_text(), "#138")
+            self.assertEqual(detail.locator('[data-ui="详情.title"]').inner_text(), "离线时唤醒去向")
             selected = page.locator('[data-ui="画布.ticket-card"].on')
-            self.assertEqual(selected.locator('[data-ui="画布.ticket-card.num"]').inner_text(), "#139")
+            self.assertEqual(selected.locator('[data-ui="画布.ticket-card.num"]').inner_text(), "#138")
 
     def test_board_open_settings(self):
         settings = settings_scene()["payload"]

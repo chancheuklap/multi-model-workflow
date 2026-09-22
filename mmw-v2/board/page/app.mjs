@@ -85,14 +85,6 @@ export function applyShell(root, slots, hasDetail) {
     position: "absolute", inset: "0", zIndex: "30",
     pointerEvents: root.querySelector('[data-screen="settings"]') ? "auto" : "none",
   });
-  // Each column's design root is `height: 100vh`, the viewport, not the band
-  // left under the top bar. The product column fills its slot (`height: 100%`),
-  // so on the composed page that band is 52px short. The inline height is the
-  // design root's own height.
-  for (const name of ["tasks", "canvas", "detail"]) {
-    const column = slots[name].firstElementChild;
-    if (column) column.style.height = "100vh";
-  }
 }
 
 export function mountPage(target = document, options = {}) {
@@ -112,8 +104,8 @@ export function mountPage(target = document, options = {}) {
     task: input.select?.task ?? null,
     sel: input.select?.node ?? null,
     expanded: null,
-    settingsOpen: false,
-    settingsPayload: null,
+    settingsOpen: Boolean(input.settingsOpen),
+    settingsPayload: input.settings || null,
     hasSuccessfulPayload: Boolean(input.payload && !input.payload.read_failed),
   };
 
@@ -238,12 +230,9 @@ export function mountPage(target = document, options = {}) {
     if (!slots.settings) return;
     const open = slots.settings.querySelector('[data-screen="settings"]');
     if (state.settingsOpen && state.settingsPayload && !open) {
-      const sheet = settings(slots.settings, settingsFromPayload(state.settingsPayload), apiClient, {
+      settings(slots.settings, settingsFromPayload(state.settingsPayload), apiClient, {
         onClose: closeSettings,
       });
-      // The design page paints this root with the desk colour. `transparent` is
-      // only added because a close hook is set, and it would show the board through.
-      sheet.classList.remove("transparent");
     } else if (!state.settingsOpen && open) {
       unmountSettings(slots.settings);
     }
