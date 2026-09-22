@@ -129,6 +129,29 @@ def resolve_scene_input(name: str):
     return merge(value, declaration.get("with", {}))
 
 
+def declared_input_files() -> set[str]:
+    return {item["file"] for item in SCENE_INPUTS.values() if item.get("file")}
+
+
+def window_keys(file: str, keys: list[str]) -> dict:
+    """Return named window bindings from a handoff file the contract already loads.
+
+    A scene input is one value (`APP_SCENES.morning`). The design page also reads
+    the bindings beside it in that same file (`APP_TREES`, `APP_DETAILS`). The
+    file has to be one a scene input already names, and each key has to be a
+    window binding that file writes.
+    """
+    if file not in declared_input_files() or ".." in Path(file).parts:
+        raise ValueError(f"file is not a scene input: {file}")
+    if not keys or any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) for key in keys):
+        raise ValueError("window key was not named")
+    values = handoff_values(HANDOFF / file)
+    missing = [key for key in keys if key not in values]
+    if missing:
+        raise ValueError(f"window key was not found: {', '.join(missing)}")
+    return {key: values[key] for key in keys}
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -157,6 +180,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     f"scene input unavailable for {scene}: {exc}. "
                     "Check the contract input.file/input.value and that Node.js is on PATH.\n"
                 )
+                return self.send_bytes(
+                    message.encode(), "text/plain; charset=utf-8", status=404
+                )
+            return self.send_bytes(body, "application/json; charset=utf-8")
+        if path == "/window-keys.json":
+            query = urllib.parse.parse_qs(parsed.query)
+            file = (query.get("file") or [""])[0]
+            keys = query.get("key") or []
+            try:
+                body = (json.dumps(window_keys(file, keys), ensure_ascii=False) + "\n").encode()
+            except (ValueError, FileNotFoundError) as exc:
+                message = f"window keys unavailable for {file}: {exc}\n"
                 return self.send_bytes(
                     message.encode(), "text/plain; charset=utf-8", status=404
                 )
