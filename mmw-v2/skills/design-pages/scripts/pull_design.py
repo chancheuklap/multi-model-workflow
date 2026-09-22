@@ -45,6 +45,7 @@ VENDOR_CONSTANTS = ("REACT_URL", "REACT_DOM_URL", "BABEL_URL")
 # after the first exists only because the one before requested a file not yet pulled.
 RENDER_ROUNDS = 5
 RENDER_REQUEST = "渲染时请求"
+DESIGN_SYSTEM_README = "design system 的 Unifications 表"
 
 
 @dataclass
@@ -1599,6 +1600,14 @@ def run(args: argparse.Namespace) -> None:
         preserved_state_list = prepare_staging(target, staged)
         inventory = Inventory(preview, staged)
         inventory.pull(pages, None)
+        # A bound design system's readme.md ends with its Unifications table, which
+        # the product's code follows; no page loads it.
+        folders = sorted({
+            "/".join(PurePosixPath(path).parts[:2])
+            for path in inventory.pulled
+            if len(PurePosixPath(path).parts) > 2 and PurePosixPath(path).parts[0] == "_ds"
+        })
+        inventory.pull([f"{folder}/readme.md" for folder in folders], DESIGN_SYSTEM_README)
         vendor = pull_vendor(staged)
         package, audit = render_until_settled(inventory, vendor, preserved_state_list, tools)
         (staged / "scenes.json").write_text(
