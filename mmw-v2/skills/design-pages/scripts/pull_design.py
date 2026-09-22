@@ -79,6 +79,7 @@ class RenderAudit:
     scene_text_by_id: dict[str, dict[str, list[str]]]
     text_without_id: list[tuple[str, str]]
     controls_without_id: list[tuple[str, str]]
+    undefined_classes: list[tuple[str, str, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -843,6 +844,7 @@ def render_scenes(
                 console_errors: list[tuple[str, str]] = []
                 text_without_id: list[tuple[str, str]] = []
                 controls_without_id: list[tuple[str, str]] = []
+                undefined_classes: list[tuple[str, str, str]] = []
                 current_scene = [""]
 
                 def console_message(message):
@@ -899,13 +901,40 @@ def render_scenes(
                               controlsMissing.push(label(el));
                             }
                           }
-                          return {textMissing, controlsMissing};
+                          // Class names no loaded stylesheet defines: the design drew the element
+                          // with a name its design system does not have. Claude Design's runtime
+                          // classes (sc-*) are its own.
+                          const defined = new Set();
+                          const walk = rules => {
+                            for (const rule of rules) {
+                              if (rule.selectorText) {
+                                for (const m of rule.selectorText.matchAll(/\\.([A-Za-z0-9_-]+)/g)) defined.add(m[1]);
+                              }
+                              if (rule.cssRules) walk(rule.cssRules);
+                            }
+                          };
+                          for (const sheet of document.styleSheets) {
+                            try { walk(sheet.cssRules); } catch (e) {}
+                          }
+                          const undefinedClasses = [];
+                          for (const el of rows) {
+                            for (const cls of el.classList) {
+                              if (cls.startsWith('sc-') || defined.has(cls)) continue;
+                              const where = el.closest('[data-ui]');
+                              undefinedClasses.push([cls, where ? where.getAttribute('data-ui') : el.tagName.toLowerCase()]);
+                            }
+                          }
+                          return {textMissing, controlsMissing, undefinedClasses};
                         }
                     """)
                     for label in audit["textMissing"]:
                         row = (scene["name"], label)
                         if row not in text_without_id:
                             text_without_id.append(row)
+                    for cls, where in audit["undefinedClasses"]:
+                        row = (scene["page"], cls, where)
+                        if not any(r[0] == row[0] and r[1] == row[1] for r in undefined_classes):
+                            undefined_classes.append(row)
                     for label in audit["controlsMissing"]:
                         row = (scene["name"], label)
                         if row not in controls_without_id:
@@ -934,6 +963,7 @@ def render_scenes(
         scene_text_by_id=scene_text_by_id,
         text_without_id=text_without_id,
         controls_without_id=controls_without_id,
+        undefined_classes=undefined_classes,
     )
 
 
@@ -1270,6 +1300,42 @@ def contract_copy_changes(
     return changes, unmatched
 
 
+SCALED_PROPERTIES = re.compile(
+    r"^(font-size|gap|row-gap|column-gap|inset|top|right|bottom|left"
+    r"|(padding|margin)(-(top|right|bottom|left|inline|block)(-(start|end))?)?)$"
+)
+PX_VALUE = re.compile(r"(?<![\w.-])(\d+(?:\.\d+)?)px\b")
+CUSTOM_PX = re.compile(r"--[\w-]+\s*:\s*(\d+(?:\.\d+)?)px\s*;")
+STYLE_ATTR = re.compile(r'\sstyle="([^"]*)"')
+
+
+def off_scale_values(root: Path) -> list[tuple[str, str]]:
+    """Lengths a page writes by hand where the bound design system has a scale: each
+    literal px value in a static `style` attribute, on a type-size, spacing or offset
+    property, that no `--variable: <n>px` under `_ds/` defines. Interpolated styles
+    (`{{ }}`) are computed layout and are left alone. No design system, no check."""
+    steps = set()
+    for css in sorted((root / "_ds").rglob("*.css")) if (root / "_ds").is_dir() else []:
+        steps.update(float(n) for n in CUSTOM_PX.findall(css.read_text(encoding="utf-8", errors="replace")))
+    if not steps:
+        return []
+    found = []
+    for page in sorted(root.glob("*.dc.html")):
+        for style in STYLE_ATTR.findall(page.read_text(encoding="utf-8", errors="replace")):
+            if "{{" in style:
+                continue
+            for declaration in style.split(";"):
+                prop, _, value = declaration.partition(":")
+                prop, value = prop.strip().lower(), value.strip()
+                if not SCALED_PROPERTIES.match(prop):
+                    continue
+                if any(float(n) not in steps and float(n) != 0 for n in PX_VALUE.findall(value)):
+                    row = (page.name, f"{prop}: {value}")
+                    if row not in found:
+                        found.append(row)
+    return found
+
+
 def design_check_lines(package: HandoffPackage, audit: RenderAudit) -> list[str]:
     selectors = selector_audit(package.root)
     lines = []
@@ -1284,9 +1350,15 @@ def design_check_lines(package: HandoffPackage, audit: RenderAudit) -> list[str]
         lines.append(f"- 渲染为空：`{scene}`")
     for scene, message in audit.console_errors:
         lines.append(f"- 控制台报错：`{scene}` — {message}")
+    for page, cls, where in audit.undefined_classes:
+        lines.append(f"- 样式表里没有的类名：`{page}` — `.{cls}`（在 `{where}`）")
+    off_scale = off_scale_values(package.root)
+    for page, declaration in off_scale:
+        lines.append(f"- 写死的数值不在 design system 的变量里：`{page}` — `{declaration}`")
     if (
         selectors.checked and not selectors.findings and not package.missing
         and not audit.empty_scenes and not audit.console_errors
+        and not audit.undefined_classes and not off_scale
     ):
         lines.append("- 未发现设计检查问题。")
     return lines

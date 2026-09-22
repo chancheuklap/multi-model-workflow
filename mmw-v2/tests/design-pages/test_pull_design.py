@@ -661,6 +661,34 @@ class PullDesign(unittest.TestCase):
         self.assertIn("可点或可输入却没有 `data-ui` id：", coverage)
         self.assertIn("button: Unidentified action", coverage)
 
+    def test_the_report_lists_classes_no_stylesheet_defines(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>", b'<p class="lane-label" data-ui="lane">Lane</p></main>', 1)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        design = self.report_section("设计检查")
+        self.assertIn("样式表里没有的类名：`Component · Demo.dc.html` — `.lane-label`（在 `lane`）", design)
+        self.assertNotIn("`.old-value`", design)
+
+    def test_the_report_lists_hand_written_lengths_off_the_design_system(self):
+        self.preview.files["_ds/kit-1/tokens/spacing.css"] = b":root { --sp-8: 8px; --sp-16: 16px; }\n"
+        self.refer_from_demo(b'<link rel="stylesheet" href="./_ds/kit-1/tokens/spacing.css" />')
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>",
+            b'<p data-ui="a" style="padding: 8px 16px; top: 14px">A</p>'
+            b'<p data-ui="b" style="font-size: 10px; width: 236px">B</p>'
+            b'<p data-ui="c" style="left: {{ x }}; margin: 0">C</p></main>', 1)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        design = self.report_section("设计检查")
+        self.assertIn("写死的数值不在 design system 的变量里：`Component · Demo.dc.html` — `top: 14px`", design)
+        self.assertIn("— `font-size: 10px`", design)
+        self.assertNotIn("padding: 8px 16px", design)
+        self.assertNotIn("width: 236px", design)
+        self.assertNotIn("left:", design)
+
     def test_a_bound_design_system_brings_its_readme(self):
         self.preview.files["_ds/kit-1/components/x.css"] = b".x { color: red; }\n"
         self.preview.files["_ds/kit-1/readme.md"] = b"## Unifications\n"
