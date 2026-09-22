@@ -129,6 +129,25 @@ def resolve_scene_input(name: str):
     return merge(value, declaration.get("with", {}))
 
 
+def example_board(name: str) -> dict:
+    """The example payload a board scene names.
+
+    `APP_SCENES.<scene>.board` is the dataset name. The file
+    `prototypes/task-board/example-data/board-<name>.js` is that dataset: the
+    `GET /api/board` answer the design views were computed from, plus `now`.
+    """
+    if not re.fullmatch(r"[a-z0-9-]+", name or ""):
+        raise ValueError(f"board name is not a dataset name: {name!r}")
+    path = ROOT / "prototypes" / "task-board" / "example-data" / f"board-{name}.js"
+    if not path.is_file():
+        raise ValueError(f"no example dataset board-{name}.js")
+    values = handoff_values(path)
+    scenes = values.get("BOARD_SCENES")
+    if not isinstance(scenes, dict) or name not in scenes:
+        raise ValueError(f"board-{name}.js did not set BOARD_SCENES[{name!r}]")
+    return scenes[name]
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -156,6 +175,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 message = (
                     f"scene input unavailable for {scene}: {exc}. "
                     "Check the contract input.file/input.value and that Node.js is on PATH.\n"
+                )
+                return self.send_bytes(
+                    message.encode(), "text/plain; charset=utf-8", status=404
+                )
+            return self.send_bytes(body, "application/json; charset=utf-8")
+        if path == "/example-board.json":
+            query = urllib.parse.parse_qs(parsed.query)
+            name = (query.get("name") or [""])[0]
+            try:
+                body = (json.dumps(example_board(name), ensure_ascii=False) + "\n").encode()
+            except (ValueError, FileNotFoundError) as exc:
+                message = (
+                    f"example board unavailable for {name}: {exc}. "
+                    "APP_SCENES names the dataset; the file is "
+                    "prototypes/task-board/example-data/board-<name>.js and must set "
+                    "BOARD_SCENES[<name>]. Add that file, or point the scene's board "
+                    "field at a dataset that exists.\n"
                 )
                 return self.send_bytes(
                     message.encode(), "text/plain; charset=utf-8", status=404

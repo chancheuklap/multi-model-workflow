@@ -27,7 +27,10 @@ def shell(page) -> dict:
       const slot = document.querySelector('[data-mount="detail"]');
       const canvas = document.querySelector('[data-mount="canvas"]');
       return {
-        columns: getComputedStyle(root).gridTemplateColumns.split(' ').length,
+        columns: ["tasks", "canvas", "detail"].filter(name => {
+          const node = document.querySelector(`[data-mount="${name}"]`);
+          return node && getComputedStyle(node).display !== "none";
+        }).length,
         panels: document.querySelectorAll('[data-screen="detail"]').length,
         slotShown: getComputedStyle(slot).display !== 'none',
         canvasWidth: Math.round(canvas.getBoundingClientRect().width),
