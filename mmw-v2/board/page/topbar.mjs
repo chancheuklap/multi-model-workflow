@@ -55,10 +55,6 @@ export function render(host, view = {}, api, hooks = {}) {
   const orangeN = view.orangeN ?? 0;
   const hot = orangeN > 0;
   const waiting = view.waiting || 0;
-  const read = {
-    cls: view.readFailed ? "hatch-bar" : "readstate",
-    text: view.readText || "",
-  };
   const root = el("header", {class: "topbar board", "data-ui": "顶栏.root"});
   root.dataset.screen = "topbar";
   root.append(
@@ -88,7 +84,10 @@ export function render(host, view = {}, api, hooks = {}) {
         el("span", {class: "lamp ink", "data-ui": "顶栏.done.lamp"}), LAMP_WORD.ink,
         el("span", {class: "counter-n", "data-ui": "顶栏.done.count"}, String(view.inkN ?? 0))),
     ),
-    el("div", {class: read.cls, "data-ui": "顶栏.read-state"}, read.text),
+    el("div", {
+      class: view.readFailed ? "hatch-bar" : "readstate",
+      "data-ui": "顶栏.read-state",
+    }, view.readText || ""),
     el("button", {
       type: "button", class: "iconbtn bare",
       "aria-label": "立刻重读 GitHub",

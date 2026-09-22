@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {makeApi} from "../../board/page/api.mjs";
 import {fromBoard, render} from "../../board/page/topbar.mjs";
-import {hhmm} from "../../board/page/shared.mjs";
 import {installDom, namedButton, walk} from "./fake-dom.mjs";
 
 const morningView = {
@@ -115,16 +114,17 @@ test("a failed read shows the time and age of the data below", () => {
       outcome: null, waiting: null, review: null,
     },
   };
+  const readAt = new Date(2026, 8, 11, 7, 12);
+  const now = new Date(2026, 8, 11, 8, 8);
   const view = fromBoard({
     tasks: [{n: 1, specs: [{n: 2, tickets: [orange]}], decisions: []}],
-    read_at: "2026-09-11T07:12:00Z",
-    read_failed: {at: "2026-09-11T07:40:00Z"},
-  }, new Date("2026-09-11T08:08:00Z"));
+    read_at: readAt.toISOString(),
+    read_failed: {at: new Date(2026, 8, 11, 7, 40).toISOString()},
+  }, now);
   assert.equal(view.orangeN, 1);
   assert.equal(view.readFailed, true);
   const {root} = mount(view);
-  assert.match(root.textContent,
-    new RegExp(`读 GitHub 失败 · 下面是 ${hhmm("2026-09-11T07:12:00Z")} 的数据（56 分钟前）`));
+  assert.match(root.textContent, /读 GitHub 失败 · 下面是 07:12 的数据（56 分钟前）/);
   assert.equal(namedButton(root, "needs you 1").disabled, false);
 });
 

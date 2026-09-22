@@ -26,8 +26,7 @@ export function render(host, data, api) {
         move("Component · 详情.ticket-returned");
       },
       onRefresh(value) {
-        const failed = Boolean(value && value.read_failed);
-        move(failed ? "Component · 顶栏.bad-data" : "Component · 顶栏.morning", value);
+        move(value.read_failed ? "Component · 顶栏.bad-data" : "Component · 顶栏.morning", value);
         paint(fromBoard(value));
       },
       onOpenSettings(value) {

@@ -9,22 +9,13 @@ from playwright.sync_api import sync_playwright
 
 import interact
 from story_helper import recorded_requests, story_page
+from test_board_rows import board_scene
 
 
 ROOT = Path(__file__).resolve().parents[3]
-EXAMPLE = ROOT / "prototypes" / "task-board" / "example-data"
 HANDOFF = ROOT / "prototypes" / "task-board" / "claude-design"
-
-
-def board_scene(name: str) -> dict:
-    source = (EXAMPLE / f"board-{name}.js").read_text(encoding="utf-8")
-    match = re.fullmatch(
-        r'\(window\.BOARD_SCENES = window\.BOARD_SCENES \|\| \{\}\)\["[^"]+"\] = (\{.*\});?\n?',
-        source,
-    )
-    if not match:
-        raise AssertionError(f"cannot read board scene {name}")
-    return json.loads(match.group(1))
+# The example clocks are UTC instants written as Hong Kong wall time (23:39Z is 07:39).
+ZONE = "Asia/Hong_Kong"
 
 
 def topbar_scene(name: str) -> dict:
@@ -35,23 +26,11 @@ def topbar_scene(name: str) -> dict:
     return json.loads(match.group(1))[name]
 
 
-def freeze_clock(page, iso: str) -> None:
-    page.add_init_script(
-        "(() => {\n"
-        f"  const fixed = Date.parse({json.dumps(iso)});\n"
-        "  const RealDate = Date;\n"
-        "  class FixedDate extends RealDate {\n"
-        "    constructor(...args) {\n"
-        "      if (args.length === 0) super(fixed);\n"
-        "      else super(...args);\n"
-        "    }\n"
-        "  }\n"
-        "  FixedDate.now = () => fixed;\n"
-        "  FixedDate.parse = RealDate.parse;\n"
-        "  FixedDate.UTC = RealDate.UTC;\n"
-        "  window.Date = FixedDate;\n"
-        "})();"
+def pin_clock(page, iso: str) -> None:
+    page.context.new_cdp_session(page).send(
+        "Emulation.setTimezoneOverride", {"timezoneId": ZONE},
     )
+    page.clock.set_fixed_time(iso)
 
 
 def transitions(page):
@@ -74,7 +53,7 @@ class TopbarRowsTest(unittest.TestCase):
         shown = topbar_scene("morning")
         responses = {"POST /api/board/refresh": {"status": 200, "body": morning["payload"]}}
         with story_page(self.browser, "topbar", "Component · 顶栏.empty", responses,
-                        before_goto=lambda page: freeze_clock(page, morning["now"])) as page:
+                        before_goto=lambda page: pin_clock(page, morning["now"])) as page:
             interact.click(page, "顶栏.refresh")
             page.wait_for_function("window.storyTransitions().length === 1", timeout=1000)
             self.assertEqual(recorded_requests(page), [
@@ -97,15 +76,25 @@ class TopbarRowsTest(unittest.TestCase):
         failed = board_scene("bad-data")
         failed_shown = topbar_scene("bad-data")
         responses = {"POST /api/board/refresh": {"status": 200, "body": failed["payload"]}}
-        with story_page(self.browser, "topbar", "Component · 顶栏.bad-data", responses,
-                        before_goto=lambda page: freeze_clock(page, failed["now"])) as page:
+        with story_page(self.browser, "topbar", "Component · 顶栏.morning", responses,
+                        before_goto=lambda page: pin_clock(page, failed["now"])) as page:
             before = page.locator('[data-ui="顶栏.root"]').inner_text()
             interact.click(page, "顶栏.refresh")
             page.wait_for_function("window.storyTransitions().length === 1", timeout=1000)
+            after = page.locator('[data-ui="顶栏.root"]').inner_text()
+            self.assertNotEqual(after, before)
             self.assertEqual(recorded_requests(page), [
                 {"method": "POST", "path": "/api/board/refresh", "fields": None},
             ])
-            self.assertEqual(page.locator('[data-ui="顶栏.root"]').inner_text(), before)
+            self.assertEqual(page.locator('[data-ui="顶栏.needs-you.count"]').inner_text(),
+                             str(failed_shown["orangeN"]))
+            self.assertEqual(page.locator('[data-ui="顶栏.running.count"]').inner_text(),
+                             str(failed_shown["greenN"]))
+            self.assertEqual(page.locator('[data-ui="顶栏.running.sub"]').count(), 0)
+            self.assertEqual(page.locator('[data-ui="顶栏.queued.count"]').inner_text(),
+                             str(failed_shown["hollowN"]))
+            self.assertEqual(page.locator('[data-ui="顶栏.done.count"]').inner_text(),
+                             str(failed_shown["inkN"]))
             self.assertEqual(page.locator('[data-ui="顶栏.read-state"]').inner_text(),
                              failed_shown["readText"])
             self.assertEqual(transitions(page)[0]["scene"], "Component · 顶栏.bad-data")
