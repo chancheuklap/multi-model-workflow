@@ -4,15 +4,6 @@
    dropdown — stays here. Nothing on it is state of a ticket, so no lamp colour
    appears. A cell `start` would refuse is hatched ink. */
 
-/* the settings gear at the right end of the top bar */
-.gear {
-  flex: none; width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0;
-  border: 1px solid var(--rule); border-radius: 7px; background: var(--panel); color: var(--soft); cursor: pointer;
-}
-.gear:hover { color: var(--ink); border-color: rgba(45, 49, 66, 0.34); }
-.gear.on { color: var(--ink); border-color: rgba(45, 49, 66, 0.34); }
-.gear-icon { width: 15px; height: 15px; }
-
 .settings-root {
   position: absolute; inset: 0;
   background: var(--desk);
