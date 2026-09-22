@@ -1,9 +1,12 @@
 /* ── centre: the canvas ─────────────────────────────────── */
-.canvas {
-  height: 100%; position: relative; overflow: hidden;
+.canvas-surface {
   background-color: var(--canvas);
   background-image: var(--canvas-dot);
-  background-size: 28px 28px; cursor: grab; touch-action: none;
+  background-size: 28px 28px;
+}
+.canvas {
+  height: 100%; position: relative; overflow: hidden;
+  cursor: grab; touch-action: none;
 }
 .canvas.dragging { cursor: grabbing; }
 .world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
@@ -28,7 +31,7 @@
 .e-port.done { fill: var(--rule-strong); }
 .e-port.flow { fill: var(--led-green); }
 .e-port.blocked { fill: var(--led-red); }
-.lane-label { position: absolute; white-space: nowrap; }
+.world > .eyebrow { position: absolute; white-space: nowrap; }
 
 .card {
   position: absolute; display: flex; flex-direction: column; gap: var(--sp-6);
@@ -56,16 +59,14 @@
 .card-title.decision { color: var(--muted); }
 /* A container card is 72px tall (board-logic layout geometry), room for one title line; a
    title that would wrap is cut at the edge with an ellipsis and shown whole on hover. */
-.card-title.container { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-title.one-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-run { margin-top: auto; font: var(--t-micro) var(--mono); color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-run.flag { color: var(--ink); font-weight: var(--w-bold); }
 .card-count { font: var(--t-micro) var(--mono); color: var(--soft); font-variant-numeric: tabular-nums; }
 .card .iconbtn.sm { position: relative; z-index: 1; font-size: 10px; }
-.card-bar {
-  position: absolute; left: var(--sp-16); right: var(--sp-12); bottom: var(--sp-8);
-  height: 2px; border-radius: var(--r-pill); background: var(--fill-strong); overflow: hidden;
+.card > .bar.thin {
+  position: absolute; left: var(--sp-16); right: var(--sp-12); bottom: var(--sp-8); flex: none;
 }
-.card-bar-fill { display: block; height: 100%; background: var(--ink); border-radius: var(--r-pill); }
 
 .canvas .toolbar { position: absolute; right: var(--sp-16); bottom: var(--sp-16); }
 .canvas .toolbar .iconbtn.round { font-size: 14px; }

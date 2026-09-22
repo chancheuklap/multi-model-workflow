@@ -72,76 +72,6 @@ export function stillEdges(svg) {
     .replace(/<circle class="e-pulse"[^>]*>[\s\S]*?<\/circle>/g, "");
 }
 
-// A scene tree already carries the lamp, phase and run the design page drew.
-// The layout engine reads the fold, so those fields are copied onto the shape
-// it already understands. Display text stays the scene's own; nothing is invented.
-function sceneShaped(task) {
-  return Boolean(task?.specs?.some(spec => spec.tickets?.some(ticket => ticket.lamp))
-    || task?.decisions?.some(decision => typeof decision.closed === "boolean"));
-}
-
-function forLayout(task) {
-  if (!task || !sceneShaped(task)) return task;
-  const ticketForLayout = ticket => {
-    if (ticket.fold) return ticket;
-    return {
-      ...ticket,
-      events: ticket.events || [],
-      children: ticket.children || [],
-      blocker_hold: ticket.released ? "" : "held",
-      fold: {
-        sessions: ticket.running ? [{live: true, kind: "worker"}] : [],
-        children: {},
-        landed: false,
-        held: Boolean(ticket.running),
-      },
-    };
-  };
-  return {
-    ...task,
-    decisions: (task.decisions || []).map(decision => (
-      decision.state ? decision : {...decision, state: decision.closed ? "closed" : "open"}
-    )),
-    specs: (task.specs || []).map(spec => ({
-      ...spec,
-      tickets: (spec.tickets || []).map(ticketForLayout),
-    })),
-  };
-}
-
-function lampOf(ticket) {
-  return ticket.lamp || Board.lamp(ticket);
-}
-
-function phaseOf(ticket) {
-  return ticket.phase || Board.phase(ticket);
-}
-
-function runOf(ticket) {
-  if (ticket.run != null) return {text: ticket.run, flag: Boolean(ticket.runFlag)};
-  return Board.runLine(ticket);
-}
-
-function doneOf(ticket) {
-  return typeof ticket.done === "boolean" ? ticket.done : Board.done(ticket);
-}
-
-function decisionLampOf(decision) {
-  if (typeof decision.closed === "boolean") return decision.closed ? "ink" : "hollow";
-  return Board.decisionLamp(decision);
-}
-
-function aggregateOf(list) {
-  if (list.some(ticket => ticket.lamp)) {
-    const lamps = list.map(ticket => ticket.lamp);
-    if (lamps.includes("orange")) return "orange";
-    if (lamps.includes("green")) return "green";
-    if (lamps.length && lamps.every(lamp => lamp === "ink")) return "ink";
-    return "hollow";
-  }
-  return Board.aggregate(list);
-}
-
 export function canvasView(task, sel, expandedList, reduced) {
   if (!task) {
     return {
@@ -150,7 +80,7 @@ export function canvasView(task, sel, expandedList, reduced) {
     };
   }
   const expanded = new Set(expandedList);
-  const layout = Board.layout(forLayout(task), expanded);
+  const layout = Board.layout(task, expanded);
   const selNode = layout.nodes.find(node => node.id === sel);
   const selIsIssue = Boolean(selNode && (selNode.type === "ticket" || selNode.type === "decision"));
   const pos = node => ({left: px(node.x), top: px(node.y), width: px(node.w), height: px(node.h)});
@@ -158,7 +88,7 @@ export function canvasView(task, sel, expandedList, reduced) {
   for (const node of layout.nodes) {
     const on = node.id === sel;
     if (node.type === "ticket") {
-      const ticket = node.ref, lamp = lampOf(ticket), phase = phaseOf(ticket), run = runOf(ticket);
+      const ticket = node.ref, lamp = Board.lamp(ticket), phase = Board.phase(ticket), run = Board.runLine(ticket);
       tickets.push({
         n: ticket.n, pos: pos(node), title: ticket.title, num: "#" + ticket.n, phase,
         pillCls: "pill " + phase,
@@ -171,19 +101,19 @@ export function canvasView(task, sel, expandedList, reduced) {
       decisions.push({
         n: decision.n, pos: pos(node), title: decision.title, num: "#" + decision.n, kind: decision.kind,
         cls: "card" + (on ? " on" : "") + (node.cyclic ? " cycle" : ""),
-        lampCls: "lamp small " + decisionLampOf(decision),
+        lampCls: "lamp small " + Board.decisionLamp(decision),
       });
     } else {
       const container = node.ref, isMap = node.type === "map";
       const list = isMap ? Board.allTickets(container) : container.tickets;
-      const lamp = aggregateOf(list);
-      const done = list.filter(doneOf).length;
+      const lamp = Board.aggregate(list);
+      const done = list.filter(ticket => Board.done(ticket)).length;
       const canExpand = isMap ? container.decisions.length > 0 : container.tickets.length > 0;
       const open = expanded.has(container.n);
       containers.push({
         n: container.n, pos: pos(node), title: container.title,
         num: "#" + container.n + (isMap ? " · " + container.kind : ""),
-        cls: "card" + (on ? " on" : ""), titleCls: isMap ? "card-title map container" : "card-title container",
+        cls: "card" + (on ? " on" : ""), titleCls: "card-title one-line",
         lampCls: "lamp " + lamp, lampWord: LAMP_WORD[lamp], count: `${done}/${list.length}`,
         canExpand, chev: open ? "▾" : "▸", toggleLabel: (open ? "collapse #" : "expand #") + container.n,
         barStyle: {width: (list.length ? 100 * done / list.length : 0) + "%"},
@@ -193,7 +123,7 @@ export function canvasView(task, sel, expandedList, reduced) {
   return {
     hasTask: true, noTask: false, containers, decisions, tickets,
     labels: layout.labels.map(label => ({
-      cls: label.warn ? "lane-label warn" : "lane-label",
+      cls: label.warn ? "eyebrow warn" : "eyebrow",
       pos: {left: px(label.x), top: px(label.y)},
       text: label.text,
     })),
@@ -217,6 +147,7 @@ function markSelected(view, sel) {
 }
 
 function present(data, sel, expanded, reduced) {
+  if (typeof data.project === "function") return data.project(sel, expanded, reduced);
   if (data.task && typeof data.task === "object") {
     return canvasView(data.task, sel, expanded, reduced);
   }
@@ -289,11 +220,11 @@ function containerCard(item, onPick, onToggle) {
     right.push(chev);
   }
   const fill = document.createElement("div");
-  fill.className = "card-bar-fill";
+  fill.className = "bar-fill";
   dataUi(fill, `${ui}.bar`);
   fill.style.width = item.barStyle.width;
   const bar = document.createElement("div");
-  bar.className = "card-bar";
+  bar.className = "bar thin";
   bar.append(fill);
   return cardShell(item, onPick, {
     ui, lampTitle: true, titled: true, titleCls: item.titleCls, right, after: [bar],
@@ -442,7 +373,7 @@ export function render(host, data = {}, api = undefined) {
 
   const root = document.createElement("main");
   root.dataset.screen = "canvas";
-  root.className = "canvas board";
+  root.className = "canvas canvas-surface board";
   dataUi(root, "画布.root");
   root.setAttribute("aria-label", "画布：拖动平移，按住 ⌘ 或双指捏合缩放");
 
@@ -458,13 +389,17 @@ export function render(host, data = {}, api = undefined) {
 
   const box = n => lastView?.layout?.nodes.find(node => node.id === n) || null;
 
+  const fitted = (layout, r) => {
+    const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
+    return {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
+  };
+
   const initialView = () => {
     const layout = lastView?.layout;
     if (!layout) return;
     const r = size();
     if (!r.width || !r.height) return;
-    const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
-    state.view = {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
+    state.view = fitted(layout, r);
     applyView();
     state.didInit = true;
   };
@@ -483,8 +418,7 @@ export function render(host, data = {}, api = undefined) {
     const layout = lastView?.layout;
     if (!layout) return;
     const r = size();
-    const k = clampK(Math.min(1, (r.width - 40) / layout.W, (r.height - 70) / layout.H));
-    state.view = {k, x: Math.max(12, (r.width - layout.W * k) / 2), y: 12};
+    state.view = fitted(layout, r);
     applyView();
     data.onViewport?.("canvas-fitted", {...state.view});
   };
