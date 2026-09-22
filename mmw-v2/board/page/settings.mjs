@@ -8,6 +8,8 @@ function copy(value) {
 }
 
 function selectEl(cls, value, disabled, label, opts, onChange, dataUi) {
+  // Element parity joins a select's own text. The design page has whitespace
+  // between its options; without a space node here the words are glued together.
   const options = opts || [];
   const node = el("select", {
     class: cls, "aria-label": label, disabled: !!disabled,
@@ -24,6 +26,8 @@ function selectEl(cls, value, disabled, label, opts, onChange, dataUi) {
   return node;
 }
 
+// Same split the design page uses when it paints a host chip: answered is a
+// solid tag, every other state is dashed.
 function chipClass(cls) {
   const state = String(cls || "").trim().split(/\s+/)[1] || "";
   return state === "" || state === "ok" ? "pill tag" : "pill tag dashed";
@@ -115,29 +119,20 @@ function paint(host, model, api, hooks) {
     redraw();
   };
 
-  const restoreShown = shown => {
-    model.st.scanning = false;
-    if (shown) {
-      model.view = shown;
-      paint(host, model, api, hooks);
-      return;
-    }
-    redraw();
-  };
-
   const rescan = async source => {
-    const shown = model.view ? copy(model.view) : null;
     model.st.scanning = true;
     state("scanning");
     redraw();
     const response = await hand(() => api.scanSettings({source}));
     if (!response?.ok) {
-      restoreShown(shown);
+      model.st.scanning = false;
+      redraw();
       return;
     }
     const body = await readJson(response);
     if (!body.hosts) {
-      restoreShown(shown);
+      model.st.scanning = false;
+      redraw();
       return;
     }
     applyScan(body);

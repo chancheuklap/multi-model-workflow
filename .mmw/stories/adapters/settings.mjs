@@ -1,22 +1,11 @@
-import {CATALOG} from "/product/local-config.mjs";
+import {CATALOG, LocalConfig} from "/product/local-config.mjs";
 import {render as renderProduct} from "/product/settings.mjs";
 
-// Scene input is SETTINGS_VIEWS.<scene>: the component view, field for field.
-// The first paint uses that view. A click still runs the sheet's own model.
-// The draft is the view's rows. A host's models are the ones listed on the
-// rows that currently use it; the effort list on that row applies to each of
-// those models. A host the scene marks as answered, but for which it lists no
-// models, keeps the models the rows already show, so changing to it keeps the
-// current model. The opened version is the example's 12 when the view omits
-// it — the sheet does not show the number, and the boundary test names it.
-
-function copy(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function effortValues(row) {
-  return (row.effortOpts || []).map(option => option.value).filter(value => value !== "");
-}
+// Scene input is SETTINGS_VIEWS.<scene>, already the component view. The first
+// paint uses it unchanged. A click needs a draft, and the only draft fields the
+// scene carries are each row's host, model and effort, plus runner. It does not
+// carry version, a host's offered models, scanned_at, source or modified_at;
+// those stay absent. source() is the product's own rule from runner.
 
 function draftFrom(view) {
   const rows = {};
@@ -30,52 +19,21 @@ function draftFrom(view) {
   return {runner: view.runner, rows};
 }
 
-function scanFrom(view) {
-  const hosts = {};
-  for (const chip of view.chips || []) {
-    const state = String(chip.cls || "").trim().split(/\s+/)[1] || "ok";
-    hosts[chip.host] = {state, offered: []};
-  }
-  for (const row of view.rows || []) {
-    const host = hosts[row.host] || (hosts[row.host] = {state: "ok", offered: []});
-    const known = new Map(host.offered.map(item => [item.model, item]));
-    const efforts = effortValues(row);
-    for (const option of row.modelOpts || []) {
-      if (!option.value) continue;
-      const item = known.get(option.value) || {model: option.value, efforts: []};
-      if (efforts.length) item.efforts = efforts;
-      known.set(option.value, item);
-    }
-    host.offered = [...known.values()];
-  }
-  const inUse = [];
-  for (const row of view.rows || []) {
-    if (!row.model) continue;
-    inUse.push({model: row.model, efforts: effortValues(row)});
-  }
-  for (const host of Object.values(hosts)) {
-    if (host.state === "ok" && host.offered.length === 0) host.offered = copy(inUse);
-  }
-  return hosts;
-}
-
 function modelFromView(view) {
   const draft = draftFrom(view);
-  const scanned = String(view.scannedText || "");
   return {
     view,
     catalog: CATALOG,
-    scan: scanFrom(view),
+    scan: {},
     st: {
-      saved: copy(draft),
+      saved: structuredClone(draft),
       draft,
-      scanSource: scanned.includes("Paseo") ? "paseo" : "cli",
+      scanSource: LocalConfig.source(draft),
       scannedAt: null,
       scanning: Boolean(view.scanning),
       savedAt: null,
-      refused: view.refused ? 1 : 0,
+      refused: 0,
       reread: false,
-      version: Number.isInteger(view.version) ? view.version : 12,
       modifiedAt: null,
       serverFlags: [],
     },
