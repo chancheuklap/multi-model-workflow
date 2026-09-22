@@ -12,6 +12,14 @@ def transitions(page):
     return page.evaluate("window.storyTransitions()")
 
 
+def loaded(page):
+    page.wait_for_function(
+        "window.storyDetailLoaded === true || window.storyDetailError", timeout=15000)
+    error = page.evaluate("window.storyDetailError || ''")
+    if error:
+        raise AssertionError(error)
+
+
 class DetailRowsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -30,12 +38,14 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_close(self):
         with story_page(self.browser, "detail", "Component · 详情.morning") as page:
+            loaded(page)
             interact.click(page, "详情.head.close")
             self.assert_transition(page, "Component · 详情.nothing-selected")
             self.assertEqual(page.locator('[data-ui="详情.empty.title"]').inner_text(), "点一张卡")
 
     def test_detail_goto_origin_spec(self):
         with story_page(self.browser, "detail", "Component · 详情.morning") as page:
+            loaded(page)
             interact.click(page, "详情.origin.link")
             self.assert_transition(page, "Component · 详情.spec")
             self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#131")
@@ -43,6 +53,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_goto_origin_map(self):
         with story_page(self.browser, "detail", "Component · 详情.spec") as page:
+            loaded(page)
             interact.click(page, "详情.origin.link")
             self.assert_transition(page, "Component · 详情.map")
             self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#98 · map")
@@ -50,6 +61,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_goto_blocker(self):
         with story_page(self.browser, "detail", "Component · 详情.morning") as page:
+            loaded(page)
             interact.click(page, "详情.blocker")
             self.assert_transition(page, "Component · 详情.morning")
             self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#132")
@@ -57,6 +69,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_goto_decision_blocker(self):
         with story_page(self.browser, "detail", "Component · 详情.decision") as page:
+            loaded(page)
             interact.click(page, "详情.blocker")
             self.assert_transition(page, "Component · 详情.decision")
             self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#99")
@@ -64,6 +77,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_goto_blocked(self):
         with story_page(self.browser, "detail", "Component · 详情.ticket-review") as page:
+            loaded(page)
             interact.click(page, "详情.blocks")
             self.assert_transition(page, "Component · 详情.morning")
             self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#135")
@@ -71,20 +85,25 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_goto_spec_row(self):
         with story_page(self.browser, "detail", "Component · 详情.map") as page:
-            interact.click(page, "详情.spec-row")
+            loaded(page)
+            interact.click(page, "详情.spec-row#2")
             self.assert_transition(page, "Component · 详情.spec")
-            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#123")
-            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "事件评论格式")
+            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#131")
+            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "唤醒回路")
+            self.assertEqual(page.locator('[data-ui="详情.status.status"]').inner_text(), "needs you")
 
     def test_detail_goto_decision_row(self):
         with story_page(self.browser, "detail", "Component · 详情.map") as page:
-            interact.click(page, "详情.decision-row")
+            loaded(page)
+            interact.click(page, "详情.decision-row#2")
             self.assert_transition(page, "Component · 详情.decision")
-            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#99")
-            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "事件格式怎么定")
+            self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#100")
+            self.assertEqual(page.locator('[data-ui="详情.title"]').inner_text(), "读票用什么")
+            self.assertEqual(page.locator('[data-ui="详情.status.status"]').inner_text(), "settled")
 
     def test_detail_goto_ticket_row(self):
         with story_page(self.browser, "detail", "Component · 详情.spec") as page:
+            loaded(page)
             interact.click(page, "详情.ticket-row")
             self.assert_transition(page, "Component · 详情.morning")
             self.assertEqual(page.locator('[data-ui="详情.origin.number"]').inner_text(), "#132")
@@ -92,6 +111,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_open_event_block(self):
         with story_page(self.browser, "detail", "Component · 详情.ticket-landed") as page:
+            loaded(page)
             before = page.locator('[data-ui="详情.event"]').count()
             interact.click(page, "详情.event-block.toggle")
             self.assert_transition(page, "event-block-open")
@@ -100,6 +120,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_close_event_block(self):
         with story_page(self.browser, "detail", "Component · 详情.ticket-fault") as page:
+            loaded(page)
             self.assertGreater(page.locator('[data-ui="详情.event"]').count(), 0)
             interact.click(page, "详情.event-block.toggle")
             self.assert_transition(page, "event-block-closed")
@@ -108,6 +129,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_open_event(self):
         with story_page(self.browser, "detail", "Component · 详情.morning") as page:
+            loaded(page)
             interact.click(page, "详情.event")
             self.assert_transition(page, "event-detail-open")
             detail = page.locator('[data-ui="详情.event.detail"]')
@@ -117,6 +139,7 @@ class DetailRowsTest(unittest.TestCase):
 
     def test_detail_close_event(self):
         with story_page(self.browser, "detail", "Component · 详情.morning") as page:
+            loaded(page)
             interact.click(page, "详情.event")
             self.assertEqual(page.locator('[data-ui="详情.event.detail"]').count(), 1)
             interact.click(page, "详情.event")

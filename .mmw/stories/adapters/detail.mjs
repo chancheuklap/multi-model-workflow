@@ -1,82 +1,74 @@
 import {render as renderProduct} from "/product/detail.mjs";
 
 // The scene input is the design page's own example data (`DETAIL_SCENES.<scene>`).
-// A click renders another of those views when one of them is that node; otherwise
-// it renders the row the click was on, and records the scene name for that kind.
+// A click draws another of those views when one of them is that issue, and records
+// the scene name for that kind. An issue with no scene is not given a made-up view.
+const DETAIL = "Component · 详情.";
 const KIND_SCENE = {
-  ticket: "Component · 详情.morning",
-  spec: "Component · 详情.spec",
-  map: "Component · 详情.map",
-  decision: "Component · 详情.decision",
+  ticket: `${DETAIL}morning`,
+  spec: `${DETAIL}spec`,
+  map: `${DETAIL}map`,
+  decision: `${DETAIL}decision`,
 };
 
-const LISTS = ["links", "blockers", "blocks", "ticketRows", "specRows", "decisionRows"];
-
-function rowKind(source, row, list) {
-  if (list === "links") {
-    if (String(row.label || "").startsWith("spec")) return "spec";
-    if (String(row.label || "").startsWith("map")) return "map";
-    return null;
-  }
-  if (list === "specRows") return "spec";
-  if (list === "decisionRows") return "decision";
-  if (list === "ticketRows") return "ticket";
-  return source?.kind === "decision" ? "decision" : "ticket";
-}
-
-function findRow(source, n) {
-  for (const list of LISTS) {
-    const row = (source?.[list] || []).find(item => item.n === n);
-    if (row) return {row, kind: rowKind(source, row, list)};
-  }
-  return null;
-}
-
-function rowView(row, kind, repo) {
-  return {
-    empty: false, kind, num: row.num || "", title: row.title || "", lamp: row.lamp || "",
-    phase: kind === "ticket" ? (row.phase || "") : "",
-    links: [], blockers: [], blocks: [], kids: [], why: [],
-    gh: row.n, repo,
-  };
+async function loadScenes() {
+  const response = await fetch("/scenes.json");
+  if (!response.ok) throw new Error(`scenes.json returned ${response.status}`);
+  const scenes = await response.json();
+  const names = scenes
+    .map(scene => scene.name)
+    .filter(name => String(name || "").startsWith(DETAIL));
+  return Promise.all(names.map(async name => {
+    const scene = await fetch(`/scene-input.json?scene=${encodeURIComponent(name)}`);
+    if (!scene.ok) throw new Error(`scene input ${name} returned ${scene.status}`);
+    return scene.json();
+  }));
 }
 
 export function render(host, data, api) {
   const transitions = [];
   window.storyTransitions = () => structuredClone(transitions);
   const byGh = new Map();
-  const index = view => {
-    if (view && !view.empty && view.gh != null && !byGh.has(view.gh)) byGh.set(view.gh, view);
+  const index = sceneView => {
+    if (sceneView && !sceneView.empty && sceneView.gh != null && !byGh.has(sceneView.gh)) {
+      byGh.set(sceneView.gh, sceneView);
+    }
   };
   index(data);
-  fetch("/scenes.json").then(response => response.json()).then(async scenes => {
-    const names = scenes
-      .map(scene => scene.name)
-      .filter(name => String(name || "").startsWith("Component · 详情."));
-    const views = await Promise.all(names.map(async name => {
-      const response = await fetch(`/scene-input.json?scene=${encodeURIComponent(name)}`);
-      return response.ok ? response.json() : null;
-    }));
-    for (const view of views) index(view);
+  const ready = loadScenes().then(sceneViews => {
+    for (const sceneView of sceneViews) index(sceneView);
+    window.storyDetailLoaded = true;
+  });
+  window.storyDetailReady = ready;
+  ready.catch(error => {
+    window.storyDetailError = String(error && error.message || error);
   });
 
   let view = data;
   const move = scene => transitions.push({scene, data: null});
+  const unloaded = n => {
+    const fact = window.storyDetailError || "storyDetailLoaded is not set";
+    const root = host.querySelector("[data-ui='详情.root']");
+    if (!root) return;
+    root.textContent = `Scene input did not load (${fact}). The story cannot draw #${n}. Reload the story page.`;
+  };
   const paint = () => {
     const root = renderProduct(host, view, api, {
       onGoto(n) {
+        if (window.storyDetailError || !window.storyDetailLoaded) {
+          unloaded(n);
+          return;
+        }
         const known = byGh.get(n);
-        const found = findRow(view, n);
-        const kind = known?.kind || found?.kind;
-        const scene = KIND_SCENE[kind];
+        const scene = known && KIND_SCENE[known.kind];
         if (!scene) return;
-        view = known || rowView(found.row, kind, data.repo);
+        view = known;
         move(scene);
         paint();
       },
       onClose() {
         view = {empty: true};
-        move("Component · 详情.nothing-selected");
+        move(`${DETAIL}nothing-selected`);
         paint();
       },
       onEventBlockToggle(opened) {

@@ -219,7 +219,7 @@ function tailOf(row) {
   };
 }
 
-function relation(hooks, row, ui, {where, tail, holdClass}) {
+function relation(hooks, row, ui, {where, holdClass}) {
   const last = tailOf(row);
   const whereNode = where === false ? null : el("span", {
     class: "meta", ...(where === "ui" ? {"data-ui": `${ui}.where`} : {}),
@@ -229,13 +229,12 @@ function relation(hooks, row, ui, {where, tail, holdClass}) {
     el("span", {class: "row-num", "data-ui": `${ui}.number`}, row.num),
     el("span", {class: "row-title", "data-ui": `${ui}.title`}, row.title,
       whereNode ? " " : null, whereNode),
-    el("span", {class: last.cls, "data-ui": tail === "dynamic" ? `${ui}.${last.ui}` : `${ui}.${tail}`},
-      last.text),
+    el("span", {class: last.cls, "data-ui": `${ui}.${last.ui}`}, last.text),
   ];
-  const cls = holdClass && row.hold ? "row hold" : "row";
-  if (row.unknown) return el("button", {type: "button", class: cls, "data-ui": ui}, ...body);
-  return el("button", {type: "button", class: cls, "data-ui": ui,
-    onClick: () => goto(hooks, row.n)}, ...body);
+  return el("button", {
+    type: "button", class: holdClass && row.hold ? "row hold" : "row", "data-ui": ui,
+    onClick: row.unknown ? null : () => goto(hooks, row.n),
+  }, ...body);
 }
 
 function section(ui, title, note, ...rows) {
@@ -249,12 +248,12 @@ function section(ui, title, note, ...rows) {
 function blockingSection(hooks, view) {
   const blockers = view.blockers || [];
   const blocks = view.blocks || [];
-  const opts = {where: false, tail: "state", holdClass: false};
+  const opts = {where: false, holdClass: false};
   return [
-    section("详情.blocked-by", "Blocked by", String(blockers.length),
+    section("详情.blocked-by", "Blocked by", blockers.length,
       ...blockers.map(row => relation(hooks, row, "详情.blocker", opts)),
       blockers.length ? null : el("p", {class: "row-none"}, "none")),
-    section("详情.blocking", "Blocking", String(blocks.length),
+    section("详情.blocking", "Blocking", blocks.length,
       ...blocks.map(row => relation(hooks, row, "详情.blocks", opts)),
       blocks.length ? null : el("p", {class: "row-none"}, "none")),
   ];
@@ -375,18 +374,18 @@ function ticketCard(hooks, view, ui, repaint) {
   if (view.blockers?.length) {
     parts.push(section("详情.blocked-by", "Blocked by", view.blockers.length,
       ...heldFirst(view.blockers).map(row => relation(hooks, row, "详情.blocker",
-        {where: "ui", tail: "dynamic", holdClass: true}))));
+        {where: "ui", holdClass: true}))));
   }
   if (view.blocks?.length) {
     parts.push(section("详情.blocking", "Blocking", view.blocks.length,
       ...heldFirst(view.blocks).map(row => relation(hooks, row, "详情.blocks",
-        {where: "plain", tail: "dynamic", holdClass: false}))));
+        {where: "plain", holdClass: false}))));
   }
   parts.push(section("详情.events", "Events", view.eventCount ?? (view.rawEvents || []).length,
     ...blocks.map((block, index) => phaseBlock(block, index, view, ui, repaint))));
   if (view.kids?.length) {
     parts.push(section("详情.sub-issues", "Sub-issues", view.kids.length,
-      ...view.kids.map(kid => el("div", {class: "row", "data-ui": "详情.sub-issue"},
+      ...view.kids.map(kid => el("div", {class: "row sub-issue", "data-ui": "详情.sub-issue"},
         el("span", {class: `lamp ${kid.lamp}`, "data-ui": "详情.sub-issue.lamp"}),
         el("span", {class: "row-num", "data-ui": "详情.sub-issue.number"}, kid.num),
         el("span", {class: "row-title", "data-ui": "详情.sub-issue.title"}, kid.title),
@@ -411,16 +410,16 @@ function containerBody(hooks, view) {
   if (view.kind === "spec") {
     kids.push(section("详情.by-number", "By number", null,
       ...(view.ticketRows || []).map(row => relation(hooks, row, "详情.ticket-row",
-        {where: "ui", tail: "phase", holdClass: false}))));
+        {where: "ui", holdClass: false}))));
   }
   if (view.kind === "map") {
     kids.push(section("详情.specs", "spec", view.specCount,
       ...(view.specRows || []).map(row => relation(hooks, row, "详情.spec-row",
-        {where: "ui", tail: "state", holdClass: false}))));
+        {where: "ui", holdClass: false}))));
     if (view.decisionRows?.length) {
       kids.push(section("详情.decisions", "Decision tickets", view.decisionCount,
         ...(view.decisionRows || []).map(row => relation(hooks, row, "详情.decision-row",
-          {where: "ui", tail: "state", holdClass: false}))));
+          {where: "ui", holdClass: false}))));
     }
   }
   return kids;

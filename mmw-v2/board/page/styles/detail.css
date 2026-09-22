@@ -13,7 +13,7 @@
 .detail .counters { margin-left: 0; }
 .detail .github { align-self: flex-start; }
 .detail .row-none { margin: 0; }
-.detail [data-ui="详情.sub-issue"] { cursor: default; }
+.detail .sub-issue { cursor: default; }
 .detail .kv-who { display: flex; align-items: baseline; gap: var(--sp-8); }
 .detail .callout {
   display: flex; flex-direction: column; gap: var(--sp-4);
@@ -23,7 +23,7 @@
 .detail .why-item { color: var(--muted); line-height: var(--lh-body); }
 .detail .why-item b { color: var(--ink); }
 
-/* The settings sheet still uses these class names. */
+/* Used by the settings sheet (`mmw-v2/board/page/settings.mjs`). */
 .dp-eyebrow { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); }
 .dp-close { background: none; border: 0; color: var(--faint); font-size: 16px; cursor: pointer; line-height: 1; padding: 2px 4px; border-radius: 4px; }
 .dp-close:hover { color: var(--ink); background: rgba(45, 49, 66, 0.05); }
