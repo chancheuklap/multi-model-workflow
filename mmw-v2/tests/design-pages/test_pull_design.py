@@ -661,6 +661,21 @@ class PullDesign(unittest.TestCase):
         self.assertIn("可点或可输入却没有 `data-ui` id：", coverage)
         self.assertIn("button: Unidentified action", coverage)
 
+    def test_interpolated_text_belongs_to_the_element_that_holds_it(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>",
+            b'<p data-ui="demo.count">#<span class="sc-interp">98</span> \xc2\xb7 map</p>'
+            b'<p>Loose <span class="sc-interp">value</span></p></main>',
+            1,
+        )
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        coverage = self.report_section("覆盖")
+        self.assertNotIn("span.sc-interp", coverage)
+        self.assertNotIn("98", coverage)
+        self.assertIn("p: Loose value", coverage)
+
     def test_the_report_lists_pages_without_a_scene_prop(self):
         self.add_page("Component · Static.dc.html", """
             <!doctype html><html><body><x-dc><p data-ui="static.copy">Static</p></x-dc>

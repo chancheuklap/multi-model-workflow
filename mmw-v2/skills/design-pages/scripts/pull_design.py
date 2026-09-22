@@ -880,10 +880,16 @@ def render_scenes(
                           if (visible(root)) rows.unshift(root);
                           const textMissing = [];
                           const controlsMissing = [];
+                          // Claude Design's runtime renders each {{ }} value that shares
+                          // its text with other content as a span.sc-interp; that text is
+                          // the parent's own.
+                          const interp = node => node.nodeType === Node.ELEMENT_NODE
+                            && node.classList.contains('sc-interp');
                           for (const el of rows) {
+                            if (interp(el)) continue;
                             const id = el.getAttribute('data-ui');
                             const ownText = clean(Array.from(el.childNodes)
-                              .filter(node => node.nodeType === Node.TEXT_NODE)
+                              .filter(node => node.nodeType === Node.TEXT_NODE || interp(node))
                               .map(node => node.textContent).join(' '));
                             if (!id && ownText && !['script', 'style'].includes(el.tagName.toLowerCase())) {
                               textMissing.push(label(el));
