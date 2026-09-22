@@ -1,0 +1,9 @@
+/* the lamp: one dot, four colours. What the ticket wants from the outside. */
+.lamp { width: 9px; height: 9px; border-radius: var(--r-round); flex: none; display: inline-block; }
+.lamp.orange { background: var(--orange); box-shadow: 0 0 0 3px var(--orange-tint-strong); }
+.lamp.green { background: var(--led-green); }
+.lamp.ink { background: var(--ink); }
+.lamp.hollow { background: transparent; border: 1.5px solid var(--rule-strong); }
+.lamp.small { width: 8px; height: 8px; }
+.lamp.big { width: 12px; height: 12px; }
+.lamp.none { visibility: hidden; }

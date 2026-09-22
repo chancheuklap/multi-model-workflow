@@ -15,7 +15,7 @@ Choose the door that matches your role; it holds commands and exit codes togethe
 bash <absolute path to scripts/dispatch.sh> …
 ```
 
-Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from. `<dispatch>` finds the scripts of other skills by itself, so no directory is passed to it.
+Resolve it from this file's own location; the path differs by machine and by host. `<dispatch>` finds the scripts of other skills by itself, so no directory is passed to it.
 
 Four names in the doors belong to other skills; resolve each from that skill's own `SKILL.md`. `<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill, and `<events.py>` is `scripts/events.py` of that same skill, run as `python3 <events.py> …`. `<lease.py>` is `scripts/lease.py` of the `ui-acceptance` skill, and `<ui-acceptance scripts>` is that same skill's `scripts/` directory.
 
@@ -39,7 +39,7 @@ Run `<dispatch> board` from any checkout or worktree of the consuming repository
 1. A wake can cut short a command you were running. Run that command again first.
 2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the board does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`reviewer.reported base=<commit> head=<commit>`) in one line, reading the ticket and nothing else. It is a read, not the way you learn a result.
 3. Act on it, as your door says.
-4. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one). Until you ack it, the relay sends the same wake again each time it restarts. An ack looks only at the wakes queued for your own session: one it does not find there — acked already, or sent to another session — is refused and removes nothing.
+4. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one). Until you ack it, the relay sends the same wake again each time it restarts. Its exit codes are in [references/inside-a-ticket.md](references/inside-a-ticket.md).
 
 ## The arguments you supply
 

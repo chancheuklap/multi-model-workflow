@@ -1,6 +1,6 @@
 # Consulting the advisor
 
-You have hit a decision. The advisor is a second opinion on a stronger model, started as its own session that holds none of your context, reads the code itself, and writes nothing. It is slow and expensive next to the models doing the typing; it is worth that once per decision.
+You have hit a decision. The advisor is a second opinion on a stronger model, started as its own session that holds none of your context, reads the code itself, and writes nothing. It is slow and expensive next to the models doing the typing.
 
 ## When it is worth a session
 

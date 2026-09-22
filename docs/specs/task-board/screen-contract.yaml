@@ -35,43 +35,53 @@ scenes:
   App · 任务板.morning:
     page: App · 任务板.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
+      file: data/app-scenes.js
+      value: APP_SCENES.morning
   App · 任务板.twenty-tickets:
     page: App · 任务板.dc.html
     input:
-      file: data/board-twenty-tickets.js
-      value: BOARD_SCENES.twenty-tickets
+      file: data/app-scenes.js
+      value: APP_SCENES.twenty-tickets
   App · 任务板.bad-data:
     page: App · 任务板.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
+      file: data/app-scenes.js
+      value: APP_SCENES.bad-data
   App · 任务板.empty:
     page: App · 任务板.dc.html
     input:
-      file: data/board-empty.js
-      value: BOARD_SCENES.empty
+      file: data/app-scenes.js
+      value: APP_SCENES.empty
+  App · 任务板.nothing-selected:
+    page: App · 任务板.dc.html
+    input:
+      file: data/app-scenes.js
+      value: APP_SCENES.nothing-selected
+  App · 任务板.settings-open:
+    page: App · 任务板.dc.html
+    input:
+      file: data/app-scenes.js
+      value: APP_SCENES.settings-open
   Component · 任务列表.morning:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.morning
   Component · 任务列表.twenty-tickets:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-twenty-tickets.js
-      value: BOARD_SCENES.twenty-tickets
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.twenty-tickets
   Component · 任务列表.bad-data:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.bad-data
   Component · 任务列表.empty:
     page: Component · 任务列表.dc.html
     input:
-      file: data/board-empty.js
-      value: BOARD_SCENES.empty
+      file: data/tasks-scenes.js
+      value: TASK_SCENES.empty
   Component · 本机配置.mine:
     page: Component · 本机配置.dc.html
     input:
@@ -125,147 +135,133 @@ scenes:
   Component · 画布.morning:
     page: Component · 画布.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
+      file: data/canvas-scenes.js
+      value: CANVAS_SCENES.morning
   Component · 画布.twenty-tickets:
     page: Component · 画布.dc.html
     input:
-      file: data/board-twenty-tickets.js
-      value: BOARD_SCENES.twenty-tickets
+      file: data/canvas-scenes.js
+      value: CANVAS_SCENES.twenty-tickets
   Component · 画布.bad-data:
     page: Component · 画布.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
+      file: data/canvas-scenes.js
+      value: CANVAS_SCENES.bad-data
   Component · 画布.empty:
     page: Component · 画布.dc.html
     input:
-      file: data/board-empty.js
-      value: BOARD_SCENES.empty
+      file: data/canvas-scenes.js
+      value: CANVAS_SCENES.empty
   Component · 画布.nothing-selected:
     page: Component · 画布.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: null}}
+      file: data/canvas-scenes.js
+      value: CANVAS_SCENES.nothing-selected
   Component · 详情.morning:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.morning
   Component · 详情.twenty-tickets:
     page: Component · 详情.dc.html
     input:
-      file: data/board-twenty-tickets.js
-      value: BOARD_SCENES.twenty-tickets
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.twenty-tickets
   Component · 详情.bad-data:
     page: Component · 详情.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.bad-data
   Component · 详情.empty:
     page: Component · 详情.dc.html
     input:
-      file: data/board-empty.js
-      value: BOARD_SCENES.empty
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.empty
   Component · 详情.ticket-returned:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 138}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-returned
   Component · 详情.ticket-bounced:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 139}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-bounced
   Component · 详情.ticket-closeout:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 141}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-closeout
   Component · 详情.ticket-waiting:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 136}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-waiting
   Component · 详情.ticket-review:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 134}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-review
   Component · 详情.ticket-queued:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 135}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-queued
   Component · 详情.ticket-landed:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 132}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-landed
   Component · 详情.ticket-fault:
     page: Component · 详情.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
-      with: {select: {node: 307}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-fault
   Component · 详情.ticket-missing-blocker:
     page: Component · 详情.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
-      with: {select: {node: 305}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-missing-blocker
   Component · 详情.spec:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 131}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.spec
   Component · 详情.map:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 98}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.map
   Component · 详情.decision:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: 107}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.decision
   Component · 详情.nothing-selected:
     page: Component · 详情.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
-      with: {select: {node: null}}
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.nothing-selected
   Component · 顶栏.morning:
     page: Component · 顶栏.dc.html
     input:
-      file: data/board-morning.js
-      value: BOARD_SCENES.morning
+      file: data/topbar-scenes.js
+      value: TOPBAR_SCENES.morning
   Component · 顶栏.twenty-tickets:
     page: Component · 顶栏.dc.html
     input:
-      file: data/board-twenty-tickets.js
-      value: BOARD_SCENES.twenty-tickets
+      file: data/topbar-scenes.js
+      value: TOPBAR_SCENES.twenty-tickets
   Component · 顶栏.bad-data:
     page: Component · 顶栏.dc.html
     input:
-      file: data/board-bad-data.js
-      value: BOARD_SCENES.bad-data
+      file: data/topbar-scenes.js
+      value: TOPBAR_SCENES.bad-data
   Component · 顶栏.empty:
     page: Component · 顶栏.dc.html
     input:
-      file: data/board-empty.js
-      value: BOARD_SCENES.empty
+      file: data/topbar-scenes.js
+      value: TOPBAR_SCENES.empty
 states:
 - container-expanded
 - container-collapsed
@@ -669,7 +665,6 @@ rows:
   scenes:
   - Component · 详情.morning
   - Component · 详情.twenty-tickets
-  - Component · 详情.bad-data
   - Component · 详情.ticket-returned
   - Component · 详情.ticket-bounced
   - Component · 详情.ticket-closeout
@@ -720,7 +715,6 @@ rows:
   trigger: 详情.blocks
   precondition: {}
   scenes:
-  - Component · 详情.morning
   - Component · 详情.twenty-tickets
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
@@ -1172,6 +1166,7 @@ rows:
   - Component · 本机配置.retired
   - Component · 本机配置.paseo-off
   - Component · 本机配置.saved
+  - App · 任务板.settings-open
   calls:
   - none
   shows: {}
@@ -1486,7 +1481,6 @@ rows:
   scenes:
   - App · 任务板.morning
   - App · 任务板.twenty-tickets
-  - App · 任务板.bad-data
   calls:
   - none
   shows:
@@ -1569,7 +1563,8 @@ rows:
   app: App · 任务板.dc.html
   trigger: 本机配置.sheet.close
   precondition: *id003
-  scenes: []
+  scenes:
+  - App · 任务板.settings-open
   calls:
   - none
   shows: {}
@@ -1582,7 +1577,8 @@ rows:
   app: App · 任务板.dc.html
   trigger: 本机配置.sheet.cancel
   precondition: *id003
-  scenes: []
+  scenes:
+  - App · 任务板.settings-open
   calls:
   - none
   shows: {}

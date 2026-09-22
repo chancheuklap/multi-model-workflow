@@ -24,8 +24,7 @@ declaring `scripts.run`; `journeys` in `.mmw/target.json` says where they live, 
 `.mmw/journeys`. The script runs with that directory as its working directory, and with:
 
 - **every key `discover` printed**, uppercased — `origin` arrives as `ORIGIN`. Read the
-  address from there. A script that hardcodes one is a script that breaks on the next
-  worktree, because ports come from the lease.
+  address from there; ports come from the lease.
 - **the lease variables** — `MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`,
   `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`.
 
@@ -41,8 +40,7 @@ read interface makes the second pass fail for the reason the user path would fai
 
 **A journey script starts nothing itself.** For a desktop application, `start` launches
 the application and opens its debugging port, `discover` prints that address, and the
-journey connects to it with Playwright. The script still starts no application, server,
-container, or backing service.
+journey connects to it with Playwright.
 
 ## The criterion, in one shape
 
@@ -88,24 +86,11 @@ and runs the same script in the same environment as the first pass. **That pass 
 fail.** If it stays green, the judge prints `JOURNEY GREEN WITH BREAK`: the journey did
 not prove that the interface named by its criterion matters to the result it asserted.
 
-The break switch cannot make a thin assertion meaningful. A journey that accepts only a
-success message or redirect may fail during the control because the product shows an
-error. That earns `JOURNEY OK` even though the journey never checked whether the result
-was saved. Reading the result back from another page is the proof standard, and the
-code-review Tests axis checks that the journey meets it.
-
 Without `--break`, the contract ticket's smoke journey runs its control after `stop`,
 with the same environment except that every address `discover` printed has its port
 replaced by one nothing on this machine listens on. It receives no signal saying this is
 the second pass. A script that asserts nothing passes again and becomes `JOURNEY GREEN
 WITHOUT PRODUCT`; a script that reaches the product goes red.
-
-Two alternatives do not establish the same fact. Re-running the journey against code
-from before the change usually fails because the page or action did not exist yet, not
-because the journey checked the saved result. Placing a forwarding proxy in front of
-the product misses frontends that reach their backend through another address. The
-product-owned break switch follows the product's own routing and fails the interface the
-criterion names.
 
 After either control, `stop` runs again and this run's lease ports must all be quiet.
 Whatever still answers is named with its port and pid on a

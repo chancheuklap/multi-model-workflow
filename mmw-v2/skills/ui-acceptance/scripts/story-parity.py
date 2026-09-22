@@ -524,7 +524,8 @@ def run(args) -> int:
     cache = Path(args.cdn).expanduser() if args.cdn else dr.DEFAULT_CACHE
     cfg = None if args.render_only else load_stories_config(root)
 
-    pages = {dr.wrapper_path(s.name): dr.wrapper_page(dr.component_of(s.page), s.props)
+    pages = {dr.wrapper_path(s.name): dr.wrapper_page(dr.component_of(s.page), s.props,
+                                                      lang=locale)
              for s in plan}
     server, port = dr.serve_baseline(baseline, pages)
     origin = f"http://127.0.0.1:{port}"

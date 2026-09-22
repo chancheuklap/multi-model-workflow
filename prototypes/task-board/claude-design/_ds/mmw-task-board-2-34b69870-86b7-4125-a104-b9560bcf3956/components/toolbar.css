@@ -1,0 +1,4 @@
+/* 浮在画布上的一条工具条：按钮、读数、分隔线 */
+.toolbar { display: inline-flex; align-items: center; gap: var(--sp-2); height: 32px; padding-inline: var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-pill); box-shadow: var(--shadow-1); cursor: default; }
+.toolbar-value { width: 42px; text-align: center; font: var(--t-meta) var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.toolbar-sep { width: 1px; height: 16px; background: var(--rule); margin-inline: var(--sp-2); }

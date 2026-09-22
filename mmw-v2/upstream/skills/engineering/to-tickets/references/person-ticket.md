@@ -1,7 +1,5 @@
 # Work only a person can do
 
-Reached from step 4 of [`SKILL.md`](../SKILL.md) when a criterion stops at question 3 (a person's reaction) or question 4 (out of reach), and from the `triage` skill when an issue is judged `ready-for-human`.
-
 **Work only a person can do is its own ticket, not a criterion on someone else's**, and you split it off here, while writing the ticket, not when closing it. A criterion no agent can decide leaves its ticket unable to finish; so the ticket that produces the thing stays an agent's, and the looking becomes a second ticket blocked by it.
 
 Write one such ticket per thing to be looked at, labelled `ready-for-human`. It is shorter than the template below and holds **the five things** only:

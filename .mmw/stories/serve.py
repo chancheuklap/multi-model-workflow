@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import http.server
 import json
+import os
 import re
+import subprocess
 import sys
 import urllib.parse
 from copy import deepcopy
@@ -21,9 +23,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 PAGE = ROOT / "mmw-v2" / "board" / "page"
-HANDOFF = ROOT / "prototypes" / "task-board" / "claude-design"
+HANDOFF = Path(os.environ.get(
+    "MMW_STORY_HANDOFF",
+    ROOT / "prototypes" / "task-board" / "claude-design",
+))
 SCENES = HANDOFF / "scenes.json"
-CONTRACT = ROOT / "docs" / "specs" / "task-board" / "screen-contract.yaml"
+CONTRACT = Path(os.environ.get(
+    "MMW_STORY_CONTRACT",
+    ROOT / "docs" / "specs" / "task-board" / "screen-contract.yaml",
+))
 ADAPTERS = HERE / "adapters"
 
 
@@ -74,28 +82,70 @@ def merge(base, overlay):
     return result
 
 
+JAVASCRIPT_EXPORTS = r"""
+const fs = require("node:fs");
+const vm = require("node:vm");
+const path = process.argv[1];
+const sandbox = {window: {}};
+vm.runInNewContext(fs.readFileSync(path, "utf8"), sandbox, {filename: path, timeout: 1000});
+process.stdout.write(JSON.stringify(sandbox.window));
+"""
+
+
 def handoff_values(path: Path) -> dict:
-    source = path.read_text(encoding="utf-8")
-    board = re.fullmatch(
-        r'\(window\.BOARD_SCENES = window\.BOARD_SCENES \|\| \{}\)\["([^"]+)"\] = (\{.*\});?\n?',
-        source,
-    )
-    if board:
-        return {"BOARD_SCENES": {board.group(1): json.loads(board.group(2))}}
-    settings = re.fullmatch(r"window\.SETTINGS_SCENES = (\{.*\});?\n?", source)
-    if settings:
-        return {"SETTINGS_SCENES": json.loads(settings.group(1))}
-    raise ValueError(f"unsupported scene input file: {path}")
+    """Run one trusted handoff data file and return the values it writes to window."""
+    try:
+        completed = subprocess.run(
+            ["node", "-e", JAVASCRIPT_EXPORTS, str(path)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(f"scene input timed out: {path}") from exc
+    if completed.returncode != 0:
+        reason = completed.stderr.strip() or f"node exited {completed.returncode}"
+        raise ValueError(f"scene input failed: {path}: {reason}")
+    try:
+        values = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"scene input did not produce JSON values: {path}") from exc
+    if not isinstance(values, dict):
+        raise ValueError(f"scene input did not produce a window object: {path}")
+    return values
 
 
 def resolve_scene_input(name: str):
     declaration = SCENE_INPUTS.get(name)
     if not declaration or "file" not in declaration or "value" not in declaration:
-        raise KeyError(name)
+        raise ValueError(f"scene has no complete input declaration: {name}")
     values = handoff_values(HANDOFF / declaration["file"])
-    namespace, key = declaration["value"].split(".", 1)
-    value = values[namespace][key]
+    reference = declaration["value"]
+    try:
+        namespace, key = reference.split(".", 1)
+        value = values[namespace][key]
+    except (KeyError, ValueError, TypeError) as exc:
+        raise ValueError(f"scene input value was not found: {reference}") from exc
     return merge(value, declaration.get("with", {}))
+
+
+def example_board(name: str) -> dict:
+    """The example payload a board scene names.
+
+    `APP_SCENES.<scene>.board` is the dataset name. The file
+    `prototypes/task-board/example-data/board-<name>.js` is that dataset: the
+    `GET /api/board` answer the design views were computed from, plus `now`.
+    """
+    if not re.fullmatch(r"[a-z0-9-]+", name or ""):
+        raise ValueError(f"board name is not a dataset name: {name!r}")
+    path = ROOT / "prototypes" / "task-board" / "example-data" / f"board-{name}.js"
+    if not path.is_file():
+        raise ValueError(f"no example dataset board-{name}.js")
+    values = handoff_values(path)
+    scenes = values.get("BOARD_SCENES")
+    if not isinstance(scenes, dict) or name not in scenes:
+        raise ValueError(f"board-{name}.js did not set BOARD_SCENES[{name!r}]")
+    return scenes[name]
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -121,9 +171,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
             scene = (query.get("scene") or [""])[0]
             try:
                 body = (json.dumps(resolve_scene_input(scene), ensure_ascii=False) + "\n").encode()
-            except (KeyError, ValueError, FileNotFoundError):
-                self.send_error(404)
-                return
+            except (ValueError, FileNotFoundError) as exc:
+                message = (
+                    f"scene input unavailable for {scene}: {exc}. "
+                    "Check the contract input.file/input.value and that Node.js is on PATH.\n"
+                )
+                return self.send_bytes(
+                    message.encode(), "text/plain; charset=utf-8", status=404
+                )
+            return self.send_bytes(body, "application/json; charset=utf-8")
+        if path == "/example-board.json":
+            query = urllib.parse.parse_qs(parsed.query)
+            name = (query.get("name") or [""])[0]
+            try:
+                body = (json.dumps(example_board(name), ensure_ascii=False) + "\n").encode()
+            except (ValueError, FileNotFoundError) as exc:
+                message = (
+                    f"example board unavailable for {name}: {exc}. "
+                    "APP_SCENES names the dataset; the file is "
+                    "prototypes/task-board/example-data/board-<name>.js and must set "
+                    "BOARD_SCENES[<name>]. Add that file, or point the scene's board "
+                    "field at a dataset that exists.\n"
+                )
+                return self.send_bytes(
+                    message.encode(), "text/plain; charset=utf-8", status=404
+                )
             return self.send_bytes(body, "application/json; charset=utf-8")
         if path.startswith("/adapters/"):
             target = (HERE / path.removeprefix("/")).resolve()
@@ -152,8 +224,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         self.send_bytes(body, content_type)
 
-    def send_bytes(self, body: bytes, content_type: str):
-        self.send_response(200)
+    def send_bytes(self, body: bytes, content_type: str, status: int = 200):
+        self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

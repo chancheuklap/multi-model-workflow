@@ -13,11 +13,7 @@ Give a repository the checkers its languages need, wired so a fresh clone or a n
 
 Everything else — the editor, the agent CLI, `ripgrep`, `docker` — belongs to the machine.
 
-Installing a checker globally (`uv tool install ruff`, `npm i -g eslint`, `brew install shellcheck`) is the failure this skill exists to prevent: a new worktree silently has no checker, a second machine has a different one, and the day the global tool upgrades, every branch fails its checks at once with no commit to blame.
-
 ## What to install
-
-Count the files first — `find . -name '*.py' -not -path '*/.venv/*' | wc -l` and the same per extension. A language with a handful of files does not need a checker.
 
 | Language | Tool | Manifest | Reference |
 | --- | --- | --- | --- |
@@ -41,11 +37,11 @@ A formatter's output changes between patch releases. Two branches formatted by t
 
 Pin exactly, too, anything whose version is coupled to another tool's; a range drifts off the tool it has to match.
 
-Upgrading is then one deliberate act — bump, run everything, absorb the changes in one commit — instead of a failure on a day nobody planned for.
+Upgrading is then one deliberate act: bump, run everything, absorb the changes in one commit.
 
 ## Steps
 
-1. **Count the files per language.** Install only for languages that need it.
+1. **Count the files per language** — `find . -name '*.py' -not -path '*/.venv/*' | wc -l` and the same per extension. A language with a handful of files does not need a checker.
 2. **Add each tool to the project manifest** and install (`uv sync`, `pnpm install`). Never globally.
 3. **Configure** — per-language detail in the reference files. Configure before looking at the error count: most of a first run is misconfiguration, not debt.
 4. **Take a first run down to signal** — [references/first-run.md](references/first-run.md).

@@ -2,27 +2,53 @@
    green is "running", on the lamp and on the moving blocking line alike. */
 :root {
   color-scheme: light;
-  --paper: #f3f3f1;
-  --canvas: #ebecee;
-  --panel: #ffffff;
+
+  /* ink — one ramp, dark to light */
   --ink: #2d3142;
+  --ink-hover: #1f2231;
   --muted: #4f5d75;
   --soft: #7a8399;
   --faint: #a3aabb;
   --ghost: #c3c9d4;
-  --rule: rgba(45, 49, 66, 0.12);
+  --on-ink: #ffffff;
+
+  /* surfaces */
+  --desk: #e6e3df;
+  --paper: #f3f3f1;
+  --canvas: #ebecee;
+  --canvas-dot: radial-gradient(rgba(45, 49, 66, 0.13) 0.9px, transparent 1px); /* @kind other */
+  --panel: #ffffff;
+  --panel-2: #fbfbfa;
+  --panel-veil: rgba(255, 255, 255, 0.86);
+  --scrim: rgba(29, 32, 48, 0.46);
+
+  /* rules and fills — three border steps, two fill steps */
   --rule-2: rgba(45, 49, 66, 0.07);
+  --rule: rgba(45, 49, 66, 0.14);
+  --rule-strong: rgba(45, 49, 66, 0.30);
+  --fill: rgba(45, 49, 66, 0.04);
+  --fill-strong: rgba(45, 49, 66, 0.08);
+  --line-grey: var(--rule-strong);
+
+  /* signals */
   --orange: #eb6c36;
   --orange-ink: #b8471a;
   --orange-tint: rgba(235, 108, 54, 0.10);
-  --focus: #2e5aa8;
-  --closeout: #5e7a9b;
+  --orange-tint-strong: rgba(235, 108, 54, 0.18);
+  --orange-line: rgba(235, 108, 54, 0.45);
   --led-green: #22a06b;
   --led-green-ink: #17784f;
   --led-red: #c9304f;
-  --line-grey: rgba(45, 49, 66, 0.30);
-  --s-working: #7c8f6f;  --s-working-ink: #46553d;
-  --s-waiting: #9a8c58;  --s-waiting-ink: #5d5430;
-  --s-review:  #7b6a9b;  --s-review-ink:  #4b3f63;
-  --s-verify:  #4f8783;  --s-verify-ink:  #2c5552;
+  --focus: #2e5aa8;
+  --closeout: #5e7a9b;
+
+  /* the six phases; only four carry a colour of their own */
+  --s-working: #7c8f6f;  --s-working-ink: #46553d;  --s-working-tint: rgba(124, 143, 111, 0.18);
+  --s-waiting: #9a8c58;  --s-waiting-ink: #5d5430;  --s-waiting-tint: rgba(154, 140, 88, 0.18);
+  --s-review:  #7b6a9b;  --s-review-ink:  #4b3f63;  --s-review-tint:  rgba(123, 106, 155, 0.18);
+  --s-verify:  #4f8783;  --s-verify-ink:  #2c5552;  --s-verify-tint:  rgba(79, 135, 131, 0.18);
+
+  /* the one warning texture: hatched ink */
+  --hatch: repeating-linear-gradient(135deg, rgba(45, 49, 66, 0.05) 0 6px, transparent 6px 12px); /* @kind other */
+  --hatch-dense: repeating-linear-gradient(135deg, rgba(45, 49, 66, 0.28) 0 2px, transparent 2px 4px); /* @kind other */
 }

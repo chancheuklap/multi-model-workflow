@@ -1,118 +1,216 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./support.js"></script>
-  </head>
-  <body>
-    <x-dc>
-      <helmet data-dc-atomics>
-        <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
-        <script src="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
-        <script src="./lib/board.js"></script>
-        <script src="./data/settings.js"></script>
-      </helmet>
-      <div data-ui="本机配置.root" data-screen-label="本机配置" style="{{ frameStyle }}">
-        <x-import component-from-global-scope="MMWTaskBoard2_34b698.Sheet" dc-props="{{ sheet }}" hint-size="100%,100%">
-          <sc-if value="{{ refused }}" hint-placeholder-val="{{ false }}">
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.RefusedBanner" dc-props="{{ banner }}" hint-size="100%,48px"></x-import>
-          </sc-if>
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetBlock" dc-props="{{ hosts }}" hint-size="100%,70px">
-            <div class="hostscan">
-              <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="5">
-                <x-import component-from-global-scope="MMWTaskBoard2_34b698.HostChip" dc-props="{{ chip }}" hint-size="90px,24px"></x-import>
-              </sc-for>
-            </div>
-          </x-import>
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetBlock" dc-props="{{ runnerBlock }}" hint-size="100%,90px">
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.RunnerRow" dc-props="{{ runner }}" hint-size="100%,30px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetNote" data-ui="本机配置.runner-note" hint-size="100%,40px">环境变量 <x-import component-from-global-scope="MMWTaskBoard2_34b698.CodeText" hint-size="80px,14px">MMW_RUNNER</x-import> 设了时，它优先于这一格。「按所在环境判断」让 <x-import component-from-global-scope="MMWTaskBoard2_34b698.CodeText" hint-size="40px,14px">start</x-import> 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，<x-import component-from-global-scope="MMWTaskBoard2_34b698.CodeText" hint-size="40px,14px">start</x-import> 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。</x-import>
-          </x-import>
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetBlock" dc-props="{{ rolesBlock }}" hint-size="100%,300px">
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.RolesTable" data-ui="本机配置.roles" hint-size="100%,260px">
-              <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
-                <x-import component-from-global-scope="MMWTaskBoard2_34b698.RoleRow" dc-props="{{ row }}" hint-size="100%,52px"></x-import>
-              </sc-for>
-            </x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.SetNote" data-ui="本机配置.initial-note" hint-size="100%,20px">一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。</x-import>
-          </x-import>
-        </x-import>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/shape.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/base.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/eyebrow.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/button.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/link.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/pill.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/field.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/warn.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css">
+  <script src="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
+  <script src="data/settings.js"></script>
+  <script src="data/settings-scenes.js"></script>
+  <style>body { margin: 0; background: var(--desk); }</style>
+</helmet>
+<div class="board" data-ui="本机配置.root" style="position: relative; height: 100vh; background: var(--desk)">
+  <div class="board" data-ui="本机配置.sheet" style="position: absolute; inset: 0; display: grid; place-items: center; padding: var(--sp-24) var(--sp-16); background: var(--scrim)">
+    <div role="dialog" aria-modal="true" aria-label="本机配置" style="width: min(800px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); box-shadow: var(--shadow-3)">
+      <div style="display: flex; align-items: flex-start; gap: var(--sp-16); padding: var(--sp-16) var(--sp-24); border-bottom: 1px solid var(--rule)">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-6)">
+          <span class="eyebrow" data-ui="本机配置.sheet.eyebrow">本机配置</span>
+          <h2 class="title" data-ui="本机配置.sheet.title">这台机器上，每个 agent 跑在哪</h2>
+          <p data-ui="本机配置.sheet.intro" style="margin: 0; max-width: 64ch; font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--soft)">下拉菜单里的选项，是 MMW 刚问过这台机器上的 host 得到的，问的地方和 <span class="code">start</span> 起 session 时问的是同一处。这里就是 MMW 管这件事的唯一地方，保存在本机的 <span class="code">{{ store }}</span>；这一页不写 GitHub。</p>
+        </div>
+        <button type="button" class="iconbtn close" data-ui="本机配置.sheet.close" aria-label="关闭本机配置" onClick="{{ noop }}">×</button>
       </div>
-    </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{
-  "$preview": { "width": 1440, "height": 900 },
-  "scene": { "editor": "enum", "options": ["mine", "fresh", "retired", "paseo-off", "changed", "edited", "incomplete", "scanning", "saved", "refused"], "default": "mine" }
-}'>
-      class Component extends DCLogic {
-        componentDidMount() {
-          const wait = () => {
-            if (window.MMW && window.MMWTaskBoard2_34b698 && window.SETTINGS_SCENES) this.forceUpdate();
-            else setTimeout(wait, 20);
-          };
-          wait();
-        }
-        model() {
-          const key = this.props.scene || "mine";
-          if (this.state && this.state.model && this.state.modelFor === key) return this.state.model;
-          const scene = window.SETTINGS_SCENES[key];
-          const M = window.MMW;
-          const model = M.settings.fromPayload(scene.payload);
-          const page = scene.page || {};
-          for (const [agent, cell, value] of page.edit || []) M.LocalConfig.setCell(model.scan, model.st.draft, agent, cell, value);
-          if (page.scanning) model.st.scanning = true;
-          if (page.refused) model.st.refused = page.refused;
-          if (page.modifiedAt) model.st.modifiedAt = page.modifiedAt;
-          if (page.saveAt) { model.st.saved = JSON.parse(JSON.stringify(model.st.draft)); model.st.savedAt = page.saveAt; }
-          if (page.serverFlags) model.st.serverFlags = page.serverFlags.map(e => {
-            const [k, c] = String(e.cell).split(".");
-            return {key: k, cell: c || k, text: e.reason};
-          });
-          return model;
-        }
-        renderVals() {
-          const frameStyle = {width: (this.props.width || 1440) + "px", height: (this.props.height || 900) + "px",
-            position: "relative", background: this.props.onClose ? "transparent" : "#e6e3df"};
-          if (!window.MMW || !window.SETTINGS_SCENES) return {frameStyle, sheet: {}, refused: false, banner: {}, hosts: {}, chips: [],
-            runnerBlock: {}, runner: {}, rolesBlock: {}, rows: []};
-          const M = window.MMW;
-          const key = this.props.scene || "mine";
-          const model = this.model();
-          const v = M.settingsView(model.st, model.scan, model.catalog);
-          const keep = () => this.setState({model, modelFor: key});
-          const close = () => { if (this.props.onClose) this.props.onClose(); };
-          const setCell = (agent, cell, value) => {
-            const before = {runner: model.st.draft.runner};
-            M.LocalConfig.setCell(model.scan, model.st.draft, agent, cell, value);
-            model.st.savedAt = null;
-            model.st.serverFlags = [];
-            if (agent === "runner" && M.LocalConfig.needsRescan(before, model.st.draft)) model.st.scanning = true;
-            keep();
-          };
-          return {
-            frameStyle, refused: v.refused,
-            sheet: {store: v.store, strong: v.strong, quiet: v.quiet, hatch: v.hatch, closeLabel: v.closeLabel, saveOff: v.saveOff,
-              changed: v.changed, onClose: close, "data-ui": "本机配置.sheet",
-              onSave: () => {
-                model.st.saved = JSON.parse(JSON.stringify(model.st.draft));
-                model.st.savedAt = "2026-09-10T23:41:00Z";
-                model.st.refused = 0;
-                model.st.serverFlags = [];
-                keep();
-              }},
-            banner: {text: v.refusedText, onReread: () => this.setState({model: null, modelFor: null}), "data-ui": "本机配置.refused"},
-            hosts: {title: "本机的 host", "data-ui": "本机配置.hosts",
-              aside: window.React.createElement(window.MMWTaskBoard2_34b698.ScanStatus, {scanning: v.scanning, scanningText: v.scanningText,
-                scannedText: v.scannedText, onRescan: () => { model.st.scanning = true; keep(); }, "data-ui": "本机配置.scan"})},
-            chips: v.chips.map(chip => ({chip, "data-ui": "本机配置.host"})),
-            runnerBlock: {ruled: true, "data-ui": "本机配置.runner-block"},
-            runner: {cls: v.runnerCls, value: v.runner, disabled: v.runnerOff, opts: v.runnerOpts, bads: v.runnerBads,
-              onChange: value => setCell("runner", "runner", value), "data-ui": "本机配置.runner"},
-            rolesBlock: {ruled: true, title: "一个 agent 一行", "data-ui": "本机配置.roles-block"},
-            rows: v.rows.map(row => ({row, onCell: setCell, "data-ui": "本机配置.role"})),
-          };
-        }
-      }
-    </script>
-  </body>
+      <div style="overflow-y: auto; padding-inline: var(--sp-24); display: flex; flex-direction: column">
+        <sc-if value="{{ refused }}" hint-placeholder-val="{{ false }}">
+          <div class="hatch-bar block" role="alert" data-ui="本机配置.refused" style="margin-top: var(--sp-16)">
+            <p data-ui="本机配置.refused.text" style="margin: 0; max-width: 60ch"><b>没有保存。</b>{{ refusedText }}</p>
+            <button type="button" class="btn sm" data-ui="本机配置.refused.reread" onClick="{{ noop }}">重新读取</button>
+          </div>
+        </sc-if>
+        <section data-ui="本机配置.hosts" style="display: flex; flex-direction: column; gap: var(--sp-8); padding-block: var(--sp-16)">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-6) var(--sp-16)">
+            <span class="eyebrow" data-ui="本机配置.hosts.title">本机的 host</span>
+            <span class="scan" data-ui="本机配置.scan">
+              <sc-if value="{{ scanning }}" hint-placeholder-val="{{ false }}">
+                <span class="spin"></span>{{ scanningText }}
+              </sc-if>
+              <sc-if value="{{ notScanning }}" hint-placeholder-val="{{ true }}">
+                {{ scannedText }}
+                <button type="button" class="link" data-ui="本机配置.scan.rescan" onClick="{{ noop }}">重新扫描</button>
+              </sc-if>
+            </span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: var(--sp-6)">
+            <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+              <span class="{{ c.cls }}" data-ui="本机配置.host"><span class="pill-name" data-ui="本机配置.host.name">{{ c.host }}</span>{{ c.what }}</span>
+            </sc-for>
+          </div>
+        </section>
+        <section data-ui="本机配置.runner-block" style="display: flex; flex-direction: column; gap: var(--sp-8); padding-block: var(--sp-16); border-top: 1px solid var(--rule-2)">
+          <div data-ui="本机配置.runner" style="display: grid; grid-template-columns: 150px 220px minmax(0, 1fr); column-gap: var(--sp-8); row-gap: var(--sp-6); align-items: center">
+            <div style="display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0">
+              <span data-ui="本机配置.runner.label" style="font: var(--w-bold) var(--t-meta) var(--mono); color: var(--ink)">runner</span>
+              <span data-ui="本机配置.runner.what" style="font-size: var(--t-meta); color: var(--soft)">用什么起 session</span>
+            </div>
+            <select class="{{ runnerCls }}" data-ui="本机配置.runner.select" aria-label="runner" value="{{ runnerValue }}" disabled="{{ runnerOff }}" onChange="{{ onRunner }}">
+              <sc-for list="{{ runnerOpts }}" as="o" hint-placeholder-count="4">
+                <option value="{{ o.value }}" disabled="{{ o.disabled }}">{{ o.text }}</option>
+              </sc-for>
+            </select>
+            <sc-if value="{{ runnerHasBad }}" hint-placeholder-val="{{ false }}">
+              <div style="grid-column: 2 / -1; display: flex; flex-direction: column; gap: var(--sp-4)">
+                <sc-for list="{{ runnerBads }}" as="b" hint-placeholder-count="1">
+                  <div class="hatch-bar"><span class="hatch-swatch"></span>{{ b.text }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <p data-ui="本机配置.runner-note" style="margin: 0; max-width: 66ch; font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--soft)">环境变量 <span class="code">MMW_RUNNER</span> 设了时，它优先于这一格。「按所在环境判断」让 <span class="code">start</span> 看自己跑在哪个 runner 里，判断不出时用 orca。runner 是 paseo 时，<span class="code">start</span> 向 Paseo 要 model，所以换到 paseo 或从 paseo 换走，选项会重新扫描。</p>
+        </section>
+        <section data-ui="本机配置.roles-block" style="display: flex; flex-direction: column; gap: var(--sp-8); padding-block: var(--sp-16); border-top: 1px solid var(--rule-2)">
+          <span class="eyebrow" data-ui="本机配置.roles-block.title">一个 agent 一行</span>
+          <div data-ui="本机配置.roles" style="display: flex; flex-direction: column">
+            <div class="eyebrow plain" data-ui="本机配置.roles.head" style="display: grid; grid-template-columns: 150px 100px minmax(0, 1fr) 104px; column-gap: var(--sp-8); padding-bottom: var(--sp-6)">
+              <span>agent</span><span>host</span><span>model</span><span>effort</span>
+            </div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+              <div data-ui="本机配置.role" style="display: grid; grid-template-columns: 150px 100px minmax(0, 1fr) 104px; column-gap: var(--sp-8); row-gap: var(--sp-6); padding-block: var(--sp-12); border-top: 1px solid var(--rule-2); align-items: center">
+                <div style="display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0">
+                  <span data-ui="本机配置.role.agent" style="font: var(--w-bold) var(--t-meta) var(--mono); color: var(--ink)">{{ r.agent }}</span>
+                  <span data-ui="本机配置.role.what" style="font-size: var(--t-meta); color: var(--soft)">{{ r.what }}</span>
+                </div>
+                <select class="{{ r.hostCls }}" data-ui="本机配置.role.host" aria-label="{{ r.hostLabel }}" value="{{ r.host }}" disabled="{{ r.hostOff }}" onChange="{{ r.onHost }}">
+                  <sc-for list="{{ r.hostOpts }}" as="o" hint-placeholder-count="5">
+                    <option value="{{ o.value }}" disabled="{{ o.disabled }}">{{ o.text }}</option>
+                  </sc-for>
+                </select>
+                <select class="{{ r.modelCls }}" data-ui="本机配置.role.model" aria-label="{{ r.modelLabel }}" value="{{ r.model }}" disabled="{{ r.modelOff }}" onChange="{{ r.onModel }}">
+                  <sc-for list="{{ r.modelOpts }}" as="o" hint-placeholder-count="4">
+                    <option value="{{ o.value }}" disabled="{{ o.disabled }}">{{ o.text }}</option>
+                  </sc-for>
+                </select>
+                <select class="{{ r.effortCls }}" data-ui="本机配置.role.effort" aria-label="{{ r.effortLabel }}" value="{{ r.effort }}" disabled="{{ r.effortOff }}" onChange="{{ r.onEffort }}">
+                  <sc-for list="{{ r.effortOpts }}" as="o" hint-placeholder-count="4">
+                    <option value="{{ o.value }}" disabled="{{ o.disabled }}">{{ o.text }}</option>
+                  </sc-for>
+                </select>
+                <sc-if value="{{ r.hasBad }}" hint-placeholder-val="{{ false }}">
+                  <div data-ui="本机配置.role.problem" style="grid-column: 2 / -1; display: flex; flex-direction: column; gap: var(--sp-4)">
+                    <sc-for list="{{ r.bads }}" as="b" hint-placeholder-count="1">
+                      <div class="hatch-bar" data-ui="本机配置.role.problem.item"><span class="hatch-swatch"></span>{{ b.text }}</div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <p data-ui="本机配置.initial-note" style="margin: 0; max-width: 66ch; font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--soft)">一台新机器第一次安装时，这里填的是 MMW 自带的初始值；之后只按这里选的跑，MMW 更新不会改它。</p>
+        </section>
+      </div>
+      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-12) var(--sp-16); padding: var(--sp-12) var(--sp-24); border-top: 1px solid var(--rule); background: var(--panel-2)">
+        <div aria-live="polite" style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2)">
+          <span data-ui="本机配置.sheet.status" style="display: flex; align-items: center; gap: var(--sp-6); font-size: var(--t-body); font-weight: var(--w-bold); color: var(--ink)">
+            <sc-if value="{{ hatch }}" hint-placeholder-val="{{ false }}">
+              <span class="hatch-swatch"></span>
+            </sc-if>
+            {{ strong }}
+          </span>
+          <span data-ui="本机配置.sheet.status-note" style="font-size: var(--t-meta); color: var(--soft)">{{ quiet }}</span>
+        </div>
+        <div style="display: flex; gap: var(--sp-8); margin-left: auto">
+          <button type="button" class="btn" data-ui="本机配置.sheet.cancel" onClick="{{ noop }}">{{ closeLabel }}</button>
+          <button type="button" class="btn primary" data-ui="本机配置.sheet.save" disabled="{{ saveOff }}" onClick="{{ noop }}">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 900}, &quot;scene&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;mine&quot;, &quot;fresh&quot;, &quot;retired&quot;, &quot;paseo-off&quot;, &quot;changed&quot;, &quot;edited&quot;, &quot;incomplete&quot;, &quot;scanning&quot;, &quot;saved&quot;, &quot;refused&quot;], &quot;default&quot;: &quot;mine&quot;, &quot;tsType&quot;: &quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {ready: false, picked: {}};
+
+  componentDidMount() { this.waitForData(); }
+
+  waitForData(tries = 0) {
+    if (window.SETTINGS_VIEWS) { this.setState({ready: true}); return; }
+    if (tries < 40) setTimeout(() => this.waitForData(tries + 1), 50);
+  }
+
+  componentDidUpdate(prev) {
+    if (prev.scene !== this.props.scene) this.setState({picked: {}});
+  }
+
+  view() {
+    const scenes = (typeof window !== "undefined" && window.SETTINGS_VIEWS) || {};
+    return scenes[this.props.scene || "mine"] || {rows: [], chips: [], runnerOpts: []};
+  }
+
+  set(key, value) {
+    this.setState(s => ({picked: {...s.picked, [key]: value}}));
+  }
+
+  value(key, fallback) {
+    return this.state.picked[key] === undefined ? fallback : this.state.picked[key];
+  }
+
+  chipCls(cls) {
+    const state = String(cls).trim().split(/\s+/)[1] || "";
+    return state === "" || state === "ok" ? "pill tag" : "pill tag dashed";
+  }
+
+  renderVals() {
+    const v = this.view();
+    return {
+      store: v.store || "~/.mmw/models.json",
+      refused: Boolean(v.refused), refusedText: v.refusedText || "",
+      scanning: Boolean(v.scanning), notScanning: !v.scanning,
+      scanningText: v.scanningText || "", scannedText: v.scannedText || "",
+      chips: (v.chips || []).map(c => ({cls: this.chipCls(c.cls), host: c.host, what: c.what})),
+      runnerCls: v.runnerCls || "sel",
+      runnerValue: this.value("runner", v.runner || ""),
+      runnerOff: Boolean(v.runnerOff),
+      runnerOpts: v.runnerOpts || [],
+      onRunner: e => this.set("runner", e.target.value),
+      runnerHasBad: Boolean(v.runnerHasBad), runnerBads: v.runnerBads || [],
+      rows: (v.rows || []).map(r => ({
+        agent: r.agent, what: r.what,
+        hostCls: r.hostCls, modelCls: r.modelCls, effortCls: r.effortCls,
+        hostLabel: r.hostLabel, modelLabel: r.modelLabel, effortLabel: r.effortLabel,
+        hostOpts: r.hostOpts, modelOpts: r.modelOpts, effortOpts: r.effortOpts,
+        hostOff: Boolean(r.hostOff), modelOff: Boolean(r.modelOff), effortOff: Boolean(r.effortOff),
+        host: this.value(r.agent + ".host", r.host),
+        model: this.value(r.agent + ".model", r.model),
+        effort: this.value(r.agent + ".effort", r.effort),
+        onHost: e => this.set(r.agent + ".host", e.target.value),
+        onModel: e => this.set(r.agent + ".model", e.target.value),
+        onEffort: e => this.set(r.agent + ".effort", e.target.value),
+        hasBad: Boolean(r.hasBad), bads: r.bads || [],
+      })),
+      hatch: Boolean(v.hatch), strong: v.strong || "", quiet: v.quiet || "",
+      closeLabel: v.closeLabel || "关闭", saveOff: Boolean(v.saveOff),
+      noop: () => this.props.onClose?.(),
+    };
+  }
+}
+</script>
+</body>
 </html>

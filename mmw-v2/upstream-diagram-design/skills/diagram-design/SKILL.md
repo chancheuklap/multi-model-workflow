@@ -18,13 +18,13 @@ Forty visual types. Semantic patterns describe behavior independently; type refe
 
 **Before your first diagram in a new project, settle which style guide it draws in.**
 
-Name the one you used beside the deliverable, so a default-skinned diagram never reaches a branded context unannounced.
+Name the one you used beside the deliverable.
 
 First resolve any project `.diagram-design` marker per [`references/profiles.md`](references/profiles.md); a successfully resolved marker selects its profile and bypasses this gate. That reference owns failures, the protected default, and save behavior.
 
-For a markerless project, open [`references/style-guide.md`](references/style-guide.md). If it still has the shipped paper, ink, and accent tokens, **draw with them** and say so in one line beside the deliverable, naming the four ways to change it: from a website URL, from a local design-system directory, from pasted tokens, or from a saved client profile. Most diagrams are read once to understand something and never leave the room; stopping every one of them at a branding question costs more than it saves.
+For a markerless project, open [`references/style-guide.md`](references/style-guide.md). If it still has the shipped paper, ink, and accent tokens, **draw with them**; keep the note beside the deliverable to one line and name in it the four ways to change it: from a website URL, from a local design-system directory, from pasted tokens, or from a saved client profile.
 
-Branding first is the right call when the artifact is going to a client, a customer, or anywhere the project's own visual identity is part of the message. Ask then: present the choices from [`references/onboarding.md`](references/onboarding.md) and follow the selected method; saved profiles route to `references/profiles.md`.
+When the artifact is going to a client, a customer, or anywhere the project's own visual identity is part of the message, ask first: present the choices from [`references/onboarding.md`](references/onboarding.md) and follow the selected method; saved profiles route to `references/profiles.md`.
 
 After customization or an explicit default choice, skip this gate. Detect and save active/custom profiles exactly as `references/profiles.md` specifies; all-default tokens with no marker or header take the default path above.
 
@@ -407,7 +407,7 @@ Expand SVG `viewBox` height by ~60px.
 
 If you exceed, re-draw in a type that nests — nested, layers, tree, high-level — and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, while the canvas as a whole may exceed it. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
 
-Split into overview + detail only when the subject genuinely holds two independent questions — then say which question each diagram answers. A reader who has to hold two canvases in their head to see one system has lost the thing they came for. The per-type caps above (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
+Split into overview + detail only when the subject genuinely holds two independent questions — then say which question each diagram answers. The per-type caps above (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
 
 ### Page layout
 

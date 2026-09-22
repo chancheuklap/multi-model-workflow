@@ -5,7 +5,7 @@ description: Create, rewrite, or incrementally update a repository's AGENTS.md a
 
 # Manage AGENTS.md
 
-You are about to maintain a repository's agent instruction files. There are three situations, one entry file each — `references/create.md`, `references/rewrite.md`, `references/incremental.md` — and behind them seven shared step files, one per step: `references/ask.md`, `references/survey.md`, `references/write.md`, `references/prune.md`, `references/verify.md`, `references/migrate.md`, `references/additions.md`. Ten files in all. Find your situation below, open its entry file, and follow it to the end; from then on every file you read ends by naming the next one.
+You are about to maintain a repository's agent instruction files. There are three situations, one entry file each — `references/create.md`, `references/rewrite.md`, `references/incremental.md` — and behind them seven shared step files, one per step: `references/ask.md`, `references/survey.md`, `references/write.md`, `references/prune.md`, `references/verify.md`, `references/migrate.md`, `references/additions.md`. Find your situation below, open its entry file, and follow it to the end; from then on every file you read ends by naming the next one.
 
 ## Resolve `<scripts>` once
 

@@ -661,6 +661,57 @@ class PullDesign(unittest.TestCase):
         self.assertIn("可点或可输入却没有 `data-ui` id：", coverage)
         self.assertIn("button: Unidentified action", coverage)
 
+    def test_the_report_lists_classes_no_stylesheet_defines(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>", b'<p class="lane-label" data-ui="lane">Lane</p></main>', 1)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        design = self.report_section("设计检查")
+        self.assertIn("样式表里没有的类名：`Component · Demo.dc.html` — `.lane-label`（在 `lane`）", design)
+        self.assertNotIn("`.old-value`", design)
+
+    def test_the_report_lists_hand_written_lengths_off_the_design_system(self):
+        self.preview.files["_ds/kit-1/tokens/spacing.css"] = b":root { --sp-8: 8px; --sp-16: 16px; }\n"
+        self.refer_from_demo(b'<link rel="stylesheet" href="./_ds/kit-1/tokens/spacing.css" />')
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>",
+            b'<p data-ui="a" style="padding: 8px 16px; top: 14px">A</p>'
+            b'<p data-ui="b" style="font-size: 10px; width: 236px">B</p>'
+            b'<p data-ui="c" style="left: {{ x }}; margin: 0">C</p></main>', 1)
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        design = self.report_section("设计检查")
+        self.assertIn("写死的数值不在 design system 的变量里：`Component · Demo.dc.html` — `top: 14px`", design)
+        self.assertIn("— `font-size: 10px`", design)
+        self.assertNotIn("padding: 8px 16px", design)
+        self.assertNotIn("width: 236px", design)
+        self.assertNotIn("left:", design)
+
+    def test_a_bound_design_system_brings_its_readme(self):
+        self.preview.files["_ds/kit-1/components/x.css"] = b".x { color: red; }\n"
+        self.preview.files["_ds/kit-1/readme.md"] = b"## Unifications\n"
+        self.refer_from_demo(b'<link rel="stylesheet" href="./_ds/kit-1/components/x.css" />')
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((self.target / "_ds" / "kit-1" / "readme.md").read_bytes(), b"## Unifications\n")
+
+    def test_interpolated_text_belongs_to_the_element_that_holds_it(self):
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>",
+            b'<p data-ui="demo.count">#<span class="sc-interp">98</span> \xc2\xb7 map</p>'
+            b'<p>Loose <span class="sc-interp">value</span></p></main>',
+            1,
+        )
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        coverage = self.report_section("覆盖")
+        self.assertNotIn("span.sc-interp", coverage)
+        self.assertNotIn("98", coverage)
+        self.assertIn("p: Loose value", coverage)
+
     def test_the_report_lists_pages_without_a_scene_prop(self):
         self.add_page("Component · Static.dc.html", """
             <!doctype html><html><body><x-dc><p data-ui="static.copy">Static</p></x-dc>
@@ -744,6 +795,49 @@ class PullDesign(unittest.TestCase):
         self.assertIn("demo.open", report)
         self.assertIn("Demo", report)
         self.assertIn("Updated demo", report)
+
+    def add_app_page(self, logic: str, props: str) -> None:
+        self.add_page("App · Shell.dc.html", f"""
+            <!doctype html><html><head><script src="./support.js"></script></head><body>
+            <x-dc><main data-ui="shell"><dc-import name="Inner" props='{props}'></dc-import></main></x-dc>
+            <script type="text/x-dc" data-dc-script data-props='{{}}'>{logic}</script></body></html>
+        """)
+        self.preview.files["Inner.dc.html"] = (
+            b"<!doctype html><html><head></head><body><x-dc><p>Inner</p></x-dc></body></html>")
+
+    def pull_app_twice(self, logic: str, props: str) -> str:
+        self.add_app_page("class App extends DCLogic { open() { this.props.onOpen(); } }",
+                          '{"onPick": "open"}')
+        pages = ["Component · Demo.dc.html", "App · Shell.dc.html"]
+        first = self.pull(pages=pages)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        self.commit_target()
+        self.add_app_page(logic, props)
+        result = self.pull(pages=pages)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return self.report_section("改动分类")
+
+    def test_a_changed_app_logic_block_is_classified_controls_or_flow(self):
+        section = self.pull_app_twice(
+            "class App extends DCLogic { open() { this.props.onClose(); } }",
+            '{"onPick": "open"}')
+        self.assertIn("分类：增删控件或改流转", section)
+        self.assertIn("- `App · ` 页接线变化：`App · Shell.dc.html` — "
+                      "`data-dc-script` 逻辑块与上次不同。", section)
+
+    def test_changed_dc_import_props_on_an_app_page_are_classified_controls_or_flow(self):
+        section = self.pull_app_twice(
+            "class App extends DCLogic { open() { this.props.onOpen(); } }",
+            '{"onPick": "close"}')
+        self.assertIn("分类：增删控件或改流转", section)
+        self.assertIn("`App · Shell.dc.html` — `dc-import` 属性与上次不同。", section)
+
+    def test_whitespace_in_app_wiring_is_not_a_change(self):
+        section = self.pull_app_twice(
+            "class App extends DCLogic {\n  open() {  this.props.onOpen(); }\n}",
+            '{"onPick":  "open"}')
+        self.assertIn("分类：只改外观或文案", section)
+        self.assertNotIn("接线变化", section)
 
     def test_a_locally_edited_package_gets_a_note(self):
         first = self.pull()

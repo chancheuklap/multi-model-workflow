@@ -24,7 +24,7 @@ Then append every line whose destination is a section to `survey-list.md` as an 
 | Nested `CLAUDE.md` holding `@AGENTS.override.md` | Rewritten to `@AGENTS.md` |
 | Root `CLAUDE.md` with several `@` lines | Keeps every import; `@AGENTS.md` is one of them; nothing else in the file |
 | A nested pair whose every rule moved to the root or was removed | Both files deleted; the directory goes on the "what was removed" list |
-| `> ` metadata lines at the top of old files (last-checked commit, domain context, review scope) | Removed; git history is the anchor now |
+| `> ` metadata lines at the top of old files (last-checked commit, domain context, review scope) | Removed; git history is the anchor |
 
 A nested file survives only on entries whose place is that directory.
 

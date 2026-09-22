@@ -1,212 +1,401 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./support.js"></script>
-  </head>
-  <body>
-    <x-dc>
-      <helmet data-dc-atomics>
-        <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
-        <script src="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
-        <script src="./lib/board.js"></script>
-        <script src="./data/board-morning.js"></script>
-        <script src="./data/board-twenty-tickets.js"></script>
-        <script src="./data/board-bad-data.js"></script>
-        <script src="./data/board-empty.js"></script>
-      </helmet>
-      <aside data-ui="详情.root" class="detail board" aria-label="详情" data-screen-label="详情" style="{{ rootStyle }}">
-        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.DetailEmpty" dc-props="{{ empty }}" hint-size="100%,120px"></x-import>
-        </sc-if>
-        <sc-if value="{{ isTicket }}" hint-placeholder-val="{{ true }}">
-          <div class="pv">
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.DetailHead" dc-props="{{ head }}" hint-size="100%,24px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.DetailTitle" dc-props="{{ title }}" hint-size="100%,24px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.Origin" dc-props="{{ origin }}" hint-size="100%,16px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.StatusLine" dc-props="{{ status }}" hint-size="100%,24px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.RunBox" dc-props="{{ run }}" hint-size="100%,120px"></x-import>
-            <sc-if value="{{ hasWhy }}" hint-placeholder-val="{{ true }}">
-              <x-import component-from-global-scope="MMWTaskBoard2_34b698.NeedsYou" dc-props="{{ why }}" hint-size="100%,80px"></x-import>
-            </sc-if>
-            <sc-for list="{{ ticketSections }}" as="sec" hint-placeholder-count="2">
-              <x-import component-from-global-scope="MMWTaskBoard2_34b698.Section" dc-props="{{ sec.section }}" hint-size="100%,60px">
-                <sc-for list="{{ sec.rows }}" as="row" hint-placeholder-count="1">
-                  <x-import component-from-global-scope="MMWTaskBoard2_34b698.RelationRow" dc-props="{{ row }}" hint-size="100%,24px"></x-import>
-                </sc-for>
-              </x-import>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/shape.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/base.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/lamp.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/pill.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/eyebrow.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/button.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/link.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/counter.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/row.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/kv.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/callout.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/log.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/empty.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css">
+  <script src="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
+  <script src="data/detail-scenes.js"></script>
+  <style>body { margin: 0; background: var(--desk); }</style>
+</helmet>
+<aside class="detail board" data-ui="详情.root" aria-label="详情" style="width: 340px; max-width: 100%; height: 100vh; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--rule); padding: var(--sp-16) var(--sp-20) var(--sp-24); display: flex; flex-direction: column; gap: var(--sp-16)">
+  <sc-if value="{{ hasCard }}" hint-placeholder-val="{{ true }}">
+    <div data-ui="详情.head" style="display: flex; align-items: center; gap: var(--sp-8)">
+      <span class="eyebrow" data-ui="详情.head.eyebrow" style="flex: 1; min-width: 0">{{ eyebrow }}</span>
+      <sc-if value="{{ isTicket }}" hint-placeholder-val="{{ true }}">
+        <button type="button" class="btn sm" data-ui="详情.head.github" onClick="{{ openGithub }}">GitHub ↗</button>
+      </sc-if>
+      <button type="button" class="iconbtn close" data-ui="详情.head.close" aria-label="关闭详情" onClick="{{ onClose }}">×</button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: var(--sp-6)">
+      <h2 class="title" data-ui="详情.title">{{ title }}</h2>
+      <div class="links" data-ui="详情.origin">
+        <span data-ui="详情.origin.number">{{ num }}</span>
+        <sc-for list="{{ links }}" as="link" hint-placeholder-count="2">
+          <span>·</span>
+          <button type="button" class="link" data-ui="详情.origin.link" onClick="{{ link.go }}">{{ link.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div data-ui="详情.status" style="display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-8)">
+      <span class="{{ statusLampCls }}" data-ui="详情.status.lamp"></span>
+      <span class="{{ statusWordCls }}" data-ui="详情.status.status">{{ statusWord }}</span>
+      <sc-if value="{{ hasPhase }}" hint-placeholder-val="{{ true }}">
+        <span class="{{ phasePillCls }}" data-ui="详情.status.phase">{{ phase }}</span>
+      </sc-if>
+      <span class="meta" data-ui="详情.status.elapsed" style="margin-left: auto">{{ elapsed }}</span>
+    </div>
+    <sc-if value="{{ isTicket }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ hasRuntime }}" hint-placeholder-val="{{ true }}">
+        <div class="kv" data-ui="详情.runtime">
+          <div style="display: flex; align-items: baseline; gap: var(--sp-8)">
+            <span class="kv-title" data-ui="详情.runtime.grade">{{ runtimeGrade }}</span>
+            <span class="kv-sub" data-ui="详情.runtime.model">{{ runtimeModel }}</span>
+          </div>
+          <div class="kv-grid ruled">
+            <sc-for list="{{ runtimeRows }}" as="r" hint-placeholder-count="4">
+              <span class="kv-k" data-ui="详情.runtime.key">{{ r.k }}</span>
+              <span class="kv-v" data-ui="详情.runtime.value">{{ r.v }}</span>
             </sc-for>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.Section" dc-props="{{ events }}" hint-size="100%,200px">
-              <sc-if value="{{ noEvents }}" hint-placeholder-val="{{ false }}">
-                <x-import component-from-global-scope="MMWTaskBoard2_34b698.NoneNote" dc-props="{{ noEventsNote }}" hint-size="100%,16px"></x-import>
-              </sc-if>
-              <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="3">
-                <x-import component-from-global-scope="MMWTaskBoard2_34b698.EventBlock" dc-props="{{ b.block }}" hint-size="100%,32px">
-                  <sc-for list="{{ b.rows }}" as="ev" hint-placeholder-count="3">
-                    <x-import component-from-global-scope="MMWTaskBoard2_34b698.EventRow" dc-props="{{ ev }}" hint-size="100%,40px"></x-import>
-                  </sc-for>
-                </x-import>
-              </sc-for>
-            </x-import>
-            <sc-if value="{{ hasKids }}" hint-placeholder-val="{{ true }}">
-              <x-import component-from-global-scope="MMWTaskBoard2_34b698.Section" dc-props="{{ kidSection }}" hint-size="100%,60px">
-                <sc-for list="{{ kids }}" as="kid" hint-placeholder-count="2">
-                  <x-import component-from-global-scope="MMWTaskBoard2_34b698.SubIssueRow" dc-props="{{ kid }}" hint-size="100%,24px"></x-import>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noRuntime }}" hint-placeholder-val="{{ false }}">
+        <p class="row-none" data-ui="详情.runtime" style="margin: 0">{{ noRunText }}</p>
+      </sc-if>
+      <sc-if value="{{ hasWhy }}" hint-placeholder-val="{{ false }}">
+        <div class="callout" data-ui="详情.why">
+          <span class="eyebrow orange" data-ui="详情.why.title">Needs you</span>
+          <sc-for list="{{ why }}" as="w" hint-placeholder-count="1">
+            <span data-ui="详情.why.item" style="color: var(--muted); line-height: var(--lh-body)"><b style="color: var(--ink)">{{ w.head }}</b> {{ w.body }}</span>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasBlockers }}" hint-placeholder-val="{{ true }}">
+        <section class="section" data-ui="详情.blocked-by">
+          <div class="eyebrow spread">
+            <span data-ui="详情.blocked-by.title">Blocked by</span>
+            <span data-ui="详情.blocked-by.count">{{ blockerCount }}</span>
+          </div>
+          <sc-for list="{{ blockers }}" as="r" hint-placeholder-count="2">
+            <button type="button" class="{{ r.cls }}" data-ui="详情.blocker" onClick="{{ r.go }}">
+              <span class="{{ r.lampCls }}" data-ui="详情.blocker.lamp"></span>
+              <span class="row-num" data-ui="详情.blocker.number">{{ r.num }}</span>
+              <span class="row-title" data-ui="详情.blocker.title">{{ r.title }} <span class="meta" data-ui="详情.blocker.where">{{ r.where }}</span></span>
+              <span class="{{ r.tailCls }}" data-ui="{{ r.tailUi }}">{{ r.tail }}</span>
+            </button>
+          </sc-for>
+        </section>
+      </sc-if>
+      <sc-if value="{{ hasBlocks }}" hint-placeholder-val="{{ true }}">
+        <section class="section" data-ui="详情.blocking">
+          <div class="eyebrow spread">
+            <span data-ui="详情.blocking.title">Blocking</span>
+            <span data-ui="详情.blocking.count">{{ blocksCount }}</span>
+          </div>
+          <sc-for list="{{ blocks }}" as="r" hint-placeholder-count="2">
+            <button type="button" class="{{ r.cls }}" data-ui="详情.blocks" onClick="{{ r.go }}">
+              <span class="{{ r.lampCls }}" data-ui="详情.blocks.lamp"></span>
+              <span class="row-num" data-ui="详情.blocks.number">{{ r.num }}</span>
+              <span class="row-title" data-ui="详情.blocks.title">{{ r.title }} <span class="meta">{{ r.where }}</span></span>
+              <span class="{{ r.tailCls }}" data-ui="{{ r.blockTailUi }}">{{ r.tail }}</span>
+            </button>
+          </sc-for>
+        </section>
+      </sc-if>
+      <section class="section" data-ui="详情.events">
+        <div class="eyebrow spread">
+          <span data-ui="详情.events.title">Events</span>
+          <span data-ui="详情.events.count">{{ eventCount }}</span>
+        </div>
+        <sc-for list="{{ eventBlocks }}" as="b" hint-placeholder-count="3">
+          <div class="{{ b.cls }}" data-ui="详情.event-block">
+            <button type="button" class="log-head" data-ui="详情.event-block.toggle" onClick="{{ b.toggle }}">
+              <span class="log-chev" data-ui="详情.event-block.chev">{{ b.chev }}</span>
+              <span class="{{ b.pillCls }}" data-ui="详情.event-block.phase">{{ b.phase }}</span>
+              <span class="log-sum" data-ui="详情.event-block.summary">{{ b.summary }}</span>
+              <span class="log-time" data-ui="详情.event-block.time">{{ b.time }}</span>
+            </button>
+            <sc-if value="{{ b.open }}" hint-placeholder-val="{{ true }}">
+              <div class="log-body">
+                <sc-for list="{{ b.items }}" as="e" hint-placeholder-count="2">
+                  <button type="button" class="log-ev" data-ui="详情.event" onClick="{{ e.toggle }}">
+                    <span class="log-t" data-ui="详情.event.time">{{ e.time }}</span>
+                    <span class="{{ e.nameCls }}" data-ui="详情.event.name">{{ e.name }}</span>
+                    <sc-if value="{{ e.hasText }}" hint-placeholder-val="{{ true }}">
+                      <span class="log-x" data-ui="详情.event.text">{{ e.text }}</span>
+                    </sc-if>
+                    <sc-if value="{{ e.open }}" hint-placeholder-val="{{ false }}">
+                      <span class="log-x">
+                        <span class="kv kv-grid" data-ui="详情.event.detail">
+                          <sc-for list="{{ e.detail }}" as="d" hint-placeholder-count="3">
+                            <span class="kv-k">{{ d.k }}</span>
+                            <span class="kv-v">{{ d.v }}</span>
+                          </sc-for>
+                        </span>
+                      </span>
+                    </sc-if>
+                  </button>
                 </sc-for>
-              </x-import>
+              </div>
             </sc-if>
           </div>
-        </sc-if>
-        <sc-if value="{{ isCard }}" hint-placeholder-val="{{ false }}">
-          <div class="dp">
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.DetailHead" dc-props="{{ head }}" hint-size="100%,20px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.Origin" dc-props="{{ origin }}" hint-size="100%,16px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.DetailTitle" dc-props="{{ title }}" hint-size="100%,24px"></x-import>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.StatusLine" dc-props="{{ status }}" hint-size="100%,24px"></x-import>
-            <sc-if value="{{ isContainer }}" hint-placeholder-val="{{ true }}">
-              <x-import component-from-global-scope="MMWTaskBoard2_34b698.Section" dc-props="{{ summary }}" hint-size="100%,80px">
-                <x-import component-from-global-scope="MMWTaskBoard2_34b698.LampCounts" dc-props="{{ lampCounts }}" hint-size="100%,20px"></x-import>
-                <x-import component-from-global-scope="MMWTaskBoard2_34b698.PhaseCounts" dc-props="{{ phaseCounts }}" hint-size="100%,40px"></x-import>
-              </x-import>
-            </sc-if>
-            <sc-for list="{{ cardSections }}" as="sec" hint-placeholder-count="1">
-              <x-import component-from-global-scope="MMWTaskBoard2_34b698.Section" dc-props="{{ sec.section }}" hint-size="100%,60px">
-                <sc-for list="{{ sec.rows }}" as="row" hint-placeholder-count="2">
-                  <x-import component-from-global-scope="MMWTaskBoard2_34b698.RelationRow" dc-props="{{ row }}" hint-size="100%,24px"></x-import>
-                </sc-for>
-                <sc-if value="{{ sec.isEmpty }}">
-                  <x-import component-from-global-scope="MMWTaskBoard2_34b698.NoneNote" dc-props="{{ sec.none }}" hint-size="100%,16px"></x-import>
-                </sc-if>
-              </x-import>
-            </sc-for>
-            <x-import component-from-global-scope="MMWTaskBoard2_34b698.GithubButton" dc-props="{{ github }}" hint-size="160px,28px"></x-import>
+        </sc-for>
+      </section>
+      <sc-if value="{{ hasKids }}" hint-placeholder-val="{{ false }}">
+        <section class="section" data-ui="详情.sub-issues">
+          <div class="eyebrow spread">
+            <span data-ui="详情.sub-issues.title">Sub-issues</span>
+            <span data-ui="详情.sub-issues.count">{{ kidCount }}</span>
           </div>
+          <sc-for list="{{ kids }}" as="k" hint-placeholder-count="2">
+            <div class="row" data-ui="详情.sub-issue" style="cursor: default">
+              <span class="{{ k.lampCls }}" data-ui="详情.sub-issue.lamp"></span>
+              <span class="row-num" data-ui="详情.sub-issue.number">{{ k.num }}</span>
+              <span class="row-title" data-ui="详情.sub-issue.title">{{ k.title }}</span>
+              <span class="{{ k.kindCls }}" data-ui="详情.sub-issue.kind">{{ k.kind }}</span>
+            </div>
+          </sc-for>
+        </section>
+      </sc-if>
+    </sc-if>
+    <sc-if value="{{ isContainer }}" hint-placeholder-val="{{ false }}">
+      <section class="section" data-ui="详情.summary">
+        <div class="eyebrow spread">
+          <span data-ui="详情.summary.title">{{ listTitle }}</span>
+          <span data-ui="详情.summary.count">{{ listCount }}</span>
+        </div>
+        <div class="counters loose" data-ui="详情.lamp-counts">
+          <sc-for list="{{ lamps }}" as="l" hint-placeholder-count="3">
+            <span class="counter plain" data-ui="详情.lamp-counts.item">
+              <span class="{{ l.lampCls }}"></span>{{ l.word }}<span class="counter-n">{{ l.n }}</span>
+            </span>
+          </sc-for>
+        </div>
+        <div class="counters" data-ui="详情.phase-counts">
+          <sc-for list="{{ phases }}" as="p" hint-placeholder-count="3">
+            <span class="{{ p.cls }}" data-ui="详情.phase-counts.item">{{ p.label }}</span>
+          </sc-for>
+        </div>
+      </section>
+      <sc-if value="{{ isSpec }}" hint-placeholder-val="{{ false }}">
+        <section class="section" data-ui="详情.by-number">
+          <div class="eyebrow spread"><span data-ui="详情.by-number.title">By number</span></div>
+          <sc-for list="{{ ticketRows }}" as="r" hint-placeholder-count="4">
+            <button type="button" class="row" data-ui="详情.ticket-row" onClick="{{ r.go }}">
+              <span class="{{ r.lampCls }}" data-ui="详情.ticket-row.lamp"></span>
+              <span class="row-num" data-ui="详情.ticket-row.number">{{ r.num }}</span>
+              <span class="row-title" data-ui="详情.ticket-row.title">{{ r.title }} <span class="meta" data-ui="详情.ticket-row.where">{{ r.where }}</span></span>
+              <span class="{{ r.tailCls }}" data-ui="详情.ticket-row.phase">{{ r.tail }}</span>
+            </button>
+          </sc-for>
+        </section>
+      </sc-if>
+      <sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
+        <section class="section" data-ui="详情.specs">
+          <div class="eyebrow spread">
+            <span data-ui="详情.specs.title">spec</span>
+            <span data-ui="详情.specs.count">{{ specCount }}</span>
+          </div>
+          <sc-for list="{{ specRows }}" as="r" hint-placeholder-count="2">
+            <button type="button" class="row" data-ui="详情.spec-row" onClick="{{ r.go }}">
+              <span class="{{ r.lampCls }}" data-ui="详情.spec-row.lamp"></span>
+              <span class="row-num" data-ui="详情.spec-row.number">{{ r.num }}</span>
+              <span class="row-title" data-ui="详情.spec-row.title">{{ r.title }} <span class="meta" data-ui="详情.spec-row.where">{{ r.where }}</span></span>
+              <span class="{{ r.tailCls }}" data-ui="详情.spec-row.state">{{ r.tail }}</span>
+            </button>
+          </sc-for>
+        </section>
+        <sc-if value="{{ hasDecisions }}" hint-placeholder-val="{{ false }}">
+          <section class="section" data-ui="详情.decisions">
+            <div class="eyebrow spread">
+              <span data-ui="详情.decisions.title">Decision tickets</span>
+              <span data-ui="详情.decisions.count">{{ decisionCount }}</span>
+            </div>
+            <sc-for list="{{ decisionRows }}" as="r" hint-placeholder-count="3">
+              <button type="button" class="row" data-ui="详情.decision-row" onClick="{{ r.go }}">
+                <span class="{{ r.lampCls }}" data-ui="详情.decision-row.lamp"></span>
+                <span class="row-num" data-ui="详情.decision-row.number">{{ r.num }}</span>
+                <span class="row-title" data-ui="详情.decision-row.title">{{ r.title }} <span class="meta" data-ui="详情.decision-row.where">{{ r.where }}</span></span>
+                <span class="{{ r.tailCls }}" data-ui="详情.decision-row.state">{{ r.tail }}</span>
+              </button>
+            </sc-for>
+          </section>
         </sc-if>
-      </aside>
-    </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{
-  "$preview": { "width": 340, "height": 848 },
-  "scene": { "editor": "enum", "options": ["morning", "twenty-tickets", "bad-data", "empty", "ticket-returned", "ticket-bounced", "ticket-closeout", "ticket-waiting", "ticket-review", "ticket-queued", "ticket-landed", "ticket-fault", "ticket-missing-blocker", "spec", "map", "decision", "nothing-selected"], "default": "morning" }
-}'>
-      class Component extends DCLogic {
-        componentDidMount() {
-          const wait = () => {
-            if (window.MMW && window.MMWTaskBoard2_34b698 && window.BOARD_SCENES && window.BOARD_SCENES.empty) this.forceUpdate();
-            else setTimeout(wait, 20);
-          };
-          wait();
-        }
-        pick() {
-          const SELECT = {
-            "ticket-returned": ["morning", 138], "ticket-bounced": ["morning", 139], "ticket-closeout": ["morning", 141],
-            "ticket-waiting": ["morning", 136], "ticket-review": ["morning", 134], "ticket-queued": ["morning", 135],
-            "ticket-landed": ["morning", 132], "ticket-fault": ["bad-data", 307], "ticket-missing-blocker": ["bad-data", 305],
-            "spec": ["morning", 131], "map": ["morning", 98], "decision": ["morning", 107], "nothing-selected": ["morning", null],
-          };
-          const key = this.props.scene || "morning";
-          const [dataKey, fixed] = SELECT[key] || [key, undefined];
-          const data = window.BOARD_SCENES && window.BOARD_SCENES[dataKey];
-          if (!data) return null;
-          const st = this.state || {};
-          const sel = this.props.sel !== undefined ? this.props.sel
-            : st.moved ? st.sel
-            : fixed !== undefined ? fixed : (data.select.node != null ? data.select.node : null);
-          return {data, sel};
-        }
-        renderVals() {
-          const rootStyle = {width: (this.props.width || 340) + "px", height: (this.props.height || 848) + "px"};
-          const none = {rootStyle, isEmpty: false, isTicket: false, isCard: false, empty: {}, head: {}, title: {}, origin: {}, status: {},
-            run: {}, hasWhy: false, why: {}, ticketSections: [], events: {}, noEvents: false, noEventsNote: {}, blocks: [],
-            hasKids: false, kidSection: {}, kids: [], isContainer: false, summary: {}, lampCounts: {}, phaseCounts: {},
-            cardSections: [], github: {}};
-          if (!window.MMW) return none;
-          const s = this.pick();
-          if (!s) return none;
-          window.MMW_NOW = s.data.now;
-          const v = window.MMW.detail.fromBoard(s.data.payload, s.sel);
-          const st = this.state || {};
-          const goto = n => {
-            if (n == null) return;
-            if (this.props.onGoto) this.props.onGoto(n);
-            else this.setState({moved: true, sel: n, open: [], toggled: []});
-          };
-          const close = () => {
-            if (this.props.onClose) this.props.onClose();
-            else this.setState({moved: true, sel: null});
-          };
-          const openGithub = () => {
-            if (v.gh != null && v.repo) window.open("https://github.com/" + v.repo + "/issues/" + v.gh, "_blank", "noopener,noreferrer");
-          };
-          if (v.empty) return {...none, isEmpty: true, empty: {title: v.emptyTitle, text: v.emptyText, "data-ui": "详情.empty"}};
-          const ticket = v.kind === "ticket";
-          const common = {
-            head: {ticket, eyebrow: v.eyebrow, onGithub: openGithub, onClose: close, "data-ui": "详情.head"},
-            title: {ticket, title: v.title, "data-ui": "详情.title"},
-            origin: {ticket, num: v.num, links: v.links || [], onGoto: goto, "data-ui": "详情.origin"},
-            status: {ticket, lamp: v.lamp, statusWord: v.statusWord, phase: v.phase, elapsed: v.elapsed, "data-ui": "详情.status"},
-          };
-          if (ticket) {
-            const held = rows => [...rows].sort((a, b) => Number(b.hold) - Number(a.hold));
-            const sections = [];
-            if (v.blockers.length) sections.push({section: {ticket, title: "Blocked by", note: v.blockers.length, "data-ui": "详情.blocked-by"},
-              rows: held(v.blockers).map(row => ({ticket, row, onGoto: goto, "data-ui": "详情.blocker"}))});
-            if (v.blocks.length) sections.push({section: {ticket, title: "Blocking", note: v.blocks.length, "data-ui": "详情.blocking"},
-              rows: held(v.blocks).map(row => ({ticket, row, onGoto: goto, "data-ui": "详情.blocks"}))});
-            const open = new Set(st.open || []), toggled = new Set(st.toggled || []);
-            const blocks = (v.phaseBlocks || []).map((block, index) => {
-              const key = v.gh + ":b" + index;
-              const opened = toggled.has(key) ? !block.openByDefault : block.openByDefault;
-              return {
-                block: {block, opened, "data-ui": "详情.event-block", onToggle: () => {
-                  const next = new Set(toggled);
-                  if (next.has(key)) next.delete(key); else next.add(key);
-                  this.setState({toggled: [...next]});
-                }},
-                rows: opened ? block.items.map((item, i) => {
-                  const rowKey = key + ":" + i;
-                  return {item, opened: open.has(rowKey), "data-ui": "详情.event", onToggle: () => {
-                    const next = new Set(open);
-                    if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey);
-                    this.setState({open: [...next]});
-                  }};
-                }) : [],
-              };
-            });
-            return {
-              ...none, ...common, isTicket: true,
-              run: {runtime: v.runtime, noRunText: v.noRunText, "data-ui": "详情.runtime"},
-              hasWhy: v.why.length > 0, why: {why: v.why, "data-ui": "详情.why"},
-              ticketSections: sections,
-              events: {ticket, title: "Events", note: v.eventCount, "data-ui": "详情.events"},
-              noEvents: !((v.rawEvents || []).length || blocks.length), noEventsNote: {ticket, text: "no events yet"},
-              blocks,
-              hasKids: v.kids.length > 0, kidSection: {ticket, title: "Sub-issues", note: v.kids.length, "data-ui": "详情.sub-issues"},
-              kids: v.kids.map(kid => ({kid, "data-ui": "详情.sub-issue"})),
-            };
-          }
-          const rel = id => row => ({row, onGoto: goto, "data-ui": "详情." + id});
-          const sections = [];
-          if (v.kind === "spec") sections.push({section: {title: "By number", "data-ui": "详情.by-number"}, rows: v.ticketRows.map(rel("ticket-row")), isEmpty: false, none: {}});
-          if (v.kind === "map") {
-            sections.push({section: {title: "spec", note: v.specCount, "data-ui": "详情.specs"}, rows: v.specRows.map(rel("spec-row")), isEmpty: false, none: {}});
-            if (v.decisionRows.length) sections.push({section: {title: "Decision tickets", note: v.decisionCount, "data-ui": "详情.decisions"}, rows: v.decisionRows.map(rel("decision-row")), isEmpty: false, none: {}});
-          }
-          if (v.kind === "decision") {
-            sections.push({section: {title: "Blocked by", note: v.blockers.length || null, "data-ui": "详情.blocked-by"}, rows: v.blockers.map(rel("blocker")), isEmpty: !v.blockers.length, none: {text: "none"}});
-            sections.push({section: {title: "Blocking", note: v.blocks.length || null, "data-ui": "详情.blocking"}, rows: v.blocks.map(rel("blocks")), isEmpty: !v.blocks.length, none: {text: "none"}});
-          }
+      </sc-if>
+    </sc-if>
+    <sc-if value="{{ isDecision }}" hint-placeholder-val="{{ false }}">
+      <section class="section" data-ui="详情.blocked-by">
+        <div class="eyebrow spread">
+          <span data-ui="详情.blocked-by.title">Blocked by</span>
+          <span data-ui="详情.blocked-by.count">{{ blockerCount }}</span>
+        </div>
+        <sc-for list="{{ blockers }}" as="r" hint-placeholder-count="1">
+          <button type="button" class="row" data-ui="详情.blocker" onClick="{{ r.go }}">
+            <span class="{{ r.lampCls }}" data-ui="详情.blocker.lamp"></span>
+            <span class="row-num" data-ui="详情.blocker.number">{{ r.num }}</span>
+            <span class="row-title" data-ui="详情.blocker.title">{{ r.title }}</span>
+            <span class="{{ r.tailCls }}" data-ui="详情.blocker.state">{{ r.tail }}</span>
+          </button>
+        </sc-for>
+        <sc-if value="{{ noBlockers }}" hint-placeholder-val="{{ false }}">
+          <p class="row-none" style="margin: 0">none</p>
+        </sc-if>
+      </section>
+      <section class="section" data-ui="详情.blocking">
+        <div class="eyebrow spread">
+          <span data-ui="详情.blocking.title">Blocking</span>
+          <span data-ui="详情.blocking.count">{{ blocksCount }}</span>
+        </div>
+        <sc-for list="{{ blocks }}" as="r" hint-placeholder-count="1">
+          <button type="button" class="row" data-ui="详情.blocks" onClick="{{ r.go }}">
+            <span class="{{ r.lampCls }}" data-ui="详情.blocks.lamp"></span>
+            <span class="row-num" data-ui="详情.blocks.number">{{ r.num }}</span>
+            <span class="row-title" data-ui="详情.blocks.title">{{ r.title }}</span>
+            <span class="{{ r.tailCls }}" data-ui="详情.blocks.state">{{ r.tail }}</span>
+          </button>
+        </sc-for>
+        <sc-if value="{{ noBlocks }}" hint-placeholder-val="{{ false }}">
+          <p class="row-none" style="margin: 0">none</p>
+        </sc-if>
+      </section>
+    </sc-if>
+    <sc-if value="{{ hasGhButton }}" hint-placeholder-val="{{ false }}">
+      <button type="button" class="btn sm" data-ui="详情.github" onClick="{{ openGithub }}" style="align-self: flex-start">{{ ghLabel }}</button>
+    </sc-if>
+  </sc-if>
+  <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+    <div class="empty" data-ui="详情.empty">
+      <p class="display" data-ui="详情.empty.title">{{ emptyTitle }}</p>
+      <p class="empty-text">{{ emptyText }}</p>
+    </div>
+  </sc-if>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 340, &quot;height&quot;: 848}, &quot;scene&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;morning&quot;, &quot;twenty-tickets&quot;, &quot;bad-data&quot;, &quot;empty&quot;, &quot;ticket-returned&quot;, &quot;ticket-bounced&quot;, &quot;ticket-closeout&quot;, &quot;ticket-waiting&quot;, &quot;ticket-review&quot;, &quot;ticket-queued&quot;, &quot;ticket-landed&quot;, &quot;ticket-fault&quot;, &quot;ticket-missing-blocker&quot;, &quot;spec&quot;, &quot;map&quot;, &quot;decision&quot;, &quot;nothing-selected&quot;], &quot;default&quot;: &quot;morning&quot;, &quot;tsType&quot;: &quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {ready: false, openEvents: {}, toggledBlocks: {}};
+
+  componentDidMount() { this.waitForData(); }
+
+  waitForData(tries = 0) {
+    if (window.DETAIL_SCENES) { this.setState({ready: true}); return; }
+    if (tries < 40) setTimeout(() => this.waitForData(tries + 1), 50);
+  }
+
+  componentDidUpdate(prev) {
+    if (prev.scene !== this.props.scene) this.setState({openEvents: {}, toggledBlocks: {}});
+  }
+
+  view() {
+    if (this.props.view) return this.props.view;
+    const scenes = (typeof window !== "undefined" && window.DETAIL_SCENES) || {};
+    return scenes[this.props.scene || "morning"] || {empty: true, emptyTitle: "点一张卡", emptyText: ""};
+  }
+
+  relation(row, role) {
+    const tail = row.hold ? {cls: "row-state hold", text: "held", ui: "hold"}
+      : row.phase ? {cls: "pill " + row.phase, text: row.phase, ui: "phase"}
+        : {cls: row.state === "not landed" ? "row-state open" : "row-state", text: row.state, ui: "state"};
+    return {
+      cls: row.hold && role === "blocker" ? "row hold" : "row",
+      lampCls: "lamp " + row.lamp,
+      num: row.num, title: row.title, where: row.where || "",
+      tail: tail.text, tailCls: tail.cls,
+      tailUi: "详情.blocker." + tail.ui,
+      blockTailUi: "详情.blocks." + tail.ui,
+      go: () => this.props.onGoto?.(row.n),
+    };
+  }
+
+  renderVals() {
+    const v = this.view();
+    const kind = v.kind || "";
+    const heldFirst = rows => [...(rows || [])].sort((a, b) => Number(b.hold) - Number(a.hold));
+    const blockers = (kind === "ticket" ? heldFirst(v.blockers) : (v.blockers || [])).map(r => this.relation(r, "blocker"));
+    const blocks = (kind === "ticket" ? heldFirst(v.blocks) : (v.blocks || [])).map(r => this.relation(r, "blocks"));
+    const eventBlocks = (v.phaseBlocks || []).map((b, i) => {
+      const open = this.state.toggledBlocks[i] ? !b.openByDefault : b.openByDefault;
+      return {
+        cls: b.tone === "plain" ? "log-block" : "log-block warn",
+        chev: open ? "▾" : "▸",
+        pillCls: "pill " + b.phase,
+        phase: b.phase,
+        summary: open ? "" : b.summary,
+        time: open ? b.span : b.from,
+        open,
+        toggle: () => this.setState(s => ({toggledBlocks: {...s.toggledBlocks, [i]: !s.toggledBlocks[i]}})),
+        items: (b.items || []).map((e, j) => {
+          const key = i + ":" + j;
           return {
-            ...none, ...common, isCard: true,
-            isContainer: v.kind === "spec" || v.kind === "map",
-            summary: {title: v.listTitle, note: v.listCount, "data-ui": "详情.summary"},
-            lampCounts: {lamps: v.lamps || [], "data-ui": "详情.lamp-counts"},
-            phaseCounts: {phases: v.phases || [], "data-ui": "详情.phase-counts"},
-            cardSections: sections,
-            github: {label: v.ghLabel, onClick: openGithub, "data-ui": "详情.github"},
+            time: e.time, name: e.name, text: e.text, hasText: e.hasText,
+            nameCls: e.tone === "warn" || e.tone === "needs-you" ? "log-n warn" : "log-n",
+            open: Boolean(this.state.openEvents[key]),
+            detail: e.detail || [],
+            toggle: () => this.setState(s => ({openEvents: {...s.openEvents, [key]: !s.openEvents[key]}})),
           };
-        }
-      }
-    </script>
-  </body>
+        }),
+      };
+    });
+    const openGithub = () => {
+      if (v.gh != null && v.repo) window.open("https://github.com/" + v.repo + "/issues/" + v.gh, "_blank", "noopener,noreferrer");
+    };
+    return {
+      hasCard: !v.empty, isEmpty: Boolean(v.empty),
+      isTicket: kind === "ticket", isContainer: kind === "spec" || kind === "map",
+      isSpec: kind === "spec", isMap: kind === "map", isDecision: kind === "decision",
+      eyebrow: v.eyebrow || "", title: v.title || "", num: v.num || "",
+      links: (v.links || []).map(l => ({label: l.label, go: () => this.props.onGoto?.(l.n)})),
+      statusLampCls: "lamp big " + (v.lamp || "hollow"),
+      statusWordCls: "status-word " + (v.lamp || ""),
+      statusWord: v.statusWord || "",
+      hasPhase: Boolean(v.phase),
+      phasePillCls: "pill big " + (v.phase || "queued"),
+      phase: v.phase || "",
+      elapsed: v.elapsed || "",
+      hasRuntime: Boolean(v.runtime), noRuntime: kind === "ticket" && !v.runtime,
+      runtimeGrade: v.runtime ? v.runtime.grade : "",
+      runtimeModel: v.runtime ? v.runtime.model : "",
+      runtimeRows: v.runtime ? v.runtime.rows || [] : [],
+      noRunText: v.noRunText || "not dispatched yet",
+      hasWhy: Boolean((v.why || []).length), why: v.why || [],
+      hasBlockers: Boolean(blockers.length), blockers, blockerCount: String(blockers.length),
+      hasBlocks: Boolean(blocks.length), blocks, blocksCount: String(blocks.length),
+      noBlockers: !blockers.length, noBlocks: !blocks.length,
+      eventCount: String(v.eventCount ?? 0), eventBlocks,
+      hasKids: Boolean((v.kids || []).length), kidCount: String((v.kids || []).length),
+      kids: (v.kids || []).map(k => ({
+        lampCls: "lamp " + k.lamp, num: k.num, title: k.title, kind: k.kind,
+        kindCls: k.hot ? "pill tag hot" : "pill tag",
+      })),
+      listTitle: v.listTitle || "", listCount: String(v.listCount ?? ""),
+      lamps: (v.lamps || []).map(l => ({lampCls: "lamp " + l.lamp, word: l.word, n: String(l.n)})),
+      phases: (v.phases || []).map(p => ({cls: "pill " + p.phase, label: p.label})),
+      ticketRows: (v.ticketRows || []).map(r => this.relation(r, "row")),
+      specRows: (v.specRows || []).map(r => this.relation(r, "row")),
+      decisionRows: (v.decisionRows || []).map(r => this.relation(r, "row")),
+      specCount: String(v.specCount ?? 0),
+      hasDecisions: Boolean((v.decisionRows || []).length),
+      decisionCount: String(v.decisionCount ?? 0),
+      hasGhButton: Boolean(v.ghLabel), ghLabel: v.ghLabel || "",
+      emptyTitle: v.emptyTitle || "", emptyText: v.emptyText || "",
+      openGithub, onClose: () => this.props.onClose?.(),
+    };
+  }
+}
+</script>
+</body>
 </html>

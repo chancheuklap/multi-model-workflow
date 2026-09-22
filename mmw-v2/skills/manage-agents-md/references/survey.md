@@ -11,8 +11,6 @@ Inspect before writing:
 - commands: `package.json`, `Makefile`, task runners, CI workflows
 - docs/specs/policies: `README.md`, `CONTRIBUTING.md`, `docs/`, `specs/`, `policies/`, `SECURITY.md`, `.github/`
 - conventions: current code patterns, test layout, generated files, legacy areas to avoid
-
-Added for this skill:
 - history: the directories with the most commits in the last year (`git log --since='1 year ago' --name-only --format= | cut -d/ -f1-2 | sort | uniq -c | sort -rn`), which tells where nested files earn their place
 - the files under `## Other tools' instruction files` in your scratch directory's `inputs.md`, read for facts
 

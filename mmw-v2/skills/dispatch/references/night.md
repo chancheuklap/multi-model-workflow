@@ -2,7 +2,7 @@
 
 You are the main agent. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create worktrees, and start the sessions. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
 
-This file is the order of the night. How a wake reaches you and what you do on one is in `SKILL.md` next to this file, and `<dispatch>`, `<engine>`, `<lease.py>` and `<ui-acceptance scripts>` are resolved in its `## Resolve `<dispatch>` once` section.
+This file is the order of the night. How a wake reaches you and what you do on one is in the skill's [../SKILL.md](../SKILL.md), and `<dispatch>`, `<engine>`, `<events.py>`, `<lease.py>` and `<ui-acceptance scripts>` are resolved in its `## Resolve `<dispatch>` once` section.
 
 Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch comes to rest (step 3), and the watchdog tells you when the board has gone silent where it should not ([how-it-works.md](how-it-works.md) under **The watchdog and turn guard** says what it is); nothing else does, and no agent polls another.
 
@@ -12,7 +12,7 @@ Between the steps below you end your turn. The relay you start in step 1 wakes y
 <dispatch> check <spec>
 ```
 
-**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again. Do not open the night on 2; change an invalid agent row as [editing-models.md](editing-models.md) says.
+**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; change an invalid agent row as [editing-models.md](editing-models.md) says.
 
 Then, from this session — the one the night's wakes must reach:
 
@@ -37,8 +37,7 @@ finding per line. Most of what it checks holds for every ticket, whether or not 
 has a screen contract: a criterion written as prose with no `CHECK:` under it
 (`[manual-gate]`), a `CHECK:` or `EXPECT:` line attached to no criterion, criteria that
 produce no gate at all (`ledger contains zero live gates`), a doubled worker-grade
-label, and a batch that is not a startable graph; a ticket dispatched with one of those
-costs its worker the round it was dispatched for. A missing worker-grade label is a `WARN`:
+label, and a batch that is not a startable graph. A missing worker-grade label is a `WARN`:
 the ticket starts on the default row. A closed ticket's findings are printed and do not
 count, because it is never started again. The criterion shapes of an
 interface ticket are reported only where a criterion uses them: a `boundary-check.py
@@ -54,9 +53,7 @@ lines before acting on it: `ERROR` lines about a ticket or the graph, which you 
 ticket; or a tracker that did not answer — an `ERROR` tagged `[parent-unreadable]` or
 `[sub-issues-unreadable]`, or the run ending in a traceback from a `gh` call — where
 nothing about the tickets was established and the same command is run again once the
-tracker answers. Answer the findings in one sitting rather than one per ticket per night:
-on 2026-09-07 the same class of defect arrived three at a time, hours apart, each costing
-a whole ticket.
+tracker answers. Answer the findings in one sitting rather than one per ticket.
 
 When the batch drives a screen contract, whether the consuming repository can be driven
 at all is a separate question, answered there by `python3 <ui-acceptance scripts>/target_config.py --check`, which prints
@@ -109,27 +106,27 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
 | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
 | `watchdog: relay down (…)` | Nothing is relaying, so `<dispatch> open <spec>` starts one; use `open-ticket <n>` for one ticket. Nothing to ack |
-| `watchdog: relay not reading (…)` | Nothing. The relay is there and cycling; what it cannot do is read the board, and the first read that works clears it on its own, so `open` would replace a running process with nothing. Several of these in a row without it clearing is a network or credential fault worth looking into — the finding names the last cycle and the failing read. Nothing to ack |
+| `watchdog: relay not reading (…)` | Nothing. The relay is running but cannot read the board; the first read that works clears it, and `open` would replace a running process with nothing. Several of these in a row without it clearing is a network or credential fault worth looking into — the finding names the last cycle and the failing read. Nothing to ack |
 | `watchdog: #<n> liveness unknown: …` | `<dispatch> resume <n> "Say in one line where you are, then continue"`; exit 0 confirms it; exit 2 because the runner has no such session means `<dispatch> retract <n>`, and exit 2 naming the event that ended the worker's hold means the command that refusal names; otherwise leave it for the user |
 | `watchdog: #<n> is held with no session to ask, …` | Read `status`; when nothing works the ticket, `<dispatch> retract <n>`. Nothing to ack |
 | `watchdog: cannot read the board since <time>: …` | Run the named `gh issue view <n>`; wait for tracker or network recovery, or leave credential repair to the user. Nothing to ack |
 | `watchdog: #<n> events unreadable` | Leave the named comment for the user. Nothing to ack |
 | A live worker whose runner has no session | `<dispatch> retract <n>`; step 4 starts its replacement |
 | `watchdog: #<n> silent since <time> with nothing to wait on: …` | Resume it with the continue/fault/decision instruction in [how-it-works.md](how-it-works.md) under **Interpreting a night**. Nothing to ack |
-| A live worker with no fault | Do not `resume` |
+| A live worker with no fault | Nothing; its result wakes you |
 | A gone session still has a worktree, slot or claim | `<dispatch> retract <n>`; exit 0 reports what it released, exit 2 names what remains |
 | The ticket needs the other worker grade | Swap its `junior-worker` / `senior-worker` label; the next `start` reads it |
 | Empty frontier and no live agent | Finish the wake, then go to `## 4. The closing pass` |
 
-For a `contract` child, use this authority order exactly: **decision tickets and ADRs, then the spec, then the handoff package or the screen contract, each in its own domain, then domain documents, then the ticket body**. Fix it yourself when you can cite a written authority at that order: a higher authority, a more specific file within the same authority, a repository rule, or the artifact a baseline copied. Edit the tracker-owned spec, acceptance criterion, or ticket body directly; when a spec changes, leave the change-and-reason comment that the `to-spec` skill's step 5 requires. Edit a repository-owned baseline through the normal `origin/<into>` commit and push procedure in `## 4. The closing pass` — never the handoff package, which is written only by the `design-pages` skill's pull door; a hand edit there is overwritten by the next pull and meanwhile makes the story judge pass against a design nobody signed off. Correct every not-yet-landed ticket derived from the same bad statement. Comment on the child with the authority used, every published item corrected, the source commit, and the tickets checked; run `<dispatch> route <n> <child> fixed`, then resume the active worker with the exact correction, the commit it should integrate from, and `continue`.
+For a `contract` child, use this authority order exactly: **decision tickets and ADRs, then the spec, then the handoff package or the screen contract, each in its own domain, then domain documents, then the ticket body**. Fix it yourself when you can cite a written authority at that order: a higher authority, a more specific file within the same authority, a repository rule, or the artifact a baseline copied. Edit the tracker-owned spec, acceptance criterion, or ticket body directly; when a spec changes, leave the change-and-reason comment that the `to-spec` skill's step 5 requires. Edit a repository-owned baseline through the normal `origin/<into>` commit and push procedure in `## 4. The closing pass` — never the handoff package, which is written only by the `design-pages` skill's pull door. Correct every not-yet-landed ticket derived from the same bad statement. Comment on the child with the authority used, every published item corrected, the source commit, and the tickets checked; run `<dispatch> route <n> <child> fixed`, then resume the active worker with the exact correction, the commit it should integrate from, and `continue`.
 
-When no authority settles the correction, or the proposed correction would overturn the user's decision or expand the spec, do not choose it. Find every not-yet-started ticket derived from the same Parent decision, move each from `ready-for-agent` to `needs-triage`, and comment on the child with the unresolved options, your recommendation, and the ticket numbers moved. Leave the child open for the user. A ticket already being worked stays held at the contract question; do not rewrite its delivery while the authority is unresolved.
+When no authority settles the correction, or the proposed correction would overturn the user's decision or expand the spec, leave the choice to the user. Find every not-yet-started ticket derived from the same Parent decision, move each from `ready-for-agent` to `needs-triage`, and comment on the child with the unresolved options, your recommendation, and the ticket numbers moved. Leave the child open for the user. A ticket already being worked stays held at the contract question; do not rewrite its delivery while the authority is unresolved.
 
 ## 4. The closing pass
 
 The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings — the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `python3 <events.py> fold <n>`, open until a `child.closed` on the ticket gives their `resolution` — route **exactly those**. If there are none, go to step 5.
 
-**Read every ticket of the batch, not the ones you heard about.** A `child.opened` of kind `finding` wakes nobody: the three kinds that wake you are `contract`, `fault` and `decision`, as [how-it-works.md](how-it-works.md) under **Results, watches and wakes** says. So the findings you were woken for during the night are no measure of the findings that exist, and a pass built on your wakes reads a fraction of them. Take the ticket list from `<dispatch> status <spec>` — every row of that table is a ticket of this batch — and run the `fold` above on each one, one ticket at a time. `summary` in step 5 refuses to post while any finding is still unrouted and prints the count it read, so a batch read short is caught before the night is closed; it is caught after the pass is over, though, which is why the list comes from the table and not from memory.
+**Read every ticket of the batch, not the ones you heard about.** A `child.opened` of kind `finding` wakes nobody: the three kinds that wake you are `contract`, `fault` and `decision`, as [how-it-works.md](how-it-works.md) under **Results, watches and wakes** says. So the findings you were woken for during the night are no measure of the findings that exist, and a pass built on your wakes reads a fraction of them. Take the ticket list from `<dispatch> status <spec>` — every row of that table is a ticket of this batch — and run the `fold` above on each one, one ticket at a time.
 
 Every route is carried out by one command, run once per finding, and it is the only way a finding leaves this pass:
 
@@ -141,12 +138,12 @@ Every route is carried out by one command, run once per finding, and it is the o
 
 `<n>` is the ticket the finding came from — the one whose `fold` lists it under `children` — and the spec is the one that ticket's `child.opened` for it names; neither is read off the tree, which a `became-ticket` route itself changes. It closes the finding — `fixed` as completed, `stale` as not planned — or, for `became-ticket <new ticket>`, makes it that ticket, and writes the `child.closed` event on `<n>`; that event is the one record of where the finding went, and the night summary counts by it. A stale route records `reason=invalid` when the finding never held, or `reason=fixed-elsewhere` when it held and another ticket or a closing-pass fix resolved it. `fixed-elsewhere` is not a reviewer false positive. A non-stale route takes no reason. When `<new ticket>` is the finding itself, the finding stays open, its `mmw:child` label becomes `mmw:ticket`, and its parent moves from the ticket to the spec, because the scripts find a ticket's spec through its direct parent alone. When `<new ticket>` is another issue, the finding is closed as its duplicate and that issue gets the same label and the same parent. Exit 0: routed and recorded, or routed that way already. Exit 1: the tracker took part of it and not the rest; stderr says which, and the same command run again finishes it without doing any step twice. Exit 2: nothing was done — `<n>` carries no `child.opened` for the finding, the finding was routed another way, its `child.opened` names no spec for a `became-ticket`, the tracker could not be asked, or the arguments are wrong.
 
-Judge each one by the four steps below, **in order, first match wins**, after the check that comes before them. They are written here because this is where they are executed, and the night runs in a repository that has no copy of this toolbox's own decision records. Why the thresholds fall where they do, and what was rejected, is `docs/adr/0012-review-finding-routing.md` in the multi-model-workflow repository — read it when you want the reasoning, never in order to route.
+Judge each one by the four steps below, **in order, first match wins**, after the check that comes before them.
 
 **Step 0, before you classify at all.** Check the condition the finding's own body states against the current `HEAD`. If it never held, run `<dispatch> route <n> <child> stale invalid` and do nothing else. If it held but a later ticket of the same batch or a closing-pass fix already resolved it, run `<dispatch> route <n> <child> stale fixed-elsewhere` and do nothing else. A judge's claim disproved by current evidence is `invalid`; a valid claim satisfied somewhere else is `fixed-elsewhere`.
 
 1. **Does it fall inside another still-open ticket's `## Owns`?** → a ticket, `Blocked by` that open one. Not a question of size: the constraint is concurrency. Fixing it yourself in the origin-tracking checkout makes the next `advance` conflict when that ticket's branch merges.
-2. **Is it a hole in the acceptance itself** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control. This class fails in the one way nobody notices (`docs/adr/0008-silence-is-never-a-pass.md`).
+2. **Is it a hole in the acceptance itself** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control.
 3. **How many files does the fix touch?** One → fix it yourself. Two or more **with a design coupling between them** — how you fix one decides how you fix the other, and neither can be written until both are settled → a ticket, `senior-worker`. Counting files is not counting effort; it is asking whether the change has a cross-file shape somebody should look at. **A name echoed through prose is not a coupling**: renaming a thing along with its restatements in a domain doc, a `SKILL.md` and a reference file is mechanical, `grep` proves you got them all, and it stays with you.
 4. **Nothing matched** → fix it yourself. **The default is to fix it, not to open a ticket.**
 
@@ -156,9 +153,7 @@ The ones you fix: use a checkout that tracks `origin/<into>`. Fetch before each 
 2. It touches only the files that finding names.
 3. It runs the affected test suites, and the commit message quotes the line it saw (`ran 188 skipped 0`, not "the tests pass").
 
-A fix that exceeds those three is a ticket after all. That is the way out, and it is
-also what keeps step 4 from swallowing work that should have been reviewed: the whole
-pass is auditable from `git log` in the morning, with no second agent.
+A fix that exceeds those three is a ticket after all.
 
 The ones that become tickets: open as few tickets as possible. A ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that live ticket. A finding that is a ticket on its own becomes one in place — rewrite its body into a ticket, label it for the agent queue, then `<dispatch> route <n> <child> became-ticket <child>`; findings folded into one new ticket each get `<dispatch> route <n> <child> became-ticket <that ticket>`.
 
@@ -179,13 +174,12 @@ Then lint each ticket you wrote or rewrote, before you dispatch it:
 <engine> <n> --lint
 ```
 
-It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. An exit 1 whose `ERROR` lines are all tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or that ends in a traceback from a `gh` call, is the tracker not answering rather than the ticket being wrong: run the same command again once it answers. This is what step 1b does for the published batch, and this pass writes tickets the same way, so it gets the same pass. A ticket dispatched with criteria that produce no gate (`ledger contains zero live gates`) stops its worker at its first `--preflight`, and the worker does the right thing — opens a `fault` child and waits for you — which costs the ticket the whole round it was dispatched for.
+It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. An exit 1 whose `ERROR` lines are all tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or that ends in a traceback from a `gh` call, is the tracker not answering rather than the ticket being wrong: run the same command again once it answers.
 
 Once every finding has a route, close this spec's Worker Memory before leaving the pass.
 List the repository space by the exact `mmw-spec-<spec>` label with a limit large enough
 to return the whole set, and inspect every returned record. Get the Space id from the
-tracker repository rather than from this session's `NMEM_SPACE` (the main agent has no
-worker Space environment):
+tracker repository rather than from this session's `NMEM_SPACE`:
 
 ```sh
 mmw_closeout_space="$(gh repo view --json nameWithOwner -q .nameWithOwner |
@@ -240,7 +234,7 @@ Step 4 left no open finding. From any checkout in this repository:
 
 `reverify` exit 0 means every landed ticket is green. Exit 1 means each red ticket is already reopened in `needs-triage`, unassigned and carrying `ticket.regressed`; do not close it. Exit 2 means one ticket established no result, so no ticket was changed and the remainder was skipped; fix stderr's named condition and run `reverify` again.
 
-A ticket reverify reopened is taken back by `reverify` itself. Repair the cause on the base branch, push it, and run `reverify <spec>` again: the reopened ticket runs with the rest, and all met, the run writes `ticket.recovered`, takes `needs-triage` off and closes it, counted on the summary line as `<n> recovered`. Never close such a ticket by hand — the ticket would still read as regressed, a later reverify would not run it, and `summary` would not count it. Still red, it stays exactly where it is for triage.
+A ticket reverify reopened is taken back by `reverify` itself. Repair the cause on the base branch, push it, and run `reverify <spec>` again: the reopened ticket runs with the rest, and all met, the run writes `ticket.recovered`, takes `needs-triage` off and closes it, counted on the summary line as `<n> recovered`. Leave its closing to `reverify`. Still red, it stays exactly where it is for triage.
 
 `summary` lists the exact label again; the file is a decision, not evidence that the list
 is still the same. A complete object is accepted only when its counts and ids match that
@@ -270,7 +264,7 @@ Only after the user has accepted the result, the main agent runs:
 <dispatch> finish <spec>
 ```
 
-`finish` requires `spec.closed`, a later `spec.retroed` whose result is `recorded`, the recorded project branch, no other open night with the same base branch, and no open ticket under any spec that used that base branch. It merges `origin/<base branch>` into `origin/<project branch>` in the project branch's detached merge worktree, runs the repository checks with `MMW_BASE_REF=origin/<project branch>`, and fast-forward pushes the checked result. A conflict or red check pushes and deletes nothing. After the push it writes `spec.merged`, then removes the contained base branch from origin, the base branch's merge worktree and its lock, and the local base branch when no worktree has it checked out. It never removes a worktree that has the base branch checked out: the pipeline makes none, so such a worktree is a checkout a person or a runner made, usually the one the main agent's session lives in, and removing it would end that session. stderr names each such worktree with the commands that remove it and then the local base branch; the user removes it once the session is done, and `finish` needs no second run. A base branch already contained in the project branch needs no merge and goes directly to those cleanup checks. Running `finish` again after `spec.merged` only completes cleanup; it does not create another merge commit.
+`finish` requires `spec.closed`, a later `spec.retroed` whose result is `recorded`, the recorded project branch, no other open night with the same base branch, and no open ticket under any spec that used that base branch. It merges `origin/<base branch>` into `origin/<project branch>` in the project branch's detached merge worktree, runs the repository checks with `MMW_BASE_REF=origin/<project branch>`, and fast-forward pushes the checked result. A conflict or red check pushes and deletes nothing. After the push it writes `spec.merged`, then removes the contained base branch from origin, the base branch's merge worktree and its lock, and the local base branch when no worktree has it checked out. It never removes a worktree that has the base branch checked out — usually the one the main agent's session lives in, which removing would end. stderr names each such worktree with the commands that remove it and then the local base branch; the user removes it once the session is done, and `finish` needs no second run. A base branch already contained in the project branch needs no merge and goes directly to those cleanup checks. Running `finish` again after `spec.merged` only completes cleanup; it does not create another merge commit.
 
 Exit 0 means the merge is recorded and every safe cleanup was attempted. Exit 1 means the merge conflicted or repository checks failed; nothing was pushed or deleted. Exit 2 means a precondition, fetch, push or event write failed. Preconditions fail before any change; a push rejection deletes nothing, while an event-write failure can leave the checked merge on origin and the next `finish` records it before cleanup. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
 

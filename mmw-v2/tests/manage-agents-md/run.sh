@@ -4,6 +4,7 @@
 #   bash mmw-v2/tests/manage-agents-md/run.sh
 
 set -uo pipefail
+python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_module_paths.py" || { echo "a toolbox script names a module file that does not exist (above); fix it before running this suite" >&2; exit 1; }
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 rc=0
 ENGINE_FAULTS=': unbound variable|: integer expression expected|: command not found|syntax error near'

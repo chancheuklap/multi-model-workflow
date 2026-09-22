@@ -33,13 +33,13 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| §0 标题、粗体首句、「Name the one you used…」一句 | 上游把这一节写成每个新项目必过的 gate；本仓写成 settle which style guide |
-| §0「For a markerless project…」一段 | 上游写 pause and present the choices from `onboarding.md`；本仓写成不停下来问品牌，直接用自带配色画，在交付物旁边一行说明用了哪套、四种改法是什么 |
-| §0「Branding first is the right call…」一段 | 本仓加的：送客户、送外部的场合仍然先问，问法照上游，指向 `onboarding.md` 与 `profiles.md` |
+| §0 标题、粗体首句、「Name the one you used…」一句 | 上游把这一节写成每个新项目必过的 gate；本仓写成 settle which style guide。交付物旁写明用了哪套，是为了默认配色的图不会不声不响地进到有品牌的场合；这条理由只记在这里 |
+| §0「For a markerless project…」一段 | 上游写 pause and present the choices from `onboarding.md`；本仓写成不停下来问品牌，直接用自带配色画，在交付物旁边一行说明用了哪套、四种改法是什么。理由（多数图读一次、不出门，每张都停下来问品牌得不偿失）见「总原则」，不写进正文 |
+| §0「When the artifact is going to a client…」一段 | 本仓加的：送客户、送外部的场合仍然先问，问法照上游，指向 `onboarding.md` 与 `profiles.md` |
 | §0 末段句尾「all-default tokens with no marker or header take the default path above」 | 本仓加的半句，跟着上两条走默认路径。`profiles.md` 里「all those values unchanged, run the first-time setup gate in `SKILL.md`」回指这一节，不必改 |
 | §1 末句「Above 9 nodes, it's probably two diagrams」 | 改成超过 9 个节点先找能嵌套的图型，再考虑第二张 |
 | §3 rules of thumb 第三条 | 同上：超预算改成重选一个能嵌套的图型，整个主题留在一张画布 |
-| §7 复杂度预算末句 | 三处拆图规则里最要紧的一处。改写成：重画成能嵌套的图型，预算改为**按层**计——每条带、每个容器各自不超，整张画布可以超；图型是为它自己的典型题材写的，需要弯折（Layers 的范例不画带间连线，不代表你的连线要拿掉）。确实是两个独立问题时才拆，并说明每张图回答哪个问题。各图型自己的上限（泳道数、实体数、轴数、系列数）是它们语法的物理极限，仍然绝对生效 |
+| §7 复杂度预算末句 | 三处拆图规则里最要紧的一处。改写成：重画成能嵌套的图型，预算改为**按层**计——每条带、每个容器各自不超，整张画布可以超；图型是为它自己的典型题材写的，需要弯折（Layers 的范例不画带间连线，不代表你的连线要拿掉）。确实是两个独立问题时才拆，并说明每张图回答哪个问题（理由：读者要在脑子里拼两张画布才看见一个系统，就丢了来看图的目的；只记在这里）。各图型自己的上限（泳道数、实体数、轴数、系列数）是它们语法的物理极限，仍然绝对生效 |
 | §6「Arrow markers」代码块之后「When one page carries several diagrams…」一句 | 我们加的：三个箭头 marker 的 `id` 写死为 `arrow`、`arrow-accent`、`arrow-link`，一页放几张图（`improve-codebase-architecture` 的报告每张卡两张图）就出现重复 `id`，HTML 不合法，`self_check.py` 也不查。按 §12 给 `<title>` / `<desc>` 定的同一套 slug 前缀办。上游自己给出多图页的写法 → 用上游的，删这一句 |
 | §6 rule 6、§9 检查清单两条 | `<repo-root>` 占位符改成 `repo-root/`，指 skill 目录里的那条 symlink。host 装的是 skill 目录的 symlink，`../../` 会算到 host 目录去，占位符没法解析 |
 

@@ -1,13 +1,25 @@
-/* The three families and the base rules every page of the board starts from. */
 :root {
-  --sans: 'Geist', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
-  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-  --serif: 'Instrument Serif', 'Times New Roman', serif;
+  --sans: 'Geist', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif; /* @kind font */
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; /* @kind font */
+  --serif: 'Instrument Serif', 'Times New Roman', serif; /* @kind font */
+
+  /* five steps, nothing between them */
+  --t-micro: 9px;    /* uppercase mono labels, phase pills, card footnotes */
+  --t-meta: 11px;    /* mono meta, counts, secondary prose */
+  --t-body: 13px;    /* body, list titles, buttons */
+  --t-title: 18px;   /* panel and sheet titles */
+  --t-display: 24px; /* serif empty states */
+
+  --w-regular: 400; /* @kind font */
+  --w-medium: 500; /* @kind font */
+  --w-bold: 600; /* @kind font */
+
+  --lh-flat: 1; /* @kind font */
+  --lh-title: 1.3; /* @kind font */
+  --lh-body: 1.45; /* @kind font */
+  --lh-prose: 1.6; /* @kind font */
+
+  --track-wide: 0.18em; /* @kind font */  /* uppercase labels */
+  --track: 0.14em; /* @kind font */       /* mono labels that are not uppercase */
+  --track-loose: 0.02em; /* @kind font */ /* wordmark, phase pills */
 }
-*,
-    *::before,
-    *::after { box-sizing: border-box; }
-button { font: inherit; color: inherit; }
-a { color: var(--ink); }
-a:hover { color: var(--muted); }
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

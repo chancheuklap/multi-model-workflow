@@ -28,7 +28,7 @@ Two facts about the build machine — which machine, and which folder on it — 
 
 ### The self-check module
 
-The one that gets skipped, and the only thing standing between a missing dynamic dependency and a customer finding it. It is a module that imports everything the app needs before it can serve its first request, and returns:
+The only thing standing between a missing dynamic dependency and a customer finding it. It is a module that imports everything the app needs before it can serve its first request, and returns:
 
 ```python
 SMOKE_IMPORTS = (

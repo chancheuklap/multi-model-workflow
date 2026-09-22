@@ -1,0 +1,9 @@
+/* one link: an <a> in prose, a <button> that navigates */
+.link {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--muted); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px;
+}
+.link:hover { color: var(--ink); text-decoration-color: currentColor; }
+
+/* 一行会换行的 mono 链接：ticket 的来路、它开出的子 issue */
+.links { display: flex; flex-wrap: wrap; gap: 0 var(--sp-6); font: var(--t-meta) var(--mono); color: var(--faint); }

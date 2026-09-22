@@ -1,0 +1,14 @@
+/* 事件块：ticket 走过的每个步骤一块，表头可点开合，里面一行一个事件。 */
+.log-block { border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; }
+.log-block.warn { border-color: var(--orange-line); }
+.log-head { display: flex; align-items: center; gap: var(--sp-8); width: 100%; padding: var(--sp-8) var(--sp-12); background: var(--fill); border: 0; cursor: pointer; text-align: left; }
+.log-head:hover { background: var(--fill-strong); }
+.log-sum { font-size: var(--t-meta); color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-time { margin-left: auto; font: var(--t-meta) var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+.log-body { display: flex; flex-direction: column; padding: var(--sp-4) var(--sp-12) var(--sp-8); }
+.log-ev { display: grid; grid-template-columns: 38px 1fr; gap: 0 var(--sp-8); width: 100%; padding: var(--sp-6) 0; background: none; border: 0; cursor: pointer; text-align: left; }
+.log-t { font: var(--t-meta) var(--mono); color: var(--faint); padding-top: var(--sp-2); font-variant-numeric: tabular-nums; }
+.log-n { font-size: var(--t-body); font-weight: var(--w-bold); color: var(--ink); }
+.log-n.warn { color: var(--orange-ink); }
+.log-x { grid-column: 2; font-size: var(--t-meta); color: var(--muted); line-height: var(--lh-body); }
+.log-chev { color: var(--faint); font-size: var(--t-micro); }

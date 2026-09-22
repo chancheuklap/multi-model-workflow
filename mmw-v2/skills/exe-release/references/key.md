@@ -2,7 +2,7 @@
 
 A product ships by declaring one release key: `<product>.release-adapter.json`, one file, JSON only.
 
-The filename says `adapter`, and so does the `--adapter` flag every script below takes. Both are literals a program reads — `release-flow.sh` finds keys by `*.release-adapter.json`, `verify_key.py` recognises them the same way — so they stay as they are. Prose calls this file the release key.
+The filename and the `--adapter` flag every script below takes say `adapter`: both are literals the scripts read. Prose calls this file the release key.
 
 **Adding a product means writing a release key. It does not mean writing Python.** When something cannot be said in the release key, the answer is a new field in it or a new capability in the skill — never a script in the product repo. A script there is a copy of packaging knowledge that the next product will have to write again.
 
@@ -50,7 +50,7 @@ Applied to checks, the same question reads: **a check every product needs is the
 
 That is a complete release key. The engine supplies the pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release key adds `stages` only for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. The engine appends its three afterwards.
 
-Those three names are reserved; a release key that uses one is refused. The rule used to be that a release key naming one of them took over the whole list — and a release key that had copied `assemble` from another one silently turned the engine's `verify_key` off, with every step still reporting green. If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
+Those three names are reserved; a release key that uses one is refused. If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
 
 Paths in the release key are repository-relative POSIX paths, and two templates are available: `${DESKTOP_DIR}` and `${BUILD_ROOT}`. Absolute paths are refused: the release key is written on one machine and executed on another. `${RELEASE_PLUGIN_DIR}` expands to the skill's own `scripts/` directory — use it for anything the skill provides, since where the skill is installed is the host's business.
 
@@ -71,9 +71,9 @@ ffmpeg, an embedded interpreter, anything too large to commit. Put the files on 
 }]
 ```
 
-**Nothing is downloaded.** Upstream retention is not yours to control: one product locked an address that has since gone dead -- the release branch it named was dropped from the upstream tag, so those exact bytes can no longer be obtained by anyone. A file on a machine you own does not rot.
+**Nothing is downloaded.** Upstream retention is not yours to control: a locked download address can go dead, and those exact bytes with it. A file on a machine you own does not rot.
 
-**The hashes are the point.** `lock` is a JSON file in the repository recording each file's sha256, and a copy that does not match stops the release. The same tool built from a different source is not the same file, and the difference does not announce itself: the build succeeds, the app runs, and on a customer machine it quietly does the slow thing. The one this rule caught: the locked ffmpeg needs an NVIDIA driver from 2021, the current upstream build needs one from 2025, and customers in between lose GPU encoding and never see an error.
+**The hashes are the point.** `lock` is a JSON file in the repository recording each file's sha256, and a copy that does not match stops the release. The same tool built from a different source is not the same file, and the difference does not announce itself: the build succeeds, the app runs, and on a customer machine it quietly does the slow thing (a different ffmpeg build can require a newer GPU driver, and customers without it lose GPU encoding with no error).
 
 Keep the hashes in the lock file rather than in the release key when the repo already reads them -- one place, or they drift.
 
@@ -97,7 +97,7 @@ A compiled backend has two places its data can live, and they are not interchang
 - **Inside the executable** — `python_backend.include_data_dirs`. Nuitka unpacks it to a temporary directory at run time.
 - **Beside the executable** — this field. Ordinary files in the installed tree, read by path.
 
-Three reasons a file has to take the second road. **Some packages cannot be embedded at all**: the build log shows `included data file` records for every other package and none for this one, and the compiled exe still reports the file missing — one product's OCR package behaves exactly this way, and its upstream documentation tells you to place the files by hand after compiling. **Some are too large to unpack on every launch** — one product's music is 156 MB. **Some have to stay replaceable** after the app is installed.
+Three reasons a file has to take the second road. **Some packages cannot be embedded at all**: the build log shows `included data file` records for every other package and none for this one, and the compiled exe still reports the file missing. **Some are too large to unpack on every launch.** **Some have to stay replaceable** after the app is installed.
 
 ```jsonc
 "runtime_assets": {
@@ -143,9 +143,9 @@ One Nuitka invocation per entry in `targets`. The skill renders the command; the
 }
 ```
 
-Each of these fields exists because a build failed without it:
+What each field prevents:
 
-- **`include_packages` brings the code; the data files inside it do not come with it.** Miss the data and the app raises FileNotFound on a customer machine, not on the build machine. Name the directories you need in `include_data_dirs`. Reach for `include_package_data` only when you cannot name them, because it sweeps the *whole* package: every non-code file that happens to sit there, including the `CLAUDE.md` and `AGENTS.override.md` written for people inside your company. One product shipped 36 of those inside the customer's exe, and nothing said a word. When both fields cover the same file, Nuitka prints `Duplicate data file ... ignored` -- that line is telling you `include_package_data` is doing nothing you asked for and something you did not. And when neither field works — the build log records `included data file` for every package but this one, and the compiled exe still cannot find the file — the package cannot be embedded at all. Ship it beside the exe with `runtime_assets` instead; do not keep trying flags.
+- **`include_packages` brings the code; the data files inside it do not come with it.** Miss the data and the app raises FileNotFound on a customer machine, not on the build machine. Name the directories you need in `include_data_dirs`. Reach for `include_package_data` only when you cannot name them, because it sweeps the *whole* package: every non-code file that happens to sit there, including the `CLAUDE.md` and `AGENTS.override.md` written for people inside your company, shipped silently inside the customer's exe. When both fields cover the same file, Nuitka prints `Duplicate data file ... ignored` -- that line is telling you `include_package_data` is doing nothing you asked for and something you did not. And when neither field works, the package cannot be embedded at all (the symptom is under `runtime_assets`): ship it beside the exe with `runtime_assets` instead of trying more flags.
 - **`include_modules` for anything imported inside a function body.** The compiler traces imports statically; a C extension imported lazily is invisible to it and simply will not be in the package. The customer finds out when they reach that feature.
 - **`smoke.modules` is also the guard on `nofollow_imports`.** A nofollow pattern can block a module the built exe needs. The skill checks this at assemble time, because finding out after the compile costs tens of minutes.
 - **`console: false` for a GUI app**, or every customer gets a black console window.
@@ -197,7 +197,7 @@ Hooks hang on phases, not on step numbers: which steps exist depends on what the
 A hook is an **addition**, never a substitute. Two checks the skill runs on every build, with no hook and no field in the release key:
 
 - **No business source in the shipped tree.** Compiling exists to not ship source. A package that ships it still installs and still runs, so nothing reveals the leak — the product's commercial premise is simply gone. The packages to look for are `python_backend.include_packages`, which the release key already declares.
-- **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` beside the finished exe, in the directory the packer copies whole. Left there, the same content ships three times over — inside the exe, as the dist tree, and as the raw payload; one product carried 4 GB that way. `.build` is worse than bloat: it holds the C the compiler generated from the product's own source. The engine removes all three, right after the payload check reads them, so **do not put `--remove-output` in `extra_flags`**: it deletes the directories during the compile and downgrades the payload check to comparing exe tails.
+- **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` beside the finished exe, in the directory the packer copies whole. Left there, the same content ships three times over — inside the exe, as the dist tree, and as the raw payload. `.build` is worse than bloat: it holds the C the compiler generated from the product's own source. The engine removes all three, right after the payload check reads them, so **do not put `--remove-output` in `extra_flags`**: it deletes the directories during the compile and downgrades the payload check to comparing exe tails.
 - **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is an installer" are different facts: a packer can fail its own cleanup, a repo hook can run half way. Which is why a release key with an installer step must declare where the installer lands. The check runs after the `package_integrity` hook, so the glob may point at a delivery directory that the hook itself fills once the gates pass.
 
 ### What is genuinely optional

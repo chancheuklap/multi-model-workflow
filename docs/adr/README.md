@@ -47,7 +47,8 @@
 | [0026](0026-no-verifier.md) | 取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria | 2026-09-14 | 0018、0019、0020、0021、0022、0023、0024 | 无 |
 | [0027](0027-a-bounce-returns-once.md) | 同一夜第一次 landing conflict 把 ticket 交回 worker 队列，第二次才交 triage | 2026-09-14 | 0023 | 无 |
 | [0028](0028-element-parity-invariant-answers.md) | 外观按 data-ui id 做 element parity，App 页纳入 story；boundary test 断言四列；product answers 只写不变要求；judge 不遮不藏；journey 第二遍弄坏一个接口 | 2026-09-20 | 0011 | 无 |
-| [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 无 |
+| [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 0030 |
+| [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由设计时截图检查（design-pages `references/edit-pages.md`）与 pull report（`references/pull.md`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

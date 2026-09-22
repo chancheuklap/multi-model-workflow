@@ -36,8 +36,13 @@ tickets add one story adapter per design page.
   merged over it: it is what the design page
   itself drew the scene from, so lamp colours, layout and other state that the
   displayed text does not carry reach the product component too. No backend, seed,
-  route or alternate preview projection runs. The
-  screen contract's `shows` columns bind the mapping; code review checks that each `shows` name is a property of the component.
+  route or alternate preview projection runs. After a click the region enters the
+  scene the contract row's `next` names, and the adapter draws that scene's own
+  input: a scene stands for a state, so the clicked object needs no data of its own. The
+  screen contract's `shows` columns name the values each region displays and the
+  backend field each comes from (`write-screen-contract` skill's
+  `references/screen-contract-format.md`); code review checks that the component
+  draws every one of them.
 
 ## The two sides
 
@@ -137,9 +142,7 @@ paths before trusting any result:
    `missing` difference.
 
 Either control reporting nothing exits 2 with `NEGATIVE CONTROL FAILED` and no
-`STORY OK`. A design page with no `data-ui` therefore cannot pass. These controls
-prevent accidental cheating caused by an agent following an old implementation
-habit; they are not intended to defeat deliberate sabotage.
+`STORY OK`. A design page with no `data-ui` therefore cannot pass.
 
 ## `--render-only`
 
@@ -167,5 +170,4 @@ The JSON array uses the fields in **The two sides** and preserves document order
   and do not apply.
 
 `--out <dir>` keeps both screenshots, their pixel difference image and the ARIA
-capture beside each screenshot. `--render-only` additionally writes the design
-facts described above.
+capture beside each screenshot.

@@ -11,7 +11,7 @@ You are the worker on ticket `<n>`. From here you start the reviewer that judges
 | Carry on after `#<n> worker.queued` | Follow the `verify-ticket` skill's `references/running-criteria.md` under **A criterion that runs the product** |
 | Read a result event on your ticket in one line | `<dispatch> wait <n> worker\|reviewer`: prints the newest result event of that kind by name and key fields (`ticket.passed` / `ticket.returned`, `reviewer.reported base=… head=…`). It reads the ticket and nothing else |
 
-The `wait` and `ack` rows and their exit codes are also what the main agent of a night reads: the commands are the same ones, whichever session runs them.
+The `wait` row and the `ack` and `wait` exit codes below hold for whichever session runs them, the main agent of a night included.
 
 ## Exit codes
 

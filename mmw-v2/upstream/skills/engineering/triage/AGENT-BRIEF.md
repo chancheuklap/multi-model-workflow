@@ -2,7 +2,7 @@
 
 An agent brief is the structured comment the `triage` skill posts on a GitHub issue or PR at the evaluation stage: what reproducing the claim produced, the root-cause leads the codebase turned up, what would have to be true for the request to be satisfied, and the outcome being recommended. It is the record of the investigation, kept on the issue so it outlives the session that did the work.
 
-Nothing is dispatched from an agent brief. An issue judged `ready-for-agent` goes into the ticket pipeline, where the `to-spec` skill reads the agent brief as one of the spec's sources and the `to-tickets` skill cuts the tickets an agent works from.
+An issue judged `ready-for-agent` goes into the ticket pipeline, where the `to-spec` skill reads the agent brief as one of the spec's sources and the `to-tickets` skill cuts the tickets an agent works from.
 
 A brief covers both surfaces: for an issue, the finding is about behaviour that is missing or broken; for a PR, it is about the state of the existing diff: what it already does, what is missing, what review raised. Same principles either way; the PR example below shows the difference.
 

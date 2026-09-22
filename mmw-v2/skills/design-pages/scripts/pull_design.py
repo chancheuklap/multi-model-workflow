@@ -45,6 +45,7 @@ VENDOR_CONSTANTS = ("REACT_URL", "REACT_DOM_URL", "BABEL_URL")
 # after the first exists only because the one before requested a file not yet pulled.
 RENDER_ROUNDS = 5
 RENDER_REQUEST = "渲染时请求"
+DESIGN_SYSTEM_README = "design system 的 Unifications 表"
 
 
 @dataclass
@@ -78,6 +79,7 @@ class RenderAudit:
     scene_text_by_id: dict[str, dict[str, list[str]]]
     text_without_id: list[tuple[str, str]]
     controls_without_id: list[tuple[str, str]]
+    undefined_classes: list[tuple[str, str, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -587,6 +589,65 @@ def page_root(path: Path) -> tuple[str, str] | None:
     return parser.root
 
 
+class _WiringParser(HTMLParser):
+    """An `App · ` page's wiring: the text of its `data-dc-script` logic block and the
+    attributes of each `<dc-import>`, in document order, whitespace collapsed."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.in_logic = False
+        self.logic: list[str] = []
+        self.imports: list[tuple[tuple[str, str], ...]] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag == "dc-import":
+            self.imports.append(tuple(
+                (name, " ".join(str(value or "").split())) for name, value in attrs))
+        elif tag == "script":
+            found = dict(attrs)
+            self.in_logic = found.get("type") == "text/x-dc" and "data-dc-script" in found
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script":
+            self.in_logic = False
+
+    def handle_data(self, data: str) -> None:
+        if self.in_logic:
+            self.logic.append(data)
+
+
+def app_page_wiring(path: Path) -> tuple[str, tuple] | None:
+    """`(logic text, dc-import attributes)` of one page; `None` when it cannot be read."""
+    parser = _WiringParser()
+    try:
+        parser.feed(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError):
+        return None
+    return " ".join("".join(parser.logic).split()), tuple(parser.imports)
+
+
+def wiring_changes(previous: Path, current: Path) -> list[tuple[str, str]]:
+    """Each `App · ` page present in both packages whose logic block or `dc-import`
+    attributes differ, with what differs. A page either side cannot read
+    counts as changed, as an unreadable previous package does."""
+    old = {p.relative_to(previous).as_posix(): p for p in previous.rglob("App · *.dc.html")}
+    new = {p.relative_to(current).as_posix(): p for p in current.rglob("App · *.dc.html")}
+    changes = []
+    for name in sorted(set(old) & set(new)):
+        before, after = app_page_wiring(old[name]), app_page_wiring(new[name])
+        if before is None or after is None:
+            changes.append((name, "页面无法读取，接线未核对"))
+            continue
+        parts = []
+        if before[0] != after[0]:
+            parts.append("`data-dc-script` 逻辑块")
+        if before[1] != after[1]:
+            parts.append("`dc-import` 属性")
+        if parts:
+            changes.append((name, "、".join(parts) + "与上次不同"))
+    return changes
+
+
 def design_pages(root: Path) -> list[PageInfo]:
     pages = []
     for page in sorted(root.rglob("*.dc.html")):
@@ -783,6 +844,7 @@ def render_scenes(
                 console_errors: list[tuple[str, str]] = []
                 text_without_id: list[tuple[str, str]] = []
                 controls_without_id: list[tuple[str, str]] = []
+                undefined_classes: list[tuple[str, str, str]] = []
                 current_scene = [""]
 
                 def console_message(message):
@@ -821,10 +883,16 @@ def render_scenes(
                           if (visible(root)) rows.unshift(root);
                           const textMissing = [];
                           const controlsMissing = [];
+                          // Claude Design's runtime renders each {{ }} value that shares
+                          // its text with other content as a span.sc-interp; that text is
+                          // the parent's own.
+                          const interp = node => node.nodeType === Node.ELEMENT_NODE
+                            && node.classList.contains('sc-interp');
                           for (const el of rows) {
+                            if (interp(el)) continue;
                             const id = el.getAttribute('data-ui');
                             const ownText = clean(Array.from(el.childNodes)
-                              .filter(node => node.nodeType === Node.TEXT_NODE)
+                              .filter(node => node.nodeType === Node.TEXT_NODE || interp(node))
                               .map(node => node.textContent).join(' '));
                             if (!id && ownText && !['script', 'style'].includes(el.tagName.toLowerCase())) {
                               textMissing.push(label(el));
@@ -833,13 +901,40 @@ def render_scenes(
                               controlsMissing.push(label(el));
                             }
                           }
-                          return {textMissing, controlsMissing};
+                          // Class names no loaded stylesheet defines: the design drew the element
+                          // with a name its design system does not have. Claude Design's runtime
+                          // classes (sc-*) are its own.
+                          const defined = new Set();
+                          const walk = rules => {
+                            for (const rule of rules) {
+                              if (rule.selectorText) {
+                                for (const m of rule.selectorText.matchAll(/\\.([A-Za-z0-9_-]+)/g)) defined.add(m[1]);
+                              }
+                              if (rule.cssRules) walk(rule.cssRules);
+                            }
+                          };
+                          for (const sheet of document.styleSheets) {
+                            try { walk(sheet.cssRules); } catch (e) {}
+                          }
+                          const undefinedClasses = [];
+                          for (const el of rows) {
+                            for (const cls of el.classList) {
+                              if (cls.startsWith('sc-') || defined.has(cls)) continue;
+                              const where = el.closest('[data-ui]');
+                              undefinedClasses.push([cls, where ? where.getAttribute('data-ui') : el.tagName.toLowerCase()]);
+                            }
+                          }
+                          return {textMissing, controlsMissing, undefinedClasses};
                         }
                     """)
                     for label in audit["textMissing"]:
                         row = (scene["name"], label)
                         if row not in text_without_id:
                             text_without_id.append(row)
+                    for cls, where in audit["undefinedClasses"]:
+                        row = (scene["page"], cls, where)
+                        if not any(r[0] == row[0] and r[1] == row[1] for r in undefined_classes):
+                            undefined_classes.append(row)
                     for label in audit["controlsMissing"]:
                         row = (scene["name"], label)
                         if row not in controls_without_id:
@@ -868,6 +963,7 @@ def render_scenes(
         scene_text_by_id=scene_text_by_id,
         text_without_id=text_without_id,
         controls_without_id=controls_without_id,
+        undefined_classes=undefined_classes,
     )
 
 
@@ -1204,6 +1300,42 @@ def contract_copy_changes(
     return changes, unmatched
 
 
+SCALED_PROPERTIES = re.compile(
+    r"^(font-size|gap|row-gap|column-gap|inset|top|right|bottom|left"
+    r"|(padding|margin)(-(top|right|bottom|left|inline|block)(-(start|end))?)?)$"
+)
+PX_VALUE = re.compile(r"(?<![\w.-])(\d+(?:\.\d+)?)px\b")
+CUSTOM_PX = re.compile(r"--[\w-]+\s*:\s*(\d+(?:\.\d+)?)px\s*;")
+STYLE_ATTR = re.compile(r'\sstyle="([^"]*)"')
+
+
+def off_scale_values(root: Path) -> list[tuple[str, str]]:
+    """Lengths a page writes by hand where the bound design system has a scale: each
+    literal px value in a static `style` attribute, on a type-size, spacing or offset
+    property, that no `--variable: <n>px` under `_ds/` defines. Interpolated styles
+    (`{{ }}`) are computed layout and are left alone. No design system, no check."""
+    steps = set()
+    for css in sorted((root / "_ds").rglob("*.css")) if (root / "_ds").is_dir() else []:
+        steps.update(float(n) for n in CUSTOM_PX.findall(css.read_text(encoding="utf-8", errors="replace")))
+    if not steps:
+        return []
+    found = []
+    for page in sorted(root.glob("*.dc.html")):
+        for style in STYLE_ATTR.findall(page.read_text(encoding="utf-8", errors="replace")):
+            if "{{" in style:
+                continue
+            for declaration in style.split(";"):
+                prop, _, value = declaration.partition(":")
+                prop, value = prop.strip().lower(), value.strip()
+                if not SCALED_PROPERTIES.match(prop):
+                    continue
+                if any(float(n) not in steps and float(n) != 0 for n in PX_VALUE.findall(value)):
+                    row = (page.name, f"{prop}: {value}")
+                    if row not in found:
+                        found.append(row)
+    return found
+
+
 def design_check_lines(package: HandoffPackage, audit: RenderAudit) -> list[str]:
     selectors = selector_audit(package.root)
     lines = []
@@ -1218,9 +1350,15 @@ def design_check_lines(package: HandoffPackage, audit: RenderAudit) -> list[str]
         lines.append(f"- 渲染为空：`{scene}`")
     for scene, message in audit.console_errors:
         lines.append(f"- 控制台报错：`{scene}` — {message}")
+    for page, cls, where in audit.undefined_classes:
+        lines.append(f"- 样式表里没有的类名：`{page}` — `.{cls}`（在 `{where}`）")
+    off_scale = off_scale_values(package.root)
+    for page, declaration in off_scale:
+        lines.append(f"- 写死的数值不在 design system 的变量里：`{page}` — `{declaration}`")
     if (
         selectors.checked and not selectors.findings and not package.missing
         and not audit.empty_scenes and not audit.console_errors
+        and not audit.undefined_classes and not off_scale
     ):
         lines.append("- 未发现设计检查问题。")
     return lines
@@ -1303,6 +1441,7 @@ def classification_lines(
         removed = sorted(old_scenes.get(page, set()) - current_scenes.get(page, set()))
         if added or removed:
             scene_changes.append((page, added, removed))
+    wiring = wiring_changes(previous.root, package.root)
     copy_changes = []
     unmatched = []
     if contract.provided and not contract.issue and previous.audit is not None:
@@ -1310,7 +1449,7 @@ def classification_lines(
     comparison_incomplete = previous.audit is None or previous.pages is None
     controls_or_flow = bool(
         comparison_incomplete or added_ids or removed_ids or scene_changes
-        or page_structure_changed or copy_changes
+        or page_structure_changed or copy_changes or wiring
     )
     category = "增删控件或改流转" if controls_or_flow else "只改外观或文案"
     lines = [
@@ -1327,6 +1466,8 @@ def classification_lines(
         lines.append(
             f"- `scene` 取值变化：`{page}`；新增 {', '.join(added) or '无'}；删除 {', '.join(removed) or '无'}。"
         )
+    for page, what in wiring:
+        lines.append(f"- `App · ` 页接线变化：`{page}` — {what}。")
     for row_id, old, new in copy_changes:
         lines.append(f"- 合同行引用的文字变化：`{row_id}`：`{old}` → `{new}`")
     for row_id in unmatched:
@@ -1531,6 +1672,14 @@ def run(args: argparse.Namespace) -> None:
         preserved_state_list = prepare_staging(target, staged)
         inventory = Inventory(preview, staged)
         inventory.pull(pages, None)
+        # A bound design system's readme.md ends with its Unifications table, which
+        # the product's code follows; no page loads it.
+        folders = sorted({
+            "/".join(PurePosixPath(path).parts[:2])
+            for path in inventory.pulled
+            if len(PurePosixPath(path).parts) > 2 and PurePosixPath(path).parts[0] == "_ds"
+        })
+        inventory.pull([f"{folder}/readme.md" for folder in folders], DESIGN_SYSTEM_README)
         vendor = pull_vendor(staged)
         package, audit = render_until_settled(inventory, vendor, preserved_state_list, tools)
         (staged / "scenes.json").write_text(

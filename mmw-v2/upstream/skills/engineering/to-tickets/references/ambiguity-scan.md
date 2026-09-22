@@ -1,6 +1,6 @@
 # Ambiguity scan
 
-Read only the spec and the drafted tickets. Do not read the code. Run one pass. Write nothing on the tracker.
+Read only the spec and the drafted tickets. Run one pass. Write nothing on the tracker.
 
 It is very likely that important decisions are missing or ambiguous, even if the spec looks good on the surface. Be skeptical, adversarial, and actively try to find gaps.
 

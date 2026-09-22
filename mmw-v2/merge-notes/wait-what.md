@@ -20,8 +20,8 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| 开头到 `## Put the page where the user is looking` 那一节 | 接上 `wait-what` 的语境，并规定呈现面：有渲染 HTML 的工具就用它，纯 CLI 才落盘再打开。不点任何 host 的名字——`host neutrality` 不许按 host 名分支，写成按能力判断的自然语言，新 host 出现也不过时 |
-| `## Draw the page` 第一段 | 页面的样子和页上每张图交给 `diagram-design` 技能，让本仓库所有向用户解释的 HTML 用同一套设计系统。`diagram-design` 判定表格或一句话比图更清楚时（它的 §2、§3 都这样说），那张表或那句话照样放在这一页上：这一分支无论如何都交一页，不能因为不画图就没有页。末句点名免掉 `diagram-design` §3 的「Confirm before drawing」：内容就是用户刚看不懂的那条消息，已经定了，再停一轮确认只是让用户多等一次 |
+| 开头到 `## Put the page where the user is looking` 那一节 | 接上 `wait-what` 的语境，并规定呈现面：有渲染 HTML 的工具就用它，纯 CLI 才落盘再打开。不点任何 host 的名字——`host neutrality` 不许按 host 名分支，写成按能力判断的自然语言，新 host 出现也不过时。优先用渲染工具的理由（页面出现在对话旁边，用户不用离开就能读）只记在这里 |
+| `## Draw the page` 第一段 | 页面的样子和页上每张图交给 `diagram-design` 技能，让本仓库所有向用户解释的 HTML 用同一套设计系统。`diagram-design` 判定表格或一句话比图更清楚时（它的 §2、§3 都这样说），那张表或那句话照样放在这一页上：这一分支无论如何都交一页，不能因为不画图就没有页。末句点名免掉 `diagram-design` §3 的「Confirm before drawing」，正文只写「跳过、直接画」：内容就是用户刚看不懂的那条消息，已经定了，再停一轮确认只是让用户多等一次 |
 | `## Draw the page` 下 `The reader knows nothing about this topic.` 那段 | 定读者（对主题一无所知）和图、字的分工：图管是什么与怎么连，字只做图做不到的三件事（图答的是哪个问题、重点在哪、由此得出什么），字重复图就删字，图要一段话才看得懂就重画。四个用 HTML 做解释的技能放的是同一段 |
 
 `show-me` 原来那七种视图（伪代码、调用树、组件树、文件树、Mermaid、四种 diff、整块代码）和它的 `### guidance` 不收：它们是给读代码的人看的表示法；同一份列表逐字出现在 mattpocock 的 `pr` 技能（`mmw-v2/upstream/skills/in-progress/pr/SKILL.md` 的 `### Summary`），那里的读者是审 PR 的人。`wait-what` 的读者不读代码。`show-me` 的 `Skip the preamble and keep prose brief.` 一句也不收，它与读者那段「字只做图做不到的三件事」说的是同一件事。`show-me` 更新 → 不跟。

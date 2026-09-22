@@ -23,7 +23,7 @@ That run comes every time you enter the ticket, so the uncommitted tracked chang
 | not you | left in the worktree before your claim: `NOT_READY`, reason `dirty-tree`, and you stop |
 | you | your own work from an earlier turn on this ticket: it claims the ticket again and prints `CARRIED: <count> tracked files …` |
 
-On a `CARRIED:` line, commit those files on `issue-<n>` before the closing steps: `--closeout` refuses a draft while a tracked file is uncommitted. Nothing else about the run changes.
+On a `CARRIED:` line, commit those files on `issue-<n>` before the closing steps: `--closeout` refuses a draft while a tracked file is uncommitted.
 
 ## Exit codes
 

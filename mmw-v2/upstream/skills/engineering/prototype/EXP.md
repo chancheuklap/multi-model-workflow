@@ -53,7 +53,5 @@ Rewrite **Conclusion**: yes or no against the bar, how the real code should draw
 ## Anti-patterns
 
 - **Don't build the feature.** The experiment answers one question; the moment it starts growing toward the whole feature, it's no longer an experiment.
-- **Don't add tests.** The observations in the `README.md` are the evidence; tests belong to the real code.
 - **Don't point it at production data or services** unless the question is specifically about them — and then read-only.
 - **Don't generalise.** No "what if we wanted to support Y later."
-- **Don't leave the result in your head.** An experiment whose `README.md` has no observations and no conclusion has to be re-run by the next reader.

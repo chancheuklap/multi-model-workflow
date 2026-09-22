@@ -11,5 +11,3 @@ A first run on an existing codebase reports thousands. Almost none of it is wort
    - **Filter to the changed lines**, when it does not. Run the linter with JSON output, intersect its line numbers with `git diff --unified=0`, report only the overlap. Two traps: the linter reports absolute paths while git reports repo-relative ones, so normalise before comparing; and untracked files appear in no diff at all, so pull them in separately and treat every line as new.
 
    The formatter needs its own answer: it rewrites whole files, so running it on an existing file *is* touching the backlog. Run it on newly added files only.
-
-The point of both is that the checker is **useful on day one** rather than after a cleanup nobody schedules.
