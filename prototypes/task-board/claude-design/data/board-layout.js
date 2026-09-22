@@ -297,7 +297,7 @@
     }
     return {
       hasTask: true, containers, decisions, tickets,
-      labels: l.labels.map(label => ({cls: label.warn ? "lane-label warn" : "lane-label",
+      labels: l.labels.map(label => ({cls: label.warn ? "eyebrow warn" : "eyebrow",
         left: px(label.x), top: px(label.y), text: label.text})),
       W: l.W, H: l.H, nodes: l.nodes.map(n => ({id: n.id, x: n.x, y: n.y, w: n.w, h: n.h})),
       svg: edgesSVG(l, sel, selIsIssue, reduced),
