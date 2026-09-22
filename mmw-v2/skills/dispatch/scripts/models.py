@@ -424,7 +424,7 @@ def _which(name: str) -> str | None:
     return None
 
 
-def _run(argv: list[str], timeout: int = 30) -> str:
+def _run(argv: list[str], timeout: int = 30, stdin: str | None = None) -> str:
     if not argv:
         return ""
     binary = argv[0]
@@ -433,7 +433,7 @@ def _run(argv: list[str], timeout: int = 30) -> str:
         return ""
     try:
         proc = subprocess.run(
-            [resolved, *argv[1:]],
+            [resolved, *argv[1:]], input=stdin,
             check=False, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return ""
@@ -479,44 +479,60 @@ def _parse_grok_models(text: str) -> list[dict]:
     return out
 
 
-def _parse_claude_help(text: str) -> tuple[list[str], list[str]]:
-    """Aliases mentioned under --model, and --effort levels."""
-    start = text.find("--model")
-    chunk = text[start:start + 800] if start != -1 else ""
-    aliases = [a for a in re.findall(r"'([A-Za-z0-9][A-Za-z0-9._:-]*)'", chunk) if a not in ("e.g.",)]
-    effort_m = re.search(
-        r"--effort <level>\s+Effort level for the current session\s+\(([^)]+)\)",
-        text, re.S)
-    if effort_m is None:
-        effort_m = re.search(r"--effort <level>[^(]*\(([^)]+)\)", text)
-    efforts = [p.strip() for p in effort_m.group(1).split(",")] if effort_m else []
-    return aliases, efforts
+# Claude Code has no model-listing subcommand. One `list_models` control request over
+# `-p` stream-json returns its `/model` picker without starting an API turn (Claude
+# Code 2.1.280, measured 2026-09-23: about 2 s; the same request Orca 1.4.205 sends in
+# `out/shared/claude-model-list-probe.js`).
+CLAUDE_LIST_MODELS_ARGS = [
+    "claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json",
+    "--verbose", "--no-session-persistence"]
+CLAUDE_LIST_MODELS_STDIN = json.dumps({
+    "type": "control_request", "request_id": "mmw-model-list",
+    "request": {"subtype": "list_models"}}) + "\n"
+# A picker row pinned to one version (`claude-fable-5-1[1m]`) is saved as its family
+# alias (`fable[1m]`), so the row follows the family's newest model like `opus[1m]` does.
+_CLAUDE_PINNED = re.compile(r"^claude-(fable|opus|sonnet|haiku)-[\d-]+(\[[^\]]*\])?$", re.I)
 
 
-def _claude_settings_models() -> list[str]:
-    path = Path.home() / ".claude" / "settings.json"
-    if not path.is_file():
-        return []
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []
-    if not isinstance(data, dict):
-        return []
-    names = []
-    current = data.get("model")
-    if isinstance(current, str) and current.strip():
-        names.append(current.strip())
-    settings = data.get("modelSettings")
-    if isinstance(settings, dict):
-        names.extend(str(k) for k in settings if k)
-    seen = set()
-    out = []
-    for name in names:
-        if name not in seen:
-            seen.add(name)
-            out.append(name)
-    return out
+def _parse_claude_model_list(text: str) -> list[dict]:
+    """The `/model` picker as offerings: family aliases, per-model efforts, and a note
+    naming the model the alias resolves to today (`Opus 5.5 with 1M context`)."""
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("{") or "control_response" not in line:
+            continue
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        response = data.get("response") if isinstance(data, dict) else None
+        if not isinstance(response, dict) or response.get("subtype") != "success":
+            continue
+        rows = (response.get("response") or {}).get("models")
+        if not isinstance(rows, list):
+            continue
+        out, seen = [], set()
+        for item in rows:
+            if not isinstance(item, dict) or item.get("disabled") is True:
+                continue
+            ident = str(item.get("value") or "").strip()
+            # `default` repeats whichever row it resolves to.
+            if not ident or ident == "default":
+                continue
+            pinned = _CLAUDE_PINNED.match(ident)
+            if pinned:
+                ident = pinned.group(1).lower() + (pinned.group(2) or "")
+            if ident in seen:
+                continue
+            seen.add(ident)
+            levels = item.get("supportedEffortLevels") if item.get("supportsEffort") else []
+            note = str(item.get("description") or "").split(" · ", 1)[0].strip()
+            out.append({"id": ident, "name": ident,
+                        "thinkingOptionIds": [str(x) for x in levels or [] if x],
+                        "note": note})
+        if out:
+            return out
+    return []
 
 
 def _parse_codex_debug_models(text: str) -> list[dict]:
@@ -531,7 +547,9 @@ def _parse_codex_debug_models(text: str) -> list[dict]:
         return []
     out = []
     for item in rows:
-        if not isinstance(item, dict):
+        # `hide` marks Codex's internal models (codex-auto-review, gpt-reserve), which its
+        # own `/model` picker does not offer.
+        if not isinstance(item, dict) or item.get("visibility") == "hide":
             continue
         ident = str(item.get("slug") or item.get("id") or "")
         if not ident:
@@ -610,15 +628,8 @@ def fetch_cli_offerings(host: str) -> list[dict]:
             row.setdefault("thinkingOptionIds", list(efforts))
         return rows
     if host == "claude":
-        aliases, efforts = _parse_claude_help(_run(["claude", "--help"]))
-        names = list(aliases)
-        for name in _claude_settings_models():
-            if name not in names:
-                names.append(name)
-        return [
-            {"id": name, "name": name, "thinkingOptionIds": list(efforts)}
-            for name in names
-        ]
+        return _parse_claude_model_list(
+            _run(CLAUDE_LIST_MODELS_ARGS, timeout=60, stdin=CLAUDE_LIST_MODELS_STDIN))
     if host == "codex":
         return _parse_codex_debug_models(_run(["codex", "debug", "models"], timeout=45))
     if host == "pi":
@@ -723,14 +734,11 @@ def fillable_rows(host: str, offerings: list[dict]) -> list[tuple[str, str]]:
         ))
         return rows
 
-    skip = {"claude": {"opus", "sonnet", "fable"}, "grok": {"grok-4.6"}}.get(host, set())
     rows = []
     seen = set()
     for offering in offerings:
         ident = str(offering.get("id") or "")
         name = str(offering.get("name") or ident)
-        if ident.lower() in skip or name.lower() in skip:
-            continue
         if host == "pi":
             model = ident.split("/", 1)[-1] if ident else name
         elif name and name.lower() != ident.lower() and not re.search(r"\d", name):
@@ -813,11 +821,15 @@ def _offered_rows(host: str, offerings: list[dict], source: str) -> list[dict]:
         efforts = [part.strip() for part in effort_text.split(",") if part.strip()]
         for effort in efforts or ["—"]:
             try:
-                _resolve_from_offerings(host, model, effort, offerings, source)
+                _, resolved, _ = _resolve_from_offerings(host, model, effort, offerings, source)
             except ValueError:
                 continue
             if model not in by_model:
                 by_model[model] = {"model": model, "efforts": []}
+                note = next((str(o.get("note") or "") for o in offerings
+                             if str(o.get("id") or "") == resolved), "")
+                if note:
+                    by_model[model]["note"] = note
                 rows.append(by_model[model])
             if effort not in by_model[model]["efforts"]:
                 by_model[model]["efforts"].append(effort)

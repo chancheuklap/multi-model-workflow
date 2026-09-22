@@ -202,19 +202,59 @@ class CliCatalogParseTest(unittest.TestCase):
             "Available models:\n  * grok-4.6 (default)\n  - grok-4.5\n")
         self.assertEqual([r["id"] for r in rows], ["grok-4.6", "grok-4.5"])
 
-    def test_claude_help_lists_aliases_and_effort(self):
-        aliases, efforts = models._parse_claude_help(
-            "  --model <model>                       Model for the current session. Provide\n"
-            "                                        an alias for the latest model (e.g.\n"
-            "                                        'fable', 'opus', or 'sonnet') or a\n"
-            "                                        model's full name (e.g.\n"
-            "                                        'claude-fable-5').\n"
-            "  --effort <level>                      Effort level for the current session\n"
-            "                                        (low, medium, high, xhigh, max)\n"
-        )
-        self.assertIn("opus", aliases)
-        self.assertIn("claude-fable-5", aliases)
-        self.assertEqual(efforts, ["low", "medium", "high", "xhigh", "max"])
+    # The control_response line of `list_models`, Claude Code 2.1.280, 2026-09-23,
+    # trimmed to the fields read and one disabled placeholder row added.
+    CLAUDE_LIST = json.dumps({"type": "control_response", "response": {
+        "subtype": "success", "request_id": "mmw-model-list", "response": {"models": [
+            {"value": "default", "displayName": "Default (recommended)",
+             "description": "Opus 5.5 with 1M context · Best for everyday, complex tasks",
+             "supportsEffort": True, "supportedEffortLevels": ["low", "high"]},
+            {"value": "opus[1m]", "displayName": "Opus (1M context)",
+             "description": "Opus 5.5 with 1M context · Best for everyday, complex tasks",
+             "supportsEffort": True, "supportedEffortLevels": ["low", "medium", "high", "xhigh", "max"]},
+            {"value": "claude-fable-5-1[1m]", "displayName": "Fable",
+             "description": "Fable 5.1 · Most capable for your hardest and longest-running tasks",
+             "supportsEffort": True, "supportedEffortLevels": ["low", "medium", "high"]},
+            {"value": "sonnet", "displayName": "Sonnet",
+             "description": "Sonnet 5 · Efficient for routine tasks",
+             "supportsEffort": True, "supportedEffortLevels": ["low", "medium", "high"]},
+            {"value": "cc-update-required-1", "displayName": "Fable 6 (disabled)",
+             "disabled": True},
+        ]}}})
+
+    def test_claude_picker_rows_are_family_aliases_with_todays_model(self):
+        rows = models._parse_claude_model_list(
+            '{"type":"system","subtype":"init"}\n' + self.CLAUDE_LIST + "\n")
+        self.assertEqual([r["id"] for r in rows], ["opus[1m]", "fable[1m]", "sonnet"])
+        self.assertEqual(rows[0]["note"], "Opus 5.5 with 1M context")
+        self.assertEqual(rows[1]["note"], "Fable 5.1")
+        self.assertEqual(rows[1]["thinkingOptionIds"], ["low", "medium", "high"])
+
+    def test_claude_without_list_models_offers_nothing(self):
+        # A CLI that predates the request answers subtype error and still exits 0.
+        self.assertEqual(models._parse_claude_model_list(
+            '{"type":"control_response","response":{"subtype":"error"}}\n'), [])
+
+    def test_claude_offered_rows_carry_the_note_and_resolve_to_the_alias(self):
+        offerings = models._parse_claude_model_list(self.CLAUDE_LIST)
+        offered = models._offered_rows("claude", offerings, "cli")
+        self.assertEqual(offered[1], {"model": "fable[1m]", "efforts": ["low", "medium", "high"],
+                                      "note": "Fable 5.1"})
+        self.assertEqual(models._resolve_from_offerings(
+            "claude", "fable[1m]", "high", offerings, "cli")[1], "fable[1m]")
+
+    def test_codex_hidden_models_are_not_offered(self):
+        raw = json.dumps({"models": [
+            {"slug": "gpt-6-sol", "visibility": "list"},
+            {"slug": "codex-auto-review", "visibility": "hide"},
+            {"slug": "gpt-reserve", "visibility": "hide"},
+        ]})
+        self.assertEqual([r["id"] for r in models._parse_codex_debug_models(raw)], ["gpt-6-sol"])
+
+    def test_every_grok_model_the_cli_lists_is_offered(self):
+        rows = models.fillable_rows("grok", models._parse_grok_models(
+            "Available models:\n  - grok-4.7\n  * grok-4.6 (default)\n  - grok-4.5\n"))
+        self.assertEqual([m for m, _ in rows], ["grok 4.7", "grok 4.6", "grok 4.5"])
 
     def test_codex_debug_json_keeps_slug_and_effort(self):
         raw = json.dumps({"models": [{

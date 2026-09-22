@@ -5,11 +5,12 @@
       {"id": "grok-4.7", "name": "Grok 4.7", "thinkingOptionIds": ["high", "xhigh"]}
     ]},
     "claude": {"offerings": [
-      {"id": "claude-opus-5", "name": "Opus 5", "thinkingOptionIds": ["high"]},
-      {"id": "claude-sonnet-5", "name": "Sonnet 5", "thinkingOptionIds": ["high"]},
-      {"id": "claude-fable-5-1", "name": "Fable 5.1", "thinkingOptionIds": ["medium"]}
+      {"id": "opus[1m]", "name": "opus[1m]", "thinkingOptionIds": ["high"], "note": "Opus 5.5 with 1M context"},
+      {"id": "fable[1m]", "name": "fable[1m]", "thinkingOptionIds": ["medium"], "note": "Fable 5.1"},
+      {"id": "sonnet", "name": "sonnet", "thinkingOptionIds": ["high"], "note": "Sonnet 5"}
     ]},
     "codex": {"offerings": [
+      {"id": "gpt-6-sol", "name": "GPT-6-Sol", "thinkingOptionIds": ["high", "xhigh"]},
       {"id": "gpt-5.6-sol", "name": "GPT-5.6-Sol", "thinkingOptionIds": ["high", "xhigh"]}
     ]},
     "pi": {"offerings": []}

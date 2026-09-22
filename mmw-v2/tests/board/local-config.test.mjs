@@ -65,6 +65,21 @@ test("a model with one effort takes it", () => {
   assert.equal(draft.rows["junior-worker"].effort, "high");
 });
 
+test("an alias option shows the model it resolves to today, and saves the alias", () => {
+  const aliased = copy(scan);
+  aliased.claude = offered([
+    {model: "opus[1m]", efforts: ["high"], note: "Opus 5.5 with 1M context"},
+    {model: "sonnet 5", efforts: ["high"]},
+  ]);
+  const draft = copy(saved);
+  draft.rows.reviewer.model = "opus[1m]";
+  const modelOpts = LocalConfig.rowOptions(aliased, draft, "reviewer").model;
+  const opus = modelOpts.find(o => o.value === "opus[1m]");
+  assert.equal(opus.text, "opus[1m] · Opus 5.5 with 1M context");
+  assert.equal(opus.selected, true);
+  assert.equal(modelOpts.find(o => o.value === "sonnet 5").text, "sonnet 5");
+});
+
 test("a saved value this machine no longer offers is flagged with its reason", () => {
   const retired = copy(scan);
   retired.grok = offered([{model: "grok 4.5", efforts: ["high"]}]);

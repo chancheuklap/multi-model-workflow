@@ -139,7 +139,7 @@ export const LocalConfig = {
     const model = !hostOk ? [{value: r.model, text: r.model || "—"}] : [
       ...(!r.model ? [{value: "", text: "选一个 model", disabled: true}]
         : modelKnown ? [] : [{value: r.model, text: `${r.model} · 本机已经没有`}]),
-      ...hs.offered.map(o => ({value: o.model, text: o.model})),
+      ...hs.offered.map(o => ({value: o.model, text: o.note ? `${o.model} · ${o.note}` : o.model})),
     ];
     const effort = !modelKnown ? [{value: r.effort, text: r.effort || "—"}] : [
       ...(!r.effort ? [{value: "", text: "选一档", disabled: true}]
