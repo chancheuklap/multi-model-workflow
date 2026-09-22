@@ -30,7 +30,7 @@ Each `Component · ` page draws its scenes from one data file under `data/` that
 
 ## `$preview`
 
-Every `Component · ` and `App · ` page declares `$preview` in `data-props` with `width` and `height` as positive integers: the size each scene is rendered and checked at.
+Every `Component · ` and `App · ` page declares `$preview` in `data-props` with `width` and `height` as positive integers: the size each scene is rendered and checked at. A `Component · ` page shown on an `App · ` page takes the size its region occupies there, so the region is checked at the size the product shows it.
 
 ## `data-ui`
 
