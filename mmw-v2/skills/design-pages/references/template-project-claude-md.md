@@ -12,7 +12,7 @@ These conventions are what the repository reads back from this project when the 
 A page's title, its file name (without `.dc.html`) and its `dc-import` name are the same string.
 
 - `Component · <name>`: one region of the screen (title bar, list, form, sidebar, a group of dialogs). This is the unit acceptance checks.
-- `App · <name>`: a whole screen made of `Component · ` pages. Needed only when the regions' states have to be checked together.
+- `App · <name>`: a whole screen made of `Component · ` pages. Needed only when the regions' states have to be checked together. On it each region fills the slot the page gives it, whatever height the region page takes on its own, and a region drawn over others (a dialog, a sheet) keeps no background of its own there, so what it covers shows through: the `App · ` page's own style sets both.
 
 ` · ` is space, U+00B7, space. Other pages (notes, overviews, explorations) may use any name without these prefixes; they are not pulled into acceptance.
 

@@ -36,7 +36,9 @@ tickets add one story adapter per design page.
   merged over it: it is what the design page
   itself drew the scene from, so lamp colours, layout and other state that the
   displayed text does not carry reach the product component too. No backend, seed,
-  route or alternate preview projection runs. The
+  route or alternate preview projection runs. After a click the region enters the
+  scene the contract row's `next` names, and the adapter draws that scene's own
+  input: a scene stands for a state, so the clicked object needs no data of its own. The
   screen contract's `shows` columns name the values each region displays and the
   backend field each comes from (`write-screen-contract` skill's
   `references/screen-contract-format.md`); code review checks that the component
