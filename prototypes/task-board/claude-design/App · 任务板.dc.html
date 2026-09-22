@@ -18,6 +18,11 @@
   <script src="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
   <script src="data/app-scenes.js"></script>
   <style>body { margin: 0; background: var(--desk); }</style>
+  <style>
+    /* On the whole page each column fills the slot under the title bar, and the settings sheet lets the board show through. */
+    [data-ui="任务列表.root"], [data-ui="画布.root"], [data-ui="详情.root"] { height: 100% !important; }
+    [data-ui="本机配置.root"] { background: transparent !important; }
+  </style>
 </helmet>
 <main class="board" data-ui="任务板.root" style="position: relative; height: 100vh; display: flex; flex-direction: column; background: var(--panel); overflow: hidden">
   <div style="flex: none">

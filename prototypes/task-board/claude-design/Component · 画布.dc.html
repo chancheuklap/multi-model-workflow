@@ -45,7 +45,7 @@
             <span class="card-right">
               <span class="card-count" data-ui="画布.container-card.count">{{ c.count }}</span>
               <sc-if value="{{ c.canExpand }}" hint-placeholder-val="{{ true }}">
-                <button type="button" class="iconbtn sm bare" data-ui="画布.container-card.expand" aria-label="{{ c.toggleLabel }}" onClick="{{ c.toggle }}" style="position: relative; z-index: 1; font-size: 10px">{{ c.chev }}</button>
+                <button type="button" class="iconbtn sm bare" data-ui="画布.container-card.expand" aria-label="{{ c.toggleLabel }}" onClick="{{ c.toggle }}" style="position: relative; z-index: 1; font-size: var(--t-meta)">{{ c.chev }}</button>
               </sc-if>
             </span>
           </div>
@@ -79,16 +79,16 @@
         </div>
       </sc-for>
     </div>
-    <div class="legend" data-ui="画布.legend" style="position: absolute; right: 16px; top: 14px; max-width: calc(100% - 32px)">
+    <div class="legend" data-ui="画布.legend" style="position: absolute; right: var(--sp-16); top: var(--sp-16); max-width: calc(100% - 32px)">
       <span class="legend-item" data-ui="画布.legend.walked"><span class="legend-line"></span>contains · released</span>
       <span class="legend-item" data-ui="画布.legend.flow"><span class="legend-line flow"></span>released · working</span>
       <span class="legend-item" data-ui="画布.legend.blocked"><span class="legend-line blocked"></span>blocked</span>
       <span class="legend-item" data-ui="画布.legend.closeout"><span class="legend-bar"></span>closing pass</span>
     </div>
     <div class="toolbar" data-ui="画布.zoom" style="position: absolute; right: 16px; bottom: 16px">
-      <button type="button" class="iconbtn sm bare round" data-ui="画布.zoom.out" aria-label="zoom out" onClick="{{ zoomOut }}" style="font-size: 14px">−</button>
+      <button type="button" class="iconbtn sm bare round" data-ui="画布.zoom.out" aria-label="zoom out" onClick="{{ zoomOut }}" style="font-size: var(--t-body)">−</button>
       <span class="toolbar-value" data-ui="画布.zoom.level">{{ zoomLevel }}</span>
-      <button type="button" class="iconbtn sm bare round" data-ui="画布.zoom.in" aria-label="zoom in" onClick="{{ zoomIn }}" style="font-size: 14px">+</button>
+      <button type="button" class="iconbtn sm bare round" data-ui="画布.zoom.in" aria-label="zoom in" onClick="{{ zoomIn }}" style="font-size: var(--t-body)">+</button>
       <span class="toolbar-sep"></span>
       <button type="button" class="iconbtn sm bare round" data-ui="画布.zoom.fit" onClick="{{ fit }}" style="width: auto; padding-inline: 8px; font: var(--t-meta) var(--mono)">fit</button>
     </div>
@@ -101,7 +101,7 @@
   </sc-if>
 </main>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1000, &quot;height&quot;: 720}, &quot;scene&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;morning&quot;, &quot;twenty-tickets&quot;, &quot;bad-data&quot;, &quot;empty&quot;, &quot;nothing-selected&quot;], &quot;default&quot;: &quot;morning&quot;, &quot;tsType&quot;: &quot;string&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 864, &quot;height&quot;: 848}, &quot;scene&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;morning&quot;, &quot;twenty-tickets&quot;, &quot;bad-data&quot;, &quot;empty&quot;, &quot;nothing-selected&quot;], &quot;default&quot;: &quot;morning&quot;, &quot;tsType&quot;: &quot;string&quot;}}">
 class Component extends DCLogic {
   state = {sel: undefined, expanded: null, view: {x: 20, y: 12, k: 1}, ready: false};
 

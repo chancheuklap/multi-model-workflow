@@ -1290,7 +1290,7 @@
           },
           "画布.zoom": {
             "画布.zoom.out": "−",
-            "画布.zoom.level": "61%",
+            "画布.zoom.level": "58%",
             "画布.zoom.in": "+",
             "画布.zoom.fit": "fit"
           }
@@ -3016,7 +3016,7 @@
         },
         "画布.zoom": {
           "画布.zoom.out": "−",
-          "画布.zoom.level": "49%",
+          "画布.zoom.level": "43%",
           "画布.zoom.in": "+",
           "画布.zoom.fit": "fit"
         }
@@ -3241,7 +3241,7 @@
         },
         "画布.zoom": {
           "画布.zoom.out": "−",
-          "画布.zoom.level": "35%",
+          "画布.zoom.level": "30%",
           "画布.zoom.in": "+",
           "画布.zoom.fit": "fit"
         }
@@ -3334,7 +3334,7 @@
         },
         "画布.zoom": {
           "画布.zoom.out": "−",
-          "画布.zoom.level": "65%",
+          "画布.zoom.level": "56%",
           "画布.zoom.in": "+",
           "画布.zoom.fit": "fit"
         }
@@ -3539,7 +3539,7 @@
         },
         "画布.zoom": {
           "画布.zoom.out": "−",
-          "画布.zoom.level": "49%",
+          "画布.zoom.level": "43%",
           "画布.zoom.in": "+",
           "画布.zoom.fit": "fit"
         }

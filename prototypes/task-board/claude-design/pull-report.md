@@ -2,7 +2,10 @@
 
 ## 设计检查
 
-- 未发现设计检查问题。
+- 编辑器点不中的选择器：App · 任务板.dc.html <style>: [data-ui="任务列表.root"]  (attribute selector)
+- 编辑器点不中的选择器：App · 任务板.dc.html <style>: [data-ui="画布.root"]  (attribute selector)
+- 编辑器点不中的选择器：App · 任务板.dc.html <style>: [data-ui="详情.root"]  (attribute selector)
+- 编辑器点不中的选择器：App · 任务板.dc.html <style>: [data-ui="本机配置.root"]  (attribute selector)
 
 ## 覆盖
 
@@ -119,7 +122,7 @@
 ## 改动分类
 
 - 分类：只改外观或文案
-- design page：无变化
+- design page：`App · 任务板.dc.html`
 - `data-ui` id 新增：无
 - `data-ui` id 删除：无
 

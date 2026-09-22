@@ -63,7 +63,7 @@ test("a ticket card shows its lamp, phase pill and run line", () => {
   assert.equal(spec.chev, "▾");
   assert.equal(spec.toggleLabel, "collapse #10");
   const map = view.containers.find(item => item.n === 1);
-  assert.equal(map.titleCls, "card-title map container");
+  assert.equal(map.titleCls, "card-title one-line");
   assert.equal(map.num, "#1 · wayfinder");
 });
 
@@ -152,7 +152,7 @@ test("a spec with no map is the top container, its tickets hang straight off it"
   const view = canvasView(task, null, [...defaultExpanded(task)], true);
   assert.deepEqual(view.containers.map(c => c.n), [30]);
   assert.equal(view.containers[0].num, "#30");
-  assert.equal(view.containers[0].titleCls, "card-title container");
+  assert.equal(view.containers[0].titleCls, "card-title one-line");
   assert.deepEqual(view.tickets.map(t => t.n), [31]);
   assert.equal(view.labels.length, 0);
   assert.equal(view.layout.nodes.filter(node => node.id === 30).length, 1);
@@ -162,7 +162,7 @@ test("a container title is one clipped line and the whole title rides on the car
   const long = "Map: skill text clarity — the 2026-09-12 audit of mmw-v2 skill text";
   const task = {n: 384, kind: "map", title: long, state: "open", decisions: [], specs: []};
   const view = canvasView(task, null, [], true);
-  assert.match(view.containers[0].titleCls, /\bcontainer\b/);
+  assert.match(view.containers[0].titleCls, /\bone-line\b/);
   assert.equal(view.containers[0].title, long);
 });
 

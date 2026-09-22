@@ -22,12 +22,7 @@ function nextOrange(tasks, current) {
   return list[(index + 1) % list.length];
 }
 
-function pageRoot(target) {
-  const existing = target.matches?.("[data-board-root]")
-    ? target
-    : target.querySelector?.("[data-board-root]");
-  if (existing) return existing;
-  const doc = target.ownerDocument || target;
+export function boardShell(doc) {
   const root = doc.createElement("main");
   root.className = "app-shell board";
   root.dataset.screen = "board";
@@ -36,37 +31,56 @@ function pageRoot(target) {
   const slot = (className, mount) => {
     const node = doc.createElement("div");
     node.className = className;
-    node.dataset.mount = mount;
+    if (mount) node.dataset.mount = mount;
     return node;
   };
-  root.append(
-    slot("app-top", "topbar"),
-    slot("app-slot", "tasks"),
-    slot("app-slot", "canvas"),
-    slot("app-slot", "detail"),
-    slot("app-sheet", "settings"),
-  );
+  const row = slot("app-row");
+  row.append(slot("app-slot", "tasks"), slot("app-slot", "canvas"), slot("app-slot", "detail"));
+  root.append(slot("app-top", "topbar"), row, slot("app-sheet", "settings"));
+  return root;
+}
+
+function pageRoot(target) {
+  const existing = target.matches?.("[data-board-root]")
+    ? target
+    : target.querySelector?.("[data-board-root]");
+  if (existing) return existing;
+  const doc = target.ownerDocument || target;
+  const root = boardShell(doc);
   (target.body || target).append(root);
   return root;
 }
 
-function sizeShell(root, slots, hasDetail) {
+// The design page is a column: the top bar, then a row of the task list, the
+// canvas and (only while a card is open) the detail. The detail slot leaves the
+// row when it is empty, and the canvas takes that width.
+export function applyShell(root, slots, hasDetail) {
   Object.assign(root.style, {
     position: "relative",
     width: "100%",
-    height: "100vh",
-    display: "grid",
-    gridTemplateRows: "52px minmax(0, 1fr)",
-    gridTemplateColumns: hasDetail
-      ? "236px minmax(0, 1fr) 340px"
-      : "236px minmax(0, 1fr)",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
     background: "var(--panel)",
+    overflow: "hidden",
   });
-  Object.assign(slots.topbar.style, {gridColumn: "1 / -1", minWidth: "0"});
-  for (const name of ["tasks", "canvas", "detail"]) {
-    Object.assign(slots[name].style, {minWidth: "0", minHeight: "0", overflow: "hidden"});
+  Object.assign(slots.topbar.style, {flex: "none", minWidth: "0"});
+  const row = root.querySelector(".app-row");
+  if (row) {
+    Object.assign(row.style, {
+      flex: "1", minHeight: "0", display: "flex", alignItems: "stretch",
+    });
   }
-  slots.detail.style.display = hasDetail ? "" : "none";
+  Object.assign(slots.tasks.style, {
+    flex: "none", width: "236px", minWidth: "0", minHeight: "0", overflow: "hidden",
+  });
+  Object.assign(slots.canvas.style, {
+    flex: "1", minWidth: "0", minHeight: "0", overflow: "hidden",
+  });
+  Object.assign(slots.detail.style, {
+    flex: "none", width: "340px", minWidth: "0", minHeight: "0", overflow: "hidden",
+    display: hasDetail ? "" : "none",
+  });
   Object.assign(slots.settings.style, {
     position: "absolute", inset: "0", zIndex: "30",
     pointerEvents: root.querySelector('[data-screen="settings"]') ? "auto" : "none",
@@ -90,8 +104,8 @@ export function mountPage(target = document, options = {}) {
     task: input.select?.task ?? null,
     sel: input.select?.node ?? null,
     expanded: null,
-    settingsOpen: false,
-    settingsPayload: null,
+    settingsOpen: Boolean(input.settingsOpen),
+    settingsPayload: input.settings || null,
     hasSuccessfulPayload: Boolean(input.payload && !input.payload.read_failed),
   };
 
@@ -222,7 +236,7 @@ export function mountPage(target = document, options = {}) {
     } else if (!state.settingsOpen && open) {
       unmountSettings(slots.settings);
     }
-    sizeShell(root, slots, !detailView.empty);
+    applyShell(root, slots, !detailView.empty);
   };
 
   paint();

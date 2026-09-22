@@ -21,10 +21,12 @@ VIEWPORTS = {
 
 
 @contextlib.contextmanager
-def story_page(browser, mount: str, scene: str, responses=None, before_goto=None):
+def story_page(browser, mount: str, scene: str, responses=None, before_goto=None,
+               server_env=None):
     # The story server takes a port of the machine's choosing and prints it; the origin
     # read back below is the only place its address comes from.
     env = os.environ.copy()
+    env.update(server_env or {})
     process = subprocess.Popen(["python3", "-u", str(SERVER)], cwd=ROOT, env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:

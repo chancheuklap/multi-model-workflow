@@ -37,7 +37,10 @@ tickets add one story adapter per design page.
   itself drew the scene from, so lamp colours, layout and other state that the
   displayed text does not carry reach the product component too. No backend, seed,
   route or alternate preview projection runs. The
-  screen contract's `shows` columns bind the mapping; code review checks that each `shows` name is a property of the component.
+  screen contract's `shows` columns name the values each region displays and the
+  backend field each comes from (`write-screen-contract` skill's
+  `references/screen-contract-format.md`); code review checks that the component
+  draws every one of them.
 
 ## The two sides
 

@@ -22,7 +22,7 @@
 | 末节「What you do not do」的修法一句 | `references/session.md` 末节 | 改成「修法在 `implement`：in-ticket 修一轮，其余开 `finding` child」。上游写的是「three-round cap」，而 `implement` 的收尾不数轮次。上游改这句 → 收上游措辞，不带回任何轮次上限 |
 | 无 | `references/session.md` 第 4 节（in-ticket / out-of-ticket 分类） | 我们加的。六条算 in-ticket：碰本 ticket 的 acceptance criteria、碰 ticket 点名的 spec 决策、碰 ticket `## Read first` 里的 baseline、碰 spec 的 `## Out of Scope`、碰 spec 的 `## Testing Decisions`、碰本 ticket `## Owns` 之内的文件；其余是 out-of-ticket。后两条是白天规划的一部分，落地内容要与白天规划一致：`## Out of Scope` 是白天写的「这次不做」，列在那里却做了是 Spec axis 最清楚的 `Scope creep`，归 out-of-ticket 就只开一张不阻塞的 sub-issue、越界代码随票合并；`## Testing Decisions` 定的是测试层与 precedent，偏离它的测试同样该当晚修。dispatcher 做这个分类而不是留给读者，因为两类的下一步不同（正文只写 `The split decides what happens next:`，理由只在这里）——in-ticket 修一轮，out-of-ticket 由 worker 开成本票的 `finding` child（`--sub-issue finding`，mmw #315 第 3 节前叫 `review`）且不阻塞，不按属于谁分流；worker 开、reviewer 列。上游重写 §4 → 本票 parent 与 `--sub-issue finding` 保留，第六条按文末那一节取舍。baseline、`## Out of Scope`、`## Testing Decisions` 三条与 `references/spec-reviewer.md` 第 2 节让 Spec axis 读它们是一对，拆开做无效：dispatcher 按这一句的字面条件路由，只加读不改这里，baseline 偏离会被判成 out-of-ticket、开一个不阻塞的 sub-issue，本 ticket 照样关掉。怎么修不在这里，在 `implement` 的 closing steps：in-ticket 修一轮，out-of-ticket 开 sub-issue，轮次不设上限 |
 | 无 | `references/spec-reviewer.md` 第 2 节读 `DECISIONS` 的那一句、第 3 节的 `Decisions` 一条、第 4 节的分组；`references/session.md` 第 4 节 `should not` 归 in-ticket 的那一段 | 我们加的：Spec axis 读票上最新的 `DECISIONS` 评论（worker 在派 reviewer 之前留的，两节：`Decisions I made on my own` 与 `Outside Owns`），对每一条给一句判断——`reasonable`（票或 spec 没写全、这是它们最可能要的补救）或 `should not`（违背票、点名 spec 小节、`## Out of Scope` 或 baseline 的某一行，引原文）；`should not` 是三类之一的 review finding，dispatcher 归 in-ticket，worker 走已有的修一轮。理由：这两类东西不一定是错，常常正说明票写得不全，该由 reviewer 判，不合理的当晚修掉而不是早上才有人看。上游若给 Spec axis 加同类判断 → 收上游措辞，读 `DECISIONS` 与 `should not` 归 in-ticket 保留 |
-| 无 | `references/spec-reviewer.md` 末节 handoff 与 story adapter 两段；`references/tests-reviewer.md` 范围段之后读 boundary 与 journey 断言的一条；`references/ui-reviewer.md` 整份 | 我们改的，来自 #447 第 9 节：handoff package 仍不打开，理由改为外观由 element parity 判定；story adapter 只查每个 `shows` 名都是组件的一个属性，接口字段是否喂对由 boundary test 判；Tests axis 读 boundary test 与 journey 的断言本身，不因 judge 已判过就跳过，不为防存心作弊加标记文件，journey 探测 break switch 由读断言时看。UI axis 见下方专节。上游改这几处 → 收上游措辞，这几条规则保留 |
+| 无 | `references/spec-reviewer.md` 末节 handoff 与 story adapter 两段；`references/tests-reviewer.md` 范围段之后读 boundary 与 journey 断言的一条；`references/ui-reviewer.md` 整份 | 我们改的，来自 #447 第 9 节：handoff package 仍不打开，理由改为外观由 element parity 判定；story adapter 只查组件画出了每个 `shows` 值，接口字段是否喂对由 boundary test 判；Tests axis 读 boundary test 与 journey 的断言本身，不因 judge 已判过就跳过，不为防存心作弊加标记文件，journey 探测 break switch 由读断言时看。UI axis 见下方专节。上游改这几处 → 收上游措辞，这几条规则保留 |
 | 无 | `references/tests-reviewer.md` 整个文件 | 我们加的第三个 axis，见下一节 |
 | 第 6 行 dispatcher 段与第 2 节标题、首段 | `SKILL.md` 的两扇门与 `references/session.md` 第 2 节 | 我们改的：会话自称 `reviewer session`，默认三个轴是 host 自带的通用 subagent，再调一次本技能并带上 axis 名（`Standards` / `Spec` / `Tests`），ticket 有 story criterion 时再起 `UI`，不写 model、不写路径。`SKILL.md` 入口表加一行 axis UI → `references/ui-reviewer.md`。第 8 行原有 `When either is missing, ask for it.` 删去：`dispatch.sh` 起 reviewer 时两个值必带，而 reviewer 与等它的 worker 之间只有票上 `^REVIEW ` 一条通道，问不到人，屏幕上一张 form 只会被 board 关掉。上游改这两处 → 收上游措辞，通用 subagent、再调本技能、不问值、UI 入口行这几条保留 |
 | frontmatter 的 `description` | `SKILL.md` 第 3 行，改写了 | 收窄成两扇门：一张 ticket、一个 base commit、三个默认 axis，ticket 有 story criterion 时加 UI；轴 subagent 再给一个 axis 名（含 `UI`）。末句给的是这个技能要的值，不写调用形状（理由见末节）。上游那句招揽「review a branch / a PR / review since X」的用法在正文里没有落点。上游改这一行 → 收上游对默认三个 axis 的措辞，两扇门、ticket number、UI 条件保留 |
@@ -102,11 +102,14 @@ files. The axis subagent is told to use this skill and which axis; it is not han
 `references/spec-reviewer.md`, same section, two more paragraphs after the screen-contract
 one. **The story page**: every mount the ticket's story criterion names under `--pages` is
 declared by the contract's `pages`, and the diff puts `[data-story-root]` on the root of
-that design page's block. **The story adapter**: each name in a row's `shows` column is a property of
-the surface component; whether the interface field that feeds the shown value is
-the right field is the boundary test's, not this axis's. Reason: requiring the
+that design page's block. **The story adapter**: each entry of a row's `shows` column names a displayed value
+and its backend field, as `screen-contract-format.md` defines it, and the product
+component must draw every one of them; whether the interface field that feeds the shown
+value is the right field is the boundary test's, not this axis's. Reason: requiring the
 adapter to point at a backend source field is a check the story page cannot
-satisfy. A `shows` name that is not a component property is **Built wrong**. Neither paragraph mentions `--mount`, the contract's
+satisfy, and a `shows` key is the displayed value's name, not a component property:
+when a design page draws from its own view data, the component's field names differ
+(task board, #574 and #583). A `shows` value the component does not draw is **Built wrong**. Neither paragraph mentions `--mount`, the contract's
 `open` chain, the addressing self-check or interface parity — those are retired words
 (`docs/adr/0011-component-story-not-whole-product.md`), and an axis file that names them
 sends every later review down a path the tools no longer have. If upstream rewrites that
@@ -174,8 +177,8 @@ If upstream rewrites the session steps → keep this verification step between t
 `references/spec-reviewer.md` described the story adapter as mapping `scenes.json`
 data onto `the surface component's props`. The same object had four names across the
 toolbox — `surface component`, `presentational component`, `product component`,
-`display component` — and this axis's whole rule turns on it ("every `shows` name
-must be a property of that component"), so a reviewer had to decide for itself
+`display component` — and this axis's whole rule turns on it ("the component must draw every `shows`
+value"), so a reviewer had to decide for itself
 whether the four were one thing. `product component` wins: it is the name
 `story-parity.md`, `writing-interface-code.md` and `ui-reviewer.md` already used,
 and it matches the judge's own `product=` output. It is registered in
