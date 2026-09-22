@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
@@ -60,20 +62,81 @@ class StoryPageTest(unittest.TestCase):
                 }""",
             ))
 
-        scene = "Component · 任务列表.morning"
-        with story_page(self.browser, "tasks", scene, before_goto=inspect_input) as page:
-            root = page.locator("[data-story-root]")
-            root.wait_for(state="attached")
-            value = json.loads(root.get_attribute("data-input"))
-            self.assertEqual(value["selected"], 98)
-            self.assertEqual(value["rows"][0], {
-                "n": 98,
-                "kind": "map",
-                "title": "落地流水线改造",
-                "lamp": "orange",
-                "done": 6,
-                "total": 18,
-            })
+        with tempfile.TemporaryDirectory() as directory:
+            handoff = Path(directory)
+            (handoff / "data").mkdir()
+            (handoff / "scenes.json").write_text(json.dumps([
+                {"name": "Component · 任务列表.first"},
+                {"name": "Component · 任务列表.second"},
+            ]), encoding="utf-8")
+            (handoff / "data" / "test-scenes.js").write_text(
+                """/* The leading block comment is part of the contract fixture. */
+window.TEST_SCENES = {
+  first: {selected: 1, rows: [{n: 1}]},
+  second: {selected: null, rows: []},
+};
+""",
+                encoding="utf-8",
+            )
+            contract = handoff / "screen-contract.yaml"
+            contract.write_text("""scenes:
+  Component · 任务列表.first:
+    input:
+      file: data/test-scenes.js
+      value: TEST_SCENES.first
+  Component · 任务列表.second:
+    input:
+      file: data/test-scenes.js
+      value: TEST_SCENES.second
+""", encoding="utf-8")
+
+            scene = "Component · 任务列表.second"
+            server_env = {
+                "MMW_STORY_HANDOFF": str(handoff),
+                "MMW_STORY_CONTRACT": str(contract),
+            }
+            with story_page(self.browser, "tasks", scene, before_goto=inspect_input,
+                            server_env=server_env) as page:
+                root = page.locator("[data-story-root]")
+                root.wait_for(state="attached")
+                value = json.loads(root.get_attribute("data-input"))
+                self.assertIsNone(value["selected"])
+                self.assertEqual(value["rows"], [])
+
+    def test_scene_input_failure_reaches_the_story_page(self):
+        errors = []
+
+        def record_error(page):
+            page.on("pageerror", lambda error: errors.append(str(error)))
+
+        with tempfile.TemporaryDirectory() as directory:
+            handoff = Path(directory)
+            (handoff / "data").mkdir()
+            (handoff / "scenes.json").write_text(json.dumps([
+                {"name": "Component · 任务列表.missing"},
+            ]), encoding="utf-8")
+            (handoff / "data" / "test-scenes.js").write_text(
+                "window.TEST_SCENES = {present: {rows: []}};\n", encoding="utf-8"
+            )
+            contract = handoff / "screen-contract.yaml"
+            contract.write_text("""scenes:
+  Component · 任务列表.missing:
+    input:
+      file: data/test-scenes.js
+      value: TEST_SCENES.missing
+""", encoding="utf-8")
+
+            server_env = {
+                "MMW_STORY_HANDOFF": str(handoff),
+                "MMW_STORY_CONTRACT": str(contract),
+            }
+            with story_page(self.browser, "tasks", "Component · 任务列表.missing",
+                            before_goto=record_error, server_env=server_env):
+                self.assertEqual(len(errors), 1)
+                self.assertIn(
+                    "scene input value was not found: TEST_SCENES.missing", errors[0]
+                )
+                self.assertIn("Check the contract input.file/input.value", errors[0])
 
     def test_response_table_returns_any_status_and_body_without_fetch(self):
         escaped = []
@@ -131,7 +194,8 @@ class StoryPageTest(unittest.TestCase):
         def replace_product(page):
             page.route("**/product/tasks.mjs", lambda route: route.fulfill(
                 content_type="text/javascript",
-                body="""export function render(host, data) {
+                body="""export function taskRowView(row) { return row; }
+                export function render(host, data) {
                   const root = document.createElement('nav');
                   root.dataset.ui = '任务列表.root';
                   root.dataset.screen = 'tasks';

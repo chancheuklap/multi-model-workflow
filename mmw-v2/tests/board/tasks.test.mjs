@@ -31,6 +31,7 @@ test("the lamp and progress follow the task's tickets", () => {
   assert.equal(view.rows[0].lampWord, "needs you");
   assert.equal(view.rows[0].meta, "#98 · map");
   assert.equal(view.rows[0].count, "6/18 landed");
+  assert.equal(view.rows[0].barStyle.width, "33.3%");
   assert.equal(view.rows[1].lampCls, "lamp ink");
   assert.equal(view.rows[1].count, "3/3 landed");
   assert.equal(view.rows[1].barStyle.width, "100%");

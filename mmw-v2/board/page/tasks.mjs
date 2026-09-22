@@ -5,6 +5,18 @@ function markOn(row, selectedTask) {
   return {...row, cls: on ? "task on" : "task"};
 }
 
+export function taskRowView({n, kind, title, lamp, done, total}) {
+  return {
+    n,
+    lampCls: "lamp " + lamp,
+    lampWord: LAMP_WORD[lamp],
+    meta: `#${n} · ${kind}`,
+    title,
+    barStyle: {width: (total ? Math.round(1000 * done / total) / 10 : 0) + "%"},
+    count: `${done}/${total} landed`,
+  };
+}
+
 export function taskListView(tasks, selectedTask) {
   return {
     count: tasks.length,
@@ -12,15 +24,14 @@ export function taskListView(tasks, selectedTask) {
     rows: tasks.map(task => {
       const progress = Board.progress(task);
       const lamp = Board.aggregate(Board.allTickets(task));
-      return markOn({
+      return markOn(taskRowView({
         n: task.n,
-        lampCls: "lamp " + lamp,
-        lampWord: LAMP_WORD[lamp],
-        meta: `#${task.n} · ${task.kind}`,
+        kind: task.kind,
         title: task.title,
-        barStyle: {width: (progress.total ? 100 * progress.done / progress.total : 0) + "%"},
-        count: `${progress.done}/${progress.total} landed`,
-      }, selectedTask);
+        lamp,
+        done: progress.done,
+        total: progress.total,
+      }), selectedTask);
     }),
   };
 }

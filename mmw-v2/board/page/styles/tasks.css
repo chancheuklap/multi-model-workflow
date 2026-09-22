@@ -1,6 +1,6 @@
 /* ── left column: tasks ──────────────────────────────────── */
 .tasks { height: 100%; background: var(--panel); border-right: 1px solid var(--rule); overflow-y: auto; }
-.tasks > .eyebrow { flex: none; padding: var(--sp-16) var(--sp-16) var(--sp-8); }
+.tasks > .eyebrow { padding: var(--sp-16) var(--sp-16) var(--sp-8); }
 .task {
   display: grid; grid-template-columns: 9px 1fr; column-gap: var(--sp-8); row-gap: var(--sp-4); align-items: center;
   width: 100%; padding: var(--sp-12) var(--sp-16); background: none; border: 0; cursor: pointer; text-align: left;

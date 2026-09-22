@@ -35,10 +35,11 @@ const sceneName = params.get("scene") || "";
 const scenes = await fetch("/scenes.json").then(response => response.json());
 const scene = scenes.find(candidate => candidate.name === sceneName);
 if (!scene) throw new Error(`unknown scene: ${sceneName}`);
-const input = await fetch(`/scene-input.json?scene=${encodeURIComponent(sceneName)}`)
-  .then(response => {
-    if (!response.ok) throw new Error(`scene input unavailable: ${sceneName}`);
-    return response.json();
-  });
+const inputResponse = await fetch(`/scene-input.json?scene=${encodeURIComponent(sceneName)}`);
+if (!inputResponse.ok) {
+  const reason = (await inputResponse.text()).trim();
+  throw new Error(reason || `scene input unavailable for ${sceneName}`);
+}
+const input = await inputResponse.json();
 const adapter = await import(`/adapters/${encodeURIComponent(page)}.mjs`);
 adapter.render(document.querySelector("#story-host"), input, api);

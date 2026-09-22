@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import http.server
 import json
+import os
 import re
 import subprocess
 import sys
@@ -22,9 +23,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 PAGE = ROOT / "mmw-v2" / "board" / "page"
-HANDOFF = ROOT / "prototypes" / "task-board" / "claude-design"
+HANDOFF = Path(os.environ.get(
+    "MMW_STORY_HANDOFF",
+    ROOT / "prototypes" / "task-board" / "claude-design",
+))
 SCENES = HANDOFF / "scenes.json"
-CONTRACT = ROOT / "docs" / "specs" / "task-board" / "screen-contract.yaml"
+CONTRACT = Path(os.environ.get(
+    "MMW_STORY_CONTRACT",
+    ROOT / "docs" / "specs" / "task-board" / "screen-contract.yaml",
+))
 ADAPTERS = HERE / "adapters"
 
 
@@ -111,10 +118,14 @@ def handoff_values(path: Path) -> dict:
 def resolve_scene_input(name: str):
     declaration = SCENE_INPUTS.get(name)
     if not declaration or "file" not in declaration or "value" not in declaration:
-        raise KeyError(name)
+        raise ValueError(f"scene has no complete input declaration: {name}")
     values = handoff_values(HANDOFF / declaration["file"])
-    namespace, key = declaration["value"].split(".", 1)
-    value = values[namespace][key]
+    reference = declaration["value"]
+    try:
+        namespace, key = reference.split(".", 1)
+        value = values[namespace][key]
+    except (KeyError, ValueError, TypeError) as exc:
+        raise ValueError(f"scene input value was not found: {reference}") from exc
     return merge(value, declaration.get("with", {}))
 
 
@@ -141,9 +152,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             scene = (query.get("scene") or [""])[0]
             try:
                 body = (json.dumps(resolve_scene_input(scene), ensure_ascii=False) + "\n").encode()
-            except (KeyError, ValueError, FileNotFoundError):
-                self.send_error(404)
-                return
+            except (ValueError, FileNotFoundError) as exc:
+                message = (
+                    f"scene input unavailable for {scene}: {exc}. "
+                    "Check the contract input.file/input.value and that Node.js is on PATH.\n"
+                )
+                return self.send_bytes(
+                    message.encode(), "text/plain; charset=utf-8", status=404
+                )
             return self.send_bytes(body, "application/json; charset=utf-8")
         if path.startswith("/adapters/"):
             target = (HERE / path.removeprefix("/")).resolve()
@@ -172,8 +188,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         self.send_bytes(body, content_type)
 
-    def send_bytes(self, body: bytes, content_type: str):
-        self.send_response(200)
+    def send_bytes(self, body: bytes, content_type: str, status: int = 200):
+        self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
