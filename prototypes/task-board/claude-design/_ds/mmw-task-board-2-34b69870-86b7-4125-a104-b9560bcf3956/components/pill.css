@@ -1,0 +1,20 @@
+/* the pill: the name of the current phase. Six phases, one class each. */
+.pill {
+  display: inline-flex; align-items: center; gap: var(--sp-6); height: 20px; padding-inline: var(--sp-8);
+  border-radius: var(--r-pill); border: 1px solid; white-space: nowrap; flex: none;
+  font: var(--w-medium) var(--t-micro)/var(--lh-flat) var(--mono); letter-spacing: var(--track-loose);
+}
+.pill.queued  { border-color: var(--rule); color: var(--soft); background: transparent; }
+.pill.working { border-color: var(--s-working); color: var(--s-working-ink); background: var(--s-working-tint); }
+.pill.waiting { border-color: var(--s-waiting); color: var(--s-waiting-ink); background: var(--s-waiting-tint); }
+.pill.review  { border-color: var(--s-review);  color: var(--s-review-ink);  background: var(--s-review-tint); }
+.pill.verify  { border-color: var(--s-verify);  color: var(--s-verify-ink);  background: var(--s-verify-tint); }
+.pill.landed  { border-color: var(--ink); color: var(--on-ink); background: var(--ink); }
+.pill.big { height: 24px; padding-inline: var(--sp-12); font-size: var(--t-meta); }
+
+/* the same shell used as a plain tag: a kind, a host, a count */
+.pill.tag { border-color: var(--rule); color: var(--muted); background: transparent; }
+.pill.tag.hot { border-color: var(--orange-line); color: var(--orange-ink); background: var(--orange-tint); }
+.pill.tag.dashed { border-style: dashed; color: var(--faint); }
+.pill-name { font-weight: var(--w-bold); color: var(--ink); }
+.pill.tag.dashed .pill-name { color: var(--soft); }

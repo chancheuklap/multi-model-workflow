@@ -1,0 +1,19 @@
+:root {
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+  --r-round: 50%;
+
+  /* 线宽三档 + 线的透明度三档，画布上的连线用 */
+  --stroke-thin: 1.5; /* @kind other */
+  --stroke: 1.8; /* @kind other */
+  --stroke-bold: 2.4; /* @kind other */
+  --o-flow: 0.3; /* @kind other */
+  --o-flow-hot: 0.45; /* @kind other */
+  --o-solid: 0.85; /* @kind other */
+
+  --shadow-1: 0 2px 8px rgba(45, 49, 66, 0.08);   /* a bar floating over the canvas */
+  --shadow-2: 0 4px 16px rgba(45, 49, 66, 0.14);  /* the picked card */
+  --shadow-3: 0 24px 64px rgba(20, 22, 34, 0.28); /* the sheet over the scrim */
+}

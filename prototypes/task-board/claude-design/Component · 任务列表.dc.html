@@ -1,77 +1,96 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./support.js"></script>
-  </head>
-  <body>
-    <x-dc>
-      <helmet data-dc-atomics>
-        <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
-        <script src="./data/tasks-scenes.js"></script>
-      </helmet>
-      <nav data-ui="任务列表.root" class="tasks board" aria-label="The Night" data-screen-label="任务列表" style="{{ rootStyle }}">
-        <div class="col-eyebrow" data-ui="任务列表.eyebrow">
-          <span data-ui="任务列表.eyebrow.label">The Night</span>
-          <span data-ui="任务列表.eyebrow.count">{{ count }}</span>
-        </div>
-        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
-          <p class="tasks-empty" data-ui="任务列表.empty">没有带 mmw:map label 的 ticket。</p>
-        </sc-if>
-        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="3">
-          <button type="button" class="{{ row.cls }}" data-ui="任务列表.task" onClick="{{ row.pick }}">
-            <span class="{{ row.lampCls }}" title="{{ row.lampWord }}" data-ui="任务列表.task.lamp"></span>
-            <span class="task-meta" data-ui="任务列表.task.meta">{{ row.meta }}</span>
-            <span class="{{ row.titleCls }}" data-ui="任务列表.task.title">{{ row.title }}</span>
-            <span class="task-progress">
-              <span class="bar"><span class="bar-fill" style="{{ row.barStyle }}" data-ui="任务列表.task.bar"></span></span>
-              <span class="task-count" data-ui="任务列表.task.count">{{ row.count }}</span>
-            </span>
-          </button>
-        </sc-for>
-      </nav>
-    </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{
-  "$preview": { "width": 236, "height": 848 },
-  "scene": { "editor": "enum", "options": ["morning", "twenty-tickets", "bad-data", "empty"], "default": "morning" }
-}'>
-      class Component extends DCLogic {
-        componentDidMount() {
-          const wait = () => {
-            if (window.TASK_SCENES) this.forceUpdate();
-            else setTimeout(wait, 20);
-          };
-          wait();
-        }
-        renderVals() {
-          const LAMP_WORD = {orange: "needs you", green: "running", hollow: "queued", ink: "done"};
-          const rootStyle = {width: (this.props.width || 236) + "px", height: (this.props.height || 848) + "px"};
-          const scene = window.TASK_SCENES && window.TASK_SCENES[this.props.scene || "morning"];
-          if (!scene) return {rootStyle, count: 0, empty: false, rows: []};
-          const selected = this.props.task !== undefined ? this.props.task
-            : this.state && this.state.task != null ? this.state.task
-            : scene.selected;
-          const rows = scene.tasks.map(t => {
-            const on = t.n === selected;
-            return {
-              cls: on ? "task on" : "task",
-              titleCls: on ? "task-title on" : "task-title",
-              lampCls: "lamp " + t.lamp,
-              lampWord: LAMP_WORD[t.lamp],
-              meta: "#" + t.n + " · " + t.kind,
-              title: t.title,
-              barStyle: {width: (t.total ? 100 * t.landed / t.total : 0) + "%"},
-              count: t.landed + "/" + t.total + " landed",
-              pick: () => {
-                this.setState({task: t.n});
-                if (this.props.onSelectTask) this.props.onSelectTask(t.n);
-              },
-            };
-          });
-          return {rootStyle, count: scene.tasks.length, empty: !scene.tasks.length, rows};
-        }
-      }
-    </script>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/shape.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/base.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/lamp.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/eyebrow.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/bar.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/row.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/empty.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css">
+  <script src="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
+  <script src="data/tasks-scenes.js"></script>
+  <style>body { margin: 0; background: var(--desk); }</style>
+</helmet>
+<nav class="tasks board" data-ui="任务列表.root" aria-label="The Night" style="width: 236px; max-width: 100%; height: 100vh; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--rule); overflow-y: auto">
+  <div class="eyebrow spread" data-ui="任务列表.eyebrow" style="flex: none; padding: var(--sp-16) var(--sp-16) var(--sp-8)">
+    <span data-ui="任务列表.eyebrow.label">The Night</span>
+    <span data-ui="任务列表.eyebrow.count">{{ count }}</span>
+  </div>
+  <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+    <p class="empty inline empty-text" data-ui="任务列表.empty" style="margin: 0">没有带 mmw:map label 的 ticket。</p>
+  </sc-if>
+  <sc-for list="{{ rows }}" as="row" hint-placeholder-count="3">
+    <button type="button" class="{{ row.cls }}" data-ui="任务列表.task" onClick="{{ row.pick }}">
+      <span class="{{ row.lampCls }}" title="{{ row.lampWord }}" data-ui="任务列表.task.lamp"></span>
+      <span class="task-meta" data-ui="任务列表.task.meta">{{ row.meta }}</span>
+      <span class="task-title" data-ui="任务列表.task.title">{{ row.title }}</span>
+      <span class="task-progress">
+        <span class="bar"><span class="bar-fill" data-ui="任务列表.task.bar" style="width: {{ row.width }}"></span></span>
+        <span class="task-count" data-ui="任务列表.task.count">{{ row.count }}</span>
+      </span>
+    </button>
+  </sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 236, &quot;height&quot;: 720}, &quot;scene&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;morning&quot;, &quot;twenty-tickets&quot;, &quot;bad-data&quot;, &quot;empty&quot;], &quot;default&quot;: &quot;morning&quot;, &quot;tsType&quot;: &quot;string&quot;}}">
+const LAMP_WORD = {orange: "needs you", green: "running", ink: "done", hollow: "queued"};
+
+class Component extends DCLogic {
+  state = {selected: undefined, ready: false};
+
+  componentDidMount() { this.waitForData(); }
+
+  waitForData(tries = 0) {
+    if (window.TASK_SCENES) { this.setState({ready: true}); return; }
+    if (tries < 40) setTimeout(() => this.waitForData(tries + 1), 50);
+  }
+
+  scene() { return this.props.scene || "morning"; }
+
+  data() {
+    const scenes = (typeof window !== "undefined" && window.TASK_SCENES) || {};
+    return scenes[this.scene()] || {selected: null, rows: []};
+  }
+
+  componentDidUpdate(prev) {
+    if (prev.scene !== this.props.scene) this.setState({selected: undefined});
+  }
+
+  renderVals() {
+    const data = this.data();
+    const rows0 = this.props.rows || data.rows || [];
+    const selected = this.props.selected !== undefined ? this.props.selected
+      : this.state.selected === undefined ? data.selected : this.state.selected;
+    const rows = rows0.map(row => {
+      const on = row.n === selected;
+      return {
+        n: row.n,
+        cls: on ? "task on" : "task",
+        lampCls: "lamp " + row.lamp,
+        lampWord: LAMP_WORD[row.lamp] || row.lamp,
+        meta: "#" + row.n + " · " + row.kind,
+        title: row.title,
+        width: (row.total ? Math.round(1000 * row.done / row.total) / 10 : 0) + "%",
+        count: row.done + "/" + row.total + " landed",
+        pick: () => { this.setState({selected: row.n}); this.props.onSelect?.(row.n); },
+      };
+    });
+    return {rows, count: String(rows.length), empty: rows.length === 0};
+  }
+}
+</script>
+</body>
 </html>

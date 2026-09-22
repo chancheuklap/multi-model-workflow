@@ -1,0 +1,11 @@
+/* hatched ink: the one texture for something the machine refused to do */
+.hatch-bar {
+  display: inline-flex; align-items: center; gap: var(--sp-8); padding: var(--sp-4) var(--sp-8);
+  border: 1px solid var(--ink); border-radius: var(--r-sm); background: var(--hatch);
+  font-size: var(--t-meta); font-weight: var(--w-bold); color: var(--ink);
+}
+.hatch-bar.block {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-8) var(--sp-16);
+  padding: var(--sp-8) var(--sp-12); font-size: var(--t-body); font-weight: var(--w-regular);
+}
+.hatch-swatch { flex: none; width: 10px; height: 10px; border: 1px solid var(--ink); border-radius: var(--r-sm); background: var(--hatch-dense); }

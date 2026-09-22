@@ -1,75 +1,116 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./support.js"></script>
-  </head>
-  <body>
-    <x-dc>
-      <helmet data-dc-atomics>
-        <link rel="stylesheet" href="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css" />
-        <script src="./_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
-        <script src="./lib/board.js"></script>
-        <script src="./data/board-morning.js"></script>
-        <script src="./data/board-twenty-tickets.js"></script>
-        <script src="./data/board-bad-data.js"></script>
-        <script src="./data/board-empty.js"></script>
-      </helmet>
-      <header data-ui="顶栏.root" class="topbar board" data-screen-label="顶栏" style="{{ rootStyle }}">
-        <x-import component-from-global-scope="MMWTaskBoard2_34b698.Brand" dc-props="{{ brand }}" hint-size="330px,20px"></x-import>
-        <div class="counters">
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.Counter" dc-props="{{ needYou }}" hint-size="110px,26px"></x-import>
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.Counter" dc-props="{{ running }}" hint-size="180px,26px"></x-import>
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.Counter" dc-props="{{ queued }}" hint-size="90px,26px"></x-import>
-          <x-import component-from-global-scope="MMWTaskBoard2_34b698.Counter" dc-props="{{ done }}" hint-size="80px,26px"></x-import>
-        </div>
-        <x-import component-from-global-scope="MMWTaskBoard2_34b698.ReadState" dc-props="{{ read }}" hint-size="120px,20px"></x-import>
-        <x-import component-from-global-scope="MMWTaskBoard2_34b698.IconButton" dc-props="{{ refresh }}" hint-size="30px,30px"></x-import>
-        <x-import component-from-global-scope="MMWTaskBoard2_34b698.IconButton" dc-props="{{ settings }}" hint-size="30px,30px"></x-import>
-      </header>
-    </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{
-  "$preview": { "width": 1440, "height": 52 },
-  "scene": { "editor": "enum", "options": ["morning", "twenty-tickets", "bad-data", "empty"], "default": "morning" },
-  "settingsOpen": { "editor": "boolean", "default": false }
-}'>
-      class Component extends DCLogic {
-        componentDidMount() {
-          const wait = () => {
-            if (window.MMW && window.MMWTaskBoard2_34b698 && window.BOARD_SCENES && window.BOARD_SCENES.empty) this.forceUpdate();
-            else setTimeout(wait, 20);
-          };
-          wait();
-        }
-        renderVals() {
-          const rootStyle = {width: (this.props.width || 1440) + "px", height: "52px"};
-          const key = this.props.scene || "morning";
-          const scene = window.BOARD_SCENES && window.BOARD_SCENES[key];
-          const off = {brand: {}, needYou: {}, running: {}, queued: {}, done: {}, read: {}, refresh: {}, settings: {}};
-          if (!window.MMW || !scene) return {rootStyle, ...off};
-          window.MMW_NOW = scene.now;
-          const v = window.MMW.topbar.fromBoard({...scene.payload, settingsOpen: !!this.props.settingsOpen}, new Date(scene.now));
-          const hot = v.orangeN > 0;
-          return {
-            rootStyle,
-            brand: {repo: scene.payload.repo || "chancheuklap/multi-model-workflow", "data-ui": "顶栏.brand"},
-            needYou: {button: true, hot, lamp: hot ? "orange" : "hollow", label: "needs you", count: v.orangeN,
-              title: "跳到下一张 needs you 的 ticket", onClick: () => this.props.onJumpNeedYou && this.props.onJumpNeedYou(),
-              "data-ui": "顶栏.needs-you"},
-            running: {lamp: "green", label: "running", count: v.greenN, sub: v.waiting ? "waiting for a slot " + v.waiting : null, "data-ui": "顶栏.running"},
-            queued: {lamp: "hollow", label: "queued", count: v.hollowN, "data-ui": "顶栏.queued"},
-            done: {lamp: "ink", label: "done", count: v.inkN, "data-ui": "顶栏.done"},
-            read: v.readFailed
-              ? {failed: true, text: "读 GitHub 失败 · 下面是 " + v.readClock + " 的数据（" + v.readAgo + " 分钟前）", "data-ui": "顶栏.read-state"}
-              : {failed: false, text: v.readClock ? "只读 · " + v.readClock + " 读取" : "", "data-ui": "顶栏.read-state"},
-            refresh: {icon: "refresh", label: "立刻重读 GitHub", title: "立刻重读 GitHub（页面开着时每分钟自动读一次）",
-              onClick: () => this.props.onRefresh && this.props.onRefresh(), "data-ui": "顶栏.refresh"},
-            settings: {icon: "settings", on: v.settingsOpen, label: "本机配置", title: "本机配置：每个 agent 跑在哪个 host、model、effort",
-              onClick: () => this.props.onOpenSettings && this.props.onOpenSettings(), "data-ui": "顶栏.settings"},
-          };
-        }
-      }
-    </script>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/tokens/shape.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/base.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/lamp.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/brand.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/counter.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/status.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/warn.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/components/button.css">
+  <link rel="stylesheet" href="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/styles.css">
+  <script src="_ds/mmw-task-board-2-34b69870-86b7-4125-a104-b9560bcf3956/_ds_bundle.js"></script>
+  <script src="data/topbar-scenes.js"></script>
+  <style>body { margin: 0; background: var(--desk); }</style>
+</helmet>
+<header class="board" data-ui="顶栏.root" style="height: 52px; display: flex; align-items: center; gap: var(--sp-16); padding-inline: var(--sp-20); background: var(--panel-2); border-bottom: 1px solid var(--rule); min-width: 0">
+  <div class="brand" data-ui="顶栏.brand">
+    <span class="brand-mark" data-ui="顶栏.brand.mark">MMW</span>
+    <span class="brand-name" data-ui="顶栏.brand.name">task board</span>
+    <span class="brand-repo" data-ui="顶栏.brand.repo">chancheuklap/multi-model-workflow</span>
+  </div>
+  <div class="counters" style="margin-left: auto">
+    <button type="button" class="{{ hotCls }}" data-ui="顶栏.needs-you" disabled="{{ notHot }}" title="跳到下一张 needs you 的 ticket" onClick="{{ onJump }}">
+      <span class="{{ hotLamp }}" data-ui="顶栏.needs-you.lamp"></span>needs you<span class="counter-n" data-ui="顶栏.needs-you.count">{{ orangeN }}</span>
+    </button>
+    <span class="counter" data-ui="顶栏.running">
+      <span class="lamp green" data-ui="顶栏.running.lamp"></span>running<span class="counter-n" data-ui="顶栏.running.count">{{ greenN }}</span>
+      <sc-if value="{{ hasWaiting }}" hint-placeholder-val="{{ true }}">
+        <span class="counter-sub" data-ui="顶栏.running.sub">{{ waitingText }}</span>
+      </sc-if>
+    </span>
+    <span class="counter" data-ui="顶栏.queued">
+      <span class="lamp hollow" data-ui="顶栏.queued.lamp"></span>queued<span class="counter-n" data-ui="顶栏.queued.count">{{ hollowN }}</span>
+    </span>
+    <span class="counter" data-ui="顶栏.done">
+      <span class="lamp ink" data-ui="顶栏.done.lamp"></span>done<span class="counter-n" data-ui="顶栏.done.count">{{ inkN }}</span>
+    </span>
+  </div>
+  <div class="{{ readCls }}" data-ui="顶栏.read-state">{{ readText }}</div>
+  <button type="button" class="iconbtn bare" data-ui="顶栏.refresh" aria-label="立刻重读 GitHub" title="立刻重读 GitHub（页面开着时每分钟自动读一次）">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+      <path d="M21 3v5h-5"></path>
+    </svg>
+  </button>
+  <button type="button" class="{{ gearCls }}" data-ui="顶栏.settings" aria-label="本机配置" title="本机配置：每个 agent 跑在哪个 host、model、effort" onClick="{{ onSettings }}">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+  </button>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1200, &quot;height&quot;: 52}, &quot;scene&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;morning&quot;, &quot;twenty-tickets&quot;, &quot;bad-data&quot;, &quot;empty&quot;], &quot;default&quot;: &quot;morning&quot;, &quot;tsType&quot;: &quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {settingsOpen: undefined, ready: false};
+
+  componentDidMount() { this.waitForData(); }
+
+  waitForData(tries = 0) {
+    if (window.TOPBAR_SCENES) { this.setState({ready: true}); return; }
+    if (tries < 40) setTimeout(() => this.waitForData(tries + 1), 50);
+  }
+
+  data() {
+    const scenes = (typeof window !== "undefined" && window.TOPBAR_SCENES) || {};
+    return scenes[this.props.scene || "morning"] || {};
+  }
+
+  componentDidUpdate(prev) {
+    if (prev.scene !== this.props.scene) this.setState({settingsOpen: undefined});
+  }
+
+  renderVals() {
+    const view = this.data();
+    const orangeN = view.orangeN ?? 0;
+    const hot = orangeN > 0;
+    const waiting = view.waiting ?? 0;
+    const open = this.props.settingsOpen !== undefined ? Boolean(this.props.settingsOpen)
+      : this.state.settingsOpen === undefined ? Boolean(view.settingsOpen) : this.state.settingsOpen;
+    return {
+      orangeN: String(orangeN),
+      greenN: String(view.greenN ?? 0),
+      hollowN: String(view.hollowN ?? 0),
+      inkN: String(view.inkN ?? 0),
+      hotCls: hot ? "counter hot" : "counter",
+      hotLamp: hot ? "lamp orange" : "lamp hollow",
+      notHot: !hot,
+      hasWaiting: waiting > 0,
+      waitingText: "waiting for a slot " + waiting,
+      readCls: view.readFailed ? "hatch-bar" : "readstate",
+      readText: view.readText || "",
+      gearCls: open ? "iconbtn bare on" : "iconbtn bare",
+      onJump: () => this.props.onJumpNeedYou?.(),
+      onSettings: () => {
+        if (this.props.onOpenSettings) { this.props.onOpenSettings(!open); return; }
+        this.setState({settingsOpen: !open});
+      },
+    };
+  }
+}
+</script>
+</body>
 </html>

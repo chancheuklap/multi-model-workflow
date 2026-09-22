@@ -1,0 +1,36 @@
+/* two sizes, two weights */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-8);
+  height: 32px; padding-inline: var(--sp-16); border-radius: var(--r-md);
+  border: 1px solid var(--rule); background: var(--panel); color: var(--muted);
+  font-size: var(--t-body); white-space: nowrap; cursor: pointer;
+}
+.btn:hover { border-color: var(--rule-strong); color: var(--ink); }
+.btn.sm { height: 24px; padding-inline: var(--sp-8); border-radius: var(--r-sm); font-size: var(--t-meta); }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); font-weight: var(--w-medium); }
+.btn.primary:hover { background: var(--ink-hover); border-color: var(--ink-hover); color: var(--on-ink); }
+.btn:disabled { opacity: 0.38; cursor: default; }
+.btn:disabled:hover { border-color: var(--rule); color: var(--muted); }
+.btn.primary:disabled:hover { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+
+/* one icon button; the size and the chrome are variants */
+.iconbtn {
+  flex: none; width: 32px; height: 32px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--panel);
+  color: var(--soft); cursor: pointer;
+}
+.iconbtn:hover, .iconbtn.on { border-color: var(--rule-strong); color: var(--ink); }
+.iconbtn.sm { width: 24px; height: 24px; border-radius: var(--r-sm); }
+.iconbtn.bare { border-color: transparent; background: none; }
+.iconbtn.bare:hover, .iconbtn.bare.on { border-color: transparent; background: var(--fill); color: var(--ink); }
+.iconbtn.round { border-radius: var(--r-pill); }
+.iconbtn:disabled { opacity: 0.38; cursor: default; }
+.iconbtn .icon { width: 15px; height: 15px; }
+.iconbtn.sm .icon { width: 13px; height: 13px; }
+
+/* the close button: a bare cross, always top-right of a panel */
+.iconbtn.close {
+  width: 24px; height: 24px; border: 0; border-radius: var(--r-sm); background: none;
+  color: var(--faint); font-size: var(--t-title); line-height: var(--lh-flat);
+}
+.iconbtn.close:hover { color: var(--ink); background: var(--fill); }

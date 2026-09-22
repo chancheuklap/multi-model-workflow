@@ -1,0 +1,43 @@
+/* 画布上的线。灰实线是「包含」和「已经走过的路」；阻塞线的颜色说明这次等待
+   处在什么状态：红＝还挡着，绿＝已经放行且后面那张在跑，灰＝放行且已完成。 */
+.edges { position: absolute; left: 0; top: 0; overflow: visible; }
+.edges-host { position: absolute; left: 0; top: 0; pointer-events: none; }
+
+/* 主干与展开线：容器到它的孩子 */
+.e-trunk, .e-expand { fill: none; stroke: var(--line-grey); stroke-width: var(--stroke); stroke-linecap: round; }
+
+/* 阻塞线 */
+.e-block { fill: none; stroke-width: var(--stroke); stroke-linecap: round; }
+.e-block.done { stroke: var(--line-grey); }
+.e-block.blocked { stroke: var(--led-red); opacity: var(--o-solid); }
+.e-block.flow { stroke: var(--led-green); stroke-width: var(--stroke-bold); opacity: var(--o-flow); }
+.e-block.cyc { stroke-dasharray: 5 4; }
+.e-block.hot { stroke-width: var(--stroke-bold); opacity: 1; }
+.e-block.flow.hot { opacity: var(--o-flow-hot); }
+
+/* 光束：绿色的头顺着曲线跑，说明这条路正在被走 */
+.e-beam { fill: none; stroke-linecap: round; filter: drop-shadow(0 0 2px rgba(34, 160, 107, 0.9)) drop-shadow(0 0 6px rgba(34, 160, 107, 0.45)); }
+.e-beam.still { stroke: var(--led-green); stroke-width: var(--stroke-bold); opacity: var(--o-solid); }
+.e-pulse { fill: none; stroke: var(--led-green); stroke-width: var(--stroke-thin); }
+
+/* 线的端点 */
+.e-port { stroke: none; }
+.e-port.done { fill: var(--rule-strong); }
+.e-port.flow { fill: var(--led-green); }
+.e-port.blocked { fill: var(--led-red); }
+
+/* 画布本身：冷灰底 + 28px 网点 */
+.canvas-surface { background-color: var(--canvas); background-image: var(--canvas-dot); background-size: 28px 28px; }
+
+/* 图例：压在网点上的一条浮字 */
+.legend {
+  display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-8) var(--sp-16);
+  font: var(--t-meta) var(--mono); color: var(--soft); cursor: default;
+  background: var(--panel-veil); border-radius: var(--r-md); padding: var(--sp-8) var(--sp-12);
+}
+.legend-item { display: inline-flex; align-items: center; gap: var(--sp-6); }
+.legend-line { width: 24px; height: 0; border-top: 2px solid var(--line-grey); }
+.legend-line.flow { border-top-color: var(--led-green); box-shadow: 0 0 5px rgba(34, 160, 107, 0.7); }
+.legend-line.blocked { border-top-color: var(--led-red); }
+.legend-line.cyc { border-top-style: dashed; }
+.legend-bar { width: 3px; height: 12px; border-radius: var(--r-pill); background: var(--closeout); }

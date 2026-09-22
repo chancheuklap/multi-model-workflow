@@ -1,0 +1,18 @@
+.counters { display: flex; flex-wrap: wrap; gap: var(--sp-6); }
+.counters.loose { gap: var(--sp-16); }
+
+/* a count in the top bar: a lamp, a word, a number */
+.counter {
+  display: inline-flex; align-items: center; gap: var(--sp-6); height: 24px; padding-inline: var(--sp-8);
+  border: 1px solid transparent; border-radius: var(--r-pill); background: none;
+  font-size: var(--t-meta); color: var(--muted); white-space: nowrap; cursor: default;
+}
+.counter.hot { border-color: var(--orange-line); background: var(--orange-tint); color: var(--orange-ink); font-weight: var(--w-bold); cursor: pointer; }
+.counter.hot:hover { background: var(--orange-tint-strong); }
+.counter:disabled { cursor: default; }
+/* 同样的「灯 + 词 + 数」，不要外壳时 */
+.counter.plain { height: auto; padding: 0; border: 0; background: none; }
+
+.counter-n { font-family: var(--mono); font-weight: var(--w-bold); color: var(--ink); font-variant-numeric: tabular-nums; }
+.counter.hot .counter-n { color: var(--orange-ink); }
+.counter-sub { color: var(--faint); }

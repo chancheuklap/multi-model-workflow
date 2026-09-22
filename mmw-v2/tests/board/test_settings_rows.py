@@ -14,7 +14,7 @@ from story_helper import recorded_requests, story_page
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SETTINGS_SOURCE = ROOT / "prototypes" / "task-board" / "claude-design" / "data" / "settings.js"
+SETTINGS_SOURCE = ROOT / "prototypes" / "task-board" / "example-data" / "settings.js"
 
 
 def settings_scenes() -> dict:

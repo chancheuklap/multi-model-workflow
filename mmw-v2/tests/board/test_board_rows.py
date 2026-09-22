@@ -15,11 +15,10 @@ from story_helper import recorded_requests, story_page
 
 
 ROOT = Path(__file__).resolve().parents[3]
-HANDOFF = ROOT / "prototypes" / "task-board" / "claude-design"
 
 
 def settings_scene(name: str = "mine") -> dict:
-    source = (HANDOFF / "data" / "settings.js").read_text(encoding="utf-8")
+    source = (ROOT / "prototypes" / "task-board" / "example-data" / "settings.js").read_text(encoding="utf-8")
     match = re.fullmatch(r"window\.SETTINGS_SCENES = (\{.*\});?\n?", source)
     if not match:
         raise AssertionError("cannot read settings scenes")
@@ -27,7 +26,7 @@ def settings_scene(name: str = "mine") -> dict:
 
 
 def board_scene(name: str) -> dict:
-    source = (HANDOFF / "data" / f"board-{name}.js").read_text(encoding="utf-8")
+    source = (ROOT / "prototypes" / "task-board" / "example-data" / f"board-{name}.js").read_text(encoding="utf-8")
     match = re.fullmatch(
         r'\(window\.BOARD_SCENES = window\.BOARD_SCENES \|\| \{\}\)\["[^"]+"\] = (\{.*\});?\n?',
         source,

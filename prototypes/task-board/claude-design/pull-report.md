@@ -2,159 +2,150 @@
 
 ## 设计检查
 
-- 页面没有自己的样式（`_ds/` 以外的 `.css` 或 `<style>`），选择器未核对。
+- 未发现设计检查问题。
 
 ## 覆盖
 
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 3
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: #98 · map
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 落地流水线改造
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 6/18 landed
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: #77 · map
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 交接包比对
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 3/3 landed
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: #101 · map
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 子 issue 五种改名
-- 带文字但没有 `data-ui` id：`App · 任务板.morning` — span.sc-interp: 0/3 landed
 - 带文字但没有 `data-ui` id：`App · 任务板.morning` — span: ·
 - 带文字但没有 `data-ui` id：`App · 任务板.morning` — b: #150 contract
 - 带文字但没有 `data-ui` id：`App · 任务板.morning` — b: #151 decision
-- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: 1
-- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: #210 · map
-- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: 判活三层落地
-- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span.sc-interp: 7/20 landed
 - 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — span: ·
-- 带文字但没有 `data-ui` id：`App · 任务板.twenty-tickets` — b: #241 decision
-- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: 1
-- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: #300 · map
-- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: 端口租约回收
-- 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span.sc-interp: 1/6 landed
 - 带文字但没有 `data-ui` id：`App · 任务板.bad-data` — span: ·
-- 带文字但没有 `data-ui` id：`App · 任务板.empty` — span.sc-interp: 0
 - 带文字但没有 `data-ui` id：`App · 任务板.empty` — span.code: mmw:map
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 3
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: #98 · map
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 落地流水线改造
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 6/18 landed
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: #77 · map
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 交接包比对
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 3/3 landed
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: #101 · map
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 子 issue 五种改名
-- 带文字但没有 `data-ui` id：`Component · 任务列表.morning` — span.sc-interp: 0/3 landed
-- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: 1
-- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: #210 · map
-- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: 判活三层落地
-- 带文字但没有 `data-ui` id：`Component · 任务列表.twenty-tickets` — span.sc-interp: 7/20 landed
-- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: 1
-- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: #300 · map
-- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: 端口租约回收
-- 带文字但没有 `data-ui` id：`Component · 任务列表.bad-data` — span.sc-interp: 1/6 landed
-- 带文字但没有 `data-ui` id：`Component · 任务列表.empty` — span.sc-interp: 0
-- 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span: ·
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — b: #150 contract
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — b: #151 decision
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span.code: start
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span.code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span: agent
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span: host
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span: model
+- 带文字但没有 `data-ui` id：`App · 任务板.settings-open` — span: effort
+- 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.mine` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.fresh` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.retired` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.paseo-off` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span.sheet-code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span.code: ~/.mmw/models.json
 - 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — b: 没有保存。
-- 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.changed` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.edited` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.incomplete` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.scanning` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.saved` — span: effort
-- 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span.sheet-code: start
-- 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span.sheet-code: ~/.mmw/models.json
-- 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span.sheet-code: MMW_RUNNER
+- 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span.code: start
+- 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span.code: ~/.mmw/models.json
+- 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span.code: MMW_RUNNER
 - 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span: agent
 - 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span: host
 - 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span: model
 - 带文字但没有 `data-ui` id：`Component · 本机配置.refused` — span: effort
 - 带文字但没有 `data-ui` id：`Component · 画布.empty` — span.code: mmw:map
 - 带文字但没有 `data-ui` id：`Component · 详情.morning` — span: ·
-- 带文字但没有 `data-ui` id：`Component · 详情.morning` — b: #150 contract
-- 带文字但没有 `data-ui` id：`Component · 详情.morning` — b: #151 decision
 - 带文字但没有 `data-ui` id：`Component · 详情.twenty-tickets` — span: ·
-- 带文字但没有 `data-ui` id：`Component · 详情.twenty-tickets` — b: #241 decision
 - 带文字但没有 `data-ui` id：`Component · 详情.bad-data` — span: ·
+- 带文字但没有 `data-ui` id：`Component · 详情.empty` — p.empty-text: The Night 开起来之后，点画布上的卡，它的细节显示在这一栏。
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-returned` — span: ·
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-bounced` — span: ·
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-closeout` — span: ·
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-waiting` — span: ·
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-review` — span: ·
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-queued` — span: ·
-- 带文字但没有 `data-ui` id：`Component · 详情.ticket-queued` — p.pv-none: no events yet
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-landed` — span: ·
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-fault` — span: ·
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-fault` — b: #310 fault
 - 带文字但没有 `data-ui` id：`Component · 详情.ticket-missing-blocker` — span: ·
-- 带文字但没有 `data-ui` id：`Component · 详情.ticket-missing-blocker` — p.pv-none: no events yet
 - 带文字但没有 `data-ui` id：`Component · 详情.spec` — span: ·
-- 带文字但没有 `data-ui` id：`Component · 详情.spec` — span.lc-n: 3
-- 带文字但没有 `data-ui` id：`Component · 详情.spec` — span.lc-n: 2
-- 带文字但没有 `data-ui` id：`Component · 详情.map` — span.lc-n: 3
-- 带文字但没有 `data-ui` id：`Component · 详情.map` — span.lc-n: 6
+- 带文字但没有 `data-ui` id：`Component · 详情.spec` — span.counter-n: 3
+- 带文字但没有 `data-ui` id：`Component · 详情.spec` — span.counter-n: 2
+- 带文字但没有 `data-ui` id：`Component · 详情.map` — span.counter-n: 3
+- 带文字但没有 `data-ui` id：`Component · 详情.map` — span.counter-n: 6
 - 带文字但没有 `data-ui` id：`Component · 详情.decision` — span: ·
-- 带文字但没有 `data-ui` id：`Component · 详情.decision` — p.rel-none: none
+- 带文字但没有 `data-ui` id：`Component · 详情.nothing-selected` — p.empty-text: 画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。
 
 ## 改动分类
 
-- 分类：只改外观或文案
-- design page：`Component · 任务列表.dc.html`
-- `data-ui` id 新增：无
+- 分类：增删控件或改流转
+- design page：`App · 任务板.dc.html`、`Component · 任务列表.dc.html`、`Component · 本机配置.dc.html`、`Component · 画布.dc.html`、`Component · 详情.dc.html`、`Component · 顶栏.dc.html`、`Overview.dc.html`
+- `data-ui` id 新增：`任务列表.task.bar`、`详情.blocks.state`
 - `data-ui` id 删除：无
+- `scene` 取值变化：`App · 任务板.dc.html`；新增 nothing-selected, settings-open；删除 无。
+- `App · ` 页接线变化：`App · 任务板.dc.html` — `data-dc-script` 逻辑块、`dc-import` 属性与上次不同。
+- 合同行引用的文字变化：`detail.open-github-summary`：`在 GitHub 打开 #131 ↗ | 在 GitHub 打开 #98 ↗ | 在 GitHub 打开 #107 ↗` → `在 GitHub 打开 #131 ↗ | 在 GitHub 打开 #98 ↗ | 在 GitHub 打开 #100 ↗`
+- 合同行引用的文字变化：`detail.goto-blocker`：`#132 中继进程骨架 landed | #213 心跳写入钩子 landed #214 回合守卫骨架 landed | #302 租约登记表 landed | #133 折叠接入中继 held #134 唤醒队列持久化 held` → `#132 中继进程骨架 landed | #212 心跳文件格式 landed | #215 Stop hook 叠挂 landed | #133 折叠接入中继 held #134 唤醒队列持久化 held | #302 租约登记表 landed`
+- 合同行引用的文字变化：`detail.goto-decision-blocker`：`#105 槽位推到哪一步 closed` → `#99 事件格式怎么定 closed`
+- 合同行引用的文字变化：`detail.goto-blocked`：`#135 投递回执 held | #221 worker.lost 写入 held | #137 中继自检命令 held | #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 waiting` → `#222 「不知道」与「死了」分开 held | #135 投递回执 held | #137 中继自检命令 held | #133 折叠接入中继 working #134 唤醒队列持久化 review #142 唤醒日志落盘 landed #139 槽位交还后叫醒 verify #138 离线时唤醒去向 verify #141 中继日志轮转 working #136 重试与退避 waiting`
+- 合同行引用的文字变化：`detail.open-event-block`：`▾ working 06:38–07:31 | ▾ working 04:06–06:47 | ▾ working 05:59 | ▾ working 06:38–06:58 | ▸ review Review posted — the three-axis review is on the ticket 07:00 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:16 | ▾ verify 07:22–07:26 | ▸ working Criteria run — 4 of 4 criteria met 06:38 | ▸ review Review posted — the three-axis review is on the ticket 07:02 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:17 | ▾ verify 07:24–07:29 | ▸ review Review posted — the three-axis review is on the ticket 07:04 | ▾ working 07:28 | ▸ working Worker started — claude opus 5, high effort 06:38 | ▾ waiting 07:32 | ▾ review 07:22 | ▸ working Left for a later ticket — status 表头少一列 runner 04:30 | ▸ review Review posted — the three-axis review is on the ticket 05:20 | ▸ working Finding raised — 中继日志不轮转，一夜能写满磁盘 05:50 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 06:10 | ▾ landed 06:36 | ▾ working 05:59–06:34` → `▸ working Criteria run — 4 of 4 criteria met 06:38 | ▸ review Review posted — the three-axis review is on the ticket 07:04 | ▾ working 07:28 | ▸ working Criteria run — 4 of 4 criteria met 02:56 | ▸ review Review posted — the three-axis review is on the ticket 06:40 | ▾ working 07:10 | ▸ working Criteria run — 4 of 4 criteria met 05:00 | ▸ review Review posted — the three-axis review is on the ticket 05:26 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 05:36 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 05:44 | ▾ landed 05:58 | ▾ working 06:38–06:58 | ▸ review Review posted — the three-axis review is on the ticket 07:00 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:16 | ▾ verify 07:22–07:26 | ▸ review Review posted — the three-axis review is on the ticket 07:02 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:17 | ▾ verify 07:24–07:29 | ▸ working Criteria run — 4 of 4 criteria met 05:31 | ▸ review Review posted — the three-axis review is on the ticket 06:07 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 06:20 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 06:31 | ▾ landed 06:50 | ▸ working Worker started — claude opus 5, high effort 06:38 | ▾ waiting 07:32 | ▾ review 07:22 | ▸ working Left for a later ticket — status 表头少一列 runner 04:30 | ▸ review Review posted — the three-axis review is on the ticket 05:20 | ▸ working Finding raised — 中继日志不轮转，一夜能写满磁盘 05:50 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 06:10 | ▾ landed 06:36 | ▾ working 05:59–06:34`
+- 合同行引用的文字变化：`detail.close-event-block`：`▾ working 06:38–07:31 | ▾ working 04:06–06:47 | ▾ working 05:59 | ▾ working 06:38–06:58 | ▸ review Review posted — the three-axis review is on the ticket 07:00 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:16 | ▾ verify 07:22–07:26 | ▸ working Criteria run — 4 of 4 criteria met 06:38 | ▸ review Review posted — the three-axis review is on the ticket 07:02 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:17 | ▾ verify 07:24–07:29 | ▸ review Review posted — the three-axis review is on the ticket 07:04 | ▾ working 07:28 | ▸ working Worker started — claude opus 5, high effort 06:38 | ▾ waiting 07:32 | ▾ review 07:22 | ▸ working Left for a later ticket — status 表头少一列 runner 04:30 | ▸ review Review posted — the three-axis review is on the ticket 05:20 | ▸ working Finding raised — 中继日志不轮转，一夜能写满磁盘 05:50 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 06:10 | ▾ landed 06:36 | ▾ working 05:59–06:34` → `▸ working Criteria run — 4 of 4 criteria met 06:38 | ▸ review Review posted — the three-axis review is on the ticket 07:04 | ▾ working 07:28 | ▸ working Criteria run — 4 of 4 criteria met 02:56 | ▸ review Review posted — the three-axis review is on the ticket 06:40 | ▾ working 07:10 | ▸ working Criteria run — 4 of 4 criteria met 05:00 | ▸ review Review posted — the three-axis review is on the ticket 05:26 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 05:36 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 05:44 | ▾ landed 05:58 | ▾ working 06:38–06:58 | ▸ review Review posted — the three-axis review is on the ticket 07:00 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:16 | ▾ verify 07:22–07:26 | ▸ review Review posted — the three-axis review is on the ticket 07:02 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 07:17 | ▾ verify 07:24–07:29 | ▸ working Criteria run — 4 of 4 criteria met 05:31 | ▸ review Review posted — the three-axis review is on the ticket 06:07 | ▸ working Decisions recorded — the calls the worker made on its own, written down for the review 06:20 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 06:31 | ▾ landed 06:50 | ▸ working Worker started — claude opus 5, high effort 06:38 | ▾ waiting 07:32 | ▾ review 07:22 | ▸ working Left for a later ticket — status 表头少一列 runner 04:30 | ▸ review Review posted — the three-axis review is on the ticket 05:20 | ▸ working Finding raised — 中继日志不轮转，一夜能写满磁盘 05:50 | ▸ verify Ticket passed — 4 of 4 criteria met, ticket closed 06:10 | ▾ landed 06:36 | ▾ working 05:59–06:34`
+- 合同行引用的文字变化：`detail.open-event`：`06:38 Worker started grok grok 4.6, xhigh effort 06:38 Ticket claimed 06:51 Spec does not hold spec 没写队列为空时中继读什么 07:10 Left for a later ticket status.py 的表头还是旧词 07:31 Your decision needed 唤醒要不要跨过已暂停的 spec | 04:06 Worker started claude opus 5, high effort 04:06 Ticket claimed 06:47 Your decision needed 扫描发现心跳停了 5 分钟，算死还是算不知道 | 05:59 Worker started codex gpt-5.5, high effort 05:59 Ticket claimed | 06:38 Worker started grok grok 4.6, high effort 06:38 Ticket claimed 06:58 Criteria run 3 of 4 criteria met — AC3 unmet | 07:22 Final criteria run 3 of 4 criteria met — AC3 unmet 07:26 Ticket handed back handed back with criteria it could not meet | 07:24 Final criteria run 4 of 4 criteria met 07:27 Repository checks 3 of 3 repository checks passed 07:28 Ticket passed 4 of 4 criteria met, ticket closed 07:29 Merge bounced conflict with wake-relay in 2 files | 07:28 Decisions recorded the calls the worker made on its own, written down for the review | 07:32 Waiting for a slot every instance of the product was in use | 07:22 Reviewer started codex gpt-5.5, medium effort | 06:36 Sub-issue closed #148: fixed 06:36 Finding became a ticket #147 became ticket #141 06:36 Landed merged into wake-relay | 05:59 Worker started grok grok 4.6, xhigh effort 05:59 Ticket claimed 06:34 MMW itself broke verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了` → `07:28 Decisions recorded the calls the worker made on its own, written down for the review | 07:10 Decisions recorded the calls the worker made on its own, written down for the review | 05:58 Landed merged into main | 06:38 Worker started grok grok 4.6, high effort 06:38 Ticket claimed 06:58 Criteria run 3 of 4 criteria met — AC3 unmet | 07:22 Final criteria run 3 of 4 criteria met — AC3 unmet 07:26 Ticket handed back handed back with criteria it could not meet | 07:24 Final criteria run 4 of 4 criteria met 07:27 Repository checks 3 of 3 repository checks passed 07:28 Ticket passed 4 of 4 criteria met, ticket closed 07:29 Merge bounced conflict with wake-relay in 2 files | 06:50 Landed merged into main | 07:32 Waiting for a slot every instance of the product was in use | 07:22 Reviewer started codex gpt-5.5, medium effort | 06:36 Sub-issue closed #148: fixed 06:36 Finding became a ticket #147 became ticket #141 06:36 Landed merged into wake-relay | 05:59 Worker started grok grok 4.6, xhigh effort 05:59 Ticket claimed 06:34 MMW itself broke verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了`
+- 合同行引用的文字变化：`detail.close-event`：`06:38 Worker started grok grok 4.6, xhigh effort 06:38 Ticket claimed 06:51 Spec does not hold spec 没写队列为空时中继读什么 07:10 Left for a later ticket status.py 的表头还是旧词 07:31 Your decision needed 唤醒要不要跨过已暂停的 spec | 04:06 Worker started claude opus 5, high effort 04:06 Ticket claimed 06:47 Your decision needed 扫描发现心跳停了 5 分钟，算死还是算不知道 | 05:59 Worker started codex gpt-5.5, high effort 05:59 Ticket claimed | 06:38 Worker started grok grok 4.6, high effort 06:38 Ticket claimed 06:58 Criteria run 3 of 4 criteria met — AC3 unmet | 07:22 Final criteria run 3 of 4 criteria met — AC3 unmet 07:26 Ticket handed back handed back with criteria it could not meet | 07:24 Final criteria run 4 of 4 criteria met 07:27 Repository checks 3 of 3 repository checks passed 07:28 Ticket passed 4 of 4 criteria met, ticket closed 07:29 Merge bounced conflict with wake-relay in 2 files | 07:28 Decisions recorded the calls the worker made on its own, written down for the review | 07:32 Waiting for a slot every instance of the product was in use | 07:22 Reviewer started codex gpt-5.5, medium effort | 06:36 Sub-issue closed #148: fixed 06:36 Finding became a ticket #147 became ticket #141 06:36 Landed merged into wake-relay | 05:59 Worker started grok grok 4.6, xhigh effort 05:59 Ticket claimed 06:34 MMW itself broke verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了` → `07:28 Decisions recorded the calls the worker made on its own, written down for the review | 07:10 Decisions recorded the calls the worker made on its own, written down for the review | 05:58 Landed merged into main | 06:38 Worker started grok grok 4.6, high effort 06:38 Ticket claimed 06:58 Criteria run 3 of 4 criteria met — AC3 unmet | 07:22 Final criteria run 3 of 4 criteria met — AC3 unmet 07:26 Ticket handed back handed back with criteria it could not meet | 07:24 Final criteria run 4 of 4 criteria met 07:27 Repository checks 3 of 3 repository checks passed 07:28 Ticket passed 4 of 4 criteria met, ticket closed 07:29 Merge bounced conflict with wake-relay in 2 files | 06:50 Landed merged into main | 07:32 Waiting for a slot every instance of the product was in use | 07:22 Reviewer started codex gpt-5.5, medium effort | 06:36 Sub-issue closed #148: fixed 06:36 Finding became a ticket #147 became ticket #141 06:36 Landed merged into wake-relay | 05:59 Worker started grok grok 4.6, xhigh effort 05:59 Ticket claimed 06:34 MMW itself broke verify-ticket.py 自跑判据时租约登记表读不出来，直接崩了`
+- 合同行引用的文字变化：`settings.runner-pick`：`herdrorcapaseo按所在环境判断` → `herdr orca paseo 按所在环境判断`
+- 合同行引用的文字变化：`settings.runner-rescan`：`herdrorcapaseo按所在环境判断` → `herdr orca paseo 按所在环境判断`
+- 合同行引用的文字变化：`settings.runner-locked`：`herdrorcapaseo按所在环境判断` → `herdr orca paseo 按所在环境判断`
+- 合同行引用的文字变化：`settings.host-pick-keeps-model`：`cursorgrokclaudecodexpi · orca、herdr 起不了 | cursorgrok · 本机没装claudecodexpi · orca、herdr 起不了 | cursor · Paseo 没开grok · Paseo 没开claude · Paseo 没开codex · Paseo 没开pi · Paseo 没开` → `cursor grok claude codex pi · orca、herdr 起不了 | cursor grok · 本机没装 claude codex pi · orca、herdr 起不了 | cursor · Paseo 没开 grok · Paseo 没开 claude · Paseo 没开 codex · Paseo 没开 pi · Paseo 没开`
+- 合同行引用的文字变化：`settings.host-pick-clears-model`：`cursorgrokclaudecodexpi · orca、herdr 起不了 | cursorgrok · 本机没装claudecodexpi · orca、herdr 起不了 | cursor · Paseo 没开grok · Paseo 没开claude · Paseo 没开codex · Paseo 没开pi · Paseo 没开` → `cursor grok claude codex pi · orca、herdr 起不了 | cursor grok · 本机没装 claude codex pi · orca、herdr 起不了 | cursor · Paseo 没开 grok · Paseo 没开 claude · Paseo 没开 codex · Paseo 没开 pi · Paseo 没开`
+- 合同行引用的文字变化：`settings.host-locked`：`cursorgrokclaudecodexpi · orca、herdr 起不了` → `cursor grok claude codex pi · orca、herdr 起不了`
+- 合同行引用的文字变化：`settings.model-pick`：`grok 4.6grok 4.5 | gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5 | opus 5sonnet 5fable 5.1fable 5 | opus 5sonnet 5fable 5.1 | fable 5 · 本机已经没有opus 5sonnet 5fable 5.1 | 选一个 modelgpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5` → `grok 4.6 grok 4.5 | gpt 6 astra gpt 5.6 sol gpt 5.6 luna gpt 5.5 | opus 5 sonnet 5 fable 5.1 fable 5 | opus 5 sonnet 5 fable 5.1 | fable 5 · 本机已经没有 opus 5 sonnet 5 fable 5.1 | 选一个 model gpt 6 astra gpt 5.6 sol gpt 5.6 luna gpt 5.5`
+- 合同行引用的文字变化：`settings.model-locked`：`grok 4.6 | gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5 | opus 5sonnet 5fable 5.1fable 5 | gpt 5.6 sol | opus 5 | fable 5.1` → `grok 4.6 | gpt 6 astra gpt 5.6 sol gpt 5.6 luna gpt 5.5 | opus 5 sonnet 5 fable 5.1 fable 5 | gpt 5.6 sol | opus 5 | fable 5.1`
+- 合同行引用的文字变化：`settings.model-locked-scanning`：`grok 4.6grok 4.5 | gpt 6 astragpt 5.6 solgpt 5.6 lunagpt 5.5 | opus 5sonnet 5fable 5.1fable 5` → `grok 4.6 grok 4.5 | gpt 6 astra gpt 5.6 sol gpt 5.6 luna gpt 5.5 | opus 5 sonnet 5 fable 5.1 fable 5`
+- 合同行引用的文字变化：`settings.effort-pick`：`lowmediumhighxhigh | lowmediumhighxhighmaxultra | lowmediumhighxhighmax | medium` → `low medium high xhigh | low medium high xhigh max ultra | low medium high xhigh max | medium`
+- 合同行引用的文字变化：`settings.effort-locked`：`high | lowmediumhighxhighmaxultra | lowmediumhighxhighmax | lowmediumhighxhigh | medium | —` → `high | low medium high xhigh max ultra | low medium high xhigh max | low medium high xhigh | medium | —`
+- 合同行引用的文字变化：`settings.effort-locked-scanning`：`lowmediumhighxhigh | lowmediumhighxhighmaxultra | lowmediumhighxhighmax` → `low medium high xhigh | low medium high xhigh max ultra | low medium high xhigh max`
+- 合同行引用的文字变化：`board.goto-blocker`：`#132 中继进程骨架 landed | #213 心跳写入钩子 landed #214 回合守卫骨架 landed | #302 租约登记表 landed` → `#132 中继进程骨架 landed | #212 心跳文件格式 landed`
+- 合同行引用的文字变化：`board.goto-blocked`：`#135 投递回执 held | #221 worker.lost 写入 held` → `#135 投递回执 held | #222 「不知道」与「死了」分开 held`
 
 ## 本地改过的说明
 

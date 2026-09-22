@@ -1,0 +1,31 @@
+/* the card shell on the canvas: a ticket, a decision, a container */
+.card {
+  position: relative; display: flex; flex-direction: column; gap: var(--sp-6);
+  background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg);
+  padding: var(--sp-12) var(--sp-12) var(--sp-12) var(--sp-16);
+  cursor: pointer; text-align: left; transition: border-color .12s, box-shadow .12s;
+}
+.card:hover { border-color: var(--rule-strong); }
+.card.on { border-color: var(--ink); box-shadow: var(--shadow-2); }
+.card.cycle { border-style: dashed; border-color: var(--ink); }
+.card.closeout::before {
+  content: ""; position: absolute; left: var(--sp-4); top: var(--sp-8); bottom: var(--sp-8);
+  width: 3px; border-radius: var(--r-pill); background: var(--closeout);
+}
+.card-hit { position: absolute; inset: 0; padding: 0; border: 0; border-radius: inherit; background: none; cursor: pointer; }
+.card-hit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.card-top { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; }
+.card-num { font: var(--w-medium) var(--t-meta)/var(--lh-flat) var(--mono); color: var(--muted); white-space: nowrap; }
+.card-right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-6); }
+.card-kind { font: var(--t-micro) var(--mono); color: var(--ghost); }
+.card-count { font: var(--t-micro) var(--mono); color: var(--soft); font-variant-numeric: tabular-nums; }
+.card-title {
+  font-weight: var(--w-bold); font-size: var(--t-body); line-height: var(--lh-title); color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card-title.decision { color: var(--muted); }
+/* a container card has room for one line; a longer title is cut and shown whole on hover */
+.card-title.one-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-run { margin-top: auto; font: var(--t-micro) var(--mono); color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-run.flag { color: var(--ink); font-weight: var(--w-bold); }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
