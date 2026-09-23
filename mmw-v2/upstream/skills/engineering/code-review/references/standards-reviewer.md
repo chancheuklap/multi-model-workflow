@@ -1,8 +1,6 @@
 # Standards axis
 
-You review one diff against two questions: **does this code follow the conventions this repository documents?** and **does the same outcome exist with less code?** You are read-only. You change no file, and you write a report rather than a fix.
-
-Your prompt gave you a base commit and a ticket number. Everything else you fetch yourself.
+You review one diff against two questions: **does this code follow the conventions this repository documents?** and **does the same outcome exist with less code?** You are read-only.
 
 ## 1. Read the diff
 
@@ -13,13 +11,11 @@ git log <base-commit>..HEAD --oneline
 
 ## 2. Find the repository's documented standards
 
-Anything in the repository that says how code here should be written: `CODING_STANDARDS.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, a `docs/` page on conventions, a `CONTEXT.md` naming the domain vocabulary. Read what you find before you read the diff a second time.
-
-Read the `codebase-design` skill's `SKILL.md` as well, from wherever your host installed that skill. It is not a repository standard but the vocabulary this repository designs modules in (module, interface, depth, seam, adapter), and the deletion test below is written in its words.
+The repository's `CODING_STANDARDS.md` says how code here should be written, and its domain glossary (`CONTEXT.md`, or the `CONTEXT.md` files `CONTEXT-MAP.md` points to) names the domain vocabulary. Read what you find before you read the diff a second time. When the repository has no `CODING_STANDARDS.md`, apply only the rules in this file and say so in one line of your report.
 
 ## 3. Match the diff against the standards and the smell baseline
 
-The documented standards are the first source. On top of them you always carry the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch. 3) that applies even to a repository that documents nothing.
+The documented standards are the first source. On top of them you always carry the **smell baseline** below: a fixed set of Fowler code smells that applies even to a repository that documents nothing.
 
 Two rules bind it:
 
@@ -56,7 +52,7 @@ Per file and hunk where it helps:
 - Every hunk that passes with less: quote the hunk and the shorter form.
 - Every module the deletion test calls a pass-through: name it and the callers that would carry the complexity back.
 
-Mark each review finding as a hard violation or a judgement call. One entry per review finding; nothing that is not a finding.
+Mark each review finding as a hard violation or a judgement call. One entry per review finding; nothing that is not a finding. Under 400 words.
 
 ## What is not yours
 

@@ -1,12 +1,10 @@
 # UI axis
 
-You review one submitted story against one question: **does it show a problem that element parity does not cover?** You are read-only. You change no file, and you write a report rather than a fix.
-
-Your prompt gave you a base commit and a ticket number. Everything else you fetch yourself. This axis runs once on the commit under review, and is not started again while the worker iterates on `DIFF` lines.
+You review one submitted story against one question: **does it show a problem that element parity does not cover?** You are read-only.
 
 ## Resolve `<ui-acceptance scripts>` once
 
-`<ui-acceptance scripts>` in every command below is the `scripts/` directory of the `ui-acceptance` skill. Resolve it from that skill's own `SKILL.md`. The path differs by machine and by host, and `install.sh` puts that skill wherever the host that gave it to you reads its skills from.
+`<ui-acceptance scripts>` in every command below is the `scripts/` directory of the `ui-acceptance` skill. Resolve it from that skill's own `SKILL.md`. The path differs by machine and by host.
 
 ## 1. Take the story screenshots
 
@@ -14,9 +12,7 @@ Your prompt gave you a base commit and a ticket number. Everything else you fetc
 gh issue view <ticket>
 ```
 
-Read the whole ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`. If the ticket has none, write one line, `no story criterion on this ticket`, and stop.
-
-Copy that criterion's `--contract` and `--pages` (and `--scenes` when present). `--out` is a directory `mktemp` makes. The story service that command starts takes no lease and is not the product:
+Read the ticket, and copy its `story-parity.py` criterion's `--contract` and `--pages` (and `--scenes` when present). `--out` is a directory `mktemp` makes. The story service that command starts takes no lease and is not the product:
 
 ```sh
 uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --out <mktemp directory>
@@ -34,7 +30,7 @@ Three kinds of review finding, each naming the scene, the viewport, and a reposi
 
 A pixel difference that already has a `DIFF` line is element parity's, not yours. Report only what that comparison does not cover.
 
-Sort nothing. The session sorts every review finding into in-ticket or out-of-ticket by the same six conditions it uses for the other axes.
+Sort nothing.
 
 ## 3. Report
 
@@ -42,8 +38,8 @@ One entry per review finding, in the session's sorted-row shape: axis `UI`, the 
 
 The path is a file in the repository, not the `--out` directory. The claim names the scene, the viewport, and what the image showed. The source is the story criterion's `CHECK` evidence. The `--out/media` images are what you look at; they are not the citation. A temp PNG is gone when the session verifies.
 
-Say plainly, in one line, when a scene you opened is sound.
+Say plainly, in one line, when a scene you opened is sound. Under 400 words.
 
 ## What is not yours
 
-Element facts the story criterion already names (`text`, `size`, `position`, `parent`, `visible`, the five style facts) belong to that criterion, not to this axis. How the code is written, whether it builds the right thing, and whether its tests are worth trusting, belong to the other axes. How the interface feels in use on the running product belongs to the batch's *reaction* ticket: you look at a story render, and the person looks at the product. Leave their questions alone.
+Element facts a `DIFF` line can name (`text`, `size`, `position`, `parent`, `visible`, the five style facts) are the story criterion's. The code, the spec and the tests are the other axes'. How the running product feels in use is the batch's *reaction* ticket's: you look at a story render, and the person looks at the product.
