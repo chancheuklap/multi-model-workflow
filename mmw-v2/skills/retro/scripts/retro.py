@@ -52,6 +52,10 @@ class RetroError(RuntimeError):
     pass
 
 
+class GatherChanged(RetroError):
+    """The analysis carries a copy of an older gather; a fresh gather's copy fixes it."""
+
+
 def git_root(path: Path) -> Path:
     try:
         proc = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=path,
@@ -280,7 +284,7 @@ def gather(number: int) -> dict:
                                  closing["status"]))
     else:
         checked.append(inventory(f"{spec_url} spec.closed.payload.memory_closing",
-                                 "unreadable", "not the #429 complete or unchecked object"))
+                                 "unreadable", "not a complete or unchecked object"))
     base = (opened or {}).get("payload", {}).get("base", "")
     into = (opened or {}).get("payload", {}).get("into", "")
     project = (opened or {}).get("payload", {}).get("project", "")
@@ -420,13 +424,15 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
     if any(key not in data for key in required) or data["spec"] != number:
         raise RetroError("analysis lacks a required field or names a different spec")
     if data["task_root"] != gathered["task_root"]:
-        raise RetroError("task_root differs from the native parent")
+        raise GatherChanged("task_root differs from the native parent")
     if data["evidence_checked"] != gathered["evidence_checked"]:
-        raise RetroError("evidence_checked must carry gather's entire unchanged inventory")
+        raise GatherChanged("evidence_checked must carry gather's entire unchanged inventory")
     if not isinstance(data["observed"], dict):
         raise RetroError("observed must contain base_commit and at")
-    if data["observed"].get("base_commit") != gathered["observed"]["base_commit"] or not data["observed"].get("at"):
-        raise RetroError("observed needs gather's base commit and a retro time")
+    if data["observed"].get("base_commit") != gathered["observed"]["base_commit"]:
+        raise GatherChanged("observed.base_commit differs from gather's base commit")
+    if not data["observed"].get("at"):
+        raise RetroError("observed needs a retro time")
     if not isinstance(data["categories"], dict) or set(data["categories"]) != set(CATEGORIES):
         raise RetroError("all seven categories need an explicit result")
     if any(not isinstance(value, str) or not value.strip() for value in data["categories"].values()):
@@ -727,15 +733,27 @@ class RetroArgumentParser(argparse.ArgumentParser):
 
 
 def refusal_for(exc: Exception, args: argparse.Namespace) -> str:
+    """Three-part refusal; the limit leaves room for the absolute script path in Next."""
     fact = f"{args.verb} {getattr(args, 'spec', '')}: {exc}".strip()
+    script = Path(__file__).resolve()
     if args.verb == "gather":
-        return refusal.refusal(fact, "because primary completed-spec sources could not be verified.",
-                                refusal.REPORT_BLOCKED)
-    if args.verb == "search":
-        return refusal.refusal(fact, "because the category, cause or earlier Memory could not be verified.",
-                                f"Next: python3 {Path(__file__).resolve()} search 'Automated checks' '<specific cause>'.")
-    return refusal.refusal(fact, "because analyzed evidence or proposal support could not be verified.",
-                           f"Next: python3 {Path(__file__).resolve()} gather {args.spec}.")
+        why = "because primary completed-spec sources could not be verified."
+        next_step = (f"Next: correct the condition this refusal names (for a failed gh or nmem read, "
+                     f"wait until it answers), then run python3 {script} gather {args.spec} again.")
+    elif args.verb == "search":
+        why = "because the category, cause or earlier Memory could not be verified."
+        next_step = f"Next: python3 {script} search 'Automated checks' '<specific cause>'."
+    elif isinstance(exc, GatherChanged):
+        why = "because the tracker or origin changed after the gather the analysis copied."
+        next_step = (f"Next: run python3 {script} gather {args.spec} again, copy its task_root, "
+                     "evidence_checked and observed.base_commit into the analyzed JSON, "
+                     "then run finalize again.")
+    else:
+        why = "because analyzed evidence or proposal support could not be verified."
+        next_step = (f"Next: correct what this refusal names in the analyzed JSON (for a failed gh "
+                     f"or nmem read, wait until it answers), then run python3 {script} finalize "
+                     f"{args.spec} {args.analysis} again.")
+    return refusal.refusal(fact, why, next_step, limit=1000)
 
 
 def main(argv: list[str] | None = None) -> int:

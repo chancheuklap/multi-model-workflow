@@ -20,6 +20,8 @@ Write the packet to a file. Run `<dispatch> advise <file>`. Read the answer wher
 
 To change which host or model the advisor uses, read the dispatch skill's `references/editing-models.md`.
 
+Done when `advise` exits 0 and you have told the user its session id.
+
 ## The packet
 
 The advisor sees the packet and nothing else: not your session, not your tool trace, not the file you have open. All five parts:
@@ -37,7 +39,3 @@ That is the decision and the evidence, and handing over the decision and the evi
 Your framing is the thing under review, so the packet leaves the advisor's work to the advisor: it reads what it decides to read, once it has looked, and reaches whatever conclusion that produces. Out of the packet, then: the list of what to check, the file you would have it skip, the conclusion you expect confirmed, and the narrowing of "which option" down to one option's details.
 
 A second opinion you steered is your own opinion in a stronger model's voice.
-
-## What comes back
-
-A recommendation — "do X, not Y, because Z" — and the single risk that decides it; or that your reading is sound, with the one thing to watch.
