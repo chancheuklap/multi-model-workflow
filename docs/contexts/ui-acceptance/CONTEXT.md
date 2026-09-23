@@ -205,7 +205,7 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`checks`**:
 The optional `.mmw/target.json` key listing the repository's own commands, which `--closeout` runs after an `ALL MET` draft is accepted and before the ticket closes, posting them as a `ticket.checked` of run `repo-checks`.
-_Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`stop`**:
 The `.mmw/target.json` key that ends what `start` started and nothing else: the only way a run may end a process.

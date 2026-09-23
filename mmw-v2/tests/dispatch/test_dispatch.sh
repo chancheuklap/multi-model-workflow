@@ -4345,9 +4345,6 @@ import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 needles = (
     "- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>",
-    "`documented-standard`, `less-code`, `pass-through`",
-    "`Missing`, `Scope creep`, or `Built wrong`",
-    "`Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`",
     "`unverified: <what would settle it>` at the end of the same line",
     "Both `## In-ticket` and `## Out-of-ticket`",
 )

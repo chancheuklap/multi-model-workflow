@@ -164,7 +164,7 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **fenced block**:
 The only way to write a multi-line `CHECK:`: a code fence directly under it holds the command, and every other fence in the ticket is skipped.
-_Home_: `mmw-v2/skills/verify-ticket/references/running-criteria.md`
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **the five questions**:
 The ordered questions the ticket writer asks of anything there is to say about the work, deciding whether it becomes an acceptance criterion, a code-review judgement, a `reaction` ticket, a `reach` ticket or a choice put to the user.

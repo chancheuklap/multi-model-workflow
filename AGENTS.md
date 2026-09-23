@@ -42,7 +42,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | The five triage roles and this repository's label strings | `docs/agents/triage-labels.md` |
 | How to read the contexts and the ADRs before exploring code | `docs/agents/domain.md` |
 | The night runbook: `check`, `open`, `advance`, the closing pass, `reverify`, `summary`, then `retro`, `finish`, `suspend`, each with its exit codes | `mmw-v2/skills/dispatch/references/night.md` |
-| How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard | `mmw-v2/skills/dispatch/references/how-it-works.md` |
+| How the pipeline's machinery works underneath those commands: what `start` and `advance` do, events and holds, the relay's watches and wakes, the watchdog and turn guard | `docs/contexts/night/how-it-works.md` |
 | The nine installed items, the two modes, what the previous generation installed and install now removes | `mmw-v2/install.sh` header comment |
 | Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v2/prompt/README.md` |
 | Every rule for the text of a skill (`SKILL.md`, references, descriptions, prompts a script builds for an agent): what skill text is for, load and disclosure, redundancy, descriptions, vocabulary, hand-offs, upstream skills, script tokens and paths, host and runner neutrality; read before writing, editing or reviewing one. This file states none of those rules | `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md` |

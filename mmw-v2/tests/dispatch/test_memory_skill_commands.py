@@ -12,13 +12,13 @@ from pathlib import Path
 
 
 HERE = Path(__file__).resolve().parent
-SKILL = HERE.parents[1] / "upstream" / "skills" / "engineering" / "implement" / "SKILL.md"
+SKILL = HERE.parents[1] / "upstream" / "skills" / "engineering" / "implement" / "references" / "saving-memory.md"
 
 
 class WorkerMemoryCommandTest(unittest.TestCase):
     def save_example(self, task_scope):
         text = SKILL.read_text(encoding="utf-8")
-        section = text.split("## Shared experience while implementing\n", 1)[1]
+        section = text
         blocks = [block.split("\n```", 1)[0] for block in section.split("```sh\n")[1:]]
         command = next(block for block in blocks if "memories add" in block)
         with tempfile.TemporaryDirectory(prefix="mmw-memory-command-") as tmp:

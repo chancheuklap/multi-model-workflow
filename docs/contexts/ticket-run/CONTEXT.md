@@ -93,11 +93,11 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`ticket.claimed`, `ticket.refused`**:
 The two events `--preflight` posts: `ticket.claimed` after the claim, beginning a hold, or `ticket.refused` with the first refusal's reason.
-_Home_: `mmw-v2/skills/verify-ticket/references/claiming.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`ticket.passed`, `ticket.returned`**:
 The events `--closeout` posts a closing comment as, each after the tracker change it announces: `ticket.passed` for an accepted `ALL MET` draft once the ticket is closed, `ticket.returned` for a `HANDOFF REQUIRED` draft once the ticket is handed back.
-_Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`ticket.released`**:
 The event that follows a claim given back by `land`, `suspend` or `advance`'s `RELEASE` line. It ends every hold on the ticket.
@@ -141,7 +141,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`child.opened`, `child.closed`**:
 The events that record a ticket's children on the ticket: `--sub-issue` posts `child.opened` with the child's number and kind, and `route` posts `child.closed` with where a `finding` went.
-_Home_: `mmw-v2/skills/verify-ticket/references/sub-issues.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`, `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **child kind**:
 What a ticket's child records, named for who can answer it: `finding` (a review finding outside the ticket), `contract` (a baseline, spec section or criterion the ticket was told to follow that lacks a needed case or contradicts another authority), `deferred` (a convenient change outside `## Owns`), `decision` (a choice only a person can make), `fault` (the pipeline itself is broken: `verify-ticket.py`, `dispatch.sh`, a judge script, `lease.py`, a hook or `.mmw/target.json`).
@@ -149,19 +149,19 @@ _Home_: `mmw-v2/skills/verify-ticket/references/sub-issues.md`
 
 **`ticket.checked`**:
 One run of a ticket's criteria, or of the repository's `checks`, on one commit. Its `run` says whose: `self`, `reverify`, `repo-checks` or `baseline`.
-_Home_: `mmw-v2/skills/verify-ticket/references/running-criteria.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **baseline run**:
 The `ticket.checked` of run `baseline`: the ticket's criteria run at the base commit during `--preflight`, before the worker changes anything. Distinct from a **baseline**, the settled `## Read first` item.
-_Home_: `mmw-v2/skills/verify-ticket/references/claiming.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`worker.touched`**:
 The event `--touched` posts on an open sibling ticket whose `## Owns` covers a file this ticket changed outside its own Owns.
-_Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`worker.queued`**:
 The event a run of a ticket's criteria posts when it needs the product and no **slot** is free. The worker ends its turn, and the relay wakes it when a slot is given back.
-_Home_: `mmw-v2/skills/verify-ticket/references/running-criteria.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`worker.decided`**:
 The event (the `DECISIONS` comment) `--decisions <file>` posts once, before the reviewer starts: the decisions the worker made on its own so far, and why each file under `Outside Owns:` was changed. The Spec axis judges it.
@@ -173,19 +173,19 @@ _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **closing comment**:
 The comment a worker leaves on handing the ticket over, written first as a draft file that `--closeout <draft>` checks and posts: first line `ALL MET` or `HANDOFF REQUIRED: …`, then fixed lines accounting for every criterion, finding, file outside Owns and decision.
-_Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`ALL MET`**:
 The closing comment's first line when every criterion is met, which `--closeout` posts as `ticket.passed`. gate-check's summary line opens with the same words.
-_Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`HANDOFF REQUIRED`**:
 The closing comment's first line when a criterion is unmet or abandoned as `failed` or `stuck`, which `--closeout` posts as `ticket.returned` while it hands the ticket back.
-_Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`Outside Owns:`**:
 The files the ticket's own commits changed that no `## Owns` glob covers, listed by the worker's `self` run and carried into the closing comment with the Spec axis's judgement of each.
-_Home_: `mmw-v2/skills/verify-ticket/references/running-criteria.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`NIGHT SUMMARY`**:
 The first line, `NIGHT SUMMARY <date>`, of the `spec.closed` comment `summary` posts on the spec, and the account under it of how each ticket and finding of the night ended.
@@ -231,7 +231,7 @@ _Home_: `AGENTS.md`
 
 **preflight**:
 `verify-ticket.py <n> --preflight`, the worker's first step: the checks that the ticket may be claimed, the claim itself, and the **baseline run**.
-_Home_: `mmw-v2/skills/verify-ticket/references/claiming.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:
 Setting the ticket's assignee to oneself, followed by a `ticket.claimed` event. The frontier takes only unassigned tickets, so a claim keeps a second worker off the ticket.
@@ -261,4 +261,4 @@ _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closeout**:
 `verify-ticket.py <n> --closeout <draft>`, the closing gate: it checks the draft against the ticket and the repository and, only when the draft passes, pushes the branch, closes the ticket or hands it back, and posts the closing comment as an event. A worker's command that would go around it is refused by `tool-guard.py`.
-_Home_: `mmw-v2/skills/verify-ticket/references/closeout.md`
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`

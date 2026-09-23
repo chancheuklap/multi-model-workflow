@@ -35,7 +35,7 @@ A run is five beats, in order:
 1. Read the ticket or spec and work out the seams.
 2. Drive [tdd](https://aihero.dev/skills-tdd) at the pre-agreed seams, one red-green slice at a time.
 3. Typecheck often, run single test files as it goes.
-4. Commit the ticket work, integrate `origin/<base branch>` into it, and run the full test suite once. A conflict, or a clean merge that makes repository checks red, is resolved by the worker that knows the ticket's intent.
+4. Commit the ticket work, integrate `origin/<base branch>` into it, and run once the tests the repository's own instructions name for what the ticket changed. A conflict, or a clean merge that makes repository checks red, is resolved by the worker that knows the ticket's intent.
 5. Run an independent [code-review](https://aihero.dev/skills-code-review), apply its in-ticket findings once, then run every criterion again as the worker's final full run.
 6. Write the closeout, which pushes `issue-<n>` without force, and let the main agent merge the ticket branch. No pull request is created.
 

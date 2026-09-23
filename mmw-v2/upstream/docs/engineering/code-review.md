@@ -21,7 +21,7 @@ The caller supplies the ticket number and fixed base commit. The skill checks th
 
 ## Prerequisites
 
-The Standards axis needs nothing. It reads whatever the repo documents (`CODING_STANDARDS.md`, `CONTRIBUTING.md`, and the like) and falls back on a built-in baseline when the repo documents nothing.
+The Standards axis reads the repo's `CODING_STANDARDS.md` and domain glossary, and the Tests axis reads the repo's `TESTING.md`. Both fall back on their built-in rules when the repo has no such file.
 
 The Spec axis reads the ticket and what it points at: the spec sections its `## Parent` line names, the spec's `## Testing Decisions` and `## Out of Scope`, and every `## Read first` item marked as a baseline. A ticket with no `## Parent` is its own whole spec. When the ticket names a spec the axis cannot reach, the report says so and the axis reviews against the ticket alone, rather than inventing requirements.
 
@@ -30,11 +30,11 @@ The Spec axis reads the ticket and what it points at: the spec sections its `## 
 | | Standards | Spec | Tests |
 | --- | --- | --- | --- |
 | Question | Is it built right? | Is it the right thing? | Do the checks prove it? |
-| Reads | The repo's documented standards, plus the smell baseline | The ticket, its named spec sections and tickets integrated into the base branch | The acceptance checks and their test cases |
+| Reads | The repo's `CODING_STANDARDS.md` and domain glossary, plus the smell baseline | The ticket, its named spec sections and tickets integrated into the base branch | The acceptance checks and their test cases, the repo's `TESTING.md`, and the `tdd` skill's test rules |
 | Reports | Documented breaches (can be hard), and smells (always judgement calls) | Missing or partial requirements, scope creep, requirements implemented wrongly | Tautological, implementation-coupled or incomplete proof |
 | Every finding cites | The standards file and the rule, or the named smell plus the hunk | The line of a ticket, spec or baseline | The check and the test line |
 
-The review comment keeps every finding under `## In-ticket` or `## Out-of-ticket` in one fixed form: `- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>`. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name; Spec uses `Missing`, `Scope creep`, or `Built wrong`; Tests uses its six test-smell names. An unverified statement names what would settle it at the end of the same line. The category preserves the axis's classification and the source preserves the evidence; neither category equality nor a retro category proves that two findings have the same cause.
+The review comment keeps every finding under `## In-ticket` or `## Out-of-ticket` in one fixed form: `- <Standards|Spec|Tests> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>`. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name; Spec uses `Missing`, `Scope creep`, or `Built wrong`; Tests uses `documented-standard` or its six test-smell names. An unverified statement names what would settle it at the end of the same line. The category preserves the axis's classification and the source preserves the evidence; neither category equality nor a retro category proves that two findings have the same cause.
 
 The Spec axis reads tickets represented by first-parent merge commits between the first `worker.started.base` and the base commit. It checks combination behavior, contract consistency, migration completeness and shared state, without treating another ticket's verdict as proof. A repair inside the current ticket's `## Owns` is handled on the current ticket; a repair only inside another ticket's `## Owns` becomes an out-of-ticket finding.
 
@@ -62,7 +62,7 @@ After every ticket: the skill reviews one ticket's diff, which keeps each diff s
 
 **Can I trust the findings?**
 
-Not without checking. Sub-agent output is a hypothesis, not evidence. The skill aggregates the axis reports verbatim or lightly cleaned rather than re-verifying each claim against the files, so a finding can cite the wrong location or overstate an impact. Read the citation on each finding before acting on it. Every finding must carry a repository rule, a requirement, or a check and test line, which makes it checkable.
+Mostly. Sub-agent output is a hypothesis, not evidence, so the reviewer session checks every finding at the cited file and line before it posts the review, and withdraws the ones that do not hold. A finding it could not settle says what would settle it. Read the citation on a finding before acting on it. Every finding must carry a repository rule, a requirement, or a check and test line, which makes it checkable.
 
 **Why does it find new problems every single time I run it?**
 
