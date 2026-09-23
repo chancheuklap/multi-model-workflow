@@ -74,9 +74,9 @@
 # print: everything else a watch starts is read by the main agent, and the board is what a
 # person reads.
 #
-# Each pipeline command's exit codes are written beside that command, in the reference
-# file of the moment that carries it. `ack` is documented in SKILL.md under `## On waking`,
-# which every moment shares; that file is otherwise the index of moments.
+# Every refusal names its next step on stderr. What the agent must decide on an exit the
+# message cannot settle is written in the reference file of the moment that runs the
+# command; `ack` is in SKILL.md under `## On waking`, which every moment shares.
 
 set -uo pipefail
 
@@ -1735,9 +1735,7 @@ Current task shared experience:
 Related experience:
 {related}
 
-These are indexes, not the records. Open each record that bears on this ticket, then
-follow the implement skill's Shared experience section for using, searching, saving,
-correcting and reporting Memory."""
+These are indexes, not the records; the implement skill's `## Shared experience while implementing` says how to use them."""
 print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
                  ensure_ascii=False))
 PY

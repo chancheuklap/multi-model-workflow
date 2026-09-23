@@ -6920,9 +6920,7 @@ Current task shared experience:
 Related experience:
 {os.environ['MMW_EXPECT_RELATED']}
 
-These are indexes, not the records. Open each record that bears on this ticket, then
-follow the implement skill's Shared experience section for using, searching, saving,
-correcting and reporting Memory."""
+These are indexes, not the records; the implement skill's `## Shared experience while implementing` says how to use them."""
 assert actual == prefix + "\n\n" + packet, actual
 PY
 }

@@ -14,7 +14,7 @@ _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **session**:
 A host process a runner started, or the main agent the user started; a session `dispatch.sh start` started is named on its ticket by its started event. A code-review axis runs inside the reviewer session and is not one.
-_Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
+_Home_: `docs/contexts/night/how-it-works.md`
 
 **main agent**:
 The session the user started, which runs one spec's night with the dispatch skill's commands, from `check` to `summary` and, after the user accepts the result, `finish`. It has no `models.json` row.
@@ -59,7 +59,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **night's base commit**:
 The merge-base of a night's project and base branches, as `spec.opened` records them: where the night's landing and closing-pass commits start. The `retro` skill reads it as `observed.base_commit`.
-_Home_: `mmw-v2/skills/retro/SKILL.md`
+_Home_: `mmw-v2/skills/retro/scripts/retro.py`
 
 **base branch**:
 The temporary integration branch on `origin` a night's tickets merge into. `finish` merges it into the **project branch** once the user accepts the night.
@@ -97,7 +97,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh board`**:
 The command that makes sure the repository's task board is registered and answering and opens it, or prints its URL.
-_Home_: `mmw-v2/skills/dispatch/references/task-board.md`
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **start prompt**:
 The text a session is given when started: which skill to use on which ticket, the standing sentences for working with nobody watching, and the Memory indexes or reviewer Rules for its role. An advisor's is `Use the advisor skill.` followed by the question packet.
@@ -107,7 +107,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **check**:
 `dispatch.sh check <spec>`: the checks before a night opens — the branches, `install.sh --check`, the runner, the model rows and the worker-grade labels.
-_Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
+_Home_: `docs/contexts/night/how-it-works.md`
 
 **repository Space**:
 The Nowledge Mem Space for one tracker repository, id `<owner>__<name>` in lower case, which `open` creates or repairs and `start` verifies before it starts a session.
@@ -115,7 +115,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **open**:
 `dispatch.sh open <spec>`: the night begins. It records the project branch, brings the base branch up to it, opens the relay's **watch** with the calling session as main agent, and posts `spec.opened`.
-_Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
+_Home_: `docs/contexts/night/how-it-works.md`
 
 **`dispatch.sh finish`**:
 `dispatch.sh finish <spec>`, run after the user accepts a closed night: it merges `origin/<base branch>` into the project branch, checks and pushes the result, posts `spec.merged`, and removes the base branch.
@@ -123,7 +123,7 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open-ticket**:
 `dispatch.sh open-ticket <n>`: what `open` is for one ticket outside a night, a relay watch on that ticket alone with the calling session as main agent.
-_Home_: `mmw-v2/skills/dispatch/references/one-ticket.md`
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **start**:
 `dispatch.sh start <n> worker|reviewer`: has the selected runner start one agent on one ticket in its worktree, and posts the session's started event.
@@ -143,19 +143,19 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **wait**:
 `dispatch.sh wait <n> worker|reviewer`: reads that agent's newest result event once, after a wake has said it is there. It asks no runner and writes nothing.
-_Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **resume**:
 `dispatch.sh resume <n> "<text>"`: delivers the text to the worker still holding the ticket, through that worker's runner, and posts `worker.resumed`.
-_Home_: `mmw-v2/skills/dispatch/references/night.md`
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **status**:
 `dispatch.sh status <spec>`: the table of the spec's tickets, computed from each ticket's fold without asking any runner.
-_Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
+_Home_: `docs/contexts/night/how-it-works.md`
 
 **`dispatch.sh reverify`**:
 `dispatch.sh reverify <spec>`: runs the criteria of every landed ticket of the spec again on the fetched base branch, reopening a red one for triage and closing a reopened one that is green again.
-_Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
+_Home_: `docs/contexts/night/how-it-works.md`
 
 **summary**:
 `dispatch.sh summary <spec> --memory-decisions <file>`: once nothing of the night is left running or unrouted, posts `spec.closed` with the `NIGHT SUMMARY` and closes the spec's watch.
@@ -183,7 +183,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **advance**:
 `dispatch.sh advance <spec>`: lands the batch's passed tickets on origin, gives back claims whose holds ended, then starts the frontier.
-_Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
+_Home_: `docs/contexts/night/how-it-works.md`
 
 **land**:
 `dispatch.sh land <n>`: the one-ticket form of **advance**, which lands the ticket's passed commit, releases its resources and closes its watch.

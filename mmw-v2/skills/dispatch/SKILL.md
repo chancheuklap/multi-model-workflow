@@ -5,7 +5,7 @@ description: Start a reviewer from inside a ticket, run a night as its main agen
 
 # Dispatch
 
-Choose the moment that matches your role; its file holds commands and exit codes together.
+Choose the moment that matches your role.
 
 ## Resolve `<dispatch>` once
 
@@ -25,24 +25,21 @@ A **night** is one run of a spec's published tickets under one main agent, from 
 
 | Moment | You are | Read |
 | --- | --- | --- |
-| 1 | the worker inside a ticket, starting its reviewer | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
+| 1 | a session that picked a ticket up itself, with no `start` behind it | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
 | 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass and running `finish` after user acceptance | [references/night.md](references/night.md) |
 | 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
 | 4 | changing which host, model or reasoning effort (`effort` in `models.json`) an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
-| 5 | a command's behaviour surprised you, or you are changing the relay, watchdog or turn guard | [references/how-it-works.md](references/how-it-works.md) |
-| 6 | opening the local task board | [references/task-board.md](references/task-board.md) |
+| 5 | opening the local task board | No file: run `<dispatch> board` from any checkout of the repository. Exit 0 opened the board or printed its URL for you to hand the user; exit 2 says why on stderr |
 
 ## On waking
 
 1. A wake can cut short a command you were running. Run that command again first.
-2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the tracker does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`reviewer.reported base=<commit> head=<commit>`) in one line, reading the ticket and nothing else. It is a read, not the way you learn a result.
-3. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts. Exit `0`: that wake is acked — the relay removes it, and every earlier wake it sent this session, from the wake queue. Exit `2`: nothing was acked: this session cannot name itself (its runner's reason is on stderr), or no wake with that ticket and event is queued for this session — acked already, sent to another session, or never queued — and stderr lists the wakes that are queued for it (check the number and the event name against the wake you read).
+2. Read what the wake names on the ticket; the wake carries nothing the tracker does not.
+3. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts.
 4. Act on it, as your moment's file says.
 
 ## The arguments you supply
 
 `<n>`, `<spec>` and `<child>` are digits only, no `#`.
 
-`start`'s third argument is `worker` or `reviewer`. Which of the two worker rows in `MMW_HOME/models.json` a worker starts from is the ticket's own `junior-worker` or `senior-worker` label, read fresh on every start. A ticket carrying neither label starts on `junior-worker`; one carrying both, or one naming a grade the configuration has no row for, is refused (exit 2, stderr names the ticket). The base commit is computed from `origin/<base branch>` and the ticket branch; you do not pass it.
-
-The `adopt` command and its `into` rule are in [references/inside-a-ticket.md](references/inside-a-ticket.md) under **Exit codes**.
+`start`'s third argument is `worker` or `reviewer`. The base commit is computed from `origin/<base branch>` and the ticket branch; you do not pass it.
