@@ -2,9 +2,9 @@
 # requires-python = ">=3.11"
 # dependencies = ["playwright>=1.58", "pyyaml>=6"]
 # ///
-"""Render the handoff package's declared scenes and write its row inventory.
+"""Render the design package's declared scenes and write its row inventory.
 
-Usage: uv run python extract_skeleton.py <handoff dir> <out.json> --contract <yaml> [--tools <dir>]
+Usage: uv run python extract_skeleton.py <package dir> <out.json> --contract <yaml> [--tools <dir>]
 
 Every scene in `scenes.json` is rendered at its page's own `pages.<page>.viewports`
 when the contract declares them, else at every top-level viewport,
@@ -232,7 +232,7 @@ def main(handoff: Path, out: Path, contract: Path) -> None:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("handoff", type=Path)
+    parser.add_argument("handoff", type=Path, metavar="package_dir")
     parser.add_argument("out", type=Path)
     parser.add_argument("--contract", type=Path, required=True,
                         help="read locale and viewports from this screen contract")

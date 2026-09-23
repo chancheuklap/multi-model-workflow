@@ -8,7 +8,7 @@ It holds no page regions (a whole title bar, a sidebar, a settings dialog: those
 
 - **For Claude Design**: every page drawn in the product's project uses one look, and the agent inside Claude Design has named parts to compose instead of guessing values.
 - **For the product**: when it is built from an existing product, inconsistent values in the code (three sizes for one kind of heading, two close buttons) are unified into one scale, and each unification is recorded; the product follows through element parity once pages drawn with it are pulled.
-- **Not for acceptance**: nothing in the repository reads the design system. Pull, the screen contract and the story judge work from the pulled pages.
+- **Not for acceptance**: no judge compares against the design system; pull brings in its `readme.md` for the `Unifications` table, and the story judge works from the pulled pages.
 
 ## When, and from what
 

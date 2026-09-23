@@ -1,5 +1,5 @@
 """The remaining rules of `lint_screen_contract.py`: one positive and one negative case each,
-over a small handoff package written into a temporary repository."""
+over a small design package written into a temporary repository."""
 
 import importlib.util
 import io
@@ -84,7 +84,7 @@ def contract():
 
 
 class Repo:
-    """A temporary repository: `.git`, a handoff package with two pages and a stylesheet
+    """A temporary repository: `.git`, a design package with two pages and a stylesheet
     carrying a breakpoint, and the spec directory the contract lives in."""
 
     def __init__(self):
@@ -157,7 +157,7 @@ class TestScreenAxis(unittest.TestCase):
         decl["input"] = {"file": "data/scenes.js"}
         self.assertTrue(any("needs file and value" in e for e in self.lint(doc)[0]))
         decl["input"] = {"file": "../outside.js", "value": "S.ready"}
-        self.assertTrue(any("not in the handoff package" in e for e in self.lint(doc)[0]))
+        self.assertTrue(any("not in the design package" in e for e in self.lint(doc)[0]))
         decl["input"] = {"file": "data/scenes.js", "value": "S.ready", "with": "x", "extra": 1}
         errs = self.lint(doc)[0]
         self.assertTrue(any("input.with must be a mapping" in e for e in errs), errs)
@@ -477,7 +477,7 @@ class TestScreenAxis(unittest.TestCase):
 
 
 class TestRemovedFields(unittest.TestCase):
-    """A deleted field is an error that names the migration note."""
+    """A deleted field is an error that says to delete it."""
 
     def setUp(self):
         lc.TOOLS[:] = [TOOLS_DIR]
@@ -544,7 +544,7 @@ class TestRemovedFields(unittest.TestCase):
         self.assertTrue(any("library.ready" in w for w in warnings), warnings)
         self.assertFalse(any("story" in e for e in errors), errors)
 
-    def test_a_removed_key_is_an_error_naming_the_migration_note(self):
+    def test_a_removed_key_is_an_error_saying_to_delete_it(self):
         doc = contract()
         doc["target"] = {"kind": "web-spa"}
         doc["volatile_values"] = []
@@ -564,15 +564,9 @@ class TestRemovedFields(unittest.TestCase):
             "retired_ids old.save: page was removed",
             "retired_ids old.save: trigger was removed",
         )
-        note = (
-            Path(__file__).resolve().parents[2]
-            / "downstream-notes" / "494-screen-contract-format.md"
-        )
-        self.assertTrue(note.is_file(), note)
         for finding in expected:
-            self.assertTrue(any(finding in error and
-                                "mmw-v2/downstream-notes/494-screen-contract-format.md"
-                                in error for error in errors), (finding, errors))
+            self.assertTrue(any(finding in error and "delete it" in error
+                                for error in errors), (finding, errors))
 
         errors, _ = lc.lint_declarations(
             contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)

@@ -475,9 +475,7 @@ class TestStoryFixture(unittest.TestCase):
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("volatile_values", proc.stderr)
-        self.assertIn("这个键已不被 judge 执行", proc.stderr)
-        self.assertIn("删掉它或把控件改回 Claude Design", proc.stderr)
-        self.assertIn("then rerun", proc.stderr)
+        self.assertIn("Delete `volatile_values` from the contract, then rerun.", proc.stderr)
 
     def test_an_empty_volatile_values_list_still_passes(self):
         root = self.copied_fixture()
@@ -501,9 +499,7 @@ class TestStoryFixture(unittest.TestCase):
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("retired_ids", proc.stderr)
-        self.assertIn("这个键已不被 judge 执行", proc.stderr)
-        self.assertIn("删掉它或把控件改回 Claude Design", proc.stderr)
-        self.assertIn("then rerun", proc.stderr)
+        self.assertIn("Delete `trigger` from that entry, then rerun.", proc.stderr)
 
     def test_a_retired_id_without_a_trigger_still_passes(self):
         root = self.copied_fixture()

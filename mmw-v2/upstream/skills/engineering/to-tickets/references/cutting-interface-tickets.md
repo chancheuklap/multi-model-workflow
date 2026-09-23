@@ -1,11 +1,11 @@
 # Cutting interface tickets
 
-An **interface ticket** is any of the five kinds of ticket below — `verify-ticket.py --lint` calls a ticket that carries a `screen-contract.yaml rows:` line one; the **component page ticket** below is one kind.
+The five kinds of ticket below are what a screen contract produces. An **interface ticket** is one whose **Read first** carries a `screen-contract.yaml rows:` line, as `verify-ticket.py --lint` reads it: the **component page ticket** and the **app page ticket**.
 
 Copy each criterion from the named section of the `ui-acceptance` skill; the shape lives only there:
 
 - A story criterion: `references/story-parity.md` § **The criterion, in one shape**.
-- A boundary criterion: `references/boundary-check.md` § **The criterion, in one shape**. The product's test asserts the four columns of that row.
+- A boundary criterion: `references/boundary-check.md` § **The criterion, in one shape** and § **Selecting one row's test**. The product's test asserts the four columns of that row.
 - A journey criterion: `references/journey.md` § **The criterion, in one shape**.
 
 Each of these shapes is question 1 of **the five questions** in `SKILL.md`: a command decides it. Whatever else a ticket below wants said about the interface goes where questions 2 to 5 send it.
@@ -23,26 +23,27 @@ Each of these shapes is question 1 of **the five questions** in `SKILL.md`: a co
 
 **Seam** also names the precedent to copy: on a product from zero it is what the **contract ticket** lands, and a later ticket copies it rather than deriving its own.
 
-**Owns** says where this ticket may write, so no design page is ever an entry there: the handoff package is a baseline under **Read first**, and the worker is forbidden to edit it. Translate the pages a ticket takes into product paths through the contract, whose `pages.<page>.component` names the directory the implementation owns each `Component · ` page under. Everything else follows step 5 of `SKILL.md`: the test files this ticket adds, and the files it must edit to put what it creates in service.
+**Owns** says where this ticket may write, so no design page is ever an entry there: the design package is a baseline under **Read first**, and the worker is forbidden to edit it. Translate the pages a ticket takes into product paths through the contract, whose `pages.<page>.component` names the directory the implementation owns each `Component · ` page under. Everything else follows step 5 of `SKILL.md`: the test files this ticket adds, and the files it must edit to put what it creates in service.
 
 ## design-system ticket
 
-Cut one whenever the handoff package carries a design system under `_ds/<folder>/` whose variables or part stylesheets the product code does not yet have; otherwise each interface ticket writes the styles its component needs from the design pages. A design system built from an existing product's code counts: it merges inconsistent values into one scale and records each merge in its `readme.md` table `Unifications`, so copying it back changes the product. The ticket copies the variables (colour, type scale, spacing, radius, shadow), the fonts and the part stylesheets (each part a class name with its stylesheet) from `_ds/<folder>/` into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. A batch with no contract ticket has it block every **component page ticket** and **app page ticket** instead. Its criterion does not depend on `.mmw/`.
+Cut one whenever the design package carries a design system under `_ds/<folder>/` whose variables or part stylesheets the product code does not yet have; otherwise each interface ticket writes the styles its component needs from the design pages. A design system built from an existing product's code counts: it merges inconsistent values into one scale and records each merge in its `readme.md` table `Unifications`, so copying it back changes the product. The ticket copies the variables (colour, type scale, spacing, radius, shadow), the fonts and the part stylesheets (each part a class name with its stylesheet) from `_ds/<folder>/` into the product code, keeping the class names. It sits ahead of the **contract ticket** and blocks it: the contract ticket's element parity precedent needs a component whose styles are already in the product. A batch with no contract ticket has it block every **component page ticket** and **app page ticket** instead. Its criterion does not depend on `.mmw/`.
 
 **The design-system ticket is the second exception to vertical slicing**, beside the wide refactor `SKILL.md` step 3 names. It lands one layer, the styles, and demonstrates no behaviour of its own.
 
-**Read first** names the `_ds/` copy in the handoff package, the design system Claude Design used to draw the pages. **Owns** is the product files the variables, fonts and part stylesheets land in.
+**Read first** names the `_ds/` copy in the design package, the design system Claude Design used to draw the pages. **Owns** is the product files the variables, fonts and part stylesheets land in.
 
 Its criterion is one comparison, written under question 1 of **the five questions** in `SKILL.md`: a shell command that the design system's variables and part stylesheets exist in the product code. Whether those styles match the design system, value by value, is each later **interface ticket**'s element parity.
 
 ## contract ticket
 
-An existing product: fill only what `target_config.py --check` of the `ui-acceptance` skill reports missing. That command sees whether each answer is there, not what it was built for: a story service or story adapter that reads a handoff package or scene shape other than the current one, an interaction helper that finds controls by anything but `data-ui` id, or a `start` without the break switch counts as missing too, and the spec's **How a test arrives at a state** says which. When something is missing, this ticket blocks the tickets that need those deliverables. When nothing is, cut none.
+An existing product: fill only what `target_config.py --check` of the `ui-acceptance` skill reports missing. That command sees whether each answer is there, not what it was built for: a story service or story adapter that reads a design package or scene shape other than the current one, an interaction helper that finds controls by anything but `data-ui` id, or a `start` without the break switch counts as missing too, and the spec's **How a test arrives at a state** says which. When something is missing, this ticket blocks the tickets that need those deliverables. When nothing is, cut none.
 
 A new product: land `.mmw/` in full. It blocks every ticket in the batch except the **design-system ticket**. What it lands is the precedent later tickets copy.
 
 What it delivers:
 
+- the spec's **API contract** subsection turned into models and route signatures
 - `.mmw/target.json`, including `harness_markers`
 - the story service and the first story adapter
 - the interaction helper that finds a control by its `data-ui` id
@@ -72,13 +73,13 @@ Where the spec has a screen contract, the **prefactor ticket** of step 5 is this
 
 Cut by design page, `Component · ` pages. One story criterion (element parity) covers the mounts of the pages it takes. Each owned row whose `calls` is not `none`, or whose `next` is not `stay`, gets one boundary criterion; rows that share a test file may share one.
 
-A row whose `next` is a scene of another page (`topbar.needs-you-jump` → `Component · 详情.ticket-returned`) is tested where the component stands alone, and that other page is not in its render. Its boundary test asserts `calls`, `shows` and `on_failure` as for any row, and for `next` asserts what this component hands on: the event, route change or state it emits, carrying what the target scene needs (the ticket number to open). That the other page then enters the named scene is asserted once, by the `App · ` cross-component row the contract repeats this behaviour as, on the **app page ticket** that owns it.
+A row whose `next` is a scene of another page (`note-list.open`, whose `next` is `editor-open`, a scene of `Component · note-editor`) is tested where the component stands alone, and that other page is not in its render. Its boundary test asserts `calls`, `shows` and `on_failure` as for any row, and for `next` asserts what this component hands on: the event, route change or state it emits, carrying what the target scene needs (the id of the note to open). That the other page then enters the named scene is asserted once, by the `App · ` cross-component row the contract repeats this behaviour as, on the **app page ticket** that owns it.
 
 **Owns** is the `component` directory the contract's `pages` declares for each page it takes, and the test files it adds. The design page names which rows the ticket is answerable for, never where it may write.
 
 **Read first** carries two baseline lines, and the design page names for a person to read:
 
-- the handoff package, for look and verbatim copy
+- the design package, for look and verbatim copy
 - the screen contract with the row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c`: path and ids on one line, for calls, shown values, transitions and timing. Pages and mounts follow from those rows.
 
 The rest of **Read first** is derived from those row ids, not hand-picked: `scenes.json`; and every `source` of the owned rows that is a baseline (a decision ticket (`#<n>`), an ADR, a domain document under `docs/`), listed once per document, with a word on what it settles. Spec sections and stories reach the worker through **Parent**.
@@ -93,7 +94,7 @@ Takes one `App · ` page. One story criterion covers that page's mount. Each **c
 
 **Read first** carries two baseline lines, and the App page name for a person to read:
 
-- the handoff package, for look and verbatim copy
+- the design package, for look and verbatim copy
 - the screen contract with the cross-component row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c`: path and ids on one line. Pages and mounts follow from those rows.
 
 The rest of **Read first** is derived from those row ids, not hand-picked: `scenes.json`; and every baseline-class `source` of the owned rows, listed once per document.
@@ -106,7 +107,7 @@ The spec's **Critical flows** bullet names them: money, sign-in, one submit chai
 
 The ticket-cutting session writes the journey criterion, with `--break`, taking as default the last write among the contract rows that flow involves. The worker who writes the journey script leaves that choice as it is.
 
-**Parent** names the Implementation Decisions sections that flow lists. It is blocked by every ticket of this batch whose work that flow uses: the **component page ticket** and **app page ticket** of the pages it walks, and the tickets that build the operations those rows' `calls` name. A journey drives the real product with nothing mocked, so an operation that does not exist yet fails it at the first write, and the blockers are derived from the flow's rows, not from the list of ticket kinds. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for morning triage, and the closing comment names the step that broke.
+**Parent** names the Implementation Decisions sections that flow lists. It is blocked by every ticket of this batch whose work that flow uses: the **component page ticket** and **app page ticket** of the pages it walks, and the tickets that build the operations those rows' `calls` name. A journey drives the real product with nothing mocked, so an operation that does not exist yet fails it at the first write, and the blockers are derived from the flow's rows, not from the list of ticket kinds. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for triage, and the closing comment names the step that broke.
 
 **Owns** is `.mmw/journeys/<flow>/`, plus adding to the shared helper when there is one; product code is not in it.
 

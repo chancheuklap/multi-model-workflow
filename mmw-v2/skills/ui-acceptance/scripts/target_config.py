@@ -56,18 +56,18 @@ FIELDS: tuple[Field, ...] = (
           "directory, log — chosen inside the command from the lease in its environment, "
           "and returns once the product answers and can be driven; idempotent: leaves its "
           "own current product alone, clears its own stale one, refuses over anyone else's",
-          '"uv run python scripts/testing/target.py start"'),
+          '"uv run python .mmw/harness/target.py start"'),
     Field("stop", "command",
           "ends what start started and nothing else, and exits 0 with nothing of its own "
           "to end; the only way a run may end a process",
-          '"uv run python scripts/testing/target.py stop"'),
+          '"uv run python .mmw/harness/target.py stop"'),
     Field("discover", "command",
           "prints one JSON object of origin-class addresses plus `instance`, a readable "
           "name for this run",
-          '"uv run python scripts/testing/target.py discover"'),
+          '"uv run python .mmw/harness/target.py discover"'),
     Field("stories", "command",
           "brings up the story page service and prints its `origin`",
-          '"uv run python scripts/testing/target.py stories"'),
+          '"uv run python .mmw/harness/target.py stories"'),
     Field("journeys", "directory",
           "the directory of journey scripts; default .mmw/journeys",
           '".mmw/journeys"',

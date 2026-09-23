@@ -1,6 +1,6 @@
 # Writing interface code
 
-Read this file when the ticket's **Read first** lists a screen contract. The two baselines — handoff package for look and verbatim copy, screen contract for calls, shown values, transitions, failure and timing — are in this skill's `SKILL.md`.
+Read this file when the ticket's **Read first** lists a screen contract. The two baselines — design package for look and verbatim copy, screen contract for calls, shown values, transitions, failure and timing — are in this skill's `SKILL.md`.
 
 ## Resolve `<ui-acceptance scripts>` once
 
@@ -10,7 +10,7 @@ Read this file when the ticket's **Read first** lists a screen contract. The two
 
 Read the screen-contract rows this ticket owns.
 
-Then take the design side's values. `--contract` is the screen contract **Read first** names; `--pages` is the `pages` mounts this ticket owns; `--out` is a directory `mktemp` makes:
+Then take the design side's values (the design package's pages as the story judge renders them). `--contract` is the screen contract **Read first** names; `--pages` is the `pages` mounts this ticket owns; `--out` is a directory `mktemp` makes:
 
 ```
 uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --render-only --out <mktemp directory>
@@ -22,9 +22,9 @@ uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --rend
 
 ## Write the product
 
-Put `[data-story-root]` on the product component's own root element, not a wrapper around it and not a child inside it. That same root carries the `data-ui` id the design page's root carries. Every other product element being compared carries the same `data-ui` id as the corresponding element on the design page.
+Build the component and its story page as the ui-acceptance skill's `references/story-parity.md` **The story page the product serves** says: where `[data-story-root]` and the `data-ui` ids go, and what the story adapter takes.
 
-In the same pass write that page's story adapter and a four-column boundary test for each owned row. The story adapter takes the scene's scene data and maps it onto the component. The four-column boundary test asserts `calls`, `shows`, `next` and `on_failure` of one row.
+In the same pass write that page's story adapter and a four-column boundary test for each owned row. The four-column boundary test asserts `calls`, `shows`, `next` and `on_failure` of one row.
 
 **The story criterion is the exception to red before green.** The `tdd` skill writes one failing test and then only the code that passes it, and calls tests written ahead of the code **Horizontal slicing**, because they verify imagined behaviour. Element parity compares two rendered sides, so the story criterion has nothing to compare until the component renders, and its expected values are not imagined: they are the design side's, taken in the step above. So the component comes first here, written to those values. Each owned row's four-column boundary test is still its own red-green slice inside this pass, at the seam this ticket's **Seam** names: write it against the row, watch it fail, wire that row, watch it pass.
 
@@ -44,7 +44,7 @@ What the lines mean is the ui-acceptance skill's `references/story-parity.md` un
 
 ## When the design side is the defect
 
-A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: closing step 1 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED` for daytime. Keep working the rest of this ticket.
+A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: closing step 1 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket.
 
 ```
 <engine> <n> --sub-issue contract <file>
@@ -52,9 +52,9 @@ A design value that is clearly wrong (a metric number and the label beside it bo
 
 The file's first line is the child issue's title: the Claude Design page and the value that does not hold. The next line is:
 
-由 design-pages 的 pull 入口处理：在能调用 Claude Design MCP 工具的会话里，在 Claude Design 里改，再 pull
+由 design-pages 技能的 references/pull.md 处理：在能调用 Claude Design MCP 工具的会话里，在 Claude Design 里改，再 pull
 
-The rest of the body quotes what does not hold and states what in the same source still holds and must be preserved. Leave the handoff package as it is: **pull** of the design-pages skill is what writes it.
+The rest of the body quotes what does not hold and states what in the same source still holds and must be preserved. Leave the design package as it is: **pull** of the design-pages skill is what writes it.
 
 **Done when** the child is open and the rest of this ticket is still being worked.
 

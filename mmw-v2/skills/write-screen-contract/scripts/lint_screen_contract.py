@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["pyyaml>=6"]
 # ///
-"""Lint a screen contract against the handoff skeleton and, when given, openapi.json.
+"""Lint a screen contract against the design package's skeleton and, when given, openapi.json.
 
 Usage: uv run python lint_screen_contract.py [--tools <ui-acceptance scripts>] <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
@@ -219,7 +219,7 @@ def scene_input_errors(name: str, spec: object, baseline: Path | None) -> list[s
     if baseline is not None and baseline.is_dir():
         target = (baseline / file).resolve()
         if baseline.resolve() not in target.parents or not target.is_file():
-            errors.append(f"scenes: {name!r} input file {file!r} is not in the handoff package")
+            errors.append(f"scenes: {name!r} input file {file!r} is not in the design package")
     return errors
 
 
@@ -228,8 +228,8 @@ def unknown_keys(value: dict, allowed: set[str]) -> list[str]:
 
 
 def removed_field(location: str, key: str) -> str:
-    return (f"{location}{key} was removed; see migration note "
-            "mmw-v2/downstream-notes/494-screen-contract-format.md for the replacement")
+    return (f"{location}{key} was removed from the screen-contract format; delete it "
+            "(references/screen-contract-format.md lists the keys each place allows)")
 
 
 def skeleton_scene_pages(skeleton: dict) -> dict[str, str]:
@@ -303,7 +303,7 @@ def handoff_page_errors(baseline: Path, pages: set[str]) -> list[str]:
     for page_name in sorted(pages | on_disk):
         page = baseline / page_name
         if not page.is_file():
-            errors.append(f"handoff page missing: {page_name} (named by scenes.json)")
+            errors.append(f"design page missing: {page_name} (named by scenes.json)")
             continue
         parser = HandoffPageParser()
         parser.feed(page.read_text(encoding="utf-8"))
@@ -372,7 +372,7 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
     raw_vps = doc.get("viewports")
     widths: list[int] = []
     if not raw_vps:
-        errors.append("viewports missing (copy them from the handoff package README)")
+        errors.append("viewports missing (copy them from the design package README)")
     else:
         for vp in (raw_vps if isinstance(raw_vps, list) else [raw_vps]):
             m = VIEWPORT.match(str(vp).strip())
@@ -383,7 +383,7 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
     if baseline is not None and baseline.is_dir() and widths:
         for w in widths:
             if w in stylesheet_breakpoints(baseline):
-                errors.append(f"viewports: width {w} is a breakpoint of the handoff "
+                errors.append(f"viewports: width {w} is a breakpoint of the design package's "
                               f"stylesheets; a render there compares two reflows")
     # -- pages
     pages = doc.get("pages") or {}
@@ -420,7 +420,7 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                 elif baseline is not None and baseline.is_dir() and \
                         int(m.group(1)) in stylesheet_breakpoints(baseline):
                     errors.append(f"pages: {page!r} viewports width {m.group(1)} is a breakpoint "
-                                  "of the handoff stylesheets; a render there compares two reflows")
+                                  "of the design package's stylesheets; a render there compares two reflows")
         mount = str(decl.get("mount") or "")
         if not MOUNT.match(mount):
             errors.append(f"pages: {page!r} mount {mount!r} must be a short lowercase id")
@@ -541,10 +541,10 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             errors.append(f"{rid}: id is in retired_ids and still has a row")
         trigger = str(row.get("trigger") or "")
         if trigger not in triggers:
-            errors.append(f"{rid}: trigger {trigger!r} not in handoff skeleton")
+            errors.append(f"{rid}: trigger {trigger!r} not in the skeleton")
         else:
             if not (row.get("scenes") or []):
-                warnings.append(f"{rid}: scenes is [] — the handoff shows no scene for this precondition")
+                warnings.append(f"{rid}: scenes is [] — the design package shows no scene for this precondition")
             for sc in row.get("scenes") or []:
                 if sc not in triggers[trigger]:
                     errors.append(f"{rid}: scene {sc!r} does not show this trigger in the skeleton")

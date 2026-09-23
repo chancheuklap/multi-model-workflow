@@ -1,6 +1,6 @@
 """The rendered skeleton is the screen-contract row inventory.
 
-The fixture is a hand-written handoff package. These tests exercise the command's
+The fixture is a hand-written design package. These tests exercise the command's
 public output through the real shared design renderer and headless Chromium.
 """
 

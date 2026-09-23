@@ -7,7 +7,7 @@
 
     uv run story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <mount,…>
 
-The screen contract names the handoff package, viewports, pages and scenes. `--pages`
+The screen contract names the design package, viewports, pages and scenes. `--pages`
 names the `pages.<page>.mount` values this run covers, including `App · ` pages;
 `--scenes` narrows that set. `.mmw/target.json`'s `stories` command prints the
 origin, and the story URL is
@@ -368,8 +368,8 @@ def negative_control_gate(design_differences: list[ElementDifference],
         return 2, [refusal(
             "NEGATIVE CONTROL FAILED: removing every product data-ui id reported no missing element.",
             "The design page carries no data-ui id this judge can compare.",
-            "Add data-ui ids to the design page and product story as "
-            "mmw-v2/downstream-notes/453-element-parity.md says, then rerun.")]
+            "Give the design page's elements data-ui ids in Claude Design and pull again, "
+            "put the same ids on the product story's elements, then rerun.")]
     return 0, []
 
 
@@ -420,7 +420,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("--contract", required=True, metavar="FILE",
-                   help="the screen contract; it names the handoff package, the viewports "
+                   help="the screen contract; it names the design package, the viewports "
                         "and every scene's page and mount")
     p.add_argument("--pages", required=True, metavar="IDS",
                    help="comma-separated pages.mount values; every "
@@ -430,7 +430,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", metavar="DIR", default=None,
                    help="where screenshots, element facts and pixel evidence are written")
     p.add_argument("--cdn", metavar="DIR", default=None,
-                   help="cache for the scripts support.js loads, when the handoff package "
+                   help="cache for the scripts support.js loads, when the design package "
                         "carries no vendor/ copy")
     p.add_argument("--render-only", action="store_true",
                    help="render the design side of the selected scenes into --out "
@@ -467,14 +467,14 @@ def refuse_story_inputs(doc: dict, contract: str) -> str | None:
     if doc.get("volatile_values"):
         return refusal(
             f"{contract} has a non-empty `volatile_values`.",
-            "这个键已不被 judge 执行.",
-            "删掉它或把控件改回 Claude Design, then rerun.")
+            "The screen-contract format has no such key, and the judge would ignore it.",
+            "Delete `volatile_values` from the contract, then rerun.")
     for entry in doc.get("retired_ids") or []:
         if isinstance(entry, dict) and entry.get("trigger"):
             return refusal(
                 f"{contract} has a `retired_ids` entry with `trigger`.",
-                "这个键已不被 judge 执行.",
-                "删掉它或把控件改回 Claude Design, then rerun.")
+                "A `retired_ids` entry holds only `id` and `note`, and the judge would ignore `trigger`.",
+                "Delete `trigger` from that entry, then rerun.")
     return None
 
 

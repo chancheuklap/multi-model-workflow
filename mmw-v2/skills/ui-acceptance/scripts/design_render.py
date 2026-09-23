@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline rendering of a handoff package's design side.
+"""Offline rendering of a design package's design side.
 
 Nothing here judges. `story-parity.py` and `extract_skeleton.py` import the baseline
 server, the wrapper page, capture, and the `[data-ui]` reader.
@@ -22,8 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # ---------------------------------------------------------------- constants
-# The three scripts `support.js` loads from unpkg. Answered from the handoff package's
-# own `vendor/` directory when the handoff stored them, else from a local cache, else
+# The three scripts `support.js` loads from unpkg. Answered from the design package's
+# own `vendor/` directory when the package stored them, else from a local cache, else
 # fetched once; a render never depends on the network twice.
 CDN_PREFIX = "https://unpkg.com/"
 VENDOR_DIR = "vendor"
@@ -31,7 +31,7 @@ DEFAULT_CACHE = Path.home() / ".cache" / "mmw" / "pixel-diff"
 
 # Virtual milliseconds the design page's clock is run after a navigation: `support.js`
 # polls readiness every 50 ms and each component first renders on that poll, and a
-# `requestAnimationFrame` focus effect rides the same clock. Far below the handoff
+# `requestAnimationFrame` focus effect rides the same clock. Far below the design
 # package's own timers (an 1800 ms auto-advance, a 2600 ms auto-recover, a 2400 ms toast).
 SETTLE_VIRTUAL_MS = 200
 FRAME_MS = 16
@@ -204,7 +204,7 @@ def accessibility_snapshot(locator) -> str:
 
 # An `<option>`'s accessible name is computed from its own child text nodes alone. The
 # Claude Design runtime wraps every `{{ }}` hole in a `span.sc-interp`, which takes the
-# text out of those nodes, so a handoff package reports its options unnamed while any
+# text out of those nodes, so a design package reports its options unnamed while any
 # implementation that writes the same text plainly reports them named. Both sides read
 # the name off the DOM instead, and the comparison is of the copy the reader sees.
 OPTION_TEXT_JS = """(root) => [...root.querySelectorAll('option')]
@@ -312,8 +312,8 @@ def cdn_path(cache: Path, url: str) -> Path:
 
 
 def vendor_path(baseline: Path, url: str) -> Path | None:
-    """The copy of a CDN script the handoff package carries under `vendor/`, by the
-    script's own file name, when the handoff stored one."""
+    """The copy of a CDN script the design package carries under `vendor/`, by the
+    script's own file name, when the package stored one."""
     name = url.rsplit("/", 1)[-1].split("?", 1)[0]
     candidate = baseline / VENDOR_DIR / name
     return candidate if candidate.exists() else None
