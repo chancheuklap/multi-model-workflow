@@ -1,8 +1,6 @@
 # How dispatch works
 
-Read this when a command's behaviour surprised you, or when changing the relay, watchdog or turn guard.
-
-`<dispatch>` and `<engine>` are resolved in the `dispatch` skill's `SKILL.md` under `## Resolve `<dispatch>` once`.
+Read this when changing `dispatch.sh`, `relay.py`, `watchdog.py`, `status.py` or `turn-guard.py`.
 
 ## Starting a session
 
@@ -16,7 +14,7 @@ A start the runner refuses is refused once, exit 2: no retry and no other host o
 
 `start <n> worker` replaces a worker whose events still show it live. It checks origin and the ticket branch, stops the old session through its runner, commits tracked edits as `wip(#<n>): uncommitted work of <that worker>`, pushes the branch, writes `worker.replaced`, and starts the new worker in the same workspace. The branch, commits and product slot carry over; instructions given only inside the old session do not. A worker that will not stop, or a rejected push, is refused and nothing starts beside it. `retract` and `suspend` also commit and push before releasing a worktree, claim, slot or event hold. A push rejection never uses force and leaves the recoverable state standing.
 
-A worker takes no product slot when it starts. The slot lifecycle and its two limits are in the `ui-acceptance` skill's `references/product-answers.md` under **`instance`**. When a criteria run gets no slot, the `verify-ticket` skill's `references/running-criteria.md` under **A criterion that runs the product** defines its `worker.queued` event, exit 3, wake and ack.
+A worker takes no product slot when it starts. The slot lifecycle and its two limits are in the `ui-acceptance` skill's `references/product-answers.md` under **`instance`**. When a criteria run gets no slot, `verify-ticket.py` exits 3 and posts `worker.queued`, and the relay wakes the worker once a slot is given back.
 
 ## Events and holds
 
@@ -80,13 +78,13 @@ When no ticket can start but open agent-queue tickets remain, stderr names each 
 
 `status` is the fold of every ticket, not runner state. Its `note` identifies ready tickets, blockers, multiple live workers, unreadable events, a claim with no started session, a product-slot wait, or the newest event; it is empty while a worker holds the ticket. The `ac` column is the newest worker or reverify criteria count.
 
-A live worker continues through `resume`. Its exit codes, and the message for a worker the watchdog reports silent, are in [night.md](night.md) under **Exit codes of `resume`**.
+A live worker continues through `resume`. Its exit codes, and the message for a worker the watchdog reports silent, are in the dispatch skill's `references/night.md` under **Exit codes of `resume`**.
 
 For a gone session with a workspace, slot or claim still held, `retract` commits tracked edits, pushes the ticket branch, runs the product's `stop`, archives the workspace, gives back the slot and claim, and writes `worker.retracted`. A rejected push leaves them standing and never force-pushes.
 
 ## Reverify and summary
 
-`reverify` fetches origin, resets the detached merge worktree to `origin/<into>`, and runs every passed-and-landed ticket through `<engine> <n> --reverify --actor main` with `MMW_BASE_REF=origin/<into>`. Each run posts `ticket.checked` with run `reverify`, actor `main`. A passed but unlanded ticket is named and skipped. A red ticket is reopened in triage, unassigned and given `ticket.regressed`; a ticket that establishes no result is not treated as red and leaves the remaining tickets unrun. A ticket a previous reverify reopened that still carries `needs-triage` runs in the same pass and on the same commit: green, it is given `ticket.recovered`, loses the label and is closed again; red, nothing is written on it.
+`reverify` fetches origin, resets the detached merge worktree to `origin/<into>`, and runs every passed-and-landed ticket through `verify-ticket.py <n> --reverify --actor main` with `MMW_BASE_REF=origin/<into>`. Each run posts `ticket.checked` with run `reverify`, actor `main`. A passed but unlanded ticket is named and skipped. A red ticket is reopened in triage, unassigned and given `ticket.regressed`; a ticket that establishes no result is not treated as red and leaves the remaining tickets unrun. A ticket a previous reverify reopened that still carries `needs-triage` runs in the same pass and on the same commit: green, it is given `ticket.recovered`, loses the label and is closed again; red, nothing is written on it.
 
 `reverify` records its green count, red count and the fetched `origin/<into>` commit in the repository's common Git directory. `summary` fetches origin again and refuses before any Memory mutation when that receipt is absent, red or for an older base commit. It also refuses when the frontier is nonempty, a session or untaken claim still holds a ticket, a ticket's events are unreadable, or a passed ticket has not landed. Human-acceptance, triage and blocked tickets are allowed outcomes.
 

@@ -4,15 +4,11 @@ You have hit a decision. The advisor is a second opinion on a stronger model, st
 
 ## When it is worth a session
 
-- **Before a commitment.** An architecture choice, a data migration, an API shape, a refactor strategy — while it can still change.
-- **After two failures.** One problem has resisted two attempts.
-- **Before a reading becomes fact.** A disputed interpretation of what was asked, what the system is, or which constraint binds is about to be treated as settled.
-
 What you can settle by reading the code, settle by reading the code. One decision gets one consultation, and reading this page is not that consultation: the value is a session that has not spent the last hour convincing itself.
 
 ## Resolve `<dispatch>` once
 
-`<dispatch>` is `scripts/dispatch.sh` of the dispatch skill, resolved from that skill's own `SKILL.md` the way its **Resolve `<dispatch>` once** section says.
+`<dispatch>` is `bash <absolute path to scripts/dispatch.sh>` of the dispatch skill, installed beside this one; resolve it from that skill's directory, since the path differs by machine and by host.
 
 ## Start it
 
@@ -31,8 +27,6 @@ The advisor sees the packet and nothing else: not your session, not your tool tr
 3. The constraints you believe bind.
 4. The options you weighed, and which way you are leaning.
 5. The file paths you believe are relevant.
-
-That is the decision and the evidence, and handing over the decision and the evidence is the whole of your job here.
 
 ## The question stays open
 

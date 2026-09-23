@@ -7,15 +7,13 @@ description: Retrospect one completed MMW spec night. Use right after the dispat
 
 ## Resolve `<retro>` once
 
-`<retro>` in every command below is `python3 <absolute path to scripts/retro.py>` next to this file. Resolve it from this file's own location, but run it from a checkout of the spec's repository whose `HEAD` is `origin/<base branch>`, the base branch `spec.opened` records: the entry uses the caller's Git top-level as the repository it reads, never the skill installation checkout; `gather` reads commits from origin, and `finalize` reads repository files from that working tree. It writes to the **repository Space**, the Nowledge Mem Space named after that checkout's origin (`<owner>__<name>`); an explicit `NMEM_SPACE` must match that id.
+`<retro>` in every command below is `python3 <absolute path to scripts/retro.py>` next to this file; resolve it from this file's own location, since the path differs by machine and by host. Run it from a checkout of the spec's repository whose `HEAD` is `origin/<base branch>`, the base branch `spec.opened` records: `finalize` reads repository files from that working tree.
 
-Run an evidence-first retrospective for the completed spec night. Produce
-evidence-backed improvements to the coding agents' environment and workflow.
-The retrospective's record is one **Retro Memory**: the Memory labelled
-`mmw-retro` that `finalize` writes for this spec. Work the user approves, through
-the normal spec and ticket flow, applies changes to code, specs, prompts, Rules,
-AGENTS.md, checks, scripts, skills, or toolbox Memory (the shared `mmw-toolbox`
-Space).
+Run an evidence-first retrospective of the completed spec night and produce
+evidence-backed improvements to the coding agents' environment and workflow. Its
+record is one **Retro Memory**: the Memory labelled `mmw-retro` that `finalize`
+writes for this spec. Work the user approves applies the improvements later,
+through the normal spec and ticket flow.
 
 A problem exists only when a tracker event comment, commit, current repository
 file, or observed check proves it. Attach that source to every reported problem
@@ -23,20 +21,12 @@ and drop unsupported claims. Use Memory, Thread, Working Memory, agent reports,
 and issue status to discover what to verify; use primary tracker, git,
 repository, and check evidence to establish what happened or landed.
 
-The script writes outputs; the agent judges causes and dispositions. Run the
-four sections below in order: Gather, Analyze, Decide, Finalize.
+The script writes outputs; the agent judges causes and dispositions.
 
 ## Gather
 
-1. Run `<retro> gather <spec>` and save its JSON output to a temporary file
-   outside the repository. Read all of it before analysis: the spec's Problem
-   Statement, User Stories, and Out of Scope; its complete native ticket tree;
-   every ticket's full event fold and the comments carrying those events;
-   `spec.closed` and the Memory record ids it proposed (`proposed_memory_ids`);
-   the landing and closing-pass commits from the night's base commit
-   (`observed.base_commit`, the merge-base of the `spec.opened` project and base
-   branches) through `origin/<base branch>`; and the most recent earlier Retro
-   Memory (`prior_retro`).
+1. Run `<retro> gather <spec>`, save its JSON output to a temporary file
+   outside the repository, and read all of it before analysis.
 2. `gather` writes the inventory of every source as present, missing, or
    unreadable (`evidence_checked`). Carry its `evidence_checked`, `task_root`
    and `observed.base_commit` into the analyzed JSON unchanged, copied by
@@ -178,13 +168,8 @@ four sections below in order: Gather, Analyze, Decide, Finalize.
       "observed": {"at": "ISO-8601", "base_commit": "40-hex"}
     }
     ```
-14. Run `<retro> finalize <spec> <file>`. `finalize` checks the file against a
-    fresh `gather`, creates one `needs-triage` issue per proposal or reuses the
-    open one that holds this spec and every source, writes the fixed-id Retro
-    Memory in the repository Space, then posts the `spec.retroed` receipt:
-    `result=recorded` when that write succeeded, otherwise `result=unrecorded`
-    with the reason. A completed retro changes no ticket verdict and
-    wakes no agent.
+14. Run `<retro> finalize <spec> <file>`. It checks the file against a fresh
+    `gather`, and a refusal names what to correct.
 
 Done when `finalize` has posted `spec.retroed` with `result=recorded`; then return to the dispatch skill's `references/night.md` `## 5. The night is over`, which tells the user.
 
