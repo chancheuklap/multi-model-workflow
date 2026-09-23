@@ -1,6 +1,6 @@
 ---
 name: ask-matt
-description: Ask which skill or flow fits your situation. A router over the upstream skills in this repo and the interface chain beside them. Use when you know what you want to do but not which skill does it, or when you are choosing what to do at a phase boundary.
+description: Ask which skill or flow fits your situation. A router over the upstream skills in this repo and the `design-pages` and `write-screen-contract` skills beside them. Use when you know what you want to do but not which skill does it, or when you are choosing what to do at a phase boundary.
 ---
 
 # Ask Matt

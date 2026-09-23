@@ -76,7 +76,7 @@ Each question carries:
 - One plain-language "Why it matters" sentence (the stake for what a ticket delivers or what its criteria check).
 - The spec sentence it cites, quoted.
 - 2–5 distinct, mutually exclusive options.
-- `Recommended: Option X — <1–2 sentences of reasoning>`, chosen from best practices for the project type, common patterns in similar implementations, risk reduction, and alignment with explicit project goals or constraints visible in the spec. Present the recommendation first.
+- `Recommended: Option X, because <1–2 sentences of reasoning>`, chosen from best practices for the project type, common patterns in similar implementations, risk reduction, and alignment with explicit project goals or constraints visible in the spec. Present the recommendation first.
 
 Present every question in this pass. This is not a sequential loop.
 

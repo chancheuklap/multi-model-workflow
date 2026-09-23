@@ -39,7 +39,7 @@ The spec section that says where a test observes the result, the seam and what i
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **Critical flows**:
-An optional bullet of `## Testing Decisions` naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/journeys/` each one runs from.
+The bullet of `## Testing Decisions` naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/journeys/` each one runs from.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Out of Scope`**:
@@ -175,7 +175,7 @@ The three states of a criterion: met is ticked with real evidence, abandoned car
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **round**:
-One fix-and-rerun pass on one criterion, or on the in-ticket findings of a code review.
+One pass that fixes and re-runs one criterion, or that fixes the in-ticket findings of a code review.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **`ABANDON:`**:

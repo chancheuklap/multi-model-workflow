@@ -27,7 +27,7 @@
 | Pick a branch | 三枝，第三枝指向 `EXP.md`；兜底规则里库/算法/集成 → experiment |
 | 标题「Rules that apply to …」、规则 2、规则 5 | 覆盖三枝（every branch；experiment 也一条命令起；experiment 每次跑写 evidence page） |
 | 规则 2「A logic demo is …」 | host 能发布就是在线页，否则双击 |
-| 规则 1 | 存放约定：leaf directory `prototypes/<task>/<issue>/<UI\|LOGIC\|EXP>/` + leaf `README.md`，`<issue>` 是 ticket number；`<task>` 是这次工作的目录名（小写 ASCII 单词用 `-` 连），来源分级按「有没有 wayfinder map」判，不按「有没有 ticket」（map 的 `## Notes` 写的那个 → 问 user → 分支名，`/` 换 `-`）；main 上先停；UI 自建路由仍守项目路由约定 |
+| 规则 1 | 存放约定：leaf directory `prototypes/<effort>/<issue>/<UI\|LOGIC\|EXP>/` + leaf `README.md`，`<issue>` 是 ticket number；`<effort>` 是这次工作的目录名，`prototypes/` 与 `docs/specs/` 下同名（小写 ASCII 单词用 `-` 连；`write-screen-contract` 技能指回这一条，不另写推导），来源分级按「有没有 wayfinder map」判，不按「有没有 ticket」（map 的 `## Notes` 写的那个 → 问 user → 分支名，`/` 换 `-`）；main 上先停；UI 自建路由仍守项目路由约定 |
 | 规则 4 | 保留「无测试」并写明测试归正式代码；「不抽象」放宽为「复用部分要有清楚边界」 |
 | 规则 6 | 结论进 leaf `README.md`；决定并进正式代码并按正式标准重写；落地后 leaf directory 是 prototype 唯一的家；有 ticket 就把 leaf directory 链为 asset。**没有** throwaway branch |
 
@@ -49,7 +49,7 @@
 | 子形态 B 及第 16 行「throwaway route」 | 叫 prototype route；其余判断照收 |
 | 第 3 步 sub-shape B 那句 | 删掉 `/prototype/<name>` 这个路径，只留「B 也挂同一个切换条」。路径规则的唯一出处是子形态 B 那节（跟项目现有约定走，别造新顶层）；写在这里会和它冲突——B 的前提就是项目里还没有这类页面，`/prototype/` 必然是新顶层。上游若改这句措辞，仍然只收挂载语义，不收路径 |
 | 第 2 步末句 | 样式用变量，界面按可复用组件拆，需要时可以从它建 design system。上游没有这一句 |
-| `## Two sub-shapes` 之下的 `### When there is no app yet` | 我们加的：全新产品还没有 app——子形态 A 要一个已有路由，B 要「the project's routing convention」，两个都假定 app 已存在。这时 variant 是 leaf directory `prototypes/<task>/<issue>/UI/` 里的独立页面，用这次工作已定的技术栈写，共用一个切换条；leaf directory 之外没有东西挂它们，第 7 步没有 scaffolding 可拆。理由：按「从零做一个新产品」走一遍真实流程时，agent 在这里只能自造一个路由结构，而子形态 B 明写不许造新顶层。上游改子形态一节 → 收上游措辞，这一小节接在后面 |
+| `## Two sub-shapes` 之下的 `### When there is no app yet` | 我们加的：全新产品还没有 app——子形态 A 要一个已有路由，B 要「the project's routing convention」，两个都假定 app 已存在。这时 variant 是 leaf directory `prototypes/<effort>/<issue>/UI/` 里的独立页面，用这次工作已定的技术栈写，共用一个切换条；leaf directory 之外没有东西挂它们，第 7 步没有 scaffolding 可拆。理由：按「从零做一个新产品」走一遍真实流程时，agent 在这里只能自造一个路由结构，而子形态 B 明写不许造新顶层。上游改子形态一节 → 收上游措辞，这一小节接在后面 |
 | 第 3 步末尾新增段 | variant 组件住在 leaf directory，路由只留 mount point；mount point 连同 symlink 定性为 scaffolding，第 7 步拆掉；import 不过去就 symlink；迭代只改 leaf directory |
 | `SKILL.md` 第 6 条 | UI prototype 的 winner 不在这里折进真实代码，而是交给 Claude Design、再从拿回来的 design page 写真实代码（指向 `UI.md` 第 6、7 步）。上游只写「折进真实代码」，对 LOGIC 与 EXP 仍然成立，所以收上游措辞、保留这一句 |
 | 第 6 步第二段 | winning variant 一律进 Claude Design，所以 scaffolding 保留到第 7 步：跑着的 winner 是画页面时的参照，从它建 design system 时读它的样式与组件。上游没有这一段 |

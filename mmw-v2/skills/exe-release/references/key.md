@@ -4,9 +4,9 @@ A product ships by declaring one release manifest: `<product>.release-adapter.js
 
 The filename and the `--adapter` flag every script below takes say `adapter`: both are literals the scripts read. Prose calls this file the release manifest.
 
-**Adding a product means writing a release manifest. It does not mean writing Python.** When something cannot be said in the release manifest, the answer is a new field in it or a new capability in the skill — never a script in the product repo. A script there is a copy of packaging knowledge that the next product will have to write again.
+**Adding a product means writing a release manifest. It does not mean writing Python.** When something cannot be said in the release manifest, the answer is a new field in it or a new capability in the skill — never a script in the product repository. A script there is a copy of packaging knowledge that the next product will have to write again.
 
-**A product that does not ship through this skill yet starts in [new-product.md](new-product.md)** — whether it has never been packaged, or ships today through its own packaging scripts. That file covers what the repo must contain before a release manifest is worth writing, and it sends you back here for the fields.
+**A product that does not ship through this skill yet starts in [new-product.md](new-product.md)** — whether it has never been packaged, or ships today through its own packaging scripts. That file covers what the repository must contain before a release manifest is worth writing, and it sends you back here for the fields.
 
 `<scripts>` in every command and path below is the `scripts/` directory the release engine lives in; `SKILL.md`'s section **Resolve `<release>` and `<scripts>` once** resolves it. `<scripts>/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
 
@@ -20,11 +20,11 @@ Ask one question about any piece of the build:
 | --- | --- | --- |
 | No, only the values differ | **the release manifest** | JSON |
 | No, it is the same action | **the skill** | code, written once |
-| Yes, it is this app's own business | **the product repo** | code, and keep it thin |
+| Yes, it is this app's own business | **the product repository** | code, and keep it thin |
 
-Two things are genuinely the product's own and stay in its repo: fetching an embedded runtime, and a delivery format the app invented (a self-update feed, a hand-written installer with its own install semantics). Everything else about producing a Windows package is the skill's.
+Two things are genuinely the product's own and stay in its repository: fetching an embedded runtime, and a delivery format the app invented (a self-update feed, a hand-written installer with its own install semantics). Everything else about producing a Windows package is the skill's.
 
-Applied to checks, the same question reads: **a check every product needs is the skill's job and is never optional; a check that exists only because of how one repo is built is the product's, and is.** When you are about to require a new field, ask which side it falls on. If every product would have to write the same thing, the skill should be writing it instead.
+Applied to checks, the same question reads: **a check every product needs is the skill's job and is never optional; a check that exists only because of how one repository is built is the product's, and is.** When you are about to require a new field, ask which side it falls on. If every product would have to write the same thing, the skill should be writing it instead.
 
 ## The shape
 
@@ -75,9 +75,9 @@ ffmpeg, an embedded interpreter, anything too large to commit. Put the files on 
 
 **The hashes are the point.** `lock` is a JSON file in the repository recording each file's sha256, and a copy that does not match stops the release. The same tool built from a different source is not the same file, and the difference does not announce itself: the build succeeds, the app runs, and on a customer machine it quietly does the slow thing (a different ffmpeg build can require a newer GPU driver, and customers without it lose GPU encoding with no error).
 
-Keep the hashes in the lock file rather than in the release manifest when the repo already reads them -- one place, or they drift.
+Keep the hashes in the lock file rather than in the release manifest when the repository already reads them -- one place, or they drift.
 
-**A copyleft binary travels with its licence.** Mark the upstream licence file `"license": true`, and list the notices your repo writes itself -- the offer of source a GPL binary obliges you to make:
+**A copyleft binary travels with its licence.** Mark the upstream licence file `"license": true`, and list the notices your repository writes itself -- the offer of source a GPL binary obliges you to make:
 
 ```jsonc
 {"file": "LICENSE.txt", "dest": "resources/ffmpeg/LICENSE.txt",
@@ -198,7 +198,7 @@ A hook is an **addition**, never a substitute. Three checks the skill runs on ev
 
 - **No business source in the shipped tree.** Compiling exists to not ship source. A package that ships it still installs and still runs, so nothing reveals the leak — the product's commercial premise is simply gone. The packages to look for are `python_backend.include_packages`, which the release manifest already declares.
 - **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` beside the finished exe, in the directory the packer copies whole. Left there, the same content ships three times over — inside the exe, as the dist tree, and as the raw payload. `.build` is worse than bloat: it holds the C the compiler generated from the product's own source. The release engine removes all three, right after the payload check reads them, so **do not put `--remove-output` in `extra_flags`**: it deletes the directories during the compile and downgrades the payload check to comparing exe tails.
-- **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is an installer" are different facts: a packer can fail its own cleanup, a repo hook can run half way. Which is why a release manifest with an installer step must declare where the installer lands. The check runs after the `package_integrity` hook, so the glob may point at a delivery directory that the hook itself fills once the gates pass.
+- **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is an installer" are different facts: a packer can fail its own cleanup, a repository hook can run half way. Which is why a release manifest with an installer step must declare where the installer lands. The check runs after the `package_integrity` hook, so the glob may point at a delivery directory that the hook itself fills once the gates pass.
 
 ### What is genuinely optional
 
@@ -210,7 +210,7 @@ Patterns only this product's build produces, matched **before** the skill's gene
 
 ## Prove it without building
 
-Check the release manifest against the repo first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile. What each exit code below means is in `SKILL.md`'s section **Exit codes**.
+Check the release manifest against the repository first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile. What each exit code below means is in `SKILL.md`'s section **Exit codes**.
 
 ```bash
 uv run --with 'pydantic>=2' python <scripts>/verify_key.py --adapter <manifest> --repo-root <repo>
@@ -232,6 +232,6 @@ uv run --with 'pydantic>=2' python <scripts>/release_script_assembler.py check \
 
 `$out` is this run's own directory. A fixed name under `/tmp` is shared: two runs at once overwrite each other's assembled script, and the check reads whichever landed last.
 
-Read the generated script. Every step it prints is a step the release manifest asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repo does not have.
+Read the generated script. Every step it prints is a step the release manifest asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repository does not have.
 
 Then ship it once, and read what the build machine says. A release manifest is proven by a package that installs, not by a script that assembles.

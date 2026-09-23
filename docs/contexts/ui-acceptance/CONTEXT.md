@@ -34,7 +34,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/prototype/UI.md`
 
 **design ticket**:
 The wayfinder ticket that produces the **design package** for a destination with an interface, worked with the `design-pages` skill. It blocks the **alignment ticket**.
-_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
+_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-remake.md`
 
 **component**:
 A `Component · <name>` design page: one **region** of the screen, the unit acceptance checks, exposing a `scene` prop whose values are that region's accepted states. Distinct from the `component` column of a screen contract's `pages`, which names the **product component**.
@@ -49,7 +49,7 @@ One `Component · ` page's area of a screen, named by that page: the `<region>` 
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **design package**:
-The Claude Design project as it sits in the repository, written only by **pull** into `prototypes/<task>/claude-design/`: the project's pages, every file they load, and what pull writes beside them. The screen contract's `baselines.look` names it.
+The Claude Design project as it sits in the repository, written only by **pull** into `prototypes/<effort>/claude-design/`: the project's pages, every file they load, and what pull writes beside them. The screen contract's `baselines.look` names it.
 _Avoid_: handoff package (for this; `handoff` is the `handoff` skill and `HANDOFF REQUIRED`)
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
@@ -70,11 +70,11 @@ A DESIGN.md-format file a consuming repository may keep. It is not the design so
 _Home_: `docs/adr/0029-claude-design-is-the-design-source.md`
 
 **prototype**:
-Code that answers one design question, kept under `prototypes/<task>/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`. A UI prototype is several structurally different variants on one real route, of which the user picks the winner.
+Code that answers one design question, kept under `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`. A UI prototype is several structurally different variants on one real route, of which the user picks the winner.
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
 **leaf directory**:
-`prototypes/<task>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind. Its `README.md` is read to its verdict as a `## Read first` item.
+`prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind. Its `README.md` is read to its verdict as a `## Read first` item.
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
 ### The judges
@@ -160,7 +160,7 @@ _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.m
 
 **alignment ticket**:
 The last ticket of a wayfinder map whose destination has an interface, blocked by every decision ticket and by the **design ticket**, and resolved by running `write-screen-contract` until every row's `gap` is `aligned`.
-_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`, `mmw-v2/skills/write-screen-contract/SKILL.md`
+_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-remake.md`, `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`, `mmw-v2/skills/write-screen-contract/SKILL.md`
 
 **gap list**:
 The rows of a screen contract whose `gap` is `design-only` or `backend-only`, which `write-screen-contract` puts to the user to settle.

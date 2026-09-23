@@ -53,7 +53,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 ### Reviewer Rules
 
 **reviewer Rules**:
-The owner-approved Nowledge Mem Rules `dispatch.sh start <n> reviewer` copies into the reviewer's start prompt. They decide what the reviewer inspects; every finding still needs a current source.
+The Nowledge Mem Rules the user approved that `dispatch.sh start <n> reviewer` copies into the reviewer's start prompt. They decide what the reviewer inspects; every finding still needs a current source.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 ### Comments on the ticket

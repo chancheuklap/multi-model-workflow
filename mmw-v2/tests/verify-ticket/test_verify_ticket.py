@@ -387,7 +387,7 @@ class TestReverify(LedgerRun):
 
     def test_evidence_written_before_the_definition_digest_is_rerun_not_trusted(self):
         """A run recorded by the gate-check before evidence named its definition: the
-        reverify still reruns it and it passes, but it does not count as previously met."""
+        reverify still re-runs it and it passes, but it does not count as previously met."""
         body = ticket(
             "- [ ] AC1: the importer writes six rows",
             "  CHECK: echo 'wrote 6 rows'",

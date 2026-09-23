@@ -94,7 +94,7 @@ def load_conditions(dr, refusal, contract: Path
         raise SystemExit(refusal.refusal(
             f"Top-level `locale` is missing from {contract.name}.",
             "extract_skeleton.py does not invent the product language.",
-            "Add `locale` to the screen contract, then rerun."
+            "Add `locale` to the screen contract, then re-run."
         ))
     try:
         viewports = dr.parse_viewports(doc.get("viewports"))
@@ -102,7 +102,7 @@ def load_conditions(dr, refusal, contract: Path
         raise SystemExit(refusal.refusal(
             f"{contract.name} has invalid top-level `viewports` ({exc}).",
             "Every scene must be rendered at the contract's declared sizes.",
-            "Add `viewports` as WIDTHxHEIGHT values, then rerun."
+            "Add `viewports` as WIDTHxHEIGHT values, then re-run."
         )) from None
     try:
         own = dr.page_viewports(doc)
@@ -110,7 +110,7 @@ def load_conditions(dr, refusal, contract: Path
         raise SystemExit(refusal.refusal(
             f"{contract.name} has an invalid `pages.<page>.viewports` ({exc}).",
             "A page's own sizes decide where its scenes are rendered.",
-            "Write them as WIDTHxHEIGHT values, then rerun."
+            "Write them as WIDTHxHEIGHT values, then re-run."
         )) from None
     return locale.strip(), viewports, own
 

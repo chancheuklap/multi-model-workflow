@@ -152,13 +152,13 @@ def load_stories_config(root: Path) -> dict:
         raise SystemExit(refusal(
             "no .mmw/target.json.",
             "story-parity.py starts the product story pages with the stories command in that file.",
-            "Add .mmw/target.json with a stories command, then rerun."))
+            "Add .mmw/target.json with a stories command, then re-run."))
     cfg = json.loads(path.read_text(encoding="utf-8"))
     if not cfg.get("stories"):
         raise SystemExit(refusal(
             ".mmw/target.json has no `stories` command.",
             "story-parity.py starts the product story page with that command, which prints origin.",
-            "Add a stories command to .mmw/target.json, then rerun."))
+            "Add a stories command to .mmw/target.json, then re-run."))
     return cfg
 
 
@@ -223,11 +223,11 @@ class Stories:
             raise SystemExit(refusal(
                 f"`{command}` exited {code} before printing origin: {first}",
                 "The story service must print origin before the judge can open a page.",
-                "Fix the stories command so it prints origin, then rerun."))
+                "Fix the stories command so it prints origin, then re-run."))
         raise SystemExit(refusal(
             f"`{command}` printed no origin within {ORIGIN_WAIT_S}s: {first}",
             "The story service must print origin before the judge can open a page.",
-            "Fix the stories command so it prints origin, then rerun."))
+            "Fix the stories command so it prints origin, then re-run."))
 
     def __exit__(self, *exc) -> None:
         proc = self.proc
@@ -363,13 +363,13 @@ def negative_control_gate(design_differences: list[ElementDifference],
         return 2, [refusal(
             "NEGATIVE CONTROL FAILED: changing every design font-size reported no difference.",
             "The judge could not prove that it can observe element differences.",
-            "Confirm the design page and product story carry corresponding data-ui ids, then rerun.")]
+            "Confirm the design page and product story carry corresponding data-ui ids, then re-run.")]
     if not any(diff.property == "missing" for diff in missing_differences):
         return 2, [refusal(
             "NEGATIVE CONTROL FAILED: removing every product data-ui id reported no missing element.",
             "The design page carries no data-ui id this judge can compare.",
             "Give the design page's elements data-ui ids in Claude Design and pull again, "
-            "put the same ids on the product story's elements, then rerun.")]
+            "put the same ids on the product story's elements, then re-run.")]
     return 0, []
 
 
@@ -447,7 +447,7 @@ def refuse_pages(mounts: list[str], doc: dict, catalogue: dict) -> str | None:
         return refusal(
             f"--pages names mount(s) the contract does not declare: {', '.join(missing)}.",
             "Every mount must be a pages.mount value in the screen contract.",
-            "Pass a declared --pages mount, then rerun.")
+            "Pass a declared --pages mount, then re-run.")
     return None
 
 
@@ -457,24 +457,24 @@ def refuse_story_inputs(doc: dict, contract: str) -> str | None:
         return refusal(
             f"{contract} has no top-level `viewports`.",
             "Both browser windows are one contract viewport; the judge does not invent a size.",
-            "Add `viewports` as references/story-parity.md says, then rerun.")
+            "Add `viewports` as references/story-parity.md says, then re-run.")
     locale = doc.get("locale")
     if not isinstance(locale, str) or not locale.strip():
         return refusal(
             f"{contract} has no top-level `locale`.",
             "story-parity.py reads locale from the contract and does not fall back to zh-CN.",
-            "Add `locale` as references/story-parity.md says, then rerun.")
+            "Add `locale` as references/story-parity.md says, then re-run.")
     if doc.get("volatile_values"):
         return refusal(
             f"{contract} has a non-empty `volatile_values`.",
             "The screen-contract format has no such key, and the judge would ignore it.",
-            "Delete `volatile_values` from the contract, then rerun.")
+            "Delete `volatile_values` from the contract, then re-run.")
     for entry in doc.get("retired_ids") or []:
         if isinstance(entry, dict) and entry.get("trigger"):
             return refusal(
                 f"{contract} has a `retired_ids` entry with `trigger`.",
                 "A `retired_ids` entry holds only `id` and `note`, and the judge would ignore `trigger`.",
-                "Delete `trigger` from that entry, then rerun.")
+                "Delete `trigger` from that entry, then re-run.")
     return None
 
 
@@ -483,7 +483,7 @@ def refuse_design_trace(scene: str, named: str) -> str:
     return refusal(
         f"product story page for scene {scene} carries {named}.",
         "A story page hosting Claude Design runtime is serving the design page.",
-        f"Remove {named} from the product story page, then rerun.")
+        f"Remove {named} from the product story page, then re-run.")
 
 
 def run(args) -> int:
@@ -510,7 +510,7 @@ def run(args) -> int:
         print(refusal(
             "--pages is empty.",
             "The judge needs at least one pages.mount value.",
-            "Pass --pages with a declared mount, then rerun."), file=sys.stderr)
+            "Pass --pages with a declared mount, then re-run."), file=sys.stderr)
         return 2
     why = refuse_pages(mounts, doc, catalogue)
     if why:
@@ -608,19 +608,19 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                     raise SystemExit(refusal(
                         f"story page {url} could not be opened: {exc}",
                         "The judge could not reach the stories service.",
-                        "Fix the stories command so it stays up and prints origin, then rerun."
+                        "Fix the stories command so it stays up and prints origin, then re-run."
                     )) from exc
                 status = response.status if response is not None else 0
                 if status == 404:
                     raise SystemExit(refusal(
                         f"story page 404: {url}",
                         "The stories service has no page for this mount and scene.",
-                        "Serve that scene or drop it from --scenes, then rerun."))
+                        "Serve that scene or drop it from --scenes, then re-run."))
                 if status >= 400 or status == 0:
                     raise SystemExit(refusal(
                         f"story page {url} answered {status}.",
                         "The stories service did not return a usable page.",
-                        "Fix the stories command so that URL returns 200, then rerun."))
+                        "Fix the stories command so that URL returns 200, then re-run."))
                 try:
                     story_page.locator(STORY_ROOT).first.wait_for(
                         state="visible", timeout=8000)
@@ -628,7 +628,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                     raise SystemExit(refusal(
                         f"no visible {STORY_ROOT} at {url}: {exc}",
                         "The product story page must put [data-story-root] on the component root.",
-                        "Put [data-story-root] on the product component root, then rerun."
+                        "Put [data-story-root] on the product component root, then re-run."
                     )) from exc
                 if not negative_control:
                     named = story_page.evaluate(DESIGN_TRACE_JS)

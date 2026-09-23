@@ -129,7 +129,7 @@ Good — each rule has its own narrow trigger:
 Write the smallest useful file. Use only sections that add non-obvious value.
 
 - Use headings, bullets, and tables; avoid paragraphs outside the identity lines.
-- Use repo-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`packages/<name>/package.json`); `<scripts>/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
+- Use repository-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`packages/<name>/package.json`); `<scripts>/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
 - List exact external files for setup, architecture, API specs, security, release, and policy docs when they exist.
 - Prefer file-scoped test/lint/typecheck commands; include full builds only when no narrower command exists. Write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable stays in `inputs.md`, every other one is kept.
 - Put commands in tables when there is more than one.

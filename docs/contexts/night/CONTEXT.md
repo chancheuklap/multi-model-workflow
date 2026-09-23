@@ -54,8 +54,12 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 ### Branches and integration
 
 **base commit**:
-The commit a code review's diff starts from, computed by `start <n> reviewer` from `origin/<base branch>` and the ticket branch and recorded in `reviewer.started`; written `<base-commit>` as a placeholder.
+The merge-base of `origin/<base branch>` and the ticket branch: the commit a ticket's own work and its code review's diff start from. `start` records it as `base` in `worker.started` and `reviewer.started`; a later worker keeps the newest `worker.started` base until the ticket lands. Written `<base-commit>` as a placeholder. Distinct from the **night's base commit**.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**night's base commit**:
+The merge-base of a night's project and base branches, as `spec.opened` records them: where the night's landing and closing-pass commits start. The `retro` skill reads it as `observed.base_commit`.
+_Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **base branch**:
 The temporary integration branch on `origin` a night's tickets merge into. `finish` merges it into the **project branch** once the user accepts the night.
@@ -70,8 +74,8 @@ The variable a repository's own commands receive as `origin/<base branch>` — e
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`dispatch.sh integrate`**:
-`dispatch.sh integrate <n>`: the worker's `--no-ff` merge of `origin/<base branch>` into its ticket branch before its criteria run. It never pushes, rebases or aborts.
-_Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
+`dispatch.sh integrate <n>`: the worker's `--no-ff` merge of `origin/<base branch>` into its ticket branch before its criteria run. It never pushes or rebases; a conflict is left in the tree for the worker to resolve (exit 3), never aborted.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### Dispatch
 
@@ -93,7 +97,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh board`**:
 The command that makes sure the repository's task board is registered and answering and opens it, or prints its URL.
-_Home_: `mmw-v2/skills/dispatch/SKILL.md`
+_Home_: `mmw-v2/skills/dispatch/references/task-board.md`
 
 **start prompt**:
 The text a session is given when started: which skill to use on which ticket, the standing sentences for working with nobody watching, and the Memory indexes or reviewer Rules for its role. An advisor's is `Use the advisor skill.` followed by the question packet.

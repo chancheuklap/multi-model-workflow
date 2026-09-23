@@ -486,7 +486,7 @@ _post_fix_gate() {
     patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
     _invalidate_all_stages "$f" "$repair_sha"
     emit_event "$f" "classified" "$name" "P1" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "POST-FIX-GATE-PASS:$name (gate green, rerun the stage)"
+    echo "POST-FIX-GATE-PASS:$name (gate green, re-run the stage)"
     return 0
   fi
 
@@ -1212,7 +1212,7 @@ cmd_stage_run() {
     if [ -n "$recorded" ] && [ "$recorded" != "$current" ]; then
       edit "$f" '(.stages |= map(if .name == "assemble" then .status = "pending" else . end))
                  | .current_stage = "assemble"'
-      echo "STALE-SCRIPT: the skill changed after assemble; rerun assemble, then build" >&2
+      echo "STALE-SCRIPT: the skill changed after assemble; re-run assemble, then build" >&2
       return 1
     fi
   fi
@@ -1427,7 +1427,7 @@ cmd_dispatch() {
       '(.stages |= map(if .name==$n then .status="pending" else . end))
        | .current_stage=$n'
     emit_event "$f" "classified" "$name" "$tier" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "TRANSIENT-RETRY:$name ($fp, rerun as-is, no fix dispatched)"
+    echo "TRANSIENT-RETRY:$name ($fp, re-run as-is, no fix dispatched)"
     return 0
   fi
 

@@ -11,7 +11,7 @@ second time with one interface broken and requires the same script to fail. With
 every discovered address to a closed port before the same script runs again.
 
 A journey is the only judge in this skill that starts the whole product. There are few
-of them on purpose: the owner names which paths are worth one, and the default three are
+of them on purpose: the user names which paths are worth one, and the default three are
 money, sign-in, and one submit chain.
 
 Two agents come here. The one **writing** the criterion needs the next two sections. The
@@ -65,10 +65,10 @@ this reference.
 The contract ticket's smoke journey omits `--break`. Its purpose is to prove that the
 whole product starts, answers through the discovered address, and stops; taking the
 whole product down is the appropriate control for that one criterion. Acceptance and
-owner-named journeys use `--break` so the control isolates the interface whose result
+user-named journeys use `--break` so the control isolates the interface whose result
 the journey must observe.
 
-Journeys appear on the contract ticket, on the tickets the owner named, and on each
+Journeys appear on the contract ticket, on the tickets the user named, and on each
 acceptance ticket, and nowhere else. `verify-ticket.py --lint` reports a
 `journey.py run <name>` with no directory under `.mmw/journeys/`, unless the
 `## Owns` covers that directory — then this is the ticket that builds it.
@@ -95,7 +95,7 @@ WITHOUT PRODUCT`; a script that reaches the product goes red.
 After either control, `stop` runs again and this run's lease ports must all be quiet.
 Whatever still answers is named with its port and pid on a
 `JOURNEY LEFT THE PRODUCT UP` line. A helper that starts the stack when it finds nothing
-answering violates the journey contract: it brings the whole stack back during the
+answering defeats the negative control: it brings the whole stack back during the
 control and leaves the next run blocked.
 
 ## Exit codes

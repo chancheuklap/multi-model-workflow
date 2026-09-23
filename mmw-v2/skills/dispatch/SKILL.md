@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Start a reviewer from inside a ticket, run a night as its main agent, run one ticket outside a night, change the host, model, effort or runner, or open the local task board.
+description: Start a reviewer from inside a ticket, run a night as its main agent, run one ticket outside a night, change the host, model, reasoning effort or runner, or open the local task board.
 ---
 
 # Dispatch
@@ -28,7 +28,7 @@ A **night** is one run of a spec's published tickets under one main agent, from 
 | 1 | the worker inside a ticket, starting its reviewer | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
 | 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass and running `finish` after user acceptance | [references/night.md](references/night.md) |
 | 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
-| 4 | changing which host, model or `effort` an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
+| 4 | changing which host, model or reasoning effort (`effort` in `models.json`) an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
 | 5 | a command's behaviour surprised you, or you are changing the relay, watchdog or turn guard | [references/how-it-works.md](references/how-it-works.md) |
 | 6 | opening the local task board | [references/task-board.md](references/task-board.md) |
 

@@ -192,7 +192,7 @@ def safe_path(raw: object) -> str:
         raise PullRefused(
             f"project path is unsafe: {raw!r}.",
             "A project file must be a non-empty project-relative path.",
-            "Name the page by its project-relative path and rerun.",
+            "Name the page by its project-relative path and re-run.",
         )
     return pure.as_posix()
 
@@ -203,7 +203,7 @@ def page_name(raw: str) -> str:
         raise PullRefused(
             f"{raw!r} is not a design page.",
             "--pages takes the project's `.dc.html` pages by name.",
-            "Pass the `.dc.html` names list_files shows at the project root and rerun.",
+            "Pass the `.dc.html` names list_files shows at the project root and re-run.",
         )
     return path
 
@@ -217,7 +217,7 @@ def pages_from_list_files(path: Path) -> list[str]:
         raise PullRefused(
             f"list_files result cannot be read: {path} ({type(exc).__name__}).",
             "The pages to pull are unknown.",
-            "Pass the pages with --pages <name>... instead, and rerun.",
+            "Pass the pages with --pages <name>... instead, and re-run.",
         ) from exc
     if isinstance(raw, dict):
         raw = raw.get("files", raw.get("entries"))
@@ -225,7 +225,7 @@ def pages_from_list_files(path: Path) -> list[str]:
         raise PullRefused(
             f"{path} is not a list_files array.",
             "The pages to pull are unknown.",
-            "Pass the pages with --pages <name>... instead, and rerun.",
+            "Pass the pages with --pages <name>... instead, and re-run.",
         )
     pages = []
     for row in raw:
@@ -246,7 +246,7 @@ def preview_file_url(preview: str, path: str) -> str:
         raise PullRefused(
             "MMW_DESIGN_PREVIEW_URL has no /serve/ file path.",
             "render_preview serve_url identifies one project file under /serve/.",
-            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and rerun.",
+            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and re-run.",
         )
     base = parsed.path.partition(marker)[0] + marker
     quoted = "/".join(urllib.parse.quote(part, safe="") for part in path.split("/"))
@@ -262,14 +262,14 @@ def project_id_from_preview(preview: str) -> str:
         raise PullRefused(
             "MMW_DESIGN_PREVIEW_URL has no Claude Design project host.",
             "README.md must identify the project from <project id>.claudeusercontent.com.",
-            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and rerun.",
+            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and re-run.",
         )
     project = host.partition(marker)[0]
     if not project:
         raise PullRefused(
             "MMW_DESIGN_PREVIEW_URL has an empty project id.",
             "README.md must identify the Claude Design project that was pulled.",
-            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and rerun.",
+            "Set MMW_DESIGN_PREVIEW_URL to the current render_preview serve_url and re-run.",
         )
     return project
 
@@ -476,7 +476,7 @@ class Inventory:
                     what,
                     "The design package would be incomplete.",
                     "Check the page name against list_files, or restore the preview "
-                    "download, then rerun; the target was not changed.",
+                    "download, then re-run; the target was not changed.",
                     paths=[path],
                 ) from exc
             dest = self.staged.joinpath(*PurePosixPath(path).parts)
@@ -499,7 +499,7 @@ def vendor_urls(support: Path) -> dict[str, str]:
         raise PullRefused(
             f"support.js cannot be read: {type(exc).__name__}.",
             "The vendor script addresses are unknown.",
-            "Restore support.js in the project and rerun.",
+            "Restore support.js in the project and re-run.",
         ) from exc
     out = {}
     for name in VENDOR_CONSTANTS:
@@ -510,7 +510,7 @@ def vendor_urls(support: Path) -> dict[str, str]:
             raise PullRefused(
                 f"support.js has no {name} string constant.",
                 "The offline renderer cannot identify all three runtime scripts.",
-                f"Restore {name} in support.js and rerun.",
+                f"Restore {name} in support.js and re-run.",
             )
         out[name] = match.group(2)
     return out
@@ -528,7 +528,7 @@ def pull_vendor(staged: Path) -> dict[str, Path]:
             raise PullRefused(
                 f"vendor URL has a missing or duplicate filename: {name or '(none)'}.",
                 "Each support.js runtime script needs its own package filename.",
-                "Fix the three support.js URL constants and rerun.",
+                "Fix the three support.js URL constants and re-run.",
             )
         names.add(name)
         try:
@@ -537,7 +537,7 @@ def pull_vendor(staged: Path) -> dict[str, Path]:
             raise PullRefused(
                 f"vendor download failed for {name} ({exc.status}).",
                 "The design package would not render with the network off.",
-                "Restore that vendor address and rerun; the target was not changed.",
+                "Restore that vendor address and re-run; the target was not changed.",
             ) from exc
         path = vendor / name
         path.write_bytes(body)
@@ -553,7 +553,7 @@ def page_props(path: Path) -> dict:
         raise PullRefused(
             f"page props cannot be read from {path.name} ({type(exc).__name__}).",
             "Scenes must come from the page's data-props declaration.",
-            "Fix that design page and rerun.",
+            "Fix that design page and re-run.",
         ) from exc
     return parser.props
 
@@ -692,7 +692,7 @@ def scenes_from_pages(
             raise PullRefused(
                 f"{page.path} has scenes but no $preview size.",
                 "The offline render needs the design page's declared viewport.",
-                "Add $preview.width and $preview.height to data-props, then rerun.",
+                "Add $preview.width and $preview.height to data-props, then re-run.",
             )
         try:
             width, height = int(preview["width"]), int(preview["height"])
@@ -700,13 +700,13 @@ def scenes_from_pages(
             raise PullRefused(
                 f"{page.path} has an invalid $preview size.",
                 "The offline render needs positive integer width and height.",
-                "Fix $preview.width and $preview.height, then rerun.",
+                "Fix $preview.width and $preview.height, then re-run.",
             ) from exc
         if width < 1 or height < 1:
             raise PullRefused(
                 f"{page.path} has an invalid $preview size {width}x{height}.",
                 "The offline render needs positive width and height.",
-                "Fix the $preview size, then rerun.",
+                "Fix the $preview size, then re-run.",
             )
         sizes[page.path] = (width, height)
         for value in page.scene_values:
@@ -717,7 +717,7 @@ def scenes_from_pages(
                 raise PullRefused(
                     f"scene name contains '/': {scene_name}.",
                     "Scene wrapper URLs require names without path separators.",
-                    "Rename that page or scene option in Claude Design, then rerun.",
+                    "Rename that page or scene option in Claude Design, then re-run.",
                 )
             scenes.append({"name": scene_name, "page": page.path, "props": {"scene": value}})
     return HandoffPackage(staged, scenes, sizes, pages, state_list)
@@ -732,7 +732,7 @@ def load_design_render(tools: Path | None):
         raise PullRefused(
             f"design_render.py is unavailable in {scripts}.",
             "Scene data and the offline render check share that renderer.",
-            "Pass --tools with the ui-acceptance scripts directory, then rerun.",
+            "Pass --tools with the ui-acceptance scripts directory, then re-run.",
         ) from exc
 
 
@@ -947,7 +947,7 @@ def render_scenes(
         raise PullRefused(
             f"offline rendering failed ({type(exc).__name__}).",
             "At least one scene could not be verified with external network requests blocked.",
-            "Fix the named page or local Chromium runtime, then rerun; the target was not changed.",
+            "Fix the named page or local Chromium runtime, then re-run; the target was not changed.",
         ) from exc
     finally:
         server.shutdown()
@@ -1534,7 +1534,7 @@ def prepare_staging(target: Path, staged: Path) -> str:
             raise PullRefused(
                 f"package target is not a directory: {target}.",
                 "The pull cannot preserve files beside the generated package.",
-                "Move that file aside, create a directory target, and rerun.",
+                "Move that file aside, create a directory target, and re-run.",
             )
         shutil.copytree(target, staged)
     else:
@@ -1644,7 +1644,7 @@ def run(args: argparse.Namespace) -> None:
         raise PullRefused(
             "MMW_DESIGN_PREVIEW_URL is not set.",
             "The pull has no short-lived Claude Design preview address.",
-            "Set MMW_DESIGN_PREVIEW_URL from render_preview serve_url and rerun.",
+            "Set MMW_DESIGN_PREVIEW_URL from render_preview serve_url and re-run.",
         )
     target = Path(args.target)
     tools = Path(args.tools) if args.tools else None
@@ -1655,7 +1655,7 @@ def run(args: argparse.Namespace) -> None:
         raise PullRefused(
             f"{args.list_files} lists 0 `.dc.html` pages at the project root.",
             "A pull starts from the project's pages.",
-            "Pass the pages with --pages <name>... and rerun.",
+            "Pass the pages with --pages <name>... and re-run.",
         )
     requested_state_list = Path(args.state_list) if args.state_list else None
     state_list_input = read_state_list_input(requested_state_list)
@@ -1718,7 +1718,7 @@ def main() -> int:
         print(refusal_text(
             f"pull_design.py failed ({type(exc).__name__}).",
             "The design package could not be completed atomically.",
-            "Inspect the target, fix the reported local failure, and rerun.",
+            "Inspect the target, fix the reported local failure, and re-run.",
             tools,
         ), file=sys.stderr)
         return 2

@@ -15,7 +15,7 @@ git log <base-commit>..HEAD --oneline
 
 Anything in the repository that says how code here should be written: `CODING_STANDARDS.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, a `docs/` page on conventions, a `CONTEXT.md` naming the domain vocabulary. Read what you find before you read the diff a second time.
 
-Read the `codebase-design` skill's `SKILL.md` as well, from wherever your host installed that skill. It is not a repository standard but the vocabulary this repository designs modules in — module, interface, depth, seam, adapter — and the deletion test below is written in its words.
+Read the `codebase-design` skill's `SKILL.md` as well, from wherever your host installed that skill. It is not a repository standard but the vocabulary this repository designs modules in (module, interface, depth, seam, adapter), and the deletion test below is written in its words.
 
 ## 3. Match the diff against the standards and the smell baseline
 
@@ -28,9 +28,9 @@ Two rules bind it:
 
 Alongside the smells, ask of every hunk whether the acceptance criteria still pass with less: the hunk deleted, folded into a branch that already exists, or replaced by a helper the repository already has. Report it only when you can write the shorter form; a shorter form you cannot write is a preference, not a review finding.
 
-And run **the deletion test** on every module the diff adds or reshapes: imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep. A pass-through is a review finding — name the module and the callers the complexity would reappear in. This is a judgement call like the smells, and the repository overrides it the same way.
+And run **the deletion test** on every module the diff adds or reshapes: imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep. A pass-through is a review finding: name the module and the callers the complexity would reappear in. This is a judgement call like the smells, and the repository overrides it the same way.
 
-Skip anything tooling already enforces — a linter's job is not yours.
+Skip anything tooling already enforces; a linter's job is not yours.
 
 Each smell reads *what it is* → *how to fix*:
 

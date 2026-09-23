@@ -7,7 +7,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Every list read is a whole list.** `gh issue list` stops at 30 without `-L`, and a `gh api` list
   endpoint returns only its first page without `--paginate`. Both truncate in silence: the output
   carries no marker, so a half-read set reads exactly like a complete one. A spec's tickets, a map's
-  children, a frontier and a morning queue are sets, and an agent that cannot see a ticket treats it
+  children, a frontier and the `needs-triage` queue are sets, and an agent that cannot see a ticket treats it
   as absent. Pass `-L <n>` above any count this repository can reach, or `--paginate` with
   `?per_page=100`, on every one of them.
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
@@ -40,7 +40,7 @@ The layer labels, with the colour and description a repository that lacks one cr
 | `mmw:child` | `c5def5` | MMW layer: a child issue a ticket opened | `verify-ticket.py --sub-issue` |
 
 A layer label puts an issue in no queue. The layer label tells a board which layer an issue is; the
-parent link tells the scripts which spec a ticket sits under — `verify-ticket.py` takes a ticket's
+parent link tells the scripts which spec a ticket sits under: `verify-ticket.py` takes a ticket's
 spec to be its direct parent and never walks further up. So a child that becomes a ticket changes
 both: its label goes from `mmw:child` to `mmw:ticket`, and its parent moves from the ticket it came
 from to that ticket's spec (`dispatch.sh route <ticket> <child> became-ticket <new ticket>` does both, taking the spec from the `child.opened` event rather than the tree). Where it

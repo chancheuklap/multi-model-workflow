@@ -25,7 +25,7 @@ Run only commands that write nothing and start no session (`--help`, a script's 
 Two kinds of finding need two kinds of evidence:
 
 - A finding about **load** (material read that the step does not use, a jump, a fragment, duplication, a cache, a no-op, over-specification) happens on every run of the task. It carries the task and the numbers from the walk: the files, the words, the skills crossed.
-- A finding about a **failure** (the agent ends wrong or stuck) names how it occurs where the set is actually used: the owner's setup (in MMW, one machine, and the hosts and runner in `~/.mmw/models.json`), the tracker history of past runs (every event of a spec and its tickets is a comment on the issue), or an input a script receives in normal use. A path nobody takes, a state no normal input produces, and a failure that already stops with a refusal the agent acts on are not failures. Text or a mechanism written to guard such a path is itself a finding, under [Redundancy and bloat](#redundancy-and-bloat).
+- A finding about a **failure** (the agent ends wrong or stuck) names how it occurs where the set is actually used: the user's setup (in MMW, one machine, and the hosts and runner in `~/.mmw/models.json`), the tracker history of past runs (every event of a spec and its tickets is a comment on the issue), or an input a script receives in normal use. A path nobody takes, a state no normal input produces, and a failure that already stops with a refusal the agent acts on are not failures. Text or a mechanism written to guard such a path is itself a finding, under [Redundancy and bloat](#redundancy-and-bloat).
 
 Every finding is fixed. There are no severity levels: a finding is either established by its evidence and fixed, or it is not a finding.
 

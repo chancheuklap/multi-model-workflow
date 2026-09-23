@@ -34,7 +34,7 @@ The whole map at low resolution, loaded once per session. Open tickets are **not
 
 ## Notes
 
-<domain; skills every session should consult; standing preferences for this effort; the effort's directory name under `prototypes/`, lowercase ASCII words joined by `-`>
+<domain; skills every session should consult; standing preferences for this effort; the effort's directory name under `prototypes/` and `docs/specs/`, lowercase ASCII words joined by `-`>
 
 ## Decisions so far
 

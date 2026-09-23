@@ -15,9 +15,9 @@ pnpm add -D oxlint oxlint-tsgolint
 
 `<current>` is the release `pnpm view oxlint version` prints. `<matching>` is the newest release `pnpm view oxlint-tsgolint versions` lists; pin it exactly (below).
 
-**Pin `oxlint-tsgolint` exactly.** Its version encodes the TypeScript it embeds — `7.0.2001` is patch 1 for TypeScript `7.0.2` — so a range drifts off the compiler the repo builds with. `oxlint` itself only gains diagnostics, so a range is fine.
+**Pin `oxlint-tsgolint` exactly.** Its version encodes the TypeScript it embeds — `7.0.2001` is patch 1 for TypeScript `7.0.2` — so a range drifts off the compiler the repository builds with. `oxlint` itself only gains diagnostics, so a range is fine.
 
-`oxlint-tsgolint` checks with the TypeScript 7 engine it embeds, so the repo's `tsconfig.json` must be valid under TS 7 (no `baseUrl`, nothing else TS 7 removed). If it is not, stop and report: that migration is its own task.
+`oxlint-tsgolint` checks with the TypeScript 7 engine it embeds, so the repository's `tsconfig.json` must be valid under TS 7 (no `baseUrl`, nothing else TS 7 removed). If it is not, stop and report: that migration is its own task.
 
 ## Configuration
 
@@ -29,7 +29,7 @@ pnpm add -D oxlint oxlint-tsgolint
 }
 ```
 
-**`options.typeAware` is read only from the root config** — the file oxlint starts from, not a file it extends. In a repo where each package has its own `.oxlintrc.json` extending a shared base, the flag goes in each package's file; put it in the shared base and it is silently ignored.
+**`options.typeAware` is read only from the root config** — the file oxlint starts from, not a file it extends. In a repository where each package has its own `.oxlintrc.json` extending a shared base, the flag goes in each package's file; put it in the shared base and it is silently ignored.
 
 Type-aware rules worth having on, all undecidable without types: `typescript/no-floating-promises`, `typescript/no-misused-promises`, `typescript/await-thenable`.
 
@@ -56,7 +56,7 @@ export function trigger(): void {
 
 ## Two packages sharing one toolchain
 
-Two apps built from one repo — two Electron shells, an app and its admin console — need identical build and checker versions: the same code has to pass the same checks, and a build-tool version that differs between them produces artifacts that differ in ways nobody sees until release day.
+Two apps built from one repository — two Electron shells, an app and its admin console — need identical build and checker versions: the same code has to pass the same checks, and a build-tool version that differs between them produces artifacts that differ in ways nobody sees until release day.
 
 Merging them into one workspace does fix it, and costs more than it looks: bootstrap scripts that expect a lockfile per package, release scripts that run `pnpm install` inside each package, and a packaging step that can only be verified by actually building on the target OS.
 

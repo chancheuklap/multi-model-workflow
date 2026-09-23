@@ -3334,7 +3334,7 @@ def lint_screen_contract(
     each readable boundary test file must contain the row's trigger. A
     `boundary-check.py --run` is a non-empty command; a `journey.py run <name>` exists
     under `.mmw/journeys/` unless this ticket's `## Owns` covers that directory;
-    acceptance journeys require `--break`, while an owner-named journey without it is
+    acceptance journeys require `--break`, while a user-named journey without it is
     a warning;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
     nock, fetch-mock) — mocking the product's outbound call module is not that; the
@@ -3428,7 +3428,7 @@ def lint_screen_contract(
                     f"\"<METHOD> <route>\" for the flow's last write")
             else:
                 warning_findings.append(
-                    f"{gate_id}: owner-named journey `{name}` has no --break, so this "
+                    f"{gate_id}: user-named journey `{name}` has no --break, so this "
                     f"journey cannot be broken and cannot reject a script that only reads "
                     f"a success message; add --break when the flow has a write to isolate")
     m = SCREEN_CONTRACT_ROWS_RE.search(read_first)

@@ -121,7 +121,7 @@ else: print('unknown request', file=sys.stderr); sys.exit(2)
             run = self.invoke()
             self.assertEqual(run.returncode, 2)
             self.assertNotIn("Traceback", run.stderr)
-            self.assertIn("Rerun after that process releases the lock", run.stderr)
+            self.assertIn("Re-run after that process releases the lock", run.stderr)
             self.assertEqual(self.state.read_text(), tracker_before)
             self.assertEqual((self.home / "models.json").read_text(), models_before)
         finally:

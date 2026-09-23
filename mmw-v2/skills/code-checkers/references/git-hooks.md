@@ -4,7 +4,7 @@ The git hook is the only place every author passes through — a person typing `
 
 `prek` runs it: a Rust reimplementation of `pre-commit`, single binary, no runtime of its own, and it reads the same `.pre-commit-config.yaml`. Install it at machine scope — no language's package manager owns it. (`lefthook` is the other single-binary option and runs hooks in parallel, but it does not isolate staged content, so it checks files the commit does not contain.)
 
-## Point every hook at the checkers the repo already installed
+## Point every hook at the checkers the repository already installed
 
 ```yaml
 repos:
@@ -39,7 +39,7 @@ A fixer that rewrites semantics belongs in neither: it edits logic in a hook nob
 
 ## The `core.hooksPath` trap
 
-If the repo sets `core.hooksPath` — Git LFS does this, so does any repo with checked-in hooks — then `.git/hooks/` **is never executed**. `prek install` writes there, reports success, and the hook silently never fires.
+If the repository sets `core.hooksPath` — Git LFS does this, so does any repository with checked-in hooks — then `.git/hooks/` **is never executed**. `prek install` writes there, reports success, and the hook silently never fires.
 
 Check first:
 
@@ -61,7 +61,7 @@ command -v prek >/dev/null 2>&1 || {
 exec prek run
 ```
 
-Whether a missing prek should skip or block is the repo's call: skip where other machines clone the repo without the toolchain, block where every author is expected to have it.
+Whether a missing prek should skip or block is the repository's call: skip where other machines clone the repository without the toolchain, block where every author is expected to have it.
 
 ## prek stashes unstaged changes
 

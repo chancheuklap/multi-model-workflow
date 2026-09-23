@@ -22,20 +22,20 @@ Run every one of this skill's own scripts as `uv run python <scripts>/…`: `lin
 - The design package directory (`<package dir>` in the commands below) as `pull_design.py` of the `design-pages` skill wrote it: `README.md`, `pull-report.md`, `design-manifest.json` (the next pull's record, not read here), the `.dc.html` pages, every project file those pages load in their rendered scenes (the bound design system's stylesheets, fonts and bundle under `_ds/<folder>/`, data, scripts), `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a read-only **baseline for look and copy**.
 - The backend decisions. On a wayfinder map that is the map issue: its **Decisions so far** (in the issue body, not a comment) and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too. When the decisions were settled in conversation instead, those conclusions are the source — see **Decision sources**.
 - The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls a FastAPI app factory and writes its OpenAPI document. A server that has neither an exporter nor a FastAPI app factory (a standard-library server, for one) gets an `openapi.json` written by hand in `<scratch>`, describing exactly the routes, methods, fields and status codes its routing code implements. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
-- The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the directory name its `## Notes` gives, the same `<task>` the `prototype` skill's rule 1 uses. A run with no map takes the effort name the person gives, or the directory that will hold the spec.
+- The effort name `<effort>`, as the `prototype` skill's rule **Lives in `prototypes/`** derives it.
 
 ## Decision sources
 
 A row's `source` may cite a wayfinder map's decision ticket, a spec section, an ADR, a domain document — or a conversation. A conversation source is `conversation <YYYY-MM-DD>` plus one sentence of the conclusion; the lint accepts that shape. An earlier spec that a decision ticket cites as its basis is citable too, as `#<n> <section>`: cite the decision ticket first, and the earlier spec for what no decision ticket covers.
 
-When an existing product gains a surface there is usually no map. Run prototype, design, pull, and this skill in one session with the person present, with no prototype decision ticket, design ticket or alignment ticket between them; write the spec only after the contract is aligned. Each of those steps needs the person; if the session breaks, the leaf directory's `README.md` and the committed design package are enough to continue.
+When an existing product gains a surface there is usually no map. Run prototype, design, pull, and this skill in one session with the user present, with no prototype decision ticket, design ticket or alignment ticket between them; write the spec only after the contract is aligned. Each of those steps needs the user; if the session breaks, the leaf directory's `README.md` and the committed design package are enough to continue.
 
 ## Steps
 
 ### 1. Declare the rendering inputs and extract the skeleton
 
 Start `<scratch>/screen-contract.yaml` with the top-level `effort`, `baselines`, `locale`
-and `viewports`. `locale` is the locale the design must render under: the product's own `<html lang>` when it has one, otherwise the person names it; the package itself names none. The package `README.md` lists each page's `$preview` size under
+and `viewports`. `locale` is the locale the design must render under: the product's own `<html lang>` when it has one, otherwise the user names it; the package itself names none. The package `README.md` lists each page's `$preview` size under
 `## Viewport and size source`. `viewports` holds the size most pages share; a page drawn
 at another size gets that size as its own `pages.<page>.viewports` (write the `pages`
 entry now with that key; step 2 fills `mount` and `component`), so its scenes are
@@ -66,7 +66,7 @@ For each page in `scenes.json`, write one `pages` entry: its **`mount`** — the
 
 Then a control whose behaviour differs by state gets one row per state — `precondition` is the column that tells them apart (`material: none` and `material: added` are two rows for the same button). Two cases that come up on every page:
 
-- **A disabled state is a row.** The user sees the control; the row says `calls: [none]` and `next: stay`.
+- **A disabled state is a row.** The end user sees the control; the row says `calls: [none]` and `next: stay`.
 - **A state the design package never shows** (the form complete, ready to submit) is still a row when the backend decisions reach it. Its `scenes` is `[]`; the lint reports it as a warning so the gap in the design package is on record.
 
 A placeholder or hint that the accessibility tree folds into a name is an accessibility defect of the design package; record it in the run's notes. It is not a contract field.
@@ -76,7 +76,7 @@ A placeholder or hint that the accessibility tree folds into a name is an access
 For every row: `calls`, `shows`, `next`, `on_failure`, `source`, `gap`. The rules that decide each column are in the format reference; the ones people get wrong:
 
 - `shows` names fields, never values: `balance@GET /api/wallet`, `title@GET /api/notes/{note_id}`, `unit_price@RuntimePolicy` — not a literal number, and not a status code either. The literals in the page's data file under `data/` are seed data for tests, not copy — and so are their **counts**: a seed makes as many rows as the data file draws.
-- `calls` names what the control does to the system: an HTTP operation as it appears in `openapi.json`, a non-HTTP form as the product issues it, or `none`. A control that only changes local view state is `none` and still a row; its `next` is the row or scene the user is in afterwards. An operation the decisions require and `openapi.json` lacks goes in the row as it will be named, and once more under `proposed_operations`; the spec's **API contract** subsection is what describes it. Where such an operation is new or changed and other products share this backend, say so in the run's notes, so the spec carries it.
+- `calls` names what the control does to the system: an HTTP operation as it appears in `openapi.json`, a non-HTTP form as the product issues it, or `none`. A control that only changes local view state is `none` and still a row; its `next` is the row or scene the end user is in afterwards. An operation the decisions require and `openapi.json` lacks goes in the row as it will be named, and once more under `proposed_operations`; the spec's **API contract** subsection is what describes it. Where such an operation is new or changed and other products share this backend, say so in the run's notes, so the spec carries it.
 - `source` quotes where the behaviour was decided, in the shapes the format reference lists: a decision ticket, a spec section, an ADR, a domain-doc term, `conversation <YYYY-MM-DD>` plus the conclusion, a README section. A story is an audit trail no worker reads; cite the Implementation Decisions subsection that carries its conclusion. Existing code counts only as a last resort, written `code:<path>`, and a row whose sources are all `code:` and README is a `design-only` candidate — check the decisions again before marking it.
 
 Then one `scenes` entry per scene of `scenes.json`: its `page`, and its `input` when the design page draws that scene from a data file in the package: read the page's script for the file it loads, the value it reads for the scene, and anything it sets on top; the format reference gives the shape. Everything here is filled offline; nothing needs the product.
@@ -85,24 +85,24 @@ Then one `scenes` entry per scene of `scenes.json`: its `page`, and its `input` 
 
 Read every `App · ` page's wiring: the callbacks and state passed between its `dc-import`s. Each place region A's action affects region B becomes one **cross-component row** on that App page. The keys, the region rule, and what the lint requires of `next` are in the format reference.
 
-Every declared `App · ` page carries at least one cross-component row: the lint counts an App page as covered only through its own `app:` rows, and reports `page has no rows: App · <name>` otherwise. When an App page's wiring passes nothing from one region to another, that is a finding for the person: put it in the gap list of step 6.
+Every declared `App · ` page carries at least one cross-component row: the lint counts an App page as covered only through its own `app:` rows, and reports `page has no rows: App · <name>` otherwise. When an App page's wiring passes nothing from one region to another, that is a finding for the user: put it in the gap list of step 6.
 
 ### 5. Reverse sweep
 
-Walk the decisions and the backend contract the other way: every decision line that a user can observe, and every operation in `openapi.json`, lands in at least one row's `source` or `calls`. One that does not is a `backend-only` row (the interface has no place for it) or is one line under `backend_without_ui` saying why. The sweep covers every page of the package and every operation of `openapi.json`.
+Walk the decisions and the backend contract the other way: every decision line that an end user can observe, and every operation in `openapi.json`, lands in at least one row's `source` or `calls`. One that does not is a `backend-only` row (the interface has no place for it) or is one line under `backend_without_ui` saying why. The sweep covers every page of the package and every operation of `openapi.json`.
 
-### 6. Write the gap list and stop for the person
+### 6. Write the gap list and stop for the user
 
-Collect every row whose `gap` is `design-only` or `backend-only`, every scene a
-person has judged cannot be captured, and every `App · ` page step 4 found no
+Collect every row whose `gap` is `design-only` or `backend-only`, every scene the
+user has judged cannot be captured, and every `App · ` page step 4 found no
 cross-component row for. Write them to `<scratch>/gap-list.md`: one entry
 each, with the row id or scene, what the design shows, what the backend decides, the
-options, and the one you would take. Then hand the list to the person — this is the one
+options, and the one you would take. Then hand the list to the user: this is the one
 judgement in this skill that is theirs, and it is a grilling, not a form. Expect a
 handful of entries, not dozens; dozens means a decision was skipped upstream,
 and that goes back to the map or the conversation.
 
-When the person is not reachable in this run (a batch, a test run), write the gap list and stop. The contract stays in the run's scratch directory with its `gap` values as they are; the lint reports each unresolved gap as an error, and that is the intended state. Nothing is written under `docs/specs/` until every gap is `aligned`.
+When the user is not reachable in this run (a batch, a test run), write the gap list and stop. The contract stays in the run's scratch directory with its `gap` values as they are; the lint reports each unresolved gap as an error, and that is the intended state. Nothing is written under `docs/specs/` until every gap is `aligned`.
 
 Two things a gap list does not carry: an implementation that today does less than the decisions say (that is a finding for the ticket owning the code, note it in the run's notes), and an accessible name that the shipped product will render differently from the design package (that is for the story judge to catch, not for this file to predict).
 
@@ -127,15 +127,15 @@ Two things a gap list does not carry: an implementation that today does less tha
 
 A re-run makes a new `<scratch>`, copies `docs/specs/<effort>/screen-contract.yaml` into it as `<scratch>/screen-contract.yaml`, and runs step 1's command against that copy.
 
-- The design package was pulled again and `pull-report.md` `改动分类` is `增删控件或改流转`: lint as step 7 says; edit only the rows those controls belong to. A control whose `data-ui` id is unchanged does not need its bindings rewritten. New disagreements go to the person.
-- A spec decision changed: edit the rows that cite it, rerun step 7, and put the changed rows through step 6 again.
+- The design package was pulled again and `pull-report.md` `改动分类` is `增删控件或改流转`: lint as step 7 says; edit only the rows those controls belong to. A control whose `data-ui` id is unchanged does not need its bindings rewritten. New disagreements go to the user.
+- A spec decision changed: edit the rows that cite it, re-run step 7, and put the changed rows through step 6 again.
 - Row ids are never renumbered or reused. A retired behaviour loses its row; record the
   decision in the spec, its decision ticket, or the conversation source. The design renderer does not hide
   controls or change the design package.
 
 ## Done when
 
-`screen-contract.yaml` lints clean, every row's `gap` is `aligned`, every scene of `scenes.json` has a declaration, every page has a `mount`, every `Component · ` page has a `component`, and the person has answered every entry of the gap list — or, in a run without the person, the gap list is written and the run has said so.
+`screen-contract.yaml` lints clean, every row's `gap` is `aligned`, every scene of `scenes.json` has a declaration, every page has a `mount`, every `Component · ` page has a `component`, and the user has answered every entry of the gap list, or, in a run without the user, the gap list is written and the run has said so.
 
 ## Next
 
@@ -143,8 +143,8 @@ A contract written for a wayfinder map's alignment ticket resolves that ticket: 
 
 Otherwise, the `to-spec` skill, which reads this contract in full and derives the spec's **API contract** subsection from the rows' `calls`, `shows` and `on_failure`.
 
-- A contract written for the first time: `to-spec` from its **Process** step 1, which writes the spec this effort does not have yet.
-- A contract changed by **Re-runs**: `to-spec` at its **Process** step 5, revising the published spec, with the tickets already cut corrected against the new text.
+- A contract written for the first time: the `to-spec` skill, which writes the spec this effort does not have yet.
+- A contract changed by **Re-runs**: the `to-spec` skill's step for revising a published spec, with the tickets already cut corrected against the new text.
 
 ## Exit codes
 

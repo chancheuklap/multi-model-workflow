@@ -92,7 +92,7 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"|Couldn't resolve host|TLS handshake timeout|Connection reset by peer)",
         "remote_network_failure",
         "transient:network.build_fetch",
-        "transient network failure on the build machine; rerun this stage. If it keeps happening, check the "
+        "transient network failure on the build machine; re-run this stage. If it keeps happening, check the "
         "build machine proxy and mirrors",
     ),
     (
@@ -101,7 +101,7 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"|scp: .*(?:[Cc]onnection|lost connection|No route to host)|Broken pipe",
         "remote_transport_failure",
         "transient:network.remote_transport",
-        "transient SSH/SCP transport failure to the build machine; rerun this stage. If it keeps happening, "
+        "transient SSH/SCP transport failure to the build machine; re-run this stage. If it keeps happening, "
         "check that the build machine is reachable",
     ),
     (
