@@ -1,10 +1,10 @@
 # Boundary check
 
-Whether a control's click produces the behaviour its screen-contract row names is `<scripts>/boundary-check.py`; `<scripts>` is the notation this skill's `SKILL.md` defines under **Resolve `<scripts>` once**. It does not start the product and it does not read a page. It runs the command it was given twice in this process's cwd: first as written, then with `MMW_NEGATIVE=1` in the environment and nothing else changed. The first pass must exit 0; the second must exit non-zero. A ticket that owns a row this check covers carries it for that row.
+Whether a control's click produces the behaviour its screen-contract row names is `<scripts>/boundary-check.py`. It does not start the product and it does not read a page. It runs the command it was given twice in this process's cwd: first as written, then with `MMW_NEGATIVE=1` in the environment and nothing else changed. The first pass must exit 0; the second must exit non-zero. A ticket that owns a row this check covers carries it for that row.
 
 ## The criterion, in one shape
 
-The **boundary criterion** is the line written onto the ticket, run by a shell months later with no model between. The script is named bare: `verify-ticket.py` puts `<scripts>` on the `PATH` of the shell that runs the line (its `--tools`).
+The **boundary criterion** is the line written onto the ticket, run by a shell months later with no model between.
 
 ```
 CHECK: boundary-check.py --run "<the product's test command, a file or a case>"
@@ -47,10 +47,3 @@ The test replaces the outbound call module with a mock. Mocking that module is t
 A cross-component row (`App · ` page, an action in region A that affects region B) is asserted at the whole-page composition: the request carries the other region's state, and the other region enters the scene the row names. The same `boundary-check.py` runs it; the negative control is the same.
 
 The helper and the mock together make the second pass mechanical. Skip the click, and a test that really asserted those columns goes red; a test whose assertion is true without the click stays green, and this judge prints that.
-
-## Exit codes
-
-- `0`, one line `BOUNDARY OK <n>/<n>`: every command exited 0 as written and non-zero with `MMW_NEGATIVE=1`.
-- `1`, `MISS <command> — <last 20 lines of that command>` and then `Fix the product's test; the negative control was not reached.`: the first pass was already red; the product's test is failing on its own, before any negative control.
-- `1`, `GREEN WITHOUT INTERACTION <command> — <why>. Make the assertion fail when the interaction helper does nothing.`: the first pass passed, and so did the pass that skipped the click. The assertion does not depend on the interaction.
-- `2`: the command could not be started. The refusal names the fact it checked — unclosed quotes, an empty `--run`, a shell token, a missing executable, a file that could not be executed — and gives the one way out.

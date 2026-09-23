@@ -457,24 +457,13 @@ def refuse_story_inputs(doc: dict, contract: str) -> str | None:
         return refusal(
             f"{contract} has no top-level `viewports`.",
             "Both browser windows are one contract viewport; the judge does not invent a size.",
-            "Add `viewports` as references/story-parity.md says, then re-run.")
+            "Add `viewports` as the write-screen-contract skill's references/screen-contract-format.md says, then re-run.")
     locale = doc.get("locale")
     if not isinstance(locale, str) or not locale.strip():
         return refusal(
             f"{contract} has no top-level `locale`.",
             "story-parity.py reads locale from the contract and does not fall back to zh-CN.",
-            "Add `locale` as references/story-parity.md says, then re-run.")
-    if doc.get("volatile_values"):
-        return refusal(
-            f"{contract} has a non-empty `volatile_values`.",
-            "The screen-contract format has no such key, and the judge would ignore it.",
-            "Delete `volatile_values` from the contract, then re-run.")
-    for entry in doc.get("retired_ids") or []:
-        if isinstance(entry, dict) and entry.get("trigger"):
-            return refusal(
-                f"{contract} has a `retired_ids` entry with `trigger`.",
-                "A `retired_ids` entry holds only `id` and `note`, and the judge would ignore `trigger`.",
-                "Delete `trigger` from that entry, then re-run.")
+            "Add `locale` as the write-screen-contract skill's references/screen-contract-format.md says, then re-run.")
     return None
 
 

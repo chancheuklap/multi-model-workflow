@@ -1,14 +1,7 @@
 # Journey
 
 Whether one end-to-end path still works against the real product is
-`<scripts>/journey.py`; `<scripts>` is the notation this skill's `SKILL.md` defines under
-**Resolve `<scripts>` once**. It claims this worktree's lease,
-runs `.mmw/target.json`'s `start`, runs `discover`, puts every printed address into the
-environment under its uppercase key alongside the lease variables, runs the script, and
-runs `stop` whether the script succeeded or not. With `--break`, it starts the product a
-second time with one interface broken and requires the same script to fail. Without
-`--break`, the contract ticket's smoke journey keeps the product stopped and repoints
-every discovered address to a closed port before the same script runs again.
+`<scripts>/journey.py`.
 
 A journey is the only judge in this skill that starts the whole product. There are few
 of them on purpose: the user names which paths are worth one, and the default three are
@@ -44,9 +37,7 @@ journey connects to it with Playwright.
 
 ## The criterion, in one shape
 
-Written onto the ticket, run by a shell months later with no model between. The script
-is named bare: `verify-ticket.py` puts `<scripts>` on the `PATH` of the shell that runs
-the line (its `--tools`).
+Written onto the ticket, run by a shell months later with no model between.
 
 ```
 CHECK: journey.py run <name> --break "POST /items/{id}"
@@ -68,29 +59,17 @@ whole product down is the appropriate control for that one criterion. Acceptance
 user-named journeys use `--break` so the control isolates the interface whose result
 the journey must observe.
 
-Journeys appear on the contract ticket, on the tickets the user named, and on each
-acceptance ticket, and nowhere else. `verify-ticket.py --lint` reports a
-`journey.py run <name>` with no directory under `.mmw/journeys/`, unless the
-`## Owns` covers that directory — then this is the ticket that builds it.
-
 A break journey starts and stops the whole stack twice, so it is the slowest criterion
 on a ticket. When it needs longer than the ten minutes every `CHECK:` gets, the ticket
 says so on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`.
 
 ## The negative control
 
-With `--break`, the first pass is the ordinary journey: `start`, `discover`, script,
-`stop`. The second pass calls `start` again with `MMW_BREAK` only in that command's
-environment, requires its `BREAK ARMED` line, runs `discover` again without the variable,
-and runs the same script in the same environment as the first pass. **That pass has to
-fail.** If it stays green, the judge prints `JOURNEY GREEN WITH BREAK`: the journey did
-not prove that the interface named by its criterion matters to the result it asserted.
-
-Without `--break`, the contract ticket's smoke journey runs its control after `stop`,
-with the same environment except that every address `discover` printed has its port
-replaced by one nothing on this machine listens on. It receives no signal saying this is
-the second pass. A script that asserts nothing passes again and becomes `JOURNEY GREEN
-WITHOUT PRODUCT`; a script that reaches the product goes red.
+With `--break`, the second pass starts the product again with the named interface
+failing and runs the same script with nothing telling it which pass it is; **that pass
+has to fail**, or the journey did not prove the interface matters to the result it
+asserted. Without `--break`, the smoke journey's second pass runs with the product
+stopped and every discovered address pointing at a closed port.
 
 After either control, `stop` runs again and this run's lease ports must all be quiet.
 Whatever still answers is named with its port and pid on a
@@ -107,17 +86,6 @@ control and leaves the next run blocked.
   control was not run. What to fix is what that last line names — the script's own
   output, not this judge's words. A `<name>` with no executable `run` and no
   `package.json` `scripts.run` reads the same way, naming the directory it looked in.
-- **`1`**, `JOURNEY GREEN WITH BREAK <name> — <last line>`: the script passed normally
-  and passed again with the interface from `--break` failing. Make the journey read the
-  result back through a different page and assert it there.
-- **`1`**, `JOURNEY GREEN WITHOUT PRODUCT <name> at <last line> — …`: the contract smoke
-  journey passed both normally and with the product stopped and addresses repointed.
-  Make the script assert something only the running product can satisfy.
-- **`1`**, `JOURNEY LEFT THE PRODUCT UP <name> — …`: the passes produced their expected
-  verdict, but something still listened on this run's lease ports after the last
-  `stop`; the line names every port, pid, and process directory.
-- **`2`**: the run could not safely reach the script. This includes an invalid `--break`
-  value; every instance slot already claimed; an unreadable or incomplete
-  `.mmw/target.json`; a failed `start` or `discover`; and a break switch whose second
-  `start` failed or did not print its exact `BREAK ARMED` line. The refusal names the
-  failed fact and the one next action.
+- **`1`**, `JOURNEY GREEN WITH BREAK`, `JOURNEY GREEN WITHOUT PRODUCT` or
+  `JOURNEY LEFT THE PRODUCT UP`: the line says what to change.
+- **`2`**: a refusal naming the failed fact and the next action.

@@ -1,12 +1,7 @@
 # Story parity
 
-`<scripts>/story-parity.py`, the **story judge**, decides whether a product story
-matches the Claude Design page it was built from. `<scripts>` is the token defined
-by this skill's **Resolve `<scripts>` once** section. The judge reads the screen
-contract and the design package's `scenes.json`, starts the **story service** (the
-server that `.mmw/target.json`'s `stories` command brings up to serve the product's
-story pages), and compares every selected scene at every contract viewport by
-`data-ui` id.
+`story-parity.py`, the **story judge**, compares a product story with the Claude Design
+page it was built from, element by element, by `data-ui` id.
 
 Four agents use this page. An agent taking design facts before implementation uses
 **`--render-only`**. An agent building a story reads **The story page the product
@@ -15,7 +10,8 @@ fixing a failure reads **The DIFF line**.
 
 ## The story page the product serves
 
-The contract ticket builds the service under `.mmw/stories/`; later interface
+The contract ticket builds the **story service** (the server that `.mmw/target.json`'s
+`stories` command brings up) under `.mmw/stories/`; later interface
 tickets add one story adapter per design page.
 
 - `.mmw/target.json`'s `stories` command starts the service in the foreground and
@@ -43,22 +39,14 @@ tickets add one story adapter per design page.
   displayed text does not carry reach the product component too. No backend, seed,
   route or alternate preview projection runs. After a click the region enters the
   scene the contract row's `next` names, and the adapter draws that scene's own
-  input: a scene stands for a state, so the clicked object needs no data of its own. The
-  screen contract's `shows` columns name the values each region displays and the
-  backend field each comes from (`write-screen-contract` skill's
-  `references/screen-contract-format.md`); code review checks that the component
-  draws every one of them.
+  input: a scene stands for a state, so the clicked object needs no data of its own.
 
 ## The two sides
 
 The product side is the subtree rooted at `[data-story-root]`. The design side is
 the design package's page, rendered offline in the same contract viewport window;
 `#dc-root` keeps the size the design page renders at in that window.
-`viewports` is a top-level list of `WIDTHxHEIGHT` entries; a page that declares its own
-`pages.<page>.viewports` is compared at those sizes only. `locale` is a top-level
-BCP 47 tag (`zh-CN`, `en-US`). Both are required; there is no fallback. The form
-is in write-screen-contract `references/screen-contract-format.md` under Top level. Both browser
-contexts take `locale` from the contract. Neither side reads a live clock: the
+Both browser contexts take `locale` from the contract. Neither side reads a live clock: the
 design side keeps its paused clock, and the product's time values come from scene
 data. Both sides are read as rendered. The judge does not hide controls or replace
 display values.
@@ -109,9 +97,6 @@ evidence.
 
 ## The criterion, in one shape
 
-The criterion names the judge bare because `verify-ticket.py` puts `<scripts>` on
-the shell's `PATH`:
-
 ```
 CHECK: story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <id,id>
 EXPECT: STORY OK <passed>/<total>
@@ -137,17 +122,9 @@ images are supporting evidence, not another verdict.
 
 ## Negative controls
 
-Once per run, using its first scene and viewport, the judge proves both detection
-paths before trusting any result:
-
-1. It adds 7 px to every design-side `data-ui` element's computed font size and
-   requires at least one element difference. A product story with no ids therefore
-   reaches the ordinary `missing` report instead of making the control itself fail.
-2. It removes every product-side `data-ui` attribute and requires at least one
-   `missing` difference.
-
-Either control reporting nothing exits 2 with `NEGATIVE CONTROL FAILED` and no
-`STORY OK`. A design page with no `data-ui` therefore cannot pass.
+Once per run the judge proves it can see a changed style and a missing id; when it
+cannot, it exits 2 with `NEGATIVE CONTROL FAILED`, so a design page with no `data-ui`
+cannot pass.
 
 ## `--render-only`
 
@@ -163,14 +140,7 @@ The JSON array uses the fields in **The two sides** and preserves document order
 
 - `0`: one line `STORY OK <passed>/<total>`.
 - `1`: one or more lines in **The DIFF line** shape.
-- `2`: a negative control failed; the `stories` command did not start; a story page
-  404 or other error status; the story page could not be opened; no visible
-  `[data-story-root]`; `--pages` is empty or names a mount the contract does not
-  declare; `--scenes` names a scene outside the mount; the contract has no
-  `viewports` or no `locale`; or the product story page carries `sc-interp`,
-  `data-dc-tpl`, `data-dc-script` or `dc-root`. Each refusal names the fact, why,
-  and what to do next. `--render-only` applies the same `viewports` and `locale`
-  refusals; Claude Design runtime traces need a product page and do not apply.
+- `2`: a refusal that names the fact, why, and what to do next.
 
 `--out <dir>` keeps both screenshots, their pixel difference image and the ARIA
 capture beside each screenshot.
