@@ -166,7 +166,7 @@ svg text{font-family:var(--sans)}
   <nav aria-label="页面导航">
     <a href="#pick">选哪条来比</a><a href="#flow-sec">并列总图</a><a href="#intent">意图对照</a><a href="#field">实地证据</a><a href="#questions">改造研究问题</a><a href="#keep">别丢掉的</a><a href="#method">调查说明</a>
   </nav>
-  <div class="links"><a href="https://claude.ai/artifact/4eULLVzQAAo3F5Ywqtouxx" target="_blank" rel="noopener">pstack 全景网</a><a href="https://claude.ai/artifact/REgQzVKAmvehfKnRsgBQEj" target="_blank" rel="noopener">pstack 术语</a></div>
+  <div class="links"><a href="https://claude.ai/artifact/MioM4K85K2bzUMgPBtCh5L" target="_blank" rel="noopener">MMW 全图</a><a href="https://claude.ai/artifact/4eULLVzQAAo3F5Ywqtouxx" target="_blank" rel="noopener">pstack 全景网</a><a href="https://claude.ai/artifact/REgQzVKAmvehfKnRsgBQEj" target="_blank" rel="noopener">pstack 术语</a></div>
 </header>
 
 <section class="lede">
@@ -194,12 +194,13 @@ svg text{font-family:var(--sans)}
 </div>
 
 <div id="flow-sec">
-  <div class="sec-h"><h2>两条完整工作流，左右并排</h2><p>两边用同一组泳道，同一横带是同一阶段。点任一方块看细节和出处；中间一栏是这一阶段「同一意图，两种做法」。</p></div>
+  <div class="sec-h"><h2>两条完整工作流，左右并排</h2><p>两边用同一组泳道，同一横带是同一阶段；每个方块左上角标着它的载体。MMW 一侧与「MMW 工作流全图」的数据一致，按比较需要合并了细节（全图有 330 个步骤）。点任一方块看细节和出处。</p></div>
   <div class="legend">
     <span><i class="lg-h"></i>人</span><span><i class="lg-a"></i>agent</span><span><i class="lg-m"></i>并行多个 agent</span>
     <span><i class="lg-s"></i>确定性脚本</span><span><i class="lg-e"></i>外部服务</span><span><i class="lg-g"></i>判断点</span>
     <span><span class="lg-line"></span>回到前面（循环）</span><span><span class="lg-fail"></span>失败 / 交还</span>
   </div>
+  <div class="legend" id="carLegend"><b style="font:600 12px var(--cond);color:var(--ink-3)">方块左上角的载体标签：</b></div>
   <div class="diagram-scroll"><div id="laneHead"></div><div id="flow"></div></div>
 </div>
 
@@ -276,117 +277,165 @@ const LANES={
   ps:[["人","operator"],["root","不写代码，只派与判"],["owner","一个 PR 一个云端 agent"],["verifier","swarm lanes · 异模型"],["机器","/loop · watch-pr · GitHub · Cursor 云"]]
 };
 const BANDS=[
- {t:"前期决定",n:["同一意图：动手前把关键决定定下来，不让 worker 猜。","MMW 逐题请人拍板并写进 ADR；pstack 把能用实验回答的交给 prototype 和多模型候选，人只答偏好。"]},
- {t:"写规格",n:["同一意图：把分散的决定压成一份可拆分的计划。","MMW 写成 GitHub 上的 spec issue；pstack 写成一份计划文件。"]},
- {t:"拆单元与验收",n:["同一意图：每个单元开工前就知道「怎样算做完」。","MMW 写成可由脚本裁决的 CHECK: / EXPECT: 命令；pstack 写成逐 PR 的证据盒（单元测试、真实表面、性能、评审门），由 agent 判断。"]},
+ {t:"前期决定与界面设计",n:["同一意图：动手前把关键决定定下来，不让 worker 猜。","MMW 逐题请人拍板并写进 ADR；界面先在 Claude Design 出稿、人签收，再拉成仓库里的设计包。pstack 把能用实验回答的交给 prototype 和多模型候选，人只答偏好。"]},
+ {t:"界面合同与写规格",n:["同一意图：把分散的决定压成一份可拆分的计划。","MMW 先把设计包与后端决定对齐成 screen contract（人裁定 gap），再写 GitHub 上的 spec issue；pstack 写成一份计划文件。"]},
+ {t:"拆单元与验收",n:["同一意图：每个单元开工前就知道「怎样算做完」。","MMW 写成可由脚本裁决的 CHECK: / EXPECT:；界面票另有 story、boundary、journey、harness 四种判据，并填好 target.json 让夜里能启动产品。pstack 写成逐 PR 的证据盒，由 agent 判断。"]},
  {t:"发布与开跑授权",n:["同一意图：人白天批准，夜里不再问。","MMW 两道 lint + Quiz + 开夜；pstack 明确 go，并把「是否授予合并权」与「是否开跑」分开给。"]},
- {t:"派发",n:["同一意图：并行、互不覆盖。","MMW 由脚本算 frontier，派出全部可派票，冲突在写票时靠 Owns 预防；pstack 由 root 判断，文件重叠的在派发时串行。"]},
- {t:"单元构建",n:["同一意图：实现者留下可审的决定与证据。","MMW：preflight 基线、在 Seam 上 TDD、先公布 DECISIONS；pstack：15 分钟内开 ready PR 与 decisions.tsv，在真实表面自证。"]},
- {t:"单元验证",n:["同一意图：通过不能靠作者自己说。","MMW：命令由脚本裁决，加一个 reviewer 四轴读 diff（ADR 0026 取消了独立 verifier）；pstack：每个补丁版本派一组异模型 verifier 在真实产品上实跑。"]},
+ {t:"派发",n:["同一意图：并行、互不覆盖。","MMW 由脚本算 frontier，派出全部可派票；开工提示里带上相关经验索引。pstack 由 root 判断，文件重叠的在派发时串行。"]},
+ {t:"单元构建",n:["同一意图：实现者留下可审的决定与证据。","MMW：preflight 基线、在 Seam 上 TDD；界面票动手前先渲染设计页、逐元素比对。pstack：15 分钟内开 ready PR 与 decisions.tsv，在真实表面自证。"]},
+ {t:"单元验证",n:["同一意图：通过不能靠作者自己说。","MMW：命令由脚本裁决（界面判据都带负控，运行产品先取 slot），加一个 reviewer 四轴读 diff，有 story 判据才开 UI 轴。pstack：每个补丁版本派一组异模型 verifier 在真实产品上实跑。"]},
  {t:"修复循环",n:["同一意图：问题修完，且不无限循环。","MMW 修一轮不二审，最后一次重跑决定结果，红了交还人；pstack 所有问题一次发回，改了补丁就整轮重验，直到 clean。"]},
  {t:"落地",n:["同一意图：只合并验证过的那一版。","MMW 锁内把 ticket.passed 的 commit 并入本夜 base branch，冲突弹回一次；pstack rebase 后新 head 跑 CI，用 patch-id 判断旧结论是否还有效。"]},
- {t:"监控与唤醒",n:["同一意图：人不在时，停滞能被发现。","MMW 事件驱动、不设时钟（ADR 0017），watchdog 只在 session 死亡时报；pstack 假设通知会丢，约每 30 分钟审计一次，只认副作用。"]},
- {t:"夜末收尾",n:["同一意图：批次结束时没有遗漏。","MMW 逐票 fold 路由每条 finding、整批 reverify、summary 门禁、retro 必做；pstack 合并批次后 retro pass 与清扫，决策记录请异模型审。"]},
+ {t:"监控与唤醒",n:["同一意图：人不在时，停滞能被发现。","MMW 事件驱动、不设时钟（ADR 0017），watchdog 只在 session 死亡时报，两个宿主 hook 兜底；pstack 假设通知会丢，约每 30 分钟审计一次，只认副作用。"]},
+ {t:"夜末收尾与复盘",n:["同一意图：批次结束时没有遗漏，经验留给下一次。","MMW 逐票路由每条 finding、整批 reverify、summary 门禁、retro 必做；但 Retro Memory 目前到不了下一夜 worker 的经验索引。pstack 合并批次后 retro pass，决策记录请异模型审。"]},
  {t:"早晨",n:["同一意图：人用最少时间判断结果能不能要。","MMW 看板 + SUMMARY / RETRO，先分诊再验收，finish 并入项目分支；pstack 看决策记录与 Attention，stack 模式下人逐条审阅落地。"]}
 ];
 const M="mmw-v2/", U="mmw-v2/upstream/skills/engineering/";
+// [id, band, row, lane, kind, label, detail, source, span, carrier]
 const N={mm:[
- ["m0a",0,0,0,"human","逐题回答决定（grilling）","agent 查事实，人答决定；逐轮清空决策树的 frontier；结论写进 CONTEXT.md 与 ADR。意图：不让未回答的前提被暗中假定。",U+"../productivity/grilling/SKILL.md；"+U+"grill-with-docs/SKILL.md"],
- ["m0b",0,0,1,"agent","查事实，记 ADR / CONTEXT","",U+"domain-modeling/SKILL.md"],
- ["m0c",0,1,2,"multi","prototype / research 子 agent","可运行的问题交 prototype，外部知识交 research（要一手来源）。",U+"prototype/SKILL.md"],
- ["m0d",0,2,0,"human","UI：Claude Design 出稿 → 签收","Claude Design 是唯一设计源（ADR 0029）；之后 pull 成 design package，写 screen contract，gap 由人裁定。",M+"skills/design-pages/references/edit-pages.md；docs/adr/0029"],
- ["m0e",0,2,3,"script","pull_design → screen contract","",M+"skills/write-screen-contract/SKILL.md",2],
- ["m1a",1,0,1,"agent","to-spec → GitHub spec issue","Problem Statement、Solution、User Stories、Implementation Decisions、Testing Decisions（Seam）、Out of Scope、Sources。不再访谈，只综合。",U+"to-spec/SKILL.md",2],
- ["m2a",2,0,1,"agent","to-tickets：竖切 + CHECK: / EXPECT:","每条验收是一个 shell 命令加成功时应出现的输出，由脚本裁决（ADR 0008 沉默不算通过）。每票 What to build、Read first、Seam、Owns。",U+"to-tickets/SKILL.md ### 3–4",2],
- ["m2b",2,1,1,"agent","Owns 不重叠 + blocking 预连 + 等级","并发票写不同文件；依赖用 GitHub 原生 blocking；junior / senior-worker 等级对应错误代价。",U+"to-tickets/SKILL.md ### 5",2],
- ["m2c",2,1,0,"human","机器够不到的 → ready-for-human 票","",U+"to-tickets/references/person-ticket.md"],
- ["m3a",3,0,0,"human","Quiz：批准粒度、依赖、等级","歧义扫描先提出最多五个问题。",U+"to-tickets/SKILL.md ### 6"],
- ["m3b",3,0,4,"script","--lint（发布前 / 读回后）","发布前查草稿，发布后查 GitHub 上真实的父子、标签、阻塞关系。",M+"skills/verify-ticket/references/linting.md"],
- ["m3c",3,1,4,"ext","GitHub：sub-issues + labels","",U+"to-tickets/SKILL.md ### 7–8"],
- ["m3d",3,2,0,"human","批准开夜","",M+"skills/dispatch/references/night.md ## 1"],
- ["m3e",3,2,4,"script","check → open（spec watch）","",M+"skills/dispatch/scripts/dispatch.sh open_night"],
- ["m4a",4,0,4,"script","advance：算 frontier，派出全部可派票","status.py：open、ready-for-agent、blocker 已关、无认领、无 hold。派发时不限并发；运行产品时受 slot 限制。",M+"skills/dispatch/scripts/status.py frontier、advance_plan"],
- ["m4b",4,1,2,"multi","worker × N（本机 issue-<n> worktree）","",
-  "docs/contexts/night/CONTEXT.md ### Places"],
- ["m5a",5,0,4,"script","--preflight：认领 + base 基线","在 base commit 上先跑一遍验收，区分开工前已绿的判据与本票实现的行为。",M+"skills/verify-ticket/scripts/verify-ticket.py run_preflight"],
- ["m5b",5,1,2,"agent","implement：在 Seam 上 TDD","",U+"implement/SKILL.md ## Claim, read in, write the code"],
- ["m5c",5,2,2,"agent","DECISIONS：先公布自主决定","reviewer 的 Spec 轴逐行判断这些决定。",U+"implement/SKILL.md ## Closing steps 2"],
- ["m6a",6,0,4,"script","gate-check：退出码 + EXPECT:（UI 判据带负控）","每条 CHECK: 独立 shell；通过和失败都写 EVIDENCE；UI 判据故意破坏后必须变红。",M+"upstream-unlazy/scripts/gate-check.mjs；"+M+"skills/ui-acceptance/"],
- ["m6b",6,1,3,"multi","reviewer：四轴，同一 worktree，只审一轮","Standards、Spec、Tests、UI；逐条核实后分票内 / 票外。ADR 0026：不再设独立 verifier。",U+"code-review/references/session.md；docs/adr/0026-no-verifier.md"],
- ["m7a",7,0,2,"agent","修一轮，不二审；票外 → finding 子票","",U+"implement/SKILL.md ## Closing steps 3"],
- ["m7b",7,1,4,"script","final reverify → closeout","最后一次提交后重跑全部判据；closeout 按固定顺序：核对 → 仓库检查 → push → 改 tracker → 写事件。",M+"skills/verify-ticket/scripts/verify-ticket.py _run_closeout"],
- ["m7c",7,2,0,"bad","未满足 → needs-triage","",""],
- ["m7d",7,2,4,"ok","ALL MET → ticket.passed","",""],
- ["m8a",8,0,4,"script","land：锁内并入 night base branch","只合并 ticket.passed 记录的那个 commit；需要时跑 target.json 的 checks；不强推。",M+"skills/dispatch/scripts/dispatch.sh land_one_via_origin；docs/adr/0023"],
- ["m8b",8,1,4,"bad","冲突 → bounce：首次重做，二次 triage","ADR 0027。",
-  "docs/adr/0027-a-bounce-returns-once.md"],
- ["m9a",9,0,4,"script","relay：票上事件 → 唤醒主 agent（ack）","没有定时器（ADR 0017）；只有事件或异常才叫醒。",
-  "docs/adr/0010、0017、0020"],
- ["m9b",9,1,4,"script","watchdog + turn guard","runner 回答 stopped 才写 worker.lost；unknown 只报告，不当作活。",
-  "docs/adr/0021-liveness-in-three-layers.md"],
- ["m9c",9,1,1,"agent","主 agent：处理 fault / contract / decision","",M+"skills/dispatch/references/night.md ## 3"],
- ["m10a",10,0,1,"agent","closing pass：逐票 fold，路由每条 finding","ADR 0012：打断子票无限繁殖，每条 finding 都有可计数的结局。",M+"skills/dispatch/references/night.md ## 4；docs/adr/0012",2],
- ["m10b",10,1,4,"script","reverify：base 上重跑全部已落地票","",M+"skills/dispatch/scripts/dispatch.sh reverify_spec"],
- ["m10c",10,2,4,"script","summary 门禁 → NIGHT SUMMARY","读不到的事实不当作零。",M+"skills/dispatch/scripts/status.py closeout_problems"],
- ["m10d",10,2,1,"agent","retro（必做）→ Memory","finish 以 retro 收据为前提；改进建议走正常 spec / ticket 流程。",M+"skills/retro/SKILL.md",2],
- ["m11a",11,0,0,"human","看板 + SUMMARY / RETRO；先分诊","两条 morning query：open needs-triage，再 open ready-for-human。",
-  "docs/agents/issue-tracker.md ## Morning queries"],
- ["m11b",11,1,0,"human","接受产品结果","",
-  "docs/adr/0025-project-branch-and-finish.md"],
- ["m11c",11,1,4,"script","finish：并入 project branch","同一 base 的相关票必须全部关闭；不碰 default branch。",M+"skills/dispatch/scripts/dispatch.sh finish_preflight"]
+ ["m0b",0,0,1,"agent","grilling / grill-with-docs：逐题访谈","agent 查事实，人答决定；大而不清楚的工作先用 wayfinder 画决策地图。",U+"grill-with-docs/SKILL.md；"+U+"../productivity/grilling/SKILL.md",0,"SK"],
+ ["m0a",0,0,0,"human","人逐题回答决定","",U+"../productivity/grilling/SKILL.md",0,"HU"],
+ ["m0c",0,1,1,"agent","domain-modeling：写 CONTEXT.md / ADR","",U+"domain-modeling/SKILL.md",0,"SK"],
+ ["m0d",0,1,4,"ext","CONTEXT.md · docs/adr/","",
+  "docs/contexts/；docs/adr/",0,"FILE"],
+ ["m0e",0,2,2,"multi","prototype / research 子 agent","可运行的问题交 prototype，外部知识交 research。",U+"prototype/SKILL.md；research/SKILL.md",0,"SK"],
+ ["m0g",0,3,1,"agent","建 Claude Design 项目：task.md · state-list · ui-ids","有 design system 时另建一个 Claude Design 项目。",M+"skills/design-pages/references/edit-pages.md ## Create the project",0,"REF"],
+ ["m0h",0,4,4,"ext","Claude Design agent 画页","只看项目文件，看不到本仓库对话。",M+"skills/design-pages/references/draw.md",0,"EXT"],
+ ["m0i",0,4,0,"human","评论与签收","",M+"skills/design-pages/references/edit-pages.md ## Sign-off",0,"HU"],
+ ["m0j",0,5,4,"script","pull_design.py → 设计包 + pull-report","prototypes/<effort>/claude-design/：页面、scenes.json、design-manifest.json；报告的「设计检查」有问题要回 Claude Design 修。",M+"skills/design-pages/scripts/pull_design.py",0,"CMD"],
+ ["m1a",1,0,1,"agent","write-screen-contract：逐页逐 scene 写行","",M+"skills/write-screen-contract/SKILL.md ## Steps",0,"SK"],
+ ["m1b",1,0,4,"script","extract_skeleton.py 抽可见控件清单","",M+"skills/write-screen-contract/scripts/extract_skeleton.py",0,"CMD"],
+ ["m1c",1,1,0,"human","gap 由人裁定","每行都要 gap: aligned。",M+"skills/write-screen-contract/SKILL.md ### 6",0,"HU"],
+ ["m1d",1,1,4,"script","lint_screen_contract.py","",M+"skills/write-screen-contract/scripts/lint_screen_contract.py",0,"CMD"],
+ ["m1e",1,2,4,"ext","docs/specs/<effort>/screen-contract.yaml","每页每 scene 的 calls / shows / next / on_failure。",M+"skills/write-screen-contract/SKILL.md ## Done when",0,"FILE"],
+ ["m1f",1,3,1,"agent","to-spec：读完整合同，写 spec","Problem Statement、Solution、User Stories、Implementation Decisions、Testing Decisions（Seam）、Out of Scope、Sources。",U+"to-spec/SKILL.md",0,"SK"],
+ ["m1g",1,3,4,"ext","spec issue（mmw:spec）","",
+  "docs/agents/issue-tracker.md",0,"GH"],
+ ["m2a",2,0,1,"agent","to-tickets：竖切 + CHECK: / EXPECT:","每条验收是一个 shell 命令加成功时应出现的输出（ADR 0008）。",U+"to-tickets/SKILL.md ### 3–4",2,"SK"],
+ ["m2b",2,1,1,"agent","切界面票：design-system · contract · component · app · acceptance · reaction","判据形状：story（元素比对）、boundary（四列边界测试）、journey（整机旅程）、harness（后门检查）。",U+"to-tickets/references/cutting-interface-tickets.md",2,"REF"],
+ ["m2c",2,2,1,"agent","Owns 不重叠 · blocking · worker 等级","",U+"to-tickets/SKILL.md ### 5",0,"SK"],
+ ["m2d",2,2,0,"human","机器够不到 → ready-for-human 票","",U+"to-tickets/references/person-ticket.md",0,"REF"],
+ ["m2e",2,3,1,"agent","填 .mmw/target.json：怎样启动产品","",M+"skills/ui-acceptance/references/product-answers.md",0,"REF"],
+ ["m2f",2,3,4,"ext",".mmw/target.json","启动命令、端口、数据目录、checks。",M+"skills/ui-acceptance/references/product-answers.md",0,"CFG"],
+ ["m3a",3,0,0,"human","歧义扫描 + Quiz 批准","",U+"to-tickets/SKILL.md ### 6",0,"HU"],
+ ["m3b",3,0,4,"script","verify-ticket.py --lint --drafts","",M+"skills/verify-ticket/references/linting.md",0,"CMD"],
+ ["m3c",3,1,4,"ext","发布：sub-issues + labels + blocking","",U+"to-tickets/SKILL.md ### 7",0,"GH"],
+ ["m3d",3,2,4,"script","读回后 --lint；target_config.py --check","",M+"skills/verify-ticket/references/linting.md；"+M+"skills/ui-acceptance/scripts/target_config.py",0,"CMD"],
+ ["m3e",3,3,0,"human","批准开夜","",M+"skills/dispatch/references/night.md ## 1",0,"HU"],
+ ["m3f",3,3,4,"script","dispatch.sh check → open","",M+"skills/dispatch/scripts/dispatch.sh",0,"CMD"],
+ ["m3g",3,4,4,"ext","看板（board supervisor）","LaunchAgent 常驻；读 tracker 与 models.json。",M+"board/supervisor.py",0,"PROC"],
+ ["m4a",4,0,4,"script","advance：MERGE → RELEASE → DISPATCH","",M+"skills/dispatch/scripts/dispatch.sh advance",0,"CMD"],
+ ["m4b",4,1,4,"script","status.py：算 frontier","open、ready-for-agent、blocker 已关、无认领、无 hold。",M+"skills/dispatch/scripts/status.py frontier",0,"SC"],
+ ["m4c",4,2,4,"script","dispatch.sh start worker","",M+"skills/dispatch/scripts/dispatch.sh start",0,"CMD"],
+ ["m4d",4,3,4,"script","开工提示 + Memory 经验索引","按票的 Owns 路径去 Nowledge Mem 查 mmw-experience，只给索引不给全文（ADR 0031）。",M+"skills/dispatch/scripts/dispatch.sh worker_memory_packet",0,"PR"],
+ ["m4e",4,4,4,"script","runner 适配器：Paseo · Orca · herdr","",M+"skills/dispatch/scripts/runners/",0,"SC"],
+ ["m4f",4,4,2,"multi","worker × N（本机 .worktrees/issue-<n>）","",
+  "docs/contexts/night/CONTEXT.md ### Places",0,"SES"],
+ ["m5a",5,0,4,"script","--preflight：认领 + base 基线","",M+"skills/verify-ticket/scripts/verify-ticket.py run_preflight",0,"CMD"],
+ ["m5b",5,1,2,"agent","implement：读 Read first · Parent · Seam","",U+"implement/SKILL.md ## Claim, read in, write the code",0,"SK"],
+ ["m5c",5,2,2,"agent","tdd：在 Seam 上红 → 绿","",U+"tdd/SKILL.md",0,"SK"],
+ ["m5d",5,3,2,"agent","界面票：动手前先对照设计包与合同","",U+"implement/references/writing-interface-code.md ## Before the first line",0,"REF"],
+ ["m5e",5,3,4,"script","--render-only 渲染设计页 · 比对 DIFF","",M+"skills/ui-acceptance/references/story-parity.md",0,"CMD"],
+ ["m5f",5,4,4,"script","dispatch.sh integrate origin/<base>","",U+"implement/SKILL.md ## Closing steps 1",0,"CMD"],
+ ["m5g",5,5,4,"script","--decisions：公布自主决定","",M+"skills/verify-ticket/scripts/verify-ticket.py run_decisions",0,"CMD"],
+ ["m6a",6,0,4,"script","gate-check：逐条 CHECK: · EXPECT: · EVIDENCE:","",M+"upstream-unlazy/scripts/gate-check.mjs",0,"SC"],
+ ["m6b",6,1,4,"script","lease.py 取产品 slot","没有空 slot 时写 worker.queued，等 relay 唤醒。",M+"skills/ui-acceptance/scripts/lease.py",0,"CMD"],
+ ["m6c",6,1,3,"script","story-parity · boundary-check · journey · harness-guard","每个判据都带负控：故意破坏后必须变红。",M+"skills/ui-acceptance/scripts/",0,"CMD"],
+ ["m6d",6,2,4,"ext","ticket.checked 事件","",
+  "docs/contexts/ticket-run/CONTEXT.md",0,"EV"],
+ ["m6e",6,3,4,"script","dispatch.sh start reviewer","",M+"skills/dispatch/scripts/dispatch.sh start",0,"CMD"],
+ ["m6f",6,3,3,"multi","reviewer：Standards · Spec · Tests 轴（只审一轮）","",U+"code-review/references/session.md",0,"REF"],
+ ["m6g",6,4,3,"agent","UI 轴：看设计页与产品截图","只在票上有 story 判据时开。",U+"code-review/references/ui-reviewer.md",0,"REF"],
+ ["m6h",6,4,4,"ext","reviewer.reported","",
+  "docs/contexts/ticket-run/CONTEXT.md",0,"EV"],
+ ["m7a",7,0,2,"agent","修一轮，不二审","",U+"implement/SKILL.md ## Closing steps 3",0,"SK"],
+ ["m7b",7,0,4,"ext","票外 → finding 子票（child.opened）","",M+"skills/verify-ticket/references/sub-issues.md",0,"EV"],
+ ["m7c",7,1,4,"script","--reverify：最后一次重跑全部判据","",M+"skills/verify-ticket/scripts/verify-ticket.py",0,"CMD"],
+ ["m7d",7,2,4,"script","Audit · --touched · --draft","",U+"implement/SKILL.md ## Closing steps 4–7",0,"CMD"],
+ ["m7e",7,3,4,"script","--closeout：核对 → checks → push → 改 tracker → 写事件","",M+"skills/verify-ticket/scripts/verify-ticket.py _run_closeout",0,"CMD"],
+ ["m7f",7,4,4,"ok","ticket.passed","",
+  "",0,"EV"],
+ ["m7g",7,4,0,"bad","ticket.returned → needs-triage","",
+  "",0,"EV"],
+ ["m8a",8,0,4,"script","land：merge worktree + 锁，并入 night base","只合并 ticket.passed 记录的 commit；不强推（ADR 0023）。",M+"skills/dispatch/scripts/dispatch.sh land_one_via_origin",0,"CMD"],
+ ["m8b",8,1,4,"ext","target.json 的 checks","",
+  ".mmw/target.json",0,"CFG"],
+ ["m8c",8,2,4,"ok","ticket.landed","",
+  "",0,"EV"],
+ ["m8d",8,2,2,"bad","ticket.bounced：首次重做，二次 triage","ADR 0027。",
+  "docs/adr/0027-a-bounce-returns-once.md",0,"EV"],
+ ["m9a",9,0,4,"script","relay：票上事件 → 唤醒（需 ack）","不设定时器（ADR 0017）。",M+"skills/dispatch/scripts/relay.py",0,"PROC"],
+ ["m9b",9,1,1,"agent","主 agent 按 night.md §3 处理","fault 修后 resume；contract 按权威顺序更正；decision 已取默认值。",M+"skills/dispatch/references/night.md ## 3",0,"REF"],
+ ["m9c",9,1,4,"script","watchdog：session 死亡 → worker.lost","",M+"skills/dispatch/scripts/watchdog.py",0,"PROC"],
+ ["m9d",9,2,4,"script","turn guard · tool guard","挂在宿主的回合结束与工具调用事件上。",M+"skills/dispatch/scripts/turn-guard.py；tool-guard.py",0,"HK"],
+ ["m9e",9,2,1,"agent","advisor：一个决定的第二意见","",M+"skills/advisor/SKILL.md",0,"SK"],
+ ["m10a",10,0,1,"agent","closing pass：逐票 fold，route 每条 finding","",M+"skills/dispatch/references/night.md ## 4",2,"CMD"],
+ ["m10b",10,1,4,"script","reverify：base 上重跑全部已落地票","",M+"skills/dispatch/scripts/dispatch.sh reverify_spec",0,"CMD"],
+ ["m10c",10,2,4,"script","summary 门禁 → NIGHT SUMMARY","",M+"skills/dispatch/scripts/dispatch.sh summary_spec",0,"CMD"],
+ ["m10d",10,3,1,"agent","retro（必做）：gather → analyze → finalize","",M+"skills/retro/SKILL.md",2,"SK"],
+ ["m10e",10,3,4,"ext","Retro Memory（Nowledge Mem，标签 mmw-retro）","",M+"skills/retro/scripts/retro.py finalize",0,"EXT"],
+ ["m10f",10,4,4,"bad","断点：下一夜 worker 的经验索引只查 mmw-experience，读不到它","只有下一次 retro 的 gather 会读 prior_retro。",M+"skills/dispatch/scripts/dispatch.sh worker_memory_packet；skills/retro/scripts/retro.py gather",0,"EXT"],
+ ["m11a",11,0,4,"ext","看板：The Night · ticket 状态","",M+"board/",0,"PROC"],
+ ["m11b",11,0,0,"human","看 SUMMARY / RETRO；先分诊，再 ready-for-human","",
+  "docs/agents/issue-tracker.md ## Morning queries",0,"HU"],
+ ["m11c",11,1,0,"human","接受产品结果","",
+  "docs/adr/0025-project-branch-and-finish.md",0,"HU"],
+ ["m11d",11,1,4,"script","dispatch.sh finish → project branch","",M+"skills/dispatch/scripts/dispatch.sh finish_preflight",0,"CMD"]
 ],
 ps:[
  ["p0a",0,0,1,"agent","how / why 查清现状","",
-  "pstack/skills/how/；pstack/skills/why/"],
+  "pstack/skills/how/；pstack/skills/why/",0,"SK"],
  ["p0b",0,1,1,"agent","architect：至少两种结构","",
-  "pstack/skills/architect/SKILL.md"],
+  "pstack/skills/architect/SKILL.md",0,"SK"],
  ["p0c",0,1,3,"multi","arena：三模型候选 → 评判 → 合成","",
-  "pstack/skills/arena/SKILL.md"],
- ["p0d",0,2,2,"agent","Prototype：能实验的分歧用实验定","留下 branch、SHA、截图；只有实验回答不了的产品或偏好问题才问人。",PP+"multi-phase-plan.md；"+PP+"prototype.md"],
- ["p0e",0,2,0,"human","只答偏好","Never Block on the Human：可逆的工程事自己定，不可逆与产品方向交人。",
-  "pstack/skills/principle-never-block-on-the-human/SKILL.md"],
- ["p1a",1,0,1,"agent","Multi-phase plan：一份计划文件","写计划的 agent 不执行它。",PP+"multi-phase-plan.md",2],
- ["p2a",2,0,1,"agent","逐 PR 证据盒","Files、Build、You see、Verify（unit / live / perf）、Review gate、Merge；证据存在才勾选。",PP+"multi-phase-plan.md",2],
- ["p2b",2,0,4,"script","check-plan.mjs 查结构","只查结构和字面标记，不证明内容真实。",
-  "pstack/skills/poteto-mode/scripts/check-plan.mjs"],
- ["p3a",3,0,0,"human","明确 go + 是否授予合并权","开跑与合并是两个分开的授权；Babysit 永远不授权合并。",PP+"autopilot-full.md 1；"+PP+"babysit.md 9"],
- ["p3b",3,1,1,"agent","arm /goal + 30 分钟审计","",PP+"autopilot-full.md 1、6"],
- ["p4a",4,0,1,"agent","root：每个 PR 派一个 owner；重叠的串行","root 不写 PR 代码，只派、只判。",PP+"autopilot-full.md 2"],
- ["p4b",4,1,2,"multi","Cursor 云端 owner × N（独占分支）","一个 owner 从构建一直持有到合并。",PP+"autopilot-full.md 2–3"],
- ["p5a",5,0,2,"agent","owner 按 playbook 构建","",PP+"feature.md；bug-fix.md"],
- ["p5b",5,1,2,"agent","15 分钟内开 ready PR + decisions.tsv","让工作不只存在于一台云端机器上。",PP+"autopilot-full.md 3"],
+  "pstack/skills/arena/SKILL.md",0,"SK"],
+ ["p0d",0,2,2,"agent","Prototype：能实验的分歧用实验定","playbook 是 poteto-mode 目录下的 reference 文件，由 poteto-mode 读取。",PP+"prototype.md",0,"REF"],
+ ["p0e",0,2,0,"human","只答偏好","",
+  "pstack/skills/principle-never-block-on-the-human/SKILL.md",0,"HU"],
+ ["p1a",1,0,1,"agent","Multi-phase plan：写计划文件","",PP+"multi-phase-plan.md",2,"REF"],
+ ["p2a",2,0,1,"agent","逐 PR 证据盒","Files、Build、You see、Verify（unit / live / perf）、Review gate、Merge。",PP+"multi-phase-plan.md",2,"FILE"],
+ ["p2b",2,0,4,"script","check-plan.mjs 查结构","",
+  "pstack/skills/poteto-mode/scripts/check-plan.mjs",0,"CMD"],
+ ["p3a",3,0,0,"human","明确 go + 是否授予合并权","",PP+"autopilot-full.md 1",0,"HU"],
+ ["p3b",3,1,1,"agent","/goal + /loop（Cursor 内建命令）","",PP+"autopilot-full.md 1、6",0,"CMD"],
+ ["p4a",4,0,1,"agent","root：每个 PR 派一个 owner；重叠的串行","",PP+"autopilot-full.md 2",0,"REF"],
+ ["p4b",4,1,2,"multi","Cursor 云端 owner × N（独占分支）","",PP+"autopilot-full.md 2–3",0,"SES"],
+ ["p5a",5,0,2,"agent","owner 按 playbook 构建","",PP+"feature.md；bug-fix.md",0,"REF"],
+ ["p5b",5,1,2,"agent","15 分钟内开 ready PR + decisions.tsv","",PP+"autopilot-full.md 3",0,"GH"],
  ["p5c",5,2,2,"agent","在真实表面自证（verify-<app>）","",
-  "pstack/docs/guide/06-verify-and-ship.md"],
- ["p6a",6,0,3,"multi","swarm：gates · live · perf · ≥2 diff audit","每个补丁版本一轮；verifier 与作者不同模型家族；live lane 在独立云端机器上驱动真实产品。",PP+"autopilot-full.md 4；pstack/skills/swarm/SKILL.md"],
- ["p6b",6,1,1,"gate","root：全部 PASS 才 clean","缺 SHA 或方法的结果丢弃重跑；BLOCKED 不算通过。",PP+"autopilot-full.md 4"],
- ["p7a",7,0,2,"agent","fix-forward：所有已证实问题一次发回","行为问题要写红测试覆盖同类位置。",PP+"autopilot-full.md 4"],
+  "pstack/docs/guide/06-verify-and-ship.md",0,"SK"],
+ ["p6a",6,0,3,"multi","swarm：gates · live · perf · ≥2 diff audit","",PP+"autopilot-full.md 4；pstack/skills/swarm/SKILL.md",0,"SK"],
+ ["p6b",6,1,1,"gate","root：全部 PASS 才 clean","",PP+"autopilot-full.md 4",0,"SES"],
+ ["p7a",7,0,2,"agent","fix-forward：所有已证实问题一次发回","",PP+"autopilot-full.md 4",0,"REF"],
  ["p7b",7,1,2,"agent","Bugbot 评论逐条核实","",
-  "pstack/skills/poteto-mode/references/bugbot-triage.md"],
- ["p8a",8,0,2,"agent","rebase 到 trunk → 新 head 跑 CI → patch-id","patch-id 没变，旧验证结论仍有效；变了就重验。",PP+"shipping.md 1–3；autopilot-full.md 5"],
- ["p8b",8,1,4,"ext","full：owner squash-merge 进 trunk","",PP+"autopilot-full.md 5"],
- ["p8c",8,1,1,"agent","stack：root 接成线性 stack，不合并","",PP+"autopilot-stack.md 5–8"],
- ["p9a",9,0,4,"script","/loop：约 30 分钟审计，只认副作用","每轮从 trunk 重读 playbook 与 /goal，按两者审计并修正偏离；只把 commit、push、PR/check 变化算进展。",PP+"autopilot-full.md 6"],
- ["p9b",9,1,1,"agent","超时无副作用 → 立即替换；hold → 零写入","",PP+"autopilot-full.md 6；autopilot-stack.md 2"],
- ["p10a",10,0,1,"agent","合并批次后：retro pass + bot 评论清扫","",PP+"autopilot-full.md 6"],
- ["p10b",10,1,3,"agent","异模型审 decisions.tsv → Attention","",
-  "pstack/skills/show-me-your-work/SKILL.md"],
+  "pstack/skills/poteto-mode/references/bugbot-triage.md",0,"REF"],
+ ["p8a",8,0,2,"agent","rebase → 新 head CI → patch-id","",PP+"shipping.md 1–3",0,"REF"],
+ ["p8b",8,1,4,"ext","full：owner squash-merge 进 trunk","",PP+"autopilot-full.md 5",0,"GH"],
+ ["p8c",8,1,1,"agent","stack：root 接成线性 stack，不合并","",PP+"autopilot-stack.md 5–8",0,"GH"],
+ ["p9a",9,0,4,"script","/loop：约 30 分钟审计，只认副作用","",PP+"autopilot-full.md 6",0,"CMD"],
+ ["p9b",9,1,1,"agent","超时无副作用 → 替换；hold → 零写入","",PP+"autopilot-full.md 6",0,"REF"],
+ ["p10a",10,0,1,"agent","合并批次后：retro pass + bot 评论清扫","",PP+"autopilot-full.md 6",0,"REF"],
+ ["p10b",10,1,3,"agent","show-me-your-work：异模型审决策轨迹","",
+  "pstack/skills/show-me-your-work/SKILL.md",0,"SK"],
  ["p11a",11,0,0,"human","morning audit：看决策与 Attention","",
-  "pstack/docs/guide/07-overnight.md ## The morning audit"],
- ["p11b",11,1,0,"human","stack：逐条审阅并落地","",PP+"autopilot-stack.md 8"],
- ["p11c",11,2,0,"human","说 reflect → 批准才改技能","",
-  "pstack/skills/reflect/SKILL.md ### 5"]
+  "pstack/docs/guide/07-overnight.md",0,"HU"],
+ ["p11b",11,1,0,"human","stack：逐条审阅并落地","",PP+"autopilot-stack.md 8",0,"HU"],
+ ["p11c",11,2,1,"agent","reflect：人批准才改技能","",
+  "pstack/skills/reflect/SKILL.md",0,"SK"]
 ]};
 const E={mm:[
- ["m0a","m0b"],["m0b","m0c","可运行问题"],["m0c","m0b","证据","b","U"],["m0b","m0d","有界面"],["m0d","m0e"],
- ["m0b","m1a"],["m1a","m2a"],["m2a","m2b"],["m2b","m2c"],
- ["m2b","m3a"],["m3a","m3b","批准"],["m3b","m2a","ERROR","f","U"],["m3b","m3c"],["m3c","m3d"],["m3d","m3e"],
- ["m3e","m4a"],["m4a","m4b"],["m4b","m5a","","",3.5],["m5a","m5b"],["m5b","m5c"],
- ["m5c","m6a","","",3.5],["m6a","m5b","未满足","f",1.5],["m6a","m6b","满足"],["m6b","m7a","reviewer.reported"],
- ["m7a","m7b"],["m7b","m7d","ALL MET"],["m7b","m7c","未满足"],
- ["m7d","m8a"],["m8a","m8b"],
- ["m9a","m9c"],["m9b","m9c"],
- ["m8a","m10a","frontier 空"],["m10a","m10b"],["m10b","m10c","全绿"],["m10c","m10d"],
- ["m10d","m11a"],["m11a","m11b"],["m11b","m11c","接受"]
+ ["m0b","m0a","提问"],["m0a","m0c"],["m0c","m0d"],["m0c","m0e","可运行问题"],["m0e","m0c","证据","b","U"],["m0c","m0g","有界面"],["m0g","m0h"],["m0h","m0i"],["m0i","m0h","评论","b",2.5],["m0i","m0j","签收"],
+ ["m0j","m1a"],["m1a","m1b"],["m1b","m1c","gap list"],["m1c","m1d","全部 aligned"],["m1d","m1e","0 ERROR"],["m1e","m1f"],["m0c","m1f","无界面","",0.5],["m1f","m1g"],
+ ["m1g","m2a"],["m2a","m2b","有界面"],["m2b","m2c"],["m2a","m2c","","",0.5],["m2c","m2d"],["m2c","m2e","界面批次"],["m2e","m2f"],
+ ["m2c","m3a"],["m3a","m3b","批准"],["m3b","m2a","ERROR","f",3.5],["m3b","m3c","0 ERROR"],["m3c","m3d"],["m3d","m3e"],["m3e","m3f"],["m3f","m3g","看板 URL"],
+ ["m3f","m4a","","",3.5],["m4a","m4b"],["m4b","m4c","可派票"],["m4c","m4d"],["m4d","m4e"],["m4e","m4f"],
+ ["m4f","m5a","","",3.5],["m5a","m5b"],["m5b","m5c","一般票"],["m5c","m5d","界面票"],["m5d","m5e"],["m5e","m5d","DIFF","b"],["m5c","m5f","","",3.5],["m5f","m5g"],
+ ["m5g","m6a"],["m6a","m6b","要运行产品"],["m6b","m6c"],["m6a","m6d"],["m6c","m6d"],["m6d","m5b","未满足","f",1.5],["m6d","m6e","满足"],["m6e","m6f"],["m6f","m6g","有 story 判据"],["m6f","m6h"],["m6g","m6h"],
+ ["m6h","m7a","","",3.5],["m7a","m7b","票外"],["m7a","m7c"],["m7c","m7d"],["m7d","m7e"],["m7e","m7f","ALL MET"],["m7e","m7g","未满足"],
+ ["m7f","m8a"],["m8a","m8b"],["m8b","m8c","绿"],["m8b","m8d","冲突 / 红"],
+ ["m9a","m9b"],["m9c","m9b"],["m9d","m9c","保证武装"],["m9b","m9e","卡住两次"],
+ ["m8c","m10a","frontier 空","",3.5],["m10a","m10b"],["m10b","m10c","全绿"],["m10c","m10d"],["m10d","m10e"],["m10e","m10f","","f"],
+ ["m10d","m11b"],["m11a","m11b"],["m11b","m11c"],["m11c","m11d","接受"]
 ],ps:[
  ["p0a","p0b"],["p0b","p0c"],["p0c","p0d"],["p0d","p0e","实验定不了"],["p0d","p0b","结论","b",1.5],
  ["p0b","p1a"],["p1a","p2a"],["p2a","p2b"],["p2b","p3a"],["p3a","p3b","go"],
@@ -394,9 +443,10 @@ const E={mm:[
  ["p5c","p6a","code-ready SHA","",3.5],["p6a","p6b"],["p6b","p7a","ISSUES"],["p7a","p6a","新补丁 → 新一轮","b","U"],["p7b","p7a"],
  ["p6b","p8a","clean"],["p8a","p8b","full"],["p8a","p8c","stack"],
  ["p9a","p9b"],
- ["p8b","p10a"],["p10a","p10b"],["p10b","p11a"],["p8c","p11b","",""],["p11a","p11c"]
+ ["p8b","p10a"],["p10a","p10b"],["p10b","p11a"],["p8c","p11b"],["p11a","p11c"]
 ]};
 
+const CARR={SK:["SKILL","#0B7A70","技能正文"],REF:["REF","#0B7A70","reference 文件（含 pstack 的 playbook）"],PR:["PROMPT","#0B7A70","拼给 agent 的提示词"],SC:["SCRIPT","#3F6488","脚本函数"],CMD:["CMD","#3F6488","命令（含 Cursor 内建命令）"],HK:["HOOK","#3F6488","宿主 hook"],PROC:["PROC","#3F6488","常驻进程"],CFG:["CONFIG","#7A5A2E","配置"],FILE:["FILE","#7A5A2E","仓库文件"],GH:["GITHUB","#7A5A2E","GitHub 对象"],EV:["EVENT","#A4476A","事件"],EXT:["EXT","#6F7B87","外部工具或服务"],HU:["人","#9C7000","人的决定或动作"],SES:["会话","#5A44B5","一个运行中的 agent"]};
 const SVGNS="http://www.w3.org/2000/svg";
 const cv=document.createElement("canvas").getContext("2d");
 const FAM='"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif';
@@ -411,7 +461,7 @@ function render(){
   const W=Math.max(1280,document.documentElement.clientWidth);
   const midW=Math.round(Math.min(320,Math.max(240,W*.19)));
   const sideW=(W-midW)/2, laneW=sideW/5, pad=7;
-  const FS=12.2, LH=15.4, rowH=86, pt=14, pb=12;
+  const FS=12.2, LH=15.4, rowH=98, pt=14, pb=12;
   const sides={mm:{x0:0},ps:{x0:sideW+midW}};
   const rows=BANDS.map(()=>0);
   for(const s of ORDER) for(const n of N[s]) rows[n[1]]=Math.max(rows[n[1]],n[2]+1);
@@ -440,10 +490,10 @@ function render(){
   for(const s of ORDER)for(let i=1;i<5;i++){const x=sides[s].x0+i*laneW;el("line",{x1:x,y1:0,x2:x,y2:H,stroke:"var(--rule)","stroke-dasharray":"2 5"},gL);}
   const G={};GEO=G;
   for(const s of ORDER)for(const n of N[s]){
-    const [id,band,row,lane,kind,label,detail,src,span]=n;const sp=span||1;const w=sp*laneW-pad*2;
-    const lines=wrap(label,w-14,FS,500).slice(0,5);const h=Math.max(34,lines.length*LH+14);
+    const [id,band,row,lane,kind,label,detail,src,span,car]=n;const sp=span||1;const w=sp*laneW-pad*2;
+    const lines=wrap(label,w-14,FS,500).slice(0,4);const h=Math.max(40,lines.length*LH+26);
     const cx=sides[s].x0+(lane+sp/2)*laneW, cy=bY[band]+pt+row*rowH+rowH/2;
-    const g={id,s,kind,label,detail,src,x:cx-w/2,y:cy-h/2,w,h,cx,cy,edges:[]};G[id]=g;
+    const g={id,s,kind,label,detail,src,car,x:cx-w/2,y:cy-h/2,w,h,cx,cy,edges:[]};G[id]=g;
     const grp=el("g",{class:"node",tabindex:0,role:"button","data-id":id,"aria-label":label},gN);const x=g.x,yy=g.y;
     if(kind==="multi")el("rect",{x:x+5,y:yy+5,width:w,height:h,rx:4,fill:"var(--agent-bg)",stroke:"var(--ink)","stroke-width":1.1},grp);
     let shape;
@@ -452,7 +502,8 @@ function render(){
       shape=el("rect",{x,y:yy,width:w,height:h,rx:st[2],fill:st[0],stroke:st[1],"stroke-width":(kind==="ok"||kind==="bad")?2:1.3,"stroke-dasharray":st[3]},grp);}
     shape.setAttribute("class","shape");
     const tc=kind==="ok"?"var(--ok)":kind==="bad"?"var(--bad)":"var(--ink)";
-    const tx=el("text",{x:cx,y:cy-(lines.length-1)*LH/2+4.2,"text-anchor":"middle","font-size":FS,"font-weight":500,fill:tc},grp);
+    if(car&&CARR[car]){const [tag,col]=CARR[car];cv.font=`700 8.6px ${FAM}`;const tw=cv.measureText(tag).width+8;el("rect",{x:x+4,y:yy+4,width:tw,height:12,rx:2,fill:col},grp);const tg=el("text",{x:x+4+tw/2,y:yy+13,"text-anchor":"middle","font-size":8.6,"font-weight":700,fill:"var(--surface)","font-family":"var(--mono)"},grp);tg.textContent=tag;}
+    const tx=el("text",{x:cx,y:cy-(lines.length-1)*LH/2+10,"text-anchor":"middle","font-size":FS,"font-weight":500,fill:tc},grp);
     lines.forEach((ln,k)=>{const ts=el("tspan",{x:cx,dy:k?LH:0},tx);ts.textContent=ln;});g.el=grp;}
   const back={};
   for(const s of ORDER)E[s].forEach(e=>{
@@ -485,7 +536,7 @@ function focusNode(id,sel){const g=GEO[id];if(!g)return;const svg=g.el.ownerSVGE
 function clearFocus(){const s=document.querySelector("#flow svg");if(!s)return;s.classList.remove("dim");s.querySelectorAll(".on,.sel").forEach(x=>x.classList.remove("on","sel"));}
 const det=document.getElementById("detail");
 function showDetail(g){const kn={human:"人",agent:"agent",multi:"并行多个 agent",script:"确定性脚本",ext:"外部服务",gate:"判断点",ok:"结果",bad:"结果"}[g.kind];
-  det.innerHTML=`<button class="close" aria-label="关闭">×</button><div class="side ${g.s}">${g.s==="ps"?"pstack":"MMW"} · ${kn}</div><h3>${esc(g.label)}</h3>${g.detail?`<p>${esc(g.detail)}</p>`:""}${g.src?`<div class="src">出处：${esc(g.src)}</div>`:""}`;
+  det.innerHTML=`<button class="close" aria-label="关闭">×</button><div class="side ${g.s}">${g.s==="ps"?"pstack":"MMW"} · ${kn}${g.car&&CARR[g.car]?" · 载体："+CARR[g.car][2]:""}</div><h3>${esc(g.label)}</h3>${g.detail?`<p>${esc(g.detail)}</p>`:""}${g.src?`<div class="src">出处：${esc(g.src)}</div>`:""}`;
   det.hidden=false;det.querySelector(".close").onclick=()=>{pinned=null;clearFocus();hideDetail();};}
 function hideDetail(){det.hidden=true;}
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){pinned=null;clearFocus();hideDetail();}});
@@ -655,6 +706,7 @@ const KEEP=[
 ];
 document.getElementById("keepgrid").innerHTML=KEEP.map(k=>`<div><h4>${esc(k[0])}</h4>${esc(k[1])}<div class="ev">证据：${esc(k[2])}</div></div>`).join("");
 
+document.getElementById("carLegend").insertAdjacentHTML("beforeend",Object.values(CARR).map(c=>`<span><span style="display:inline-block;font:700 9px/1 var(--mono);color:#fff;background:${c[1]};padding:3px 4px;border-radius:2px;margin-right:4px">${c[0]}</span>${c[2]}</span>`).join(""));
 function setBarH(){document.documentElement.style.setProperty("--barH",document.getElementById("bar").offsetHeight+"px");}
 let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{setBarH();render();},150);});
 setBarH();render();

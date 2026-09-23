@@ -1,8 +1,8 @@
-"""Merge C1/C2/C3/C5 flow data, add installed skills missing from the flow, attach C4a/C4b references to nodes."""
+"""Build mmw-map.html: merge the C1/C2/C3/C5 flow data, add installed skills missing from the flow, and attach the T1-T5 root provenance (external project, file and section, clue chain) to each node."""
 import json, re, collections, sys, os
 
-HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports")
-def load(n): return json.load(open(os.path.join(HERE, n)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+def load(n): return json.load(open(os.path.join(HERE, "..", "reports", n)))
 
 FLOW = ["C1-front-ui.json", "C2-night.json", "C3-ticket-ui-down.json", "C5-toolbox.json"]
 PHASES = {
@@ -131,43 +131,53 @@ def match(loc):
         return (pri or ids)[0], "dir"
     return None, None
 
-a, b = load("C4a-upstream.json"), load("C4b-research-refs.json")
-SRC = {}
-for s in a["sources"] + b["sources"]:
-    SRC.setdefault(s["id"], s)
-# unify duplicate ids for the same upstream
-ALIAS = {"mattpocock": "mattpocock-skills", "unlazy": "leonxlnx-unlazy", "diagram": "cathrynlavery-diagram-design"}
-refs, unmatched = [], []
-web_bg = collections.defaultdict(lambda: collections.Counter())
-for grp, data in (("C4a", a), ("C4b", b)):
-    for u in data["uses"]:
-        sid = ALIAS.get(u["source"], u["source"])
-        s = SRC.get(sid) or SRC.get(u["source"]) or {}
-        if sid.startswith("webref"):
-            dom = re.sub(r"^https?://", "", s.get("name", "") or s.get("location", "")).split("/")[0]
-            web_bg[npath(u["mmw_location"])][dom or "?"] += 1
-            continue
-        globals()["EXC"] = u.get("mmw_excerpt", "")
-        nid, how_m = match(u["mmw_location"])
-        r = {"src": sid, "how": u["how"], "loc": u["mmw_location"], "mx": u.get("mmw_excerpt", ""), "sloc": u.get("source_location", ""),
-             "sx": u.get("source_excerpt", ""), "chg": u.get("changes", ""), "why": u.get("intent", ""), "inf": u.get("inferred_intent", ""),
-             "ev": u.get("evidence", []), "node": nid, "m": how_m, "g": grp}
-        (refs if nid else unmatched).append(r)
-
-src_out = {}
-for sid in set([r["src"] for r in refs + unmatched]):
-    s = SRC.get(sid, {})
-    src_out[sid] = {"name": s.get("name", sid), "kind": s.get("kind", "other"), "loc": s.get("location", ""), "what": s.get("what_it_is", "")}
-for k in ALIAS.values():
-    if k in SRC: src_out.setdefault(k, {"name": SRC[k]["name"], "kind": SRC[k]["kind"], "loc": SRC[k].get("location", ""), "what": SRC[k].get("what_it_is", "")})
-
-web = [{"note": k, "domains": v.most_common(), "n": sum(v.values())} for k, v in sorted(web_bg.items(), key=lambda kv: -sum(kv[1].values()))]
+# ---------- root provenance (T1-T5) ----------
+PID = {"matt": "mattpocock", "mattpocock-skills": "mattpocock", "gh": "github"}
+ROLE = {
+ "subtree": ["mattpocock", "unlazy", "diagram"],
+ "design": ["firstmate", "monomind", "bmad", "spec-kit", "factory-missions", "openai-cookbook", "anthropic-effective", "grok-bundled", "agentskills"],
+ "runtime": ["claude-design", "playwright", "paseo", "orca", "herdr", "nowledge", "github", "git", "claude", "codex", "codex_source", "pi", "grok", "apple", "nuitka", "electron", "ruff", "pyrefly", "oxlint", "prek"],
+ "replaced": ["superpowers", "planning-files", "ponytail", "caveman", "gstack", "pstack", "serena", "graphify", "context7", "showme", "manus"],
+}
+projects = {}
+comps = []
+for f in ["T1-front.json", "T2-night.json", "T3-ticket.json", "T4-toolbox.json", "T5-history.json"]:
+    d = load(f); tg = f[:2]
+    for p in d["projects"]:
+        pid = PID.get(p["id"], p["id"])
+        q = projects.setdefault(pid, {"id": pid, "name": p["name"], "repo": re.sub(r"^https://github\.com/([^/]+/[^/#]+).*$", r"\1", p.get("repo", "")), "snap": [], "what": p.get("what", ""), "first": p.get("first_seen", "")})
+        if p.get("snapshot") and p["snapshot"] != "无" and p["snapshot"] not in q["snap"]: q["snap"].append(p["snapshot"])
+    for c in d["components"]:
+        if tg == "T5" and not c["origins"]: continue
+        kind = "para" if tg == "T5" and c["id"].startswith("upstream-") else ("hist" if tg == "T5" and c["id"].startswith("history") else "comp")
+        og = [{"p": PID.get(o["project"], o["project"]), "part": o["part"], "ver": o.get("version", ""), "took": o.get("what_was_taken", ""),
+               "how": o["how"], "chain": o.get("chain", []), "conf": o.get("confidence", ""), "why": o.get("intent", "")} for o in c["origins"]]
+        ns = list(dict.fromkeys(x for x in c.get("mmw_nodes", []) if x in nodes))
+        how_m = "ids"
+        if kind == "para" and len(ns) > 1:
+            globals()["EXC"] = c["name"]
+            nid, how_m = match(c["mmw_location"])
+            ns = [nid] if nid in ns else ns[:1]
+        if not ns and c.get("mmw_location"):
+            globals()["EXC"] = c["name"]
+            nid, how_m = match(c["mmw_location"].split(";")[0].strip())
+            ns = [nid] if nid else []
+        comps.append({"id": f"{tg}:{c['id']}", "t": tg, "k": kind, "name": c["name"], "loc": c.get("mmw_location", ""), "nodes": ns, "m": how_m,
+                      "og": og, "orig": bool(c.get("original_to_mmw")), "searched": c.get("searched", "")})
+used = collections.Counter(o["p"] for c in comps for o in c["og"])
+role_of = {p: r for r, ps in ROLE.items() for p in ps}
+proj_out = {pid: {**p, "role": role_of.get(pid, "design"), "n": used[pid]} for pid, p in projects.items() if used[pid]}
+cited_only = len([p for p in projects if not used[p]])
+hist_notes = load("T5-history.json").get("notes", [])
+covered = {n for c in comps for n in c["nodes"]}
 out = {"bands": [{"g": g, "stage": STAGE[g], "p": p} for g, p in order], "nodes": list(nodes.values()), "edges": edges,
-       "refs": refs, "unmatched": unmatched, "sources": src_out, "web": web, "notes": notes, "badband": bad}
-json.dump(out, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "map-data.json"), "w"), ensure_ascii=False)
-mc = collections.Counter(r["m"] for r in refs)
-print("nodes", len(nodes), "edges", len(edges), "refs", len(refs), mc, "unmatched", len(unmatched), "web notes", len(web), sum(w["n"] for w in web))
-print("unmatched by src", collections.Counter(r["src"] for r in unmatched).most_common(12))
-print("unmatched locs", collections.Counter(npath(r["loc"]) for r in unmatched).most_common(15))
+       "comps": comps, "projects": proj_out, "citedOnly": cited_only, "hist": hist_notes, "notes": notes, "badband": bad}
+tpl = open(os.path.join(HERE, "map.tpl.html"), encoding="utf-8").read()
+open(os.path.join(HERE, "..", "mmw-map.html"), "w", encoding="utf-8").write(tpl.replace("__DATA__", json.dumps(out, ensure_ascii=False).replace("</", "<\\/")))
+print("nodes", len(nodes), "edges", len(edges), "comps", len(comps), collections.Counter(c["k"] for c in comps), "match", collections.Counter(c["m"] for c in comps))
+print("no node", [(c["id"], c["loc"][:60]) for c in comps if not c["nodes"]])
+print("projects used", len(proj_out), "cited only", cited_only, "role default", [p for p in proj_out if p not in role_of])
+print("nodes covered", len(covered), "/", len(nodes))
+print("uncovered by band", collections.Counter(nodes[n]["_band"] for n in nodes if n not in covered))
 print("bands used", collections.Counter(n["_band"] for n in nodes.values()))
 print("manual skills", [n["name"] for n in nodes.values() if n.get("manual")])

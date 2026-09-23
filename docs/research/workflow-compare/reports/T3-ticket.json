@@ -1,0 +1,1421 @@
+{
+  "group": "T3-ticket",
+  "projects": [
+    {
+      "id": "mattpocock-skills",
+      "name": "mattpocock/skills",
+      "repo": "mattpocock/skills",
+      "snapshot": "mmw-v2/upstream/",
+      "what": "工程技能的原始文本和双轴评审骨架。"
+    },
+    {
+      "id": "unlazy",
+      "name": "unlazy",
+      "repo": "Leonxlnx/unlazy",
+      "snapshot": "mmw-v2/upstream-unlazy/；docs/research/code-landing-refs/unlazy/",
+      "what": "可执行验收账本与 gate-check 判定引擎。"
+    },
+    {
+      "id": "bmad",
+      "name": "BMAD-METHOD",
+      "repo": "bmad-code-org/BMAD-METHOD",
+      "snapshot": "无",
+      "what": "评审发现逐条核实与反驳的判定程序。"
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright",
+      "repo": "microsoft/playwright",
+      "snapshot": "无",
+      "what": "界面离线渲染和真实旅程的浏览器 API 依赖。"
+    }
+  ],
+  "components": [
+    {
+      "id": "c3-01",
+      "name": "implement",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/implement/SKILL.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Claim, read in, write the code",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/implement/SKILL.md#Implement-the-work-described-by-the-user",
+          "version": "5b1a4c51",
+          "what_was_taken": "按 spec/ticket 实现、TDD、评审和提交的技能入口骨架。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/implement.md#逐段意图",
+              "says": "源目录；正文为本仓自己的文本"
+            },
+            {
+              "clue": "提交",
+              "location": "git 5b1a4c51:skills/engineering/implement/SKILL.md",
+              "says": "Implement the work described by the user"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "把上游短技能接入 MMW 单票 worker 流程。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-02",
+      "name": "adopt",
+      "mmw_nodes": [
+        "command:skills/dispatch/scripts/dispatch.sh#adopt"
+      ],
+      "mmw_location": "mmw-v2/skills/dispatch/references/inside-a-ticket.md#A ticket you picked up yourself",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-03",
+      "name": "--preflight",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--preflight"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_preflight:2063",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-04",
+      "name": "baseline run",
+      "mmw_nodes": [
+        "script:skills/verify-ticket/scripts/verify-ticket.py#run_baseline"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_baseline:1985",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-05",
+      "name": "ticket.claimed",
+      "mmw_nodes": [
+        "event:ticket.claimed"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_preflight:2063",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-06",
+      "name": "ticket.refused",
+      "mmw_nodes": [
+        "event:ticket.refused"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_preflight:2063",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-07",
+      "name": "Claim, read in, write the code",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/implement/SKILL.md#Claim, read in, write the code"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Claim, read in, write the code",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/implement/SKILL.md#Implement-the-work-described-by-the-user",
+          "version": "5b1a4c51",
+          "what_was_taken": "按 spec/ticket 实现、TDD、评审和提交的技能入口骨架。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/implement.md#逐段意图",
+              "says": "源目录；正文为本仓自己的文本"
+            },
+            {
+              "clue": "提交",
+              "location": "git 5b1a4c51:skills/engineering/implement/SKILL.md",
+              "says": "Implement the work described by the user"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "把上游短技能接入 MMW 单票 worker 流程。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-08",
+      "name": "ticket issue",
+      "mmw_nodes": [
+        "tracker:ticket issue"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Claim, read in, write the code",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-09",
+      "name": "Shared experience while implementing",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/implement/SKILL.md#Shared experience while implementing"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Shared experience while implementing",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/implement/SKILL.md#Implement-the-work-described-by-the-user",
+          "version": "5b1a4c51",
+          "what_was_taken": "按 spec/ticket 实现、TDD、评审和提交的技能入口骨架。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/implement.md#逐段意图",
+              "says": "源目录；正文为本仓自己的文本"
+            },
+            {
+              "clue": "提交",
+              "location": "git 5b1a4c51:skills/engineering/implement/SKILL.md",
+              "says": "Implement the work described by the user"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "把上游短技能接入 MMW 单票 worker 流程。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-10",
+      "name": "--lint",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--lint"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_lint:3710",
+      "origins": [
+        {
+          "project": "unlazy",
+          "part": "https://github.com/Leonxlnx/unlazy/blob/da0b00a3/scripts/gate-lint.mjs#lint-ledger",
+          "version": "da0b00a3",
+          "what_was_taken": "静态识别同义反复及人工判据；MMW 增加票图、screen contract 和草稿检查。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/unlazy.md#scripts/gate-lint.mjs",
+              "says": "tautological-check; manual-gate"
+            },
+            {
+              "clue": "快照",
+              "location": "docs/research/code-landing-refs/unlazy/scripts/gate-lint.mjs",
+              "says": "lint a gate ledger"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "在发布前拒绝无法自行判定的标准。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-11",
+      "name": "--lint --drafts",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--drafts"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#lint_drafts:3816",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-12",
+      "name": "Rules of the loop",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/tdd/SKILL.md#Rules of the loop"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/tdd/SKILL.md#Rules of the loop",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/tdd/SKILL.md#Rules-of-the-loop",
+          "version": "5b1a4c51",
+          "what_was_taken": "红绿循环、预先约定的 seam 和测试反模式。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/tdd.md#逐段意图",
+              "says": "上游原文；Seam 改读票面"
+            },
+            {
+              "clue": "快照",
+              "location": "git 5b1a4c51:skills/engineering/tdd/SKILL.md#Rules of the loop",
+              "says": "Red before green; One slice at a time"
+            }
+          ],
+          "confidence": "确证",
+          "intent": ""
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-13",
+      "name": "Writing interface code",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/implement/references/writing-interface-code.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/references/writing-interface-code.md#Writing interface code",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-14",
+      "name": "scenes.json",
+      "mmw_nodes": [
+        "artifact:prototypes/<effort>/claude-design/scenes.json"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/references/story-parity.md#The story page the product serves",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-15",
+      "name": "--render-only",
+      "mmw_nodes": [
+        "command:skills/ui-acceptance/scripts/story-parity.py#--render-only"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/story-parity.py#render_only:538",
+      "origins": [
+        {
+          "project": "playwright",
+          "part": "https://playwright.dev/python/docs/api/class-page#page-screenshot",
+          "version": "访问日期 2026-09-24",
+          "what_was_taken": "离线打开设计与 story 页并截图/读取元素；element parity 判定为 MMW 原创。",
+          "how": "dependency",
+          "chain": [
+            {
+              "clue": "ADR",
+              "location": "docs/adr/0011-component-story-not-whole-product.md#界面等价在组件级离线判定",
+              "says": "组件级离线判定"
+            }
+          ],
+          "confidence": "较可信",
+          "intent": "以浏览器渲染真实页面。"
+        }
+      ],
+      "original_to_mmw": true,
+      "searched": "git log --all；docs/adr/0011、0028；deprecated/ui-qa、ui-evaluator；docs/research/code-landing-refs/；mmw-v2/merge-notes/；Playwright 原始 API 文档。Playwright 是浏览器依赖，未找到 element parity、design_render 或 break switch 的外部实现来源。"
+    },
+    {
+      "id": "c3-16",
+      "name": "values JSON",
+      "mmw_nodes": [
+        "artifact:--out/values/<mount>/<scene>-<W>x<H>.json"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/story-parity.py#render_only:538",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-17",
+      "name": "story media",
+      "mmw_nodes": [
+        "artifact:--out/media/"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/story-parity.py#compare:572",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-18",
+      "name": "story service and adapter",
+      "mmw_nodes": [
+        "artifact:.mmw/stories/"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/references/story-parity.md#The story page the product serves",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-19",
+      "name": "four-column boundary test",
+      "mmw_nodes": [
+        "artifact:four-column boundary test"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/references/boundary-check.md#The four-column boundary test",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。 ADR 0028 明写 MMW 四列规则；unlazy 只有一般 negative control，没有 calls/shows/next/on_failure 四列。"
+    },
+    {
+      "id": "c3-20",
+      "name": "Fix in place",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/implement/references/writing-interface-code.md#Fix in place"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/references/writing-interface-code.md#Fix in place",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-21",
+      "name": "When the design side is the defect",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/implement/references/writing-interface-code.md#When the design side is the defect"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/references/writing-interface-code.md#When the design side is the defect",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-22",
+      "name": "integrate",
+      "mmw_nodes": [
+        "command:skills/dispatch/scripts/dispatch.sh#integrate"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Closing steps",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-23",
+      "name": "verify-ticket.py <n>",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#criteria run"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_checks:1752",
+      "origins": [
+        {
+          "project": "unlazy",
+          "part": "https://github.com/Leonxlnx/unlazy/blob/da0b00a3/references/gates.md#Gate-check-and-evidence",
+          "version": "da0b00a3",
+          "what_was_taken": "CHECK/EXPECT/EVIDENCE 格式、已满足条目的 --reverify；票面和事件包装由 MMW 实现。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/unlazy.md#总原则",
+              "says": "从票正文生成一份临时账本"
+            },
+            {
+              "clue": "快照",
+              "location": "docs/research/code-landing-refs/unlazy/references/gates.md#Gate-check and evidence",
+              "says": "CHECK:; EXPECT:; EVIDENCE:; --reverify"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "让每条 ticket criterion 由机器执行并留下证据。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-24",
+      "name": "gate-check",
+      "mmw_nodes": [
+        "script:upstream-unlazy/scripts/gate-check.mjs#runCheck"
+      ],
+      "mmw_location": "mmw-v2/upstream-unlazy/scripts/gate-check.mjs#runCheck:436",
+      "origins": [
+        {
+          "project": "unlazy",
+          "part": "https://github.com/Leonxlnx/unlazy/blob/da0b00a3/scripts/gate-check.mjs#runCheck",
+          "version": "da0b00a3",
+          "what_was_taken": "执行 CHECK，联合退出码与 EXPECT 判定，形成 EVIDENCE。",
+          "how": "verbatim",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/unlazy.md#总原则",
+              "says": "只用判定：跑 CHECK、判两个条件"
+            },
+            {
+              "clue": "快照",
+              "location": "docs/research/code-landing-refs/unlazy/scripts/gate-check.mjs#runCheck",
+              "says": "function runCheck(task)"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "复用确定性的验收判定，舍弃上游审批/调度。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-25",
+      "name": "hold_slot",
+      "mmw_nodes": [
+        "script:skills/verify-ticket/scripts/verify-ticket.py#hold_slot"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#hold_slot:1662",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-26",
+      "name": "lease.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/lease.py#try_claim"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/lease.py#try_claim:423",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-27",
+      "name": "worker.queued",
+      "mmw_nodes": [
+        "event:worker.queued"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#hold_slot:1662",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-28",
+      "name": "ticket.checked",
+      "mmw_nodes": [
+        "event:ticket.checked"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_checks:1752",
+      "origins": [
+        {
+          "project": "unlazy",
+          "part": "https://github.com/Leonxlnx/unlazy/blob/da0b00a3/references/gates.md#Gate-check-and-evidence",
+          "version": "da0b00a3",
+          "what_was_taken": "CHECK/EXPECT/EVIDENCE 格式、已满足条目的 --reverify；票面和事件包装由 MMW 实现。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/unlazy.md#总原则",
+              "says": "从票正文生成一份临时账本"
+            },
+            {
+              "clue": "快照",
+              "location": "docs/research/code-landing-refs/unlazy/references/gates.md#Gate-check and evidence",
+              "says": "CHECK:; EXPECT:; EVIDENCE:; --reverify"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "让每条 ticket criterion 由机器执行并留下证据。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-29",
+      "name": "--reverify --actor worker",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--reverify"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_checks:1752",
+      "origins": [
+        {
+          "project": "unlazy",
+          "part": "https://github.com/Leonxlnx/unlazy/blob/da0b00a3/references/gates.md#Gate-check-and-evidence",
+          "version": "da0b00a3",
+          "what_was_taken": "CHECK/EXPECT/EVIDENCE 格式、已满足条目的 --reverify；票面和事件包装由 MMW 实现。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/unlazy.md#总原则",
+              "says": "从票正文生成一份临时账本"
+            },
+            {
+              "clue": "快照",
+              "location": "docs/research/code-landing-refs/unlazy/references/gates.md#Gate-check and evidence",
+              "says": "CHECK:; EXPECT:; EVIDENCE:; --reverify"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "让每条 ticket criterion 由机器执行并留下证据。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-30",
+      "name": "--timeout",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--timeout"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_checks:1752",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-31",
+      "name": "--actor worker|main",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--actor"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#main:3920",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-32",
+      "name": "--tools",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--tools"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#main:3920",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-33",
+      "name": "UI acceptance",
+      "mmw_nodes": [
+        "skill:skills/ui-acceptance/SKILL.md"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/SKILL.md#UI acceptance",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-34",
+      "name": "story-parity.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/story-parity.py#compare"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/story-parity.py#compare:572",
+      "origins": [
+        {
+          "project": "playwright",
+          "part": "https://playwright.dev/python/docs/api/class-page#page-screenshot",
+          "version": "访问日期 2026-09-24",
+          "what_was_taken": "离线打开设计与 story 页并截图/读取元素；element parity 判定为 MMW 原创。",
+          "how": "dependency",
+          "chain": [
+            {
+              "clue": "ADR",
+              "location": "docs/adr/0011-component-story-not-whole-product.md#界面等价在组件级离线判定",
+              "says": "组件级离线判定"
+            }
+          ],
+          "confidence": "较可信",
+          "intent": "以浏览器渲染真实页面。"
+        }
+      ],
+      "original_to_mmw": true,
+      "searched": "git log --all；docs/adr/0011、0028；deprecated/ui-qa、ui-evaluator；docs/research/code-landing-refs/；mmw-v2/merge-notes/；Playwright 原始 API 文档。Playwright 是浏览器依赖，未找到 element parity、design_render 或 break switch 的外部实现来源。"
+    },
+    {
+      "id": "c3-35",
+      "name": "design_render.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/design_render.py#scene_plan"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/design_render.py#scene_plan:156",
+      "origins": [
+        {
+          "project": "playwright",
+          "part": "https://playwright.dev/python/docs/api/class-page#page-screenshot",
+          "version": "访问日期 2026-09-24",
+          "what_was_taken": "离线打开设计与 story 页并截图/读取元素；element parity 判定为 MMW 原创。",
+          "how": "dependency",
+          "chain": [
+            {
+              "clue": "ADR",
+              "location": "docs/adr/0011-component-story-not-whole-product.md#界面等价在组件级离线判定",
+              "says": "组件级离线判定"
+            }
+          ],
+          "confidence": "较可信",
+          "intent": "以浏览器渲染真实页面。"
+        }
+      ],
+      "original_to_mmw": true,
+      "searched": "git log --all；docs/adr/0011、0028；deprecated/ui-qa、ui-evaluator；docs/research/code-landing-refs/；mmw-v2/merge-notes/；Playwright 原始 API 文档。Playwright 是浏览器依赖，未找到 element parity、design_render 或 break switch 的外部实现来源。"
+    },
+    {
+      "id": "c3-36",
+      "name": "pixel_diff.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/pixel_diff.py#pixel_diff"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/pixel_diff.py#pixel_diff:19",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-37",
+      "name": "boundary-check.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/boundary-check.py#check_one"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/boundary-check.py#check_one:87",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。 ADR 0028 明写 MMW 四列规则；unlazy 只有一般 negative control，没有 calls/shows/next/on_failure 四列。"
+    },
+    {
+      "id": "c3-38",
+      "name": "journey.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/journey.py#_run_named"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/journey.py#_run_named:160",
+      "origins": [
+        {
+          "project": "playwright",
+          "part": "https://playwright.dev/python/docs/api/class-page#page-goto",
+          "version": "访问日期 2026-09-24",
+          "what_was_taken": "旅程脚本调用 Playwright 浏览器操作；break switch 和负控规则为 MMW 原创。",
+          "how": "dependency",
+          "chain": [
+            {
+              "clue": "ADR",
+              "location": "docs/adr/0011-component-story-not-whole-product.md#被这份删掉的东西，和谁接管",
+              "says": "旅程脚本用 Playwright 原生 API"
+            }
+          ],
+          "confidence": "较可信",
+          "intent": "用原生浏览器 API 跑少量真实旅程。"
+        }
+      ],
+      "original_to_mmw": true,
+      "searched": "git log --all；docs/adr/0011、0028；deprecated/ui-qa、ui-evaluator；docs/research/code-landing-refs/；mmw-v2/merge-notes/；Playwright 原始 API 文档。Playwright 是浏览器依赖，未找到 element parity、design_render 或 break switch 的外部实现来源。"
+    },
+    {
+      "id": "c3-39",
+      "name": "harness-guard.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/harness-guard.py#main"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/harness-guard.py#main:257",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-40",
+      "name": "target_config.py --check",
+      "mmw_nodes": [
+        "command:skills/ui-acceptance/scripts/target_config.py#--check"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/target_config.py#target_main:225",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-41",
+      "name": "target_config.py --validate",
+      "mmw_nodes": [
+        "command:skills/ui-acceptance/scripts/target_config.py#--validate"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/target_config.py#target_main:225",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-42",
+      "name": "lease.py run --",
+      "mmw_nodes": [
+        "command:skills/ui-acceptance/scripts/lease.py#run"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/lease.py#main:647",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-43",
+      "name": "refusal.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/refusal.py#refusal"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/refusal.py#refusal:36",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-44",
+      "name": "target_config.py",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/target_config.py#target_config"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/target_config.py#target_config:111",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-45",
+      "name": "--decisions",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--decisions"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_decisions:1342",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-46",
+      "name": "start reviewer",
+      "mmw_nodes": [
+        "command:skills/dispatch/scripts/dispatch.sh#start reviewer"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Closing steps",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-47",
+      "name": "Running the session",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/code-review/references/session.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/code-review/references/session.md#2. Run the axes",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/code-review/SKILL.md#4-Spawn-both-sub-agents-in-parallel",
+          "version": "5b1a4c51",
+          "what_was_taken": "独立评审轴、Standards/Spec 检查和不混排的报告；Tests 轴从上游 TDD 规则扩展。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/code-review.md#逐段意图",
+              "says": "上游两个 axis；本仓加 Tests、UI"
+            },
+            {
+              "clue": "快照",
+              "location": "git 5b1a4c51:skills/engineering/code-review/SKILL.md#Process",
+              "says": "Standards; Spec; Aggregate"
+            }
+          ],
+          "confidence": "确证",
+          "intent": ""
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-48",
+      "name": "Standards axis",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/code-review/references/standards-reviewer.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/code-review/references/standards-reviewer.md#3. Match the diff against the standards and the smell baseline",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/code-review/SKILL.md#3-Identify-the-standards-sources",
+          "version": "5b1a4c51",
+          "what_was_taken": "独立评审轴、Standards/Spec 检查和不混排的报告；Tests 轴从上游 TDD 规则扩展。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/code-review.md#逐段意图",
+              "says": "上游两个 axis；本仓加 Tests、UI"
+            },
+            {
+              "clue": "快照",
+              "location": "git 5b1a4c51:skills/engineering/code-review/SKILL.md#Process",
+              "says": "Standards; Spec; Aggregate"
+            }
+          ],
+          "confidence": "确证",
+          "intent": ""
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-49",
+      "name": "Spec axis",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/code-review/references/spec-reviewer.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/code-review/references/spec-reviewer.md#3. What you are looking for",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/code-review/SKILL.md#2-Identify-the-spec-source",
+          "version": "5b1a4c51",
+          "what_was_taken": "独立评审轴、Standards/Spec 检查和不混排的报告；Tests 轴从上游 TDD 规则扩展。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/code-review.md#逐段意图",
+              "says": "上游两个 axis；本仓加 Tests、UI"
+            },
+            {
+              "clue": "快照",
+              "location": "git 5b1a4c51:skills/engineering/code-review/SKILL.md#Process",
+              "says": "Standards; Spec; Aggregate"
+            }
+          ],
+          "confidence": "确证",
+          "intent": ""
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-50",
+      "name": "Tests axis",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/code-review/references/tests-reviewer.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/code-review/references/tests-reviewer.md#1. Build your scope from the ticket's acceptance criteria",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/tdd/tests.md#Tautological-tests",
+          "version": "5b1a4c51",
+          "what_was_taken": "独立评审轴、Standards/Spec 检查和不混排的报告；Tests 轴从上游 TDD 规则扩展。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/code-review.md#逐段意图",
+              "says": "上游两个 axis；本仓加 Tests、UI"
+            },
+            {
+              "clue": "快照",
+              "location": "git 5b1a4c51:skills/engineering/code-review/SKILL.md#Process",
+              "says": "Standards; Spec; Aggregate"
+            }
+          ],
+          "confidence": "确证",
+          "intent": ""
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-51",
+      "name": "UI axis",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/code-review/references/ui-reviewer.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/code-review/references/ui-reviewer.md#2. What you are looking for",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。 mattpocock 原版只有 Standards/Spec 两轴，UI 是 MMW 为 story criterion 扩展。"
+    },
+    {
+      "id": "c3-52",
+      "name": "--review",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--review"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_review:1392",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-53",
+      "name": "reviewer.reported",
+      "mmw_nodes": [
+        "event:reviewer.reported"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_review:1392",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-54",
+      "name": "resolving-merge-conflicts",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/resolving-merge-conflicts/SKILL.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/resolving-merge-conflicts/SKILL.md#1. See the current state",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/resolving-merge-conflicts/SKILL.md#1-See-the-current-state",
+          "version": "5b1a4c51",
+          "what_was_taken": "从双方原意和第一手记录解决冲突；clean merge 变红是 MMW 扩展。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/resolving-merge-conflicts.md#逐段意图",
+              "says": "保留原有的 check the PRs"
+            },
+            {
+              "clue": "快照",
+              "location": "git 5b1a4c51:skills/engineering/resolving-merge-conflicts/SKILL.md",
+              "says": "See the current state"
+            }
+          ],
+          "confidence": "确证",
+          "intent": ""
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-55",
+      "name": "Closing steps",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/implement/SKILL.md#Closing steps"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Closing steps",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/implement/SKILL.md#Implement-the-work-described-by-the-user",
+          "version": "5b1a4c51",
+          "what_was_taken": "按 spec/ticket 实现、TDD、评审和提交的技能入口骨架。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/implement.md#逐段意图",
+              "says": "源目录；正文为本仓自己的文本"
+            },
+            {
+              "clue": "提交",
+              "location": "git 5b1a4c51:skills/engineering/implement/SKILL.md",
+              "says": "Implement the work described by the user"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "把上游短技能接入 MMW 单票 worker 流程。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-56",
+      "name": "Diagnosing Bugs",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/diagnosing-bugs/SKILL.md#Phase 1: Build a feedback loop"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/diagnosing-bugs/SKILL.md#Phase 1: Build a feedback loop",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/diagnosing-bugs/SKILL.md#Phase-1-Build-a-feedback-loop",
+          "version": "5b1a4c51",
+          "what_was_taken": "先建立可复现且能变红的反馈循环。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "快照",
+              "location": "git 5b1a4c51:skills/engineering/diagnosing-bugs/SKILL.md#Phase 1",
+              "says": "Build a feedback loop"
+            }
+          ],
+          "confidence": "确证",
+          "intent": ""
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-57",
+      "name": "lease.py release",
+      "mmw_nodes": [
+        "command:skills/ui-acceptance/scripts/lease.py#release"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/lease.py#release:532",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-58",
+      "name": "Audit",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/implement/SKILL.md#Audit"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Closing steps",
+      "origins": [
+        {
+          "project": "mattpocock-skills",
+          "part": "https://github.com/mattpocock/skills/blob/5b1a4c51/skills/engineering/implement/SKILL.md#Implement-the-work-described-by-the-user",
+          "version": "5b1a4c51",
+          "what_was_taken": "按 spec/ticket 实现、TDD、评审和提交的技能入口骨架。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/implement.md#逐段意图",
+              "says": "源目录；正文为本仓自己的文本"
+            },
+            {
+              "clue": "提交",
+              "location": "git 5b1a4c51:skills/engineering/implement/SKILL.md",
+              "says": "Implement the work described by the user"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "把上游短技能接入 MMW 单票 worker 流程。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "c3-59",
+      "name": "--touched",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--touched"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_touched:1425",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-60",
+      "name": "--draft",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--draft"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_draft:1492",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-61",
+      "name": "--check-only",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--check-only"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_closeout:2384",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-62",
+      "name": "--closeout",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--closeout"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_closeout:2384",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-63",
+      "name": "repository checks",
+      "mmw_nodes": [
+        "script:skills/verify-ticket/scripts/verify-ticket.py#run_target_json_checks"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_target_json_checks:2229",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-64",
+      "name": "ticket.passed",
+      "mmw_nodes": [
+        "event:ticket.passed"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_closeout:2384",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-65",
+      "name": "ticket.returned",
+      "mmw_nodes": [
+        "event:ticket.returned"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_closeout:2384",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-66",
+      "name": "--sub-issue",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--sub-issue"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_sub_issue:1580",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-67",
+      "name": "child.opened",
+      "mmw_nodes": [
+        "event:child.opened"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#run_sub_issue:1580",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-68",
+      "name": "Advisor",
+      "mmw_nodes": [
+        "skill:skills/advisor/SKILL.md"
+      ],
+      "mmw_location": "mmw-v2/skills/advisor/SKILL.md#Advisor",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "c3-69",
+      "name": "advise",
+      "mmw_nodes": [
+        "command:skills/dispatch/scripts/dispatch.sh#advise"
+      ],
+      "mmw_location": "mmw-v2/skills/advisor/references/consulting.md#Start it",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "detail-70",
+      "name": "ABANDON failed/stuck/decision",
+      "mmw_nodes": [
+        "skill:upstream/skills/engineering/implement/SKILL.md#Closing steps"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Closing steps",
+      "origins": [
+        {
+          "project": "unlazy",
+          "part": "https://github.com/Leonxlnx/unlazy/blob/da0b00a3/references/gates.md#Abandonment",
+          "version": "da0b00a3",
+          "what_was_taken": "上游 terminal handoff 概念；三种 kind 与其不同的关票语义是 MMW 原创。",
+          "how": "idea",
+          "chain": [
+            {
+              "clue": "快照",
+              "location": "docs/research/code-landing-refs/unlazy/references/gates.md#Abandonment",
+              "says": "HANDOFF REQUIRED"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "失败不能伪装成验收通过。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "detail-71",
+      "name": "Review finding verification",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/code-review/references/session.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/code-review/references/session.md#Verify findings",
+      "origins": [
+        {
+          "project": "bmad",
+          "part": "https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b/skills/bmad-build/step-04-review.md#L36-L40",
+          "version": "94b6727b",
+          "what_was_taken": "逐条在被引文件位置验证坏结果、refuted 与 unverified 的分叉。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/code-review.md#The session verifies every finding before it sorts",
+              "says": "copied from BMAD-METHOD"
+            },
+            {
+              "clue": "外部原文",
+              "location": "https://github.com/bmad-code-org/BMAD-METHOD/blob/94b6727b/skills/bmad-build/step-04-review.md#L36-L40",
+              "says": "Verify the finding’s claim"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "在分流之前排除误报。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "detail-72",
+      "name": "No independent verifier",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--reverify"
+      ],
+      "mmw_location": "docs/adr/0026-no-verifier.md#取消 verifier 会话",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "detail-73",
+      "name": "DECISIONS before reviewer",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--decisions"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/implement/SKILL.md#Closing steps",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "detail-74",
+      "name": "fault/contract/decision/finding/deferred sub-issues",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--sub-issue"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/references/sub-issues.md#Sub-issues",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "detail-75",
+      "name": "Atomic closeout order",
+      "mmw_nodes": [
+        "command:skills/verify-ticket/scripts/verify-ticket.py#--closeout"
+      ],
+      "mmw_location": "mmw-v2/skills/verify-ticket/scripts/verify-ticket.py#_run_closeout",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all -- <MMW路径>；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 六份快照与 docs/research/；mmw-v2/merge-notes/；公开上游原文。未找到该具体机制的外部原文或明确采纳线索。"
+    },
+    {
+      "id": "detail-76",
+      "name": "Failure EVIDENCE on every CHECK run",
+      "mmw_nodes": [
+        "script:upstream-unlazy/scripts/gate-check.mjs#runCheck"
+      ],
+      "mmw_location": "mmw-v2/upstream-unlazy/scripts/gate-check.mjs#failureEvidenceFor",
+      "origins": [
+        {
+          "project": "unlazy",
+          "part": "https://github.com/Leonxlnx/unlazy/blob/da0b00a3/scripts/gate-check.mjs#insertOrUpdateEvidence",
+          "version": "da0b00a3",
+          "what_was_taken": "借原有证据写回位置；MMW 改为每次失败都写退出码、匹配结果与输出指纹。",
+          "how": "adapted",
+          "chain": [
+            {
+              "clue": "merge-note",
+              "location": "mmw-v2/merge-notes/unlazy.md#scripts/gate-check.mjs",
+              "says": "失败也写 evidence，不写 pending"
+            },
+            {
+              "clue": "快照",
+              "location": "docs/research/code-landing-refs/unlazy/scripts/gate-check.mjs#insertOrUpdateEvidence",
+              "says": "failure branch writes pending"
+            }
+          ],
+          "confidence": "确证",
+          "intent": "红结果也留可追溯的事实，防止重验不复现后失去原因。"
+        }
+      ],
+      "original_to_mmw": false,
+      "searched": ""
+    },
+    {
+      "id": "detail-77",
+      "name": "One review round and in/out-of-ticket routing",
+      "mmw_nodes": [
+        "reference:upstream/skills/engineering/code-review/references/session.md"
+      ],
+      "mmw_location": "mmw-v2/upstream/skills/engineering/code-review/references/session.md#Sort findings",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all；mmw-v2/merge-notes/；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 的六份候选快照；外部原文。未见该机制的外部直接来源。 mattpocock 原版聚合两个轴，但没有 MMW 的一票内修一轮及 finding child 路由。"
+    },
+    {
+      "id": "detail-78",
+      "name": "MMW_NEGATIVE boundary negative control",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/boundary-check.py#check_one"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/boundary-check.py#check_one",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all；mmw-v2/merge-notes/；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 的六份候选快照；外部原文。未见该机制的外部直接来源。 unlazy references/gates.md#Author gates that can fail 倡导 negative controls，但 MMW_NEGATIVE 环境变量、第二遍跳过交互及 GREEN WITHOUT INTERACTION 是 MMW 的具体实现。"
+    },
+    {
+      "id": "detail-79",
+      "name": "Journey break switch negative control",
+      "mmw_nodes": [
+        "script:skills/ui-acceptance/scripts/journey.py#_run_named"
+      ],
+      "mmw_location": "mmw-v2/skills/ui-acceptance/scripts/journey.py#_run_named",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all；mmw-v2/merge-notes/；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 的六份候选快照；外部原文。未见该机制的外部直接来源。 ADR 0028 明确决定只弄坏 CHECK 点名的一个接口；unlazy 的一般 negative control 不含此协议。"
+    },
+    {
+      "id": "detail-80",
+      "name": "Retired ui-qa and ui-evaluator replaced by ui-acceptance",
+      "mmw_nodes": [
+        "skill:skills/ui-acceptance/SKILL.md"
+      ],
+      "mmw_location": "deprecated/ui-qa/；deprecated/ui-evaluator/ → mmw-v2/skills/ui-acceptance/SKILL.md",
+      "origins": [],
+      "original_to_mmw": true,
+      "searched": "git log --all；mmw-v2/merge-notes/；docs/adr/0002、0008、0011、0012、0026、0028；docs/specs/；archive/、deprecated/；docs/research/code-landing-refs/ 的六份候选快照；外部原文。未见该机制的外部直接来源。 这些是本仓早期 MMW 机制，不是外部来源；现行组件由 ADR 0011、0028 定义。"
+    }
+  ],
+  "notes": [
+    "C3-ticket-ui-down.json 的 69 个节点全部逐项覆盖；另外补充题目要求而未单列的 6 个机制。",
+    "直接来源以 git 5b1a4c51 的 mattpocock 原文、unlazy 快照与公开 BMAD 文件原文核对；本仓研究笔记、ADR、merge-note 仅作采用线索。",
+    "grok-bundled/implement、ponytail、mattpocock-implement-spec 快照的相似流程没有足以指向当前具体机制的采纳证据，故未将其相似性提升为来源。",
+    "Playwright 标为依赖而非 element parity / break switch 的发明来源。",
+    "原始技能的 MMW 增补机制在对应额外记录中单列；original_to_mmw=false 只表示骨架有直接借用，不表示 MMW 的所有规则来自上游。",
+    "额外细项覆盖失败证据、单轮评审、两个机械负控及 deprecated/ui-qa / ui-evaluator 的替代关系。"
+  ]
+}
