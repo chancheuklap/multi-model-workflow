@@ -16,4 +16,4 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| 两份全文 | 上游原文，不改。`code-review` 技能的 Tests axis 按技能名读这两份（`references/tests-reviewer.md` 第 2 节，见 [code-review.md](code-review.md)），引用的是 `tests.md` 的 **Tautological tests**、**Implementation-detail tests** 两个小节与 red flag `Verifying through external means instead of interface`、`Test name describes HOW not WHAT`，和 `mocking.md` 的 `Don't mock` 清单。上游改这些小节名或措辞 → 收上游，同时改 `references/tests-reviewer.md` 第 2 节的指向 |
+| 两份全文 | 上游原文，不改。`code-review` 技能的 Tests axis 按技能名读这两份（`references/tests-reviewer.md` 第 3 节，见 [code-review.md](code-review.md)），引用的是 `tests.md` 的 **Tautological tests**、**Implementation-detail tests** 两个小节与 red flag `Verifying through external means instead of interface`、`Test name describes HOW not WHAT`，和 `mocking.md` 的 `Don't mock` 清单。上游改这些小节名或措辞 → 收上游，同时改 `references/tests-reviewer.md` 第 3 节的指向 |

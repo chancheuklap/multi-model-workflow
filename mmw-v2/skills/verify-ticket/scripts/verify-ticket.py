@@ -1273,11 +1273,15 @@ def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
     return base
 
 
-def in_ticket_findings(review: str, comment: int | str | None = None) -> list[str]:
+def in_ticket_findings(review: str, comment: int | str | None = None,
+                       next_step: str = "correct the review comment before writing a "
+                                        "closeout draft") -> list[str]:
     """Each finding verbatim from `## In-ticket`; refuse a nonempty unknown row.
 
     Historical rows have no category or source. Current rows carry both, and their
     source and any unverified note remain in the one line handed to the worker.
+    `next_step` ends the refusal: the reviewer posting the report and the worker
+    drafting its closeout each have a different thing to do about the row.
     """
     rows = [row.strip() for row in section(review, "In-ticket")
             if row.strip() and not re.fullmatch(r"<!-- mmw \{.*\} -->", row.strip())]
@@ -1290,8 +1294,7 @@ def in_ticket_findings(review: str, comment: int | str | None = None) -> list[st
         else:
             label = f"comment {comment}" if comment is not None else "review comment"
             raise ValueError(f"{label} (`{review.splitlines()[0] if review else '(empty)'}`) "
-                             f"has an unrecognized ## In-ticket row: {row}; correct the "
-                             "review comment before writing a closeout draft")
+                             f"has an unrecognized ## In-ticket row: {row}; {next_step}")
     return found
 
 
@@ -1407,7 +1410,9 @@ def run_review(number: int, path: Path) -> int:
             "a review comment opens `REVIEW <base commit>..<HEAD commit>`, and this file "
             + (f"opens `{head[:60]}`" if head else "is empty"))
     try:
-        in_ticket_findings(stripped)
+        in_ticket_findings(stripped, next_step=(
+            "rewrite that row as `- <Axis> [<category>] <path>:<line> — <claim> — "
+            "source: <…>`, or write `None`, then run --review again"))
     except ValueError as exc:
         return refuse(str(exc))
     rest = "\n".join(stripped.splitlines()[1:]).strip("\n")

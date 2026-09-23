@@ -1,6 +1,6 @@
 ---
 name: verify-ticket
-description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use when something has to be cut out of a ticket, when you are posting a review report on it, and when a batch is about to be published.
+description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use when something has to be cut out of a ticket, and when a batch is about to be published.
 ---
 
 # Verify ticket
@@ -28,7 +28,6 @@ A worker's claim, criteria runs and closeout are steps of the `implement` skill.
 | You are here | Read |
 | --- | --- |
 | Cutting something out of the ticket | [references/sub-issues.md](references/sub-issues.md) |
-| The **reviewer**, with the report written to a file | [references/review-report.md](references/review-report.md) |
 | About to publish a batch (its drafts), having published one, or opening a night on a spec | [references/linting.md](references/linting.md) |
 
 ## Reached from here
