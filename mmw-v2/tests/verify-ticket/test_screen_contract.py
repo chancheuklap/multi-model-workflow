@@ -497,7 +497,7 @@ class TestSources(ContractFixture, unittest.TestCase):
         self.assertEqual(self._lint(extra, parent), [])
 
     def test_an_earlier_spec_named_after_the_parent_spec_satisfies_its_row_sources(self):
-        """A contract row may cite an earlier spec's section; the to-tickets template
+        """A contract row may cite an earlier spec's section; the to-tickets reference cutting-interface-tickets.md
         names that spec after the parent spec in `## Parent`, and both are read."""
         rows = {"tasks.pick": {"source": ["#555 Implementation Decisions 4",
                                           "#318 Implementation Decisions 4"]}}

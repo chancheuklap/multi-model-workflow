@@ -134,7 +134,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **Blocked by**:
 The item of a `ready-for-human` ticket naming the ticket that produces the thing it waits on. An agent ticket's blocking is on the tracker's blocking links alone.
-_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/person-ticket.md`
 
 ### Acceptance criteria
 
@@ -216,7 +216,7 @@ _Home_: `docs/agents/triage-labels.md`
 
 **`needs-triage`**:
 The label of an issue nobody has judged yet: an issue from outside, a ticket its worker handed back or that bounced twice, a landed ticket `reverify` reopened, or a child a worker opened. The triage skill reads this queue.
-_Home_: `docs/agents/triage-labels.md`
+_Home_: `mmw-v2/upstream/skills/engineering/triage/SKILL.md`
 
 **`needs-info`**:
 Waiting on the user for more information; one of triage's four outcomes.
@@ -224,7 +224,7 @@ _Home_: `docs/agents/triage-labels.md`
 
 **`ready-for-agent`**:
 The agent-queue label, which `to-tickets` puts on every agent ticket beside a worker-grade label. It never goes on a spec.
-_Home_: `docs/agents/triage-labels.md`
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`ready-for-human`**:
 The label of a ticket holding one thing only a person can do, of kind `reaction` or `reach`. Such a ticket has a shape of its own, with no Seam, Owns, criteria or worker grade.
@@ -244,7 +244,7 @@ _Home_: `docs/agents/triage-labels.md`
 
 **`bug`, `enhancement`**:
 The two category roles, for work arriving from outside; a ticket this repository plans for itself carries neither.
-_Home_: `docs/agents/triage-labels.md`
+_Home_: `mmw-v2/upstream/skills/engineering/triage/SKILL.md`
 
 **decision ticket**:
 A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. It carries no state role and is not triaged. Its resolution comment is a baseline source.

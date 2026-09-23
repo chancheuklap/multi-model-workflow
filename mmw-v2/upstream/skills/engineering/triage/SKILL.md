@@ -79,7 +79,7 @@ An issue labelled `mmw:child`, or a ticket labelled `mmw:ticket` whose newest re
 
 5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome. `needs-info`, `ready-for-human`, and `wontfix` move nothing: the parent stays.
 
-   - `ready-for-agent`: when the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)), then route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's step for revising a published spec, citing this issue as a source; close this issue with a comment linking that spec; then cut tickets from the spec with the `to-tickets` skill. The label goes on those tickets, not on this issue.
+   - `ready-for-agent`: when the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)), then route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's `references/revising-a-spec.md`, citing this issue as a source; close this issue with a comment linking that spec; then cut tickets from the spec with the `to-tickets` skill. The label goes on those tickets, not on this issue.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label: **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
