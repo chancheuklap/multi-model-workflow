@@ -1,25 +1,29 @@
 ---
 name: to-spec
-description: "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed."
+description: "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed. Use when a conversation, a wayfinder map or a triaged issue has to become a spec, or a section of a published spec has to change."
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user for facts; just synthesize what you already know. Step 1 names the one judgement you hand back to them.
+This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user for facts; just synthesize what you already know. Step 1 names the one judgement you put to them.
 
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
 
 ## Process
 
-1. If the user passed a reference — an issue number, a URL, a file path — read it in full before anything else. When the reference is a published spec and one of its sections has to change (asked by the user, or sent back from the `to-tickets` skill), skip to step 5. When the reference is a wayfinder **map**: read the map body; then walk **Decisions so far** and read each closed ticket's **resolution comment**; where a ticket links a prototype or a research file, read that through to its conclusion. The map's **Out of scope** carries into the spec's Out of Scope unchanged.
+1. If the user passed a reference — an issue number, a URL, a file path — read its full body and comments before anything else. When the reference is a published spec and one of its sections has to change (asked by the user, or sent back from the `to-tickets` skill), skip to step 5. When the reference is a wayfinder **map**: read the map body; then walk **Decisions so far** and read each closed ticket's **resolution comment**; where a ticket links a prototype or a research file, read that through to its conclusion. The map's **Out of scope** carries into the spec's Out of Scope unchanged.
 
    Then judge whether what you have read is one spec or several. Decisions that share a **seam** belong in one spec. Split only where a part needs a different **seam** and lands and demos on its own — where it can stay one spec, keep it one spec. A part may depend on a part before it: a product delivered in layers (a server registration, then the client that logs into it, then the work the client does) has no reading under which the later layers depend on nothing, and forcing it into one spec produces one nobody can read. What the dependencies may not do is run backwards or in a circle: every one points at a part earlier in the order, and the `## Specs` section writes that order down.
 
    One spec: write it. Several: this is the one judgement in this skill you hand to the user — list each spec's name, the decisions it covers by ticket name, the order they go in, and why the line falls there. Once the user confirms, write the division back to the map as a `## Specs` section, one line per spec: name, the decision tickets it covers, its position in the order, and its spec link once published. Then write the first spec only; publish it, fill its link into that line, and stop — tell the user to run this skill against the map again for the next one. When the map already carries a `## Specs` section, skip the judgement and write the first spec on it that has no link yet.
 
-   When the reference is not a map — an issue, a URL, a file, or the conversation itself — there is no map to write the division back to. Write it into the first spec's `## Further Notes` instead: one line per spec, saying what it is called, what it covers, its position in the order, and its link once published. Publish that first spec and stop; tell the user to run this skill against the same reference again for the next one. On that later run, read the `## Further Notes` of the spec that carries the division, write the first spec on it that has no link yet, and fill the link into its line — through step 5, since that spec is already published. When every line has a link, tell the user the division is fully written and stop.
+   When the reference is not a map — an issue, a URL, a file, or the conversation itself — there is no map to write the division back to. Write it into the first spec's `## Further Notes` instead: one line per spec, saying what it is called, what it covers, its position in the order, and its link once published. Publish that first spec and stop; tell the user to run this skill next time with this spec's issue number. When the reference is a spec whose `## Further Notes` carries a division, write the first spec on it that has no link yet, and fill the link into its line — through step 5, since that spec is already published. When every line has a link, tell the user the division is fully written and stop.
+
+   Done when every source the reference leads to has been read and you know which one spec this run writes.
 
 2. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
 
    An effort with an interface has a **screen contract** — `docs/specs/<effort>/screen-contract.yaml`, written by the `write-screen-contract` skill — and two baselines with separate jurisdictions: the design package for look and verbatim copy, the screen contract for what each control calls, which field feeds each shown value, what state follows and how a test reaches it. Read the contract in full, its `pages` and `scenes` included. A row whose `gap` is not `aligned` is a decision nobody has made: stop rather than write a spec around it. On a wayfinder map, send the effort back to its alignment ticket. With no map, stay in this session and return to the `write-screen-contract` skill at **Reverse sweep**, then **Write the gap list and stop for the person** — the person settles each unaligned row there. A decision that no row carries and the design package does not draw (a behaviour of something that is text, not a control) is written in the subsection it belongs to as "this spec's decision", citing what it rests on.
+
+   Done when you can name the modules this spec touches and, with a screen contract, every row's `gap` is `aligned`.
 
 3. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
@@ -27,15 +31,19 @@ A seam says where a test **observes**. Ask the other half in the same breath: fo
 
 The seam is yours to decide, not the user's: they are not asked to confirm it. What they see of it is the plain-words opening sentence of Testing Decisions, which says where a test looks at the result.
 
-4. Write the spec using the template below, then publish it to the project issue tracker with one label, the layer label `mmw:spec` — create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Give it no triage label: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out. If the spec grew out of an issue carrying an agent brief, close that issue and attach it under the spec, so the brief stays reachable from the spec that replaced it.
+Done when every state this feature's behaviour turns on has a seam where a test observes it, and either a way a test puts the system into it through that seam or a named mechanism that would.
 
-When the reference is a wayfinder map and the tracker is GitHub, publish each spec from that map as a native sub-issue of the map. Create the spec with `gh issue create --parent <map>`, then read the created issue back and require its native `parent.number` to equal the map number before reporting the publish as complete. A missing or different native parent is a failed publish and is corrected before the spec is handed on. `## Sources`, `## Further Notes`, the spec title, and semantic similarity do not replace the native parent.
+4. Write the spec using the template below, then publish it to the project issue tracker with one label, the layer label `mmw:spec` — create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Give it no triage label: a spec is a container for the tickets underneath it, not a piece of work, and a triage label would put it in a queue somebody has to sort back out.
+
+When the reference is a wayfinder map, publish each spec from that map as a native sub-issue of the map. Create the spec with `gh issue create --parent <map>`, then read the created issue back and require its native `parent.number` to equal the map number before reporting the publish as complete. A missing or different native parent is a failed publish and is corrected before the spec is handed on. `## Sources`, `## Further Notes`, the spec title, and semantic similarity do not replace the native parent.
 
 When the reference is not a wayfinder map, do not invent a map parent. A spec from the conversation, a file, a standalone issue, or another non-map source remains parentless at the map layer unless that source already supplies a native parent.
 
-Other trackers keep using their native sub-issue relationship; do not add a custom Parent field or a second task-root metadata store.
+Done when the spec is published with `mmw:spec` and, from a map, its native `parent.number` reads back as the map.
 
 5. Revising a published spec. When a section of a spec already on the tracker has to change — a mechanism added under **How a test arrives at a state**, a decision under `## Implementation Decisions` altered, a judgement written into one of its subsections — edit that spec, never publish a new one: a new issue gets a new number, and every ticket's **Parent** points at the old one. Read the issue body in full, rewrite the section so it reads as if written that way from the start, and write the body back (`gh issue edit <n> --body-file <file>`). What changed and why goes in one comment on the spec. Tickets already cut from the section are checked against the new text and corrected where they no longer match. A published spec, a ticket body and its acceptance criteria are edited only by the main agent or the user.
+
+   Done when the issue body reads as if written that way from the start, the comment saying what changed is posted, and every ticket cut from the section matches the new text.
 
 <spec-template>
 
@@ -105,6 +113,7 @@ A description of the things that are out of scope for this spec.
 Links to the first-hand material this spec was built from, one line per kind. Write "none" for a kind that has none, so a reader can tell "nothing there" from "forgot to list":
 
 - Wayfinder map
+- Originating issue (the triaged issue and its agent brief comment)
 - Decision tickets (each named by the decision it settled)
 - Upstream specs this one builds on, including an earlier spec the decision tickets cite as their basis
 - ADRs

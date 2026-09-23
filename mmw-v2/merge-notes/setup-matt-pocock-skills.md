@@ -10,7 +10,7 @@
 | `domain.md` | `docs/agents/domain.md` |
 | `triage-labels.md` | `docs/agents/triage-labels.md` |
 
-**重跑这个技能之前先备份 `docs/agents/triage-labels.md` 与 `docs/agents/domain.md`。** 前者的 `## What carries a label here` 一节是本仓自己加的（哪个 label 代表哪个 queue、spec 不带 label、本仓自建 ticket 不带 category），种子里没有这一节，重跑会把它盖掉；后者已经按本仓真实布局重写，并且带着本仓自己的几条规则，重跑会把它整份还原成种子。`docs/agents/issue-tracker.md` 与种子差得最少，改动逐条记在下面；它另有种子没有的 `## Morning queries` 一节，两条命令同样带 `--limit 500`。根 `AGENTS.md` 也不归这个技能管，理由同在下面 SKILL.md 一节。
+**重跑这个技能之前先备份 `docs/agents/triage-labels.md` 与 `docs/agents/domain.md`。** 前者的 `## What carries a label here` 一节是本仓自己加的（哪个 label 代表哪个 queue、spec 不带 label、本仓自建 ticket 不带 category），种子里没有这一节，第 4 步就地更新时保留它，但同一份文件里种子也有的节会按种子重写；后者已经按本仓真实布局重写，并且带着本仓自己的几条规则，写在种子也有的那几节里，重跑会把这几节还原成种子。`docs/agents/issue-tracker.md` 与种子差得最少，改动逐条记在下面；它另有种子没有的 `## Morning queries` 一节，两条命令同样带 `--limit 500`。根 `AGENTS.md` 里这个技能只写 `## External References` 表的行，见下面 SKILL.md 一节。
 
 ## 逐段意图
 
@@ -19,9 +19,9 @@
 | 段落 | 我们的意图 |
 | --- | --- |
 | frontmatter 的 `disable-model-invocation: true` | 保留。这是 [README.md](README.md#disable-model-invocation) 列出的例外之一：它一个仓库只跑一次、会覆盖 `docs/agents/` 下三份文件，不该由模型自己认出来触发。上游改这一行 → 收上游，跟 `agents/openai.yaml` 的 `policy` 块一起处理 |
-| 第 3 步 Confirm and edit 的第一条草稿项 | 从「whichever of `CLAUDE.md` / `AGENTS.md` is being edited」改成固定的 `AGENTS.md`，跟第 4 步同步 |
 | 第 4 步 Pick the file to edit（`CLAUDE.md` 在就改它、两个都没有就问用户、绝不在另一个已存在时新建） | 改成：要写只写 `AGENTS.md`，没有就建；`CLAUDE.md` 只放 `@AGENTS.md` 一行加它原有的其他 `@` 行，别的内容搬进 `AGENTS.md`。理由是本仓另一个技能 `manage-agents-md` 就是这个形态（它的 `references/write.md` 里 `CLAUDE.md` 只放「the line `@AGENTS.md` … Nothing else.」那一条），它的 `scripts/check.sh` 会把 `CLAUDE.md` 里每一行非 `@import` 判成错——照上游的规则跑完 setup，再跑 `manage-agents-md` 就是两个技能互相拆台。上游改这一步 → 不收，除非它自己也变成只写 `AGENTS.md` |
-| 第 3、4 步要种进 `AGENTS.md` 的 `## Agent skills` 块（三个 `###` 子节各指一份 `docs/agents/` 文件） | 弃上游。根 `AGENTS.md` 的形状归 `manage-agents-md` 管，那份格式里没有 `## Agent skills` 这一节：三份配置各是 `## External References` 表里的一行，指向 `docs/agents/issue-tracker.md`、`docs/agents/triage-labels.md`、`docs/agents/domain.md`。`docs/adr/0005-docs-layer-adopted-by-v2.md` 当年把这个块落进根 `AGENTS.md`，那是历史，2026-09-12 重写根 `AGENTS.md` 之后它不在了。**重跑这个技能时不要让它把这个块重新种回去，也不要让第 4 步的写盘覆盖 `docs/agents/` 下任何一份落地件**：种回去的块会被下一次 `manage-agents-md` 当成格式外的一节。上游改这个块的内容 → 不收 |
+| 第 1 步探查 `AGENTS.md` 的那一条、第 3 步的第一条草稿项、第 4 步开头一段（上游的 `## Agent skills` 块） | 弃上游的块。根 `AGENTS.md` 的形状归 `manage-agents-md` 管（它的 `references/write.md`：根文件只有那几节），那份格式里没有 `## Agent skills` 这一节，文档一律是 `## External References` 表（`Need`、`File` 两列）的一行。所以三处都改成这张表：第 1 步看 `AGENTS.md` 是否已有指向 `docs/agents/` 的行；第 3 步给 user 看的草稿是要加的行，每份写出的 `docs/agents/` 文件一行；第 4 步每份写出的文件加一行，文件或这一节不存在就建，已有指向同一文件的行就更新、不重复加；`docs/agents/triage-labels.md` 与它那一行只在 `triage` 已安装且 Section B 跑过时写。上游那句「Don't overwrite user edits to the surrounding sections」原样留着。上游改这个块的内容 → 不收，仍写 `## External References` 的行 |
+| 第 4 步「Then write the docs files using the seed templates」那一句的后半句 | 我们加的：`docs/agents/` 下已存在的文件就地更新，保留种子没有的节。理由：落地件会长出种子没有的节（本仓 `docs/agents/triage-labels.md` 的 `## What carries a label here`、`docs/agents/issue-tracker.md` 的 `## Reading a tree` 与 `## Morning queries`），按种子整份重写会把它们抹掉。上游改这一句 → 收上游措辞，后半句接回去 |
 | frontmatter 的 `description` | 值外面那对引号保留。这个值里有「冒号加空格」（`for the engineering skills: set up its issue tracker`），去掉引号 YAML 会把它当成一个 mapping 并报 `mapping values are not allowed here`，整份 frontmatter 解析失败，host 启动时读不到这份技能的描述。上游改这一行的内容 → 收上游，引号跟着值走：值里只要还有冒号加空格就必须带引号 |
 
 ### issue-tracker-github.md（种子）
@@ -31,6 +31,8 @@
 | Conventions 开头新增的 **Every list read is a whole list** | 本仓加的，种子里没有。`gh issue list` 不带 `-L` 停在 30 条，`gh api` 的列表端点不带 `--paginate` 只回第一页，两者都不在输出里留任何标记，所以读了一半的集合看起来和完整的一模一样。agent 照这份文件写命令，看不见的票它当作不存在。正文只留这两个事实与命令要求，不加修辞句。上游若自己加了同义的一条 → 收上游措辞；上游改这一段 → 保留本仓这条，它是行为要求不是文风 |
 | **List issues**、**Frontier query** 的命令 | 一律补 `--limit 500`。上游改这几条命令 → 收上游的其余部分，`--limit` 必须留着 |
 | **Child ticket** 里读子票的命令 | 从 `gh api` on the sub-issues endpoint 写成完整的 `gh api --paginate repos/<owner>/<repo>/issues/<map>/sub_issues?per_page=100`。理由同上：2026-09-06 在 agentflow 上，spec #537 有 37 个子票，不分页只看得到 30 个，7 张票在读的人眼里不存在 |
+| Conventions 之后新增的 `## Three label sets` 一节 | 本仓加的，种子里没有，照 `docs/agents/issue-tracker.md` 的同名一节原样抄。`to-spec`、`to-tickets`、`wayfinder` 三份技能建 `mmw:spec`、`mmw:ticket`、`mmw:map` 时都指向 `docs/agents/issue-tracker.md` `## Three label sets` 取颜色与说明；新仓库的这份文件由这颗种子写出，种子里没有这一节，新仓库第一次发 map、spec 或 ticket 就指向一个不存在的标题。上游改这份种子 → 这一节保留，与 `docs/agents/issue-tracker.md` 的同名一节保持同一份文字 |
+| `## Wayfinding operations` 的 **Frontier query** 里「drop any carrying `mmw:spec`」 | 本仓加的，`docs/agents/issue-tracker.md` 同一条同样写。`to-spec` 把从 map 发布的每份 spec 建成 map 的 native sub-issue，而 map 在 spec 发布后仍开着、继续当这个 effort 的决定索引；不排除 `mmw:spec`，map 上的 frontier 会把 spec 当成一张待解的决定票。上游的 `wayfinder` 技能里 frontier 的定义不改，连接写在这条查询里。上游改这条查询 → 收上游措辞，这一项保留 |
 | `## Pull requests as a triage surface` 的 `**PRs as a request surface: no.**` 一句括号里，与 `## Wayfinding operations` 的 `Used by …` 一句 | host 中立：两处技能点名写成散文形式。共同理由见 [README.md](README.md#host-中立) |
 
 ### triage-labels.md（种子）

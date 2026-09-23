@@ -1,0 +1,11 @@
+# Tickets for an interface or a remake
+
+## A destination with an interface
+
+A destination with an interface gets two more tickets now. The **alignment ticket** is a `grilling` ticket blocked by every decision ticket and by the ticket that produces the design package, whose resolution is the effort's **screen contract** written with the `write-screen-contract` skill. It is the last ticket to close. Its body opens with the line `用 write-screen-contract 解决：design package 与后端决定逐行对齐，每行 gap 都 aligned 后关票`, above `## Question`. That producer is the **design ticket**: a `prototype` ticket, blocked by every `prototype` decision ticket and by every decision ticket that will change a page's states, worked with the `design-pages` skill. Its body opens with the line `用 design-pages 解决：须在能调用 Claude Design MCP 工具的会话里做；edit pages 入口建 Claude Design 项目，用户在 Claude Design 里设计，你说定稿后走 pull 入口`, above `## Question`, and its leaf `README.md` carries the one state list every UI prototype ticket's winner feeds (the `prototype` skill's `UI.md` step 6).
+
+## A destination that remakes an existing product
+
+When the destination remakes an existing product, open a **selection list** decision ticket: the user decides, item by item, what from the old product to keep; each item names its source path and which entry it feeds — write them finely, or a worker will move a whole old directory. Reusable components and styles are the prototype's building blocks and, when one is built, the design system's source; backend interfaces are backend decisions when the contract is written. The old design package, screen contract, boundary tests and journeys are never kept: the new flow produces them again. The same ticket lists, item by item with its path, each old artifact the remake deletes: those four, and the `.mmw/target.json` fields that name them. Give the remake an effort name other than the old effort's, so the new screen contract and specs do not land on the old paths. If the product is live with paying customers, open one more decision ticket: how the old and new interfaces coexist, how they switch, and when the old code is deleted. A remake takes its look from the winning variant; keeping the old look is not a remake.
+
+Done when every ticket above that this destination calls for is a child issue of the map, with its blocking edges wired.

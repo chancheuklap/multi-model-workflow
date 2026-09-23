@@ -21,7 +21,7 @@ This is a prompt-driven skill, not a deterministic script. Explore, present what
 Look at the current repo to understand its starting state. Read whatever exists; don't assume:
 
 - `git remote -v` and `.git/config`: is this a GitHub repo? Which one?
-- `AGENTS.md` and `CLAUDE.md` at the repo root: does either exist? Is there already an `## Agent skills` section in either?
+- `AGENTS.md` and `CLAUDE.md` at the repo root: does either exist? Does `AGENTS.md` already have `## External References` rows pointing at `docs/agents/`?
 - `CONTEXT.md` and `CONTEXT-MAP.md` at the repo root
 - `docs/adr/` and any `src/*/docs/adr/` directories
 - `docs/agents/`: does this skill's prior output already exist?
@@ -64,40 +64,20 @@ Offer **multi-context** (a root `CONTEXT-MAP.md` pointing to per-context `CONTEX
 
 Show the user a draft of:
 
-- The `## Agent skills` block to add to `AGENTS.md`
+- The rows to add to the `## External References` table of `AGENTS.md`, one per `docs/agents/` file written
 - The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
 
 Let them edit before writing.
 
 ### 4. Write
 
-**The `## Agent skills` block always goes in `AGENTS.md`.** Create that file if it does not exist.
+Add one row per written `docs/agents/` file to the `## External References` table (`| Need | File |`) of `AGENTS.md`, creating the file or the section when it does not exist; a row already pointing at the same file is updated, not duplicated. Don't overwrite user edits to the surrounding sections.
 
 `CLAUDE.md` holds the line `@AGENTS.md` and nothing else. Create it with that one line when it is missing; when it exists carrying content of its own, move that content into `AGENTS.md` and leave behind the `@AGENTS.md` line plus any other `@` import lines it already had.
 
-If an `## Agent skills` block already exists in `AGENTS.md`, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
+Write `docs/agents/triage-labels.md`, and its row, only when `triage` is installed and Section B ran.
 
-The block:
-
-```markdown
-## Agent skills
-
-### Issue tracker
-
-[one-line summary of where issues are tracked]. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-[one-line summary of the label vocabulary]. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-[one-line summary of layout: "single-context" or "multi-context"]. See `docs/agents/domain.md`.
-```
-
-Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.
-
-Then write the docs files using the seed templates in this skill folder as a starting point:
+Then write the docs files using the seed templates in this skill folder as a starting point; a file that already exists under `docs/agents/` is updated in place, keeping the sections the seed lacks:
 
 - [issue-tracker-github.md](./issue-tracker-github.md): GitHub issue tracker
 - [issue-tracker-gitlab.md](./issue-tracker-gitlab.md): GitLab issue tracker

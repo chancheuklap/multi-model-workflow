@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and record what the evaluation established. Use when issues or external PRs you did not create are waiting to be judged, or a ticket this repository's pipeline handed back to `needs-triage`.
+description: Move issues and external PRs through a state machine of triage roles. Use when issues or external PRs you did not create are waiting to be judged, or a ticket this repository's pipeline handed back to `needs-triage`.
 ---
 
 # Triage
@@ -92,7 +92,7 @@ Read the ticket's event trail instead of reproducing from a reporter's steps, an
 
      When the issue is itself a ticket the pipeline handed back (the section above), swap its `needs-triage` for `ready-for-agent`. The next `advance` on its spec (the `dispatch` skill) gives back the pipeline's claim on it and starts a worker on it once its blockers have landed.
 
-     When the issue is work from outside, route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's step for revising a published spec, citing this issue as a source, then cut tickets from that spec with the `to-tickets` skill, which labels them `ready-for-agent` there in the shape `<issue-template>` defines and `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
+     When the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)), then route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's step for revising a published spec, citing this issue as a source; close this issue with a comment linking that spec; then cut tickets from the spec with the `to-tickets` skill, which labels them `ready-for-agent` there in the shape `<issue-template>` defines and `verify-ticket.py` can read. The label goes on those tickets, not on this issue.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label — **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
