@@ -100,7 +100,7 @@ files. The axis subagent is told to use this skill and which axis; it is not han
 
 ## The Spec axis opens the screen contract
 
-`references/spec-reviewer.md`, under "What is not yours": one paragraph added after the handoff-package rule. The handoff package stays closed to this axis; the screen contract (`screen-contract.yaml`, row ids named in the ticket's `## Read first`) is opened, and each row is read as a requirement — `calls`, `shows`, `next`, `on_failure`. A `Missing` against a row's `calls` is worded row id first, because `verify-ticket --closeout` refuses a draft that does not answer it. Reason: on Chameleon's #549 this axis reported "the desktop never talks to the backend" and the ticket closed `ALL MET` anyway; the row id is what lets a script hold the two together. If upstream rewrites that section, keep the handoff-package rule as the Spec-brief table row words it, and put this paragraph back after it.
+`references/spec-reviewer.md`, under "What is not yours": one paragraph added after the design-package rule. The design package stays closed to this axis; the screen contract (`screen-contract.yaml`, row ids named in the ticket's `## Read first`) is opened, and each row is read as a requirement — `calls`, `shows`, `next`, `on_failure`. A `Missing` against a row's `calls` is worded row id first, because `verify-ticket --closeout` refuses a draft that does not answer it. Reason: on Chameleon's #549 this axis reported "the desktop never talks to the backend" and the ticket closed `ALL MET` anyway; the row id is what lets a script hold the two together. If upstream rewrites that section, keep the handoff-package rule as the Spec-brief table row words it, and put this paragraph back after it.
 
 ## The Spec axis opens the story page and the story adapter
 
@@ -145,6 +145,8 @@ or the sorting step → keep both the four-angle pass and this ownership rule.
 
 `mmw-v2/upstream/docs/engineering/code-review.md` describes the same first-parent range, four interaction angles and ownership boundary without introducing other names for the base commit or `origin/<base branch>`. During the UI pilot that page still describes the three default axes; UI lives in the `SKILL.md` table and `session.md`. If UI is kept after the pilot, put it on the docs page too. Its opening sentence carries the same capability branch as `session.md` § 2: subagents where the host can run them, the axis files run in sequence by the session where it cannot.
 
+`mmw-v2/upstream/docs/engineering/code-review.md` 的 `When to reach for it` 首句、表第一行、`## Prerequisites` 的 Spec axis 一段、`Should I run it in the same session` 与 `After every ticket, or once at the end?` 两答、`## Where it fits` 首段与 implement 一条：改成只审一张 ticket 的 diff、没有离开 ticket 的用法；Spec axis 读 ticket 与它指向的 spec 小节（与 `references/spec-reviewer.md` 第 2 节同一读法），取代上游四级查找；reviewer 由 worker 经 `dispatch` 技能另起会话。上游改这几段 → 收上游措辞，一票一审与这套读法保留。
+
 ### agents/openai.yaml
 
 | 字段 | 我们的意图 |
@@ -187,7 +189,7 @@ value"), so a reviewer had to decide for itself
 whether the four were one thing. `product component` wins: it is the name
 `story-parity.md`, `writing-interface-code.md` and `ui-reviewer.md` already used,
 and it matches the judge's own `product=` output. It is registered in
-`docs/contexts/ui-acceptance/CONTEXT.md` with the other three as `_Avoid_`.
+`docs/contexts/ui-acceptance/CONTEXT.md` as **product component**.
 
 If upstream rewrites the story-adapter paragraph → take its wording and keep
 `product component`.

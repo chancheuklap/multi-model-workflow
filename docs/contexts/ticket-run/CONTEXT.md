@@ -164,7 +164,7 @@ The event a run of a ticket's criteria posts when it needs the product and no **
 _Home_: `mmw-v2/skills/verify-ticket/references/running-criteria.md`
 
 **`worker.decided`**:
-The event (the `DECISIONS` comment) `--decisions <file>` posts once: the decisions the worker made on its own so far, and why each file under `Outside Owns:` was changed. The Spec axis reads it.
+The event (the `DECISIONS` comment) `--decisions <file>` posts once, before the reviewer starts: the decisions the worker made on its own so far, and why each file under `Outside Owns:` was changed. The Spec axis judges it.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **review comment**:

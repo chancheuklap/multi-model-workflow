@@ -7087,7 +7087,7 @@ scenario_memory_worker_contract() {
   python3 - "$skill" <<'PY' || fail "implement's complete shared-experience contract changed"
 import sys
 text = open(sys.argv[1], encoding="utf-8").read()
-actual = text.split("## Shared experience while implementing\n\n", 1)[1].split("\nUse /tdd", 1)[0]
+actual = text.split("## Shared experience while implementing\n\n", 1)[1].split("\nRead the `tdd` skill's", 1)[0]
 expected = """`dispatch` starts you with `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
 `MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries two
 indexes of Memory, one line per record with its `id`, `title`, first line (`applies`)

@@ -85,7 +85,7 @@ The ticket that lands or completes `.mmw/` so later tickets have a precedent to 
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **interface ticket**:
-Any ticket cut from a screen contract: a contract, design-system, component page, app page or acceptance ticket.
+A ticket whose **Read first** carries a `screen-contract.yaml rows:` line: a component page or app page ticket. The contract, design-system and acceptance tickets a screen contract also produces are not interface tickets.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **component page ticket**:
@@ -247,7 +247,7 @@ The two category roles, for work arriving from outside; a ticket this repository
 _Home_: `docs/agents/triage-labels.md`
 
 **decision ticket**:
-A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. Its resolution comment is a baseline source.
+A child issue of a wayfinder map holding one question whose resolution is a decision, typed by a `wayfinder:<type>` label. It carries no state role and is not triaged. Its resolution comment is a baseline source.
 _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`
 
 **map**:

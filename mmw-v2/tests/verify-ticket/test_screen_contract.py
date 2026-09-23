@@ -827,6 +827,12 @@ class TestJourneyBreakRules(unittest.TestCase):
         self.assertEqual(flows, {"checkout": {2, 3}})
         self.assertEqual(unreadable, [])
 
+    def test_none_is_no_flow_and_not_an_unreadable_line(self):
+        for body in ("- **Critical flows** (关键流程): none\n- **Test surfaces**: none\n",
+                     "- **Critical flows**:\n  - `none`\n"):
+            flows, unreadable = vt.critical_flows("## Testing Decisions\n\n" + body)
+            self.assertEqual((flows, unreadable), ({}, []), body)
+
     def test_a_flow_on_the_marker_line_does_not_take_the_next_bullet(self):
         flows, unreadable = vt.critical_flows("""## Testing Decisions
 

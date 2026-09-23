@@ -21,6 +21,6 @@ Each label says which queue a ticket is in, and only that.
 - `needs-triage` means nobody has judged it yet: something arriving from outside, a ticket an agent could not finish, or a closed ticket reopened after the night because a criterion failed when re-run on the base branch. It is the one queue a skill picks up on its own — the triage skill reads it, reproduces what it can, and recommends one of the four outcomes: `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`.
 - A spec carries no queue label. It is a container for the tickets underneath it, not a piece of work. It does carry the layer label `mmw:spec`, which puts it in no queue: the layer labels are a set of their own, in `issue-tracker.md` under **Three label sets**.
 
-The category roles `bug` and `enhancement` belong to work arriving from outside. Tickets this repo plans for itself — a spec's tickets, a decision ticket under a `wayfinder:map` — carry a state role and no category.
+The category roles `bug` and `enhancement` belong to work arriving from outside. A spec's tickets carry a state role and no category. A map, a spec and a decision ticket carry neither and are not triaged.
 
 Edit the right-hand column to match whatever vocabulary you actually use.

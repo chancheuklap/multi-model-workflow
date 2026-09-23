@@ -93,21 +93,13 @@ class ToSpecNativeParent(unittest.TestCase):
             self.skill_words.index(words(OTHER_TRACKERS)),
         )
 
-    def test_tickets_context_keeps_native_parent_as_the_only_machine_ownership(self):
-        spec = self.tickets.split("**spec**:", 1)[1].split("_Admitted_:", 1)[0]
+    def test_native_parent_rules_live_in_the_skill_and_the_glossary_only_defines(self):
+        for rule in ("parent.number", "semantic similarity", "native sub-issue of the map"):
+            self.assertIn(rule, self.skill)
+        spec = self.tickets.split("**spec**:", 1)[1].split("_Home_:", 1)[0]
         self.assertIn("native sub-issue of that map", spec)
-        self.assertIn("parent.number", spec)
-        self.assertIn("no map parent", spec)
-        self.assertIn("`## Sources`", spec)
-        self.assertIn("semantic similarity", spec)
-        self.assertNotIn("A top-level issue that holds a batch of tickets", spec)
-
-        mapping = self.tickets.split("**map**:", 1)[1].split("_Admitted_:", 1)[0]
-        self.assertIn("native sub-issue", mapping)
-
-        sub = self.tickets.split("**sub-issue**:", 1)[1].split("_Admitted_:", 1)[0]
-        self.assertIn("native sub-issue of the map", sub)
-        self.assertIn("only machine ownership", sub)
+        mapping = self.tickets.split("**map**:", 1)[1].split("_Home_:", 1)[0]
+        self.assertIn("specs published from it", mapping)
 
     def test_the_merge_note_records_the_native_parent_prompt(self):
         self.assertIn("native parent", self.merge_note)

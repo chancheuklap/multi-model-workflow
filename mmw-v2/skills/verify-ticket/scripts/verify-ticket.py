@@ -3249,6 +3249,8 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
     the rest of the spec is in, because that heading is what `## Parent` names too; a
     line without those words is returned as unreadable.
 
+    A line that says only `none` is the spec saying the product has no such flow.
+
     The bullet ends where its own list ends: at the first non-blank line indented no
     deeper than the marker's own list item, or at a heading. A marker that is not a list
     item (a paragraph or a heading) owns the list items that follow it.
@@ -3279,6 +3281,8 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
             if marker_indent is None and not LIST_ITEM_RE.match(line) and indent == 0:
                 break
         else:
+            continue
+        if re.fullmatch(r"[-*\s]*`?none`?[.。]?\s*", line, re.IGNORECASE):
             continue
         path = JOURNEY_PATH_RE.search(line)
         quoted = re.search(r"`([a-z0-9][a-z0-9-]*)`", line)

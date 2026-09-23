@@ -63,7 +63,7 @@ _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.m
 
 **scene data**:
 The `data` field of a `scenes.json` entry: the displayed values keyed by **`data-ui` id**, which **pull** writes from the offline render and the **story adapter** reads.
-_Home_: `mmw-v2/skills/design-pages/scripts/pull_design.py`
+_Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **`DESIGN.md`**:
 A DESIGN.md-format file a consuming repository may keep. It is not the design source.

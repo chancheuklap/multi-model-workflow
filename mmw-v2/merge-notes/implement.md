@@ -134,8 +134,8 @@ that exits 2 (step 3 sends the worker to the `dispatch` skill's `SKILL.md`, whos
 leads to `references/inside-a-ticket.md` **Exit codes**).
 `references/writing-interface-code.md` uses `contract` when the design side is the
 defect: the file's first line is the Claude Design page and the value that does not
-hold (that line is the child issue's title); the next line names the design-pages
-pull entry; the rest quotes what does not hold and what in the same source still
+hold (that line is the child issue's title); the next line names the `design-pages` skill's
+`references/pull.md`; the rest quotes what does not hold and what in the same source still
 holds. All five are parented to this ticket.
 `Put no question on the screen` is still the leading sentence of that bullet.
 
@@ -182,8 +182,7 @@ If upstream rewrites step 3 → take its wording and put this internal order bac
 
 The read-yourself-in step listed `a handoff package downloaded from Claude Design`
 among the baselines to read to their conclusion. ADR 0029 makes **pull** the only
-writer of that package, and `docs/contexts/ui-acceptance/CONTEXT.md` lists `Handoff`
-as a dead word for the entry name. `downloaded from Claude Design` points the worker
+writer of that package. `downloaded from Claude Design` points the worker
 at the MCP tools, or at the "Handoff to Claude Code" export that
 `design-pages/references/edit-pages.md` forbids, instead of at the committed
 directory its own `## Read first` already names. It now reads `a design package

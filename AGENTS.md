@@ -36,7 +36,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 
 | Need | File |
 | --- | --- |
-| Every fixed word of the landing pipeline and its interface record (event names, command signatures, constant tables), split into six bounded contexts; read the map before changing vocabulary | `CONTEXT-MAP.md`, then `docs/contexts/<name>/CONTEXT.md` |
+| The terms of the landing pipeline and the toolbox, split into six bounded contexts; read the map before changing vocabulary | `CONTEXT-MAP.md`, then `docs/contexts/<name>/CONTEXT.md` |
 | ADR shape, the index, the translation table for two earlier numberings | `docs/adr/README.md` |
 | Every `gh` operation of the issue tracker, the three label sets, the two morning queries | `docs/agents/issue-tracker.md` |
 | The five triage roles and this repository's label strings | `docs/agents/triage-labels.md` |

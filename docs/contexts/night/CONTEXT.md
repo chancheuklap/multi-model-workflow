@@ -143,7 +143,7 @@ _Home_: `mmw-v2/skills/dispatch/references/inside-a-ticket.md`
 
 **resume**:
 `dispatch.sh resume <n> "<text>"`: delivers the text to the worker still holding the ticket, through that worker's runner, and posts `worker.resumed`.
-_Home_: `mmw-v2/skills/dispatch/references/how-it-works.md`
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **status**:
 `dispatch.sh status <spec>`: the table of the spec's tickets, computed from each ticket's fold without asking any runner.
