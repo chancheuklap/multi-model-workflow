@@ -1,56 +1,23 @@
-# edit pages — set up the project, act on comments, draw when asked
+# edit pages — set up the project, record sign-off
 
-The design itself is made by the user in Claude Design, with the agent inside it. This file does four things around that work: it creates the project so its pages carry what the repository reads back, it acts on comments the user sends to Claude, it draws pages when the user asks this session to, and it records sign-off. Confirm the tools below as `SKILL.md` says.
-
-## MCP tools
-
-Tools of the `claude-design` MCP server:
-
-- `get_claude_design_prompt`
-- `read_design_skill`
-- `create_project`
-- `finalize_plan`
-- `create_support_js`
-- `write_files`
-- `copy_files`
-- `delete_files`
-- `read_file`
-- `list_files`
-- `render_preview`
-- `list_comments`
-- `ack_comments`
-
-## Who can do what
-
-| | Reads | Writes |
-| --- | --- | --- |
-| This session | the repository; any Claude Design project through MCP | any project through MCP; cannot talk to the agent inside Claude Design |
-| The agent inside Claude Design | its own project, the bound design system, and the project `CLAUDE.md` on every conversation | its own project, when the user asks in the browser; cannot see this repository |
-| The user | everything in the browser | edits, comments, sign-off |
+This file sets the Claude Design project up so its pages carry what the repository reads back, and records sign-off.
 
 ## Create the project
 
 Skip this when the user already has a project; take its id from the link they give, and check that `CLAUDE.md` holds the block of [template-project-claude-md.md](template-project-claude-md.md).
 
-1. `create_project`, bound to a design system when the product has one (its UUID from the link the user gives, or from [design-system.md](design-system.md)). Without one, create it unbound.
+1. `create_project`, bound to a design system when the product has one (its UUID from the link the user gives). Without one, create it unbound.
 2. `CLAUDE.md` is a reserved path: `finalize_plan` naming in `writes` every path steps 2 to 5 write (`CLAUDE.md`, `task.md`, and `state-list.md` and `ui-ids.md` where steps 3 and 4 apply), the user approves it once, then `write_files` with that token and `if_match: "0"`. The content is the fenced block of [template-project-claude-md.md](template-project-claude-md.md), unchanged and without the fence.
-3. When a state list exists (the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, or of `prototypes/<effort>/README.md` for **An existing product**), write that section into the project as `state-list.md` in the same approved plan. The template tells the agent inside Claude Design how to read it, and [pull](pull.md) checks the pages against the same file in the repository.
+3. When a state list exists (the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, or of `prototypes/<effort>/README.md` for an existing product as [design-system.md](design-system.md) **An existing product** says), write that section into the project as `state-list.md` in the same approved plan. The template tells the agent inside Claude Design how to read it, and [pull](pull.md) checks the pages against the same file in the repository.
 4. When the product already carries `data-ui` ids (it has been through this pipeline before), write every id it renders into the project as `ui-ids.md` in the same approved plan, one `## Component · <region>` heading per region and one list item per id: open the product's story page for each scene of the last design package's `scenes.json` and collect every `[data-ui]` it renders. Ids read from `scenes.json` alone miss elements that carry no text.
-5. Write the first `task.md` in the same approved plan, the way **Talking to the agent inside Claude Design** says: one `Component · ` page per region of `state-list.md`, each state a `scene`, drawn from the bound design system; the reference to draw against (a prototype's winning variant, or the product's code and real data), named by its branch and repository path so that agent reads it through Claude Design's GitHub connection; one region first for the user to look at. When the project is bound to a design system, refresh its `_ds/<folder>/` copy first as [design-system.md](design-system.md) **After the design system changes** says.
+5. Write the first `task.md` in the same approved plan, the way **Talking to the agent inside Claude Design** says: one `Component · ` page per region of `state-list.md`, each state a `scene`, drawn from the bound design system; the reference to draw against (a prototype's winning variant, or the product's code and real data), named by its branch and repository path so that agent reads it through Claude Design's GitHub connection; one region first for the user to look at. When the project is bound to a design system, refresh its `_ds/<folder>/` copy first as **After the design system changes** below says.
 6. Give the user the project's link and tell them to say `开始` there.
 
 Done when the user has the link and has been told to say `开始`.
 
-## An existing product
+### After the design system changes
 
-An existing product's screens are brought into Claude Design once, redrawn with its design system, and from then on they are designed there.
-
-1. **Design system**: built from the production code as [design-system.md](design-system.md) says, unifying what the code does inconsistently.
-2. **Project**: **Create the project** above, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows). Write the state list first under `## State list` in `prototypes/<effort>/README.md`, with `<effort>` as the `prototype` skill's rule 1 defines it; that file is the `--state-list` of [pull](pull.md). The agent inside Claude Design derives each region's data file from the product's real data for those states, which it reads from the repository through Claude Design's GitHub connection; `task.md` names that directory. The real data lives in its own directory beside the design package (`prototypes/<effort>/example-data/`), never inside it: each pull rewrites the design package to exactly the files the pages load.
-3. **Redraw**: `task.md` asks the agent inside Claude Design to draw one `Component · ` page per region from the design system, and an `App · ` page when regions' states are checked together, first one region for the user to look at; see **Talking to the agent inside Claude Design**.
-4. **Sign-off and pull**: as for any design. On the first pull the pages differ from the product wherever the design system unified a value; element parity names each of those elements, and the tickets cut from the contract bring the product to the design.
-
-Done when the user has signed off the redrawn pages and [pull](pull.md) has run.
+Changes are made in Claude Design, by the user or by its agent. A bound page project's `_ds/<folder>/` copy does not follow by itself; refresh it from here before the page project's agent draws again: `list_files` both projects, `delete_files` every file under `_ds/<folder>/` that the design system no longer has, and `copy_files` (with `src_project_id` set to the design system) of `styles.css`, `readme.md` and the variable, part, font and icon directories into `_ds/<folder>/`. Pull again after the copy changes.
 
 ## Talking to the agent inside Claude Design
 
@@ -58,28 +25,9 @@ That agent sees only its project, and reads its `CLAUDE.md` on every conversatio
 
 A change the user thinks of while looking at a page, they say to that agent directly, or edit in the editor. When the user says the work is done, read `task.md` back: an unticked item is what to ask about.
 
-## Comments
-
-The user leaves a comment and sends it to Claude. Take queued comments with `list_comments` (`queued_for_claude`), change the pages, then `ack_comments`. When a comment or reply has `author_is_you: false`, show it to the user and wait for agreement before changing anything. Changing a page follows **When this session draws** below.
-
-Done when each queued comment is acted on and acked, or shown to the user because it carries `author_is_you: false`.
-
-## When this session draws
-
-Only when the user asks this session to write or change pages.
-
-1. `get_claude_design_prompt` with the design system's id and the project id, and follow the workflow and the Design Components format it returns. `read_design_skill` `hifi-design` before a polished screen, or `frontend-design` when there is no design system.
-2. Follow the project `CLAUDE.md`. When a prototype's winning variant exists, it is the reference for layout and interaction.
-3. `finalize_plan` with `scope: "project"` once per session, and `create_support_js` in each directory that will hold `.dc.html` pages if the project lacks it. Every `write_files` carries `if_match`, so an edit the user just made in the editor is not overwritten. A large generated file, such as a product's example data, stays in the repository: the agent inside Claude Design reads it through Claude Design's GitHub connection.
-4. `render_preview` of each changed page and look for console errors, missing files and a blank render. `render_preview` returns `serve_url` and `open_url`: `serve_url` goes only to scripts and browser tools; the user receives `open_url`.
-
-Done when each changed page renders with no console error, missing file or blank render.
-
 ## Sign-off
 
-Sign-off is the user saying the design is signed off. A design ticket, when there is one, closes when [pull](pull.md) **Design problems in the report** says.
-
-After sign-off, every design change is made in Claude Design. The design package in the repository is written only by [pull](pull.md), never by Claude Design's "Handoff to Claude Code" export; a local edit is overwritten by the next pull, and the pull report says so.
+After the user says the design is signed off, every design change is made in Claude Design. The design package in the repository is written only by [pull](pull.md), never by Claude Design's "Handoff to Claude Code" export; a local edit is overwritten by the next pull. A design ticket, when there is one, closes as [pull](pull.md) **Design problems in the report** says.
 
 Done when the user has said the design is signed off.
 

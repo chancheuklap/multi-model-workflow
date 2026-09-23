@@ -1,25 +1,6 @@
 #!/usr/bin/env python3
 """One run's share of this machine.
 
-The pipeline runs several agents at once on one machine: `dispatch` sends every startable
-ticket of a spec out together, each in its own git worktree. A worktree isolates files.
-Nothing isolated the machine — listening ports, the running application, the backing
-service behind it, the account inside that service — because the target contract never
-had a word for "this run's instance" and so no repository was ever asked to answer for
-one. On 2026-09-05 five workers shared three fixed ports and a night produced one
-worker's worth of work.
-
-A **lease** is that missing word. It is a registration of `worktree path -> slot`, and a
-slot is a block of ports and a data directory that no other slot overlaps. It is claimed
-once per worktree, by the first run of that worktree's criteria that needs the product,
-and lives until the ticket's work ends — landed, handed back, released, suspended or its
-start retracted: a worktree runs its criteria many times in a night — the worker's own
-run, the worker's final reverify, the closeout checks — and they all want the same
-application, so the lease cannot be per run. Writing code takes no slot. A criterion or
-judge run outside a ticket worktree gives back the slot **it claimed** when that run
-ends, and leaves a slot that was already held to whoever claimed it; `lease.py run`
-starts a product for a person or agent and leaves its lease in place.
-
     lease.py claim [<worktree>]           claim (or return) this worktree's slot; 4 none free
     lease.py env [<worktree>]             print the claim as KEY=VALUE lines
     lease.py run [<worktree>] -- CMD…     run CMD with the claim in its environment
@@ -29,34 +10,6 @@ starts a product for a person or agent and leaves its lease in place.
                                           0 removed or absent, 3 worktree exists/delete failed
     lease.py list                         every live claim
     lease.py count <directory>            how many claims sit under a directory
-
-Two limits bound a claim. The machine's is `SLOTS`. The product's is `instance.max` in
-the repository's `.mmw/target.json` — a product that cannot move its ports declares how
-many copies of it can run at once — and it counts every claim made from that repository,
-wherever its directory is: a ticket worktree, the main checkout running the night's
-reverify, or any other checkout sharing the repository's git directory. Each claim
-records that git directory, so the count holds after a worktree is gone. A claim past
-either limit is not taken: `claim` exits 4 and prints which limit and
-who holds the slots, because the caller waits and asks again rather than giving up
-(`verify-ticket.py` does, and says on the ticket that it is waiting).
-
-`claim` is atomic against other claimers: the count and the take happen under one lock on
-the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
-processes racing for the last slot cannot both win. There is no fallback to another slot
-on conflict — a worktree's slot is decided once and then it is simply looked up.
-
-Every verb answers a program or an agent; none of them formats for a person, because on
-this pipeline nobody reads a terminal. `claim`, `release`, `remove-instance` and `list`
-print JSON, `env` prints `KEY=VALUE`, `count` prints a number, and what a caller has to
-*decide* on is the exit code, never the wording. The one piece of prose here is the
-refusal a live listener earns, on stderr: its reader is an agent choosing what to do
-next, and it is written so that agent needs nothing else.
-
-**Nothing here ends a process except through the repository's own `stop`.** `release
---stop` runs that command, which ends only what this run started, and ends the command
-itself if it runs past `MMW_STOP_TIMEOUT_S`. `release` refuses while anything still listens
-on the slot, and says which pid and which directory, because reclaiming a slot from a live
-process is the same act as killing it.
 
 What a claim puts in the environment:
 
@@ -72,6 +25,53 @@ into whatever its own product needs — **at the moment it starts a process, nev
 session or test environment**. A test suite that asserts the product's registered port
 number is right to; a derived port leaking into it turns a correct suite red.
 """
+
+# The pipeline runs several agents at once on one machine: `dispatch` sends every startable
+# ticket of a spec out together, each in its own git worktree. A worktree isolates files.
+# Nothing isolated the machine — listening ports, the running application, the backing
+# service behind it, the account inside that service — because the target contract never
+# had a word for "this run's instance" and so no repository was ever asked to answer for
+# one. On 2026-09-05 five workers shared three fixed ports and a night produced one
+# worker's worth of work.
+#
+# A **lease** is that missing word. It is a registration of `worktree path -> slot`, and a
+# slot is a block of ports and a data directory that no other slot overlaps. It is claimed
+# once per worktree, by the first run of that worktree's criteria that needs the product,
+# and lives until the ticket's work ends — landed, handed back, released, suspended or its
+# start retracted: a worktree runs its criteria many times in a night — the worker's own
+# run, the worker's final reverify, the closeout checks — and they all want the same
+# application, so the lease cannot be per run. Writing code takes no slot. A criterion or
+# judge run outside a ticket worktree gives back the slot **it claimed** when that run
+# ends, and leaves a slot that was already held to whoever claimed it; `lease.py run`
+# starts a product for a person or agent and leaves its lease in place.
+#
+# Two limits bound a claim. The machine's is `SLOTS`. The product's is `instance.max` in
+# the repository's `.mmw/target.json` — a product that cannot move its ports declares how
+# many copies of it can run at once — and it counts every claim made from that repository,
+# wherever its directory is: a ticket worktree, the main checkout running the night's
+# reverify, or any other checkout sharing the repository's git directory. Each claim
+# records that git directory, so the count holds after a worktree is gone. A claim past
+# either limit is not taken: `claim` exits 4 and prints which limit and
+# who holds the slots, because the caller waits and asks again rather than giving up
+# (`verify-ticket.py` does, and says on the ticket that it is waiting).
+#
+# `claim` is atomic against other claimers: the count and the take happen under one lock on
+# the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
+# processes racing for the last slot cannot both win. There is no fallback to another slot
+# on conflict — a worktree's slot is decided once and then it is simply looked up.
+#
+# Every verb answers a program or an agent; none of them formats for a person, because on
+# this pipeline nobody reads a terminal. `claim`, `release`, `remove-instance` and `list`
+# print JSON, `env` prints `KEY=VALUE`, `count` prints a number, and what a caller has to
+# *decide* on is the exit code, never the wording. The one piece of prose here is the
+# refusal a live listener earns, on stderr: its reader is an agent choosing what to do
+# next, and it is written so that agent needs nothing else.
+#
+# **Nothing here ends a process except through the repository's own `stop`.** `release
+# --stop` runs that command, which ends only what this run started, and ends the command
+# itself if it runs past `MMW_STOP_TIMEOUT_S`. `release` refuses while anything still listens
+# on the slot, and says which pid and which directory, because reclaiming a slot from a live
+# process is the same act as killing it.
 
 from __future__ import annotations
 

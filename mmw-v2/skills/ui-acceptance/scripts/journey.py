@@ -239,7 +239,10 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         addresses_into(env, control_data)
         control_env = env
         green_prefix = f"JOURNEY GREEN WITH BREAK {name} — "
-        green_explanation = ""
+        green_explanation = (
+            " — it passed again with that interface failing. Make the journey read the "
+            "result back through a different page and assert it there."
+        )
     else:
         # The product is down and the addresses point nowhere. A journey that reached it
         # cannot pass this; one that asserted nothing passes it exactly as it passed above,

@@ -88,7 +88,7 @@ FIELDS: tuple[Field, ...] = (
           required=False),
     Field("checks", "list",
           "the repository's own checks, run by `verify-ticket.py --closeout` before an "
-          "ALL MET ticket closes; the verify-ticket skill's references/closeout.md says the "
+          "ALL MET ticket closes; the ui-acceptance skill's references/product-answers.md says the "
           "shape",
           '["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]',
           required=False),

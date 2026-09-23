@@ -49,10 +49,10 @@ The lint checks these top-level keys: `effort`, `baselines`, `locale`, `viewport
 
 | Key | Rule | Lint |
 | --- | --- | --- |
-| `viewports` | `WIDTHxHEIGHT` entries: the sizes the pages that declare no `viewports` of their own are rendered and compared at. The design package's `README.md` lists each page's `$preview` size under `## Viewport and size source` (`pull_design.py` writes it); a page drawn at a size the others do not share declares it under `pages.<page>.viewports` instead of adding it here. A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of any `.css` in the package (including `_ds/`) or a page's `<style>` block; missing is an error |
+| `viewports` | `WIDTHxHEIGHT` entries: the sizes the pages that declare no `viewports` of their own are rendered and compared at. A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of any `.css` in the package (including `_ds/`) or a page's `<style>` block; missing is an error |
 | `locale` | BCP 47 tag (`zh-CN`, `en-US`) the story judge sets on both browser contexts. The story judge reads it and does not fall back. | present; matches a BCP 47 language tag |
 | `states` | The state names this product allows in `next` that are not a scene: domain states, and local view states no scene draws (a zoomed canvas, an expanded container, a closed dialog). Omit the key when `next` never names one. | `next` that is not a row id, a scene name, or `stay` must be a member of this list |
-| `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. Declared by the agent writing the contract, never derived from the `component` column (a page holds several components' rows, and the one with most rows can be a borrowed shared control). | present, `[a-z0-9-]`, unique across pages |
+| `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. | present, `[a-z0-9-]`, unique across pages |
 | `pages.<page>.viewports` | The sizes this page's scenes are rendered and compared at, when they are not the top-level `viewports`: a page drawn at its own `$preview` size (a 236-wide column, a 52-high bar) is compared there only, not at every size of the other pages. Omit it for a page drawn at a top-level size. | each entry `WIDTHxHEIGHT`, not empty, no width on a stylesheet breakpoint |
 | `pages.<page>.component` | For a `Component · ` page: the rows' `component` value this page owns. `App · ` pages are whole-surface roots and carry none. | Component pages ↔ distinct `component` values one to one |
 | `scenes.<name>.page` | The `.dc.html` from `scenes.json`. | equals scenes.json; every scene of scenes.json has one entry and nothing else does |
@@ -61,15 +61,13 @@ The lint checks these top-level keys: `effort`, `baselines`, `locale`, `viewport
 
 `pages` and `scenes` are filled at design time, with no running product: `page` from `scenes.json`, `mount` as a declaration.
 
-`baselines.look` is the design package directory. The lint errors when that path is missing. It then reads each page `scenes.json` names: a clickable or editable control without a `data-ui` id is an error that names the page, line and column; a `Component · ` page whose `data-props` has no `scene` prop is an error.
-
-When a `story-parity.py --out` directory sits under the contract directory, the lint reads the newest such inventory (`media/<scene>-<WxH>-impl.png` files) and warns if a page — `App · ` included — has a scene that inventory does not cover. No inventory is silence: the contract has not been compared yet.
+`baselines.look` is the design package directory.
 
 ## A row
 
 A row is identified by `trigger` plus `precondition`. `trigger` is the control's `data-ui` id, copied from the skeleton as a string. The id format (`<region>.<part>`) is defined by the design-pages skill's `template-project-claude-md.md`; this file copies whatever the skeleton has. Role and accessible name are explanation the skeleton also carries, not the key.
 
-The same control in different states is several rows, split by `precondition`. A disabled state is a row: `calls: [none]`, `next: stay`. A part that repeats in a list is one row; the values that change go in `shows`, not extra rows.
+The same control in different states is several rows, split by `precondition`. A part that repeats in a list is one row; the values that change go in `shows`, not extra rows.
 
 Server-rendered product — a form POST against an HTTP API:
 
@@ -146,11 +144,3 @@ A **region** is the substring of a `data-ui` id before the first `.`. The lint t
   source: ["#12 Implementation Decisions 4"]
   gap: aligned
 ```
-
-## What the downstream skills take from it
-
-- `to-spec`: `calls` and `shows` → the **API contract** subsection; every `app:` row → the **`App · ` 页组合** subsection, which names the request fields and the other region's state per row id; `baselines` → Sources; the **visual acceptance** paragraph cites `pages` and the story judge instead of restating any command. Testing Decisions' **Test surfaces** are the **product answers** of the ui-acceptance skill's `references/product-answers.md`; that skill's `target_config.py --check` is the count.
-- `to-tickets`: the five kinds of ticket a contract produces are in that skill's `references/cutting-interface-tickets.md`. A component page ticket owns by design page: one story criterion, and one boundary criterion per row whose `calls` is not `[none]` or whose `next` is not `stay` (several rows may share one test file); an app page ticket owns an `App · ` page and gets one boundary criterion per `app:` row. **Read first** lists `scenes.json`, this file's path with the row ids the ticket owns, and every baseline-class `source` of those rows, deduplicated by document. Journeys are written on the contract ticket, on tickets the user named, and on each acceptance ticket, whose criterion carries `--break`.
-- `implement`: `precedence` is the rule for a conflict between the design package and this file; the worker writes the product component together with its story adapter and its boundary tests; the values the worker writes toward are the ones the story judge renders from the design package.
-- `code-review` Spec axis: reviews the diff row by row for the ids the ticket cites, and checks that the component draws every `shows` value of a cited row from its binding. Tests axis: reads the boundary tests' and journeys' own assertions, on top of what `boundary-check.py` decides. UI axis (pilot): on a ticket with a story criterion, reads the committed screenshots and the pixel difference images for what element parity cannot see.
-- `verify-ticket --lint`: the flags of the pipeline scripts.

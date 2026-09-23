@@ -1,18 +1,8 @@
 # How a repository becomes an acceptance runtime
 
-The **product answers** live in `.mmw/` at the repository root. mmw supplies the lease,
-`start` / `stop` protocol, journey runner, and harness guard. Fill `.mmw/target.json`
-until this command exits 0:
-
-```
-python3 <scripts>/target_config.py --check [--repo <dir>]
-```
-
-It prints every field as `ok`, `missing` (one sentence and one example), `wrong`
-(present with the wrong shape) or `absent` (optional), and every key outside those
-fields as `stale` (delete it), then the rules below. That screen is the whole list. The reasons a
-field is shaped as it is are the fields below. What every answer must guarantee,
-whatever shape the product takes, is the next section.
+The **product answers** live in `.mmw/` at the repository root; `target_config.py --check`
+lists the fields. This page says what every answer must guarantee and why each field is
+shaped as it is.
 
 ## What every product answer must guarantee
 
@@ -23,36 +13,28 @@ These hold for every product. How a given repository meets them is its own.
   composition module (the code that wires the regions together in the running
   product) and feeds it scene data; it does not wire the components itself,
   so a region the product leaves unwired stays unwired on the story page.
-  Neither page carries a Claude Design runtime (the markers [story-parity.md](story-parity.md)
-  lists).
+  Neither page carries a Claude Design runtime (`sc-interp`, `data-dc-tpl`,
+  `data-dc-script` or `dc-root`).
 - **`[data-story-root]` and the `data-ui` ids sit where
   [story-parity.md](story-parity.md) puts them**, under **The story page the
   product serves**.
 - **A `data-ui` id repeats only on the repeating part of a list.** The same id on
   two elements the design page shows as one each is a product defect: element
   parity pairs by id, so a repeated id outside a list makes one of them
-  unpairable. The static guard the contract ticket delivers (a check that reads the
-  repository's files and runs nothing) is what holds this,
-  alongside the two above it; its criterion sits on the batch's last ticket,
-  because it sweeps the whole tree.
+  unpairable. A static check the contract ticket delivers holds this.
 - **Time values come from scene data.** A client-rendered product loads the same
   paused clock the design side uses, so a clock reading is not a live instant.
 - **A boundary test replaces the outbound call module** the consuming repository
   names — the layer that emits the call, whether the call travels as HTTP, IPC, or
   an extension message.
-- **`.mmw/harness/` implements the break switch.** `start` reads `MMW_BREAK` as
-  `<METHOD> <route-pattern>`, fails only the one matching interface, acts only on
-  the product process, and prints `BREAK ARMED <METHOD> <route>` while the switch
-  is active.
+- **`.mmw/harness/` implements the break switch** that [journey.md](journey.md)
+  **The criterion, in one shape** specifies.
 - **A journey script reads only the addresses `discover` printed.** It starts
   nothing of its own — no application, server, container, or backing service.
 - **`harness_markers` declares this product's back-door strings** — the names it
   uses only to make itself drivable. `[]` is an answer.
 
 ## What the repository answers
-
-Which of these a repository must answer is what `target_config.py --check` prints, field by
-field. This section says why each one is shaped the way it is.
 
 - **`start`.** One command brings the whole stack up and returns only once the
   product is usable, not merely alive. It is run every time, and is idempotent in
@@ -77,12 +59,7 @@ field. This section says why each one is shaped the way it is.
   recorded as its own, leaves a neighbour's product alone, exits 0 with nothing to
   end, and does not release the lease. It ends the containers of this run's stack
   as well as its processes. When it returns, nothing listens on any port of this
-  run's lease — that is what "stopped" means here, and it is checked: `release`
-  refuses a slot something still answers on, whatever address or family it is
-  bound to, and `journey.py` says so rather than printing `JOURNEY OK`.
-
-- **`discover`.** Prints one JSON object: an origin-class address (where the
-  product is served) and `instance` (a readable name for this run).
+  run's lease — that is what "stopped" means here.
 
 - **`stories`.** Brings up the story service and prints its `origin`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
@@ -94,42 +71,13 @@ field. This section says why each one is shaped the way it is.
   `MMW_PORT_BASE`. Its environment carries `MMW_AUTOMATION=1` and nothing else of
   the lease.
 
-- **`journeys`.** The directory of journey scripts, default `.mmw/journeys`. Each
-  `<name>` is a directory with an executable `run`, or a `package.json` that
-  declares `scripts.run`. What `journey.py run <name>` does with it, what a
-  journey script has to assert, and what each line it prints means, are
+- **`journeys`.** One directory per journey; what a journey script must be is
   [journey.md](journey.md).
 
-- **`leaves_machine`.** Each thing this product does in a run that reaches past
-  this machine — opening the system browser, calling a paid service, writing a
-  machine-global location — naming the file that records it under
-  `MMW_AUTOMATION=1`. `[]` is an answer; a missing key is not.
+- **`harness_markers`.** Judged by [harness-guard.md](harness-guard.md).
 
-- **`harness_markers`.** The strings this product uses only to make itself
-  drivable. `[]` is an answer; a missing key is not. The command that judges
-  those strings, and the criterion that carries it, are
-  [harness-guard.md](harness-guard.md).
-
-- **`instance`.** A product whose ports cannot move says
-  `{"max": <n>, "why": "…"}`; absent means the product takes its ports from the
-  lease. `lease.py` enforces two limits when a slot is claimed: the machine's slots,
-  and `instance.max`, when present, counting every slot this repository already holds
-  wherever its checkout is — the ticket worktrees and the main checkout re-running the night's
-  criteria alike. A ticket takes its slot at the first run of its criteria that runs
-  the product and keeps it until its work ends — landed, handed back, bounced, released,
-  suspended or retracted — so `max` bounds how many tickets are past that point at
-  once; how many workers write code at once is not bounded by it, and neither is how
-  many story criteria run at once, since those start no product. A criterion or judge
-  run outside a ticket worktree gives back the slot **it claimed** as that run ends,
-  and leaves alone one the worktree already held: that slot is somebody's — a product
-  started under `lease.py run`, a journey going in the same checkout — and ending it is
-  ending a process this run never started. `MMW_DATA_DIR` remains
-  while its ticket worktree remains and is removed after that worktree is archived.
-  A worker's run that finds `max` reached takes no slot and exits at once; a
-  `--reverify` waits inside the command. Either way its ticket says so.
-
-- **`checks`.** The repository's own checks. The `verify-ticket` skill's
-  `--closeout` runs them.
+- **`checks`.** The repository's own checks, which the `verify-ticket` skill's
+  `--closeout` runs. `checks` is optional: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Every command receives `MMW_BASE_REF=origin/<into>`, where `into` is from the newest `worker.started`. The run lands as a `ticket.checked` event of its own, run `repo-checks`, before the closing comment: result `met` and the count passed when every command exited 0, and the branch is then pushed and the ticket closes; result `unmet` with each failed command and its last 20 lines when any did not, and the ticket stays open. A key that is not a list, an entry of another shape, or a file that is not JSON is an `unmet` run naming that problem, not absence; a repository without the key runs nothing and posts no such event.
 
 ## `.mmw/` directory
 
@@ -147,10 +95,4 @@ call the same start code `harness/` uses.
 
 ## Rules
 
-`target_config.py --check` prints these. It can see that `leaves_machine` is answered; it
-cannot see whether a key is a placeholder. That is `start`'s job.
-
-- Automation uses placeholder keys, vendor stubs, and local accounts. Real keys
-  exist only on a paid-smoke ticket labelled `ready-for-human`.
-- Every action `leaves_machine` names records instead of leaving the machine
-  when `MMW_AUTOMATION=1`.
+Real keys exist only on a paid-smoke ticket labelled `ready-for-human`.

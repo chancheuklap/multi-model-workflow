@@ -1,14 +1,10 @@
 # design system — a product's look, built in Claude Design by its own agent
 
-A Claude Design design system is a separate project holding a product's visual vocabulary: variables (colour, type scale, weights, spacing, radius, shadow, borders), the fonts and icons, and the reusable parts (a button, a lamp, a pill, a list row, a card shell), each part one class name with its variants and one card in the Design System tab that shows every state. A page project bound to it gets a copy under `_ds/<folder>/`, and the pages are drawn from those variables and parts.
-
-It holds no page regions (a whole title bar, a sidebar, a settings dialog: those are `Component · ` pages in the design project), no example data and no product logic. A part is a class name and its stylesheet, not a React component, unless the product itself is a React component library.
+A Claude Design design system is a separate project holding a product's variables, fonts, icons and reusable parts, each part one class name with its variants and one card showing every state. A page project bound to it gets a copy under `_ds/<folder>/`, and its pages are drawn from it. What it holds and does not hold is the block of [template-design-system-claude-md.md](template-design-system-claude-md.md).
 
 ## What it is for
 
-- **For Claude Design**: every page drawn in the product's project uses one look, and the agent inside Claude Design has named parts to compose instead of guessing values.
-- **For the product**: when it is built from an existing product, inconsistent values in the code (three sizes for one kind of heading, two close buttons) are unified into one scale, and each unification is recorded; the product follows through element parity once pages drawn with it are pulled.
-- **Not for acceptance**: no judge compares against the design system; pull brings in its `readme.md` for the `Unifications` table, and the story judge works from the pulled pages.
+No judge compares against the design system: pull brings in only its `readme.md`, for the `Unifications` table the product's code follows, and the story judge works from the pulled pages. It is not a step every design must pass through.
 
 ## When, and from what
 
@@ -34,4 +30,15 @@ The agent inside Claude Design builds it; this session prepares what it reads an
 
 ## After the design system changes
 
-Changes are made in Claude Design, by the user or by its agent. A bound page project's `_ds/<folder>/` copy does not follow by itself; refresh it from here before the page project's agent draws again: `list_files` both projects, `delete_files` every file under `_ds/<folder>/` that the design system no longer has, and `copy_files` (with `src_project_id` set to the design system) of `styles.css`, `readme.md` and the variable, part, font and icon directories into `_ds/<folder>/`. Pull again after the copy changes.
+Changes are made in Claude Design, by the user or by its agent. After a change, refresh each bound page project as [edit pages](edit-pages.md) **After the design system changes** says.
+
+## An existing product
+
+An existing product's screens are brought into Claude Design once, redrawn with its design system, and from then on they are designed there.
+
+1. **Design system**: built from the production code as **Who builds it** above says, unifying what the code does inconsistently.
+2. **Project**: [edit pages](edit-pages.md) **Create the project**, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows). Write the state list first under `## State list` in `prototypes/<effort>/README.md`, with `<effort>` as the `prototype` skill's rule 1 defines it; that file is the `--state-list` of [pull](pull.md). The agent inside Claude Design derives each region's data file from the product's real data for those states, which it reads from the repository through Claude Design's GitHub connection; `task.md` names that directory. The real data lives in its own directory beside the design package (`prototypes/<effort>/example-data/`), never inside it: each pull rewrites the design package to exactly the files the pages load.
+3. **Redraw**: `task.md` asks the agent inside Claude Design to draw one `Component · ` page per region from the design system, and an `App · ` page when regions' states are checked together, first one region for the user to look at; see [edit pages](edit-pages.md) **Talking to the agent inside Claude Design**.
+4. **Sign-off and pull**: as for any design. On the first pull the pages differ from the product wherever the design system unified a value; element parity names each of those elements, and the tickets cut from the contract bring the product to the design.
+
+Done when the user has signed off the redrawn pages and [pull](pull.md) has run.

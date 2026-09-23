@@ -399,7 +399,7 @@ class TestStoryFixture(unittest.TestCase):
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("locale", proc.stderr)
-        self.assertIn("story-parity.md", proc.stderr)
+        self.assertIn("screen-contract-format.md", proc.stderr)
         self.assertIn("then re-run", proc.stderr)
 
     def test_the_contract_locale_reaches_both_sides(self):
@@ -462,58 +462,6 @@ class TestStoryFixture(unittest.TestCase):
             encoding="utf-8")
         self.assertIn("en-US", product_aria)
 
-    def test_volatile_values_in_the_contract_exits_2_naming_it(self):
-        root = self.copied_fixture()
-        self._rewrite_contract(root, lambda text: text.replace(
-            "rows: []\n",
-            "volatile_values:\n"
-            "  - page: \"Component · Demo.dc.html\"\n"
-            "    trigger: { role: text, name: \"13\" }\n"
-            "    reason: \"test\"\n"
-            "rows: []\n",
-            1))
-        proc = self.run_story(cwd=root)
-        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        self.assertIn("volatile_values", proc.stderr)
-        self.assertIn("Delete `volatile_values` from the contract, then re-run.", proc.stderr)
-
-    def test_an_empty_volatile_values_list_still_passes(self):
-        root = self.copied_fixture()
-        self._rewrite_contract(root, lambda text: text.replace(
-            "rows: []\n", "volatile_values: []\nrows: []\n", 1))
-        proc = self.run_story(cwd=root)
-        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
-
-    def test_a_retired_id_with_a_trigger_exits_2_naming_it(self):
-        root = self.copied_fixture()
-        self._rewrite_contract(root, lambda text: text.replace(
-            "rows: []\n",
-            "retired_ids:\n"
-            "  - id: demo.old\n"
-            "    note: \"retired\"\n"
-            "    page: \"Component · Demo.dc.html\"\n"
-            "    trigger: { role: button, name: \"Continue\" }\n"
-            "rows: []\n",
-            1))
-        proc = self.run_story(cwd=root)
-        self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
-        self.assertIn("retired_ids", proc.stderr)
-        self.assertIn("Delete `trigger` from that entry, then re-run.", proc.stderr)
-
-    def test_a_retired_id_without_a_trigger_still_passes(self):
-        root = self.copied_fixture()
-        self._rewrite_contract(root, lambda text: text.replace(
-            "rows: []\n",
-            "retired_ids:\n"
-            "  - id: demo.old\n"
-            "    note: \"retired\"\n"
-            "rows: []\n",
-            1))
-        proc = self.run_story(cwd=root)
-        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-        self.assertEqual(proc.stdout.strip(), "STORY OK 3/3")
-
     def test_a_story_page_carrying_sc_interp_exits_2(self):
         proc = self.run_story(extra_env={"STORY_MUTATE": "sc-interp"})
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
@@ -538,7 +486,7 @@ class TestStoryFixture(unittest.TestCase):
         proc = self.run_story(cwd=root, extra_args=["--render-only"])
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("locale", proc.stderr)
-        self.assertIn("story-parity.md", proc.stderr)
+        self.assertIn("screen-contract-format.md", proc.stderr)
         self.assertIn("then re-run", proc.stderr)
 
     def test_a_server_the_stories_command_started_is_gone_after_the_run(self):

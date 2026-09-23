@@ -11,20 +11,14 @@ The user designs in Claude Design, with the agent inside it. This skill covers w
 
 | You are | Read |
 | --- | --- |
-| Creating a Claude Design project, bringing an existing product's screens into Claude Design, acting on comments sent to Claude, drawing pages because the user asked, or taking the user's sign-off | [references/edit-pages.md](references/edit-pages.md) |
-| The user has signed the design off, or this session is handling a `contract` child whose body names the `design-pages` skill's `references/pull.md` | [references/pull.md](references/pull.md): brings the project into the repository as the design package. Never while a worker is mid-run |
-| Asked to build a design system, or deciding whether one is worth building | [references/design-system.md](references/design-system.md): what it holds, when and from what, and how the agent inside Claude Design builds it |
+| Creating a Claude Design project or taking the user's sign-off | [references/edit-pages.md](references/edit-pages.md) |
+| Acting on comments sent to Claude, or drawing pages because the user asked | [references/draw.md](references/draw.md) |
+| The user has signed the design off, or this session is handling a `contract` child whose body names the `design-pages` skill's `references/pull.md` | [references/pull.md](references/pull.md): brings the project into the repository as the design package |
+| Asked to build a design system, deciding whether one is worth building, or bringing an existing product's screens into Claude Design | [references/design-system.md](references/design-system.md): what it holds, when and from what, and how the agent inside Claude Design builds it |
 
-Page conventions are the body of [template-project-claude-md.md](references/template-project-claude-md.md), the fenced block that is written into the page project's root as `CLAUDE.md`; a design system project's `CLAUDE.md` is the block of [template-design-system-claude-md.md](references/template-design-system-claude-md.md).
-
-Only a session whose host has the Claude Design MCP tools can do this skill's work; a host without them cannot be given them from here, and a dispatched worker never runs this skill. [edit pages](references/edit-pages.md) and [pull](references/pull.md) each list the MCP tools they need. Confirm each listed tool is callable before anything else. If one is missing, stop before writing anything and tell the user three things: this session cannot reach Claude Design, which tool is absent, and that the work has to be picked up again in a session whose host has those tools.
+Only a session whose host has the Claude Design MCP tools can do this skill's work, and a dispatched worker never runs it. In a session without them, tell the user the work needs a session whose host has those tools, and stop before writing anything.
 
 ## Resolve `<scripts>` once
 
-`<scripts>` in every command in this skill is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host, and `install.sh` puts this skill wherever the host that gave it to you reads its skills from.
+`<scripts>` in every command in this skill is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host.
 
-## Exit codes
-
-| Command | 0 | 1 | 2 |
-| --- | --- | --- | --- |
-| `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | not used | invocation error or the package cannot be completed (a named page or a referenced file does not download, a page still holds the preview's injection marker, the offline render keeps requesting new files); the files concerned are printed one per line above the refusal and the target is unchanged |

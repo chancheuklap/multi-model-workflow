@@ -33,7 +33,7 @@ In both sub-shapes the floating bottom bar is identical.
 
 ### When there is no app yet
 
-A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `prototypes/<effort>/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them, so there is no scaffolding to take down in step 7.
+A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `prototypes/<effort>/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them, so there is no scaffolding to take down after the first pull of the design.
 
 ## Process
 
@@ -80,7 +80,7 @@ For sub-shape A (existing page): keep all the existing data fetching above the s
 
 For sub-shape B (new page): the prototype route you created above mounts the same switcher.
 
-In both sub-shapes the variant components live in the leaf directory `prototypes/<effort>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app, and it comes down in step 7. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
+In both sub-shapes the variant components live in the leaf directory `prototypes/<effort>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app, and it comes down after the first pull of the design (the `design-pages` skill). Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
 ### 4. Build the floating switcher
 
@@ -107,18 +107,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region (the region name is the later `Component · <region>` page), and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them. An interface has one state list. On a wayfinder map it is written in the design ticket's leaf `README.md`, gathering the winner of every UI prototype ticket on the map, one heading per region; each prototype ticket's own leaf `README.md` keeps its verdict and names the regions it settled.
 
-The winner goes into Claude Design, so leave the scaffolding up until step 7: the winner running behind it is the reference the pages are drawn against, and a design system built from it reads its styles and components.
-
-### 7. Take the scaffolding down
-
-Run this after the first pull.
-
-- **Sub-shape A**: delete the mount point, the switcher, and the import of the leaf directory.
-- **Sub-shape B**: delete the prototype route and the switcher.
-
-Delete the symlink beside the route as well, if step 3 needed one.
-
-Done when nothing outside the leaf directory imports it: the leaf directory can be deleted at any time without breaking the build. The full set of variants stays there as reference; the next round of this page's design reads them and writes a fresh mount point.
+The winner goes into Claude Design, so leave the scaffolding up until the first pull: the winner running behind it is the reference the pages are drawn against, and a design system built from it reads its styles and components.
 
 ## Anti-patterns
 
@@ -129,4 +118,4 @@ Done when nothing outside the leaf directory imports it: the leaf directory can 
 
 ## Next
 
-A UI prototype hands off here, at step 6: its winner goes into Claude Design. Read the `design-pages` skill's `SKILL.md`: its `references/edit-pages.md` sets up the Claude Design project the user designs in; its optional `references/design-system.md` has the agent inside Claude Design build a design system from the winner's code when one is wanted; its `references/pull.md` brings the signed-off result back and sends you to step 7 above.
+A UI prototype hands off here, at step 6: its winner goes into Claude Design through the `design-pages` skill, whose first pull takes the scaffolding down.

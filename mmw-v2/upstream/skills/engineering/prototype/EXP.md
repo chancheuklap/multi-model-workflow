@@ -56,7 +56,7 @@ Done when every row of the page's summary table has its observation in **Rounds*
 
 ### 5. Record the answer, keep the experiment
 
-Rewrite **Conclusion**: yes or no against the bar, how the real code should draw on the reusable part, and what it should do differently. Then keep the experiment the way the [SKILL](SKILL.md) describes: it stays in the leaf directory, runnable, so the next question about the same approach starts by editing it. Once the approach is settled, delete the evidence output under `.scratch/<effort>/<issue>/evidence/`: the generator can reproduce it, and the `README.md` holds what was learned.
+Rewrite **Conclusion**: yes or no against the bar, how the real code should draw on the reusable part, and what it should do differently. Once the approach is settled, delete the evidence output under `.scratch/<effort>/<issue>/evidence/`: the generator can reproduce it, and the `README.md` holds what was learned.
 
 Done when **Conclusion** answers the question against the bar.
 
