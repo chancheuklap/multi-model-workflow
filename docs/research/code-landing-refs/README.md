@@ -10,5 +10,5 @@
 | `ponytail/` | github.com/DietrichGebert/ponytail | 2ed6c52c | 注入 worker 的 YAGNI 规则梯子；规则正文在 `.openclaw/skills/ponytail/SKILL.md` 与 `AGENTS.md` |
 | `unlazy/` | github.com/Leonxlnx/unlazy | da0b00a3 | 机器可检的验收账本 `GATES.md`（`CHECK:`/`EXPECT:`/`EVIDENCE:`）、`--reverify`、Stop hook；规范在 `references/gates.md`，模板在 `templates/` |
 | `swarm-forge/` | github.com/unclebob/swarm-forge | 60e9280c | tmux 多角色流水线与文件收件箱交接；协议在 `swarmforge/handoff-protocol.md`，规则在 `swarmforge/constitution/articles/` |
-| `pstack/` | github.com/cursor/plugins `pstack/` | 799151d9 | `skills/architect`、`skills/interrogate`、`skills/create-verification-skill`、`skills/poteto-mode/playbooks/`（brief 模板、验证阶梯、overnight 契约）；入门在 `docs/guide/` |
+| `pstack/` | github.com/cursor/plugins `pstack/` | b0b9c7a0 | `skills/architect`、`skills/interrogate`、`skills/create-verification-skill`、`skills/poteto-mode/playbooks/`（brief 模板、验证阶梯、overnight 契约）；入门在 `docs/guide/` |
 | `grok-bundled/` | 本机 Grok Build 1.0.5 内置技能 `~/.grok/bundled/skills/` 中与代码落地相关的 8 个 | grok 1.0.5 (5115b46b) | `design` → `execute-plan` → `pr-babysit` 流水线，`implement` 的实现-评审循环，`shared/personas/` 里的角色提示 |
