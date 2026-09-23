@@ -36,8 +36,6 @@ A kind is named for who can answer the child, not for where it came from:
 
 An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that stops the ticket's work. The relay of the `dispatch` skill wakes the main agent with `#<n> child.opened` for a `contract`, `fault` or `decision`.
 
-A reviewer reports a pipeline failure through its review report, which wakes the worker that started it. A `fault` child would wake only the main agent and leave that worker asleep.
-
 ## Exit codes
 
 `0` the sub-issue is open and recorded. `1` the sub-issue is open and its `child.opened` event could not be written; stderr names it — do not open it again. `2` a refusal, with the reason on stderr.
