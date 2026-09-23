@@ -226,7 +226,7 @@ The session a wake queue row is for, named by its (runner, session) pair: the ti
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **ack**:
-A recipient saying it has handled its wakes (`relay.py ack`, or `dispatch.sh ack <n> <event>`), which removes its rows up to that point.
+A recipient saying it has read a wake (`relay.py ack`, or `dispatch.sh ack <n> <event>`), which removes its rows up to that point.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **state directory**:

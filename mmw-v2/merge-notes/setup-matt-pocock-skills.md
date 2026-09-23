@@ -32,6 +32,7 @@
 | **List issues**、**Frontier query** 的命令 | 一律补 `--limit 500`。上游改这几条命令 → 收上游的其余部分，`--limit` 必须留着 |
 | **Child ticket** 里读子票的命令 | 从 `gh api` on the sub-issues endpoint 写成完整的 `gh api --paginate repos/<owner>/<repo>/issues/<map>/sub_issues?per_page=100`。理由同上：2026-09-06 在 agentflow 上，spec #537 有 37 个子票，不分页只看得到 30 个，7 张票在读的人眼里不存在 |
 | Conventions 之后新增的 `## Three label sets` 一节 | 本仓加的，种子里没有，照 `docs/agents/issue-tracker.md` 的同名一节原样抄。`to-spec`、`to-tickets`、`wayfinder` 三份技能建 `mmw:spec`、`mmw:ticket`、`mmw:map` 时都指向 `docs/agents/issue-tracker.md` `## Three label sets` 取颜色与说明；新仓库的这份文件由这颗种子写出，种子里没有这一节，新仓库第一次发 map、spec 或 ticket 就指向一个不存在的标题。上游改这份种子 → 这一节保留，与 `docs/agents/issue-tracker.md` 的同名一节保持同一份文字 |
+| `## Wayfinding operations` 的 **Map** 一条 | 本仓改的：map 同时打 `wayfinder:map` 与 `mmw:map`，正文四节写成 `wayfinder` 技能实际写的 Destination / Notes / Decisions-so-far / Not yet specified，与 `docs/agents/issue-tracker.md` 同一条一致。理由：`wayfinder` 建 map 时打这两个 label（`## Three label sets`），种子照上游写会让新仓库的 agent 只打一个。上游改这一条 → 收上游其余措辞，两个 label 与四节名保留 |
 | `## Wayfinding operations` 的 **Frontier query** 里「drop any carrying `mmw:spec`」 | 本仓加的，`docs/agents/issue-tracker.md` 同一条同样写。`to-spec` 把从 map 发布的每份 spec 建成 map 的 native sub-issue，而 map 在 spec 发布后仍开着、继续当这个 effort 的决定索引；不排除 `mmw:spec`，map 上的 frontier 会把 spec 当成一张待解的决定票。上游的 `wayfinder` 技能里 frontier 的定义不改，连接写在这条查询里。上游改这条查询 → 收上游措辞，这一项保留 |
 | `## Pull requests as a triage surface` 的 `**PRs as a request surface: no.**` 一句括号里，与 `## Wayfinding operations` 的 `Used by …` 一句 | host 中立：两处技能点名写成散文形式。共同理由见 [README.md](README.md#host-中立) |
 

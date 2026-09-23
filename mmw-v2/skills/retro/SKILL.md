@@ -181,8 +181,9 @@ four sections below in order: Gather, Analyze, Decide, Finalize.
 14. Run `<retro> finalize <spec> <file>`. `finalize` checks the file against a
     fresh `gather`, creates one `needs-triage` issue per proposal or reuses the
     open one that holds this spec and every source, writes the fixed-id Retro
-    Memory in the repository Space, and only after that write succeeds posts the
-    `spec.retroed` receipt. A completed retro changes no ticket verdict and
+    Memory in the repository Space, then posts the `spec.retroed` receipt:
+    `result=recorded` when that write succeeded, otherwise `result=unrecorded`
+    with the reason. A completed retro changes no ticket verdict and
     wakes no agent.
 
 Done when `finalize` has posted `spec.retroed` with `result=recorded`; then return to the dispatch skill's `references/night.md` `## 5. The night is over`, which tells the user.
@@ -202,9 +203,5 @@ A proposal asks for approval and changes none of these destinations. A problem's
 | `toolbox-memory` | approved, broadly useful knowledge, copied into toolbox Memory while the source Memory remains in the repository |
 | `none` | nothing would prevent the next instance |
 
-Implementation agents use the most context because they explore, implement,
-and debug. Reviewers receive a diff and use less context. Put stable coding
-standards in the reviewer's Rules, not in every worker prompt.
-Use AGENTS.md sparingly, mainly for navigation pointers; use docs as referenced
-detail; use a skill only for a repeatable multi-step workflow with a discoverable
-trigger, inputs, outputs, and Done when.
+Choose the destination whose reader acts on the lesson. A coding standard a
+reviewer can check goes in a reviewer Rule rather than in text every worker reads.

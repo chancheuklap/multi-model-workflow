@@ -242,7 +242,7 @@ follow the implement skill's Shared experience section for using, searching, sav
 correcting and reporting Memory.
 ```
 
-prompt 只给数据并指向 `implement` 的 `## Shared experience while implementing`；使用、搜索、写入、纠正与结束报告的规则只在那一节写一份。该节保持 monomind [`prompts/maintain-project-context.md`](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/prompts/maintain-project-context.md) 的三段职责和顺序：指定共享上下文入口；开工前读取、只跟随相关 primary evidence 并声明 authority；在 milestone/handoff 只保存已验证且可复用的变化，保留 evidence 与 supersession，并在结束时报告。
+prompt 只给数据并指向 `implement` 的 `## Shared experience while implementing`；使用、搜索、写入与纠正的规则只在那一节写一份。该节保持 monomind [`prompts/maintain-project-context.md`](https://github.com/monomind-ai-lab/project-context/blob/72a0a22640f4577eddd615c6bd3a4dad2a6473b9/prompts/maintain-project-context.md) 的三段职责和顺序：指定共享上下文入口；开工前读取、只跟随相关 primary evidence 并声明 authority；在 milestone/handoff 只保存已验证且可复用的变化，保留 evidence 与 supersession，并在结束时报告。
 
 task scope 仍只由 native parent 决定；路径和标题只用于历史检索，不能改变归属。若 task-scoped `list` 为 0，新 task 仍可通过历史检索得到旧经验；若历史检索为 0，则明确写 `none`，不用 Working Memory 冒充检索结果。
 
@@ -692,7 +692,7 @@ worker 写/读 mmw-experience
 #### B. 阶段二读写
 
 3. `dispatch.sh` 解析 native parent，并通过 runner `start --env` 设置 Space/Identity；三个 runner adapter 只把值送入实际 agent process。worker start 列出当前 task Memory，并以本票路径与标题搜索历史后去重；reviewer start 只读取 active `rule_stack`；`summary --memory-decisions` 校验逐项 manifest，并把该完整对象原样保存为 `spec.closed.payload.memory_closing`。worker 与 reviewer 的 prompt 直接作为 `dispatch.sh` 中相邻的单一模板保存，只替换第 3、8 节列出的动态块，再接到已有首次 prompt 后；不增加 prompt renderer 或第二份模板文件。
-4. `implement/SKILL.md` 增加第 3 节 monomind prompt 中的 authority、验证、运行中两级搜索、当场写入、禁止内容、supersede/deprecate 和结束报告指令，并完整引用第 5 节五字段与 labels；`code-review` 不增加 Memory retrieval，只执行第 8 节 prompt 中逐字注入的 active Rules，并用当前证据独立核实。
+4. `implement/SKILL.md` 增加第 3 节 monomind prompt 中的 authority、验证、运行中两级搜索、当场写入、禁止内容、supersede/deprecate 指令，并完整引用第 5 节五字段与 labels；`code-review` 不增加 Memory retrieval，只执行第 8 节 prompt 注入的 active Rules，并用当前证据独立核实。
 5. `to-spec/SKILL.md` 在 map 来源时创建 native child 并 read back；standalone spec 不虚构 parent。
 
 #### C. 阶段三 retro

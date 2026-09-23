@@ -68,7 +68,7 @@ The layer labels, with the colour and description a repository that lacks one cr
 | `mmw:child` | `c5def5` | MMW layer: a child issue a ticket opened | `verify-ticket.py --sub-issue` |
 
 A layer label puts an issue in no queue. The layer label tells a board which layer an issue is; the
-parent link tells the scripts which spec a ticket sits under — `verify-ticket.py` takes a ticket's
+parent link tells the scripts which spec a ticket sits under: `verify-ticket.py` takes a ticket's
 spec to be its direct parent and never walks further up. So a child that becomes a ticket changes
 both: its label goes from `mmw:child` to `mmw:ticket`, and its parent moves from the ticket it came
 from to that ticket's spec (`dispatch.sh route <ticket> <child> became-ticket <new ticket>` does both, taking the spec from the `child.opened` event rather than the tree). Where it

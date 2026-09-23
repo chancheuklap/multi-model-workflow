@@ -20,6 +20,8 @@ Three dots, so the comparison runs against the merge-base. A ref that does not r
 
 Capture the base commit and the `HEAD` commit. Both go in the first line of the review comment.
 
+Done when both commits resolve and the diff is not empty, or that failure is on the ticket.
+
 ## 2. Run the axes
 
 Read the ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`.
@@ -51,6 +53,8 @@ Render exactly one conclusion:
 `refuted` findings go under `## Withdrawn`, each with its refutation. Findings that hold and findings you could not tell go on to step 4.
 
 You do not assign severity, and you do not drop a finding because the fix looks large.
+
+Done when every finding has one conclusion.
 
 ## 4. Sort every review finding into in-ticket or out-of-ticket
 

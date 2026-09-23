@@ -15,7 +15,7 @@ pnpm add -D oxlint oxlint-tsgolint
 
 `<current>` is the release `pnpm view oxlint version` prints. `<matching>` is the newest release `pnpm view oxlint-tsgolint versions` lists; pin it exactly (below).
 
-**Pin `oxlint-tsgolint` exactly.** Its version encodes the TypeScript it embeds — `7.0.2001` is patch 1 for TypeScript `7.0.2` — so a range drifts off the compiler the repository builds with. `oxlint` itself only gains diagnostics, so a range is fine.
+**Pin `oxlint-tsgolint` exactly.** Its version encodes the TypeScript it embeds — `7.0.2001` is patch 1 for TypeScript `7.0.2` — so a range changes the TypeScript engine the check runs under between installs. `oxlint` itself only gains diagnostics, so a range is fine.
 
 `oxlint-tsgolint` checks with the TypeScript 7 engine it embeds, so the repository's `tsconfig.json` must be valid under TS 7 (no `baseUrl`, nothing else TS 7 removed). If it is not, stop and report: that migration is its own task.
 

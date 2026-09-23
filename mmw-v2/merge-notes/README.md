@@ -25,7 +25,7 @@ mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型�
 
 ## host 中立
 
-上游技能的正文按一家 host 说话：`the Skill tool` 这个工具名，和 `/名字` 这种斜杠调用。本仓的改法（点名另一个技能的两种写法、会话管理命令的写法、技能名的散文写法）是技能文本的规则，写在 `writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Hand-offs` 与 `### Paths, tokens and host neutrality`。
+上游技能的正文按一家 host 说话：`the Skill tool` 这个工具名，和 `/名字` 这种斜杠调用。一份技能正文对所有 host 是同一份，而工具名与斜杠调用在别的 host 上不存在：agent 只能猜，用户照打也不起作用。本仓的改法（点名另一个技能的两种写法、会话管理命令的写法、技能名的散文写法）是技能文本的规则，写在 `writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Hand-offs` 与 `### Paths, tokens and host neutrality`。
 
 **上游把某一段改回工具名或斜杠命令 → 收上游对那一段其余部分的措辞，按能力说话这一层不收回去。** 下面每份说明只写它那个技能改了哪几段，不复述这些写法。
 
