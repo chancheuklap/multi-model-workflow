@@ -2348,7 +2348,7 @@ json.dump(catalog, open(sys.argv[2], "w"))
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" MMW_RUNNER=tmux \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 2 ] || fail "a runner with no adapter is exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "tonight's runner is tmux, and this skill has no adapter for it" "$TMP/err" \
+  grep -q "the selected runner is tmux, and this skill has no adapter for it" "$TMP/err" \
     || fail "the refusal should name the runner: $(cat "$TMP/err")"
 }
 

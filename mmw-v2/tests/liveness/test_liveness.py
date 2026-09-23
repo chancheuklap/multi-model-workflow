@@ -192,7 +192,7 @@ class Health(unittest.TestCase):
                          read_failure="#61: gh exited 1: HTTP 502")
         ok, why = dog.health(self.HOLDER, beat, T0)
         self.assertFalse(ok)
-        self.assertIn("has not read the whole board since", why)
+        self.assertIn("has not read the whole tracker since", why)
         self.assertIn("HTTP 502", why)
         beat["read_at"] = stamp(T0 - timedelta(seconds=299))
         self.assertTrue(dog.health(self.HOLDER, beat, T0)[0])
@@ -587,13 +587,13 @@ class Rounds(StateCase):
         self.watchdog().round()   # a restarted watchdog keeps the time of the last whole read
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1)
-        self.assertIn("watchdog: cannot read the board since 2026-09-10T01:00:00Z: #61: gh exited 1",
+        self.assertIn("watchdog: cannot read the tracker since 2026-09-10T01:00:00Z: #61: gh exited 1",
                       self.send.calls[0][2])
         beat = self.heartbeat()
         ok, why = dog.health({"pid": beat["pid"], "identity": beat["identity"]}, beat,
                              self.clock.moment)
         self.assertFalse(ok)
-        self.assertIn("has not read the whole board", why)
+        self.assertIn("has not read the whole tracker", why)
 
     def test_a_restart_after_good_reads_starts_healthy(self):
         # Yesterday's last whole read is no failure: only a failing stretch is carried.
@@ -878,7 +878,7 @@ class Arm(StateCase):
                                      "read_failure": "#61: HTTP 502"})
         ok, why = dog.arm(self.state, "o/r", wait=1)
         self.assertFalse(ok)
-        self.assertIn("has not read the whole board", why)
+        self.assertIn("has not read the whole tracker", why)
         self.assertIsNone(holder.poll(), "arm ended a watchdog that was beating")
 
 

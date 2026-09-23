@@ -5,11 +5,11 @@ description: Start a reviewer from inside a ticket, run a night as its main agen
 
 # Dispatch
 
-Choose the door that matches your role; it holds commands and exit codes together.
+Choose the moment that matches your role; its file holds commands and exit codes together.
 
 ## Resolve `<dispatch>` once
 
-`<dispatch>` is `scripts/dispatch.sh`, next to this file. Commands in every door are written `<dispatch>` and mean:
+`<dispatch>` is `scripts/dispatch.sh`, next to this file. Commands in this skill are written `<dispatch>` and mean:
 
 ```bash
 bash <absolute path to scripts/dispatch.sh> …
@@ -17,11 +17,13 @@ bash <absolute path to scripts/dispatch.sh> …
 
 Resolve it from this file's own location; the path differs by machine and by host. `<dispatch>` finds the scripts of other skills by itself, so no directory is passed to it.
 
-Four names in the doors belong to other skills; resolve each from that skill's own `SKILL.md`. `<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill, and `<events.py>` is `scripts/events.py` of that same skill, run as `python3 <events.py> …`. `<lease.py>` is `scripts/lease.py` of the `ui-acceptance` skill, and `<ui-acceptance scripts>` is that same skill's `scripts/` directory.
+Four names in the references belong to other skills; resolve each from that skill's own `SKILL.md`. `<engine>` is `scripts/verify-ticket.py` of the `verify-ticket` skill, and `<events.py>` is `scripts/events.py` of that same skill, run as `python3 <events.py> …`. `<lease.py>` is `scripts/lease.py` of the `ui-acceptance` skill, and `<ui-acceptance scripts>` is that same skill's `scripts/` directory.
 
-## Find your door
+## Find your moment
 
-| Door | You are | Read |
+A **night** is one run of a spec's published tickets under one main agent, from `open` to `summary`, at any hour.
+
+| Moment | You are | Read |
 | --- | --- | --- |
 | 1 | the worker inside a ticket, starting its reviewer | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
 | 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass and running `finish` after user acceptance | [references/night.md](references/night.md) |
@@ -37,9 +39,9 @@ Run `<dispatch> board` from any checkout or worktree of the consuming repository
 ## On waking
 
 1. A wake can cut short a command you were running. Run that command again first.
-2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the board does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`reviewer.reported base=<commit> head=<commit>`) in one line, reading the ticket and nothing else. It is a read, not the way you learn a result.
-3. Act on it, as your door says.
-4. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one). Until you ack it, the relay sends the same wake again each time it restarts. Its exit codes are in [references/inside-a-ticket.md](references/inside-a-ticket.md).
+2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the tracker does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`reviewer.reported base=<commit> head=<commit>`) in one line, reading the ticket and nothing else. It is a read, not the way you learn a result.
+3. Act on it, as your moment's file says.
+4. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one). Until you ack it, the relay sends the same wake again each time it restarts. Exit `0`: that wake is acked — the relay removes it, and every earlier wake it sent this session, from the wake queue. Exit `2`: nothing was acked: this session cannot name itself (its runner's reason is on stderr), or no wake with that ticket and event is queued for this session — acked already, sent to another session, or never queued — and stderr lists the wakes that are queued for it (check the number and the event name against the wake you read).
 
 ## The arguments you supply
 

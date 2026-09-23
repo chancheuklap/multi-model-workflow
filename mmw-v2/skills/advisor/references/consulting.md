@@ -1,6 +1,6 @@
 # Consulting the advisor
 
-You have hit a decision. The advisor is a second opinion on a stronger model, started as its own session that holds none of your context, reads the code itself, and writes nothing. It is slow and expensive next to the models doing the typing.
+You have hit a decision. The advisor is a second opinion on a stronger model, started as its own session that holds none of your context and reads the code itself; writing nothing is a rule it keeps, not a limit its session enforces. It is slow and expensive next to the worker models.
 
 ## When it is worth a session
 
@@ -16,7 +16,7 @@ What you can settle by reading the code, settle by reading the code. One decisio
 
 ## Start it
 
-Write the packet to a file. Run `<dispatch> advise <file>`. Read the answer where tonight's runner shows the session. Exit 0 prints the session id. Exit 2 starts nothing; the reason is on stderr, read it verbatim.
+Write the packet to a file. Run `<dispatch> advise <file>`. Read the answer where the selected runner shows the session. Exit 0 prints the session id. Exit 2 starts nothing; the reason is on stderr, read it verbatim.
 
 To change which host or model the advisor uses, read the dispatch skill's `references/editing-models.md`.
 
