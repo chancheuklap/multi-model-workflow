@@ -1,0 +1,734 @@
+<title>pstack × MMW 工作流</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F1F3F4; --surface:#FFFFFF; --ink:#17212B; --ink-2:#465361; --ink-3:#7A8591; --rule:#D3D9DE;
+  --band-a:#F1F3F4; --band-b:#E8ECEF; --mid:#FAFBFB;
+  --ps:#0B7A70; --ps-soft:#D3ECE8; --mm:#5A44B5; --mm-soft:#E3DEF5;
+  --human-bg:#FFE7A0; --human-st:#9C7000; --script-bg:#DCE6F0; --script-st:#48698B;
+  --ext-bg:#F7F8F9; --ext-st:#8793A0; --gate-bg:#FFFFFF; --agent-bg:#FFFFFF;
+  --ok:#1F7A3A; --bad:#B42318; --loop:#C0520E; --hl:#E8A400;
+  --sans:"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans","PingFang SC","Noto Sans SC",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#10151A; --surface:#182027; --ink:#E5EAEE; --ink-2:#A9B4BE; --ink-3:#74808B; --rule:#2B353F;
+  --band-a:#10151A; --band-b:#141B21; --mid:#131A20;
+  --ps:#3DC3B4; --ps-soft:#12352F; --mm:#A895F2; --mm-soft:#282244;
+  --human-bg:#4A3A0C; --human-st:#E2B43A; --script-bg:#1D2D3C; --script-st:#7FA7CD;
+  --ext-bg:#182027; --ext-st:#6B7884; --gate-bg:#182027; --agent-bg:#182027;
+  --ok:#5CC27A; --bad:#F2776B; --loop:#F08A4B; --hl:#F2C14E; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --ground:#10151A; --surface:#182027; --ink:#E5EAEE; --ink-2:#A9B4BE; --ink-3:#74808B; --rule:#2B353F;
+  --band-a:#10151A; --band-b:#141B21; --mid:#131A20;
+  --ps:#3DC3B4; --ps-soft:#12352F; --mm:#A895F2; --mm-soft:#282244;
+  --human-bg:#4A3A0C; --human-st:#E2B43A; --script-bg:#1D2D3C; --script-st:#7FA7CD;
+  --ext-bg:#182027; --ext-st:#6B7884; --gate-bg:#182027; --agent-bg:#182027;
+  --ok:#5CC27A; --bad:#F2776B; --loop:#F08A4B; --hl:#F2C14E; color-scheme:dark;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.6 var(--sans)}
+a{color:inherit}
+code,.mono{font-family:var(--mono);font-size:.92em}
+.ps{color:var(--ps)} .mm{color:var(--mm)}
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;
+  padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--rule)}
+.bar h1{margin:0;font:700 17px/1.2 var(--cond);letter-spacing:.01em;white-space:nowrap}
+.bar h1 .x{color:var(--ink-3);font-weight:500;margin:0 4px}
+.bar nav{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:13px}
+.bar nav a{text-decoration:none;color:var(--ink-2);padding:2px 0;border-bottom:1px solid transparent}
+.bar nav a:hover,.bar nav a:focus-visible{color:var(--ink);border-bottom-color:var(--ink-3);outline:none}
+.bar .terms{margin-left:auto;font-size:13px;font-weight:600;text-decoration:none;padding:3px 10px;border:1px solid var(--ink-3);border-radius:4px}
+.bar .terms:hover{background:var(--ink);color:var(--surface)}
+.bar .terms[aria-disabled="true"]{opacity:.55;pointer-events:none}
+/* contrast strip */
+.contrast{display:grid;grid-template-columns:minmax(120px,.55fr) 1fr 1fr;background:var(--surface);border-bottom:1px solid var(--rule)}
+.contrast > div{padding:9px 12px;border-top:1px solid var(--rule)}
+.contrast .h{font:600 12px/1.3 var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border-top:none;padding-bottom:4px}
+.contrast .h.ps,.contrast .h.mm{font-size:15px;letter-spacing:.02em;text-transform:none}
+.contrast .h.ps{color:var(--ps)} .contrast .h.mm{color:var(--mm)}
+.contrast .k{font-weight:600;color:var(--ink-2);font-size:13px}
+.contrast .v{font-size:13.5px}
+.contrast .v b{font-weight:600}
+.contrast .v.ps-c{box-shadow:inset 3px 0 0 var(--ps)} .contrast .v.mm-c{box-shadow:inset 3px 0 0 var(--mm)}
+/* diagram */
+.sec-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:22px 12px 8px}
+.sec-h h2{margin:0;font:700 20px/1.2 var(--cond);letter-spacing:.01em;text-wrap:balance}
+.sec-h p{margin:0;color:var(--ink-2);font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:0 12px 10px;font-size:12px;color:var(--ink-2);align-items:center}
+.legend i{display:inline-block;width:22px;height:13px;vertical-align:-2px;margin-right:5px;border:1.4px solid}
+.lg-h{background:var(--human-bg);border-color:var(--human-st)!important;border-radius:7px}
+.lg-a{background:var(--agent-bg);border-color:var(--ink)!important;border-radius:3px}
+.lg-m{background:var(--agent-bg);border-color:var(--ink)!important;border-radius:3px;box-shadow:3px 3px 0 -1px var(--agent-bg),3px 3px 0 0 var(--ink)}
+.lg-s{background:var(--script-bg);border-color:var(--script-st)!important}
+.lg-e{background:var(--ext-bg);border-color:var(--ext-st)!important;border-style:dashed!important;border-radius:3px}
+.lg-g{background:var(--gate-bg);border-color:var(--ink)!important;clip-path:polygon(15% 0,85% 0,100% 50%,85% 100%,15% 100%,0 50%)}
+.lg-line{display:inline-block;width:26px;border-top:2px dashed var(--loop);vertical-align:3px;margin-right:5px}
+.lg-fail{display:inline-block;width:26px;border-top:2px dashed var(--bad);vertical-align:3px;margin-right:5px}
+.diagram-wrap{position:relative}
+#laneHead{position:sticky;top:var(--barH,44px);z-index:20;background:var(--ground)}
+#laneHead svg,#flow svg{display:block}
+@media (max-width:1279px){.diagram-scroll{overflow-x:auto}#laneHead{position:static}}
+svg text{font-family:var(--sans)}
+.node{cursor:pointer}
+.node:focus{outline:none}
+.node:focus-visible .shape,.node.sel .shape{stroke:var(--hl)!important;stroke-width:2.6px!important}
+.dim .node:not(.on){opacity:.28}
+.dim .edge:not(.on){opacity:.12}
+.edge.on path.l{stroke-width:2.2px}
+/* detail panel */
+#detail{position:fixed;right:12px;bottom:12px;z-index:40;width:min(400px,calc(100vw - 24px));max-height:52vh;overflow:auto;
+  background:var(--surface);border:1px solid var(--rule);border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px 14px 12px}
+#detail .side{font:600 11px/1 var(--cond);letter-spacing:.08em;text-transform:uppercase}
+#detail h3{margin:5px 0 6px;font:600 15px/1.35 var(--sans)}
+#detail p{margin:0 0 8px;font-size:13.5px}
+#detail .src{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);border-top:1px solid var(--rule);padding-top:7px;word-break:break-word}
+#detail .close{position:absolute;right:8px;top:6px;border:0;background:none;color:var(--ink-3);font-size:18px;cursor:pointer;line-height:1}
+#detail .hint{color:var(--ink-3);font-size:12px;margin:0}
+/* lower sections */
+.pair{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule)}
+.pair > div{padding:14px 12px 18px;background:var(--surface)}
+.pair > div + div{border-left:1px solid var(--rule)}
+.pair h3{margin:0 0 10px;font:700 16px/1.2 var(--cond)}
+@media (max-width:760px){.pair{grid-template-columns:1fr}.pair > div + div{border-left:0;border-top:1px solid var(--rule)}}
+/* ladder */
+.ladder{list-style:none;margin:0;padding:0;counter-reset:st}
+.ladder li{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:start;padding:7px 0;border-top:1px dashed var(--rule)}
+.ladder li:first-child{border-top:0}
+.ladder li::before{counter-increment:st;content:counter(st);font:600 12px/22px var(--mono);text-align:center;border-radius:50%;width:22px;height:22px;background:var(--band-b);color:var(--ink-2)}
+.ladder .t{font-size:13.5px}
+.ladder .t small{display:block;color:var(--ink-2);font-size:12.5px;line-height:1.45;margin-top:1px}
+.chip{font:600 11px/1 var(--sans);padding:4px 7px;border-radius:3px;white-space:nowrap;border:1px solid}
+.c-h{background:var(--human-bg);border-color:var(--human-st);color:var(--ink)}
+.c-a{background:var(--agent-bg);border-color:var(--ink);color:var(--ink)}
+.c-v{background:var(--agent-bg);border-color:var(--ink);color:var(--ink);box-shadow:2px 2px 0 var(--ink-3)}
+.c-s{background:var(--script-bg);border-color:var(--script-st);color:var(--ink)}
+.c-e{background:var(--ext-bg);border-color:var(--ext-st);border-style:dashed;color:var(--ink)}
+.ladder .loop{grid-column:2/4;font-size:12px;color:var(--loop);margin-top:-2px}
+/* storage map */
+.store{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.store .box{border:1px solid var(--rule);border-radius:4px;padding:8px 10px;background:var(--ground)}
+.store .box h4{margin:0 0 5px;font:600 13px/1.3 var(--sans);display:flex;justify-content:space-between;gap:6px}
+.store .box h4 span{font:500 11px/1.6 var(--sans);color:var(--ink-3)}
+.store .box.truth{border:2px solid currentColor}
+.store ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.5}
+.store li code{font-size:11.5px}
+/* roles */
+table.roles{width:100%;border-collapse:collapse;font-size:13px}
+table.roles th,table.roles td{text-align:left;vertical-align:top;padding:6px 8px 6px 0;border-top:1px solid var(--rule)}
+table.roles th{font:600 12px/1.3 var(--cond);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);border-top:0}
+table.roles td:first-child{font-weight:600;white-space:nowrap}
+table.roles td code{font-size:11.5px}
+.tblwrap{overflow-x:auto}
+/* questions */
+.qs{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1px;background:var(--rule);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.q{background:var(--surface);padding:12px 12px 14px;display:grid;grid-template-rows:auto auto auto 1fr;gap:6px}
+.q h4{margin:0;font:600 15px/1.35 var(--sans);text-wrap:balance}
+.q .row{display:grid;grid-template-columns:44px 1fr;gap:6px;font-size:13px;line-height:1.5}
+.q .row b{font:600 11px/1.9 var(--cond);letter-spacing:.06em;text-transform:uppercase}
+.q .ask{background:var(--band-b);border-radius:3px;padding:7px 9px;font-size:13px;align-self:end}
+.q .ask b{font-weight:600}
+.note{padding:6px 12px 2px;color:var(--ink-2);font-size:12.5px}
+.foot{padding:14px 12px 40px;font-size:12.5px;color:var(--ink-2);background:var(--surface);border-top:1px solid var(--rule)}
+.foot h3{margin:0 0 6px;font:700 15px/1.2 var(--cond);color:var(--ink)}
+.foot ul{margin:4px 0 10px;padding-left:18px}
+@media (prefers-reduced-motion:no-preference){.node .shape{transition:stroke .12s}}
+</style>
+
+<header class="bar" id="bar">
+  <h1><span class="ps">pstack</span><span class="x">×</span><span class="mm">MMW</span> 工作流对照</h1>
+  <nav aria-label="页面导航">
+    <a href="#flow-sec">端到端总图</a>
+    <a href="#ladder">验证阶梯</a>
+    <a href="#state">状态放在哪里</a>
+    <a href="#roles">角色与模型</a>
+    <a href="#questions">值得研究的差异</a>
+    <a href="#method">调查说明</a>
+  </nav>
+  <a class="terms" id="termsLink" href="https://claude.ai/artifact/REgQzVKAmvehfKnRsgBQEj" target="_blank" rel="noopener">pstack 概念与术语 →</a>
+</header>
+
+<section class="contrast" aria-label="五个根本差异">
+  <div class="h">一眼看差异</div><div class="h ps">pstack（Cursor 插件，b0b9c7a0）</div><div class="h mm">MMW（mmw-v2，dev 362aa555）</div>
+  <div class="k">谁在调度</div>
+  <div class="v ps-c"><b>agent</b> 按 playbook 的文字规则调度；<code>orch</code> 脚本只记账，从不启动或唤醒 agent</div>
+  <div class="v mm-c"><b>确定性脚本</b>：<code>status.py</code> 算 frontier，<code>dispatch.sh</code> 派发与合并；主 agent 只处理事件和例外</div>
+  <div class="k">工作单元</div>
+  <div class="v ps-c"><b>PR</b>；派单是一份 brief（GOAL / SCOPE / ACCEPTANCE / VERIFY …）</div>
+  <div class="v mm-c"><b>ticket</b>（GitHub issue）；验收写成 <code>CHECK:</code> / <code>EXPECT:</code> 命令行</div>
+  <div class="k">怎样算通过</div>
+  <div class="v ps-c">在运行中的产品上拿证据，<b>异模型 verifier 多轮</b>复核，每次改 patch 重来，直到 clean</div>
+  <div class="v mm-c">命令退出码与输出由<b>脚本裁决</b>；一个 reviewer 四轴<b>只审一轮</b>，最后一次重跑决定结果</div>
+  <div class="k">怎样落地</div>
+  <div class="v ps-c">开 <b>GitHub PR</b>，过 CI 与 Bugbot；合并前再独立验证，用 patch-id 防止沿用过期结论</div>
+  <div class="v mm-c"><b>不开 PR</b>，脚本加锁直接合并进本夜 base branch；夜末在 base 上整体重跑（reverify）</div>
+  <div class="k">人在哪里</div>
+  <div class="v ps-c">开头给目标、go 与<b>合并授权</b>（可一次性给出）；之后只在不可逆或偏好问题时被问</div>
+  <div class="v mm-c">开头<b>逐题访谈</b>、批准拆票；夜里不等人；<b>早晨验收</b>后才并入 project branch</div>
+</section>
+
+<div id="flow-sec">
+  <div class="sec-h"><h2>端到端总图</h2><p>两边用同一组泳道，同一行的横带是同一阶段。点任一方块看细节和出处；中间一栏是这一阶段的差异。</p></div>
+  <div class="legend">
+    <span><i class="lg-h"></i>人</span><span><i class="lg-a"></i>agent</span><span><i class="lg-m"></i>并行多个 agent</span>
+    <span><i class="lg-s"></i>确定性脚本</span><span><i class="lg-e"></i>外部服务 / 存储</span><span><i class="lg-g"></i>判断点</span>
+    <span><span class="lg-line"></span>回到前面（循环）</span><span><span class="lg-fail"></span>失败 / 交还</span>
+  </div>
+  <div class="diagram-scroll">
+    <div id="laneHead"></div>
+    <div id="flow"></div>
+  </div>
+</div>
+
+<div id="ladder">
+  <div class="sec-h"><h2>验证阶梯：从写完到并入主干，经过哪些关</h2><p>按时间顺序；右侧标签是执行者。橙字是回退路径。</p></div>
+  <div class="pair">
+    <div><h3 class="ps">pstack · Autopilot-full 路径</h3><ol class="ladder" id="ladPs"></ol></div>
+    <div><h3 class="mm">MMW · 一夜里的一张票</h3><ol class="ladder" id="ladMm"></ol></div>
+  </div>
+</div>
+
+<div id="state">
+  <div class="sec-h"><h2>状态放在哪里，中断后靠什么接着跑</h2><p>粗框是这一侧的「真值」来源。</p></div>
+  <div class="pair">
+    <div><h3 class="ps">pstack：分散在本地文件、会话记录和 PR</h3><div class="store" id="stPs"></div></div>
+    <div><h3 class="mm">MMW：集中在 GitHub issue 的事件评论</h3><div class="store" id="stMm"></div></div>
+  </div>
+</div>
+
+<div id="roles">
+  <div class="sec-h"><h2>角色与模型</h2><p>pstack 按<b>任务类型</b>选模型（<code>~/.cursor/rules/pstack-models.mdc</code>）；MMW 按<b>角色等级</b>选（<code>~/.mmw/models.json</code>）。</p></div>
+  <div class="pair">
+    <div class="tblwrap"><h3 class="ps">pstack</h3><table class="roles" id="rlPs"></table></div>
+    <div class="tblwrap"><h3 class="mm">MMW</h3><table class="roles" id="rlMm"></table></div>
+  </div>
+</div>
+
+<div id="questions">
+  <div class="sec-h"><h2>差异里值得为 MMW 研究的问题</h2><p>前两行是两份调查读到的事实；灰底一行是我的分析，是要研究的问题，不是结论。</p></div>
+  <div class="qs" id="qs"></div>
+</div>
+
+<footer class="foot" id="method">
+  <h3>调查说明</h3>
+  <ul>
+    <li>来源：pstack 为 <code>docs/research/code-landing-refs/pstack/</code>（cursor/plugins <code>b0b9c7a0</code>，2026-09-23）；MMW 为本仓库 <code>dev</code> 的 <code>362aa555</code>。</li>
+    <li>方法：6 个 Codex agent（GPT-6-Sol medium）各读一块，只读、不运行任何脚本，读实现而不只读 README：P1 pstack 主线、P2 pstack 编排与脚本、P3 pstack 其余技能、M1 MMW 前半段、M2 MMW 过夜机器、M3 MMW 单票循环。原始报告在本仓库 <code>docs/research/workflow-compare/reports/</code>。页面上每个方块的出处都来自这些报告；我抽查了模型分配、<code>orch</code> 只记账、owner 自行 squash merge、30 分钟 tick、frontier 计算几处，与原文一致。</li>
+    <li>所以这是<b>规定与代码的静态读法</b>，不是实测：没有真正跑过 pstack，也没有观察一整夜 MMW。</li>
+  </ul>
+  <h3>调查员标出的出入</h3>
+  <ul>
+    <li>pstack <code>Opening a PR</code> 写「每个 playbook 结束都调用」，但 <code>Investigation</code> 明写不开 PR；图按后者画。</li>
+    <li>pstack <code>Orchestrate</code> 要求用 Graphite 的 <code>gt</code> 管 stack，<code>orch frontier set</code> 也只读 <code>gt</code>；而 <code>Autopilot-full/stack</code> 明写不要求 Graphite。两套 stack 机制不能当成一种。</li>
+    <li>MMW <code>finish</code> 的书面 runbook 只说「检查前置条件」，实现 <code>finish_preflight</code> 还要求同一 base branch 的相关 ticket 全部关闭；<code>summary</code> 却允许有待分诊的票。人接受报告不能越过这道门。</li>
+    <li>MMW <code>check</code> 在安装检查不通过时会调用 <code>install.sh</code> 从已安装 checkout 修复，不是纯只读。</li>
+  </ul>
+</footer>
+
+<aside id="detail" hidden aria-live="polite"></aside>
+
+<script>
+(function(){
+"use strict";
+/* ---------- data ---------- */
+const LANES = {
+  ps:[["人","operator"],["编排者","主 agent · root · coordinator"],["执行 agent","owner · worker · poteto-agent"],["评审 · 验证","verifier swarm · arena · interrogate"],["机器","orch · watch-pr · /loop · GitHub · 云"]],
+  mm:[["人","owner"],["编排者","主 agent（night）"],["执行 agent","worker · 子 agent"],["评审 · 验证","reviewer + 四轴 · advisor"],["机器","dispatch.sh · verify-ticket · relay · GitHub"]]
+};
+const P = "docs/research/code-landing-refs/pstack/";
+const BANDS = [
+ {t:"安装与配置", n:["pstack：一个 Cursor 插件加一份模型规则，按任务类型选模型；安装时就能为仓库生成专属的验证技能 verify-<app>。","MMW：一次安装铺到 Claude、Codex、Pi、Grok 四个宿主，按角色等级选模型；夜里运行的是冻结的已安装版本。"]},
+ {t:"入口与路由", n:["pstack：所有请求进同一个常驻模式 /poteto-mode，从 23 条 playbook 里挑一条，步骤原样写进 todo，跳步要写理由。","MMW：ask-matt 给路线建议，按规模分到 wayfinder、访谈、triage 或直接做；大多数路线最后汇到 spec。"]},
+ {t:"理解与设计", n:["pstack：设计靠多模型并行竞争：architect 至少两种结构，arena 三个模型同时出候选、跨模型评判再合成。默认不等人。","MMW：设计靠人：grilling 逐题要人拍板，结论写进 ADR 和 CONTEXT；界面另走 Claude Design 出稿签收，再写 screen contract。"]},
+ {t:"规划与拆分", n:["工作单元：pstack 是 PR，派单是一份 brief，验收写成证据要求，由 agent 判断。MMW 是 ticket，验收写成命令行，由脚本判断，发布前后各 lint 一次。","两边都在这里停下等人：pstack 等 go 和合并授权，MMW 等拆票 Quiz 批准。"]},
+ {t:"派发与编排", n:["调度：pstack 由 agent 按文字规则派活，orch 只记账；MMW 由脚本算 frontier 并派发，主 agent 只处理事件和例外。","心跳：pstack 每约 30 分钟一次 /loop 审计，只把 commit、push、PR 变化算作进展；MMW 靠事件唤醒加每分钟 watchdog。","执行位置：pstack 默认 Cursor 云端；MMW 本机 worktree。"]},
+ {t:"构建", n:["两边都要真实证据。pstack 由执行 agent 在运行中的产品上自证（命令输出、截图、性能数），INCONCLUSIVE 不算过。","MMW 把证据写成 ticket 里的命令，由 verify-ticket 裁决，结果以 ticket.checked 事件记在 issue 上。"]},
+ {t:"验证与评审", n:["pstack 多轮：每次改 patch 都重新派一组异模型 verifier，直到 clean；结论钉在 PR + head SHA 上。","MMW 单轮：一个 reviewer 四轴读 diff，修一轮不再二审；最后一次重跑命令决定通过，红了交还 triage，不无限循环。"]},
+ {t:"合并与落地", n:["pstack 经 GitHub PR：CI、Bugbot 机器评审、按需人审；合并前再独立验证，用 patch-id 判断旧结论是否还有效。","MMW 不开 PR：脚本在锁下把通过的提交直接合并进本夜 base branch，冲突则 bounce；夜末把所有已落地票在 base 上重跑。"]},
+ {t:"收尾、审阅与沉淀", n:["沉淀的触发相反：pstack 的 /reflect 要人主动调用，改技能要人批准；MMW 每夜强制 retro，没有 retro 记录就不能 finish。","最后一道人工门：pstack 是合并授权（可提前一次给）；MMW 是早晨验收。"]},
+ {t:"中断与恢复", n:["pstack 的状态分散在本地文件、决策记录、会话记录和 PR；恢复靠 agent 读这些再与实物核对。","MMW 的真值集中在 GitHub issue 的事件评论，任何 session 都能 fold 出当前状态；session 死亡由 watchdog 检出。"]}
+];
+// node: [id, band, row, lane, kind, label, detail, source, span]
+const N = {ps:[
+ ["p0a",0,0,0,"human","/add-plugin pstack","在 Cursor 里安装插件。插件声明 skills/ 与 agents/ 两个目录。",P+"docs/guide/01-setup.md ## Install the plugin；.cursor-plugin/plugin.json"],
+ ["p0b",0,0,1,"agent","/setup-pstack：探测模型、选预算","检测真实模型 slug，按 max / xhigh / high / medium 预算把每个角色映射到模型，人确认后写规则。",P+"skills/setup-pstack/SKILL.md ### 1–### 5"],
+ ["p0c",0,0,4,"script","写 pstack-models.mdc","~/.cursor/rules/pstack-models.mdc：代码类任务 grok-4.7-xhigh-fast，判断与文字 claude-opus-5-5-max，reflect 工具 gpt-5.6-sol-max；新会话生效。",P+"skills/setup-pstack/SKILL.md ### 5. Write the rule"],
+ ["p0d",0,1,1,"agent","可选：create-verification-skill","为本仓库生成验证技能：Launch / Doctor / Drive / Evidence / Cleanup。生成者必须亲自跑通一项功能并留存证据，否则只算草稿。",P+"skills/create-verification-skill/SKILL.md ## 4. Prove the generated skill before handing it over",2],
+ ["p0e",0,1,4,"ext",".cursor/skills/verify-<app>/","仓库专属验证技能与 feature map，之后每次验证都用它驱动真实产品；由 maintain-verification-skill 维护。",P+"skills/maintain-verification-skill/SKILL.md ## Outcomes"],
+
+ ["p1a",1,0,0,"human","给目标 + 完成条件","描述要什么、怎么判断完成、可选约束。pstack 指南说「不要微操 agent」。",P+"docs/guide/02-poteto-mode.md ## What happens to your prompt"],
+ ["p1b",1,0,1,"gate","/poteto-mode 匹配 playbook","常驻模式。先读 Principles，从 23 条 playbook 选一条，把步骤原样复制进 todo，跳过的步骤写 skip: <reason>；说 new task 重新匹配。",P+"skills/poteto-mode/SKILL.md ## Playbooks"],
+ ["p1c",1,1,0,"agent","只读 → Investigation","以有出处的答复结束，不开 PR。",P+"skills/poteto-mode/playbooks/investigation.md"],
+ ["p1d",1,1,2,"agent","代码 → Bug fix / Feature / Refactoring / Perf","每类 playbook 规定第一步：Bug 先复现，Feature 先命名数据形状，Refactoring 先固定行为，Perf 先量基线。",P+"docs/guide/05-build-and-clean.md"],
+ ["p1e",1,2,1,"agent","无匹配 → figure-it-out","先写可证伪的 done，再设计一个可审计的流程，然后循环执行。",P+"skills/figure-it-out/SKILL.md ## Phase A–C"],
+ ["p1f",1,2,3,"agent","长任务 → Autonomous run / Autopilot / Orchestrate","Autonomous run：单任务跑到退出谓词；Autopilot-full：独立 PR 队列跑到合并；Autopilot-stack：交付待人落地的 stack；Orchestrate：多日项目。",P+"docs/guide/07-overnight.md",2],
+
+ ["p2a",2,0,2,"multi","how / why 并行探索","how：2–4 个 explorer 加 1 个 explainer 讲清代码怎么运行；why：每类证据一个 investigator，结论分 Direct / Supported / Inferred / Unknown。",P+"skills/how/SKILL.md；skills/why/SKILL.md"],
+ ["p2b",2,1,1,"agent","architect：至少两种结构不同的设计","先用 how/why 建现状模型，再出使用示例、类型草图、模块图和 rationale，过 design-red-flags 检查。",P+"skills/architect/SKILL.md ## Phase A–## Outputs"],
+ ["p2c",2,1,3,"multi","arena：3 个模型出候选 → 跨模型评判 → 合成","候选各写独立 worktree；只读的 cross-judge 评判；主 agent 读完所有候选后选一个做底，嫁接其他候选的长处（graft）。",P+"skills/arena/SKILL.md ## Phase A–F"],
+ ["p2d",2,2,1,"gate","分歧能用实验解决吗？","可观察的行为、布局、性能分歧交给实验；实验解决不了的产品或偏好选择才问人。",P+"skills/poteto-mode/SKILL.md ## Non-negotiables"],
+ ["p2e",2,3,2,"agent","Prototype 实验定夺","",P+"skills/poteto-mode/playbooks/prototype.md"],
+ ["p2f",2,3,0,"human","只问偏好；可选审设计","设计默认不等人审；人明确要求 architect with checkpoint 才先看设计。",P+"docs/guide/04-design.md ## Settle the shape with /architect"],
+
+ ["p3a",3,0,1,"agent","Multi-phase plan：PR 顺序 + 每 PR 证据盒","docs/ 下的计划文件：目标、PR 依赖、每个 PR 的 unit / live / perf 证据和 review gate，还有 /goal 与 30 分钟 tick。只产出计划。",P+"skills/poteto-mode/playbooks/multi-phase-plan.md",2],
+ ["p3b",3,0,4,"script","check-plan.mjs 查结构","只查计划的文本结构（固定小节、十条 live lane、perf 四盒等），不跑测试，不证明内容真实。",P+"skills/poteto-mode/scripts/check-plan.mjs SUB_BLOCKS"],
+ ["p3c",3,1,0,"human","明确 go + 是否授予合并权","只有 operator 明确 go 才执行；哪些 PR 自己持有、是否给全自治合并授权也在这里定。",P+"skills/poteto-mode/playbooks/autopilot-full.md 步骤 1"],
+ ["p3d",3,2,1,"agent","写 brief：GOAL / SCOPE / ACCEPTANCE / VERIFY / TIMEBOX / REPORT","给没有对话上下文的云端 worker 的派单；缺字段拒派；standing orders 另放 preferences.md。",P+"skills/poteto-mode/playbooks/orchestrate.md #### The brief",2],
+
+ ["p4a",4,0,1,"agent","root：每个独立 PR 派一个 owner","Autopilot-full：一个 PR 一个 owner，从构建到合并全程持有；文件重叠的串行。Orchestrate：本地 coordinator，不写代码，规模大时每条 track 一个 sub-coordinator，单次约 10 个在途。",P+"playbooks/autopilot-full.md 2；playbooks/orchestrate.md #### Roles and placement"],
+ ["p4b",4,1,2,"multi","Cursor 云端 owner × N","默认 environment: cloud；每个 branch/worktree 只有一个写者；owner 可再开子 agent，记在 children.tsv。",P+"skills/poteto-mode/playbooks/autopilot-full.md 2–3"],
+ ["p4c",4,0,4,"script","/loop：约 30 分钟 audit tick","root 每轮重读 playbook 与 /goal；只把副作用（commit、push、PR 或 check 变化、store 报告）算进展；超时无副作用即判 stuck，立即替换。",P+"skills/poteto-mode/playbooks/autopilot-full.md 6"],
+ ["p4d",4,1,4,"script","orch store：units / ledger / frontier / inbox / gates","orchestrate/<slug>/ 下的 TSV 与 JSON，每个文件只有一个写者；orch.ts 只记账，从不启动、等待或唤醒 agent。",P+"playbooks/orchestrate.md #### Store layout；scripts/orch/orch.ts"],
+ ["p4e",4,2,1,"agent","drain inbox，补下一波","完成通知记成 inbox 指针，在固定 drain 点批量分类处理；失败按原因（额度、网络、工具、未知）最多重派两次；不可逆或偏好问题写 gates.md 等人。",P+"playbooks/orchestrate.md #### Queue and drain；#### Liveness and failure"],
+
+ ["p5a",5,0,2,"agent","按 playbook 构建","owner 在自己的 branch 上实现；首推送和 ready PR 约 15 分钟内出现。",P+"skills/poteto-mode/playbooks/autopilot-full.md 3"],
+ ["p5b",5,1,2,"agent","清理：deslop · no-comments · unslop","注释由只读子 agent Comment Sicko 检查；technical-writing 与 unslop 清文字。",P+"skills/poteto-mode/playbooks/opening-a-pr.md **PRs.**"],
+ ["p5c",5,1,3,"agent","Comment Sicko（只读）","报告被拒可重跑一次，第二次仍不合格则判失败。",P+"skills/no-comments/SKILL.md ## Steps"],
+ ["p5d",5,2,2,"agent","在真实表面自证：verify-<app>","CLI 跑真实命令，UI 走运行中的交互，性能做前后对比；INCONCLUSIVE 不算通过；编译成功不能代替功能证据。",P+"docs/guide/06-verify-and-ship.md ## State the finish condition up front"],
+ ["p5e",5,3,2,"agent","Opening a PR（ready，非 draft）","Conventional Commit，小而有序的提交；stack 子 PR 以父分支为 base。",P+"skills/poteto-mode/playbooks/opening-a-pr.md"],
+ ["p5f",5,3,4,"ext","GitHub PR","",""],
+
+ ["p6a",6,0,3,"multi","swarm 验证轮：gates · live · ≥2 diff audit · 回归","root 对每个 code-ready head SHA 派一组独立 lane；verifier 选与作者不同的模型家族；每条 lane 报 PASS / ISSUES / BLOCKED 及 SHA、方法、证据。",P+"playbooks/autopilot-full.md 4；skills/swarm/SKILL.md ## Phase C"],
+ ["p6b",6,0,4,"script","ledger.tsv：按 PR + head SHA 记 verdict","五种 verdict：live-ui-verified、unit-test-verified、type-check-only、verifier-blocked、verifier-failed。ledger check 只按 PR+SHA 取行，不判断是否合格，合格与否由 coordinator 解释。",P+"scripts/orch/store.ts Verdict、ledger.check"],
+ ["p6c",6,1,1,"gate","root clean verdict？","所有必需 lane PASS 才算 clean；BLOCKED 不算通过。",P+"skills/poteto-mode/playbooks/autopilot-full.md 4–5"],
+ ["p6d",6,2,2,"agent","owner fix-forward","所有已证实的问题一次发回 owner；新 patch 开新一轮验证。",P+"skills/poteto-mode/playbooks/autopilot-full.md 4"],
+
+ ["p7a",7,0,4,"ext","GitHub：CI · Bugbot · merge state","",P+"skills/poteto-mode/playbooks/babysit.md"],
+ ["p7b",7,1,4,"script","watch-pr：冲突 → 未解评论 → CI","从 gh 读 PR、review threads、checks；按冲突、未解线程、失败检查、draft、pending、ready 分类；只报状态，不执行合并。",P+"skills/poteto-mode/scripts/watch-pr/policy.ts classifyPr"],
+ ["p7c",7,1,2,"agent","Babysit：止于 merge-ready","真的 Bugbot 问题先写红测试再修，噪声附证据驳回，安全或数据类的模糊项问人；CI flake 只重试一次。Babysit 从不授权合并。",P+"playbooks/babysit.md；references/bugbot-triage.md ## Decision rubric"],
+ ["p7d",7,2,0,"human","合并授权","明说 ship / merge when ready，或事先给了 Autopilot-full 全自治授权。Autopilot-stack 从不代人落地；改交互的 PR 需人看截图和视频。",P+"playbooks/babysit.md 9；playbooks/autopilot-stack.md 8"],
+ ["p7e",7,3,3,"agent","Shipping：每 PR 独立 verifier + patch-id","作者之外的每 PR live verdict；用当前 base 到 head 的 git patch-id 核对旧 verdict，patch 变了就重验；只落地自底向上连续通过的一段。",P+"skills/poteto-mode/playbooks/shipping.md 1–9"],
+ ["p7f",7,4,4,"ext","自底向上逐个 squash merge","Autopilot-full 里由 owner 自己合并：先 rebase 到 trunk，新 head 的 CI 通过，patch-id 判定 verdict 仍有效。",P+"skills/poteto-mode/playbooks/autopilot-full.md 5"],
+
+ ["p8a",8,0,4,"script","show-me-your-work：decisions.tsv","时间、阶段、决定、原因、证据、结果，一行一条，只追加；默认不提交，重大任务可提交；收尾时与会话记录对账。",P+"skills/show-me-your-work/SKILL.md ## The format"],
+ ["p8b",8,0,3,"agent","异模型审决策轨迹 → Attention","",P+"skills/show-me-your-work/SKILL.md ## Cross-model review of the trail"],
+ ["p8c",8,1,0,"human","morning audit","看决策记录和 Attention 项，核对与会话记录是否一致。",P+"docs/guide/07-overnight.md ## The morning audit"],
+ ["p8d",8,2,0,"human","/reflect（人主动调用）","不会自动触发，只在人说 reflect 时运行。",P+"skills/reflect/SKILL.md ## When to invoke"],
+ ["p8e",8,2,3,"multi","三镜头 reviewer + synthesizer","Judgment、Tooling、Divergent 三个 reviewer 并行，synthesizer 分成 Accepted / Rejected / Backlog；能机械强制的规则移到 Backlog。",P+"skills/reflect/SKILL.md ### 2–4"],
+ ["p8f",8,3,0,"human","批准 Accepted 才改技能","Backlog 自动进 devex tracker；未经批准不改任何技能。",P+"skills/reflect/SKILL.md ### 5. Apply",2],
+
+ ["p9a",9,0,0,"human","明确说 pause","「keep going」「going to bed」不触发暂停。",P+"skills/poteto-mode/playbooks/pause-safely.md"],
+ ["p9b",9,0,2,"agent","Pause safely：wip: commit + resume note","完成或回退当前原子步骤，不启动新工作，恢复说明写在外部文件。",P+"skills/poteto-mode/playbooks/pause-safely.md"],
+ ["p9c",9,1,1,"agent","Session pickup：读会话记录 / branch / PR，与实物核对","不信前任的自述，逐项以实际产物验证。",P+"skills/poteto-mode/playbooks/session-pickup.md",2],
+ ["p9d",9,2,1,"agent","Orchestrate 重启：重读 store，按 PR/branch 接回云端工作","Cursor 重启后视本地 agent 已死、云端工作仍在；重算 frontier，按存档 brief 重派 sub-coordinator。",P+"skills/poteto-mode/playbooks/orchestrate.md #### Liveness and failure",2],
+ ["p9e",9,2,4,"ext","store · decisions.tsv · PR · transcript","",""]
+],
+mm:[
+ ["m0a",0,0,0,"human","授权运行 install.sh","install.sh 只在人明确授权时运行；--check 是只读的例外。","AGENTS.md ## Gotchas"],
+ ["m0b",0,0,3,"script","install.sh：9 项安装","技能 symlink、各宿主 hooks（tool-guard、turn-guard）、四个宿主的用户级提示词、看板 LaunchAgent、Paseo 与 Orca 配置、Nowledge Mem 身份；记录 ~/.mmw/installed-root。","AGENTS.md ## Commands",2],
+ ["m0c",0,1,3,"script","models.json：每个角色的 host / model / effort","junior-worker、senior-worker、reviewer、advisor 四行；runner 在 paseo、orca、herdr 中选；只能用 models.py 修改，下次启动生效。","mmw-v2/skills/dispatch/references/editing-models.md",2],
+ ["m0d",0,1,1,"ext","冻结的已安装版本 mmw-installed","夜里运行的 MMW 固定为开夜时记录的已安装 checkout，正在被改的新版不能接管这一夜。","AGENTS.md ## Self-hosting boundary"],
+
+ ["m1a",1,0,0,"human","想法 / 外来 issue","",""],
+ ["m1b",1,0,1,"gate","ask-matt 选路线","路由建议：巨大而未定型 → wayfinder；工作目录里的中等想法 → grill-with-docs；堆积的 bug 和请求 → triage；一个会话能做完 → 直接 tdd。","mmw-v2/upstream/skills/engineering/ask-matt/SKILL.md ## The main flow；## On-ramps"],
+ ["m1c",1,1,1,"agent","巨大 → wayfinder 地图","GitHub map issue 加子 decision tickets；frontier 由未阻塞、未认领的子票构成；每个 session 最多解决一张非 research 票。","mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md ## The Map"],
+ ["m1d",1,1,0,"human","中等 → grill-with-docs 访谈","","mmw-v2/upstream/skills/engineering/grill-with-docs/SKILL.md"],
+ ["m1e",1,1,2,"agent","外来 → triage","状态机：needs-triage → needs-info / ready-for-agent / ready-for-human / wontfix；ready-for-agent 写 Agent Brief。","mmw-v2/upstream/skills/engineering/triage/SKILL.md ## Roles"],
+ ["m1f",1,1,3,"agent","小 → tdd 直接做","不产生 ticket。","mmw-v2/upstream/skills/engineering/ask-matt/SKILL.md ## On-ramps"],
+
+ ["m2a",2,0,0,"human","grilling：人逐题回答决定","agent 查事实，人答决定；逐轮清空决策树的 frontier；最后确认共同理解。","mmw-v2/upstream/skills/productivity/grilling/SKILL.md"],
+ ["m2b",2,0,1,"agent","查事实，记 ADR / CONTEXT","","mmw-v2/upstream/skills/engineering/domain-modeling/SKILL.md ## During the session"],
+ ["m2c",2,1,2,"multi","prototype / research 子 agent","可运行的问题交 prototype（prototypes/<effort>/<issue>/UI|LOGIC|EXP/）；外部知识交 research（要一手来源）。","mmw-v2/upstream/skills/engineering/prototype/SKILL.md；research/SKILL.md"],
+ ["m2d",2,2,0,"human","UI：Claude Design 出稿 → sign-off","Claude Design 项目里的 agent 按 task.md 画页，看不到本对话；人说「开始」、留评论、签收。","mmw-v2/skills/design-pages/references/edit-pages.md ## Sign-off"],
+ ["m2e",2,2,4,"script","pull_design.py → design package","prototypes/<effort>/claude-design/ 与 pull-report.md；报告的「设计检查」有问题要回 Claude Design 修；脚本返回 0 不代表没问题。","mmw-v2/skills/design-pages/references/pull.md ## Steps"],
+ ["m2f",2,3,1,"agent","write-screen-contract","docs/specs/<effort>/screen-contract.yaml：每页每个 scene 声明 calls / shows / next / on_failure；lint 零 ERROR。","mmw-v2/skills/write-screen-contract/SKILL.md ## Done when"],
+ ["m2g",2,3,0,"human","gap 由人裁定","每行都要 gap: aligned；lint 零 ERROR 本身不够。","mmw-v2/skills/write-screen-contract/SKILL.md ### 6"],
+
+ ["m3a",3,0,1,"agent","to-spec → spec issue（mmw:spec）","Problem Statement、Solution、User Stories、Implementation Decisions、Testing Decisions、Out of Scope 等；不再访谈，只综合已有决定。","mmw-v2/upstream/skills/engineering/to-spec/SKILL.md"],
+ ["m3b",3,1,1,"agent","to-tickets：竖切 + CHECK: / EXPECT:","每票 What to build、Read first、Seam、Owns、Acceptance criteria；每条验收是可由命令裁决的 CHECK:（加 EXPECT:）；并发票 Owns 不重叠，blocking 预先连好。","mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md ### 3–5",2],
+ ["m3c",3,2,0,"human","Quiz：批准粒度、依赖、等级","也回答歧义扫描提出的 Choices。","to-tickets/SKILL.md ### 6. Quiz the user"],
+ ["m3d",3,2,4,"script","verify-ticket --lint --drafts","发布前查验收行形状和依赖图；exit 2 表示判定器不可达，不算通过。","mmw-v2/skills/verify-ticket/references/linting.md"],
+ ["m3e",3,3,4,"ext","GitHub：sub-issues + labels + blocking","mmw:ticket，ready-for-agent 加 junior-worker / senior-worker，或 ready-for-human；发布后读回再 --lint 一次。","to-tickets/SKILL.md ### 7–8"],
+
+ ["m4a",4,0,0,"human","人批准开夜","","mmw-v2/skills/dispatch/references/night.md ## 1"],
+ ["m4b",4,0,4,"script","check → open","check 查安装、runner、等级，不推送；open 推进 project branch，建立 spec watch，写 spec.opened，启动看板。","night.md ## 1；dispatch.sh open_night"],
+ ["m4c",4,1,4,"script","advance：MERGE → RELEASE → DISPATCH","status.py 算 frontier：open、ready-for-agent、blocker 已关、无人认领、无 hold。先按关闭顺序落地，再释放，再把 frontier 上所有票都派出去。并发不在派发时限制，运行产品时受 slot 限制。","mmw-v2/skills/dispatch/scripts/status.py frontier、advance_plan"],
+ ["m4d",4,1,2,"multi","worker × frontier 全部票","本机 .worktrees/issue-<n>；worker 等级来自 ticket 的 grade label。","docs/contexts/night/CONTEXT.md ### Places"],
+ ["m4e",4,2,4,"script","relay 唤醒（需 ack）· watchdog 每分钟 · turn guard","worker 结果写成 ticket 评论里的事件；relay 把 #<n> <event> 送给主 agent，ack 后才删除；watchdog 发现 session 死亡写 worker.lost；turn guard 在 watchdog 不健康时阻止主 agent 结束回合。","docs/contexts/night/how-it-works.md ## Results, watches and wakes；## The watchdog and turn guard"],
+ ["m4f",4,2,1,"agent","主 agent 处理唤醒","fault 修后 resume；contract 按权威顺序更正，推翻用户决定的留给人；decision child worker 已取默认值，夜里不等人。","night.md ## 3. Each time something wakes you",2],
+
+ ["m5a",5,0,4,"script","start → --preflight：认领 + base 基线","dispatch.sh start 建 issue-<n> worktree；--preflight 写 ticket.claimed，并在 base commit 上先跑一遍验收作为基线。","verify-ticket.py run_preflight、run_baseline_if_needed"],
+ ["m5b",5,1,2,"agent","implement：读 Read first，在 Seam 上 TDD","只在 ticket 约定的 Seam 写行为测试；UI 票动手前先对照 design package 渲染比对。","mmw-v2/upstream/skills/engineering/implement/SKILL.md ## Claim, read in, write the code"],
+ ["m5c",5,1,0,"human","decision child → 人日后定","ticket、spec、baseline 都定不了的产品选择开 decision child，worker 先取默认值继续其余工作。","implement/SKILL.md ## Claim, read in, write the code"],
+ ["m5d",5,2,4,"script","integrate origin/<base>","exit 3 冲突就地解决（resolving-merge-conflicts）。","implement/SKILL.md ## Closing steps 1"],
+ ["m5e",5,3,4,"script","verify-ticket：跑 CHECK:，比对 EXPECT:","gate-check 为每条 CHECK: 起独立 shell；exit 0 且输出匹配 EXPECT: 才满足；失败也写 EVIDENCE:；结果记为 ticket.checked。UI 判据：story-parity（DIFF）、boundary（MISS）、journey、harness-guard，都带负控。","verify-ticket.py _run_checks；upstream-unlazy/scripts/gate-check.mjs"],
+
+ ["m6a",6,0,2,"agent","--decisions：先公布自主决定","写成一条 DECISIONS 评论（worker.decided），reviewer 的 Spec 轴逐行判断。","implement/SKILL.md ## Closing steps 2"],
+ ["m6b",6,0,3,"multi","reviewer：Standards · Spec · Tests · UI","worker 启动 reviewer，共用同一 worktree；四轴是 reviewer 内部并行的子 agent；reviewer 逐条核实后分 In-ticket / Out-of-ticket，写一条 REVIEW 评论（reviewer.reported）。","mmw-v2/upstream/skills/engineering/code-review/references/session.md"],
+ ["m6c",6,1,2,"agent","修一轮，不再二审；越界 → finding child","","implement/SKILL.md ## Closing steps 3"],
+ ["m6d",6,2,4,"script","final reverify → --closeout","最后一次提交后重跑全部验收；closeout 核对 draft、review 处置、HEAD 一致，跑 target.json 的 repository checks。","verify-ticket.py _run_closeout"],
+ ["m6e",6,3,4,"ok","ALL MET → ticket.passed","push 分支、关闭 issue、写 ticket.passed。",""],
+ ["m6f",6,3,0,"bad","HANDOFF REQUIRED → needs-triage","issue 保持 open，写 ticket.returned；早晨由人分诊。",""],
+
+ ["m7a",7,0,4,"script","land：按关闭顺序合并 ticket.passed.commit","持久的 merge-<branch> worktree，每个合并目标一把锁；需要时跑 .mmw/target.json 的 checks。","dispatch.sh acquire_merge_lock、land_one_via_origin"],
+ ["m7b",7,1,4,"bad","冲突 / 红 checks → ticket.bounced","第一次：留在队列，复用原 workspace 重做；第二次：needs-triage。","docs/contexts/night/how-it-works.md ## How advance processes a batch"],
+ ["m7c",7,2,1,"agent","closing pass：逐票 fold，给每个 finding 定去向","stale / fixed / became-ticket；新 ticket lint 后再 advance，直到没有未处理 finding。","night.md ## 4. The closing pass",2],
+ ["m7d",7,3,4,"script","reverify：在 base 上重跑所有已落地票","红票写 ticket.regressed 并转 needs-triage；全绿写 receipt，summary 要求 receipt 与最新 origin 一致。","dispatch.sh reverify_spec"],
+
+ ["m8a",8,0,4,"script","summary → NIGHT SUMMARY","要求没有可派 frontier、没有 live hold、没有未处理 finding、reverify receipt 全绿且是最新；写 spec.closed。","dispatch.sh summary_spec；status.py closeout_problems"],
+ ["m8b",8,1,1,"agent","retro（每夜必做）→ NIGHT RETRO + Memory","同一主 agent 调 retro 技能，写入 Nowledge Mem，finalize 记录 spec.retroed；finish 前必须有这条记录。","mmw-v2/skills/retro/SKILL.md ## Finalize"],
+ ["m8c",8,2,0,"human","早晨：看板 → SUMMARY / RETRO","两条 morning query：先 open needs-triage（先分诊），再 open ready-for-human。","docs/agents/issue-tracker.md ## Morning queries"],
+ ["m8d",8,3,0,"human","验收","",""],
+ ["m8e",8,3,4,"script","finish：并入 project branch","硬门禁：同一 base branch 的相关 ticket 必须全部关闭；不并入 default branch。","dispatch.sh finish_preflight、finish_spec"],
+
+ ["m9a",9,0,4,"ext","真值：issue 评论里的事件","评论尾部 <!-- mmw {...} --> 是机器事件；events.py fold 按评论顺序重建 ticket 状态；本机 relay / watchdog 文件只存通知与健康状态。","docs/contexts/night/how-it-works.md ## Events and holds"],
+ ["m9b",9,1,4,"script","watchdog：session 死亡 → worker.lost","","docs/contexts/night/how-it-works.md ## The watchdog and turn guard"],
+ ["m9c",9,1,1,"agent","retract / resume：在原 workspace 续做","retract 把已跟踪的修改 commit 并 push、归还资源；下一次 start 在原 workspace 上恢复。","how-it-works.md ## Starting a session",2],
+ ["m9d",9,2,1,"agent","suspend：停 session、push、归还 slot","修好故障后 open → advance 重开；推不上去的不 force-push，保留现场。","night.md ## Suspending the night",2]
+]};
+// edges: [from, to, label, type]  type: ""|"b" (loop back)|"f" (failure)
+const E = {ps:[
+ ["p0a","p0b"],["p0b","p0c"],["p0b","p0d"],["p0d","p0e"],
+ ["p1a","p1b"],["p1b","p1c","只读"],["p1b","p1d","代码"],["p1b","p1e","无匹配"],["p1b","p1f","长任务"],
+ ["p1d","p2a","先 how"],["p2a","p2b"],["p2b","p2c"],["p2c","p2d"],["p2d","p2e","能"],["p2d","p2f","不能"],["p2e","p2b","结论","b","U"],
+ ["p2d","p3a","定案 · 多 PR"],["p3a","p3b"],["p3b","p3c"],["p3c","p3d","go"],
+ ["p3d","p4a"],["p4c","p4a","每轮审计"],["p4a","p4b"],["p4b","p4d","完成指针"],["p4d","p4e"],["p4e","p4a","下一波","b",0.5],
+ ["p4b","p5a"],["p5a","p5b"],["p5b","p5c"],["p5b","p5d"],["p5d","p5a","INCONCLUSIVE","f",1.5],["p5d","p5e","通过"],["p5e","p5f"],
+ ["p5f","p6a","head SHA"],["p6a","p6b"],["p6b","p6c"],["p6c","p6d","ISSUES"],["p6d","p6a","新一轮","b","U"],
+ ["p6c","p7a","clean"],["p7a","p7b"],["p7b","p7c","blocker"],["p7c","p7a","push 修复","b","U"],["p7c","p7d","merge-ready"],["p7d","p7e"],["p7e","p7f","连续 PASS"],
+ ["p7f","p8a"],["p8a","p8b"],["p8b","p8c"],["p8c","p8d"],["p8d","p8e"],["p8e","p8f"],
+ ["p9a","p9b"],["p9b","p9c","接手"],["p9c","p9d"],["p9d","p9e","读"]
+],mm:[
+ ["m0a","m0b"],["m0b","m0c"],["m0b","m0d"],
+ ["m1a","m1b"],["m1b","m1c","巨大"],["m1b","m1d","中等"],["m1b","m1e","外来"],["m1b","m1f","小"],
+ ["m1d","m2a"],["m1c","m2b","decision 票"],["m2a","m2b"],["m2b","m2c","可运行问题"],["m2c","m2b","答案","b","U"],["m2b","m2d","有界面"],["m2d","m2e"],["m2e","m2d","设计问题","b"],["m2e","m2f"],["m2f","m2g","gap"],["m2g","m2f","裁定","b"],
+ ["m2f","m3a"],["m3a","m3b"],["m3b","m3c"],["m3c","m3d","批准"],["m3d","m3b","ERROR","f","U"],["m3d","m3e","0 ERROR"],
+ ["m3e","m4a"],["m4a","m4b"],["m4b","m4c"],["m4c","m4d"],["m4d","m4e","事件"],["m4e","m4f"],["m4f","m4c","再 advance","b",3.5],
+ ["m4d","m5a","","",3.5],["m5a","m5b"],["m5b","m5c","产品决定"],["m5b","m5d"],["m5d","m5e"],["m5e","m5b","未满足","f",3.5],
+ ["m5e","m6a","满足"],["m6a","m6b"],["m6b","m6c","reviewer.reported"],["m6c","m6d"],["m6d","m6e","ALL MET"],["m6d","m6f","未满足"],
+ ["m6e","m7a"],["m7a","m7b"],["m7a","m7c","frontier 空"],["m7c","m7d"],
+ ["m7d","m8a","全绿"],["m8a","m8b"],["m8b","m8c"],["m8c","m8d"],["m8d","m8e","接受"],
+ ["m9a","m9b"],["m9b","m9c"]
+]};
+
+/* ---------- ladders / stores / roles / questions ---------- */
+const LAD = {
+ ps:[["执行 agent 在真实表面自证","用 verify-<app> 驱动运行中的产品；INCONCLUSIVE 不算过","c-a","owner"],
+     ["清理","deslop；no-comments 由只读 Comment Sicko 检查","c-v","子 agent"],
+     ["swarm 验证轮","gates、live、≥2 条 diff audit、对 trunk 的回归 lane；verifier 与作者不同模型家族","c-v","verifier ×N"],
+     ["ledger 记 PR + head SHA 的 verdict；root 给 clean verdict","任何 BLOCKED 或已证实问题都不算 clean","c-s","root + orch"],
+     ["Babysit：CI 绿、Bugbot 线程处理完、forge 判定可合并","flake 只重试一次；真问题先写红测试再修","c-e","GitHub + owner"],
+     ["合并前：rebase 到 trunk，新 head 上 CI 通过","git patch-id 判断旧 verdict 是否仍有效","c-s","owner"],
+     ["人的合并授权","事先的全自治授权即可；改交互的 PR 另需人看截图和视频","c-h","人"]],
+ psLoop:[null,null,"ISSUES → owner 修 → 新 patch → 整轮重来",null,"修复 push 后回到验证轮","patch-id 变了 → 重新验证",null],
+ mm:[["--lint：验收行形状与依赖图","发布前（--drafts）、发布后读回、开夜前各一次","c-s","verify-ticket"],
+     ["--preflight：在 base 上跑基线","基线红不拒绝认领，但留作对照","c-s","verify-ticket"],
+     ["own run：逐条 CHECK:，比对 EXPECT:","每条独立 shell；通过和失败都写 EVIDENCE:","c-s","gate-check"],
+     ["UI 判据（界面票）","story-parity、boundary、journey、harness-guard，都要求负控能变红","c-s","ui-acceptance"],
+     ["reviewer 四轴","Standards、Spec、Tests、UI；逐条核实，分票内 / 票外","c-v","reviewer + 4 轴"],
+     ["final reverify + closeout","最后一次提交后重跑全部；draft、counts、review 处置、HEAD 一致；repository checks","c-s","verify-ticket"],
+     ["land：合并冲突或 target.json checks","红了写 ticket.bounced","c-s","dispatch.sh"],
+     ["夜末 reverify：base 上重跑所有已落地票","红票转 needs-triage","c-s","dispatch.sh"],
+     ["summary 门禁 + retro 记录","没有未处理 finding、receipt 最新","c-s","dispatch.sh"],
+     ["人的早晨验收 → finish","同一 base 的相关票必须全部关闭","c-h","人"]],
+ mmLoop:[null,null,"未满足 → worker 修 → 重跑（次数由 worker 判断）",null,"修一轮，不再二审","最终仍红 → ABANDON → HANDOFF REQUIRED","首次重做，二次 needs-triage",null,null,null]
+};
+const ST = {
+ ps:[["本地 agent store","orchestrate/<slug>/",["<code>units.tsv</code> 每个 unit 的状态、branch、PR、SHA","<code>ledger.tsv</code> PR + SHA 的 verdict","<code>frontier.json</code> PR 顺序与最低未合并","<code>inbox/</code> 完成指针；<code>gates.md</code> 等人的问题","<code>preferences.md</code> standing orders"],false],
+     ["决策记录","本地文件",["<code>decisions.tsv</code> 或 <code>.audit/&lt;slug&gt;.tsv</code>","默认不提交；收尾与会话记录对账"],false],
+     ["Git 与 GitHub","真值：代码与 PR",["每个写者一个 branch / worktree","PR、CI、Bugbot 线程、merge state","<code>wip:</code> commit 用于暂停"],true],
+     ["Cursor","会话与云端",["云端 agent（重启后仍在跑）","<code>agent-transcripts</code>、todo、<code>/goal</code>","<code>pstack-models.mdc</code>"],false]],
+ mm:[["GitHub Issues","真值：ticket 状态",["spec / ticket / map 与原生 sub-issue、blocking","三套 label：层级、队列、worker 等级","评论尾部的事件 <code>&lt;!-- mmw {...} --&gt;</code>，<code>events.py fold</code> 重建状态"],true],
+     ["Git","代码与收据",["<code>.worktrees/issue-&lt;n&gt;</code>、<code>merge-&lt;branch&gt;</code>","base / project branch","reverify receipt 在公共 Git 目录"],false],
+     ["本机 $MMW_HOME","通知与健康，不是真值",["<code>models.json</code>","relay 的 <code>watches.json</code>、<code>queue.jsonl</code>（ack 后删）","watchdog、turn guard 状态"],false],
+     ["仓库文档 + Nowledge Mem","决定与经验",["ADR、<code>CONTEXT.md</code>、<code>screen-contract.yaml</code>、<code>prototypes/</code>","夜间决定、closing、retro 写入 Memory"],false]]
+};
+const RL = {
+ ps:[["角色","做什么","模型 / 位置"],
+     ["coordinator / root","写 brief、排队、判断；不写代码","本地；Opus 5.5 类（判断）"],
+     ["owner / worker","一个 PR 从构建到合并","Cursor 云端；<code>grok-4.7-xhigh-fast</code>"],
+     ["verifier lane","独立验证当前 SHA","与作者<b>不同模型家族</b>"],
+     ["arena / architect runner","并行出候选设计","Opus · Sol · Grok 各一"],
+     ["interrogate reviewer A/B/C","审查争议设计","<code>claude-opus-5-5-max</code> · <code>gpt-5.6-sol-max</code> · <code>grok-4.7-xhigh-fast</code>"],
+     ["how / why explorer","并行读代码与历史","<code>grok-4.7-xhigh-fast</code>；合成用 Opus"],
+     ["reflect reviewer ×3 + synthesizer","复盘经验","reflect 工具 <code>gpt-5.6-sol-max</code>"],
+     ["Comment Sicko","只读检查注释","agents/comment-sicko.md"]],
+ mm:[["角色","做什么","模型 / 位置"],
+     ["主 agent","开夜、处理事件、closing pass、retro","人启动的 session，没有 models.json 行"],
+     ["junior-worker / senior-worker","一张 ticket 从认领到关票","按 ticket 的 grade label 选 row；本机 worktree"],
+     ["reviewer","启动四个轴、核实、写一条 REVIEW","<code>reviewer</code> row；与 worker 同一 worktree"],
+     ["Standards / Spec / Tests / UI 轴","各看一个方面","reviewer 内部子 agent，同 session 模型"],
+     ["advisor","一个决定的第二意见，只读","<code>advisor</code> row，较强模型"],
+     ["Claude Design 内的 agent","画页面","外部服务，看不到本仓库对话"],
+     ["runner","启动与观察 session","paseo · orca · herdr 之一"]]
+};
+const QS = [
+ ["验证者是否必须换模型家族",
+  "verifier、interrogate、决策轨迹审查都明确要求与作者<b>不同模型家族</b>，把「同一模型的盲点」当成要防的风险。",
+  "reviewer 用 <code>models.json</code> 的 <code>reviewer</code> 行，模型由配置决定，流程没有要求与 worker 不同家族。",
+  "reviewer 与 worker 是否应强制不同家族？代价是多一家模型的成本与额度，收益要看同家族漏判的实际比例。"],
+ ["验证是一轮还是直到 clean",
+  "每次改 patch 的 push 都触发新一轮完整验证，直到 root 给 clean verdict；过期结论用 SHA 与 patch-id 作废。",
+  "review 只一轮，修完不再二审；最终 reverify 红就交还 triage。",
+  "单轮评审漏掉的问题，有多少在夜末 reverify 或早晨才暴露？可以从 retro 记录里统计后再决定要不要加第二轮。"],
+ ["「怎么驱动这个产品」由谁维护",
+  "每个仓库有一份 <code>verify-&lt;app&gt;</code> 技能：生成时必须实跑一项；<code>maintain-verification-skill</code> 定期逐项实跑，区分文档漂移、harness 缺口和产品回归。",
+  "驱动产品的答案放在 <code>.mmw/target.json</code> 与 ui-acceptance 的判据里，由 ticket 的 <code>CHECK:</code> 调用。",
+  "target.json 与判据会不会随产品演变而过期？是否需要一个定期实跑、自我修正的维护流程？"],
+ ["设计分歧先交给多个模型，还是先问人",
+  "architect 至少两种结构；arena 三个模型并行出候选、跨模型评判、合成；只有实验解决不了的偏好才问人。",
+  "grilling 逐题请人拍板；prototype 用于可运行的问题。",
+  "访谈里有多少题其实是工程问题、可以先由多模型出候选再给人一个推荐？这直接影响你在前期花的时间。"],
+ ["活着但不干活的 agent 怎么发现",
+  "root 每约 30 分钟审计，只把副作用（commit、push、PR、check、store 报告）算作进展；超预期时长无副作用就立即替换。",
+  "watchdog 每分钟检查 relay 与「held 但无声」的票；session 死亡写 <code>worker.lost</code>。",
+  "MMW 对「session 还活着、事件却长时间没变化」的判定阈值是多少、判定后做什么？调查没有读到明确的替换规则，值得核实。"],
+ ["经验怎样变成规则",
+  "/reflect 由人触发；三镜头审查后，能机械强制的建议进 Backlog，原则 <code>encode-lessons-in-structure</code> 要求优先改结构而不是加文字。",
+  "retro 每夜强制写入 Memory，finish 前必须有记录。",
+  "retro 的发现目前由谁、经什么门变成技能或脚本改动？MMW 有「必须记录」，缺的可能是「怎样落成结构」这一步。"],
+ ["规则按需加载",
+  "每条原则是独立的 <code>principle-*</code> 技能，<code>disable-model-invocation: true</code>；poteto-mode 只放一张按触发条件列的索引，用到才读全文。",
+  "规则写在各技能正文和用户级提示词里，由每个技能自己携带。",
+  "与你正在做的技能集瘦身直接相关：重复出现的规则能否改成按需读取的原则页，减少每一步的阅读负担？"],
+ ["并发冲突在哪一步解决",
+  "派发时由 root 判断：文件重叠的 PR 串行，独立的并行；stack 拓扑只有一个写者。",
+  "写票时解决：<code>Owns</code> 不重叠，blocking 预先连好；合并时再用锁串行。",
+  "MMW 把冲突前移到写票，换来夜里不用判断；代价是写票时要预判准确。bounce 的频率可以说明预判的准确度。"]
+];
+
+/* ---------- render lower sections ---------- */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function ladder(id,rows,loops){
+  document.getElementById(id).innerHTML = rows.map((r,i)=>`<li><div class="t">${esc(r[0])}<small>${esc(r[1])}</small></div><span class="chip ${r[2]}">${esc(r[3])}</span>${loops[i]?`<div class="loop">↺ ${esc(loops[i])}</div>`:""}</li>`).join("");
+}
+ladder("ladPs",LAD.ps,LAD.psLoop); ladder("ladMm",LAD.mm,LAD.mmLoop);
+function store(id,rows,cls){
+  document.getElementById(id).innerHTML = rows.map(r=>`<div class="box ${r[3]?"truth "+cls:""}"><h4>${esc(r[0])}<span>${esc(r[1])}</span></h4><ul>${r[2].map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("");
+}
+store("stPs",ST.ps,"ps"); store("stMm",ST.mm,"mm");
+function roles(id,rows){
+  const [h,...b]=rows;
+  document.getElementById(id).innerHTML = `<thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${b.map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join("")}</tr>`).join("")}</tbody>`;
+}
+roles("rlPs",RL.ps); roles("rlMm",RL.mm);
+document.getElementById("qs").innerHTML = QS.map(q=>`<div class="q"><h4>${q[0]}</h4><div class="row"><b class="ps">pstack</b><span>${q[1]}</span></div><div class="row"><b class="mm">MMW</b><span>${q[2]}</span></div><div class="ask"><b>值得研究：</b>${q[3]}</div></div>`).join("");
+
+/* ---------- swimlane renderer ---------- */
+const SVGNS="http://www.w3.org/2000/svg";
+const cv=document.createElement("canvas").getContext("2d");
+const FONT_FAM='"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif';
+function tokens(s){ // CJK chars single tokens; latin words with trailing space
+  const out=[]; let buf="";
+  for(const ch of s){
+    if(/[⺀-鿿豈-﫿＀-￯　-〿]/.test(ch)){ if(buf){out.push(buf);buf="";} out.push(ch); }
+    else if(ch===" "){ buf+=" "; out.push(buf); buf=""; }
+    else buf+=ch;
+  }
+  if(buf) out.push(buf); return out;
+}
+const CLOSE=/^[，。、；：！？）」』”’》】,.;:!?)]$/;
+function wrap(text,max,size,weight){
+  cv.font=`${weight||400} ${size}px ${FONT_FAM}`;
+  const lines=[]; let cur="";
+  for(const t of tokens(text)){
+    const cand=cur+t;
+    if(cv.measureText(cand.trimEnd()).width<=max || !cur || CLOSE.test(t)){ cur=cand; }
+    else { lines.push(cur.trimEnd()); cur=t.trimStart(); }
+    // hard break very long latin tokens
+    while(cv.measureText(cur).width>max && cur.length>1){
+      let k=cur.length-1; while(k>1 && cv.measureText(cur.slice(0,k)).width>max) k--;
+      lines.push(cur.slice(0,k)); cur=cur.slice(k);
+    }
+  }
+  if(cur.trim()) lines.push(cur.trimEnd());
+  return lines;
+}
+function el(tag,attrs,parent){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+
+let GEO=null;
+function render(){
+  const host=document.getElementById("flow"), head=document.getElementById("laneHead");
+  const W=Math.max(1280, document.documentElement.clientWidth);
+  const midW=Math.round(Math.min(310,Math.max(230,W*.18)));
+  const sideW=(W-midW)/2, laneW=sideW/5, nodePad=7, nodeW=laneW-nodePad*2;
+  const FS=12.2, LH=15.4, rowH=86, bandPadTop=14, bandPadBot=12;
+  const sides={ps:{x0:0,col:"var(--ps)"},mm:{x0:sideW+midW,col:"var(--mm)"}};
+  // rows per band
+  const rows=BANDS.map(()=>0);
+  for(const s of ["ps","mm"]) for(const n of N[s]) rows[n[1]]=Math.max(rows[n[1]],n[2]+1);
+  // mid notes wrapped
+  const noteW=midW-26;
+  const notes=BANDS.map(b=>b.n.map(p=>wrap(p,noteW,12.4,400)));
+  const bandY=[],bandH=[]; let y=0;
+  BANDS.forEach((b,i)=>{
+    const noteH=34+notes[i].reduce((a,l)=>a+l.length*17.5+8,0);
+    const h=Math.max(rows[i]*rowH+bandPadTop+bandPadBot, noteH+10);
+    bandY.push(y); bandH.push(h); y+=h;
+  });
+  const H=y+10;
+  // --- lane header
+  head.innerHTML="";
+  const hs=el("svg",{width:W,height:52,viewBox:`0 0 ${W} 52`,"aria-hidden":"true"},head);
+  for(const s of ["ps","mm"]){
+    const x0=sides[s].x0;
+    el("rect",{x:x0,y:0,width:sideW,height:52,fill:`var(--${s}-soft)`},hs);
+    LANES[s].forEach((ln,i)=>{
+      const cx=x0+i*laneW+laneW/2;
+      const t=el("text",{x:cx,y:21,"text-anchor":"middle","font-size":13,"font-weight":600,fill:"var(--ink)"},hs); t.textContent=ln[0];
+      const sub=wrap(ln[1],laneW-10,10.5,400)[0];
+      const t2=el("text",{x:cx,y:38,"text-anchor":"middle","font-size":10.5,fill:"var(--ink-2)"},hs); t2.textContent=sub;
+      if(i>0) el("line",{x1:x0+i*laneW,y1:8,x2:x0+i*laneW,y2:48,stroke:"var(--rule)"},hs);
+    });
+  }
+  el("rect",{x:sideW,y:0,width:midW,height:52,fill:"var(--surface)"},hs);
+  const lp=el("text",{x:sideW+12,y:22,"font-size":15,"font-weight":700,fill:"var(--ps)","font-family":"var(--cond)"},hs); lp.textContent="← pstack";
+  const rp=el("text",{x:sideW+midW-12,y:22,"text-anchor":"end","font-size":15,"font-weight":700,fill:"var(--mm)","font-family":"var(--cond)"},hs); rp.textContent="MMW →";
+  const md=el("text",{x:sideW+midW/2,y:41,"text-anchor":"middle","font-size":11,fill:"var(--ink-3)"},hs); md.textContent="这一阶段的差异";
+  el("line",{x1:0,y1:51.5,x2:W,y2:51.5,stroke:"var(--rule)"},hs);
+  // --- main svg
+  host.innerHTML="";
+  const svg=el("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"pstack 与 MMW 端到端工作流泳道对照图"},host);
+  const defs=el("defs",{},svg);
+  for(const [id,c] of [["a-n","var(--ink-3)"],["a-b","var(--loop)"],["a-f","var(--bad)"],["a-h","var(--hl)"]]){
+    const m=el("marker",{id,viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"},defs);
+    el("path",{d:"M0,0 L10,5 L0,10 z",fill:c},m);
+  }
+  const gBand=el("g",{},svg), gLane=el("g",{},svg), gEdge=el("g",{},svg), gNode=el("g",{},svg), gLab=el("g",{},svg);
+  BANDS.forEach((b,i)=>{
+    el("rect",{x:0,y:bandY[i],width:W,height:bandH[i],fill:i%2?"var(--band-b)":"var(--band-a)"},gBand);
+    el("rect",{x:sideW,y:bandY[i],width:midW,height:bandH[i],fill:"var(--mid)"},gBand);
+    el("line",{x1:0,y1:bandY[i],x2:W,y2:bandY[i],stroke:"var(--rule)"},gBand);
+    // mid title
+    const tx=sideW+13;
+    const t=el("text",{x:tx,y:bandY[i]+24,"font-size":15,"font-weight":700,fill:"var(--ink)","font-family":"var(--cond)"},gBand);
+    t.textContent=`${i+1} · ${b.t}`;
+    let ty=bandY[i]+46;
+    notes[i].forEach(lines=>{
+      const tt=el("text",{x:tx,y:ty,"font-size":12.4,fill:"var(--ink-2)"},gBand);
+      lines.forEach((ln,k)=>{const sp=el("tspan",{x:tx,dy:k?17.5:0},tt); sp.textContent=ln;});
+      ty+=lines.length*17.5+8;
+    });
+  });
+  el("line",{x1:sideW,y1:0,x2:sideW,y2:H,stroke:"var(--rule)"},gLane);
+  el("line",{x1:sideW+midW,y1:0,x2:sideW+midW,y2:H,stroke:"var(--rule)"},gLane);
+  for(const s of ["ps","mm"]) for(let i=1;i<5;i++){const x=sides[s].x0+i*laneW; el("line",{x1:x,y1:0,x2:x,y2:H,stroke:"var(--rule)","stroke-dasharray":"2 5"},gLane);}
+  // nodes
+  const G={}; GEO=G;
+  for(const s of ["ps","mm"]) for(const n of N[s]){
+    const [id,band,row,lane,kind,label,detail,src,span]=n; const sp=span||1;
+    const w=sp*laneW-nodePad*2;
+    const lines=wrap(label,w-14,FS,500).slice(0,5);
+    const h=Math.max(34,lines.length*LH+14);
+    const cx=sides[s].x0+(lane+sp/2)*laneW;
+    const cy=bandY[band]+bandPadTop+row*rowH+rowH/2;
+    const g={id,s,kind,label,detail,src,x:cx-w/2,y:cy-h/2,w,h,cx,cy,edges:[]};
+    G[id]=g;
+    const grp=el("g",{class:"node",tabindex:0,role:"button","data-id":id,"aria-label":label},gNode);
+    const x=g.x,yy=g.y;
+    if(kind==="multi"){
+      el("rect",{x:x+5,y:yy+5,width:w,height:h,rx:4,fill:"var(--agent-bg)",stroke:"var(--ink)","stroke-width":1.1},grp);
+    }
+    let shape;
+    if(kind==="gate"){
+      const k=10; shape=el("polygon",{points:`${x+k},${yy} ${x+w-k},${yy} ${x+w},${cy} ${x+w-k},${yy+h} ${x+k},${yy+h} ${x},${cy}`,fill:"var(--gate-bg)",stroke:"var(--ink)","stroke-width":1.4},grp);
+    } else {
+      const st={human:["var(--human-bg)","var(--human-st)",12,""],agent:["var(--agent-bg)","var(--ink)",4,""],multi:["var(--agent-bg)","var(--ink)",4,""],
+        script:["var(--script-bg)","var(--script-st)",1,""],ext:["var(--ext-bg)","var(--ext-st)",4,"4 3"],ok:["var(--agent-bg)","var(--ok)",4,""],bad:["var(--agent-bg)","var(--bad)",4,""]}[kind];
+      shape=el("rect",{x,y:yy,width:w,height:h,rx:st[2],fill:st[0],stroke:st[1],"stroke-width":(kind==="ok"||kind==="bad")?2:1.3,"stroke-dasharray":st[3]},grp);
+    }
+    shape.setAttribute("class","shape");
+    const tcol=kind==="ok"?"var(--ok)":kind==="bad"?"var(--bad)":"var(--ink)";
+    const t=el("text",{x:cx,y:cy-(lines.length-1)*LH/2+4.2,"text-anchor":"middle","font-size":FS,"font-weight":500,fill:tcol},grp);
+    lines.forEach((ln,k)=>{const tsp=el("tspan",{x:cx,dy:k?LH:0},t); tsp.textContent=ln;});
+    g.el=grp;
+  }
+  // edges
+  const backCount={};
+  for(const s of ["ps","mm"]) E[s].forEach(e=>{
+    const [a,b,label,type,via]=e; const A=G[a],B=G[b]; if(!A||!B){console.warn("edge",a,b);return;}
+    const grp=el("g",{class:"edge"},gEdge);
+    const color=type==="b"?"var(--loop)":type==="f"?"var(--bad)":"var(--ink-3)";
+    const mk=type==="b"?"a-b":type==="f"?"a-f":"a-n";
+    let d,lx,ly,anchor="middle";
+    const r=6;
+    if(via==="U"){ // up from source top, then into the target side facing it
+      const sx=A.cx, dir=B.cx>A.cx?1:-1, tx=dir>0?B.x:B.x+B.w;
+      d=`M${sx},${A.y} V${B.cy+r} Q${sx},${B.cy} ${sx+dir*r},${B.cy} H${tx-dir*1}`;
+      lx=sx+4; ly=(A.y+B.cy)/2+4; anchor="start";
+    } else if(typeof via==="number"){ // route through a vertical corridor at lane `via`
+      const vx=sides[s].x0+via*laneW;
+      const sdir=vx>A.cx?1:-1, sx=sdir>0?A.x+A.w:A.x;
+      const tdir=B.cx>vx?1:-1, tx=tdir>0?B.x:B.x+B.w;
+      const vd=B.cy>A.cy?1:-1;
+      d=`M${sx},${A.cy} H${vx-sdir*r} Q${vx},${A.cy} ${vx},${A.cy+vd*r} V${B.cy-vd*r} Q${vx},${B.cy} ${vx+tdir*r},${B.cy} H${tx-tdir*1}`;
+      lx=vx+4; ly=(A.cy+B.cy)/2+4; anchor="start";
+    } else if(B.cy-A.cy>8){ // forward down
+      const sy=A.y+A.h, ty=B.y;
+      let sx=A.cx, tx=B.cx;
+      // if horizontal ranges overlap, go straight at a shared x
+      const lo=Math.max(A.x+8,B.x+8), hi=Math.min(A.x+A.w-8,B.x+B.w-8);
+      if(lo<=hi && Math.abs(A.cx-B.cx)>2){ sx=tx=Math.max(lo,Math.min(hi,A.cx)); if(!(sx>=lo&&sx<=hi)) sx=tx=(lo+hi)/2; }
+      if(Math.abs(sx-tx)<2){ d=`M${sx},${sy} V${ty-1}`; lx=sx; ly=sy+(ty-sy)/2+4; }
+      else{
+        const my=sy+Math.min(20,(ty-sy)/2); const dir=tx>sx?1:-1;
+        d=`M${sx},${sy} V${my-r} Q${sx},${my} ${sx+dir*r},${my} H${tx-dir*r} Q${tx},${my} ${tx},${my+r} V${ty-1}`;
+        lx=tx; ly=Math.min(ty-6, my+16);
+      }
+    } else if(Math.abs(B.cy-A.cy)<=8){ // same row
+      const dir=B.cx>A.cx?1:-1; const sx=dir>0?A.x+A.w:A.x, tx=dir>0?B.x:B.x+B.w;
+      d=`M${sx},${A.cy} H${tx-dir*1}`; lx=(sx+tx)/2; ly=A.cy-6;
+    } else { // back up
+      const key=s; backCount[key]=(backCount[key]||0)+1;
+      const laneA=(A.cx-sides[s].x0)/laneW;
+      const useLeft = laneA>3.2 || (s==="ps" ? false : false);
+      const off=12+(backCount[key]%3)*6;
+      if(!useLeft){
+        const sx=A.x+A.w, tx=B.x+B.w, xr=Math.max(sx,tx)+off;
+        d=`M${sx},${A.cy} H${xr-r} Q${xr},${A.cy} ${xr},${A.cy-r} V${B.cy+r} Q${xr},${B.cy} ${xr-r},${B.cy} H${tx+1}`;
+        lx=xr+3; ly=(A.cy+B.cy)/2; anchor="start";
+      } else {
+        const sx=A.x, tx=B.x, xl=Math.min(sx,tx)-off;
+        d=`M${sx},${A.cy} H${xl+r} Q${xl},${A.cy} ${xl},${A.cy-r} V${B.cy+r} Q${xl},${B.cy} ${xl+r},${B.cy} H${tx-1}`;
+        lx=xl-3; ly=(A.cy+B.cy)/2; anchor="end";
+      }
+    }
+    el("path",{class:"l",d,fill:"none",stroke:color,"stroke-width":1.4,"stroke-dasharray":type?"5 4":"","marker-end":`url(#${mk})`},grp);
+    if(label){
+      cv.font=`500 10.8px ${FONT_FAM}`; const tw=cv.measureText(label).width;
+      const bx=anchor==="middle"?lx-tw/2-3:anchor==="start"?lx-1:lx-tw-5;
+      const lg=el("g",{class:"edge-lab"},gLab);
+      el("rect",{x:bx,y:ly-10,width:tw+6,height:14,rx:2,fill:"var(--surface)",opacity:.92},lg);
+      const t=el("text",{x:lx+(anchor==="start"?2:anchor==="end"?-2:0),y:ly+1,"text-anchor":anchor,"font-size":10.8,"font-weight":500,fill:type?color:"var(--ink-2)"},lg);
+      t.textContent=label; grp._lab=lg;
+    }
+    A.edges.push(grp); B.edges.push(grp); grp._a=a; grp._b=b;
+  });
+  // interaction
+  svg.addEventListener("pointerover",ev=>{const n=ev.target.closest(".node"); if(n) focusNode(n.dataset.id,false);});
+  svg.addEventListener("pointerout",ev=>{const n=ev.target.closest(".node"); if(n && !pinned) clearFocus();});
+  svg.addEventListener("click",ev=>{const n=ev.target.closest(".node"); if(n){pinned=n.dataset.id; focusNode(pinned,true);} else {pinned=null; clearFocus(); hideDetail();}});
+  svg.addEventListener("keydown",ev=>{const n=ev.target.closest(".node"); if(n&&(ev.key==="Enter"||ev.key===" ")){ev.preventDefault(); pinned=n.dataset.id; focusNode(pinned,true);}});
+  svg.addEventListener("focusin",ev=>{const n=ev.target.closest(".node"); if(n) focusNode(n.dataset.id,false);});
+  if(pinned && G[pinned]) focusNode(pinned,true);
+}
+let pinned=null;
+function focusNode(id,sel){
+  const g=GEO[id]; if(!g) return;
+  const svg=g.el.ownerSVGElement; svg.classList.add("dim");
+  svg.querySelectorAll(".on").forEach(x=>x.classList.remove("on"));
+  svg.querySelectorAll(".sel").forEach(x=>x.classList.remove("sel"));
+  g.el.classList.add("on"); if(sel) g.el.classList.add("sel");
+  g.edges.forEach(e=>{e.classList.add("on"); GEO[e._a].el.classList.add("on"); GEO[e._b].el.classList.add("on");});
+  showDetail(g);
+}
+function clearFocus(){const s=document.querySelector("#flow svg"); if(!s)return; s.classList.remove("dim"); s.querySelectorAll(".on,.sel").forEach(x=>x.classList.remove("on","sel"));}
+const det=document.getElementById("detail");
+function showDetail(g){
+  const kindName={human:"人",agent:"agent",multi:"并行多个 agent",script:"确定性脚本",ext:"外部服务 / 存储",gate:"判断点",ok:"结果",bad:"结果"}[g.kind];
+  det.innerHTML=`<button class="close" aria-label="关闭">×</button><div class="side ${g.s}">${g.s==="ps"?"pstack":"MMW"} · ${kindName}</div><h3>${esc(g.label)}</h3>${g.detail?`<p>${esc(g.detail)}</p>`:""}${g.src?`<div class="src">出处：${esc(g.src)}</div>`:`<p class="hint">这个方块只是流程中的一个状态，没有单独出处。</p>`}`;
+  det.hidden=false;
+  det.querySelector(".close").onclick=()=>{pinned=null;clearFocus();hideDetail();};
+}
+function hideDetail(){det.hidden=true;}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){pinned=null;clearFocus();hideDetail();}});
+function setBarH(){document.documentElement.style.setProperty("--barH",document.getElementById("bar").offsetHeight+"px");}
+let rt; window.addEventListener("resize",()=>{clearTimeout(rt); rt=setTimeout(()=>{setBarH();render();},150);});
+setBarH(); render();
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(()=>{setBarH();render();});}
+})();
+</script>
