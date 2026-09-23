@@ -12,16 +12,21 @@ Scope: the skills under review, and each upstream skill's differences from upstr
 
 Run only commands that write nothing and start no session (`--help`, a script's read-only verbs); when you cannot tell whether a command writes, read its source instead.
 
+A finding describes a run that happens. Before recording one, name how it occurs where the set is actually used: the owner's setup (in MMW, one machine, and the hosts and runner in `~/.mmw/models.json`), the tracker history of past runs (every event of a spec and its tickets is a comment on the issue), or an input a script receives in normal use. A path nobody takes, a state no normal input produces, or a failure that already stops with a refusal the agent acts on is not a finding. When the history cannot show that it happens, leave it out.
+
 1. **List the tasks.** A skill is entered three ways: a branch its description triggers on; a prompt that starts an agent into it (built by a script, or written by a model from a template); a sentence in another skill or script that sends the agent to it by name or by step. `grep` the skill's name across every skill and script in the set for the third kind, then read the scoped skills for entries described without the name. Done when every entry of every skill in scope maps to a task, or is listed as out of scope.
-2. **Walk each task.** Start from what the agent holds at entry: the description, the start prompt, or the text that sent it. Open only what the text in front of you points to. Where the text says what a script or CLI does, accepts, reads or prints, check it against the source or `--help`. Record each file you had to open and why, each term you had to resolve, each choice you made without guidance, and where the text ends before the task does. Walk every outcome, not only success: each refusal and exit code, a failure reported under a success exit code, a retry, a resume, a re-entry later in the task. Done when each task reaches its completion criterion or a recorded finding.
-3. **Apply the per-task checks** below (every section except Vocabulary, Hand-offs and Upstream skills) to what each task read.
-4. **Read across the scoped skills** for the three checks no single task shows: [Vocabulary](#vocabulary), [Hand-offs](#hand-offs) and [Upstream skills](#upstream-skills). Read them end to end; a concept that is described instead of named does not show up in `grep`. Glossary entries are checked for the terms the walked tasks use.
+2. **Walk each task.** Start from what the agent holds at entry: the description, the start prompt, or the text that sent it. Open only what the text in front of you points to. Where the text says what a script or CLI does, accepts, reads or prints, check it against the source or `--help`. Record each file you had to open and why, each term you had to resolve, each choice you made without guidance, and where the text ends before the task does. Walk the outcomes that happen in use: success, and each failure the history shows or a normal input produces. Done when each task reaches its completion criterion or a recorded finding.
+3. **Apply the per-task checks** below (every section except Vocabulary, Hand-offs and Upstream skills) to what each task read. Done when each check has been applied to each task, or noted as not applying.
+4. **Read across the scoped skills** for the three checks no single task shows: [Vocabulary](#vocabulary), [Hand-offs](#hand-offs) and [Upstream skills](#upstream-skills). Read them end to end; a concept that is described instead of named does not show up in `grep`. Glossary entries are checked for the terms the walked tasks use. Done when every scoped skill has been read end to end.
 5. **Report** before any edit; each finding carries its fix as a proposal. In this order:
    - Tasks walked, one line each: who, entering from which text, to which completion criterion.
-   - Findings by severity, judged by effect. **High**: an agent following the text ends wrong or stuck. **Medium**: the agent ends right but at extra reading or work, or will stop ending right when one copy of a duplicated rule changes. **Low**: wording that misleads no current run. An unguided choice is rated by its worst likely guess. Each finding carries the task, the address (file, heading, line numbers), the failure mode (a term from `SKILL.md`, or a heading or bold term of this file), the quoted evidence, and the fix; a file you had to open is listed under the finding it caused.
+   - Findings by severity, judged by effect on the runs that happen. **High**: an agent following the text ends wrong or stuck. **Medium**: the agent ends right but at extra reading or work, or will stop ending right when one copy of a duplicated rule changes. **Low**: wording that misleads no current run. Each finding carries the task, how it occurs (the history entry or the normal input), the address (file, heading, line numbers), the failure mode (a term from `SKILL.md`, or a heading or bold term of this file), the quoted evidence, and the fix; a file you had to open is listed under the finding it caused.
+   - A fix removes or simplifies before it adds. A fix that adds a mechanism (a check, a field, an exit code, a verb, a guarding sentence) names the run in which the failure occurred.
    - Findings in files no running agent reads (glossary, merge-notes, ADRs), listed apart.
-   - Decisions for the user: what an end user sees, what happens to money, scope, what cannot be undone, what an unattended agent may change on the machine, and whether an upstream skill is still treated as upstream.
+   - Decisions for the user: only a choice that changes what a customer sees, what happens to money, the scope, or what cannot be undone. Any other choice is the reviewer's: make it and give the reason in the fix.
    - Not walked, not verified, and checks that did not apply.
+
+   Done when every finding names how it occurs.
 
 ## Checks
 
@@ -31,6 +36,7 @@ Run only commands that write nothing and start no session (`--help`, a script's 
 - Read every description in the set side by side, also in a partial review. Two descriptions that claim the same job are a conflict. A caller and the skill it hands to may share a trigger word when each description names only its own part of the job.
 - A description names no host and no runner: every host scans it into its system prompt, so one name ties the skill to that host or runner. A runner that cannot start is refused by its script at run time.
 - A skill this repository wrote has exactly two frontmatter keys, `name` and `description`, and no host-side manifest beside it (upstream skills keep their `agents/openai.yaml`), so its name and description have one authority. The `disable-model-invocation` pairing on upstream skills is in `mmw-v2/merge-notes/README.md`.
+- A user-invoked skill (`disable-model-invocation: true`) is loaded only when the user names it, so its description is a one-line summary for the person reading the command list (`SKILL-MECHANICS.md` `## Invocation`).
 - A `description` holding a colon followed by a space breaks YAML; quote it. Check it with a YAML parser, since some hosts are lenient and some are not.
 
 ### Disclosure: split by moment
@@ -64,9 +70,8 @@ A **moment** is a point in a task that needs one coherent set of material and th
 A **hand-off** is an edge A → B: skill or agent A leaves something that B reads or waits for.
 
 - What A leaves (the artifact, where, under which name or heading) is what B reads, by the same name. The hand-off is broken where they differ, where B needs something A never produced, or where A produces something (a section, a field, a child issue) that B reads under a condition A does not share.
-- For every outcome A can produce (success, each refusal or exit code, a failure reported inside a success exit code, a report that it could not do its job), name who reads it and what they do next. An outcome nobody acts on, or one that reaches the reader looking like success, is a broken hand-off. When the reader answers from a closed list (for example `accepted` or `rejected` for each item), the list covers every state A can create.
-- Between two sessions, B gets a completion signal it actually receives (an event, a wake, a command that blocks until A is done), and the text names who stops the session A runs in.
-- A retry works from the state the first attempt left: a script that refuses input its own earlier write changed, or a retry step nobody states, is a finding.
+- For every outcome A produces in use, name who reads it and what they do next. An outcome nobody acts on, or one that reaches the reader looking like success, is a broken hand-off.
+- Between two sessions, B gets a completion signal it actually receives (an event, a wake, a command that blocks until A is done).
 - Each event gets one instruction across the set. Two skills or scripts that tell the agent different things about the same event (the same exit code, the same wake, the same "done") contradict each other; the fix goes in the skill that owns the event.
 - Each skill ends by naming what comes next, or the caller it returns to, and the skill it returns to has an entry for an agent arriving that way.
 - A sentence written for one caller can misread under another. When skill X runs inside skill Y, reread X's general statements in Y's situation.
@@ -81,13 +86,13 @@ A **hand-off** is an edge A → B: skill or agent A leaves something that B read
 
 ### Upstream skills
 
-An **upstream skill** (one kept in an upstream subtree, or adapted from one) enters the set as its authors wrote it. The set's work is to connect it to the workflow: what reaches it, what it hands on, which house rule it must obey. Its text changes only where the change alters what the agent does: a step, their order, where or with what it works, what it produces or hands over. A rewording for style, clarity or the set's voice is a finding, fixed by restoring the upstream text.
+An **upstream skill** (one kept in an upstream subtree, or adapted from one) enters the set as its authors wrote it. The set's work is to connect it to the workflow: what reaches it, what it hands on, which repository rule it must obey. Its text changes only where the change alters what the agent does: a step, their order, where or with what it works, what it produces or hands over. A rewording for style, clarity or the set's voice is a finding, fixed by restoring the upstream text.
 
 - Diff the skill against upstream (the squash-commit command is in `mmw-v2/merge-notes/README.md`). Every changed paragraph maps to a merge-note entry stating the behaviour it changes. A paragraph with no entry, or whose entry states only wording, goes back to upstream's text. A skill adapted from upstream without a merge-note is a finding.
 - The merge-note's entries agree with each other and with the current text. An entry that still states a replaced rule is a finding: the next upstream pull would restore that rule.
 - Connect outside the upstream text first: in the set's own skills, in a reference file added beside the upstream ones, in the line a caller reads. An upstream sentence changes only when an agent reading it would act wrongly in this workflow even with the connecting text in place.
 - Checks on style (completion-criterion lines, the shape of a description, vocabulary preferences) apply to the set's own text. Upstream sentences are judged on whether they work in the workflow.
-- When fewer than half of a skill's lines are upstream's, it is reviewed as the set's own text, and the report asks the user whether it is still treated as upstream.
+- When fewer than half of a skill's lines are upstream's, it is reviewed as the set's own text.
 
 ### Scripts and prose
 
@@ -95,7 +100,6 @@ An **upstream skill** (one kept in an upstream subtree, or adapted from one) ent
 - Where only understanding can decide (what counts as X, which of two readings applies, when a step is finished), the words go there: the criterion, the exact rule the script will apply when it later judges the agent's output, and a contrasting pair of examples when a misreading is likely.
 - A rule a script could check exactly becomes a check (a lint, a refusal, a test), not a sentence. A numeric limit is enforced by the mechanism; models do not copy literal numbers reliably.
 - Programs branch on exit codes and fields; the refusal's wording is for the agent. Rewording a message changes no behaviour.
-- The text states which revision or checkout a script reads when that can differ from the one the agent is looking at, and where a file the agent writes for a script goes.
 
 ### Paths, tokens and host neutrality
 
@@ -103,9 +107,9 @@ An **upstream skill** (one kept in an upstream subtree, or adapted from one) ent
 - A skill refers to its own or a sibling skill's scripts through a **script token**, a `<name>` standing for an executable or a script directory. Each token is defined once, in a section headed `` ## Resolve `<token>` once `` that says what the token expands to in every command below and resolves it from the file's own location, and says the path differs by machine and by host; one section may define several tokens. The body carries no bare relative path and no token used before or without its definition. A token naming an executable (`<engine>`, `<dispatch>`, `<events.py>`, `<lease.py>`, `<release>`) resolves to exactly one file across the set, because an agent holding several skills reads all their vocabulary as one. The directory token `<scripts>` is each skill's own; a skill reaching into another skill's directory names it (`<ui-acceptance scripts>`). Placeholders for values (`<n>`, `<spec>`) are not script tokens.
 - An absolute path in skill text is legal in three cases: a fixed user-level location (`~/.mmw/models.json`, `~/.agents/skills`, `~/.claude/skills`), which has no relative spelling; a token's runtime expansion, which stays a token in the text; a path the run made itself with `mktemp`. Any other absolute path is a finding.
 - A ticket's `CHECK:` line names no path: a shell runs it with no agent in between, `verify-ticket.py` puts the `ui-acceptance` skill's `scripts/` on that shell's `PATH`, so a judge is named bare. Its shapes are in the `ui-acceptance` skill's `references/boundary-check.md` and `references/story-parity.md`.
-- One text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability ("a host that cannot hold a turn open", "a host that can run subagents"). Tonight's runner is the one `models.py runner` selects; the text states that and assumes nothing past it. A skill is named in prose by its directory name, as `the X skill`; a `/X` slash invocation is one host's syntax. The three rewrites this forces on upstream text are in `mmw-v2/merge-notes/README.md` `## host 中立`.
+- One text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability ("a host that cannot hold a turn open", "a host that can run subagents"). The runner is the one `models.py runner` selects; the text states that and assumes nothing past it. A skill is named in prose by its directory name, as `the X skill`; a `/X` slash invocation is one host's syntax. The three rewrites this forces on upstream text are in `mmw-v2/merge-notes/README.md` `## host 中立`.
 
-The check is a `grep` of every `SKILL.md`, description and reference for: an absolute path outside the three cases, and any `~/.agents/skills` path in prose; a relative path that climbs out of the skill directory; a script token without its definition; a path in a `CHECK:` line; a host name (`claude`, `codex`, `grok`, `cursor`, `pi`), a tool name (`the Skill tool`, `the Task tool`), a `/name` slash invocation, or a runner name (`orca`, `herdr`, `paseo`).
+The check is a `grep` of every `SKILL.md`, description and reference (this file excepted) for: an absolute path outside the three cases, and any `~/.agents/skills` path in prose; a relative path that climbs out of the skill directory; a script token without its definition; a path in a `CHECK:` line; a host name (`claude`, `codex`, `grok`, `cursor`, `pi`), a tool name (`the Skill tool`, `the Task tool`), a `/name` slash invocation, or a runner name (`orca`, `herdr`, `paseo`).
 
 ### Body content
 
@@ -132,13 +136,13 @@ These stay, though a trimming pass reads them as noise: a sentence that prevents
 
 - An example uses a neutral domain (a notes app). An example naming a real product, a spec or issue number, or a past run is a finding: an agent reading it takes the specifics as requirements.
 - An example value is labelled as an example; the rule it illustrates is the authority.
-- A good and a bad example side by side earn their place where a misreading is likely.
+- A good and a bad example side by side are used where a misreading is likely.
 
 ### Refusals and output an agent reads
 
 - A refusal has the three parts `AGENTS.md` names (what happened, with one checkable fact; why; what to do next), and the next step fits the skill that receives it. "Could not check" and "checked, it is fine" are different messages.
 - Hosts cut long output before the agent sees it, so the next step sits in the first lines.
-- The suggested next step is safe as written in every state that produces the refusal, including an unattended run with nobody to ask.
+- The suggested next step is safe to run as written.
 
 ## Editing
 
