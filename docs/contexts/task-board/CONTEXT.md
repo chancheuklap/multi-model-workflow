@@ -1,49 +1,43 @@
 # Task board
 
-The local browser surface over a night: one small HTTP server per registered consuming repository, reading that repository's ticket state from GitHub and reading or writing this machine's agent configuration. It exists so a person can watch a night and change which host, model and effort each role runs on without a command line, and it fixes the words the server, its registry and its page invent — the command that opens it, `dispatch.sh board`, is defined in the dispatch-and-the-night context. Everything else the page shows is named by the term the other five contexts already give it, in English, so that a word read off the screen can be typed into a search of this repository and land on its definition. Event rows of the detail column are the exception: they show an **event name**, defined here.
+The local browser page over the pipeline's work: one small HTTP server per registered consuming repository, reading that repository's ticket state from the tracker and reading or writing this machine's agent configuration. The command that opens it, `dispatch.sh board`, is defined in `docs/contexts/night/CONTEXT.md`. Everything else the page shows is named by the term the other five contexts give it, in English, except an event row of the detail column, which shows an **event name**.
 
-How to read an entry: the bold line is the term's only name; a term whose name is a literal string that appears in a file, a command, or a comment is named by that string exactly (case, colon, and all). The definition says what the thing is and what sets it apart from its neighbours. `_Admitted_` lists the one other wording that may appear in prose. `_Avoid_` lists dead words: a sentence in this repository that uses one is wrong; an item followed by a note in parentheses says in which sense the word is dead. `_Home_` is the file whose text or code the definition is taken from; when this file and that one disagree, that one is right and this file is rewritten. An attribute that can be had by reading that file — a field list, an exit code, a command's switches, the branches of a behaviour — is not repeated here: an entry says what the term is and how it differs from its neighbours, and points at `_Home_` for the rest.
+How to read an entry: the bold line is the term's name, and a term that is a literal string in a file, a command or a comment is named by that string exactly. The definition says in one or two sentences what the thing is and how it differs from its neighbours. `_Avoid_` lists wordings that name the concept less precisely in this repository's own text, each with the sense in which it is avoided. `_Home_` is the file that states the fact; an entry does not repeat what can be read there (a field list, an exit code, a command's switches, the branches of a behaviour), and when the two disagree, `_Home_` is right.
 
 ## Language
 
-### The board and what keeps it running
+### The task board and what keeps it running
 
 **task board**:
-The local browser interface for reading a spec's ticket state and editing this machine's dispatch configuration. `server.py` serves it on `127.0.0.1` at the port `boards.json` assigned, with the repository as its working directory; one server runs per registered consuming repository, and `supervisor.py` keeps them running. It reads ticket state from GitHub through the `gh` list reader and reads or writes `MMW_HOME/models.json`; it does not become a second store for either. A model change uses the same validation and write operation as `models.py config`, version and all, so a configuration changed from a command line while the page was open is refused rather than overwritten.
-_Avoid_: board (for an agent), dashboard
+The local browser page for reading a spec's ticket state and editing this machine's `models.json`, served on `127.0.0.1` by one `server.py` per registered consuming repository. A model change goes through the same validation and write as `models.py config`.
 _Home_: `mmw-v2/board/server.py`
 
 **`boards.json`**:
-The machine-level task board registry at `MMW_HOME/boards.json`, defaulting to `~/.mmw/boards.json` and written `0600`. It is a JSON object from each consuming repository's absolute main-checkout path to that repository's fixed local port; it owns no ticket or model state. A repository registering for the first time takes the lowest port from 47100 upward that is neither already in the registry nor already answering, under a lock on `boards.json.lock`; a repository already in the registry keeps the port it has.
-_Home_: `~/.mmw/boards.json`
+The machine-level registry at `MMW_HOME/boards.json` mapping each consuming repository's main-checkout path to its task board's fixed local port. It holds no ticket or model state.
+_Home_: `mmw-v2/board/supervisor.py`
 
 **`supervisor.py`**:
-`mmw-v2/board/supervisor.py`, the process kept alive by the `com.mmw.board` LaunchAgent. It reads `boards.json`, starts `server.py` in every registered main checkout on the assigned port, restarts an exited server, and reports a missing checkout once — `skipping missing repository <path>` — without preventing the other registered servers from running and without repeating itself until that directory comes back. Run against one checkout instead of as the loop, it registers that repository's port, or ensures its board is up and answering.
+`mmw-v2/board/supervisor.py`, the process the `com.mmw.board` LaunchAgent keeps alive, which starts and restarts `server.py` for every repository `boards.json` registers.
 _Home_: `mmw-v2/board/supervisor.py`
 
 **page token**:
-The secret `server.py` mints afresh at every start. It is substituted for the literal `__MMW_PAGE_TOKEN__` when `index.html` is served, and the page reads it back out of `<meta name="mmw-page-token">` and sends it as the `X-MMW-Token` header on every non-`GET` request. `gates.py` refuses any such request whose `Host`, `Origin` and `X-MMW-Token` do not all match this process's own address and this start's token, so a write from another origin, from a stale page, or from a bare `curl` gets `403`. Because it is new per start, the meta tag is also the evidence that the board answering is the one this run started.
-_Avoid_: CSRF token, session token, API key
+The secret `server.py` mints at every start and hands to the page, which sends it back as the `X-MMW-Token` header on every non-`GET` request. A write from another origin, a stale page or a bare `curl` is refused.
 _Home_: `mmw-v2/board/server.py`
 
 ### What the page shows
 
 **The Night**:
-What the board calls one row of its left column and the tree that row opens on the canvas: one top-level **map**, or a **spec** no open map holds, with every spec and ticket under it. It is the body of work the pipeline is landing automatically right now, which is why the board names it for the run rather than for the issue it is read from. A **night** is one run of `dispatch.sh` over one spec of it; The Night is the whole of what those nights are landing, and it outlives any one of them.
-_Avoid_: 任务, task (for this), map (as the name of the column), 地图
+What the task board calls one row of its left column and the tree it opens on the canvas: one top-level map, or a spec no open map holds, with every spec and ticket under it. Distinct from a **night**, one run of one spec's tickets.
 _Home_: `mmw-v2/board/page/tasks.mjs`
 
 **lamp**:
-The dot in front of every ticket, spec, map and relation row, and the four counters in the top bar: what this issue wants from outside it. `needs you` (orange) — a person has to answer something before it can go on; `running` (green) — something is holding it and nothing is asked of anybody; `done` (ink) — nothing more is coming from it; `queued` (hollow) — nothing holds it and nobody is asked. It is not the **phase pill** and neither can be read off the other: a ticket can be `landed` and still be `needs you` because a `decision` child of it is open, and one at `working` can be `needs you` the moment a `fault` is opened on it. The screen contract names it in the same word, as the `lamp` of a row's `precondition` and of its `shows` expressions.
-_Avoid_: light (as a term), 灯 (as a term), status (for this), attention, traffic light
+The dot in front of every issue row, and the four counters in the top bar, saying what the issue wants from outside it: `needs you`, `running`, `done` or `queued`. Distinct from the **phase pill**, which says where a ticket stands inside its own run.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
 **phase pill**:
-The capsule on every ticket card and at the head of the detail column: where the ticket stands inside its own run, one of `queued`, `working`, `waiting`, `review`, `verify`, `landed`, in that order. It is computed from the fold and event order — which sessions are live, whether the ticket is held or waiting for a slot, whether the worker's final full run is the newest work phase, and whether the ticket landed. Three neighbours it is not: the **phase** column of `status`, which is the name of the ticket's newest event; the `stage` field every event carries, which has nine values and says which part of the pipeline wrote that event; and the **lamp**, which is the same ticket's relation to the outside.
-_Avoid_: step, stage (for this), state (for this), 药丸, status pill
+The capsule on every ticket card saying where the ticket stands inside its own run — `queued`, `working`, `waiting`, `review`, `verify` or `landed` — computed from the fold. Distinct from the **phase** column of `status` and from the `stage` field of an event.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
 **event name**:
-The English phrase an event row of the detail column shows for a pipeline **event**: Worker started, Ticket claimed, Criteria run, Final criteria run, Criteria re-run after landing, Review posted, Waiting for a slot, Decisions recorded, Ticket handed back, Merge bounced, Landed, Pick-up refused, Night's branch merged, Finding raised, Spec does not hold, Left for a later ticket, Your decision needed, MMW itself broke, Finding became a ticket, Sub-issue closed — the rest of the table is at `_Home_`. It is not the dotted identifier (`worker.started`); that identifier is the ticket-run context's name for the same fact, and it does not appear on the row.
-_Admitted_: the dotted event identifier (in comments and payload)
+The English phrase an event row of the detail column shows for a pipeline **event** (Worker started, Ticket claimed, …), in place of the dotted identifier.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
