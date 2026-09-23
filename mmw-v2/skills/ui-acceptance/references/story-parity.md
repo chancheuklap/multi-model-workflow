@@ -3,8 +3,10 @@
 `<scripts>/story-parity.py`, the **story judge**, decides whether a product story
 matches the Claude Design page it was built from. `<scripts>` is the token defined
 by this skill's **Resolve `<scripts>` once** section. The judge reads the screen
-contract and the design package's `scenes.json`, starts the story service, and
-compares every selected scene at every contract viewport by `data-ui` id.
+contract and the design package's `scenes.json`, starts the **story service** (the
+server that `.mmw/target.json`'s `stories` command brings up to serve the product's
+story pages), and compares every selected scene at every contract viewport by
+`data-ui` id.
 
 Four agents use this page. An agent taking design facts before implementation uses
 **`--render-only`**. An agent building a story reads **The story page the product

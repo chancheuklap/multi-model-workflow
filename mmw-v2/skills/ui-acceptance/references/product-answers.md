@@ -84,7 +84,7 @@ field. This section says why each one is shaped the way it is.
 - **`discover`.** Prints one JSON object: an origin-class address (where the
   product is served) and `instance` (a readable name for this run).
 
-- **`stories`.** Brings up the story page service and prints its `origin`.
+- **`stories`.** Brings up the story service and prints its `origin`.
   Addresses look like `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. The
   pages themselves live in `.mmw/stories/`. It takes **no lease**: a story page
   renders product components from scene data — presentational, fed by that data

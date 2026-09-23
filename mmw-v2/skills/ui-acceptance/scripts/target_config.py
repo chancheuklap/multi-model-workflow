@@ -66,7 +66,7 @@ FIELDS: tuple[Field, ...] = (
           "name for this run",
           '"uv run python .mmw/harness/target.py discover"'),
     Field("stories", "command",
-          "brings up the story page service and prints its `origin`",
+          "brings up the story service and prints its `origin`",
           '"uv run python .mmw/harness/target.py stories"'),
     Field("journeys", "directory",
           "the directory of journey scripts; default .mmw/journeys",

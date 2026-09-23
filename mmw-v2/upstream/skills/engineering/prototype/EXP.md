@@ -28,13 +28,19 @@ The leaf `README.md` is the experiment's memory across rounds — a **round** is
 
 Open the leaf `README.md` with its first section: the question, and what result counts as "yes" — a number, a behaviour, an output shape. An experiment without a bar answers nothing; it just runs.
 
+Done when **Question and bar** states the question and a result that counts as "yes".
+
 ### 2. Write the smallest thing that runs
 
 Use the project's own language and toolchain. One entry point, started with one command from the project's task runner (rule 2 in the [SKILL](SKILL.md)); write that command into **How to run**. Real inputs where they matter to the question — a sample of the actual data, the actual service — and stubs everywhere else.
 
+Done when the experiment runs from the one command written into **How to run**.
+
 ### 3. Draw the boundary around the reusable part
 
 The code that answers the question — the call sequence, the algorithm, the adapter — sits behind a clear boundary (a function, a module, a class) with the harness around it. The harness is a shell; the part inside the boundary is what the real code will be written from — list it under **Reusable parts**. No tests on either side: those come when the real code lands.
+
+Done when **Reusable parts** lists each file and function inside the boundary.
 
 ### 4. Run it, write the evidence page, record what you see
 
@@ -44,11 +50,15 @@ The experiment writes an **evidence page** at the end of every run — one stati
 - **Generator in the leaf directory, output in scratch**: the code that writes the page lives beside the experiment and is committed; the page and its media go to the project's scratch location, mirroring the leaf path (`.scratch/<task>/<issue>/evidence/<name>/`), not committed.
 - **Hand over a URL**: serve the output directory with a local static server, record both commands and the URL under **How to run**, and give the user the link. Publishing through the host's live-page mechanism only fits when the media is small enough to travel with the page — it rarely is.
 
-Then walk the page and write the round into **Rounds**: the legend into **Legend** if it changed, and the observations — the numbers, the surprises, the version or platform that mattered, the thing the docs got wrong. Facts, as observed — not conclusions yet. The round is written up when every row of the page's summary table has its observation.
+Then walk the page and write the round into **Rounds**: the legend into **Legend** if it changed, and the observations — the numbers, the surprises, the version or platform that mattered, the thing the docs got wrong. Facts, as observed — not conclusions yet.
+
+Done when every row of the page's summary table has its observation in **Rounds**.
 
 ### 5. Record the answer, keep the experiment
 
 Rewrite **Conclusion**: yes or no against the bar, how the real code should draw on the reusable part, and what it should do differently. Then keep the experiment the way the [SKILL](SKILL.md) describes: it stays in the leaf directory, runnable, so the next question about the same approach starts by editing it. Once the approach is settled, delete the evidence output under `.scratch/<task>/<issue>/evidence/` — the generator can reproduce it; the `README.md` holds what was learned.
+
+Done when **Conclusion** answers the question against the bar.
 
 ## Anti-patterns
 
