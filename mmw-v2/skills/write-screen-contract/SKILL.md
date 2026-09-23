@@ -22,7 +22,7 @@ Run every one of this skill's own scripts as `uv run python <scripts>/…`: `lin
 - The design package directory (`<package dir>` in the commands below) as `pull_design.py` of the `design-pages` skill wrote it: `README.md`, `pull-report.md`, `design-manifest.json` (the next pull's record, not read here), the `.dc.html` pages, every project file those pages load in their rendered scenes (the bound design system's stylesheets, fonts and bundle under `_ds/<folder>/`, data, scripts), `support.js`, `scenes.json`, and `vendor/` with the three scripts `support.js` loads. It is a read-only **baseline for look and copy**.
 - The backend decisions. On a wayfinder map that is the map issue: its **Decisions so far** (in the issue body, not a comment) and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file, a logic prototype's contract file or the domain doc, read that too. When the decisions were settled in conversation instead, those conclusions are the source — see **Decision sources**.
 - The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls a FastAPI app factory and writes its OpenAPI document. A server that has neither an exporter nor a FastAPI app factory (a standard-library server, for one) gets an `openapi.json` written by hand in `<scratch>`, describing exactly the routes, methods, fields and status codes its routing code implements. A new project has no routes yet; the lint then marks calls `unverified` instead of failing them.
-- The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the map's title. A run with no map takes the effort name the person gives, or the directory that will hold the spec.
+- The effort name: the name of the `docs/specs/<effort>/` directory the specs of this map live in. A map whose specs directory does not exist yet takes the directory name its `## Notes` gives, the same `<task>` the `prototype` skill's rule 1 uses. A run with no map takes the effort name the person gives, or the directory that will hold the spec.
 
 ## Decision sources
 
@@ -139,7 +139,9 @@ A re-run makes a new `<scratch>`, copies `docs/specs/<effort>/screen-contract.ya
 
 ## Next
 
-The `to-spec` skill, which reads this contract in full and derives the spec's **API contract** subsection from the rows' `calls`, `shows` and `on_failure`.
+A contract written for a wayfinder map's alignment ticket resolves that ticket: return to the `wayfinder` skill to record the resolution; `to-spec` runs once the map is clear, as that skill says.
+
+Otherwise, the `to-spec` skill, which reads this contract in full and derives the spec's **API contract** subsection from the rows' `calls`, `shows` and `on_failure`.
 
 - A contract written for the first time: `to-spec` from its **Process** step 1, which writes the spec this effort does not have yet.
 - A contract changed by **Re-runs**: `to-spec` at its **Process** step 5, revising the published spec, with the tickets already cut corrected against the new text.

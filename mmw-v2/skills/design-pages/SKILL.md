@@ -28,5 +28,3 @@ Only a session whose host has the Claude Design MCP tools can do this skill's wo
 | Command | 0 | 1 | 2 |
 | --- | --- | --- | --- |
 | `<scripts>/pull_design.py` | `pulled <n> files and rendered <n> scenes` | not used | invocation error or the package cannot be completed (a named page or a referenced file does not download, a page still holds the preview's injection marker, the offline render keeps requesting new files); the files concerned are printed one per line above the refusal and the target is unchanged |
-
-[pull](references/pull.md) runs `check_editable_selectors.py` as a module; those findings land in `pull-report.md` under `设计检查`.

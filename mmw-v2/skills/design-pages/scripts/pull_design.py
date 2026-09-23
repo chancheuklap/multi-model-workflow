@@ -10,8 +10,8 @@ Usage: pull_design.py <package-dir> --pages <page.dc.html>... [--tools <dir>]
        pull_design.py <list_files.json> <package-dir> [the same options]
 
 The pages are the `.dc.html` files at the project root, by name; a saved
-`mcp__claude-design__list_files` result may give them instead (its root `.dc.html`
-paths are taken, everything else in it is ignored). Every other file is found from
+`list_files` result of the `claude-design` MCP server may give them instead (its
+root `.dc.html` paths are taken, everything else in it is ignored). Every other file is found from
 the pages: the files they and their stylesheets reference, then every project file
 the offline render requests. The short-lived preview address is read only from
 `MMW_DESIGN_PREVIEW_URL`; it is never printed or persisted.

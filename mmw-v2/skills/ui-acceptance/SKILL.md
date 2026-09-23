@@ -16,7 +16,7 @@ A **target** is the product a consuming repository runs under automation. What t
 | You are | Run or read |
 | --- | --- |
 | Writing an interface ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
-| Building the product's story page service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
+| Building the product's story service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
 | Writing the criterion that compares a product story with its design page by element parity, or reading the `DIFF` line one printed | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
 | Writing the criterion that runs one named journey against the real product, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md); [references/product-answers.md](references/product-answers.md) names `start`, `stop`, `discover` and the journeys directory |

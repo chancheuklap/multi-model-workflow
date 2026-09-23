@@ -9,7 +9,7 @@ A server-rendered product and a desktop product use the same keys. The two label
 ## Top level
 
 ```yaml
-effort: notes-v1                          # the wayfinder map's title, as in docs/specs/<effort>/
+effort: notes-v1                          # the effort's directory name, as in docs/specs/<effort>/
 baselines:
   look: prototypes/<task>/claude-design   # the design package directory, unchanged
   precedence: "look & verbatim copy -> design package; calls, shows, next, on_failure -> this file"
