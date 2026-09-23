@@ -5,7 +5,7 @@ description: Writing documents for agents. Use when creating or editing skills, 
 
 Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.
 
-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills.
+When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills. When the skill you are writing, editing, reviewing or trimming belongs to a set of skills that hand work to each other, read [`SKILL-SET-REVIEW.md`](SKILL-SET-REVIEW.md): its checks are the rules for that text, and it holds the review method.
 
 ## Context pointers
 

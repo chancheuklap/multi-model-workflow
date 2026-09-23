@@ -26,9 +26,9 @@ _Avoid_: sub-agent, background agent, seat, 子代理 (as a term), native subage
 _Home_: `docs/adr/0015-no-custom-subagents.md`
 
 **caller**:
-Seen from inside a skill or subagent, the agent that invoked it and composed its packet. A caller names the skill and what it wants done, never an install path.
+Seen from inside a skill or subagent, the agent that invoked it and composed its packet.
 _Avoid_: 调用方 (for this)
-_Home_: `AGENTS.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
 
 ### Places
 
@@ -114,12 +114,12 @@ _Home_: `mmw-v2/skills/manage-agents-md/references/write.md`
 ### The toolbox
 
 **skill**:
-The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `retro`, `advisor`, `ui-acceptance`, `write-screen-contract`, `exe-release`, `manage-agents-md`, `design-pages`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`. A skill is named by its directory name; `the X skill` in prose, never `/X`.
+The unit the toolbox ships, one directory with a `SKILL.md`. This repository's own: `dispatch`, `verify-ticket`, `retro`, `advisor`, `ui-acceptance`, `write-screen-contract`, `exe-release`, `manage-agents-md`, `design-pages`, `code-checkers`. From `mattpocock/skills`: `to-spec`, `to-tickets`, `implement`, `code-review`, `triage`, `wayfinder`, `domain-modeling`, `grilling`, `grill-me`, `grill-with-docs`, `prototype`, `research`, `resolving-merge-conflicts`, `setup-matt-pocock-skills`, `codebase-design`, `improve-codebase-architecture`, `tdd`, `diagnosing-bugs`, `ask-matt`, `wait-what`, `teach`, `to-questionnaire`, `writing-for-agents`, `handoff`, `wizard`. From `cathrynlavery/diagram-design`: `diagram-design`.
 _Home_: `mmw-v2/skills.txt`
 
 **`SKILL.md`**:
-A skill's entry file: the host loads the skill from it, and its location resolves the skill's `scripts/` and `references/`. It is symlinked from the source directory, so an edit takes effect on the next invocation; only its frontmatter **`description`** — the one thing a host scans at start — needs a new session. A skill this repository wrote carries no host-side manifest beside it and only `name` and `description` in its frontmatter, so its name and description have one authority. The frontmatter switch **`disable-model-invocation`** makes a skill user-invoked only; on an upstream skill it is set or removed together with `policy.allow_implicit_invocation: false` in `agents/openai.yaml`, and this repository keeps it only on `setup-matt-pocock-skills`, `grill-me`, `handoff`, `wait-what`. A step in a skill closes with **`Done when`**, its completion test.
-_Avoid_: 技能正文 (as a term), 用户触发开关, user-invoked (as a name), completion criterion
+A skill's entry file: the host loads the skill from it, and its location resolves the skill's `scripts/` and `references/`. Its frontmatter **`description`** is the one thing a host scans at start, so a change to it needs a new session; the frontmatter switch **`disable-model-invocation`** makes a skill user-invoked only.
+_Avoid_: 技能正文 (as a term), 用户触发开关
 _Home_: `AGENTS.md`
 
 **`skills.txt`**:
@@ -244,9 +244,9 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 ### Working discipline
 
 **host neutrality**:
-A skill's text is one and the same for every host: no host is the default or preferred, nothing branches on a host's name, and differences in capability are written as natural language that judges by capability — "a host that cannot hold a turn open", "a host that can start a subagent". The five hosts: `claude`, `codex`, `grok`, `cursor`, `pi`. The three rewrites this forces on upstream text — a tool name, a slash invocation, a session-management command — are in `merge-notes/README.md`.
+The rule that a skill's text is one and the same for every host, with a difference in capability written as the capability.
 _Avoid_: 五宿主平权, host-neutral (as a name), 五个宿主
-_Home_: `AGENTS.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
 
 **ambiguity scan**:
 The read-only pass over a spec and its drafted tickets that feeds questions into the quiz's **Choices** before the breakdown is shown.
@@ -255,13 +255,13 @@ _Avoid_: clarify (as this pass's name), coverage scan (as this pass's name)
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/ambiguity-scan.md`
 
 **runner neutrality**:
-A skill's text is one and the same for every runner: nothing branches on a runner's name, and a difference in what runners can do is written as that capability. Which runner runs tonight is chosen by `models.py runner`, whose last step is a default; the text states that choice and assumes nothing past it. A runner's own commands are written only in its adapter, whose `# MMW_USES:` lines are the authoritative declaration of every command it calls. A skill's `description` names no runner, since every host scans it into its system prompt: a runner that cannot start is refused by one stderr line of the script at run time, never by a precondition in the `description`.
+The rule that a skill's text is one and the same for every runner, with a difference in capability written as the capability.
 _Avoid_: runner-neutral (as a name)
-_Home_: `AGENTS.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
 
 **skills called by name**:
-A skill's scripts are resolved by the agent holding that skill, from its own `SKILL.md`, as `scripts/…`; a caller names the skill and what it wants done, never an install path. Installing a skill is receiving its scripts, so the two cannot drift and the path is right on every host. The `CHECK:` written into a ticket is run by a shell with no agent in between, and it names no path either: `verify-ticket.py` resolves the ui-acceptance skill's `scripts/` through `--tools` and puts it on that shell's `PATH`, and refuses the whole run with exit 2 when a judge the ticket names is in none of those directories.
-_Home_: `AGENTS.md`
+The rule that a caller names a skill and its job, and the agent holding the skill resolves the skill's scripts.
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
 
 **silence is never a pass**:
 The question a gate is judged by when it is added or changed: *if this ran and did nothing at all, would anyone find out?* A gate that neither does its job nor says so reads exactly like one that passed, so everything here that can refuse must do three things — name the fact it checked so the reader can go look, give the one way out rather than a list of options, and fail loudly when it could not run at all, because "could not check" and "checked, it is fine" are two answers and only one of them is silence. The three-part shape of a refusal message itself is `refusal.py`.

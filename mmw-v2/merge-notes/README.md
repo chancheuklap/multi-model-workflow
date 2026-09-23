@@ -19,13 +19,13 @@
 
 `SKILL.md` frontmatter 的 `disable-model-invocation: true`（Claude Code 读）与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation: false`（Codex 读）说的是同一件事：这个 skill 只有 user 点名才触发。两处同增同删——只动一处，同一个 skill 在一半 host 上是 user 触发、在另一半是模型可触发。
 
-mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型可触发：user 漏说技能名时，agent 自己认得出该用它。本仓自研的技能不归这里管，取舍登记在根 `CONTEXT.md` 的 `SKILL.md` 条目。两行都留着的只有 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`wait-what`。上游改这两行 → 本仓的取舍不变，两处一起跟。
+mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型可触发：user 漏说技能名时，agent 自己认得出该用它。本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Descriptions`）。两行都留着的只有 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`wait-what`。上游改这两行 → 本仓的取舍不变，两处一起跟。
 
 下面每份说明只写它那个 skill 站在哪一边，不复述这条规则。
 
 ## host 中立
 
-十二份装了的上游技能，正文原来按一家 host 说话：`the Skill tool` 这个工具名，和 `/名字` 这种斜杠调用。根 `AGENTS.md` 的第一条约定与根 `CONTEXT.md` 的 `host neutrality` 条目要求同一件事——一份 `SKILL.md` 对所有 host 是同一份，不把任何 host 当默认或首选，不按 host 名分支，能力差异用按能力判断的自然语言写。没有那两样东西的 host 上，读到 `call the Skill tool with "codebase-design"` 的 agent 只能猜：跳过这一句，或者去找一个不存在的工具；读到 `` tell the user to run `/setup-matt-pocock-skills` `` 的 agent 会把这一串原样打给用户，而用户敲它什么也不会发生。
+十二份装了的上游技能，正文原来按一家 host 说话：`the Skill tool` 这个工具名，和 `/名字` 这种斜杠调用。`writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Paths, tokens and host neutrality` 要求的是——一份 `SKILL.md` 对所有 host 是同一份，不把任何 host 当默认或首选，不按 host 名分支，能力差异用按能力判断的自然语言写。没有那两样东西的 host 上，读到 `call the Skill tool with "codebase-design"` 的 agent 只能猜：跳过这一句，或者去找一个不存在的工具；读到 `` tell the user to run `/setup-matt-pocock-skills` `` 的 agent 会把这一串原样打给用户，而用户敲它什么也不会发生。
 
 三种替换写法，按那一句自己想要什么分，不按它提到了谁：
 
@@ -33,7 +33,7 @@ mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型�
 - **要另一个上下文**：写成 `` ask for your host's own general-purpose subagent and have it use the `<X>` skill ``。措辞取自根 `CONTEXT.md` 的 `subagent` 条目：`a skill that needs one asks for the host's own general-purpose subagent`。不写工具名——「use the Task tool」和 `the Skill tool` 是同一个毛病换件衣服。
 - **会话管理命令**（只有 `/clear` 与 `/compact` 两个，它们不是技能）：写成那个动作本身，并在那份文件里只写一次这句能力说明：`Emptying a session's context and compressing it into a summary both exist on every host, under a different name on each; use the one your host gives you.`
 
-技能名的散文写法由根 `CONTEXT.md` 的 `skill` 条目定死：`` A skill is named by its directory name; `the X skill` in prose, never `/X`. ``
+技能名的散文写法也在那一节：按目录名写成 `the X skill`。
 
 **上游把某一段改回工具名或斜杠命令 → 收上游对那一段其余部分的措辞，按能力说话这一层不收回去。** 下面每份说明只写它那个技能改了哪几段，不复述这三条。
 
