@@ -34,7 +34,7 @@ Sort nothing.
 
 ## 3. Report
 
-One entry per review finding, in the session's sorted-row shape: axis `UI`, the category, a `<path>:<line>` in the repository, the claim, and a source.
+One entry per review finding: axis `UI`, the category, a `<path>:<line>` in the repository, the claim, and a source.
 
 The path is a file in the repository, not the `--out` directory. The claim names the scene, the viewport, and what the image showed. The source is the story criterion's `CHECK` evidence. The `--out/media` images are what you look at; they are not the citation. A temp PNG is gone when the session verifies.
 
