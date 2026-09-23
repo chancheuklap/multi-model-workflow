@@ -41,7 +41,7 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 | §3 rules of thumb 第三条 | 同上：超预算改成重选一个能嵌套的图型，整个主题留在一张画布 |
 | §7 复杂度预算末句 | 三处拆图规则里最要紧的一处。改写成：重画成能嵌套的图型，预算改为**按层**计——每条带、每个容器各自不超，整张画布可以超；图型是为它自己的典型题材写的，需要弯折（Layers 的范例不画带间连线，不代表你的连线要拿掉）。确实是两个独立问题时才拆，并说明每张图回答哪个问题（理由：读者要在脑子里拼两张画布才看见一个系统，就丢了来看图的目的；只记在这里）。各图型自己的上限（泳道数、实体数、轴数、系列数）是它们语法的物理极限，仍然绝对生效 |
 | §6「Arrow markers」代码块之后「When one page carries several diagrams…」一句 | 我们加的：三个箭头 marker 的 `id` 写死为 `arrow`、`arrow-accent`、`arrow-link`，一页放几张图（`improve-codebase-architecture` 的报告每张卡两张图）就出现重复 `id`，HTML 不合法，`self_check.py` 也不查。按 §12 给 `<title>` / `<desc>` 定的同一套 slug 前缀办。上游自己给出多图页的写法 → 用上游的，删这一句 |
-| §6 rule 6、§9 检查清单两条 | `<repo-root>` 占位符改成 `repo-root/`，指 skill 目录里的那条 symlink。host 装的是 skill 目录的 symlink，`../../` 会算到 host 目录去，占位符没法解析 |
+| §6 rule 6、§9 检查清单两条 | `<repo-root>` 占位符改成 `repo-root/`，指 skill 目录里的那条 symlink，并写明从这份技能自己的目录运行。host 装的是 skill 目录的 symlink，`../../` 会算到 host 目录去，占位符没法解析。上游的「From a repository checkout」前提与动效那一条的「from an installed skill, manually check print and static-query states on top of the self-check」退路一并删掉：`repo-root` 在装好的技能里也解析到 subtree 根，`verify-geometry.py`、`verify-motion.py` 和 skin linter（`lint-skin.py`，写成 `python3 repo-root/scripts/lint-skin.py <file>`）在哪都能跑。上游改这几句的检查项 → 收上游，路径仍写成 `repo-root/` |
 
 上游若把复杂度预算重写，认它的新数字，只把「超了就拆」重新替换成上面这套「先嵌套、按层计、独立问题才拆」。
 

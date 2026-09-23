@@ -488,7 +488,7 @@ Run before producing any diagram.
 - [ ] `viewBox` expanded for the legend strip (~60px)?
 - [ ] Node origins, dimensions, gaps, padding on the 4px grid; type sizes on the role ramp?
 - [ ] From the installed skill directory, did `python3 scripts/self_check.py <file>` pass? (Accessible-SVG contract, single-file safety, motion basics.)
-- [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? Also run `python3 repo-root/scripts/verify-motion.py path/to/generated.html` from this skill's own directory.
+- [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? Also run `python3 repo-root/scripts/verify-motion.py path/to/generated.html` plus the skin linter (`python3 repo-root/scripts/lint-skin.py <file>`) from this skill's own directory.
 
 **Typography:**
 

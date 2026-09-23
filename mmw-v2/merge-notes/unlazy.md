@@ -37,12 +37,13 @@ git subtree pull --prefix mmw-v2/upstream-unlazy https://github.com/Leonxlnx/unl
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| `parseGates` 读 `CHECK:` 的那一段 | 紧跟在 `CHECK:` 下面的围栏代码块就是这条命令；其他围栏照上游整块跳过。上游每个属性只读一行，其余悄悄丢掉，多行命令会只把前半截交给 shell。`CHECK:` 下面接一行裸文本报错，并指向围栏代码块的写法，读者不用猜命令在哪结束。每条判据另记 `attrEnd`：最后一个属性之后的行号，命令写在围栏里时是围栏收尾行之后 |
+| `parseGates` 读 `CHECK:` 的那一段 | 紧跟在 `CHECK:` 下面的围栏代码块就是这条命令；其他围栏照上游整块跳过。上游每个属性只读一行，其余悄悄丢掉，多行命令会只把前半截交给 shell。`CHECK:` 下面接一行裸文本报错，并指向围栏代码块的写法，读者不用猜命令在哪结束。`CHECK:` 同一行已经写了值、下面又跟围栏代码块时报错（`has both a CHECK value and a fenced block`），命令只能写在其中一处。每条判据另记 `attrEnd`：最后一个属性之后的行号，命令写在围栏里时是围栏收尾行之后 |
 
 ### scripts/gate-lint.mjs
 
 | 段落 | 我们的意图 |
 | --- | --- |
+| `tautological-check` | 围栏里的多行 `CHECK:` 按行拆开，每一行都是固定输出命令才报。上游拿整段命令去匹配，匹配式跨行，第一行是 `echo` 的脚本整段都会被报成同义反复。`mmw-v2/tests/verify-ticket/test_fenced_check.py` 钉住这一条。上游改这条检查 → 收上游的判定，按行拆开这一层留着 |
 | `manual-gate` | 从 warning 改为 error，并说明判据该去哪。上游允许一份账本里有人工判定的判据，超过一半才警告；这里一条没有 `CHECK:` 的判据只有写它的人自己能判，而验收标准存在就是为了避免这个。需要判断的交给 code review，它在另一个会话里跑；只有用户自己能看的，开一张单独的票 |
 
 ### tests/run-tests.mjs
