@@ -19,6 +19,7 @@ Every comment or issue posted to the issue tracker during triage **must** end wi
 
 - [AGENT-BRIEF.md](AGENT-BRIEF.md): how to write a durable record of what an evaluation established
 - [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md): how the `.out-of-scope/` knowledge base works
+- [references/pipeline-issues.md](references/pipeline-issues.md): an issue this repository's own pipeline produced
 
 ## Roles
 
@@ -37,7 +38,7 @@ Five **state** roles:
 
 For a PR, the same states read against the attached code: `ready-for-agent` means the next step on the diff belongs to an agent and goes through the ticket pipeline below; `ready-for-human` means it's ready for a human to merge.
 
-Every triaged issue should carry exactly one category role and one state role. Work this repo plans for itself carries no category role: a spec's tickets carry a state role; a map, a spec and a decision ticket carry none and are not triaged. See `docs/agents/triage-labels.md`. If state roles conflict, flag it and ask the maintainer before doing anything else.
+Every triaged issue should carry exactly one category role and one state role. Work this repo plans for itself carries no category role: a spec's tickets carry a state role; a map, a spec and a decision ticket carry none and are not triaged. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
 These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
 
@@ -64,15 +65,11 @@ When PRs are in scope, include external PRs in these buckets and tag each line `
 
 Show counts and a one-line summary per item. Let the maintainer pick.
 
-## A ticket handed back by this repo's own pipeline
-
-A `needs-triage` ticket whose newest result is `ticket.returned` or `ticket.bounced` did not arrive from outside. `ticket.returned` means the worker could not finish it. `ticket.bounced` means a passed ticket could not merge onto the fetched `origin/<base branch>` commit because the merge conflicted or the repository checks failed.
-
-Read the ticket's event trail instead of reproducing from a reporter's steps, and skip `.out-of-scope/`: nobody rejected this request. For `ticket.returned`, read its `ticket.checked` runs and `reviewer.reported`. For `ticket.bounced`, read the `origin/<base branch>` commit the merge tried to build on (`commit`), the base branch in `into`, the sibling tickets that landed after this ticket started, and the `files` or `commands` attached to the event. Then recommend one of the four outcomes, `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`, from what the pipeline already established.
-
 ## Triage a specific issue or PR
 
-1. **Gather context.** The issue being triaged is written `<m>`. First read the parent issue (the `parent:` line of `gh issue view <m>`, or `gh api repos/{owner}/{repo}/issues/<m> --jq .parent_issue_url`; the REST object has no `parent` field). When the parent is a ticket, read that ticket's event trail (its `ticket.checked` runs and its `reviewer.reported`) instead of reproducing. Then read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Run two checks against the codebase: (a) **redundancy**: search for an existing implementation of the requested behavior by domain concept (not just the request's wording), and report where you looked. If found, it's an already-implemented `wontfix` (step 5). (b) **prior rejection**: read `.out-of-scope/*.md` and surface any that resembles this request.
+An issue labelled `mmw:child`, or a ticket labelled `mmw:ticket` whose newest result is `ticket.returned` or `ticket.bounced`, came from this repository's own pipeline: read [references/pipeline-issues.md](references/pipeline-issues.md) first; it replaces step 1's reproduction and adds step 5's destinations.
+
+1. **Gather context.** Read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Run two checks against the codebase: (a) **redundancy**: search for an existing implementation of the requested behavior by domain concept (not just the request's wording), and report where you looked. If found, it's an already-implemented `wontfix` (step 5). (b) **prior rejection**: read `.out-of-scope/*.md` and surface any that resembles this request.
 
 2. **Recommend.** Tell the maintainer your category and state recommendation with reasoning, plus a brief codebase summary relevant to the request (including whether it's already implemented). Wait for direction.
 
@@ -82,17 +79,7 @@ Read the ticket's event trail instead of reproducing from a reporter's steps, an
 
 5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome. `needs-info`, `ready-for-human`, and `wontfix` move nothing: the parent stays.
 
-   - `ready-for-agent`: judging an issue agent-ready also answers where the work is done. When the parent is a ticket, pick one destination:
-
-     | Judgement | Command |
-     | --- | --- |
-     | Work that belongs to another ticket in this batch | `gh issue edit <m> --parent <ticket>` |
-     | New work in this batch, belonging to no existing ticket | the `dispatch` skill's `route <ticket> <m> became-ticket <m>` (`<ticket>` is the ticket whose `child.opened` names `<m>`), which moves `<m>` under the spec, swaps its layer label `mmw:child` for `mmw:ticket`, and records the route on the ticket it came from; fill every section of `<issue-template>` (in `to-tickets`); the `verify-ticket` skill's `--lint <m>` passes; from then it is a ticket |
-     | A toolbox problem found in a consuming repository | `gh issue transfer <m> chancheuklap/multi-model-workflow`; the parent–child link breaks on transfer; origin remains the body's first line |
-
-     When the issue is itself a ticket the pipeline handed back (the section above), swap its `needs-triage` for `ready-for-agent`. The next `advance` on its spec (the `dispatch` skill) gives back the pipeline's claim on it and starts a worker on it once its blockers have landed.
-
-     When the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)), then route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's step for revising a published spec, citing this issue as a source; close this issue with a comment linking that spec; then cut tickets from the spec with the `to-tickets` skill, which labels them `ready-for-agent` there in the shape `<issue-template>` defines and `verify-ticket.py` can read. The label goes on those tickets, not on this issue.
+   - `ready-for-agent`: when the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)), then route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's step for revising a published spec, citing this issue as a source; close this issue with a comment linking that spec; then cut tickets from the spec with the `to-tickets` skill. The label goes on those tickets, not on this issue.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label: **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:

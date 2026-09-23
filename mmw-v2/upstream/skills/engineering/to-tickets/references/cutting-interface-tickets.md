@@ -8,22 +8,13 @@ Copy each criterion from the named section of the `ui-acceptance` skill; the sha
 - A boundary criterion: `references/boundary-check.md` § **The criterion, in one shape** and § **Selecting one row's test**. The product's test asserts the four columns of that row.
 - A journey criterion: `references/journey.md` § **The criterion, in one shape**.
 
-Each of these shapes is question 1 of **the five questions** in `SKILL.md`: a command decides it. Whatever else a ticket below wants said about the interface goes where questions 2 to 5 send it.
-
 **A layer with no precedent yet:** a product from zero takes its adapter, its interaction helper and its first journey script, as the precedent, from the **contract ticket**. Cut that ticket first. The criteria of the tickets behind it copy their `CHECK:` and `EXPECT:` from what it lands. Nothing here sends you back to the `to-spec` skill for a precedent the spec cannot have.
 
 ## Seam and Owns on these tickets
 
-**Seam** says where this ticket is verified and what puts the product into the state it is verified in. Each criterion shape above answers both, so a ticket's **Seam** names the ones its criteria use:
+**Seam** names, for each criterion shape the ticket uses, where it observes and what puts the product there: a story criterion observes the product's story page, put into its scene by the story adapter reading the scene data; a boundary criterion observes the product's outbound call module, replaced for the test, with the interaction helper acting on the row's `data-ui` id; a journey criterion observes the real product brought up by `start` in `.mmw/target.json`; the design-system, static-guard and harness-guard criteria read the repository tree. **Seam** also names the precedent to copy; on a product from zero that is what the **contract ticket** lands.
 
-- A story criterion observes the product's story page for a mount, rendered with no backend behind it. The story adapter reading that scene's scene data is what puts the product there.
-- A boundary criterion observes the product's own outbound call module, replaced for the test. The interaction helper acting on the row's `data-ui` id is what puts the product there.
-- A journey criterion observes the real product, brought up by `start` in `.mmw/target.json`.
-- The design-system criterion, the static-guard criteria and the harness-guard criterion observe the repository tree: a shell command reads the files, and nothing has to put the product anywhere.
-
-**Seam** also names the precedent to copy: on a product from zero it is what the **contract ticket** lands, and a later ticket copies it rather than deriving its own.
-
-**Owns** says where this ticket may write, so no design page is ever an entry there: the design package is a baseline under **Read first**, and the worker is forbidden to edit it. Translate the pages a ticket takes into product paths through the contract, whose `pages.<page>.component` names the directory the implementation owns each `Component · ` page under. Everything else follows step 5 of `SKILL.md`: the test files this ticket adds, and the files it must edit to put what it creates in service.
+**Owns** says where this ticket may write, so no design page is ever an entry there: the design package is a baseline under **Read first**, and the worker is forbidden to edit it. Translate the pages a ticket takes into product paths through the contract, whose `pages.<page>.component` names the directory the implementation owns each `Component · ` page under.
 
 ## design-system ticket
 
@@ -33,11 +24,11 @@ Cut one whenever the design package carries a design system under `_ds/<folder>/
 
 **Read first** names the `_ds/` copy in the design package, the design system Claude Design used to draw the pages. **Owns** is the product files the variables, fonts and part stylesheets land in.
 
-Its criterion is one comparison, written under question 1 of **the five questions** in `SKILL.md`: a shell command that the design system's variables and part stylesheets exist in the product code. Whether those styles match the design system, value by value, is each later **interface ticket**'s element parity.
+Its criterion is one shell command showing that the design system's variables and part stylesheets exist in the product code. Whether those styles match the design system, value by value, is each later **interface ticket**'s element parity.
 
 ## contract ticket
 
-An existing product: fill only what `target_config.py --check` of the `ui-acceptance` skill reports missing. That command sees whether each answer is there, not what it was built for: a story service or story adapter that reads a design package or scene shape other than the current one, an interaction helper that finds controls by anything but `data-ui` id, or a `start` without the break switch counts as missing too, and the spec's **How a test arrives at a state** says which. When something is missing, this ticket blocks the tickets that need those deliverables. When nothing is, cut none.
+An existing product: fill only what the spec's **How a test arrives at a state** names as missing. When something is missing, this ticket blocks the tickets that need those deliverables. When nothing is, cut none.
 
 A new product: land `.mmw/` in full. It blocks every ticket in the batch except the **design-system ticket**. What it lands is the precedent later tickets copy.
 
@@ -53,15 +44,11 @@ What it delivers:
 - the smoke journey
 - the **harness guard**
 
-Which of those carry a criterion follows **the five questions** in `SKILL.md`, and most do not. Question 1 reaches the smoke journey, one journey criterion on this ticket, and the static guards, one command each, on the batch's last ticket (below). The story service, the first story adapter, the interaction helper, the element parity precedent and the break switch carry none of their own: each is a precedent, and a precedent is first decided by a command on the ticket that copies it: the first **component page ticket** for the story service, the adapter, the interaction helper and the element parity precedent (next paragraph), the first **acceptance ticket** for the break switch. Whether any of them is built well is question 2, for the `Standards` and `Tests` axes of code review.
+Of those, only the smoke journey carries a criterion on this ticket. The static guards and the harness guard sweep the whole repository, which every later page ticket adds to, so their criteria (one command each) go on the batch's last ticket: the last **acceptance ticket** where the batch has one, otherwise the last **app page ticket** or **component page ticket**, made last by being blocked by every other agent ticket of the batch. The rest are precedents, first decided by a command on the ticket that copies them: the first **component page ticket** for the story service, the story adapter, the interaction helper and the element parity precedent; the first **acceptance ticket** for the break switch. Whether any of them is built well is code review's.
 
 The contract ticket's **What to build** fixes each static guard's test file and case name; the last ticket's static-guard `CHECK:` runs that case with the repository's test runner, and its `EXPECT:` is the runner's success line.
 
-The element parity precedent is written here and judged on the **component page ticket** that takes its component's page. This ticket writes the `data-ui` ids onto that component and builds the story adapter for its page, and its **Owns** lists those component files beside `.mmw/`. That component page ticket is blocked by this one, like every page ticket, and carries the story criterion and the boundary criteria of that page, which are the first commands to judge the precedent's ids and adapter. Its **Owns** lists the same component directory; the **Blocked by** edge orders the two, as step 5 of `SKILL.md` asks of two tickets writing one file. A new product with no component yet has nothing to make comparable here: its precedent is the component the first **component page ticket** builds. This ticket then delivers the story service, the story adapter shape and the interaction helper that ticket uses, and lists no component files under **Owns**; that first component page ticket's story criterion is the first command to judge them.
-
-The **harness guard** and the static guards are delivered here and their criteria are not. Each sweeps the whole repository: no product module reads scene data, `mount` unique in one render, a `data-ui` id repeated only on the repeating part of a list, no acceptance name outside its allowed places. Step 4 of `SKILL.md` puts a sweep on the batch's last ticket, and every page ticket landing after this one adds components these sweeps read. Put the static-guard criteria and the harness-guard criterion on the batch's last ticket, which is the last **acceptance ticket** where the batch has one, and otherwise the last **app page ticket** or **component page ticket**. Only **Blocked by** makes a ticket last, so that ticket is blocked by every other agent ticket of the batch.
-
-What every product answer must still guarantee is the `ui-acceptance` skill's `references/product-answers.md`. One product's shape is an example, not a requirement on the next.
+This ticket writes the `data-ui` ids onto the precedent's component and builds the story adapter for its page, and its **Owns** lists those component files beside `.mmw/`. The **component page ticket** that takes that component's page owns the same directory, is blocked by this one, and carries the story and boundary criteria that first judge the precedent. A new product with no component yet has nothing to make comparable here: its precedent is the component the first **component page ticket** builds, and this ticket delivers the story service, the story adapter shape and the interaction helper that ticket uses, with no component files under **Owns**.
 
 The smoke journey uses the journey criterion and omits `--break`. It requires the product to come up and answer; it signs in when the product has a login. Its second pass is the product-down pass that section already names. The first **acceptance ticket**'s journey is what proves the break switch.
 
@@ -86,7 +73,7 @@ A row whose `next` is a scene of another page (`note-list.open`, whose `next` is
 
 The rest of **Read first** is derived from those row ids, not hand-picked: `scenes.json`; and every `source` of the owned rows that is a baseline (a decision ticket (`#<n>`), an ADR, a domain document under `docs/`), listed once per document, with a word on what it settles. Spec sections and stories reach the worker through **Parent**.
 
-A `CHECK:` that stubs the application's own network (`vi.stubGlobal('fetch')`, msw, nock, fetch-mock) is refused; mocking the product's outbound call module is the boundary test.
+When a contract row this ticket owns cites a section of an earlier spec as its source, name that spec and its sections after the parent's, in the same words, and never first (for example, "#12, Implementation Decisions sections 5 and 7; #7 Implementation Decisions section 4").
 
 ## app page ticket
 
@@ -94,22 +81,15 @@ Takes one `App · ` page. One story criterion covers that page's mount. Each **c
 
 **Owns** is the product's composition module (the code that wires the regions together in the running product), the story page that mounts that module rather than wiring the components itself, and the test files it adds. An `App · ` page names no `component` in the contract, so there is no product directory to translate it into: the composition module's path comes from the product's code; the App page itself stays a baseline under **Read first**.
 
-**Read first** carries two baseline lines, and the App page name for a person to read:
-
-- the design package, for look and verbatim copy
-- the screen contract with the cross-component row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c`: path and ids on one line. Pages and mounts follow from those rows.
-
-The rest of **Read first** is derived from those row ids, not hand-picked: `scenes.json`; and every baseline-class `source` of the owned rows, listed once per document.
+**Read first** carries the same two baseline lines as a **component page ticket**'s, with the cross-component row ids this ticket owns, and the App page name for a person to read; the rest is derived from those row ids the same way.
 
 ## acceptance ticket
 
-Cut none only when the product can never be started whole (a library, a component with no running product). A product whose `.mmw/target.json` does not exist yet still gets them: its **contract ticket** lands `start`.
-
-The spec's **Critical flows** bullet names them: money, sign-in, one submit chain; none when the product has none. One **acceptance ticket** per flow.
+One **acceptance ticket** per line of the spec's **Critical flows**; none when that bullet reads `none` or the spec has no such bullet.
 
 The ticket-cutting session writes the journey criterion, with `--break`, taking as default the last write among the contract rows that flow involves. The worker who writes the journey script leaves that choice as it is.
 
-**Parent** names the Implementation Decisions sections that flow lists. It is blocked by every ticket of this batch whose work that flow uses: the **component page ticket** and **app page ticket** of the pages it walks, and the tickets that build the operations those rows' `calls` name. A journey drives the real product with nothing mocked, so an operation that does not exist yet fails it at the first write, and the blockers are derived from the flow's rows, not from the list of ticket kinds. It is `senior-worker`. A new worker starts it on the merged base branch after those blockers have landed; a red run is `HANDOFF REQUIRED` for triage, and the closing comment names the step that broke.
+**Parent** names the Implementation Decisions sections that flow lists. It is blocked by every ticket of this batch whose work that flow uses: the **component page ticket** and **app page ticket** of the pages it walks, and the tickets that build the operations those rows' `calls` name. A journey drives the real product with nothing mocked, so an operation that does not exist yet fails it at the first write, and the blockers are derived from the flow's rows, not from the list of ticket kinds. It is `senior-worker`.
 
 **Owns** is `.mmw/journeys/<flow>/`, plus adding to the shared helper when there is one; product code is not in it.
 
@@ -123,10 +103,4 @@ One extra *reaction* ticket: the user uses this spec's interface on the running 
 
 ## When the rows change
 
-When a later pull's `pull-report.md` records `增删控件或改流转`, and the `write-screen-contract` skill's **Re-runs** have rewritten the rows:
-
-- A ticket already cut and not yet landed has its criteria and **Read first** corrected to the new rows.
-- A new row gains one boundary criterion on the ticket that owns it.
-- A ticket already landed is followed by a correction ticket whose criterion is the same as the original's.
-
-A published ticket is edited only by the main agent or the user, through the `to-spec` skill's step for revising a published spec.
+The `to-spec` skill's `references/revising-a-spec.md` says how tickets already cut follow rows a later pull changed.

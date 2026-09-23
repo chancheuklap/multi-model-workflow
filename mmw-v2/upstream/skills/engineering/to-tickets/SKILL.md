@@ -5,13 +5,6 @@ description: Break a plan, spec, or the current conversation into a set of trace
 
 # To Tickets
 
-Two moments, and this run is at one of them.
-
-| You are | Read |
-| --- | --- |
-| The session writing the tickets: your prompt names this skill and names no scan | this file |
-| The ambiguity scan: your prompt names this skill, a spec and a file of drafted tickets, and asks you to scan them for ambiguities | [references/ambiguity-scan.md](references/ambiguity-scan.md) |
-
 Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
@@ -29,8 +22,6 @@ Done when you hold the spec's issue number and have read its full body and comme
 ### 2. Explore the codebase
 
 If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
-
-Skip this step only when the spec's Implementation Decisions already name the module or directory every ticket writes to. Otherwise you cannot fill in **Owns**, and one directory-level `ls` or `git ls-files` is enough.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
@@ -65,16 +56,16 @@ Three rules bind how each one is worded:
 **A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the worker's final full run, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code. Most of what you want to say about the work does not belong there. Ask **the five questions** in order and stop at the first yes:
 
 1. **Is the rule a comparison (equal, matches, counts, over a threshold) against something a machine can reach?** It is a criterion. Write its `CHECK:` and `EXPECT:`.
-2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next, whether the test behind a criterion could ever have failed. Code review decides these (its `Standards` axis for how the code is written, its `Spec` axis for whether it matches what was asked, its `Tests` axis for whether the cases a `CHECK:` names are worth trusting) in a session other than the one that wrote the code. Leave it out of `## Acceptance criteria`. Write the judgement as one sentence into the `## Implementation Decisions` subsection of the spec this ticket's **Parent** names, through the `to-spec` skill's step for revising a published spec. The Spec axis reads that subsection, so it will judge it.
+2. **Is the rule a judgement, against something a machine can reach?** Whether an interface is deep rather than a pass-through, whether a passage says enough, whether an error message tells the caller what to do next, whether the test behind a criterion could ever have failed. Code review decides these, in a session other than the one that wrote the code, and its `Spec` axis reads the `## Implementation Decisions` subsection of the spec this ticket's **Parent** names. Leave the rule out of `## Acceptance criteria` and write it there as one sentence, through the `to-spec` skill's step for revising a published spec.
 3. **Is the property a person's reaction?** Whether a newcomer knows what to do, whether the wording lands, whether a morning page is legible at a glance. The person is the instrument, not a fallback judge: no agent can stand in, because the agent is not who is being measured. It becomes its own ticket, of kind *reaction*; see [references/person-ticket.md](references/person-ticket.md).
 4. **Could a machine decide it, if only it could reach the thing?** Two answers hide under one question, and they part on whether the reach is something you build.
-   - **It is.** The state lives inside software you are about to write, and something has to put the system there: a seeded row, a stub scripted to answer in a set order. This stays a criterion. But the thing that reaches the state has to be named in the spec's Testing Decisions, under **How a test arrives at a state**, and owned under some ticket's **Owns**. Missing either, the state is out of reach for this batch, and the criterion becomes its own ticket of kind *reach* (see [references/person-ticket.md](references/person-ticket.md)), whose retiring line names the mechanism that has no name yet, or the ticket that would own it.
+   - **It is.** The state lives inside software you are about to write, and something has to put the system there: a seeded row, a stub scripted to answer in a set order. This stays a criterion. But the thing that reaches the state has to be named in the spec's Testing Decisions, under **How a test arrives at a state**, and owned under some ticket's **Owns**. That ticket builds it: a criterion that assumes a mechanism nobody builds fails on the night it first runs. Missing either, the state is out of reach for this batch, and the criterion becomes its own ticket of kind *reach* (see [references/person-ticket.md](references/person-ticket.md)), whose retiring line names the mechanism that has no name yet, or the ticket that would own it.
    - **It is not.** A signed installer on a clean machine, a login against the real provider, a notification arriving on a phone. Its own ticket, of kind *reach*; see [references/person-ticket.md](references/person-ticket.md).
 5. **Is it a choice rather than a check?** No true or false, only a preference, and the answer decides what to build next rather than whether what was built is right. The user is here now, so ask them: carry the choice into the quiz of step 6, with the options and the one you would take, and write the answer into the ticket's **What to build** as a numbered point of its own.
 
 If no command exists because the spec never decided how this is verified, stop and return to the `to-spec` skill. Do not invent it.
 
-Every criterion is four lines, and carries a number you assign as you write it and never renumber. A criterion whose premise later disappears is taken out of the section rather than left there without a command; the number is not reused, and the closing comment says what became of it.
+Every criterion is four lines, and carries a number you assign as you write it and never renumber.
 
 ```
 - [ ] AC1: POST /projects with a name that already exists returns 409 and error name-duplicate
@@ -90,11 +81,9 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 `CHECK:` takes the object it checks from one of two places: this ticket itself (the number comes from `$MMW_TICKET`, or from the branch name `issue-<n>`), or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names: `gh api repos/{owner}/{repo}/issues/<n>/sub_issues`. A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
 
-`CHECK:` brings the state it needs and puts back the shared state it changed. Two kinds of state are in play. This pipeline's: criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one, but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time. Switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started. And the system's: the row, the balance, the screen the criterion is about. Before writing the command, say what puts the system there. The spec's Testing Decisions answers that per layer, under **How a test arrives at a state**; question 4 above is where an unanswered one goes.
+`CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one, but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time: switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started. The system's own state (the row, the balance, the screen) is put there by what question 4 names.
 
 **A criterion is also exposed to the rest of its own batch.** Every ticket lands on the same base branch, and the closing pass re-runs every criterion of the batch there, so a criterion that names something a later ticket may change is decided by that ticket's work rather than by its own. Two shapes do it: a sweep of the whole repository (a `grep` for a name that must now be gone, a count over the tree), which any later ticket can put back in a note, a doc or a comment; and a criterion that names a test case, a function or a symbol by a name a later ticket may rename. Put such a criterion on the batch's last ticket, or give the name one owner: the file that holds it is under exactly one ticket's **Owns** in the whole batch, not merely among the tickets that can run at the same time, so no other ticket of the batch may write it.
-
-Write the command on the `CHECK:` line when it fits there. When it does not, leave that line empty after the colon and open a **fenced block** on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
 
 Done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
 
@@ -102,13 +91,7 @@ Done when every criterion on every ticket carries a number, a `CHECK:` and an `E
 
 Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
-**What a ticket creates is put in service by an edit to something it did not create.** Until an existing file names the new one, it renders for nobody and no criterion of that ticket can see it. Those edits land in files the slice was never about, so every one of the tickets that can run at the same time makes them, and all but the first to land is bounced on a merge conflict with working code.
-
-Derive them; do not recall them. For each path a ticket marks `(new)`:
-
-1. Name the nearest file of its kind: the partial, route module, migration, fixture or plugin already in the repository, or, in a batch that starts from zero, the first of that kind, which another ticket in this batch lands.
-2. `grep` that sibling twice, and every file that answers is one the new path needs too. Its **file name** answers from the registry or manifest that lists it, the router that maps a request to it, the parent template or module that includes or imports it, the index that exports it, the story adapter that gives it its scenes. The **one identifier it declares for others to use** (its root class name, its exported symbol, its route path) answers from the stylesheet, bundle or table that has to carry an entry of its own for the new file, and which the file name alone never reaches. Where that sibling is still to be built, its ticket's **Owns** is the same list.
-3. Put every file that answered under this ticket's **Owns**, whoever created it. A ticket whose **Owns** holds only what it creates cannot finish its own work.
+**What a ticket creates is put in service by an edit to something it did not create**: the registry, router, parent template, index, story adapter or stylesheet that has to name it. Until one does, no criterion of that ticket can see it; and when several tickets that can run at the same time each make that edit, all but the first to land bounce on a merge conflict. For each path a ticket marks `(new)`, `grep` the nearest existing file of its kind twice, once for its file name and once for the one identifier it declares for others (its root class, exported symbol or route path), and put every file that answers under this ticket's **Owns**, whoever created it. Where that sibling is still to be built in this batch, its ticket's **Owns** is the same list.
 
 What overlaps there now decides the shape of the batch:
 
@@ -117,32 +100,26 @@ What overlaps there now decides the shape of the batch:
 
 A shared file that is one body of logic, such as a route module several tickets add handlers to, is neither pre-landed nor split, because what each ticket writes there is the ticket's own work. Those tickets keep their chain.
 
-**Every branch above keeps one rule: no two tickets that can run at the same time write the same file.** Two tickets can run at the same time when neither blocks the other, directly or down a chain. A shared file several tickets need, a shared stylesheet for one, is owned by one ticket, and every other ticket that needs it is blocked by that one; where two of those others must also write it, they are chained as well, or the file is split by the prefactor branch.
+**Every branch above keeps one rule: no two tickets that can run at the same time write the same file.** Two tickets can run at the same time when neither blocks the other, directly or down a chain.
 
 Done when every path marked `(new)` has the files that put it in service under the same ticket's **Owns**, and no two tickets that can run at the same time write the same file.
 
 ### 6. Quiz the user
 
-Write the spec body and the drafted tickets to a file `mktemp` makes. When the host can run subagents, start one: a call to your host's general-purpose subagent. Name no model and no thinking level: the scan runs on this session's. If your host lets a call restrict what a subagent may do, restrict it to reading and searching. The prompt is one sentence naming this skill, the spec, and that file:
+Write the spec body and the drafted tickets to a file `mktemp` makes, and have them scanned for ambiguities before you list the breakdown: the scan's questions belong in each ticket's **Choices** when the user first sees it. When the host can run subagents, start your host's general-purpose subagent, on this session's model and thinking level and restricted to reading and searching where the host allows it, with one sentence:
 
 ```
-Use the to-tickets skill to scan spec #<spec> and the drafted tickets in <file> for ambiguities.
+Read <absolute path of this skill's references/ambiguity-scan.md> and scan spec #<spec> and the drafted tickets in <file> for ambiguities.
 ```
 
-When the host offers no such restriction, the prompt carries a second sentence, `You may only read: change no file and nothing on the tracker.`, and the check moves to you. Run `git status --porcelain` before starting the subagent and again when it returns; the two outputs are the same when the scan wrote nothing, and a difference is a write it made, which you undo before going on.
-
-Nothing else: the skill is what they read, and the moment table is which file they take.
-
-**Hold this turn until the scan's result exists.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The user is about to see the breakdown, and the scan's questions belong in each ticket's **Choices** before that list is shown.
-
-When the host cannot run subagents, run the scan yourself from [references/ambiguity-scan.md](references/ambiguity-scan.md). The reference's read-only rule binds that pass. Write its result to a file, then list the breakdown, so the list does not depend on memory of the scan.
+Hold this turn until it returns; where the host runs subagents in the background, ask for it to be waited on. When the host cannot run subagents, run the scan yourself from [references/ambiguity-scan.md](references/ambiguity-scan.md), and write its result to a file before you list the breakdown.
 
 Present the proposed breakdown as a numbered list. For each ticket an agent works, show:
 
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Worker**: `junior` or `senior`, and the one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`. Name the worker; the model behind each one lives in `MMW_HOME/models.json`, which is the only place a model is written down.
+- **Worker**: `junior` or `senior`, and the one-line reason. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.
 - **Choices**: every choice question 5 sent here, and every question the ambiguity scan returned, one line each: the options, and the one you would take. Omit the line when there are none.
 
 Then the `ready-for-human` tickets, in the same list, each with its **Title**, **Blocked by**, its kind (*reaction* or *reach*) and what is to be looked at.
@@ -157,41 +134,27 @@ Ask the user:
 
 Iterate until the user approves the breakdown. Write each answered choice that only changes what one ticket delivers into that ticket's **What to build** before publishing. Write each answered choice that changes a decision in a spec section back through the `to-spec` skill's step for revising a published spec, then into the tickets.
 
-Done when the user has approved the breakdown and every answered choice is written into a ticket's **What to build** or the spec.
+Done when the user has approved the breakdown and every answered choice is written into a ticket's **What to build** or the spec, and step 5's Done when still holds for the approved breakdown.
 
 ### 7. Publish the tickets to the configured tracker
 
-Lint the batch before anything is live. Write each approved ticket as one draft file, in the shape the `verify-ticket` skill's `references/linting.md` gives under **`--drafts` before publishing** (`TITLE:`, `LABELS:`, `BLOCKED BY:` naming other drafts, a line `---`, then the body as it will be published), all in one directory `mktemp -d` makes, and run that skill's `--lint` with the spec's number and `--drafts <that directory>`. Fix every ERROR it reports in the drafts and read every WARN once, then publish the drafts as they now stand. The run ends by naming what only a published batch shows; step 8 lints again for that.
+Lint the batch before anything is live: write each approved ticket as one draft file in a directory `mktemp -d` makes (`TITLE:`, `LABELS:`, `BLOCKED BY:` naming other drafts, a line `---`, then the body as it will be published), and run the `verify-ticket` skill's `--lint` with the spec's number and `--drafts <that directory>`. Fix every `ERROR` in the drafts, then publish them as they now stand.
 
-Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured: one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship. Create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the task board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`; create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured: one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship. Create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the scripts find the batch only through that relationship and take a ticket's direct parent as its spec. Every ticket carries the layer label `mmw:ticket`; create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
-Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker landed (merged into the base branch, not merely closed), and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
-
-Close no parent issue; a spec section changes only through the `to-spec` skill's step for revising a published spec.
+Close no parent issue.
 
 Done when every approved ticket is published as a sub-issue of the spec, with its labels and its blocking links.
 
 ### 8. Read every ticket back
 
-After publishing, fetch each ticket again and check every one:
+After publishing, fetch each ticket again and check:
 
 - The title and **What to build** describe the same slice.
 - The spec's sub-issue count equals the number of tickets in this batch, and every one of them carries `mmw:ticket`.
-
-Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
-
-- **Read first** and **Seam** are present and non-empty ("none" counts as present). Where **Read first** carries a baseline (anything that records a settled conclusion), its line marks it as one.
-- **Owns** is present and non-empty, every entry is a repository-relative path or glob, and no two tickets that can run at the same time overlap there. Every path marked `(new)` has, on the same ticket, the existing file that puts it in service. A change a ticket needs in a tool skill outside the repository is not a ticket and not an **Owns** entry: the toolbox is improved in use, the change is made there at once.
-- Every thing a criterion needs to reach its state (the ones the spec's Testing Decisions names under **How a test arrives at a state**) is under some ticket's **Owns**. That the owner truly builds it is yours to check: a criterion that assumes a mechanism nobody builds fails on the night it first runs, and by then the batch is out.
-- The `verify-ticket` skill's `--lint` has been run again on the published batch, with the spec's issue number, which lints every ticket under it and the graph the tracker's blocking links make; the drafts run of step 7 does not stand in for it. Every ERROR it reports is fixed before you report the batch. Read every WARN once and either fix it or keep it on purpose. What that run reads and what it reports is that skill's `references/linting.md`.
-
-On the `ready-for-human` ones, all of the five things each holds are checked, because no agent can repair one:
-
-- **Parent** is there.
-- The kind is named, *reaction* or *reach*.
-- **What to look at** is a link that opens, or, in a repository that consumes its own landing pipeline, the one command that starts the product under test and prints that link ([references/person-ticket.md](references/person-ticket.md)).
-- **What makes it right** is there to judge against.
-- **Blocked by** names the ticket that produces the thing.
+- On each ticket an agent works, **Read first** and **Seam** are present and non-empty ("none" counts as present), and where **Read first** carries a baseline (anything that records a settled conclusion), its line marks it as one. **Owns** is present and non-empty, and every entry is a repository-relative path or glob.
+- The `verify-ticket` skill's `--lint`, run again on the spec's issue number, reports no `ERROR`, and every `WARN` has been read once and either fixed or kept on purpose. The drafts run of step 7 does not stand in for it: only this run sees the tracker's labels, sub-issues and blocking links.
+- Each `ready-for-human` ticket holds all of **the five things** in [references/person-ticket.md](references/person-ticket.md), because no agent can repair one.
 
 Done when every check above passes. When the batch is a spec's night run, hand over to the `dispatch` skill: opening the night on this spec is one of its rows.
 
@@ -199,7 +162,7 @@ Done when every check above passes. When the batch is a spec's night run, hand o
 
 ## Parent
 
-A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). When a contract row this ticket owns cites a section of an earlier spec as its source, name that spec and its sections after the parent's, in the same words, and never first (for example, "#12, Implementation Decisions sections 5 and 7; #7 Implementation Decisions section 4"). The first issue here is read as the ticket's spec.
+A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). The first issue here is read as the ticket's spec.
 
 ## What to build
 
@@ -207,7 +170,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, a design package pulled into the repository, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing. When the spec has a screen contract, read [references/cutting-interface-tickets.md](references/cutting-interface-tickets.md) for the baseline lines and derivation that kind of ticket carries.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, the sections of `CODING_STANDARDS.md` and `TESTING.md` the spec relies on, copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, a design package pulled into the repository, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing. When the spec has a screen contract, read [references/cutting-interface-tickets.md](references/cutting-interface-tickets.md) for the baseline lines and derivation that kind of ticket carries.
 
 ## Seam
 
@@ -215,7 +178,7 @@ Where this ticket is verified: the test layer and directory from the spec's Test
 
 ## Owns
 
-The repository-relative paths this ticket may write, one per line, the test directory or test file from **Seam** included. Mark what this ticket creates with "(new)". A file this ticket must edit to put what it creates in service (the registry, router, stylesheet, parent template or index that has to name it) belongs here as well, though another ticket created it: this section says where this ticket may write, not where its own code lives. No absolute path, no `..`, no bare `**`. Match the granularity to the split: a directory glob where this ticket owns the directory alone, file paths where several tickets divide one directory. Two tickets that can run at the same time must not overlap here; where they cannot be pulled apart because both must edit one file, add a **Blocked by** edge instead. Everything outside these paths is read-only for this ticket.
+The repository-relative paths this ticket may write, one per line, the test directory or test file from **Seam** included. Mark what this ticket creates with "(new)". A file this ticket must edit to put what it creates in service (the registry, router, stylesheet, parent template or index that has to name it) belongs here as well, though another ticket created it: this section says where this ticket may write, not where its own code lives. No absolute path, no `..`, no bare `**`. Match the granularity to the split: a directory glob where this ticket owns the directory alone, file paths where several tickets divide one directory. Two tickets that can run at the same time must not overlap here; where they cannot be pulled apart because both must edit one file, add a **Blocked by** edge instead. Everything outside these paths is read-only for this ticket. A change a ticket needs in a tool skill outside the repository is not an entry here: the toolbox is improved in use, and the change is made there at once.
 
 A ticket that deletes or renames a file, a script, a contract field, or a criterion word takes every place `grep` finds that name into its own **Owns**. Find those places by grepping the name, not by listing from memory. When a hit is only a stale reference another ticket already owns, leave it off this ticket and open a ticket **Blocked by** that other ticket.
 
@@ -235,7 +198,7 @@ A ticket that deletes or renames a file, a script, a contract field, or a criter
   EVIDENCE: pending
   TIMEOUT: 1800
 
-Every criterion here carries a command. A judgement goes to code review; a thing only a person can look at is its own `ready-for-human` ticket, blocked by this one. `TIMEOUT:` is optional: seconds this `CHECK:` may run, written when the precedent takes longer than ten minutes (a full build, a suite that starts a browser), and read by the worker's own run and final full run alike. It raises the limit and never lowers it.
+`TIMEOUT:` is optional: seconds this `CHECK:` may run, written when the precedent takes longer than ten minutes (a full build, a suite that starts a browser), and read by the worker's own run and final full run alike. It raises the limit and never lowers it.
 
 </issue-template>
 
