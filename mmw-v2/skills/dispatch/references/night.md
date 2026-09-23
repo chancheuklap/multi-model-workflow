@@ -75,7 +75,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 2. Run `<dispatch> status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers.
 3. Take every row the table matches, not only the ticket named by the wake.
 4. Run `<dispatch> advance <spec>` once. Its exit codes are under [**2. First `advance`**](#2-first-advance).
-5. When the `advance` you just ran left the frontier empty and no agent live (read `status` again), go to [4. The closing pass](#4-the-closing-pass); otherwise end your turn.
+5. When the summary of the `advance` you just ran has `bounced`, run `advance` once more: the `advance` that recorded a bounce does not start that ticket, and no wake will come for it. When the `advance` you just ran left the frontier empty and no agent live (read `status` again), go to [4. The closing pass](#4-the-closing-pass); otherwise end your turn.
 
 | What you see | What you do |
 | --- | --- |
@@ -86,7 +86,7 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `child.opened` of kind `contract` naming a Claude Design page | The design package is written only by the `design-pages` skill's `references/pull.md`, so there is nothing to correct in this night. Move the affected not-yet-started tickets to `needs-triage`, comment on the child with the pages it names, the ticket numbers moved, and that it needs a session whose host has the Claude Design MCP tools, and leave it open for the user |
 | `child.opened` of kind `decision` | Nothing; the worker took the default |
 | `ticket.returned` | Leave its workspace for triage; step 4 continues the batch |
-| The `advance` summary has `bounced` | Nothing: `advance` starts a worker once more in the ticket's **standing workspace** (its worktree `.worktrees/issue-<n>` and branch, kept after its session ends) after its first bounce of the night, and leaves it in `needs-triage` after the second |
+| The `advance` summary has `bounced` | Step 5 runs `advance` once more. After the ticket's first bounce of the night that `advance` starts a worker in the ticket's **standing workspace** (its worktree `.worktrees/issue-<n>` and branch, kept after its session ends); after the second the ticket stays in `needs-triage` |
 | `ticket.refused` | Fix the event's `reason`; step 4 starts it if the frontier permits |
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
 | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
@@ -188,8 +188,10 @@ any other value. Write the result as one UTF-8 JSON object:
 The ids must be the exact, duplicate-free set from the fresh complete list, and
 `total` must equal `returned`. When Nowledge Mem cannot return a readable list, or says
 it returned fewer rows than its total, do not infer an empty set and do no lifecycle
-work: write `status` `unchecked` with its `reason`, and `summary` names the other fields
-it requires. Keep this object for step 5. Done when the decisions object names one
+work. Record that fact instead as
+`{"status":"unchecked","reason":"<why>","total":null,"returned":null,"decisions":[]}`
+when no counts were readable, or with the two reported counts when the list was
+truncated. Keep this object for step 5. Done when the decisions object names one
 decision for every id of the fresh list, or is an `unchecked` object with its reason.
 
 Then:

@@ -14,18 +14,7 @@ A batch is linted twice: its drafts before publishing, so the fixes are made whi
 
 ## `--drafts` before publishing
 
-`<dir>` holds one file per ticket, named `<draft name>.md`. Each opens with header lines, then a line `---`, then the issue body exactly as it will be published:
-
-```
-TITLE: <the issue title>
-LABELS: mmw:ticket, ready-for-agent, junior-worker
-BLOCKED BY: T1-contract, #412
----
-## Parent
-...
-```
-
-`TITLE:`, `LABELS:` (comma-separated) and `BLOCKED BY:` (comma-separated draft names, `#<n>` for an issue already on the tracker, or `(none)`) are required; any other header line is the drafter's note and is not read. A draft's name, its file name without `.md`, stands in for the issue number it does not have yet, in `BLOCKED BY:` and in everything the run prints. The spec named on the command line is the spec every draft will sit under.
+`<dir>` holds one draft file per ticket, in the shape the `to-tickets` skill's step 7 **Publish the tickets to the configured tracker** gives; a header line other than `TITLE:`, `LABELS:` and `BLOCKED BY:` is the drafter's note and is not read. The spec named on the command line is the spec every draft will sit under.
 
 Each draft gets everything a published ticket gets under **`--lint` on a batch** below, with its labels read from `LABELS:`: its criteria, its worker label, its interface rules, and `## Parent` naming that spec first. A draft whose `LABELS:` lacks `mmw:ticket` is an `ERROR  … [layer-label]`, a `BLOCKED BY:` name that is no draft in `<dir>` an `ERROR  … [unknown-draft]`, and a file whose header cannot be read an `ERROR  … [draft-unreadable]`. The graph is built from the `BLOCKED BY:` headers and checked like the tracker's; a `#<n>` blocker is looked up on the tracker. The spec's own body is read from the tracker for the **Critical flows** rule and the section count; when it cannot be read, the run prints `WARN  … [spec-unreadable]`, skips the count, and the journey rule reports the unread spec as it does for a published ticket.
 
@@ -53,7 +42,7 @@ Two `CHECK:` shapes are refused as `[undecidable-check]`, because neither can de
 
 The batch is ready when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
-`## Parent` names the spec the ticket sits under first: the first issue there is what the scripts read as its spec when the tracker has no parent link, and what `--drafts` has in place of one. A contract row may cite an earlier spec's section as its source; that spec and its sections are named after the parent spec, in the same words (`#555, Implementation Decisions sections 4 and 11; #318 Implementation Decisions section 4`), and the row's source is then satisfied. A `## Parent` that names another issue first is an `ERROR  … [parent-order]` wherever the spec is known: on `--drafts`, on a spec's sub-issues, and on a ticket the tracker links to its spec.
+`## Parent` names the spec the ticket sits under first: the first issue there is what the scripts read as its spec when the tracker has no parent link, and what `--drafts` has in place of one. A `## Parent` that names another issue first is an `ERROR  … [parent-order]` wherever the spec is known: on `--drafts`, on a spec's sub-issues, and on a ticket the tracker links to its spec.
 
 The `[screen-contract]` findings are those interface rules made mechanical, plus a pipeline script called without `--contract` (and `--pages` or `--run`), with a flag its `--help` does not list, or with an address that belongs in `.mmw/target.json`; a story criterion whose `--pages` mount is absent from the contract; an interface ticket that omitted `screen-contract.yaml rows: …`; and a row source that is not under **Read first** or a spec section **Parent** does not name.
 

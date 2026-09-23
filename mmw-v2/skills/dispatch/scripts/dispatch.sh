@@ -75,8 +75,8 @@
 # person reads.
 #
 # Every refusal names its next step on stderr. What the agent must decide on an exit the
-# message cannot settle is written in the reference file of the moment that runs the
-# command; `ack` is in SKILL.md under `## On waking`, which every moment shares.
+# message cannot settle is written in the skill text of the agent that runs the command;
+# `ack` is in SKILL.md under `## On waking`, which every moment shares.
 
 set -uo pipefail
 
@@ -2206,7 +2206,7 @@ resume_one() {
       [ "$rc" = 0 ] && return 0
       echo "dispatch: the worker $ident on #$number was handed the message, and $RUNNER_NAME cannot show a turn starting on it; the text is in the session, so do not send it again" >&2
       exit 4 ;;
-    2) refuse "#$number's worker $ident is not on $RUNNER_NAME any more" ;;
+    2) refuse "#$number's worker $ident is not on $RUNNER_NAME any more, so nothing was sent. Its start still holds the ticket, so no replacement starts until retract ends that hold; run retract $number, then advance inside a night or start $number worker outside one. When retract cannot tell whether the session stopped, tell the user" ;;
   esac
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2

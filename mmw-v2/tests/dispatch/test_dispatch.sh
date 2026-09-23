@@ -3271,6 +3271,16 @@ path.write_text(json.dumps([{
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: send"
 
+  echo "--- a started worker its runner no longer has is exit 2, and the refusal names retract"
+  reset_log
+  runner_line 61 paseo agt_gone61 worker
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "not on paseo any more" "$TMP/err" \
+    || fail "the refusal should say the runner has no such session: $(cat "$TMP/err")"
+  grep -q "run retract 61" "$TMP/err" \
+    || fail "a worker gone from its runner still holds the ticket; the refusal must name retract: $(cat "$TMP/err")"
+
   echo "--- a worker that is there but will not take the message is exit 3, not 2"
   reset_log
   seed_agent 61 worker
@@ -9160,6 +9170,10 @@ scenario_bounceretriesonce() {
   grep -q 'started 0' "$TMP/err" || fail "the same advance dispatched its own bounce: $(cat "$TMP/err")"
   posted_events 61 reason | grep -q '^ticket.bounced reason=conflict$' \
     || fail "the first conflict posted no ticket.bounced event with its reason"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  grep -q 'started 1' "$TMP/err" \
+    || fail "the advance after a first bounce should start a worker in its workspace: $(cat "$TMP/err")"
 
   setup_bounced_conflict older
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \

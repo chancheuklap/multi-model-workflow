@@ -25,11 +25,12 @@ A **night** is one run of a spec's published tickets under one main agent, from 
 
 | Moment | You are | Read |
 | --- | --- | --- |
-| 1 | a session that picked a ticket up itself, with no `start` behind it | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
-| 2 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass and running `finish` after user acceptance | [references/night.md](references/night.md) |
-| 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
-| 4 | changing which host, model or reasoning effort (`effort` in `models.json`) an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
-| 5 | opening the local task board | No file: run `<dispatch> board` from any checkout of the repository. Exit 0 opened the board or printed its URL for you to hand the user; exit 2 says why on stderr |
+| 1 | the worker a `start` put on a ticket, starting its reviewer or woken on its ticket | No file: the `implement` skill's `## Closing steps` |
+| 2 | a session that picked a ticket up itself, with no `start` behind it | [references/inside-a-ticket.md](references/inside-a-ticket.md) |
+| 3 | the main agent running a night on a spec, including routing its findings with `route` on the closing pass and running `finish` after user acceptance | [references/night.md](references/night.md) |
+| 4 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
+| 5 | changing which host, model or reasoning effort (`effort` in `models.json`) an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
+| 6 | opening the local task board | No file: run `<dispatch> board` from any checkout of the repository. Exit 0 opened the board or printed its URL for you to hand the user; exit 2 says why on stderr |
 
 ## On waking
 
