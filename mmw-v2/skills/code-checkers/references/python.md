@@ -5,11 +5,13 @@
 ```toml
 [dependency-groups]
 dev = [
-    "ruff==0.16.5",        # also the formatter — exact pin
-    "pyrefly>=1.0,<2.0",
-    "djlint>=1.39,<2.0",   # only if the repo renders templates
+    "ruff==<current>",                     # also the formatter — exact pin
+    "pyrefly>=<current>,<<next major>",
+    "djlint>=<current>,<<next major>",     # only if the repo renders templates
 ]
 ```
+
+`<current>` is each package's current release, the first line of `uvx pip index versions <package>`; `<next major>` is the major version after it. For example, with ruff at 0.16.5 and pyrefly at 1.0: `"ruff==0.16.5"`, `"pyrefly>=1.0,<2.0"`.
 
 ## ruff
 
