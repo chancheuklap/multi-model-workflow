@@ -50,14 +50,14 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"ERROR: remote build has no RELEASE_REMOTE_HOST",
         "missing_remote_host",
         "env:missing_RELEASE_REMOTE_HOST",
-        "remote-build.json next to the key has no host, or the file does not exist; fill it in and resume "
+        "remote-build.json next to the release manifest has no host, or the file does not exist; fill it in and resume "
         "(exporting RELEASE_REMOTE_HOST in the driving shell overrides it for one run)",
     ),
     (
         r"ERROR: remote build has no RELEASE_REMOTE_ROOT",
         "missing_remote_root",
         "env:missing_RELEASE_REMOTE_ROOT",
-        "remote-build.json next to the key has no root (an absolute Windows path on the build machine, "
+        "remote-build.json next to the release manifest has no root (an absolute Windows path on the build machine, "
         "in safe characters); fill it in and resume "
         "(exporting RELEASE_REMOTE_ROOT overrides it for one run)",
     ),
@@ -118,7 +118,7 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"No module named ['\"]([\w.]+)['\"]",
         "frozen_import_missing",
         "missing_module:{group}",
-        "add {group} to the key's python_backend include_packages or include_modules, then rebuild",
+        "add {group} to the release manifest's python_backend include_packages or include_modules, then rebuild",
     ),
     (
         r"Required build tool is unavailable: (\S+)",
@@ -138,7 +138,7 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"import smoke ran but its exit code could not be read",
         "built_exe_smoke_harness_fault",
         "env:smoke_harness:{product}",
-        "the smoke test ran, but its exit code could not be read on the build machine. This is a harness fault; leave the key's include list alone",
+        "the smoke test ran, but its exit code could not be read on the build machine. This is a harness fault; leave the release manifest's include list alone",
     ),
     (
         r"Onefile payload mismatch",
@@ -159,10 +159,10 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "point of compiling, so this one never passes",
     ),
     (
-        r"No installer matched the key's installer_glob",
+        r"No installer matched the release manifest's installer_glob",
         "installer_missing",
         "installer_missing:{product}",
-        "the installer step exited 0, but nothing is at the key's installer_glob. Read that step's "
+        "the installer step exited 0, but nothing is at the release manifest's installer_glob. Read that step's "
         "output; usually the packaging tool or the repo hook only got halfway",
     ),
     (
@@ -170,7 +170,7 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "built_exe_smoke_failed",
         "frozen_smoke:{product}",
         "the compiled exe did not survive its own import check. Read what it printed: an ImportError names a "
-        "module the key does not include, so add it to python_backend's include list; a usage or unknown-argument "
+        "module the release manifest does not include, so add it to python_backend's include list; a usage or unknown-argument "
         "error from another target's CLI means this exe carries the wrong payload, so check that "
         "NUITKA_RESOURCE_MODE was not overridden back to an #embed mode. Then rebuild",
     ),
@@ -199,13 +199,13 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         "release_hook_failed",
         "hook_failed:{group}",
         "read that hook's output in this log to find the root cause. The hook script lives in the product "
-        "repo; the key's build_hooks holds its path",
+        "repo; the release manifest's build_hooks holds its path",
     ),
     (
         r"Nuitka[-:].*(?:error|FATAL)|FATAL:.*[Nn]uitka",
         "nuitka_build_failed",
         "nuitka_build:{product}",
-        "follow the Nuitka error in the log to fix the compile inputs (the key's include / nofollow / "
+        "follow the Nuitka error in the log to fix the compile inputs (the release manifest's include / nofollow / "
         "dependencies), then rebuild",
     ),
     (
@@ -394,9 +394,9 @@ def _expand(argv: list[str], core_exe: str | None) -> list[str] | None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="translate a release failure into findings, and run the check branches the key declares"
+        description="translate a release failure into findings, and run the check branches the release manifest declares"
     )
-    parser.add_argument("--adapter", type=Path, required=True, help="this product's key")
+    parser.add_argument("--adapter", type=Path, required=True, help="this product's release manifest")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)
 

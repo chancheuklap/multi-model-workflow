@@ -107,7 +107,7 @@ function Invoke-BuiltExeSmoke {
     throw "Compiled backend import smoke ran but its exit code could not be read; treat this as a build harness fault, not a missing dependency"
   }
   if ($exitCode -ne 0) {
-    throw "Compiled backend import smoke failed ($exitCode); the frozen build is missing a dynamic dependency. Fix the Nuitka include flags in the release adapter key and rebuild."
+    throw "Compiled backend import smoke failed ($exitCode); the frozen build is missing a dynamic dependency. Fix the Nuitka include flags in the release manifest and rebuild."
   }
 }
 
@@ -189,7 +189,7 @@ function Assert-NoBusinessSource {
     }
   }
   if ($repoModules.Count -eq 0) {
-    throw "Source roots named by the key hold no Python to protect: $($SourceRoots -join ', ')"
+    throw "Source roots named by the release manifest hold no Python to protect: $($SourceRoots -join ', ')"
   }
   $found = @()
   foreach ($root in $Roots) {
@@ -456,7 +456,7 @@ function Assert-DistinctExeTails {
   $sha = [Security.Cryptography.SHA256]::Create()
   try {
     foreach ($exe in $Exes) {
-      if (-not (Test-Path -LiteralPath $exe)) { throw "A compiled exe the key asked for is missing: $exe" }
+      if (-not (Test-Path -LiteralPath $exe)) { throw "A compiled exe the release manifest asked for is missing: $exe" }
       $stream = [IO.File]::OpenRead($exe)
       try {
         $size = [int][math]::Min(1MB, $stream.Length)
@@ -515,7 +515,7 @@ function Assert-OnefilePayloads {
   }
   $claimedBy = @{}
   foreach ($exe in $Exes) {
-    if (-not (Test-Path -LiteralPath $exe)) { throw "A compiled exe the key asked for is missing: $exe" }
+    if (-not (Test-Path -LiteralPath $exe)) { throw "A compiled exe the release manifest asked for is missing: $exe" }
     $haystack = $latin1.GetString([IO.File]::ReadAllBytes($exe))
     $hits = @($payloads | Where-Object { $haystack.IndexOf($probes[$_], [StringComparison]::Ordinal) -ge 0 })
     if ($hits.Count -eq 0) {
@@ -543,7 +543,7 @@ function Assert-InstallerProduced {
   param([string]$Glob)
   $items = @(Get-ChildItem -Path $Glob -File -ErrorAction SilentlyContinue)
   if ($items.Count -eq 0) {
-    throw "No installer matched the key's installer_glob: $Glob"
+    throw "No installer matched the release manifest's installer_glob: $Glob"
   }
   foreach ($item in $items) {
     Write-Host ("  installer: " + $item.FullName + "  " + [math]::Round($item.Length / 1MB, 1) + " MB")

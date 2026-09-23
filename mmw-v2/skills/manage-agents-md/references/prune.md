@@ -13,7 +13,7 @@ Each rule, then what it catches.
 3. **Generic best practices** — universal advice, quality slogans, "follow best practices". Bad: `Always write tests for new features.` `Use meaningful variable names.`
 4. **One-off fixes** — won't recur; clutters the file. Bad: `We fixed a bug in commit abc123 where the login button didn't work.`
 5. **Verbose explanations** — verbose explanations when a one-liner suffices. Bad: `The authentication system uses JWT tokens. JWT (JSON Web Tokens) are an open standard (RFC 7519) that defines a compact and self-contained way for securely transmitting information between parties as a JSON object. In our implementation, we use the HS256 algorithm which...` Good: `Auth: JWT with HS256, tokens in `Authorization: Bearer <token>` header.`
-6. **Linter territory** — anything a linter, formatter, typechecker, or pre-commit hook can enforce. When you cut one, suggest a pre-push or pre-commit hook in the report. Bad: `Use camelCase for variables, PascalCase for components.`
+6. **Linter territory** — anything a linter, formatter, typechecker, or pre-commit hook can enforce. When you cut one, suggest in the report wiring it as a pre-commit hook with the `code-checkers` skill. Bad: `Use camelCase for variables, PascalCase for components.`
 7. **Code snippets** — cut code snippets. They go stale and bloat the file. Use file path references instead (e.g., "see `src/utils/example.ts` for the pattern"). Bad: a ten-line example handler.
 8. **Copies of other documents** — content that `README.md`, `CONTRIBUTING.md`, or a policy doc already holds. Reference it instead. Bad: the setup steps from `CONTRIBUTING.md` pasted in.
 9. **Installed skills and plugins** — a list of what is installed. Bad: `Available skills: tdd, research, ...`

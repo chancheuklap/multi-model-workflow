@@ -2,7 +2,7 @@
 
 `exe-release` step 3 reads this file. By then this product's loop is started, or a previous loop is still there to resume.
 
-`<release>` below is `bash <absolute path of scripts/release-flow.sh>`, the same path step 3 resolved.
+`<release>` below is `bash <absolute path of scripts/release-flow.sh>`, the same path `SKILL.md`'s section **Resolve `<release>` and `<scripts>` once** resolved.
 
 **The release engine owns the loop.** Progress, next action, repair count, and success come from release engine state. Do not resume from session memory. Do not pick the next stage yourself. Do not keep a second log of what you already tried.
 
@@ -18,8 +18,9 @@ Act on this output only. Do not predict the next state. A stage, a dispatch, or 
 
 | Output | Do | Stop and report to the user? |
 | --- | --- | --- |
-| `STAGE:<name>` or `RETRY-STAGE:<name>` | `<release> stage run --stage <name>`. The release engine expands args, routes remote builds, runs diagnostics, writes the result from the exit code, and records findings | No |
-| `PAUSED:needs-context` with a `FIX-BRIEF=` line in the log | Read that brief. It names the findings and what to change. Fix, **commit**, then `<release> resume` | No |
+| `STAGE:<name>` | `<release> stage run --stage <name>`. The release engine expands args, routes remote builds, runs diagnostics, writes the result from the exit code, and records findings | No |
+| `RETRY-STAGE:<name>` | The stage failed. See "After a stage fails" below | No |
+| `PAUSED:needs-context` with a `FIX-BRIEF=` line on `dispatch`'s output (a later session finds it as `release-fix-brief.md` beside the findings file `receipt` lists) | Read that brief. It names the findings and what to change. Fix, **commit**, then `<release> resume` | No |
 | `SUCCESS:all stages done` | `<release> exit-check` must return `DONE`, then `<release> close` | No. Success without `DONE` is a release engine bug. Do not announce success |
 | `PAUSED:needs-context` | See "Pause: missing context" below. This is not the end | Only after two failed attempts |
 | `PAUSED:needs-redirection` | Read `<release> receipt`. Give it to the user as-is | Yes. Protected paths, circuit breakers, and spent budget must not continue on their own |
@@ -34,7 +35,7 @@ When `stage run` fails, the release engine has already diagnosed the failure and
 
 - `PAUSED` — the release engine already stopped it. Read the state. Do not dispatch a fix.
 - `RETRY-STAGE` — run `<release> dispatch --stage <name>` once. The release engine decides the fix from its ledger.
-- After `dispatch`, `where` is still `STAGE` or `RETRY-STAGE` — run `<release> round next` once, then return to the state table and re-run that stage.
+- After `dispatch`, `where` is still `STAGE` or `RETRY-STAGE` — run `<release> round next` once, then run the stage `where` names (`<release> stage run --stage <name>`), then return to the state table.
 
 `round next` records "already handled once". A clean full run does not consume a round.
 
@@ -45,7 +46,7 @@ When `stage run` fails, the release engine has already diagnosed the failure and
 `PAUSED:needs-context` means the release engine lacks information it cannot judge. **Resolve it yourself when you can.**
 
 A failure the release engine placed at tier P1 but cannot fix by itself arrives here too, with a
-`FIX-BRIEF=<path>` line in the log. That brief is the findings written out for you to act on — read
+`FIX-BRIEF=<path>` line on `dispatch`'s output (a later session finds it as `release-fix-brief.md` beside the findings file `receipt` lists). That brief is the findings written out for you to act on — read
 it instead of re-diagnosing.
 
 1. `<release> receipt` for what was already tried. Read release engine logs, builder logs, and finding text from the latest record.

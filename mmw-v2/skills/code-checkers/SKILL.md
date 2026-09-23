@@ -46,6 +46,9 @@ Upgrading is then one deliberate act: bump, run everything, absorb the changes i
 3. **Configure** — per-language detail in the reference files. Configure before looking at the error count: most of a first run is misconfiguration, not debt.
 4. **Reduce a first run to real findings** — [references/first-run.md](references/first-run.md).
 5. **Probe every checker** — [references/probing.md](references/probing.md). A checker that reports zero because it never ran is worse than none.
+   Done when every checker reported a planted defect.
 6. **Write one entry point** that runs them all, reporting only, with a flag for the fixes that are safe to apply. Keep per-checker output to its summary line; a failing step prints its tail and the command to rerun for the full output.
 7. **Run them at commit time** — [references/git-hooks.md](references/git-hooks.md). Wire this even when per-agent automation is out of scope, because it is not per-agent.
-8. **Record it where the next agent reads** — the repo's `AGENTS.md`: which tools, which manifest installs them, the one command, the commit hook and how to skip it, and that the type checker runs against a checker baseline.
+   Done when a probe commit was refused as `git-hooks.md` `## Probe it with a real commit` describes.
+8. **Record it where the next agent reads** — the repo's `AGENTS.md`: which tools, which manifest installs them, the one command, the commit hook and how to skip it, and that the type checker runs against a checker baseline. The one command goes in as a row of the `## Commands` table and the rest under `## Key Conventions` when the file has those headings (the format the `manage-agents-md` skill keeps); otherwise beside the file's existing commands.
+   Done when the repo's `AGENTS.md` names the tools, the one command, the hook and how to skip it.

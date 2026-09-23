@@ -96,7 +96,7 @@ TEMPLATE_ERRORS = [
         "shipped_source:duck",
     ),
     (
-        "No installer matched the key's installer_glob: C:\\x\\dist\\*.exe",
+        "No installer matched the release manifest's installer_glob: C:\\x\\dist\\*.exe",
         "installer_missing:duck",
     ),
 ]
@@ -132,7 +132,7 @@ def test_the_template_still_throws_the_messages_the_rules_match():
         "Compiled backend import smoke timed out",
         "import smoke ran but its exit code could not be read",
         "Business Python source shipped in the package",
-        "No installer matched the key's installer_glob",
+        "No installer matched the release manifest's installer_glob",
     ):
         assert fragment in template, f"the template no longer throws this, so its translation rule is dead: {fragment}"
 

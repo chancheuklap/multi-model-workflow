@@ -476,7 +476,7 @@ class ReleaseAdapterManifest(BaseModel):
         )
         if installs and not self.build_target.installer_glob:
             raise ValueError(
-                "a key that produces an installer must declare build_target.installer_glob: "
+                "a release manifest that produces an installer must declare build_target.installer_glob: "
                 "without it, \"the step exited 0\" and \"an installer really exists\" are indistinguishable, "
                 "and the next one to find out is the customer"
             )

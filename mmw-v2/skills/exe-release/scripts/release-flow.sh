@@ -468,7 +468,7 @@ _post_fix_gate() {
   # 没有这一关，跟「跑了并通过」在回执里必须分得开。
   if [ "$(jq -r '(.post_fix_gate // []) | length' "$mp")" -eq 0 ]; then
     append_attempt "$f" "$name" "post_fix_gate" "skipped" "$fp" "git-commit:$repair_sha"
-    echo "POST-FIX-GATE-SKIPPED:$name (the key declares no post_fix_gate)"
+    echo "POST-FIX-GATE-SKIPPED:$name (the release manifest declares no post_fix_gate)"
     return 0
   fi
   local gate_argv=()
@@ -494,7 +494,7 @@ _post_fix_gate() {
   top="$(_repo_top)"
   if ! git -C "$top" revert --no-edit "$repair_sha" >/dev/null; then
     _record_pause "$f" "$name" "post_fix_gate" "revert_failed" "$fp" "git-commit:$repair_sha" \
-      "needs-context" "the post-fix gate went red and the repair commit could not be rolled back; stopping for a human" "[]" "[]" "" "$gate_cmd" "P1"
+      "needs-context" "the post-fix gate went red and the repair commit could not be rolled back; stopping for the agent driving the release" "[]" "[]" "" "$gate_cmd" "P1"
     echo "POST-FIX-GATE-REVERT-FAILED:$name"
     return 0
   fi
@@ -529,7 +529,7 @@ cmd_dispatch_direct() {
   PROTECTION_FROZEN=0
   if ! _load_path_hard_deny "$f"; then
     _record_pause "$f" "$name" "preflight" "protection_source_unreadable" "$fp" "" \
-      "needs-context" "protection_source was already unusable before the automatic fix ($PATH_GATE_ERROR); keeping the state for a human" "[]" "[]" "" "" ""
+      "needs-context" "protection_source was already unusable before the automatic fix ($PATH_GATE_ERROR); keeping the state for the agent driving the release" "[]" "[]" "" "" ""
     echo "DISPATCH-PAUSED:$name(protection source unreadable)"
     return 0
   fi
@@ -539,9 +539,9 @@ cmd_dispatch_direct() {
   if [ "$(jq -r --arg k "$( [ "$mode" = fix ] && echo fix_executor || echo derive )" \
         '(.[$k] // []) | length' "$mp")" -eq 0 ]; then
     _record_pause "$f" "$name" "preflight" "no_${mode}_executor" "$fp" "" \
-      "needs-context" "the key declares no $( [ "$mode" = fix ] && echo fix_executor || echo derive ); this class of failure has no automatic path, hand it to a person" \
+      "needs-context" "the release manifest declares no $( [ "$mode" = fix ] && echo fix_executor || echo derive ); this class of failure has no automatic path, so it goes to the agent driving the release" \
       "[]" "[]" "" "" ""
-    echo "DISPATCH-PAUSED:$name(no $mode executor in the key)"
+    echo "DISPATCH-PAUSED:$name(no $mode executor in the release manifest)"
     return 0
   fi
 
@@ -552,7 +552,7 @@ cmd_dispatch_direct() {
 
   if ! _baseline_untracked_changed "$top"; then
     _record_pause "$f" "$name" "$action_kind" "baseline_untracked_changed" "$fp" "" \
-      "needs-context" "the automatic fix rewrote an untracked file that existed before this round; keeping the state for a human" \
+      "needs-context" "the automatic fix rewrote an untracked file that existed before this round; keeping the state for the agent driving the release" \
       "$(_json_array "${BASELINE_CHANGED_PATHS[@]-}")" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(baseline untracked changed)"
     return 0
@@ -560,7 +560,7 @@ cmd_dispatch_direct() {
 
   if [ "$ACTION_RC" -ne 0 ]; then
     _record_pause "$f" "$name" "$action_kind" "action_failed" "$fp" "" \
-      "needs-context" "$mode exited non-zero; keeping the state for a human" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "$mode exited non-zero; keeping the state for the agent driving the release" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name($mode rc=$ACTION_RC)"
     return 0
   fi
@@ -576,7 +576,7 @@ cmd_dispatch_direct() {
     BLOCKED_PATHS=("${CHANGED_PATHS[@]-}")
     if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
       _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "protection_source is unusable and this round's changes could not be fully saved or restored; keeping the state for a human" \
+        "needs-context" "protection_source is unusable and this round's changes could not be fully saved or restored; keeping the state for the agent driving the release" \
         "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
       echo "PATH-GATE-PAUSED:$name($PATH_GATE_ERROR)"
       return 0
@@ -584,7 +584,7 @@ cmd_dispatch_direct() {
     artifact_ref="$PATH_GATE_ARTIFACT"
     blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
     _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
-      "needs-context" "protection_source cannot serve as the path gate's single source of truth ($PATH_GATE_ERROR); the patch is saved and this stops for a human" \
+      "needs-context" "protection_source cannot serve as the path gate's single source of truth ($PATH_GATE_ERROR); the patch is saved and this stops for the agent driving the release" \
       "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "PATH-GATE-REJECT:$name protection_source=[$PATH_GATE_ERROR]"
     return 0
@@ -593,7 +593,7 @@ cmd_dispatch_direct() {
   if [ ${#BLOCKED_PATHS[@]} -gt 0 ]; then
     if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
       _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "the path gate rejected the changes and they could not be fully saved or restored; keeping the state for a human" \
+        "needs-context" "the path gate rejected the changes and they could not be fully saved or restored; keeping the state for the agent driving the release" \
         "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
       echo "PATH-GATE-PAUSED:$name(cleanup failed)"
       return 0
@@ -609,7 +609,7 @@ cmd_dispatch_direct() {
 
   if ! git -C "$top" add -- "${CHANGED_PATHS[@]-}"; then
     _record_pause "$f" "$name" "$action_kind" "add_failed" "$fp" "" \
-      "needs-context" "the automatic fix passed the path gate but the changes could not be staged; keeping the state for a human" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "the automatic fix passed the path gate but the changes could not be staged; keeping the state for the agent driving the release" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git add failed)"
     return 0
   fi
@@ -619,7 +619,7 @@ cmd_dispatch_direct() {
   esac
   if ! git -C "$top" commit -m "$message" >/dev/null; then
     _record_pause "$f" "$name" "$action_kind" "commit_failed" "$fp" "" \
-      "needs-context" "the automatic fix passed the path gate but the feature branch commit could not be created; keeping the state for a human" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "the automatic fix passed the path gate but the feature branch commit could not be created; keeping the state for the agent driving the release" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git commit failed)"
     return 0
   fi
@@ -733,13 +733,13 @@ cmd_init() {
 
   local canon
   canon="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-manifest "$manifest")" \
-    || die "the manifest does not satisfy the contract; a person has to fix the key"
+    || die "the release manifest does not satisfy the contract; a person has to fix it"
 
   local f top mp source_commit
   top="$(git rev-parse --show-toplevel)"
   source_commit="$(git -C "$top" rev-parse HEAD)"
   f="$top/$RELEASE_SUBDIR/$STATE_NAME"
-  [ -f "$f" ] && die "a release loop is already open; close it or continue it"
+  [ -f "$f" ] && die "a release loop for $(jq -r '.product // "another product"' "$f" 2>/dev/null || echo "another product") is already open; run where to continue it, or abort to drop it"
   # 上一轮的 attempt 目录不能留:attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是
   # 「本轮的 a4-verify_key」读到的是上一个产品的结果,而没有任何一步报错。
   rm -rf "$top/$RELEASE_SUBDIR/release-artifacts"
@@ -767,13 +767,13 @@ cmd_where() {
   fi
   local n
   n="$(jq -r '.stages|length' "$f")"
-  [ "$n" -gt 0 ] || { echo "NO-STAGES:the manifest is valid but has no stage to run; a person has to fix the key"; return 0; }
+  [ "$n" -gt 0 ] || { echo "NO-STAGES:the manifest is valid but has no stage to run; a person has to fix it"; return 0; }
   # running 优先于 failed/pending:进程在「已标 running、未写终态」间中断后,该 stage 必须重跑。
   # 不认 running 会让 where 指向下一个 pending(stage run 二次防线 die)甚至误报 SUCCESS。
   local interrupted
   interrupted="$(jq -r '[.stages[]|select(.status=="running")][0].name // ""' "$f")"
   if [ -n "$interrupted" ]; then
-    jq -r --arg c "$interrupted" '"RETRY-STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
+    jq -r --arg c "$interrupted" '"STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
     return 0
   fi
   # 管线是有序的,所以下一步就是**第一个还没 done 的阶段**——按位置,不按状态。曾经这里先挑
@@ -871,12 +871,12 @@ _run_remote_build() {
   # 这两行报错文字是产品仓库 diagnose 的匹配面，改它等于改掉那边的根因指纹。补充说明另起一行。
   if [ -z "$remote_host" ]; then
     echo "ERROR: remote build has no RELEASE_REMOTE_HOST" >&2
-    echo "HINT: export it, or put remote-build.json next to the key: {\"host\": \"...\", \"root\": \"...\"}" >&2
+    echo "HINT: export it, or put remote-build.json next to the release manifest: {\"host\": \"...\", \"root\": \"...\"}" >&2
     return 64
   fi
   if [ -z "$remote_root" ]; then
     echo "ERROR: remote build has no RELEASE_REMOTE_ROOT" >&2
-    echo "HINT: export it, or put remote-build.json next to the key: {\"host\": \"...\", \"root\": \"...\"}" >&2
+    echo "HINT: export it, or put remote-build.json next to the release manifest: {\"host\": \"...\", \"root\": \"...\"}" >&2
     return 64
   fi
 
@@ -1333,7 +1333,7 @@ cmd_stage_fail() {
       '(.stages |= map(if .name==$n then .status="failed" else . end))
        | .current_stage=$n
        | .pause={at_stage:$n, kind:"surface", reason:"needs-context",
-                 question:("diagnose for stage "+$n+" produced no valid Finding ("+$fd+"); it cannot be classified, so it goes to a human")}'
+                 question:("diagnose for stage "+$n+" produced no valid Finding ("+$fd+"); it cannot be classified, so it goes to the agent driving the release")}'
     emit_event "$f" "stage.failed" "$name" "" "" ""
     echo "UNCLASSIFIABLE:$name(escalate PAUSE)"
     return 0
@@ -1345,7 +1345,7 @@ cmd_stage_fail() {
       '(.stages |= map(if .name==$n then .status="failed" else . end))
        | .current_stage=$n
        | .pause={at_stage:$n, kind:"surface", reason:"needs-context",
-                 question:("diagnose for stage "+$n+" produced no fail Finding ("+$fd+"); there is nothing to diagnose, so it goes to a human")}'
+                 question:("diagnose for stage "+$n+" produced no fail Finding ("+$fd+"); there is nothing to diagnose, so it goes to the agent driving the release")}'
     emit_event "$f" "stage.failed" "$name" "" "" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
     echo "UNCLASSIFIABLE:$name(empty findings escalate PAUSE)"
     return 0
@@ -1406,7 +1406,7 @@ cmd_dispatch() {
   if ! cls="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" classify-findings "$findings")"; then
     edit "$f" --arg n "$name" --arg fd "$findings" \
       '.pause={at_stage:$n, kind:"surface", reason:"needs-context",
-               question:("the findings at dispatch ("+$fd+") produced no valid Finding; they cannot be classified, so this goes to a human")}'
+               question:("the findings at dispatch ("+$fd+") produced no valid Finding; they cannot be classified, so this goes to the agent driving the release")}'
     echo "UNCLASSIFIABLE:$name(dispatch escalate)"
     return 0
   fi

@@ -803,7 +803,7 @@ def _check_script(script_text: str, context_doc: dict) -> None:
     for call in hook_calls:
         expected_skipped = getattr(hooks, call["name"]) is None
         if call["skipped"] != expected_skipped:
-            raise ValueError(f"hook {call['name']}: the script and the key disagree on whether it is skipped")
+            raise ValueError(f"hook {call['name']}: the script and the release manifest disagree on whether it is skipped")
     print(json.dumps({"steps": steps, "hook_calls": hook_calls}, ensure_ascii=False))
 
 

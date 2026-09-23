@@ -126,7 +126,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
     product = manifest.product
     backend = manifest.python_backend
     if backend is None:  # schema_version=2 的合同已经挡住，这里是防御
-        raise ValueError("verify_key only accepts a key that declares python_backend")
+        raise ValueError("verify_key only accepts a release manifest that declares python_backend")
     findings: list[dict] = []
 
     def missing(dimension: str, name: str, rel: str, what: str) -> None:
@@ -137,7 +137,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                 name,
                 rel,
                 f"{what} does not exist in the repo: {rel}",
-                f"point the key at a real path, or add the {what} to the repo",
+                f"point the release manifest at a real path, or add the {what} to the repo",
             )
         )
 
@@ -260,7 +260,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         "argv_script_missing",
                         label,
                         f"{label} references a repo file that does not exist: {token}",
-                        f"point the key at a real path, or add {token} to the repo",
+                        f"point the release manifest at a real path, or add {token} to the repo",
                     )
                 )
 
@@ -305,7 +305,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                             "electron",
                             "electron_builder_output_drift",
                             locator,
-                            f"directories.output is {actual!r}, the key says electron.dist_dir is {declared!r}",
+                            f"directories.output is {actual!r}, the release manifest says electron.dist_dir is {declared!r}",
                             "make both point at the same directory",
                         )
                     )
@@ -329,8 +329,8 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                             "key",
                             "adapter_points_at_another_key",
                             label,
-                            f"{label} passes --adapter {token}, which is not this key {name}",
-                            f"point it at {name}; otherwise this round runs another product key and every log line still reads green",
+                            f"{label} passes --adapter {token}, which is not this release manifest {name}",
+                            f"point it at {name}; otherwise this round runs another product's release manifest and every log line still reads green",
                         )
                     )
 
