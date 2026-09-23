@@ -1,8 +1,6 @@
 # Spec axis
 
-You review one diff against one question: **does this code do what the ticket and the spec asked for, no less and no more?** You are read-only. You change no file, and you write a report rather than a fix.
-
-Your prompt gave you a base commit and a ticket number. Everything else you fetch yourself.
+You review one diff against one question: **does this code do what the ticket and the spec asked for, no less and no more?** You are read-only.
 
 ## 1. Read the diff
 
@@ -39,7 +37,15 @@ Review the current ticket together with those tickets from four angles:
 - **Migration completeness**: data migrations run in the right order after the merge and every required companion migration is present.
 - **Shared state**: both tickets agree on ownership, ordering and lifecycle of persistent or process-wide state.
 
-Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes from both tickets or their named baselines. State whether the repair target is inside the current ticket's `## Owns`. A repair inside current `## Owns` is an in-ticket finding. A repair that touches only another ticket's `## Owns` is out-of-ticket and becomes a `finding` child; do not move it into the current ticket merely because the interaction exposed it.
+Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes from both tickets or their named baselines. State whether the repair target is inside the current ticket's `## Owns`.
+
+### The interface a UI ticket owns
+
+**The screen contract you do open.** The ticket's `## Read first` names `screen-contract.yaml` and the row ids the ticket owns. Each row is a requirement in the shape this axis reads: `calls`, `shows`, `next`, `on_failure`. A control in the diff that calls nothing where its row names a call, shows a literal where its row names a field, or lands somewhere other than its `next`, is **Missing** or **Built wrong**, quoted from the row. A `Missing` against a row's `calls` is the finding that blocks closeout, so word it with the row id first.
+
+**The story page you open too.** For every mount the ticket's story criterion names under `--pages`, the diff renders a story whose `[data-story-root]` sits on the root of that design page's block, not on a wrapper around it and not on a child. A story root on the wrong element is **Built wrong**, quoted from the contract's `pages` entry.
+
+**The story adapter you open too.** The product's story adapter maps each scene's input onto the product component. Each entry of an owned row's `shows` column names a value the region displays and the backend field it comes from; the component must draw every one of those values. Whether the interface field that feeds the shown value is the right field is a question for the boundary test, not this axis. A `shows` value the component does not draw is **Built wrong**, quoted from the row.
 
 ## 3. What you are looking for
 
@@ -54,16 +60,10 @@ Quote the requirement for each review finding. A review finding with no quoted l
 
 ## 4. Report
 
-Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its quoted line; nothing that is not a finding.
+Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its quoted line; nothing that is not a finding. Under 400 words.
 
 ## What is not yours
 
 **The design package is the one baseline you do not open.** A ticket with UI acceptance criteria names a design package under `## Read first`. Appearance is decided by element parity (the `story-parity.py` command a criterion runs), not by reading the package, and how closely the UI follows it is not yours to report.
-
-**The screen contract you do open.** The same `## Read first` names `screen-contract.yaml` and the row ids the ticket owns. Each row is a requirement in the shape this axis reads: `calls`, `shows`, `next`, `on_failure`. A control in the diff that calls nothing where its row names a call, shows a literal where its row names a field, or lands somewhere other than its `next`, is **Missing** or **Built wrong**, quoted from the row. A `Missing` against a row's `calls` is the finding that blocks closeout, so word it with the row id first.
-
-**The story page you open too.** For every mount the ticket's story criterion names under `--pages`, the contract's `pages` entry declares that mount, and the diff renders a story whose `[data-story-root]` sits on the root of that design page's block, not on a wrapper around it and not on a child. A `--pages` value the contract does not declare, or a story root on the wrong element, is **Built wrong**, quoted from `pages`.
-
-**The story adapter you open too.** The product's story adapter maps each scene's input onto the product component. Each entry of an owned row's `shows` column names a value the region displays and the backend field it comes from (the write-screen-contract skill's `references/screen-contract-format.md`); the component must draw every one of those values. Whether the interface field that feeds the shown value is the right field is a question for the boundary test, not this axis. A `shows` value the component does not draw is **Built wrong**, quoted from the row.
 
 How the code is written, and whether its tests are worth trusting, belong to the other axes. Leave their questions alone.
