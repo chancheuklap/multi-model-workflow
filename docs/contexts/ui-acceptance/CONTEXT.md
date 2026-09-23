@@ -14,10 +14,10 @@ _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **design system**:
 A Claude Design project holding a product's look — variables, fonts, icons and reusable parts — from which the pages of a bound project are drawn; Claude Design copies it into that project's `_ds/<folder>/`. It holds no page regions, example data or product logic.
-_Home_: `mmw-v2/skills/design-pages/references/design-system.md`
+_Home_: `mmw-v2/skills/design-pages/references/template-design-system-claude-md.md`
 
 **edit pages**:
-The `design-pages` skill's moment around the user's design work: creating the Claude Design project, bringing an existing product's screens into it, acting on comments sent to Claude, drawing pages when asked, and taking the sign-off.
+The `design-pages` skill's moment for creating the Claude Design project and taking the sign-off; comments sent to Claude and drawing are in `references/draw.md`, bringing an existing product in is in `references/design-system.md`.
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 
 **pull**:
@@ -130,7 +130,7 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **break switch**:
 The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on its second start, so that the product itself fails one named interface.
-_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+_Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
 
 **journey**:
 One Playwright path run against the real product on this machine, from a directory under `.mmw/journeys/`. `journey.py run <name>` starts the product, runs the script and stops the product.
@@ -213,7 +213,7 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`leaves_machine`**:
 The required `.mmw/target.json` key answering what the product does in a run that reaches past the machine, and how the run neutralises and records each such action under `MMW_AUTOMATION=1`. `[]` is an answer.
-_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
 
 ### The lease
 
@@ -227,7 +227,7 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
 
 **instance**:
 One run of a product on this machine, and the optional `.mmw/target.json` field `instance`, which says how many one machine may hold at once (`max`) and why.
-_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
 
 **`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`**:
 The six variables a lease puts into the environment of every command `.mmw/target.json` declares: a readable name for the run, the slot number, the first port and the number of ports of its block, a directory it owns, and `1` as the signal to neutralise what would leave the machine.

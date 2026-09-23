@@ -20,14 +20,7 @@ while the criteria ran is not part of the repository.
 
 ## The criterion, in one shape
 
-Written onto the ticket, run by a shell months later with no model between.
-
-```
-CHECK: harness-guard.py .
-EXPECT: HARNESS OK
-```
-
-The one argument is the repository root, and a `CHECK:` line runs there, so it is `.`.
+The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds it.
 
 What widens the allowed set for one file is `.mmw/target.json`'s `leaves_machine`, never
 an exception written into the check and never a name assembled at run time to get past it

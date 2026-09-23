@@ -120,5 +120,5 @@ A contract written for a wayfinder map's alignment ticket resolves that ticket: 
 Otherwise:
 
 - A contract written for the first time: the `to-spec` skill, which writes the spec this effort does not have yet.
-- A contract changed by **Re-runs**: the `to-spec` skill's step for revising a published spec, with the tickets already cut corrected against the new text.
+- A contract changed by **Re-runs**: the `to-spec` skill's `references/revising-a-spec.md`, with the tickets already cut corrected against the new text.
 

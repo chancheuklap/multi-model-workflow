@@ -2,11 +2,74 @@
 
 The five kinds of ticket below are what a screen contract produces. An **interface ticket** is one whose **Read first** carries a `screen-contract.yaml rows:` line, as `verify-ticket.py --lint` reads it: the **component page ticket** and the **app page ticket**.
 
-Copy each criterion from the named section of the `ui-acceptance` skill; the shape lives only there:
+Copy each criterion in the shape below; the judges are the `ui-acceptance` skill's scripts, named bare.
 
-- A story criterion: `references/story-parity.md` § **The criterion, in one shape**.
-- A boundary criterion: `references/boundary-check.md` § **The criterion, in one shape** and § **Selecting one row's test**. The product's test asserts the four columns of that row.
-- A journey criterion: `references/journey.md` § **The criterion, in one shape**.
+## Criterion shapes
+
+### Story criterion
+
+```
+CHECK: story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <id,id>
+EXPECT: STORY OK <passed>/<total>
+```
+
+`--pages` is a comma-separated list of contract mounts. `--scenes` may narrow the
+scenes belonging to those mounts. `<total>` is scene × viewport pairs.
+
+### Boundary criterion
+
+The **boundary criterion** is the line written onto the ticket, run by a shell months later with no model between.
+
+```
+CHECK: boundary-check.py --run "<the product's test command, a file or a case>"
+EXPECT: BOUNDARY OK <n>/<n>
+```
+
+`<n>` is how many `--run` flags were given. Commands that share a test file may share a criterion; `--run` may be repeated. `--run` takes one command, not a shell line: `&&`, `||`, `;` and `|` are refused.
+
+The product's test asserts the four columns of that row.
+
+#### Selecting one row's test
+
+One row's test is named after the row id, dots and hyphens turned to underscores: `detail.close` → `test_detail_close`. Row ids can be prefixes of one another (`detail.close`, `detail.close-event`), and a runner that selects by substring then picks both: `python -m unittest … -k test_detail_close` runs `test_detail_close` and `test_detail_close_event`. A `--run` meant for one row then passes on the other row's test when its own is missing or renamed, and the criterion judges the wrong row.
+
+A `--run` that names one row's test selects it by a pattern anchored at both ends, so it matches that name and nothing longer:
+
+- unittest: `-k '*.test_detail_close'`. A `-k` value holding `*` is matched against the whole test name (`module.Class.test_detail_close`), so the leading `*.` and the missing trailing `*` match only a name ending in exactly `.test_detail_close`.
+- pytest: the node id, `tests/test_rows.py::test_detail_close`, which names one test exactly.
+- A runner whose filter is a regular expression: `^…$` around the name.
+
+The command is run by hand twice. Before the criterion is published, whoever cuts the ticket runs it with the name changed to one no test has, which must exit non-zero. unittest exits 5 and prints `NO TESTS RAN` when a pattern selects nothing. A runner that exits 0 when its filter selects nothing turns a renamed test into a `MISS` only if the command is changed to fail on zero tests; find its flag for that before relying on it. Once the worker has written the test, the worker runs the command as written, which must report exactly one test run.
+
+### Journey criterion
+
+```
+CHECK: journey.py run <name> --break "POST /items/{id}"
+EXPECT: JOURNEY OK <name>
+```
+
+The value is one uppercase method, one space, and a route beginning with `/`. The route is the product's own route pattern and may carry placeholders such as `{id}`.
+
+The contract ticket's smoke journey omits `--break`. Its purpose is to prove that the
+whole product starts, answers through the discovered address, and stops; taking the
+whole product down is the appropriate control for that one criterion. Acceptance and
+user-named journeys use `--break` so the control isolates the interface whose result
+the journey must observe.
+
+A break journey starts and stops the whole stack twice, so it is the slowest criterion
+on a ticket. When it needs longer than the ten minutes every `CHECK:` gets, the ticket
+says so on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`.
+
+### Harness guard criterion
+
+Written onto the ticket, run by a shell months later with no model between.
+
+```
+CHECK: harness-guard.py .
+EXPECT: HARNESS OK
+```
+
+The one argument is the repository root, and a `CHECK:` line runs there, so it is `.`.
 
 **A layer with no precedent yet:** a product from zero takes its adapter, its interaction helper and its first journey script, as the precedent, from the **contract ticket**. Cut that ticket first. The criteria of the tickets behind it copy their `CHECK:` and `EXPECT:` from what it lands. Nothing here sends you back to the `to-spec` skill for a precedent the spec cannot have.
 
@@ -101,6 +164,3 @@ When two or more journey tickets in the batch (an **acceptance ticket**, or anot
 
 One extra *reaction* ticket: the user uses this spec's interface on the running product and judges what no story render shows, how it feels in use and whether the whole surface reads as one product. Appearance a story render does show, decoration with no `data-ui` id included, stops at question 2 first: it is the `UI` axis of code review, which looks at those renders. It is blocked by every **component page ticket** and **app page ticket**. The rest of a *reaction* ticket is [person-ticket.md](person-ticket.md).
 
-## When the rows change
-
-The `to-spec` skill's `references/revising-a-spec.md` says how tickets already cut follow rows a later pull changed.

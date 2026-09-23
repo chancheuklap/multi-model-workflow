@@ -28,7 +28,7 @@ These hold for every product. How a given repository meets them is its own.
   names — the layer that emits the call, whether the call travels as HTTP, IPC, or
   an extension message.
 - **`.mmw/harness/` implements the break switch** that [journey.md](journey.md)
-  **The criterion, in one shape** specifies.
+  **The break switch** specifies.
 - **A journey script reads only the addresses `discover` printed.** It starts
   nothing of its own — no application, server, container, or backing service.
 - **`harness_markers` declares this product's back-door strings** — the names it

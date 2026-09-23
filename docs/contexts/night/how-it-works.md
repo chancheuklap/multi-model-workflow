@@ -14,7 +14,7 @@ A start the runner refuses is refused once, exit 2: no retry and no other host o
 
 `start <n> worker` replaces a worker whose events still show it live. It checks origin and the ticket branch, stops the old session through its runner, commits tracked edits as `wip(#<n>): uncommitted work of <that worker>`, pushes the branch, writes `worker.replaced`, and starts the new worker in the same workspace. The branch, commits and product slot carry over; instructions given only inside the old session do not. A worker that will not stop, or a rejected push, is refused and nothing starts beside it. `retract` and `suspend` also commit and push before releasing a worktree, claim, slot or event hold. A push rejection never uses force and leaves the recoverable state standing.
 
-A worker takes no product slot when it starts. The slot lifecycle and its two limits are in the `ui-acceptance` skill's `references/product-answers.md` under **`instance`**. When a criteria run gets no slot, `verify-ticket.py` exits 3 and posts `worker.queued`, and the relay wakes the worker once a slot is given back.
+A worker takes no product slot when it starts. The slot lifecycle and its two limits are in the `ui-acceptance` skill's `scripts/lease.py` header. When a criteria run gets no slot, `verify-ticket.py` exits 3 and posts `worker.queued`, and the relay wakes the worker once a slot is given back.
 
 ## Events and holds
 

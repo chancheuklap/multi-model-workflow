@@ -37,31 +37,11 @@ journey connects to it with Playwright.
 
 ## The criterion, in one shape
 
-Written onto the ticket, run by a shell months later with no model between.
+The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds the `CHECK:` and `EXPECT:` lines. Their `--break` value is one uppercase method and a route, such as `POST /items/{id}`.
 
-```
-CHECK: journey.py run <name> --break "POST /items/{id}"
-EXPECT: JOURNEY OK <name>
-```
+## The break switch
 
-The value is one uppercase method, one space, and a route beginning with `/`. The route
-is the product's own route pattern and may carry placeholders such as `{id}`. The
-product's break switch matches that method and route, fails only that interface, and
-affects only the product process. On the second start, and only then, `journey.py` puts
-the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the
-exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one
-without that line, is a refusal: the script does not run and the message points back to
-this reference.
-
-The contract ticket's smoke journey omits `--break`. Its purpose is to prove that the
-whole product starts, answers through the discovered address, and stops; taking the
-whole product down is the appropriate control for that one criterion. Acceptance and
-user-named journeys use `--break` so the control isolates the interface whose result
-the journey must observe.
-
-A break journey starts and stops the whole stack twice, so it is the slowest criterion
-on a ticket. When it needs longer than the ten minutes every `CHECK:` gets, the ticket
-says so on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`.
+The product's break switch matches that method and route, fails only that interface, and affects only the product process. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference.
 
 ## The negative control
 

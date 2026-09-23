@@ -3,10 +3,9 @@
 `story-parity.py`, the **story judge**, compares a product story with the Claude Design
 page it was built from, element by element, by `data-ui` id.
 
-Four agents use this page. An agent taking design facts before implementation uses
+Three agents use this page. An agent taking design facts before implementation uses
 **`--render-only`**. An agent building a story reads **The story page the product
-serves**. An agent writing a ticket copies **The criterion, in one shape**. An agent
-fixing a failure reads **The DIFF line**.
+serves**. An agent fixing a failure reads **The DIFF line**.
 
 ## The story page the product serves
 
@@ -97,13 +96,7 @@ evidence.
 
 ## The criterion, in one shape
 
-```
-CHECK: story-parity.py --contract docs/specs/<effort>/screen-contract.yaml --pages <id,id>
-EXPECT: STORY OK <passed>/<total>
-```
-
-`--pages` is a comma-separated list of contract mounts. `--scenes` may narrow the
-scenes belonging to those mounts. `<total>` is scene × viewport pairs.
+The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds it.
 
 ## The DIFF line
 
