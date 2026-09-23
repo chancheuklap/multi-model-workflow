@@ -67,7 +67,7 @@ The smoke journey uses the journey criterion and omits `--break`. It requires th
 
 **Read first** names three sections of the `ui-acceptance` skill: `references/story-parity.md` **The story page the product serves**; `references/journey.md`; and `references/product-answers.md`. **Owns** is `.mmw/`, the story service and the interaction helper, and, as the prefactor ticket below, every file that registers a design page's scenes and routes.
 
-Journeys appear on the contract ticket, on tickets the owner named, and on each acceptance ticket.
+Journeys appear on the contract ticket, on tickets the user named, and on each acceptance ticket.
 
 Where the spec has a screen contract, the **prefactor ticket** of step 5 is this ticket. It registers the scenes and routes of every design page in the contract, not only of the page it makes the precedent from.
 

@@ -10,7 +10,7 @@ executable, or the command `package.json` declares), and runs `stop` whether
 the script succeeded or not.
 
 With `--break`, it starts the product again with `MMW_BREAK` supplied only to `start`,
-requires `BREAK ARMED <METHOD> <route>`, discovers the product again, and reruns the
+requires `BREAK ARMED <METHOD> <route>`, discovers the product again, and re-runs the
 script in the same environment. That pass must fail. Without `--break`, the contract
 smoke journey keeps the product down, moves discovered addresses to a closed port, and
 runs the same script again. A judge that cannot go red is not a

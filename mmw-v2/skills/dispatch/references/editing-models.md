@@ -1,6 +1,6 @@
 # Changing host, model, or which runner this machine uses
 
-Read this only when the user has told you to change which host, model or `effort` a dispatched session uses, or which runner the machine uses. The saved configuration is `MMW_HOME/models.json`; when `MMW_HOME` is unset, that means `~/.mmw/models.json`. Change it only through the commands below.
+Read this only when the user has told you to change which host, model or reasoning effort (`effort` in `models.json`) a dispatched session uses, or which runner the machine uses. The saved configuration is `MMW_HOME/models.json`; when `MMW_HOME` is unset, that means `~/.mmw/models.json`. Change it only through the commands below.
 
 ## Resolve `<models>` once
 

@@ -1,6 +1,6 @@
 # Writing interface code
 
-Read this file when the ticket's **Read first** lists a screen contract. The two baselines — design package for look and verbatim copy, screen contract for calls, shown values, transitions, failure and timing — are in this skill's `SKILL.md`.
+Read this file when the ticket's **Read first** lists a screen contract. The two baselines (design package for look and verbatim copy, screen contract for calls, shown values, transitions, failure and timing) are in this skill's `SKILL.md`.
 
 ## Resolve `<ui-acceptance scripts>` once
 
@@ -16,7 +16,7 @@ Then take the design side's values (the design package's pages as the story judg
 uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --render-only --out <mktemp directory>
 ```
 
-`--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id — text, size, position, style — to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is the ui-acceptance skill's `references/story-parity.md` under **The two sides**; what the flag writes is that file's **`--render-only`**.
+`--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id (text, size, position, style) to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is the ui-acceptance skill's `references/story-parity.md` under **The two sides**; what the flag writes is that file's **`--render-only`**.
 
 **Done when** every owned scene has a screenshot and a values file in that directory.
 

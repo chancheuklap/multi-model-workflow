@@ -21,7 +21,7 @@ Resolve it from this file's own location; the path differs by machine and by hos
 
 A criterion names a judge by its bare name (`story-parity.py …`, `boundary-check.py …`, `journey.py …`, `harness-guard.py …`), and `<engine>` puts the `scripts/` of the `ui-acceptance` skill, resolved from its own location, on the `PATH` of the shell that runs it. `--tools <directory>` overrides it and is repeatable. A run whose ticket names a judge that neither the directories in force nor `PATH` holds is refused before anything starts: exit 2, the script named on stderr, nothing run and no comment posted.
 
-## Find your run
+## Find your moment
 
 | You are here | Read |
 | --- | --- |

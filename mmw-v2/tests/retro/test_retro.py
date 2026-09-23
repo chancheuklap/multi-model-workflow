@@ -409,7 +409,7 @@ def prompt_and_record_contract(f: Fixture):
     path.write_text(json.dumps(malformed), encoding="utf-8")
     refusal = f.run("finalize", "70", str(path), ok=False)
     assert "observed must contain" in refusal and "because" in refusal and "finalize 70" in refusal
-    # A current repository file and a rerunnable observed check are valid
+    # A current repository file and a re-runnable observed check are valid
     # primary evidence for problems without satisfying the proposal threshold.
     sources = Fixture()
     try:

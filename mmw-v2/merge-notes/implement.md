@@ -22,7 +22,7 @@
 | 第 7 步的 `--draft` 那一句 | 我们改的：不给路径。见 `## 草稿落在仓库之外`。`Counts:` 在这一步填完草稿之后重数：这一行由 `--draft` 写出，第 5 步 Audit 时还不存在，而 worker 补进草稿的 `ABANDON:` 行会改变它。 |
 | frontmatter 的 `disable-model-invocation` 与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation` | 我们删的：上游两处都设了只许人触发，我们要模型自己就能调用 implement，所以两处一起删。上游若再带回来 → 仍然删 |
 | frontmatter 的 `description` | 我们加的：上游那一句之后加 `Use when you were dispatched onto a ticket, or picked one up yourself.`，只写触发条件。模型自己调用它，描述就是它被选中的依据；认领、写码、收尾这些过程写在正文里，不进描述（`writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Descriptions`）。上游改那一句 → 收上游措辞，触发句保留 |
-| `Use /tdd where possible, at pre-agreed seams.` | host 中立：改成 `` Read the `tdd` skill's `SKILL.md` and follow it where possible, at pre-agreed seams. ``，即 [README.md](README.md#host-中立) 的第一种写法（要词汇、就地照办）。上游改这一句 → 收上游措辞，斜杠调用照这种写法换掉 |
+| `Use /tdd where possible, at pre-agreed seams.` | host 中立：改成 `` Read the `tdd` skill's `SKILL.md` and follow it where possible, at pre-agreed seams. ``，即 `writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Hand-offs` 里的第一种写法（要词汇、就地照办）。上游改这一句 → 收上游措辞，斜杠调用照这种写法换掉 |
 | `` ## Resolve `<engine>` and `<dispatch>` once ``、`## Claim, read in, write the code`、`## Closing steps` 三个标题 | 我们加的：`<engine>` 与 `<dispatch>` 在第一次使用（认领段的 `<dispatch> adopt`）之前、在一个固定形状的 `## Resolve … once` 节里定义一次，写明路径随机器与 host 不同；原来这两句在写码规则前一段，已经晚于第一次使用。另两个标题让读者按标题找到开工段与收尾八步：没有它们，收尾八步落在 `## Shared experience while implementing` 底下。上游加标题 → 收上游的，这三个保留 |
 
 ## writing-interface-code.md
@@ -176,7 +176,7 @@ Upstream puts `Sub-issues opened:` back under the spec → point it at the ticke
 
 ## The in-ticket round is first, then out-of-ticket sub-issues
 
-Closing step 3's internal order only. The eight closing steps stay in the same order. Inside step 3: the in-ticket round first (fix the in-ticket findings, rerun step 1's own run), then open out-of-ticket sub-issues; a finding whose body no longer holds is not opened.
+Closing step 3's internal order only. The eight closing steps stay in the same order. Inside step 3: the in-ticket round first (fix the in-ticket findings, re-run step 1's own run), then open out-of-ticket sub-issues; a finding whose body no longer holds is not opened.
 
 Reason: the previous order opened the sub-issues from the review comment as written, so they were filed from text the in-ticket round then overturned (#235 is the instance: its body said to close the issue if a condition already held, and the in-ticket round had already made that condition hold).
 
@@ -200,8 +200,8 @@ repository`; do not take `downloaded from Claude Design` back.
 `references/writing-interface-code.md` under **Write the product** tells the
 worker to write the component, then its story adapter and boundary tests, in one
 pass. That is the mirror of `tdd`'s **Horizontal slicing** anti-pattern and runs
-against its **Red before green**, and until #539 no file in the interface chain
-named `tdd` at all, while `SKILL.md` still says to use it at pre-agreed seams. A
+against its **Red before green**, and until #539 no file that covers writing
+interface code named `tdd` at all, while `SKILL.md` still says to use it at pre-agreed seams. A
 worker had two house disciplines and nothing to choose between them with, and
 either choice could be called wrong by a review axis.
 

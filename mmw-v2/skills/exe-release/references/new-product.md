@@ -1,9 +1,9 @@
 # Bring a product into the release system
 
-Two ways in, and they meet at the same place — a release manifest, written once the repo can support it:
+Two ways in, and they meet at the same place — a release manifest, written once the repository can support it:
 
 - The product has never been packaged. Work through everything below.
-- The product ships today through its own packaging scripts. Read "Coming from existing packaging scripts" at the end; most of what follows already exists in that repo.
+- The product ships today through its own packaging scripts. Read "Coming from existing packaging scripts" at the end; most of what follows already exists in that repository.
 
 Then write the release manifest: [key.md](key.md).
 
@@ -11,17 +11,17 @@ Then write the release manifest: [key.md](key.md).
 
 An Electron shell plus a Python backend compiled to a Windows executable, installed by an NSIS installer, built on a Windows machine over SSH. That is the shape. A product outside it — a different OS, no compiled backend, a different frontend runtime — is not something to bend a release manifest into; it is a capability the skill does not have yet.
 
-## What the repo must already have
+## What the repository must already have
 
-Each item is work in the product repo, and the agent adding the product writes it. **A release manifest written before these exist fails at minute forty of a compile, not at minute zero.**
+Each item is work in the product repository, and the agent adding the product writes it. **A release manifest written before these exist fails at minute forty of a compile, not at minute zero.**
 
-| The repo must have | Missing shows up as |
+| The repository must have | Missing shows up as |
 | --- | --- |
 | A backend entry module per compiled executable | nothing to compile |
 | Runtime dependencies resolvable by one command | the compile packages the dev environment, not the shipped one |
 | A self-check module the **compiled exe** can run | a green build that crashes on the customer's machine |
 | An `electron-builder.yml` that carries the backend | a package that installs and then does nothing |
-| A committed frontend lockfile | this package's dependencies are not the ones the repo records |
+| A committed frontend lockfile | this package's dependencies are not the ones the repository records |
 | An `.ico` per window the product shows | a default icon on a paid product |
 
 Two facts about the build machine — which machine, and which folder on it — go in `remote-build.json` next to the release manifest. [driving.md](driving.md) covers it.

@@ -586,7 +586,7 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             if where not in next_values and not TOAST.fullmatch(where):
                 errors.append(f"{rid}: on_failure.{kind} starts with {where!r}, not a row id, "
                               "scene, state, stay or toast:<KEY> (then ' — ' and what the "
-                              "user sees)")
+                              "end user sees)")
         next_value = str(row.get("next") or "")
         if not next_value:
             errors.append(f"{rid}: next missing (use a row id, scene, state, or stay)")

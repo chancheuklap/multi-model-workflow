@@ -12,8 +12,8 @@ description: Retrospect one completed MMW spec night. Use right after the dispat
 Run an evidence-first retrospective for the completed spec night. Produce
 evidence-backed improvements to the coding agents' environment and workflow.
 The retrospective's record is one **Retro Memory**: the Memory labelled
-`mmw-retro` that `finalize` writes for this spec. Owner-approved work through
-the normal spec and ticket flow applies changes to code, specs, prompts, Rules,
+`mmw-retro` that `finalize` writes for this spec. Work the user approves, through
+the normal spec and ticket flow, applies changes to code, specs, prompts, Rules,
 AGENTS.md, checks, scripts, skills, or toolbox Memory (the shared `mmw-toolbox`
 Space).
 
@@ -23,8 +23,8 @@ and drop unsupported claims. Use Memory, Thread, Working Memory, agent reports,
 and issue status to discover what to verify; use primary tracker, git,
 repository, and check evidence to establish what happened or landed.
 
-The script writes outputs; the agent judges causes and dispositions. Run these
-phases in order: Gather, Analyze, Decide, Finalize.
+The script writes outputs; the agent judges causes and dispositions. Run the
+four sections below in order: Gather, Analyze, Decide, Finalize.
 
 ## Gather
 
@@ -61,7 +61,7 @@ phases in order: Gather, Analyze, Decide, Finalize.
    the cause. Use a script-written event comment URL or Git commit URL for
    running facts and repeated occurrences. A current repository file is its path
    relative to the checkout root; `finalize` opens that file. A standalone
-   observed check is `check:<command>`: supply a rerunnable, read-only `rg`
+   observed check is `check:<command>`: supply a re-runnable, read-only `rg`
    command or read-only `git diff|show|log|status|grep|rev-parse|cat-file`
    command whose actual output states the cause. `finalize` runs its arguments
    without a shell and refuses a check that prints nothing; a check already
@@ -97,7 +97,7 @@ phases in order: Gather, Analyze, Decide, Finalize.
    - Tool economy: did a CLI or MCP produce repeated, expensive, or irrelevant
      calls that a tool, script, or skill could streamline? Use when the evidence
      shows the expensive call.
-   - No-ops: did an instruction fail to change agent behavior? Use when repeated
+   - No-ops: did an instruction fail to change agent behaviour? Use when repeated
      evidence shows a steering instruction was present but ineffective.
    - Information access: was a necessary fact unavailable to the agent? Could
      an existing connector, read-only service, log, or reference expose it? Use
@@ -107,7 +107,7 @@ phases in order: Gather, Analyze, Decide, Finalize.
 
 9. Give every supported problem two independent dispositions:
    - Handled here: how this instance was fixed, deferred, or accepted as-is.
-   - Prevention: the `destination` from `## Owner-approved destinations` below
+   - Prevention: the `destination` from `## Prevention destinations` below
      that would prevent the next instance, or `none`.
 10. Reopen the primary source behind every subagent report, Memory match, agent
     self-assessment, or inferred outcome used by a problem. Keep the problem only
@@ -121,7 +121,7 @@ phases in order: Gather, Analyze, Decide, Finalize.
     with `result=handoff`. File and standalone-check sources support a problem,
     not this threshold. The proposal has `repository` (`owner/name` responsible
     for the change), `title`, `body`, and optional `prompt_change`. Leave the
-    proposed behavior change for owner-approved work through the normal spec
+    proposed behaviour change for work the user approves, through the normal spec
     and ticket flow.
 12. For a prompt change, `prompt_change` has `target_file`, `heading`, `source`
     (one of the problem's primary evidence URLs), `current_passage`,
@@ -187,7 +187,7 @@ phases in order: Gather, Analyze, Decide, Finalize.
 
 Done when `finalize` has posted `spec.retroed` with `result=recorded`; then return to the dispatch skill's `references/night.md` `## 5. The night is over`, which tells the user.
 
-## Owner-approved destinations
+## Prevention destinations
 
 A proposal asks for approval and changes none of these destinations. A problem's Prevention names one of them by its `destination` value:
 
@@ -197,7 +197,7 @@ A proposal asks for approval and changes none of these destinations. A problem's
 | `script` | a mechanical step a script can carry out |
 | `repository-agents` | a short repository-wide, non-inferable navigation pointer or universal instruction, in that repository's `AGENTS.md` |
 | `repository-skill` | a repeated multi-step workflow specific to one repository, as a repository-local skill with a discovery test |
-| `reviewer-rule` | stable cross-repository review behavior, as an active reviewer Rule |
+| `reviewer-rule` | stable cross-repository review behaviour, as an active reviewer Rule |
 | `mmw-skill` | a cross-repository MMW workflow, in an MMW skill; also a change to a user-level `AGENTS.md`, whose sources are MMW's `mmw-v2/prompt/` |
 | `toolbox-memory` | approved, broadly useful knowledge, copied into toolbox Memory while the source Memory remains in the repository |
 | `none` | nothing would prevent the next instance |

@@ -38,9 +38,9 @@ Both must hold. If one fails, stop and name it.
 | Check | How |
 | --- | --- |
 | Working tree is clean | `git status --porcelain` is empty. The release engine refuses to mix self-heal commits with uncommitted work |
-| This repo ships something | At least one release manifest exists (next step) |
+| This repository ships something | At least one release manifest exists (next step) |
 
-**A repo with no release manifest at all does not ship.** Stop and report that to the user, with the current branch HEAD. (One product missing a release manifest in a repo that does ship is a different case — step 2.)
+**A repository with no release manifest at all does not ship.** Stop and report that to the user, with the current branch HEAD. (One product missing a release manifest in a repository that does ship is a different case — step 2.)
 
 ## 2. Name the products for this run
 
@@ -50,12 +50,12 @@ List the release manifests:
 git ls-files '*.release-adapter.json'
 ```
 
-Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch when you have nothing better). Match them against the paths each release manifest names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
+Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repository default branch when you have nothing better). Match them against the paths each release manifest names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
 
 If you cannot tell, include the product and write the reason in the table below, then continue. A product whose release manifest names no path that could ever match is a release manifest to fix, not a product to skip.
 
 **A product this change touched but no release manifest names does not ship yet.** Bringing it in is one
-JSON file plus whatever the repo still lacks: [new-product.md](references/new-product.md) starts there and
+JSON file plus whatever the repository still lacks: [new-product.md](references/new-product.md) starts there and
 hands off to [key.md](references/key.md) for the fields.
 
 Show this list once and continue. Do not wait for a reply:
@@ -72,9 +72,9 @@ For each product from step 2, in order:
 <release> init --manifest <absolute path of that release manifest>
 ```
 
-Then read [driving.md](references/driving.md) in full and drive until the package is ready. **That file is the driving contract.** This skill does not retell it.
+Then read [driving.md](references/driving.md) in full and drive until the package is ready. This skill does not retell it.
 
-`<release> close` one product before starting the next. Do not run two at once — the repo has one state file.
+`<release> close` one product before starting the next. Do not run two at once — the repository has one state file.
 
 A round that will not produce a package — the product is blocked and you are shipping another one first — is ended the way [driving.md](references/driving.md)'s **Close** section says. It matters at this level because step 4 below reads delivery records as fact.
 

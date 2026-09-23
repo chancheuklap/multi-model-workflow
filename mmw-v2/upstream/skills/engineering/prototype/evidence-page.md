@@ -6,16 +6,16 @@ The static HTML page an experiment writes at the end of every run (step 4 of [EX
 
 The question picks the shape; both share the same header.
 
-- **Comparison grid** — for comparing approaches. One row per sample; one column per approach, the untouched input first, column order fixed across the whole page. Each row opens with a one-line stat for that sample.
-- **Catalogue** — for summarising outputs or an annotated set. A summary table at the top; below it one block per item with its attributes and thumbnails.
+- **Comparison grid**: for comparing approaches. One row per sample; one column per approach, the untouched input first, column order fixed across the whole page. Each row opens with a one-line stat for that sample.
+- **Catalogue**: for summarising outputs or an annotated set. A summary table at the top; below it one block per item with its attributes and thumbnails.
 
 ## Sections, in order
 
-1. **Header** — `<title>` and `<h1>` carry the issue and the round so several open tabs stay distinguishable. Under it: the question and the bar, the run parameters, the run time, the commit.
-2. **Legend** — every colour, box style, and marker the page uses, before any of them appears.
-3. **Summary table** — one row per approach, one column per measure the bar names. No verdict column: the page reports, the `README.md` judges.
-4. **Body** — the grid or the catalogue.
-5. **How it decided** — the rules the approach applied, one line each, naming the file and function in the leaf directory that implements it, so a reader can map what they see back to code.
+1. **Header**: `<title>` and `<h1>` carry the issue and the round so several open tabs stay distinguishable. Under it: the question and the bar, the run parameters, the run time, the commit.
+2. **Legend**: every colour, box style, and marker the page uses, before any of them appears.
+3. **Summary table**: one row per approach, one column per measure the bar names. No verdict column: the page reports, the `README.md` judges.
+4. **Body**: the grid or the catalogue.
+5. **How it decided**: the rules the approach applied, one line each, naming the file and function in the leaf directory that implements it, so a reader can map what they see back to code.
 
 A section may open with a one-line *what to look for* note. It points the eye; it does not state the result.
 
@@ -26,7 +26,7 @@ A section may open with a one-line *what to look for* note. It points the eye; i
 - Every media cell is captioned: sample, approach, time point.
 - Video: `controls preload="none"`; a row fits on one screen, so three to five columns at most.
 - Numbers in tables: `font-variant-numeric: tabular-nums`, right-aligned.
-- Long sample names are kept, not truncated — they are how the user recognises the sample.
+- Long sample names are kept, not truncated: they are how the user recognises the sample.
 
 ## Skeleton
 
@@ -56,7 +56,7 @@ Embed in the generator and fill the slots; the rest of the page is rows of `.row
   code{font:12px ui-monospace,monospace;color:#c9d1d9}
 </style>
 <h1>{{issue}} · {{round}}</h1>
-<p class="meta">{{question}} — bar: {{bar}} · params: {{params}} · run: {{run_time}} · commit: {{commit}}</p>
+<p class="meta">{{question}} · bar: {{bar}} · params: {{params}} · run: {{run_time}} · commit: {{commit}}</p>
 <div class="legend">{{legend_items}}</div>
 <table>{{summary_table}}</table>
 {{body}}

@@ -1,6 +1,6 @@
 # Re-pitch it visually
 
-The `visual` branch of [`wait-what`](SKILL.md). Same job as the prose re-pitch — make the thing that did not land land — with one HTML page carrying the explanation.
+The `visual` branch of [`wait-what`](SKILL.md). Same job as the prose re-pitch (make the thing that did not land land), with one HTML page carrying the explanation.
 
 Explain what was already said. The material is the message the user just stopped you on, not a fresh investigation.
 
@@ -8,8 +8,8 @@ Explain what was already said. The material is the message the user just stopped
 
 Show the page in the richest surface this session has:
 
-- **You hold a tool that renders HTML for the user** — a visual panel, canvas, artifact, or site surface. Use it.
-- **Plain CLI only** — write the file to a temporary location outside the working tree, open it with this machine's file-opening command, and give the user the path in your reply.
+- **You hold a tool that renders HTML for the user**: a visual panel, canvas, artifact, or site surface. Use it.
+- **Plain CLI only**: write the file to a temporary location outside the working tree, open it with this machine's file-opening command, and give the user the path in your reply.
 
 ## Draw the page
 

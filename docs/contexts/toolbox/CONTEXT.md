@@ -108,11 +108,11 @@ One note per change in this repository that invalidates a consuming repository's
 _Home_: `mmw-v2/downstream-notes/README.md`
 
 **`models.json`**:
-The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per dispatched agent — `junior-worker`, `senior-worker`, `reviewer`, `advisor` — with its host, model and effort. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
+The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per dispatched agent — `junior-worker`, `senior-worker`, `reviewer`, `advisor` — with its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **`effort`**:
-The `effort` field of a `models.json` row: the thinking level the host is started with (`high`, `xhigh`, `medium`, …). How each host takes it is in `hosts.json`.
+The `effort` field of a `models.json` row: the reasoning effort the host is started with (`high`, `xhigh`, `medium`, …). How each host takes it is in `hosts.json`.
 _Home_: `mmw-v2/skills/dispatch/hosts.json`
 
 **permissions**:

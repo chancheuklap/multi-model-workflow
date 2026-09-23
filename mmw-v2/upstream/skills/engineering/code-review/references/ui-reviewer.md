@@ -14,7 +14,7 @@ Your prompt gave you a base commit and a ticket number. Everything else you fetc
 gh issue view <ticket>
 ```
 
-Read the whole ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`. If the ticket has none, write one line — no story criterion on this ticket — and stop.
+Read the whole ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`. If the ticket has none, write one line, `no story criterion on this ticket`, and stop.
 
 Copy that criterion's `--contract` and `--pages` (and `--scenes` when present). `--out` is a directory `mktemp` makes. The story service that command starts takes no lease and is not the product:
 
@@ -29,7 +29,7 @@ The run writes the submitted story screenshot (`-impl.png`), the design-side scr
 Three kinds of review finding, each naming the scene, the viewport, and a repository path the session can open:
 
 - **undecorated**: a decoration the design page draws that carries no `data-ui` id, so element parity never pairs it, and the product story is missing it, extra with it, or places it differently. Cite the product component the story renders.
-- **overall-look**: the overall look of the submitted story against the design page — spacing that is not an element fact, a region that feels off — which no `DIFF` line names. Cite the product component the story renders.
+- **overall-look**: the overall look of the submitted story against the design page (spacing that is not an element fact, a region that feels off) which no `DIFF` line names. Cite the product component the story renders.
 - **design-page**: the design page itself is drawn wrong (a control this ticket must build is missing there, a value that cannot be right, a flow that does not match the screen contract). Cite the page in the design package **Read first** names. The repair is not a product change.
 
 A pixel difference that already has a `DIFF` line is element parity's, not yours. Report only what that comparison does not cover.
@@ -46,4 +46,4 @@ Say plainly, in one line, when a scene you opened is sound.
 
 ## What is not yours
 
-Element facts the story criterion already names — `text`, `size`, `position`, `parent`, `visible`, the five style facts — belong to that criterion, not to this axis. How the code is written, whether it builds the right thing, and whether its tests are worth trusting, belong to the other axes. How the interface feels in use on the running product belongs to the batch's *reaction* ticket: you look at a story render, and the person looks at the product. Leave their questions alone.
+Element facts the story criterion already names (`text`, `size`, `position`, `parent`, `visible`, the five style facts) belong to that criterion, not to this axis. How the code is written, whether it builds the right thing, and whether its tests are worth trusting, belong to the other axes. How the interface feels in use on the running product belongs to the batch's *reaction* ticket: you look at a story render, and the person looks at the product. Leave their questions alone.

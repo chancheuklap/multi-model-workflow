@@ -11,7 +11,7 @@ You are about to maintain a repository's agent instruction files. There are thre
 
 `<scripts>` in every command below is the `scripts/` directory next to this file. Resolve it from this file's own location: the path differs by machine and by host, and this skill sits wherever the host that gave it to you reads its skills from.
 
-## Find your situation
+## Find your moment
 
 From the repository root, list what exists:
 

@@ -1162,12 +1162,12 @@ def launch_line(host: str, model: str, effort: str, name: str,
 
 USAGE = ("usage: models.py config show\n"
          "       models.py config runner <runner>\n"
-         "       models.py config set <role> <host> <model> <effort>\n"
+         "       models.py config set <role> <host> <model> <level>\n"
          "       models.py runner\n"
-         "       models.py paseo-args <host> <model> <effort>\n"
+         "       models.py paseo-args <host> <model> <level>\n"
          "       models.py row <role>\n"
-         "       models.py bypass-argv <host> <model-id> <effort> <name>\n"
-         "       models.py launch-line <host> <model-id> <effort> <name> [<prompt>]\n")
+         "       models.py bypass-argv <host> <model-id> <level> <name>\n"
+         "       models.py launch-line <host> <model-id> <level> <name> [<prompt>]\n")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -33,7 +33,7 @@ Then question the requirements and reduce their number, so the question being an
 
 The premise is the one sentence that every failed attempt assumed. When two or more attempts that share one premise have failed, suspect the premise, not the attempts. Remove the asymmetry instead of compensating for it.
 
-Strip assumed constraints to independently supported primitives, then rebuild. Escape analogy when convention fails or looks artificially expensive. Classify each claimed constraint as physics/math, regulation/contract, measured fact, or convention/analogy/authority. Keep only the first three as binding unless evidence upgrades a convention. Demand independent support (measurement, derivation, primary requirement)—not past practice alone. For each convention, state a falsifier. Drop or renegotiate anything lacking support.
+Strip assumed constraints to independently supported primitives, then rebuild. Escape analogy when convention fails or looks artificially expensive. Classify each claimed constraint as physics/math, regulation/contract, measured fact, or convention/analogy/authority. Keep only the first three as binding unless evidence upgrades a convention. Demand independent support (measurement, derivation, primary requirement), not past practice alone. For each convention, state a falsifier. Drop or renegotiate anything lacking support.
 
 "Industry standard is...", "We've always done it like this...", "Best practice says...", "That's just how it works..." are appeals to convention, not reasons. Ask: "But WHY? What fundamental truth makes this necessary?"
 

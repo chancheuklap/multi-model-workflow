@@ -165,7 +165,7 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
         raise SystemExit(_refusal(
             f"no scene declares mount {', '.join(mounts)}.",
             "Every --pages value must be a pages.mount that at least one scene uses.",
-            "Pass a declared --pages mount, then rerun."))
+            "Pass a declared --pages mount, then re-run."))
     if not explicit:
         return derived
     by_name = {s.name: s for s in derived}
@@ -175,7 +175,7 @@ def scene_plan(doc: dict, catalogue: dict[str, dict], mounts: list[str],
             f"--scenes names scenes outside mount {', '.join(mounts)}: "
             f"{', '.join(outside)}.",
             "A --scenes name must belong to one of the --pages mounts.",
-            "Pass a scene of those mounts, then rerun."))
+            "Pass a scene of those mounts, then re-run."))
     return [by_name[n] for n in explicit]
 
 
