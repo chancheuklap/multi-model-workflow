@@ -155,7 +155,7 @@ or the sorting step → keep both the four-angle pass and this ownership rule.
 
 ## Active reviewer Rules stay in the session contract
 
-`references/session.md` gained an **Active Rules** section after **Default axes and the UI pilot**. It states that a stable reviewer Rule is applied only within its stated scope, every finding still needs a current source, and repository-specific standards remain repository authority and checks rather than a global Rule. The start prompt in `dispatch.sh` (`reviewer_rules_packet`) is the verbatim packet from `docs/notes/stage-two-shared-experience-layer.md` “### 8. reviewer 的独立性”: the Rule rows, followed by the same scope and evidence sentences this section states. The two copies of those sentences change together.
+`references/session.md` gained an **Active Rules** section after **Default axes and the UI pilot**. It states that a stable reviewer Rule is applied only within its stated scope, every finding still needs a current source, and repository-specific standards remain repository authority and checks rather than a global Rule. The start prompt that `dispatch.sh` builds (`reviewer_rules_packet`) carries the data only: the line `Active reviewer Rules approved for this review:` and the Rule rows, `none`, or `unavailable: <reason>`. How the reviewer applies the Rules is stated in this section and nowhere else.
 
 The axis steps, the verification step, the in-ticket / out-of-ticket sort, and `--review` reporting stay as they are. `code-review` does not search ordinary Memory. Upstream sentences in those steps were kept; MMW only added the Rule-scope and current-source bound.
 

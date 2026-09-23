@@ -15,15 +15,17 @@ Find where you are by the first row whose fact holds:
 | A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` findings, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
 | `<dispatch> status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
 | The spec carries `spec.closed` and no later `spec.retroed` whose result is `recorded` | [5. The night is over](#5-the-night-is-over), from the paragraph that invokes the `retro` skill |
-| The spec carries `spec.closed` and a later `spec.retroed` whose result is `recorded`, and the user has accepted the result | [6. Close the night after acceptance](#6-close-the-night-after-acceptance) |
+| The spec carries `spec.closed` and a later `spec.retroed` whose result is `recorded`, and the user has accepted the result | [6. Merge the accepted night](#6-merge-the-accepted-night) |
 
 ## 1. The user says the night starts
+
+Run `check` and `open` from a checkout on the night's base branch: the current checkout names it.
 
 ```bash
 <dispatch> check <spec>
 ```
 
-**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; change an invalid agent row as [editing-models.md](editing-models.md) says.
+**Exit 0:** the machine is ready; open the night. **Exit 2:** fix every condition stderr names and run `check` again; an invalid agent row is reported to the user.
 
 Then, from this session — the one the night's wakes must reach:
 
@@ -83,29 +85,28 @@ After `open` records `into`, `advance` may run from any checkout in this reposit
 <dispatch> advance <spec>
 ```
 
-**Exit 0:** stdout is one session id per ticket it started. Stderr ends with `advance #<spec>: merged <m>, already in <s>, bounced <b>, released <g>, started <k>, refused <r>, failed <f>`. The first `ticket.bounced` since the newest `spec.opened` returns that ticket to `ready-for-agent`; its standing workspace remains, the next `advance` starts a worker there, and the same `advance` that recorded the bounce does not start it. A second bounce in that night moves it to `needs-triage`; its workspace still remains and it is not tried again that night. End your turn after exit 0. **Exit 4:** landing and release finished, but at least one runner refused a start; each refusal is named and is not retried. Fix what each refusal names, then run `advance` again. End your turn only while another worker of the night remains live; if none does, tell the user which tickets were refused and why. **Exit 2:** if the night is not open (no `spec.opened`, or the recorded main agent is stopped), run `open <spec>` and then `advance <spec>` again. Otherwise stderr names each unreadable tracker state or landing failure; the rest of the batch was landed and started, and tickets a failed one blocks stay off the frontier. Fix the named condition and run `advance` again. A merge conflict and red repository checks are represented by `ticket.bounced`; other landing failures are counted as `failed`.
+**Exit 0:** stdout is one session id per ticket it started. Stderr ends with `advance #<spec>: merged <m>, already in <s>, bounced <b>, released <g>, started <k>, refused <r>, failed <f>`. The first `ticket.bounced` since the newest `spec.opened` returns that ticket to `ready-for-agent`; its **standing workspace** (the ticket's worktree `.worktrees/issue-<n>` and branch, kept after its session ends) remains, the next `advance` starts a worker there, and the same `advance` that recorded the bounce does not start it. A second bounce in that night moves it to `needs-triage`; its workspace still remains and it is not tried again that night. End your turn after exit 0. **Exit 4:** landing and release finished, but at least one runner refused a start; each refusal is named and is not retried. Fix what each refusal names, then run `advance` again. End your turn only while another worker of the night remains live; if none does, tell the user which tickets were refused and why. **Exit 2:** if the night is not open (no `spec.opened`, or the recorded main agent is stopped), run `open <spec>` and then `advance <spec>` again. Otherwise stderr names each unreadable tracker state or landing failure; the rest of the batch was landed and started, and tickets a failed one blocks stay off the frontier. Fix the named condition and run `advance` again. A merge conflict and red repository checks are represented by `ticket.bounced`; other landing failures are counted as `failed`.
 
 The merge, checks, archive, claim and frontier sequence is in [how-it-works.md](how-it-works.md) under **How `advance` processes a batch**.
 
 ## 3. Each time something wakes you
 
-The relay sends a wake as `#<n> <event>` or `relay.recovered since <time>`; the watchdog sends one line whose findings each begin `watchdog:`. [how-it-works.md](how-it-works.md) under **Results, watches and wakes** and **The watchdog and turn guard** defines their recipients and mechanics.
+The relay sends a wake as `#<n> <event>` or `relay.recovered since <time>`; the watchdog sends one line whose findings each begin `watchdog:`. [how-it-works.md](how-it-works.md) under **Results, watches and wakes** and **The watchdog and turn guard** defines their recipients and mechanics. A `watchdog:` line is not a queued wake: it is not acked.
 
 On `MMW turn guard:`, run the named `watchdog.py arm` command. Exit 0 means it runs; on exit 1, fix stderr's reason or open a `fault` child on any held ticket with that command and output, then end your turn.
 
 Handle each wake in this order, one wake at a time — two tickets landing seconds apart are two wakes, and you get the second after you end your turn:
 
-1. Run again any command the wake interrupted.
+1. Do steps 1-3 of `## On waking` in [../SKILL.md](../SKILL.md), which end with the ack.
 2. Run `<dispatch> status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers. The table's mechanics are in [how-it-works.md](how-it-works.md) under **Interpreting a night**.
 3. Take every row the table matches, not only the ticket named by the wake.
 4. Run `<dispatch> advance <spec>` once. Its exit codes are under [**2. First `advance`**](#2-first-advance).
-5. Run `<dispatch> ack <n> <event>` for the named wake, or `<dispatch> ack relay.recovered`. Its exit codes are under `## On waking` in [../SKILL.md](../SKILL.md). Ack last, then end your turn.
+5. When the `advance` you just ran left the frontier empty and no agent live (read `status` again), go to [4. The closing pass](#4-the-closing-pass); otherwise end your turn.
 
 | What you see | What you do |
 | --- | --- |
 | `ticket.passed`, or a `ready` frontier row | Step 4's `advance` handles it |
 | A live worker should continue | `<dispatch> resume <n> "<what you settled, then: continue>"`; act on exit 0, 4, 3 or 2 as [Exit codes of `resume`](#exit-codes-of-resume) below says |
-| Repeated `resume` exit 3 with no new event | `<dispatch> start <n> worker`; exit 2 means nothing was replaced or started |
 | `child.opened` of kind `fault` | Read `python3 <events.py> fold <n>`, fix the child, then `<dispatch> resume <n> "… continue"` |
 | `child.opened` of kind `contract` | Read the child and the authority it cites. Apply the authority order below; then either correct the source the child names and every unlanded derived ticket, close the child and resume its worker, or move the affected not-yet-started tickets to `needs-triage` and leave the child open |
 | `child.opened` of kind `contract` naming a Claude Design page | The design package is written only by the `design-pages` skill's `references/pull.md`, so there is nothing to correct in this night. Move the affected not-yet-started tickets to `needs-triage`, comment on the child with the pages it names, the ticket numbers moved, and that it needs a session whose host has the Claude Design MCP tools, and leave it open for the user |
@@ -116,18 +117,17 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 | `ticket.refused` | Fix the event's `reason`; step 4 starts it if the frontier permits |
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
 | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
-| `watchdog: relay down (…)` | Nothing is relaying, so `<dispatch> open <spec>` starts one; use `open-ticket <n>` for one ticket. Nothing to ack |
-| `watchdog: relay not reading (…)` | Nothing. The relay is running but cannot read the tracker; the first read that works clears it, and `open` would replace a running process with nothing. Several of these in a row without it clearing is a network or credential fault worth looking into — the finding names the last cycle and the failing read. Nothing to ack |
+| `watchdog: relay down (…)` | Nothing is relaying: `<dispatch> advance <spec>` starts it again for the recorded main agent; `open-ticket <n>` for one ticket |
+| `watchdog: relay not reading (…)` | Nothing. The relay is running but cannot read the tracker; the first read that works clears it, and `open` would replace a running process with nothing. Several of these in a row without it clearing is a network or credential fault worth looking into — the finding names the last cycle and the failing read |
 | `watchdog: #<n> liveness unknown: …` | `<dispatch> resume <n> "Say in one line where you are, then continue"`; exit 0 confirms it; exit 2 because the runner has no such session means `<dispatch> retract <n>`, and exit 2 naming the event that ended the worker's hold means the command that refusal names; otherwise leave it for the user |
-| `watchdog: #<n> is held with no session to ask, …` | Read `status`; when nothing works the ticket, `<dispatch> retract <n>`. Nothing to ack |
-| `watchdog: cannot read the tracker since <time>: …` | Run `gh issue view <n>` for the ticket the finding names; wait for tracker or network recovery, or leave credential repair to the user. Nothing to ack |
-| `watchdog: #<n> events unreadable` | Leave the named comment for the user. Nothing to ack |
+| `watchdog: #<n> is held with no session to ask, …` | Read `status`; when nothing works the ticket, `<dispatch> retract <n>` |
+| `watchdog: cannot read the tracker since <time>: …` | Run `gh issue view <n>` for the ticket the finding names; wait for tracker or network recovery, or leave credential repair to the user |
+| `watchdog: #<n> events unreadable` | Leave the named comment for the user |
 | A live worker whose runner has no session | `<dispatch> retract <n>`; step 4 starts its replacement |
-| `watchdog: #<n> silent since <time> with nothing to wait on: …` | Resume it with the message under [Exit codes of `resume`](#exit-codes-of-resume) below. Nothing to ack |
+| `watchdog: #<n> silent since <time> with nothing to wait on: …` | When `python3 <events.py> fold <n>` lists an open `contract` child, the worker is waiting on you: settle it by the `child.opened` of kind `contract` row. Otherwise resume it with the message under [Exit codes of `resume`](#exit-codes-of-resume) below |
 | A live worker with no fault | Nothing; its result wakes you |
 | A gone session still has a worktree, slot or claim | `<dispatch> retract <n>`; exit 0 ends with `retract #<n>: archived <a>, slot given back <s>, claim given back <c>` on stderr, where a `0` is something it could not release and the line above it says why; exit 2 released nothing and names the reason |
 | The ticket needs the other worker grade | Swap its `junior-worker` / `senior-worker` label; the next `start` reads it |
-| Empty frontier and no live agent | Finish the wake, then go to `## 4. The closing pass` |
 
 For a `contract` child, use this authority order exactly: **decision tickets and ADRs, then the spec, then the design package or the screen contract, each in its own domain, then domain documents, then the ticket body**. Fix it yourself when you can cite a written authority at that order: a higher authority, a more specific file within the same authority, a repository rule, or the artifact a baseline copied. Edit the tracker-owned spec, acceptance criterion, or ticket body directly; when a spec changes, leave the change-and-reason comment that the `to-spec` skill's step 5 requires. Edit a repository-owned baseline through the normal `origin/<into>` commit and push procedure in `## 4. The closing pass` — never the design package, which is written only by the `design-pages` skill's `references/pull.md`. Correct every not-yet-landed ticket derived from the same bad statement. Comment on the child with the authority used, every published item corrected, the source commit, and the tickets checked; run `<dispatch> route <n> <child> fixed`, then resume the active worker with the exact correction, the commit it should integrate from, and `continue`.
 
@@ -135,7 +135,7 @@ When no authority settles the correction, or the proposed correction would overt
 
 ### Exit codes of `resume`
 
-Exit 0 delivered the message. Exit 4 handed it over without proving a new turn and must not be sent again. Exit 3 delivered nothing or could not decide: end your turn, and run the same command again on the next wake or watchdog finding about this ticket; a runner can hand over the message before it confirms the new turn and still return 3, so word the retry so a worker that receives both reads them as one instruction. Exit 2 sent nothing, for one of three reasons stderr names: an event ended the hold of the ticket's newest worker and no other worker holds it — the refusal names that event and the command that goes on from it, and sending into a session whose hold has ended would make that hold live again, because `worker.resumed` does; the runner no longer has the session; or the ticket's events could not be read. Read `status` and do not send again. After repeated exit 3 with no ticket event, `start <n> worker` replaces it. The replacement checks and recoverable state are in [how-it-works.md](how-it-works.md) under **Starting a session**.
+Exit 0 delivered the message. Exit 4 handed it over without proving a new turn and must not be sent again. Exit 3 delivered nothing or could not decide: end your turn, and run the same command again on the next wake or watchdog finding about this ticket; a runner can hand over the message before it confirms the new turn and still return 3, so word the retry so a worker that receives both reads them as one instruction. When that retry exits 3 again with no ticket event in between, `<dispatch> start <n> worker` replaces the worker. The replacement checks and recoverable state are in [how-it-works.md](how-it-works.md) under **Starting a session**. Exit 2 sent nothing, for one of three reasons stderr names: an event ended the hold of the ticket's newest worker and no other worker holds it — the refusal names that event and the command that goes on from it, and sending into a session whose hold has ended would make that hold live again, because `worker.resumed` does; the runner no longer has the session; or the ticket's events could not be read. Read `status` and do not send again.
 
 **Those four are as far apart as the runner can see.** A runner that cannot observe the program running inside its session has no turn to report starting, so it answers 4 to every send it accepts: on such a runner exit 4 is the ordinary answer to `resume` and not a sign that anything went wrong, and 0 never arrives. Every `resume` is then one delivery you do not get a receipt for — send once, end your turn, and let the ticket's next event say whether the worker read it. Treat a run of 4s as ordinary deliveries, and plan no handling that turns on telling 0 from 4. Whether a given runner can observe its sessions is recorded in its own adapter's header, beside the answer it returns.
 
@@ -207,9 +207,8 @@ nmem --json memories list --space "$mmw_closeout_space" \
   --label "mmw-spec-<spec>" --limit 1000
 ```
 
-If `gh repo view` did not give `owner/name`, skip the list and record `unchecked`
-below instead of treating Default as this repository. Retry `summary` when the
-tracker answers.
+If `gh repo view` did not give `owner/name`, run it again once the tracker answers;
+never read Default as this repository.
 
 For each id decide exactly
 one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is;
@@ -232,7 +231,9 @@ work. Record that fact instead as
 `{"status":"unchecked","reason":"<why>","total":null,"returned":null,"decisions":[]}`
 when no counts were readable, or with the two reported counts when the list was
 truncated. Keep this object for step 5. A `propose` decision passes only its id and this
-evidence to the retro; it is not stored again in this pass.
+evidence to the retro; it is not stored again in this pass. Done when the decisions object
+names one decision for every id of the fresh list, or is an `unchecked` object with its
+reason.
 
 Then:
 
@@ -240,7 +241,7 @@ Then:
 <dispatch> advance <spec>
 ```
 
-Loop: tickets that land wake you at step 3; when the frontier is empty again, this pass runs again. Continue until no open finding survives. Then go to step 5.
+Loop: each `ticket.passed` wakes you at step 3; when the frontier is empty again, this pass runs again. Continue until no open finding survives. Then go to step 5.
 
 ## 5. The night is over
 
@@ -265,17 +266,17 @@ An accepted unchecked object performs no lifecycle action and writes
 `Memory closing: unchecked (<reason>)` in the summary. A successful object is copied
 unchanged into `spec.closed.payload.memory_closing`; `NIGHT SUMMARY` also gives the
 status, counts, each id's decision, replacement where applicable, evidence, and the
-proposed ids the retro consumes.
+proposed ids, for a person to read.
 
 `summary` first proves that the frontier is empty, no session or untaken claim still holds a ticket, every ticket's events are readable, no passed ticket remains unlanded, and the latest `reverify` was green on the current fetched `origin/<base branch>` commit. If the base branch advances after `reverify`, run `reverify` again. Tickets deliberately left for human acceptance, handed back to triage by their worker, or behind an open blocker remain valid outcomes; this gate does not require every ticket to succeed. Only after those checks does Memory closing begin.
 
-`summary` exit 0 means `NIGHT SUMMARY` was posted and the spec watch is closed. Exit 1 means the comment was posted and the watch closed, but an otherwise unused relay remains; end the pid stderr names. Exit 2 means no Memory lifecycle action or comment was written and the watch remains; fix stderr's named condition and run `summary` again. One of those conditions is step 4 itself: a batch with findings no route reached is refused here, with the `Findings routed:` counts on stderr and its last number the ones left. Go back to step 4, route them, and run `summary` again. Its event and counting mechanics are in [how-it-works.md](how-it-works.md) under **Reverify and summary**.
+`summary` exit 0 means `NIGHT SUMMARY` was posted and the spec watch is closed. Exit 1 means the comment was posted and the watch closed, but an otherwise unused relay remains; end the pid stderr names. Exit 2 means no comment was written and the watch remains; fix stderr's named condition and run `summary` again. One of those conditions is step 4 itself: a batch with findings no route reached is refused here, with the `Findings routed:` counts on stderr and its last number the ones left. Go back to step 4, route them, and run `summary` again. Its event and counting mechanics are in [how-it-works.md](how-it-works.md) under **Reverify and summary**.
 
-Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same main-agent session for this spec. Read its `SKILL.md` completely; its `Gather → Analyze → Decide → Finalize` sequence reads tracker and git evidence, proposes only qualified prevention, writes one fixed-id Retro Memory and the script-authored `spec.retroed` receipt. It starts no runner role and creates no hold or wake. If its Memory write fails, the receipt says `unrecorded`; resolve the stated failure and retry the same spec, reusing proposals and the Memory id. Do not treat an absent or unrecorded receipt as completed retro.
+Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same main-agent session for this spec; `finish` needs its `recorded` receipt.
 
-Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the main agent will run `finish` to close the night.
+Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the main agent will run `finish` to merge it into the project branch.
 
-## 6. Close the night after acceptance
+## 6. Merge the accepted night
 
 Only after the user has accepted the result, the main agent runs:
 
@@ -297,4 +298,4 @@ Workspaces and branches stay, with the interrupted tickets' commits present on o
 
 `suspend` runs the product's own `stop` from each worktree before releasing its slot. `lease.py` refuses a slot something still listens on after that and names the port and the pid; `suspend` reports that and exits 1 rather than forcing it, because taking a slot off a live process is the same act as ending it. The slot lifecycle and its two limits are in the `ui-acceptance` skill's `references/product-answers.md` under **`instance`**.
 
-Exit 0: every live session of the batch is stopped, every ticket still in the agent queue carries its `spec.suspended` event and is unclaimed, every slot the batch held is back, and no relay watches the spec. Exit 1: the night is stopped as far as this command could take it and what is left is on stderr, one line each — a slot with a listener on it, where `lease.py` names the port and the pid, so stop that process where it was started and run `python3 <lease.py> release <its worktree>`; a ticket that could not be commented on or unclaimed is the one `advance` will not take up again; a session that could not be stopped, or a ticket whose events could not be read, is named with the ticket left exactly as it was; a relay left with no watch that did not end is named by its pid. Exit 2: nothing was touched, and the reason is on stderr — not a git repository, a spec number that is not digits only, or a tracker that could not answer for the batch. After a 0 or a 1, `open` and then `advance` take the night up again.
+Exit 0: every live session of the batch is stopped, every ticket still in the agent queue carries its `spec.suspended` event and is unclaimed, every slot the batch held is back, and no relay watches the spec. Exit 1: the night is stopped as far as this command could take it and what is left is on stderr, one line each — a slot with a listener on it, where `lease.py` names the port and the pid, so stop that process where it was started and run `python3 <lease.py> release <its worktree>`; a ticket that could not be commented on or unclaimed is the one `advance` will not take up again; a session that could not be stopped, or a ticket whose events could not be read, is named with the ticket left exactly as it was; a relay left with no watch that did not end is named by its pid. Exit 2: nothing was touched, and the reason is on stderr — not a git repository, a spec number that is not digits only, or a tracker that could not answer for the batch. After a 0 or a 1, `open` and then `advance` take the night up again. Done when `suspend` exits 0, or exits 1 and you have told the user each line stderr left.
