@@ -58,6 +58,8 @@ If the concept you need isn't in `CONTEXT.md` yet, that's a signal — either yo
 
 ## Flag ADR conflicts
 
+ADRs in this repository take the shape in `docs/adr/README.md` `## 一份 ADR 长什么样`, not the `domain-modeling` skill's `ADR-FORMAT.md`.
+
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
 > _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
