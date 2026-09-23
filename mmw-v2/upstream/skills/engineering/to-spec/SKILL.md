@@ -39,8 +39,6 @@ When the reference is not a wayfinder map, do not invent a map parent. A spec fr
 
 Done when the spec is published with `mmw:spec` and, from a map, its native `parent.number` reads back as the map.
 
-5. Revising a published spec. When a section of a spec already on the tracker has to change, read [references/revising-a-spec.md](references/revising-a-spec.md).
-
 <spec-template>
 
 ## Problem Statement

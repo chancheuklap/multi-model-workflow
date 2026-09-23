@@ -29,17 +29,7 @@ EXPECT: BOUNDARY OK <n>/<n>
 
 The product's test asserts the four columns of that row.
 
-#### Selecting one row's test
-
-One row's test is named after the row id, dots and hyphens turned to underscores: `detail.close` → `test_detail_close`. Row ids can be prefixes of one another (`detail.close`, `detail.close-event`), and a runner that selects by substring then picks both: `python -m unittest … -k test_detail_close` runs `test_detail_close` and `test_detail_close_event`. A `--run` meant for one row then passes on the other row's test when its own is missing or renamed, and the criterion judges the wrong row.
-
-A `--run` that names one row's test selects it by a pattern anchored at both ends, so it matches that name and nothing longer:
-
-- unittest: `-k '*.test_detail_close'`. A `-k` value holding `*` is matched against the whole test name (`module.Class.test_detail_close`), so the leading `*.` and the missing trailing `*` match only a name ending in exactly `.test_detail_close`.
-- pytest: the node id, `tests/test_rows.py::test_detail_close`, which names one test exactly.
-- A runner whose filter is a regular expression: `^…$` around the name.
-
-The command is run by hand twice. Before the criterion is published, whoever cuts the ticket runs it with the name changed to one no test has, which must exit non-zero. unittest exits 5 and prints `NO TESTS RAN` when a pattern selects nothing. A runner that exits 0 when its filter selects nothing turns a renamed test into a `MISS` only if the command is changed to fail on zero tests; find its flag for that before relying on it. Once the worker has written the test, the worker runs the command as written, which must report exactly one test run.
+How a `--run` selects exactly one row's test, and the two hand runs that prove it, is the `ui-acceptance` skill's `references/boundary-check.md` `## Selecting one row's test`.
 
 ### Journey criterion
 
@@ -77,6 +67,8 @@ The one argument is the repository root, and a `CHECK:` line runs there, so it i
 
 **Seam** names, for each criterion shape the ticket uses, where it observes and what puts the product there: a story criterion observes the product's story page, put into its scene by the story adapter reading the scene data; a boundary criterion observes the product's outbound call module, replaced for the test, with the interaction helper acting on the row's `data-ui` id; a journey criterion observes the real product brought up by `start` in `.mmw/target.json`; the design-system, static-guard and harness-guard criteria read the repository tree. **Seam** also names the precedent to copy; on a product from zero that is what the **contract ticket** lands.
 
+When a contract row a ticket owns cites a section of an earlier spec as its source, **Parent** names that spec and its sections after the parent's, in the same words, and never first (for example, "#12, Implementation Decisions sections 5 and 7; #7 Implementation Decisions section 4").
+
 **Owns** says where this ticket may write, so no design page is ever an entry there: the design package is a baseline under **Read first**, and the worker is forbidden to edit it. Translate the pages a ticket takes into product paths through the contract, whose `pages.<page>.component` names the directory the implementation owns each `Component · ` page under.
 
 ## design-system ticket
@@ -113,7 +105,7 @@ The contract ticket's **What to build** fixes each static guard's test file and 
 
 This ticket writes the `data-ui` ids onto the precedent's component and builds the story adapter for its page, and its **Owns** lists those component files beside `.mmw/`. The **component page ticket** that takes that component's page owns the same directory, is blocked by this one, and carries the story and boundary criteria that first judge the precedent. A new product with no component yet has nothing to make comparable here: its precedent is the component the first **component page ticket** builds, and this ticket delivers the story service, the story adapter shape and the interaction helper that ticket uses, with no component files under **Owns**.
 
-The smoke journey uses the journey criterion and omits `--break`. It requires the product to come up and answer; it signs in when the product has a login. Its second pass is the product-down pass that section already names. The first **acceptance ticket**'s journey is what proves the break switch.
+The smoke journey uses the journey criterion and omits `--break`. It requires the product to come up and answer; it signs in when the product has a login. Its second pass is the product-down pass the **Journey criterion** above already names. The first **acceptance ticket**'s journey is what proves the break switch.
 
 **Read first** names three sections of the `ui-acceptance` skill: `references/story-parity.md` **The story page the product serves**; `references/journey.md`; and `references/product-answers.md`. **Owns** is `.mmw/`, the story service and the interaction helper, and, as the prefactor ticket below, every file that registers a design page's scenes and routes.
 
@@ -135,8 +127,6 @@ A row whose `next` is a scene of another page (`note-list.open`, whose `next` is
 - the screen contract with the row ids this ticket owns, written `docs/specs/<effort>/screen-contract.yaml rows: a.b, a.c`: path and ids on one line, for calls, shown values, transitions and timing. Pages and mounts follow from those rows.
 
 The rest of **Read first** is derived from those row ids, not hand-picked: `scenes.json`; and every `source` of the owned rows that is a baseline (a decision ticket (`#<n>`), an ADR, a domain document under `docs/`), listed once per document, with a word on what it settles. Spec sections and stories reach the worker through **Parent**.
-
-When a contract row this ticket owns cites a section of an earlier spec as its source, name that spec and its sections after the parent's, in the same words, and never first (for example, "#12, Implementation Decisions sections 5 and 7; #7 Implementation Decisions section 4").
 
 ## app page ticket
 
