@@ -155,8 +155,6 @@ svg text{font-family:var(--sans)}
 .dim .nd:not(.on){opacity:.16}
 .dim .ed:not(.on){opacity:.03}
 .ed.on path{stroke-opacity:.95!important;stroke-width:1.8px}
-.uimode .nd:not(.ui){opacity:.2}
-.uimode .ed:not(.ui){opacity:.04}
 /* drawer */
 #drawer{position:fixed;right:0;top:0;bottom:0;z-index:50;width:min(460px,100vw);background:var(--surface);border-left:1px solid var(--rule);box-shadow:-8px 0 30px rgba(0,0,0,.16);overflow:auto;padding:14px 16px 24px}
 #drawer .close{position:absolute;right:10px;top:8px;border:0;background:none;color:var(--ink-3);font-size:22px;cursor:pointer}
@@ -196,7 +194,7 @@ svg text{font-family:var(--sans)}
 <section class="lede">
   <div>
     <h2>这页画的是什么</h2>
-    <p>MMW 从想法到合并的<b>每一步</b>：白天定决定、画界面、写合同与 spec、拆票；夜里开夜、派发、一张票从认领到关票（含界面票怎样用设计稿和合同）、唤醒与活性、落地、收尾、复盘、早晨 finish；以及支撑这一切的安装、提示词、hooks、模型配置、看板和 Memory。</p>
+    <p>MMW 从想法到合并的<b>每一步</b>：白天定决定、画界面、写合同与 spec、拆票；夜里开夜、派发、一张票从认领到关票、唤醒与活性、落地、收尾、复盘、早晨 finish；以及支撑这一切的安装、提示词、hooks、模型配置、看板和 Memory。</p>
     <p>每个方块左上角标着它的<b>载体</b>：是技能正文、reference 文件、脚本函数、命令、hook、拼给 agent 的提示词、配置、仓库文件、GitHub 对象、事件、外部工具、常驻进程，还是人的决定。</p>
     <p>右侧与每个阶段对齐的是每一步的<b>根源</b>：它来自哪个外部项目的哪个仓库、哪个文件哪一节（带 commit 或访问日期），是原样照搬、改写、只取思路，还是运行时调用它；以及顺着什么线索追到那里（研究笔记、ADR、spec issue、merge-note、提交、Memory 只是线索，不算来源）。找不到外部根源的步骤标为 <b>MMW 原创</b>，并写明查过哪些地方。</p>
   </div>
@@ -220,7 +218,6 @@ svg text{font-family:var(--sans)}
   <div class="sec-h"><h2>全流程与根源</h2><p>左边从上到下是时间顺序，泳道是执行者；每个方块右下角写着它的根源项目，或「原创」。右边是与该阶段对齐的根源卡片：项目 → 仓库文件与小节 → 取了什么 → 线索链 → 可信度。点任一方块看它的全部细节、上下游与根源。</p></div>
   <div class="tools">
     <input id="q" list="qnames" placeholder="找步骤：名字或文件名，回车"><datalist id="qnames"></datalist>
-    <button type="button" class="tg" id="tgUI" aria-pressed="false">只看界面工作流</button>
     <button type="button" class="tg" id="tgRef" aria-pressed="false">只看有外部根源的步骤</button>
     <button type="button" class="tg" id="tgClear">清除高亮</button>
     <span class="hint" id="selInfo"></span>
@@ -300,12 +297,12 @@ function partHTML(o){const p=PJ[o.p]||{};let t=esc(o.part);
   return t;}
 
 /* ---------- facts ---------- */
-(function(){const st={borrow:0,orig:0,dep:0};NODES.forEach(n=>st[STAT[n.id]]=(st[STAT[n.id]]||0)+1);const ui=NODES.filter(n=>n.ui);const uiB=ui.filter(n=>STAT[n.id]==="borrow").length;
+(function(){const st={borrow:0,orig:0,dep:0};NODES.forEach(n=>st[STAT[n.id]]=(st[STAT[n.id]]||0)+1);
   const top=Object.entries(PJ).filter(([k,p])=>p.role!=="runtime").sort((a,b)=>b[1].n-a[1].n);
   const rep=Object.values(PJ).filter(p=>p.role==="replaced").length;
   const man=NODES.filter(n=>n.manual).map(n=>n.name);
-  const F=[`全流程 ${NODES.length} 个步骤、${D.edges.length} 条连线，${D.bands.length} 个阶段；其中 ${ui.length} 个属于界面工作流（方块右缘粉色竖条）。`,
-   `${st.borrow} 个步骤能追到外部项目的具体文件与小节（原样、改写或取思路）；${st.dep} 个是 MMW 自己的设计、但运行时调用外部工具（Claude Design、Playwright、Paseo 等）；${st.orig} 个既找不到外部根源也不调用外部工具，是 MMW 原创。界面工作流 ${ui.length} 步里只有 ${uiB} 步有外部根源：界面链基本是 MMW 自己设计的。`,
+  const F=[`全流程 ${NODES.length} 个步骤、${D.edges.length} 条连线，${D.bands.length} 个阶段。`,
+   `${st.borrow} 个步骤能追到外部项目的具体文件与小节（原样、改写或取思路）；${st.dep} 个是 MMW 自己的设计、但运行时调用外部工具（Claude Design、Playwright、Paseo 等）；${st.orig} 个既找不到外部根源也不调用外部工具，是 MMW 原创。`,
    `根源最大的是 ${sname(top[0][0])}（${top[0][1].n} 处，含逐段对照），其次 ${sname(top[1][0])}（${top[1][1].n}）与 ${sname(top[2][0])}（${top[2][1].n}）；设计思路上的外部来源还有 kunchenguid/firstmate（夜里的 runner 适配、唤醒队列、watchdog）、monomind-ai-lab/project-context（worker 开工的 Memory 索引）、bmad-code-org/BMAD-METHOD（retro 与评审发现核实）、github/spec-kit（拆票前的歧义扫描）。`,
    `${rep} 个外部项目曾进过前几代 MMW、现已被替换或删除，列在「前代谱系」。另有 ${D.citedOnly} 个外部项目或网址只在研究笔记里被引用，查不到被 MMW 采用，不算根源，本页不列。`,
    `有 ${man.length} 个技能设了 disable-model-invocation: true，只能由人手动调用：${man.join("、")}。`,
@@ -313,7 +310,7 @@ function partHTML(o){const p=PJ[o.p]||{};let t=esc(o.part);
   $("#facts").innerHTML=F.map(f=>`<li>${f}</li>`).join("");})();
 
 /* ---------- sources ---------- */
-let srcFilter=null, carFilter=null, uiMode=false, refMode=false;
+let srcFilter=null, carFilter=null, refMode=false;
 (function(){const sc={};COMPS.forEach(c=>c.og.forEach(o=>{const s=(sc[o.p]=sc[o.p]||{n:0,how:{}});s.n++;s.how[o.how]=(s.how[o.how]||0)+1;}));
   const mx=Math.max(...Object.values(sc).map(s=>s.n));
   const st={borrow:0,dep:0,orig:0};NODES.forEach(n=>st[STAT[n.id]]++);
@@ -444,16 +441,15 @@ function draw(){
     if(B.y>A.y+A.h-2){const y1=A.y+A.h,y2=B.y;const dy=Math.max(24,(y2-y1)*.45);d=`M${ax},${y1} C${ax},${y1+dy} ${bx},${y2-dy} ${bx},${y2-1}`;}
     else if(Math.abs(B.y-A.y)<A.h&&B.x!==A.x){const dir=B.x>A.x?1:-1;const x1=dir>0?A.x+A.w:A.x,x2=dir>0?B.x:B.x+B.w;const y1=A.y+A.h/2,y2=B.y+B.h/2;d=`M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2-dir},${y2}`;}
     else{const x1=A.x+A.w,x2=B.x+B.w,y1=A.y+A.h/2,y2=B.y+B.h/2;const bulge=26+Math.min(60,Math.abs(y1-y2)*.06);d=`M${x1},${y1} C${Math.max(x1,x2)+bulge},${y1} ${Math.max(x1,x2)+bulge},${y2} ${x2+1},${y2}`;}
-    const g=el("g",{class:"ed"+(BY[e.from].ui&&BY[e.to].ui?" ui":"")},gE);
+    const g=el("g",{class:"ed"},gE);
     el("path",{d,fill:"none",stroke:TY[t],"stroke-width":1,"stroke-opacity":.28,"stroke-dasharray":t==="fallback"?"5 3":t==="invoke"?"4 3":t==="reads"?"2 3":"","marker-end":`url(#m-${t})`},g);
     g._e=e;return g;});
   nodeEl={};
-  NODES.forEach(n=>{const p=POS[n.id];if(!p)return;const g=el("g",{class:"nd"+(n.ui?" ui":""),tabindex:0,role:"button","data-id":n.id,"aria-label":`${n.label||n.name}（${(CAR[n.carrier]||[n.carrier])[0]}）`,style:"pointer-events:all"},gN);
+  NODES.forEach(n=>{const p=POS[n.id];if(!p)return;const g=el("g",{class:"nd",tabindex:0,role:"button","data-id":n.id,"aria-label":`${n.label||n.name}（${(CAR[n.carrier]||[n.carrier])[0]}）`,style:"pointer-events:all"},gN);
     const {col}=carShape(n.carrier,p.x,p.y,p.w,p.h,g);
     const tw=cvw(n._tag);el("rect",{x:p.x+4,y:p.y+4,width:tw,height:12,rx:2,fill:col},g);const tt=el("text",{x:p.x+4+tw/2,y:p.y+13,"text-anchor":"middle","font-size":8.6,"font-weight":700,fill:"var(--surface)","font-family":"var(--mono)"},g);tt.textContent=n._tag;
     const nm=el("text",{x:p.x+tw+8,y:p.y+13.5,"font-size":9.5,fill:"var(--ink-3)","font-family":"var(--mono)"},g);nm.textContent=n._nm;
     n._lines.forEach((l,i)=>{const t=el("text",{x:p.x+7,y:p.y+30+i*14.5,"font-size":11.8,"font-weight":500,fill:"var(--ink)"},g);t.textContent=l;});
-    if(n.ui)el("rect",{x:p.x+p.w-5,y:p.y+1,width:4,height:p.h-2,fill:"var(--c-ui)"},g);
     {const stt=STAT[n.id];let lab="",col="var(--c-hu)";if(stt==="orig")lab="原创";else if(stt!=="none"){const pj=nodeProj(n.id);const b=pj.filter(x=>stt==="dep"||x[1].b);lab=sshort(b[0][0])+(b.length>1?` +${b.length-1}`:"");col=srcColor(b[0][0]);}
       if(lab){const t=el("text",{x:p.x+p.w-10,y:p.y+p.h-5,"text-anchor":"end","font-size":9.5,"font-weight":700,fill:col},g);t.textContent=fit(lab,p.w-20,9.5,700);}}
     if(n.manual){const t=el("text",{x:p.x+p.w-10,y:p.y+13.5,"text-anchor":"end","font-size":9,"font-weight":700,fill:"var(--c-hu)"},g);t.textContent="仅手动";}
@@ -463,7 +459,6 @@ function draw(){
 /* ---------- interaction ---------- */
 let sel=null;
 function applyFilters(){if(!svg.firstChild)return;
-  svg.classList.toggle("uimode",uiMode);
   const hi=new Set();let active=false;
   if(sel){active=true;hi.add(sel);D.edges.forEach(e=>{if(e.from===sel)hi.add(e.to);if(e.to===sel)hi.add(e.from);});}
   else if(srcFilter){active=true;COMPS.forEach(c=>{if(c.og.some(o=>o.p===srcFilter))c.nodes.forEach(n=>hi.add(n));});}
@@ -478,7 +473,6 @@ function select(id,scroll){sel=id;srcFilter=null;carFilter=null;applyFilters();o
 svg.addEventListener("click",e=>{const g=e.target.closest(".nd");if(g)select(g.dataset.id,false);});
 svg.addEventListener("keydown",e=>{const g=e.target.closest(".nd");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();select(g.dataset.id,false);}});
 $("#tgClear").onclick=()=>{sel=null;srcFilter=null;carFilter=null;refMode=false;$("#tgRef").setAttribute("aria-pressed","false");document.querySelectorAll(".srow.on,.carriers .on").forEach(x=>x.classList.remove("on"));closeDrawer();applyFilters();};
-$("#tgUI").onclick=e=>{uiMode=!uiMode;e.currentTarget.setAttribute("aria-pressed",uiMode);applyFilters();};
 $("#tgRef").onclick=e=>{refMode=!refMode;e.currentTarget.setAttribute("aria-pressed",refMode);sel=null;applyFilters();};
 $("#qnames").innerHTML=NODES.map(n=>`<option value="${esc(n.name||n.label)}">${esc(n.label||"")}</option>`).join("");
 $("#q").addEventListener("keydown",e=>{if(e.key!=="Enter")return;const q=e.target.value.trim().toLowerCase();if(!q)return;const hit=NODES.find(n=>(n.name||"").toLowerCase()===q)||NODES.find(n=>(n.name||"").toLowerCase().includes(q)||(n.label||"").toLowerCase().includes(q)||n.id.toLowerCase().includes(q));if(hit)select(hit.id,true);});
@@ -488,7 +482,7 @@ const dr=$("#drawer");
 function chip(id,extra){const n=BY[id];if(!n)return `<span class="chip">${esc(id)}</span>`;return `<button type="button" class="chip" data-go="${esc(id)}">${esc(n.label||n.name)}${extra?` <small>${esc(extra)}</small>`:""}</button>`;}
 function openDrawer(id){const n=BY[id];const outs=D.edges.filter(e=>e.from===id),ins=D.edges.filter(e=>e.to===id);const cs=CBN[id]||[];const b=D.bands[n._band];
   const io=(arr)=>arr.map(x=>BY[x]?chip(x):`<span class="chip">${esc(x)}</span>`).join("");
-  dr.innerHTML=`<button class="close" aria-label="关闭">×</button><div class="kind">${icon(n.carrier).outerHTML}${(CAR[n.carrier]||[n.carrier])[0]} · ${esc(b.p)}${n.ui?' · <span style="color:var(--c-ui)">界面工作流</span>':""}${n.manual?' · <span style="color:var(--c-hu)">仅人手动调用</span>':""}</div>
+  dr.innerHTML=`<button class="close" aria-label="关闭">×</button><div class="kind">${icon(n.carrier).outerHTML}${(CAR[n.carrier]||[n.carrier])[0]} · ${esc(b.p)}${n.manual?' · <span style="color:var(--c-hu)">仅人手动调用</span>':""}</div>
   <h3>${esc(n.label||n.name)}</h3><div class="nm">${esc(n.name||"")}</div><p>${esc(n.what||"")}</p>
   <dl><dt>位置</dt><dd><code>${esc(n.location||"")}</code></dd><dt>执行者</dt><dd>${esc(n.actor||"")}</dd><dt>节点 ID</dt><dd><code>${esc(n.id)}</code></dd></dl>
   ${(n.inputs||[]).length?`<h4>输入</h4><div class="chips">${io(n.inputs)}</div>`:""}${(n.outputs||[]).length?`<h4>输出</h4><div class="chips">${io(n.outputs)}</div>`:""}
