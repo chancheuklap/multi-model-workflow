@@ -32,4 +32,4 @@ A worker's claim, criteria runs and closeout are steps of the `implement` skill.
 
 ## Reached from here
 
-- **A criterion has to launch, reach or observe the running product; you are reading a `DIFF`, `MISS` or `JOURNEY` line; the repository has no `.mmw/target.json`; you are about to touch a process or a port** → the `ui-acceptance` skill. Its five rules while the product is running bind every run of this skill.
+- **A criterion has to launch, reach or observe the running product; you are reading a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line; the repository has no `.mmw/target.json`; you are about to touch a process or a port** → the `ui-acceptance` skill. Its five rules while the product is running bind every run of this skill.

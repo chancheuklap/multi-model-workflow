@@ -16,7 +16,7 @@ When this repository consumes its own landing pipeline, the MMW runtime for the 
 
 ## Package Manager
 
-No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block run under `uv run`. What the tests need is in `TESTING.md`.
+No package manager, no build step. Runtime is bash and the `python3` standard library; scripts with a PEP 723 dependency block and some suites run under `uv run`; the verify-ticket and gate-check tests need `node`; the board, ui-acceptance, design-pages and write-screen-contract tests need Playwright's browsers.
 
 ## Commands
 
@@ -25,6 +25,11 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | `bash mmw-v2/install.sh` | The one install entry, nine items: skill symlinks into `~/.agents/skills` and `~/.claude/skills`; hooks into each host's own configuration (dispatch's `tool-guard.py` and `turn-guard.py`; Codex trust hashes into `~/.codex/config.toml`); user-level prompts (`~/.claude/CLAUDE.md` → `mmw-v2/prompt/shared.md`, `~/.claude/rules/mmw-claude.md` → `mmw-v2/prompt/hosts/claude.md`, one AGENTS.md each for Codex, Pi and Grok rendered by `mmw-v2/prompt/render.py`); a launchd task watching the prompt sources; the `com.mmw.board` LaunchAgent keeping `mmw-v2/board/supervisor.py` alive; Paseo configuration (`~/.local/bin/paseo`, grok/cursor providers and `worktrees.root` in `~/.paseo/config.json`, no Agent profiles; `~/.mmw/models.json` written with defaults only when absent, a legacy Markdown file imported once and deleted); Orca setups' `worktree-base-path` set to `.worktrees`; the `mmw-toolbox` Space and `mmw-worker` / `mmw-reviewer` Identities in Nowledge Mem; the `nowledge-mem` entry in `~/.cursor/mcp.json`. It records this checkout in `~/.mmw/installed-root` |
 | `bash mmw-v2/install.sh --check` | Read-only: exit 0 when complete, 1 when something is missing or stale. Run from another checkout it hands over to the installed checkout's own `install.sh` and only reports. It also reads each runner adapter's `# MMW_USES:` header and asks the binary on `PATH`: `没查` when the help page is unreadable, `不一致` when a flag is gone; a binary absent from `PATH` skips that adapter silently. `dispatch.sh check <spec>` runs it before every night, repairs from the installed checkout, and reports what remains as a warning |
 | `python3 mmw-v2/prompt/render.py --adopt` | Once per machine: the AGENTS.md already at a target is not a generated file, and `render.py` refuses to overwrite it otherwise |
+| `bash mmw-v2/prompt/tests/run.sh` | Tests `render.py`; needs only `python3` |
+| `bash mmw-v2/tests/<name>/run.sh` | One skill's or subsystem's suite, twelve of them: `verify-ticket`, `ui-acceptance`, `write-screen-contract`, `dispatch`, `retro`, `exe-release`, `manage-agents-md`, `design-pages`, `board`, `liveness`, `relay`, `migrations`. `advisor` and `code-checkers` have none. There is no aggregate runner; each `run.sh` header names what it tests and what runtime it needs (the `board` one does not: `uv`, Playwright and a real headless Chromium). Every `run.sh` first runs `mmw-v2/tests/lib/check_module_paths.py`, which fails when a script names a module file (`"<name>.py"`, `load("<name>")`) that no longer exists, then `check_upstream_em_dashes.py` beside it, which fails when a `.md` under `mmw-v2/upstream/skills/` has an em-dash outside a fenced code block |
+| `bash mmw-v2/tests/dispatch/test_dispatch.sh <scenario>` | One dispatch scenario (about seventy; `all` runs them all); `mmw-v2/tests/relay/test_relay.sh` takes the same argument |
+| `bash mmw-v2/hooks/tests/run.sh` | Tests `rule-at-moment.py`, a hook kept in the repository that `install.sh` leaves alone; whoever wants it registers it by hand under `~/.claude/hooks/` |
+| `cd mmw-v2/upstream-unlazy/tests && node run-tests.mjs && node lint-tests.mjs` | gate-check's own tests, the two of unlazy's suites that cover what verify-ticket uses (the vendored layer); `verify-ticket`'s `run.sh` runs them too. unlazy's other suites there cover what this repository removed or does not use and are not run |
 | `python3 mmw-v2/skills/dispatch/scripts/models.py config show\|set\|runner …` | The only way to change `~/.mmw/models.json` (which host, model and reasoning effort each agent runs on; the selected runner). Takes effect at the next start, no restart or reinstall. Usage in `mmw-v2/skills/dispatch/references/editing-models.md` |
 
 ## External References
@@ -41,7 +46,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | The nine installed items, the two modes, what the previous generation installed and install now removes | `mmw-v2/install.sh` header comment |
 | Which prompt file reaches which host by which route, the generated file's shape, Grok's `[compat.claude]` requirement | `mmw-v2/prompt/README.md` |
 | How code in this repository is written: scripts, state, refusals, configuration; the reviewer's Standards axis applies it | `CODING_STANDARDS.md` |
-| Where the tests live, what they need, how to run them, which suites a change needs | `TESTING.md` |
+| Where the tests live, how they are isolated, which suites a change needs; the reviewer's Tests axis applies it | `TESTING.md` |
 | Every rule for the text of a skill (`SKILL.md`, references, descriptions, prompts a script builds for an agent): what skill text is for, load and disclosure, redundancy, descriptions, vocabulary, hand-offs, upstream skills, script tokens and paths, host and runner neutrality; read before writing, editing or reviewing one. This file states none of those rules | `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md` |
 | Pulling an upstream subtree, resolving conflicts, the `disable-model-invocation` pairing rule | `mmw-v2/merge-notes/README.md` |
 | When a downstream-note is due and its three fixed headings | `mmw-v2/downstream-notes/README.md` |
