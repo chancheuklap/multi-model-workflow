@@ -144,7 +144,6 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 - A changed upstream skill gets its merge-note entry rewritten in place. A change that invalidates a consuming repository's contract, `CHECK:` or `.mmw/target.json` gets a downstream-note.
 - Text taken from another source keeps its authors' wording (see [Upstream skills](#upstream-skills)). Excerpts are quoted verbatim and collected into one block before they are placed; finding places for them first splits the source apart.
 - The file states what is true now; what changed and why goes to the commit message and the report.
-- In MMW, `install.sh` runs only when the user explicitly authorises it.
 
 ## Verifying
 

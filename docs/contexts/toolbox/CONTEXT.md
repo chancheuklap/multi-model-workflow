@@ -79,7 +79,7 @@ _Home_: `docs/agents/domain.md`
 
 **`AGENTS.md`**:
 A repository's agent instruction file, root plus nested ones, written to the fixed format of the `manage-agents-md` skill. The `CLAUDE.md` beside it holds only the line `@AGENTS.md` and any other `@` imports.
-_Home_: `mmw-v2/skills/manage-agents-md/references/write.md`
+_Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 
 ### The toolbox
 
