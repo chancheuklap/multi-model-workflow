@@ -24,6 +24,8 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 A plan or a conversation with no published spec goes through the `to-spec` skill first; this skill cuts tickets from the spec's issue number.
 
+Done when you hold the spec's issue number and have read its full body and comments.
+
 ### 2. Explore the codebase
 
 If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
@@ -31,6 +33,8 @@ If you have not already explored the codebase, do so to understand the current s
 Skip this step only when the spec's Implementation Decisions already name the module or directory every ticket writes to. Otherwise you cannot fill in **Owns**, and one directory-level `ls` or `git ls-files` is enough.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
+
+Done when you know the module or directory each ticket will write to.
 
 ### 3. Draft vertical slices
 
@@ -47,6 +51,8 @@ Break the work into **tracer bullet** tickets.
 When the spec has a screen contract, read [references/cutting-interface-tickets.md](references/cutting-interface-tickets.md).
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
+
+Done when the work is drafted as slices, each one vertical or one step of an expand–contract sequence.
 
 ### 4. Write each acceptance criterion
 
@@ -90,7 +96,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 Write the command on the `CHECK:` line when it fits there. When it does not, leave that line empty after the colon and open a **fenced block** on the next line: the fence holds the command, and nothing inside it is read as a criterion or an attribute, so it may contain blank lines, backtick fences and lines beginning `- [ ]`. A flush-left continuation with no fence is a parse error.
 
-This step is done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
+Done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
 
 ### 5. Give each ticket its blocking edges
 
@@ -112,6 +118,8 @@ What overlaps there now decides the shape of the batch:
 A shared file that is one body of logic — a route module several tickets add handlers to — is neither pre-landed nor split, because what each ticket writes there is the ticket's own work. Those tickets keep their chain.
 
 **Every branch above keeps one rule: no two tickets that can run at the same time write the same file.** Two tickets can run at the same time when neither blocks the other, directly or down a chain. A shared file several tickets need, a shared stylesheet for one, is owned by one ticket, and every other ticket that needs it is blocked by that one; where two of those others must also write it, they are chained as well, or the file is split by the prefactor branch.
+
+Done when every path marked `(new)` has the files that put it in service under the same ticket's **Owns**, and no two tickets that can run at the same time write the same file.
 
 ### 6. Quiz the user
 
@@ -149,22 +157,26 @@ Ask the user:
 
 Iterate until the user approves the breakdown. Write each answered choice that only changes what one ticket delivers into that ticket's **What to build** before publishing. Write each answered choice that changes a decision in a spec section back through the `to-spec` skill's step for revising a published spec, then into the tickets.
 
+Done when the user has approved the breakdown and every answered choice is written into a ticket's **What to build** or the spec.
+
 ### 7. Publish the tickets to the configured tracker
 
 Lint the batch before anything is live. Write each approved ticket as one draft file, in the shape the `verify-ticket` skill's `references/linting.md` gives under **`--drafts` before publishing** (`TITLE:`, `LABELS:`, `BLOCKED BY:` naming other drafts, a line `---`, then the body as it will be published), all in one directory `mktemp -d` makes, and run that skill's `--lint` with the spec's number and `--drafts <that directory>`. Fix every ERROR it reports in the drafts and read every WARN once, then publish the drafts as they now stand. The run ends by naming what only a published batch shows; step 8 lints again for that.
 
-Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the task board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`; create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured: one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship. Create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the task board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`; create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
 Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker landed (merged into the base branch, not merely closed), and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
 
 Close no parent issue; a spec section changes only through the `to-spec` skill's step for revising a published spec.
+
+Done when every approved ticket is published as a sub-issue of the spec, with its labels and its blocking links.
 
 ### 8. Read every ticket back
 
 After publishing, fetch each ticket again and check every one:
 
 - The title and **What to build** describe the same slice.
-- On GitHub, the spec's sub-issue count equals the number of tickets in this batch, and every one of them carries `mmw:ticket`.
+- The spec's sub-issue count equals the number of tickets in this batch, and every one of them carries `mmw:ticket`.
 
 Then each kind of ticket, for the sections that kind must carry. On the ones an agent works:
 
@@ -181,7 +193,7 @@ On the `ready-for-human` ones — no agent can repair one, so all of the five th
 - **What makes it right** is there to judge against.
 - **Blocked by** names the ticket that produces the thing.
 
-Fix what fails before reporting the batch as published. When the batch is a spec's night run, hand over to the `dispatch` skill: opening the night on this spec is one of its rows.
+Done when every check above passes. When the batch is a spec's night run, hand over to the `dispatch` skill: opening the night on this spec is one of its rows.
 
 <issue-template>
 

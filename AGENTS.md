@@ -1,7 +1,7 @@
 # AGENTS.md
 
 MMW is the user's toolbox of skills shared across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a worker dispatched for the night → closed ticket) and a local task board. Personal use, no CI, tests run by hand.
-Only `mmw-v2/` is live. `archive/` is the previous generation, `deprecated/` what v2 itself retired, `docs/research/` read-only snapshots of third-party repositories: read them for history, treat nothing in them as fact, and leave their scripts unrun.
+Only `mmw-v2/` is live. `archive/` is the previous generation, `deprecated/` what v2 itself retired, `docs/research/code-landing-refs/` read-only snapshots of third-party repositories: read them for history, treat nothing in them as fact, and leave their scripts unrun. The rest of `docs/research/` holds research notes, which a spec may cite as sources.
 This repository is also a consuming repository of its own pipeline: root `.mmw/` is the task board's acceptance runtime, `docs/specs/task-board/screen-contract.yaml` its screen contract, `prototypes/` its handoff package. Tickets about the board run from here.
 The skills in this repository are deliverables, not the working instructions of an agent working on it.
 
