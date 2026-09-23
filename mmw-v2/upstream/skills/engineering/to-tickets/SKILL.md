@@ -1,11 +1,11 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the project issue tracker as one issue per ticket with blocking links. Use when a spec or an approved plan has to become the batch an agent works ticket by ticket, and when that batch has to be read back and reported as published.
+description: Break a plan, spec, or the current conversation into a set of tracer-bullet tickets on the project issue tracker. Use when a spec or an approved plan has to become the batch an agent works ticket by ticket.
 ---
 
 # To Tickets
 
-Two doors, and this run is at one of them.
+Two moments, and this run is at one of them.
 
 | You are | Read |
 | --- | --- |
@@ -21,6 +21,8 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 ### 1. Gather context
 
 Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
+
+A plan or a conversation with no published spec goes through the `to-spec` skill first; this skill cuts tickets from the spec's issue number.
 
 ### 2. Explore the codebase
 
@@ -121,7 +123,7 @@ Use the to-tickets skill to scan spec #<spec> and the drafted tickets in <file> 
 
 When the host offers no such restriction, the prompt carries a second sentence, `You may only read: change no file and nothing on the tracker.`, and the check moves to you. Run `git status --porcelain` before starting the subagent and again when it returns; the two outputs are the same when the scan wrote nothing, and a difference is a write it made, which you undo before going on.
 
-Nothing else: the skill is what they read, and the door table is which file they take.
+Nothing else: the skill is what they read, and the moment table is which file they take.
 
 **Hold this turn until the scan's result exists.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The user is about to see the breakdown, and the scan's questions belong in each ticket's **Choices** before that list is shown.
 
@@ -151,11 +153,11 @@ Iterate until the user approves the breakdown. Write each answered choice that o
 
 Lint the batch before anything is live. Write each approved ticket as one draft file, in the shape the `verify-ticket` skill's `references/linting.md` gives under **`--drafts` before publishing** (`TITLE:`, `LABELS:`, `BLOCKED BY:` naming other drafts, a line `---`, then the body as it will be published), all in one directory `mktemp -d` makes, and run that skill's `--lint` with the spec's number and `--drafts <that directory>`. Fix every ERROR it reports in the drafts and read every WARN once, then publish the drafts as they now stand. The run ends by naming what only a published batch shows; step 8 lints again for that.
 
-Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`; a repository that lacks the label gets it first, with `gh label create mmw:ticket --color 0e8a16 --description "MMW layer: a ticket, one unit of work"`. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured (GitHub, Linear, …): one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship where it has them. On GitHub, create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the ticket graph of the `verify-ticket` skill's `--lint`, and the task board, read only that relationship, and the scripts take a ticket's spec to be its direct parent. Every ticket carries the layer label `mmw:ticket`; create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
 
 Work the **frontier**: the tickets that are open, carry `ready-for-agent`, have every blocker landed (merged into the base branch, not merely closed), and have neither an assignee nor a live session. For a purely linear chain that means top to bottom.
 
-Do NOT close or modify any parent issue.
+Close no parent issue; a spec section changes only through the `to-spec` skill's step for revising a published spec.
 
 ### 8. Read every ticket back
 
@@ -185,7 +187,7 @@ Fix what fails before reporting the batch as published. When the batch is a spec
 
 ## Parent
 
-A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements ("#535, Implementation Decisions sections 5 and 7"). When a contract row this ticket owns cites a section of an earlier spec as its source, name that spec and its sections after the parent's, in the same words, and never first: "#535, Implementation Decisions sections 5 and 7; #318 Implementation Decisions section 4". The first issue here is read as the ticket's spec. Omit the section only when the source was not an existing issue.
+A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). When a contract row this ticket owns cites a section of an earlier spec as its source, name that spec and its sections after the parent's, in the same words, and never first (for example, "#12, Implementation Decisions sections 5 and 7; #7 Implementation Decisions section 4"). The first issue here is read as the ticket's spec.
 
 ## What to build
 
@@ -193,7 +195,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Read first
 
-The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion — the chosen artifact of a prototype, a handoff package pulled into the repository, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket — is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing. When the spec has a screen contract, read [references/cutting-interface-tickets.md](references/cutting-interface-tickets.md) for the baseline lines and derivation that kind of ticket carries.
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs — copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion — the chosen artifact of a prototype, a design package pulled into the repository, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket — is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing. When the spec has a screen contract, read [references/cutting-interface-tickets.md](references/cutting-interface-tickets.md) for the baseline lines and derivation that kind of ticket carries.
 
 ## Seam
 

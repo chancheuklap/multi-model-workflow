@@ -1,6 +1,7 @@
 ---
 name: teach
 description: Teach the user a new skill or concept, within this workspace.
+disable-model-invocation: true
 argument-hint: "What would you like to learn about?"
 ---
 
@@ -65,7 +66,7 @@ Each lesson should contain a reminder to ask followup questions to the agent. Th
 
 Lessons are built from reusable **components**, stored in `./assets/`: stylesheets, quiz widgets, simulators, diagram helpers, and anything else a second lesson could reuse.
 
-Reuse is the default, not the exception. Before authoring a lesson, read `./assets/` and build from the components already there. When a lesson needs something new and reusable, write it as a component in `./assets/`; never write code inline that a future lesson would duplicate.
+Reuse is the default, not the exception. Before authoring a lesson, read `./assets/` and build from the components already there. When a lesson needs something new and reusable, write it as a component in `./assets/`; never inline code a future lesson would duplicate.
 
 A shared stylesheet is the first component every workspace earns, so the lessons look like one consistent course rather than a pile of one-offs. As the workspace grows, so should the component library.
 

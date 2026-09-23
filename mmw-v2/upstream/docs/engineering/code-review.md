@@ -6,11 +6,11 @@ Those axes are never merged and never re-ranked. The report ends with a worst is
 
 ## When to reach for it
 
-Type `/code-review`, or the agent reaches for it automatically when you ask to review a branch, a PR, work in progress, or anything "since X".
+It reviews one ticket's diff. The worker on a ticket starts a reviewer session through the `dispatch` skill, and that session runs this skill with the ticket number and a base commit. It has no use on a branch or PR without a ticket.
 
 | Your situation | Reach for |
 | --- | --- |
-| A diff exists and you want to know if it is built right *and* is the right thing | `code-review` |
+| A ticket's diff exists and you want to know if it is built right *and* is the right thing | `code-review` |
 | You want bugs hunted in the diff: null paths, races, off-by-one | Claude Code's own built-in review, not this one (see the name clash below) |
 | Nothing is written yet and you want it written test-first | [tdd](https://aihero.dev/skills-tdd) |
 | A whole spec needs building, review included | [implement](https://aihero.dev/skills-implement), which calls this skill itself |
@@ -23,14 +23,7 @@ The caller supplies the ticket number and fixed base commit. The skill checks th
 
 The Standards axis needs nothing. It reads whatever the repo documents (`CODING_STANDARDS.md`, `CONTRIBUTING.md`, and the like) and falls back on a built-in baseline when the repo documents nothing.
 
-The Spec axis needs a spec to exist and be findable. It looks in this order:
-
-1. Issue references in the commit messages (`#123`, `Closes #45`, a GitLab `!67`), fetched through `docs/agents/issue-tracker.md`.
-2. A path you pass in as an argument.
-3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch or feature name.
-4. Asking you.
-
-Step 1 depends on `docs/agents/issue-tracker.md`, which [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) writes. Without it the axis still works if you hand it a path. With no spec at all, the Spec sub-agent is skipped and the report says "no spec available" rather than inventing requirements.
+The Spec axis reads the ticket and what it points at: the spec sections its `## Parent` line names, the spec's `## Testing Decisions` and `## Out of Scope`, and every `## Read first` item marked as a baseline. A ticket with no `## Parent` is its own whole spec. When the ticket names a spec the axis cannot reach, the report says so and the axis reviews against the ticket alone, rather than inventing requirements.
 
 ## The axes
 
@@ -57,15 +50,15 @@ This is the most reported problem with the skill, and it is not fixed. Claude Co
 
 **Its sub-agents keep invoking `/code-review` again and spawn more agents.**
 
-Each axis sub-agent enters the named axis door of the skill and performs that review directly. The session starts Standards, Spec and Tests — and, on a ticket with a story criterion, a fourth, UI — then waits for all of them before writing the report.
+Each axis sub-agent reads the skill's row for its named axis and performs that review directly. The session starts Standards, Spec and Tests — and, on a ticket with a story criterion, a fourth, UI — then waits for all of them before writing the report.
 
 **Should I run it in the same [session](https://www.aihero.dev/ai-coding-dictionary/session) that wrote the code?**
 
-Prefer a fresh one. As one reader put it: "Same context reviewing itself isn't review, it's confirmation bias with a slash command." The reviewing agent in the authoring session holds every assumption that shaped the code, which is exactly the context an independent reviewer would not have. This is also why people ask for [implement](https://aihero.dev/skills-implement) without its built-in review step: it runs the review inside the session that just wrote the diff. Invoking `/code-review` yourself from a clean session is the honest version.
+Prefer a fresh one. As one reader put it: "Same context reviewing itself isn't review, it's confirmation bias with a slash command." The reviewing agent in the authoring session holds every assumption that shaped the code, which is exactly the context an independent reviewer would not have. Here the review always runs in a fresh session: the worker that wrote the code starts the reviewer through the `dispatch` skill, and the reviewer shares none of the worker's context.
 
 **After every ticket, or once at the end?**
 
-Both work, and the skill does not decide for you. Per-ticket keeps each diff small enough that the Spec axis has one clear spec to check against, which is the mode `implement` uses. Batching to the end of a branch catches interactions between tickets that the per-ticket passes each miss. If you are unsure, review per ticket and run one final pass against the branch point.
+After every ticket: the skill reviews one ticket's diff, which keeps each diff small enough that the Spec axis has one clear spec to check against. Interactions with tickets already integrated into the base branch are part of the Spec axis's own reading, so there is no separate pass at the end of a branch.
 
 **Can I trust the findings?**
 
@@ -89,9 +82,9 @@ No. It diffs `<fixed-point>...HEAD`, three-dot, which is measured from the merge
 
 ## Where it fits
 
-`code-review` is the review step at the tail of the build chain: `grill-with-docs → to-spec → to-tickets → implement → code-review`. It also stands alone on any branch or PR you point it at.
+`code-review` is the review step at the tail of the build chain: `grill-with-docs → to-spec → to-tickets → implement → code-review`. It reviews one ticket's diff and has no use on a branch or PR without a ticket.
 
-- [implement](https://aihero.dev/skills-implement) is the closest neighbour: it drives the build and calls this skill as its own closing review before committing.
+- [implement](https://aihero.dev/skills-implement) is the closest neighbour: it drives the build of one ticket, commits, and then starts the reviewer session that runs this skill on the ticket's diff.
 - [to-spec](https://aihero.dev/skills-to-spec) and [to-tickets](https://aihero.dev/skills-to-tickets) produce the document the Spec axis checks against; a vague spec makes that axis vague.
 - [improve-codebase-architecture](https://aihero.dev/skills-improve-codebase-architecture) is the whole-codebase counterpart: this skill only ever looks at one diff.
 

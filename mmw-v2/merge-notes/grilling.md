@@ -8,7 +8,7 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| 正文 `Finding _facts_ is your job` 段之后、`The session is done` 段之前新增的整段（`Think this when forming each recommended answer.` 起，到 `redirect to the process behind them.` 止） | 我们加的。形成每道推荐答案时要跑的思考：先质疑前提和需求，把约束分成物理/合同/实测与惯例，从剩下的 primitives 重建满足需求的最简解并删掉不该存在的步骤；失败、复发或修补方案才走表层/诱因/根因。措辞覆盖 plan、decision、idea（含无仓库的写作与 wayfinder 单张决策票），不绑死在代码或排错。不改 rounds、frontier、问法或结束条件。这几条的理由只记在这里，正文不写：问题问得再好，也可能是在帮着完善一个本不该存在的东西，所以先质疑前提；需求总有几分是错的，先减需求，否则可能给错的问题一个完美答案；人常忘了试着整个删掉一步，而最常见的错误是优化一个本不该存在的东西，所以删在优化之前；第一个找到的原因几乎从来不是真问题，所以先列 5–7 个来源。上游改前后段落 → 收上游措辞，这一整段原样保留。 |
+| 正文 `Finding _facts_ is your job` 段之后、`The session is done` 段之前新增的整段（`Think through the paragraphs below when forming each recommended answer.` 起，到 `redirect to the process behind them.` 止） | 我们加的。形成每道推荐答案时要跑的思考：先质疑前提和需求，把约束分成物理/合同/实测与惯例，从剩下的 primitives 重建满足需求的最简解并删掉不该存在的步骤；失败、复发或修补方案才区分 symptom、proximate cause、root cause（用英文里的通用术语，读者查得到）。约束一句写 `not past practice alone`，不用 `precedent`：本仓 `docs/contexts/tickets/CONTEXT.md` 的 **precedent** 指 ticket 要抄的那个测试。措辞覆盖 plan、decision、idea（含无仓库的写作与 wayfinder 单张决策票），不绑死在代码或排错。不改 rounds、frontier、问法或结束条件。这几条的理由只记在这里，正文不写：问题问得再好，也可能是在帮着完善一个本不该存在的东西，所以先质疑前提；需求总有几分是错的，先减需求，否则可能给错的问题一个完美答案；人常忘了试着整个删掉一步，而最常见的错误是优化一个本不该存在的东西，所以删在优化之前；第一个找到的原因几乎从来不是真问题，所以先列 5–7 个来源。上游改前后段落 → 收上游措辞，这一整段原样保留。 |
 
 ## 上游再动这几段时
 

@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Compact the current conversation into a handoff document for another agent to pick up. Use when the work has to travel — to another host, another directory, or another person — or when a side task found mid-phase is forked off without derailing this one.
+description: Compact the current conversation into a handoff document for another agent to pick up.
 argument-hint: "What will the next session be used for?"
 disable-model-invocation: true
 ---
