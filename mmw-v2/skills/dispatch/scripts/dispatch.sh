@@ -75,8 +75,8 @@
 # person reads.
 #
 # Each pipeline command's exit codes are written beside that command, in the reference
-# file of the moment that carries it. `board` is the one command documented directly in
-# SKILL.md; that file is otherwise the index of moments.
+# file of the moment that carries it. `ack` is documented in SKILL.md under `## On waking`,
+# which every moment shares; that file is otherwise the index of moments.
 
 set -uo pipefail
 
@@ -106,7 +106,6 @@ DEFAULT_WORKER=junior-worker
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
 AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-PIPELINE_FAULT="A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
 PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
@@ -1747,6 +1746,8 @@ PY
 # Build the reviewer packet appended after the existing code-review dispatch line. Only
 # the compiled active rule_stack is read; ordinary Memory list/search is never attempted.
 # A failed or unreadable Context Bundle is named in the packet and the reviewer still starts.
+# The packet carries the Rule rows only; how the reviewer applies them is stated once, in the
+# code-review skill's `references/session.md` under `## Active Rules`.
 reviewer_rules_packet() {
   local repository_space="$1"
   MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
@@ -1829,15 +1830,7 @@ else:
         rules = render_rules(value)
 
 prompt = f"""Active reviewer Rules approved for this review:
-{rules}
-
-Apply every active Rule within its stated scope. Use the Rules to decide what to
-inspect; establish every finding and verdict independently from the current
-ticket, parent spec, repository authority, diff, and checks. Report the source
-that proves each finding. Keep ordinary Memory, Working Memory, Thread, worker
-reasoning, worker self-assessment, and the worker's retrieval results outside
-the review evidence. Complete the review only after every applicable Rule has
-been applied and every reported finding has a current source."""
+{rules}"""
 print(json.dumps({"prompt": prompt}, ensure_ascii=False))
 PY
 }
@@ -1952,7 +1945,7 @@ start_one() {
         refuse "could not build the worker Memory packet for #$number"
       task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
         refuse "the worker Memory packet for #$number could not be read"
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES $PIPELINE_FAULT
+      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES
 
 $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
       session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-worker")
@@ -2005,7 +1998,7 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
       remove_worktree "$root" "$cwd" \
         || echo "dispatch: could not remove the worktree for #$number" >&2
     fi
-    refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then start again"
+    refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, then start again"
   fi
 
   # A worker is started by the main agent, so its worktree is filed under the main
@@ -2219,7 +2212,7 @@ resume_one() {
   esac
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
-  echo "dispatch: it is most likely in a turn — wait, then run resume again. A worker that keeps refusing while nothing on its ticket moves is replaced with start $number worker, which stops it through its runner first" >&2
+  echo "dispatch: it is most likely in a turn. End your turn and run resume again on the next wake or watchdog finding about #$number; if that exits 3 again with no ticket event in between, start $number worker replaces the worker, stopping it through its runner first" >&2
   exit 3
 }
 
@@ -2255,9 +2248,16 @@ restart = (f"{start}, or inside the night on #{spec} dispatch.sh advance {spec},
 if by == "ticket.refused":
     reason = (state.get("refused") or {}).get("reason") or "the reason on that event"
     step = f"Fix what the refusal names ({reason}), then {restart}."
-elif by in ("ticket.returned", "ticket.bounced"):
+elif by == "ticket.returned":
     step = ("It is in needs-triage for a person to judge: leave its workspace for triage, and "
             f"once triage puts it back in the agent queue, start it with {restart}.")
+elif by == "ticket.bounced":
+    triage = ("for a person to judge: leave its workspace for triage, and once triage puts it "
+              f"back in the agent queue, start it with {restart}.")
+    step = (f"Read its labels. ready-for-agent means it bounced for the first time in an open "
+            f"night, and the next dispatch.sh advance {spec} starts a worker in its workspace; "
+            f"needs-triage means it is there {triage}" if spec else
+            f"A bounce outside a night puts it in needs-triage {triage}")
 elif by == "ticket.landed":
     look = f"dispatch.sh status {spec}" if spec else f"gh issue view {n}"
     step = (f"Its work is on the base branch: read {look}; a landed ticket that needs more "
@@ -4046,12 +4046,12 @@ finish_preflight() {
   case "$rc" in
     0) ;;
     2) echo "dispatch: could not read #$spec while checking its Retro receipt" >&2; return 2 ;;
-    3) echo "dispatch: #$spec carries no spec.retroed after its latest spec.closed; complete Retro before finish" >&2; return 2 ;;
-    4) echo "dispatch: #$spec's latest spec.retroed carries no result; complete Retro before finish" >&2; return 2 ;;
+    3) echo "dispatch: #$spec carries no spec.retroed after its latest spec.closed; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2 ;;
+    4) echo "dispatch: #$spec's latest spec.retroed carries no result; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2 ;;
     *) echo "dispatch: could not verify #$spec's Retro receipt" >&2; return 2 ;;
   esac
   [ "$retro" = recorded ] \
-    || { echo "dispatch: #$spec's latest spec.retroed result is $retro, not recorded; complete Retro before finish" >&2; return 2; }
+    || { echo "dispatch: #$spec's latest spec.retroed result is $retro, not recorded; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2; }
 
   specs="$(spec_numbers)" || {
     echo "dispatch: could not list specs while checking whether $into is still in use" >&2

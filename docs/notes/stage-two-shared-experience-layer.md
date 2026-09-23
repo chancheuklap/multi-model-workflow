@@ -384,23 +384,9 @@ relay 继续只由 tracker event 唤醒 agent。Memory 不产生 wake，也不�
 
 MMW 组装的 reviewer 开场 packet 不放 worker 或 repository Memory 的检索结果，`code-review` 也不要求 reviewer 主动搜索普通 Memory。需要常驻的 review 方法只以 owner 已批准并编译进 `mmw-reviewer` Context Bundle 的 active Rules 提供；`dispatch.sh` 从 `rule_stack` 取出这些 Rules，保证所有 runner/host 得到相同 review packet。
 
-reviewer 的现有开场句和 autonomous instruction 保持不变，随后原样追加下面的固定模板。每条 active Rule 的 id、title、body、scope 和 source 按 Context Bundle 中 `global → owner → space → agent` 的顺序逐条写入，不重写、不合并、不摘要：
+reviewer 的现有开场句和 autonomous instruction 保持不变，随后追加一行 `Active reviewer Rules approved for this review:` 和 Rule 各行；没有 active Rule 时写 `none`，读不到时写 `unavailable: <reason>`。每条 active Rule 的 id、title、body、scope 和 source 按 Context Bundle 中 `global → owner → space → agent` 的顺序逐条写入，不重写、不合并、不摘要。packet 的原文只在 `mmw-v2/skills/dispatch/scripts/dispatch.sh` 的 `reviewer_rules_packet`；reviewer 如何应用这些 Rules（只在其 scope 内用、每个 finding 与 verdict 由当前证据独立确立、哪些东西不算 review evidence）只写在 `code-review` 的 `references/session.md` `## Active Rules`。
 
-```text
-Active reviewer Rules approved for this review:
-<each active Rule verbatim with id, title, body, scope, and source | none |
-unavailable: reason>
-
-Apply every active Rule within its stated scope. Use the Rules to decide what to
-inspect; establish every finding and verdict independently from the current
-ticket, parent spec, repository authority, diff, and checks. Report the source
-that proves each finding. Keep ordinary Memory, Working Memory, Thread, worker
-reasoning, worker self-assessment, and the worker's retrieval results outside
-the review evidence. Complete the review only after every applicable Rule has
-been applied and every reported finding has a current source.
-```
-
-公开的 Augment、Devin 和 Anthropic 资料没有可复制的 reviewer system prompt，因此这里不声称复刻它们。这个模板只把 Artifact 已定的独立 review evidence 边界和 Nowledge Mem 实际 `rule_stack` 接到 MMW 已有 `code-review` 首次 prompt；review 方法本身仍由现有 `code-review` skill 完整提供。
+公开的 Augment、Devin 和 Anthropic 资料没有可复制的 reviewer system prompt，因此这里不声称复刻它们。这个 packet 只把 Nowledge Mem 实际 `rule_stack` 接到 MMW 已有 `code-review` 首次 prompt；Artifact 已定的独立 review evidence 边界和 review 方法本身由 `code-review` skill 提供。
 
 reviewer 仍独立读取 ticket、spec、repository authority 与 diff，并重新运行它负责的检查。worker Thread、推理、自评和“实现正确”的结论都不进入 reviewer。connector 自动提供的 repository Working Memory 只作宽背景，不能作为 finding 或 verdict 的证据；MMW 自己组装的 review packet 不包含它。需要让以后每次 review 都执行的稳定方法，先由 retro 提议，owner 批准后再成为 active Rule。
 

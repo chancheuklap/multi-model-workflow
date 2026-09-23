@@ -14,7 +14,7 @@ The `models.py config set` command changes one role. Run:
 <models> config set <role> <host> <model> <level>
 ```
 
-Allowed roles are `junior-worker`, `senior-worker`, `reviewer`, and `advisor`. Allowed hosts are `claude`, `codex`, `grok`, `cursor`, and `pi`, subject to what the selected runner can start. `<level>` is the reasoning level, saved as the row's `effort`. The command scans that runner's current catalog and refuses a model or level it does not offer.
+Allowed roles are `junior-worker`, `senior-worker`, `reviewer`, and `advisor`. `<level>` is the reasoning level, saved as the row's `effort`. The command scans the selected runner's current catalog and refuses a model or level it does not offer.
 
 A host that carries the level inside the model instead of taking it as a setting of its own offers model-and-level pairs, each pair set per model in that host's own application; `config set` only selects among the pairs the scan returns, so a level that application has not been given for that model is unavailable until it is added there. `fast` belongs in the model name, not in `effort`. A runner that hands the host its level as a thinking option the host offers only as on or off uses the level for nothing else: `off`, or no level at all, turns thinking off, and every other level turns it on.
 
@@ -26,7 +26,7 @@ Run:
 <models> config runner <runner>
 ```
 
-Saved runner values are `orca`, `herdr`, `paseo`, or `auto`. `start` chooses `MMW_RUNNER` first, then this saved value, then a runner detected from the current process when the saved value is `auto`, then `orca`. The command scans the catalog belonging to the proposed runner and refuses it unless every saved role can still start.
+The command scans the catalog belonging to the proposed runner and refuses it unless every saved role can still start.
 
 Use `<models> config show` to read the current saved object. The next `start` reads it again; no daemon restart or install is required.
 

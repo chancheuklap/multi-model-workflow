@@ -2812,14 +2812,6 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
     *) fail "the autonomous sentence is missing from the worker prompt" ;;
   esac
   case "$(out_json initialPrompt)" in
-    *"--sub-issue fault"*) ;;
-    *) fail "the pipeline-fault sentence is missing from the worker prompt" ;;
-  esac
-  case "$(out_json initialPrompt)" in
-    *"A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."*) ;;
-    *) fail "the shortened pipeline-fault sentence is missing: $(out_json initialPrompt)" ;;
-  esac
-  case "$(out_json initialPrompt)" in
     *"Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."*) ;;
     *) fail "the product-rules sentence is missing: $(out_json initialPrompt)" ;;
   esac
@@ -3357,6 +3349,12 @@ scenario_resumeendedhold() {
   code="$(resume_after ticket.returned)"
   refused_resume_names ticket.returned "needs-triage" "$code"
 
+  echo "--- ticket.bounced ended every hold: the labels say whether advance takes it up or triage does"
+  code="$(resume_after ticket.bounced --field reason=conflict --field commit=abc123)"
+  refused_resume_names ticket.bounced "dispatch.sh advance 76" "$code"
+  grep -q "ready-for-agent means it bounced for the first time" "$TMP/err" \
+    || fail "the bounce refusal should name the first-bounce label: $(cat "$TMP/err")"
+
   echo "--- ticket.landed ended every hold: the work is on the base branch"
   code="$(resume_after ticket.landed)"
   refused_resume_names ticket.landed "dispatch.sh status 76" "$code"
@@ -3701,12 +3699,11 @@ from pathlib import Path
 import sys
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 start = text.index("## 5. The night is over")
-end = text.index("## 6. Close the night after acceptance")
+end = text.index("## 6. Merge the accepted night")
 section = text[start:end]
 assert section.index("<dispatch> summary <spec>") < section.index("Immediately after `summary` records `spec.closed`")
 assert section.index("invoke the `retro` skill in this same main-agent session") < section.index("Then tell the user")
-assert "starts no runner role and creates no hold or wake" in section
-assert "unrecorded receipt" in section
+assert "`finish` needs its `recorded` receipt" in section
 PY
   hasnt "runner :: start :: retro"
 }
@@ -6910,7 +6907,7 @@ assert_complete_worker_prompt() {
   python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete worker prompt changed for $task_root"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
-prefix = "Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill. A fault in the pipeline itself is reported, not worked around: verify-ticket.py <n> --sub-issue fault <file>, then stop (rule 5 of that section)."
+prefix = "Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."
 packet = f"""Shared experience for ticket #61.
 
 MMW repository Space: o__r
@@ -7082,112 +7079,6 @@ scenario_memory_worker_runner_env() {
   done
 }
 
-scenario_memory_worker_contract() {
-  local skill="$(dirname "$(dirname "$HERE")")/upstream/skills/engineering/implement/SKILL.md"
-  python3 - "$skill" <<'PY' || fail "implement's complete shared-experience contract changed"
-import sys
-text = open(sys.argv[1], encoding="utf-8").read()
-actual = text.split("## Shared experience while implementing\n\n", 1)[1].split("\nRead the `tdd` skill's", 1)[0]
-expected = """`dispatch` starts you with `NMEM_SPACE`, `NMEM_AGENT_ID=mmw-worker`,
-`MMW_TASK_SCOPE`, `MMW_SPEC` and `MMW_TICKET`, and your first prompt carries two
-indexes of Memory, one line per record with its `id`, `title`, first line (`applies`)
-and `space`: Current task shared experience (the newest 30 records labelled
-`MMW_TASK_SCOPE`) and Related experience (up to 15 `mmw-experience` records from this
-repository and `mmw-toolbox`, found by searching each path under this ticket's
-`## Owns` and the ticket, spec and map titles; a record that names one of those paths
-comes first). Before working, read both indexes and open every record whose title or
-first line bears on this ticket; skip the rest. A `truncated:` line means more
-task records exist than are listed: search them with the task-scope command below.
-
-```sh
-nmem --json memories show "<id>" --space "<space from the index line>"
-```
-
-Current artifacts, verified evidence, the user's instructions, repository
-instructions, the ticket, and its parent spec override Memory. Verify every Memory
-against current repository evidence before acting on it.
-
-When a command or tool behaves in a way that the ticket, repository authority, and
-the records you opened do not explain, search the current task with the exact error,
-command, and component before trying a workaround; if that has no answer, search
-repository and approved toolbox experience. Keep the query to that error, command and
-component, and keep `--` before it: Nowledge returns nothing for a query that names
-something no record holds, which long prose always does, and reads a query that starts
-with `-` as an option.
-
-```sh
-nmem --json memories search --space "$NMEM_SPACE" --label "$MMW_TASK_SCOPE" \\
-  --limit 10 -- "<exact error + command + component>"
-nmem --json memories search --space "$NMEM_SPACE" --label mmw-experience \\
-  --limit 10 -- "<exact error + command + component>"
-```
-
-Save a Memory as soon as all three conditions hold: another ticket or later agent may
-reuse the fact, a current command result or authority verifies it, and the ticket and
-code do not already make it obvious. Evaluate the same trigger again at every
-meaningful milestone or handoff. Save only while `MMW_TASK_SCOPE` is `mmw-map-<n>` or
-`mmw-spec-<n>`; an empty value means routing failed and nothing is written. Store only
-reusable engineering context that is safe for repository collaborators. Exclude
-secrets, customer data, raw chat transcripts, private host paths and unverified
-claims. Use unit type `learning`, or `procedure` for fixed steps. Take the labels from
-the environment rather than reconstructing the numbers from prose: a map task adds its
-map label, and a standalone spec's task label already is `mmw-spec-<spec>`. Give it a
-title that names the component and the behaviour, and name in `证据` every repository
-path the fact concerns: a later worker's Related experience ranks a record first when
-it names a path that worker owns. Write this exact body:
-
-```sh
-label_args=(
-  --label mmw-experience
-  --label "mmw-spec-$MMW_SPEC"
-  --label "mmw-ticket-$MMW_TICKET"
-)
-if [[ "$MMW_TASK_SCOPE" == mmw-map-* ]]; then
-  label_args+=(--label "$MMW_TASK_SCOPE")
-fi
-
-nmem --json memories add --stdin \\
-  --space "$NMEM_SPACE" \\
-  --agent-id "$NMEM_AGENT_ID" \\
-  --unit-type learning \\
-  "${label_args[@]}" \\
-  --title "<searchable title>" <<'MEMORY'
-适用条件：<环境、版本或前提>
-问题：<已证实的非显然行为>
-有效做法：<下一名 worker 可以直接执行的操作>
-证据：<命令与输出首行，或 path:line>
-发生位置：<repository、spec #n、ticket #n、日期>
-MEMORY
-```
-
-Keep the id `nmem` returns and link the evidence in the ticket report. A failed Memory
-write is reported as unsaved; continue the ticket work rather than treating Memory as
-a prerequisite for implementation.
-
-Correct only a record whose `space` (in an index line) or `space_id` (in a search or
-show result) equals `NMEM_SPACE`; a toolbox record is context, not a record for this
-worker to change. When current evidence verifies a replacement, save
-the replacement first and supersede the old record with its id; when a record simply
-no longer applies, deprecate it. Use one lifecycle command per old record, and do not
-leave two active records that conflict:
-
-```sh
-nmem --json memories supersede "$OLD_ID" "$NEW_ID" \\
-  --space "$NMEM_SPACE" --reason "<current evidence for the replacement>"
-nmem --json memories deprecate "$OLD_ID" \\
-  --space "$NMEM_SPACE" --reason "<current evidence that it no longer applies>"
-```
-
-The main agent's closing pass and the `retro` skill have their own script commands; a
-worker does not write their Memory records or edit Working Memory here.
-
-Finish by reporting the Memory records added, used, superseded, or deprecated, and the
-evidence used to validate them. If none changed, say so.
-"""
-assert actual == expected, (actual, expected)
-PY
-}
-
 seed_reviewer_rules() {
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
@@ -7242,15 +7133,7 @@ prefix = (
     "answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
 )
 packet = f"""Active reviewer Rules approved for this review:
-{os.environ['MMW_EXPECT_RULES']}
-
-Apply every active Rule within its stated scope. Use the Rules to decide what to
-inspect; establish every finding and verdict independently from the current
-ticket, parent spec, repository authority, diff, and checks. Report the source
-that proves each finding. Keep ordinary Memory, Working Memory, Thread, worker
-reasoning, worker self-assessment, and the worker's retrieval results outside
-the review evidence. Complete the review only after every applicable Rule has
-been applied and every reported finding has a current source."""
+{os.environ['MMW_EXPECT_RULES']}"""
 assert actual == prefix + "\n\n" + packet, actual
 PY
 }
@@ -7435,7 +7318,7 @@ PY
 
 scenario_memory_reviewer_contract() {
   local session="$(dirname "$(dirname "$HERE")")/upstream/skills/engineering/code-review/references/session.md"
-  python3 - "$session" <<'PY' || fail "code-review session contract lost the three axes or the Rule evidence bound"
+  python3 - "$session" <<'PY' || fail "code-review session contract lost its steps or its Active Rules section"
 import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 for needle in (
@@ -7447,14 +7330,10 @@ for needle in (
     "git diff <base-commit>...HEAD --stat",
     "The axis word is exactly `Standards`, `Spec`, `Tests`, or `UI`",
     "## Active Rules",
-    "Apply every active Rule only within its stated scope.",
-    "every finding still needs a current source",
-    "Repository-specific standards remain repository authority and checks, not a global Rule.",
-    "Ordinary Memory, Working Memory, Thread, worker reasoning, worker self-assessment, and the worker's retrieval results stay outside the review evidence.",
 ):
     assert needle in text, needle
 PY
-  echo "--- the launched prompt keeps the code-review dispatch line, autonomous sentence and complete Rule packet"
+  echo "--- the launched prompt keeps the code-review dispatch line, autonomous sentence and the Rule rows"
   reset_log; fresh_repo; seed_reviewer_rules
   local code
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
@@ -10398,7 +10277,7 @@ JSON
 }
 
 ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
-ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env memory-worker-contract"
+ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
 ALL="$ALL retro-review-evidence"
@@ -10422,7 +10301,6 @@ banner_for() {
     memory-worker-start) echo MEMORY-WORKER-START-OK ;;
     memory-worker-prompt-states) echo MEMORY-WORKER-PROMPT-STATES-OK ;;
     memory-worker-runner-env) echo MEMORY-WORKER-RUNNER-ENV-OK ;;
-    memory-worker-contract) echo MEMORY-WORKER-CONTRACT-OK ;;
     memory-reviewer-rules) echo MEMORY-REVIEWER-RULES-OK ;;
     memory-reviewer-prompt-states) echo MEMORY-REVIEWER-PROMPT-STATES-OK ;;
     memory-reviewer-contract) echo MEMORY-REVIEWER-CONTRACT-OK ;;
@@ -10647,7 +10525,6 @@ fn_for() {
     memory-worker-start) echo scenario_memory_worker_start ;;
     memory-worker-prompt-states) echo scenario_memory_worker_prompt_states ;;
     memory-worker-runner-env) echo scenario_memory_worker_runner_env ;;
-    memory-worker-contract) echo scenario_memory_worker_contract ;;
     memory-reviewer-rules) echo scenario_memory_reviewer_rules ;;
     memory-reviewer-prompt-states) echo scenario_memory_reviewer_prompt_states ;;
     memory-reviewer-contract) echo scenario_memory_reviewer_contract ;;

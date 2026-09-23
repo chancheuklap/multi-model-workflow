@@ -30,18 +30,14 @@ A **night** is one run of a spec's published tickets under one main agent, from 
 | 3 | starting one worker on one ticket, outside any night | [references/one-ticket.md](references/one-ticket.md) |
 | 4 | changing which host, model or `effort` an agent runs on, or which runner the night runs on | [references/editing-models.md](references/editing-models.md) |
 | 5 | a command's behaviour surprised you, or you are changing the relay, watchdog or turn guard | [references/how-it-works.md](references/how-it-works.md) |
-| 6 | opening the local task board | [Open the task board](#open-the-task-board) |
-
-## Open the task board
-
-Run `<dispatch> board` from any checkout or worktree of the consuming repository. It registers the main checkout in `MMW_HOME/boards.json`, reuses that repository's fixed local port, and starts the task board if it is not already answering. Opening a night, and `open-ticket` for one ticket outside a night, do the registering and starting by themselves and print the URL; this command is what opens the board in front of somebody, and what starts it when no night is open. The selected runner's adapter opens the URL in the current worktree when it implements `open-url`; otherwise the command prints the exact local URL for you to open. Exit 0 means the tab was opened or the URL was printed. Exit 2 means setup or startup was refused, with the reason on stderr.
+| 6 | opening the local task board | [references/task-board.md](references/task-board.md) |
 
 ## On waking
 
 1. A wake can cut short a command you were running. Run that command again first.
 2. Read what the wake names on the ticket: the event is the answer, and the wake carries nothing the tracker does not. `<dispatch> wait <n> <kind>` prints a result event by name and key fields (`reviewer.reported base=<commit> head=<commit>`) in one line, reading the ticket and nothing else. It is a read, not the way you learn a result.
-3. Act on it, as your moment's file says.
-4. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one). Until you ack it, the relay sends the same wake again each time it restarts. Exit `0`: that wake is acked — the relay removes it, and every earlier wake it sent this session, from the wake queue. Exit `2`: nothing was acked: this session cannot name itself (its runner's reason is on stderr), or no wake with that ticket and event is queued for this session — acked already, sent to another session, or never queued — and stderr lists the wakes that are queued for it (check the number and the event name against the wake you read).
+3. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts. Exit `0`: that wake is acked — the relay removes it, and every earlier wake it sent this session, from the wake queue. Exit `2`: nothing was acked: this session cannot name itself (its runner's reason is on stderr), or no wake with that ticket and event is queued for this session — acked already, sent to another session, or never queued — and stderr lists the wakes that are queued for it (check the number and the event name against the wake you read).
+4. Act on it, as your moment's file says.
 
 ## The arguments you supply
 
