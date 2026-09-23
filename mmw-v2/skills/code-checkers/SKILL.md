@@ -41,11 +41,19 @@ Upgrading is then one deliberate act: bump, run everything, absorb the changes i
 
 ## Steps
 
-1. **Count the files per language** — `find . -name '*.py' -not -path '*/.venv/*' | wc -l` and the same per extension. A language with a handful of files does not need a checker.
+1. **Count the files per language.** A language with a handful of files does not need a checker.
 2. **Add each tool to the project manifest** and install (`uv sync`, `pnpm install`). Never globally.
 3. **Configure** — per-language detail in the reference files. Configure before looking at the error count: most of a first run is misconfiguration, not debt.
-4. **Reduce a first run to real findings** — [references/first-run.md](references/first-run.md).
-5. **Probe every checker** — [references/probing.md](references/probing.md). A checker that reports zero because it never ran is worse than none.
+4. **Reduce a first run to real findings.** A first run on an existing codebase reports thousands. Almost none of it is worth a human's attention, and reading it in the order the tool printed it is how the whole effort gets abandoned. Separate it in this order:
+
+   1. **Misconfiguration.** Import roots the checker cannot resolve, dependencies absent by design on this platform, framework idioms the rule was not written for. This is usually most of the count. Fix the config, not the code — and exempt precisely: a framework's specific calls, not the whole rule.
+   2. **Machine-fixable.** Run the fixer. Import order, dead suppressions, obsolete syntax — the diff is large and needs no reading.
+   3. **The formatter, by one rule.** A repository with no open branches and no tickets in flight gets one commit that reformats every file; add that commit's hash to `.git-blame-ignore-revs`. Any other repository formats newly added files only: reformatting an existing file collides with every open branch that touches it.
+   4. **What's left is the real backlog — and it must never block a commit.** A checker that reports a file's existing problems every time someone edits one line of it has one outcome: everybody starts passing `--no-verify`, and the checker no longer checks anything. Two mechanisms, depending on what the tool offers:
+
+      - **A checker baseline**, when the tool has one (type checkers usually do). Existing errors go in it and stay quiet; anything new is reported from day one. Commit the baseline — it belongs to the branch like the config does. Prefer this over the tool's bulk-suppress command, which writes an ignore comment at every site: thousands of lines of source noise to say nothing.
+      - **Filter to the changed lines**, when it does not. Run the linter with JSON output, intersect its line numbers with `git diff --unified=0`, report only the overlap. Two traps: the linter reports absolute paths while git reports repository-relative ones, so normalise before comparing; and untracked files appear in no diff at all, so pull them in separately and treat every line as new.
+5. **Probe every checker.** A checker that never ran reports the same zero as a clean repository. For each one, write a file that must fail, run the checker on it, confirm it fails, delete it: a new type error in a new file for a type checker with a baseline (the baseline must not cover it); a floating promise, or anything else undecidable without type information, for a type-aware linter; an unclosed tag and an image without alt text for a template linter; a badly formatted file that `--check` rejects for a formatter. Report each checker's count and its probe result.
    Done when every checker reported a planted defect.
 6. **Write one entry point** that runs them all, reporting only, with a flag for the fixes that are safe to apply. Keep per-checker output to its summary line; a failing step prints its tail and the command to re-run for the full output.
 7. **Run them at commit time** — [references/git-hooks.md](references/git-hooks.md). Wire this even when per-agent automation is out of scope, because it is not per-agent.

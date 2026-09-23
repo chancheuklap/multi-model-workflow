@@ -24,8 +24,6 @@ Each item is work in the product repository, and the agent adding the product wr
 | A committed frontend lockfile | this package's dependencies are not the ones the repository records |
 | An `.ico` per window the product shows | a default icon on a paid product |
 
-Two facts about the build machine — which machine, and which folder on it — go in `remote-build.json` next to the release manifest. [driving.md](driving.md) covers it.
-
 ### The self-check module
 
 The only thing standing between a missing dynamic dependency and a customer finding it. It is a module that imports everything the app needs before it can serve its first request, and returns:
@@ -61,6 +59,30 @@ Give `extraResources` a filter that drops the business packages, `__pycache__`, 
 `win.artifactName` in `electron-builder.yml` decides the installer's filename; the release manifest's `installer_glob` is where the build looks for it afterwards and where the release engine collects it from. Disagree, and the build reports success while nothing is delivered.
 
 A product whose installer needs semantics electron-builder's generic NSIS cannot express — carrying the VC++ runtime, stamping an app id, keeping user data on uninstall — writes its own `nsis.include` script, or takes over the whole step with `"installer": "repo_hook"`.
+
+## Remote build machine
+
+A product that builds on another machine needs two facts: which machine, and which folder on it. The release engine takes them from `RELEASE_REMOTE_HOST` and `RELEASE_REMOTE_ROOT`, and when either is empty it falls back to `remote-build.json` sitting next to that product's `.release-adapter.json`:
+
+```json
+{
+  "host": "<build machine>",
+  "root": "D:/<a folder on it>",
+  "delivery_root": "D:/<where packages are kept>",
+  "cache_root": "D:/<where toolchain caches live>",
+  "build_env": {"UV_INDEX_URL": "<a mirror that is reachable from there>"}
+}
+```
+
+Everything after `root` is optional, and each says something only that machine knows.
+
+`delivery_root` is where finished installers are gathered; without it the release engine uses `<root>-delivered`. Set it when that machine already keeps packages somewhere, so they do not land in a second place.
+
+`cache_root` is where uv, Nuitka, zig, ccache, pnpm and Electron keep their caches; without it the release engine uses `<root>-cache`. Left to themselves those six write under `%LOCALAPPDATA%` on the system drive, which fills until a disk check stops the release. Point several products at one folder and they share the downloads; the caches are content-addressed, so a second copy buys nothing. It has to be a folder the build survives, not one inside the build directory: a successful build deletes that directory, and a cache that dies each round is not a cache.
+
+`build_env` is applied before anything else runs — mirrors that are reachable from that machine, where ccache is installed. Anything named here wins over what the release engine would have chosen, including the cache directories.
+
+Missing in both places is a `PAUSED:needs-context` you can often close yourself: the release engine's log names the variable. Write the file so the next run does not stop here again. The environment variables win over the file — that is how a one-off switch to another machine is done.
 
 ## Coming from existing packaging scripts
 

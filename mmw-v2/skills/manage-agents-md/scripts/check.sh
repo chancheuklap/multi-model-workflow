@@ -42,7 +42,6 @@ if [ "$mode" = list ]; then
 fi
 
 # 6. No AGENTS.override.md anywhere.
-# (Checks are numbered as in the skill's references/verify.md, not in file order.)
 while IFS= read -r f; do
   [ -n "$f" ] && fail "$(rel "$f"): AGENTS.override.md must be renamed to AGENTS.md"
 done < <(find_files AGENTS.override.md)
