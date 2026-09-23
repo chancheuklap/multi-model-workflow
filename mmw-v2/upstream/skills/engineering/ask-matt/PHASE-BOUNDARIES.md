@@ -28,7 +28,7 @@ The cost of getting this wrong is one-way. Clear a *relevant* context and you lo
 
 **3. Do you need to hand off?** The `handoff` skill is narrow. You need it only when you are:
 
-- swapping to a **new host** (Claude → Codex),
+- swapping to a **new host**,
 - moving to a **new directory** or repo,
 - sending the work to a **colleague**,
 - or forking a side task you found **mid-phase** without derailing what you're doing.

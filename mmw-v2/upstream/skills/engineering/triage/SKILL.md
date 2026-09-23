@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and record what the evaluation established. Use when issues or external PRs you did not create are waiting to be judged. Not for tickets this repository's own pipeline produced, which are already agent-ready.
+description: Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and record what the evaluation established. Use when issues or external PRs you did not create are waiting to be judged, or a ticket this repository's pipeline handed back to `needs-triage`.
 ---
 
 # Triage
@@ -37,7 +37,7 @@ Five **state** roles:
 
 For a PR, the same states read against the attached code: `ready-for-agent` means the next step on the diff belongs to an agent and goes through the ticket pipeline below; `ready-for-human` means it's ready for a human to merge.
 
-Every triaged issue should carry exactly one category role and one state role. The exception is work this repo plans for itself — a spec's tickets, a decision ticket — which carries a state role and no category; see `docs/agents/triage-labels.md`. If state roles conflict, flag it and ask the maintainer before doing anything else.
+Every triaged issue should carry exactly one category role and one state role. Work this repo plans for itself carries no category role: a spec's tickets carry a state role; a map, a spec and a decision ticket carry none and are not triaged. See `docs/agents/triage-labels.md`. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
 These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
 
@@ -76,7 +76,7 @@ Read the ticket's event trail instead of reproducing from a reporter's steps, an
 
 2. **Recommend.** Tell the maintainer your category and state recommendation with reasoning, plus a brief codebase summary relevant to the request (including whether it's already implemented). Wait for direction.
 
-3. **Verify the claim.** Before any grilling, check that the claim holds up. For a bug, reproduce it from the reporter's steps. For a PR, confirm the diff does what it claims: check it out, run the relevant tests or commands. Report what happened: confirmed (with code path), failed, or insufficient detail (a strong `needs-info` signal). A confirmed verification makes a much stronger brief.
+3. **Verify the claim.** Before any grilling, check that the claim holds up. For a bug, reproduce it from the reporter's steps. For a PR, confirm the diff does what it claims: check it out, run the relevant tests or commands. Report what happened: confirmed (with code path), failed, or insufficient detail (a strong `needs-info` signal). A confirmed verification makes a much stronger agent brief.
 
 4. **Grill (if needed).** If the request needs fleshing out, read the `grilling` and `domain-modeling` skills' `SKILL.md` and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
 
@@ -90,6 +90,8 @@ Read the ticket's event trail instead of reproducing from a reporter's steps, an
      | New work in this batch, belonging to no existing ticket | the `dispatch` skill's `route <ticket> <m> became-ticket <m>` (`<ticket>` is the ticket whose `child.opened` names `<m>`), which moves `<m>` under the spec, swaps its layer label `mmw:child` for `mmw:ticket`, and records the route on the ticket it came from; fill every section of `<issue-template>` (in `to-tickets`); the `verify-ticket` skill's `--lint <m>` passes; from then it is a ticket |
      | A toolbox problem found in a consuming repository | `gh issue transfer <m> chancheuklap/multi-model-workflow`; the parent–child link breaks on transfer; origin remains the body's first line |
 
+     When the issue is itself a ticket the pipeline handed back (the section above), swap its `needs-triage` for `ready-for-agent`. The next `advance` on its spec (the `dispatch` skill) gives back the pipeline's claim on it and starts a worker on it once its blockers have landed.
+
      When the issue is work from outside, route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's step for revising a published spec, citing this issue as a source, then cut tickets from that spec with the `to-tickets` skill, which labels them `ready-for-agent` there in the shape `<issue-template>` defines and `verify-ticket.py` can read. The label goes on those tickets, not on this issue, and the spec's publish step closes this issue attached under the spec.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label — **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
    - `needs-info`: post triage notes (template below).
@@ -97,7 +99,6 @@ Read the ticket's event trail instead of reproducing from a reporter's steps, an
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
-   - `needs-triage`: apply the role. Optional comment if there's partial progress.
 
 ## Quick state override
 
