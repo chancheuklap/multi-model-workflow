@@ -1,6 +1,6 @@
 # Closing the ticket out
 
-`<engine>` is resolved once, the way this skill's `SKILL.md` says under `## Resolve `<engine>` once`.
+`<engine>` is resolved in this skill's `SKILL.md`.
 
 The work is committed and the ticket's last events are being written. Four runs belong to this moment.
 
@@ -10,7 +10,7 @@ The work is committed and the ticket's last events are being written. Four runs 
 <engine> <n> --decisions <file>
 ```
 
-It lands a `worker.decided` event, a comment whose first line is `DECISIONS`. The file is two sections and no others: `Decisions I made on my own` — every such line written so far, one per line, in the shape the closing comment uses — and `Outside Owns` — the `Outside Owns:` line of your newest own run (its `ticket.checked` event, run `self`), followed by one sentence per file saying which criterion could not pass without it; `None` when that line is `None`. A file whose line does not match that run is refused with the line the run gives, and a ticket with no run of your own yet is refused. A ticket keeps one such comment and no more: a second run is refused with `#<n> already carries a DECISIONS comment` and posts nothing. A missing or extra section is refused the same way, with the section named on stderr.
+It lands a `worker.decided` event, a comment whose first line is `DECISIONS`. The file is two sections and no others, each opened by its `## ` heading: `## Decisions I made on my own` — every such line written so far, one per line, in the shape the closing comment uses — and `## Outside Owns` — the `Outside Owns:` line of your newest own run (its `ticket.checked` event, run `self`), followed by one sentence per file saying which criterion could not pass without it; `None` when that line is `None`. A file whose line does not match that run is refused with the line the run gives, and a ticket with no run of your own yet is refused. A ticket keeps one such comment and no more: a second run is refused with `#<n> already carries a DECISIONS comment` and posts nothing. A missing or extra section is refused the same way, with the section named on stderr.
 
 ## `--touched`
 
@@ -36,7 +36,7 @@ Nothing lands on the ticket. The closing-comment skeleton is written to a file o
 <engine> <n> --closeout <draft>
 ```
 
-The draft's first line decides what this run does. For an `ALL MET` draft it pushes the final-run commit to `origin/issue-<n>` without force, confirms the remote branch names that commit, takes `ready-for-agent` off, closes the ticket, and then posts the draft as the `ticket.passed` event. A rejected or unconfirmed push leaves the ticket open and says why.
+The draft's first line decides what this run does. For an `ALL MET` draft it pushes the final-run commit to `origin/issue-<n>` without force, confirms the remote branch names that commit, closes the ticket, takes `ready-for-agent` and your claim off, and then posts the draft as the `ticket.passed` event. A rejected or unconfirmed push leaves the ticket open and says why.
 
 A draft whose first line is `HANDOFF REQUIRED` swaps `ready-for-agent` for `needs-triage`, leaving the ticket open to be judged fresh, and then posts as the `ticket.returned` event, carrying each `ABANDON:` line.
 

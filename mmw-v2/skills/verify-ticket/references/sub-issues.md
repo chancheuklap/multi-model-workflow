@@ -1,8 +1,6 @@
 # Cutting something out of a ticket
 
-## Resolve `<engine>` once
-
-`<engine>` is `scripts/verify-ticket.py`, resolved from this skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says.
+`<engine>` is resolved in this skill's `SKILL.md`.
 
 ## When something has to leave this ticket
 
@@ -18,7 +16,7 @@ Ask these questions in order. The first yes decides the kind.
 
 | Order | Question | Kind | Not this kind |
 | --- | --- | --- | --- |
-| 1 | Is the pipeline itself broken: a script, hook, driver or the target contract? | `fault` | A stale product process occupies a port and can be removed as an environment repair. |
+| 1 | Is the pipeline itself broken: `verify-ticket.py`, `dispatch.sh`, a judge script, `lease.py`, a hook, `.mmw/target.json`? | `fault` | A stale product process occupies a port and can be removed as an environment repair. |
 | 2 | Does something this ticket was told to follow fail to hold: a baseline, a `## Parent` spec section or an acceptance criterion lacks a state, field or case, or contradicts another such source? | `contract` | Those sources are clear and this ticket's implementation is wrong; fix it in this ticket. |
 | 3 | Do the sources say nothing, while multiple defensible readings would produce observably different outcomes? | `decision`, with the default taken | An internal name or data structure whose alternatives have no observable difference; decide it and record it in `DECISIONS`. |
 | 4 | Is it a defect from the review report outside this ticket's `## Owns`? | `finding` | It is inside `## Owns`; fix it in this ticket. |
@@ -34,9 +32,9 @@ A kind is named for who can answer the child, not for where it came from:
 | `contract` | the worker | something this ticket was told to follow does not hold: a baseline under `## Read first`, a spec section named by `## Parent`, or an acceptance criterion lacks a state, field or case, or contradicts another such source; or a criterion needs a file that a ticket able to run beside this one owns. Its body quotes what does not hold and states what in the same source still holds and must be preserved | back to whoever wrote the failing layer; never changed quietly and worked on |
 | `deferred` | the worker | work outside `## Owns` seen here that was merely convenient to change, and left alone on purpose | a later ticket |
 | `decision` | the worker | a choice only a person can make; the worker carries on with the default | the user |
-| `fault` | the worker or the main agent | the pipeline itself is broken — a script, a hook, the driver, the target contract | the user, to fix the pipeline. The agent that opens it stops where it is |
+| `fault` | the worker or the main agent | the pipeline itself is broken — `verify-ticket.py`, `dispatch.sh`, a judge script, `lease.py`, a hook, `.mmw/target.json` | the user, to fix the pipeline. The agent that opens it stops where it is |
 
-An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that brings the ticket to rest. The relay of the `dispatch` skill wakes the main agent with `#<n> child.opened` for a `contract`, `fault` or `decision`.
+An empty file, or a kind that is not one of the five, is refused and nothing is opened. A repository that lacks the `mmw:child` label and will not let it be created is refused the same way. `fault` is the one kind that stops the ticket's work. The relay of the `dispatch` skill wakes the main agent with `#<n> child.opened` for a `contract`, `fault` or `decision`.
 
 A reviewer reports a pipeline failure through its review report, which wakes the worker that started it. A `fault` child would wake only the main agent and leave that worker asleep.
 

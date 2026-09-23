@@ -4,6 +4,10 @@ You are the reviewer session. You write the axis reports onto one ticket. On a h
 
 The caller gives you two values: the base commit the diff starts from, and the ticket number.
 
+## Resolve `<engine>` once
+
+`<engine>` in step 5 is the command the `verify-ticket` skill resolves in its own `SKILL.md`. Resolve it from that skill's `SKILL.md`; the path differs by machine and by host.
+
 ## 1. Pin the diff
 
 ```sh
@@ -28,7 +32,7 @@ On a host that can run subagents, that start is one message, one call per axis y
 Use the code-review skill to review ticket #<ticket> from base commit <base commit>, axis Standards.
 ```
 
-Nothing else: the skill is what they read, and the axis word is which door they take. The UI prompt is the same sentence with `axis UI`.
+Nothing else: the skill is what they read, and the axis word picks their row in the skill's table. The UI prompt is the same sentence with `axis UI`.
 
 **Hold this turn until every axis you started has reported.** On a host whose subagents run in the background unless told otherwise, ask for them to be waited on. The worker that started you is asleep on your report, and what wakes it is the call in step 5 — which cannot be made until the report exists.
 
@@ -36,15 +40,15 @@ Nothing else: the skill is what they read, and the axis word is which door they 
 
 Once every axis has reported — and not before — verify each finding at the cited file and line, ahead of any sorting.
 
-At the cited file and line, does the bad outcome the reviewer describes actually occur? Read beyond the changed lines — follow callers, guards upstream, etc — until you can answer yes or no. A different finding about nearby code does not settle this one. Judge whether the problem is real, not whether the proposed fix is plausible. Code that loudly fails on a situation you never showed the program can reach is correct behavior, not a defect.
+At the cited file and line, does the bad outcome the axis describes actually occur? Read beyond the changed lines — follow callers, guards upstream, etc — until you can answer yes or no. A different finding about nearby code does not settle this one. Judge whether the problem is real, not whether the proposed fix is plausible. Code that loudly fails on a situation you never showed the program can reach is correct behavior, not a defect.
 
 Render exactly one conclusion:
 
 - Holds: the bad outcome does occur at the cited location.
-- `false` — you checked, and the bad outcome does not happen at the cited location. Write what disproves this specific claim. A true fact about nearby code that does not disprove the claim does not count.
+- `refuted` — you checked, and the bad outcome does not happen at the cited location. Write what disproves this specific claim. A true fact about nearby code that does not disprove the claim does not count.
 - Could not tell: the diff and surrounding code leave the question open. Sort it as usual and end the line with `unverified: <what would settle it>`.
 
-`false` findings go under `## Withdrawn`, each with its refutation. Findings that hold and findings you could not tell go on to step 4.
+`refuted` findings go under `## Withdrawn`, each with its refutation. Findings that hold and findings you could not tell go on to step 4.
 
 You do not assign severity, and you do not drop a finding because the fix looks large.
 
@@ -65,7 +69,7 @@ The Tests axis splits on one question — is the test case the review finding na
 
 ## 5. Write one review comment on the ticket
 
-Write the report to a file, then hand that file to the `verify-ticket` skill's engine, resolving `<engine>` from that skill's own `SKILL.md`:
+Write the report to a file, then hand that file to the `verify-ticket` skill's engine:
 
 ```sh
 <engine> <ticket> --review <file>
@@ -79,13 +83,15 @@ The review comment's first line is fixed:
 REVIEW <base commit>..<HEAD commit>
 ```
 
-Then the axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order, and `## UI` when that axis ran. Then `## Withdrawn`, each `false` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Both `## In-ticket` and `## Out-of-ticket` use this exact shape for every finding:
+Then the axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order, and `## UI` when that axis ran. Then `## Withdrawn`, each `refuted` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Both `## In-ticket` and `## Out-of-ticket` use this exact shape for every finding:
 
 ```
 - <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>
 ```
 
 Use the narrowest category already defined by that axis. Standards uses `documented-standard`, `less-code`, `pass-through`, or the original smell name from its smell baseline. Spec uses `Missing`, `Scope creep`, or `Built wrong`. Tests uses `Tautological`, `Implementation-coupled`, `Verified through a side channel`, `Named for the how, not the what`, `Over-mocked`, or `Only the happy path`. UI uses `undecorated`, `overall-look`, or `design-page`.
+
+A finding with no code location of its own (a `Missing`, a `should not` on a line of `Decisions I made on my own`) cites the `## Owns` file its fix would land in, as `<path>:1`.
 
 The source is the current URL, `path:line`, or `CHECK` evidence that proves the finding. When you could not tell, append `unverified: <what would settle it>` at the end of the same line. An empty list says `None`.
 

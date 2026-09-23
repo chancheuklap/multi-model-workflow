@@ -1,6 +1,6 @@
 ---
 name: verify-ticket
-description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use before you touch a ticket, once the code is written, when you are closing it out, when something has to be cut out of it, when you are handing back a report on it, and when a batch is about to be published.
+description: Run one ticket's acceptance criteria, and close the ticket when they pass. Use before you touch a ticket, once the code is written, when you are closing it out, when something has to be cut out of it, when you are posting a review report on it, and when a batch is about to be published.
 ---
 
 # Verify ticket
@@ -32,7 +32,7 @@ A criterion names a judge by its bare name (`story-parity.py …`, `boundary-che
 | The **reviewer**, with the report written to a file | [references/review-report.md](references/review-report.md) |
 | About to publish a batch (its drafts), having published one, or opening a night on a spec | [references/linting.md](references/linting.md) |
 
-What a run posts on the ticket is the whole of telling: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue` of kind `contract`, `fault` or `decision`, and the worker for a `--review`. A comment that lands is therefore a comment its reader hears about, whatever the run did after posting it.
+What a run posts on the ticket is how the waiting session learns of it: the relay of the `dispatch` skill reads the event there and wakes the session waiting on it — the main agent for a `--closeout` either way, a `--preflight` that refuses and a `--sub-issue` of kind `contract`, `fault` or `decision`, and the worker for a `--review`. A comment that lands therefore wakes its reader, whatever the run did after posting it.
 
 ## Reached from here
 
