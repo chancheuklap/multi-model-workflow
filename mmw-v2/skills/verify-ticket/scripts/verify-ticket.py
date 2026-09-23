@@ -69,11 +69,11 @@ CLASS_SPEC = "mmw:spec"
 # The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
 # A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
-# is not one: it starts the story page service, which has no backend behind it and takes
+# is not one: it starts the story service, which has no backend behind it and takes
 # a port of its own.
 PRODUCT_JUDGES = ("journey.py", "lease.py")
 # Criteria whose CHECK names one of these are left off the claim-time baseline run:
-# they start the product or the story page service. Recorded on the event as `skipped`.
+# they start the product or the story service. Recorded on the event as `skipped`.
 BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
 # How long a reverify waits for a product slot before it hands back exit 3, and how often
 # it asks again in between. The bound stays under the time a host lets a command run
