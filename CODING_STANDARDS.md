@@ -1,0 +1,18 @@
+# Coding standards
+
+How code in this repository is written. The reviewer's Standards axis applies these rules; a ticket carries the ones that shape its work. Where the landing pipeline's terms come from, see `CONTEXT-MAP.md`.
+
+## Skills and scripts
+
+- A skill directory `mmw-v2/skills/<name>/` is symlinked whole into every host, so it holds only what the agent holding the skill reads or runs: `SKILL.md`, reference files, `scripts/<…>`.
+- A script finds its neighbours from its own resolved location. The only absolute paths it names are fixed user-level locations (`~/.mmw`, `~/.agents/skills`, `~/.claude/skills`) and paths the run made itself with `mktemp`, never a fixed name under `/tmp`.
+- A runner's own commands live only in its adapter `mmw-v2/skills/dispatch/scripts/runners/<runner>.sh`, whose `# MMW_USES:` header is the authoritative list of what it calls. The selected runner is whatever `models.py runner` selects (its last step is a default).
+- Every refusal has the three parts `refusal.py` builds: what happened, with one checkable fact; why; what to do next. A check that could verify nothing says so instead of reading like a pass (ADR 0008). Script headers record dated, version-pinned measurements from real runs (each host's hook payload, each runner's liveness tolerance) rather than claims from documentation.
+
+## State and configuration
+
+- Which host, model and reasoning effort each agent runs on is written only in `~/.mmw/models.json` (under `MMW_HOME` when set), through `models.py config`; the task board writes the same file, under the same lock, with the same atomic replace. The first `install.sh` writes the defaults and later runs leave an existing JSON alone. `mmw-v2/skills/dispatch/hosts.json` records how each host starts and the first-install defaults, never the current selection. Neither file ever sits in a consuming repository. `dispatch.sh` resolves the row through `models.py` and hands it to the selected runner's adapter.
+- `~/.mmw` holds two more things: `boards.json` (each consuming repository's main-checkout path → its task board's fixed port; `dispatch.sh board` writes it, `supervisor.py` reads it) and `state/<owner>__<name>/` (one 0700 directory per repository holding every file the relay, the watchdog and the turn guard keep, and not one byte of ticket state). The canonical reader of `MMW_HOME` is `home()` in `statedir.py`.
+- A ticket's state is the fold of the `<!-- mmw {...} -->` blocks in its comments, in comment-id order. Every event is posted by a script; a model types none. Agents wake each other through the relay, which turns ticket events into wakes: nobody polls, and the night has no clock.
+- Landing is done on `origin/<base branch>`: `advance`, `land` and `reverify` merge, check and fast-forward push inside the persistent detached worktree `.worktrees/merge-<branch>`; a conflict or a red check becomes `ticket.bounced` for triage and leaves the base branch untouched. The base branch is cut from a project branch recorded in `spec.opened.project`; after the user accepts the night, `dispatch.sh finish <spec>` merges it back. Merging into the repository's default branch is not MMW's job.
+- The `nowledge-mem` entry in `~/.cursor/mcp.json` belongs to `install.sh`: its content comes from `nmem config mcp show --host cursor` with the `type` field removed, because `cursor-agent` reads only `url` and `headers` and skips the whole server when `type` is present (the symptom: a worker silently without memory tools). Other servers in the file are left as they are; a hand edit of this entry is overwritten at the next install and reported by `--check` first.
