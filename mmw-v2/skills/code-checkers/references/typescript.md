@@ -8,10 +8,12 @@ pnpm add -D oxlint oxlint-tsgolint
 
 ```json
 "devDependencies": {
-  "oxlint": "^1.80.0",
-  "oxlint-tsgolint": "7.0.2001"
+  "oxlint": "^<current>",
+  "oxlint-tsgolint": "<matching>"
 }
 ```
+
+`<current>` is the release `pnpm view oxlint version` prints. `<matching>` is the newest `oxlint-tsgolint` release built for the TypeScript version the repo builds with, from `pnpm view oxlint-tsgolint versions`.
 
 **Pin `oxlint-tsgolint` exactly.** Its version encodes the TypeScript it embeds — `7.0.2001` is patch 1 for TypeScript `7.0.2` — so a range drifts off the compiler the repo builds with. `oxlint` itself only gains diagnostics, so a range is fine.
 

@@ -1,6 +1,6 @@
 ---
 name: code-checkers
-description: Install and configure a repository's code checkers — linter, formatter, type checker — so their versions travel with the branch instead of the machine. Use when a repo has none, when a language is added to one that does, when a checker it uses was superseded (pyright, eslint, tsc --noEmit, black, isort), or when commits should run them through a pre-commit hook.
+description: A repository's linter, formatter and type checker. Use when a repository has none, when a language is added to one that has them, when a checker it uses was superseded (pyright, eslint, tsc --noEmit, black, isort), or when commits should run them through a pre-commit hook.
 ---
 
 # Code checkers
@@ -24,7 +24,7 @@ Everything else — the editor, the agent CLI, `ripgrep`, `docker` — belongs t
 | Shell | `shellcheck`, `shfmt` | machine — no language manifest owns them | — |
 | Running them at commit time | `prek` | machine, same reason | [references/git-hooks.md](references/git-hooks.md) |
 
-Choices worth not relitigating, and the fact that decides each:
+Settled choices, and the fact that decides each:
 
 - **`pyrefly`, not `pyright`** — pyright needs Node and is an order of magnitude slower on a full check. **Not `ty`** — it has not reached a stable release and fails part of the typing conformance suite; fine as an editor server, not as a gate. Re-check both facts against the tools' own release pages before repeating them to a user.
 - **`oxlint`, not `eslint`** — TypeScript 7 ships no stable programmatic API, so `typescript-eslint` cannot run on it. `oxlint-tsgolint` embeds the TS 7 engine itself.
@@ -44,7 +44,7 @@ Upgrading is then one deliberate act: bump, run everything, absorb the changes i
 1. **Count the files per language** — `find . -name '*.py' -not -path '*/.venv/*' | wc -l` and the same per extension. A language with a handful of files does not need a checker.
 2. **Add each tool to the project manifest** and install (`uv sync`, `pnpm install`). Never globally.
 3. **Configure** — per-language detail in the reference files. Configure before looking at the error count: most of a first run is misconfiguration, not debt.
-4. **Take a first run down to signal** — [references/first-run.md](references/first-run.md).
+4. **Reduce a first run to real findings** — [references/first-run.md](references/first-run.md).
 5. **Probe every checker** — [references/probing.md](references/probing.md). A checker that reports zero because it never ran is worse than none.
 6. **Write one entry point** that runs them all, reporting only, with a flag for the fixes that are safe to apply. Keep per-checker output to its summary line; a failing step prints its tail and the command to rerun for the full output.
 7. **Run them at commit time** — [references/git-hooks.md](references/git-hooks.md). Wire this even when per-agent automation is out of scope, because it is not per-agent.

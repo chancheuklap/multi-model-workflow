@@ -27,7 +27,7 @@ What was removed and why:
 - <rule or section> — <reason>
 
 What was NOT removed:
-- All commands kept (<count>)
+- Commands kept (<count>), dropped as discoverable (<count>)
 - <rule kept on the user's confirmation>
 ```
 

@@ -31,7 +31,7 @@ Directory groups: one per top-level directory holding code, tests, scripts, or d
 
 ## Dispatch
 
-When the host can run subagents, dispatch every group at once, one subagent each, on a model one tier below your own. When it cannot, run the groups yourself one after another with the same template, writing each report to the scratch directory before starting the next, so no report depends on your memory of an earlier one.
+When the host can run subagents, dispatch every group at once, one subagent each: your host's general-purpose subagent, with no model named. When it cannot, run the groups yourself one after another with the same template, writing each report to the scratch directory before starting the next, so no report depends on your memory of an earlier one.
 
 Prompt template — fill `<ROOT>` and `<ASSIGNMENT>`, send the rest as written:
 
