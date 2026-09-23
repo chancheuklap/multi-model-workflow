@@ -1,10 +1,10 @@
 # Writing interface code
 
-Read this file when the ticket's **Read first** lists a screen contract. The two baselines (design package for look and verbatim copy, screen contract for calls, shown values, transitions, failure and timing) are in this skill's `SKILL.md`.
+Read this file when the ticket's **Read first** lists a screen contract. An interface ticket has two baselines, each binding its own domain: the design package binds look and verbatim copy; the screen contract binds what each control calls, which field feeds each shown value, what state follows, what failure shows, and timing. A statement of the design package about the second domain is a reference the contract has already adopted or overridden, so the two never compete. A `contract` child for a screen-contract row that does not fit also names the alignment ticket, since that is where the row is rewritten.
 
 ## Resolve `<ui-acceptance scripts>` once
 
-`<ui-acceptance scripts>` in every command below is the `scripts/` directory of the `ui-acceptance` skill. Resolve it from that skill's own `SKILL.md`. The path differs by machine and by host, and `install.sh` puts that skill wherever the host that gave it to you reads its skills from. You already read that skill's **Five rules while the product is running** for every run. `<engine>` is the token this skill's `SKILL.md` already resolved.
+`<ui-acceptance scripts>` in every command below is the `scripts/` directory of the `ui-acceptance` skill. Resolve it from that skill's own `SKILL.md`. The path differs by machine and by host.
 
 ## Before the first line
 
@@ -16,7 +16,7 @@ Then take the design side's values (the design package's pages as the story judg
 uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --render-only --out <mktemp directory>
 ```
 
-`--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id (text, size, position, style) to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is the ui-acceptance skill's `references/story-parity.md` under **The two sides**; what the flag writes is that file's **`--render-only`**.
+`--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id (text, size, position, style) to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is the ui-acceptance skill's `references/story-parity.md` under **The two sides**.
 
 **Done when** every owned scene has a screenshot and a values file in that directory.
 
@@ -38,7 +38,7 @@ Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one p
 
 The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are closing step 1's.
 
-What the lines mean is the ui-acceptance skill's `references/story-parity.md` under **The DIFF line**.
+When the review's Spec axis reports a `Missing` that names one of this ticket's screen-contract rows, the closing comment names that row id too: beside the commit that fixed it, or under `Sub-issues opened:`.
 
 **Done when** the story criterion prints no `DIFF` line, or closing step 1 has recorded that it is abandoned.
 
@@ -54,7 +54,7 @@ The file's first line is the child issue's title: the Claude Design page and the
 
 由 design-pages 技能的 references/pull.md 处理：在能调用 Claude Design MCP 工具的会话里，在 Claude Design 里改，再 pull
 
-The rest of the body quotes what does not hold and states what in the same source still holds and must be preserved. Leave the design package as it is: **pull** of the design-pages skill is what writes it.
+Leave the design package as it is: **pull** of the design-pages skill is what writes it.
 
 **Done when** the child is open and the rest of this ticket is still being worked.
 

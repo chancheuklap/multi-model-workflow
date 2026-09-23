@@ -1880,7 +1880,7 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
 
     The sixth, the tree, is the one whose answer depends on who holds the ticket, because
     a worker comes through this run every time it enters the ticket — the turn it is
-    prompted back into after a review included (`references/claiming.md`). On that turn
+    prompted back into after a review included (the `implement` skill's claim and resume). On that turn
     the uncommitted tracked changes are its own work from an earlier turn, so the tree
     refuses only while the claim is not this account's: read as an upstream fault they
     end a live worker's hold, and the ticket then says `live: false` of a session that
@@ -3889,8 +3889,32 @@ def lint_drafts(spec: int, directory: Path) -> int:
     return 1 if (failed or graph) else 0
 
 
+EXIT_CODES = """\
+exit codes:
+  a criteria run (no flag, or --reverify --actor worker|main)
+    0 every criterion met; 1 something unmet or abandoned; 2 the ticket could not be
+    read or the run could not start, reason on stderr, nothing posted; 3 no product
+    slot was free, nothing run (the worker's own run at once, a --reverify after
+    MMW_SLOT_WAIT_S seconds, asking every MMW_SLOT_BEAT_S); 4 the criteria ran and
+    the ticket.checked recording them could not be written: run it again
+  --preflight
+    0 the ticket is now yours; 2 refused, reason on stderr: a NOT_READY refusal is
+    on the ticket as ticket.refused, any other posted nothing
+  --decisions, --touched
+    0 posted (for --touched, or nothing to post); 2 refused, nothing posted
+  --draft
+    0 the file was written and its path printed; 2 refused, no file written
+  --closeout
+    0 the ticket is closed (or handed back) and its event posted, or with
+    --check-only the draft passes; 1 refused by a draft condition, the repository's
+    checks, the push, or the tracker, stderr saying what to resolve; 2 nothing was
+    run or written
+"""
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0], epilog=EXIT_CODES,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("ticket", type=int)
     parser.add_argument("--reverify", action="store_true",
                         help="re-run every criterion, including the ones already ticked")

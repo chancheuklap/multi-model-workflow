@@ -227,7 +227,7 @@ class TestEveryRefusalSaysStop(unittest.TestCase):
 
 class TestTheTreeOnATicketThisAccountAlreadyHolds(unittest.TestCase):
     """A worker enters the ticket through `--preflight` every time, the turn it is
-    prompted back into after a review included (`references/claiming.md`). On that turn
+    prompted back into after a review included (the `implement` skill's claim and resume). On that turn
     the uncommitted tracked changes are its own work from an earlier turn, so refusing
     them as `dirty-tree` ends a live worker's hold: the ticket then reads `live: false`
     while the session goes on posting events, and `advance` offers to retract a worker

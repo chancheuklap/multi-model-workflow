@@ -1,8 +1,7 @@
 """A dirty tree `--preflight` lets through is still stopped at `--closeout`.
 
 `--preflight` claims a ticket this account already holds even when tracked files are
-uncommitted, and prints `CARRIED:` instead of refusing `dirty-tree`
-(`references/claiming.md`). That is safe only because `--closeout` refuses a draft while a
+uncommitted, and prints `CARRIED:` instead of refusing `dirty-tree`. That is safe only because `--closeout` refuses a draft while a
 tracked file is uncommitted, so the carried edits cannot reach the base branch without a
 commit. `test_preflight.py` and `test_closeout.py` each prove one half against a faked tree;
 this file runs both halves, and the `--draft` between them, in one real git working tree
