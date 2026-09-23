@@ -1,0 +1,1583 @@
+{
+  "group": "A6-build-verify-learn",
+  "components": [
+    {
+      "id": "sk-tdd",
+      "kind": "skill",
+      "name": "tdd",
+      "label": "回归测试",
+      "family": "构建验证",
+      "purpose": "用修复前失败、修复后通过的窄测试锁定错误行为。",
+      "trigger": "用户明确要 TDD、失败测试或回归测试，或 bug 有便宜且清楚的本地测试目标。",
+      "steps": [
+        {
+          "text": "明确预期、现状和最小可观察复现",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "选现有代码路径上最窄的可执行检查",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "先写测试并确认因目标错误而失败",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "最小修复后重跑回归检查",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "失败前与通过后的检查结果"
+      ],
+      "done_when": "目标回归检查先因预期原因失败，修复后通过。",
+      "on_fail": "测试成本高或路径不清时，改用最近的可执行回归检查并说明。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/tdd/SKILL.md#TDD Bug Fix"
+    },
+    {
+      "id": "sk-typescript-best-practices",
+      "kind": "skill",
+      "name": "typescript-best-practices",
+      "label": "TypeScript 规范",
+      "family": "类型与构建",
+      "purpose": "用可表达不变量的类型、边界解析和真实测试减少非法状态。",
+      "trigger": "读取或编辑任意 .ts 或 .tsx 文件。",
+      "steps": [
+        {
+          "text": "先应用 type-system-discipline 原则",
+          "actor": "main",
+          "uses": [
+            "pr-type-system-discipline"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "用判别联合、品牌类型及构造式建模表达约束",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "在外部数据边界以现有 schema 验证",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "用穷尽性检查与真实测试验证行为",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "类型约束",
+        "边界解析",
+        "真实测试结果"
+      ],
+      "done_when": "类型表达真实约束，外部输入经验证，相关行为被检查。",
+      "on_fail": "无现有 schema 时才写真实验证的 guard；不以断言掩盖错误。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [
+        "pr-type-system-discipline",
+        "pr-boundary-discipline"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/typescript-best-practices/SKILL.md#TypeScript best practices"
+    },
+    {
+      "id": "sk-no-comments",
+      "kind": "skill",
+      "name": "no-comments",
+      "label": "注释审查",
+      "family": "代码清理",
+      "purpose": "借独立审查找出无效注释、抑制及变形代码，并修复可接受发现。",
+      "trigger": "调用 /no-comments；范围为调用方文件或 diff，否则为对 base branch 的当前 diff。",
+      "steps": [
+        {
+          "text": "派 Comment Sicko 审查范围",
+          "actor": "main",
+          "uses": [
+            "ag-comment-sicko"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "核对报告和改动，拒绝越界或不实发现",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "对含糊约束先用 how 或 why 核实",
+          "actor": "main",
+          "uses": [
+            "sk-how",
+            "sk-why"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "修复可接受项；复杂形状交 architect",
+          "actor": "main",
+          "uses": [
+            "sk-architect"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "约束编码须等用户批准",
+          "actor": "main",
+          "uses": [
+            "hu-approve-skill-edit"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "报告删除、恢复、重跑及未解决事项",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "审查报告",
+        "范围内修复",
+        "未强制约束清单"
+      ],
+      "done_when": "可接受发现处理完毕，残留事项如实报告。",
+      "on_fail": "首次不合格报告回退重跑；第二次仍不合格则失败。",
+      "human": "约束编码需互动批准；无人值守须预先批准。",
+      "parallel": "一个 Comment Sicko 子 agent；只在需形状时调用 architect。",
+      "principles": [
+        "pr-fix-root-causes",
+        "pr-redesign-from-first-principles"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/no-comments/SKILL.md#No comments"
+    },
+    {
+      "id": "sk-unslop",
+      "kind": "skill",
+      "name": "unslop",
+      "label": "文字去冗余",
+      "family": "写作清理",
+      "purpose": "扫描并改写 AI 惯用语、空话、隐喻和难读句子，保留原意。",
+      "trigger": "所有写作；/unslop。",
+      "steps": [
+        {
+          "text": "按稳定规则号扫描内容、措辞与格式",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "用普通词改写并保留原意",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "删除无证据陈述与通用结尾",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "清理后的文本"
+      ],
+      "done_when": "文本具体、可读且原意不变。",
+      "on_fail": "缺来源的归因删除；不能保留原意时重写事实而非装饰。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/unslop/SKILL.md#Unslop"
+    },
+    {
+      "id": "sk-technical-writing",
+      "kind": "skill",
+      "name": "technical-writing",
+      "label": "技术写作",
+      "family": "写作清理",
+      "purpose": "按文档类型、读者、句子负载和歧义四层组织技术文本。",
+      "trigger": "写或审文档、RFC、README、PR 描述、提交消息，或 /technical-writing。",
+      "steps": [
+        {
+          "text": "先定 tutorial、how-to、reference 或 explanation",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按读者任务组织标题、步骤与链接",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "一条指令一层意思，并把条件放在动作前",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "消除歧义并应用 unslop",
+          "actor": "main",
+          "uses": [
+            "sk-unslop"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "可按任务阅读的技术文本"
+      ],
+      "done_when": "文档只有一个模式，事实和指令可被直接理解。",
+      "on_fail": "规则令句子更差时改用其他写法或保留原句。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/technical-writing/SKILL.md#Technical writing"
+    },
+    {
+      "id": "sk-show-me-your-work",
+      "kind": "skill",
+      "name": "show-me-your-work",
+      "label": "决策证据",
+      "family": "经验沉淀",
+      "purpose": "给长期工作保留可审计 TSV 决策记录，并用实际 transcript 对账。",
+      "trigger": "/show-me-your-work；无人值守、多阶段或人离开后审查的工作。",
+      "steps": [
+        {
+          "text": "建立单个 decisions.tsv，按决策追加证据指针",
+          "actor": "main",
+          "uses": [
+            "ar-decisions-tsv"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每个分叉、完成单元、撤销和阻塞各记一行",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按当前工作区 transcript 核对每行",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "请异模型子 agent 审查轨迹",
+          "actor": "main",
+          "uses": [
+            "ag-general-purpose"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "以 Attention 报告审查发现",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "decisions.tsv",
+        "Attention 审查结论"
+      ],
+      "done_when": "记录中的每一行都对应真实行动和可解析证据。",
+      "on_fail": "删掉虚构或填充行，补记重要遗漏；证据弱则标出。",
+      "human": "可读记录与 Attention；无审批门槛。",
+      "parallel": "一位不同模型家族的审查子 agent。",
+      "principles": [
+        "pr-encode-lessons-in-structure"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/show-me-your-work/SKILL.md#Show me your work"
+    },
+    {
+      "id": "sk-reflect",
+      "kind": "skill",
+      "name": "reflect",
+      "label": "复盘学习",
+      "family": "经验沉淀",
+      "purpose": "从当前会话抽取可复用经验，筛选成技能改动或结构化待办。",
+      "trigger": "用户说 reflect 或 /reflect；跳过琐碎、离题或已被正确执行的技能。",
+      "steps": [
+        {
+          "text": "定位当前工作区 transcript",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "并行派判断、工具和异议三位审查者",
+          "actor": "main",
+          "uses": [
+            "ag-general-purpose"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "再派综合者核对并分 Accepted、Rejected、Backlog",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "可结构化强制的发现转 Backlog",
+          "actor": "main",
+          "uses": [
+            "pr-encode-lessons-in-structure"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "展示完整结果并等待批准技能改动",
+          "actor": "main",
+          "uses": [
+            "hu-approve-skill-edit"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "应用获批编辑，自动登记 Backlog",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "Accepted、Rejected、Backlog",
+        "获批的技能编辑"
+      ],
+      "done_when": "批准的 Accepted 项应用并校验；Backlog 已登记。",
+      "on_fail": "找不到 transcript 时用会话摘要；无批准不得应用 Accepted。",
+      "human": "用户逐项批准技能修改。",
+      "parallel": "三位并行 generalPurpose，默认 judgment/divergent 为 claude-opus-5-5-max，tooling 为 gpt-5.6-sol-max；一位综合者。",
+      "principles": [
+        "pr-encode-lessons-in-structure"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/reflect/SKILL.md#Reflect"
+    },
+    {
+      "id": "sk-automate-me",
+      "kind": "skill",
+      "name": "automate-me",
+      "label": "偏好成技能",
+      "family": "经验沉淀",
+      "purpose": "结合近期会话和用户选择，生成或更新一个个人 -mode skill。",
+      "trigger": "用户说 automate me、创建或更新 -mode skill、捕获工作偏好。",
+      "steps": [
+        {
+          "text": "查找已有 -mode skill，必要时确认更新或重建",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "按工作区 transcript 分片并行提炼重复模式",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "用 AskQuestion 问未在历史中体现的偏好",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "聚类并交 create-skill 草拟",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "用 unslop 修订并请用户反馈",
+          "actor": "main",
+          "uses": [
+            "sk-unslop"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "在 worktree 提交并打开 PR",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "个人 -mode skill",
+        "PR"
+      ],
+      "done_when": "用户反馈纳入技能草稿并经 PR 交付。",
+      "on_fail": "孤立或矛盾信号不写入；若只是一项窄流程，不用本技能。",
+      "human": "用户选择偏好并审阅草稿。",
+      "parallel": "近期会话分片交多个子 agent，示例为三片。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/automate-me/SKILL.md#Automate me"
+    },
+    {
+      "id": "sk-make-bot-ui",
+      "kind": "skill",
+      "name": "Make Bot UI",
+      "label": "Bot 操作页",
+      "family": "自动化接口",
+      "purpose": "构建本机网页经服务器安全唤醒 Grok Bot webhook。",
+      "trigger": "需要自定义页或按钮唤醒 Grok Bot、处理 sender key 或接入 Tailscale。",
+      "steps": [
+        {
+          "text": "建立 webhook routine 并定义可信字段",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "用户从面板复制 URL，并经密钥请求交 key",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "服务器保存密钥并代浏览器发 POST",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "用无害 payload 探测 HTTP 200",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "在已有或新 Tailscale 节点公开页面",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "解析 webhook_event.body 并视作外部数据",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "本机 UI",
+        "webhook routine",
+        "tailnet 访问地址"
+      ],
+      "done_when": "无害请求唤醒 routine，tailnet 页面返回 HTTP 200。",
+      "on_fail": "POST 失败写本地日志；登录 URL 过期则重新生成。",
+      "human": "确认 routine、提交密钥与 Tailscale 设备授权。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/make-bot-ui/SKILL.md#How to make a bot UI"
+    },
+    {
+      "id": "sk-create-verification-skill",
+      "kind": "skill",
+      "name": "create-verification-skill",
+      "label": "建立验证技能",
+      "family": "产品验证",
+      "purpose": "生成项目本地控制技能，按真实用户路径启动、驱动并留下证据。",
+      "trigger": "/create-verification-skill；仓库缺少证明 UI、CLI 或服务行为的脚本方式。",
+      "steps": [
+        {
+          "text": "从仓库查表面、启动、控制、观察与隔离条件",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "生成 verify-<app> 的 Launch、Doctor、Drive 等章节",
+          "actor": "main",
+          "uses": [
+            "sk-verify-app"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "为主要用户功能建索引及逐功能验证图",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "实际执行一次 launch、doctor、drive、capture、cleanup",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "清理后确认证据仍在；提示维护技能",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        ".cursor/skills/verify-<app>/",
+        "功能图",
+        "一次完整验证证据"
+      ],
+      "done_when": "生成技能亲自跑通一项功能，清理后证据仍在。",
+      "on_fail": "原始仓库无法启动先修或准确报告；失败迭代也必须清理。",
+      "human": "只有仓库无法观察的问题才问用户。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/create-verification-skill/SKILL.md#Create a verification skill"
+    },
+    {
+      "id": "sk-maintain-verification-skill",
+      "kind": "skill",
+      "name": "maintain-verification-skill",
+      "label": "维护验证技能",
+      "family": "产品验证",
+      "purpose": "逐功能比对源码与实际运行，最多以一个 PR 修正验证技能。",
+      "trigger": "/maintain-verification-skill；周期审查有功能图的项目验证技能。",
+      "steps": [
+        {
+          "text": "定位目标并修复功能索引",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "每个功能派只读源码审查者",
+          "actor": "main",
+          "uses": [
+            "ag-general-purpose"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "综合审查结果，协调者逐项实际驱动",
+          "actor": "main",
+          "uses": [
+            "sk-verify-app"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按 Doctor、证据留存和清理不变量处置失败",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "分 doc drift、harness gap、product gap",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "有修正只开一个 PR；否则报 clean 或 blocked",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "clean、changed 或 blocked",
+        "一个修正 PR 或无 PR"
+      ],
+      "done_when": "每个功能都有源码与现场覆盖，修正获现场复验。",
+      "on_fail": "多个目标则询问；无目标转创建；doctor 漂移修后重试一次。",
+      "human": "多个验证技能时由用户选目标。",
+      "parallel": "每功能一位并行只读子 agent；协调者独占 live drive。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/maintain-verification-skill/SKILL.md#Maintain a verification skill"
+    },
+    {
+      "id": "sk-verify-app",
+      "kind": "skill",
+      "name": "verify-<app>",
+      "label": "应用验证技能",
+      "family": "产品验证",
+      "purpose": "项目本地技能，定义真实应用的启动、健康检查、用户驱动、证据与清理。",
+      "trigger": "由 create-verification-skill 生成；任务需验证该应用行为时使用。",
+      "steps": [
+        {
+          "text": "按 Launch 启动隔离实例",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "Doctor 确认版本、端口与身份",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按功能图驱动真实用户入口",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "保留动作与结果、截图和副作用证据",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "清理自建实例且保留证据",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "按功能保存的验证证据"
+      ],
+      "done_when": "所需功能路径出现预期结果且证据保留。",
+      "on_fail": "健康检查失败不驱动；无安全隔离时拒绝并行实例。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/create-verification-skill/SKILL.md#2. Generate the skill"
+    },
+    {
+      "id": "ar-decisions-tsv",
+      "kind": "artifact",
+      "name": "decisions.tsv",
+      "label": "决策日志",
+      "family": "经验沉淀",
+      "purpose": "以六列追加决策、原因、证据指针和结果，供事后逐行审计。",
+      "trigger": "show-me-your-work 的长任务日志。",
+      "steps": [
+        {
+          "text": "按 ts、phase、decision、why、evidence、result 建表",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "每个决策追加单行，不改既有历史",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "证据指向提交、PR、文件位置或产物",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "与 transcript 逐项核对",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "decisions.tsv"
+      ],
+      "done_when": "日志行与实际行动和可解析证据一致。",
+      "on_fail": "错误决定追加更正行；虚构记录在交付前删除。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/show-me-your-work/SKILL.md#The format"
+    },
+    {
+      "id": "pf-transcripts",
+      "kind": "platform",
+      "name": "agent-transcripts/",
+      "label": "会话记录",
+      "family": "证据平台",
+      "purpose": "提供当前工作区实际对话和工具行动，供决策审计与经验提炼。",
+      "trigger": "show-me-your-work、reflect 或 automate-me 需要回看会话。",
+      "steps": [
+        {
+          "text": "只定位系统提示给出的当前工作区目录",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "核对首行开场用户请求以找到当前会话",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "提供实际行动与决策证据",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "工作区会话记录"
+      ],
+      "done_when": "所选 transcript 与当前会话匹配。",
+      "on_fail": "找不到时 reflect 使用紧凑摘要；禁止跨工作区全局检索。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/reflect/SKILL.md#1. Locate the active transcript"
+    },
+    {
+      "id": "pr-encode-lessons-in-structure",
+      "kind": "principle",
+      "name": "Encode Lessons in Structure",
+      "label": "经验结构化",
+      "family": "经验沉淀",
+      "purpose": "把反复出现的错误转成类型、lint、脚本或运行检查，减少靠记忆执行。",
+      "trigger": "同一指令写第二遍，或看见反复纠正。",
+      "steps": [
+        {
+          "text": "判断纠正是一次性还是反复模式",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "能结构化时选择最强可行机制",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "只有需判断时才留文字并给失败示例",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "立即应用或登记具体待办",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "强制机制或具体待办"
+      ],
+      "done_when": "重复规则已有机制，或判断型规则已明确。",
+      "on_fail": "只记录未路由不算闭环。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/principle-encode-lessons-in-structure/SKILL.md#Encode Lessons in Structure"
+    },
+    {
+      "id": "pf-slack",
+      "kind": "platform",
+      "name": "Slack",
+      "label": "Slack 线程",
+      "family": "Benny 平台",
+      "purpose": "承载报告来源线程、triage 标记与可选 operations 证据线程。",
+      "trigger": "配置来源频道有新顶层报告。",
+      "steps": [
+        {
+          "text": "读取来源根帖及附件",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "triage 只在原线程发一个 verdict",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "repro 仅信任原线程指定身份的 marker",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "可选 operations 线程承载详细状态",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "来源线程",
+        "可选 operations 线程"
+      ],
+      "done_when": "无来源频道根帖；回复均保留原始坐标。",
+      "on_fail": "根帖不见、坐标不符或写入不确定时停止。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/FOR_AGENTS.md#what i want to automate"
+    },
+    {
+      "id": "pf-automations",
+      "kind": "platform",
+      "name": "Cursor Automations",
+      "label": "自动化平台",
+      "family": "Benny 平台",
+      "purpose": "按 Slack 顶层报告启动两条独立 automation，并在编辑器审阅启用。",
+      "trigger": "setup-benny 完成配置且用户明确要求创建或更新。",
+      "steps": [
+        {
+          "text": "通过 built-in automate 草拟第一条",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "完成审阅、批准与编辑器交接",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "再草拟第二条并做相同交接",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "无害报告测试七项线程安全条件",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "benny-triage",
+        "benny-reproduce"
+      ],
+      "done_when": "提交的操作文件可读，线程安全测试通过后才启用。",
+      "on_fail": "已有 automation 直接在编辑器更新；不创建重复项。",
+      "human": "用户批准草稿、编辑器保存和启用。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/setup-benny/SKILL.md#7. Prepare the live automations"
+    },
+    {
+      "id": "sk-setup-benny",
+      "kind": "skill",
+      "name": "setup-benny",
+      "label": "配置 Benny",
+      "family": "Benny 设置",
+      "purpose": "合并 dormant pack、配置依赖与外部映射，准备两条 live automation。",
+      "trigger": "用户指向 FOR_AGENTS.md 并指定目标仓库；安装或更改 Benny 配置。",
+      "steps": [
+        {
+          "text": "保留本地修改合并 pack 与 pstack 项目设置",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "新 agent 验证项目级共享 skill 可解析",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "复制外置配置、routing 和 feature map",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "核查 Slack、tracker、control adapter 能力",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "用户明确要求后逐条交给 Automations 编辑器",
+          "actor": "main",
+          "uses": [
+            "pf-automations"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "无害报告通过七项线程安全测试",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "目标仓库配置",
+        "两条自动化草稿或编辑清单"
+      ],
+      "done_when": "依赖、控制能力和线程安全测试通过，才可启用。",
+      "on_fail": "依赖不解析或必填项含糊则停止；缺控制能力则禁用 repro。",
+      "human": "用户指定仓库、补足不可观察配置、明确要求创建或更新。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/setup-benny/SKILL.md#Set up Benny"
+    },
+    {
+      "id": "au-benny-triage",
+      "kind": "automation",
+      "name": "benny-triage",
+      "label": "Benny 分诊",
+      "family": "Benny 运行",
+      "purpose": "分类 Slack 报告、去重并只为明确新 bug 建票，原线程给唯一结论。",
+      "trigger": "配置来源频道出现新的顶层报告。",
+      "steps": [
+        {
+          "text": "固定并核验来源频道、根时间戳与 permalink",
+          "actor": "main",
+          "uses": [
+            "pf-slack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "读取全线程与附件，追溯可能代码路径",
+          "actor": "main",
+          "uses": [
+            "sk-how",
+            "sk-why"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "分类并按配置路由；查 tracker 重复项",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "只在明确新 bug 且可补偿时创建票",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "来源根帖二次预检后发唯一 marker 回复",
+          "actor": "main",
+          "uses": [
+            "pf-slack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "回读回复；失败则补偿本次新票",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "观察一个 follow-up 窗口后停止",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "[benny:bug]、[benny:performance] 或 [benny:other]",
+        "可能的新票或更新"
+      ],
+      "done_when": "原线程恰有一次实质 verdict，关联票可追溯来源。",
+      "on_fail": "配置或来源不确定即无写入；回复失败补偿新票；不复现或修复。",
+      "human": "无；仅用户原帖作为输入。",
+      "parallel": "可选只读 media worker；协调者独占 Slack 写入。",
+      "principles": [
+        "pr-separate-before-serializing-shared-state",
+        "pr-minimize-reader-load"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/triage-issue-reports/SKILL.md#Triage issue reports"
+    },
+    {
+      "id": "au-benny-reproduce",
+      "kind": "automation",
+      "name": "benny-reproduce",
+      "label": "Benny 复现",
+      "family": "Benny 运行",
+      "purpose": "等待可信分诊后真实 UI 复现两次，验证已有修复或开有证据的 draft PR。",
+      "trigger": "同一新顶层报告启动，收到原线程指定 triage 身份的 bug/performance marker。",
+      "steps": [
+        {
+          "text": "固定来源坐标并只接收可信 triage marker",
+          "actor": "main",
+          "uses": [
+            "au-benny-triage",
+            "pf-slack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "有人负责则停；已有 PR 或提交则走验证",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "检查 control adapter 与 feature map 后真实 UI 复现两次",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "录屏截图、只读状态对照和媒体复审",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "仅确认复现且拒绝窗结束后准入有界修复",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "便宜测试先 TDD，修根因并做前后 UI 及波及范围验证",
+          "actor": "main",
+          "uses": [
+            "sk-tdd"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "仅证据齐全时开 draft PR 并清理",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "复现证据",
+        "已有修复验证结果或 draft PR"
+      ],
+      "done_when": "错误两次可见；若修复，补丁后两次不再出现且检查通过。",
+      "on_fail": "不复现或能力缺失只报状态；无根因或证据不足不开 PR。",
+      "human": "有人明确接手则停止；不合并或部署。",
+      "parallel": "可选并行只读分析；仅 Slack 权限被隔离时可派编辑 worker。",
+      "principles": [
+        "pr-guard-the-context-window",
+        "pr-sequence-verifiable-units",
+        "pr-fix-root-causes",
+        "pr-prove-it-works"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/reproduce-and-fix-issues/SKILL.md#Reproduce and fix issues"
+    },
+    {
+      "id": "sk-recall",
+      "kind": "skill",
+      "name": "recall",
+      "label": "回顾工作",
+      "family": "经验沉淀",
+      "purpose": "从近期会话、共享记录和当前仓库状态重建用户工作的现状与下一步。",
+      "trigger": "用户要 recall、catch me up、询问近期工作，或开始及恢复工作前缺乏状态。",
+      "steps": [
+        {
+          "text": "锁定时间、主题和工作区范围",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按时间分片检索相关会话",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "有具名主题时用 why 查共享记录",
+          "actor": "main",
+          "uses": [
+            "sk-why"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "用 git、gh 核对 PR、分支与票据现状",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "输出 capsule、线程状态、问题和单一下一步",
+          "actor": "main",
+          "uses": [
+            "sk-unslop"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "带来源的当前状态简报"
+      ],
+      "done_when": "简报反映 live state，列出未解决问题与一个具体下一步。",
+      "on_fail": "MCP 不可用则说明；用户已给完整状态 capsule 时跳过挖掘。",
+      "human": "用户界定主题或工作区；无批准门槛。",
+      "parallel": "多会话按切片并行快模型子 agent；一两条会话直接搜索。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/recall/SKILL.md#Recall"
+    }
+  ],
+  "edges": [
+    {
+      "from": "sk-typescript-best-practices",
+      "to": "pr-type-system-discipline",
+      "type": "invoke",
+      "label": "先应用",
+      "source": "docs/research/code-landing-refs/pstack/skills/typescript-best-practices/SKILL.md#TypeScript best practices"
+    },
+    {
+      "from": "sk-typescript-best-practices",
+      "to": "pr-boundary-discipline",
+      "type": "invoke",
+      "label": "边界验证",
+      "source": "docs/research/code-landing-refs/pstack/skills/typescript-best-practices/SKILL.md#TypeScript best practices"
+    },
+    {
+      "from": "sk-no-comments",
+      "to": "ag-comment-sicko",
+      "type": "spawn",
+      "label": "审查注释",
+      "source": "docs/research/code-landing-refs/pstack/skills/no-comments/SKILL.md#Steps"
+    },
+    {
+      "from": "sk-no-comments",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "查约束",
+      "source": "docs/research/code-landing-refs/pstack/skills/no-comments/SKILL.md#Steps"
+    },
+    {
+      "from": "sk-no-comments",
+      "to": "sk-why",
+      "type": "invoke",
+      "label": "查历史",
+      "source": "docs/research/code-landing-refs/pstack/skills/no-comments/SKILL.md#Steps"
+    },
+    {
+      "from": "sk-no-comments",
+      "to": "sk-architect",
+      "type": "invoke",
+      "label": "复杂修复",
+      "source": "docs/research/code-landing-refs/pstack/skills/no-comments/SKILL.md#Steps"
+    },
+    {
+      "from": "sk-technical-writing",
+      "to": "sk-unslop",
+      "type": "invoke",
+      "label": "清理文字",
+      "source": "docs/research/code-landing-refs/pstack/skills/technical-writing/SKILL.md#Voice and repo specifics"
+    },
+    {
+      "from": "sk-show-me-your-work",
+      "to": "ar-decisions-tsv",
+      "type": "writes",
+      "label": "记录决策",
+      "source": "docs/research/code-landing-refs/pstack/skills/show-me-your-work/SKILL.md#Where it lives"
+    },
+    {
+      "from": "sk-show-me-your-work",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "对账",
+      "source": "docs/research/code-landing-refs/pstack/skills/show-me-your-work/SKILL.md#Audit the log against the transcript"
+    },
+    {
+      "from": "sk-show-me-your-work",
+      "to": "ag-general-purpose",
+      "type": "spawn",
+      "label": "异模型审查",
+      "source": "docs/research/code-landing-refs/pstack/skills/show-me-your-work/SKILL.md#Cross-model review of the trail"
+    },
+    {
+      "from": "sk-reflect",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "读取会话",
+      "source": "docs/research/code-landing-refs/pstack/skills/reflect/SKILL.md#1. Locate the active transcript"
+    },
+    {
+      "from": "sk-reflect",
+      "to": "ag-general-purpose",
+      "type": "spawn",
+      "label": "三审一综合",
+      "source": "docs/research/code-landing-refs/pstack/skills/reflect/SKILL.md#Process"
+    },
+    {
+      "from": "sk-reflect",
+      "to": "hu-approve-skill-edit",
+      "type": "human",
+      "label": "批准修改",
+      "source": "docs/research/code-landing-refs/pstack/skills/reflect/SKILL.md#5. Apply"
+    },
+    {
+      "from": "sk-reflect",
+      "to": "pr-encode-lessons-in-structure",
+      "type": "invoke",
+      "label": "结构化检查",
+      "source": "docs/research/code-landing-refs/pstack/skills/reflect/SKILL.md#4. Structural enforcement check"
+    },
+    {
+      "from": "sk-automate-me",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "提炼偏好",
+      "source": "docs/research/code-landing-refs/pstack/skills/automate-me/SKILL.md#1. Mine their history"
+    },
+    {
+      "from": "sk-automate-me",
+      "to": "sk-unslop",
+      "type": "invoke",
+      "label": "修订草稿",
+      "source": "docs/research/code-landing-refs/pstack/skills/automate-me/SKILL.md#5. Iterate on prose"
+    },
+    {
+      "from": "sk-automate-me",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "提交技能",
+      "source": "docs/research/code-landing-refs/pstack/skills/automate-me/SKILL.md#6. Land it"
+    },
+    {
+      "from": "sk-create-verification-skill",
+      "to": "sk-verify-app",
+      "type": "writes",
+      "label": "生成技能",
+      "source": "docs/research/code-landing-refs/pstack/skills/create-verification-skill/SKILL.md#2. Generate the skill"
+    },
+    {
+      "from": "sk-create-verification-skill",
+      "to": "sk-maintain-verification-skill",
+      "type": "handoff",
+      "label": "维护功能图",
+      "source": "docs/research/code-landing-refs/pstack/skills/create-verification-skill/SKILL.md#5. Offer the maintenance loop"
+    },
+    {
+      "from": "sk-maintain-verification-skill",
+      "to": "sk-verify-app",
+      "type": "reads",
+      "label": "逐项验证",
+      "source": "docs/research/code-landing-refs/pstack/skills/maintain-verification-skill/SKILL.md#4. Live pass"
+    },
+    {
+      "from": "sk-maintain-verification-skill",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "证实修正",
+      "source": "docs/research/code-landing-refs/pstack/skills/maintain-verification-skill/SKILL.md#6. Ship or stop"
+    },
+    {
+      "from": "sk-setup-benny",
+      "to": "pf-automations",
+      "type": "invoke",
+      "label": "逐条建档",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/setup-benny/SKILL.md#7. Prepare the live automations"
+    },
+    {
+      "from": "pf-automations",
+      "to": "au-benny-triage",
+      "type": "invoke",
+      "label": "顶层报告",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/setup-benny/SKILL.md#First-time creation"
+    },
+    {
+      "from": "pf-automations",
+      "to": "au-benny-reproduce",
+      "type": "invoke",
+      "label": "顶层报告",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/setup-benny/SKILL.md#First-time creation"
+    },
+    {
+      "from": "au-benny-triage",
+      "to": "pf-slack",
+      "type": "reads",
+      "label": "读取线程",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/triage-issue-reports/SKILL.md#2. Read the whole report"
+    },
+    {
+      "from": "au-benny-triage",
+      "to": "pf-slack",
+      "type": "writes",
+      "label": "唯一结论",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/triage-issue-reports/SKILL.md#9. Post one verdict"
+    },
+    {
+      "from": "au-benny-reproduce",
+      "to": "pf-slack",
+      "type": "reads",
+      "label": "信任标记",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/reproduce-and-fix-issues/SKILL.md#2. Wait for the triage contract"
+    },
+    {
+      "from": "au-benny-triage",
+      "to": "au-benny-reproduce",
+      "type": "handoff",
+      "label": "可信标记",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/reproduce-and-fix-issues/SKILL.md#2. Wait for the triage contract"
+    },
+    {
+      "from": "au-benny-reproduce",
+      "to": "sk-tdd",
+      "type": "invoke",
+      "label": "便宜测试",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/reproduce-and-fix-issues/SKILL.md#12. Root-cause and implement"
+    },
+    {
+      "from": "au-benny-reproduce",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "证实后草稿",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/reproduce-and-fix-issues/SKILL.md#14. Open a draft pull request"
+    },
+    {
+      "from": "au-benny-reproduce",
+      "to": "pf-slack",
+      "type": "writes",
+      "label": "复现结论",
+      "source": "docs/research/code-landing-refs/pstack/automations/benny/skills/reproduce-and-fix-issues/SKILL.md#9. Report the repro outcome"
+    },
+    {
+      "from": "sk-recall",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "近期会话",
+      "source": "docs/research/code-landing-refs/pstack/skills/recall/SKILL.md#Recall"
+    },
+    {
+      "from": "sk-recall",
+      "to": "sk-why",
+      "type": "invoke",
+      "label": "共享记录",
+      "source": "docs/research/code-landing-refs/pstack/skills/recall/SKILL.md#Recall"
+    },
+    {
+      "from": "sk-recall",
+      "to": "sk-unslop",
+      "type": "invoke",
+      "label": "清理简报",
+      "source": "docs/research/code-landing-refs/pstack/skills/recall/SKILL.md#Output contract"
+    }
+  ],
+  "compare": {
+    "evidence": [
+      {
+        "id": "sk-tdd",
+        "what_it_proves": "错误行为可复现且修复改变了它",
+        "how": "目标测试修复前因预期原因失败，修复后通过",
+        "who": "修复 agent",
+        "when": "明确要求 TDD 或有便宜测试目标",
+        "not_enough_for": "不能用只通过的新测试替代失败前证据"
+      },
+      {
+        "id": "sk-typescript-best-practices",
+        "what_it_proves": "类型约束与外部输入符合声明",
+        "how": "判别联合、穷尽性检查、边界 schema 验证和真实测试",
+        "who": "TypeScript 编辑 agent",
+        "when": "读写 .ts 或 .tsx",
+        "not_enough_for": "编译时类型不能替代运行时外部输入验证或运行产品的 UI 检查"
+      },
+      {
+        "id": "sk-no-comments",
+        "what_it_proves": "评论审查的保留或删除有范围内依据",
+        "how": "独立 Comment Sicko 报告、主 agent 复核、约束需准确例外和范围证明",
+        "who": "Comment Sicko 与主 agent",
+        "when": "运行 /no-comments",
+        "not_enough_for": "一个含糊的 IMPORTANT 或 do not remove 声明不能证明必须保留"
+      },
+      {
+        "id": "sk-show-me-your-work",
+        "what_it_proves": "决策记录与真实行动、结果一致",
+        "how": "TSV 证据指针逐项解析并与当前 transcript 对账，再由异模型审查",
+        "who": "主 agent 和异模型审查者",
+        "when": "长期、无人值守或多阶段任务交付前",
+        "not_enough_for": "日志中的自述不能替代真实证据，也不能替代 transcript 对账"
+      },
+      {
+        "id": "sk-create-verification-skill",
+        "what_it_proves": "生成的验证技能真正能操控应用",
+        "how": "亲自 launch、doctor、drive 一项功能、留证、cleanup 后确认文件仍在",
+        "who": "创建技能的 agent",
+        "when": "交付新验证技能前",
+        "not_enough_for": "只写出 SKILL.md 不能算交付；仅终态截图不能代替动作、副作用证据"
+      },
+      {
+        "id": "sk-verify-app",
+        "what_it_proves": "指定应用功能经真实用户路径到达预期状态",
+        "how": "实际用户操作、动作与结果证据、截图/转录、只读副作用交叉检查",
+        "who": "执行验证的 agent",
+        "when": "验证应用行为",
+        "not_enough_for": "内部 setter、测试专用端点、只看终态或相信 dry-run 名称均不够"
+      },
+      {
+        "id": "sk-maintain-verification-skill",
+        "what_it_proves": "功能图每项与源码和当前运行行为一致",
+        "how": "每功能只读源码审查和协调者现场逐项驱动；harness 修正再实际复验",
+        "who": "只读子 agent 与协调者",
+        "when": "维护验证技能",
+        "not_enough_for": "源码看来干净不能代替 live pass；一个入口通过不能覆盖其他入口"
+      },
+      {
+        "id": "au-benny-triage",
+        "what_it_proves": "分诊结论确实落在原来源线程",
+        "how": "原帖预检、带 thread_ts 回复、回读同一线程，失败时补偿新票",
+        "who": "triage 协调者",
+        "when": "每个顶层 Slack 报告",
+        "not_enough_for": "发帖动作返回成功不能替代同线程回读；缺来源链接不能创建票"
+      },
+      {
+        "id": "au-benny-reproduce",
+        "what_it_proves": "报告的确切症状在真实 UI 稳定出现",
+        "how": "独立重复两次、录屏截图、只读状态交叉检查和媒体审查",
+        "who": "repro 协调者与只读媒体审查者",
+        "when": "可信 bug/performance 标记之后",
+        "not_enough_for": "源码阅读、单元测试、状态注入、只有截图或媒体审查不确定均不够"
+      },
+      {
+        "id": "au-benny-reproduce:fix",
+        "what_it_proves": "补丁消除原症状且预期状态出现",
+        "how": "保留 baseline，补丁后同路径重复两次、相同状态交叉检查、聚焦测试和波及范围 smoke",
+        "who": "repro 协调者",
+        "when": "有界修复后、开 draft PR 前",
+        "not_enough_for": "编译、单元测试、code review 或看似合理的 diff 不能代替 after UI 证据"
+      },
+      {
+        "id": "au-benny-reproduce:existing",
+        "what_it_proves": "既有 PR 或提交修复了该报告",
+        "how": "baseline 两次重现，patched build 相同环境两次消失，并留前后影像和状态检查",
+        "who": "repro 协调者",
+        "when": "发现既有修复产物",
+        "not_enough_for": "只有 PR 声明、tracker 状态、编译或测试不能证明修复有效"
+      },
+      {
+        "id": "sk-make-bot-ui",
+        "what_it_proves": "本地 UI 到 webhook 可真正唤醒 routine",
+        "how": "无害 payload 探测 HTTP 200，再探测 tailnet 页面 HTTP 200",
+        "who": "搭建 agent",
+        "when": "宣告 Bot UI live 前",
+        "not_enough_for": "仅创建 routine 或启动服务器不能证明链路可用"
+      }
+    ],
+    "learning": [
+      {
+        "id": "sk-show-me-your-work",
+        "trigger": "长期、无人值守或多阶段任务",
+        "input": "每个关键决定、原因和真实产物，以及当前 transcript",
+        "output": "追加式 decisions.tsv 与 Attention 审查",
+        "who_approves": "无明示批准；审查者为异模型子 agent",
+        "where_stored": "工作目录 decisions.tsv 或 .audit/<task-slug>.tsv；需要审查信任时才提交"
+      },
+      {
+        "id": "sk-reflect",
+        "trigger": "用户说 reflect；排除琐碎或已覆盖的一次性事件",
+        "input": "当前工作区 transcript 或摘要、三位审查者发现",
+        "output": "Accepted、Rejected、Backlog，批准后的技能编辑",
+        "who_approves": "用户明确批准 Accepted 的子集",
+        "where_stored": "现有 skill 或新 skill；结构化项在 devex/backlog tracker"
+      },
+      {
+        "id": "sk-recall",
+        "trigger": "用户要求回顾近期工作，或开始、恢复工作前需重建上下文",
+        "input": "限定工作区和时间段的会话、具名主题的共享记录、live PR/分支/票据状态",
+        "output": "capsule、带状态标签的线程、主要问题和一个下一步",
+        "who_approves": "原文无批准门槛",
+        "where_stored": "会话回复中的简报；来源在 transcript、PR、票据和共享记录"
+      },
+      {
+        "id": "sk-automate-me",
+        "trigger": "要求把个人偏好或工作方式做成 -mode skill",
+        "input": "工作区近期 transcript 的重复模式及用户直接选择",
+        "output": "一个个人 -mode skill 与 PR",
+        "who_approves": "用户回答偏好问题并反馈草稿",
+        "where_stored": ".cursor/skills/<handle>-mode/ 或个人 skills 目录"
+      },
+      {
+        "id": "pr-encode-lessons-in-structure",
+        "trigger": "同一指令第二次出现或有重复纠正",
+        "input": "错误、用户纠正、测试失败或异常结果",
+        "output": "类型、lint、脚本、运行检查，或具体待办",
+        "who_approves": "原文无单独批准门槛",
+        "where_stored": "代码、工具、元数据、自动化；一次性记 brain note，系统性入 principle"
+      }
+    ],
+    "benny": {
+      "steps": [
+        {
+          "automation": "sk-setup-benny",
+          "text": "合并 pack、启用 pstack、配置外置文件和控制适配器；提交后逐条草拟并测线程安全",
+          "actor": "main",
+          "gate": "用户明确要求创建或更新；项目依赖可解析、配置已提交"
+        },
+        {
+          "automation": "au-benny-triage",
+          "text": "同一顶层报告触发；固定原帖坐标、读证据、追因、去重",
+          "actor": "main",
+          "gate": "配置、来源根帖和 tracker 操作确定，否则无写入"
+        },
+        {
+          "automation": "au-benny-triage",
+          "text": "原线程发唯一 verdict，带可信身份 marker；回读确认，失败补偿新票",
+          "actor": "main",
+          "gate": "仅明确新 bug 建票，且 tracker 可补偿"
+        },
+        {
+          "automation": "au-benny-reproduce",
+          "text": "同一顶层报告触发后静候原线程指定 triage 身份的 marker",
+          "actor": "main",
+          "gate": "仅 bug/performance 且 marker 唯一；other、超时或不可信即停"
+        },
+        {
+          "automation": "au-benny-reproduce",
+          "text": "先查人是否接手和已有 PR/提交；后者转既有修复验证",
+          "actor": "main",
+          "gate": "有人明确负责则停；既有产物不得另写补丁"
+        },
+        {
+          "automation": "au-benny-reproduce",
+          "text": "按 feature map 与 control adapter 真实 UI 重现两次并留影像、状态证据",
+          "actor": "main",
+          "gate": "缺能力或地图即 blocked；媒体不能确认则不算重现"
+        },
+        {
+          "automation": "au-benny-reproduce",
+          "text": "拒绝窗后若根因明确则有界修复，前后重复验证、检查波及范围后开 draft PR",
+          "actor": "main",
+          "gate": "无确认复现、既有产物、明确根因或前后证据均不开 PR"
+        }
+      ]
+    }
+  },
+  "notes": [
+    "只读快照中 /deslop 的出处为 README.md#Skills 与 docs/guide/05-build-and-clean.md；其实现属于外部 cursor-team-kit 插件，不在本 pstack 快照。opening-a-pr.md 和 autopilot playbook 要求提交前运行它；这里不能推断实现。",
+    "Benny 的 SKILL.md 位于 automations/benny/，README.md#benny 和 setup-benny/SKILL.md#Set up Benny 明确说它们不是注册的 slash skill，live automation 直接读取已提交路径。",
+    "Benny configuration.example.yaml 是示例占位值，未给出真实频道、tracker、control adapter、模型或预算的最终选择；这些不得当作可运行配置。",
+    "show-me-your-work/SKILL.md#Rules 写日志 append-only；#Audit the log against the transcript 又要求删掉虚构或填充行。真实发生的错误决定应追加更正；虚构行交付前清除，两处用语范围需这样区分。",
+    "typescript-best-practices/references/patterns.md#No as casts 的手写 parseUser 示例在全字段验证处使用省略号，不能作为可直接运行的完整验证实现。",
+    "make-bot-ui/SKILL.md#Host the page on this computer 写的是 webhook POST 返回 HTTP 200 即 routine wakes；本文只记录该文档要求的探测，不推断下游动作已成功。"
+  ]
+}

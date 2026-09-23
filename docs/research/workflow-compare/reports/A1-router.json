@@ -1,0 +1,2253 @@
+{
+  "group": "A1-router",
+  "components": [
+    {
+      "id": "sk-poteto-mode",
+      "kind": "skill",
+      "name": "Poteto Mode",
+      "label": "总入口",
+      "family": "入口路由",
+      "purpose": "把任务匹配到 playbook，并按步骤调用技能、原则和验证。",
+      "trigger": "/poteto-mode、poteto 风格，或 sticky mode 中出现新任务或需严谨处理的任务。",
+      "steps": [
+        {
+          "text": "读 Principles，按任务匹配 playbook。",
+          "actor": "main",
+          "uses": [
+            "ar-todo"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "将 playbook 步骤原样放入 todo，跳过需写理由。",
+          "actor": "main",
+          "uses": [
+            "ar-todo"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "依步骤调用技能和子 agent，核查其工作。",
+          "actor": "main",
+          "uses": [
+            "pf-task-tool",
+            "ag-poteto-agent"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "验证真实产物，按证据报告。",
+          "actor": "main",
+          "uses": [
+            "pr-prove-it-works"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "带步骤与 skip 理由的 todo",
+        "经验证的结果与答复"
+      ],
+      "done_when": "所选 playbook 的完成条件满足，真实产物已验证。",
+      "on_fail": "无匹配或大型跨域任务交 figure-it-out；项目级长期计划交 Orchestrate。",
+      "human": "产品或偏好且无法实验判定时询问；不可逆写入总要暂停。",
+      "parallel": "playbook 内子 agent 默认后台；代码默认 grok-4.7-xhigh-fast，判断与文字默认 claude-opus-5-5-max。",
+      "principles": [
+        "pr-model-the-domain",
+        "pr-prove-it-works"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "id": "sk-setup-pstack",
+      "kind": "skill",
+      "name": "setup-pstack",
+      "label": "模型设置",
+      "family": "入口配置",
+      "purpose": "检测可用模型并写入常驻的按角色模型规则。",
+      "trigger": "/setup-pstack、配置 pstack models 或预算。",
+      "steps": [
+        {
+          "text": "枚举本会话可用 Task 模型。",
+          "actor": "main",
+          "uses": [
+            "pf-task-tool"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "读现有规则与默认表，询问预算和角色选择。",
+          "actor": "main",
+          "uses": [
+            "ar-models-rule"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "校验每个 slug 可用并覆写规则。",
+          "actor": "main",
+          "uses": [
+            "ar-models-rule"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "缺少应用验证方式时仅提议生成验证 skill。",
+          "actor": "main",
+          "uses": [
+            "sk-create-verification-skill"
+          ],
+          "human_gate": true
+        }
+      ],
+      "outputs": [
+        "~/.cursor/rules/pstack-models.mdc",
+        "可选的验证 skill 提议"
+      ],
+      "done_when": "规则写入并告知新会话生效。",
+      "on_fail": "检测不到模型则请用户提供 slug；不可用 slug 不写入；拒绝验证提议则结束。",
+      "human": "用户选择预算、确认角色；是否生成验证 skill 由用户答复。",
+      "parallel": "panel 角色每项一个子 agent；arena cross-judge pool 只选一个跨模型家族值。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/setup-pstack/SKILL.md # Steps"
+    },
+    {
+      "id": "ag-poteto-agent",
+      "kind": "agent",
+      "name": "poteto-agent",
+      "label": "Poteto子代理",
+      "family": "子 agent",
+      "purpose": "让 playbook 派出的子 agent 完整加载 poteto-mode 风格与原则索引。",
+      "trigger": "playbook 步骤内需要代码或临时帮手子 agent。",
+      "steps": [
+        {
+          "text": "以 poteto-agent 类型启动。",
+          "actor": "main",
+          "uses": [
+            "pf-task-tool"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "完整读 poteto-mode 与 Principles。",
+          "actor": "subagent:poteto-agent",
+          "uses": [
+            "sk-poteto-mode"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "执行分配任务并交回结果。",
+          "actor": "subagent:poteto-agent",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "任务结果"
+      ],
+      "done_when": "父 agent 审查 diff 并自己总结。",
+      "on_fail": "不要以 generalPurpose 代替，否则跳过完整读取；中断链重启新 agent。",
+      "human": "无",
+      "parallel": "后台；代码默认 grok-4.7-xhigh-fast，难题与判断用 claude-opus-5-5-max；角色规则可覆盖。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/agents/poteto-agent.md # Poteto subagent"
+    },
+    {
+      "id": "ag-comment-sicko",
+      "kind": "agent",
+      "name": "Comment Sicko",
+      "label": "注释审查员",
+      "family": "子 agent",
+      "purpose": "只审查注释和抑制标记，报告删除及必须重构的代码位置。",
+      "trigger": "/no-comments 派出，或明确直接调用。",
+      "steps": [
+        {
+          "text": "读取父 agent 给的文件或 diff。",
+          "actor": "subagent:Comment Sicko",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "查邻近代码，必要时调用 how 或 why。",
+          "actor": "subagent:Comment Sicko",
+          "uses": [
+            "sk-how",
+            "sk-why"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "只改注释并报告删除数与 MUST KILL。",
+          "actor": "subagent:Comment Sicko",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "注释删除报告",
+        "MUST KILL 位置"
+      ],
+      "done_when": "报告文件、删除数、标记和跳过项。",
+      "on_fail": "不能证实保留例外则删除；不改应用代码。",
+      "human": "无",
+      "parallel": "一个只针对给定范围的审查子 agent；原文未指定模型。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/agents/comment-sicko.md # Comment Sicko"
+    },
+    {
+      "id": "ag-general-purpose",
+      "kind": "agent",
+      "name": "generalPurpose",
+      "label": "Cursor通用代理",
+      "family": "平台 agent",
+      "purpose": "Cursor 通用子 agent；在此路线不能替代 poteto-agent。",
+      "trigger": "Cursor Task 的通用子 agent 类型。",
+      "steps": [
+        {
+          "text": "由 Cursor Task 创建。",
+          "actor": "main",
+          "uses": [
+            "pf-task-tool"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "执行父任务给出的范围。",
+          "actor": "subagent:generalPurpose",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "如需 poteto 风格则改派 poteto-agent。",
+          "actor": "main",
+          "uses": [
+            "ag-poteto-agent"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "通用任务结果"
+      ],
+      "done_when": "完成父任务。",
+      "on_fail": "代替 poteto-agent 会跳过 poteto-mode 全文读取，造成风格漂移。",
+      "human": "无",
+      "parallel": "模型取决于 Task 调用；不是 pstack 指定的工作流 agent。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/README.md # the `poteto-agent` and Comment Sicko subagents"
+    },
+    {
+      "id": "ar-todo",
+      "kind": "artifact",
+      "name": "todolist",
+      "label": "步骤清单",
+      "family": "运行产物",
+      "purpose": "记录匹配 playbook 的原文步骤和有理由的跳过项。",
+      "trigger": "每次匹配 playbook 之前。",
+      "steps": [
+        {
+          "text": "从 playbook 复制步骤作为开头。",
+          "actor": "main",
+          "uses": [
+            "sk-poteto-mode"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "增列任务专用事项。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "跳过步骤保留并记 skip 理由。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "可审阅的步骤与跳过理由"
+      ],
+      "done_when": "任务结束时每项可追踪。",
+      "on_fail": "不删去被跳过的原步骤。",
+      "human": "人可看到哪些步骤被跳过。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "id": "ar-models-rule",
+      "kind": "artifact",
+      "name": "pstack-models.mdc",
+      "label": "模型规则文件",
+      "family": "配置产物",
+      "purpose": "Cursor 常驻规则，为 pstack 各角色覆盖模型默认值。",
+      "trigger": "setup-pstack 写入或后续会话读取。",
+      "steps": [
+        {
+          "text": "记预算与每个角色的模型值。",
+          "actor": "main",
+          "uses": [
+            "sk-setup-pstack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "Cursor 新会话应用 alwaysApply 规则。",
+          "actor": "main",
+          "uses": [
+            "pf-task-tool"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "缺少角色行则沿用 skill 默认值。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "~/.cursor/rules/pstack-models.mdc"
+      ],
+      "done_when": "slug 均确认可用，规则在新会话生效。",
+      "on_fail": "不存在或缺行则回到默认模型；不可用 slug 停止写入。",
+      "human": "用户在 setup 中确认预算与角色。",
+      "parallel": "panel 的逗号分隔值决定子 agent 数量。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/setup-pstack/SKILL.md # 5. Write the rule"
+    },
+    {
+      "id": "hu-goal",
+      "kind": "human",
+      "name": "goal 与完成条件",
+      "label": "人定目标",
+      "family": "人的决定点",
+      "purpose": "给出目标和可检查的完成条件。",
+      "trigger": "开始任务或夜间交接。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/README.md # If you only remember one thing"
+    },
+    {
+      "id": "hu-go",
+      "kind": "human",
+      "name": "explicit go",
+      "label": "明确开始",
+      "family": "人的决定点",
+      "purpose": "计划仅被要求陈述时不执行；明确 go 后才启动 autopilot。",
+      "trigger": "Autopilot-full/stack 的 state-then-wait。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/autopilot-full.md # Autopilot-full"
+    },
+    {
+      "id": "hu-merge-auth",
+      "kind": "human",
+      "name": "merge authorization",
+      "label": "合并授权",
+      "family": "人的决定点",
+      "purpose": "Babysit 只到 merge-ready；合并、land、ship 需要明确请求或完整自主授权。",
+      "trigger": "准备合并 PR 或 stack。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "id": "hu-preference",
+      "kind": "human",
+      "name": "product or preference call",
+      "label": "产品偏好决定",
+      "family": "人的决定点",
+      "purpose": "事实无法实验判定的产品和偏好决定由人作出。",
+      "trigger": "产品分叉无法以原型或调查定论时。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "id": "hu-irreversible",
+      "kind": "human",
+      "name": "irreversible writes",
+      "label": "不可逆确认",
+      "family": "人的决定点",
+      "purpose": "force-push 共享分支、部署、删数据、客户消息前必须暂停。",
+      "trigger": "发生 Autonomy 的 Always pause 项。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+    },
+    {
+      "id": "hu-approve-skill-edit",
+      "kind": "human",
+      "name": "skill edit approval",
+      "label": "批准技能改动",
+      "family": "人的决定点",
+      "purpose": "Reflect 的提议经人批准才改技能。",
+      "trigger": "Reflect 提出 Accepted/Rejected/Backlog 之后。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/09-make-it-yours.md # Capture a session's lessons with `/reflect`"
+    },
+    {
+      "id": "hu-morning-audit",
+      "kind": "human",
+      "name": "morning audit",
+      "label": "次日审查",
+      "family": "人的决定点",
+      "purpose": "人审阅夜间决策轨迹的 Attention 与证据。",
+      "trigger": "夜间自主工作结束后。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/07-overnight.md # The morning audit"
+    },
+    {
+      "id": "hu-pause",
+      "kind": "human",
+      "name": "pause",
+      "label": "请求暂停",
+      "family": "人的决定点",
+      "purpose": "人明确说 pause 时安全留下可恢复的检查点。",
+      "trigger": "明确暂停、离线、Cursor 重启或上下文压缩临近。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely"
+    },
+    {
+      "id": "hu-checkpoint",
+      "kind": "human",
+      "name": "architect checkpoint",
+      "label": "设计检查点",
+      "family": "人的决定点",
+      "purpose": "人明确要求 architect with checkpoint 时先看设计再实施。",
+      "trigger": "用户指定设计检查点。",
+      "steps": [
+        {
+          "text": "查看当前目标、证据或待定选择。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "作出原文指定的决定或要求。",
+          "actor": "human",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "主 agent 按决定继续或暂停。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "人的决定或审阅结果"
+      ],
+      "done_when": "决定明确或检查完成。",
+      "on_fail": "没有回应时，仅依对应路线允许的默认处理；强制门禁不得越过。",
+      "human": "此节点即人的介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/04-design.md # Settle the shape with `/architect`"
+    },
+    {
+      "id": "pf-loop",
+      "kind": "platform",
+      "name": "/loop",
+      "label": "Cursor循环",
+      "family": "平台能力",
+      "purpose": "Cursor 内建唤醒机制，按事件或心跳重新检查完成条件。",
+      "trigger": "长任务或 watcher 循环。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:/loop",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "/loop 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/07-overnight.md # The overnight contract"
+    },
+    {
+      "id": "pf-task-tool",
+      "kind": "platform",
+      "name": "Task tool",
+      "label": "Cursor任务工具",
+      "family": "平台能力",
+      "purpose": "Cursor 的子 agent 派遣与后台执行能力。",
+      "trigger": "playbook 需并行或委派时。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:Task tool",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "Task tool 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+    },
+    {
+      "id": "pf-cursor-cloud",
+      "kind": "platform",
+      "name": "Cursor cloud agents",
+      "label": "Cursor云代理",
+      "family": "平台能力",
+      "purpose": "Cursor 托管的远端 agent，供 PR owner 或独立验证使用。",
+      "trigger": "Shipping、Autopilot、Orchestrate 的云端委派。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:Cursor cloud agents",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "Cursor cloud agents 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "id": "pf-github",
+      "kind": "platform",
+      "name": "GitHub forge and CI",
+      "label": "GitHub托管",
+      "family": "平台能力",
+      "purpose": "GitHub 提供 PR、review、检查和默认 gh forge 操作。",
+      "trigger": "打开、babysit 或 shipping PR。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:GitHub forge and CI",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "GitHub forge and CI 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "id": "pf-bugbot",
+      "kind": "platform",
+      "name": "Bugbot",
+      "label": "Cursor审查机器人",
+      "family": "平台能力",
+      "purpose": "Cursor 的 PR 审查评论来源；每条发现须按证据分类。",
+      "trigger": "Bugbot 在 PR 留言时。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:Bugbot",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "Bugbot 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "id": "pf-transcripts",
+      "kind": "platform",
+      "name": "agent-transcripts",
+      "label": "Cursor对话记录",
+      "family": "平台能力",
+      "purpose": "Cursor 工作区本地或云端旧会话记录，供恢复和审计。",
+      "trigger": "Session pickup、worktree audit 或 Automate-me。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:agent-transcripts",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "agent-transcripts 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup"
+    },
+    {
+      "id": "pf-automations",
+      "kind": "platform",
+      "name": "Cursor Automations",
+      "label": "Cursor自动化",
+      "family": "平台能力",
+      "purpose": "Cursor 自动化承载 dormant benny pack，不注册为 slash skill。",
+      "trigger": "安装并配置 benny automation pack 时。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:Cursor Automations",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "Cursor Automations 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/README.md # automations"
+    },
+    {
+      "id": "pf-slack",
+      "kind": "platform",
+      "name": "Slack",
+      "label": "Slack消息源",
+      "family": "平台能力",
+      "purpose": "外部 Slack issue 报告是 benny 自动化的输入。",
+      "trigger": "benny triage 收到 issue 报告时。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:Slack",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "Slack 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/README.md # automations"
+    },
+    {
+      "id": "pf-graphite",
+      "kind": "platform",
+      "name": "Graphite (gt)",
+      "label": "Graphite栈工具",
+      "family": "平台能力",
+      "purpose": "外部 Graphite CLI 管理 stack；常规 PR 流程不要求它，Orchestrate frontier 用它。",
+      "trigger": "Orchestrate 的 stack frontier 计算。",
+      "steps": [
+        {
+          "text": "对应 playbook 判定是否需该平台。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "由 Cursor 或外部平台提供能力。",
+          "actor": "external:Graphite (gt)",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "返回状态或证据给主流程。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "Graphite (gt) 的状态或结果"
+      ],
+      "done_when": "主流程取得所需证据。",
+      "on_fail": "平台不可用时按对应 playbook 说明降级或报告阻塞；不假造状态。",
+      "human": "无",
+      "parallel": "平台自身并行性依具体 playbook；此节点不是 pstack skill。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/orchestrate.md # Stack safety"
+    }
+  ],
+  "edges": [
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-investigation",
+      "type": "route",
+      "label": "只读问题",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-bug-fix",
+      "type": "route",
+      "label": "报告缺陷",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-feature",
+      "type": "route",
+      "label": "新改行为",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-refactoring",
+      "type": "route",
+      "label": "行为不变",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-perf-issue",
+      "type": "route",
+      "label": "实测变慢",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-hillclimb",
+      "type": "route",
+      "label": "持续提指标",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-runtime-forensics",
+      "type": "route",
+      "label": "现场诊断",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-trace-forensics",
+      "type": "route",
+      "label": "已有跟踪",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-prototype",
+      "type": "route",
+      "label": "试做判定",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-visual-parity",
+      "type": "route",
+      "label": "像素对齐",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-authoring-a-skill",
+      "type": "route",
+      "label": "编改技能",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-eval",
+      "type": "route",
+      "label": "评估技能",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-opening-a-pr",
+      "type": "route",
+      "label": "打开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-babysit",
+      "type": "route",
+      "label": "PR状态清障",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-shipping",
+      "type": "route",
+      "label": "落地绿栈",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-autonomous-run",
+      "type": "route",
+      "label": "单任务长跑",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-autopilot-full",
+      "type": "route",
+      "label": "独立PR全自驾",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-autopilot-stack",
+      "type": "route",
+      "label": "建栈不合并",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-orchestrate",
+      "type": "route",
+      "label": "常驻项目协调",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-multi-phase-plan",
+      "type": "route",
+      "label": "跨阶段计划",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-session-pickup",
+      "type": "route",
+      "label": "接手旧任务",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-pause-safely",
+      "type": "route",
+      "label": "安全暂停",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-worktree-cleanup",
+      "type": "route",
+      "label": "清理工作树",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-figure-it-out",
+      "type": "route",
+      "label": "大型或无匹配",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "非平凡改动",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-architect",
+      "type": "invoke",
+      "label": "跨函数边界",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-swarm",
+      "type": "invoke",
+      "label": "并行覆盖",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-arena",
+      "type": "invoke",
+      "label": "方案竞赛",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-interrogate",
+      "type": "invoke",
+      "label": "争议设计",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-unslop",
+      "type": "invoke",
+      "label": "所有文字",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-technical-writing",
+      "type": "invoke",
+      "label": "正式文档",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-no-comments",
+      "type": "invoke",
+      "label": "审查前",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-show-me-your-work",
+      "type": "invoke",
+      "label": "长期或离开",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-laziness-protocol",
+      "type": "invoke",
+      "label": "删减优先",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-foundational-thinking",
+      "type": "invoke",
+      "label": "先定结构",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-redesign-from-first-principles",
+      "type": "invoke",
+      "label": "重做设计",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-attack-the-premise",
+      "type": "invoke",
+      "label": "质疑前提",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-subtract-before-you-add",
+      "type": "invoke",
+      "label": "先减后加",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-minimize-reader-load",
+      "type": "invoke",
+      "label": "减少负担",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-outcome-oriented-execution",
+      "type": "invoke",
+      "label": "目标架构",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-experience-first",
+      "type": "invoke",
+      "label": "体验优先",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-exhaust-the-design-space",
+      "type": "invoke",
+      "label": "比较原型",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-build-the-lever",
+      "type": "invoke",
+      "label": "建可重跑工具",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-model-the-domain",
+      "type": "invoke",
+      "label": "领域建模",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-boundary-discipline",
+      "type": "invoke",
+      "label": "边界校验",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-type-system-discipline",
+      "type": "invoke",
+      "label": "类型约束",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-make-operations-idempotent",
+      "type": "invoke",
+      "label": "幂等",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-migrate-callers-then-delete-legacy-apis",
+      "type": "invoke",
+      "label": "迁移并删除",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-separate-before-serializing-shared-state",
+      "type": "invoke",
+      "label": "先分离共享",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-prove-it-works",
+      "type": "invoke",
+      "label": "真实验证",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-fix-root-causes",
+      "type": "invoke",
+      "label": "修根因",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-sequence-verifiable-units",
+      "type": "invoke",
+      "label": "逐步验证",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-test-behavior-not-implementation",
+      "type": "invoke",
+      "label": "测行为",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-guard-the-context-window",
+      "type": "invoke",
+      "label": "保护上下文",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-never-block-on-the-human",
+      "type": "invoke",
+      "label": "可逆先行",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pr-encode-lessons-in-structure",
+      "type": "invoke",
+      "label": "规则编码",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Principles"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "ar-todo",
+      "type": "writes",
+      "label": "抄入步骤",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "步骤委派",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+    },
+    {
+      "from": "ag-poteto-agent",
+      "to": "sk-poteto-mode",
+      "type": "reads",
+      "label": "全文载入",
+      "source": "docs/research/code-landing-refs/pstack/agents/poteto-agent.md # Poteto subagent"
+    },
+    {
+      "from": "ag-general-purpose",
+      "to": "ag-poteto-agent",
+      "type": "fallback",
+      "label": "不能代替",
+      "source": "docs/research/code-landing-refs/pstack/README.md # the `poteto-agent` and Comment Sicko subagents"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "ar-models-rule",
+      "type": "reads",
+      "label": "模型覆盖",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+    },
+    {
+      "from": "sk-setup-pstack",
+      "to": "ar-models-rule",
+      "type": "writes",
+      "label": "设定角色",
+      "source": "docs/research/code-landing-refs/pstack/skills/setup-pstack/SKILL.md # 5. Write the rule"
+    },
+    {
+      "from": "sk-setup-pstack",
+      "to": "sk-create-verification-skill",
+      "type": "handoff",
+      "label": "无验证途径",
+      "source": "docs/research/code-landing-refs/pstack/skills/setup-pstack/SKILL.md # 7. Offer a verification skill (optional)"
+    },
+    {
+      "from": "sk-setup-pstack",
+      "to": "pf-task-tool",
+      "type": "reads",
+      "label": "检测模型",
+      "source": "docs/research/code-landing-refs/pstack/skills/setup-pstack/SKILL.md # 1. Detect available models"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pf-task-tool",
+      "type": "invoke",
+      "label": "派出子代理",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+    },
+    {
+      "from": "sk-no-comments",
+      "to": "ag-comment-sicko",
+      "type": "spawn",
+      "label": "审查注释",
+      "source": "docs/research/code-landing-refs/pstack/skills/no-comments/SKILL.md # Steps"
+    },
+    {
+      "from": "ag-comment-sicko",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "核查原因",
+      "source": "docs/research/code-landing-refs/pstack/agents/comment-sicko.md # Comment Sicko"
+    },
+    {
+      "from": "ag-comment-sicko",
+      "to": "sk-why",
+      "type": "invoke",
+      "label": "核查历史",
+      "source": "docs/research/code-landing-refs/pstack/agents/comment-sicko.md # Comment Sicko"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "事件或心跳",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/autonomous-run.md # Autonomous run"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "pf-cursor-cloud",
+      "type": "spawn",
+      "label": "逐PR验证",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "pf-github",
+      "type": "invoke",
+      "label": "默认gh",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pf-bugbot",
+      "type": "reads",
+      "label": "评论分级",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pf-github",
+      "type": "reads",
+      "label": "PR与CI",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-session-pickup",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "接续旧会话",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "pf-graphite",
+      "type": "reads",
+      "label": "计算frontier",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/orchestrate.md # Stack safety"
+    },
+    {
+      "from": "pf-automations",
+      "to": "pf-slack",
+      "type": "reads",
+      "label": "接收报告",
+      "source": "docs/research/code-landing-refs/pstack/README.md # automations"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "实验无解",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "hu-irreversible",
+      "type": "human",
+      "label": "不可逆写入",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+    },
+    {
+      "from": "hu-goal",
+      "to": "sk-poteto-mode",
+      "type": "human",
+      "label": "给目标条件",
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/README.md # If you only remember one thing"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "hu-merge-auth",
+      "type": "human",
+      "label": "只到可合并",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "hu-merge-auth",
+      "to": "pb-shipping",
+      "type": "human",
+      "label": "明确落地",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "hu-go",
+      "to": "pb-autopilot-full",
+      "type": "human",
+      "label": "明确go",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/autopilot-full.md # Autopilot-full"
+    },
+    {
+      "from": "hu-go",
+      "to": "pb-autopilot-stack",
+      "type": "human",
+      "label": "明确go",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/autopilot-stack.md # Autopilot-stack"
+    },
+    {
+      "from": "sk-reflect",
+      "to": "hu-approve-skill-edit",
+      "type": "human",
+      "label": "批准提议",
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/09-make-it-yours.md # Capture a session's lessons with `/reflect`"
+    },
+    {
+      "from": "sk-show-me-your-work",
+      "to": "hu-morning-audit",
+      "type": "human",
+      "label": "次日审计",
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/07-overnight.md # The morning audit"
+    },
+    {
+      "from": "hu-pause",
+      "to": "pb-pause-safely",
+      "type": "human",
+      "label": "明确暂停",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely"
+    },
+    {
+      "from": "sk-architect",
+      "to": "hu-checkpoint",
+      "type": "human",
+      "label": "设计先审",
+      "source": "docs/research/code-landing-refs/pstack/docs/guide/04-design.md # Settle the shape with `/architect`"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pb-shipping",
+      "type": "handoff",
+      "label": "可合并后落地",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-trace-forensics",
+      "to": "pb-bug-fix",
+      "type": "handoff",
+      "label": "根因是缺陷",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/trace-forensics.md # Trace forensics"
+    },
+    {
+      "from": "pb-trace-forensics",
+      "to": "pb-perf-issue",
+      "type": "handoff",
+      "label": "根因是性能",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/trace-forensics.md # Trace forensics"
+    },
+    {
+      "from": "sk-figure-it-out",
+      "to": "sk-show-me-your-work",
+      "type": "invoke",
+      "label": "审计轨迹",
+      "source": "docs/research/code-landing-refs/pstack/skills/figure-it-out/SKILL.md # Phase D: Keep the audit trail"
+    },
+    {
+      "from": "pb-investigation",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-feature",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-runtime-forensics",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-trace-forensics",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-authoring-a-skill",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-eval",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-session-pickup",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-pause-safely",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "pb-worktree-cleanup",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "结尾开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "sk-tdd",
+      "type": "invoke",
+      "label": "低成本红测",
+      "source": "docs/research/code-landing-refs/pstack/README.md # skills"
+    },
+    {
+      "from": "sk-setup-pstack",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "预算与模型",
+      "source": "docs/research/code-landing-refs/pstack/skills/setup-pstack/SKILL.md # 3. Budget, map, and confirm"
+    },
+    {
+      "from": "sk-setup-pstack",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "验证提议",
+      "source": "docs/research/code-landing-refs/pstack/skills/setup-pstack/SKILL.md # 7. Offer a verification skill (optional)"
+    }
+  ],
+  "compare": {
+    "route_tree": [
+      {
+        "id": "q1",
+        "question": "是否明确要求暂停或要安全留检查点？",
+        "yes": "pb-pause-safely",
+        "no": "q2"
+      },
+      {
+        "id": "q2",
+        "question": "是否接手旧 agent 的 transcript、cloud URL 或 branch？",
+        "yes": "pb-session-pickup",
+        "no": "q3"
+      },
+      {
+        "id": "q3",
+        "question": "是否清理 worktree 或旧模拟器以回收磁盘？",
+        "yes": "pb-worktree-cleanup",
+        "no": "q4"
+      },
+      {
+        "id": "q4",
+        "question": "是否只问或处理 PR 状态、CI、review 评论？",
+        "yes": "pb-babysit",
+        "no": "q5"
+      },
+      {
+        "id": "q5",
+        "question": "是否要求落地或 ship 已绿色的 stack？",
+        "yes": "pb-shipping",
+        "no": "q6"
+      },
+      {
+        "id": "q6",
+        "question": "是否明确要打开一个 PR？",
+        "yes": "pb-opening-a-pr",
+        "no": "q7"
+      },
+      {
+        "id": "q7",
+        "question": "是否要求独立 PR 队列由 owner 全程构建到合并？",
+        "yes": "pb-autopilot-full",
+        "no": "q8"
+      },
+      {
+        "id": "q8",
+        "question": "是否要求把队列建成线性 stack 供人自己落地？",
+        "yes": "pb-autopilot-stack",
+        "no": "q9"
+      },
+      {
+        "id": "q9",
+        "question": "是否是跨多日、多栈、多 agent 的常驻项目？",
+        "yes": "pb-orchestrate",
+        "no": "q10"
+      },
+      {
+        "id": "q10",
+        "question": "是否是单任务长期运行直到可检查条件满足？",
+        "yes": "pb-autonomous-run",
+        "no": "q11"
+      },
+      {
+        "id": "q11",
+        "question": "是否明确要跨阶段或多 PR 的计划？",
+        "yes": "pb-multi-phase-plan",
+        "no": "q12"
+      },
+      {
+        "id": "q12",
+        "question": "是否大型跨域，或人离开后回来审阅成果？",
+        "yes": "sk-figure-it-out",
+        "no": "q13"
+      },
+      {
+        "id": "q13",
+        "question": "是否在写或改 SKILL.md？",
+        "yes": "pb-authoring-a-skill",
+        "no": "q14"
+      },
+      {
+        "id": "q14",
+        "question": "是否评估 skill、结构或 prompt 对 agent 行为的影响？",
+        "yes": "pb-eval",
+        "no": "q15"
+      },
+      {
+        "id": "q15",
+        "question": "是否要用一次性 sketch 观察设计或行为再决定？",
+        "yes": "pb-prototype",
+        "no": "q16"
+      },
+      {
+        "id": "q16",
+        "question": "是否要求两份 UI 达到像素一致？",
+        "yes": "pb-visual-parity",
+        "no": "q17"
+      },
+      {
+        "id": "q17",
+        "question": "是否持续改善同一指标、逐轮测量直到目标？",
+        "yes": "pb-hillclimb",
+        "no": "q18"
+      },
+      {
+        "id": "q18",
+        "question": "是否诊断已交来的 cpuprofile、trace、spindump 或 heap snapshot？",
+        "yes": "pb-trace-forensics",
+        "no": "q19"
+      },
+      {
+        "id": "q19",
+        "question": "是否只诊断实时运行症状且暂不修复？",
+        "yes": "pb-runtime-forensics",
+        "no": "q20"
+      },
+      {
+        "id": "q20",
+        "question": "是否要修复有复现依据的缺陷？",
+        "yes": "pb-bug-fix",
+        "no": "q21"
+      },
+      {
+        "id": "q21",
+        "question": "是否要改善已经量过基线的一次性性能问题？",
+        "yes": "pb-perf-issue",
+        "no": "q22"
+      },
+      {
+        "id": "q22",
+        "question": "是否仅改变结构而保持行为不变？",
+        "yes": "pb-refactoring",
+        "no": "q23"
+      },
+      {
+        "id": "q23",
+        "question": "是否新增或改变产品行为？",
+        "yes": "pb-feature",
+        "no": "q24"
+      },
+      {
+        "id": "q24",
+        "question": "是否是只读的 how、why、are we sure 或 should we 问题？",
+        "yes": "pb-investigation",
+        "no": "sk-figure-it-out"
+      }
+    ],
+    "global_rules": {
+      "non_negotiables": [
+        {
+          "rule": "采用的原则须读该 leaf SKILL.md，并在答复中说明原则改变了哪项决定。",
+          "why": "避免只引用原则名称而未应用。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "非平凡改动或架构决定调用 how；跨函数边界调用 architect。",
+          "why": "先弄清现状和接口形状。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "可观察的事实分叉先用 Prototype 验证；只读 Investigation 以证据回答。",
+          "why": "把可测的问题交给实测，而非要求人猜。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "写代码前先命名数据形状，按 Model the Domain 选择组织结构。",
+          "why": "避免分散条件和重复形状假设。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "并行覆盖用 swarm；设计或代码竞赛用 arena；争议设计用 interrogate。",
+          "why": "三种并行任务的产物与判定方式不同。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "多步任务写 throughput checkpoint。",
+          "why": "让进度和瓶颈可检查。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "所有文字用 unslop；正式文档用 technical-writing；提交前 deslop；审查前 no-comments。",
+          "why": "减少冗余代码、注释与难读文字。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "UI、IDE、CLI 发布时使用对应控制 skill；bug fix 自己先在相同界面复现。",
+          "why": "验证客户实际接触的表面。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "任何 PR 状态请求走 Babysit；已获 land/ship 请求走 Shipping；Bugbot 评论按 fix/dismiss/ask 核查。",
+          "why": "避免把合并准备误作合并授权，也避免盲改。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "长期、自主、多阶段或人离开后审阅的工作留下 show-me-your-work 决策轨迹。",
+          "why": "使事后审计可核对。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        },
+        {
+          "rule": "任务中坏掉的 skill 用独立 PR 修复，不阻塞当前任务。",
+          "why": "隔离产品工作与工具修复。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Non-negotiables"
+        }
+      ],
+      "autonomy": [
+        {
+          "rule": "可逆工作和外部动作，包括 MCP、团队聊天、票据更新和启动 eval，可直接做。",
+          "why": "减少无需人的等待。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+        },
+        {
+          "rule": "force-push 共享分支前总要暂停。",
+          "why": "共享历史改写不可轻易撤回。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+        },
+        {
+          "rule": "部署前总要暂停。",
+          "why": "生产影响不可轻易撤回。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+        },
+        {
+          "rule": "删除数据前总要暂停。",
+          "why": "删除可能无法恢复。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+        },
+        {
+          "rule": "发送客户消息前总要暂停。",
+          "why": "外部沟通不可收回。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+        },
+        {
+          "rule": "“Don’t stop”“going to bed”“run until done”“be fully autonomous”表示继续，但不取消 Always pause。",
+          "why": "授权持续工作与不可逆门禁分开。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+        },
+        {
+          "rule": "被问是否做事、是否扩范围或给出方案时，允许明确说不并说明判断。",
+          "why": "建议不等于默认认可。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Autonomy"
+        }
+      ],
+      "subagents": [
+        {
+          "rule": "playbook 步骤派出的普通子 agent 使用 poteto-agent，不用 generalPurpose 顶替。",
+          "why": "后者不读 poteto-mode 全文。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+        },
+        {
+          "rule": "how、why、interrogate、reflect、swarm 自定 subagent_type，不强改 poteto-agent。",
+          "why": "这些 skill 需要各自的多模型工作流。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+        },
+        {
+          "rule": "Task 默认后台运行；agent mode；给文件指针而非内联全文；每角色明确模型。",
+          "why": "readonly 会剥去 MCP，内联大量上下文增加负担。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+        },
+        {
+          "rule": "代码默认 grok-4.7-xhigh-fast；文字和判断默认 claude-opus-5-5-max；最难题用最强判断模型。",
+          "why": "按工作难度和类型分配模型。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+        },
+        {
+          "rule": "setup-pstack 的角色行覆盖默认；inherit-parent 或 auto 省略 Task model。",
+          "why": "显式配置优先，别名继承父会话。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+        },
+        {
+          "rule": "父 agent 审查每个子 agent 的 diff，自行总结。",
+          "why": "对子 agent 工作承担最终责任。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+        },
+        {
+          "rule": "中断链恢复可能丢指令，应以整合后的范围启动新子 agent；第二意见用不同模型同一提示。",
+          "why": "保证任务范围完整并让同意更有信号。",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/SKILL.md # Subagents"
+        }
+      ]
+    },
+    "models": [
+      {
+        "role": "feature, refactoring",
+        "default_model": "grok-4.7-xhigh-fast",
+        "kind": "单个",
+        "used_by": [
+          "pb-feature",
+          "pb-refactoring"
+        ]
+      },
+      {
+        "role": "bug-fix",
+        "default_model": "grok-4.7-xhigh-fast",
+        "kind": "单个",
+        "used_by": [
+          "pb-bug-fix"
+        ]
+      },
+      {
+        "role": "perf-issue",
+        "default_model": "grok-4.7-xhigh-fast",
+        "kind": "单个",
+        "used_by": [
+          "pb-perf-issue"
+        ]
+      },
+      {
+        "role": "hillclimb",
+        "default_model": "grok-4.7-xhigh-fast",
+        "kind": "单个",
+        "used_by": [
+          "pb-hillclimb"
+        ]
+      },
+      {
+        "role": "judgment and prose",
+        "default_model": "claude-opus-5-5-max",
+        "kind": "单个",
+        "used_by": [
+          "sk-poteto-mode",
+          "ag-poteto-agent"
+        ]
+      },
+      {
+        "role": "hardest tasks",
+        "default_model": "claude-opus-5-5-max",
+        "kind": "单个",
+        "used_by": [
+          "sk-poteto-mode",
+          "ag-poteto-agent"
+        ]
+      },
+      {
+        "role": "how explorer",
+        "default_model": "grok-4.7-xhigh-fast",
+        "kind": "单个",
+        "used_by": [
+          "sk-how"
+        ]
+      },
+      {
+        "role": "how explainer",
+        "default_model": "claude-opus-5-5-max",
+        "kind": "单个",
+        "used_by": [
+          "sk-how"
+        ]
+      },
+      {
+        "role": "why investigators",
+        "default_model": "grok-4.7-xhigh-fast",
+        "kind": "单个",
+        "used_by": [
+          "sk-why"
+        ]
+      },
+      {
+        "role": "why synthesizer",
+        "default_model": "claude-opus-5-5-max",
+        "kind": "单个",
+        "used_by": [
+          "sk-why"
+        ]
+      },
+      {
+        "role": "reflect tooling",
+        "default_model": "gpt-5.6-sol-max",
+        "kind": "单个",
+        "used_by": [
+          "sk-reflect"
+        ]
+      },
+      {
+        "role": "reflect judgment, divergent, synthesizer",
+        "default_model": "claude-opus-5-5-max",
+        "kind": "单个",
+        "used_by": [
+          "sk-reflect"
+        ]
+      },
+      {
+        "role": "arena runners",
+        "default_model": "claude-opus-5-5-max, gpt-5.6-sol-max, grok-4.7-xhigh-fast",
+        "kind": "panel",
+        "used_by": [
+          "sk-arena"
+        ]
+      },
+      {
+        "role": "arena cross-judge pool",
+        "default_model": "claude-opus-5-5-max, gpt-5.6-sol-max, grok-4.7-xhigh-fast",
+        "kind": "panel",
+        "used_by": [
+          "sk-arena"
+        ]
+      },
+      {
+        "role": "swarm workers",
+        "default_model": "grok-4.7-xhigh-fast",
+        "kind": "单个",
+        "used_by": [
+          "sk-swarm"
+        ]
+      },
+      {
+        "role": "architect runners",
+        "default_model": "claude-opus-5-5-max, gpt-5.6-sol-max, grok-4.7-xhigh-fast",
+        "kind": "panel",
+        "used_by": [
+          "sk-architect"
+        ]
+      },
+      {
+        "role": "interrogate reviewers",
+        "default_model": "claude-opus-5-5-max, gpt-5.6-sol-max, grok-4.7-xhigh-fast",
+        "kind": "panel",
+        "used_by": [
+          "sk-interrogate"
+        ]
+      }
+    ]
+  },
+  "notes": [
+    "route_tree 是为图上唯一入口整理的顺序，不是 SKILL.md 声称的执行优先级；除 PR 状态优先于普通请求、大型/离开后审阅优先于窄 playbook、Orchestrate 优先于 figure-it-out 等明写覆盖关系，其余同级判别按 Playbooks 条目与具体条件整理。",
+    "Opening a PR 在原文既有直接请求的 route，又写成每个其他 playbook 结尾调用；实际 playbook 可能因只读或无代码不产生 PR，故 handoff 是原文总述而非每次都开 PR。",
+    "pf-graphite 不是 GitHub，也不是 Cursor 内建能力；Shipping 和 Babysit 明说不要求 gt，但 Orchestrate 的 frontier 依赖 gt。",
+    "pf-bugbot 的提供者由名称和 Cursor automation 标记推断；本次只读材料没有独立的 Bugbot 产品定义，未把它写成 pstack 自带 skill。",
+    "模型默认表是 setup-pstack/SKILL.md 的规则模板；实际会话可能被 pstack-models.mdc 覆盖。arena cross-judge pool 虽是列表，但单次只挑一个值。",
+    "本组没有执行 pstack 脚本；平台和 playbook 的运行结果均未验证。",
+    "全局 Autonomy 允许团队聊天等外部动作是 pstack 原文规则，不代表本次调查已获这类动作授权。",
+    "docs/guide/01-setup.md 说“只覆盖关心的角色”，但 skills/setup-pstack/SKILL.md # 5. Write the rule 要写出每个角色行并覆盖整个文件；本图按 SKILL.md 的实际步骤描述。"
+  ]
+}

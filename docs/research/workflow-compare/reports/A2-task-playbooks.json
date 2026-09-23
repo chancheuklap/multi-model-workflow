@@ -1,0 +1,1783 @@
+{
+  "group": "A2-task-playbooks",
+  "components": [
+    {
+      "id": "pb-investigation",
+      "kind": "playbook",
+      "name": "Investigation",
+      "label": "调查解答",
+      "family": "只读诊断",
+      "purpose": "给出有出处的解释或带取舍的建议，不改代码。",
+      "trigger": "只读的工作原理、缘由、可信度或方案比较问题。",
+      "steps": [
+        {
+          "text": "经 how 查机制；问动机时也经 why 查缘由。",
+          "actor": "main",
+          "uses": [
+            "sk-how",
+            "sk-why"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "记一行只读的 throughput checkpoint。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按 how 结构作答；若选方案则给取舍表。",
+          "actor": "main",
+          "uses": [
+            "sk-how"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "用 unslop 整理答复；变成改代码时交还用户重选路线。",
+          "actor": "main",
+          "uses": [
+            "sk-unslop"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "有出处的解释或建议",
+        "取舍表（选方案时）"
+      ],
+      "done_when": "交付解答；不建 PR、不 babysit，除非后续独立发起改代码任务。",
+      "on_fail": "前提错误时提出异议；若调查转为改代码，交还用户并重路由。",
+      "human": "调查先于改代码时，交还用户决定后续任务。",
+      "parallel": "无；主 agent 自己规划、路由和写答复。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation"
+    },
+    {
+      "id": "pb-bug-fix",
+      "kind": "playbook",
+      "name": "Bug fix",
+      "label": "修复缺陷",
+      "family": "代码修复",
+      "purpose": "从运行证据确认根因，作最小修复并在原场景复验。",
+      "trigger": "已有缺陷报告，需要重现、定位、修复。",
+      "steps": [
+        {
+          "text": "亲自在同一控制表面复现；够不到才说明理由请用户操作。",
+          "actor": "main",
+          "uses": [
+            "sk-control-cli",
+            "sk-control-ui"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "以 how、why 建假设并二分排除；必要时加日志或用 /loop。",
+          "actor": "main",
+          "uses": [
+            "sk-how",
+            "sk-why",
+            "pf-loop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "跨函数先 architect；定界后派 subagent 修复。",
+          "actor": "main",
+          "uses": [
+            "sk-architect",
+            "ag-poteto-agent"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "在原表面复验；不确定或错表面不算通过。",
+          "actor": "main",
+          "uses": [
+            "sk-control-cli",
+            "sk-control-ui"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "失败复现提交先于修复；便宜局部测试按 tdd。",
+          "actor": "main",
+          "uses": [
+            "sk-tdd",
+            "pr-sequence-verifiable-units"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "运行 Opening a PR，并报告失败及通过的原始复现输出。",
+          "actor": "main",
+          "uses": [
+            "pb-opening-a-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "缺陷修复",
+        "失败后通过的复现输出",
+        "PR"
+      ],
+      "done_when": "原始复现于相同表面通过，根因由运行证据支持，PR 已开。",
+      "on_fail": "不能复现则合成触发、收紧条件或加仪表；证据否定的假设要撤销其改动。",
+      "human": "仅控制表面确实够不到目标时，请用户协助复现并说明具体原因。",
+      "parallel": "主 agent 负责调查与验收；实现交给限定范围的 poteto-agent，默认 grok-4.7-xhigh-fast。",
+      "principles": [
+        "pr-sequence-verifiable-units"
+      ],
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix"
+    },
+    {
+      "id": "pb-feature",
+      "kind": "playbook",
+      "name": "Feature",
+      "label": "实现功能",
+      "family": "代码变更",
+      "purpose": "设计并交付新增或改变的行为，按真实表面验收。",
+      "trigger": "新行为或既有行为的改变。",
+      "steps": [
+        {
+          "text": "先用 how 理清受影响子系统。",
+          "actor": "main",
+          "uses": [
+            "sk-how"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "以 architect 并行探索设计。",
+          "actor": "main",
+          "uses": [
+            "sk-architect"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "在 todo 写四项吞吐检查点，含不适用理由。",
+          "actor": "main",
+          "uses": [
+            "ar-todo",
+            "pr-separate-before-serializing-shared-state"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "命名数据形状并定界派实现；多种有效形状改用 arena。",
+          "actor": "main",
+          "uses": [
+            "pr-model-the-domain",
+            "ag-poteto-agent",
+            "sk-arena"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "在匹配表面验证；不确定或错表面不算通过。",
+          "actor": "main",
+          "uses": [
+            "sk-control-cli",
+            "sk-control-ui"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "小步验收并整理有序提交，后续改动叠成 stack。",
+          "actor": "main",
+          "uses": [
+            "pr-sequence-verifiable-units",
+            "ar-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "设计有争议时交 interrogate 审查。",
+          "actor": "main",
+          "uses": [
+            "sk-interrogate"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "运行 Opening a PR。",
+          "actor": "main",
+          "uses": [
+            "pb-opening-a-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "功能代码与验证证据",
+        "吞吐检查点",
+        "有序提交或 stack",
+        "PR"
+      ],
+      "done_when": "匹配表面验证通过，有争议设计经审查，PR 已开。",
+      "on_fail": "验证不确定要标明；共享写入串行；争议设计先 interrogate。",
+      "human": "产品决定或未决设计选项交用户；答复列 open decisions。",
+      "parallel": "代码由限定范围的 poteto-agent 做，默认 grok-4.7-xhigh-fast；独立产物可由父级并行，耦合功能由单一 owner 内部扇出。",
+      "principles": [
+        "pr-separate-before-serializing-shared-state",
+        "pr-model-the-domain",
+        "pr-sequence-verifiable-units"
+      ],
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature"
+    },
+    {
+      "id": "pb-refactoring",
+      "kind": "playbook",
+      "name": "Refactoring",
+      "label": "重整结构",
+      "family": "行为不变",
+      "purpose": "在固定行为契约下减少代码阅读负担，不引入新行为。",
+      "trigger": "聚焦至中等规模的改名、抽取、内联、去重或移动。",
+      "steps": [
+        {
+          "text": "用 how 定行为契约；先写特征测试、快照或等价基线。",
+          "actor": "main",
+          "uses": [
+            "sk-how"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按 model-the-domain 指出缺失结构；形状已清楚则保留。",
+          "actor": "main",
+          "uses": [
+            "pr-model-the-domain"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "定模块、类型和调用目标形状；跨函数先 architect。",
+          "actor": "main",
+          "uses": [
+            "pr-foundational-thinking",
+            "pr-redesign-from-first-principles",
+            "sk-architect"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "先删死代码、单调用包装与冗余校验；只做必要重整。",
+          "actor": "main",
+          "uses": [
+            "pr-subtract-before-you-add",
+            "pr-laziness-protocol"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "小步保基线；API 同波迁删、无兼容层；逐项查改名并派编辑。",
+          "actor": "main",
+          "uses": [
+            "pr-migrate-callers-then-delete-legacy-apis",
+            "ag-poteto-agent"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "在真实产物上验等价；大改用输出比较或基线重放。",
+          "actor": "main",
+          "uses": [
+            "pr-prove-it-works",
+            "sk-control-cli",
+            "sk-control-ui"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "检查阅读负担是否下降，否则撤销。",
+          "actor": "main",
+          "uses": [
+            "pr-minimize-reader-load"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "排有序小提交，每片保持绿色；运行 Opening a PR。",
+          "actor": "main",
+          "uses": [
+            "pr-sequence-verifiable-units",
+            "pb-opening-a-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "行为基线及等价证据",
+        "结构重整代码",
+        "阅读负担评估",
+        "PR"
+      ],
+      "done_when": "真实产物行为不变、阅读负担下降且 PR 已开。",
+      "on_fail": "发现缺陷或缺功能要拆出；重设计走 Feature；收益不足撤销；大范围走 figure-it-out。",
+      "human": "没有常规人工门禁；若改成新行为，需按 Feature 的产品决定处理。",
+      "parallel": "主 agent 守行为契约；限定文件和名称的机械编辑派 poteto-agent，默认 grok-4.7-xhigh-fast。",
+      "principles": [
+        "pr-model-the-domain",
+        "pr-foundational-thinking",
+        "pr-redesign-from-first-principles",
+        "pr-subtract-before-you-add",
+        "pr-laziness-protocol",
+        "pr-migrate-callers-then-delete-legacy-apis",
+        "pr-prove-it-works",
+        "pr-minimize-reader-load",
+        "pr-sequence-verifiable-units"
+      ],
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring"
+    },
+    {
+      "id": "pb-perf-issue",
+      "kind": "playbook",
+      "name": "Perf issue",
+      "label": "性能修复",
+      "family": "性能测量",
+      "purpose": "以基线和修复后 trace 证明一次性能改动的效果。",
+      "trigger": "已量到的慢问题，需要一次性定位并改善。",
+      "steps": [
+        {
+          "text": "在匹配控制表面取得基线 trace。",
+          "actor": "main",
+          "uses": [
+            "sk-control-cli",
+            "sk-control-ui"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "经 how 只按 trace 信号考虑删减、分治、缓存、间接、批量、冗余、延迟、调度。",
+          "actor": "main",
+          "uses": [
+            "sk-how"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按 trace 规划；跨函数先 architect；派修复并取后测 trace。",
+          "actor": "main",
+          "uses": [
+            "sk-architect",
+            "ag-poteto-agent",
+            "pr-sequence-verifiable-units"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "解析并比较两份产物；不确定或错表面不算通过。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "在 PR 引用基线、后测数值与证据。",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "运行 Opening a PR；持续指标改进转 Hillclimb。",
+          "actor": "main",
+          "uses": [
+            "pb-opening-a-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "基线及后测 trace",
+        "数值差异",
+        "性能修复",
+        "PR"
+      ],
+      "done_when": "同一表面的前后数值可比，PR 引用测量证据。",
+      "on_fail": "trace 不支持假设则不尝试；结果不确定要标明；持续改进改走 Hillclimb。",
+      "human": "无明确常规人工门禁。",
+      "parallel": "主 agent 管测量与审查；限定范围的实现派 poteto-agent，默认 grok-4.7-xhigh-fast。",
+      "principles": [
+        "pr-sequence-verifiable-units"
+      ],
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue"
+    },
+    {
+      "id": "pb-hillclimb",
+      "kind": "playbook",
+      "name": "Hillclimb",
+      "label": "指标迭代",
+      "family": "指标实验",
+      "purpose": "固定一个指标与测量工具，逐次试验、保留有效改进。",
+      "trigger": "需持续迭代同一可测指标，直到目标或成本边界。",
+      "steps": [
+        {
+          "text": "经 how 定真实工作负载、单一指标和含次数下限的停止条件。",
+          "actor": "main",
+          "uses": [
+            "sk-how"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "建并冻结敏感且可重复的测量工具；记基线和绿色回归门禁。",
+          "actor": "main",
+          "uses": [
+            "pr-build-the-lever"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "经 show-me-your-work 开树外 decision.tsv，每次先读。",
+          "actor": "main",
+          "uses": [
+            "sk-show-me-your-work"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每个假设须点名架构中的具体机制。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "逐次派改动、前后测量与回归；仅超噪声且绿色才留并提交。",
+          "actor": "main",
+          "uses": [
+            "ag-poteto-agent",
+            "pr-guard-the-context-window",
+            "pr-separate-before-serializing-shared-state",
+            "pr-sequence-verifiable-units"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "平台期换类别或重读源码；破坏行为的胜利撤销。",
+          "actor": "main",
+          "uses": [
+            "pr-laziness-protocol"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "达停止条件或余下想法不值成本才停；卡住要报告。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按落地顺序叠已接受提交并运行 Opening a PR。",
+          "actor": "main",
+          "uses": [
+            "pb-opening-a-pr",
+            "ar-stack"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "冻结的测量工具",
+        "树外 decision.tsv",
+        "指标曲线与保留的提交",
+        "PR"
+      ],
+      "done_when": "达到事先固定的目标与尝试次数下限，或剩余方案边际收益不值成本；PR 已开。",
+      "on_fail": "无复现先修工作负载；工具不敏感则重做；失败尝试全撤；卡住要报告，不能放宽门槛。",
+      "human": "用户给目标数值时沿用；未给时要与用户商定。",
+      "parallel": "每次改动派限定范围的 poteto-agent，默认 grok-4.7-xhigh-fast；独立假设可各用独立 worktree 并行，但每轮验收后再继续。",
+      "principles": [
+        "pr-prove-it-works",
+        "pr-build-the-lever",
+        "pr-guard-the-context-window",
+        "pr-separate-before-serializing-shared-state",
+        "pr-sequence-verifiable-units",
+        "pr-laziness-protocol"
+      ],
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb"
+    },
+    {
+      "id": "pb-runtime-forensics",
+      "kind": "playbook",
+      "name": "Runtime forensics",
+      "label": "运行取证",
+      "family": "只读诊断",
+      "purpose": "对运行中的进程取样并证实故障机制，交付诊断而非修复。",
+      "trigger": "实时可观察的泄漏、CPU 空转或视觉异常。",
+      "steps": [
+        {
+          "text": "在匹配表面抓 CPU、heap 或 CDP 的真实产物。",
+          "actor": "main",
+          "uses": [
+            "sk-control-cli",
+            "sk-control-ui"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "从大产物缩到热点、保留链或无输入循环；必要时派解析。",
+          "actor": "main",
+          "uses": [
+            "ag-poteto-agent",
+            "pr-guard-the-context-window"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "用 CDP eval 或不重载热修证实机制。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "映射到源码文件、符号及分配或调度位置。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "记只读取证的 throughput checkpoint；报告并交回修复路线。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "运行产物",
+        "经实测证实的故障机制",
+        "源码定位诊断"
+      ],
+      "done_when": "说明所抓信号、机制验证和源码位置；无用户另请不修复。",
+      "on_fail": "机制未经运行证据证实不能定因；知道原因后交 Bug fix 或 Perf issue。",
+      "human": "无明确常规人工门禁；若要修复需用户另行提出。",
+      "parallel": "大产物可派 poteto-agent 解析；主线程只留缩减结果。",
+      "principles": [
+        "pr-guard-the-context-window"
+      ],
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md § ### Runtime forensics"
+    },
+    {
+      "id": "pb-trace-forensics",
+      "kind": "playbook",
+      "name": "Trace forensics",
+      "label": "既有轨迹取证",
+      "family": "只读诊断",
+      "purpose": "从已有固定产物定位热点或泄漏，并按证据强度给出处。",
+      "trigger": "用户提供已抓取的 cpuprofile、trace、spindump 或 heap snapshot。",
+      "steps": [
+        {
+          "text": "识别格式并用合适工具加载；大产物可派解析。",
+          "actor": "main",
+          "uses": [
+            "ag-poteto-agent",
+            "pr-guard-the-context-window"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "转为可查询形态，例如每样本、frame 或节点一行的 sqlite。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "查热点调用树、泄漏保留链或卡住线程及等待原因。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "用产物符号定位源码文件、符号和行；缺符号要明说。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "有成对产物则比较确认；没有则标为最强假设。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "给有出处的诊断并记只读 checkpoint；交修复路线。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "可查询的轨迹数据",
+        "热点或泄漏诊断",
+        "源码定位与置信度"
+      ],
+      "done_when": "交付有出处诊断；成对产物确认与否明确标注；无用户另请不修复。",
+      "on_fail": "符号不够先解析，仍无则明说；单份产物不可声称已确认原因。",
+      "human": "无明确常规人工门禁；若要修复需用户另行提出。",
+      "parallel": "大产物可派 poteto-agent 解析；主线程只留缩减结果。",
+      "principles": [
+        "pr-guard-the-context-window"
+      ],
+      "source": "skills/poteto-mode/playbooks/trace-forensics.md § ### Trace forensics"
+    },
+    {
+      "id": "pb-prototype",
+      "kind": "playbook",
+      "name": "Prototype",
+      "label": "抛弃式原型",
+      "family": "设计实验",
+      "purpose": "用隔离的可丢弃原型观察设计或行为分叉，再决定正式实现。",
+      "trigger": "需要廉价验证布局、交互、密度、行为、时序或方案。",
+      "steps": [
+        {
+          "text": "先命名要作的设计决定；没有决定就直接走 Feature。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "方向开放时查参考、列 moodboard，请用户先选方向。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "隔离 scratch；视觉用最轻网页，行为用最小脚本；不作生产代码。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "比较方案时放在一个带标签的切换器中。",
+          "actor": "main",
+          "uses": [
+            "pr-exhaust-the-design-space"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "在匹配表面截图并操作，或观察时间、输出、渲染。",
+          "actor": "main",
+          "uses": [
+            "sk-control-cli",
+            "sk-control-ui"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "给备选、取舍、建议和证据；选定方向交 Feature 或 architect。",
+          "actor": "main",
+          "uses": [
+            "pb-feature",
+            "sk-architect"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "抛弃式原型",
+        "截图或实测输出",
+        "方案建议"
+      ],
+      "done_when": "展示备选与观察证据，明确原型不可发布，并交正式构建路线。",
+      "on_fail": "观察不支持决定则继续试别的方案；无设计问题就走 Feature。",
+      "human": "设计空间开放时用户选方向；最终产品方向由用户决定。",
+      "parallel": "无明确委派；主 agent 快速做隔离原型。",
+      "principles": [
+        "pr-exhaust-the-design-space"
+      ],
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype"
+    },
+    {
+      "id": "pb-visual-parity",
+      "kind": "playbook",
+      "name": "Visual parity",
+      "label": "视觉等价",
+      "family": "像素迁移",
+      "purpose": "以不可改动的基线和图像差异证明组件逐个像素等价。",
+      "trigger": "需要匹配两种 UI 实现或迁移样式体系。",
+      "steps": [
+        {
+          "text": "迁移前建覆盖组件各状态的截图基线及目标。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "锁定基线与 harness，不为过图而重构；有疑问停问用户。",
+          "actor": "main",
+          "uses": [],
+          "human_gate": true
+        },
+        {
+          "text": "共享 primitive 先迁，再按组件分 worktree、各一 owner。",
+          "actor": "main",
+          "uses": [
+            "pr-separate-before-serializing-shared-state",
+            "ag-poteto-agent"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "在匹配表面逐组件做 image diff；非零则查并用 /loop 到零。",
+          "actor": "main",
+          "uses": [
+            "sk-control-cli",
+            "sk-control-ui",
+            "pf-loop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按组件或安全批次运行 Opening a PR。",
+          "actor": "main",
+          "uses": [
+            "pb-opening-a-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "各状态截图基线",
+        "逐组件零差异证据",
+        "组件或批次 PR"
+      ],
+      "done_when": "每个迁移组件在匹配表面的 image diff 为零，相关 PR 已开。",
+      "on_fail": "差异非零继续查；基线看似有错停下请用户决定，不改基线或 harness。",
+      "human": "基线疑似错误时要用户判断。",
+      "parallel": "每组件一个 owner、独立 worktree 并行；共享 primitive 是先行阻塞阶段。",
+      "principles": [
+        "pr-separate-before-serializing-shared-state"
+      ],
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity"
+    },
+    {
+      "id": "sk-control-cli",
+      "new": true,
+      "kind": "skill",
+      "name": "control-cli",
+      "label": "命令行控制",
+      "family": "外部控制技能",
+      "purpose": "通过匹配控制表面操作 CLI/TUI。",
+      "trigger": "任务需要在匹配的 CLI/TUI 或 UI 表面验证时。",
+      "steps": [],
+      "outputs": [
+        "匹配表面的操作与观察证据"
+      ],
+      "done_when": "取得目标表面的观察结果。",
+      "on_fail": "该插件的具体失败流程在快照中未定义。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "skills/poteto-mode/SKILL.md § Non-negotiables / Shipping UI / IDE / CLI"
+    },
+    {
+      "id": "sk-control-ui",
+      "new": true,
+      "kind": "skill",
+      "name": "control-ui",
+      "label": "界面控制",
+      "family": "外部控制技能",
+      "purpose": "通过匹配控制表面操作浏览器或 Electron UI。",
+      "trigger": "任务需要在匹配的 CLI/TUI 或 UI 表面验证时。",
+      "steps": [],
+      "outputs": [
+        "匹配表面的操作与观察证据"
+      ],
+      "done_when": "取得目标表面的观察结果。",
+      "on_fail": "该插件的具体失败流程在快照中未定义。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "skills/poteto-mode/SKILL.md § Non-negotiables / Shipping UI / IDE / CLI"
+    }
+  ],
+  "edges": [
+    {
+      "from": "pb-investigation",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "第1步",
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation / step 1"
+    },
+    {
+      "from": "pb-investigation",
+      "to": "sk-why",
+      "type": "invoke",
+      "label": "问动机时",
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation / step 1"
+    },
+    {
+      "from": "pb-investigation",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation / step 3"
+    },
+    {
+      "from": "pb-investigation",
+      "to": "sk-unslop",
+      "type": "invoke",
+      "label": "第4步",
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation / step 4"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 1"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 1"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 2"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-why",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 2"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 2"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-architect",
+      "type": "invoke",
+      "label": "跨函数时",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 3"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 3"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 4"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 4"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "sk-tdd",
+      "type": "invoke",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 5"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "pr-sequence-verifiable-units",
+      "type": "invoke",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 5"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "pb-opening-a-pr",
+      "type": "invoke",
+      "label": "第6步",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 6"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "第1步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 1"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-architect",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 2"
+    },
+    {
+      "from": "pb-feature",
+      "to": "ar-todo",
+      "type": "writes",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 3"
+    },
+    {
+      "from": "pb-feature",
+      "to": "pr-separate-before-serializing-shared-state",
+      "type": "invoke",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 3"
+    },
+    {
+      "from": "pb-feature",
+      "to": "pr-model-the-domain",
+      "type": "invoke",
+      "label": "第4步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 4"
+    },
+    {
+      "from": "pb-feature",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第4步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 4"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-arena",
+      "type": "invoke",
+      "label": "多种有效形状",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 4"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 5"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 5"
+    },
+    {
+      "from": "pb-feature",
+      "to": "pr-sequence-verifiable-units",
+      "type": "invoke",
+      "label": "第6步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 6"
+    },
+    {
+      "from": "pb-feature",
+      "to": "ar-stack",
+      "type": "writes",
+      "label": "第6步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 6"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-interrogate",
+      "type": "invoke",
+      "label": "设计有争议",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 7"
+    },
+    {
+      "from": "pb-feature",
+      "to": "pb-opening-a-pr",
+      "type": "invoke",
+      "label": "第8步",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 8"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "第1步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 1"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-model-the-domain",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 2"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-foundational-thinking",
+      "type": "invoke",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 3"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-redesign-from-first-principles",
+      "type": "invoke",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 3"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "sk-architect",
+      "type": "invoke",
+      "label": "跨函数时",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 3"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-subtract-before-you-add",
+      "type": "invoke",
+      "label": "第4步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 4"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-laziness-protocol",
+      "type": "invoke",
+      "label": "第4步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 4"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-migrate-callers-then-delete-legacy-apis",
+      "type": "invoke",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 5"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 5"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-prove-it-works",
+      "type": "invoke",
+      "label": "第6步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 6"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 6"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 6"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-minimize-reader-load",
+      "type": "invoke",
+      "label": "第7步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 7"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pr-sequence-verifiable-units",
+      "type": "invoke",
+      "label": "第8步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 8"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pb-opening-a-pr",
+      "type": "invoke",
+      "label": "第8步",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 8"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 1"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 1"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 2"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "sk-architect",
+      "type": "invoke",
+      "label": "跨函数时",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 3"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 3"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "pr-sequence-verifiable-units",
+      "type": "invoke",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 3"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 5"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "pb-opening-a-pr",
+      "type": "invoke",
+      "label": "第6步",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue / step 6"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "sk-how",
+      "type": "invoke",
+      "label": "第1步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 1"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pr-build-the-lever",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 2"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "sk-show-me-your-work",
+      "type": "invoke",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 3"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 5"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pr-guard-the-context-window",
+      "type": "invoke",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 5"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pr-separate-before-serializing-shared-state",
+      "type": "invoke",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 5"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pr-sequence-verifiable-units",
+      "type": "invoke",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 5"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pr-laziness-protocol",
+      "type": "invoke",
+      "label": "第6步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 6"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pb-opening-a-pr",
+      "type": "invoke",
+      "label": "第8步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 8"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "ar-stack",
+      "type": "writes",
+      "label": "第8步",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 8"
+    },
+    {
+      "from": "pb-runtime-forensics",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md § ### Runtime forensics / step 1"
+    },
+    {
+      "from": "pb-runtime-forensics",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md § ### Runtime forensics / step 1"
+    },
+    {
+      "from": "pb-runtime-forensics",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md § ### Runtime forensics / step 2"
+    },
+    {
+      "from": "pb-runtime-forensics",
+      "to": "pr-guard-the-context-window",
+      "type": "invoke",
+      "label": "第2步",
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md § ### Runtime forensics / step 2"
+    },
+    {
+      "from": "pb-trace-forensics",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第1步",
+      "source": "skills/poteto-mode/playbooks/trace-forensics.md § ### Trace forensics / step 1"
+    },
+    {
+      "from": "pb-trace-forensics",
+      "to": "pr-guard-the-context-window",
+      "type": "invoke",
+      "label": "第1步",
+      "source": "skills/poteto-mode/playbooks/trace-forensics.md § ### Trace forensics / step 1"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "pr-exhaust-the-design-space",
+      "type": "invoke",
+      "label": "第4步",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 4"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 5"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 5"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "pb-feature",
+      "type": "invoke",
+      "label": "第6步",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 6"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "sk-architect",
+      "type": "invoke",
+      "label": "正式形状",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 6"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "pr-separate-before-serializing-shared-state",
+      "type": "invoke",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity / step 3"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "第3步",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity / step 3"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "sk-control-cli",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity / step 4"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "sk-control-ui",
+      "type": "invoke",
+      "label": "按表面",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity / step 4"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "第4步",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity / step 4"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "pb-opening-a-pr",
+      "type": "invoke",
+      "label": "第5步",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity / step 5"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-investigation",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-bug-fix",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-feature",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-refactoring",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-perf-issue",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-hillclimb",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-runtime-forensics",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-trace-forensics",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-prototype",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "sk-poteto-mode",
+      "to": "pb-visual-parity",
+      "type": "route",
+      "label": "按任务类型",
+      "source": "skills/poteto-mode/SKILL.md § Playbooks"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "完成后开PR",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix"
+    },
+    {
+      "from": "pb-feature",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "完成后开PR",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "完成后开PR",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "完成后开PR",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "完成后开PR",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "完成后开PR",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity"
+    },
+    {
+      "from": "pb-runtime-forensics",
+      "to": "pb-bug-fix",
+      "type": "handoff",
+      "label": "根因已知",
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md § ### Runtime forensics"
+    },
+    {
+      "from": "pb-runtime-forensics",
+      "to": "pb-perf-issue",
+      "type": "handoff",
+      "label": "性能根因",
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md § ### Runtime forensics"
+    },
+    {
+      "from": "pb-trace-forensics",
+      "to": "pb-bug-fix",
+      "type": "handoff",
+      "label": "根因已知",
+      "source": "skills/poteto-mode/playbooks/trace-forensics.md § ### Trace forensics"
+    },
+    {
+      "from": "pb-trace-forensics",
+      "to": "pb-perf-issue",
+      "type": "handoff",
+      "label": "性能根因",
+      "source": "skills/poteto-mode/playbooks/trace-forensics.md § ### Trace forensics"
+    },
+    {
+      "from": "pb-investigation",
+      "to": "pb-bug-fix",
+      "type": "handoff",
+      "label": "改代码时",
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation"
+    },
+    {
+      "from": "pb-investigation",
+      "to": "pb-feature",
+      "type": "handoff",
+      "label": "改代码时",
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation"
+    },
+    {
+      "from": "pb-investigation",
+      "to": "hu-go",
+      "type": "human",
+      "label": "先交还用户",
+      "source": "skills/poteto-mode/playbooks/investigation.md § ### Investigation"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "pb-feature",
+      "type": "fallback",
+      "label": "变更行为",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "sk-figure-it-out",
+      "type": "fallback",
+      "label": "大范围结构",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "pb-hillclimb",
+      "type": "fallback",
+      "label": "持续改指标",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "pb-autonomous-run",
+      "type": "invoke",
+      "label": "无人值守唤醒",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 5"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "hu-goal",
+      "type": "human",
+      "label": "商定指标目标",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / step 1"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "ar-decisions-tsv",
+      "type": "writes",
+      "label": "每次尝试记账",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb / steps 3,5"
+    },
+    {
+      "from": "pb-feature",
+      "to": "ar-todo",
+      "type": "writes",
+      "label": "四项检查点",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 3"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "pb-feature",
+      "type": "fallback",
+      "label": "无设计问题",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 1"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "pb-feature",
+      "type": "handoff",
+      "label": "选定方向",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 6"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "sk-architect",
+      "type": "handoff",
+      "label": "正式形状",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 6"
+    },
+    {
+      "from": "pb-prototype",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "选设计方向",
+      "source": "skills/poteto-mode/playbooks/prototype.md § ### Prototype / step 2"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "基线有疑问",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity / step 2"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "复现需协助",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix / step 1"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-arena",
+      "type": "fallback",
+      "label": "多种有效形状",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 4"
+    },
+    {
+      "from": "pb-feature",
+      "to": "sk-interrogate",
+      "type": "invoke",
+      "label": "设计有争议",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature / step 7"
+    },
+    {
+      "from": "pb-refactoring",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "开PR",
+      "source": "skills/poteto-mode/playbooks/refactoring.md § ### Refactoring / step 8"
+    },
+    {
+      "from": "pb-bug-fix",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "开PR",
+      "source": "skills/poteto-mode/playbooks/bug-fix.md § ### Bug fix"
+    },
+    {
+      "from": "pb-feature",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "开PR",
+      "source": "skills/poteto-mode/playbooks/feature.md § ### Feature"
+    },
+    {
+      "from": "pb-perf-issue",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "开PR",
+      "source": "skills/poteto-mode/playbooks/perf-issue.md § ### Perf issue"
+    },
+    {
+      "from": "pb-hillclimb",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "开PR",
+      "source": "skills/poteto-mode/playbooks/hillclimb.md § ### Hillclimb"
+    },
+    {
+      "from": "pb-visual-parity",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "开PR",
+      "source": "skills/poteto-mode/playbooks/visual-parity.md § ### Visual parity"
+    }
+  ],
+  "compare": {
+    "playbooks": [
+      {
+        "id": "pb-investigation",
+        "first_move": "经 how 查机制；问动机时加 why",
+        "evidence": "有出处的解释或取舍表",
+        "done_when": "回答问题；无代码和 PR",
+        "delegation": "主 agent；无明确并行",
+        "opens_pr": "否",
+        "human_points": "若接着改代码，交还用户",
+        "next": "Bug fix 或 Feature",
+        "output_kind": "调查解答"
+      },
+      {
+        "id": "pb-bug-fix",
+        "first_move": "亲自在相同控制表面复现",
+        "evidence": "原场景失败后通过的原始输出与根因证据",
+        "done_when": "同一表面复现通过并开 PR",
+        "delegation": "主 agent 调查验收；poteto-agent 定界修复",
+        "opens_pr": "是",
+        "human_points": "控制表面够不到时才请用户协助",
+        "next": "Opening a PR",
+        "output_kind": "代码改动"
+      },
+      {
+        "id": "pb-feature",
+        "first_move": "how 理清子系统，再 architect 并行探索",
+        "evidence": "匹配表面验收及审查结果",
+        "done_when": "有序提交、验收并开 PR",
+        "delegation": "poteto-agent 做代码；独立产物可并行",
+        "opens_pr": "是",
+        "human_points": "产品决定与开放设计选项",
+        "next": "Opening a PR",
+        "output_kind": "代码改动"
+      },
+      {
+        "id": "pb-refactoring",
+        "first_move": "先固定行为契约与特征测试或等价基线",
+        "evidence": "真实产物前后等价且阅读负担下降",
+        "done_when": "行为不变、有序提交并开 PR",
+        "delegation": "poteto-agent 做机械编辑；主 agent 守契约",
+        "opens_pr": "是",
+        "human_points": "通常无；重设计成新行为需产品决定",
+        "next": "Opening a PR；变行为走 Feature",
+        "output_kind": "代码改动"
+      },
+      {
+        "id": "pb-perf-issue",
+        "first_move": "先抓匹配表面的基线 trace",
+        "evidence": "可比的前后 trace、数值和差值",
+        "done_when": "测量有效且 PR 引用证据",
+        "delegation": "poteto-agent 定界修复；主 agent 测量",
+        "opens_pr": "是",
+        "human_points": "无明确门禁",
+        "next": "Opening a PR；持续改进走 Hillclimb",
+        "output_kind": "指标对比及代码改动"
+      },
+      {
+        "id": "pb-hillclimb",
+        "first_move": "先定真实工作负载、单一指标与停止条件",
+        "evidence": "冻结 harness 的反复测量、回归门禁、decision.tsv",
+        "done_when": "目标与次数条件满足，或余案不值成本；开 PR",
+        "delegation": "poteto-agent 逐试；独立假设可各 worktree 并行",
+        "opens_pr": "是",
+        "human_points": "用户未给指标目标时须商定",
+        "next": "Opening a PR",
+        "output_kind": "指标曲线及代码改动"
+      },
+      {
+        "id": "pb-runtime-forensics",
+        "first_move": "先从活进程抓 CPU、heap 或 CDP 产物",
+        "evidence": "运行中验证机制及源码位置",
+        "done_when": "交有出处诊断；不直接修复",
+        "delegation": "大产物可派 poteto-agent 解析",
+        "opens_pr": "否",
+        "human_points": "修复需用户另请",
+        "next": "Bug fix 或 Perf issue",
+        "output_kind": "诊断报告"
+      },
+      {
+        "id": "pb-trace-forensics",
+        "first_move": "先识别并加载已有产物格式",
+        "evidence": "可查询分析、源码符号；成对产物才确认",
+        "done_when": "交有出处诊断；不直接修复",
+        "delegation": "大产物可派 poteto-agent 解析",
+        "opens_pr": "否",
+        "human_points": "修复需用户另请",
+        "next": "Bug fix 或 Perf issue",
+        "output_kind": "诊断报告"
+      },
+      {
+        "id": "pb-prototype",
+        "first_move": "先说清原型要决定什么",
+        "evidence": "视觉截图与交互或行为、时序的实测观察",
+        "done_when": "给备选、取舍、建议及可丢弃产物",
+        "delegation": "主 agent；无明确委派",
+        "opens_pr": "否",
+        "human_points": "开放设计空间时选方向",
+        "next": "Feature 或 architect",
+        "output_kind": "实验结论及抛弃式原型"
+      },
+      {
+        "id": "pb-visual-parity",
+        "first_move": "迁移前先建各状态截图基线",
+        "evidence": "匹配表面的逐组件 image diff 为零",
+        "done_when": "各组件零差异并开 PR",
+        "delegation": "每组件一 owner 独立 worktree 并行；先迁共享 primitive",
+        "opens_pr": "是",
+        "human_points": "基线看似有错必须停下询问",
+        "next": "Opening a PR",
+        "output_kind": "视觉等价代码改动"
+      }
+    ]
+  },
+  "notes": [
+    "skills/poteto-mode/SKILL.md § Playbooks 写 Opening a PR 在每个其他 playbook 末尾调用；但 playbooks/investigation.md § ### Investigation 明写 No PR，Runtime forensics 与 Trace forensics 明写只交诊断，Prototype 明写抛弃式产物并交 Feature。本数据在 opens_pr 采用各专用 playbook 的具体规定。",
+    "playbooks/bug-fix.md § ### Bug fix / step 1 等只写 matching control skill；skills/poteto-mode/SKILL.md § Non-negotiables 指名外部 cursor-team-kit 的 control-cli 与 control-ui。两节点为本组新增，但插件实现不在快照中，无法核对其内部步骤。",
+    "playbooks/runtime-forensics.md § ### Runtime forensics / step 2 用 guard-the-context-window，playbooks/trace-forensics.md § ### Trace forensics / step 1 用 principle-guard-the-context-window；均对应 skills/principle-guard-the-context-window/SKILL.md。",
+    "playbooks/hillclimb.md § ### Hillclimb / step 3 写 decision.tsv 单数，登记表 ar-decisions-tsv 为复数形式；使用登记表 ID，保留原文件名于正文。",
+    "playbooks/hillclimb.md § ### Hillclimb / step 1 要在用户未给目标数值时 agree them，但未指定是否必须阻塞等待；human_points 按需商定记录。",
+    "playbooks/visual-parity.md § ### Visual parity / step 3 写 one owner per component，却未指定 agent 类型；本数据按 skills/poteto-mode/SKILL.md § Subagents 的默认 poteto-agent 记录，具体委派数与模型未给。",
+    "本组十个 playbook 没有点名调用 pstack 的 sc- 脚本；没有据通用框架推断脚本连线。"
+  ]
+}

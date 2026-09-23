@@ -1,0 +1,1744 @@
+{
+  "group": "A4-long-running",
+  "components": [
+    {
+      "id": "pb-autonomous-run",
+      "kind": "playbook",
+      "name": "Autonomous run",
+      "label": "自主长时运行",
+      "family": "长时执行",
+      "purpose": "定义可检查的完成条件，按证据迭代直至达到它。",
+      "trigger": "一个任务可用单一谓词驱动，且不需常驻多层协调。",
+      "steps": [
+        {
+          "text": "先写可检查的退出谓词",
+          "actor": "main",
+          "uses": [
+            "hu-goal"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "事件监听加长心跳，或按固定间隔唤醒",
+          "actor": "main",
+          "uses": [
+            "pf-loop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每轮只做证据支持的最小改动并验证",
+          "actor": "main",
+          "uses": [
+            "pr-sequence-verifiable-units"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "有进展则提交，无效改动撤回；旁支修复另开 PR",
+          "actor": "main",
+          "uses": [
+            "sk-poteto-mode",
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每轮记录变化及谓词进展",
+          "actor": "main",
+          "uses": [
+            "sk-show-me-your-work"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "达标即停；平台期换方法，真死路上报",
+          "actor": "main",
+          "uses": [
+            "hu-preference",
+            "hu-irreversible"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "迭代记录",
+        "达到或未达到的退出谓词",
+        "提交或独立 PR"
+      ],
+      "done_when": "退出谓词满足；真死路则向人说明，平台期不算完成。",
+      "on_fail": "撤回无效改动；修复可逆的工具/验证问题；真死路上报。",
+      "human": "只处理不可逆行为、实验不能解决的产品/偏好问题或真死路。",
+      "parallel": "事件型可派 watcher subagent；其余未规定固定数量。",
+      "principles": [
+        "pr-sequence-verifiable-units"
+      ],
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run"
+    },
+    {
+      "id": "pb-autopilot-full",
+      "kind": "playbook",
+      "name": "Autopilot-full",
+      "label": "全自动PR",
+      "family": "PR 队列",
+      "purpose": "每个 PR 有完整 owner，root 以独立 swarm verdict 把关后授权 owner 合并。",
+      "trigger": "明确 go 且授予 full-autonomy；适合独立 PR 队列并授权落地。",
+      "steps": [
+        {
+          "text": "先说明方案并等待 explicit go；保留 operator 指定项",
+          "actor": "main",
+          "uses": [
+            "hu-go",
+            "ar-goal"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "每 PR 派云端 owner，及早推分支、开 ready PR 和记录 trail",
+          "actor": "main",
+          "uses": [
+            "ar-pr",
+            "ar-decisions-tsv",
+            "ar-children-tsv",
+            "pf-cursor-cloud"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "owner 构建、自证、查 Bugbot、清理、rebase、babysit",
+          "actor": "subagent:PR owner",
+          "uses": [
+            "pb-babysit",
+            "pr-prove-it-works",
+            "sk-no-comments",
+            "pf-bugbot"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "root 在每个 patch SHA 并行 swarm 验证、汇总 findings",
+          "actor": "main",
+          "uses": [
+            "sk-swarm"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "干净 verdict 后查新 head 的 CI 与 patch-id，再合并",
+          "actor": "main",
+          "uses": [
+            "ar-pr",
+            "hu-merge-auth"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每约30分钟审计 side effects、替换卡住的 lane",
+          "actor": "main",
+          "uses": [
+            "pf-loop",
+            "ar-children-tsv",
+            "ar-goal"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "operator 停止时立刻下达 zero-writes",
+          "actor": "main",
+          "uses": [
+            "hu-pause"
+          ],
+          "human_gate": true
+        }
+      ],
+      "outputs": [
+        "ready PR 与 head SHA",
+        "每轮 swarm verdict",
+        "合并结果及 decision trails"
+      ],
+      "done_when": "队列处理完、所有委派工作结束；operator 项停在 merge-ready 待点击。",
+      "on_fail": "findings 交 owner 修复并重开 round；卡住 lane 替换；hold 时零写入。",
+      "human": "explicit go；operator 指定项由其审查和点击；新增 pin 须 root countersign；stop 即 hold。",
+      "parallel": "每 PR 一名 Cursor cloud owner、分支单写者；各验证 lane 并行；root 不写 PR。",
+      "principles": [
+        "pr-prove-it-works"
+      ],
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full"
+    },
+    {
+      "id": "pb-autopilot-stack",
+      "kind": "playbook",
+      "name": "Autopilot-stack",
+      "label": "待审线性PR栈",
+      "family": "PR 队列",
+      "purpose": "自治构建并验证 PR，由 root 排成线性 base-branch stack，交 operator 审查落地。",
+      "trigger": "operator 要落地前审查、工作有顺序或耦合、或未授予合并权。",
+      "steps": [
+        {
+          "text": "说明协议后等 explicit go，设持续 /goal",
+          "actor": "main",
+          "uses": [
+            "hu-go",
+            "ar-goal"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "每 PR 云端 owner 构建、开 ready PR、自证和 babysit",
+          "actor": "main",
+          "uses": [
+            "pf-cursor-cloud",
+            "ar-pr",
+            "ar-decisions-tsv",
+            "ar-children-tsv"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "root 每约30分钟审计并替换停滞 lane",
+          "actor": "main",
+          "uses": [
+            "pf-loop",
+            "ar-goal",
+            "ar-children-tsv"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按 Autopilot-full 的每轮 swarm 规则验证 exact head",
+          "actor": "main",
+          "uses": [
+            "sk-swarm",
+            "pb-autopilot-full"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "clean verdict 后 root 独占拓扑写入，逐个 append",
+          "actor": "main",
+          "uses": [
+            "ar-stack",
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "trunk 漂移则自底向上 rebase，必要时重验与重跑 CI",
+          "actor": "main",
+          "uses": [
+            "ar-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "交付可自底向上审阅的链，由 operator 点击落地",
+          "actor": "main",
+          "uses": [
+            "hu-merge-auth"
+          ],
+          "human_gate": true
+        }
+      ],
+      "outputs": [
+        "线性 base-branch PR stack",
+        "每链路 verdict",
+        "stack root/tip 链接"
+      ],
+      "done_when": "所有链路已验证并交给 operator；不自行 merge、auto-merge 或 close。",
+      "on_fail": "冲突由原 owner 修自己切片，root 推送；改写 SHA 后依 patch-id 判定重验，CI 与 mergeability 重跑。",
+      "human": "explicit go；operator 最终审查和落地；停止时所有 owner 零写入。",
+      "parallel": "并行 owner 写各自分支；root 唯一 stack 拓扑写者。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack"
+    },
+    {
+      "id": "pb-orchestrate",
+      "kind": "playbook",
+      "name": "Orchestrate",
+      "label": "常驻项目编排",
+      "family": "跨会话项目",
+      "purpose": "本地常驻 coordinator 写 brief、排队、验证与持续落地，但不写代码。",
+      "trigger": "多天、多 stacked PR、许多 subagents，任务长过单个 agent；单任务改用 Autonomous run。",
+      "steps": [
+        {
+          "text": "定义计数谓词和规模；一 agent 可完成则转 Autonomous run",
+          "actor": "main",
+          "uses": [
+            "pb-autonomous-run",
+            "hu-goal"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "初始化 store、standing orders、frontier 与 trail",
+          "actor": "main",
+          "uses": [
+            "sc-orch",
+            "ar-orch-store",
+            "ar-ledger",
+            "ar-gates"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "先做一个贯通 brief、worker、验证、入栈、合并的 pilot",
+          "actor": "main",
+          "uses": [
+            "ar-brief",
+            "ar-ledger"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "滚动派 worker；仅超出单层 drain 能力时派 track coordinator",
+          "actor": "main",
+          "uses": [
+            "pf-task-tool",
+            "ar-brief"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "完成通知只入 inbox；在 drain 点批量分类并补下一波",
+          "actor": "main",
+          "uses": [
+            "ar-inbox",
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按当前 frontier 持续验证和落地，保持 ledger 对齐 head",
+          "actor": "main",
+          "uses": [
+            "ar-ledger",
+            "pf-graphite",
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "关账核实每 agent、谓词、当前 SHA verdict 和真实产物",
+          "actor": "main",
+          "uses": [
+            "ar-ledger",
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "orchestrate/<project-slug>/ store",
+        "brief、status、ledger、frontier",
+        "已落地单位与复盘资料"
+      ],
+      "done_when": "全部 agent 有终态，真实产物满足谓词，每个 landed PR 的当前 head 有 verdict。",
+      "on_fail": "按故障类型限次重派；zombie 对照现有 frontier/ledger；多次工具中止则写终态交接。",
+      "human": "不可逆操作、无法实验解决的产品/偏好、standing order 冲突或重规划后死路写入 gates。",
+      "parallel": "本地 coordinator 不写代码；必要时本地 track coordinator；云端 worker/verifier；不同模型家族验证；窗口约十个子任务。",
+      "principles": [
+        "pr-separate-before-serializing-shared-state",
+        "pr-encode-lessons-in-structure"
+      ],
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Orchestrate"
+    },
+    {
+      "id": "pb-multi-phase-plan",
+      "kind": "playbook",
+      "name": "Multi-phase or multi-PR plan",
+      "label": "多阶段计划",
+      "family": "规划交付",
+      "purpose": "产出逐 PR 可审计证据的清单计划，不实现代码。",
+      "trigger": "超过一两文件且非显然方案的多阶段或多 PR 任务。",
+      "steps": [
+        {
+          "text": "一两文件且方案明显则跳过；疑问先用 prototype 解决",
+          "actor": "main",
+          "uses": [
+            "pb-prototype"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "poteto-agent 探查文件、约定、测试与入口",
+          "actor": "main",
+          "uses": [
+            "ag-poteto-agent"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按模板写每 PR 的依赖、改动、验收与 review gate",
+          "actor": "main",
+          "uses": [
+            "ar-plan-doc"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "选 full、stack 或 standing program 的执行 playbook",
+          "actor": "main",
+          "uses": [
+            "pb-autopilot-full",
+            "pb-autopilot-stack",
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每 PR 规定 unit、10 live lane、perf 与交互审查",
+          "actor": "main",
+          "uses": [
+            "sk-swarm",
+            "hu-checkpoint"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "用 technical-writing、unslop 写完并跑 check-plan",
+          "actor": "main",
+          "uses": [
+            "sk-technical-writing",
+            "sk-unslop",
+            "sc-check-plan"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "交计划和检查输出，等待 explicit go",
+          "actor": "main",
+          "uses": [
+            "hu-go"
+          ],
+          "human_gate": true
+        }
+      ],
+      "outputs": [
+        "docs/ 下的计划文件或 operator 指定路径",
+        "check-plan 输出",
+        "PR 依赖和审查门禁"
+      ],
+      "done_when": "交付计划路径、PR 依赖、原型证据及检查输出；不执行计划。",
+      "on_fail": "脚本报告问题则逐行修复；原型未解问题注明；产品/偏好才问人。",
+      "human": "不可实验裁定的产品/偏好；交付后需 explicit go 才执行。",
+      "parallel": "探查阶段 poteto-agent 子 agent；执行模板规定每 PR owner 和并行验证，但本 playbook 不实现。",
+      "principles": [
+        "pr-never-block-on-the-human",
+        "pr-guard-the-context-window",
+        "pr-sequence-verifiable-units",
+        "pr-encode-lessons-in-structure",
+        "pr-prove-it-works"
+      ],
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan"
+    },
+    {
+      "id": "sc-orch",
+      "kind": "script",
+      "name": "orch.ts / store.ts",
+      "label": "编排记账命令",
+      "family": "状态工具",
+      "purpose": "用纯文件存储 unit、verdict、inbox、gate、frontier，并提供 CLI。",
+      "trigger": "Orchestrate 的 drain 点和初始化、frontier 更新、ledger 检查。",
+      "steps": [
+        {
+          "text": "启动时由 bootstrap 检查 Commander 依赖",
+          "actor": "script:orch",
+          "uses": [
+            "sc-bootstrap"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "从 --store 或 ORCH_STORE 打开 store 并处理锁",
+          "actor": "script:orch",
+          "uses": [
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "init 建基本文件；unit 和 standing 命令管理行",
+          "actor": "script:orch",
+          "uses": [
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "ledger、inbox、gate 命令记录和查询",
+          "actor": "script:orch",
+          "uses": [
+            "ar-ledger",
+            "ar-inbox",
+            "ar-gates"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "frontier set 读取 gt 和 git，验证可选 PR 顺序 pin",
+          "actor": "script:orch",
+          "uses": [
+            "pf-graphite",
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "status 从表重生 status.md，打印三行摘要",
+          "actor": "script:orch",
+          "uses": [
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "TSV/Markdown/JSON store",
+        "CLI 文本或 JSON 结果",
+        "退出码 0/1/2"
+      ],
+      "done_when": "命令完成并输出结果；not-found 退出 2，其余用户/用法错误 1。",
+      "on_fail": "拒绝不合法文件和未知 gt 状态；死 PID 锁可接管，活锁仅 --force。",
+      "human": "无",
+      "parallel": "不派 agent；串行 store 写入，锁以 PID 标识。",
+      "principles": [],
+      "source": "skills/poteto-mode/scripts/orch/orch.ts#createProgram; skills/poteto-mode/scripts/orch/store.ts#openStore"
+    },
+    {
+      "id": "sc-check-plan",
+      "kind": "script",
+      "name": "check-plan.mjs",
+      "label": "计划格式检查",
+      "family": "计划工具",
+      "purpose": "静态检查计划结构、必需标记、PR 子块和 live/perf 盒子。",
+      "trigger": "Multi-phase plan 写完后对 plan.md 运行。",
+      "steps": [
+        {
+          "text": "读取 plan，跳过 frontmatter 与 fenced code",
+          "actor": "script:check-plan",
+          "uses": [
+            "ar-plan-doc"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "检查标题、How to read this 与 Program checklist 顺序",
+          "actor": "script:check-plan",
+          "uses": [
+            "ar-plan-doc"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "逐 PR 检查九个子块及 unit/live/perf 规则",
+          "actor": "script:check-plan",
+          "uses": [
+            "ar-plan-doc"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "要求 live lane 1–10、截图、pass 条件及 perf 四项",
+          "actor": "script:check-plan",
+          "uses": [
+            "ar-plan-doc"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "打印每 PR 盒数、问题数及带行号错误",
+          "actor": "script:check-plan",
+          "uses": [
+            "ar-plan-doc"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "结构检查报告",
+        "退出码 0 或 1/2"
+      ],
+      "done_when": "无结构问题则 0；缺参数退出 2。",
+      "on_fail": "逐行报错并由计划作者修复；不执行证据验证。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "skills/poteto-mode/scripts/check-plan.mjs#SUB_BLOCKS; PROGRAM_H3; PERF_ITEMS"
+    },
+    {
+      "id": "sc-bootstrap",
+      "kind": "script",
+      "name": "bootstrap.ts",
+      "label": "依赖自检",
+      "family": "运行准备",
+      "purpose": "比较 package.json 与 bun.lock 的哈希，缺 Commander 或 key 不匹配时安装并重启命令。",
+      "trigger": "orch.ts 启动时调用 ensureDependenciesInstalled。",
+      "steps": [
+        {
+          "text": "计算 package.json 与 bun.lock 的安装 key",
+          "actor": "script:bootstrap",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "检查 Commander package 与 key 文件",
+          "actor": "script:bootstrap",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "若不匹配则 bun install --frozen-lockfile",
+          "actor": "script:bootstrap",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "写 key 并以相同参数和环境重启当前进程",
+          "actor": "script:bootstrap",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "node_modules/.poteto-mode-tools-install-key",
+        "可运行的 CLI 依赖"
+      ],
+      "done_when": "依赖匹配后返回；新安装后重启并继承退出码。",
+      "on_fail": "安装失败或 Commander 仍缺失则抛错。",
+      "human": "无",
+      "parallel": "无",
+      "principles": [],
+      "source": "skills/poteto-mode/scripts/bootstrap.ts#ensureDependenciesInstalled"
+    },
+    {
+      "id": "ar-orch-store",
+      "kind": "artifact",
+      "name": "orchestrate/<project-slug>/",
+      "label": "项目状态目录",
+      "family": "编排状态",
+      "purpose": "保存各单位、偏好、frontier、ledger、inbox、gate 与派生 status。",
+      "trigger": "Orchestrate 的 Install the runtime。",
+      "steps": [
+        {
+          "text": "orch init 创建基础文件和 inbox",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "各文件独立写者；事实从表聚合",
+          "actor": "main",
+          "uses": [
+            "ar-ledger",
+            "ar-inbox",
+            "ar-gates"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "status 从表重新生成，不手工维护",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "units.tsv",
+        "preferences.md",
+        "frontier.json",
+        "ledger.tsv",
+        "inbox/",
+        "gates.md",
+        "status.md"
+      ],
+      "done_when": "Close 时保留完整 store，作为事后检查材料。",
+      "on_fail": "缺或坏文件时 CLI 拒绝；死锁下一次写入可接管。",
+      "human": "gates.md 保存人类决策点。",
+      "parallel": "每文件一个 writer。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Store layout; skills/poteto-mode/scripts/orch/store.ts#init"
+    },
+    {
+      "id": "ar-ledger",
+      "kind": "artifact",
+      "name": "ledger.tsv",
+      "label": "验证账本",
+      "family": "编排状态",
+      "purpose": "按 PR 编号和 head SHA 存唯一 verdict、证据、验证者与时间。",
+      "trigger": "单位完成验证或 re-verify 后由 orch ledger record 写入。",
+      "steps": [
+        {
+          "text": "record 写入五种合法 verdict 之一及证据",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "同 PR 与 SHA 的新记录覆盖旧记录",
+          "actor": "script:orch",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "check 精确查 PR 与 SHA，不存在报 NOT-VERIFIED",
+          "actor": "script:orch",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "新 SHA 必须重验；verifier 可覆盖 worker 自报",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "verdict 行",
+        "NOT-VERIFIED 查询结果"
+      ],
+      "done_when": "当前 head 具有符合工作类型的有效验证记录。",
+      "on_fail": "blocked 待环境恢复后重派；failed 建修复 unit；新 SHA 的旧行无效。",
+      "human": "无",
+      "parallel": "worker 可自报；独立 verifier 可覆盖。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Verification; skills/poteto-mode/scripts/orch/store.ts#ledger"
+    },
+    {
+      "id": "ar-gates",
+      "kind": "artifact",
+      "name": "gates.md",
+      "label": "人类决策门禁",
+      "family": "编排状态",
+      "purpose": "持久记录问题、选项、默认答案与最终决定，供批量上报。",
+      "trigger": "Orchestrate 遇不可逆或真正产品/偏好决定。",
+      "steps": [
+        {
+          "text": "park 记录 open gate 及 question/options/default",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "status 将 open gate 汇入人的报告",
+          "actor": "main",
+          "uses": [
+            "hu-preference",
+            "hu-irreversible"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "resolve 保存 answer 并关闭 gate",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "open 或 resolved gate"
+      ],
+      "done_when": "人作决定后 resolved；无答复时保留 open 并绕开它工作。",
+      "on_fail": "不应把 default 当自动授权；不能解决则持续列为 open。",
+      "human": "只在真实人类决定点介入。",
+      "parallel": "无",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Escalation; skills/poteto-mode/scripts/orch/store.ts#gates"
+    },
+    {
+      "id": "ar-inbox",
+      "kind": "artifact",
+      "name": "inbox/",
+      "label": "完成指针队列",
+      "family": "编排状态",
+      "purpose": "把 agent 完成通知存为可批量 drain 的 TSV 指针。",
+      "trigger": "Orchestrate 收到完成通知或在四类 drain 点处理。",
+      "steps": [
+        {
+          "text": "完成通知只 push 指针，不在当下深审",
+          "actor": "main",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "drain 原子重命名旧 inbox 并创建新目录",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "批量分类为 landed、needs-verify、failed、zombie、noise",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "每条 completion 的 TSV 指针",
+        "drain 后的新空 inbox"
+      ],
+      "done_when": "每个已派子 agent 在 rollup 中被核对为已到达、重派或范围被吸收。",
+      "on_fail": "未到达时登记合成 postmortem；迟到 zombie 先与 frontier 和 ledger 对照。",
+      "human": "无",
+      "parallel": "通知异步到达；批量 drain，非阻塞批次。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Queue and drain; skills/poteto-mode/scripts/orch/store.ts#inbox"
+    },
+    {
+      "id": "ar-brief",
+      "kind": "artifact",
+      "name": "GOAL / SCOPE / CONTEXT / ACCEPTANCE / VERIFY / TIMEBOX / FORBIDDEN / REPORT / STANDING",
+      "label": "工作简报",
+      "family": "编排交付",
+      "purpose": "为无对话上下文的 worker 给出完整目标、边界、依赖证据与回报格式。",
+      "trigger": "Orchestrate 每次 spawn/resume 前必写，字段缺失则拒派。",
+      "steps": [
+        {
+          "text": "写目标、范围与独占 worktree/branch",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "写上游报告、验收和精确验证命令",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "写时间盒、禁止事项、报告格式和 standing orders",
+          "actor": "main",
+          "uses": [
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每波抽查一份 sub-coordinator brief，失败则停该 track",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "可独立执行的 brief 文件或内联 brief"
+      ],
+      "done_when": "字段齐备，worker 不依赖同级聊天即可执行并报告。",
+      "on_fail": "缺字段拒派；失败 brief 修正 track 说明，不续接旧 brief。",
+      "human": "只有 brief 中遇需人决定的门禁才上报。",
+      "parallel": "每 worker 独占写入范围；cloud brief 内联所需上下文。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#The brief"
+    },
+    {
+      "id": "ar-plan-doc",
+      "kind": "artifact",
+      "name": "<Program> plan",
+      "label": "多PR计划",
+      "family": "规划交付",
+      "purpose": "按 PR 列出依赖、工作、unit/live/perf 证据、review gate 和合并规则。",
+      "trigger": "Multi-phase plan 第 4 步复制模板。",
+      "steps": [
+        {
+          "text": "How to read this 指定执行 playbook 和验证规则",
+          "actor": "main",
+          "uses": [
+            "pb-multi-phase-plan"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "Program checklist 规定 go、owner、审计和 verdict",
+          "actor": "main",
+          "uses": [
+            "ar-goal",
+            "pf-loop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "每 PR 独立填写九块及十个 live lane",
+          "actor": "main",
+          "uses": [
+            "sk-swarm"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "附录列原型证据、替代方案、风险与阅读材料",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "通过 check-plan 后交给 operator，等待 go",
+          "actor": "main",
+          "uses": [
+            "sc-check-plan",
+            "hu-go"
+          ],
+          "human_gate": true
+        }
+      ],
+      "outputs": [
+        "计划 Markdown",
+        "每 PR 可检查的盒子"
+      ],
+      "done_when": "计划和脚本输出交付；执行另待 explicit go。",
+      "on_fail": "缺证据或占位符由作者补齐；结构错误按 check-plan 修复。",
+      "human": "operator 决定 go，交互变更在落地前审查。",
+      "parallel": "计划阶段可并行探查；执行由所选 playbook 决定。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan; ## Program checklist"
+    },
+    {
+      "id": "ar-children-tsv",
+      "kind": "artifact",
+      "name": "children.tsv",
+      "label": "子代理登记表",
+      "family": "执行状态",
+      "purpose": "记录每个子 agent 的 ID、预期运行时间和状态供 root 审计停滞。",
+      "trigger": "Autopilot owner 启动子 agent 时立即写。",
+      "steps": [
+        {
+          "text": "启动即登记 ID、预期时长和状态",
+          "actor": "subagent:PR owner",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "每次审计对照 side effects 与预期时长",
+          "actor": "main",
+          "uses": [
+            "pb-autopilot-full"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "停滞则标 stuck，必要时派替代",
+          "actor": "main",
+          "uses": [
+            "pb-autopilot-full"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "未提交的 children.tsv",
+        "stuck 与 replacement 记录"
+      ],
+      "done_when": "每个子 agent 状态可核对，必要工作由替代者接续。",
+      "on_fail": "超时无 side effect 或错误即 stand down 并重派；stall 不当作完成。",
+      "human": "无",
+      "parallel": "每 PR owner 管自己的 children；root 横向审计。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2 and 6; skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 1"
+    },
+    {
+      "id": "ar-goal",
+      "kind": "artifact",
+      "name": "/goal",
+      "label": "持续目标",
+      "family": "长时执行状态",
+      "purpose": "保存跨 turn 的完整 program objective，供周期审计重读。",
+      "trigger": "Autopilot-full/stack 获 operator explicit go 后 arm。",
+      "steps": [
+        {
+          "text": "在 go 后写完整 program objective",
+          "actor": "main",
+          "uses": [
+            "hu-go"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "每个审计 tick 与 trunk playbook 一起重读",
+          "actor": "main",
+          "uses": [
+            "pf-loop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "直到队列完成或 chain 交付保持有效",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "跨 turn program objective"
+      ],
+      "done_when": "full 队列完成；stack chain 完成交付；operator stop 时停写。",
+      "on_fail": "审计发现与当前任务不符时修正 drift。",
+      "human": "explicit go 才创建；hold/stand-down 停止。",
+      "parallel": "无",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 1 and 6; skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 2 and 3"
+    },
+    {
+      "id": "pf-loop",
+      "kind": "platform",
+      "name": "/loop",
+      "label": "定时唤醒",
+      "family": "平台调度",
+      "purpose": "按事件或固定周期唤醒长时任务，避免靠人记得检查。",
+      "trigger": "Autonomous run 的 wake；autopilot 的约 30 分钟审计；Orchestrate 的 frontier watcher。",
+      "steps": [
+        {
+          "text": "事件 watcher 用长心跳兜底",
+          "actor": "main",
+          "uses": [
+            "pb-autonomous-run"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "本地 root 用真实终端 /loop 和 30 分钟 sleep sentinel",
+          "actor": "main",
+          "uses": [
+            "pb-autopilot-full",
+            "pb-autopilot-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "Orchestrate frontier watcher 醒来时触发 drain",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "周期 wake 或事件 wake"
+      ],
+      "done_when": "直到对应谓词或 program 结束。",
+      "on_fail": "通知不可靠时仍由长心跳兜底；cloud root 用 cloud-sleeper wake chain。",
+      "human": "无",
+      "parallel": "可与 watcher subagent 并用。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 2; skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 6; skills/poteto-mode/playbooks/orchestrate.md#Queue and drain"
+    },
+    {
+      "id": "pf-cursor-cloud",
+      "kind": "platform",
+      "name": "Cursor cloud agent",
+      "label": "云端代理",
+      "family": "执行平台",
+      "purpose": "在云端执行 PR owner 或 worker/verifier，保持本地 coordinator 可持续排队。",
+      "trigger": "Autopilot 每 PR owner；Orchestrate 默认 worker/verifier。",
+      "steps": [
+        {
+          "text": "Autopilot 每 PR 一个 cloud owner",
+          "actor": "main",
+          "uses": [
+            "pb-autopilot-full",
+            "pb-autopilot-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "Orchestrate 默认云端 worker/verifier，本地需求例外",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "restart 后按 PR/branch 重新关联仍在云端的工作",
+          "actor": "main",
+          "uses": [
+            "ar-orch-store"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "云端分支、PR、report"
+      ],
+      "done_when": "提交外部化产物并报告；本地 restart 不杀云端任务。",
+      "on_fail": "无 side effect 超时按停滞处理；Orchestrate 按故障模式限次重派。",
+      "human": "无",
+      "parallel": "多个 cloud agent 可并行，写者按 branch/worktree 隔离。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2; skills/poteto-mode/playbooks/orchestrate.md#Roles and placement; Liveness and failure"
+    },
+    {
+      "id": "pf-graphite",
+      "kind": "platform",
+      "name": "gt / Graphite",
+      "label": "Graphite栈",
+      "family": "栈管理平台",
+      "purpose": "提供 Orchestrate 的 stack 拓扑与 PR 状态，供 frontier.json 重算。",
+      "trigger": "Orchestrate frontier set、merge/restack 后更新。",
+      "steps": [
+        {
+          "text": "gt log short 取得栈分支顺序",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "gt info 取 PR 编号和状态，git rev-parse 取 SHA",
+          "actor": "script:orch",
+          "uses": [
+            "sc-orch"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "只有指定 stacker 串行运行 gt",
+          "actor": "main",
+          "uses": [
+            "pb-orchestrate"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "元数据缺 PR 或输出未知即报错，不猜测",
+          "actor": "script:orch",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "有序 PR/branch/SHA/state frontier"
+      ],
+      "done_when": "每次 stack 变化后成功重算 frontier。",
+      "on_fail": "需到 stacker clone 或 gt sync 后重试；未知格式拒绝。",
+      "human": "无",
+      "parallel": "每 stack 恰一 stacker；workers 不运行 gt。",
+      "principles": [],
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Stack safety; skills/poteto-mode/scripts/orch/store.ts#graphiteFrontier"
+    }
+  ],
+  "edges": [
+    {
+      "from": "pb-autonomous-run",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "唤醒",
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 2"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "sk-poteto-mode",
+      "type": "invoke",
+      "label": "旁支修复",
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 4"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "sk-show-me-your-work",
+      "type": "invoke",
+      "label": "每轮记录",
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 5"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "pr-sequence-verifiable-units",
+      "type": "invoke",
+      "label": "逐单位验证",
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 3"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "hu-irreversible",
+      "type": "human",
+      "label": "不可逆",
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 4"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "偏好决定",
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 4"
+    },
+    {
+      "from": "pb-autonomous-run",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "旁支独立PR",
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md#Autonomous run step 4"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "hu-go",
+      "type": "human",
+      "label": "明确go",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 1"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "ar-goal",
+      "type": "writes",
+      "label": "持续目标",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 1"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "pf-cursor-cloud",
+      "type": "spawn",
+      "label": "每PR owner",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "ready PR",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "ar-children-tsv",
+      "type": "writes",
+      "label": "登记子代理",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "ar-decisions-tsv",
+      "type": "writes",
+      "label": "决策记录",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "sk-swarm",
+      "type": "invoke",
+      "label": "每轮验证",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 4"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "30分审计",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 6"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "hu-merge-auth",
+      "type": "human",
+      "label": "合并授权",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 5"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "hu-pause",
+      "type": "human",
+      "label": "立刻停写",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 7"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "pb-babysit",
+      "type": "invoke",
+      "label": "守到green",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "pb-autopilot-full",
+      "type": "reads",
+      "label": "沿用owner",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 1 and 4"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "hu-go",
+      "type": "human",
+      "label": "明确go",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 3"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "ar-goal",
+      "type": "writes",
+      "label": "持续目标",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 3"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "30分审计",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 2"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "sk-swarm",
+      "type": "invoke",
+      "label": "每轮验证",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 4"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "ar-stack",
+      "type": "writes",
+      "label": "root排栈",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 5 and 6"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "hu-merge-auth",
+      "type": "human",
+      "label": "人落地",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 8"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "hu-pause",
+      "type": "human",
+      "label": "停止停写",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 3"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "pf-cursor-cloud",
+      "type": "spawn",
+      "label": "每PR owner",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 1"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "pb-autonomous-run",
+      "type": "fallback",
+      "label": "单agent可做",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Steps 1"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "sc-orch",
+      "type": "invoke",
+      "label": "状态记账",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Roles and placement"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "ar-orch-store",
+      "type": "writes",
+      "label": "创建store",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Store layout"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "ar-brief",
+      "type": "writes",
+      "label": "每次派工",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#The brief"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "ar-inbox",
+      "type": "writes",
+      "label": "完成指针",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Queue and drain"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "ar-ledger",
+      "type": "writes",
+      "label": "验证结论",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Verification"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "ar-gates",
+      "type": "writes",
+      "label": "人类门禁",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Escalation"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "pf-graphite",
+      "type": "reads",
+      "label": "frontier",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Stack safety"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "边界唤醒",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Queue and drain"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "pf-task-tool",
+      "type": "invoke",
+      "label": "派遣与恢复",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Roles and placement"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "hu-irreversible",
+      "type": "human",
+      "label": "不可逆",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Escalation"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "产品偏好",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Escalation"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "pb-prototype",
+      "type": "invoke",
+      "label": "先做原型",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 2"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "ag-poteto-agent",
+      "type": "spawn",
+      "label": "探查",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 3"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "ar-plan-doc",
+      "type": "writes",
+      "label": "写计划",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 4"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "pb-autopilot-full",
+      "type": "handoff",
+      "label": "独立且可落地",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 4"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "pb-autopilot-stack",
+      "type": "handoff",
+      "label": "需审或耦合",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 4"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "pb-orchestrate",
+      "type": "handoff",
+      "label": "常驻项目",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 4"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "sc-check-plan",
+      "type": "invoke",
+      "label": "校验结构",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 6"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "hu-go",
+      "type": "human",
+      "label": "等明确go",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Multi-phase or multi-PR plan step 7"
+    },
+    {
+      "from": "pb-multi-phase-plan",
+      "to": "sk-swarm",
+      "type": "invoke",
+      "label": "规定验证",
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md#Verification"
+    },
+    {
+      "from": "sc-orch",
+      "to": "sc-bootstrap",
+      "type": "invoke",
+      "label": "依赖准备",
+      "source": "skills/poteto-mode/scripts/orch/orch.ts#ensureDependenciesInstalled"
+    },
+    {
+      "from": "sc-orch",
+      "to": "ar-orch-store",
+      "type": "writes",
+      "label": "初始化状态",
+      "source": "skills/poteto-mode/scripts/orch/store.ts#init"
+    },
+    {
+      "from": "sc-orch",
+      "to": "ar-ledger",
+      "type": "writes",
+      "label": "record",
+      "source": "skills/poteto-mode/scripts/orch/orch.ts#ledger"
+    },
+    {
+      "from": "sc-orch",
+      "to": "ar-inbox",
+      "type": "writes",
+      "label": "push/drain",
+      "source": "skills/poteto-mode/scripts/orch/orch.ts#inbox"
+    },
+    {
+      "from": "sc-orch",
+      "to": "ar-gates",
+      "type": "writes",
+      "label": "记录门禁",
+      "source": "skills/poteto-mode/scripts/orch/orch.ts#gate"
+    },
+    {
+      "from": "sc-orch",
+      "to": "pf-graphite",
+      "type": "reads",
+      "label": "gt拓扑",
+      "source": "skills/poteto-mode/scripts/orch/store.ts#graphiteFrontier"
+    },
+    {
+      "from": "sc-check-plan",
+      "to": "ar-plan-doc",
+      "type": "reads",
+      "label": "计划结构",
+      "source": "skills/poteto-mode/scripts/check-plan.mjs#raw; SUB_BLOCKS"
+    },
+    {
+      "from": "pf-loop",
+      "to": "ar-goal",
+      "type": "reads",
+      "label": "每tick重读",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 6"
+    },
+    {
+      "from": "ar-gates",
+      "to": "hu-preference",
+      "type": "human",
+      "label": "产品偏好",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Escalation"
+    },
+    {
+      "from": "ar-gates",
+      "to": "hu-irreversible",
+      "type": "human",
+      "label": "不可逆",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Escalation"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "改base",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 6"
+    },
+    {
+      "from": "pb-autopilot-full",
+      "to": "pf-bugbot",
+      "type": "reads",
+      "label": "评论审查",
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md#Autopilot-full step 2"
+    },
+    {
+      "from": "pb-orchestrate",
+      "to": "pf-cursor-cloud",
+      "type": "spawn",
+      "label": "云端工作",
+      "source": "skills/poteto-mode/playbooks/orchestrate.md#Roles and placement"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "ar-children-tsv",
+      "type": "writes",
+      "label": "登记子代理",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 1"
+    },
+    {
+      "from": "pb-autopilot-stack",
+      "to": "ar-decisions-tsv",
+      "type": "writes",
+      "label": "决策记录",
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md#Autopilot-stack step 1"
+    }
+  ],
+  "compare": {
+    "modes": [
+      {
+        "id": "pb-autonomous-run",
+        "scope": "单任务、可由一个退出谓词驱动",
+        "unit": "最小可验证改动/迭代",
+        "who_writes_code": "主 agent",
+        "who_verifies": "主 agent 对退出谓词逐轮验证",
+        "merge_authority": "未给通用合并授权；旁支修复单独 PR",
+        "heartbeat": "事件 watcher 加长心跳，或固定间隔 /loop",
+        "state": "退出谓词、提交和 show-me-your-work 每轮记录；无专用 store",
+        "stop": "谓词满足；真死路上报，平台期不停",
+        "recovery": "无明确跨会话恢复协议；无效改动撤回，修复后回主谓词",
+        "human_points": "不可逆、真实产品/偏好决定、真死路",
+        "choose_when": "一项任务能由谓词驱动；不是长过单 agent 的 program"
+      },
+      {
+        "id": "pb-autopilot-full",
+        "scope": "独立 PR 队列、授予全自动落地权",
+        "unit": "一名 owner 负责一 PR 全生命周期",
+        "who_writes_code": "每 PR 的 Cursor cloud owner",
+        "who_verifies": "root 发起并汇总独立 swarm；owner 自证和 CI",
+        "merge_authority": "owner 在 root clean verdict、head/CI/patch-id 合格后合并；operator 指定项只由 operator 点击",
+        "heartbeat": "root 约30分钟真实 /loop 或 cloud-sleeper tick，探查 side effects",
+        "state": "/goal、ready PR、decisions.tsv、children.tsv、head SHA 与 verdict",
+        "stop": "队列结束且无委派工作；operator hold 则立即零写入",
+        "recovery": "卡住 lane 标 stuck 并替换；patch 改变重开验证轮；无完整 restart 规程",
+        "human_points": "explicit go、operator 指定项、pin countersign、hold/stand-down",
+        "choose_when": "PR 独立且已授予落地权"
+      },
+      {
+        "id": "pb-autopilot-stack",
+        "scope": "需审查、序列化或耦合的 PR 队列",
+        "unit": "一 PR，之后成为线性 stack 一环",
+        "who_writes_code": "每 PR 的 Cursor cloud owner；root 只写 stack 拓扑",
+        "who_verifies": "root 按 full 的 swarm 规则验证每轮；owner 自证",
+        "merge_authority": "owner/root 都不落地；operator 自己点击或 arm merge-when-ready",
+        "heartbeat": "root 约30分钟 /loop 或 cloud-sleeper tick",
+        "state": "/goal、各 PR/决策记录/children.tsv、线性 base-branch stack",
+        "stop": "所有链路验证并交付 operator；hold 则零写入",
+        "recovery": "root 自底向上吸收 trunk 漂移；SHA 改写按 patch-id 重验，CI/mergeability 重跑",
+        "human_points": "explicit go、最终 review/landing、新 pin countersign、stop",
+        "choose_when": "operator 要先审、工作有顺序/耦合或合并权未授予"
+      },
+      {
+        "id": "pb-orchestrate",
+        "scope": "多天多栈、几十至数百子 agent，长过单 agent",
+        "unit": "unit/track；brief 驱动 worker、verifier、landing",
+        "who_writes_code": "worker 或专门 task；coordinator 不写代码",
+        "who_verifies": "便宜命令可由 worker 自证并抽查；复杂/高风险由不同模型 verifier",
+        "merge_authority": "协调者可机械落地已验证 unit；复杂合并交 stacker；不可逆/共享分支等需人决定",
+        "heartbeat": "完成入 inbox；关键段结束、track rollup、frontier watcher wake、报告前批量 drain",
+        "state": "orchestrate/<slug>/ 纯文件 store：units、frontier、ledger、inbox、gates、preferences、status",
+        "stop": "所有 agent 终态、真实谓词达成、每个已落地 PR 当前 SHA 有 verdict",
+        "recovery": "按模式限次重派；restart 后重读 store、重算 frontier、按 PR/branch 重挂 cloud 工作、重建 track coordinator",
+        "human_points": "不可逆、产品/偏好、standing order 冲突、重规划后死路",
+        "choose_when": "standing program 长过任一 agent；单 agent 可完成则转 Autonomous run"
+      },
+      {
+        "id": "pb-multi-phase-plan",
+        "scope": "非显然方案的多阶段/多 PR 规划",
+        "unit": "一个 PR 一段清单与独立证据",
+        "who_writes_code": "无人；只写计划",
+        "who_verifies": "check-plan 检结构；后续执行者按 unit/live/perf 和 swarm 验证",
+        "merge_authority": "本模式不合并；计划选 full/stack/orchestrate 并列明谁合并，execution 等 explicit go",
+        "heartbeat": "本身无运行心跳；计划模板写30分钟审计 tick",
+        "state": "agent store docs/ 下 plan.md 或 operator 指定路径，附原型证据",
+        "stop": "计划路径、检查输出交付，等待 explicit go",
+        "recovery": "检查问题逐行修；未证实的原型问题列附录；无执行恢复协议",
+        "human_points": "不可实验解决的产品/偏好；执行的 explicit go；交互变更审查",
+        "choose_when": "多 PR 需要计划；一两文件且方案明显则跳过"
+      }
+    ],
+    "lifecycle": {
+      "phases": [
+        "选择与授权",
+        "界定单位和完成条件",
+        "准备状态与派工",
+        "构建与证据",
+        "审计与门禁",
+        "集成与交付",
+        "中断恢复与关闭"
+      ],
+      "rows": [
+        {
+          "id": "pb-autonomous-run",
+          "cells": [
+            "单任务谓词；无 explicit go 条文",
+            "写可检查退出谓词；单位为最小改动",
+            "选事件 watcher/心跳；必要时旁支 PR",
+            "每轮小改、验证、有效提交、无效撤回",
+            "每轮 show-me-your-work；仅不可逆/产品/偏好上报",
+            "谓词达成即报告已落地和丢弃项",
+            "平台期换方法；真死路上报，未规定跨会话恢复"
+          ]
+        },
+        {
+          "id": "pb-autopilot-full",
+          "cells": [
+            "协议先陈述，等 explicit go；operator 指定项保留",
+            "按 PR 分 owner，/goal 写全队列目标",
+            "云端 owner 并行；ready PR、decisions.tsv、children.tsv",
+            "owner 构建、自证、CI、Bugbot、babysit；root swarm 每 patch SHA",
+            "约30分钟 tick；root clean verdict、pin countersign、operator 项审查",
+            "合格 head 由 owner squash-merge，接下个 item",
+            "卡住 lane 换人；hold 立刻零写入；队列和委派都结束才停"
+          ]
+        },
+        {
+          "id": "pb-autopilot-stack",
+          "cells": [
+            "协议先陈述，等 explicit go；不授合并权",
+            "每 PR 一 owner；目标是线性 chain",
+            "并行构建，各自分支；root 独占 topology",
+            "owner 自证和 babysit；root 按 full 规则 swarm",
+            "约30分钟 tick；clean verdict 才 append；新 pin countersign",
+            "root 顺序排栈并交 operator 自底向上审查落地",
+            "trunk 漂移重排、按 patch-id 重验，CI/mergeability 重跑；hold 停写"
+          ]
+        },
+        {
+          "id": "pb-orchestrate",
+          "cells": [
+            "判定是否长过单 agent；可逆准备不等人",
+            "计数谓词、units/tracks/预算；brief 定义边界",
+            "orch init、standing orders、pilot 后滚动窗口派工",
+            "worker 产出；便宜命令自证或异模型 verifier；写 ledger",
+            "inbox 批量 drain；frontier watcher；gates 批量上报",
+            "从首个 verified unit 起持续落地，保持 frontier green",
+            "按故障限次重派；restart 从 store/PR/branch 恢复；全部终态后关闭"
+          ]
+        },
+        {
+          "id": "pb-multi-phase-plan",
+          "cells": [
+            "明显一两文件跳过；产品/偏好才问人",
+            "每 PR 一节；疑问先 prototype",
+            "poteto-agent 探查，写 plan 与执行 playbook",
+            "计划指定 unit/live/perf 盒子和十个 live lane",
+            "check-plan 检结构；交互 PR 写 review gate",
+            "交计划与检查输出，不实现不合并；等 explicit go",
+            "结构错则修；未证明内容入附录；无运行恢复协议"
+          ]
+        }
+      ]
+    }
+  },
+  "notes": [
+    "来源仅为 docs/research/code-landing-refs/pstack/ 静态快照；未运行其中任何脚本，也未访问网络。",
+    "playbooks/orchestrate.md#Store layout 写有 overview.md、decisions.tsv、briefs 与 status.md；scripts/orch/store.ts#init 实际只创建 units.tsv、ledger.tsv、inbox/、gates.md、preferences.md、frontier.json。overview/decisions/brief 需其他步骤自行写，status.md 要运行 status 才生成。",
+    "playbooks/orchestrate.md#Roles and placement 称 CLI 一命令一行；scripts/orch/orch.ts#statusLines 实际 status 输出三行，list 等可多行。",
+    "playbooks/orchestrate.md#Verification 的通过门槛由 coordinator 判定；scripts/orch/store.ts#ledger.check 只返回 PR+SHA 精确行，verifier-blocked、verifier-failed、type-check-only 也会被返回，不自行判 PASS。",
+    "playbooks/orchestrate.md#Escalation 的 default on no answer 是记录字段；scripts/orch/store.ts#gates 不自动采用默认答案。",
+    "scripts/check-plan.mjs#SUB_BLOCKS 校验结构与字符串标记，不核验 PR 的真实截图、性能基线、证据或占位符是否已填实。",
+    "playbooks/autopilot-stack.md#Choosing between the autopilots 明说不用 gt；playbooks/orchestrate.md#Stack safety 则以 gt 为 stack frontier 权威。这是两个不同执行模式，非同一模式内冲突。",
+    "Autonomous run 未明确通用 merge 授权或跨会话状态存储；Multi-phase plan 本身不执行。compare 对这两格保留未规定，不作推断。",
+    "scripts/orch/orch.test.ts#Store 与 #orch CLI 已读；它覆盖 store/CLI 的主要成功与错误路径，但本调查未运行测试。"
+  ]
+}

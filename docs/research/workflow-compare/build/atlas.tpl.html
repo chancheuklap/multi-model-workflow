@@ -1,0 +1,723 @@
+<title>pstack 全景网</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F1F3F4; --surface:#FFFFFF; --ink:#17212B; --ink-2:#465361; --ink-3:#7A8591; --rule:#D3D9DE; --band:#E8ECEF; --band2:#F7F8F9;
+  --pb:#0B7A70; --pb-bg:#DDF1EE; --sk:#17212B; --sk-bg:#FFFFFF; --pr:#8A6100; --pr-bg:#FBF0D5;
+  --hu:#9C7000; --hu-bg:#FFE7A0; --ag:#5A44B5; --ag-bg:#E6E0F7; --pf:#7A8591; --pf-bg:#F4F5F6;
+  --sc:#3F6488; --sc-bg:#DCE6F0; --ar:#5B6570; --ar-bg:#FFFFFF; --au:#7A4A9C;
+  --e-route:#8A949F; --e-handoff:#17212B; --e-invoke:#0B7A70; --e-spawn:#5A44B5; --e-reads:#3F7CB8; --e-writes:#3F7CB8; --e-fallback:#C0520E; --e-human:#B08400;
+  --m-opus:#6B4FC8; --m-sol:#1E8A53; --m-grok:#C8651B; --m-none:#8A949F;
+  --hl:#E8A400; --ok:#1F7A3A; --bad:#B42318;
+  --sans:"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans","PingFang SC","Noto Sans SC",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#10151A; --surface:#182027; --ink:#E5EAEE; --ink-2:#A9B4BE; --ink-3:#74808B; --rule:#2B353F; --band:#141B21; --band2:#131A20;
+  --pb:#3DC3B4; --pb-bg:#123430; --sk:#E5EAEE; --sk-bg:#182027; --pr:#E6BC5A; --pr-bg:#33290F;
+  --hu:#E2B43A; --hu-bg:#4A3A0C; --ag:#A895F2; --ag-bg:#29234A; --pf:#8A96A3; --pf-bg:#182027;
+  --sc:#86ADD3; --sc-bg:#1D2D3C; --ar:#A9B4BE; --ar-bg:#182027; --au:#C49AE6;
+  --e-route:#6B7885; --e-handoff:#E5EAEE; --e-invoke:#3DC3B4; --e-spawn:#A895F2; --e-reads:#6FA8DC; --e-writes:#6FA8DC; --e-fallback:#F08A4B; --e-human:#E2B43A;
+  --m-opus:#A895F2; --m-sol:#5CC27A; --m-grok:#F09A55; --m-none:#74808B; --hl:#F2C14E; --ok:#5CC27A; --bad:#F2776B; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --ground:#10151A; --surface:#182027; --ink:#E5EAEE; --ink-2:#A9B4BE; --ink-3:#74808B; --rule:#2B353F; --band:#141B21; --band2:#131A20;
+  --pb:#3DC3B4; --pb-bg:#123430; --sk:#E5EAEE; --sk-bg:#182027; --pr:#E6BC5A; --pr-bg:#33290F;
+  --hu:#E2B43A; --hu-bg:#4A3A0C; --ag:#A895F2; --ag-bg:#29234A; --pf:#8A96A3; --pf-bg:#182027;
+  --sc:#86ADD3; --sc-bg:#1D2D3C; --ar:#A9B4BE; --ar-bg:#182027; --au:#C49AE6;
+  --e-route:#6B7885; --e-handoff:#E5EAEE; --e-invoke:#3DC3B4; --e-spawn:#A895F2; --e-reads:#6FA8DC; --e-writes:#6FA8DC; --e-fallback:#F08A4B; --e-human:#E2B43A;
+  --m-opus:#A895F2; --m-sol:#5CC27A; --m-grok:#F09A55; --m-none:#74808B; --hl:#F2C14E; --ok:#5CC27A; --bad:#F2776B; color-scheme:dark;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.6 var(--sans)}
+a{color:inherit} code{font-family:var(--mono);font-size:.9em}
+button{font-family:inherit}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--rule)}
+.bar h1{margin:0;font:700 17px/1.2 var(--cond);white-space:nowrap}
+.bar h1 span{color:var(--pb)}
+.bar nav{display:flex;flex-wrap:wrap;gap:1px 12px;font-size:12.5px}
+.bar nav a{text-decoration:none;color:var(--ink-2)} .bar nav a:hover,.bar nav a:focus-visible{color:var(--ink);text-decoration:underline;outline:none}
+.bar .ext{margin-left:auto;display:flex;gap:8px}
+.bar .ext a{font-size:12.5px;font-weight:600;text-decoration:none;padding:3px 9px;border:1px solid var(--ink-3);border-radius:4px;white-space:nowrap}
+.bar .ext a:hover{background:var(--ink);color:var(--surface)}
+.sec-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:26px 12px 10px}
+.sec-h h2{margin:0;font:700 21px/1.2 var(--cond);text-wrap:balance}
+.sec-h p{margin:0;color:var(--ink-2);font-size:13px;max-width:110ch}
+.thesis{display:grid;grid-template-columns:1.2fr 1fr;gap:0;background:var(--surface);border-bottom:1px solid var(--rule)}
+.thesis > div{padding:14px 14px 16px}
+.thesis > div + div{border-left:1px solid var(--rule)}
+.thesis h2{margin:0 0 6px;font:700 15px/1.3 var(--cond)}
+.thesis p{margin:0 0 6px;font-size:13.5px;max-width:75ch}
+.flow5{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0 2px;font-size:12.5px}
+.flow5 span{padding:3px 8px;border-radius:3px;border:1px solid var(--rule);background:var(--band2)}
+.flow5 i{font-style:normal;color:var(--ink-3)}
+.counts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.counts div{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--ink-2)}
+.counts b{font:600 20px/1 var(--cond);color:var(--ink);min-width:28px;text-align:right;font-variant-numeric:tabular-nums}
+.counts svg{flex:none}
+@media (max-width:900px){.thesis{grid-template-columns:1fr}.thesis > div + div{border-left:0;border-top:1px solid var(--rule)}}
+/* net */
+.netbar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:0 12px 8px}
+.netbar .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.netbar .lbl{font:600 11px/1 var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-right:2px}
+.tg{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 8px;border:1px solid var(--rule);border-radius:3px;background:var(--surface);color:var(--ink-2);cursor:pointer}
+.tg[aria-pressed="true"]{color:var(--ink);border-color:var(--ink-3);background:var(--band2)}
+.tg[aria-pressed="false"]{opacity:.55}
+.tg:focus-visible,.pbtn:focus-visible,.zb:focus-visible{outline:2px solid var(--hl);outline-offset:1px}
+.tg svg{flex:none}
+.pbtn{font-size:12.5px;padding:4px 10px;border:1px solid var(--pb);color:var(--pb);background:var(--surface);border-radius:14px;cursor:pointer}
+.pbtn[aria-pressed="true"]{background:var(--pb);color:var(--surface)}
+#search{font:13px var(--sans);padding:4px 9px;border:1px solid var(--rule);border-radius:4px;background:var(--surface);color:var(--ink);width:210px}
+.netwrap{display:grid;grid-template-columns:1fr 400px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);height:min(86vh,1060px);min-height:560px}
+@media (max-width:1100px){.netwrap{grid-template-columns:1fr;height:auto}.netwrap #canvas{height:72vh}.netwrap #panel{max-height:none;border-left:0;border-top:1px solid var(--rule)}}
+#canvas{position:relative;overflow:hidden;background:var(--band2);cursor:grab;touch-action:none}
+#canvas.drag{cursor:grabbing}
+#canvas svg{display:block;width:100%;height:100%}
+.zoom{position:absolute;left:10px;bottom:10px;display:flex;gap:4px;z-index:2}
+.zb{width:30px;height:30px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:4px;font-size:16px;cursor:pointer;line-height:1}
+.zb.wide{width:auto;padding:0 9px;font-size:12px}
+.hint{position:absolute;right:10px;bottom:10px;font-size:11.5px;color:var(--ink-3);background:var(--surface);padding:3px 7px;border-radius:3px;border:1px solid var(--rule)}
+#panel{overflow:auto;background:var(--surface);border-left:1px solid var(--rule);padding:14px 14px 20px}
+#panel .kind{display:flex;gap:6px;align-items:center;font:600 11px/1 var(--cond);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+#panel h3{margin:6px 0 0;font:600 18px/1.3 var(--sans);word-break:break-word}
+#panel .zh{font-size:13px;color:var(--ink-2);margin:1px 0 8px}
+#panel .purpose{font-size:14px;margin:0 0 10px}
+#panel dl{display:grid;grid-template-columns:52px 1fr;gap:5px 8px;margin:0 0 12px;font-size:13px;line-height:1.5}
+#panel dt{font:600 11.5px/1.7 var(--cond);color:var(--ink-3)}
+#panel dd{margin:0}
+#panel h4{margin:14px 0 6px;font:700 12px/1.2 var(--cond);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+#panel ol.steps{margin:0;padding:0;list-style:none;counter-reset:s}
+#panel ol.steps li{position:relative;padding:6px 0 7px 26px;border-top:1px dashed var(--rule);font-size:13px;line-height:1.5}
+#panel ol.steps li:first-child{border-top:0}
+#panel ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:7px;width:19px;height:19px;border-radius:50%;background:var(--band);font:600 11px/19px var(--mono);text-align:center;color:var(--ink-2)}
+#panel ol.steps li.gate::before{background:var(--hu-bg);color:var(--ink)}
+.actor{display:inline-block;font:600 10.5px/1 var(--sans);padding:3px 5px;border-radius:3px;margin-right:5px;vertical-align:1px;border:1px solid}
+.a-human{background:var(--hu-bg);border-color:var(--hu)} .a-main{border-color:var(--ink);background:var(--surface)} .a-sub{background:var(--ag-bg);border-color:var(--ag)} .a-script{background:var(--sc-bg);border-color:var(--sc)} .a-ext{border-style:dashed;border-color:var(--pf)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.chip{font:500 11.5px/1 var(--sans);padding:3px 6px;border-radius:3px;border:1px solid var(--rule);background:var(--band2);color:var(--ink);cursor:pointer;white-space:nowrap}
+.chip:hover,.chip:focus-visible{border-color:var(--hl);outline:none}
+.chip.k-playbook{border-color:var(--pb);color:var(--pb)} .chip.k-principle{border-color:var(--pr);color:var(--pr)} .chip.k-human{background:var(--hu-bg);border-color:var(--hu)}
+.chip.k-agent{border-color:var(--ag);color:var(--ag)} .chip.k-script{background:var(--sc-bg);border-color:var(--sc)}
+.erow{display:grid;grid-template-columns:68px 1fr;gap:6px;font-size:12.5px;margin:4px 0}
+.erow b{font:600 11px/1.9 var(--cond);color:var(--ink-3)}
+#panel .src{font:11px/1.45 var(--mono);color:var(--ink-3);word-break:break-word;border-top:1px solid var(--rule);padding-top:8px;margin-top:12px}
+#panel .intro p{font-size:13px;margin:0 0 8px}
+#panel .intro ul{padding-left:18px;margin:0 0 8px;font-size:13px}
+.pstep{display:grid;grid-template-columns:22px 1fr;gap:6px;padding:6px 0;border-top:1px dashed var(--rule);font-size:13px}
+.pstep:first-of-type{border-top:0}
+.pstep i{font-style:normal;font:600 11px/20px var(--mono);text-align:center;width:20px;height:20px;border-radius:50%;background:var(--pb-bg);color:var(--pb)}
+svg text{font-family:var(--sans)}
+.nd{cursor:pointer}
+.nd:focus{outline:none}
+.nd.sel .sh{stroke:var(--hl)!important;stroke-width:3px!important}
+.nd:focus-visible .sh{stroke:var(--hl)!important;stroke-width:3px!important}
+.dim .nd:not(.on){opacity:.18}
+.dim .ed:not(.on){opacity:.04}
+.ed.on path{stroke-opacity:1!important;stroke-width:2px}
+.elab{pointer-events:none}
+/* lower sections */
+.panel2{background:var(--surface);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule)}
+.cols3 > div{background:var(--surface);padding:12px 12px 14px}
+@media (max-width:900px){.cols3{grid-template-columns:1fr}}
+.cols3 h3{margin:0 0 8px;font:700 15px/1.25 var(--cond)}
+.rule{padding:7px 0;border-top:1px dashed var(--rule);font-size:13.2px}
+.rule:first-of-type{border-top:0}
+.rule small{display:block;color:var(--ink-2);font-size:12.3px;margin-top:1px}
+.rule.pause{box-shadow:inset 3px 0 0 var(--hu);padding-left:9px}
+/* route tree */
+.tree{background:var(--surface);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:14px 12px 16px;display:grid;grid-template-columns:190px 1fr;gap:0}
+.tree .root{align-self:center;border:1.5px solid var(--ink);border-radius:6px;padding:10px 12px;font-weight:600;font-size:14px;position:relative;margin-right:26px;background:var(--band2)}
+.tree .root small{display:block;font-weight:400;color:var(--ink-2);font-size:12px;margin-top:4px}
+.tree .root::after{content:"";position:absolute;right:-27px;top:50%;width:26px;border-top:1.5px solid var(--ink-3)}
+.branches{border-left:1.5px solid var(--ink-3);display:flex;flex-direction:column;gap:8px;padding:4px 0}
+.br{display:grid;grid-template-columns:200px 1fr;align-items:stretch;position:relative;padding-left:22px}
+.br::before{content:"";position:absolute;left:0;top:18px;width:20px;border-top:1.5px solid var(--ink-3)}
+.br .cat{border:1px solid var(--rule);border-radius:4px;padding:6px 9px;background:var(--band2);font-size:13px;font-weight:600;align-self:start}
+.br .cat small{display:block;font-weight:400;font-size:11.5px;color:var(--ink-3)}
+.br .qs{display:flex;flex-direction:column;gap:3px;padding-left:14px;border-left:1px dashed var(--rule);margin-left:12px}
+.q{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-size:12.8px;padding:3px 0}
+.q .arrow{color:var(--ink-3)}
+.q .pbn{font:600 12px/1 var(--sans);padding:5px 8px;border-radius:5px;border:1.4px solid var(--pb);background:var(--pb-bg);color:var(--ink);white-space:nowrap;cursor:pointer}
+.q .pbn.sk{border-color:var(--ink);background:var(--surface);border-radius:1px}
+.q .n{font:600 10.5px/1 var(--mono);color:var(--ink-3);margin-right:6px}
+@media (max-width:900px){.tree{grid-template-columns:1fr}.tree .root{margin:0 0 10px}.tree .root::after{display:none}.br{grid-template-columns:1fr}.br .qs{margin:6px 0 0 8px}}
+/* skeleton */
+.skel{overflow-x:auto;background:var(--surface);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.skel table{border-collapse:separate;border-spacing:0;width:100%;min-width:1100px;font-size:12.6px}
+.skel th{position:sticky;top:0;background:var(--band);font:700 12px/1.3 var(--cond);letter-spacing:.04em;text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+.skel th small{display:block;font:400 11px var(--sans);color:var(--ink-3);letter-spacing:0}
+.skel td{padding:8px 22px 8px 10px;border-bottom:1px solid var(--rule);vertical-align:top;position:relative;line-height:1.45}
+.skel td.arr::after{content:"→";position:absolute;right:5px;top:8px;color:var(--ink-3)}
+.skel td.nm{white-space:nowrap}
+.skel tr.fam td{background:var(--band2);font:700 11.5px/1 var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding:6px 10px}
+.yes{color:var(--ok);font-weight:600} .no{color:var(--ink-3)}
+/* machine svgs */
+.svgbox{background:var(--surface);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);overflow-x:auto}
+.svgbox svg{display:block;margin:0 auto}
+.legend-inline{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 12px;font-size:12px;color:var(--ink-2);border-top:1px solid var(--rule)}
+.statelist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1px;background:var(--rule);border-bottom:1px solid var(--rule)}
+.statelist div{background:var(--surface);padding:7px 10px;font-size:12.5px}
+.statelist b{font-weight:600;margin-right:6px}
+/* modes */
+.modes{display:grid;grid-template-columns:minmax(380px,.9fr) 1.6fr;gap:1px;background:var(--rule);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.modes > div{background:var(--surface);padding:12px}
+@media (max-width:1000px){.modes{grid-template-columns:1fr}}
+.mtab{overflow-x:auto}
+.mtab table{border-collapse:collapse;width:100%;min-width:760px;font-size:12.4px}
+.mtab th,.mtab td{text-align:left;vertical-align:top;padding:6px 8px;border-top:1px solid var(--rule);line-height:1.45}
+.mtab th{font:700 12px/1.3 var(--cond);background:var(--band2)}
+.mtab td:first-child{font:600 12px/1.4 var(--cond);color:var(--ink-3);white-space:nowrap}
+/* topologies */
+.topo{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:1px;background:var(--rule);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.topo > div{background:var(--surface);padding:10px 12px 12px}
+.topo h3{margin:0;font:600 15px/1.3 var(--mono)}
+.topo .io{font-size:12.3px;color:var(--ink-2);margin:2px 0 4px}
+.topo .foot{font-size:12.2px;line-height:1.5;margin-top:4px}
+.topo .foot b{font-weight:600}
+.mlegend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:0 12px 8px;font-size:12px;color:var(--ink-2)}
+.mlegend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+/* evidence */
+.ev{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+@media (max-width:1100px){.ev{grid-template-columns:1fr 1fr}} @media (max-width:640px){.ev{grid-template-columns:1fr}}
+.ev > div{background:var(--surface);padding:10px 12px}
+.ev h3{margin:0 0 8px;font:700 14px/1.25 var(--cond)}
+.evc{border:1px solid var(--rule);border-radius:4px;padding:8px 9px;margin-bottom:8px;background:var(--band2);font-size:12.5px;line-height:1.5}
+.evc b.t{display:block;font:600 13px/1.3 var(--mono);margin-bottom:3px;cursor:pointer}
+.evc .ne{margin-top:4px;padding-top:4px;border-top:1px dashed var(--rule);color:var(--bad)}
+/* principles matrix */
+.pmx{overflow-x:auto;background:var(--surface);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.pmx table{border-collapse:collapse;font-size:12px}
+.pmx th.c{writing-mode:vertical-rl;transform:rotate(180deg);font:500 11.5px/1.2 var(--sans);padding:6px 2px;white-space:nowrap;height:150px;vertical-align:bottom;cursor:pointer}
+.pmx th.c.pb{color:var(--pb)}
+.pmx td{border:1px solid var(--rule);width:22px;height:22px;text-align:center;padding:0}
+.pmx td.on::after{content:"";display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--pr)}
+.pmx td.p{border:0;border-bottom:1px solid var(--rule);text-align:left;padding:4px 12px 4px 12px;width:auto;min-width:420px;height:auto}
+.pmx td.p b{font:600 12.5px/1.3 var(--mono);cursor:pointer}
+.pmx td.p span{display:block;font-size:12px;color:var(--ink-2);line-height:1.4}
+.pmx td.cnt{border:0;border-bottom:1px solid var(--rule);font:600 12px var(--mono);color:var(--ink-3);padding:0 8px;width:auto}
+.pmx tr.g td{background:var(--band);font:700 11.5px/1 var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding:6px 12px;border:0;text-align:left}
+/* models */
+.models{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+@media (max-width:900px){.models{grid-template-columns:1fr 1fr}}
+.models > div{background:var(--surface);padding:10px 12px}
+.models h3{margin:0 0 8px;font:600 13px/1.3 var(--mono);display:flex;align-items:center;gap:6px}
+.models h3 i{width:12px;height:12px;border-radius:2px;display:inline-block}
+.models .r{font-size:12.6px;padding:5px 0;border-top:1px dashed var(--rule)}
+.models .r:first-of-type{border-top:0}
+.models .r small{display:block;color:var(--ink-3);font-size:11.5px}
+/* pairs */
+.pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:1px;background:var(--rule);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.pairs > div{background:var(--surface);padding:11px 12px}
+.pairs .ab{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:6px}
+.pairs .ab span{text-align:center;border:1px solid var(--rule);border-radius:4px;padding:5px;font:600 12.5px/1.3 var(--mono);cursor:pointer;background:var(--band2)}
+.pairs .ab i{font-style:normal;color:var(--ink-3);font-size:12px}
+.pairs p{margin:0;font-size:12.8px;line-height:1.5}
+.pairs p + p{margin-top:4px}
+.pairs p b{font:600 11px/1 var(--cond);letter-spacing:.06em;color:var(--ink-3);margin-right:6px}
+.foot2{padding:14px 12px 40px;font-size:12.5px;color:var(--ink-2);background:var(--surface);border-top:1px solid var(--rule)}
+.foot2 h3{margin:10px 0 4px;font:700 14px/1.2 var(--cond);color:var(--ink)}
+.foot2 ul{margin:2px 0 8px;padding-left:18px}
+.foot2 li{margin:2px 0}
+</style>
+
+<header class="bar">
+  <h1><span>pstack</span> 全景网</h1>
+  <nav aria-label="页面导航">
+    <a href="#net">全景网</a><a href="#rules">全局规则</a><a href="#route">怎样选 playbook</a><a href="#skel">单任务 playbook</a><a href="#prlife">PR 的一生</a><a href="#modes">长时模式</a><a href="#topo">并行拓扑</a><a href="#evidence">证明手段</a><a href="#learn">经验回流</a><a href="#session">暂停与接手</a><a href="#principles">原则</a><a href="#models">模型</a><a href="#pairs">易混组件</a><a href="#method">调查说明</a>
+  </nav>
+  <div class="ext"><a href="https://claude.ai/artifact/REgQzVKAmvehfKnRsgBQEj" target="_blank" rel="noopener">术语页</a><a href="https://claude.ai/artifact/BmvuPb9tw3bs666ZZksP2y" target="_blank" rel="noopener">与 MMW 对照</a></div>
+</header>
+
+<section class="thesis">
+  <div>
+    <h2>一句话看懂 pstack 的运转</h2>
+    <p>人给一个目标和完成条件；常驻的 <b>poteto-mode</b> 把它分到 23 条 <b>playbook</b> 之一；playbook 是一份分步说明，每一步调用<b>技能</b>、派出<b>子 agent</b>、读写<b>产物</b>；需要人的地方停在<b>人的决定点</b>；最后多半经 PR 交付，由人（或事先给的授权）决定合并。</p>
+    <div class="flow5"><span>人：目标</span><i>→</i><span>poteto-mode 路由</span><i>→</i><span>playbook 步骤</span><i>→</i><span>技能 · 子 agent · 脚本</span><i>→</i><span>PR / 报告</span><i>→</i><span>人：授权 · 复盘</span></div>
+    <p style="margin-top:8px;color:var(--ink-2)">除 5 个脚本外，所有组件都是给 agent 读的文字说明；调度靠 agent 读懂后照做。<b>原则</b>不单独执行，而是在做某个决定时被读取、约束那个决定。</p>
+  </div>
+  <div>
+    <h2>这张网里有什么</h2>
+    <div class="counts" id="counts"></div>
+  </div>
+</section>
+
+<div id="net">
+  <div class="sec-h"><h2>全景网：所有组件与所有连线</h2><p>从左到右大致是时间顺序：入口 → 路由 → 各类 playbook → 技能 → agent 与平台 → 脚本与产物 → 原则。点任一节点，右侧给出它的全部细节和前后连线；也可以选一条「典型路径」。</p></div>
+  <div class="netbar">
+    <div class="grp"><span class="lbl">典型路径</span><span id="presets"></span></div>
+  </div>
+  <div class="netbar">
+    <div class="grp"><span class="lbl">连线</span><span id="etoggles"></span></div>
+    <div class="grp"><label class="lbl" for="search">找节点</label><input id="search" list="names" placeholder="输入名字，回车"><datalist id="names"></datalist></div>
+  </div>
+  <div class="netwrap">
+    <div id="canvas" aria-label="pstack 全景网，可拖动与缩放">
+      <svg id="netsvg" role="img" aria-label="pstack 组件网络图"></svg>
+      <div class="zoom"><button class="zb" id="zin" aria-label="放大">+</button><button class="zb" id="zout" aria-label="缩小">−</button><button class="zb wide" id="zfit">看全图</button></div>
+      <div class="hint">拖动平移 · ⌘/Ctrl + 滚轮 或 双指缩放</div>
+    </div>
+    <aside id="panel" aria-live="polite"></aside>
+  </div>
+</div>
+
+<div id="rules">
+  <div class="sec-h"><h2>全局规则：不管走哪条 playbook 都成立</h2><p>来自 <code>poteto-mode/SKILL.md</code>。黄边的是「总要停下来问人」的事。</p></div>
+  <div class="panel2"><div class="cols3" id="rulesGrid"></div></div>
+</div>
+
+<div id="route">
+  <div class="sec-h"><h2>怎样在 23 条 playbook 里选</h2><p>把 poteto-mode 的路由条件整理成一棵树：先看请求属于哪一类，再在组内按顺序逐条判断，第一条「是」就选它。分组是我为阅读整理的；组内顺序照调查员按原文判别条件排的检查顺序。点绿色块在全景网里定位。</p></div>
+  <div class="tree" id="treeBox"></div>
+</div>
+
+<div id="skel">
+  <div class="sec-h"><h2>单任务 playbook：同一副骨架，不同的第一步和证据</h2><p>每条单任务 playbook 都走「先做什么 → 怎样分工 → 拿什么证明 → 产出什么 → 交给谁」。差别集中在第一步和算完成的证据。</p></div>
+  <div class="skel" id="skelBox"></div>
+</div>
+
+<div id="prlife">
+  <div class="sec-h"><h2>PR 的一生：谁把它推到下一个状态</h2><p>每条箭头上的标签是推动这一步的组件：<b style="color:var(--pb)">Babysit</b> 只负责把 PR 推到 merge-ready；过了 merge-ready 的每一步都归 <b style="color:var(--pb)">Shipping</b>；<code>watch-pr</code> 只观察和报告，不推动。</p></div>
+  <div class="svgbox" id="prBox"></div>
+  <div class="statelist" id="prStates"></div>
+</div>
+
+<div id="modes">
+  <div class="sec-h"><h2>五种长时模式：按「一次处理多少」和「谁合并」区分</h2><p>左图定位，右表逐项比较。选哪一种，原文给的判别条件在表的最后一行。</p></div>
+  <div class="modes"><div id="modeMap"></div><div class="mtab" id="modeTab"></div></div>
+  <div class="sec-h" style="padding-top:14px"><h2 style="font-size:16px">同一套生命周期，五种做法</h2></div>
+  <div class="mtab panel2" id="lifeTab"></div>
+</div>
+
+<div id="topo">
+  <div class="sec-h"><h2>并行技能的拓扑：派几个、什么模型、谁评判、谁合成</h2><p>同一种画法：左边是主 agent 派出的角色（方块里是数量，颜色是默认模型，锁形表示只读），中间是评判，右边是合成与产出。</p></div>
+  <div class="mlegend" id="mlegend"></div>
+  <div class="topo" id="topoGrid"></div>
+</div>
+
+<div id="evidence">
+  <div class="sec-h"><h2>证明手段：各自证明什么、不能代替什么</h2><p>按它在工作中出现的时点分四栏。红字是原文明说它<b>不够</b>证明的东西。</p></div>
+  <div class="ev" id="evGrid"></div>
+</div>
+
+<div id="learn">
+  <div class="sec-h"><h2>经验怎样回流到下一次</h2><p>一次运行留下的记录，经审阅和 reflect，变成技能修改或结构化检查；recall 在下一次开工时把近期状态取回来。</p></div>
+  <div class="svgbox" id="learnBox"></div>
+</div>
+
+<div id="session">
+  <div class="sec-h"><h2>会话的暂停、接手与清理</h2><p>三条互不相同的线：明确暂停 → 接手这一个会话；跨会话回顾近期工作（recall）；清理磁盘（worktree-cleanup）。</p></div>
+  <div class="svgbox" id="sessBox"></div>
+</div>
+
+<div id="principles">
+  <div class="sec-h"><h2>23 条原则，以及谁点名引用它</h2><p>行是原则（按它约束的工作阶段分组），列是点名引用它的 playbook 或技能。圆点越多，这条原则越贯穿全流程。点原则名在全景网里定位。</p></div>
+  <div class="pmx" id="pmxBox"></div>
+</div>
+
+<div id="models">
+  <div class="sec-h"><h2>谁用什么模型</h2><p>默认值来自 <code>setup-pstack</code> 写的规则模板；人可以在 <code>pstack-models.mdc</code> 里改。panel 表示一个角色同时派三个不同模型。</p></div>
+  <div class="models" id="modelGrid"></div>
+</div>
+
+<div id="pairs">
+  <div class="sec-h"><h2>容易混的成对组件</h2><p>名字或用途相近，一句话分清。</p></div>
+  <div class="pairs" id="pairGrid"></div>
+</div>
+
+<footer class="foot2" id="method">
+  <h3>调查说明</h3>
+  <ul>
+    <li>来源：<code>docs/research/code-landing-refs/pstack/</code>（cursor/plugins <code>b0b9c7a0</code>，2026-09-23）。6 个 Codex agent（GPT-6-Sol medium）只读、不运行脚本，逐个读完每条 playbook、每个技能和脚本，按统一结构写出组件、步骤、连线和比较数据；原则一列用了上一轮 G2 调查。原始数据在 <code>docs/research/workflow-compare/reports/</code>。</li>
+    <li>网里 <span id="derivedN"></span> 条连线是从组件步骤里「这一步用了谁」推出来的（点开节点时标为「步骤里用到」），其余都是调查员照原文逐条写的，均带出处。</li>
+    <li>这是规定与代码的静态读法，没有安装或运行 pstack。</li>
+  </ul>
+  <h3>调查员标出的原文与实现不一致、或读不到的地方</h3>
+  <div id="notesBox"></div>
+</footer>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function(){
+"use strict";
+const D=JSON.parse(document.getElementById("data").textContent);
+const C=D.comps, EDGES=D.edges, CMP=D.compare;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const nm=id=>C[id]?C[id].name:id;
+const KIND_ZH={playbook:"playbook",skill:"技能",principle:"原则",human:"人的决定点",agent:"agent 类型",platform:"平台能力",script:"脚本",artifact:"产物 / 文件",automation:"自动化"};
+const ETYPES=[["route","路由","poteto-mode 把请求分给它"],["handoff","交接","做完交给下一个"],["invoke","调用","步骤里调用技能、脚本或原则"],["spawn","派出","派出某类 agent"],["human","等人","在这里等人的决定"],["fallback","回退","失败或改走别的路线"],["reads","读","读取产物或平台"],["writes","写","写入产物或平台"]];
+const SVGNS="http://www.w3.org/2000/svg";
+function el(t,a,p){const e=document.createElementNS(SVGNS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+
+/* ---------- shapes ---------- */
+function shape(kind,x,y,w,h,g){
+  let s;
+  if(kind==="playbook") s=el("rect",{x,y,width:w,height:h,rx:8,fill:"var(--pb-bg)",stroke:"var(--pb)","stroke-width":1.6},g);
+  else if(kind==="skill") s=el("path",{d:`M${x},${y} H${x+w-9} L${x+w},${y+9} V${y+h} H${x} Z`,fill:"var(--sk-bg)",stroke:"var(--sk)","stroke-width":1.4},g);
+  else if(kind==="principle") s=el("rect",{x,y,width:w,height:h,rx:Math.min(h/2,16),fill:"var(--pr-bg)",stroke:"var(--pr)","stroke-width":1.3},g);
+  else if(kind==="human") s=el("rect",{x,y,width:w,height:h,rx:12,fill:"var(--hu-bg)",stroke:"var(--hu)","stroke-width":1.8},g);
+  else if(kind==="agent"){const k=10;s=el("polygon",{points:`${x+k},${y} ${x+w-k},${y} ${x+w},${y+h/2} ${x+w-k},${y+h} ${x+k},${y+h} ${x},${y+h/2}`,fill:"var(--ag-bg)",stroke:"var(--ag)","stroke-width":1.5},g);}
+  else if(kind==="platform") s=el("rect",{x,y,width:w,height:h,rx:5,fill:"var(--pf-bg)",stroke:"var(--pf)","stroke-width":1.3,"stroke-dasharray":"5 3"},g);
+  else if(kind==="script") s=el("rect",{x,y,width:w,height:h,rx:1,fill:"var(--sc-bg)",stroke:"var(--sc)","stroke-width":1.4},g);
+  else if(kind==="artifact") s=el("path",{d:`M${x},${y} H${x+w-11} L${x+w},${y+11} V${y+h} H${x} Z M${x+w-11},${y} V${y+11} H${x+w}`,fill:"var(--ar-bg)",stroke:"var(--ar)","stroke-width":1.2},g);
+  else s=el("rect",{x,y,width:w,height:h,rx:3,fill:"var(--sk-bg)",stroke:"var(--au)","stroke-width":1.5,"stroke-dasharray":"2 3"},g);
+  s.setAttribute("class","sh"); return s;
+}
+function glyph(kind,x,y,g){ // tiny marker at node's left edge
+  if(kind==="human"){el("circle",{cx:x+10,cy:y+9,r:3.2,fill:"var(--hu)"},g);el("path",{d:`M${x+4.5},${y+18} a5.5,5 0 0 1 11,0`,fill:"var(--hu)"},g);}
+}
+function legendIcon(kind){const s=document.createElementNS(SVGNS,"svg");s.setAttribute("width",30);s.setAttribute("height",20);shape(kind,2,2,26,16,s);return s;}
+
+/* ---------- counts ---------- */
+const kc={};Object.values(C).forEach(c=>kc[c.kind]=(kc[c.kind]||0)+1);
+const cBox=$("#counts");
+[["playbook","playbook：分步工作说明"],["skill","技能：可被调用的专门能力"],["principle","原则：做决定时读取"],["human","人的决定点"],["agent","agent 类型"],["platform","Cursor / GitHub 等平台能力"],["script","脚本：唯一的确定性代码"],["artifact","产物与文件"],["automation","休眠的自动化（benny）"]].forEach(([k,t])=>{
+  const d=document.createElement("div");d.appendChild(legendIcon(k));d.insertAdjacentHTML("beforeend",`<b>${kc[k]||0}</b><span>${t}</span>`);cBox.appendChild(d);});
+
+/* ---------- columns & subgroups ---------- */
+const COLS=[
+ ["entry","入口与配置",[["",["hu-goal","sk-setup-pstack","ar-models-rule"]]]],
+ ["router","路由",[["",["sk-poteto-mode","ar-todo"]]]],
+ ["long","长时编排与会话",[["计划与长时运行",["pb-multi-phase-plan","sk-figure-it-out","pb-autonomous-run","pb-autopilot-full","pb-autopilot-stack","pb-orchestrate"]],["会话管理",["pb-session-pickup","pb-pause-safely","pb-worktree-cleanup"]]]],
+ ["human","人的决定点",[["",["hu-go","hu-merge-auth","hu-preference","hu-checkpoint","hu-irreversible","hu-pause","hu-morning-audit","hu-approve-skill-edit"]]]],
+ ["task","单任务 playbook",[["只读与诊断",["pb-investigation","pb-runtime-forensics","pb-trace-forensics"]],["改代码",["pb-bug-fix","pb-feature","pb-refactoring","pb-perf-issue","pb-hillclimb"]],["先实验再决定",["pb-prototype","pb-visual-parity"]],["改 pstack 自己",["pb-authoring-a-skill","pb-eval"]]]],
+ ["deliver","交付 PR",[["",["pb-opening-a-pr","pb-babysit","pb-shipping"]]]],
+ ["skill","技能",[["理解",["sk-how","sk-why","sk-recall","sk-teach","sk-bro"]],["设计与并行",["sk-architect","sk-arena","sk-swarm","sk-interrogate","sk-blast-radius"]],["构建与清理",["sk-tdd","sk-typescript-best-practices","sk-no-comments","sk-unslop","sk-technical-writing"]],["验证",["sk-create-verification-skill","sk-verify-app","sk-maintain-verification-skill","sk-control-cli","sk-control-ui"]],["记录、沉淀与自动化",["sk-show-me-your-work","sk-reflect","sk-automate-me","sk-make-bot-ui","sk-setup-benny","au-benny-triage","au-benny-reproduce"]]]],
+ ["agent","agent 与平台",[["agent 类型",["ag-poteto-agent","ag-comment-sicko","ag-general-purpose"]],["Cursor 平台",["pf-task-tool","pf-cursor-cloud","pf-loop","pf-transcripts","pf-automations"]],["外部服务",["pf-github","pf-bugbot","pf-graphite","pf-slack"]]]],
+ ["machine","脚本与产物",[["脚本",["sc-orch","sc-watch-pr","sc-check-plan","sc-worktree-audit","sc-bootstrap"]],["产物与文件",["ar-plan-doc","ar-goal","ar-brief","ar-orch-store","ar-ledger","ar-gates","ar-inbox","ar-children-tsv","ar-decisions-tsv","ar-resume-note","ar-pr","ar-stack"]]]],
+ ["principle","原则",[["理解与诊断",["pr-attack-the-premise","pr-fix-root-causes","pr-model-the-domain"]],["目标与设计",["pr-experience-first","pr-exhaust-the-design-space","pr-foundational-thinking","pr-redesign-from-first-principles"]],["实现与改造",["pr-subtract-before-you-add","pr-laziness-protocol","pr-minimize-reader-load","pr-boundary-discipline","pr-type-system-discipline","pr-migrate-callers-then-delete-legacy-apis","pr-outcome-oriented-execution","pr-separate-before-serializing-shared-state","pr-make-operations-idempotent"]],["验证与交付",["pr-build-the-lever","pr-sequence-verifiable-units","pr-test-behavior-not-implementation","pr-prove-it-works"]],["协作与持续改进",["pr-guard-the-context-window","pr-never-block-on-the-human","pr-encode-lessons-in-structure"]]]]
+];
+// any component not placed goes to a trailing subgroup of its natural column
+const placed=new Set(COLS.flatMap(c=>c[2].flatMap(g=>g[1])));
+Object.keys(C).forEach(id=>{if(placed.has(id))return;const k={pb:"task",sk:"skill",au:"skill",ag:"agent",pf:"agent",sc:"machine",ar:"machine",pr:"principle",hu:"human"}[id.split("-")[0]]||"machine";const col=COLS.find(c=>c[0]===k);let g=col[2].find(x=>x[0]==="其他");if(!g){g=["其他",[]];col[2].push(g);}g[1].push(id);});
+COLS.forEach(c=>c[2].forEach(g=>g[1]=g[1].filter(id=>C[id])));
+const colIdx={};COLS.forEach((c,i)=>c[2].forEach(g=>g[1].forEach(id=>colIdx[id]=i)));
+
+/* ---------- text measure ---------- */
+const cv=document.createElement("canvas").getContext("2d");
+const FAM='"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Noto Sans SC",sans-serif';
+function toks(s){const o=[];let b="";for(const ch of s){if(/[⺀-鿿＀-￯　-〿]/.test(ch)){if(b){o.push(b);b="";}o.push(ch);}else if(ch===" "||ch==="/"||ch==="-"){b+=ch;o.push(b);b="";}else b+=ch;}if(b)o.push(b);return o;}
+function wrap(text,max,size,weight){cv.font=`${weight} ${size}px ${FAM}`;const L=[];let cur="";for(const t of toks(String(text))){const cand=cur+t;if(!cur||cv.measureText(cand.trimEnd()).width<=max||/^[，。、；：）,.;:)]$/.test(t))cur=cand;else{L.push(cur.trimEnd());cur=t.trimStart();}while(cv.measureText(cur).width>max&&cur.length>1){let k=cur.length-1;while(k>1&&cv.measureText(cur.slice(0,k)).width>max)k--;L.push(cur.slice(0,k));cur=cur.slice(k);}}if(cur.trim())L.push(cur.trimEnd());return L;}
+
+/* ---------- net layout ---------- */
+const WID={playbook:176,skill:162,principle:190,human:156,agent:156,platform:156,script:156,artifact:156,automation:162};
+const N={};
+function measureNodes(){Object.values(C).forEach(c=>{const w=WID[c.kind]||160;const name=wrap(c.name,w-(c.kind==="human"?34:18),12.5,600).slice(0,3);const lab=(c.label&&c.label!==c.name)?wrap(c.label,w-18,11,400).slice(0,2):[];const h=Math.max(34,12+name.length*15.5+lab.length*13.5);N[c.id]={id:c.id,kind:c.kind,w,h,name,lab,col:colIdx[c.id],x:0,y:0};});}
+const W8={route:3,handoff:3,human:2,fallback:2,spawn:1.5,invoke:1,reads:.6,writes:.6};
+let adj={};
+function buildAdj(){adj={};Object.keys(C).forEach(id=>adj[id]=[]);EDGES.forEach(e=>{let w=W8[e.type]||1;if(e.to.startsWith("pr-")||e.from.startsWith("pr-"))w*=.3;adj[e.from].push([e.to,w]);adj[e.to].push([e.from,w]);});}
+const GAP=86, HEAD=58, SUBH=26, VG=9, SG=16;
+let NET={W:0,H:0,cols:[]};
+function layout(){
+  // x positions
+  let x=24;NET.cols=COLS.map(c=>{const ids=c[2].flatMap(g=>g[1]);const w=Math.max(...ids.map(id=>N[id].w));const col={key:c[0],name:c[1],x,w,groups:c[2]};ids.forEach(id=>N[id].x=x+(w-N[id].w)/2);x+=w+GAP;return col;});
+  NET.W=x-GAP+24;
+  const stackH=c=>c.groups.reduce((a,g)=>a+(g[0]?SUBH:0)+g[1].reduce((b,id)=>b+N[id].h+VG,0)+SG,0);
+  NET.H=Math.max(...NET.cols.map(stackH))+HEAD+10;
+  const stack=c=>{const off=(NET.H-HEAD-stackH(c))/2;let y=HEAD+Math.max(0,off);c.gy=[];c.groups.forEach(g=>{c.gy.push(y);if(g[0])y+=SUBH;g[1].forEach(id=>{N[id].y=y;y+=N[id].h+VG;});y+=SG;});};
+  NET.cols.forEach(stack);
+  const bary=id=>{let s=0,w=0;adj[id].forEach(([o,ww])=>{if(N[o].col===N[id].col)return;s+=(N[o].y+N[o].h/2)*ww;w+=ww;});return w?s/w:N[id].y;};
+  for(let it=0;it<8;it++){
+    NET.cols.forEach(c=>{
+      c.groups.forEach(g=>{const b=Object.fromEntries(g[1].map(id=>[id,bary(id)]));g[1].sort((a,z)=>b[a]-b[z]);});
+      if(c.groups.length===1&&!c.groups[0][0]&&c.groups[0][1].length<=8){ // free placement near neighbours
+        const ids=c.groups[0][1];const t=ids.map(id=>({id,y:bary(id)-N[id].h/2}));
+        let last=HEAD;t.forEach(o=>{o.y=Math.max(o.y,last);last=o.y+N[o.id].h+VG*2;});
+        const over=last-NET.H;if(over>0)for(let i=t.length-1;i>=0;i--){t[i].y-=over;}
+        let first=HEAD;t.forEach(o=>{if(o.y<first)o.y=first;first=o.y+N[o.id].h+VG*2;});
+        t.forEach(o=>N[o.id].y=o.y);c.gy=[HEAD];
+      } else stack(c);
+    });
+  }
+}
+/* ports: spread edge endpoints along each node side */
+function ports(){
+  const side={};const key=(id,s)=>id+"|"+s;
+  EDGES.forEach(e=>{const A=N[e.from],B=N[e.to];let sa,sb;
+    if(A.col<B.col){sa="R";sb="L";}else if(A.col>B.col){sa="L";sb="R";}else{sa="R";sb="R";}
+    e._sa=sa;e._sb=sb;(side[key(e.from,sa)]=side[key(e.from,sa)]||[]).push([e,"a"]);(side[key(e.to,sb)]=side[key(e.to,sb)]||[]).push([e,"b"]);});
+  Object.entries(side).forEach(([k,list])=>{const id=k.split("|")[0];const n=N[id];
+    list.sort((p,q)=>{const o=x=>x[1]==="a"?N[x[0].to]:N[x[0].from];return (o(p).y+o(p).h/2)-(o(q).y+o(q).h/2);});
+    list.forEach(([e,end],i)=>{const y=n.y+6+(n.h-12)*(i+1)/(list.length+1);if(end==="a")e._ya=y;else e._yb=y;});});
+}
+function epath(e){const A=N[e.from],B=N[e.to];
+  const ax=e._sa==="R"?A.x+A.w:A.x, bx=e._sb==="R"?B.x+B.w:B.x, ay=e._ya, by=e._yb;
+  if(A.col===B.col){const d=26+Math.min(90,Math.abs(by-ay)*.18);return `M${ax},${ay} C${ax+d},${ay} ${bx+d},${by} ${bx+2},${by}`;}
+  const dx=Math.max(40,Math.abs(bx-ax)*.45);const s=e._sa==="R"?1:-1;
+  return `M${ax},${ay} C${ax+s*dx},${ay} ${bx-s*dx},${by} ${bx+(s>0?-2:2)},${by}`;}
+function mid(e){const A=N[e.from],B=N[e.to];const ax=e._sa==="R"?A.x+A.w:A.x,bx=e._sb==="R"?B.x+B.w:B.x;if(A.col===B.col){const d=26+Math.min(90,Math.abs(e._yb-e._ya)*.18);return [ax+d*.75,(e._ya+e._yb)/2];}return [(ax+bx)/2,(e._ya+e._yb)/2];}
+
+const svg=$("#netsvg"); let VIEW=null, gRoot, nodeEls={}, edgeEls={};
+const vis=Object.fromEntries(ETYPES.map(t=>[t[0],!["reads","writes"].includes(t[0])]));
+let showPrinciples=false;
+function drawNet(){
+  svg.innerHTML="";
+  const defs=el("defs",{},svg);
+  ETYPES.forEach(([t])=>{const m=el("marker",{id:"m-"+t,viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:6,markerHeight:6,orient:"auto-start-reverse"},defs);el("path",{d:"M0,0 L10,5 L0,10 z",fill:`var(--e-${t})`},m);});
+  gRoot=el("g",{},svg);
+  const gBand=el("g",{},gRoot),gE=el("g",{},gRoot),gN=el("g",{},gRoot),gL=el("g",{class:"elab"},gRoot);
+  NET.cols.forEach((c,i)=>{
+    el("rect",{x:c.x-12,y:0,width:c.w+24,height:NET.H,fill:i%2?"var(--band)":"var(--surface)",opacity:.75},gBand);
+    const t=el("text",{x:c.x+c.w/2,y:24,"text-anchor":"middle","font-size":14,"font-weight":700,fill:"var(--ink)","font-family":"var(--cond)"},gBand);t.textContent=c.name;
+    const n=c.groups.reduce((a,g)=>a+g[1].length,0);const t2=el("text",{x:c.x+c.w/2,y:41,"text-anchor":"middle","font-size":11,fill:"var(--ink-3)"},gBand);t2.textContent=`${n} 个`;
+    if(c.groups.length>1||c.groups[0][0]) c.groups.forEach((g,gi)=>{if(!g[0])return;const y=N[g[1][0]].y-SUBH+16;const tt=el("text",{x:c.x,y,"font-size":11.5,"font-weight":600,fill:"var(--ink-3)"},gBand);tt.textContent=g[0];});
+  });
+  EDGES.forEach(e=>{const g=el("g",{class:"ed","data-t":e.type},gE);const pr=e.to.startsWith("pr-");
+    const dash={invoke:"5 3",spawn:"1.5 3",reads:"2 3",fallback:"6 3"}[e.type]||"";
+    el("path",{d:epath(e),fill:"none",stroke:`var(--e-${e.type})`,"stroke-width":e.type==="handoff"?1.8:1.1,"stroke-opacity":e.type==="handoff"||e.type==="route"?.7:.42,"stroke-dasharray":dash,"stroke-linecap":"round","marker-end":`url(#m-${e.type})`},g);
+    e._pr=pr; edgeEls[e.id]=g;});
+  Object.values(N).forEach(n=>{const g=el("g",{class:"nd",tabindex:0,role:"button","data-id":n.id,"aria-label":`${C[n.id].name}（${KIND_ZH[n.kind]}）`},gN);
+    shape(n.kind,n.x,n.y,n.w,n.h,g);glyph(n.kind,n.x,n.y,g);
+    const tx=n.kind==="human"?n.x+22+(n.w-22)/2:n.x+n.w/2;
+    const tot=n.name.length*15.5+n.lab.length*13.5;let y=n.y+(n.h-tot)/2+12;
+    n.name.forEach(l=>{const t=el("text",{x:tx,y,"text-anchor":"middle","font-size":12.5,"font-weight":600,fill:"var(--ink)","font-family":n.kind==="script"?"var(--mono)":"var(--sans)"},g);t.textContent=l;y+=15.5;});
+    n.lab.forEach(l=>{const t=el("text",{x:tx,y:y-1,"text-anchor":"middle","font-size":11,fill:"var(--ink-2)"},g);t.textContent=l;y+=13.5;});
+    nodeEls[n.id]=g;});
+  window._gL=gL;
+  applyVis();
+}
+function applyVis(){EDGES.forEach(e=>{const on=vis[e.type]&&(!e._pr||showPrinciples);edgeEls[e.id].style.display=on?"":"none";});}
+/* ---------- pan & zoom ---------- */
+const cvs=$("#canvas");
+function setView(v){VIEW=v;gRoot.setAttribute("transform",`translate(${v.x},${v.y}) scale(${v.k})`);}
+function fit(ids){const r=cvs.getBoundingClientRect();let x0=0,y0=0,x1=NET.W,y1=NET.H;
+  if(ids&&ids.length){x0=Math.min(...ids.map(i=>N[i].x))-40;y0=Math.min(...ids.map(i=>N[i].y))-40;x1=Math.max(...ids.map(i=>N[i].x+N[i].w))+40;y1=Math.max(...ids.map(i=>N[i].y+N[i].h))+40;}
+  const k=Math.min(r.width/(x1-x0),r.height/(y1-y0),ids?1.1:2);setView({k,x:(r.width-(x1-x0)*k)/2-x0*k,y:(r.height-(y1-y0)*k)/2-y0*k});}
+function zoomAt(f,cx,cy){const v=VIEW,k=Math.max(.2,Math.min(3,v.k*f));const r=k/v.k;setView({k,x:cx-(cx-v.x)*r,y:cy-(cy-v.y)*r});}
+let drag=null;
+cvs.addEventListener("pointerdown",e=>{if(e.target.closest(".nd")||e.target.closest(".zoom"))return;drag={x:e.clientX,y:e.clientY,v:{...VIEW},moved:false};cvs.setPointerCapture(e.pointerId);cvs.classList.add("drag");});
+cvs.addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)drag.moved=true;setView({k:drag.v.k,x:drag.v.x+dx,y:drag.v.y+dy});});
+cvs.addEventListener("pointerup",e=>{if(drag&&!drag.moved&&!e.target.closest(".nd"))clearSel();drag=null;cvs.classList.remove("drag");});
+cvs.addEventListener("wheel",e=>{e.preventDefault();const r=cvs.getBoundingClientRect();if(e.ctrlKey||e.metaKey)zoomAt(Math.exp(-e.deltaY*.0025),e.clientX-r.left,e.clientY-r.top);else setView({k:VIEW.k,x:VIEW.x-e.deltaX,y:VIEW.y-e.deltaY});},{passive:false});
+$("#zin").onclick=()=>{const r=cvs.getBoundingClientRect();zoomAt(1.3,r.width/2,r.height/2);};
+$("#zout").onclick=()=>{const r=cvs.getBoundingClientRect();zoomAt(1/1.3,r.width/2,r.height/2);};
+$("#zfit").onclick=()=>{clearSel();fit();};
+function center(id){const r=cvs.getBoundingClientRect();const n=N[id];const k=Math.max(VIEW.k,.9);setView({k,x:r.width/2-(n.x+n.w/2)*k,y:r.height/2-(n.y+n.h/2)*k});}
+
+/* ---------- selection & panel ---------- */
+const panel=$("#panel");
+let preset=null;
+function clearLabels(){window._gL.innerHTML="";}
+function labelEdge(e){if(!e.label)return;const [x,y]=mid(e);cv.font=`500 10.5px ${FAM}`;const w=cv.measureText(e.label).width;el("rect",{x:x-w/2-3,y:y-9,width:w+6,height:13,rx:2,fill:"var(--surface)",opacity:.94},window._gL);const t=el("text",{x,y:y+1,"text-anchor":"middle","font-size":10.5,"font-weight":500,fill:`var(--e-${e.type})`},window._gL);t.textContent=e.label;}
+function clearSel(){svg.classList.remove("dim");svg.querySelectorAll(".on,.sel").forEach(x=>x.classList.remove("on","sel"));clearLabels();EDGES.forEach(e=>{if(e._forced){e._forced=false;}});applyVis();preset=null;document.querySelectorAll(".pbtn").forEach(b=>b.setAttribute("aria-pressed","false"));intro();}
+function highlight(nodes,edges,selId){svg.classList.add("dim");svg.querySelectorAll(".on,.sel").forEach(x=>x.classList.remove("on","sel"));clearLabels();applyVis();
+  nodes.forEach(id=>nodeEls[id]&&nodeEls[id].classList.add("on"));if(selId)nodeEls[selId].classList.add("sel");
+  edges.forEach(e=>{const g=edgeEls[e.id];g.style.display="";g.classList.add("on");labelEdge(e);});}
+function select(id,move){if(!C[id])return;preset=null;document.querySelectorAll(".pbtn").forEach(b=>b.setAttribute("aria-pressed","false"));
+  const inc=EDGES.filter(e=>e.from===id||e.to===id);const ns=new Set([id]);inc.forEach(e=>{ns.add(e.from);ns.add(e.to);});
+  highlight([...ns],inc,id);showComp(id,inc);if(move)center(id);}
+svg.addEventListener("click",e=>{const n=e.target.closest(".nd");if(n)select(n.dataset.id,false);});
+svg.addEventListener("keydown",e=>{const n=e.target.closest(".nd");if(n&&(e.key==="Enter"||e.key===" ")){e.preventDefault();select(n.dataset.id,false);}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")clearSel();});
+function chip(id){const c=C[id];if(!c)return `<span class="chip">${esc(id)}</span>`;return `<button type="button" class="chip k-${c.kind}" data-go="${id}" title="${esc(c.label||"")}">${esc(c.name)}</button>`;}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(!b)return;const id=b.dataset.go;if(!C[id])return;e.preventDefault();
+  if(!b.closest("#panel")){document.getElementById("net").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});}
+  select(id,true);});
+function actorCls(a){if(!a)return "a-main";if(a==="human")return "a-human";if(a.startsWith("subagent"))return "a-sub";if(a.startsWith("script"))return "a-script";if(a.startsWith("external"))return "a-ext";return "a-main";}
+function actorTxt(a){if(!a)return "主 agent";if(a==="human")return "人";if(a==="main")return "主 agent";const [k,v]=a.split(":");return ({subagent:"子 agent",script:"脚本",external:"外部"}[k]||k)+(v?"："+v:"");}
+function showComp(id,inc){const c=C[id];
+  const rows=[["何时用",c.trigger],["完成",c.done_when],["失败时",c.on_fail],["人",c.human&&c.human!=="无"?c.human:""],["并行",c.parallel&&c.parallel!=="无"?c.parallel:""],["防止",c.prevents],["归类",c.family]].filter(r=>r[1]);
+  const out=(c.outputs||[]).length?`<h4>产出</h4><div style="font-size:13px">${c.outputs.map(esc).join("；")}</div>`:"";
+  const steps=(c.steps||[]).length?`<h4>步骤</h4><ol class="steps">${c.steps.map(s=>`<li class="${s.human_gate?"gate":""}"><span class="actor ${actorCls(s.actor)}">${esc(actorTxt(s.actor))}</span>${esc(s.text)}${(s.uses||[]).length?`<div class="chips">${s.uses.map(chip).join("")}</div>`:""}</li>`).join("")}</ol>`:"";
+  const grp=(dir)=>{const by={};inc.filter(e=>dir==="out"?e.from===id:e.to===id).forEach(e=>{(by[e.type]=by[e.type]||[]).push(e);});
+    return ETYPES.filter(t=>by[t[0]]).map(t=>`<div class="erow"><b style="color:var(--e-${t[0]})">${t[1]}</b><div class="chips" style="margin:0">${by[t[0]].map(e=>{const o=dir==="out"?e.to:e.from;return chip(o).replace("</button>",e.label?` <span style="color:var(--ink-3);font-weight:400">· ${esc(e.label)}</span></button>`:(e.derived?` <span style="color:var(--ink-3);font-weight:400">· 步骤里用到</span></button>`:"</button>"));}).join("")}</div></div>`).join("");};
+  const o=grp("out"),i=grp("in");
+  panel.innerHTML=`<div class="kind">${legendIcon(c.kind).outerHTML}${KIND_ZH[c.kind]||c.kind}</div><h3>${esc(c.name)}</h3><div class="zh">${esc(c.label||"")}</div><p class="purpose">${esc(c.purpose||"")}</p>
+  <dl>${rows.map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>${out}${steps}
+  ${(c.principles||[]).length?`<h4>点名引用的原则</h4><div class="chips">${c.principles.map(chip).join("")}</div>`:""}
+  ${o?`<h4>它指向</h4>${o}`:""}${i?`<h4>指向它的</h4>${i}`:""}
+  <div class="src">出处：${esc(c.source||"")}</div>`;
+  panel.scrollTop=0;}
+function intro(){panel.innerHTML=`<div class="intro"><div class="kind">怎么读这张网</div><h3 style="margin-bottom:8px">形状 = 组件种类，线型 = 关系</h3>
+  <p>节点形状：</p><div id="kindLegend" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12.5px;margin-bottom:10px"></div>
+  <p>连线（上方开关可隐藏某类）：</p><div id="edgeLegend" style="display:grid;gap:3px;font-size:12.5px;margin-bottom:10px"></div>
+  <p>默认隐藏「读 / 写」两类和指向原则的线，以免太密；点任一节点会显示它的全部连线。</p>
+  <p>从左往右读：入口与路由决定走哪条 playbook；中间三列是 23 条 playbook（长时编排、单任务、交付）；右边依次是它们调用的技能、agent 与平台、脚本与产物、原则。</p></div>`;
+  const kl=$("#kindLegend");Object.keys(KIND_ZH).forEach(k=>{const d=document.createElement("div");d.style.cssText="display:flex;align-items:center;gap:6px";d.appendChild(legendIcon(k));d.insertAdjacentHTML("beforeend",KIND_ZH[k]);kl.appendChild(d);});
+  $("#edgeLegend").innerHTML=ETYPES.map(t=>`<div style="display:flex;gap:8px;align-items:center">${lineSample(t[0])}<b style="min-width:30px">${t[1]}</b><span style="color:var(--ink-2)">${t[2]}</span></div>`).join("");}
+function lineSample(t){const dash={invoke:"5 3",spawn:"1.5 3",reads:"2 3",fallback:"6 3"}[t]||"";return `<svg width="34" height="10" aria-hidden="true"><line x1="1" y1="5" x2="33" y2="5" stroke="var(--e-${t})" stroke-width="2" stroke-dasharray="${dash}" stroke-linecap="round"/></svg>`;}
+
+/* ---------- toggles, search, presets ---------- */
+$("#etoggles").innerHTML=ETYPES.map(t=>`<button type="button" class="tg" data-et="${t[0]}" aria-pressed="${vis[t[0]]}">${lineSample(t[0])}${t[1]}</button>`).join("")+` <button type="button" class="tg" id="tgPr" aria-pressed="false">指向原则的线</button>`;
+$("#etoggles").addEventListener("click",e=>{const b=e.target.closest(".tg");if(!b)return;if(b.id==="tgPr"){showPrinciples=!showPrinciples;b.setAttribute("aria-pressed",showPrinciples);}else{vis[b.dataset.et]=!vis[b.dataset.et];b.setAttribute("aria-pressed",vis[b.dataset.et]);}applyVis();});
+$("#names").innerHTML=Object.values(C).map(c=>`<option value="${esc(c.name)}">${esc(c.label||"")}</option>`).join("");
+$("#search").addEventListener("keydown",e=>{if(e.key!=="Enter")return;const q=e.target.value.trim().toLowerCase();if(!q)return;const hit=Object.values(C).find(c=>c.name.toLowerCase()===q)||Object.values(C).find(c=>c.name.toLowerCase().includes(q)||(c.label||"").includes(e.target.value.trim())||c.id.includes(q));if(hit)select(hit.id,true);});
+const PRESETS=[
+ ["修一个 bug 到合并",["hu-goal","sk-poteto-mode","pb-bug-fix","sk-how","sk-tdd","ag-poteto-agent","pb-opening-a-pr","sk-no-comments","ar-pr","pb-babysit","sc-watch-pr","pf-bugbot","pf-github","hu-merge-auth","pb-shipping"],
+  ["poteto-mode 按「有复现依据的缺陷」选 Bug fix。","主 agent 先在同一个控制表面亲自复现，用 how 查清机制；定界的修复可派 poteto-agent 做，适合时用 tdd 先写失败的测试。","复现场景由失败变通过后，Opening a PR：提交前清理注释（no-comments），开 ready 状态的 PR。","Babysit 用 watch-pr 按「冲突 → 未解评论 → CI」排除阻碍，逐条判断 Bugbot 评论；到 merge-ready 就停。","人明确说 ship 之后，Shipping 请非作者的 agent 独立验证，再自底向上逐个合并。"]],
+ ["加新功能，设计有分歧",["pb-feature","sk-how","sk-architect","sk-arena","pb-prototype","hu-preference","hu-checkpoint","ag-poteto-agent","pb-opening-a-pr"],
+  ["Feature 先用 how 理清所在子系统，再交给 architect。","architect 经 arena 让三个不同模型各出一个结构不同的设计，跨模型评判后选底、嫁接长处。","分歧能被观察到时交给 Prototype 做一次性实验；实验定不了的产品或偏好问题才问人。","默认不等人审设计；只有人要求 checkpoint 才先给人看。","之后由 poteto-agent 写代码，再走 Opening a PR。"]],
+ ["睡前交代一个长任务",["hu-goal","sk-poteto-mode","pb-autonomous-run","sk-figure-it-out","pf-loop","sk-show-me-your-work","ar-decisions-tsv","hu-morning-audit","sk-reflect","hu-approve-skill-edit"],
+  ["人给目标与可检查的完成条件（overnight contract）。","Autonomous run：写好退出谓词，用 /loop 或事件唤醒一轮轮推进；有效改动保留，无效的撤回。没有窄 playbook 可用时先由 figure-it-out 设计流程。","每个关键决定写进 decisions.tsv（show-me-your-work），收尾时与会话记录对账，并请异模型 reviewer 标出 Attention。","早上人审阅；人说 reflect 时，三镜头审查后给出技能修改提案，人批准才改。"]],
+ ["一队独立 PR 自动合并",["pb-multi-phase-plan","sc-check-plan","ar-plan-doc","hu-go","pb-autopilot-full","ar-goal","pf-cursor-cloud","ar-children-tsv","sk-swarm","pb-babysit","pf-loop","hu-merge-auth","ar-pr"],
+  ["Multi-phase plan 写逐 PR 计划与证据要求，check-plan.mjs 查结构；人明确 go。","Autopilot-full：root 为每个独立 PR 派一个 Cursor 云端 owner，从构建负责到合并；/goal 记住整队目标。","每个补丁版本由 root 派 swarm 独立验证（异模型、真实表面）；有问题一次发回 owner，改了补丁就重开一轮。","owner 自己 babysit；root clean 后、新 head 的 CI 与 patch-id 合格，owner 合并。全自治授权就是合并授权。","root 约每 30 分钟用 /loop 审计，只把 commit、push、PR 变化算进展，卡住的立即替换。"]],
+ ["多日项目",["pb-orchestrate","sc-orch","ar-orch-store","ar-brief","ar-inbox","ar-ledger","ar-gates","pf-task-tool","pf-cursor-cloud","pf-graphite","hu-irreversible","hu-preference"],
+  ["Orchestrate：本地 coordinator 只写 brief、排队、判断，不写代码。","每个 unit 一份 brief（目标、范围、验收、验证、时限、汇报格式），经 Task 工具派到云端 worker。","完成通知进 inbox，在固定时点批量处理；验证结论按 PR + SHA 记进 ledger；orch 只记账。","不可逆或偏好问题写进 gates.md 等人，其余照常推进。stack 用 Graphite（gt）管理。"]],
+ ["中断与接手",["hu-pause","pb-pause-safely","ar-resume-note","pb-session-pickup","pf-transcripts","sk-recall","pb-worktree-cleanup","sc-worktree-audit"],
+  ["人明确说 pause：Pause safely 完成或回退当前原子步骤，存 wip: commit，写恢复说明。","之后接手这一个会话：Session pickup 找到旧会话记录、云端链接或已推分支，逐项与实物核对后交回相应 playbook。","要的是跨会话回顾近期工作：用 recall。","磁盘不够：worktree-cleanup 用 worktree-audit.sh 给建议，确认闲置才删。"]],
+ ["为仓库建验证手段",["sk-setup-pstack","sk-create-verification-skill","sk-verify-app","sk-maintain-verification-skill","sk-control-cli","sk-control-ui"],
+  ["setup-pstack 结束时可建议生成验证技能。","create-verification-skill 生成 verify-<app>：Launch / Doctor / Drive / Evidence / Cleanup，必须亲自跑通一项。","之后各 playbook 用它（或 control-cli / control-ui）驱动真实产品取证。","maintain-verification-skill 定期逐项实跑，结论 clean / changed / blocked。"]],
+ ["Slack 报告自动处理（benny）",["sk-setup-benny","au-benny-triage","au-benny-reproduce","pf-slack","pf-automations","sk-verify-app","ar-pr"],
+  ["setup-benny 把两条自动化装进目标仓库并测试线程安全。","benny-triage：新的 Slack 顶层报告触发，追因、去重，在原线程发唯一结论和可信标记。","benny-reproduce：等到可信标记，先看是否已有人或已有修复；在真实 UI 上复现两次并留证据，根因明确才做有界修复，最多开 draft PR。"]]
+];
+$("#presets").innerHTML=PRESETS.map((p,i)=>`<button type="button" class="pbtn" data-p="${i}" aria-pressed="false">${p[0]}</button>`).join(" ");
+$("#presets").addEventListener("click",e=>{const b=e.target.closest(".pbtn");if(!b)return;const i=+b.dataset.p;if(preset===i){clearSel();return;}
+  const [name,ids,text]=PRESETS[i];const set=new Set(ids.filter(id=>C[id]));const es=EDGES.filter(x=>set.has(x.from)&&set.has(x.to));
+  highlight([...set],es,null);preset=i;document.querySelectorAll(".pbtn").forEach(x=>x.setAttribute("aria-pressed",x===b));fit([...set]);
+  panel.innerHTML=`<div class="kind">典型路径</div><h3>${esc(name)}</h3><p class="zh" style="margin-bottom:10px">亮起 ${set.size} 个节点、${es.length} 条它们之间的连线。</p>${text.map((t,k)=>`<div class="pstep"><i>${k+1}</i><div>${esc(t)}</div></div>`).join("")}<h4>涉及的组件</h4><div class="chips">${[...set].map(chip).join("")}</div><p class="zh" style="margin-top:10px">这段叙述是我根据各组件的步骤数据串起来的；每一步的原文出处在点开对应节点后可见。</p>`;});
+
+/* ---------- global rules ---------- */
+(function(){const gr=CMP.A1.global_rules;const cols=[["non_negotiables","必须遵守（Non-negotiables）"],["autonomy","什么时候自己做、什么时候停"],["subagents","派子 agent 的规则"]];
+  $("#rulesGrid").innerHTML=cols.map(([k,t])=>`<div><h3>${t}</h3>${(gr[k]||[]).map(r=>`<div class="rule ${/暂停|停下|pause/i.test(r.rule)&&k==="autonomy"?"pause":""}">${esc(r.rule)}<small>${esc(r.why)}</small></div>`).join("")}</div>`).join("");})();
+
+/* ---------- route tree ---------- */
+(function(){const Q=Object.fromEntries(CMP.A1.route_tree.map(q=>[q.id,q]));
+  const G=[["会话本身","暂停、接手、清理",["q1","q2","q3"]],["已经开了 PR","状态、合并、开 PR",["q4","q5","q6"]],["长时间或多个单元","队列、项目、长任务、计划",["q7","q8","q9","q10","q11","q12"]],["改 pstack 自己的技能","写技能、评估技能",["q13","q14"]],["先实验再决定","原型、像素一致",["q15","q16"]],["性能与诊断","指标、捕获文件、实时症状",["q17","q18","q19","q21"]],["要改代码","缺陷、重构、新行为",["q20","q22","q23"]],["只问不改","how / why / 该不该",["q24"]]];
+  const leaf=id=>`<button type="button" class="pbn ${id.startsWith("sk-")?"sk":""}" data-go="${id}">${esc(nm(id))}</button>`;
+  $("#treeBox").innerHTML=`<div class="root">poteto-mode 收到一个请求<small>逐组判断；组内第一条「是」就选它。所有组都「否」时交给 figure-it-out 先设计流程。</small></div><div class="branches">${G.map(g=>`<div class="br"><div class="cat">${g[0]}<small>${g[1]}</small></div><div class="qs">${g[2].map(q=>`<div class="q"><span><span class="n">${q.slice(1)}</span>${esc(Q[q].question)}</span><span>${leaf(Q[q].yes)}</span></div>`).join("")}</div></div>`).join("")}<div class="br"><div class="cat">都不是<small>兜底</small></div><div class="qs"><div class="q"><span>没有匹配的窄 playbook</span><span>${leaf("sk-figure-it-out")}</span></div></div></div></div>`;})();
+
+/* ---------- skeleton ---------- */
+(function(){const rows=Object.fromEntries(CMP.A2.playbooks.map(r=>[r.id,r]));
+  const fams=[["只读与诊断",["pb-investigation","pb-runtime-forensics","pb-trace-forensics"]],["改代码",["pb-bug-fix","pb-feature","pb-refactoring","pb-perf-issue","pb-hillclimb"]],["先实验再决定",["pb-prototype","pb-visual-parity"]]];
+  const cell=(t,arr)=>`<td class="${arr?"arr":""}">${esc(t||"—")}</td>`;
+  $("#skelBox").innerHTML=`<table><thead><tr><th>playbook</th><th>① 先做什么<small>动手前必须先做</small></th><th>② 怎样分工</th><th>③ 拿什么证明<small>算完成的证据</small></th><th>④ 产出</th><th>开 PR</th><th>⑤ 通常交给</th><th>人在哪里</th></tr></thead><tbody>${fams.map(f=>`<tr class="fam"><td colspan="8">${f[0]}</td></tr>`+f[1].filter(id=>rows[id]).map(id=>{const r=rows[id];const pr=/^是/.test(r.opens_pr)?`<span class="yes">${esc(r.opens_pr)}</span>`:`<span class="no">${esc(r.opens_pr)}</span>`;return `<tr><td class="nm"><button type="button" class="pbn" style="font:600 12px var(--sans);padding:4px 7px;border-radius:5px;border:1.4px solid var(--pb);background:var(--pb-bg);color:var(--ink);cursor:pointer" data-go="${id}">${esc(nm(id))}</button></td>${cell(r.first_move,1)}${cell(r.delegation,1)}${cell(r.evidence,1)}${cell(r.output_kind,1)}<td>${pr}</td>${cell(r.next,0)}${cell(r.human_points,0)}</tr>`;}).join("")).join("")}</tbody></table>`;})();
+
+/* ---------- state machine renderer (hand-placed) ---------- */
+function machine(box,def,pos,W,H,extra){
+  const s=el("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img"});
+  const defs=el("defs",{},s);const m=el("marker",{id:box+"-a",viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"},defs);el("path",{d:"M0,0 L10,5 L0,10 z",fill:"var(--ink-3)"},m);
+  const S=Object.fromEntries(def.states.map(x=>[x.id,x]));const B={};
+  def.states.forEach(st=>{const p=pos[st.id];if(!p)return;const lines=wrap(st.name,120,13,600);const h=22+lines.length*16;B[st.id]={x:p[0],y:p[1],w:140,h};});
+  const pairN={};
+  def.transitions.forEach(t=>{const a=B[t.from],b=B[t.to];if(!a||!b)return;const k=t.from+">"+t.to;pairN[k]=(pairN[k]||0)+1;const n=pairN[k]-1;
+    const ac=[a.x+a.w/2,a.y+a.h/2],bc=[b.x+b.w/2,b.y+b.h/2];
+    const clip=(c,box,to)=>{const dx=to[0]-c[0],dy=to[1]-c[1];const sx=dx?(box.w/2)/Math.abs(dx):1e9,sy=dy?(box.h/2)/Math.abs(dy):1e9;const k=Math.min(sx,sy);return [c[0]+dx*k,c[1]+dy*k];};
+    const off=(n%2?1:-1)*Math.ceil(n/2)*38;const mx=(ac[0]+bc[0])/2,my=(ac[1]+bc[1])/2;const len=Math.hypot(bc[0]-ac[0],bc[1]-ac[1])||1;const nx=-(bc[1]-ac[1])/len,ny=(bc[0]-ac[0])/len;
+    const curve=(t.curve||0)+off;const cx=mx+nx*curve,cy=my+ny*curve;
+    const p0=clip(ac,a,[cx,cy]),p1=clip(bc,b,[cx,cy]);
+    el("path",{d:`M${p0[0]},${p0[1]} Q${cx},${cy} ${p1[0]},${p1[1]}`,fill:"none",stroke:"var(--ink-3)","stroke-width":1.4,"marker-end":`url(#${box}-a)`},s);
+    const lx=(p0[0]+2*cx+p1[0])/4,ly=(p0[1]+2*cy+p1[1])/4;const c=C[t.by];const lab=c?c.name:t.by;cv.font=`600 11px ${FAM}`;const w=cv.measureText(lab).width+10;
+    const col=c?({playbook:"var(--pb)",script:"var(--sc)",human:"var(--hu)",skill:"var(--ink)"}[c.kind]||"var(--ink-2)"):"var(--ink-2)";
+    const g=el("g",{style:"cursor:pointer"},s);g.setAttribute("data-go",t.by);
+    const r=el("rect",{x:lx-w/2,y:ly-9,width:w,height:17,rx:3,fill:"var(--surface)",stroke:col,"stroke-width":1.1},g);
+    const tt=el("text",{x:lx,y:ly+3.5,"text-anchor":"middle","font-size":11,"font-weight":600,fill:col},g);tt.textContent=lab;
+    const ti=el("title",{},g);ti.textContent=t.condition;});
+  def.states.forEach(st=>{const b=B[st.id];if(!b)return;const hl=(extra&&extra[st.id])||"";
+    el("rect",{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.h/2>18?10:b.h/2,fill:hl==="end"?"var(--pb-bg)":hl==="warn"?"var(--hu-bg)":"var(--surface)",stroke:hl==="end"?"var(--pb)":"var(--ink)","stroke-width":1.5},s);
+    const lines=wrap(st.name,120,13,600);lines.forEach((l,i)=>{const t=el("text",{x:b.x+b.w/2,y:b.y+17+i*16+(b.h-22-lines.length*16)/2+4,"text-anchor":"middle","font-size":13,"font-weight":600,fill:"var(--ink)"},s);t.textContent=l;});
+    const ti=el("title",{},s);ti.textContent=st.meaning;});
+  document.getElementById(box).appendChild(s);
+}
+(function(){const def=CMP.A3.pr_lifecycle;
+  const pos={draft:[20,40],ready:[230,40],blocker:[470,4],waiting:[470,120],merge_ready:[720,62],independently_verified:[980,62],armed:[980,236],merged:[1230,150],frontier_advanced:[980,330],ceiling:[1230,20]};
+  machine("prBox",def,pos,1400,390,{merged:"end",ceiling:"warn"});
+  $("#prStates").innerHTML=def.states.map(s=>`<div><b>${esc(s.name)}</b>${esc(s.meaning)}</div>`).join("");})();
+(function(){const def=CMP.A3.session_lifecycle;
+  const pos={active:[20,150],pause_requested:[230,40],durable:[450,40],trail_found:[680,40],state_reconstructed:[900,40],routed:[1120,40],recall_brief:[230,250],cleanup_candidate:[700,206],held:[1010,150],pruned:[1010,262]};
+  machine("sessBox",def,pos,1300,330,{routed:"end",pruned:"end",held:"warn"});})();
+
+/* ---------- modes ---------- */
+(function(){const M=Object.fromEntries(CMP.A4.modes.map(m=>[m.id,m]));const ids=CMP.A4.modes.map(m=>m.id);
+  const W=560,H=330;const s=el("svg",{width:"100%",viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"五种长时模式的定位图"});
+  const x0=96,x1=W-10,y0=18,y1=H-46;
+  const xs=["单个任务","一队 PR","多日项目"],ys=["agent 合并（需授权）","人来合并","不合并"];
+  xs.forEach((t,i)=>{const x=x0+(x1-x0)*(i+.5)/3;el("line",{x1:x,y1:y0,x2:x,y2:y1,stroke:"var(--rule)","stroke-dasharray":"2 4"},s);const tt=el("text",{x,y:y1+18,"text-anchor":"middle","font-size":11.5,fill:"var(--ink-2)"},s);tt.textContent=t;});
+  ys.forEach((t,i)=>{const y=y0+(y1-y0)*(i+.5)/3;el("line",{x1:x0,y1:y,x2:x1,y2:y,stroke:"var(--rule)","stroke-dasharray":"2 4"},s);const L=wrap(t,80,11.5,400);L.forEach((l,k)=>{const tt=el("text",{x:x0-8,y:y-(L.length-1)*7+k*14+4,"text-anchor":"end","font-size":11.5,fill:"var(--ink-2)"},s);tt.textContent=l;});});
+  el("rect",{x:x0,y:y0,width:x1-x0,height:y1-y0,fill:"none",stroke:"var(--ink-3)"},s);
+  const t1=el("text",{x:(x0+x1)/2,y:H-8,"text-anchor":"middle","font-size":11,"font-weight":600,fill:"var(--ink-3)"},s);t1.textContent="一次处理多少 →";
+  const P={"pb-autonomous-run":[0,2,"不给通用合并授权；旁支修复另开 PR"],"pb-autopilot-stack":[1,1,""],"pb-autopilot-full":[1,0,""],"pb-orchestrate":[2,0,"coordinator 可机械落地已验证单元；不可逆的等人"],"pb-multi-phase-plan":[1.55,2,"只写计划，选定上面三者之一执行"]};
+  Object.entries(P).forEach(([id,[cx,cy]])=>{const x=x0+(x1-x0)*(cx+.5)/3,y=y0+(y1-y0)*(cy+.5)/3;const lab=nm(id);cv.font=`600 12px ${FAM}`;const w=cv.measureText(lab).width+18;
+    const g=el("g",{style:"cursor:pointer"},s);g.setAttribute("data-go",id);
+    el("rect",{x:x-w/2,y:y-13,width:w,height:26,rx:7,fill:id==="pb-multi-phase-plan"?"var(--surface)":"var(--pb-bg)",stroke:"var(--pb)","stroke-width":1.5,"stroke-dasharray":id==="pb-multi-phase-plan"?"4 3":""},g);
+    const t=el("text",{x,y:y+4,"text-anchor":"middle","font-size":12,"font-weight":600,fill:"var(--ink)"},g);t.textContent=lab;});
+  $("#modeMap").appendChild(s);
+  $("#modeMap").insertAdjacentHTML("beforeend",`<p style="font-size:12.3px;color:var(--ink-2);margin:6px 0 0">Autonomous run 放在「不合并」行，因为原文没有给它通用合并授权；Orchestrate 放在「agent 合并」行，是指 coordinator 可以把已验证的单元机械落地，复杂合并交 stacker，不可逆操作仍等人。虚线框的 Multi-phase plan 本身不执行。</p>`);
+  const dims=[["scope","适用规模"],["unit","工作单位"],["who_writes_code","谁写代码"],["who_verifies","谁验证"],["merge_authority","谁能合并"],["heartbeat","怎样持续推进"],["state","状态存在哪里"],["stop","何时停"],["recovery","中断后恢复"],["human_points","人在哪里"],["choose_when","何时选它"]];
+  $("#modeTab").innerHTML=`<table><thead><tr><th></th>${ids.map(id=>`<th><button type="button" class="chip k-playbook" data-go="${id}">${esc(nm(id))}</button></th>`).join("")}</tr></thead><tbody>${dims.map(([k,t])=>`<tr><td>${t}</td>${ids.map(id=>`<td>${esc(M[id][k])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const L=CMP.A4.lifecycle;$("#lifeTab").innerHTML=`<table><thead><tr><th></th>${L.phases.map((p,i)=>`<th>${i+1} · ${esc(p)}</th>`).join("")}</tr></thead><tbody>${L.rows.map(r=>`<tr><td><button type="button" class="chip k-playbook" data-go="${r.id}">${esc(nm(r.id))}</button></td>${r.cells.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;})();
+
+/* ---------- topologies ---------- */
+function mcol(m){m=String(m||"");const f=[];if(/opus/i.test(m))f.push("var(--m-opus)");if(/sol|gpt/i.test(m))f.push("var(--m-sol)");if(/grok/i.test(m))f.push("var(--m-grok)");return f.length?f:["var(--m-none)"];}
+(function(){$("#mlegend").innerHTML=[["var(--m-opus)","claude-opus-5-5-max"],["var(--m-sol)","gpt-5.6-sol-max"],["var(--m-grok)","grok-4.7-xhigh-fast"],["var(--m-none)","未指定 / 由被调用技能决定"]].map(([c,t])=>`<span><i style="background:${c}"></i><code>${t}</code></span>`).join("")+`<span>多色条 = 三个模型各一（panel）</span>`;
+  const T=CMP.A5.topologies;
+  $("#topoGrid").innerHTML="";
+  T.forEach(t=>{const d=document.createElement("div");d.innerHTML=`<h3><button type="button" class="chip" style="font:600 14px var(--mono);border:0;background:none;padding:0" data-go="${t.id}">${esc(nm(t.id))}</button></h3><div class="io">输入：${esc(t.input)} · 产出：${esc(t.output)}</div>`;
+    const roles=t.roles||[];const W=310,rowH=40,H=Math.max(70,roles.length*rowH+20);const s=el("svg",{width:"100%",viewBox:`0 0 ${W} ${H}`,role:"img"});
+    el("rect",{x:4,y:H/2-16,width:52,height:32,rx:4,fill:"var(--surface)",stroke:"var(--ink)","stroke-width":1.3},s);let tt=el("text",{x:30,y:H/2+4,"text-anchor":"middle","font-size":11,"font-weight":600,fill:"var(--ink)"},s);tt.textContent="主 agent";
+    const rx=86,rw=118;
+    roles.forEach((r,i)=>{const y=10+i*rowH;const cols=mcol(r.model);
+      el("path",{d:`M56,${H/2} C72,${H/2} 70,${y+15} ${rx},${y+15}`,fill:"none",stroke:"var(--ink-3)","stroke-width":1},s);
+      el("rect",{x:rx+3,y:y+3,width:rw,height:30,rx:3,fill:"var(--surface)",stroke:"var(--ink-3)"},s);
+      el("rect",{x:rx,y,width:rw,height:30,rx:3,fill:"var(--surface)",stroke:"var(--ink)","stroke-width":1.2},s);
+      cols.forEach((c,k)=>el("rect",{x:rx,y:y+k*(30/cols.length),width:6,height:30/cols.length,fill:c},s));
+      const lab=wrap(r.role,rw-16,10.5,600)[0];tt=el("text",{x:rx+11,y:y+13,"font-size":10.5,"font-weight":600,fill:"var(--ink)"},s);tt.textContent=lab;
+      const cnt=wrap(String(r.count),rw-26,10,400)[0];tt=el("text",{x:rx+11,y:y+25,"font-size":10,fill:"var(--ink-2)"},s);tt.textContent=cnt;
+      if(r.readonly===true){el("rect",{x:rx+rw-13,y:y+5,width:8,height:7,rx:1,fill:"var(--ink-3)"},s);el("path",{d:`M${rx+rw-11.5},${y+5} v-2 a2.5,2.5 0 0 1 5,0 v2`,fill:"none",stroke:"var(--ink-3)","stroke-width":1.2},s);}
+      el("path",{d:`M${rx+rw},${y+15} C${rx+rw+20},${y+15} ${rx+rw+14},${H/2} ${232},${H/2}`,fill:"none",stroke:"var(--ink-3)","stroke-width":1},s);});
+    if(!roles.length){tt=el("text",{x:140,y:H/2+4,"text-anchor":"middle","font-size":11,fill:"var(--ink-3)"},s);tt.textContent="不派子 agent";}
+    el("rect",{x:232,y:H/2-16,width:74,height:32,rx:14,fill:"var(--pb-bg)",stroke:"var(--pb)","stroke-width":1.3},s);tt=el("text",{x:269,y:H/2+4,"text-anchor":"middle","font-size":11,"font-weight":600,fill:"var(--ink)"},s);tt.textContent="合成 → 产出";
+    d.appendChild(s);
+    d.insertAdjacentHTML("beforeend",`<div class="foot"><b>评判：</b>${esc(t.judge)}<br><b>合成：</b>${esc(t.synthesis)}<br><b>等人：</b>${esc(t.waits_for_human)}<br><b>不用于：</b>${esc(t.not_for)}</div>`);
+    $("#topoGrid").appendChild(d);});})();
+
+/* ---------- evidence ---------- */
+(function(){const E=CMP.A6.evidence;const col=[["写代码时",["sk-tdd","sk-typescript-best-practices","sk-no-comments"]],["在真实产品上",["sk-verify-app","sk-create-verification-skill","sk-maintain-verification-skill","sk-make-bot-ui"]],["事后可审计",["sk-show-me-your-work"]],["自动化（benny）",["au-benny-triage","au-benny-reproduce","au-benny-reproduce:fix","au-benny-reproduce:existing"]]];
+  const by=Object.fromEntries(E.map(e=>[e.id,e]));const used=new Set(col.flatMap(c=>c[1]));E.forEach(e=>{if(!used.has(e.id))col[1][1].push(e.id);});
+  const title=id=>{const [base,sub]=id.split(":");return nm(base)+(sub?({fix:"：有界修复",existing:"：已有修复"}[sub]||"："+sub):"");};
+  $("#evGrid").innerHTML=col.map(([t,ids])=>`<div><h3>${t}</h3>${ids.filter(i=>by[i]).map(i=>{const e=by[i];return `<div class="evc"><b class="t" data-go="${i.split(":")[0]}">${esc(title(i))}</b>证明：${esc(e.what_it_proves)}<br>做法：${esc(e.how)}<br><span style="color:var(--ink-3)">谁 · 何时：${esc(e.who)} · ${esc(e.when)}</span><div class="ne">不能代替：${esc(e.not_enough_for)}</div></div>`;}).join("")}</div>`).join("");})();
+
+/* ---------- learning loop ---------- */
+(function(){const W=1300,H=300;const s=el("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"经验回流图"});
+  const defs=el("defs",{},s);const m=el("marker",{id:"la",viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"},defs);el("path",{d:"M0,0 L10,5 L0,10 z",fill:"var(--ink-3)"},m);
+  const B={run:[20,120,150,"一次运行","任何 playbook","playbook"],smw:[220,120,170,"show-me-your-work","决策记录 decisions.tsv","skill"],att:[440,40,160,"异模型审轨迹","标出 Attention","agent"],aud:[440,200,160,"morning audit","人审阅记录","human"],ref:[660,120,170,"reflect","三镜头 + 合成（人触发）","skill"],acc:[890,30,170,"Accepted","人批准后改技能","human"],bl:[890,130,170,"Backlog","能机械强制的规则","artifact"],rej:[890,230,170,"Rejected","不改","platform"],skl:[1110,50,170,"技能 / playbook 文本","下一次运行读到","playbook"],str:[1110,160,170,"结构化检查","lint、脚本、元数据","script"]};
+  const draw=(k)=>{const [x,y,w,t,sub,kind]=B[k];const g=el("g",{},s);shape(kind,x,y,w,46,g);const a=el("text",{x:x+w/2,y:y+19,"text-anchor":"middle","font-size":12.5,"font-weight":600,fill:"var(--ink)"},g);a.textContent=t;const b=el("text",{x:x+w/2,y:y+35,"text-anchor":"middle","font-size":11,fill:"var(--ink-2)"},g);b.textContent=sub;
+    const id={smw:"sk-show-me-your-work",ref:"sk-reflect",aud:"hu-morning-audit",acc:"hu-approve-skill-edit"}[k];if(id){g.setAttribute("data-go",id);g.style.cursor="pointer";}};
+  const arrow=(a,b,lab,curve)=>{const A=B[a],Bb=B[b];const x1=A[0]+A[2],y1=A[1]+23,x2=Bb[0],y2=Bb[1]+23;const cx=(x1+x2)/2;el("path",{d:`M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2-2},${y2}`,fill:"none",stroke:"var(--ink-3)","stroke-width":1.4,"marker-end":"url(#la)"},s);if(lab){const t=el("text",{x:cx,y:(y1+y2)/2-5,"text-anchor":"middle","font-size":11,fill:"var(--ink-2)"},s);t.textContent=lab;}};
+  [["run","smw"],["smw","att"],["smw","aud"],["att","ref","人说 reflect"],["aud","ref"],["ref","acc"],["ref","bl"],["ref","rej"],["acc","skl"],["bl","str","encode-lessons"]].forEach(a=>arrow(...a));
+  el("path",{d:`M1195,50 C1195,-10 95,-10 95,118`,fill:"none",stroke:"var(--pb)","stroke-width":1.4,"stroke-dasharray":"5 4","marker-end":"url(#la)"},s);
+  const t=el("text",{x:640,y:14,"text-anchor":"middle","font-size":11.5,fill:"var(--pb)"},s);t.textContent="下一次运行读到改过的技能";
+  el("path",{d:`M1195,206 C1195,300 95,300 95,168`,fill:"none",stroke:"var(--sc)","stroke-width":1.4,"stroke-dasharray":"5 4","marker-end":"url(#la)"},s);
+  const t2=el("text",{x:640,y:292,"text-anchor":"middle","font-size":11.5,fill:"var(--sc)"},s);t2.textContent="结构化检查在下一次运行里自动拦住同类错误；recall 在开工前从会话记录取回近期状态";
+  Object.keys(B).forEach(draw);$("#learnBox").appendChild(s);
+  const L=CMP.A6.learning;$("#learnBox").insertAdjacentHTML("beforeend",`<div class="statelist" style="border-top:1px solid var(--rule)">${L.map(l=>`<div><b data-go="${l.id}" style="cursor:pointer">${esc(nm(l.id))}</b>触发：${esc(l.trigger)}；产出：${esc(l.output)}；谁批准：${esc(l.who_approves)}；存在：${esc(l.where_stored)}</div>`).join("")}</div>`);})();
+
+/* ---------- principles matrix ---------- */
+(function(){const groups=COLS.find(c=>c[0]==="principle")[2];
+  const cites={};EDGES.forEach(e=>{if(e.to.startsWith("pr-")&&!e.from.startsWith("pr-")){(cites[e.to]=cites[e.to]||new Set()).add(e.from);}});
+  Object.values(C).forEach(c=>(c.principles||[]).forEach(p=>{(cites[p]=cites[p]||new Set()).add(c.id);}));
+  const colset=new Set();Object.values(cites).forEach(s=>s.forEach(x=>colset.add(x)));
+  const order=["pb","sk","au","ag","hu","sc","ar","pf"];const cols=[...colset].sort((a,b)=>order.indexOf(a.split("-")[0])-order.indexOf(b.split("-")[0])||(C[b]?0:0)||nm(a).localeCompare(nm(b)));
+  let h=`<table><thead><tr><th></th><th></th>${cols.map(c=>`<th class="c ${c.startsWith("pb-")?"pb":""}" data-go="${c}">${esc(nm(c))}</th>`).join("")}</tr></thead><tbody>`;
+  groups.forEach(g=>{h+=`<tr class="g"><td colspan="${cols.length+2}">${g[0]}</td></tr>`;g[1].forEach(p=>{const s=cites[p]||new Set();h+=`<tr><td class="p"><b data-go="${p}">${esc(nm(p))}</b><span>${esc(C[p].purpose)}</span></td><td class="cnt">${s.size}</td>${cols.map(c=>`<td class="${s.has(c)?"on":""}" title="${esc(nm(c))}"></td>`).join("")}</tr>`;});});
+  $("#pmxBox").innerHTML=h+"</tbody></table>";})();
+
+/* ---------- models ---------- */
+(function(){const M=CMP.A1.models;const fam=[["grok-4.7-xhigh-fast","var(--m-grok)",m=>/grok/.test(m)&&!/,/.test(m)],["claude-opus-5-5-max","var(--m-opus)",m=>/opus/.test(m)&&!/,/.test(m)],["gpt-5.6-sol-max","var(--m-sol)",m=>/sol/.test(m)&&!/,/.test(m)],["三模型 panel","linear-gradient(90deg,var(--m-opus) 33%,var(--m-sol) 33% 66%,var(--m-grok) 66%)",m=>/,/.test(m)]];
+  $("#modelGrid").innerHTML=fam.map(([t,c,f])=>`<div><h3><i style="background:${c}"></i>${t}</h3>${M.filter(m=>f(m.default_model)).map(m=>`<div class="r">${esc(m.role)}<small>用于：${m.used_by.map(nm).join("、")}</small></div>`).join("")}</div>`).join("");})();
+
+/* ---------- pairs ---------- */
+(function(){const P=CMP.A3.pairs.map(p=>[p.a,p.b,p.same,p.diff]);
+  const extra=[
+   ["sk-arena","sk-swarm","都一次并行派出多个子 agent。","arena 让多个模型做同一件事，跨模型评判后选底、嫁接，交付一个合成的成品；swarm 按切片或竞赛分工，只汇总成一份报告，不合成成品。"],
+   ["sk-how","sk-why","都在改代码前做理解，都先并行派子 agent 再由一个强模型合成。","how 回答「代码现在怎么运行」；why 回答「为什么是这样」，按证据类别各派一个调查者（最多 7 个），结论标 Direct / Supported / Inferred / Unknown。"],
+   ["sk-architect","sk-arena","architect 的候选就是经 arena 并行产生的。","architect 专做设计：先建现状模型，要求至少两种结构不同的方案，给使用示例、类型草图和理由，过 design-red-flags，可选人审；arena 是通用的「多候选 → 评判 → 合成」机制，产物可以是任何东西。"],
+   ["pb-autopilot-full","pb-autopilot-stack","都是 root 派云端 owner 并行做一队 PR，每轮都做 swarm 验证。","full 用于互相独立且已授予合并权的 PR，owner 验证通过后自己合并；stack 用于要人先审、有顺序依赖或没给合并权的 PR，只接成一条线性 stack 交给人落地。"],
+   ["sk-show-me-your-work","sk-reflect","都为了让人事后看懂并改进 agent 的工作。","show-me-your-work 在工作中逐条记决定和证据，供审计；reflect 在人要求时回看整段会话，提出技能修改，人批准才改。"],
+   ["sk-create-verification-skill","sk-maintain-verification-skill","都围绕仓库专属的 verify-<app> 验证技能。","create 从零生成，必须亲自跑通一项才算交付；maintain 定期逐项实跑，区分文档漂移、harness 缺口和产品回归，只修前两种，最多开一个 PR。"]
+  ];
+  $("#pairGrid").innerHTML=[...P,...extra].map(([a,b,same,diff])=>`<div><div class="ab"><span data-go="${a}">${esc(nm(a))}</span><i>vs</i><span data-go="${b}">${esc(nm(b))}</span></div><p><b>相同</b>${esc(same)}</p><p><b>不同</b>${esc(diff)}</p></div>`).join("");})();
+
+/* ---------- notes ---------- */
+(function(){const names={A1:"入口与路由",A2:"单任务 playbook",A3:"交付与会话",A4:"长时编排",A5:"理解与并行技能",A6:"构建、验证、沉淀"};
+  $("#notesBox").innerHTML=Object.entries(D.notes).map(([g,ns])=>`<div><b>${g} · ${names[g]||""}</b><ul>${ns.map(n=>`<li>${esc(n)}</li>`).join("")}</ul></div>`).join("");
+  $("#derivedN").textContent=EDGES.filter(e=>e.derived).length;})();
+
+/* ---------- boot ---------- */
+function boot(){measureNodes();buildAdj();layout();ports();drawNet();fit();if(!preset)intro();}
+boot();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{const v=VIEW;boot();});
+let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>fit(),150);});
+})();
+</script>

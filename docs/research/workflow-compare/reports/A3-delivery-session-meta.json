@@ -1,0 +1,1408 @@
+{
+  "group": "A3-delivery-session-meta",
+  "components": [
+    {
+      "id": "pb-opening-a-pr",
+      "kind": "playbook",
+      "name": "Opening a PR",
+      "label": "开设PR",
+      "family": "交付",
+      "purpose": "把已完成工作整理成可审查、可落地的 PR。",
+      "trigger": "其他 playbook 结束时调用。",
+      "steps": [
+        {
+          "text": "在 main 派生 worktree，整理有序且可独立落地的提交",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "运行 deslop、no-comments；按技术写作规则写标题正文",
+          "actor": "main",
+          "uses": [
+            "sk-no-comments",
+            "sk-technical-writing",
+            "sk-unslop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "选定 Origin 或 gh，创建 ready PR；误成 draft 就转 ready",
+          "actor": "main",
+          "uses": [
+            "ar-pr",
+            "pf-github"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "较大工作建 base-branch stack；子 PR 指向父分支",
+          "actor": "main",
+          "uses": [
+            "ar-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "发布 URL 后继续完成 phase 或 stack；不自动 babysit",
+          "actor": "main",
+          "uses": [
+            "pb-babysit"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "ready PR URL",
+        "有序提交",
+        "必要时的 PR stack"
+      ],
+      "done_when": "PR 已 ready，URL 已交回；未开始 babysit。",
+      "on_fail": "脏分支移到新 worktree；纠结的 worktree 从 main 重做；Origin 不可用改 gh。",
+      "human": "PR 合并不在此授权。",
+      "parallel": "子 agent 可开 PR，但只返 URL，不 babysit。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR"
+    },
+    {
+      "id": "pb-babysit",
+      "kind": "playbook",
+      "name": "Babysit",
+      "label": "守候PR",
+      "family": "交付",
+      "purpose": "按 merge frontier 清除审查和检查阻碍，停在 merge-ready。",
+      "trigger": "用户在 phase 或整组 stack 建好后要求 babysit、get it green、merge-ready、评论处理或状态检查。",
+      "steps": [
+        {
+          "text": "声明模式并选 forge",
+          "actor": "main",
+          "uses": [
+            "ar-stack",
+            "pf-github"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "只处理最低未合并 PR；确认单一 babysitter",
+          "actor": "main",
+          "uses": [
+            "ar-pr",
+            "ar-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "先查冲突，再查评论和 CI；冲突交 owner rebase",
+          "actor": "main",
+          "uses": [
+            "pf-github"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "GitHub 用 watch-pr；Origin 用原生命令",
+          "actor": "main",
+          "uses": [
+            "sc-watch-pr",
+            "pf-github"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "drive/background 用动态 loop，push 后重启 watch",
+          "actor": "main",
+          "uses": [
+            "pf-loop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "Bugbot 逐条核查；真问题先证伪再修，噪声解释",
+          "actor": "main",
+          "uses": [
+            "pf-bugbot",
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "到 merge-ready 报告；合并交 Shipping",
+          "actor": "main",
+          "uses": [
+            "pb-shipping",
+            "hu-merge-auth"
+          ],
+          "human_gate": true
+        }
+      ],
+      "outputs": [
+        "merge-ready frontier",
+        "已修复或驳回的评论记录",
+        "阻碍和需人决定的事项"
+      ],
+      "done_when": "GitHub 单/stack 的 READY、queued 的 WAITING/merge-queue 或 COMPLETE；Origin 无 blocker 且 checks green。",
+      "on_fail": "冲突停下报告需 rebase；CI flake/基础设施只重建一次；状态查询失败依 watcher verdict 报告。",
+      "human": "owner approval 不是待修 blocker；无明确 merge/land/ship 请求不合并。",
+      "parallel": "每 stack 一个 babysitter；其余 subagent 未规定；drive/background 用动态 /loop。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "id": "pb-shipping",
+      "kind": "playbook",
+      "name": "Shipping",
+      "label": "合并交付",
+      "family": "交付",
+      "purpose": "独立验证后仅把从 stack 根部连续合格的 PR 逐一合并。",
+      "trigger": "用户明确要求 land、ship、merge 或 merge when ready。",
+      "steps": [
+        {
+          "text": "选 forge；每 PR 由非作者 cloud agent 独立验证",
+          "actor": "main",
+          "uses": [
+            "pf-cursor-cloud",
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "从底部算连续 PASS/PASS+NOTES 区间",
+          "actor": "main",
+          "uses": [
+            "ar-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "记录 SHA 与 patch-id；变动则重验",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "只更新 bottom PR 到 trunk；重查状态",
+          "actor": "main",
+          "uses": [
+            "pf-github"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "只合并或自动合并 bottom；确认 merged 再动 child",
+          "actor": "main",
+          "uses": [
+            "hu-merge-auth",
+            "pf-github"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "每次合并重算 frontier；watch 仅作唤醒",
+          "actor": "main",
+          "uses": [
+            "sc-watch-pr",
+            "pf-loop"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "到首个未验证 PR 停止并报告 ceiling",
+          "actor": "main",
+          "uses": [
+            "ar-stack"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "逐个合并的 PR",
+        "verified run 与 ceiling 报告"
+      ],
+      "done_when": "连续 verified run 已合并，或在首个未验证 PR 处停止。",
+      "on_fail": "任何 FAIL 或过期 patch verdict 中断链；队列停滞先诊断，不盲改；仅指定 CLOSED/CI/mergeStateStatus 视为硬失败。",
+      "human": "明确合并指令才执行 merge；扩展 verified run 另需新验证轮次。",
+      "parallel": "每 PR 一个 Cursor cloud agent，且不能是该 PR 作者；不批量。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "id": "pb-session-pickup",
+      "kind": "playbook",
+      "name": "Session pickup",
+      "label": "接手续做",
+      "family": "会话",
+      "purpose": "从一个既有会话轨迹重建执行状态并交接剩余工作。",
+      "trigger": "接手一个特定先前会话。",
+      "steps": [
+        {
+          "text": "找 transcript、cloud URL 或 pushed branch",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "长 transcript 交 subagent 摘决策",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "重建 branch、worktree、已落地工作和决策",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "区分 done/pending，指出 resume point",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "剩余工作交匹配 playbook，并核查实物",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "resume point",
+        "继承与重做范围",
+        "后续 playbook 的入口"
+      ],
+      "done_when": "已选择继续执行、交付建议、裁定旧结论或事后分析的路线，剩余工作交下一 playbook。",
+      "on_fail": "先前自述不能充当实物证据；找不到 trail 时不能臆造已完成状态。",
+      "human": "可能需用户裁定或推翻旧结论；本篇未设专门门禁。",
+      "parallel": "长 transcript 可交一个 subagent 摘要；其他并行未写。",
+      "principles": [
+        "pr-guard-the-context-window",
+        "pr-prove-it-works"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup"
+    },
+    {
+      "id": "pb-pause-safely",
+      "kind": "playbook",
+      "name": "Pause safely",
+      "label": "安全暂停",
+      "family": "会话",
+      "purpose": "在可恢复边界停下并留下冷启动可读的状态记录。",
+      "trigger": "用户明确要求 pause；keep going/going to bed, keep going/don’t stop 不触发。",
+      "steps": [
+        {
+          "text": "完成或撤销当前原子步骤；不开始新任务并取消 nested subagents",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "不为暂停新开 PR 或 push",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "未提交编辑做一个 wip: commit；坏状态写在 commit body",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "在上下文之外写 resume note，列意图、进度、验证、状态、下一步",
+          "actor": "main",
+          "uses": [
+            "ar-resume-note"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "报告磁盘状态、提交和恢复第一步",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "wip: commit",
+        "resume note",
+        "暂停状态回复"
+      ],
+      "done_when": "原子步骤已安全停止，现有编辑持久化且恢复路径已记录。",
+      "on_fail": "工作树损坏则在 commit body 一行说明；不以 PR/push 作为暂停动作。",
+      "human": "只有用户明确 pause 才暂停；不做不可逆动作。",
+      "parallel": "nested subagents 取消；其他并行无。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely"
+    },
+    {
+      "id": "pb-worktree-cleanup",
+      "kind": "playbook",
+      "name": "Worktree and simulator cleanup",
+      "label": "清理工作树",
+      "family": "会话",
+      "purpose": "先审计使用状态和未提交工作，再清理确认可删的 worktree 与模拟器。",
+      "trigger": "需要回收磁盘空间。",
+      "steps": [
+        {
+          "text": "记 df；运行只读 audit，取得 git worktree 列表和建议分类",
+          "actor": "main",
+          "uses": [
+            "sc-worktree-audit"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "从用户或 sidebar 取得 pinned/active chats，逐项交叉核对",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "不确定或近期 chat 的候选让 subagent 查 transcript",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "wip 先展示 diff 并等决定；in-use 保留；scratch 点名文件",
+          "actor": "main",
+          "uses": [
+            "hu-irreversible"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "只删除确认集合，prune 后重新查看磁盘及 worktree",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按使用状态清理旧 simulator、runtime 或缓存",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "已清理 worktree 清单",
+        "保留原因",
+        "清理前后磁盘空间"
+      ],
+      "done_when": "确认候选已删除并复核；wip/in-use 候选保留待决定。",
+      "on_fail": "审计 safe 不是删除许可；pinned chat 优先；未提交工作先停；无法确认使用则保留。",
+      "human": "pinned/active 集合来自用户或 sidebar；wip 删除须先取得决定。",
+      "parallel": "transcript 扫描可后台；疑似在用的候选可分派多个 subagent。",
+      "principles": [
+        "pr-build-the-lever",
+        "pr-encode-lessons-in-structure",
+        "pr-prove-it-works",
+        "pr-guard-the-context-window"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup"
+    },
+    {
+      "id": "pb-authoring-a-skill",
+      "kind": "playbook",
+      "name": "Authoring or modifying a skill",
+      "label": "编写技能",
+      "family": "元工作",
+      "purpose": "借助 create-skill 建立或修改简洁且链接有效的 SKILL.md。",
+      "trigger": "需要建立或修改 skill。",
+      "steps": [
+        {
+          "text": "调用 Cursor 内建 create-skill 编写 SKILL.md",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "检查 frontmatter name/description 与引用、跨技能链接",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "结构性规则做测试；主观内容可跳过",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "删去不改变决策的解释并引用结构性来源",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "走 Opening a PR",
+          "actor": "main",
+          "uses": [
+            "pb-opening-a-pr"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "skill 文件",
+        "校验说明",
+        "PR"
+      ],
+      "done_when": "skill 已校验并进入 Opening a PR。",
+      "on_fail": "缺字段或链接失效则修复；反复出现但未捕捉的流程可提新 skill。",
+      "human": "此篇未规定额外人类门禁。",
+      "parallel": "无。",
+      "principles": [
+        "pr-encode-lessons-in-structure"
+      ],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/authoring-a-skill.md # Authoring or modifying a skill"
+    },
+    {
+      "id": "pb-eval",
+      "kind": "playbook",
+      "name": "Eval",
+      "label": "盲测评估",
+      "family": "元工作",
+      "purpose": "用隔离候选和盲评者检验一个 variant 是否应推广。",
+      "trigger": "要评估某个 variant 的行为效果。",
+      "steps": [
+        {
+          "text": "定义 variant、成功行为和仅 judge 可见的 3–6 项 rubric",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "各候选环境隔离并净化目录名；写一个自然用户请求",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "按 arena Phase B 派不同模型并行候选",
+          "actor": "main",
+          "uses": [
+            "sk-arena"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按 arena Phase C 派不同模型家族盲评者",
+          "actor": "main",
+          "uses": [
+            "sk-arena"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "从本 workspace transcript 核查实际读取与代码形状",
+          "actor": "main",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "逐一阅读全文产物，对照 judge 结论并给推广建议",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "候选产物",
+        "盲评判定",
+        "是否推广的建议"
+      ],
+      "done_when": "人工读完每个候选并合成推荐。",
+      "on_fail": "候选提示不得泄漏评测词和 rubric；若人读与 judge 冲突，审视偏差或 rubric 歧义。",
+      "human": "最终是否推广由人决定；本篇只给建议。",
+      "parallel": "N 个不同模型候选并行；一个不同模型家族 judge；候选和 judge 隔离。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/eval.md # Eval"
+    },
+    {
+      "id": "sc-watch-pr",
+      "kind": "script",
+      "name": "watch-pr",
+      "label": "PR状态监视",
+      "family": "脚本",
+      "purpose": "读取 GitHub PR、threads 与 checks，给出 blocker、等待、ready 或队列前进 verdict。",
+      "trigger": "Babysit 的 GitHub 状态检查；Shipping 的 GitHub 队列事件唤醒。",
+      "steps": [
+        {
+          "text": "解析 single/stack/queued 与 status-only 参数",
+          "actor": "script:watch-pr",
+          "uses": [
+            "ar-pr",
+            "ar-stack"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "通过 gh 读取 PR、threads、checks 和 merge state",
+          "actor": "script:watch-pr",
+          "uses": [
+            "pf-github"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按冲突、review、CI、gate 分类",
+          "actor": "script:watch-pr",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "single/stack 报 READY；queued 报等待或前进",
+          "actor": "script:watch-pr",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "默认 JSON；查询失败可重试或终止",
+          "actor": "script:watch-pr",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "结构化 verdict",
+        "退出码"
+      ],
+      "done_when": "single/stack 终止于 READY、BLOCKER 或 TIMEOUT；queued 终止于 COMPLETE、BLOCKER 或 TIMEOUT；status-only 一次返回。",
+      "on_fail": "状态查询按错误预算重试；GitHub-only，不覆盖 Origin。",
+      "human": "脚本不授权合并。",
+      "parallel": "无 agent；脚本自轮询。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/watch-pr/cli.ts # main / parseArgs; docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/watch-pr/policy.ts # runSimple / runQueued"
+    },
+    {
+      "id": "sc-worktree-audit",
+      "kind": "script",
+      "name": "worktree-audit.sh",
+      "label": "工作树审计",
+      "family": "脚本",
+      "purpose": "只读列出 worktree 的大小、年龄、提交与聊天线索并建议清理桶。",
+      "trigger": "Worktree and simulator cleanup 的 snapshot and audit 阶段。",
+      "steps": [
+        {
+          "text": "从 git worktree list 取候选并排除主树",
+          "actor": "script:worktree-audit.sh",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "尝试更新 origin/main 并列出当前用户 PR",
+          "actor": "script:worktree-audit.sh",
+          "uses": [
+            "pf-github"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "查大小、年龄、merge、dirty、remote、最近 chat",
+          "actor": "script:worktree-audit.sh",
+          "uses": [
+            "pf-transcripts"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "输出 hold、verify、safe 或 review 建议",
+          "actor": "script:worktree-audit.sh",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "按大小排序的审计表及 bucket"
+      ],
+      "done_when": "打印审计表；不删除任何文件。",
+      "on_fail": "fetch 或 gh 失败时尽力继续，merge/PR 栏可能不可靠；建议仍须人工核对。",
+      "human": "bucket 只是建议；删除由 playbook 决定。",
+      "parallel": "无 agent；transcript 扫描可慢，playbook 建议后台。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/worktree-audit.sh # Read-only worktree prune audit"
+    },
+    {
+      "id": "pf-bugbot",
+      "kind": "platform",
+      "name": "Bugbot",
+      "label": "Bugbot评论",
+      "family": "平台",
+      "purpose": "给 PR 产生自动 review 线程，供 Babysit 按证据分类。",
+      "trigger": "PR 出现 Bugbot 或 review-automation 评论。",
+      "steps": [
+        {
+          "text": "把每条线程按 fix、dismiss 或 ask 分类",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "高风险或不明问题向用户升级",
+          "actor": "main",
+          "uses": [
+            "hu-preference"
+          ],
+          "human_gate": true
+        },
+        {
+          "text": "真问题在 owning PR 修并附 SHA；噪声给具体反证",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "review 线程",
+        "fix/dismiss/ask 判定"
+      ],
+      "done_when": "每条评论已核查并回复或升级。",
+      "on_fail": "评论内容不可信，不能直接当指令；安全、数据、权限等风险不自动略过。",
+      "human": "novel、高严重度或歧义交用户判断。",
+      "parallel": "无。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/references/bugbot-triage.md # Bugbot triage / Decision rubric"
+    },
+    {
+      "id": "ar-pr",
+      "kind": "artifact",
+      "name": "GitHub PR",
+      "label": "PR",
+      "family": "交付产物",
+      "purpose": "承载可审查提交、说明、checks、threads 与独立验证 verdict。",
+      "trigger": "Opening a PR 创建；Babysit 与 Shipping 消费。",
+      "steps": [
+        {
+          "text": "创建时 ready，不以 draft 开始",
+          "actor": "main",
+          "uses": [
+            "pb-opening-a-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "按 owning PR 修复并保留验证 head/base 与 patch-id",
+          "actor": "main",
+          "uses": [
+            "pb-babysit",
+            "pb-shipping"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "记录 checks、threads 与独立验证 verdict",
+          "actor": "main",
+          "uses": [
+            "pf-github"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "PR URL",
+        "PR body",
+        "独立 verdict"
+      ],
+      "done_when": "最终 merged 或明示停止在未验证 ceiling。",
+      "on_fail": "draft 转 ready；checks green 不代替独立验证。",
+      "human": "合并受明确授权约束。",
+      "parallel": "Shipping 每 PR 独立 cloud agent 验证。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # PRs / Readiness; docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "id": "ar-stack",
+      "kind": "artifact",
+      "name": "PR stack",
+      "label": "PR堆栈",
+      "family": "交付产物",
+      "purpose": "以父分支为 base 串联窄 PR，按最低未合并 PR 推进。",
+      "trigger": "工作可拆为多个有序 PR。",
+      "steps": [
+        {
+          "text": "root PR 指向 trunk，child 指向父分支准确 tip",
+          "actor": "main",
+          "uses": [
+            "ar-pr"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "Babysit 只处理 merge frontier",
+          "actor": "main",
+          "uses": [
+            "pb-babysit"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "Shipping 只落从 root 开始的连续已验证区间",
+          "actor": "main",
+          "uses": [
+            "pb-shipping"
+          ],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "bottom-to-top PR 顺序",
+        "merge frontier",
+        "verified ceiling"
+      ],
+      "done_when": "所有目标 PR 逐个合并，或在未验证 ceiling 停止。",
+      "on_fail": "Babysit 不改 topology；Shipping 每次合并后重算 child 状态。",
+      "human": "落地需要明确合并请求。",
+      "parallel": "Babysit 每 stack 一个；Shipping 每 PR 一个独立验证 agent。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Size and stacks; docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "id": "ar-resume-note",
+      "kind": "artifact",
+      "name": "resume note",
+      "label": "恢复记录",
+      "family": "会话产物",
+      "purpose": "把暂停时的意图、验证状态与下一步保存在上下文外。",
+      "trigger": "Pause safely 的安全停止阶段。",
+      "steps": [
+        {
+          "text": "写明意图、进展、已验证内容、当前状态、下一步与关键文件",
+          "actor": "main",
+          "uses": [
+            "pb-pause-safely"
+          ],
+          "human_gate": false
+        },
+        {
+          "text": "已有 show-me-your-work trail 时引用而不重复",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        },
+        {
+          "text": "标记未验证状态，给出恢复第一步",
+          "actor": "main",
+          "uses": [],
+          "human_gate": false
+        }
+      ],
+      "outputs": [
+        "上下文外文件，例如 /tmp/<slug>-resume.md"
+      ],
+      "done_when": "冷启动 agent 能据此找到第一步和相关证据。",
+      "on_fail": "未验证内容要如实标记；没有写固定格式。",
+      "human": "无。",
+      "parallel": "无。",
+      "principles": [],
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely / 4"
+    }
+  ],
+  "edges": [
+    {
+      "from": "pb-opening-a-pr",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "创建ready",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR"
+    },
+    {
+      "from": "pb-opening-a-pr",
+      "to": "ar-stack",
+      "type": "writes",
+      "label": "组成堆栈",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR"
+    },
+    {
+      "from": "pb-opening-a-pr",
+      "to": "sk-no-comments",
+      "type": "invoke",
+      "label": "提交前检查",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR"
+    },
+    {
+      "from": "pb-opening-a-pr",
+      "to": "sk-technical-writing",
+      "type": "invoke",
+      "label": "撰写说明",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR"
+    },
+    {
+      "from": "pb-opening-a-pr",
+      "to": "sk-unslop",
+      "type": "invoke",
+      "label": "精简文字",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR"
+    },
+    {
+      "from": "pb-opening-a-pr",
+      "to": "pf-github",
+      "type": "writes",
+      "label": "创建PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "ar-stack",
+      "type": "reads",
+      "label": "最低未合并",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "ar-pr",
+      "type": "reads",
+      "label": "状态与线程",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "sc-watch-pr",
+      "type": "invoke",
+      "label": "GitHub状态",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "动态循环",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pf-bugbot",
+      "type": "reads",
+      "label": "逐条核查",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "hu-merge-auth",
+      "type": "human",
+      "label": "合并授权",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pb-shipping",
+      "type": "handoff",
+      "label": "请求落地",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-babysit",
+      "to": "pf-github",
+      "type": "reads",
+      "label": "Origin或gh",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "pf-cursor-cloud",
+      "type": "spawn",
+      "label": "逐PR独验",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "ar-stack",
+      "type": "reads",
+      "label": "连续区间",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "验证判定",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "hu-merge-auth",
+      "type": "human",
+      "label": "明确合并",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "sc-watch-pr",
+      "type": "invoke",
+      "label": "GitHub唤醒",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "pf-loop",
+      "type": "invoke",
+      "label": "动态等待",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-shipping",
+      "to": "pf-github",
+      "type": "writes",
+      "label": "逐个合并",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping"
+    },
+    {
+      "from": "pb-session-pickup",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "先前轨迹",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup"
+    },
+    {
+      "from": "pb-session-pickup",
+      "to": "pf-cursor-cloud",
+      "type": "reads",
+      "label": "云会话URL",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup"
+    },
+    {
+      "from": "pb-session-pickup",
+      "to": "ar-pr",
+      "type": "reads",
+      "label": "已交付状态",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup"
+    },
+    {
+      "from": "sk-recall",
+      "to": "pb-session-pickup",
+      "type": "route",
+      "label": "特定旧会话",
+      "source": "skills/recall/SKILL.md # Recall / 1"
+    },
+    {
+      "from": "pb-pause-safely",
+      "to": "hu-pause",
+      "type": "human",
+      "label": "明确暂停",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely"
+    },
+    {
+      "from": "pb-pause-safely",
+      "to": "ar-resume-note",
+      "type": "writes",
+      "label": "冷启动记录",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely"
+    },
+    {
+      "from": "pb-worktree-cleanup",
+      "to": "sc-worktree-audit",
+      "type": "invoke",
+      "label": "只读审计",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup"
+    },
+    {
+      "from": "pb-worktree-cleanup",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "在用会话",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup"
+    },
+    {
+      "from": "pb-worktree-cleanup",
+      "to": "hu-irreversible",
+      "type": "human",
+      "label": "WIP先决定",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup"
+    },
+    {
+      "from": "pb-authoring-a-skill",
+      "to": "pb-opening-a-pr",
+      "type": "handoff",
+      "label": "完成后开PR",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/authoring-a-skill.md # Authoring or modifying a skill"
+    },
+    {
+      "from": "pb-eval",
+      "to": "sk-arena",
+      "type": "invoke",
+      "label": "候选与盲评",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/eval.md # Eval"
+    },
+    {
+      "from": "pb-eval",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "核查实际链",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/eval.md # Eval"
+    },
+    {
+      "from": "sc-watch-pr",
+      "to": "pf-github",
+      "type": "reads",
+      "label": "gh查询",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/watch-pr/github.ts # GhGitHubReader"
+    },
+    {
+      "from": "sc-watch-pr",
+      "to": "ar-pr",
+      "type": "reads",
+      "label": "PR与检查",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/watch-pr/policy.ts # readSnapshot"
+    },
+    {
+      "from": "sc-worktree-audit",
+      "to": "pf-transcripts",
+      "type": "reads",
+      "label": "最近聊天",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/worktree-audit.sh # Read-only worktree prune audit"
+    },
+    {
+      "from": "pf-bugbot",
+      "to": "ar-pr",
+      "type": "writes",
+      "label": "review线程",
+      "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/references/bugbot-triage.md # Decision rubric"
+    }
+  ],
+  "compare": {
+    "pr_lifecycle": {
+      "states": [
+        {
+          "id": "draft",
+          "name": "draft",
+          "meaning": "误开或云端默认 draft；Opening a PR 要求转 ready；watcher 默认将 draft 视为 gate。"
+        },
+        {
+          "id": "ready",
+          "name": "ready",
+          "meaning": "已创建为可审查的 open PR，但不代表检查通过或可合并。"
+        },
+        {
+          "id": "blocker",
+          "name": "有 blocker",
+          "meaning": "frontier 有冲突、review thread、CI 失败或 merge gate；按优先顺序处理。"
+        },
+        {
+          "id": "waiting",
+          "name": "等待检查",
+          "meaning": "PR 仍有 pending checks；watcher 报 WAITING。"
+        },
+        {
+          "id": "merge_ready",
+          "name": "merge-ready",
+          "meaning": "forge 同意当前 frontier 可合并；Babysit 到此停止，不代表独立验证。"
+        },
+        {
+          "id": "independently_verified",
+          "name": "已独立验证",
+          "meaning": "非作者 cloud agent 在真实表面给 PASS 或 PASS+NOTES，且 verdict 对当前 patch 有效。"
+        },
+        {
+          "id": "armed",
+          "name": "merge-when-ready 已启用",
+          "meaning": "Shipping 只对 bottom PR 启用自动合并，等待实际 merged。"
+        },
+        {
+          "id": "merged",
+          "name": "已合并",
+          "meaning": "active forge 确认当前 bottom PR 实际 merged。"
+        },
+        {
+          "id": "frontier_advanced",
+          "name": "frontier 前进",
+          "meaning": "已合并的 bottom 移出冻结列表，新的最低未合并 PR 成为 frontier。"
+        },
+        {
+          "id": "ceiling",
+          "name": "验证 ceiling",
+          "meaning": "从 root 起连续合格区间在首个无有效 PASS 的 PR 处停止。"
+        }
+      ],
+      "transitions": [
+        {
+          "from": "draft",
+          "to": "ready",
+          "by": "pb-opening-a-pr",
+          "condition": "意外 draft，使用当前 forge 的 pr ready；正常创建直接 ready",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/opening-a-pr.md # Opening a PR / Readiness"
+        },
+        {
+          "from": "ready",
+          "to": "blocker",
+          "by": "pb-babysit",
+          "condition": "冲突、threads、CI 失败或 gate；watcher 可给 BLOCKER",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit / 5–8; docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/watch-pr/policy.ts # classifyPr"
+        },
+        {
+          "from": "ready",
+          "to": "waiting",
+          "by": "sc-watch-pr",
+          "condition": "没有更高优先级 blocker，但 checks pending",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/watch-pr/policy.ts # classifyPr / runSimple"
+        },
+        {
+          "from": "blocker",
+          "to": "waiting",
+          "by": "pb-babysit",
+          "condition": "owning branch 的修复 push 后检查仍在运行；冲突需 owner rebase",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit / 4–7"
+        },
+        {
+          "from": "waiting",
+          "to": "merge_ready",
+          "by": "pb-babysit",
+          "condition": "GitHub single/stack READY 或 queued WAITING/merge-queue；Origin checks green 且 mergeable、无 unresolved blocker",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit / 6"
+        },
+        {
+          "from": "blocker",
+          "to": "merge_ready",
+          "by": "pb-babysit",
+          "condition": "所有冲突、threads、CI 和 gate 已清，active forge 判可合并",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit / 5–6"
+        },
+        {
+          "from": "merge_ready",
+          "to": "independently_verified",
+          "by": "pb-shipping",
+          "condition": "非作者 cloud agent 给 PASS 或 PASS+NOTES，且当前 patch-id/verdict 核查有效",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / 1–3"
+        },
+        {
+          "from": "independently_verified",
+          "to": "ceiling",
+          "by": "pb-shipping",
+          "condition": "该 PR 上方首个 PR 无有效 PASS；只落底部连续区间",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / 2,9"
+        },
+        {
+          "from": "independently_verified",
+          "to": "armed",
+          "by": "pb-shipping",
+          "condition": "明确要求 merge-when-ready，且此 PR 是 bottom、要求仍在运行",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / 4–5"
+        },
+        {
+          "from": "independently_verified",
+          "to": "merged",
+          "by": "pb-shipping",
+          "condition": "bottom 当前可合并，squash 后 forge 确认实际 merged",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / 5,8"
+        },
+        {
+          "from": "armed",
+          "to": "merged",
+          "by": "pb-shipping",
+          "condition": "forge 实际报告 merged；GitHub watcher READY 本身不算",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / 8"
+        },
+        {
+          "from": "merged",
+          "to": "frontier_advanced",
+          "by": "pb-shipping",
+          "condition": "fetch trunk 确认 merged SHA，移除旧 bottom，检查新 bottom",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / 7"
+        },
+        {
+          "from": "merged",
+          "to": "frontier_advanced",
+          "by": "sc-watch-pr",
+          "condition": "queued watcher 观察到另一 actor 合并旧 frontier，报 ADVANCE",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/watch-pr/policy.ts # evaluateQueue / runQueued"
+        },
+        {
+          "from": "frontier_advanced",
+          "to": "merge_ready",
+          "by": "pb-babysit",
+          "condition": "新 frontier 重新完成 active-forge 的 readiness 判定",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit / 2,6"
+        },
+        {
+          "from": "frontier_advanced",
+          "to": "independently_verified",
+          "by": "pb-shipping",
+          "condition": "新 bottom 有仍有效的独立 verdict，且重新检查 patch 与当前 CI",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / 3,7"
+        }
+      ]
+    },
+    "session_lifecycle": {
+      "states": [
+        {
+          "id": "active",
+          "name": "进行中",
+          "meaning": "会话仍在执行当前原子步骤。"
+        },
+        {
+          "id": "pause_requested",
+          "name": "明确要求暂停",
+          "meaning": "只有用户明确 pause；keep going 等不算。"
+        },
+        {
+          "id": "durable",
+          "name": "已持久化暂停",
+          "meaning": "完成/撤销原子步骤，wip commit 与上下文外 resume note 已留下。"
+        },
+        {
+          "id": "trail_found",
+          "name": "找到旧轨迹",
+          "meaning": "特定旧会话的 transcript、cloud URL 或 pushed branch 可读。"
+        },
+        {
+          "id": "state_reconstructed",
+          "name": "状态重建",
+          "meaning": "已知 worktree、landed 工作、todo、决策和 resume point。"
+        },
+        {
+          "id": "routed",
+          "name": "继续路由",
+          "meaning": "Session pickup 将剩余工作交给对应 playbook。"
+        },
+        {
+          "id": "recall_brief",
+          "name": "跨会话简报",
+          "meaning": "Recall 跨最近聊天与共享记录概括上下文，不替代特定会话接手。"
+        },
+        {
+          "id": "cleanup_candidate",
+          "name": "清理候选",
+          "meaning": "audit 给出 bucket，仅是建议。"
+        },
+        {
+          "id": "held",
+          "name": "保留或待决定",
+          "meaning": "pinned/in-use 或 wip worktree 不删除。"
+        },
+        {
+          "id": "pruned",
+          "name": "已清理",
+          "meaning": "确认不用且无受保护 WIP，删除后重查磁盘和 worktree。"
+        }
+      ],
+      "transitions": [
+        {
+          "from": "active",
+          "to": "pause_requested",
+          "by": "hu-pause",
+          "condition": "明确说 pause",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely / Pause safely"
+        },
+        {
+          "from": "pause_requested",
+          "to": "durable",
+          "by": "pb-pause-safely",
+          "condition": "安全边界停止，commit 编辑并写 resume note",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely / 1–4"
+        },
+        {
+          "from": "durable",
+          "to": "trail_found",
+          "by": "pb-session-pickup",
+          "condition": "后来接手该特定会话，并定位到先前 trail；resume note 与 pickup 的直接读取关系未明写",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely / 4; docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup / 1"
+        },
+        {
+          "from": "trail_found",
+          "to": "state_reconstructed",
+          "by": "pb-session-pickup",
+          "condition": "读决定点，对照 branch、worktree、landed 工作和原计划",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup / 1–3"
+        },
+        {
+          "from": "state_reconstructed",
+          "to": "routed",
+          "by": "pb-session-pickup",
+          "condition": "选继续、交付、裁定或事后分析；真实产物核验继承主张",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup / 4–5"
+        },
+        {
+          "from": "active",
+          "to": "recall_brief",
+          "by": "sk-recall",
+          "condition": "要求跨最近工作找上下文，而非接手特定旧 chat",
+          "source": "skills/recall/SKILL.md # Recall / 1–6"
+        },
+        {
+          "from": "durable",
+          "to": "cleanup_candidate",
+          "by": "pb-worktree-cleanup",
+          "condition": "磁盘清理时 audit 该 worktree；没有自动清理关系",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup / 1"
+        },
+        {
+          "from": "cleanup_candidate",
+          "to": "held",
+          "by": "pb-worktree-cleanup",
+          "condition": "pinned/active chat 或 wip；wip 先展示 diff 待决定",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup / 2–4"
+        },
+        {
+          "from": "cleanup_candidate",
+          "to": "pruned",
+          "by": "pb-worktree-cleanup",
+          "condition": "确认 clean、merged、not-in-use 后删除并复核",
+          "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup / 4–5"
+        }
+      ]
+    },
+    "pairs": [
+      {
+        "a": "pb-babysit",
+        "b": "pb-shipping",
+        "same": "都以最低未合并 PR 为 frontier，并读取 active forge 的状态。",
+        "diff": "Babysit 只排阻并止于 merge-ready；Shipping 用非作者独立验证和 patch 有效性设 ceiling，再逐个实际合并。",
+        "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/babysit.md # Babysit / Babysit; docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/shipping.md # Shipping / Shipping"
+      },
+      {
+        "a": "pb-eval",
+        "b": "pb-authoring-a-skill",
+        "same": "都是元工作，可能影响 skill 的质量。",
+        "diff": "Eval 隔离候选、盲评、核 transcript 后建议是否推广；Authoring 直接使用 create-skill 编写校验 skill 并开 PR。",
+        "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/eval.md # Eval / Eval; docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/authoring-a-skill.md # Authoring or modifying a skill / Authoring or modifying a skill"
+      },
+      {
+        "a": "pb-pause-safely",
+        "b": "pb-session-pickup",
+        "same": "都处理会话连续性，保留已有工作与决定。",
+        "diff": "Pause safely 在明确暂停时停止并写 wip commit/resume note；Session pickup 从旧轨迹重建状态并把剩余工作路由出去。",
+        "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/pause-safely.md # Pause safely / Pause safely; docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup / Session pickup"
+      },
+      {
+        "a": "pb-session-pickup",
+        "b": "sk-recall",
+        "same": "都阅读过往记录并核对当前状态。",
+        "diff": "Session pickup 接手一个特定旧会话；Recall 汇总最近多个 chat 及共享记录，且明确把特定会话转给 session-pickup。",
+        "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/session-pickup.md # Session pickup / Session pickup; skills/recall/SKILL.md # Recall / 1"
+      },
+      {
+        "a": "sc-worktree-audit",
+        "b": "pb-worktree-cleanup",
+        "same": "都参与 worktree 清理判断。",
+        "diff": "audit 只读并建议 bucket；playbook 还核 pinned/active、处理 wip 决定并执行删除。",
+        "source": "docs/research/code-landing-refs/pstack/skills/poteto-mode/scripts/worktree-audit.sh # Read-only worktree prune audit; docs/research/code-landing-refs/pstack/skills/poteto-mode/playbooks/worktree-cleanup.md # Worktree and simulator cleanup / 1–5"
+      }
+    ]
+  },
+  "notes": [
+    "Opening a PR 同时要求提交前 /deslop（cursor-team-kit）和 /no-comments；登记表没有 /deslop 的 ID，因此仅在步骤文字保留，未伪造跨组组件。",
+    "Authoring or modifying a skill 调用 Cursor 内建 create-skill；登记表无该 ID，步骤保留名称，没有虚构 sk- ID。Shipping 所举 control-ui/control-cli 也无登记 ID。",
+    "Pause safely 写 resume note；Session pickup 只明确列 transcript、cloud-agent URL、pushed branch 作为 prior trail，没有明确说读取 resume note。session_lifecycle 的 durable→trail_found 表示先后可衔接，不是原文规定的直接读取边。",
+    "worktree-audit.sh 的注释称 read-only，但实现会运行 git fetch origin main，可能更新本地 remote-tracking ref；它不删除 worktree。脚本还依赖 gh、jq、rg、macOS stat/date，gh 或 fetch 失败时信息可能不全。",
+    "Babysit 的 GitHub queued 模式要求在 WAITING/merge-queue 报告后停止；watch-pr 实现中 queued 的 WAITING 是非 terminal，脚本会继续轮询直至 COMPLETE/BLOCKER/TIMEOUT。故需调用者主动停止 watcher，不可把 WAITING 当脚本结束。",
+    "watch-pr 的 single 模式遇已合并 PR 也可报 READY（scope 为 merged-pr）；Babysit 不应把该 verdict 解读为新合并授权或 Shipping 已完成。",
+    "worktree-audit.sh 的 safe 包括任何非 OPEN、非近期 chat 且存在某 PR 记录的 worktree；因此 safe 本身不证明已合并，playbook 明确要求 pinned/active 与 WIP 二次核对。"
+  ]
+}
