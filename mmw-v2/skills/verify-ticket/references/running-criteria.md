@@ -21,7 +21,7 @@ Before running a `CHECK:` that names `journey.py` or `lease.py`, this run asks t
 
 When no product slot is free, the run posts one `worker.queued` event and runs nothing; the ticket gets no second `worker.queued` for the same wait. What happens next depends on whose run it is.
 
-The worker's own run exits `3` at once. End your turn. A slot comes back only when another ticket's work ends, and at that moment the relay of the `dispatch` skill wakes you with `#<n> worker.queued`. Run the same command again, then acknowledge that wake with the `dispatch` skill's `ack <n> worker.queued`. A run that finds every slot still held exits `3` again, and you are woken again when the next slot is given back.
+The worker's own run exits `3` at once. End your turn. A slot comes back only when another ticket's work ends, and at that moment the relay of the `dispatch` skill wakes you with `#<n> worker.queued`. Acknowledge that wake with the `dispatch` skill's `ack <n> worker.queued`, then run the same command again. A run that finds every slot still held exits `3` again, and you are woken again when the next slot is given back.
 
 The worker's `--reverify --actor worker`, and the main agent's `--reverify --actor main`, wait inside the command instead: they ask again every 10 seconds, and after 90 seconds exit `3` having run nothing. Run the same command again to keep waiting. `MMW_SLOT_WAIT_S` and `MMW_SLOT_BEAT_S` change the two numbers.
 

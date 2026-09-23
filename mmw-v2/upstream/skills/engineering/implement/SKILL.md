@@ -114,9 +114,7 @@ nmem --json memories add --stdin \
 MEMORY
 ```
 
-Keep the id `nmem` returns and link the evidence in the ticket report. A failed Memory
-write is reported as unsaved; continue the ticket work rather than treating Memory as
-a prerequisite for implementation.
+A failed Memory write does not block the ticket: continue the ticket work.
 
 Correct only a record whose `space` (in an index line) or `space_id` (in a search or
 show result) equals `NMEM_SPACE`; a toolbox record is context, not a record for this
@@ -134,9 +132,6 @@ nmem --json memories deprecate "$OLD_ID" \
 
 The main agent's closing pass and the `retro` skill have their own script commands; a
 worker does not write their Memory records or edit Working Memory here.
-
-Finish by reporting the Memory records added, used, superseded, or deprecated, and the
-evidence used to validate them. If none changed, say so.
 
 ## Closing steps
 

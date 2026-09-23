@@ -4,7 +4,7 @@
 
 对象：[《Project Context 调研与 MMW 方案》](https://claude.ai/code/artifact/b9520c08-eb0d-40f1-872e-228662445954?via=auto_preview)第 6 节“阶段二 · 共享经验层 · NOWLEDGE MEM 自带机制优先”、第 7 节“阶段三 · 跨夜学习”和第 9 节“决定”
 
-性质：阶段二与阶段三的设计说明。机制已在 `mmw-v2/skills/dispatch/scripts/dispatch.sh`、`mmw-v2/upstream/skills/engineering/implement/SKILL.md` 的 `## Shared experience while implementing` 与 `mmw-v2/skills/retro/` 实施。第 8 节 reviewer 固定模板与第 12 节 `retro/SKILL.md` 的固定执行 prompt 是逐字合同：`dispatch.sh` 的 `reviewer_rules_packet()` 与 `mmw-v2/skills/retro/SKILL.md` 必须与之一致，`mmw-v2/tests/retro/test_retro.py` 逐字核对后者。其余内容与代码不一致时以代码为准。术语见 `docs/contexts/ticket-run/CONTEXT.md` 的 `### Worker shared experience`；worker 开工检索为什么用短查询、只给索引，见 `docs/adr/0031-worker-start-memory-is-a-searched-index.md`。
+性质：阶段二与阶段三的设计说明。机制已在 `mmw-v2/skills/dispatch/scripts/dispatch.sh`、`mmw-v2/upstream/skills/engineering/implement/SKILL.md` 的 `## Shared experience while implementing` 与 `mmw-v2/skills/retro/` 实施。第 8 节 reviewer 的 Rule 用法以 `code-review` 技能的 `references/session.md` `## Active Rules` 为准，第 12 节 retro 的执行正文以 `mmw-v2/skills/retro/SKILL.md` 为准。其余内容与代码不一致时以代码为准。术语见 `docs/contexts/ticket-run/CONTEXT.md` 的 `### Worker shared experience`；worker 开工检索为什么用短查询、只给索引，见 `docs/adr/0031-worker-start-memory-is-a-searched-index.md`。
 
 ## 方案总览
 
@@ -489,7 +489,7 @@ Memory lifecycle 动作部分成功后只要仍有一项失败，`summary` 就�
 
 这条路径让 Mem 负责发现相关历史，让 ticket event 与 commit 负责核实。下一次 retro 不遍历旧 spec comments，也不需要 occurrence 表、retro 数据库或检索缓存。
 
-#### `retro/SKILL.md` 的固定执行 prompt
+#### `retro/SKILL.md` 的执行正文
 
 新 skill 由 night runbook 在 `summary` 后主动到达，因此采用 model-invoked skill，frontmatter 只有 MMW 规定的 `name` 与 `description`。description 与执行正文只写在 `mmw-v2/skills/retro/SKILL.md`，以该文件为准。
 
@@ -699,7 +699,7 @@ worker 写/读 mmw-experience
 
 6. `code-review` 的汇总合同增加 category；`route … stale` 增加 `invalid|fixed-elsewhere` reason。
 7. `events.py` 增加一个无 hold、无 wake 的 `spec.retroed` 回执 event；night runbook 在成功 `summary` 后执行 retro。
-8. 从 `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 建立新的 `mmw-v2/skills/retro/SKILL.md`，按第 12 节固定执行 prompt 逐段完成 MMW 对象替换，并引入 BMAD 的 `Gather → Analyze → Decide → Finalize` 指令；详细 phase 可以放进一层 `references/`，但 `SKILL.md` 必须明确要求完整读取。脚本入口读取当前 spec tree、ticket event、相关 `git log`，并从 `spec.closed.payload.memory_closing.decisions` 筛出 proposed Memory ids；用 `mmw-retro` list/search 取得较早记录，命中后核对其原 event/commit；达到门槛时先创建或复用 `needs-triage` proposal，再写完整 Retro Memory 和当前 spec 回执。普通 worker/reviewer 不读 Retro Memory；retro 不把 Memory、Thread 或 Working Memory 当作运行事实。
+8. 从 `mmw-v2/upstream/skills/in-progress/retro/SKILL.md` 建立新的 `mmw-v2/skills/retro/SKILL.md`，按第 12 节所述完成 MMW 对象替换，并引入 BMAD 的 `Gather → Analyze → Decide → Finalize` 指令。脚本入口读取当前 spec tree、ticket event、相关 `git log`，并从 `spec.closed.payload.memory_closing.decisions` 筛出 proposed Memory ids；用 `mmw-retro` list/search 取得较早记录，命中后核对其原 event/commit；达到门槛时先创建或复用 `needs-triage` proposal，再写完整 Retro Memory 和当前 spec 回执。普通 worker/reviewer 不读 Retro Memory；retro 不把 Memory、Thread 或 Working Memory 当作运行事实。
 
 #### D. owner approval 与证明
 
