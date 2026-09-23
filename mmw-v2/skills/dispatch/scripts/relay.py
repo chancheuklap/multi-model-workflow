@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The relay: events on the board in, wake-ups for the session waiting on them out.
+"""The relay: events on the tracker in, wake-ups for the session waiting on them out.
 
     relay.py start --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S [--interval S] [--grace S]
     relay.py add --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S
@@ -9,12 +9,12 @@
     relay.py ack --repo O/R --runner R --session S (--through SEQ | --ticket N --event E | --event relay.recovered)
     relay.py queue --repo O/R [--runner R --session S]
 
-**A translator, not a board.** The relay does one thing: when a comment carrying one of
+**A translator, not a judge.** The relay does one thing: when a comment carrying one of
 the events in `WAKES` lands on a ticket it watches, it writes one row into the wake queue
 ("wake session S about ticket N, event E") and hands that row to the runner that runs
 session S. It does not know what a spec, a frontier, a phase or a blocker is, and it
 decides nothing: whether to advance, resume, retract or stop belongs to the main agent,
-which reads the board to decide it (docs/adr/0009-night-orchestration-on-paseo.md). It is
+which reads the tracker to decide it (docs/adr/0009-night-orchestration-on-paseo.md). It is
 not `board.py`, the modelless night watcher that ADR removed because it decided on the
 main agent's behalf. That one judged; this one translates.
 
@@ -67,7 +67,7 @@ wait and a newer release meet in the order they happened. The flag is kept in `s
 and recomputed by the full read on start. The woken worker runs its criteria again and
 acks the wake like any other.
 
-**Reading the board.** Every `--interval` seconds (default 30) the relay reads the
+**Reading the tracker.** Every `--interval` seconds (default 30) the relay reads the
 comments of each watched ticket updated since the newest one it saw there, less two
 minutes of overlap, and records every (comment, event) pair it has translated, so the
 overlap never queues one twice. Each comment page's ETag is sent on the next read; a 304
@@ -90,7 +90,7 @@ be sent and which has its recipient read that ticket — and `folded ...` says s
 Once a wake has been sent its recipient may have acted on it already, so an event that
 lands after it queues a wake of its own. Delivered: the relay ran `runners/<runner>.sh send <session> "#<ticket>
 <event>"` — the text carries the ticket number and the event name and nothing else; what
-happened is read on the board. What `send` answered decides what happens to the row:
+happened is read on the tracker. What `send` answered decides what happens to the row:
 
     0                 delivered; the row stays until it is acked
     4                 handed over and not confirmed: the text reached the session and
@@ -125,7 +125,7 @@ nothing.
 **Opening a watch.** `start` checks first and writes after. It refuses when there is no
 adapter for the runner, when that runner's `liveness` says the session is `stopped`
 (every wake-up sent to it would be dropped), or when the watch overlaps another (the
-sub-issues of the specs involved are read from the board for that; a read that fails is
+sub-issues of the specs involved are read from the tracker for that; a read that fails is
 a refusal too). A spec watch first takes over every ticket watch whose tickets are all
 sub-issues of the spec and whose main agent is the session opening the spec or one its
 runner shows stopped, and prints one `closed the watch on …` line for each; a ticket
@@ -189,7 +189,7 @@ Files in the state directory:
                     worked or not (`cycle_at`), seconds spent delivering since the last good
                     poll, the pass under way, the last failed poll and why, the run's
                     interval and grace, and `reads`: billed and not-modified comment-list
-                    reads since this process started. `at` is progress — the board was read
+                    reads since this process started. `at` is progress — the tracker was read
                     — and `cycle_at` is running; the watchdog reads one of each, because a
                     single failed read stops the first and not the second
     gap.json        the latest unattended stretch announced
@@ -199,7 +199,7 @@ Exit codes:
 
     start     0 the watch is recorded and a relay runs (started now, or already); 1
               refused (no adapter, the runner says the session is stopped, the watch
-              overlaps another, the board could not be read to check that, the relay
+              overlaps another, the tracker could not be read to check that, the relay
               running is one whose `relay.json` names a single `watch` and reads no
               watches.json, a state file unreadable, the relay exited or did not take its
               lock: its log's last lines are on stderr, and a watch this call opened was
@@ -316,7 +316,7 @@ class Refusal(RuntimeError):
 
 
 class PollError(RuntimeError):
-    """A read of the board that could not be made."""
+    """A read of the tracker that could not be made."""
 
 
 class UnreadableEvent(ValueError):
@@ -383,7 +383,7 @@ def gives_slot_back(name: str) -> bool:
 
 
 def wake_text(row: dict) -> str:
-    """What is sent: the ticket number and the event name, nothing the board already says."""
+    """What is sent: the ticket number and the event name, nothing the tracker already says."""
     if row.get("event") == RECOVERED:
         return f"{RECOVERED} since {row.get('since')}"
     return f"#{row.get('ticket')} {row.get('event')}"
@@ -473,7 +473,7 @@ def overlap(want: dict, watches: dict[str, dict], children: dict[int, list[int]]
     return None
 
 
-# ----------------------------------------------------------------- reading the board
+# ----------------------------------------------------------------- reading the tracker
 
 def gh_list(args: list[str]) -> list:
     """Run `gh` and read its answer as a list, pages flattened. Raises PollError otherwise."""
@@ -721,7 +721,7 @@ class Relay:
             statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
 
     def _children_for(self, want: dict, watches: dict[str, dict]) -> dict[int, list[int]]:
-        """The sub-issues of every spec the overlap check of `want` needs, from the board."""
+        """The sub-issues of every spec the overlap check of `want` needs, from the tracker."""
         key = watch_key(want)
         if want.get("tickets"):
             specs = [int(w["spec"]) for k, w in watches.items() if k != key and w.get("spec")]
@@ -775,7 +775,7 @@ class Relay:
             absorbable = self._absorbable(want, before, children, runner, session)
             with self.queue_lock():
                 watches = self.watches()
-                # A watch opened or closed while the board was read: check against that.
+                # A watch opened or closed while the tracker was read: check against that.
                 if set(watches) != set(before):
                     continue
                 absorbed = {k: watches.pop(k) for k in absorbable}
@@ -1029,7 +1029,7 @@ class Relay:
         reported: list[tuple[int, object, str]] = []
         with self.queue_lock():
             # Read here, under the lock every change to them is made under: a main agent
-            # replaced while the board was read addresses these rows, not the one before it.
+            # replaced while the tracker was read addresses these rows, not the one before it.
             watches = self.watches()
             seen = self._read_state("seen.json", {})
             per_ticket = seen.setdefault("tickets", {})
@@ -1151,7 +1151,7 @@ class Relay:
             else:
                 beat.update(at=iso(now), delivering=0, failed_at=None, failure=None)
             # Written whether the reads worked or not: this says the cycle ran, which is
-            # what running means, while `at` says the board was read, which is progress.
+            # what running means, while `at` says the tracker was read, which is progress.
             beat.update(cycle_at=iso(now), interval=interval, grace=grace,
                         reads=self.board.reads)
             statedir.write_atomic(self.path("beat.json"), json.dumps(beat, sort_keys=True) + "\n")
@@ -1616,7 +1616,7 @@ def spawn(args, state: Path) -> int:
         code = child.poll()
         if code is not None:
             raise Refusal(f"the relay exited {code} as it started, so nothing watches the "
-                          f"board. The last lines of {log}: {log_tail(log)}")
+                          f"tracker. The last lines of {log}: {log_tail(log)}")
         found = running(state)
         if found is not None and found[0].get("pid") == child.pid and found[1]:
             return child.pid
@@ -1785,7 +1785,7 @@ def main(argv: list[str] | None = None) -> int:
     watching.add_argument("--spec", type=positive_int)
     watching.set_defaults(fn=cmd_watching)
 
-    run = sub.add_parser("run", help="poll the board for every open watch and deliver wake-ups")
+    run = sub.add_parser("run", help="poll the tracker for every open watch and deliver wake-ups")
     run.add_argument("--repo", required=True)
     run.add_argument("--once", action="store_true")
     run.add_argument("--interval", type=positive_int, default=DEFAULT_INTERVAL)

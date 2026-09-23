@@ -4,7 +4,18 @@ You are the main agent. A spec's tickets will be worked while you are not watchi
 
 This file is the order of the night. How a wake reaches you and what you do on one is in the skill's [../SKILL.md](../SKILL.md), and `<dispatch>`, `<engine>`, `<events.py>`, `<lease.py>` and `<ui-acceptance scripts>` are resolved in its `## Resolve `<dispatch>` once` section.
 
-Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch comes to rest (step 3), and the watchdog tells you when the board has gone silent where it should not ([how-it-works.md](how-it-works.md) under **The watchdog and turn guard** says what it is); nothing else does, and no agent polls another.
+Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch gets an event that needs the main agent (step 3), and the watchdog tells you when the tracker has gone silent where it should not ([how-it-works.md](how-it-works.md) under **The watchdog and turn guard** says what it is); nothing else does, and no agent polls another.
+
+Find where you are by the first row whose fact holds:
+
+| The fact | Go to |
+| --- | --- |
+| The user has said the night starts, and the spec carries no `spec.opened` | [1. The user says the night starts](#1-the-user-says-the-night-starts), then 1b and 2 |
+| The spec's newest night event is `spec.suspended`, or you are deciding to stop the night because the fault is in the pipeline | [Suspending the night](#suspending-the-night) |
+| A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` findings, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
+| `<dispatch> status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
+| The spec carries `spec.closed` and no later `spec.retroed` whose result is `recorded` | [5. The night is over](#5-the-night-is-over), from the paragraph that invokes the `retro` skill |
+| The spec carries `spec.closed` and a later `spec.retroed` whose result is `recorded`, and the user has accepted the result | [6. Close the night after acceptance](#6-close-the-night-after-acceptance) |
 
 ## 1. The user says the night starts
 
@@ -22,7 +33,7 @@ Then, from this session — the one the night's wakes must reach:
 
 **Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>; task board <url>`; end with an open watch whose main agent is this session. **Exit 2:** fix stderr's named condition and run `open` again. `advance` refuses a night that is not open. A night whose newest spec event is `spec.opened` stays open when the relay process has ended; `advance` and `start` open its watch again for the recorded main agent and say so on stderr. The branch inference, pushes and watch mechanics are in [how-it-works.md](how-it-works.md) under **Opening a night**.
 
-That URL is the night's task board: the one view of tonight a person can open, where the relay's and the watchdog's work reaches you and nobody else. `open` registers and starts it, so hand the user the URL in your first message of the night. A board that would not start is one stderr line and holds nothing up; `<dispatch> board` starts it and opens it whenever you or the user want it.
+That URL is the night's task board: the one view of the night a person can open, where the relay's and the watchdog's work reaches you and nobody else. `open` registers and starts it, so hand the user the URL in your first message of the night. A task board that would not start is one stderr line and holds nothing up; `<dispatch> board` starts it and opens it whenever you or the user want it.
 
 ## 1b. Before the batch: what the batch cannot be run on
 
@@ -88,39 +99,47 @@ Handle each wake in this order, one wake at a time — two tickets landing secon
 2. Run `<dispatch> status <spec>`. Exit 0 prints the table; exit 2 means the tracker did not return the whole batch, so run it again when the tracker answers. The table's mechanics are in [how-it-works.md](how-it-works.md) under **Interpreting a night**.
 3. Take every row the table matches, not only the ticket named by the wake.
 4. Run `<dispatch> advance <spec>` once. Its exit codes are under [**2. First `advance`**](#2-first-advance).
-5. Run `<dispatch> ack <n> <event>` for the named wake, or `<dispatch> ack relay.recovered`. Its exit codes are in [inside-a-ticket.md](inside-a-ticket.md). Ack last, then end your turn.
+5. Run `<dispatch> ack <n> <event>` for the named wake, or `<dispatch> ack relay.recovered`. Its exit codes are under `## On waking` in [../SKILL.md](../SKILL.md). Ack last, then end your turn.
 
 | What you see | What you do |
 | --- | --- |
 | `ticket.passed`, or a `ready` frontier row | Step 4's `advance` handles it |
-| A live worker should continue | `<dispatch> resume <n> "<what you settled, then: continue>"`; act on exit 0, 4, 3 or 2 as [how-it-works.md](how-it-works.md) under **Interpreting a night** says |
+| A live worker should continue | `<dispatch> resume <n> "<what you settled, then: continue>"`; act on exit 0, 4, 3 or 2 as [Exit codes of `resume`](#exit-codes-of-resume) below says |
 | Repeated `resume` exit 3 with no new event | `<dispatch> start <n> worker`; exit 2 means nothing was replaced or started |
 | `child.opened` of kind `fault` | Read `python3 <events.py> fold <n>`, fix the child, then `<dispatch> resume <n> "… continue"` |
-| `child.opened` of kind `contract` | Read the child and the authority it cites. Apply the authority order below; then either correct the published contract and every unlanded derived ticket, close the child and resume its worker, or move the affected not-yet-started tickets to `needs-triage` and leave the child open |
-| `child.opened` of kind `contract` naming a Claude Design page | The handoff package is written only by the `design-pages` skill's pull door, so there is nothing to correct tonight. Move the affected not-yet-started tickets to `needs-triage`, comment on the child with the pages it names and that it needs a session whose host has the Claude Design MCP tools, and leave it open for the day |
-| `child.opened` of kind `decision` | Nothing tonight; the worker took the default |
+| `child.opened` of kind `contract` | Read the child and the authority it cites. Apply the authority order below; then either correct the source the child names and every unlanded derived ticket, close the child and resume its worker, or move the affected not-yet-started tickets to `needs-triage` and leave the child open |
+| `child.opened` of kind `contract` naming a Claude Design page | The design package is written only by the `design-pages` skill's `references/pull.md`, so there is nothing to correct in this night. Move the affected not-yet-started tickets to `needs-triage`, comment on the child with the pages it names, the ticket numbers moved, and that it needs a session whose host has the Claude Design MCP tools, and leave it open for the user |
+| `child.opened` of kind `decision` | Nothing; the worker took the default |
 | A live worker at `reviewer.started` | Nothing; its result wakes the worker |
 | `ticket.returned` | Leave its workspace for triage; step 4 continues the batch |
-| The `advance` summary has `bounced` | Read the ticket fold. On its first bounce since the newest `spec.opened`, preserve the standing workspace and let the next `advance` start a worker there once; on its second bounce, leave it for triage and do not retry it tonight |
+| The `advance` summary has `bounced` | Read the ticket fold. On its first bounce since the newest `spec.opened`, preserve the standing workspace and let the next `advance` start a worker there once; on its second bounce, leave it for triage and do not retry it in this night |
 | `ticket.refused` | Fix the event's `reason`; step 4 starts it if the frontier permits |
 | `worker.lost` | Step 4 gives back the claim and starts another worker in the standing workspace |
 | `relay.recovered since <time>` | Nothing; later wakes carry the recovered events |
 | `watchdog: relay down (…)` | Nothing is relaying, so `<dispatch> open <spec>` starts one; use `open-ticket <n>` for one ticket. Nothing to ack |
-| `watchdog: relay not reading (…)` | Nothing. The relay is running but cannot read the board; the first read that works clears it, and `open` would replace a running process with nothing. Several of these in a row without it clearing is a network or credential fault worth looking into — the finding names the last cycle and the failing read. Nothing to ack |
+| `watchdog: relay not reading (…)` | Nothing. The relay is running but cannot read the tracker; the first read that works clears it, and `open` would replace a running process with nothing. Several of these in a row without it clearing is a network or credential fault worth looking into — the finding names the last cycle and the failing read. Nothing to ack |
 | `watchdog: #<n> liveness unknown: …` | `<dispatch> resume <n> "Say in one line where you are, then continue"`; exit 0 confirms it; exit 2 because the runner has no such session means `<dispatch> retract <n>`, and exit 2 naming the event that ended the worker's hold means the command that refusal names; otherwise leave it for the user |
 | `watchdog: #<n> is held with no session to ask, …` | Read `status`; when nothing works the ticket, `<dispatch> retract <n>`. Nothing to ack |
-| `watchdog: cannot read the board since <time>: …` | Run the named `gh issue view <n>`; wait for tracker or network recovery, or leave credential repair to the user. Nothing to ack |
+| `watchdog: cannot read the tracker since <time>: …` | Run the named `gh issue view <n>`; wait for tracker or network recovery, or leave credential repair to the user. Nothing to ack |
 | `watchdog: #<n> events unreadable` | Leave the named comment for the user. Nothing to ack |
 | A live worker whose runner has no session | `<dispatch> retract <n>`; step 4 starts its replacement |
-| `watchdog: #<n> silent since <time> with nothing to wait on: …` | Resume it with the continue/fault/decision instruction in [how-it-works.md](how-it-works.md) under **Interpreting a night**. Nothing to ack |
+| `watchdog: #<n> silent since <time> with nothing to wait on: …` | Resume it with the message under [Exit codes of `resume`](#exit-codes-of-resume) below. Nothing to ack |
 | A live worker with no fault | Nothing; its result wakes you |
-| A gone session still has a worktree, slot or claim | `<dispatch> retract <n>`; exit 0 reports what it released, exit 2 names what remains |
+| A gone session still has a worktree, slot or claim | `<dispatch> retract <n>`; exit 0 ends with `retract #<n>: archived <a>, slot given back <s>, claim given back <c>` on stderr, where a `0` is something it could not release and the line above it says why; exit 2 released nothing and names the reason |
 | The ticket needs the other worker grade | Swap its `junior-worker` / `senior-worker` label; the next `start` reads it |
 | Empty frontier and no live agent | Finish the wake, then go to `## 4. The closing pass` |
 
-For a `contract` child, use this authority order exactly: **decision tickets and ADRs, then the spec, then the handoff package or the screen contract, each in its own domain, then domain documents, then the ticket body**. Fix it yourself when you can cite a written authority at that order: a higher authority, a more specific file within the same authority, a repository rule, or the artifact a baseline copied. Edit the tracker-owned spec, acceptance criterion, or ticket body directly; when a spec changes, leave the change-and-reason comment that the `to-spec` skill's step 5 requires. Edit a repository-owned baseline through the normal `origin/<into>` commit and push procedure in `## 4. The closing pass` — never the handoff package, which is written only by the `design-pages` skill's pull door. Correct every not-yet-landed ticket derived from the same bad statement. Comment on the child with the authority used, every published item corrected, the source commit, and the tickets checked; run `<dispatch> route <n> <child> fixed`, then resume the active worker with the exact correction, the commit it should integrate from, and `continue`.
+For a `contract` child, use this authority order exactly: **decision tickets and ADRs, then the spec, then the design package or the screen contract, each in its own domain, then domain documents, then the ticket body**. Fix it yourself when you can cite a written authority at that order: a higher authority, a more specific file within the same authority, a repository rule, or the artifact a baseline copied. Edit the tracker-owned spec, acceptance criterion, or ticket body directly; when a spec changes, leave the change-and-reason comment that the `to-spec` skill's step 5 requires. Edit a repository-owned baseline through the normal `origin/<into>` commit and push procedure in `## 4. The closing pass` — never the design package, which is written only by the `design-pages` skill's `references/pull.md`. Correct every not-yet-landed ticket derived from the same bad statement. Comment on the child with the authority used, every published item corrected, the source commit, and the tickets checked; run `<dispatch> route <n> <child> fixed`, then resume the active worker with the exact correction, the commit it should integrate from, and `continue`.
 
 When no authority settles the correction, or the proposed correction would overturn the user's decision or expand the spec, leave the choice to the user. Find every not-yet-started ticket derived from the same Parent decision, move each from `ready-for-agent` to `needs-triage`, and comment on the child with the unresolved options, your recommendation, and the ticket numbers moved. Leave the child open for the user. A ticket already being worked stays held at the contract question; do not rewrite its delivery while the authority is unresolved.
+
+### Exit codes of `resume`
+
+Exit 0 delivered the message. Exit 4 handed it over without proving a new turn and must not be sent again. Exit 3 delivered nothing or could not decide, so wait and retry the same command; a runner can hand over the message before it confirms the new turn and still return 3, so word the retry so a worker that receives both reads them as one instruction. Exit 2 sent nothing, for one of three reasons stderr names: an event ended the hold of the ticket's newest worker and no other worker holds it — the refusal names that event and the command that goes on from it, and sending into a session whose hold has ended would make that hold live again, because `worker.resumed` does; the runner no longer has the session; or the ticket's events could not be read. Read `status` and do not send again. After repeated exit 3 with no ticket event, `start <n> worker` replaces it. The replacement checks and recoverable state are in [how-it-works.md](how-it-works.md) under **Starting a session**.
+
+**Those four are as far apart as the runner can see.** A runner that cannot observe the program running inside its session has no turn to report starting, so it answers 4 to every send it accepts: on such a runner exit 4 is the ordinary answer to `resume` and not a sign that anything went wrong, and 0 never arrives. Every `resume` is then one delivery you do not get a receipt for — send once, end your turn, and let the ticket's next event say whether the worker read it. Treat a run of 4s as ordinary deliveries, and plan no handling that turns on telling 0 from 4. Whether a given runner can observe its sessions is recorded in its own adapter's header, beside the answer it returns.
+
+For `watchdog: #<n> silent since <time> with nothing to wait on: …`, run `<dispatch> resume <n> "You ended your turn with no result on the ticket. Carry on from where its events say you are. If something outside your code stops you, open a fault sub-issue saying what you ran and what you saw, then stop; if only a person can settle it, open a decision sub-issue, take the default and carry on."` Change no label.
 
 ## 4. The closing pass
 
@@ -143,7 +162,7 @@ Judge each one by the four steps below, **in order, first match wins**, after th
 **Step 0, before you classify at all.** Check the condition the finding's own body states against the current `HEAD`. If it never held, run `<dispatch> route <n> <child> stale invalid` and do nothing else. If it held but a later ticket of the same batch or a closing-pass fix already resolved it, run `<dispatch> route <n> <child> stale fixed-elsewhere` and do nothing else. A judge's claim disproved by current evidence is `invalid`; a valid claim satisfied somewhere else is `fixed-elsewhere`.
 
 1. **Does it fall inside another still-open ticket's `## Owns`?** → a ticket, `Blocked by` that open one. Not a question of size: the constraint is concurrency. Fixing it yourself in the origin-tracking checkout makes the next `advance` conflict when that ticket's branch merges.
-2. **Is it a hole in the acceptance itself** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control.
+2. **Is it a gap in the criteria themselves** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control.
 3. **How many files does the fix touch?** One → fix it yourself. Two or more **with a design coupling between them** — how you fix one decides how you fix the other, and neither can be written until both are settled → a ticket, `senior-worker`. Counting files is not counting effort; it is asking whether the change has a cross-file shape somebody should look at. **A name echoed through prose is not a coupling**: renaming a thing along with its restatements in a domain doc, a `SKILL.md` and a reference file is mechanical, `grep` proves you got them all, and it stays with you.
 4. **Nothing matched** → fix it yourself. **The default is to fix it, not to open a ticket.**
 
@@ -157,7 +176,7 @@ A fix that exceeds those three is a ticket after all.
 
 The ones that become tickets: open as few tickets as possible. A ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that live ticket. A finding that is a ticket on its own becomes one in place — rewrite its body into a ticket, label it for the agent queue, then `<dispatch> route <n> <child> became-ticket <child>`; findings folded into one new ticket each get `<dispatch> route <n> <child> became-ticket <that ticket>`.
 
-A ticket you write here is dispatched tonight, and it has had none of the reading the published batch had. Write it to the `<issue-template>` of the `to-tickets` skill's `SKILL.md`: the sections it names, and the four lines of every criterion —
+A ticket you write here is dispatched in this night, and it has had none of the reading the published batch had. Write it to the `<issue-template>` of the `to-tickets` skill's `SKILL.md`: the sections it names, and the four lines of every criterion —
 
 ```
 - [ ] AC1: <what must be true, in the spec's exact values>
@@ -176,7 +195,7 @@ Then lint each ticket you wrote or rewrote, before you dispatch it:
 
 It starts nothing and runs no product. Only an `ERROR` moves the exit code; fix every one and lint again. An exit 1 whose `ERROR` lines are all tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or that ends in a traceback from a `gh` call, is the tracker not answering rather than the ticket being wrong: run the same command again once it answers.
 
-Once every finding has a route, close this spec's Worker Memory before leaving the pass.
+Once every finding has a route, close this spec's Memory records before leaving the pass.
 List the repository space by the exact `mmw-spec-<spec>` label with a limit large enough
 to return the whole set, and inspect every returned record. Get the Space id from the
 tracker repository rather than from this session's `NMEM_SPACE`:
@@ -232,7 +251,7 @@ Step 4 left no open finding. From any checkout in this repository:
 <dispatch> summary <spec> --memory-decisions <file>
 ```
 
-`reverify` exit 0 means every landed ticket is green. Exit 1 means each red ticket is already reopened in `needs-triage`, unassigned and carrying `ticket.regressed`; do not close it. Exit 2 means one ticket established no result, so no ticket was changed and the remainder was skipped; fix stderr's named condition and run `reverify` again.
+`reverify` exit 0 means every landed ticket is green. Exit 1 means each red ticket is already reopened in `needs-triage`, unassigned and carrying `ticket.regressed`; do not close it. Exit 2 means one ticket established no result: it and the tickets after it were not run and no reverify receipt was written, while a red ticket earlier in the pass is already reopened and a recovered one already closed; fix stderr's named condition and run `reverify` again.
 
 A ticket reverify reopened is taken back by `reverify` itself. Repair the cause on the base branch, push it, and run `reverify <spec>` again: the reopened ticket runs with the rest, and all met, the run writes `ticket.recovered`, takes `needs-triage` off and closes it, counted on the summary line as `<n> recovered`. Leave its closing to `reverify`. Still red, it stays exactly where it is for triage.
 

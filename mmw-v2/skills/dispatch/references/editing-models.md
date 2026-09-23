@@ -4,19 +4,19 @@ Read this only when the user has told you to change which host, model or `effort
 
 ## Resolve `<models>` once
 
-Resolve `../scripts/models.py` once from this reference file's own location. Throughout the commands below, `<models>` expands to `python3 <absolute path to that models.py>`.
+`<models>` in every command below is `scripts/models.py` of this skill, run as `python3 <absolute path to scripts/models.py>`. Resolve it from the location of this skill's `SKILL.md`; the path differs by machine and by host.
 
 ## Change one role
 
 The `models.py config set` command changes one role. Run:
 
 ```bash
-<models> config set <role> <host> <model> <effort>
+<models> config set <role> <host> <model> <level>
 ```
 
-Allowed roles are `junior-worker`, `senior-worker`, `reviewer`, and `advisor`. Allowed hosts are `claude`, `codex`, `grok`, `cursor`, and `pi`, subject to what the selected runner can start. The command scans that runner's current catalog and refuses a model or effort it does not offer.
+Allowed roles are `junior-worker`, `senior-worker`, `reviewer`, and `advisor`. Allowed hosts are `claude`, `codex`, `grok`, `cursor`, and `pi`, subject to what the selected runner can start. `<level>` is the reasoning level, saved as the row's `effort`. The command scans that runner's current catalog and refuses a model or level it does not offer.
 
-A host that carries the level inside the model instead of taking it as a setting of its own offers model-and-effort pairs, each pair set per model in that host's own application; `config set` only selects among the pairs the scan returns, so a level that application has not been given for that model is unavailable until it is added there. `fast` belongs in the model name, not in `effort`. A runner that hands the host its level as a thinking option the host offers only as on or off uses the level for nothing else: `off`, or no level at all, turns thinking off, and every other level turns it on.
+A host that carries the level inside the model instead of taking it as a setting of its own offers model-and-level pairs, each pair set per model in that host's own application; `config set` only selects among the pairs the scan returns, so a level that application has not been given for that model is unavailable until it is added there. `fast` belongs in the model name, not in `effort`. A runner that hands the host its level as a thinking option the host offers only as on or off uses the level for nothing else: `off`, or no level at all, turns thinking off, and every other level turns it on.
 
 ## Change the runner
 

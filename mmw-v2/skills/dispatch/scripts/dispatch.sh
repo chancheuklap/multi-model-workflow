@@ -43,7 +43,7 @@
 # label, so one ticket keeps the same worker every time it is started. Which
 # host, model and thinking level the session gets come from that
 # row of models.json under MMW_HOME, resolved against the catalog of the runner
-# that starts it (`use_catalog_of`). Tonight's runner is `models.py runner`: MMW_RUNNER,
+# that starts it (`use_catalog_of`). The selected runner is `models.py runner`: MMW_RUNNER,
 # then models.json, then, when its runner is auto, the runner this process runs in, then orca.
 # `start` has that runner's adapter (scripts/runners/<runner>.sh) start the
 # session, writes a `worker.started` or `reviewer.started` event
@@ -61,7 +61,7 @@
 # worker whose hold no event has ended; `wait` only reads the ticket.
 #
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
-# the board and wakes the session waiting on each result event through that session's
+# the tracker and wakes the session waiting on each result event through that session's
 # runner's `send`. `open` (a night) and `open-ticket` (one ticket outside a night) open a
 # watch on the relay whose main agent is the calling session — the runner and session its
 # adapter's `self` reads — and start the relay when none runs; `summary` and `suspend`, or
@@ -74,9 +74,9 @@
 # print: everything else a watch starts is read by the main agent, and the board is what a
 # person reads.
 #
-# Each pipeline command's exit codes are written beside that command, in the door that
-# carries it. `board` is the one command documented directly in SKILL.md; that file is
-# otherwise the index of doors.
+# Each pipeline command's exit codes are written beside that command, in the reference
+# file of the moment that carries it. `board` is the one command documented directly in
+# SKILL.md; that file is otherwise the index of moments.
 
 set -uo pipefail
 
@@ -152,7 +152,7 @@ use_runner() {
 tonight_runner() {
   local name
   name="$(python3 "$MODELS_PY" runner)" && [ -n "$name" ] \
-    || refuse "could not tell tonight's runner from MMW_RUNNER, $MODELS_JSON or this process"
+    || refuse "could not tell the selected runner from MMW_RUNNER, $MODELS_JSON or this process"
   printf '%s\n' "$name"
 }
 
@@ -883,7 +883,7 @@ open_night() {
     echo "opened #$spec: wake-ups go to $runner session $session; task board $board"
   else
     echo "opened #$spec: wake-ups go to $runner session $session"
-    echo "dispatch: the night is open and its task board is not, so tonight's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
+    echo "dispatch: the night is open and its task board is not, so the night's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
   fi
 }
 
@@ -2052,7 +2052,7 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
   printf '%s\n' "$session"
 }
 
-# `advise <packet file>`: resolve the advisor row against tonight's runner, start a
+# `advise <packet file>`: resolve the advisor row against the selected runner, start a
 # session in the current worktree with `Use the advisor skill.` followed by the file,
 # and print the session id. An advisor is not a ticket's agent, so this writes no
 # event. A start the runner refuses is refused once: no retry, no other runner.
@@ -2341,8 +2341,8 @@ check_machine() {
     fi
   fi
 
-  # What install.sh checks is this machine's whole toolbox, most of it nothing tonight
-  # uses, and what tonight does use is checked below by what reads it. So an incomplete
+  # What install.sh checks is this machine's whole toolbox, most of it nothing the night
+  # uses, and what the night does use is checked below by what reads it. So an incomplete
   # install does not stop the night: when this checkout is the installed one, install.sh
   # runs to repair it; whatever is still missing after that is said and left.
   if [ ! -f "$INSTALLER" ]; then
@@ -2355,12 +2355,12 @@ check_machine() {
         || echo "dispatch: warning: install.sh did not finish: $(printf '%s' "$install_out" | tail -2 | tr '\n' ' ')" >&2
     fi
     if ! install_out="$(bash "$INSTALLER" --check 2>&1)"; then
-      echo "dispatch: warning: install.sh --check still finds this, which tonight does not wait on:" >&2
+      echo "dispatch: warning: install.sh --check still finds this, which the night does not wait on:" >&2
       printf '%s\n' "$install_out" | grep -E '缺|残留|不齐|不一致|没查|不是|没在跑' | sed 's/^/  /' >&2
     fi
   fi
 
-  # Tonight's runner has to be one this skill has an adapter for, and every row `start`
+  # The selected runner has to be one this skill has an adapter for, and every row `start`
   # reads — each worker grade and the reviewer — has to resolve against the
   # catalog of that runner. A row that does not resolve refuses every start of its agent,
   # one ticket at a time, hours into the night; here it is one line before the night opens,
@@ -2368,7 +2368,7 @@ check_machine() {
   local runner roles role out err_file
   runner="$(tonight_runner)"
   if [ ! -f "$SKILL_ROOT/scripts/runners/$runner.sh" ]; then
-    echo "dispatch: tonight's runner is $runner, and this skill has no adapter for it (scripts/runners/$runner.sh); name paseo, orca or herdr in MMW_RUNNER or models.json" >&2
+    echo "dispatch: the selected runner is $runner, and this skill has no adapter for it (scripts/runners/$runner.sh); name paseo, orca or herdr in MMW_RUNNER or models.json" >&2
     failed=1
   fi
   use_catalog_of "$runner"
@@ -2700,7 +2700,7 @@ prepare_merge_worktree() {
 }
 
 # The merge worktree is filed under the worktree of the session running this command —
-# the main agent, for `open`, `advance`, `land`, `reverify` and `finish` — by tonight's
+# the main agent, for `open`, `advance`, `land`, `reverify` and `finish` — by the selected
 # runner's `attach`, once per command however many landings it makes. A runner with no
 # such view does nothing; one that fails is reported on stderr and the landing goes on.
 FILED_MERGE_WORKTREES=""

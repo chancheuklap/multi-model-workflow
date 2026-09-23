@@ -5,8 +5,8 @@
     watchdog.py arm --repo O/R [--wait S]
     watchdog.py status --repo O/R
 
-The board only ever brings good news. A worker that finishes writes on its ticket and the
-relay wakes whoever waits on it; a worker that dies writes nothing, and on the board its
+The tracker only ever brings good news. A worker that finishes writes on its ticket and the
+relay wakes whoever waits on it; a worker that dies writes nothing, and on the tracker its
 silence looks exactly like work in progress (docs/adr/0008-silence-is-never-a-pass.md).
 This process is what notices. It costs no tokens and holds no session: it reads files,
 `gh` and the runner adapters, and it is not an agent.
@@ -36,7 +36,7 @@ watch is open this process writes a last heartbeat saying so and exits.
    finished a cycle (`cycle_at` in `beat.json`, written by every cycle, a failed one
    included) within its grace; otherwise the finding `relay down`. Is it reading: its last
    good poll (`at`) is within its grace too; otherwise the finding `relay not reading` —
-   the process is there and cannot see the board, which is not the same thing and does not
+   the process is there and cannot see the tracker, which is not the same thing and does not
    call for another `open`. Both are measured less the time spent delivering, which delays
    a cycle without stopping it, and a relay that has not cycled or polled yet is given its
    grace from the moment it started. A beat with no cycle stamp was written by a relay
@@ -78,7 +78,7 @@ watch is open this process writes a last heartbeat saying so and exits.
 agent runs in, one message on one line, each finding in it beginning `watchdog:`. Not
 through the relay's queue: the relay may be the thing that is down. A finding about a
 ticket goes to the main agent of the watch the ticket belongs to; `relay down`, `relay not
-reading` and `cannot read the board` go to every watch's main agent. Each finding is sent
+reading` and `cannot read the tracker` go to every watch's main agent. Each finding is sent
 to each of its main agents once — keyed by that main agent, what the finding is about, and
 the ticket's newest event or the relay's last good poll — and never again for the same
 stretch, across restarts of this process. A relay that goes from not reading to down is a
@@ -106,7 +106,7 @@ The findings exactly:
               silent since <time>
     watchdog: #<n> silent since <time> with nothing to wait on: its worker <session> on
               <runner> is alive, and no reviewer or product slot is pending
-    watchdog: cannot read the board since <time>: <what failed>
+    watchdog: cannot read the tracker since <time>: <what failed>
 
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
 repository has one watchdog, serving every watch; the lock's record names its pid and
@@ -117,9 +117,9 @@ and identity. A heartbeat is fresh when its age is within the tolerance
 (60 + 120 s), the longest it waits between two beats: a fixed number would read a healthy
 watchdog as dead as soon as its poll grew past it. The watchdog is healthy when the lock
 names a live process, the heartbeat was written by that process, it is fresh, and its last
-whole read of the board (`read_at`, carried across restarts) is within the tolerance too:
-a watchdog that cannot read the board watches nothing, and after the tolerance it says so
-once (`cannot read the board`). A pid alone is never enough: a dead watchdog's pid can be
+whole read of the tracker (`read_at`, carried across restarts) is within the tolerance too:
+a watchdog that cannot read the tracker watches nothing, and after the tolerance it says so
+once (`cannot read the tracker`). A pid alone is never enough: a dead watchdog's pid can be
 handed to another process, and that process is not a watchdog.
 
 **Only this machine's sessions are asked.** Every `*.started` records the machine it was
@@ -128,7 +128,7 @@ a session started on another it would say `stopped` of a worker that is alive; s
 from another machine is recorded as unknown and reported, never asked and never lost.
 
 **Arming.** `arm` does nothing when the watchdog is healthy, and ends nothing that still
-beats: one that cannot read the board is left running to report it. Otherwise it ends a hung
+beats: one that cannot read the tracker is left running to report it. Otherwise it ends a hung
 one (a live holder whose heartbeat is past its tolerance, identity checked, SIGTERM), starts
 `run` as a process of its own session with its output appended to `watchdog.log`, and waits
 up to `--wait` seconds (default 5) for it to be healthy. `MMW_WATCHDOG_PY` names the script
@@ -144,7 +144,7 @@ Files in the state directory, beside the relay's:
                     reported ([runner, session, key] of each finding sent), main (per main
                     agent, why its findings could not be sent), closed, reads (billed and
                     not-modified comment-list reads since this process started; null for a
-                    board that does not count them)
+                    `Board` that does not count them)
     watchdog.log    what every started watchdog printed, appended
 
 Exit codes:
@@ -241,8 +241,8 @@ def health(holder: dict | None, beat: dict | None, now: datetime) -> tuple[bool,
     with the recorded identity, else None. Healthy is four things together: a live holder,
     a heartbeat that holder wrote (same pid and identity: a heartbeat left by an earlier
     watchdog proves nothing about this one), that heartbeat within `tolerance`, and a
-    whole read of the board within `tolerance` too (`read_at`, carried across restarts): a
-    watchdog that cannot read the board watches nothing, however regularly it beats.
+    whole read of the tracker within `tolerance` too (`read_at`, carried across restarts): a
+    watchdog that cannot read the tracker watches nothing, however regularly it beats.
     """
     if holder is None:
         last = f", last heartbeat {beat.get('at')}" if beat and beat.get("at") else ""
@@ -263,7 +263,7 @@ def health(holder: dict | None, beat: dict | None, now: datetime) -> tuple[bool,
                        f"{limit}s")
     read = parse_iso(beat.get("read_at") or beat.get("started"))
     if read is not None and (now - read).total_seconds() > limit:
-        return False, (f"the watchdog (pid {pid}) has not read the whole board since "
+        return False, (f"the watchdog (pid {pid}) has not read the whole tracker since "
                        f"{iso(read)}, past its tolerance of {limit}s: "
                        f"{beat.get('read_failure') or 'no read has succeeded'}")
     return True, f"the watchdog (pid {pid}) beat {max(age, 0)}s ago"
@@ -357,13 +357,13 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
         down          nothing is relaying. Its lock names no live process, or it has
                       finished no cycle within its grace: whatever lands on a ticket now
                       wakes nobody until a relay runs again.
-        not reading   it is cycling, and its reads of the board have been failing for
+        not reading   it is cycling, and its reads of the tracker have been failing for
                       longer than its grace. The process is alive; what it is missing is
-                      the board.
+                      the tracker.
 
     Its lock record (`relay.lock`: pid and process identity, statedir.py) has to name a
     live process for either. Running is then `cycle_at`, which every cycle writes, a
-    failed one included; reading is `at`, the last cycle that read the board. Both are
+    failed one included; reading is `at`, the last cycle that read the tracker. Both are
     measured less the time spent delivering, which delays a cycle without stopping it. A
     relay that has not read yet, or has not cycled yet, is given its grace from the moment
     it started. A beat with no cycle stamp was written by a relay older than that field,
@@ -551,7 +551,7 @@ class Watchdog:
                          if isinstance(r, list) and len(r) == 3],
             "main": None, "closed": None, "machine": self.machine,
             # The last round that read every ticket. While reads are failing it is carried
-            # across restarts, so a restart does not wipe out how long the board has gone
+            # across restarts, so a restart does not wipe out how long the tracker has gone
             # unread; a watchdog that was reading, or a night that closed, starts afresh.
             "read_at": (previous.get("read_at") if previous.get("read_failure")
                         and not previous.get("closed") else None) or iso(self.clock()),
@@ -680,7 +680,7 @@ class Watchdog:
             if since is not None and (now - since).total_seconds() > tolerance(self.poll):
                 findings.append({
                     "key": f"read:{self.beat.get('read_at')}",
-                    "text": f"watchdog: cannot read the board since {self.beat.get('read_at')}: "
+                    "text": f"watchdog: cannot read the tracker since {self.beat.get('read_at')}: "
                             f"{self.beat['read_failure']}",
                     "to": everyone,
                 })
@@ -840,7 +840,7 @@ def arm(state: Path, repo: str, wait: float = ARM_WAIT) -> tuple[bool, str]:
         return True, why
     holder = statedir.holder(state / "watchdog.lock")
     if holder is not None and not stale(beat, now_utc()):
-        # Beating, and unhealthy for another reason (it cannot read the board): starting
+        # Beating, and unhealthy for another reason (it cannot read the tracker): starting
         # another would change nothing, and this one reports what fails.
         return False, why
     if holder is not None:

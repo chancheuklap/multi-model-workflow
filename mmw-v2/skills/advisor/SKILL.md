@@ -1,11 +1,11 @@
 ---
 name: advisor
-description: A second opinion on a decision, from a fresh session on a stronger model. Read this before starting one: before an architecture choice, a data migration, a big refactor or an API shape is committed; when one problem has resisted two attempts; or before a disputed reading of the task is treated as settled. Also read it when you were started as the advisor and your prompt is a question packet. Not for what you can settle by reading the code.
+description: "A second opinion on one decision, from a separate advisor session. Use before an architecture choice, a data migration, a big refactor or an API shape is committed; when one problem has resisted two attempts; before a disputed reading of the task is treated as settled; or when you were started as the advisor. Not for what reading the code can settle."
 ---
 
 # Advisor
 
-Two doors, and this run is at one of them.
+Two moments, and this run is at one of them.
 
 | You are | Read |
 | --- | --- |
