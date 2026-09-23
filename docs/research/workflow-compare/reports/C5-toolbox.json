@@ -1,0 +1,2552 @@
+{
+  "group": "C5-toolbox",
+  "nodes": [
+    {
+      "id": "human:authorize install",
+      "carrier": "human",
+      "name": "install.sh 授权",
+      "label": "授权安装",
+      "phase": "安装与发布",
+      "actor": "human",
+      "what": "完整安装只在用户明确授权后运行；只读 --check 例外。",
+      "inputs": [
+        "human:accept result"
+      ],
+      "outputs": [
+        "command:install.sh#install"
+      ],
+      "location": "AGENTS.md#Gotchas",
+      "ui": false
+    },
+    {
+      "id": "command:install.sh#install",
+      "carrier": "command",
+      "name": "bash mmw-v2/install.sh",
+      "label": "安装九项",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "一次安装九项并把本 checkout 写入 installed-root；可省略未安装宿主的对应目标。",
+      "inputs": [
+        "human:authorize install"
+      ],
+      "outputs": [
+        "config:skills.txt",
+        "artifact:~/.agents/skills",
+        "artifact:~/.claude/skills",
+        "artifact:~/.mmw/installed-root",
+        "config:~/.paseo/config.json",
+        "artifact:~/.local/bin/paseo",
+        "config:Orca worktree-base-path",
+        "config:~/.cursor/mcp.json#nowledge-mem",
+        "process:com.mmw.prompt-sync",
+        "process:com.mmw.board",
+        "external:Nowledge Mem#mmw-toolbox",
+        "external:Nowledge Mem#mmw-worker",
+        "external:Nowledge Mem#mmw-reviewer",
+        "script:skills/dispatch/scripts/models.py#install_local_config",
+        "hook:skills/dispatch/scripts/tool-guard.py#pretool",
+        "hook:skills/dispatch/scripts/tool-guard.py#question",
+        "hook:skills/dispatch/scripts/turn-guard.py#stop",
+        "command:install.sh#--check"
+      ],
+      "location": "install.sh#install.sh:2-18",
+      "ui": false
+    },
+    {
+      "id": "config:skills.txt",
+      "carrier": "config",
+      "name": "skills.txt",
+      "label": "技能清单",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "唯一决定安装哪些技能，覆盖自研和两个 upstream 来源。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "artifact:~/.agents/skills",
+        "artifact:~/.claude/skills",
+        "config:skills/dispatch/hosts.json"
+      ],
+      "location": "skills.txt#装进各 host 的技能:1-9",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.agents/skills",
+      "carrier": "artifact",
+      "name": "~/.agents/skills",
+      "label": "通用技能软链",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "Codex、Cursor、Grok、Pi 扫描的宿主中立技能软链。",
+      "inputs": [
+        "command:install.sh#install",
+        "config:skills.txt"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "install.sh#NEUTRAL_DIR:103-105",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.claude/skills",
+      "carrier": "artifact",
+      "name": "~/.claude/skills",
+      "label": "Claude技能软链",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "Claude Code 的同批技能软链，直接指向 source directory。",
+      "inputs": [
+        "command:install.sh#install",
+        "config:skills.txt"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "install.sh#CLAUDE_DIR:105-111",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.mmw/installed-root",
+      "carrier": "artifact",
+      "name": "~/.mmw/installed-root",
+      "label": "安装根目录",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "记录装入的 mmw-v2 checkout；异地 --check 转交这份 checkout 的脚本。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "command:install.sh#--check",
+        "artifact:AGENTS.md#Self-hosting boundary"
+      ],
+      "location": "install.sh#INSTALLED_ROOT_FILE:125-140",
+      "ui": false
+    },
+    {
+      "id": "command:install.sh#--check",
+      "carrier": "command",
+      "name": "bash mmw-v2/install.sh --check",
+      "label": "只读安装检查",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "只核对安装、残留与适配器 MMW_USES；从其他 checkout 调用会转到 installed-root。",
+      "inputs": [
+        "command:install.sh#install",
+        "artifact:~/.mmw/installed-root",
+        "command:skills/dispatch/scripts/dispatch.sh#check",
+        "command:git -C .worktrees/mmw-installed checkout --detach main"
+      ],
+      "outputs": [
+        "script:install.sh#MMW_USES",
+        "command:git push origin dev main"
+      ],
+      "location": "install.sh#mode=check:113-140",
+      "ui": false
+    },
+    {
+      "id": "command:skills/dispatch/scripts/dispatch.sh#check",
+      "carrier": "command",
+      "name": "dispatch.sh check <spec>",
+      "label": "开夜前检查",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "开夜前检查安装和模型；安装缺项是 warning，冻结 runtime 自身可修复。",
+      "inputs": [
+        "tracker:spec issue"
+      ],
+      "outputs": [
+        "command:install.sh#--check",
+        "command:skills/dispatch/scripts/dispatch.sh#board"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#check:2335-2365",
+      "ui": false
+    },
+    {
+      "id": "artifact:AGENTS.md#Self-hosting boundary",
+      "carrier": "artifact",
+      "name": "Self-hosting boundary",
+      "label": "冻结运行版本",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "夜间或单票 watch 从打开到关闭只使用 installed-root 的技能、脚本、提示词、事件、relay 和 watchdog。",
+      "inputs": [
+        "artifact:~/.mmw/installed-root"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#finish"
+      ],
+      "location": "AGENTS.md#Self-hosting boundary:10-16",
+      "ui": false
+    },
+    {
+      "id": "human:accept result",
+      "carrier": "human",
+      "name": "用户接受结果",
+      "label": "接受成果",
+      "phase": "安装与发布",
+      "actor": "human",
+      "what": "完成旧 runtime 的整夜关闭后，由用户接受成果才可更新 frozen installed worktree。",
+      "inputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#finish"
+      ],
+      "outputs": [
+        "command:git commit dev",
+        "human:authorize install"
+      ],
+      "location": "AGENTS.md#Self-hosting boundary:14",
+      "ui": false
+    },
+    {
+      "id": "command:skills/dispatch/scripts/dispatch.sh#finish",
+      "carrier": "command",
+      "name": "dispatch.sh finish",
+      "label": "完成整夜",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "在 retro receipt 与用户接受后完成整夜；冻结安装的移动须在此之后。",
+      "inputs": [
+        "artifact:AGENTS.md#Self-hosting boundary",
+        "hook:skills/dispatch/scripts/turn-guard.py#stop",
+        "command:skills/retro/scripts/retro.py#finalize",
+        "event:spec.retroed"
+      ],
+      "outputs": [
+        "human:accept result"
+      ],
+      "location": "skills/dispatch/references/night.md#6. Merge the accepted night",
+      "ui": false
+    },
+    {
+      "id": "command:git commit dev",
+      "carrier": "command",
+      "name": "commit on dev",
+      "label": "提交dev",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "release 第一步：成果提交在 dev。",
+      "inputs": [
+        "human:accept result"
+      ],
+      "outputs": [
+        "command:git push . dev:main"
+      ],
+      "location": "AGENTS.md#Gotchas:65",
+      "ui": false
+    },
+    {
+      "id": "command:git push . dev:main",
+      "carrier": "command",
+      "name": "git push . dev:main",
+      "label": "快进main",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "release 第二步：本地 main 快进到 dev。",
+      "inputs": [
+        "command:git commit dev"
+      ],
+      "outputs": [
+        "command:git -C .worktrees/mmw-installed checkout --detach main"
+      ],
+      "location": "AGENTS.md#Gotchas:65",
+      "ui": false
+    },
+    {
+      "id": "command:git -C .worktrees/mmw-installed checkout --detach main",
+      "carrier": "command",
+      "name": "git -C .worktrees/mmw-installed checkout --detach main",
+      "label": "更新冻结树",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "release 第三步：watch 全部关闭后才把 installed worktree 移到 main，并确认 install.sh --check。",
+      "inputs": [
+        "command:git push . dev:main"
+      ],
+      "outputs": [
+        "command:install.sh#--check"
+      ],
+      "location": "AGENTS.md#Gotchas:65",
+      "ui": false
+    },
+    {
+      "id": "command:git push origin dev main",
+      "carrier": "command",
+      "name": "git push origin dev main",
+      "label": "推送双分支",
+      "phase": "安装与发布",
+      "actor": "main agent",
+      "what": "release 第四步：推送 dev 与 main。",
+      "inputs": [
+        "command:install.sh#--check"
+      ],
+      "outputs": [
+        "artifact:origin/dev main"
+      ],
+      "location": "AGENTS.md#Gotchas:65",
+      "ui": false
+    },
+    {
+      "id": "config:~/.paseo/config.json",
+      "carrier": "config",
+      "name": "~/.paseo/config.json",
+      "label": "Paseo配置",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "安装 grok/cursor providers 与 worktrees.root；不生成 Agent profile。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "external:runner adapters"
+      ],
+      "location": "install.sh#Paseo 侧配置:1067-1074",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.local/bin/paseo",
+      "carrier": "artifact",
+      "name": "~/.local/bin/paseo",
+      "label": "Paseo入口",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "指向 Paseo.app 内 CLI 的软链。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "external:runner adapters"
+      ],
+      "location": "install.sh#PASEO_BIN_LINK:1075-1094",
+      "ui": false
+    },
+    {
+      "id": "config:Orca worktree-base-path",
+      "carrier": "config",
+      "name": "worktree-base-path",
+      "label": "Orca工作树",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "有 Orca 时把每个 setup 指到 .worktrees；externalWorktreeVisibility 只检查，CLI 无法写。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "external:runner adapters"
+      ],
+      "location": "install.sh#Orca 侧工作树配置:1237-1400",
+      "ui": false
+    },
+    {
+      "id": "config:~/.cursor/mcp.json#nowledge-mem",
+      "carrier": "config",
+      "name": "nowledge-mem MCP",
+      "label": "Cursor记忆连接",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "从本机 nmem 配置取得 Cursor MCP 条目，去掉 type 字段并保留其他 server。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "external:Nowledge Mem"
+      ],
+      "location": "install.sh#CURSOR_MCP:1733-1829",
+      "ui": false
+    },
+    {
+      "id": "script:install.sh#MMW_USES",
+      "carrier": "script",
+      "name": "# MMW_USES: self-check",
+      "label": "适配器核验",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "只在 --check 中对 PATH 上的 runner 二进制核查适配器声明；读不到帮助页与不一致分别报告。",
+      "inputs": [
+        "command:install.sh#--check"
+      ],
+      "outputs": [
+        "external:runner adapters"
+      ],
+      "location": "install.sh#适配器 MMW_USES 自检:1404-1590",
+      "ui": false
+    },
+    {
+      "id": "artifact:origin/dev main",
+      "carrier": "artifact",
+      "name": "origin/dev and origin/main",
+      "label": "远端双分支",
+      "phase": "安装与发布",
+      "actor": "script",
+      "what": "git push origin dev main 后的远端 dev 与 main，承载这次工具箱发布的提交。",
+      "inputs": [
+        "command:git push origin dev main"
+      ],
+      "outputs": [
+        "远端 dev 和 main 上的发布提交"
+      ],
+      "location": "AGENTS.md#Gotchas:65",
+      "ui": false
+    },
+    {
+      "id": "artifact:prompt/shared.md",
+      "carrier": "artifact",
+      "name": "shared.md",
+      "label": "共用提示词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "四家用户级提示词的共用正文。",
+      "inputs": [
+        "hook:hooks/rule-at-moment.py#main"
+      ],
+      "outputs": [
+        "script:prompt/render.py#render",
+        "process:com.mmw.prompt-sync",
+        "artifact:~/.claude/CLAUDE.md",
+        "artifact:prompt/hosts/<host>.md"
+      ],
+      "location": "prompt/README.md#prompt:1-8",
+      "ui": false
+    },
+    {
+      "id": "artifact:prompt/hosts/<host>.md",
+      "carrier": "artifact",
+      "name": "hosts/<host>.md",
+      "label": "宿主补充词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "Claude、Codex、Pi、Grok 的各自补充文字。",
+      "inputs": [
+        "artifact:prompt/shared.md"
+      ],
+      "outputs": [
+        "script:prompt/render.py#render",
+        "process:com.mmw.prompt-sync",
+        "artifact:~/.claude/rules/mmw-claude.md"
+      ],
+      "location": "prompt/README.md#prompt:1-8",
+      "ui": false
+    },
+    {
+      "id": "script:prompt/render.py#render",
+      "carrier": "script",
+      "name": "render.py",
+      "label": "拼接提示词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "拼接共享与宿主补充词，写入正文哈希；拒绝覆盖手改生成物，--adopt 可接管。",
+      "inputs": [
+        "artifact:prompt/shared.md",
+        "artifact:prompt/hosts/<host>.md",
+        "process:com.mmw.prompt-sync"
+      ],
+      "outputs": [
+        "artifact:~/.codex/AGENTS.md",
+        "artifact:~/.pi/agent/AGENTS.md",
+        "artifact:~/.grok/AGENTS.md"
+      ],
+      "location": "prompt/render.py#render:29-124",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.claude/CLAUDE.md",
+      "carrier": "artifact",
+      "name": "~/.claude/CLAUDE.md",
+      "label": "Claude共用词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "直接软链到 shared.md。",
+      "inputs": [
+        "artifact:prompt/shared.md"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "install.sh#提示词:915-968",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.claude/rules/mmw-claude.md",
+      "carrier": "artifact",
+      "name": "~/.claude/rules/mmw-claude.md",
+      "label": "Claude专属词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "直接软链到 hosts/claude.md。",
+      "inputs": [
+        "artifact:prompt/hosts/<host>.md"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "install.sh#提示词:915-968",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.codex/AGENTS.md",
+      "carrier": "artifact",
+      "name": "~/.codex/AGENTS.md",
+      "label": "codex生成提示词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "render.py 生成并由该宿主在会话中读取。",
+      "inputs": [
+        "script:prompt/render.py#render"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "prompt/render.py#targets:29-39",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.pi/agent/AGENTS.md",
+      "carrier": "artifact",
+      "name": "~/.pi/agent/AGENTS.md",
+      "label": "pi生成提示词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "render.py 生成并由该宿主在会话中读取。",
+      "inputs": [
+        "script:prompt/render.py#render"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "prompt/render.py#targets:29-39",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.grok/AGENTS.md",
+      "carrier": "artifact",
+      "name": "~/.grok/AGENTS.md",
+      "label": "grok生成提示词",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "render.py 生成并由该宿主在会话中读取。",
+      "inputs": [
+        "script:prompt/render.py#render"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "prompt/render.py#targets:29-39",
+      "ui": false
+    },
+    {
+      "id": "process:com.mmw.prompt-sync",
+      "carrier": "process",
+      "name": "com.mmw.prompt-sync",
+      "label": "提示词监视",
+      "phase": "提示词与 hooks",
+      "actor": "process",
+      "what": "launchd 监视五份源文件，变动后调用 render.py；Claude 的软链不需重拼。",
+      "inputs": [
+        "command:install.sh#install",
+        "artifact:prompt/shared.md",
+        "artifact:prompt/hosts/<host>.md"
+      ],
+      "outputs": [
+        "script:prompt/render.py#render"
+      ],
+      "location": "install.sh#launch_agent:970-1014",
+      "ui": false
+    },
+    {
+      "id": "hook:skills/dispatch/scripts/tool-guard.py#pretool",
+      "carrier": "hook",
+      "name": "tool-guard.py pretool",
+      "label": "执行前守卫",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "Claude/Codex/Grok 的 PreToolUse Bash、Cursor beforeShellExecution、Pi tool_call 触发；ticket worktree 内拒绝离开队列或结束进程的命令。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start worker",
+        "artifact:~/.codex/config.toml#hooks.state",
+        "external:host sessions"
+      ],
+      "location": "install.sh#hook:311-315,655-663",
+      "ui": false
+    },
+    {
+      "id": "hook:skills/dispatch/scripts/tool-guard.py#question",
+      "carrier": "hook",
+      "name": "tool-guard.py question",
+      "label": "提问前守卫",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "Claude/Codex/Grok 的 PreToolUse 问题工具触发；worker/reviewer 无人值守时拒绝屏幕提问。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start reviewer",
+        "external:host sessions"
+      ],
+      "location": "install.sh#QUESTION_TOOLS:453-455,655-663",
+      "ui": false
+    },
+    {
+      "id": "hook:skills/dispatch/scripts/turn-guard.py#stop",
+      "carrier": "hook",
+      "name": "turn-guard.py stop",
+      "label": "回合结束守卫",
+      "phase": "提示词与 hooks",
+      "actor": "process",
+      "what": "Claude/Codex/Grok Stop、Cursor stop、Pi agent_settled 触发；仅主 agent 有打开的 watch 时保持 liveness。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#finish",
+        "external:host sessions"
+      ],
+      "location": "install.sh#turn-guard.py:665-681",
+      "ui": false
+    },
+    {
+      "id": "artifact:~/.codex/config.toml#hooks.state",
+      "carrier": "artifact",
+      "name": "hooks.state trusted_hash",
+      "label": "Codex钩子信任",
+      "phase": "提示词与 hooks",
+      "actor": "script",
+      "what": "安装器给自家 Codex hooks 写 trusted_hash；哈希算法若被 Codex 改动，--check 不能识别。",
+      "inputs": [
+        "hook:skills/dispatch/scripts/tool-guard.py#pretool"
+      ],
+      "outputs": [
+        "external:host sessions"
+      ],
+      "location": "install.sh#codex_trust_write:752-901",
+      "ui": false
+    },
+    {
+      "id": "hook:hooks/rule-at-moment.py#main",
+      "carrier": "hook",
+      "name": "rule-at-moment.py",
+      "label": "可选规则钩子",
+      "phase": "提示词与 hooks",
+      "actor": "human",
+      "what": "仓库保留但 install.sh 不注册；需要者手动挂入 ~/.claude/hooks。",
+      "inputs": [
+        "human:manual Claude hook registration"
+      ],
+      "outputs": [
+        "artifact:prompt/shared.md"
+      ],
+      "location": "hooks/rule-at-moment.py#main",
+      "ui": false
+    },
+    {
+      "id": "external:host sessions",
+      "carrier": "external",
+      "name": "host sessions",
+      "label": "宿主会话",
+      "phase": "提示词与 hooks",
+      "actor": "process",
+      "what": "各宿主读取技能与用户级提示词，在相应事件调用安装的 hooks。",
+      "inputs": [
+        "artifact:~/.agents/skills",
+        "artifact:~/.claude/skills",
+        "artifact:~/.claude/CLAUDE.md",
+        "artifact:~/.claude/rules/mmw-claude.md",
+        "artifact:~/.codex/AGENTS.md",
+        "artifact:~/.pi/agent/AGENTS.md",
+        "artifact:~/.grok/AGENTS.md",
+        "artifact:~/.codex/config.toml#hooks.state",
+        "hook:skills/dispatch/scripts/tool-guard.py#pretool",
+        "hook:skills/dispatch/scripts/tool-guard.py#question",
+        "hook:skills/dispatch/scripts/turn-guard.py#stop"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start worker"
+      ],
+      "location": "install.sh#install.sh:35-43",
+      "ui": false
+    },
+    {
+      "id": "human:manual Claude hook registration",
+      "carrier": "human",
+      "name": "rule-at-moment.py manual registration",
+      "label": "手动注册规则钩子",
+      "phase": "提示词与 hooks",
+      "actor": "human",
+      "what": "需要该可选 hook 的人手动把脚本软链到 ~/.claude/hooks/rule-at-moment.py，并在 ~/.claude/settings.json 登记命令；install.sh 不做此事。",
+      "inputs": [
+        "选择启用未由 install.sh 安装的 hook"
+      ],
+      "outputs": [
+        "hook:hooks/rule-at-moment.py#main"
+      ],
+      "location": "hooks/rule-at-moment.py#Claude Code hook:2-8",
+      "ui": false
+    },
+    {
+      "id": "config:skills/dispatch/hosts.json",
+      "carrier": "config",
+      "name": "hosts.json",
+      "label": "宿主启动表",
+      "phase": "模型与 runner",
+      "actor": "script",
+      "what": "保存初装默认行、各 host CLI/Paseo 启动参数与 effort 形式，不是运行时可写配置。",
+      "inputs": [
+        "config:skills.txt"
+      ],
+      "outputs": [
+        "script:skills/dispatch/scripts/models.py#install_local_config",
+        "script:skills/dispatch/scripts/models.py#resolve_session"
+      ],
+      "location": "skills/dispatch/hosts.json#defaults,hosts",
+      "ui": false
+    },
+    {
+      "id": "config:~/.mmw/models.json",
+      "carrier": "config",
+      "name": "MMW_HOME/models.json",
+      "label": "本机模型配置",
+      "phase": "模型与 runner",
+      "actor": "script",
+      "what": "唯一持久选择：version、runner、junior-worker、senior-worker、reviewer、advisor 的 host/model/effort。初装缺席时写，之后不被默认值覆盖。",
+      "inputs": [
+        "script:skills/dispatch/scripts/models.py#install_local_config",
+        "script:skills/dispatch/scripts/models.py#write_local_config"
+      ],
+      "outputs": [
+        "script:skills/dispatch/scripts/models.py#resolve_session",
+        "script:board/settings_api.py#handle"
+      ],
+      "location": "skills/dispatch/scripts/models.py#models_json_path:78-80",
+      "ui": false
+    },
+    {
+      "id": "script:skills/dispatch/scripts/models.py#install_local_config",
+      "carrier": "script",
+      "name": "install_local_config",
+      "label": "初装模型配置",
+      "phase": "模型与 runner",
+      "actor": "script",
+      "what": "首次从旧 models.md 导入或 hosts.json defaults 建立 models.json。",
+      "inputs": [
+        "command:install.sh#install",
+        "config:skills/dispatch/hosts.json"
+      ],
+      "outputs": [
+        "config:~/.mmw/models.json"
+      ],
+      "location": "skills/dispatch/scripts/models.py#install_local_config:212-237",
+      "ui": false
+    },
+    {
+      "id": "command:skills/dispatch/scripts/models.py#config set",
+      "carrier": "command",
+      "name": "models.py config set",
+      "label": "修改角色模型",
+      "phase": "模型与 runner",
+      "actor": "main agent",
+      "what": "选定 role 的 host/model/effort，经目录扫描、验证、版本锁与原子替换写入。",
+      "inputs": [
+        "human:change model configuration"
+      ],
+      "outputs": [
+        "script:skills/dispatch/scripts/models.py#write_local_config"
+      ],
+      "location": "skills/dispatch/scripts/models.py#main:1173-1210",
+      "ui": false
+    },
+    {
+      "id": "command:skills/dispatch/scripts/models.py#config runner",
+      "carrier": "command",
+      "name": "models.py config runner",
+      "label": "修改runner",
+      "phase": "模型与 runner",
+      "actor": "main agent",
+      "what": "换 runner 前核对保存的角色是否仍可启动；下次 start 生效。",
+      "inputs": [
+        "human:change model configuration"
+      ],
+      "outputs": [
+        "script:skills/dispatch/scripts/models.py#write_local_config"
+      ],
+      "location": "skills/dispatch/scripts/models.py#main:1173-1198",
+      "ui": false
+    },
+    {
+      "id": "script:skills/dispatch/scripts/models.py#write_local_config",
+      "carrier": "script",
+      "name": "write_local_config",
+      "label": "校验原子写入",
+      "phase": "模型与 runner",
+      "actor": "script",
+      "what": "扫描目录验证配置，取得 models.lock、比较 version，原子替换。",
+      "inputs": [
+        "command:skills/dispatch/scripts/models.py#config set",
+        "command:skills/dispatch/scripts/models.py#config runner",
+        "script:board/settings_api.py#handle"
+      ],
+      "outputs": [
+        "config:~/.mmw/models.json"
+      ],
+      "location": "skills/dispatch/scripts/models.py#write_local_config:962-990",
+      "ui": false
+    },
+    {
+      "id": "script:skills/dispatch/scripts/models.py#resolve_session",
+      "carrier": "script",
+      "name": "resolve_session",
+      "label": "解析派发角色",
+      "phase": "模型与 runner",
+      "actor": "script",
+      "what": "start 读取 models.json 并用 runner 的当前目录把角色行解析成会话选项。",
+      "inputs": [
+        "config:~/.mmw/models.json",
+        "config:skills/dispatch/hosts.json"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start worker",
+        "command:skills/dispatch/scripts/dispatch.sh#start reviewer",
+        "command:skills/dispatch/scripts/dispatch.sh#advise",
+        "external:runner adapters"
+      ],
+      "location": "skills/dispatch/scripts/models.py#resolve_session:1084-1092",
+      "ui": false
+    },
+    {
+      "id": "external:runner adapters",
+      "carrier": "external",
+      "name": "runners/<runner>.sh",
+      "label": "Runner适配器",
+      "phase": "模型与 runner",
+      "actor": "script",
+      "what": "start 通过选中 runner 的适配器启动会话；适配器声明 MMW_USES 供安装检查。",
+      "inputs": [
+        "script:skills/dispatch/scripts/models.py#resolve_session",
+        "config:~/.paseo/config.json",
+        "artifact:~/.local/bin/paseo",
+        "config:Orca worktree-base-path",
+        "script:install.sh#MMW_USES"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start worker"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#use_runner:143-166",
+      "ui": false
+    },
+    {
+      "id": "human:change model configuration",
+      "carrier": "human",
+      "name": "Changing host, model, or which runner this machine uses",
+      "label": "更改模型配置",
+      "phase": "模型与 runner",
+      "actor": "human",
+      "what": "用户提出更换已派发角色的 host、model、effort 或本机 runner；agent 随后按 editing-models.md 调用 models.py config set 或 config runner。",
+      "inputs": [
+        "用户要求更改会话配置"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/models.py#config set",
+        "command:skills/dispatch/scripts/models.py#config runner"
+      ],
+      "location": "skills/dispatch/references/editing-models.md#Changing host, model, or which runner this machine uses:1-29",
+      "ui": false
+    },
+    {
+      "id": "process:com.mmw.board",
+      "carrier": "process",
+      "name": "com.mmw.board",
+      "label": "看板LaunchAgent",
+      "phase": "看板",
+      "actor": "process",
+      "what": "launchd 保持 supervisor.py 存活。",
+      "inputs": [
+        "command:install.sh#install"
+      ],
+      "outputs": [
+        "process:board/supervisor.py#Supervisor.run"
+      ],
+      "location": "install.sh#task board LaunchAgent:1022-1063",
+      "ui": false
+    },
+    {
+      "id": "config:~/.mmw/boards.json",
+      "carrier": "config",
+      "name": "boards.json",
+      "label": "看板端口表",
+      "phase": "看板",
+      "actor": "process",
+      "what": "每个消费仓库 main checkout 对应一个固定本机端口，不保存票或模型状态。",
+      "inputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#board"
+      ],
+      "outputs": [
+        "process:board/supervisor.py#Supervisor.run"
+      ],
+      "location": "board/supervisor.py#registry_path:31-52",
+      "ui": false
+    },
+    {
+      "id": "command:skills/dispatch/scripts/dispatch.sh#board",
+      "carrier": "command",
+      "name": "dispatch.sh board",
+      "label": "打开任务板",
+      "phase": "看板",
+      "actor": "main agent",
+      "what": "注册并确保仓库看板服务回答，再打开本机 URL；night open 也尝试确保服务。",
+      "inputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#check"
+      ],
+      "outputs": [
+        "config:~/.mmw/boards.json"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#open_board:399-431",
+      "ui": false
+    },
+    {
+      "id": "process:board/supervisor.py#Supervisor.run",
+      "carrier": "process",
+      "name": "supervisor.py",
+      "label": "守护仓库看板",
+      "phase": "看板",
+      "actor": "process",
+      "what": "读取 boards.json，为注册仓库启动或重启 server.py。",
+      "inputs": [
+        "process:com.mmw.board",
+        "config:~/.mmw/boards.json"
+      ],
+      "outputs": [
+        "process:board/server.py#main"
+      ],
+      "location": "board/supervisor.py#Supervisor.run:170-187",
+      "ui": false
+    },
+    {
+      "id": "process:board/server.py#main",
+      "carrier": "process",
+      "name": "server.py",
+      "label": "提供看板页面",
+      "phase": "看板",
+      "actor": "process",
+      "what": "在 127.0.0.1 提供页面、看板与设置 API；每次启动生成 page token。",
+      "inputs": [
+        "process:board/supervisor.py#Supervisor.run"
+      ],
+      "outputs": [
+        "artifact:board/page/index.html",
+        "script:board/board_data.py#BoardStore",
+        "script:board/settings_api.py#handle"
+      ],
+      "location": "board/server.py#main:95-117",
+      "ui": false
+    },
+    {
+      "id": "artifact:board/page/index.html",
+      "carrier": "artifact",
+      "name": "MMW task board",
+      "label": "任务板页面",
+      "phase": "看板",
+      "actor": "human",
+      "what": "加载 topbar、tasks、canvas、detail、settings 页面组件。",
+      "inputs": [
+        "process:board/server.py#main",
+        "script:board/board_data.py#BoardStore"
+      ],
+      "outputs": [
+        "artifact:board/page/settings.mjs"
+      ],
+      "location": "board/page/index.html#MMW task board:1-31",
+      "ui": true
+    },
+    {
+      "id": "script:board/board_data.py#BoardStore",
+      "carrier": "script",
+      "name": "BoardStore",
+      "label": "读取票据状态",
+      "phase": "看板",
+      "actor": "script",
+      "what": "从 GitHub 读取 map/spec/ticket 树、评论与事件折叠；页面没有第二份票据状态。",
+      "inputs": [
+        "process:board/server.py#main",
+        "tracker:GitHub Issues"
+      ],
+      "outputs": [
+        "artifact:board/page/index.html"
+      ],
+      "location": "board/board_data.py#BoardStore:100-330",
+      "ui": false
+    },
+    {
+      "id": "tracker:GitHub Issues",
+      "carrier": "tracker",
+      "name": "GitHub Issues",
+      "label": "票据源",
+      "phase": "看板",
+      "actor": "tracker",
+      "what": "spec、ticket、label、评论和事件的权威来源。",
+      "inputs": [
+        "tracker:spec issue"
+      ],
+      "outputs": [
+        "script:board/board_data.py#BoardStore",
+        "command:skills/dispatch/scripts/dispatch.sh#start worker"
+      ],
+      "location": "docs/contexts/toolbox/CONTEXT.md#issue tracker",
+      "ui": false
+    },
+    {
+      "id": "script:board/settings_api.py#handle",
+      "carrier": "script",
+      "name": "settings_api",
+      "label": "设置接口",
+      "phase": "看板",
+      "actor": "script",
+      "what": "GET 读取 models.json；PUT 经 models.py 验证与写入；POST 扫描目录。",
+      "inputs": [
+        "process:board/server.py#main",
+        "config:~/.mmw/models.json",
+        "artifact:board/page/settings.mjs"
+      ],
+      "outputs": [
+        "script:skills/dispatch/scripts/models.py#write_local_config"
+      ],
+      "location": "board/settings_api.py#handle:118-133",
+      "ui": false
+    },
+    {
+      "id": "artifact:board/page/settings.mjs",
+      "carrier": "artifact",
+      "name": "settings",
+      "label": "设置页面",
+      "phase": "看板",
+      "actor": "human",
+      "what": "让用户查看并修改 runner 与角色模型，向 settings API 提交。",
+      "inputs": [
+        "artifact:board/page/index.html"
+      ],
+      "outputs": [
+        "script:board/settings_api.py#handle"
+      ],
+      "location": "board/page/settings.mjs#saveBody:83-88",
+      "ui": true
+    },
+    {
+      "id": "external:Nowledge Mem",
+      "carrier": "external",
+      "name": "Nowledge Mem",
+      "label": "共享记忆服务",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "安装共享 Space 与角色 Identity；dispatch 和 retro 分别读写 repository Space。",
+      "inputs": [
+        "config:~/.cursor/mcp.json#nowledge-mem"
+      ],
+      "outputs": [
+        "external:Nowledge Mem#mmw-toolbox",
+        "external:Nowledge Mem#mmw-worker",
+        "external:Nowledge Mem#mmw-reviewer",
+        "external:Nowledge Mem#repository Space",
+        "external:Nowledge Mem#Retro Memory"
+      ],
+      "location": "install.sh#Nowledge Mem:1591-1730",
+      "ui": false
+    },
+    {
+      "id": "external:Nowledge Mem#mmw-toolbox",
+      "carrier": "external",
+      "name": "mmw-toolbox Space",
+      "label": "工具箱空间",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "严格检索、不共享其他 Space 的工具箱 Space；两个 Identity 的默认 Space。",
+      "inputs": [
+        "command:install.sh#install",
+        "external:Nowledge Mem"
+      ],
+      "outputs": [
+        "external:Nowledge Mem#mmw-worker",
+        "external:Nowledge Mem#mmw-reviewer"
+      ],
+      "location": "install.sh#exact_space:1645-1651",
+      "ui": false
+    },
+    {
+      "id": "external:Nowledge Mem#mmw-worker",
+      "carrier": "external",
+      "name": "mmw-worker Identity",
+      "label": "Worker身份",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "worker 的 Nowledge 身份，默认 Space 为 mmw-toolbox；派发时显式切到 repository Space。",
+      "inputs": [
+        "command:install.sh#install",
+        "external:Nowledge Mem",
+        "external:Nowledge Mem#mmw-toolbox"
+      ],
+      "outputs": [
+        "prompt:skills/dispatch/scripts/dispatch.sh#start worker prompt"
+      ],
+      "location": "install.sh#exact_agent:1654-1729",
+      "ui": false
+    },
+    {
+      "id": "external:Nowledge Mem#mmw-reviewer",
+      "carrier": "external",
+      "name": "mmw-reviewer Identity",
+      "label": "Reviewer身份",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "reviewer 的 Nowledge 身份，默认 Space 为 mmw-toolbox；派发时显式切到 repository Space。",
+      "inputs": [
+        "command:install.sh#install",
+        "external:Nowledge Mem",
+        "external:Nowledge Mem#mmw-toolbox"
+      ],
+      "outputs": [
+        "prompt:skills/dispatch/scripts/dispatch.sh#start reviewer prompt"
+      ],
+      "location": "install.sh#exact_agent:1654-1729",
+      "ui": false
+    },
+    {
+      "id": "external:Nowledge Mem#repository Space",
+      "carrier": "external",
+      "name": "repository Space",
+      "label": "仓库记忆空间",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "dispatch open 及每次 start 前以 owner__repo 建立或修复并读回确认；失败则不开始会话。",
+      "inputs": [
+        "external:Nowledge Mem"
+      ],
+      "outputs": [
+        "script:skills/dispatch/scripts/dispatch.sh#worker_memory_packet"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#ensure_repository_memory:458-540",
+      "ui": false
+    },
+    {
+      "id": "script:skills/dispatch/scripts/dispatch.sh#worker_memory_packet",
+      "carrier": "script",
+      "name": "worker_memory_packet",
+      "label": "Worker记忆索引",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "task scope 最新 30 条；按 Owns 路径与三级标题检索相关经验，合并前 15 条索引放入首次 prompt。",
+      "inputs": [
+        "external:Nowledge Mem#repository Space"
+      ],
+      "outputs": [
+        "prompt:skills/dispatch/scripts/dispatch.sh#start worker prompt"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#worker_memory_packet:1544-1741",
+      "ui": false
+    },
+    {
+      "id": "prompt:skills/dispatch/scripts/dispatch.sh#start worker prompt",
+      "carrier": "prompt",
+      "name": "Use the implement skill",
+      "label": "Worker首次提示",
+      "phase": "Memory",
+      "actor": "worker",
+      "what": "提示 worker 使用 implement 技能，并携带 Memory 索引及显式 NMEM_SPACE、NMEM_AGENT_ID、MMW_TASK_SCOPE。",
+      "inputs": [
+        "script:skills/dispatch/scripts/dispatch.sh#worker_memory_packet",
+        "external:Nowledge Mem#mmw-worker"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start worker"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#start_agent:1935-1953",
+      "ui": false
+    },
+    {
+      "id": "prompt:skills/dispatch/scripts/dispatch.sh#start reviewer prompt",
+      "carrier": "prompt",
+      "name": "Use the code-review skill",
+      "label": "Reviewer首次提示",
+      "phase": "Memory",
+      "actor": "reviewer",
+      "what": "提示 reviewer 使用 code-review，并携带 repository Space 中的活动 Rules。",
+      "inputs": [
+        "external:Nowledge Mem#mmw-reviewer"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start reviewer"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#start_agent:1954-1967",
+      "ui": false
+    },
+    {
+      "id": "script:skills/dispatch/scripts/dispatch.sh#close_spec_memories",
+      "carrier": "script",
+      "name": "close_spec_memories",
+      "label": "结清本次记忆",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "summary 前按用户/主 agent 给出的逐条决定保留、弃用、取代或提议本 spec 的 Memory。",
+      "inputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#start worker"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#summary"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#close_spec_memories:3660-3930",
+      "ui": false
+    },
+    {
+      "id": "command:skills/dispatch/scripts/dispatch.sh#summary",
+      "carrier": "command",
+      "name": "dispatch.sh summary <spec>",
+      "label": "整夜总结",
+      "phase": "Memory",
+      "actor": "main agent",
+      "what": "写 spec.closed；此前按决策清理本 spec 的 Memory。",
+      "inputs": [
+        "script:skills/dispatch/scripts/dispatch.sh#close_spec_memories"
+      ],
+      "outputs": [
+        "event:spec.closed"
+      ],
+      "location": "skills/dispatch/scripts/dispatch.sh#summary:3930-4012",
+      "ui": false
+    },
+    {
+      "id": "event:spec.closed",
+      "carrier": "event",
+      "name": "spec.closed",
+      "label": "Spec关闭事件",
+      "phase": "Memory",
+      "actor": "tracker",
+      "what": "summary 写在 spec 评论里，随后触发 retro。",
+      "inputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#summary"
+      ],
+      "outputs": [
+        "skill:skills/retro/SKILL.md#Retro"
+      ],
+      "location": "skills/dispatch/references/night.md#5. The night is over",
+      "ui": false
+    },
+    {
+      "id": "skill:skills/retro/SKILL.md#Retro",
+      "carrier": "skill",
+      "name": "Retro",
+      "label": "整夜复盘",
+      "phase": "Memory",
+      "actor": "main agent",
+      "what": "spec.closed 后立即复盘，以 tracker、git、文件与检查证据判断问题。",
+      "inputs": [
+        "artifact:upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md",
+        "event:spec.closed"
+      ],
+      "outputs": [
+        "command:skills/retro/scripts/retro.py#finalize"
+      ],
+      "location": "skills/retro/SKILL.md#Retro:6-24",
+      "ui": false
+    },
+    {
+      "id": "command:skills/retro/scripts/retro.py#finalize",
+      "carrier": "command",
+      "name": "retro finalize",
+      "label": "写复盘记忆",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "核验分析 JSON，写 fixed-id mmw-retro Memory，并在 spec 票上写 spec.retroed。",
+      "inputs": [
+        "skill:skills/retro/SKILL.md#Retro"
+      ],
+      "outputs": [
+        "external:Nowledge Mem#Retro Memory",
+        "command:skills/dispatch/scripts/dispatch.sh#finish",
+        "event:spec.retroed"
+      ],
+      "location": "skills/retro/scripts/retro.py#finalize:686-734",
+      "ui": false
+    },
+    {
+      "id": "external:Nowledge Mem#Retro Memory",
+      "carrier": "external",
+      "name": "Retro Memory",
+      "label": "复盘记录",
+      "phase": "Memory",
+      "actor": "script",
+      "what": "每个 spec 一条 mmw-retro Memory；获批准的改进之后回到通常 spec/ticket 流程。",
+      "inputs": [
+        "external:Nowledge Mem",
+        "command:skills/retro/scripts/retro.py#finalize"
+      ],
+      "outputs": [
+        "tracker:spec issue"
+      ],
+      "location": "skills/retro/SKILL.md#Retro:12-22",
+      "ui": false
+    },
+    {
+      "id": "event:spec.retroed",
+      "carrier": "event",
+      "name": "spec.retroed",
+      "label": "复盘收据",
+      "phase": "Memory",
+      "actor": "tracker",
+      "what": "retro finalize 写在 spec 评论中，result=recorded 才允许 finish。",
+      "inputs": [
+        "command:skills/retro/scripts/retro.py#finalize"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#finish"
+      ],
+      "location": "skills/retro/scripts/retro.py#receipt:664-684",
+      "ui": false
+    },
+    {
+      "id": "skill:skills/advisor/SKILL.md#Advisor",
+      "carrier": "skill",
+      "name": "Advisor",
+      "label": "决策第二意见",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "架构、迁移、大重构、API 形状或两次失败后调用；同一技能供提问方与 advisor 读取。",
+      "inputs": [
+        "tracker:ticket batch ready-for-agent"
+      ],
+      "outputs": [
+        "reference:skills/advisor/references/consulting.md#Start it"
+      ],
+      "location": "skills/advisor/SKILL.md#Advisor",
+      "ui": false
+    },
+    {
+      "id": "reference:skills/advisor/references/consulting.md#Start it",
+      "carrier": "reference",
+      "name": "Consulting the advisor",
+      "label": "准备顾问问题",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "写包含对话、理解、约束、备选、路径的 packet，交 dispatch advise。",
+      "inputs": [
+        "skill:skills/advisor/SKILL.md#Advisor"
+      ],
+      "outputs": [
+        "command:skills/dispatch/scripts/dispatch.sh#advise"
+      ],
+      "location": "skills/advisor/references/consulting.md#Start it",
+      "ui": false
+    },
+    {
+      "id": "command:skills/dispatch/scripts/dispatch.sh#advise",
+      "carrier": "command",
+      "name": "dispatch.sh advise <file>",
+      "label": "启动顾问会话",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "用 models.json 的 advisor 行和 runner 起独立 session，返回 session id。",
+      "inputs": [
+        "script:skills/dispatch/scripts/models.py#resolve_session",
+        "reference:skills/advisor/references/consulting.md#Start it"
+      ],
+      "outputs": [
+        "tracker:ticket batch ready-for-agent"
+      ],
+      "location": "skills/advisor/references/consulting.md#Start it",
+      "ui": false
+    },
+    {
+      "id": "skill:skills/exe-release/SKILL.md#Release",
+      "carrier": "skill",
+      "name": "Release",
+      "label": "正式安装包",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "用户要求 ship/package/installer 时，按当前分支为触及的产品构建正式安装包并等用户安装试用。",
+      "inputs": [
+        "human:request release package"
+      ],
+      "outputs": [
+        "human:install test"
+      ],
+      "location": "skills/exe-release/SKILL.md#Release:6-85",
+      "ui": false
+    },
+    {
+      "id": "skill:skills/code-checkers/SKILL.md#Steps",
+      "carrier": "skill",
+      "name": "Code checkers",
+      "label": "仓库检查工具",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "仓库缺检查器、增加语言、旧工具被替代或提交前应运行时，安装并验证仓库级检查器。",
+      "inputs": [
+        "tracker:ticket batch ready-for-agent"
+      ],
+      "outputs": [
+        "artifact:AGENTS.md#Commands"
+      ],
+      "location": "skills/code-checkers/SKILL.md#Steps",
+      "ui": false
+    },
+    {
+      "id": "skill:skills/manage-agents-md/SKILL.md#Manage AGENTS.md",
+      "carrier": "skill",
+      "name": "Manage AGENTS.md",
+      "label": "仓库指令文件",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "创建或重写仓库的 AGENTS.md 与 CLAUDE.md；为后续 agent 提供当前仓库命令与约定。",
+      "inputs": [
+        "tracker:ticket batch ready-for-agent"
+      ],
+      "outputs": [
+        "artifact:AGENTS.md#Commands"
+      ],
+      "location": "skills/manage-agents-md/SKILL.md#Manage AGENTS.md",
+      "ui": false
+    },
+    {
+      "id": "skill:upstream/skills/productivity/writing-for-agents/SKILL.md#Context pointers",
+      "carrier": "skill",
+      "name": "Writing for agents",
+      "label": "代理文档写法",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "编辑技能或其他 agent 文档时进入，按触发条件读取 skill-set 规则。",
+      "inputs": [
+        "tracker:ticket batch ready-for-agent"
+      ],
+      "outputs": [
+        "artifact:upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md"
+      ],
+      "location": "upstream/skills/productivity/writing-for-agents/SKILL.md#Context pointers",
+      "ui": false
+    },
+    {
+      "id": "artifact:upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md",
+      "carrier": "artifact",
+      "name": "Writing and reviewing a skill set",
+      "label": "技能集标准",
+      "phase": "辅助技能",
+      "actor": "main agent",
+      "what": "写、改、审同一技能集内会互相交接的技能时读取；它规定文字标准，不负责执行工作流。",
+      "inputs": [
+        "skill:upstream/skills/productivity/writing-for-agents/SKILL.md#Context pointers"
+      ],
+      "outputs": [
+        "skill:skills/retro/SKILL.md#Retro"
+      ],
+      "location": "upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md#Writing and reviewing a skill set",
+      "ui": false
+    },
+    {
+      "id": "human:install test",
+      "carrier": "human",
+      "name": "User install test",
+      "label": "用户安装试用",
+      "phase": "辅助技能",
+      "actor": "human",
+      "what": "正式包已出后由用户实际安装并报告结果。",
+      "inputs": [
+        "skill:skills/exe-release/SKILL.md#Release"
+      ],
+      "outputs": [
+        "human:release result"
+      ],
+      "location": "skills/exe-release/SKILL.md#5. User install test",
+      "ui": false
+    },
+    {
+      "id": "artifact:AGENTS.md#Commands",
+      "carrier": "artifact",
+      "name": "AGENTS.md Commands",
+      "label": "仓库命令入口",
+      "phase": "辅助技能",
+      "actor": "worker",
+      "what": "记录仓库检查入口，供后续 agent 读取。",
+      "inputs": [
+        "skill:skills/code-checkers/SKILL.md#Steps",
+        "skill:skills/manage-agents-md/SKILL.md#Manage AGENTS.md"
+      ],
+      "outputs": [
+        "skill:upstream/skills/engineering/implement/SKILL.md"
+      ],
+      "location": "skills/code-checkers/SKILL.md#Steps",
+      "ui": false
+    },
+    {
+      "id": "human:request release package",
+      "carrier": "human",
+      "name": "请求正式安装包",
+      "label": "请求出包",
+      "phase": "辅助技能",
+      "actor": "human",
+      "what": "用户明确要求 ship/package/installer 时触发 exe-release；与工具箱四步发布分开。",
+      "inputs": [
+        "human:product packaging decision"
+      ],
+      "outputs": [
+        "skill:skills/exe-release/SKILL.md#Release"
+      ],
+      "location": "skills/exe-release/SKILL.md#Release",
+      "ui": false
+    },
+    {
+      "id": "human:release result",
+      "carrier": "human",
+      "name": "User install test result",
+      "label": "安装试用结果",
+      "phase": "辅助技能",
+      "actor": "human",
+      "what": "用户实际安装并试用正式安装包，然后报告通过或失败；通过后 agent 报告包与 commit，失败后报告症状并等待用户决定。",
+      "inputs": [
+        "human:install test"
+      ],
+      "outputs": [
+        "通过：agent 报告安装包、commit 与试用结果；失败：agent 报告症状并等待用户决定"
+      ],
+      "location": "skills/exe-release/SKILL.md#5. User install test:79-85",
+      "ui": false
+    },
+    {
+      "id": "human:product packaging decision",
+      "carrier": "human",
+      "name": "User asks to ship, package, or build an installer",
+      "label": "要求正式出包",
+      "phase": "辅助技能",
+      "actor": "human",
+      "what": "用户要求 ship、package 或 build an installer，触发 exe-release 技能制作正式安装包；这不是工具箱四步发布的自动阶段。",
+      "inputs": [
+        "用户的正式出包要求"
+      ],
+      "outputs": [
+        "human:request release package"
+      ],
+      "location": "skills/exe-release/SKILL.md#Release:1-8",
+      "ui": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "command:install.sh#install",
+      "to": "config:skills.txt",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "artifact:~/.agents/skills",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "artifact:~/.claude/skills",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "artifact:~/.mmw/installed-root",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "config:~/.paseo/config.json",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "artifact:~/.local/bin/paseo",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "config:Orca worktree-base-path",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "config:~/.cursor/mcp.json#nowledge-mem",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "process:com.mmw.prompt-sync",
+      "type": "invoke",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "process:com.mmw.board",
+      "type": "invoke",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "external:Nowledge Mem#mmw-toolbox",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "external:Nowledge Mem#mmw-worker",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "external:Nowledge Mem#mmw-reviewer",
+      "type": "writes",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "script:skills/dispatch/scripts/models.py#install_local_config",
+      "type": "invoke",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "hook:skills/dispatch/scripts/tool-guard.py#pretool",
+      "type": "invoke",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "hook:skills/dispatch/scripts/tool-guard.py#question",
+      "type": "invoke",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "hook:skills/dispatch/scripts/turn-guard.py#stop",
+      "type": "invoke",
+      "label": "安装",
+      "source": "install.sh#install.sh:2-18"
+    },
+    {
+      "from": "human:authorize install",
+      "to": "command:install.sh#install",
+      "type": "human",
+      "label": "授权",
+      "source": "AGENTS.md#Gotchas"
+    },
+    {
+      "from": "config:skills.txt",
+      "to": "artifact:~/.agents/skills",
+      "type": "flow",
+      "label": "列出技能",
+      "source": "install.sh#wanted_dirs:143-160"
+    },
+    {
+      "from": "config:skills.txt",
+      "to": "artifact:~/.claude/skills",
+      "type": "flow",
+      "label": "列出技能",
+      "source": "install.sh#wanted_dirs:143-160"
+    },
+    {
+      "from": "command:install.sh#install",
+      "to": "command:install.sh#--check",
+      "type": "flow",
+      "label": "装后核查",
+      "source": "AGENTS.md#Gotchas:65"
+    },
+    {
+      "from": "artifact:~/.mmw/installed-root",
+      "to": "command:install.sh#--check",
+      "type": "reads",
+      "label": "转交旧版",
+      "source": "install.sh#INSTALLED_ROOT_FILE:125-140"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#check",
+      "to": "command:install.sh#--check",
+      "type": "invoke",
+      "label": "开夜核查",
+      "source": "skills/dispatch/scripts/dispatch.sh#check:2335-2365"
+    },
+    {
+      "from": "command:install.sh#--check",
+      "to": "script:install.sh#MMW_USES",
+      "type": "invoke",
+      "label": "核适配器",
+      "source": "install.sh#适配器 MMW_USES 自检"
+    },
+    {
+      "from": "artifact:~/.mmw/installed-root",
+      "to": "artifact:AGENTS.md#Self-hosting boundary",
+      "type": "reads",
+      "label": "锁定版本",
+      "source": "AGENTS.md#Self-hosting boundary"
+    },
+    {
+      "from": "artifact:AGENTS.md#Self-hosting boundary",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#finish",
+      "type": "flow",
+      "label": "旧版收尾",
+      "source": "AGENTS.md#Self-hosting boundary"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#finish",
+      "to": "human:accept result",
+      "type": "flow",
+      "label": "接受成果",
+      "source": "AGENTS.md#Self-hosting boundary"
+    },
+    {
+      "from": "human:accept result",
+      "to": "command:git commit dev",
+      "type": "human",
+      "label": "发布成果",
+      "source": "AGENTS.md#Gotchas"
+    },
+    {
+      "from": "command:git commit dev",
+      "to": "command:git push . dev:main",
+      "type": "flow",
+      "label": "快进",
+      "source": "AGENTS.md#Gotchas"
+    },
+    {
+      "from": "command:git push . dev:main",
+      "to": "command:git -C .worktrees/mmw-installed checkout --detach main",
+      "type": "flow",
+      "label": "更新安装树",
+      "source": "AGENTS.md#Gotchas"
+    },
+    {
+      "from": "command:git -C .worktrees/mmw-installed checkout --detach main",
+      "to": "command:install.sh#--check",
+      "type": "invoke",
+      "label": "核安装",
+      "source": "AGENTS.md#Gotchas"
+    },
+    {
+      "from": "command:install.sh#--check",
+      "to": "command:git push origin dev main",
+      "type": "flow",
+      "label": "检查后推送",
+      "source": "AGENTS.md#Gotchas"
+    },
+    {
+      "from": "artifact:prompt/shared.md",
+      "to": "script:prompt/render.py#render",
+      "type": "reads",
+      "label": "拼入正文",
+      "source": "prompt/render.py#body_for:41-54"
+    },
+    {
+      "from": "artifact:prompt/shared.md",
+      "to": "process:com.mmw.prompt-sync",
+      "type": "wakes",
+      "label": "源变更",
+      "source": "install.sh#WatchPaths:984-1011"
+    },
+    {
+      "from": "artifact:prompt/hosts/<host>.md",
+      "to": "script:prompt/render.py#render",
+      "type": "reads",
+      "label": "拼入正文",
+      "source": "prompt/render.py#body_for:41-54"
+    },
+    {
+      "from": "artifact:prompt/hosts/<host>.md",
+      "to": "process:com.mmw.prompt-sync",
+      "type": "wakes",
+      "label": "源变更",
+      "source": "install.sh#WatchPaths:984-1011"
+    },
+    {
+      "from": "artifact:prompt/shared.md",
+      "to": "artifact:~/.claude/CLAUDE.md",
+      "type": "flow",
+      "label": "直接软链",
+      "source": "install.sh#提示词"
+    },
+    {
+      "from": "artifact:prompt/hosts/<host>.md",
+      "to": "artifact:~/.claude/rules/mmw-claude.md",
+      "type": "flow",
+      "label": "Claude软链",
+      "source": "install.sh#提示词"
+    },
+    {
+      "from": "script:prompt/render.py#render",
+      "to": "artifact:~/.codex/AGENTS.md",
+      "type": "writes",
+      "label": "写生成物",
+      "source": "prompt/render.py#targets:29-39"
+    },
+    {
+      "from": "script:prompt/render.py#render",
+      "to": "artifact:~/.pi/agent/AGENTS.md",
+      "type": "writes",
+      "label": "写生成物",
+      "source": "prompt/render.py#targets:29-39"
+    },
+    {
+      "from": "script:prompt/render.py#render",
+      "to": "artifact:~/.grok/AGENTS.md",
+      "type": "writes",
+      "label": "写生成物",
+      "source": "prompt/render.py#targets:29-39"
+    },
+    {
+      "from": "process:com.mmw.prompt-sync",
+      "to": "script:prompt/render.py#render",
+      "type": "invoke",
+      "label": "变更重拼",
+      "source": "install.sh#WatchPaths"
+    },
+    {
+      "from": "hook:skills/dispatch/scripts/tool-guard.py#pretool",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "type": "flow",
+      "label": "守护会话",
+      "source": "skills/dispatch/scripts/tool-guard.py#run_pretool"
+    },
+    {
+      "from": "hook:skills/dispatch/scripts/tool-guard.py#question",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start reviewer",
+      "type": "flow",
+      "label": "拒绝提问",
+      "source": "skills/dispatch/scripts/tool-guard.py#run_question"
+    },
+    {
+      "from": "hook:skills/dispatch/scripts/turn-guard.py#stop",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#finish",
+      "type": "wakes",
+      "label": "保持夜班",
+      "source": "skills/dispatch/scripts/turn-guard.py#main"
+    },
+    {
+      "from": "hook:skills/dispatch/scripts/tool-guard.py#pretool",
+      "to": "artifact:~/.codex/config.toml#hooks.state",
+      "type": "reads",
+      "label": "Codex信任",
+      "source": "install.sh#codex_trust_wanted"
+    },
+    {
+      "from": "hook:hooks/rule-at-moment.py#main",
+      "to": "artifact:prompt/shared.md",
+      "type": "reads",
+      "label": "手动可挂",
+      "source": "hooks/rule-at-moment.py#main"
+    },
+    {
+      "from": "config:skills/dispatch/hosts.json",
+      "to": "script:skills/dispatch/scripts/models.py#install_local_config",
+      "type": "reads",
+      "label": "初装默认",
+      "source": "skills/dispatch/scripts/models.py#default_local_config"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/models.py#install_local_config",
+      "to": "config:~/.mmw/models.json",
+      "type": "writes",
+      "label": "仅缺席写",
+      "source": "skills/dispatch/scripts/models.py#install_local_config"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/models.py#config set",
+      "to": "script:skills/dispatch/scripts/models.py#write_local_config",
+      "type": "invoke",
+      "label": "校验写入",
+      "source": "skills/dispatch/scripts/models.py#write_local_config"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/models.py#config runner",
+      "to": "script:skills/dispatch/scripts/models.py#write_local_config",
+      "type": "invoke",
+      "label": "校验写入",
+      "source": "skills/dispatch/scripts/models.py#write_local_config"
+    },
+    {
+      "from": "script:board/settings_api.py#handle",
+      "to": "script:skills/dispatch/scripts/models.py#write_local_config",
+      "type": "invoke",
+      "label": "校验写入",
+      "source": "skills/dispatch/scripts/models.py#write_local_config"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/models.py#write_local_config",
+      "to": "config:~/.mmw/models.json",
+      "type": "writes",
+      "label": "版本锁写",
+      "source": "skills/dispatch/scripts/models.py#write_local_config"
+    },
+    {
+      "from": "config:~/.mmw/models.json",
+      "to": "script:skills/dispatch/scripts/models.py#resolve_session",
+      "type": "reads",
+      "label": "读取角色",
+      "source": "skills/dispatch/scripts/models.py#resolve_session"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/models.py#resolve_session",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "type": "flow",
+      "label": "下次start",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/models.py#resolve_session",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start reviewer",
+      "type": "flow",
+      "label": "下次start",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/models.py#resolve_session",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#advise",
+      "type": "flow",
+      "label": "下次start",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/models.py#resolve_session",
+      "to": "external:runner adapters",
+      "type": "flow",
+      "label": "交适配器",
+      "source": "skills/dispatch/scripts/dispatch.sh#use_runner"
+    },
+    {
+      "from": "external:runner adapters",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "type": "invoke",
+      "label": "起会话",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "process:com.mmw.board",
+      "to": "process:board/supervisor.py#Supervisor.run",
+      "type": "invoke",
+      "label": "保持进程",
+      "source": "install.sh#task board LaunchAgent"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#board",
+      "to": "config:~/.mmw/boards.json",
+      "type": "writes",
+      "label": "注册仓库",
+      "source": "board/supervisor.py#register_repository"
+    },
+    {
+      "from": "config:~/.mmw/boards.json",
+      "to": "process:board/supervisor.py#Supervisor.run",
+      "type": "reads",
+      "label": "仓库端口",
+      "source": "board/supervisor.py#Supervisor.reconcile"
+    },
+    {
+      "from": "process:board/supervisor.py#Supervisor.run",
+      "to": "process:board/server.py#main",
+      "type": "invoke",
+      "label": "每仓库服务",
+      "source": "board/supervisor.py#start_server"
+    },
+    {
+      "from": "process:board/server.py#main",
+      "to": "artifact:board/page/index.html",
+      "type": "flow",
+      "label": "提供页面",
+      "source": "board/server.py#make_handler"
+    },
+    {
+      "from": "process:board/server.py#main",
+      "to": "script:board/board_data.py#BoardStore",
+      "type": "invoke",
+      "label": "GET看板",
+      "source": "board/server.py#make_handler"
+    },
+    {
+      "from": "tracker:GitHub Issues",
+      "to": "script:board/board_data.py#BoardStore",
+      "type": "reads",
+      "label": "读取票据",
+      "source": "board/board_data.py#BoardStore"
+    },
+    {
+      "from": "script:board/board_data.py#BoardStore",
+      "to": "artifact:board/page/index.html",
+      "type": "flow",
+      "label": "显示状态",
+      "source": "board/page/app.mjs#boardShell"
+    },
+    {
+      "from": "process:board/server.py#main",
+      "to": "script:board/settings_api.py#handle",
+      "type": "invoke",
+      "label": "设置API",
+      "source": "board/server.py#make_handler"
+    },
+    {
+      "from": "config:~/.mmw/models.json",
+      "to": "script:board/settings_api.py#handle",
+      "type": "reads",
+      "label": "读取配置",
+      "source": "board/settings_api.py#_get"
+    },
+    {
+      "from": "artifact:board/page/index.html",
+      "to": "artifact:board/page/settings.mjs",
+      "type": "flow",
+      "label": "打开设置",
+      "source": "board/page/index.html#app.mjs"
+    },
+    {
+      "from": "artifact:board/page/settings.mjs",
+      "to": "script:board/settings_api.py#handle",
+      "type": "writes",
+      "label": "保存设置",
+      "source": "board/page/settings.mjs#saveBody"
+    },
+    {
+      "from": "external:Nowledge Mem",
+      "to": "external:Nowledge Mem#mmw-toolbox",
+      "type": "flow",
+      "label": "提供",
+      "source": "install.sh#Nowledge Mem"
+    },
+    {
+      "from": "external:Nowledge Mem",
+      "to": "external:Nowledge Mem#mmw-worker",
+      "type": "flow",
+      "label": "提供",
+      "source": "install.sh#Nowledge Mem"
+    },
+    {
+      "from": "external:Nowledge Mem",
+      "to": "external:Nowledge Mem#mmw-reviewer",
+      "type": "flow",
+      "label": "提供",
+      "source": "install.sh#Nowledge Mem"
+    },
+    {
+      "from": "external:Nowledge Mem",
+      "to": "external:Nowledge Mem#repository Space",
+      "type": "flow",
+      "label": "提供",
+      "source": "install.sh#Nowledge Mem"
+    },
+    {
+      "from": "external:Nowledge Mem",
+      "to": "external:Nowledge Mem#Retro Memory",
+      "type": "flow",
+      "label": "提供",
+      "source": "install.sh#Nowledge Mem"
+    },
+    {
+      "from": "external:Nowledge Mem#mmw-toolbox",
+      "to": "external:Nowledge Mem#mmw-worker",
+      "type": "flow",
+      "label": "默认Space",
+      "source": "install.sh#exact_agent"
+    },
+    {
+      "from": "external:Nowledge Mem#mmw-toolbox",
+      "to": "external:Nowledge Mem#mmw-reviewer",
+      "type": "flow",
+      "label": "默认Space",
+      "source": "install.sh#exact_agent"
+    },
+    {
+      "from": "external:Nowledge Mem#repository Space",
+      "to": "script:skills/dispatch/scripts/dispatch.sh#worker_memory_packet",
+      "type": "reads",
+      "label": "按仓库查询",
+      "source": "skills/dispatch/scripts/dispatch.sh#worker_memory_packet"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/dispatch.sh#worker_memory_packet",
+      "to": "prompt:skills/dispatch/scripts/dispatch.sh#start worker prompt",
+      "type": "flow",
+      "label": "附索引",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "external:Nowledge Mem#mmw-worker",
+      "to": "prompt:skills/dispatch/scripts/dispatch.sh#start worker prompt",
+      "type": "flow",
+      "label": "设置身份",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "external:Nowledge Mem#mmw-reviewer",
+      "to": "prompt:skills/dispatch/scripts/dispatch.sh#start reviewer prompt",
+      "type": "flow",
+      "label": "设置身份",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "prompt:skills/dispatch/scripts/dispatch.sh#start worker prompt",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "type": "invoke",
+      "label": "启动Worker",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "prompt:skills/dispatch/scripts/dispatch.sh#start reviewer prompt",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start reviewer",
+      "type": "invoke",
+      "label": "启动Reviewer",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "to": "skill:upstream/skills/engineering/implement/SKILL.md",
+      "type": "invoke",
+      "label": "进入实施",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#start reviewer",
+      "to": "event:reviewer.reported",
+      "type": "flow",
+      "label": "提交审查",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "tracker:ticket batch ready-for-agent",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "type": "flow",
+      "label": "派发票",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "to": "script:skills/dispatch/scripts/dispatch.sh#close_spec_memories",
+      "type": "flow",
+      "label": "完票后汇总",
+      "source": "skills/dispatch/references/night.md#4. Closing pass"
+    },
+    {
+      "from": "skill:skills/retro/SKILL.md#Retro",
+      "to": "command:skills/retro/scripts/retro.py#finalize",
+      "type": "invoke",
+      "label": "完成复盘",
+      "source": "skills/retro/SKILL.md#Finalize"
+    },
+    {
+      "from": "command:skills/retro/scripts/retro.py#finalize",
+      "to": "external:Nowledge Mem#Retro Memory",
+      "type": "writes",
+      "label": "写入记录",
+      "source": "skills/retro/scripts/retro.py#finalize"
+    },
+    {
+      "from": "command:skills/retro/scripts/retro.py#finalize",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#finish",
+      "type": "flow",
+      "label": "复盘收据",
+      "source": "skills/dispatch/scripts/dispatch.sh#finish"
+    },
+    {
+      "from": "external:Nowledge Mem#Retro Memory",
+      "to": "tracker:spec issue",
+      "type": "flow",
+      "label": "改善提案",
+      "source": "skills/retro/SKILL.md#Retro"
+    },
+    {
+      "from": "skill:skills/advisor/SKILL.md#Advisor",
+      "to": "reference:skills/advisor/references/consulting.md#Start it",
+      "type": "reads",
+      "label": "提问侧",
+      "source": "skills/advisor/SKILL.md#Advisor"
+    },
+    {
+      "from": "reference:skills/advisor/references/consulting.md#Start it",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#advise",
+      "type": "invoke",
+      "label": "问顾问",
+      "source": "skills/advisor/references/consulting.md#Start it"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#advise",
+      "to": "tracker:ticket batch ready-for-agent",
+      "type": "flow",
+      "label": "建议供实施",
+      "source": "skills/advisor/references/consulting.md#The question stays open"
+    },
+    {
+      "from": "skill:skills/exe-release/SKILL.md#Release",
+      "to": "human:install test",
+      "type": "human",
+      "label": "用户试装",
+      "source": "skills/exe-release/SKILL.md#5. User install test"
+    },
+    {
+      "from": "skill:skills/code-checkers/SKILL.md#Steps",
+      "to": "artifact:AGENTS.md#Commands",
+      "type": "writes",
+      "label": "记录命令",
+      "source": "skills/code-checkers/SKILL.md#Steps"
+    },
+    {
+      "from": "artifact:AGENTS.md#Commands",
+      "to": "skill:upstream/skills/engineering/implement/SKILL.md",
+      "type": "reads",
+      "label": "worker见检查",
+      "source": "skills/code-checkers/SKILL.md#Steps"
+    },
+    {
+      "from": "skill:skills/manage-agents-md/SKILL.md#Manage AGENTS.md",
+      "to": "artifact:AGENTS.md#Commands",
+      "type": "writes",
+      "label": "写仓库指令",
+      "source": "skills/manage-agents-md/SKILL.md#Write"
+    },
+    {
+      "from": "skill:upstream/skills/productivity/writing-for-agents/SKILL.md#Context pointers",
+      "to": "artifact:upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md",
+      "type": "reads",
+      "label": "成套技能时",
+      "source": "upstream/skills/productivity/writing-for-agents/SKILL.md#Context pointers"
+    },
+    {
+      "from": "artifact:upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md",
+      "to": "skill:skills/retro/SKILL.md#Retro",
+      "type": "flow",
+      "label": "审改进提案",
+      "source": "skills/retro/SKILL.md#Decide"
+    },
+    {
+      "from": "script:skills/dispatch/scripts/dispatch.sh#close_spec_memories",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#summary",
+      "type": "flow",
+      "label": "结清后总结",
+      "source": "skills/dispatch/scripts/dispatch.sh#summary"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#summary",
+      "to": "event:spec.closed",
+      "type": "writes",
+      "label": "写关闭事件",
+      "source": "skills/dispatch/scripts/dispatch.sh#summary"
+    },
+    {
+      "from": "event:spec.closed",
+      "to": "skill:skills/retro/SKILL.md#Retro",
+      "type": "wakes",
+      "label": "立即复盘",
+      "source": "skills/dispatch/references/night.md#5. The night is over"
+    },
+    {
+      "from": "command:skills/retro/scripts/retro.py#finalize",
+      "to": "event:spec.retroed",
+      "type": "writes",
+      "label": "写收据",
+      "source": "skills/retro/scripts/retro.py#receipt"
+    },
+    {
+      "from": "event:spec.retroed",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#finish",
+      "type": "flow",
+      "label": "准许finish",
+      "source": "skills/dispatch/scripts/dispatch.sh#finish"
+    },
+    {
+      "from": "human:request release package",
+      "to": "skill:skills/exe-release/SKILL.md#Release",
+      "type": "human",
+      "label": "请求出包",
+      "source": "skills/exe-release/SKILL.md#Release"
+    },
+    {
+      "from": "artifact:~/.agents/skills",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "artifact:~/.claude/skills",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "artifact:~/.claude/CLAUDE.md",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "artifact:~/.claude/rules/mmw-claude.md",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "artifact:~/.codex/AGENTS.md",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "artifact:~/.pi/agent/AGENTS.md",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "artifact:~/.grok/AGENTS.md",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "artifact:~/.codex/config.toml#hooks.state",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "hook:skills/dispatch/scripts/tool-guard.py#pretool",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "hook:skills/dispatch/scripts/tool-guard.py#question",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "hook:skills/dispatch/scripts/turn-guard.py#stop",
+      "to": "external:host sessions",
+      "type": "reads",
+      "label": "宿主加载",
+      "source": "install.sh#install.sh:35-43"
+    },
+    {
+      "from": "external:host sessions",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "type": "flow",
+      "label": "派发会话",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "config:~/.paseo/config.json",
+      "to": "external:runner adapters",
+      "type": "reads",
+      "label": "Paseo配置",
+      "source": "install.sh#Paseo 侧配置"
+    },
+    {
+      "from": "artifact:~/.local/bin/paseo",
+      "to": "external:runner adapters",
+      "type": "reads",
+      "label": "CLI入口",
+      "source": "install.sh#Paseo 侧配置"
+    },
+    {
+      "from": "config:Orca worktree-base-path",
+      "to": "external:runner adapters",
+      "type": "reads",
+      "label": "工作树位置",
+      "source": "install.sh#Orca 侧工作树配置"
+    },
+    {
+      "from": "config:~/.cursor/mcp.json#nowledge-mem",
+      "to": "external:Nowledge Mem",
+      "type": "flow",
+      "label": "提供连接",
+      "source": "install.sh#CURSOR_MCP"
+    },
+    {
+      "from": "script:install.sh#MMW_USES",
+      "to": "external:runner adapters",
+      "type": "reads",
+      "label": "核命令表",
+      "source": "install.sh#适配器 MMW_USES 自检"
+    },
+    {
+      "from": "config:skills/dispatch/hosts.json",
+      "to": "script:skills/dispatch/scripts/models.py#resolve_session",
+      "type": "reads",
+      "label": "启动参数",
+      "source": "skills/dispatch/scripts/models.py#load_hosts"
+    },
+    {
+      "from": "tracker:GitHub Issues",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#start worker",
+      "type": "reads",
+      "label": "票据来源",
+      "source": "skills/dispatch/scripts/dispatch.sh#start_agent"
+    },
+    {
+      "from": "external:Nowledge Mem",
+      "to": "external:Nowledge Mem#repository Space",
+      "type": "flow",
+      "label": "提供仓库空间",
+      "source": "skills/dispatch/scripts/dispatch.sh#ensure_repository_memory"
+    },
+    {
+      "from": "tracker:ticket batch ready-for-agent",
+      "to": "skill:skills/advisor/SKILL.md#Advisor",
+      "type": "flow",
+      "label": "按需调用",
+      "source": "skills.txt#装进各 host 的技能"
+    },
+    {
+      "from": "tracker:ticket batch ready-for-agent",
+      "to": "skill:skills/code-checkers/SKILL.md#Steps",
+      "type": "flow",
+      "label": "按需调用",
+      "source": "skills.txt#装进各 host 的技能"
+    },
+    {
+      "from": "tracker:ticket batch ready-for-agent",
+      "to": "skill:skills/manage-agents-md/SKILL.md#Manage AGENTS.md",
+      "type": "flow",
+      "label": "按需调用",
+      "source": "skills.txt#装进各 host 的技能"
+    },
+    {
+      "from": "tracker:ticket batch ready-for-agent",
+      "to": "skill:upstream/skills/productivity/writing-for-agents/SKILL.md#Context pointers",
+      "type": "flow",
+      "label": "按需调用",
+      "source": "skills.txt#装进各 host 的技能"
+    },
+    {
+      "from": "human:install test",
+      "to": "human:release result",
+      "type": "human",
+      "label": "反馈试装",
+      "source": "skills/exe-release/SKILL.md#5. User install test"
+    },
+    {
+      "from": "command:skills/dispatch/scripts/dispatch.sh#check",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#board",
+      "type": "flow",
+      "label": "开夜带看板",
+      "source": "skills/dispatch/scripts/dispatch.sh#ensure_board"
+    },
+    {
+      "from": "artifact:prompt/hosts/<host>.md",
+      "to": "artifact:~/.claude/rules/mmw-claude.md",
+      "type": "flow",
+      "label": "宿主专属",
+      "source": "prompt/README.md#prompt"
+    },
+    {
+      "from": "tracker:spec issue",
+      "to": "command:skills/dispatch/scripts/dispatch.sh#check",
+      "type": "flow",
+      "label": "开夜检查",
+      "source": "skills/dispatch/references/night.md#1. Before the night opens"
+    },
+    {
+      "from": "human:accept result",
+      "to": "human:authorize install",
+      "type": "human",
+      "label": "允许安装",
+      "source": "AGENTS.md#Gotchas"
+    },
+    {
+      "from": "artifact:prompt/shared.md",
+      "to": "artifact:prompt/hosts/<host>.md",
+      "type": "flow",
+      "label": "共同来源",
+      "source": "prompt/README.md#prompt"
+    },
+    {
+      "from": "human:manual Claude hook registration",
+      "to": "hook:hooks/rule-at-moment.py#main",
+      "type": "human",
+      "label": "手动注册",
+      "source": "AGENTS.md#Commands"
+    },
+    {
+      "from": "config:skills.txt",
+      "to": "config:skills/dispatch/hosts.json",
+      "type": "flow",
+      "label": "同一工具箱",
+      "source": "install.sh#Paseo 侧配置"
+    },
+    {
+      "from": "human:change model configuration",
+      "to": "command:skills/dispatch/scripts/models.py#config set",
+      "type": "human",
+      "label": "改角色",
+      "source": "skills/dispatch/references/editing-models.md#Change one role"
+    },
+    {
+      "from": "human:change model configuration",
+      "to": "command:skills/dispatch/scripts/models.py#config runner",
+      "type": "human",
+      "label": "改runner",
+      "source": "skills/dispatch/references/editing-models.md#Change the runner"
+    },
+    {
+      "from": "tracker:spec issue",
+      "to": "tracker:GitHub Issues",
+      "type": "flow",
+      "label": "存于GitHub",
+      "source": "docs/contexts/toolbox/CONTEXT.md#issue tracker"
+    },
+    {
+      "from": "human:product packaging decision",
+      "to": "human:request release package",
+      "type": "human",
+      "label": "请求出包",
+      "source": "skills/exe-release/SKILL.md#Release"
+    },
+    {
+      "from": "command:git push origin dev main",
+      "to": "artifact:origin/dev main",
+      "type": "writes",
+      "label": "发布分支",
+      "source": "AGENTS.md#Gotchas"
+    }
+  ],
+  "notes": [
+    "AGENTS.md#Self-hosting boundary 与 #Gotchas: watch 打开时不移动 .worktrees/mmw-installed、不安装、不让新协议接管；完成旧 watch、用户接受、finish 后才可执行 release 第三步。",
+    "install.sh#Orca 侧工作树配置: externalWorktreeVisibility=show 只有检查，没有 CLI 写入口；因此安装第七项的这半面原文未写自动下游，需人在 Orca 设置。",
+    "prompt/README.md#prompt: Cursor 用户级提示词不在 render.py 管辖，原文只说在 app 手动粘贴，没有此安装流程的自动下游。",
+    "hooks/rule-at-moment.py 与 AGENTS.md#Commands: 它不由 install.sh 安装，原文只给手动注册 ~/.claude/hooks 的入口。",
+    "docs/adr/0003、0016、0018、0024: 0003 与 0016 的路径和角色数是历史状态；现行九项、四角色及 JSON 以 install.sh、models.py、hosts.json 为准。0024 正文仍列 verifier，现行 ALLOWED_AGENTS 不列。",
+    "skills/exe-release/SKILL.md#Release: 正式产品安装包与 AGENTS.md#Gotchas 的 MMW toolbox 四步发布不是同一个流程；图上分别连到用户试装和安装树更新。",
+    "skills/retro/SKILL.md#Prevention destinations: Retro Memory 或提案本身不改工具箱，原文下游是用户批准后的通常 spec/ticket 流程。",
+    "upstream/skills/productivity/writing-for-agents/SKILL.md#Context pointers: SKILL-SET-REVIEW.md 仅在成套技能写改审时加载，原文未写它自动触发某个发布命令。",
+    "技能与模型设置的入口由用户请求或具体任务触发；AGENTS.md#Who decides what 与各技能 frontmatter description 是触发条件，不表示每夜必经。",
+    "command:git push origin dev main 的下游是 origin/dev 与 origin/main 的发布状态；AGENTS.md#Gotchas 未写自动启动 exe-release，因此未把两种发布串成必经步骤。",
+    "skills/exe-release/SKILL.md#5. User install test：试用结果是正式安装包流程的终点；原文未写后续自动发布步骤。AGENTS.md#Gotchas：git push origin dev main 的远端分支是工具箱四步发布终点；原文未写自动下游。"
+  ]
+}
