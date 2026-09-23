@@ -21,7 +21,7 @@
 | --- | --- |
 | frontmatter 的 `disable-model-invocation: true` | 保留，与上游一致；`agents/openai.yaml` 的 `policy.allow_implicit_invocation: false` 一起保留。理由：它把当前目录当成教学工作区，写 `MISSION.md`、`lessons/`、`reference/`、`learning-records/`、`assets/build.py` 并起本地 HTTP 服务；模型可触发时，在产品仓库里问一句「教我 X 怎么工作」就会把这些写进产品根目录。另外六个保留这一行的是 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`wait-what`、`grill-with-docs`、`improve-codebase-architecture`。上游改这一行 → 收上游，两处一起跟。规则见 [README.md](README.md#disable-model-invocation) |
 | Lessons：`If possible, open the lesson file…` | 改成「起本地 HTTP 服务、给 URL」。上游那句落到 `open <file>` 就是 `file://`，Safari 一类浏览器不允许 `file://` 页面碰自己目录之外的东西，跨目录的样式和超链接一起失效。正文只写做法，这条理由只记在这里 |
-| Lessons：`zone of proximal development` 那段之后新增段（`The reader knows nothing about this topic.` 起） | 我们加的整段。上游只说课件要短、要美；这段定读者（对主题一无所知）和图、字的分工：图管是什么与怎么连，字只做图做不到的三件事（图答的是哪个问题、重点在哪、由此得出什么），字重复图就删字，图要一段话才看得懂就重画。四个用 HTML 做解释的技能放的是同一段。上游改前后段落 → 收上游，这一段原样保留 |
+| Lessons：`zone of proximal development` 那段之后新增段（`The reader knows nothing about this topic.` 起） | 我们加的整段。上游只说课件要短、要美；这段定读者（对主题一无所知）和图、字的分工：图管是什么与怎么连，字只做图做不到的三件事（图答的是哪个问题、重点在哪、由此得出什么），字重复图就删字，图要一段话才看得懂就重画。同一段也在 `wait-what/VISUAL.md` 的 `## Draw the page` 与 `improve-codebase-architecture/HTML-REPORT.md` 的 `## Candidate card`，改一处，三处一起改。上游改前后段落 → 收上游，这一段原样保留 |
 | Assets：`write it as a component in ./assets/ and link to it` | 删掉 `and link to it`。组件仍然只写在 `./assets/`，但课件不链它 |
 | Assets：`every lesson links it` | 删掉。理由同上 |
 | Assets：新增 `### Self-contained pages` | 我们加的整节：`<!--CSS-->` / `<!--JS-->` 标记块、`./assets/build.py` 回填。正文只写做法；为什么要嵌入（课件离开目录被单独预览、转发时样式全丢）见上面「总原则」，不写进正文 |

@@ -437,17 +437,17 @@ case "$(bash "$RF" exit-check)" in
   *) no "CORRUPT 读" ;;
 esac
 
-# 回归:进程在 stage 标 running 后中断,where 必须报该 stage 重跑,不跳下一个、不报 SUCCESS。
+# 回归:进程在 stage 标 running 后中断,where 必须报 STAGE 让该 stage 重跑(不是 RETRY-STAGE,那是失败后走 dispatch),不跳下一个、不报 SUCCESS。
 bash "$RF" close >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 jq '(.stages[0].status)="running"' "$SF" > "$SF.tmp" && mv "$SF.tmp" "$SF"
 case "$(bash "$RF" where)" in
-  RETRY-STAGE:doctor*) ok "where 认 running:中断 stage 重跑不跳步" ;;
+  STAGE:doctor*) ok "where 认 running:中断 stage 重跑不跳步" ;;
   *) no "where 忽略 running ($(bash "$RF" where))" ;;
 esac
 jq '(.stages[0].status)="running" | (.stages[1].status)="done"' "$SF" > "$SF.tmp" && mv "$SF.tmp" "$SF"
 case "$(bash "$RF" where)" in
-  RETRY-STAGE:doctor*) ok "where 认 running:无 pending 也不误报 SUCCESS" ;;
+  STAGE:doctor*) ok "where 认 running:无 pending 也不误报 SUCCESS" ;;
   *) no "running+无 pending 误报 ($(bash "$RF" where))" ;;
 esac
 

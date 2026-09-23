@@ -80,12 +80,12 @@ def expand(value: str, *, desktop_dir: str | None, build_root: str | None) -> st
     """
     if "${DESKTOP_DIR}" in value and not desktop_dir:
         raise ValueError(
-            f"${{DESKTOP_DIR}} is used, but the key does not declare build_target.desktop_dir: {value}"
+            f"${{DESKTOP_DIR}} is used, but the release manifest does not declare build_target.desktop_dir: {value}"
         )
     result = value.replace("${DESKTOP_DIR}", desktop_dir or "")
     if "${BUILD_ROOT}" in result:
         if not build_root:
-            raise ValueError(f"${{BUILD_ROOT}} is used but the key declares no build_root: {value}")
+            raise ValueError(f"${{BUILD_ROOT}} is used but the release manifest declares no build_root: {value}")
         result = result.replace("${BUILD_ROOT}", build_root)
     if "${" in result:
         raise ValueError(f"the path holds a template variable nobody knows: {value}")

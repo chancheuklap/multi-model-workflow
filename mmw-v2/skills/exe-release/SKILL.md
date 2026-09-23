@@ -1,6 +1,6 @@
 ---
 name: exe-release
-description: Build an official install package from the code on the current branch. Use when the user asks to ship, to package, or to build an installer, or when the work touched a product that has a release manifest.
+description: Build an official install package from the code on the current branch. Use when the user asks to ship, to package, or to build an installer.
 ---
 
 # Release
@@ -21,8 +21,8 @@ The release engine puts *what happened* on stdout — `STAGE:`, `PAUSED:`, `SUCC
 
 | Command | 0 | 1 | 2 | 3 |
 | --- | --- | --- | --- | --- |
-| `<release> <subcommand>` | the subcommand ran; what happened is on stdout | one `ERROR: <the fact it cannot get past>` line on stderr | the subcommand is missing or not recognised, usage on stderr (`--help` exits 0) | — |
-| `<scripts>/verify_key.py` | no findings | findings, JSON envelope on stdout | argparse usage error | — |
+| `<release> <subcommand>` | the subcommand ran; what happened is on stdout | one `ERROR: <the fact it cannot get past>` line on stderr | the subcommand is missing or unknown, usage on stderr (`--help` exits 0; an unknown verb after `stage` or `round` exits 1 with an `ERROR: usage:` line) | — |
+| `<scripts>/verify_key.py` | no findings | the release manifest has problems: findings as a JSON envelope on stdout, or a contract error as a traceback on stderr | argparse usage error | — |
 | `<scripts>/release_script_assembler.py assemble\|check` | passed | — | argparse usage error | `INVALID: <reason>` on stderr |
 
 **`PAUSED` exits 0.** So do `CORRUPT:`, `BUDGET-EXCEEDED:` and every other verdict: they are things that happened, and a subcommand that reaches a verdict ran. Read the state from stdout, never from the exit code.
@@ -30,6 +30,8 @@ The release engine puts *what happened* on stdout — `STAGE:`, `PAUSED:`, `SUCC
 Exit 1 is the release engine refusing to go on because of a fact — a `budget.started_at` that will not parse, no release-state where a subcommand needs one. The `ERROR:` line names that fact.
 
 ## 1. Preconditions
+
+A **release manifest** is the JSON file that declares how one product is packaged: one product per file, its filename ending in `.release-adapter.json`.
 
 Both must hold. If one fails, stop and name it.
 
@@ -42,10 +44,10 @@ Both must hold. If one fails, stop and name it.
 
 ## 2. Name the products for this run
 
-A **release manifest** is the JSON file that declares how one product is packaged: one product per file, its filename ending in `.release-adapter.json`. List them:
+List the release manifests:
 
 ```bash
-grep -rl '"product"' --include='*.release-adapter.json' .
+git ls-files '*.release-adapter.json'
 ```
 
 Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch when you have nothing better). Match them against the paths each release manifest names — its shell directory, its compile entrypoints and packaged data, its `asset_roots`. A hit means ship that product.
@@ -76,6 +78,8 @@ Then read [driving.md](references/driving.md) in full and drive until the packag
 
 A round that will not produce a package — the product is blocked and you are shipping another one first — is ended the way [driving.md](references/driving.md)'s **Close** section says. It matters at this level because step 4 below reads delivery records as fact.
 
+Done when `<release> exit-check` printed `DONE` and `<release> close` ran for every product on the step 2 list.
+
 ## 4. Same-commit check
 
 Do this after every product has shipped. A stage, a dispatch, or a self-heal can create new commits, so an earlier package may not match the final code.
@@ -90,6 +94,8 @@ That directory holds one record per product. A later run overwrites the earlier 
 
 A mismatch: ship that product again (back to step 3, only the mismatches). Then check again — a reship can create new commits.
 
+Done when every listed product's `source_commit` equals `git rev-parse HEAD`.
+
 ## 5. User install test
 
 [driving.md](references/driving.md)'s **Close** section says where a package path comes from and what to say when there is none.
@@ -97,3 +103,5 @@ A mismatch: ship that product again (back to step 3, only the mismatches). Then 
 Give the user: which products shipped, where each package is, which commit this set is.
 
 **Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: stop and report the packages, the commit, and the test result to the user. Fail: open a `needs-triage` ticket with the symptoms and repro steps, have it triaged to `ready-for-agent`, then start it as the `dispatch` skill's `references/one-ticket.md` says; ship again after it closes.
+
+Done when the user has reported the install test result and you have acted on it as above.

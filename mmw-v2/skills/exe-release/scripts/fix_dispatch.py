@@ -54,7 +54,7 @@ def _load_findings(path: str) -> list[dict]:
 
 
 _AGENT_RULES = [
-    "- Change only files this key's `editable_paths` allows. The engine rejects edits to protected paths.",
+    "- Change only files this release manifest's `editable_paths` allows. The engine rejects edits to protected paths.",
     "- **Commit to the current branch**, then `resume`. The remote build takes `git archive HEAD`; "
     "edits left in the working tree never reach the build machine, so not committing means not changing, "
     "and the next round fails on the same code.",

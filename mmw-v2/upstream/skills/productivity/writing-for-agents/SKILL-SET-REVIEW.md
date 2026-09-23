@@ -29,10 +29,14 @@ Two kinds of finding need two kinds of evidence:
 
 Every finding is fixed. There are no severity levels: a finding is either established by its evidence and fixed, or it is not a finding.
 
-1. **List the tasks.** A skill is entered three ways: a branch its description triggers on; a prompt that starts an agent into it (built by a script, or written by a model from a template); a sentence in another skill or script that sends the agent to it by name or by step. `grep` the skill's name across every skill and script in the set for the third kind, then read the scoped skills for entries described without the name. Done when every entry of every skill in scope maps to a task, or is listed as out of scope.
-2. **Walk each task.** Start from what the agent holds at entry: the description, the start prompt, or the text that sent it. Open only what the text in front of you points to. Where the text says what a script or CLI does, accepts, reads or prints, check it against the source or `--help`. Record, per step: each file you opened and why, its word count, the skill it belongs to, and which of its sections the step used; each term you had to resolve; each choice you made without guidance; and where the text ends before the task does. Walk the outcomes that happen in use: success, and each failure the history shows or a normal input produces. Done when each task reaches its completion criterion or a recorded finding, and every step has its load recorded.
-3. **Apply the per-task checks** below (every section except Vocabulary, Hand-offs and Upstream skills) to what each task read. Done when each check has been applied to each task, or noted as not applying.
-4. **Read across the scoped skills** for the three checks no single task shows: [Vocabulary](#vocabulary), [Hand-offs](#hand-offs) and [Upstream skills](#upstream-skills). Read them end to end; a concept that is described instead of named does not show up in `grep`. Glossary entries are checked for the terms the walked tasks use. Done when every scoped skill has been read end to end.
+1. **List the tasks.** A skill is entered three ways: a branch its description triggers on; a prompt that starts an agent into it (built by a script, or written by a model from a template); a sentence in another skill or script that sends the agent to it by name or by step. `grep` the skill's name across every skill and script in the set for the third kind, then read the scoped skills for entries described without the name.
+   Done when every entry of every skill in scope maps to a task, or is listed as out of scope.
+2. **Walk each task.** Start from what the agent holds at entry: the description, the start prompt, or the text that sent it. Open only what the text in front of you points to. Where the text says what a script or CLI does, accepts, reads or prints, check it against the source or `--help`. Record, per step: each file you opened and why, its word count, the skill it belongs to, and which of its sections the step used; each term you had to resolve; each choice you made without guidance; and where the text ends before the task does. Walk the outcomes that happen in use: success, and each failure the history shows or a normal input produces.
+   Done when each task reaches its completion criterion or a recorded finding, and every step has its load recorded.
+3. **Apply the per-task checks** below (every section except Vocabulary, Hand-offs and Upstream skills) to what each task read.
+   Done when each check has been applied to each task, or noted as not applying.
+4. **Read across the scoped skills** for the three checks no single task shows: [Vocabulary](#vocabulary), [Hand-offs](#hand-offs) and [Upstream skills](#upstream-skills). Read them end to end; a concept that is described instead of named does not show up in `grep`. Glossary entries are checked for the terms the walked tasks use.
+   Done when every scoped skill has been read end to end.
 5. **Report** before any edit, in this order:
    - The load of each task walked, one row each: who, entering from which text, to which completion criterion; files read, words read, skills crossed, and words read that the run did not use.
    - The findings, grouped by task, then the cross-set findings. Each carries the task, the evidence (the load numbers, or how the failure occurs), the address (file, heading, line numbers), the failure mode (a term from `SKILL.md`, or a heading or bold term of this file), the quoted text, and the fix.
@@ -42,7 +46,8 @@ Every finding is fixed. There are no severity levels: a finding is either establ
    - Not walked, not verified, and checks that did not apply.
 
    Done when every finding carries its evidence and its fix.
-6. **Fix every finding** (see [Editing](#editing)), then walk the same tasks again and report the load table after the fix beside the one before. Done when every finding is fixed or is a decision the user holds, and every task still reaches its completion criterion.
+6. **Fix every finding** (see [Editing](#editing)), then walk the same tasks again and report the load table after the fix beside the one before.
+   Done when every finding is fixed or is a decision the user holds, and every task still reaches its completion criterion.
 
 ## Checks
 
@@ -80,7 +85,7 @@ Each sentence is tested against what the agent would do without it (`SKILL.md` `
   | a source line ("from chapter 3 of …"), an issue number the reader cannot use | nowhere |
   | a branch no run can reach, a note telling the agent to ignore something | nowhere |
 
-These stay, though a trimming pass reads them as noise: a sentence that prevents a known misuse (a script's path differs by machine and by host, which stops an agent from writing the resolved path down; keep the winning prototype running as the reference while pages are drawn); an example value that is the field's format (`conversation 2026-09-18`); a prohibition that guards against real damage, paired with its positive target; a reason the agent needs to decide an edge case, or to keep a design choice it would otherwise simplify away (upstream `code-review`'s `## Why two axes`). Other agents copy the style of what they read, so the body is written plainly.
+These stay, though a trimming pass reads them as noise: a sentence that prevents a known misuse (a script's path differs by machine and by host, which stops an agent from writing the resolved path down; keep the winning prototype running as the reference while pages are drawn); an example value that is the field's format (`conversation 2026-09-18`); a prohibition kept under `SKILL.md`'s Negation rule; a reason the agent needs to decide an edge case, or to keep a design choice it would otherwise simplify away (upstream `code-review`'s `## Why two axes`). Other agents copy the style of what they read, so the body is written plainly.
 
 ### Scripts and judgement
 
@@ -119,7 +124,7 @@ A **hand-off** is an edge A → B: skill or agent A leaves something that B read
 - Each skill ends by naming what comes next, or the caller it returns to, and the skill it returns to has an entry for an agent arriving that way.
 - A sentence written for one caller can misread under another. When skill X runs inside skill Y, reread X's general statements in Y's situation.
 - Read each task for **unguided choices**: points where the agent must choose and the text says nothing, which hands the choice to the model's own habits. Fill each one with the criterion, or make it an explicit branch. A choice any reasonable model makes the same way is not unguided; writing it down is a no-op.
-- Invoking another skill, in MMW: name the skill and the job, never an install path; the agent holding a skill resolves its scripts. To take its vocabulary and apply it in place, read its `SKILL.md`; to run it in a separate context, ask for the host's own general-purpose subagent and have it use the skill (`mmw-v2/merge-notes/README.md` `## host 中立`). A file in another skill is named by skill and file ("the `ui-acceptance` skill's `references/story-parity.md`"). A skill directory holds no copy of, or link to, another skill's files.
+- Invoking another skill, in MMW: name the skill and the job, never an install path; the agent holding a skill resolves its scripts. To take its vocabulary and apply it in place, read its `SKILL.md`; to run it in a separate context, ask for the host's own general-purpose subagent and have it use the skill. A file in another skill is named by skill and file ("the `ui-acceptance` skill's `references/story-parity.md`"). A skill directory holds no copy of, or link to, another skill's files.
 - A hard dependency (the skill produces wrong output without some setup) gets one line naming what to run, as upstream's `to-spec` names `setup-matt-pocock-skills`; a soft one (the setup only sharpens output) gets a general mention.
 
 ### Prompts written for other agents
@@ -144,7 +149,7 @@ An **upstream skill** (one kept in an upstream subtree, or adapted from one) ent
 - A skill refers to its own or a sibling skill's scripts through a **script token**, a `<name>` standing for an executable or a script directory. Each token is defined once, in a section headed `` ## Resolve `<token>` once `` that says what the token expands to in every command below and resolves it from the file's own location, and says the path differs by machine and by host; one section may define several tokens. The body carries no bare relative path and no token used before or without its definition. A token naming an executable (`<engine>`, `<dispatch>`, `<events.py>`, `<lease.py>`, `<release>`) resolves to exactly one file across the set, because an agent holding several skills reads all their vocabulary as one. The directory token `<scripts>` is each skill's own; a skill reaching into another skill's directory names it (`<ui-acceptance scripts>`). Placeholders for values (`<n>`, `<spec>`) are not script tokens.
 - An absolute path in skill text is legal in three cases: a fixed user-level location (`~/.mmw/models.json`, `~/.agents/skills`, `~/.claude/skills`), which has no relative spelling; a token's runtime expansion, which stays a token in the text; a path the run made itself with `mktemp`. Any other absolute path is a finding.
 - A ticket's `CHECK:` line names no path: a shell runs it with no agent in between, `verify-ticket.py` puts the `ui-acceptance` skill's `scripts/` on that shell's `PATH`, so a judge is named bare. Its shapes are in the `ui-acceptance` skill's `references/boundary-check.md` and `references/story-parity.md`.
-- One text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability ("a host that cannot hold a turn open", "a host that can run subagents"). The runner is the one `models.py runner` selects; the text states that and assumes nothing past it. A skill is named in prose by its directory name, as `the X skill`; a `/X` slash invocation is one host's syntax. The three rewrites this forces on upstream text are in `mmw-v2/merge-notes/README.md` `## host 中立`.
+- One text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability ("a host that cannot hold a turn open", "a host that can run subagents"). The runner is the one `models.py runner` selects; the text states that and assumes nothing past it. A skill is named in prose by its directory name, as `the X skill`; a `/X` slash invocation is one host's syntax. A session command (emptying a session's context, compressing it into a summary) is written as the action, and the file that names one carries this sentence once: `Emptying a session's context and compressing it into a summary both exist on every host, under a different name on each; use the one your host gives you.`
 
 The check is a `grep` of every `SKILL.md`, description and reference (this file excepted) for: an absolute path outside the three cases, and any `~/.agents/skills` path in prose; a relative path that climbs out of the skill directory; a script token without its definition; a path in a `CHECK:` line; a host name (`claude`, `codex`, `grok`, `cursor`, `pi`), a tool name (`the Skill tool`, `the Task tool`), a `/name` slash invocation, or a runner name (`orca`, `herdr`, `paseo`).
 
@@ -181,12 +186,13 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 ## Verifying
 
 - Run the smallest test suite that covers the scripts and texts you touched (`mmw-v2/tests/<name>/run.sh`). Green tests prove the scripts, not that the text reads well; report them on a separate line.
-- Walk every changed task again and report the load before and after, and whether each task still reaches its completion criterion.
 - The text is proven by a run: a fresh agent given only the trigger and a real job (one real ticket) does the task. Watch which files it opens, where it guesses, and where it stops before the completion criterion. A sentence present in the text is not a behaviour observed; a claim that the text now changes behaviour is unverified until such a run shows it.
+
+Done when the suites covering the touched files pass, and every changed task, walked again, still reaches its completion criterion, with its load before and after reported.
 
 ## Upstream examples
 
-mattpocock's own skills show several checks done well. The in-repository copies under `mmw-v2/upstream/skills/` carry this repository's edits; read the original from the latest squash commit (`git log --oneline --grep "Squashed 'mmw-v2/upstream/'"`, then `git show <commit>:skills/<bucket>/<skill>/<file>`). The in-progress `retro` below is upstream's, not MMW's own `retro` skill.
+mattpocock's own skills show several checks done well. The in-repository copies under `mmw-v2/upstream/skills/` carry this repository's edits; read the original from the latest squash commit (found as `mmw-v2/merge-notes/README.md` says), with `git show <commit>:skills/<bucket>/<skill>/<file>`. The in-progress `retro` below is upstream's, not MMW's own `retro` skill.
 
 | Check | Upstream file | What to look at |
 | --- | --- | --- |

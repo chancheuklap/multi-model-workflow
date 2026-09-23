@@ -25,17 +25,9 @@ mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型�
 
 ## host 中立
 
-十二份装了的上游技能，正文原来按一家 host 说话：`the Skill tool` 这个工具名，和 `/名字` 这种斜杠调用。`writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Paths, tokens and host neutrality` 要求的是——一份 `SKILL.md` 对所有 host 是同一份，不把任何 host 当默认或首选，不按 host 名分支，能力差异用按能力判断的自然语言写。没有那两样东西的 host 上，读到 `call the Skill tool with "codebase-design"` 的 agent 只能猜：跳过这一句，或者去找一个不存在的工具；读到 `` tell the user to run `/setup-matt-pocock-skills` `` 的 agent 会把这一串原样打给用户，而用户敲它什么也不会发生。
+上游技能的正文按一家 host 说话：`the Skill tool` 这个工具名，和 `/名字` 这种斜杠调用。本仓的改法（点名另一个技能的两种写法、会话管理命令的写法、技能名的散文写法）是技能文本的规则，写在 `writing-for-agents` 技能的 `SKILL-SET-REVIEW.md` `### Hand-offs` 与 `### Paths, tokens and host neutrality`。
 
-三种替换写法，按那一句自己想要什么分，不按它提到了谁：
-
-- **要词汇、要就地照办**：写成 `` read the `<X>` skill's `SKILL.md` `` 加一句读它干什么。判据在 `tdd/SKILL.md` 自己的话里：`it is a reference to consult, not a session to run`。
-- **要另一个上下文**：写成 `` ask for your host's own general-purpose subagent and have it use the `<X>` skill ``。措辞取自 `docs/contexts/toolbox/CONTEXT.md` 的 **subagent** 条目：`a skill that needs one asks for the host's own general-purpose subagent`。不写工具名——「use the Task tool」和 `the Skill tool` 是同一个毛病换件衣服。
-- **会话管理命令**（只有 `/clear` 与 `/compact` 两个，它们不是技能）：写成那个动作本身，并在那份文件里只写一次这句能力说明：`Emptying a session's context and compressing it into a summary both exist on every host, under a different name on each; use the one your host gives you.`
-
-技能名的散文写法也在那一节：按目录名写成 `the X skill`。
-
-**上游把某一段改回工具名或斜杠命令 → 收上游对那一段其余部分的措辞，按能力说话这一层不收回去。** 下面每份说明只写它那个技能改了哪几段，不复述这三条。
+**上游把某一段改回工具名或斜杠命令 → 收上游对那一段其余部分的措辞，按能力说话这一层不收回去。** 下面每份说明只写它那个技能改了哪几段，不复述这些写法。
 
 一处已知偏差，记录，不修，不加守卫：`mmw-v2/upstream/CONTEXT.md` 举的 label 例子是 `ready-for-afk`，而本仓库的 label 是 `ready-for-agent`。约定明写 `mmw-v2/upstream/` 自己的 `AGENTS.md`、`CLAUDE.md`、`CONTEXT.md` 原样不动，所以这处偏差留着。不加守卫的理由是两样现有的东西已经拦住一个 agent 真去打这个 label：`docs/agents/triage-labels.md` 是 `triage` 与 `to-tickets` 唯一的 label 来源，表里没有 `ready-for-afk`；`verify-ticket.py --closeout` 是 worker 改 label 的唯一一步，而 `tool-guard.py pretool` 拦下把票挪出 agent 队列的那两条命令。一个打错的 label 不会让票进队列，也不会让它关掉，靠的是它不等于 `ready-for-agent`。这一条写在这里，是为了让下一次拉 upstream 的人不要把它当成本仓库的疏漏去「修」。
 
