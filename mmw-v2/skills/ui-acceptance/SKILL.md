@@ -1,6 +1,6 @@
 ---
 name: ui-acceptance
-description: Acceptance criteria that start or compare a running product, and what a repository answers so they can run. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, giving a run its own ports, or before writing an interface ticket's code.
+description: Acceptance criteria that start or compare a running product, and what a repository answers so they can run. Use when filling `.mmw/target.json`, reading a DIFF, MISS, JOURNEY or HARNESS line, giving a run its own ports, or before writing an interface ticket's code.
 ---
 
 # UI acceptance
@@ -17,11 +17,12 @@ A **target** is the product a consuming repository runs under automation; the re
 | --- | --- |
 | Writing an interface ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
 | Building the product's story service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
-| Writing the criterion that compares a product story with its design page by element parity, or reading the `DIFF` line one printed | [references/story-parity.md](references/story-parity.md) |
+| Writing a story, boundary, journey or harness guard criterion onto a ticket | the `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** |
+| Reading the `DIFF` line the story judge printed, or how it compares a product story with its design page by element parity | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
-| Writing the criterion that runs one named journey against the real product, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md) |
+| Writing a journey script or the product's break switch, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md) |
 | Making a repository an acceptance runtime (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/target_config.py --check` in that repository. Fill `.mmw/target.json` until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
-| Checking that acceptance names are not scattered through the consuming repository | `python3 <scripts>/harness-guard.py <repository-root>` — [references/harness-guard.md](references/harness-guard.md) |
+| Checking that acceptance names are not scattered through the consuming repository, or reading `HARNESS LEAK` / `HARNESS DESIGN PAGE` | `python3 <scripts>/harness-guard.py <repository-root>` — [references/harness-guard.md](references/harness-guard.md) |
 | Giving a run its own ports and directories, or reading what `lease.py` refused | `python3 <scripts>/lease.py run -- <the start command>`; every refusal names its next step |
 
 ## Five rules while the product is running

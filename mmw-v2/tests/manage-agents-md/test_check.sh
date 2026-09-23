@@ -98,7 +98,7 @@ d="$TMP/nosentence"; good_repo "$d"; grep -v 'subdirectory' "$d/AGENTS.md" > "$d
 expect_fail "missing subdirectory sentence" "$d" "subdirectory sentence"
 
 d="$TMP/override"; good_repo "$d"; printf 'x\n' > "$d/src/AGENTS.override.md"
-expect_fail "leftover AGENTS.override.md" "$d" "AGENTS.override.md"
+expect_fail "leftover AGENTS.override.md" "$d" "AGENTS.override.md is still there; migrate its lines"
 
 d="$TMP/noroot"; mkdir -p "$d"
 expect_fail "no root AGENTS.md" "$d" "AGENTS.md: missing"

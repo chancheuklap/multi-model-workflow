@@ -51,3 +51,11 @@ export function trigger(): void {
 ```
 
 `no-floating-promises` must fire on this. If it does not, the type-aware pass is not running, and every type-aware rule in the config is decoration.
+
+## Two packages sharing one toolchain
+
+Two apps built from one repository — two Electron shells, an app and its admin console — need identical build and checker versions: the same code has to pass the same checks, and a build-tool version that differs between them produces artifacts that differ in ways nobody sees until release day.
+
+Merging them into one workspace does fix it, and costs more than it looks: bootstrap scripts that expect a lockfile per package, release scripts that run `pnpm install` inside each package, and a packaging step that can only be verified by actually building on the target OS.
+
+**Assert it in a test instead.** Compare the two `package.json` files' `dependencies` and `devDependencies` — keys and version ranges, verbatim — and fail with the specific difference.

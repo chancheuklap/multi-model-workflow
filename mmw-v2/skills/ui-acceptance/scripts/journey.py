@@ -44,7 +44,12 @@ if str(HERE) not in sys.path:
 
 from target_config import command_env, discover, repo_root, run_command, target_config  # noqa: E402
 from lease import holder, judge_run, listener, ports_of, registered, worktree_of  # noqa: E402
-from refusal import REPORT_BLOCKED, refusal  # noqa: E402
+from refusal import refusal  # noqa: E402
+
+# The first acceptance ticket builds the break switch, so a switch that does not arm is
+# that worker's own defect to fix; for any other ticket it is a fault to report.
+BREAK_NEXT = ("If this ticket owns .mmw/harness/, fix the switch and run the criterion "
+              "again; otherwise report the ticket blocked and stop.")
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
 BREAK_RE = re.compile(r"[A-Z]+ /\S*")
@@ -223,14 +228,14 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             return bail(refusal(
                 f"`start` exited {proc.returncode} while arming {break_spec!r}.",
                 "The break switch in references/journey.md did not come up.",
-                REPORT_BLOCKED,
+                BREAK_NEXT,
             ), proc=proc)
         expected_arm = f"BREAK ARMED {break_spec}"
         if expected_arm not in (armed.stdout + armed.stderr).splitlines():
             return bail(refusal(
                 f"`start` exited 0 without printing `{expected_arm}`.",
                 "The break switch in references/journey.md was not confirmed.",
-                REPORT_BLOCKED,
+                BREAK_NEXT,
             ))
         try:
             control_data = discover(cfg, root, env=env)

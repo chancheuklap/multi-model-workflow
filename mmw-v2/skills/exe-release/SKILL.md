@@ -17,7 +17,7 @@ Ship an install package for every product this change touched, far enough that t
 
 A **release manifest** is the JSON file that declares how one product is packaged: one product per file, its filename ending in `.release-adapter.json`.
 
-Both must hold. If one fails, stop and tell the user which, with the current branch HEAD.
+Both must hold. If one fails, stop and tell the user which, with the current branch HEAD. A repository with no release manifest is brought in by [new-product.md](references/new-product.md) when the user asks for that.
 
 | Check | How |
 | --- | --- |

@@ -155,9 +155,10 @@ Write in the language the repository's existing instruction files use; in the cr
 ### Steps
 
 1. **List the nested directories**: the directories that earned a pair in `## Ask the user`.
-2. **Write the root `AGENTS.md`** on the root template below, from the entries whose place is `root`.
-3. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` line listed under `## Imports found in old CLAUDE.md files` in `inputs.md` that came from the root `CLAUDE.md`. Nothing else.
-4. **Write each nested pair** on the nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`, replacing whatever was there.
+2. **Write each code or test rule**: every survey-list entry that says how code or tests are written here goes into `CODING_STANDARDS.md` or `TESTING.md` at the repository root, as `### Code and test rules` below says, not into an `AGENTS.md`.
+3. **Write the root `AGENTS.md`** on the root template below, from the entries whose place is `root`.
+4. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` line listed under `## Imports found in old CLAUDE.md files` in `inputs.md` that came from the root `CLAUDE.md`. Nothing else.
+5. **Write each nested pair** on the nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`, replacing whatever was there.
 
 ### Root template
 
@@ -207,7 +208,7 @@ A root file carries only the sections above: no directory map, no environment va
 
 ### Code and test rules
 
-A repository's code rules (how code is written here) live in its `CODING_STANDARDS.md`, and its test rules (the test layers, which external boundaries may be stubbed, how to run the tests) in its `TESTING.md`. The reviewer's Standards and Tests axes read those two files, and a worker gets the rules it needs through the spec and the ticket. So no `AGENTS.md` carries a code or test rule: the root's External References names each of the two files that exists. An entry that is a code or test rule is written into the matching file, which is created when absent.
+A repository's code rules (how code is written here) live in its `CODING_STANDARDS.md`, and its test rules (the test layers, which external boundaries may be stubbed, rules about how tests are run) in its `TESTING.md`. The reviewer's Standards and Tests axes read those two files, and a worker gets the rules it needs through the spec and the ticket. So no `AGENTS.md` carries a code or test rule: the root's External References names each of the two files that exists. An entry that is a code or test rule is written into the matching file, which is created when absent. A command, test commands included, stays a row of `## Commands`.
 
 ### Nested template
 
@@ -288,7 +289,7 @@ Write the smallest useful file. Use only sections that add non-obvious value.
 
 An External References row and the subdirectory sentence are context pointers: their wording, not the file behind them, decides whether an agent reaches the file. Write the Need column as the situation that should send an agent there, leading with the word that situation is named by, one row per distinct situation.
 
-Done when every pair from step 1 exists, every line in every file traces to one survey-list entry, and the root is within the limit `check.sh` sets.
+Done when every pair from step 1 exists, every code or test rule is in `CODING_STANDARDS.md` or `TESTING.md`, every line in every file traces to one survey-list entry, and the root is within the limit `check.sh` sets.
 
 ## Prune
 
