@@ -39,7 +39,7 @@ The spec section that says where a test observes the result, the seam and what i
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **Critical flows**:
-The bullet of `## Testing Decisions` naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/journeys/` each one runs from.
+The bullet of `## Testing Decisions`, written only in a spec with a screen contract, naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/journeys/` each one runs from.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Out of Scope`**:

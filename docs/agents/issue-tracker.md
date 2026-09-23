@@ -24,28 +24,10 @@ Infer the repo from `git remote -v` — `gh` does this automatically when run in
 
 ## Reading a tree
 
-The work is four layers deep — a map, its specs, each spec's tickets, each ticket's children —
-joined by GitHub's sub-issue link. Read over REST that is one request per issue per layer, and a
-page left unread raises no error. So the tree below an issue is read in GraphQL, by
-`scripts/issue_tree.py` of the `verify-ticket` skill (`python3 <that script> <issue> --root map|spec|ticket`,
-default `spec`), which `status.py` and `verify-ticket.py --lint` use too. Each layer has a largest
-page: 50 specs under a map, 100 tickets under a spec (GitHub's own cap on one issue's children), 50
-children under a ticket; each issue comes back with its number, title and state, and each issue with a
-layer below it with GitHub's `total` / `completed` count of that layer. Entered at a map, those pages
-are 255,050 possible nodes against GitHub's limit of 500,000 per query; a fourth list at 100 would ask
-for a million and GitHub refuses the query outright.
-
-GitHub prices a query by what it asks for, never by what comes back: each list is charged as though it
-came back full, the charges are added up and divided by a hundred. A map at the largest pages is 152 of
-the 5,000 points an hour one user has, the same 152 whether the map holds three specs or fifty. So a
-read priced over `SIZING_WORTH` asks a cheaper question first — the counts of the layers below, one
-point — and then asks for the tree with every list at the size those counts give; a map that way is
-about eleven points. Entered at a spec or a ticket the largest pages already cost three points or one,
-and the read stays a single query. A list that comes back short of its count is read again at the
-largest pages, so an answer is never smaller than the largest pages alone would have given.
-
-`issue_tree.py` exits 2, and answers nothing, when a list comes back shorter than the count GitHub gives for
-it even at the largest pages, or the answer carries `errors`.
+The tree below a map or a spec is read in one GraphQL query by the `verify-ticket` skill's
+`scripts/issue_tree.py` (`python3 <that script> <issue> --root map|spec|ticket`, default `spec`), which
+`status.py` and `verify-ticket.py --lint` use too. It exits 2, and answers nothing, when a list comes
+back shorter than GitHub's count for it.
 
 ## Three label sets
 
@@ -67,12 +49,7 @@ The layer labels, with the colour and description a repository that lacks one cr
 | `mmw:ticket` | `0e8a16` | MMW layer: a ticket, one unit of work | the to-tickets skill, publishing each ticket; `dispatch.sh route … became-ticket` |
 | `mmw:child` | `c5def5` | MMW layer: a child issue a ticket opened | `verify-ticket.py --sub-issue` |
 
-A layer label puts an issue in no queue. The layer label tells a board which layer an issue is; the
-parent link tells the scripts which spec a ticket sits under: `verify-ticket.py` takes a ticket's
-spec to be its direct parent and never walks further up. So a child that becomes a ticket changes
-both: its label goes from `mmw:child` to `mmw:ticket`, and its parent moves from the ticket it came
-from to that ticket's spec (`dispatch.sh route <ticket> <child> became-ticket <new ticket>` does both, taking the spec from the `child.opened` event rather than the tree). Where it
-came from stays on the record as the `child.closed` event on the original ticket.
+A layer label puts an issue in no queue.
 
 ## Pull requests as a triage surface
 

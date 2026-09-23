@@ -24,7 +24,7 @@ The route most work travels. You have an idea and want it built.
    - **Yes** → **the `to-spec` skill** (turn the thread into a spec), then **the `to-tickets` skill** to split it into tracer-bullet tickets, each declaring its **blocking edges** as native blocking links on the tracker, so any ticket whose blockers are done can be grabbed. Then **the `dispatch` skill** runs the published tickets: a night over the spec's batch, or one ticket outside a night. Each ticket is self-contained, and each worker starts in a fresh session, working from its ticket.
    - **No** → **the `tdd` skill** in this session, to build a concrete behaviour test-first without a spec or tickets.
 
-   A dispatched worker loads **the `implement` skill**, which builds its ticket by driving **the `tdd` skill** internally (one red-green slice at a time), then closes out with **the `code-review` skill**, a review of the ticket's diff along Standards, Spec and Tests, plus a pilot UI axis on a ticket with a story criterion. **The `code-review` skill** reviews one ticket's diff; it has no use on a branch or PR without a ticket.
+   A dispatched worker loads **the `implement` skill**, which builds its ticket by driving **the `tdd` skill** internally (one red-green slice at a time), then closes out with **the `code-review` skill** on the ticket's diff. **The `code-review` skill** reviews one ticket's diff; it has no use on a branch or PR without a ticket.
 
 ### Context hygiene
 
