@@ -65,7 +65,7 @@ The split decides what happens next: in-ticket review findings get one round of 
 The Tests axis splits on one question — is the test case the review finding names one that a `CHECK:` names?
 
 - A test case some `CHECK:` runs → **in-ticket**. That criterion's green is what the review finding is about.
-- Any other test file in the diff → **out-of-ticket**.
+- Any other test file in the diff → by the rule above: **in-ticket** inside this ticket's `## Owns`, **out-of-ticket** outside it.
 
 ## 5. Write one review comment on the ticket
 
@@ -96,6 +96,8 @@ A finding with no code location of its own (a `Missing`, a `should not` on a lin
 The source is the current URL, `path:line`, or `CHECK` evidence that proves the finding. When you could not tell, append `unverified: <what would settle it>` at the end of the same line. An empty list says `None`.
 
 End with one line per axis: how many review findings it raised and the worst one within that axis. Rank nothing across axes and merge nothing between them — the separation is what keeps a passing axis from covering a failing one.
+
+Done when `--review` exits 0.
 
 ## Default axes and the UI pilot
 

@@ -19,7 +19,7 @@
 | 第 4 步 Standards subagent prompt 的 brief | `references/standards-reviewer.md` 第 4 节 | 要点全在。上游改 brief → 收上游 |
 | 第 4 步 Spec subagent prompt 的 brief（Missing、Scope creep、Built wrong 三类，每条引 spec 原文） | `references/spec-reviewer.md` 第 3 节与末节 What is not yours | 三类保留，引用来源从「ticket 或 spec」扩到「ticket、spec 或 baseline」：baseline 既不是 ticket 也不是 spec，不扩这一句，第 2 节读出来的 baseline 偏离会被这一节自己的引用规则否掉。加了一条我们自己的禁令，首句把范围钉在 handoff package 这一件东西上——「The handoff package is the one baseline you do not open」（段末只再说一句 UI 跟得多紧不归这个 axis 报，不再重复「不打开」）：不读 handoff package（位置以 ticket 的 `## Read first` 为准），照不照它由某条 acceptance criterion 跑的 `story-parity.py` 判，是像素与 accessibility tree 比对，不是读出来的。范围不钉住，这段就是 Spec axis 关于 `## Read first` 收到的唯一一句话，读起来像整节都不许碰；钉住之后哪些 baseline 要读由第 2 节正面说，这里不再反过来补一遍。上游改 brief → 收上游，这条禁令与它的范围限定一并保留 |
 | 第 4 步「把 smell baseline 全文粘进 subagent prompt」 | 退场 | 上游让 dispatcher 把 smell baseline 粘进 prompt。我们让轴 subagent 自己按技能表里 axis 那一行读 reference file：粘贴会产生第二份副本，与 reference file 里的那份各自漂移。`references/session.md` 第 2 节明写 prompt 只含技能名、ticket、base commit、axis 名，接一句 `Nothing else: the skill is what they read, and the axis word picks their row in the skill's table.`，不再逐项列出不许放进 prompt 的东西 |
-| 第 5 步 aggregate（两份 report 分列、不合并不重排、末尾一行汇总） | `references/session.md` 第 5 节 | 「不合并、不跨 axis 重排」原样保留。落点从「present 给 user」改成写到 ticket 上，成为一条 review comment，first line 固定 `REVIEW <base commit>..<HEAD commit>`：reviewer session 会结束，修它的 worker 读的是 ticket。写这条 comment 的是 `verify-ticket` 技能的 `--review`，不是 `gh issue comment`，理由见下面「报告和报信是同一次调用」。上游改这一步 → 收上游对 report 形状的措辞，落点与调用方式按我们的 |
+| 第 5 步 aggregate（两份 report 分列、不合并不重排、末尾一行汇总） | `references/session.md` 第 5 节 | 「不合并、不跨 axis 重排」原样保留，其后以一行 `Done when` 收尾：`--review` 退出 0。落点从「present 给 user」改成写到 ticket 上，成为一条 review comment，first line 固定 `REVIEW <base commit>..<HEAD commit>`：reviewer session 会结束，修它的 worker 读的是 ticket。写这条 comment 的是 `verify-ticket` 技能的 `--review`，不是 `gh issue comment`，理由见下面「报告和报信是同一次调用」。上游改这一步 → 收上游对 report 形状的措辞，落点与调用方式按我们的 |
 | 「Why two axes」 | `references/session.md` 末尾的「Default axes and the UI pilot」 | 三个默认 axis 加一个试点 UI axis，正文只写三个默认的对照与 UI 的启动条件。不另起 verifier（ADR 0026），与试点结束后去留改哪两份文件，是维护者的事，只写在本说明（见 `## UI axis（试点）`），reviewer 不读。上游改这一节 → 收上游对照写法，三个默认与 UI 试点条件保留，ADR 0026 仍只记在这里 |
 | 末节「What you do not do」的修法一句 | `references/session.md` 末节 | 改成「修法在 `implement`：in-ticket 修一轮，其余开 `finding` child」。上游写的是「three-round cap」，而 `implement` 的收尾不数轮次。上游改这句 → 收上游措辞，不带回任何轮次上限 |
 | 无 | `references/session.md` 第 4 节（in-ticket / out-of-ticket 分类） | 我们加的。六条算 in-ticket：碰本 ticket 的 acceptance criteria、碰 ticket 点名的 spec 决策、碰 ticket `## Read first` 里的 baseline、碰 spec 的 `## Out of Scope`、碰 spec 的 `## Testing Decisions`、碰本 ticket `## Owns` 之内的文件；其余是 out-of-ticket。后两条是白天规划的一部分，落地内容要与白天规划一致：`## Out of Scope` 是白天写的「这次不做」，列在那里却做了是 Spec axis 最清楚的 `Scope creep`，归 out-of-ticket 就只开一张不阻塞的 sub-issue、越界代码随票合并；`## Testing Decisions` 定的是测试层与 precedent，偏离它的测试同样该当晚修。dispatcher 做这个分类而不是留给读者，因为两类的下一步不同（正文只写 `The split decides what happens next:`，理由只在这里）——in-ticket 修一轮，out-of-ticket 由 worker 开成本票的 `finding` child（`--sub-issue finding`，mmw #315 第 3 节前叫 `review`）且不阻塞，不按属于谁分流；worker 开、reviewer 列。上游重写 §4 → 本票 parent 与 `--sub-issue finding` 保留，第六条按文末那一节取舍。baseline、`## Out of Scope`、`## Testing Decisions` 三条与 `references/spec-reviewer.md` 第 2 节让 Spec axis 读它们是一对，拆开做无效：dispatcher 按这一句的字面条件路由，只加读不改这里，baseline 偏离会被判成 out-of-ticket、开一个不阻塞的 sub-issue，本 ticket 照样关掉。怎么修不在这里，在 `implement` 的 closing steps：in-ticket 修一轮，out-of-ticket 开 sub-issue，轮次不设上限 |
@@ -47,7 +47,7 @@
 
 两条禁令写在文件末尾，都有出处：不报 coverage（`tdd/SKILL.md` 的「Test only at pre-agreed seams」——这条 landing pipeline 故意不追 coverage），不追加 ticket 上没有的 acceptance criterion（一个 axis 自设通过标准，正是 `## Acceptance criteria` 这一节存在要防的事）。
 
-审哪些测试文件不由 dispatcher 告诉它：subagent 自己 `gh issue view`，从每条 `CHECK:` 里点名的测试文件与用例名取出清单，再加上 `boundary-check.py` 的 `--run` 产品测试与 `journey.py` 的 journey 脚本；清单之外的测试文件仍可报但归 out-of-ticket。读这些断言本身，不因 judge 已判过就跳过。不为防存心作弊加标记文件或别的机关：存心作弊在这个 axis 本来就读的断言里看得见。这是维护者的约束，只记在这里，axis 文件里不写。
+审哪些测试文件不由 dispatcher 告诉它：subagent 自己 `gh issue view`，从每条 `CHECK:` 里点名的测试文件与用例名取出清单，再加上 `boundary-check.py` 的 `--run` 产品测试与 `journey.py` 的 journey 脚本；清单之外的测试文件仍可报，axis 只写明没有 `CHECK:` 点名它；归 in-ticket 还是 out-of-ticket 由 session 第 4 节按 `## Owns` 分，axis 文件不写归属。读这些断言本身，不因 judge 已判过就跳过。不为防存心作弊加标记文件或别的机关：存心作弊在这个 axis 本来就读的断言里看得见。这是维护者的约束，只记在这里，axis 文件里不写。
 
 ## UI axis（试点）
 
@@ -126,7 +126,9 @@ section, put both paragraphs back after the screen-contract one.
 
 Reason, in the numbers from #277 Problem Statement: on the #216 night, 38 review sub-issues; 27 of them (71%) had a fix target that sat entirely inside that ticket's own `## Owns`, and the worker was forbidden to touch them.
 
-If upstream rewrites section 4 → take its wording and put the sixth condition back; do not add a sentence about where the worker may write.
+The Tests axis split in the same section follows the sixth condition: a test case some `CHECK:` runs is in-ticket; any other test file in the diff is in-ticket inside this ticket's `## Owns` and out-of-ticket outside it. A test file inside `## Owns` classified out-of-ticket would become a `finding` child, which the `verify-ticket` skill's `references/sub-issues.md` question 4 reserves for defects outside `## Owns`.
+
+If upstream rewrites section 4 → take its wording and put the sixth condition back, with the Tests split that follows it; do not add a sentence about where the worker may write.
 
 ## The Spec axis reviews tickets integrated into the base branch
 

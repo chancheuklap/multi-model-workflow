@@ -25,4 +25,4 @@ On a `CARRIED:` line, commit those files on `issue-<n>` before the closing steps
 
 ## Exit codes
 
-`0` the ticket is now yours. `2` a refusal: the `ticket.refused` event, first line `NOT_READY: <reason>`, is on the ticket, and nothing else changed.
+`0` the ticket is now yours. `2` refused, with the reason on stderr; a `NOT_READY` refusal is on the ticket as `ticket.refused`, anything else posted nothing.

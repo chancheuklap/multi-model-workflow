@@ -20,7 +20,7 @@ git diff <base-commit>...HEAD
 
 Read the diff for the source under test and for the test files in your scope.
 
-A test file in the diff that no `CHECK:` names is still worth a review finding, but say so — that lands it out-of-ticket rather than in-ticket.
+A test file in the diff that no `CHECK:` names is still worth a review finding; say that no `CHECK:` names it.
 
 Also collect every `boundary-check.py` criterion's `--run` product test, and every `journey.py` criterion's journey script. Those files are in scope too: read their assertions.
 
