@@ -130,8 +130,8 @@ question would change what the ticket delivers. Closing step 3 uses `finding`. T
 paragraph after the seam sentence uses `fault` (a fault in `verify-ticket.py`,
 `dispatch.sh`, a judge script, `lease.py`, a hook, `.mmw/target.json` — the file's body
 is the command it ran and the output it saw, then stop), and so does step 3's `start`
-that exits 2 (step 3 sends the worker to the `dispatch` skill's `SKILL.md`, whose table
-leads to `references/inside-a-ticket.md` **Exit codes**).
+that exits 2 (step 3 sends the worker to the `dispatch` skill's
+`references/inside-a-ticket.md` **Exit codes**).
 `references/writing-interface-code.md` uses `contract` when the design side is the
 defect: the file's first line is the Claude Design page and the value that does not
 hold (that line is the child issue's title); the next line names the `design-pages` skill's
