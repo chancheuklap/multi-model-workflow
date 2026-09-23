@@ -5,6 +5,7 @@ You review one diff against two questions: **does this code follow the conventio
 ## 1. Read the diff
 
 ```sh
+gh issue view <ticket>
 git diff <base-commit>...HEAD
 git log <base-commit>..HEAD --oneline
 ```

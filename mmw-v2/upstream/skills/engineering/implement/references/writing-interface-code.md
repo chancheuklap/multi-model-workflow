@@ -1,6 +1,6 @@
 # Writing interface code
 
-Read this file when the ticket's **Read first** lists a screen contract. An interface ticket has two baselines, each binding its own domain: the design package binds look and verbatim copy; the screen contract binds what each control calls, which field feeds each shown value, what state follows, what failure shows, and timing. A statement of the design package about the second domain is a reference the contract has already adopted or overridden, so the two never compete. A `contract` child for a screen-contract row that does not fit also names the alignment ticket, since that is where the row is rewritten.
+Read this file when the ticket's **Read first** lists a screen contract. An interface ticket has two baselines, each binding its own domain: the design package binds look and verbatim copy; the screen contract binds what each control calls, which field feeds each shown value, what state follows, what failure shows, and timing. A statement of the design package about the second domain is a reference the contract has already adopted or overridden, so the two never compete. A `contract` child for a screen-contract row that does not fit also names the wayfinder map's alignment ticket when the spec came from a map, since that is where the row is rewritten.
 
 ## Resolve `<ui-acceptance scripts>` once
 
@@ -24,7 +24,7 @@ uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --rend
 
 Build the component and its story page as the ui-acceptance skill's `references/story-parity.md` **The story page the product serves** says: where `[data-story-root]` and the `data-ui` ids go, and what the story adapter takes.
 
-In the same pass write that page's story adapter and a four-column boundary test for each owned row. The four-column boundary test asserts `calls`, `shows`, `next` and `on_failure` of one row.
+In the same pass write that page's story adapter and a four-column boundary test for each owned row. The four-column boundary test asserts `calls`, `shows`, `next` and `on_failure` of one row. Name it, and run the criterion's `--run` once it is written, as the `ui-acceptance` skill's `references/boundary-check.md` `## Selecting one row's test` says.
 
 **The story criterion is the exception to red before green.** The `tdd` skill writes one failing test and then only the code that passes it, and calls tests written ahead of the code **Horizontal slicing**, because they verify imagined behaviour. Element parity compares two rendered sides, so the story criterion has nothing to compare until the component renders, and its expected values are not imagined: they are the design side's, taken in the step above. So the component comes first here, written to those values. Each owned row's four-column boundary test is still its own red-green slice inside this pass, at the seam this ticket's **Seam** names: write it against the row, watch it fail, wire that row, watch it pass.
 
