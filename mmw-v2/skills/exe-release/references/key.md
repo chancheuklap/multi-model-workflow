@@ -6,9 +6,7 @@ The filename and the `--adapter` flag every script below takes say `adapter`: bo
 
 **Adding a product means writing a release manifest. It does not mean writing Python.** When something cannot be said in the release manifest, the answer is a new field in it or a new capability in the skill — never a script in the product repository. A script there is a copy of packaging knowledge that the next product will have to write again.
 
-**A product that does not ship through this skill yet starts in [new-product.md](new-product.md)** — whether it has never been packaged, or ships today through its own packaging scripts. That file covers what the repository must contain before a release manifest is worth writing, and it sends you back here for the fields.
-
-`<scripts>` in every command and path below is the `scripts/` directory the release engine lives in; `SKILL.md`'s section **Resolve `<release>` and `<scripts>` once** resolves it. `<scripts>/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
+`<scripts>/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
 
 ## What belongs where
 
@@ -114,9 +112,7 @@ An entry names **exactly one** source. `source` is a repository-relative path. `
 
 **The default `root` is not arbitrary.** It sits beside the compiled backend because that is where the running app looks — the exe's own directory, then one level up. Change it and the files are all present in the installed package while the program cannot find any of them, with every build step green.
 
-Staging runs **after** the `runtime_prepare` hook and **before** `asset_parity` / `credential_proof` — fetch, then stage, then check. Those three hooks share one phase but not one moment: `runtime_prepare` fetches, the other two check what was fetched. Stage after the checks and a product's own check reports the data missing while the build log says the download succeeded. Staging also **does not clear the destination**: a product hook may be filling the same tree (one fetches its music into it), so the two stack instead of deleting each other. After each entry the build counts what landed; an entry that copies nothing stops the release, because "the copy step ran" and "the data is in the package" are different facts.
-
-`verify_key` checks that a `source` path exists in the repository. It cannot check a `source_package` — that source lives in the build machine's compile environment — so that one fails loudly during the build instead of pretending to have been checked.
+Staging does not clear the destination, so a `runtime_prepare` hook may fill the same tree.
 
 ### `python_backend` — compiling the backend
 
@@ -173,7 +169,7 @@ Native extensions that need a DLL the compiler does not carry go in `build_targe
 }
 ```
 
-Every field has a default that fits the common case; `"electron": {}` is a complete declaration. The front end is installed and built with pnpm and a `build` script — one set of commands in the skill, not a field each release manifest restates. NSIS comes with electron-builder, so the build machine does not need a standalone `makensis`: requiring one more tool would turn a working build machine away at step 1.
+Every field has a default that fits the common case; `"electron": {}` is a complete declaration. The front end is installed and built with pnpm and a `build` script — one set of commands in the skill, not a field each release manifest restates.
 
 `"installer": "repo_hook"` is for a product whose delivery format is its own — a self-update feed, or a hand-written installer whose semantics (carrying the VC++ runtime, stamping an app id, keeping user data on uninstall) the generic installer cannot reproduce. That release manifest must also declare `build_hooks.installer`. Leave a product on `electron_builder` unless it truly has its own format.
 
@@ -194,11 +190,7 @@ Hooks hang on phases, not on step numbers: which steps exist depends on what the
 
 **A hook's own logging has to survive the build machine's codepage.** A Windows build machine outside an English locale runs Python with a legacy codepage on both ends, and a hook that moves subprocess output around crashes on it while the check it ran was passing. Both directions need saying, once, in the hook: read with `subprocess.run(..., encoding="utf-8", errors="replace")`, and at start-up `sys.stdout.reconfigure(errors="replace")` for what the hook prints itself. Without the first, the reader thread dies and `result.stdout` is `None`; without the second, one Chinese character or one replacement character raises on the way out.
 
-A hook is an **addition**, never a substitute. Three checks the skill runs on every build, with no hook and no field in the release manifest:
-
-- **No business source in the shipped tree.** Compiling exists to not ship source. A package that ships it still installs and still runs, so nothing reveals the leak — the product's commercial premise is simply gone. The packages to look for are `python_backend.include_packages`, which the release manifest already declares.
-- **The compiler's leftovers do not ship.** Nuitka leaves `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` beside the finished exe, in the directory the packer copies whole. Left there, the same content ships three times over — inside the exe, as the dist tree, and as the raw payload. `.build` is worse than bloat: it holds the C the compiler generated from the product's own source. The release engine removes all three, right after the payload check reads them, so **do not put `--remove-output` in `extra_flags`**: it deletes the directories during the compile and downgrades the payload check to comparing exe tails.
-- **An installer really landed at `installer_glob`.** "The installer step exited 0" and "there is an installer" are different facts: a packer can fail its own cleanup, a repository hook can run half way. Which is why a release manifest with an installer step must declare where the installer lands. The check runs after the `package_integrity` hook, so the glob may point at a delivery directory that the hook itself fills once the gates pass.
+A hook is an addition, never a substitute. On every build the skill already checks that no business source ships (the packages in `python_backend.include_packages`), removes Nuitka's `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` leftovers, and checks that an installer landed at `installer_glob`. Keep `--remove-output` out of `extra_flags`: it deletes those directories during the compile and downgrades the payload check to comparing exe tails. `installer_glob` may point at a delivery directory the `package_integrity` hook fills, since the check runs after that hook.
 
 ### What is genuinely optional
 
@@ -210,13 +202,11 @@ Patterns only this product's build produces, matched **before** the skill's gene
 
 ## Prove it without building
 
-Check the release manifest against the repository first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile. What each exit code below means is in `SKILL.md`'s section **Exit codes**.
+Check the release manifest against the repository first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile.
 
 ```bash
 uv run --with 'pydantic>=2' python <scripts>/verify_key.py --adapter <manifest> --repo-root <repo>
 ```
-
-It checks only what a machine can decide: every path the release manifest names exists, the self-check runs an executable the release manifest actually builds, no two compile targets write the same filename, no `nofollow_imports` pattern blocks a module the self-check needs, and — the expensive one — its `--adapter` arguments point at *this* release manifest. Give a release manifest a stage that reads a different one and the build runs from that one while every step reports green.
 
 Then assemble and read the script:
 

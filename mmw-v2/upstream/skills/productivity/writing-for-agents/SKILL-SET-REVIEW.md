@@ -1,8 +1,8 @@
 # Writing and reviewing a skill set
 
-The branch of [`writing-for-agents`](SKILL.md) for a **skill set**: the skills one install list ships (in MMW, `mmw-v2/skills.txt`), with their references and scripts, run by agents that each load only their own part. `SKILL.md` gives the levers and the names of the failure modes; this file applies them to a set whose skills hand work to each other, and gives the method for reviewing one. The checks are also the rules for writing: whoever writes or edits a skill in the set applies them to the passage in hand.
+The branch of [`writing-for-agents`](SKILL.md) for a **skill set**: the skills one install list ships (in MMW, `mmw-v2/skills.txt`), with their references and scripts, run by agents that each load only their own part. `SKILL.md` gives the levers and the names of the failure modes; this file applies them to a set whose skills hand work to each other. The checks are also the rules for writing: whoever writes or edits a skill in the set applies them to the passage in hand. To review a set (walk its tasks, report and fix the findings), read [`REVIEWING-A-SKILL-SET.md`](REVIEWING-A-SKILL-SET.md); it applies the checks below.
 
-In MMW this file is the only home of the rules for skill text. The repository's other written rules (install, scripts, landing, runtime) are in `AGENTS.md`, and the rules for pulling upstream subtrees are in `mmw-v2/merge-notes/README.md`; skills fit those, and text inside an upstream subtree also follows that subtree's own `AGENTS.md`. The set's glossary states no rules: its entries are reviewed like any other text (see [Vocabulary](#vocabulary)).
+Text inside an upstream subtree also follows that subtree's own `AGENTS.md`.
 
 ## What skill text is for
 
@@ -13,41 +13,6 @@ Every check below serves these five facts about how an agent uses a set.
 3. **Direct, then trust.** A skill states the goal, the constraints, the judgement calls and the completion criterion, and leaves the ordinary moves to the model. Text that scripts every move makes the flow **rigid** (the agent follows the list when the situation differs from it) and **brittle** (each enumerated case must be kept in step with the scripts, and the case nobody listed has no guidance at all). Upstream's `implement` is five lines: it names the skills it hands to (`tdd`, `code-review`) and trusts the agent with the rest. MMW's automation needs more than that, and each addition is paid for by a judgement the agent could not make without it.
 4. **Progressive loading follows branches, not topics.** A file earns its own pointer when a given run can skip it. Material every run of a task reads belongs in the file that run already holds. Splitting it into pieces saves nothing and adds a jump for each piece.
 5. **Skills are peers composed by name.** A skill reaches another by naming it and the job, as upstream's `grill-with-docs` ("grilling" and "domain-modeling") and `implement` do; the other skill is loaded whole and does its own job. A skill never carries a copy of another skill's files, and never restates another skill's rules.
-
-## The review
-
-The review is a **cognitive walkthrough** (the usability-inspection method): for each task an agent does with the set, you read and run what that agent would, in its order, holding nothing it would not hold. A **task** is one job an agent is entered into a skill to do (consult an advisor, publish a spec, work one ticket); a skill entered in the middle of a bigger task is walked from its entry to its return. A skill is judged by how an agent uses it inside its tasks and how it joins the skills before and after; a per-file defect count misses both.
-
-Scope: the skills under review, and each upstream skill's differences from upstream. The scripts those skills call are inside the walk wherever they live, including every message a script prints for an agent (refusals, `--help`, the start prompts it builds). Other skills are read only where the scoped skills hand work to them or take it back. A review of part of the set lists the tasks it left out.
-
-Run only commands that write nothing and start no session (`--help`, a script's read-only verbs); when you cannot tell whether a command writes, read its source instead.
-
-Two kinds of finding need two kinds of evidence:
-
-- A finding about **load** (material read that the step does not use, a jump, a fragment, duplication, a cache, a no-op, over-specification) happens on every run of the task. It carries the task and the numbers from the walk: the files, the words, the skills crossed.
-- A finding about a **failure** (the agent ends wrong or stuck) names how it occurs where the set is actually used: the user's setup (in MMW, one machine, and the hosts and runner in `~/.mmw/models.json`), the tracker history of past runs (every event of a spec and its tickets is a comment on the issue), or an input a script receives in normal use. A path nobody takes, a state no normal input produces, and a failure that already stops with a refusal the agent acts on are not failures. Text or a mechanism written to guard such a path is itself a finding, under [Redundancy and bloat](#redundancy-and-bloat).
-
-Every finding is fixed. There are no severity levels: a finding is either established by its evidence and fixed, or it is not a finding.
-
-1. **List the tasks.** A skill is entered three ways: a branch its description triggers on; a prompt that starts an agent into it (built by a script, or written by a model from a template); a sentence in another skill or script that sends the agent to it by name or by step. `grep` the skill's name across every skill and script in the set for the third kind, then read the scoped skills for entries described without the name.
-   Done when every entry of every skill in scope maps to a task, or is listed as out of scope.
-2. **Walk each task.** Start from what the agent holds at entry: the description, the start prompt, or the text that sent it. Open only what the text in front of you points to. Where the text says what a script or CLI does, accepts, reads or prints, check it against the source or `--help`. Record, per step: each file you opened and why, its word count, the skill it belongs to, and which of its sections the step used; each term you had to resolve; each choice you made without guidance; and where the text ends before the task does. Walk the outcomes that happen in use: success, and each failure the history shows or a normal input produces.
-   Done when each task reaches its completion criterion or a recorded finding, and every step has its load recorded.
-3. **Apply the per-task checks** below (every section except Vocabulary, Hand-offs and Upstream skills) to what each task read.
-   Done when each check has been applied to each task, or noted as not applying.
-4. **Read across the scoped skills** for the three checks no single task shows: [Vocabulary](#vocabulary), [Hand-offs](#hand-offs) and [Upstream skills](#upstream-skills). Read them end to end; a concept that is described instead of named does not show up in `grep`. Glossary entries are checked for the terms the walked tasks use.
-   Done when every scoped skill has been read end to end.
-5. **Report** before any edit, in this order:
-   - The load of each task walked, one row each: who, entering from which text, to which completion criterion; files read, words read, skills crossed, and words read that the run did not use.
-   - The findings, grouped by task, then the cross-set findings. Each carries the task, the evidence (the load numbers, or how the failure occurs), the address (file, heading, line numbers), the failure mode (a term from `SKILL.md`, or a heading or bold term of this file), the quoted text, and the fix.
-   - A fix removes, merges, moves or simplifies before it adds. A fix that adds a mechanism (a check, a field, an exit code, a verb, a guarding sentence) names the run in which the failure occurred.
-   - Findings in files no running agent reads (glossary, merge-notes, ADRs), listed apart.
-   - Decisions for the user: only a choice that changes what a customer sees, what happens to money, the scope, or what cannot be undone. Any other choice is the reviewer's: make it and give the reason in the fix.
-   - Not walked, not verified, and checks that did not apply.
-
-   Done when every finding carries its evidence and its fix.
-6. **Fix every finding** (see [Editing](#editing)), then walk the same tasks again and report the load table after the fix beside the one before.
-   Done when every finding is fixed or is a decision the user holds, and every task still reaches its completion criterion.
 
 ## Checks
 
@@ -71,7 +36,7 @@ A **moment** is a point in a task that needs one coherent set of material and th
 Each sentence is tested against what the agent would do without it (`SKILL.md` `## Pruning`). These are findings, fixed by deleting or merging:
 
 - **Duplication**: one meaning stated in two places across the set, counting a script's `--help`, its refusal text, a start prompt it builds and a template. Keep the copy the acting agent loads at the moment it acts; delete the others. When a third thing exists to reconcile two copies (a lint that compares them, a step that counts them), that is the reason to delete a copy, not to keep the reconciler.
-- **Cache**: text restating what a script's `--help`, a config file, the tracker, or a skill the agent has loaded already says. Keep only what the agent cannot find by looking: an unwritten convention, the reason behind a choice it must preserve, a pitfall no output confesses.
+- **Cache** (`SKILL.md` `## Pruning`): text restating a script's `--help`, a config file, the tracker, or a skill the agent has loaded.
 - **No-op**: an instruction the model already follows by default, or an attitude where an action would do ("be careful", "make sure").
 - **Over-specification**: a numbered procedure for work a capable agent does unprompted; an if-then list that mirrors a script's branches; an enumeration of cases where one criterion covers them; a procedure added to enforce a rule. Replace it with the goal, the criterion and the one or two judgement calls the agent would get wrong.
 - **Over-defense**: text or a mechanism that guards a path that does not occur. Judge it with four questions: has it ever fired (the tracker history, logs, state files)? Is its case reachable by normal input? Is its premise true when measured, not reasoned? If it is removed, what handles the case? When the first two answers are no, delete it and state the residual risk once in the report.
@@ -155,9 +120,6 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 
 ### Rules and completion criteria
 
-- A rule states a fact, or changes what counts as done. A procedure added to enforce it gets skipped. When a rule fails in use, rewrite the text that set the agent's starting point.
-- An action beats a description of an attitude: "`grep` every caller" is carried out where "trace the flow end to end" is not.
-- A rule that binds every run of a skill sits in its body; a rule that binds one mode (unattended runs, one role) sits where only that mode's agent reads it.
 - In the set's own text, a step or a section that directs action without a completion criterion is a finding, and so are two different statements of what "done" means for one task. A skill this repository wrote states the criterion on a line beginning `Done when`.
 - When a check `grep`s the files it scans for a forbidden token, the token appears nowhere in those files, including negated sentences and comments.
 
@@ -175,13 +137,14 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 
 ## Editing
 
+- A fix removes, merges, moves or simplifies before it adds. A fix that adds a mechanism (a check, a field, an exit code, a verb, a guarding sentence) names the run in which the failure occurred.
 - Fix at the level of the finding. A wording finding is fixed in the sentence: improve the sentence that misled, since a new sentence added to correct an old one leaves both. A load finding is fixed in the structure: move, merge, split at a branch, or delete whole sections, carrying each sentence that still applies across verbatim. Sentences the finding does not touch stay byte for byte.
 - Asked to "streamline", an agent shortens and cuts function with it, so every deletion is tested against the agent's behaviour: walk the task after the edit and confirm it still reaches its completion criterion with nothing guessed (`SKILL.md` `## Pruning`).
-- Before a rename, move or deletion, `grep` the set for the heading, file name, token and term you are changing, and change every file that states it in the same edit: skills, references, scripts, templates, tests, merge-notes. Callers cite sections by name (the `manage-agents-md` skill cites this skill's `## Context pointers`, `## Pruning` and `## Leading words`), tests assert on refusal text and on skill text, and `mmw-v2/board/` imports some scripts by file path.
+- Before a rename, move or deletion, `grep` the set for the heading, file name, token and term you are changing, and change every file that states it in the same edit: skills, references, scripts, templates, tests, merge-notes. Callers cite sections by name, tests assert on refusal text and on skill text, and `mmw-v2/board/` imports some scripts by file path.
 - A changed upstream skill gets its merge-note entry rewritten in place. A change that invalidates a consuming repository's contract, `CHECK:` or `.mmw/target.json` gets a downstream-note.
 - Text taken from another source keeps its authors' wording (see [Upstream skills](#upstream-skills)). Excerpts are quoted verbatim and collected into one block before they are placed; finding places for them first splits the source apart.
 - The file states what is true now; what changed and why goes to the commit message and the report.
-- In MMW, an edit reaches no host until it is released (`AGENTS.md` `## Gotchas`), and `install.sh` runs only when the user explicitly authorises it. A released edit reaches only sessions started after the release.
+- In MMW, `install.sh` runs only when the user explicitly authorises it.
 
 ## Verifying
 
@@ -196,7 +159,6 @@ mattpocock's own skills show several checks done well. The in-repository copies 
 
 | Check | Upstream file | What to look at |
 | --- | --- | --- |
-| What skill text is for | `engineering/implement/SKILL.md`, `engineering/grill-with-docs/SKILL.md` | a whole workflow step in a few lines: name the skills to hand to, the checks to run, the end state; trust the agent with the rest |
 | Descriptions | `engineering/wizard/SKILL.md`, `engineering/prototype/SKILL.md` | the trigger branches; one explicit non-trigger |
 | Load and disclosure | `engineering/prototype/SKILL.md` with `LOGIC.md` and `UI.md` | each branch file whole, each naming the other branch for a reader who took the wrong one |
 | Load and disclosure | `engineering/codebase-design/SKILL.md` `## Going deeper` | each pointer carries its condition |
@@ -205,7 +167,6 @@ mattpocock's own skills show several checks done well. The in-repository copies 
 | Scripts and judgement | `engineering/code-review/SKILL.md` step 3 | the smell baseline: each item is what it is and how to fix it, marked "always a judgement call" |
 | Scripts and judgement | `engineering/code-review/SKILL.md` step 1 | "A bad ref or empty diff should fail here, not inside two parallel sub-agents": one early check, placed where it saves the most |
 | Scripts and judgement | `in-progress/retro/SKILL.md` | a mechanical violation gets a deterministic check; the standards document keeps only judgement calls |
-| Redundancy and bloat | `engineering/code-review/SKILL.md` `## Why two axes` | the one reason kept, because without it the agent would merge the axes |
 | Vocabulary | `engineering/codebase-design/SKILL.md` `## Glossary`; `engineering/improve-codebase-architecture/HTML-REPORT.md` `## Tone` | "Use these terms exactly"; "Use exactly" / "Never substitute" |
 | Hand-offs | `productivity/grilling/SKILL.md` | facts (look them up) kept apart from decisions (put them to the user); the end stated as "the frontier is empty" |
 | Hand-offs | `engineering/to-spec`, `to-tickets`, `triage` against `tdd`, `diagnosing-bugs` | a hard dependency names `setup-matt-pocock-skills` in one line; a soft one only says to read the domain glossary if it exists |

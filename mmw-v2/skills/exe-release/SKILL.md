@@ -13,34 +13,16 @@ Ship an install package for every product this change touched, far enough that t
 
 `<release>` in every command below is `bash <absolute path of scripts/release-flow.sh>` — the release engine, next to this file — so `<release> where` runs `bash /…/scripts/release-flow.sh where`. `<scripts>` is the `scripts/` directory the release engine lives in, and [key.md](references/key.md) runs two more executables out of it. Resolve both from this file's own location, once: the path differs by machine and by host.
 
-The release engine is the deterministic layer: the state machine, the three failure tiers, path guards, same-cause circuit breakers, and budget breakers all live there. **You are the judgement layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the release engine cannot judge. Tiers, guards, and the executor stay with the release engine — [driving.md](references/driving.md) states that boundary at the step where it applies.
-
-## Exit codes
-
-The release engine puts *what happened* on stdout — `STAGE:`, `PAUSED:`, `SUCCESS:`, `DONE`, `NOT-DONE:`, `CORRUPT:`, `TRANSIENT-RETRY:`, `ENV-ACTION:`, `P0:`, `BUDGET-EXCEEDED:` and the rest. The exit code says only which of three things happened. The three are the same for every subcommand.
-
-| Command | 0 | 1 | 2 | 3 |
-| --- | --- | --- | --- | --- |
-| `<release> <subcommand>` | the subcommand ran; what happened is on stdout | one `ERROR: <the fact it cannot get past>` line on stderr | the subcommand is missing or unknown, usage on stderr (`--help` exits 0; an unknown verb after `stage` or `round` exits 1 with an `ERROR: usage:` line) | — |
-| `<scripts>/verify_key.py` | no findings | the release manifest has problems: findings as a JSON envelope on stdout, or a contract error as a traceback on stderr | argparse usage error | — |
-| `<scripts>/release_script_assembler.py assemble\|check` | passed | — | argparse usage error | `INVALID: <reason>` on stderr |
-
-**`PAUSED` exits 0.** So do `CORRUPT:`, `BUDGET-EXCEEDED:` and every other verdict: they are things that happened, and a subcommand that reaches a verdict ran. Read the state from stdout, never from the exit code.
-
-Exit 1 is the release engine refusing to go on because of a fact — a `budget.started_at` that will not parse, no release-state where a subcommand needs one. The `ERROR:` line names that fact.
-
 ## 1. Preconditions
 
 A **release manifest** is the JSON file that declares how one product is packaged: one product per file, its filename ending in `.release-adapter.json`.
 
-Both must hold. If one fails, stop and name it.
+Both must hold. If one fails, stop and tell the user which, with the current branch HEAD.
 
 | Check | How |
 | --- | --- |
 | Working tree is clean | `git status --porcelain` is empty. The release engine refuses to mix self-heal commits with uncommitted work |
 | This repository ships something | At least one release manifest exists (next step) |
-
-**A repository with no release manifest at all does not ship.** Stop and report that to the user, with the current branch HEAD. (One product missing a release manifest in a repository that does ship is a different case — step 2.)
 
 ## 2. Name the products for this run
 
@@ -72,11 +54,9 @@ For each product from step 2, in order:
 <release> init --manifest <absolute path of that release manifest>
 ```
 
-Then read [driving.md](references/driving.md) in full and drive until the package is ready. This skill does not retell it.
+Then read [driving.md](references/driving.md) in full and drive until the package is ready.
 
 `<release> close` one product before starting the next. Do not run two at once — the repository has one state file.
-
-A round that will not produce a package — the product is blocked and you are shipping another one first — is ended the way [driving.md](references/driving.md)'s **Close** section says. It matters at this level because step 4 below reads delivery records as fact.
 
 Done when `<release> exit-check` printed `DONE` and `<release> close` ran for every product on the step 2 list.
 
@@ -98,10 +78,8 @@ Done when every listed product's `source_commit` equals `git rev-parse HEAD`.
 
 ## 5. User install test
 
-[driving.md](references/driving.md)'s **Close** section says where a package path comes from and what to say when there is none.
-
 Give the user: which products shipped, where each package is, which commit this set is.
 
-**Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: stop and report the packages, the commit, and the test result to the user. Fail: open a `needs-triage` ticket with the symptoms and repro steps, have it triaged to `ready-for-agent`, then start it as the `dispatch` skill's `references/one-ticket.md` says; ship again after it closes.
+**Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: stop and report the packages, the commit, and the test result to the user. Fail: report the symptoms to the user and wait for their decision.
 
 Done when the user has reported the install test result and you have acted on it as above.

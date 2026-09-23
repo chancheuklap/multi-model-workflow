@@ -8,6 +8,16 @@
 #   surface|resume|close|abort|exit-check
 #   receipt     从 attempt_ledger 渲染已试动作
 #   dispatch    --stage <n> --findings <p>  收敛护栏 + 按 tier 派修(P2 derive/P1 fix/P0 停)
+#
+# Exit codes. What happened is on stdout (`STAGE:`, `PAUSED:`, `SUCCESS:`, `DONE`, `NOT-DONE:`,
+# `CORRUPT:`, `TRANSIENT-RETRY:`, `ENV-ACTION:`, `P0:`, `BUDGET-EXCEEDED:` and the rest); the exit
+# code says only which of three things happened, the same for every subcommand.
+#
+# | Command | 0 | 1 | 2 | 3 |
+# | --- | --- | --- | --- | --- |
+# | `<release> <subcommand>` | the subcommand ran; what happened is on stdout | one `ERROR: <the fact it cannot get past>` line on stderr | the subcommand is missing or unknown, usage on stderr (`--help` exits 0; an unknown verb after `stage` or `round` exits 1 with an `ERROR: usage:` line) | — |
+# | `<scripts>/verify_key.py` | no findings | the release manifest has problems: findings as a JSON envelope on stdout, or a contract error as a traceback on stderr | argparse usage error | — |
+# | `<scripts>/release_script_assembler.py assemble\|check` | passed | — | argparse usage error | `INVALID: <reason>` on stderr |
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"

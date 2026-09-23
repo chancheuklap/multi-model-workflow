@@ -43,8 +43,6 @@ pnpm exec oxlint --type-aware --fix
 
 ## Probe before believing a clean run
 
-Type-aware linting's common failure is silent: tsgolint is not found, or `typeAware` sat in an extended config, and oxlint runs the non-type rules and exits zero. Nothing says the type-aware pass never happened.
-
 ```ts
 async function work(): Promise<void> { await Promise.resolve() }
 export function trigger(): void {
@@ -53,11 +51,3 @@ export function trigger(): void {
 ```
 
 `no-floating-promises` must fire on this. If it does not, the type-aware pass is not running, and every type-aware rule in the config is decoration.
-
-## Two packages sharing one toolchain
-
-Two apps built from one repository — two Electron shells, an app and its admin console — need identical build and checker versions: the same code has to pass the same checks, and a build-tool version that differs between them produces artifacts that differ in ways nobody sees until release day.
-
-Merging them into one workspace does fix it, and costs more than it looks: bootstrap scripts that expect a lockfile per package, release scripts that run `pnpm install` inside each package, and a packaging step that can only be verified by actually building on the target OS.
-
-**Assert it in a test instead.** Compare the two `package.json` files' `dependencies` and `devDependencies` — keys and version ranges, verbatim — and fail with the specific difference. It is a few lines, it runs with the existing suite, and it turns a release-day surprise into a red test the moment the two drift.

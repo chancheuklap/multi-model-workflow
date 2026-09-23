@@ -33,7 +33,7 @@ For the third shape, `files:` still decides *whether* the hook fires — scope i
 
 ## What may rewrite files, and on which files
 
-A formatter in the hook is right in principle — its output is deterministic, it changes layout only, and the commit stops so the author re-stages. The files it runs on follow the first run's rule ([first-run.md](first-run.md) item 3). After the one reformatting commit, every staged file. Where only new files were formatted, running it on an **existing** file reflows the whole file: a one-line edit turns into a hundred-line diff of somebody else's code. Scope it to files this commit **adds**.
+A formatter in the hook is right in principle — its output is deterministic, it changes layout only, and the commit stops so the author re-stages. The files it runs on follow the first run's rule (`SKILL.md` step 4, **The formatter, by one rule**). After the one reformatting commit, every staged file. Where only new files were formatted, running it on an **existing** file reflows the whole file: a one-line edit turns into a hundred-line diff of somebody else's code. Scope it to files this commit **adds**.
 
 A fixer that rewrites semantics belongs in neither: it edits logic in a hook nobody is reading, at the moment attention is on the commit message. Report those and let the author look.
 
