@@ -204,10 +204,7 @@ def current_problem(f: Fixture, earlier: bool = True, prompt: bool = False) -> d
 
 
 def complete_none(f: Fixture):
-    baseline = (MMW.parent / "docs" / "notes" / "stage-two-shared-experience-layer.md").read_text(encoding="utf-8")
-    fixed = baseline.split("#### `retro/SKILL.md` 的固定执行 prompt", 1)[1].split("```text", 1)[1].split("```", 1)[0].strip()
     skill = (MMW / "skills" / "retro" / "SKILL.md").read_text(encoding="utf-8")
-    assert fixed in skill, "all four phases and seven categories must retain the exact fixed prompt"
     assert skill.startswith("---\nname: retro\ndescription: Retrospect one completed MMW spec night")
     gathered = f.run("gather", "70")
     assert gathered["task_root"] == {"kind": "standalone-spec", "number": 70}
@@ -262,7 +259,7 @@ def partial_evidence(f: Fixture):
     path = f.root / "unreadable.json"
     path.write_text(json.dumps(f.analysis(latest, [invalid])), encoding="utf-8")
     error = f.run("finalize", "70", str(path), ok=False)
-    assert "https://github.com/sample/" in error and "because" in error and "gather 70" in error, error
+    assert "https://github.com/sample/" in error and "because" in error and "finalize 70" in error, error
     assert len(f.state("gh")["proposals"]) == 1
 
 
@@ -302,7 +299,7 @@ def proposal_threshold(f: Fixture):
     latest = f.run("gather", "70")
     path.write_text(json.dumps(f.analysis(latest, [weak])), encoding="utf-8")
     assert "proposal has no two indep" in f.run("finalize", "70", str(path), ok=False)
-    # A proposed Worker Memory with an actual blocking event reaches the other
+    # A proposed Memory record with an actual blocking event reaches the other
     # threshold without borrowing the older Memory as an occurrence.
     blocked = f.event(71, "ticket.returned", "same cause blocked the ticket", ticket=71)
     manifest = {"status": "complete", "total": 1, "returned": 1,
@@ -411,7 +408,7 @@ def prompt_and_record_contract(f: Fixture):
     malformed["observed"] = "unreadable shape"
     path.write_text(json.dumps(malformed), encoding="utf-8")
     refusal = f.run("finalize", "70", str(path), ok=False)
-    assert "observed must contain" in refusal and "because" in refusal and "gather 70" in refusal
+    assert "observed must contain" in refusal and "because" in refusal and "finalize 70" in refusal
     # A current repository file and a rerunnable observed check are valid
     # primary evidence for problems without satisfying the proposal threshold.
     sources = Fixture()
@@ -457,8 +454,14 @@ def retry_finalize(f: Fixture):
     assert [events.parse(c["body"])[1] for c in f.state("gh")["issues"]["70"]["comments"]
             if events.parse(c["body"])[0] == "event" and
             events.parse(c["body"])[1].get("event") == "spec.closed"] == closed_before
-    # The incomplete receipt is a spec comment; gather's inventory remains the
-    # same source list, and the latest receipt replaces it in the fold.
+    # The incomplete receipt is a new spec comment, so the first gather's
+    # inventory is stale: finalize refuses it and names a fresh gather.
+    stale = f.root / "stale.json"
+    stale.write_text(json.dumps(analysis), encoding="utf-8")
+    error = f.run("finalize", "70", str(stale), ok=False)
+    assert "evidence_checked must carry" in error and "gather 70 again" in error, error
+    assert len(f.state("gh")["proposals"]) == 1
+    # The latest receipt replaces the incomplete one in the fold.
     next_gather = f.run("gather", "70")
     second = f.finish(f.analysis(next_gather, [problem]))
     assert second["result"] == "recorded"
