@@ -1,8 +1,6 @@
 # Running the criteria
 
-## Resolve `<engine>` once
-
-`<engine>` is `scripts/verify-ticket.py`, resolved from this skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says.
+`<engine>` is resolved in this skill's `SKILL.md`.
 
 ## The two runs that execute a `CHECK:`
 

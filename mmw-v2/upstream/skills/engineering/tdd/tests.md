@@ -1,7 +1,5 @@
 # Good and Bad Tests
 
-Another copy of these criteria lives in the `code-review` skill's `references/tests-reviewer.md`; change both together.
-
 ## Good Tests
 
 **Integration-style**: Test through real interfaces, not mocks of internal parts.

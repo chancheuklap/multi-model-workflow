@@ -1,8 +1,6 @@
 # Linting a batch
 
-## Resolve `<engine>` once
-
-`<engine>` is `scripts/verify-ticket.py`, resolved from this skill's own `SKILL.md` the way its **Resolve `<engine>` once** section says.
+`<engine>` is resolved in this skill's `SKILL.md`.
 
 You are about to publish a batch of tickets, have just published one, or are opening a night on a spec before its first `advance`.
 
@@ -39,7 +37,7 @@ Given a ticket, `--lint` checks that ticket and the graph of the batch it sits u
 
 Three things at once: how the criteria are written, which worker the ticket asks for, and whether the batch under the same spec is a startable graph — every ticket the spec lists as a sub-issue, the blocking links between them, and which of them nothing blocks. The graph comes from the tracker's blocking links, the same ones `--preflight` refuses on and `advance` dispatches from.
 
-For the worker: `dispatch.sh` starts a ticket on the `models.json` row its `junior-worker` or `senior-worker` label names, so a ticket in the agent queue wearing no such label is an `ERROR  … [worker-label]`, and so is one wearing both.
+For the worker: `dispatch.sh` starts a ticket on the `models.json` row its `junior-worker` or `senior-worker` label names, so a ticket in the agent queue carrying both is an `ERROR  … [worker-label]`, and one carrying neither is a `WARN` and starts on the `junior-worker` row.
 
 The same run checks the criterion shapes against the screen contract. A `screen-contract.yaml rows: …` line under `## Read first` makes the ticket an interface ticket even when it omitted every judge; conversely, a ticket that runs `story-parity.py` without that line is an `ERROR`. Every named row must exist in the contract. For each row, the contract's `component` and `pages` declarations determine its design page and mount; a cross-component row uses its `app` page. Every claimed mount, including an `App · ` mount, must appear in a story criterion, and a mount named by `--pages` but declared by no contract page is an `ERROR`. Every row whose `calls` is not `none` or whose `next` is not `stay` needs a boundary criterion, and every cross-component row needs one regardless of those two columns.
 
@@ -53,7 +51,7 @@ After the ticket graph, the same run reads `## Implementation Decisions` on the 
 
 Two `CHECK:` shapes are refused as `[undecidable-check]`, because neither can decide the criterion it is written under: one ending in a `grep` whose EXPECT is satisfied by exactly what a run that selected nothing prints, which no code can ever make exit 0; and one that sends the command's stdout and stderr to `/dev/null` and matches a line the CHECK itself echoes from `$?`, which any command exiting that way passes, including one that failed for another reason.
 
-The batch converges when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
+The batch is ready when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
 
 Each ticket's findings end with its verdict line: `<ticket> LINT OK`, `<ticket> LINT OK (<w> warning(s))`, or `<ticket> LINT FINDINGS: <e> error(s), <w> warning(s)`. It counts every finding printed for that ticket, gate-lint's and this script's alike, and nothing for the ticket is printed after it.
 
@@ -63,6 +61,6 @@ The `[screen-contract]` findings are those interface rules made mechanical, plus
 
 ## Exit codes
 
-`0` nothing reported an `ERROR`. `1` a ticket or the graph has one; on a spec, any of its sub-issues having one. `2` a criterion names a judge this run cannot reach, which is refused before anything is read.
+`0` nothing reported an `ERROR`. `1` a ticket or the graph has one; on a spec, any of its open sub-issues having one (a closed one's `ERROR` is printed and counts for nothing). `2` a criterion names a judge this run cannot reach, which is refused before anything is read.
 
 No `CHECK:` runs and no comment is posted on any exit.

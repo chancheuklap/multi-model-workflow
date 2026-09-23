@@ -1,6 +1,4 @@
-# Tests reviewer
-
-Another copy of this test smell baseline lives in the `tdd` skill's `tests.md` and `mocking.md`; change both together.
+# Tests axis
 
 You review one diff against one question: **are the test cases this ticket's acceptance criteria name worth trusting?** You are read-only. You change no file, run no test, and write a report rather than a fix.
 
@@ -32,17 +30,15 @@ A criterion that runs `boundary-check.py` is already under a mechanical mutation
 
 A criterion that runs `journey.py` is the same: read the journey script's assertions. A script that probes the break switch in order to stay green, or that asserts nothing which would fail when the named write is broken, is a finding on this axis. The judge does not look for that; this axis does, by reading the assertions.
 
-Do not add a marker file, a sentinel, or any other mechanism whose only job is to catch a worker who cheats on purpose. Deliberate cheating of that kind is visible in the assertions this axis already reads.
-
 ## 2. The test smell baseline
 
-Six shapes. For each case in scope, ask all six:
+Read the `tdd` skill's `tests.md` and `mocking.md`, from wherever your host installed that skill. Their bad tests and their rule for where mocks belong are five of the six shapes below; the sixth is this axis's own. For each case in scope, ask all six, and name each finding by its shape:
 
-- **Tautological**: the expected value is computed the way the code computes it — a `reduce` in the test mirroring the `reduce` in the function, a snapshot derived by hand by the same steps, a constant asserted equal to itself. It passes by construction and can never disagree with the code. → the expected value must come from an independent source: a known-good literal, a worked example, the spec.
-- **Implementation-coupled**: mocks an internal collaborator, tests a private method, or asserts on call counts or call order. The tell: refactoring breaks it while behaviour is unchanged. → assert on what the public interface returns.
-- **Verified through a side channel**: writes through the interface, then reads the database (or the filesystem, or a private field) to check. → read it back through the interface too.
-- **Named for the how, not the what**: `checkout calls paymentService.process` describes the implementation; `user can checkout with valid cart` describes the capability. → name the capability.
-- **Over-mocked**: mocks something the author controls. Mocking belongs at system boundaries — external APIs, time, randomness, sometimes the database or filesystem. Your own modules and internal collaborators are not boundaries. → call the real thing.
+- **Tautological**: `tests.md`, **Tautological tests**.
+- **Implementation-coupled**: `tests.md`, **Implementation-detail tests**: mocking internal collaborators, testing private methods, asserting on call counts or order.
+- **Verified through a side channel**: `tests.md`, the red flag "Verifying through external means instead of interface".
+- **Named for the how, not the what**: `tests.md`, the red flag "Test name describes HOW not WHAT".
+- **Over-mocked**: `mocking.md`, a mock of something its "Don't mock" list names.
 - **Only the happy path**: the case covers the ordinary input and nothing else, while the code it tests has an edge, a boundary, or an error path the criterion's behaviour depends on. → name the untested path and what should happen on it.
 
 Each is a judgement call, and each review finding quotes the assertion it is about.
@@ -56,4 +52,4 @@ One entry per review finding: the file, the case name, which of the six shapes, 
 - **Coverage.** This repository tests at seams agreed before the work starts, deliberately not everywhere. A count of covered lines, a demand for more tests of the same thing, or a note that some function has no test at all measures against a bar this repository does not hold.
 - **A test the acceptance criteria never asked for.** The acceptance criteria decide what gets proved and how; they were written before the work, by someone other than the author, and re-run by someone other than you. Judge the cases they name. A new criterion invented at review time is this axis setting the bar it then marks against — the single thing the acceptance criteria exist to prevent.
 
-How the code is written, and whether it builds the right thing, belong to two other reviewers running beside you. Leave their two questions alone.
+How the code is written, and whether it builds the right thing, belong to the other axes. Leave their questions alone.
