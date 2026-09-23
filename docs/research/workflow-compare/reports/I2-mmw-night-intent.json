@@ -1,0 +1,211 @@
+{
+  "group": "I2",
+  "scope": "MMW 过夜机器各设计元素的意图",
+  "elements": [
+    {
+      "element": "dispatch.sh / status.py frontier 确定性派发",
+      "phase": "派发",
+      "intent": "脚本从 tracker 的票、阻塞、认领和事件计算可派发集合，先落地已通过的票、释放已结束的占用，再重新读取 frontier；main agent 判断是否继续、失败归因和何时调用 advance。空 frontier 仍有待派票时逐票解释阻碍，避免静默地把停滞当作完成。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0009-night-orchestration-on-paseo.md#夜间编排从 Herdr 迁到 Paseo：脚本只做工具，判断归 main agent", "docs/adr/0008-silence-is-never-a-pass.md#流水线里每一道闸口，拒绝要点名事实、给唯一出路，且不许靠什么都不做通过", "docs/contexts/night/how-it-works.md#How `advance` processes a batch", "mmw-v2/skills/dispatch/scripts/status.py#the frontier"],
+      "notes": "确定性是对脚本规则的概括；原文未把它命名为独立设计原则。"
+    },
+    {
+      "element": "main agent 只处理事件与判断",
+      "phase": "派发",
+      "intent": "完成通知和票上事件到达后，由 main agent 判断继续、恢复 worker 或处置失败；无模型的守夜状态机只会把同一张状态表藏起来。main agent 每次被唤醒读状态并运行 advance，不轮询其他 agent。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0009-night-orchestration-on-paseo.md#夜间编排从 Herdr 迁到 Paseo：脚本只做工具，判断归 main agent", "mmw-v2/skills/dispatch/references/night.md#Running a night", "mmw-v2/skills/dispatch/references/night.md#3. Each time something wakes you"],
+      "notes": "“只处理事件”不表示 main agent 不处理 contract、fault、finding 或 Memory closing；它是编排判断者。"
+    },
+    {
+      "element": "ticket 状态是 GitHub 评论事件的 fold",
+      "phase": "派发",
+      "intent": "评论首行留给人读，隐藏的 mmw event 块供程序读取；按 comment id 全量折叠，令状态和占用对不同 runner、不同机器一致可见，且读不懂事件时拒绝，不把未知误作空白。阻塞票要等 ticket.landed 才解锁，ticket.passed 不结束占用。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0019-ticket-state-is-a-fold-of-events.md#票的状态是它的事件折叠出来的：评论首行不再是协议，谁在跑这张票写在票上", "docs/contexts/night/how-it-works.md#Events and holds"],
+      "notes": "ADR 0019 中尚未实现的事件状态以当前 how-it-works.md 为准。"
+    },
+    {
+      "element": "agent 被唤醒而非轮询；relay 与 ack",
+      "phase": "监控与唤醒",
+      "intent": "agent 起下级后结束回合，不持续问下级；relay 从票上的结果事件排持久唤醒，经收件人 runner 送出，收件人读票后 ack 才出队。写票与唤醒由可重读的 board 连接，进程中断后的事件可在下一轮或重启对账时补回。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0010-agents-are-woken-not-polled.md#agent 之间靠事件互相叫醒，谁都不许轮询另一个 agent", "docs/adr/0020-wakes-come-from-the-board.md#唤醒从 board 上发出：中继读票上的结果事件，经 runner 的送消息动词送到等它的那个会话，任何脚本都不再报信", "mmw-v2/skills/dispatch/SKILL.md#On waking"],
+      "notes": "ADR 0010 的 Paseo 自动通知与脚本报信机制、ADR 0013 的 reviewer 报信均被 ADR 0020 改写；relay 轮询的是 GitHub，不是 agent。"
+    },
+    {
+      "element": "三层活性：turn guard、watchdog、runner liveness",
+      "phase": "监控与唤醒",
+      "intent": "worker 死亡不会写票，沉默与工作中难区分；turn guard 在 main agent 回合结束时保证 watchdog 武装，watchdog 检查 relay 与 tracker 读取，并问沉默或等槽位票所记录的 runner；只有 runner 明确回答 stopped 才写 *.lost，unknown 明示而不冒充 alive。三层都不是 agent，不花模型 token。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0021-liveness-in-three-layers.md#判活分三层，都不是 agent：回合守卫在主 agent 的回合结束时重新武装看门进程，看门进程看中继并问沉默票的 runner，`worker.lost` 只由它写", "docs/contexts/night/how-it-works.md#The watchdog and turn guard"],
+      "notes": "host 整体崩溃时三层都发现不了，ADR 0021 明写只能由人发现。"
+    },
+    {
+      "element": "一个 relay 多个 watch",
+      "phase": "监控与唤醒",
+      "intent": "一个仓库共用中继、队列和跨夜产品槽位信息，但不同夜或夜外单票各有 watch 与 main agent；watch 不得共用票，登记先验证后写，避免失败的 open 改掉别的夜的收件人。等槽位的 worker 由释放槽位事件唤醒，避免每轮花一个模型回合。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0022-one-relay-many-watches.md#唤醒按 watch 分：一个仓库一个中继，同时看多个 watch，每个 watch 叫醒开它的那个主 agent；等槽位的 worker 也由中继叫醒", "docs/contexts/night/how-it-works.md#Results, watches and wakes"],
+      "notes": "ADR 0020 曾说一个 relay 因而只可开一夜，已由 ADR 0022 改写。"
+    },
+    {
+      "element": "night 没有时钟",
+      "phase": "监控与唤醒",
+      "intent": "不设定时器叫醒 agent；正常推进由票事件触发，避免 main agent 定时读同一张表、重复消耗回合。relay 和 watchdog 可以由非 agent 进程定期检查状态，但只有发现事件或异常才送消息。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0017-the-night-has-no-clock.md#这一夜没有任何时钟", "docs/adr/0020-wakes-come-from-the-board.md#Consequences", "docs/adr/0021-liveness-in-three-layers.md#Consequences"],
+      "notes": "“没有任何时钟”指没有唤醒 agent 的定时器；relay 每 30 秒读票、watchdog 每分钟检查，不是无定期检查。"
+    },
+    {
+      "element": "runner 边界：Paseo、Orca、Herdr",
+      "phase": "运行环境",
+      "intent": "协议只通过适配器起会话、送消息、问死活、结束会话及具名附加操作；会话的 runner 与 session 成对写在票上，以免换 runner 要重写多处协议，或让本机某 runner 的旧状态误判别处的会话。启动失败明确拒绝，不悄悄换 host 或 runner。工作树由协议自己管理。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0018-runner-behind-one-boundary.md#runner 收进一条边界：协议只调三个动词，一个 runner 一个适配器，今晚用哪个是本机一行配置", "docs/adr/0024-models-json-and-runner-extension-boundary.md#会话配置只存进 `models.json`，runner 的附加操作也只经适配器", "docs/contexts/night/how-it-works.md#Starting a session"],
+      "notes": "ADR 0018 的三个动词后来加 stop、self 和具名附加操作；当前边界按 ADR 0020、0024 与 how-it-works.md 理解。"
+    },
+    {
+      "element": "models.json 本机唯一会话配置",
+      "phase": "运行环境",
+      "intent": "runner、各派发角色的 host、model、effort 只有 MMW_HOME/models.json 一份持久权威；board 与命令行共用校验、锁、版本比较和原子替换，防止并发修改静默覆盖。已有配置不被安装默认值重写，下一次 start 读取新选择。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0024-models-json-and-runner-extension-boundary.md#会话配置只存进 `models.json`，runner 的附加操作也只经适配器", "mmw-v2/skills/dispatch/references/editing-models.md#Changing host, model, or which runner this machine uses", "CODING_STANDARDS.md#State and configuration"],
+      "notes": "ADR 0016 的 models.md 活表已被 ADR 0024 整份作废；当前角色不含 verifier，见 ADR 0026 与 editing-models.md。"
+    },
+    {
+      "element": "本机 ticket worktree 与 ticket branch",
+      "phase": "运行环境",
+      "intent": "每票的工作树由协议用 git 在主 checkout 的 .worktrees/issue-<n> 建立、保留或归档；runner 只接收绝对路径。ticket branch 从 origin base branch 切出并推送，worker 替换、retract 或 suspend 时先保存并推送已有工作，避免会话消失就丢失进度。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0018-runner-behind-one-boundary.md#Considered Options", "docs/contexts/night/how-it-works.md#Starting a session", "docs/contexts/night/CONTEXT.md#Places"],
+      "notes": "原文没有把“本机 worktree”单独列为目标；不把本机缓存当成票状态权威。"
+    },
+    {
+      "element": "merge worktree 与每条 base branch 的锁",
+      "phase": "落地",
+      "intent": "落地和 reverify 在常驻 detached merge worktree 中对 origin base branch 进行，不移动 main agent 的 checkout；一条 base branch 一把锁使本机合并串行，同时复用工作树中的 ignored dependencies。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0023-origin-base-branch.md#base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage", "docs/adr/0023-origin-base-branch.md#Consequences", "docs/contexts/night/how-it-works.md#How `advance` processes a batch"],
+      "notes": ""
+    },
+    {
+      "element": "origin base branch 是落地权威",
+      "phase": "落地",
+      "intent": "本机和云端 worker 对同一 origin 基线工作；只合并 ticket.passed 的已验收 commit，在合并结果上运行 repository checks，再 fast-forward push。push 被拒即重新取回、合并、检查；冲突或红检查不改 base branch，不能用强推覆盖别人工作。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0023-origin-base-branch.md#base branch 以 GitHub 上那份为准：本机与云端走同一条合并路径，先合、再查、再 fast-forward 推送，合不进去交给 triage", "docs/adr/0023-origin-base-branch.md#要修的是什么", "docs/contexts/night/how-it-works.md#How `advance` processes a batch"],
+      "notes": "ADR 0023 最初写的 bounce 直接进 triage 已被 ADR 0027 改写。"
+    },
+    {
+      "element": "第一次 bounce 只回 worker 一次",
+      "phase": "落地",
+      "intent": "同夜较早落地改动造成的第一次 landing conflict 可由新 worker 在原 ticket branch 和 standing workspace 中做一次 base integration，并重新跑 acceptance criteria 与 closeout；第二次仍不能落地就交 triage，避免无限重试占夜间容量。记录 bounce 的 advance 不在同轮重启，以保持事件、队列和会话一致。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0027-a-bounce-returns-once.md#同一夜第一次 landing conflict 把 ticket 交回 worker 队列，第二次才交 triage", "docs/adr/0027-a-bounce-returns-once.md#为什么只交回一次", "docs/contexts/night/how-it-works.md#How `advance` processes a batch"],
+      "notes": "无 open night 的 land bounce 仍直接进 triage。"
+    },
+    {
+      "element": "不设独立 verifier",
+      "phase": "派发",
+      "intent": "worker 处理 review 后在最终 HEAD 上完整运行 acceptance criteria，closeout 核对最新 ticket.checked 的 actor、commit、result 与 criterion shape；取消一个重复机械检查但不提供独立判断的会话及其模型配置、事件、唤醒和故障路径，保留 reviewer 的独立判断。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0026-no-verifier.md#取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria，并由 closeout 直接核验这次运行", "docs/adr/0026-no-verifier.md#要解决的问题"],
+      "notes": "ADR 0026 明写接受的风险：worker 可在 final run 前改写 CHECK:，不再有第二会话审查该改写。早期 ADR 与文件里的 verifier 叙述已退役。"
+    },
+    {
+      "element": "closing pass 与 review finding 路由",
+      "phase": "夜末收尾",
+      "intent": "out-of-ticket review finding 不应默认再开票形成无穷子票循环；main agent 读全批票而非只看唤醒，先核现状，再按并发占用、验收判据漏检、跨文件设计耦合等顺序决定自己修、作废或转 ticket。route 写 child.closed，使每条 finding 都有可计数结局。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0012-review-finding-routing.md#一条 out-of-ticket 的 review finding 什么时候值一张票：按四步门槛路由，先匹配者胜，默认自己改", "mmw-v2/skills/dispatch/references/night.md#4. The closing pass", "docs/contexts/night/how-it-works.md#Results, watches and wakes"],
+      "notes": "finding 不触发 relay wake；所以 closing pass 要逐票 fold。"
+    },
+    {
+      "element": "reverify",
+      "phase": "夜末收尾",
+      "intent": "原文未写",
+      "inferred_intent": "推断：全部落地后在取回的 origin base branch 上重跑已通过票的 criteria，是为了发现同夜集成造成的退化；红票重新开给 triage，修复后再跑可恢复关闭。",
+      "sources": ["docs/contexts/night/how-it-works.md#Reverify and summary", "mmw-v2/skills/dispatch/references/night.md#5. The night is over", "docs/adr/0026-no-verifier.md#取消 verifier 会话；worker 在 review 后对最终 commit 运行全部 acceptance criteria，并由 closeout 直接核验这次运行"],
+      "notes": "独立 reverify 设计理由在所读原文中未单列；“查同夜集成退化”是由在最终 base 重跑及 ticket.regressed 推出的目标。"
+    },
+    {
+      "element": "summary 门禁与 spec.closed",
+      "phase": "夜末收尾",
+      "intent": "summary 只有在最新 origin base 上的 reverify 收据为绿、frontier 空、无占用或未落地 pass、finding 已路由时才写 spec.closed；无法读取的事实不能当作零。NIGHT SUMMARY 记录已关票、triage、bounce、阻塞、子票、finding 路由和 reverify。",
+      "inferred_intent": "",
+      "sources": ["docs/contexts/night/how-it-works.md#Reverify and summary", "mmw-v2/skills/dispatch/references/night.md#5. The night is over", "docs/adr/0008-silence-is-never-a-pass.md#流水线里每一道闸口，拒绝要点名事实、给唯一出路，且不许靠什么都不做通过"],
+      "notes": "summary 可容许 human acceptance、triage 和 open blocker，不要求每票成功。"
+    },
+    {
+      "element": "retro 每夜必做",
+      "phase": "夜末收尾",
+      "intent": "summary 写 spec.closed 后，同一 main agent 立即基于 tracker、commit、仓库和 check 的一手证据复盘，形成 Retro Memory 与 spec.retroed recorded 收据；改善建议留给用户批准后的正常 spec/ticket 流程，finish 以收据为前提。",
+      "inferred_intent": "",
+      "sources": ["mmw-v2/skills/retro/SKILL.md#Retro", "mmw-v2/skills/retro/SKILL.md#Finalize", "mmw-v2/skills/dispatch/references/night.md#5. The night is over", "docs/adr/0025-project-branch-and-finish.md#边界"],
+      "notes": "retro 对每个完成的 spec night 必做；它不是自动批准改进。"
+    },
+    {
+      "element": "project branch、用户验收与 finish",
+      "phase": "早晨与合并",
+      "intent": "open 时记录并推送这夜 base branch 所出的 project branch，避免早晨再猜来源；spec.closed 只证明批次执行结束，retro 收据后仍须用户接受产品结果，finish 才把 origin base 合回 project branch、检查、推送并安全清理。默认分支发布不属 MMW。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0025-project-branch-and-finish.md#开夜记住并推送 project branch；用户验收后 `finish` 把 base branch 合回并清理", "docs/adr/0025-project-branch-and-finish.md#边界", "mmw-v2/skills/dispatch/references/night.md#6. Merge the accepted night"],
+      "notes": "finish 对冲突或红检查保留分支与证据；不会删除签出 base branch 的人工或 runner worktree。"
+    },
+    {
+      "element": "task board",
+      "phase": "运行环境",
+      "intent": "原文未写",
+      "inferred_intent": "推断：本机页面让人查看 tracker 的 spec/ticket 状态，并通过与 models.py config 相同的校验更改本机 models.json。原文未解释为何选浏览器页面而非终端。",
+      "sources": ["docs/contexts/task-board/CONTEXT.md#Task board", "docs/contexts/task-board/CONTEXT.md#The task board and what keeps it running", "mmw-v2/skills/dispatch/SKILL.md#Find your moment"],
+      "notes": "task board 中的 phase pill 与 status 的 phase 不同。"
+    },
+    {
+      "element": "self-hosting 冻结版本",
+      "phase": "运行环境",
+      "intent": "本仓消费自己的流水线时，watch 开启时 installed-root 所记 checkout 的技能、脚本、提示词、事件协议、relay 和 watchdog 整夜冻结；被修改的产品副本不得接管当前 run，以免落地中的协议半途改变。新版本只可在旧 run 收束、用户验收、finish 后有意更新。",
+      "inferred_intent": "",
+      "sources": ["AGENTS.md#Self-hosting boundary"],
+      "notes": "测试只在隔离 test home 对 fake tracker/runner/repository 运行；旧 runtime 无法完成时不得调用新协议桥接。"
+    },
+    {
+      "element": "不用自定义 subagent",
+      "phase": "运行环境",
+      "intent": "MMW 只交付技能，依赖 host 自带的通用 subagent；避免为五个 host 维护不同定义壳、生成物、安装与 model/effort 重复配置。只读约束由技能文字与能限制工具的 host 配置承担。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0015-no-custom-subagents.md#工具箱不再交付 subagent：用 host 自带的通用 subagent", "docs/adr/0015-no-custom-subagents.md#要修的是什么"],
+      "notes": "这指技能内部的 code-review axis 等 subagent；pipeline 的 worker/reviewer 仍是 runner 启动的 session。"
+    },
+    {
+      "element": "advisor 单一入口",
+      "phase": "运行环境",
+      "intent": "advisor 的触发与正文集中在一个技能，提问者和回答者分别读其 reference；避免 caller 限定调查范围、把自己的结论伪装成第二意见，也避免 native subagent 与技能两套触发条件漂移。advisor 与 caller 共享 workspace，才能看到未提交的决策材料。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0014-advisor-has-one-door.md#advisor 只有一扇门：正文是技能，两侧共用", "docs/adr/0014-advisor-has-one-door.md#要修的是什么", "docs/contexts/night/CONTEXT.md#Dispatch"],
+      "notes": "ADR 0014 的 assemble.py 叙述已被 ADR 0015 改写；当前 advise 入口见 CONTEXT.md 的 dispatch.sh advise。"
+    },
+    {
+      "element": "worker 开工的 Memory 索引",
+      "phase": "派发",
+      "intent": "worker 首次 prompt 只带数量有上限的当前任务和相关经验索引，相关经验按本票 ## Owns 路径与标题短查询，而不把 spec/map 正文拿来搜索或塞入完整记录；避开具体标识造成整批无结果和跨查询 score 不可比，并控制 context 长度。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0031-worker-start-memory-is-a-searched-index.md#worker 开工时拿到的是两份有上限的 Memory 索引：相关经验用本票 `## Owns` 路径和各级标题的短查询搜出，不用 spec 或 map 正文", "docs/contexts/night/CONTEXT.md#Dispatch"],
+      "notes": "这是用户指定的 0031，属于派发准备，非运行状态权威。"
+    },
+    {
+      "element": "失败拒绝必须可检查且有出路",
+      "phase": "运行环境",
+      "intent": "每道能拒绝的闸口须点名可查事实、给唯一下一步；没数据、没网络或没应答时明确失败，不能以沉默表示通过。这防止派发、验收、判活等环节什么也没做却看起来正常。",
+      "inferred_intent": "",
+      "sources": ["docs/adr/0008-silence-is-never-a-pass.md#流水线里每一道闸口，拒绝要点名事实、给唯一出路，且不许靠什么都不做通过", "CODING_STANDARDS.md#Skills and scripts"],
+      "notes": "这是横跨各 phase 的原则，归入运行环境以避免复制到每条。"
+    }
+  ],
+  "notes": [
+    "未找到 I1 的 JSON 文件或共享 schema；本文件采用 group、scope、elements（element/phase/intent/inferred_intent/sources/notes）结构。",
+    "ADR 0001–0031 与 README 索引均已读；0002、0004、0011、0028–0030 属于界面/设计链，非 I2 过夜机器的独立元素。",
+    "历史 ADR 中被后篇改写的机制没有当作当前事实。"
+  ]
+}
