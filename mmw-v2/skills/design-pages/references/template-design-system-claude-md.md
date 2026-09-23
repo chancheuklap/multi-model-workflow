@@ -4,7 +4,7 @@ Write the block below into the design system project's root as `CLAUDE.md`, with
 
 - `<product>`: one sentence on what the product is and which screens it has.
 - `<source>`: where the code is: the repository URL, the branch, and the directory that holds the front end, with one line on which files decide what (markup and states, stylesheets, page shell). The agent reads it through Claude Design's GitHub connection.
-- `<example data>`: where real data for the product's states is (a directory in the same repository, outside the handoff package), or "none".
+- `<example data>`: where real data for the product's states is (a directory in the same repository, outside the design package), or "none".
 
 ```markdown
 # What this design system is and where it comes from

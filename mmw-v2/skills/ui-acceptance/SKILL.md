@@ -1,11 +1,11 @@
 ---
 name: ui-acceptance
-description: Make a repository an acceptance runtime — four judges (story, boundary, journey, harness guard) and the lease, start/stop they need. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, or giving a run its own ports. Also: before writing an interface ticket's code, take the design side's values.
+description: Acceptance criteria that start or compare a running product, and what a repository answers so they can run. Use when filling `.mmw/target.json`, writing a story, boundary or journey criterion, reading a DIFF, MISS or JOURNEY line, giving a run its own ports, or before writing an interface ticket's code.
 ---
 
 # UI acceptance
 
-A **target** is the product a consuming repository runs under automation. What this skill cannot know on its own, the repository answers in `.mmw/`. Four **judges** read that answer — a judge is a script a `CHECK:` names by its bare name, and `verify-ticket.py` refuses the whole run when it cannot reach one — and the lease with `start` / `stop` / `discover` is the runtime they need: the story judge starts the product's `stories` command, renders the design side offline, and compares both by `data-ui` id (element parity); the boundary check runs the product's own four-column boundary test twice, the second time without the click; a journey starts the real product, runs one Playwright script, and on a second pass breaks one named interface; the harness guard decides whether the names a repository uses only to make itself drivable have stayed in the places it allows.
+A **target** is the product a consuming repository runs under automation. What this skill cannot know on its own, the repository answers in `.mmw/`. Four **judges** read that answer — a judge is a script a `CHECK:` names by its bare name, and `verify-ticket.py` refuses the whole run when it cannot reach one — and the lease with `start` / `stop` / `discover` is the runtime they need: the story judge starts the product's `stories` command, renders the design side (the design package's page) offline, and compares both by `data-ui` id (element parity); the boundary check runs the product's own four-column boundary test twice, the second time without the click; a journey starts the real product, runs one Playwright script, and on a second pass breaks one named interface; the harness guard decides whether the names a repository uses only to make itself drivable have stayed in the places it allows.
 
 ## Resolve `<scripts>` once
 
@@ -15,14 +15,14 @@ A **target** is the product a consuming repository runs under automation. What t
 
 | You are | Run or read |
 | --- | --- |
-| Writing an interface ticket's code, before the first line: the design side's values | [references/story-parity.md](references/story-parity.md), **`--render-only`** |
+| Writing an interface ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
 | Building the product's story page service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
 | Writing the criterion that compares a product story with its design page by element parity, or reading the `DIFF` line one printed | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
 | Writing the criterion that runs one named journey against the real product, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md); [references/product-answers.md](references/product-answers.md) names `start`, `stop`, `discover` and the journeys directory |
 | Making a repository an acceptance runtime (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 <scripts>/target_config.py --check` in that repository. It prints every field still to answer, one sentence and one example each; fill them and run it again until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
 | Checking that acceptance names are not scattered through the consuming repository | `python3 <scripts>/harness-guard.py <repository-root>` — [references/harness-guard.md](references/harness-guard.md) |
-| Giving a run its own ports and directories, or reading what `lease.py` refused | Run `python3 <scripts>/lease.py claim \| env \| run \| release \| list \| count \| remove-instance`. `claim` exits 4 when no slot may be taken. `release` exits 0 when it gives one back, 3 when none exists, and 2 when `--stop` cannot read `.mmw/target.json`. Its lifecycle and two limits are in [references/product-answers.md](references/product-answers.md) under **`instance`** |
+| Giving a run its own ports and directories, or reading what `lease.py` refused | Run `python3 <scripts>/lease.py claim \| env \| run \| release \| list \| count \| remove-instance`. `claim` exits 4 when no slot may be taken. `release` exits 0 when it gives one back, 1 when something still listens on the slot (the refusal names port, pid and directory), 3 when none exists, and 2 when `--stop` cannot read `.mmw/target.json`. Its lifecycle and two limits are in [references/product-answers.md](references/product-answers.md) under **`instance`** |
 
 ## Five rules while the product is running
 
@@ -32,7 +32,7 @@ Several runs share one machine, and each gets its own ports and directories from
 2. **Never start the product outside the lease.** Running the repository's start script yourself, in your own terminal, is how a run ends up on the ports another run is already using. The script refuses without a lease and prints the command that gives it one: `python3 <scripts>/lease.py run -- <the start command>`.
 3. **Never complete a human step by hand.** If a run cannot get past something without a person — an authorization in a browser, a click — that is a defect in the automation. Report the ticket blocked: the next run has no person in it.
 4. **When the product cannot be reached, report the ticket blocked and stop.** Do not wait, do not build a retry loop, do not change the environment, do not touch another run.
-5. **A fault in the pipeline itself is reported blocked the same way.** The driver, the lease, a machine fact in `.mmw/target.json` — a fault in one of those is not yours to route around and not a reason to keep trying.
+5. **A fault in the pipeline itself is reported blocked the same way.** `verify-ticket.py`, `dispatch.sh`, a judge script (`story-parity.py`, `boundary-check.py`, `journey.py`, `harness-guard.py`), `lease.py`, a hook, `.mmw/target.json` — a fault in one of those is not yours to route around and not a reason to keep trying.
 
 Reporting blocked, in rules 3 to 5, goes through an event, because an event on the ticket is the only thing the relay of the `dispatch` skill wakes anybody for: a plain comment carries none, and a session that ends its turn wakes nobody. Which event depends on your role:
 

@@ -3,11 +3,11 @@
 # requires-python = ">=3.11"
 # dependencies = ["playwright>=1.58"]
 # ///
-"""Pull one Claude Design project into a complete handoff package.
+"""Pull one Claude Design project into a complete design package.
 
-Usage: pull_design.py <handoff-dir> --pages <page.dc.html>... [--tools <dir>]
+Usage: pull_design.py <package-dir> --pages <page.dc.html>... [--tools <dir>]
                       [--state-list <README.md>] [--contract <screen-contract.yaml>]
-       pull_design.py <list_files.json> <handoff-dir> [the same options]
+       pull_design.py <list_files.json> <package-dir> [the same options]
 
 The pages are the `.dc.html` files at the project root, by name; a saved
 `mcp__claude-design__list_files` result may give them instead (its root `.dc.html`
@@ -474,7 +474,7 @@ class Inventory:
                 )
                 raise PullRefused(
                     what,
-                    "The handoff package would be incomplete.",
+                    "The design package would be incomplete.",
                     "Check the page name against list_files, or restore the preview "
                     "download, then rerun; the target was not changed.",
                     paths=[path],
@@ -536,7 +536,7 @@ def pull_vendor(staged: Path) -> dict[str, Path]:
         except DownloadFailed as exc:
             raise PullRefused(
                 f"vendor download failed for {name} ({exc.status}).",
-                "The handoff package would not render with the network off.",
+                "The design package would not render with the network off.",
                 "Restore that vendor address and rerun; the target was not changed.",
             ) from exc
         path = vendor / name
@@ -983,7 +983,7 @@ def write_readme(
     package: HandoffPackage, project: str, rendered: int,
 ) -> None:
     lines = [
-        "# Claude Design handoff package",
+        "# Claude Design design package",
         "",
         "## Viewport and size source",
         "",
@@ -1420,7 +1420,7 @@ def classification_lines(
     elif contract.issue:
         contract_note = contract.issue
     if previous is None:
-        lines = ["- 分类：首次", "- 没有上一次提交的 handoff package 可比较。"]
+        lines = ["- 分类：首次", "- 没有上一次提交的 design package 可比较。"]
         if contract_note:
             lines.append(f"- {contract_note}")
         return lines
@@ -1479,8 +1479,8 @@ def local_edit_lines(previous: PreviousPackage | None) -> list[str]:
     if previous is None:
         return ["- 没有上一次提交，未作本地改动比较。"]
     if previous.locally_edited:
-        return ["- pull 前 handoff package 有本地改动；pull 仍已完成。"]
-    return ["- pull 前 handoff package 与上次提交一致。"]
+        return ["- pull 前 design package 有本地改动；pull 仍已完成。"]
+    return ["- pull 前 design package 与上次提交一致。"]
 
 
 def write_pull_report(
@@ -1532,7 +1532,7 @@ def prepare_staging(target: Path, staged: Path) -> str:
     if target.exists():
         if not target.is_dir():
             raise PullRefused(
-                f"handoff target is not a directory: {target}.",
+                f"package target is not a directory: {target}.",
                 "The pull cannot preserve files beside the generated package.",
                 "Move that file aside, create a directory target, and rerun.",
             )
@@ -1599,14 +1599,14 @@ def install(staged: Path, target: Path) -> None:
                 backup.unlink()
         except OSError as exc:
             print(
-                f"WARNING: installed the handoff package but could not remove {backup} "
+                f"WARNING: installed the design package but could not remove {backup} "
                 f"({type(exc).__name__}).",
                 file=sys.stderr,
             )
 
 
 USAGE = (
-    "Run: pull_design.py <handoff dir> --pages <page.dc.html>... [--tools <dir>] "
+    "Run: pull_design.py <package dir> --pages <page.dc.html>... [--tools <dir>] "
     "[--state-list <README.md>] [--contract <screen-contract.yaml>]."
 )
 
@@ -1630,7 +1630,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     if unknown or len(args.positional) != expected:
         raise PullRefused(
             f"pull_design.py received {len(argv)} arguments.",
-            "It needs a handoff directory and the pages (or a list_files JSON before it).",
+            "It needs a package directory and the pages (or a list_files JSON before it).",
             USAGE,
         )
     args.list_files = None if args.pages else args.positional[0]
@@ -1717,7 +1717,7 @@ def main() -> int:
     except Exception as exc:
         print(refusal_text(
             f"pull_design.py failed ({type(exc).__name__}).",
-            "The handoff package could not be completed atomically.",
+            "The design package could not be completed atomically.",
             "Inspect the target, fix the reported local failure, and rerun.",
             tools,
         ), file=sys.stderr)

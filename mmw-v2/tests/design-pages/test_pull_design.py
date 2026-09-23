@@ -1,4 +1,4 @@
-"""pull_design.py: a project's pages become one complete handoff package.
+"""pull_design.py: a project's pages become one complete design package.
 
 The command is the seam. A local preview server supplies the project files and the
 three vendor scripts; assertions observe only its exit, output, the target tree, and
@@ -454,7 +454,7 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         readme = (self.target / "README.md").read_text(encoding="utf-8")
-        self.assertEqual(readme.count("# Claude Design handoff package"), 1)
+        self.assertEqual(readme.count("# Claude Design design package"), 1)
         self.assertEqual(readme.count("## Viewport and size source"), 1)
         self.assertEqual(readme.count("## Offline render check"), 1)
         self.assertEqual(readme.count("## Pull provenance"), 1)
@@ -749,7 +749,7 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("分类：只改外观或文案", self.report())
-        self.assertNotIn("pull 前 handoff package 有本地改动", self.report())
+        self.assertNotIn("pull 前 design package 有本地改动", self.report())
         self.assertIn("screen contract 未给出，合同行文字未核对", self.report())
 
     def test_a_report_with_problems_still_exits_0(self):
@@ -847,7 +847,7 @@ class PullDesign(unittest.TestCase):
         page.write_text(page.read_text(encoding="utf-8") + "\n<!-- local edit -->\n", encoding="utf-8")
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("pull 前 handoff package 有本地改动", self.report())
+        self.assertIn("pull 前 design package 有本地改动", self.report())
 
     def test_an_added_scene_value_is_classified_controls_or_flow(self):
         first = self.pull()

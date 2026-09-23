@@ -23,7 +23,7 @@ A `--run` that names one row's test selects it by a pattern anchored at both end
 - pytest: the node id, `tests/test_rows.py::test_detail_close`, which names one test exactly.
 - A runner whose filter is a regular expression: `^…$` around the name.
 
-Before the criterion is published, run its command twice by hand: once as written, which must report exactly one test run, and once with the name changed to one no test has, which must exit non-zero. unittest exits 5 and prints `NO TESTS RAN` when a pattern selects nothing. A runner that exits 0 when its filter selects nothing turns a renamed test into a `MISS` only if the command is changed to fail on zero tests; find its flag for that before relying on it.
+The command is run by hand twice. Before the criterion is published, whoever cuts the ticket runs it with the name changed to one no test has, which must exit non-zero. unittest exits 5 and prints `NO TESTS RAN` when a pattern selects nothing. A runner that exits 0 when its filter selects nothing turns a renamed test into a `MISS` only if the command is changed to fail on zero tests; find its flag for that before relying on it. Once the worker has written the test, the worker runs the command as written, which must report exactly one test run.
 
 ## The four-column boundary test
 
@@ -42,7 +42,7 @@ A row whose `calls` is `none` and whose `next` is not `stay` still has one test:
 
 The consuming repository's contract ticket delivers one shared interaction helper (click, fill). Tests call only that helper, never the page directly; the helper finds the control by its `data-ui` id. Under `MMW_NEGATIVE=1` the helper does nothing. A control repeated in a list shares one id, so the helper also takes `<id>#<n>`, the n-th element with that id in document order counted from 1, the name the story judge gives repeated ids; a bare id is the first. A row about choosing one item of a list (a task, a card) clicks one the starting scene has not already chosen, or its assertion holds without the click.
 
-The test replaces the outbound call module with a mock. Mocking that module is the allowed seam. Stubbing `fetch`, msw, nock or fetch-mock is a cheat. `verify-ticket.py --lint` reports `ERROR` when those names appear on a `CHECK:` line; a stub inside a test file is not that line, so lint does not catch it.
+The test replaces the outbound call module with a mock. Mocking that module is the allowed seam. Stubbing `fetch`, msw, nock or fetch-mock is not allowed. `verify-ticket.py --lint` reports `ERROR` when those names appear on a `CHECK:` line; a stub inside a test file is not that line, so lint does not catch it.
 
 A cross-component row (`App · ` page, an action in region A that affects region B) is asserted at the whole-page composition: the request carries the other region's state, and the other region enters the scene the row names. The same `boundary-check.py` runs it; the negative control is the same.
 

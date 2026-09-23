@@ -3,7 +3,7 @@
 #
 #   bash mmw-v2/tests/write-screen-contract/run.sh [-k <pattern>]
 #
-# unittest over fixed contracts and a hand-written handoff package; no tracker.
+# unittest over fixed contracts and a hand-written design package; no tracker.
 # The skeleton cases render that package with real headless Chromium.
 #
 # A skip count other than 0, or a run count of 0, exits non-zero and does not

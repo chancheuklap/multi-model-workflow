@@ -8,8 +8,9 @@ until this command exits 0:
 python3 <scripts>/target_config.py --check [--repo <dir>]
 ```
 
-It prints every field as `ok`, `missing` (one sentence and one example) or `absent`
-(optional), then the rules below. That screen is the whole list. The reasons a
+It prints every field as `ok`, `missing` (one sentence and one example), `wrong`
+(present with the wrong shape) or `absent` (optional), and every key outside those
+fields as `stale` (delete it), then the rules below. That screen is the whole list. The reasons a
 field is shaped as it is are the fields below. What every answer must guarantee,
 whatever shape the product takes, is the next section.
 
@@ -20,17 +21,18 @@ These hold for every product. How a given repository meets them is its own.
 - **Story pages render the product's own components.** A `Component · ` page is
   that component in one scene. An `App · ` page mounts the product's own
   composition module (the code that wires the regions together in the running
-  product) and feeds it **scene data**; it does not wire the components itself,
+  product) and feeds it scene data; it does not wire the components itself,
   so a region the product leaves unwired stays unwired on the story page.
   Neither page carries a Claude Design runtime (the markers [story-parity.md](story-parity.md)
   lists).
-- **`[data-story-root]` sits on the component's own root element**, together with
-  the same `data-ui` id the design page's root carries. Every other compared element
-  carries that design page's matching `data-ui` id.
+- **`[data-story-root]` and the `data-ui` ids sit where
+  [story-parity.md](story-parity.md) puts them**, under **The story page the
+  product serves**.
 - **A `data-ui` id repeats only on the repeating part of a list.** The same id on
   two elements the design page shows as one each is a product defect: element
   parity pairs by id, so a repeated id outside a list makes one of them
-  unpairable. The static guard the contract ticket delivers is what holds this,
+  unpairable. The static guard the contract ticket delivers (a check that reads the
+  repository's files and runs nothing) is what holds this,
   alongside the two above it; its criterion sits on the batch's last ticket,
   because it sweeps the whole tree.
 - **Time values come from scene data.** A client-rendered product loads the same

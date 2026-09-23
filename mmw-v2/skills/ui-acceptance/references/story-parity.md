@@ -3,7 +3,7 @@
 `<scripts>/story-parity.py`, the **story judge**, decides whether a product story
 matches the Claude Design page it was built from. `<scripts>` is the token defined
 by this skill's **Resolve `<scripts>` once** section. The judge reads the screen
-contract and the handoff package's `scenes.json`, starts the story service, and
+contract and the design package's `scenes.json`, starts the story service, and
 compares every selected scene at every contract viewport by `data-ui` id.
 
 Four agents use this page. An agent taking design facts before implementation uses
@@ -30,9 +30,12 @@ tickets add one story adapter per design page.
 - Every other product element being compared carries the same `data-ui` id as the
   corresponding element on the design page. Repeated component instances may reuse
   an id; the judge pairs them in document order.
-- The adapter takes the scene's `scene data` and maps it to the product
-  component. When the contract declares `scenes.<name>.input`, the adapter takes
-  that value from the handoff package file instead, with the input's `with` fields
+- The adapter takes the scene's **scene data** and maps it to the product
+  component. Scene data is the `data` field of the scene's `scenes.json` entry:
+  the displayed text keyed by `data-ui` id, nested where one id contains another,
+  `_text` holding a node's own text, a list where an id repeats. When the contract
+  declares `scenes.<name>.input`, the adapter takes that value from the design
+  package file instead, with the input's `with` fields
   merged over it: it is what the design page
   itself drew the scene from, so lamp colours, layout and other state that the
   displayed text does not carry reach the product component too. No backend, seed,
@@ -47,7 +50,7 @@ tickets add one story adapter per design page.
 ## The two sides
 
 The product side is the subtree rooted at `[data-story-root]`. The design side is
-the handoff package's page, rendered offline in the same contract viewport window;
+the design package's page, rendered offline in the same contract viewport window;
 `#dc-root` keeps the size the design page renders at in that window.
 `viewports` is a top-level list of `WIDTHxHEIGHT` entries; a page that declares its own
 `pages.<page>.viewports` is compared at those sizes only. `locale` is a top-level
@@ -162,12 +165,10 @@ The JSON array uses the fields in **The two sides** and preserves document order
   404 or other error status; the story page could not be opened; no visible
   `[data-story-root]`; `--pages` is empty or names a mount the contract does not
   declare; `--scenes` names a scene outside the mount; the contract has no
-  `viewports` or no `locale`; `volatile_values` is non-empty; a `retired_ids` entry
-  carries `trigger`; or the product story page carries `sc-interp`, `data-dc-tpl`,
-  `data-dc-script` or `dc-root`. Each refusal names the fact, why, and what to do
-  next. `--render-only` applies the same `viewports`, `locale`, `volatile_values`
-  and `retired_ids` refusals; Claude Design runtime traces need a product page
-  and do not apply.
+  `viewports` or no `locale`; or the product story page carries `sc-interp`,
+  `data-dc-tpl`, `data-dc-script` or `dc-root`. Each refusal names the fact, why,
+  and what to do next. `--render-only` applies the same `viewports` and `locale`
+  refusals; Claude Design runtime traces need a product page and do not apply.
 
 `--out <dir>` keeps both screenshots, their pixel difference image and the ARIA
 capture beside each screenshot.

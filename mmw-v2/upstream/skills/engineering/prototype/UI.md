@@ -105,9 +105,9 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer
 
-Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region — the region name is the later `Component · <region>` page — and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them. An interface has one state list. On a wayfinder map it is written in the handoff ticket's leaf `README.md`, gathering the winner of every UI prototype ticket on the map, one heading per region; each prototype ticket's own leaf `README.md` keeps its verdict and names the regions it settled.
+Once a variant has won, record the answer — which variant and why — in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region — the region name is the later `Component · <region>` page — and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them. An interface has one state list. On a wayfinder map it is written in the design ticket's leaf `README.md`, gathering the winner of every UI prototype ticket on the map, one heading per region; each prototype ticket's own leaf `README.md` keeps its verdict and names the regions it settled.
 
-When the winner goes into Claude Design, leave the scaffolding up until step 7: the winner running behind it is the reference the pages are drawn against, and a design system built from it reads its styles and components.
+The winner goes into Claude Design, so leave the scaffolding up until step 7: the winner running behind it is the reference the pages are drawn against, and a design system built from it reads its styles and components.
 
 ### 7. Take the scaffolding down
 
@@ -129,4 +129,4 @@ Done when nothing outside the leaf directory imports it: the leaf directory can 
 
 ## Next
 
-A UI prototype whose winner is going into Claude Design hands off here, at step 6. Read the `design-pages` skill's `SKILL.md`: its **edit pages** entry sets up the Claude Design project the user designs in; its optional **design system** entry has the agent inside Claude Design build a design system from the winner's code when one is wanted; its **pull** entry brings the signed-off result back and sends you to step 7 above.
+A UI prototype hands off here, at step 6: its winner goes into Claude Design. Read the `design-pages` skill's `SKILL.md`: its `references/edit-pages.md` sets up the Claude Design project the user designs in; its optional `references/design-system.md` has the agent inside Claude Design build a design system from the winner's code when one is wanted; its `references/pull.md` brings the signed-off result back and sends you to step 7 above.
