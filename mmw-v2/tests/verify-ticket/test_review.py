@@ -109,6 +109,8 @@ class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
         code, err, fake = run_review(bad)
         self.assertEqual(code, 2)
         self.assertIn("unrecognized ## In-ticket row", err)
+        self.assertIn("then run --review again", err)
+        self.assertNotIn("closeout draft", err)
         self.assertEqual(fake.posted, [])
 
     def test_a_report_quoting_an_event_is_posted_as_one_event(self):
