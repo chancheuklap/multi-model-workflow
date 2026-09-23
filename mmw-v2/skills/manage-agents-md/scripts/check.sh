@@ -43,7 +43,7 @@ fi
 
 # 6. No AGENTS.override.md anywhere.
 while IFS= read -r f; do
-  [ -n "$f" ] && fail "$(rel "$f"): AGENTS.override.md must be renamed to AGENTS.md"
+  [ -n "$f" ] && fail "$(rel "$f"): AGENTS.override.md is still there; migrate its lines into that directory's AGENTS.md and delete it (references/rewrite.md, ## Migrate)"
 done < <(find_files AGENTS.override.md)
 
 root_agents="$ROOT/AGENTS.md"

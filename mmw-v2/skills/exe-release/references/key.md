@@ -224,4 +224,4 @@ uv run --with 'pydantic>=2' python <scripts>/release_script_assembler.py check \
 
 Read the generated script. Every step it prints is a step the release manifest asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repository does not have.
 
-Then ship it once, and read what the build machine says. A release manifest is proven by a package that installs, not by a script that assembles.
+Then commit the release manifest and the repository changes (the build ships `git archive HEAD`), ship it once from `SKILL.md` step 3, and read what the build machine says. A release manifest is proven by a package that installs, not by a script that assembles.

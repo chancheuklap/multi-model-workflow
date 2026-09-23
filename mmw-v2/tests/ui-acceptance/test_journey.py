@@ -436,6 +436,7 @@ class NegativeControl(unittest.TestCase):
         self.assertIn("break-start-failed", err)
         self.assertIn("break switch", err)
         self.assertIn("references/journey.md", err)
+        self.assertIn("If this ticket owns .mmw/harness/, fix the switch", err)
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "stop", "start", "stop"])
 
@@ -449,6 +450,7 @@ class NegativeControl(unittest.TestCase):
         self.assertEqual(code, 2, out + err)
         self.assertIn("break switch", err)
         self.assertIn("references/journey.md", err)
+        self.assertIn("If this ticket owns .mmw/harness/, fix the switch", err)
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
                          ["start", "discover", "script", "stop", "start", "stop"])
 

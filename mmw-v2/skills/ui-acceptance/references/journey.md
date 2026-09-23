@@ -7,8 +7,9 @@ A journey is the only judge in this skill that starts the whole product. There a
 of them on purpose: the user names which paths are worth one, and the default three are
 money, sign-in, and one submit chain.
 
-Two agents come here. The one **writing** the criterion needs the next two sections. The
-one **reading** a line it printed needs the last.
+Two agents come here. The one **writing** the journey script or the break switch needs
+**What the script gets, and what it must be** and **The break switch**. The one
+**reading** a line it printed needs the last two sections.
 
 ## What the script gets, and what it must be
 
@@ -37,11 +38,11 @@ journey connects to it with Playwright.
 
 ## The criterion, in one shape
 
-The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds the `CHECK:` and `EXPECT:` lines. Their `--break` value is one uppercase method and a route, such as `POST /items/{id}`.
+The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds the `CHECK:` and `EXPECT:` lines.
 
 ## The break switch
 
-The product's break switch matches that method and route, fails only that interface, and affects only the product process. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference.
+The product's break switch matches the method and route the criterion's `--break` names, fails only that interface, and affects only the product process. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference.
 
 ## The negative control
 

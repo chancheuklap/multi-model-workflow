@@ -20,7 +20,7 @@ Skip it for a one-page change, or when the page project is already bound to a de
 
 ## Who builds it
 
-The agent inside Claude Design builds it; this session prepares what it reads and checks what it made. That agent cannot see this repository or this conversation. What it reads is the files in its own project, and it reads the project-root `CLAUDE.md` on every conversation.
+The agent inside Claude Design builds it; this session prepares what it reads and checks what it made. That agent cannot see this conversation, and it reads the repository only through Claude Design's GitHub connection (step 3). Otherwise what it reads is the files in its own project, and it reads the project-root `CLAUDE.md` on every conversation.
 
 1. **The project**: the user creates the design system in Claude Design and gives its link; its id is the UUID in that link. `list_design_systems` does not list it.
 2. **Its `CLAUDE.md`**: `finalize_plan` naming `CLAUDE.md` in `writes` (the user approves), then `write_files` with `if_match: "0"`. The content is the fenced block of [template-design-system-claude-md.md](template-design-system-claude-md.md) with its three fields filled: the product, the source (the repository URL, branch and directory of the front end), and the example data.
