@@ -665,7 +665,7 @@ def assemble(
     # 得知道编译产物叫什么、落在哪。
     context["python_backend"] = manifest.python_backend.model_dump(mode="json")
     context["electron"] = manifest.electron.model_dump(mode="json")
-    # render_bootstrap 拿到的钥匙已经在上面通过了 schema 校验，渲染本身不再需要单独的
+    # render_bootstrap 拿到的钥匙已经在上面通过了 schema 校验，渲染不需要单独的
     # 一致性检查:两个文件按各自的编码直接写,写哪个都不需要另一个先存在。
     script = _render_bootstrap(context_output, manifest)
     context_output.parent.mkdir(parents=True, exist_ok=True)

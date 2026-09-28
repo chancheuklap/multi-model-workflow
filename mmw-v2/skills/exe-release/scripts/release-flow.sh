@@ -184,8 +184,10 @@ patch_last_attempt() {
      | .attempt_ledger[-1].command=(if $c=="" then null else $c end)'
 }
 
+# $2: the untracked files that were there before the action ran, one per line; they are
+# the user's own and never go into the action's commit.
 _collect_candidate_paths() {
-  local top="$1" path
+  local top="$1" before="${2:-}" path
   TRACKED_PATHS=()
   NEW_UNTRACKED_PATHS=()
   CHANGED_PATHS=()
@@ -193,7 +195,9 @@ _collect_candidate_paths() {
     [ -n "$path" ] && TRACKED_PATHS+=("$path")
   done < <(git -C "$top" diff --name-only HEAD)
   while IFS= read -r path; do
-    [ -n "$path" ] && NEW_UNTRACKED_PATHS+=("$path")
+    [ -n "$path" ] || continue
+    printf '%s\n' "$before" | grep -Fxq -- "$path" && continue
+    NEW_UNTRACKED_PATHS+=("$path")
   done < <(git -C "$top" ls-files --others --exclude-standard)
   if [ ${#TRACKED_PATHS[@]} -gt 0 ]; then
     CHANGED_PATHS+=("${TRACKED_PATHS[@]}")
@@ -289,8 +293,10 @@ cmd_dispatch_p2() {
     return 0
   fi
 
+  local untracked_before
+  untracked_before="$(git -C "$top" ls-files --others --exclude-standard)"
   _run_derive "$f"
-  _collect_candidate_paths "$top"
+  _collect_candidate_paths "$top" "$untracked_before"
   changed_json="$(_json_changed_paths)"
 
   if [ "$ACTION_RC" -ne 0 ]; then
@@ -1156,12 +1162,17 @@ cmd_dispatch() {
 # 写成一份简报、打印它的路径、非零退出。驱动这次出包的本来就是一个会写代码的 agent,
 # 在引擎之外自己提交、自己 resume——引擎在这条路上不是唯一 committer,也就没有路径闸可跑。
 cmd_dispatch_p1() {
-  local f="$1" name="$2" fp="$3" findings="$4" aref fix_out fix_path
-  fix_out="$(RELEASE_FIX_FINDINGS="$findings" python3 "$SCRIPT_DIR/fix_dispatch.py" 2>/dev/null)" || true
-  fix_path="${fix_out#FIX-BRIEF=}"
+  local f="$1" name="$2" fp="$3" findings="$4" aref fix_out fix_path question
+  if fix_out="$(RELEASE_FIX_FINDINGS="$findings" python3 "$SCRIPT_DIR/fix_dispatch.py" 2>&1)"; then
+    fix_path="${fix_out#FIX-BRIEF=}"
+    question="P1 handed to you: read $fix_path"
+  else
+    fix_path="$findings"
+    question="P1 handed to you: the fix brief could not be written ($fix_out); read the findings at $findings"
+  fi
   append_attempt "$f" "$name" "fix_dispatch" "handed_to_agent" "$fp" "$findings"
   aref="$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-  edit "$f" --arg n "$name" --arg q "P1 handed to you: read $fix_path" \
+  edit "$f" --arg n "$name" --arg q "$question" \
     '.pause={at_stage:$n, kind:"surface", reason:"needs-context", question:$q}'
   emit_event "$f" "paused" "$name" "P1" "$fp" "$aref"
   echo "P1:$name handed to the agent driving the release ($fix_path)"

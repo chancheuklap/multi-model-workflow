@@ -62,17 +62,13 @@ def _findings_file(tmp_path: Path) -> Path:
 
 
 def test_writes_a_brief_next_to_the_findings_and_stops(tmp_path):
-    """写简报、打印路径、非零退出。
-
-    非零退出是有意的——引擎看到它就 PAUSED:needs-context 并保留现场，驱动 agent 顺着 receipt
-    找到简报、改代码、resume。假装修好了才是最坏的结果。
-    """
+    """写简报、打印路径。暂停由引擎做，pause 的问题指向这份简报。"""
     repo = _repo(tmp_path)
     findings = _findings_file(tmp_path)
 
     result = _run(repo, {"RELEASE_FIX_FINDINGS": str(findings)})
 
-    assert result.returncode != 0
+    assert result.returncode == 0
     brief = findings.parent / "release-fix-brief.md"
     assert f"FIX-BRIEF={brief}" in result.stdout
     text = brief.read_text(encoding="utf-8")

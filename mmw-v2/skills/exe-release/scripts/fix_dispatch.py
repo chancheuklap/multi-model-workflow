@@ -1,26 +1,12 @@
 #!/usr/bin/env python3
 """P1 失败时，把 findings 写成一份修复简报，交给正在驱动这次出包的 agent。
 
-## 为什么它在技能里
+驱动出包的本来就是一个会写代码的 agent（`driving.md` 的 `PAUSED:needs-context` 一节：
+能自己处理的就自己处理），所以 P1 没有自动修复这条路。这里把 findings 写成一份人和 agent
+都读得懂的简报，落到本轮的产物目录，打印 `FIX-BRIEF=<路径>`；引擎随即暂停，pause 的问题
+指向这份简报。驱动 agent 按简报改代码、提交到当前分支、`resume`。
 
-这个文件原本在产品仓库，两个产品仓库各一份、字节完全相同。它引用的是 MMW 自己的东西
-（`$MMW_PLUGIN_DIR/plugin/scripts/worker.sh`），而 MMW 把那个插件整个删掉时，够不到住在产品
-仓库里的这两份引用——于是 P1 派修静默坏掉，出包一遇到可修的失败就只能停下交人。
-
-它站错了边。引用谁的东西，就该住在谁那里。
-
-## 它现在怎么工作
-
-没有「派一个 agent 去修」这条路——技能不再自带 worker.sh，也不再让钥匙声明一个可插拔的
-修复执行器。**驱动这次出包的本来就是一个会写代码的 agent**——`driving.md` 里
-`PAUSED:needs-context` 那一节写的就是「你自己能处理的就自己处理」。所以这里只做三件事：
-
-1. 把 findings 写成一份人和 agent 都读得懂的简报，落到本轮的产物目录；
-2. 打印简报路径；
-3. 非零退出。
-
-引擎看到非零退出就 `PAUSED:needs-context` 并保留现场。驱动 agent 读 receipt、按简报改代码、
-提交到当前分支、`resume`。
+它住在技能里而不是产品仓库里，因为简报的内容和格式是技能自己的约定。
 
 **这条路上必须提交。** 远端构建取的是 `git archive HEAD`，改动留在工作树到不了构建机——
 不提交就等于没改，而下一轮会用同一份代码再失败一次。（`resume` 看见 HEAD 变了会重验全部
@@ -112,12 +98,7 @@ def main() -> int:
     path.write_text(brief(findings), encoding="utf-8")
 
     print(f"FIX-BRIEF={path}")
-    print(
-        "This P1 goes to the agent driving the release: read the brief above, change the code, "
-        "commit to the current branch, then resume.",
-        file=sys.stderr,
-    )
-    return 1
+    return 0
 
 
 if __name__ == "__main__":

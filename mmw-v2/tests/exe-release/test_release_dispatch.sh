@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
-# release-flow.sh dispatch:P2 derive 的功能分支提交、P0 的直接 PAUSE、收敛护栏(fingerprint/
-# fix_rounds/墙钟三种熔断)。
-#
-# 自动修复后端与整套只为它存在的机制(fix_executor、editable_paths、protection_source、
-# post_fix_gate)已经删除:三个产品仓库的全部历史里它没产生过一个提交,而驱动这次出包的
-# agent 自己提交时,引擎本来就不是唯一 committer,也就没有路径闸可跑。derive(P2)保留,
-# 它的提交前只查一件事——功能分支没有事先存在的未提交改动,这就够了。
+# release-flow.sh dispatch:P2 derive 的功能分支提交(只收 derive 自己产生的改动)、P0 的
+# 直接 PAUSE、收敛护栏(fingerprint/fix_rounds/墙钟三种熔断)。
 set -euo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 RF="$SCRIPT_DIR/../../skills/exe-release/scripts/release-flow.sh"
@@ -36,20 +31,15 @@ new_case() {
   # 全局,指向一个不存在的目录就等于这个仓库没有钩子——跟 husky 仓库的做法一样。
   git -C "$repo" config core.hooksPath "$repo/.git/no-hooks"
   printf 'seed\n' > "$repo/scripts/release/existing.txt"
-  # .release/ is the engine's own state directory; AGENTS.md and release-flow.sh's own header
-  # both say a consuming repository gitignores it. events.jsonl stands in for this fixture's
-  # event_sink (a real one posts elsewhere, not into the repo). Without this, derive's candidate
-  # scan (there is no baseline snapshot to exclude them by now) would sweep the engine's own
-  # state file into the commit it is making.
+  # .release/ is the engine's own state directory, which a consuming repository gitignores;
+  # events.jsonl stands in for this fixture's event_sink (a real one posts elsewhere).
   printf '.release/\nevents.jsonl\n' > "$repo/.gitignore"
   git -C "$repo" add -A
   git -C "$repo" commit -qm seed
   jq --argjson derive "$derive_argv" --argjson diagnose "$diagnose_argv" \
     '.stages=[{name:"doctor",run:["true"]}] | .derive=$derive | .diagnose=$diagnose' \
     "$FIX/manifest.fake.json" > "$repo/manifest.json"
-  # 钥匙本身是已跟踪、已提交的文件(现实如此,它就活在仓库里)。不提交它会把它留成一个
-  # 无关的 untracked 文件——删掉基线快照之后,派发不再区分"这个动作新建的文件"和"跑之前
-  # 就在那儿的 untracked 文件",一份没提交的钥匙就会被 derive 的提交顺手带走。
+  # 钥匙本身是已跟踪、已提交的文件,现实里它就活在仓库里。
   git -C "$repo" add manifest.json
   git -C "$repo" commit -qm "add manifest"
   run_release "$repo" init --manifest manifest.json >/dev/null
@@ -71,8 +61,7 @@ assert_all_pending_from_verify_key() {
     and all(.stages[]; .status == "pending")' "$sf" >/dev/null
 }
 
-# 每条 event 都要过 ReleaseLoopEvent 合同;`validate-event` CLI 子命令已经删除(它只是重验
-# emit_event 自己刚拼好的事件,产品仓库也不读它的输出),这里改成直接用同一份合同校验。
+# 每条 event 都要过 ReleaseLoopEvent 合同。
 assert_events_are_valid_json() {
   local file="$1" bad=0 event
   while IFS= read -r event; do
@@ -106,6 +95,19 @@ esac
 assert_all_pending_from_verify_key "$repo" && ok "P2 提交后从 verify_key 全量重验" || no "P2 未失效全部 stages"
 jq -e 'any(.attempt_ledger[]; .action_kind == "derive" and .outcome == "applied" and (.artifact_refs | any(startswith("git-commit:"))))' "$sf" >/dev/null && ok "P2 ledger 记录 commit" || no "P2 ledger"
 git -C "$repo" diff --quiet HEAD && ok "P2 后 tracked worktree 干净" || no "P2 后 tracked worktree 脏"
+
+# derive 之前就在工作树里的未跟踪文件是用户自己的,不进 derive 的提交。
+repo="$(new_case p2-derive-keeps-untracked "$derive_editable" "$diagnose_empty")"
+printf 'scratch\n' > "$repo/notes.txt"
+fail_stage_p2 "$repo"
+run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p2.json" >/dev/null
+files="$(git -C "$repo" show --name-only --format= HEAD)"
+case "$files" in
+  *notes.txt*) no "P2 把事先存在的未跟踪文件提交了 ($files)" ;;
+  *derived.txt*) ok "P2 只提交 derive 产生的文件" ;;
+  *) no "P2 提交内容不对 ($files)" ;;
+esac
+[ -f "$repo/notes.txt" ] && [ -z "$(git -C "$repo" ls-files notes.txt)" ] && ok "事先存在的未跟踪文件原样留在工作树" || no "事先存在的未跟踪文件被动过"
 
 repo="$(new_case p2-no-derive-executor '[]' "$diagnose_empty")"
 sf="$(state_file "$repo")"
