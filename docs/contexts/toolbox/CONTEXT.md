@@ -204,67 +204,67 @@ _Home_: `AGENTS.md`
 
 ### Skill-set review
 
-Vocabulary of `writing-for-agents`' `SKILL-SET-REVIEW.md` and `REVIEWING-A-SKILL-SET.md`: the rules and the review method this repository applies to its own skill set.
+Vocabulary of `writing-for-agents`' `SKILL-SET-RULES.md` and `REVIEWING-A-SKILL-SET.md`: the rules and the review method this repository applies to its own skill set.
 
 **moment**:
 A point in a task that needs one coherent set of material and that a given run may reach without the others: a role arriving, one branch of a choice, a re-entry later in the same task. Inside a moment the agent follows steps.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **jump**:
 A step that needs a second file, of the same skill or another, beyond the one the step already holds. Fixed by moving the material into that file; handing the whole job to another skill by name is a **hand-off**, not a jump.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **fragment**:
 A reference every run of a task opens, which belongs inlined in the file that already holds the moment rather than split out on its own.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **hand-off**:
 An edge A → B: one skill or agent leaves something a second reads or waits for. Broken where B needs something A never produced, or where A produces something that reaches B looking like success.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **unguided choice**:
 A point where the agent must choose and the text says nothing, leaving the choice to the model's own habits; fixed by writing the criterion or making the branch explicit.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **rigid / brittle**:
 The two failure modes of a flow that scripts every move instead of trusting the model with the ordinary ones: rigid, the agent follows the list even where the situation differs from it; brittle, every enumerated case must be kept in step with the text, and the case nobody listed has no guidance at all.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **duplication**:
 One meaning stated in two places across the set — a script's `--help`, its refusal text, a start prompt it builds, and a template all count as places. Fixed by keeping the copy the acting agent loads at the moment it acts and deleting the rest.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **cache** (redundancy finding):
 Text that restates a script's `--help`, a config file, the tracker, or a skill the agent has already loaded, rather than sending the agent to read it there.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **no-op**:
 An instruction the model already follows by default, or a bare attitude ("be careful") where naming the action would do. Distinct from a **stance**, which a model does not hold by default.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **stance**:
 A warning that names a temptation particular to the work and what to do instead, so it is not a **no-op**: a model would not otherwise resist that temptation on its own.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **over-specification**:
 A numbered procedure for work a capable agent already does unprompted, an if-then list that mirrors a script's own branches, or an enumeration of cases one criterion would cover; fixed by replacing it with the goal and the one or two judgement calls the agent would actually get wrong.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **over-defense**:
 Text or a mechanism guarding a path that does not occur, judged by whether it has ever fired and whether its case is reachable by normal input; when both answers are no, it is deleted and the residual risk is stated once.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **sediment**:
 Text that is not about the task at hand now: a dated measurement, a design rationale that belongs in an ADR, or a changelog-like "no longer" / "now" sentence.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **upstream skill**:
 A skill kept in an upstream subtree, or adapted from one, entering the set as its authors wrote it; its text changes only where the change alters what the agent does, never for wording, clarity or this set's own voice.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **skill-set-review finding**:
 An established problem in a skill's text or structure, always fixed once evidenced — there are no severity levels. Distinct from ticket-run's review finding, and from the bare word "finding" `exe-release` uses for a build-failure diagnosis (`docs/contexts/release/CONTEXT.md`).
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **load finding**:
 A skill-set-review finding that happens on every run of a task: material read but unused, a jump, a fragment, duplication, a cache, a no-op, over-specification.
@@ -280,7 +280,7 @@ _Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/REVIEWING-A-SKIL
 
 **host and runner neutrality**:
 The rule that one text serves every host and every runner: no host is the default, nothing branches on a host's or runner's name, and a difference in capability is written as the capability. Merge-notes cross-reference it by the short label "host 中立" rather than restate it.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-REVIEW.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 ### Code checkers
 

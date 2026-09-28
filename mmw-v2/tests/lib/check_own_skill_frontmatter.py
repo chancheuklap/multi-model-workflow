@@ -8,7 +8,7 @@ skill this repository wrote carries a frontmatter key beyond name and descriptio
 
 Every host scans a skill's frontmatter into its system prompt at start
 (mmw-v2/install.sh header comment), and install.sh itself never parses it
-(`writing-for-agents`'s SKILL-SET-REVIEW.md `### Descriptions`), so an invalid
+(`writing-for-agents`'s SKILL-SET-RULES.md `### Descriptions`), so an invalid
 block is caught only here or by a host at start. It happened for real: `advisor`
 and `ui-acceptance` both shipped a `description` with an unquoted colon and
 space, which breaks a strict YAML parser though a lenient one accepts it
