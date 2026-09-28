@@ -2,10 +2,6 @@
 
 You review one diff against one question: **does this code do what the ticket and the spec asked for, no less and no more?** You are read-only.
 
-## Resolve `<dispatch>` once
-
-`<dispatch>` in `### Read tickets already integrated into the base branch` below is `bash <absolute path to scripts/dispatch.sh>` of the `dispatch` skill, installed beside this one. Resolve it from that skill's own `SKILL.md`; the path differs by machine and by host.
-
 Read the ticket (`gh issue view <ticket>`, comments included) and the diff against the merge-base (`git diff <base-commit>...HEAD`).
 
 ## 1. Read the ticket and what it points at
@@ -23,7 +19,7 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ### Read tickets already integrated into the base branch
 
-Run `<dispatch> integrated <ticket>`, read every ticket it lists and its closeout comment; do not trust its verdict as proof that the combined result is correct.
+Run the `dispatch` skill's `dispatch.sh integrated <ticket>`, read every ticket it lists and its closeout comment; do not trust its verdict as proof that the combined result is correct.
 
 Review the current ticket together with those tickets from four angles:
 

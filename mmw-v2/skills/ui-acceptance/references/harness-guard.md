@@ -1,7 +1,7 @@
 # Harness guard
 
 Whether the names a repository uses only to make itself drivable have stayed in the
-places it is allowed to keep them is `<scripts>/harness-guard.py`. Reads of
+places it is allowed to keep them is `scripts/harness-guard.py`. Reads of
 `MMW_` variables, and the strings `.mmw/target.json`'s `harness_markers` lists, may
 appear in `.mmw/`, `tests/`, `scripts/dev/`, a test file kept beside the code it tests
 (a path segment `__tests__` or `__mocks__`, or a name ending `.test.<ext>` or

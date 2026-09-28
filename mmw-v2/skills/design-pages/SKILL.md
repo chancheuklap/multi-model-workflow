@@ -24,7 +24,3 @@ Only a session whose host has the Claude Design MCP tools can do this skill's wo
 
 The state list names the regions and states to draw: the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, or of `prototypes/<effort>/README.md`, written for an existing product as [references/design-system.md](references/design-system.md) **An existing product** says.
 
-## Resolve `<scripts>` once
-
-`<scripts>` in every command in this skill is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host.
-

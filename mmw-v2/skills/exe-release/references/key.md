@@ -6,7 +6,7 @@ The filename and the `--adapter` flag every script below takes say `adapter`: bo
 
 **Adding a product means writing a release manifest. It does not mean writing Python.** When something cannot be said in the release manifest, the answer is a new field in it or a new capability in the skill — never a script in the product repository. A script there is a copy of packaging knowledge that the next product will have to write again.
 
-`<scripts>/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
+`scripts/release_contracts.py` is the authority on field names and shapes. This file is why each part exists and what it costs to get wrong.
 
 ## What belongs where
 
@@ -205,7 +205,7 @@ Patterns only this product's build produces, matched **before** the skill's gene
 Check the release manifest against the repository first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile.
 
 ```bash
-uv run --with 'pydantic>=2' python <scripts>/verify_key.py --adapter <manifest> --repo-root <repo>
+uv run --with 'pydantic>=2' python scripts/verify_key.py --adapter <manifest> --repo-root <repo>
 ```
 
 Then assemble and read the script:
@@ -214,7 +214,7 @@ Then assemble and read the script:
 out="$(mktemp -d)"
 script="$out/release.ps1"
 context="$out/ctx.json"
-uv run --with 'pydantic>=2' python <scripts>/release_script_assembler.py assemble \
+uv run --with 'pydantic>=2' python scripts/release_script_assembler.py assemble \
   --adapter <manifest> --repo-root <repo> --output "$script" --context-output "$context"
 ```
 

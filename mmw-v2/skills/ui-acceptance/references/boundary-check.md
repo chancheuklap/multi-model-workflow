@@ -1,6 +1,6 @@
 # Boundary check
 
-Whether a control's click produces the behaviour its screen-contract row names is `<scripts>/boundary-check.py`. It does not start the product and it does not read a page. It runs the command it was given twice in this process's cwd: first as written, then with `MMW_NEGATIVE=1` in the environment and nothing else changed. The first pass must exit 0; the second must exit non-zero. A ticket that owns a row this check covers carries it for that row.
+Whether a control's click produces the behaviour its screen-contract row names is `scripts/boundary-check.py`. It does not start the product and it does not read a page. It runs the command it was given twice in this process's cwd: first as written, then with `MMW_NEGATIVE=1` in the environment and nothing else changed. The first pass must exit 0; the second must exit non-zero. A ticket that owns a row this check covers carries it for that row.
 
 ## Selecting one row's test
 

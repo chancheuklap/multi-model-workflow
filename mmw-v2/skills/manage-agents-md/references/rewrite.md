@@ -5,7 +5,7 @@ The repository has agent instruction files in some form, and the user wants them
 ## Set up
 
 1. Resolve the repository root with `git rev-parse --show-toplevel` and work from there. Make a scratch directory outside the repository (`mktemp -d`) and keep its path.
-2. Read every old file `bash <scripts>/check.sh --list .` lists, in full.
+2. Read every old file `bash scripts/check.sh --list .` lists, in full.
 
 Done when every file `check.sh --list` names has been read.
 

@@ -5,9 +5,7 @@ description: Retrospect one completed MMW spec night. Use right after the dispat
 
 # Retro
 
-## Resolve `<retro>` once
-
-`<retro>` in every command below is `python3 <absolute path to scripts/retro.py>` next to this file; resolve it from this file's own location, since the path differs by machine and by host. Run it from a checkout of the spec's repository whose `HEAD` is `origin/<base branch>`, the base branch `spec.opened` records: `finalize` reads repository files from that working tree.
+Run `python3 scripts/retro.py` from a checkout of the spec's repository whose `HEAD` is `origin/<base branch>`, the base branch `spec.opened` records: `finalize` reads repository files from that working tree.
 
 Run an evidence-first retrospective of the completed spec night and produce
 evidence-backed improvements to the coding agents' environment and workflow. Its
@@ -39,7 +37,7 @@ The script writes outputs; the agent judges causes and dispositions.
 
 ## Gather
 
-1. Run `<retro> gather <spec>` and save its JSON output to a temporary file
+1. Run `python3 scripts/retro.py gather <spec>` and save its JSON output to a temporary file
    outside the repository. Find where the night went off course in
    `tickets[].events` and `spec_events` (returns, queued workers, fault
    children, handoffs, reviewer findings), then open the comment bodies behind
@@ -73,7 +71,7 @@ The script writes outputs; the agent judges causes and dispositions.
    command whose actual output states the cause. `finalize` runs its arguments
    without a shell and refuses a check that prints nothing; a check already
    recorded by the pipeline uses the `ticket.checked` event URL instead.
-5. For each current problem, run `<retro> search <category> <cause>` to find
+5. For each current problem, run `python3 scripts/retro.py search <category> <cause>` to find
    candidates. Count an earlier occurrence only when its original source opens,
    shows the same cause, and belongs to a different ticket, spec, or night. An
    earlier occurrence names the Retro Memory id the search returned and the
@@ -180,7 +178,7 @@ The script writes outputs; the agent judges causes and dispositions.
       "review_learning": "...|none"
     }
     ```
-13. Run `<retro> finalize <spec> <analysis> <gather>`, `<gather>` the file step 1
+13. Run `python3 scripts/retro.py finalize <spec> <analysis> <gather>`, `<gather>` the file step 1
     saved. It checks that file against a fresh `gather`, and a refusal names
     what to correct.
 

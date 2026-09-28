@@ -3781,7 +3781,7 @@ text = Path(sys.argv[1]).read_text(encoding="utf-8")
 start = text.index("## 5. The night is over")
 end = text.index("## 6. Merge the accepted night")
 section = text[start:end]
-assert section.index("<dispatch> summary <spec>") < section.index("Immediately after `summary` records `spec.closed`")
+assert section.index("bash scripts/dispatch.sh summary <spec>") < section.index("Immediately after `summary` records `spec.closed`")
 assert section.index("invoke the `retro` skill in this same main-agent session") < section.index("Then tell the user")
 assert "`finish` needs its `recorded` receipt" in section
 PY
@@ -4479,7 +4479,7 @@ for needle in needles:
 PY
 
   echo "--- the night runbook publishes the required stale reason"
-  grep -qF '<dispatch> route <n> <child> stale <invalid|fixed-elsewhere>' "$night" \
+  grep -qF 'bash scripts/dispatch.sh route <n> <child> stale <invalid|fixed-elsewhere>' "$night" \
     || fail "night.md does not publish the stale reason signature"
 
   echo "--- invalid records that the finding never held"

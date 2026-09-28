@@ -37,7 +37,6 @@
 | 无 | `references/tests-reviewer.md` 第 3 节 | 我们改的：Tests axis 读 `tdd` 技能的 `tests.md` 与 `mocking.md`（按技能名点名），第 3 节只列六种形状的名字，前五种各指向那两份文件里的小节或 red flag，只有 `tdd` 没有的第六种「Only the happy path」写全文。一份规则只住一处：worker 写测试照的就是这两份，reviewer 审测试照同一份；`tdd` 那两份保持上游原文，不带互指行。形状名是 review comment 里 Tests 的 category。上游改 `tdd/tests.md` 或 `mocking.md` 的小节名或 red flag 措辞 → 对着第 3 节的指向改一遍 |
 | 无 | `references/tests-reviewer.md` 第 2 节 | 我们加的：Tests axis 读仓库的 `TESTING.md`（测试分几层、哪些外部边界可以 stub、怎么跑），写法与 Standards axis 第 2 节读 `CODING_STANDARDS.md` 那一句相同；用例违反其中一条，finding 叫 `documented-standard`，与 Standards 同名同义；写下的规则压过六种形状，与 Standards 的「The repository overrides」一致；仓库没有 `TESTING.md` 时只用六种形状，并在报告里用一行说明。理由：owner 要求审查时应用仓库自己的规范，仓库专属的测试规则只住 `TESTING.md` 一处，而读测试内容的只有这个 axis。只应用于 scope 里 `CHECK:` 点名的用例，所以与末节「不报 coverage」不冲突。上游若给测试加同类来源 → 收上游措辞 |
 | 无 | 四份 axis 文件的标题与末节，`SKILL.md` 表里的 axis 行，`references/session.md` 第 3 节 | 我们改的：reviewer 一词只指会话，四个轴叫 axis：标题写 `# <Name> axis`，表里写 `An axis:`，第 3 节写 `the bad outcome the axis describes`，末节说其余问题归 `the other axes`。原来的 `two other reviewers running beside you` 在 UI axis 也跑时数目不对，在不能起 subagent 的 host 上也不是并排跑。文件名 `*-reviewer.md` 不改 |
-| 无 | `references/session.md` 开头的 `` ## Resolve `<engine>` once `` | 我们加的：`<engine>` 在一个固定形状的节里定义一次，写明从 `verify-ticket` 技能的 `SKILL.md` 解析、路径随机器与 host 不同；第 5 节只用这个记号 |
 | 无 | `references/session.md` 第 5 节 finding 形状之后一句 | 我们加的：没有代码位置的 finding（`Missing`、对 `Decisions I made on my own` 某一行的 `should not`）引它的修复将落进的 `## Owns` 文件，写成 `<path>:1`。`--review` 按 `<path>:<line>` 读每一行，没有这一句，会话只能自己编一个位置，或者整份报告被拒 |
 
 ## 第三个 axis：Tests
@@ -63,9 +62,8 @@
 ## 报告和报信是同一次调用
 
 `references/session.md` 第 1 节与第 5 节都不用 `gh issue comment`，改用 `verify-ticket` 技能的
-`<engine> <ticket> --review <file>`：它贴出评论，并在同一次调用里告诉起这个 reviewer 的
-session 报告已经落地。记号与另外三个调用方一致，都写 `<engine>`、都说从 `verify-ticket` 技能自己的
-`SKILL.md` 解析它。这一条 run 的结果由它自己的输出说明：exit 0 打印 `REVIEW: posted on #<n>`，exit 2 在 stderr 说原因、什么也不贴；
+`verify-ticket.py <ticket> --review <file>`：它贴出评论，并在同一次调用里告诉起这个 reviewer 的
+session 报告已经落地。这一条 run 的结果由它自己的输出说明：exit 0 打印 `REVIEW: posted on #<n>`，exit 2 在 stderr 说原因、什么也不贴；
 `session.md` 留下的是固定首行 `REVIEW <base commit>..<HEAD commit>` 与它的理由，那是调用方要照着写的政策。
 
 这是本仓 `docs/adr/0010-agents-are-woken-not-polled.md` 已经为 worker 定下的那条规矩，reviewer
@@ -132,7 +130,7 @@ If upstream rewrites section 4 → take its wording and put the sixth condition 
 
 ## The Spec axis reviews tickets integrated into the base branch
 
-`references/spec-reviewer.md` runs the dispatch skill's `<dispatch> integrated <ticket>` rather than walking the git history itself: that command reads the ticket's newest `worker.started.base` and its resolved `into`, fetches origin, and prints the first-parent `Merge branch 'issue-<n>'` commits between that base and `origin/<into>`, one ticket number per line (`dispatch.sh`'s `integrated_since_start`, which shares `newest_worker_field` and `integrated_ticket_numbers` with `advance` and `integrate`). Reading the *newest* `worker.started.base`, not the first, is what keeps the range from ever holding this ticket's own history: a ticket landed, reopened by `reverify` and started again carries its first run's base in its first `worker.started`, and from there the range would hold this ticket's own `Merge branch 'issue-<n>'`, so the Spec axis would read the ticket's earlier self as a sibling (mmw #413; a replacement worker copies the base before it, so on every other ticket newest and first are one commit). That correctness is `newest_worker_field`'s, proven once for every caller, not something `spec-reviewer.md` has to get right on its own. The axis then reads each ticket the command lists and its closeout evidence and checks four interactions: combination behavior, contract consistency, migration completeness and shared state. Another ticket's verdict is evidence of what ran, not proof that the combination is correct.
+`references/spec-reviewer.md` runs the dispatch skill's `dispatch.sh integrated <ticket>` rather than walking the git history itself: that command reads the ticket's newest `worker.started.base` and its resolved `into`, fetches origin, and prints the first-parent `Merge branch 'issue-<n>'` commits between that base and `origin/<into>`, one ticket number per line (`dispatch.sh`'s `integrated_since_start`, which shares `newest_worker_field` and `integrated_ticket_numbers` with `advance` and `integrate`). Reading the *newest* `worker.started.base`, not the first, is what keeps the range from ever holding this ticket's own history: a ticket landed, reopened by `reverify` and started again carries its first run's base in its first `worker.started`, and from there the range would hold this ticket's own `Merge branch 'issue-<n>'`, so the Spec axis would read the ticket's earlier self as a sibling (mmw #413; a replacement worker copies the base before it, so on every other ticket newest and first are one commit). That correctness is `newest_worker_field`'s, proven once for every caller, not something `spec-reviewer.md` has to get right on its own. The axis then reads each ticket the command lists and its closeout evidence and checks four interactions: combination behavior, contract consistency, migration completeness and shared state. Another ticket's verdict is evidence of what ran, not proof that the combination is correct.
 
 The Spec axis states only whether the repair target is inside the current ticket's `## Owns`;
 `references/session.md` keeps the ownership boundary when it sorts those findings: a

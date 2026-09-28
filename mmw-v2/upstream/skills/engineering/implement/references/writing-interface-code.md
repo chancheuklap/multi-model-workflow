@@ -2,18 +2,14 @@
 
 Read this file when the ticket's **Read first** lists a screen contract. An interface ticket has two baselines, each binding its own domain: the design package binds look and verbatim copy; the screen contract binds what each control calls, which field feeds each shown value, what state follows, what failure shows, and timing. A statement of the design package about the second domain is a reference the contract has already adopted or overridden, so the two never compete. A `contract` child for a screen-contract row that does not fit also names the wayfinder map's alignment ticket when the spec came from a map, since that is where the row is rewritten.
 
-## Resolve `<ui-acceptance scripts>` once
-
-`<ui-acceptance scripts>` in every command below is the `scripts/` directory of the `ui-acceptance` skill. Resolve it from that skill's own `SKILL.md`. The path differs by machine and by host.
-
 ## Before the first line
 
 Read the screen-contract rows this ticket owns.
 
-Then take the design side's values (the design package's pages as the story judge renders them). `--contract` is the screen contract **Read first** names; `--pages` is the `pages` mounts this ticket owns; `--out` is a directory `mktemp` makes:
+Then take the design side's values (the design package's pages as the story judge renders them). `--contract` is the screen contract **Read first** names; `--pages` is the `pages` mounts this ticket owns; `--out` is a directory `mktemp` makes, with the `ui-acceptance` skill's `story-parity.py`:
 
 ```
-uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --render-only --out <mktemp directory>
+uv run story-parity.py --contract … --pages … --render-only --out <mktemp directory>
 ```
 
 `--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id (text, size, position, style) to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is the ui-acceptance skill's `references/story-parity.md` under **The two sides**.
@@ -42,10 +38,10 @@ The pixel difference image is evidence, not a verdict: change the named id and p
 
 ## When the design side is the defect
 
-A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: closing step 1 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket.
+A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: closing step 1 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket, with the `verify-ticket` skill's `verify-ticket.py`:
 
 ```
-<engine> <n> --sub-issue contract <file>
+verify-ticket.py <n> --sub-issue contract <file>
 ```
 
 The file's first line is the child issue's title: the Claude Design page and the value that does not hold. The next line is:

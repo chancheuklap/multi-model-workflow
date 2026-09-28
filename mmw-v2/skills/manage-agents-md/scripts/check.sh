@@ -5,9 +5,9 @@
 # quality is the skill's job. Two values the skill's prose only refers to live here:
 # the root file's line limit and the directories never scanned.
 #
-#   bash <scripts>/check.sh [repo-root]          # run the checks; default: current directory
-#   bash <scripts>/check.sh --limit              # print the root file's line limit
-#   bash <scripts>/check.sh --list [repo-root]   # print every file the checks scan
+#   bash scripts/check.sh [repo-root]          # run the checks; default: current directory
+#   bash scripts/check.sh --limit              # print the root file's line limit
+#   bash scripts/check.sh --list [repo-root]   # print every file the checks scan
 #
 # Prints one line per failure as "<path>: <message>", exits 1 on any failure.
 

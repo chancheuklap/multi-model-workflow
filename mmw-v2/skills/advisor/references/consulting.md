@@ -8,13 +8,9 @@ What you can settle by reading the code, settle by reading the code. The test is
 
 Do not ask again to get a different answer. A second consultation is for a new decision, or for the evidence the advisor said would change its answer. Reading this page is not that consultation: the value is a session that has not spent the last hour convincing itself.
 
-## Resolve `<dispatch>` once
-
-`<dispatch>` is `bash <absolute path to scripts/dispatch.sh>` of the dispatch skill, installed beside this one; resolve it from that skill's directory, since the path differs by machine and by host.
-
 ## Start it
 
-Write the packet to a file. Run `<dispatch> advise <file>`. Read the answer where the selected runner shows the session. It prints the advisor's session id; a refusal says what to fix.
+Write the packet to a file. Run the `dispatch` skill's `dispatch.sh advise <file>`. Read the answer where the selected runner shows the session. It prints the advisor's session id; a refusal says what to fix.
 
 Done when you have the answer and have acted on it as **The answer** says, and the user has the session id.
 

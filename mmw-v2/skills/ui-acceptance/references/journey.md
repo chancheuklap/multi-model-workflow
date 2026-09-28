@@ -1,7 +1,7 @@
 # Journey
 
 Whether one end-to-end path still works against the real product is
-`<scripts>/journey.py`.
+`scripts/journey.py`.
 
 A journey is the only judge in this skill that starts the whole product. There are few
 of them on purpose: the user names which paths are worth one, and the default three are

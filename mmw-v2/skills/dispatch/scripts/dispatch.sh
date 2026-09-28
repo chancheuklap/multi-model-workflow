@@ -2271,7 +2271,7 @@ else:
     step = f"Start a worker again with {restart}."
 print(" ".join((what, why, step)))
 PY
-)" || printf '#%s has no worker holding it, and which event ended the hold could not be read, so nothing was sent. Sending into a session no event shows holding the ticket would make its hold live again. Read python3 <events.py> fold %s before starting a worker with dispatch.sh start %s worker.\n' "$number" "$number" "$number"
+)" || printf '#%s has no worker holding it, and which event ended the hold could not be read, so nothing was sent. Sending into a session no event shows holding the ticket would make its hold live again. Read events.py fold %s before starting a worker with dispatch.sh start %s worker.\n' "$number" "$number" "$number"
 }
 
 # ------------------------------------------------------------------ wait

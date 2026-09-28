@@ -2,10 +2,6 @@
 
 You are the reviewer session: you get the axes run, verify every finding they report, and write the one review comment on the ticket.
 
-## Resolve `<engine>` once
-
-`<engine>` in step 5 is the command the `verify-ticket` skill resolves in its own `SKILL.md`. Resolve it from that skill's `SKILL.md`; the path differs by machine and by host.
-
 ## 1. Pin the diff
 
 ```sh
@@ -68,10 +64,10 @@ In-ticket findings get one round of fixes on this ticket; out-of-ticket findings
 
 ## 5. Write one review comment on the ticket
 
-Write the report to a file, then hand that file to the `verify-ticket` skill's engine:
+Write the report to a file, then hand that file to the `verify-ticket` skill's `verify-ticket.py`:
 
 ```sh
-<engine> <ticket> --review <file>
+verify-ticket.py <ticket> --review <file>
 ```
 
 The review comment's first line is fixed:

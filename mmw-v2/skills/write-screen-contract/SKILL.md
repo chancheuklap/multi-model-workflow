@@ -11,17 +11,13 @@ Every row becomes a requirement a ticket owns: workers build from the row, not f
 
 The file's shape is in [references/screen-contract-format.md](references/screen-contract-format.md). Read it before step 2.
 
-## Resolve `<scripts>` once
-
-`<scripts>` in every command below is the `scripts/` directory next to this file. Resolve it from this file's own location. The path differs by machine and by host.
-
 `<scratch>` is a directory this run created (`mktemp`); write every path under it out in full. Some hosts refuse `uv run … $VAR`.
 
 ## Inputs
 
 - The design package directory (`<package dir>` in the commands below) as the `design-pages` skill's pull wrote it. It is a read-only **baseline for look and copy**.
 - The backend decisions. On a wayfinder map that is the map issue: its **Decisions so far** (in the issue body, not a comment) and, through each link, the closed tickets' resolution comments. Where a resolution names an ADR, a research file or the domain doc, read that too. When the decisions were settled in conversation instead, those conclusions are the source.
-- The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python <scripts>/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls a FastAPI app factory and writes its OpenAPI document. A server that has neither an exporter nor a FastAPI app factory (a standard-library server, for one) gets an `openapi.json` written by hand in `<scratch>`, describing exactly the routes, methods, fields and status codes its routing code implements.
+- The backend contract as it exists today: `openapi.json`. When the repository's own exporter writes one, use that; when it does not cover this product, dump it yourself — `uv run python scripts/dump_openapi.py <module>:<factory> <scratch>/openapi.json` calls a FastAPI app factory and writes its OpenAPI document. A server that has neither an exporter nor a FastAPI app factory (a standard-library server, for one) gets an `openapi.json` written by hand in `<scratch>`, describing exactly the routes, methods, fields and status codes its routing code implements.
 - The effort name `<effort>`: the directory under `prototypes/` that holds `<package dir>`, which is also its directory under `docs/specs/`.
 
 ## Steps
@@ -38,7 +34,7 @@ entry now with that key; step 2 fills `mount` and `component`), so its scenes ar
 rendered and compared only there.
 
 ```
-uv run <scripts>/extract_skeleton.py <package dir> <scratch>/skeleton.json --contract <scratch>/screen-contract.yaml
+uv run scripts/extract_skeleton.py <package dir> <scratch>/skeleton.json --contract <scratch>/screen-contract.yaml
 ```
 
 It drives a real browser, Chromium through Playwright; a machine without that browser installs it once with `uv run --with playwright python -m playwright install chromium`.
@@ -94,7 +90,7 @@ Two things a gap list does not carry: an implementation that today does less tha
 1. Lint to zero errors, from inside the repository:
 
    ```
-   uv run <scripts>/lint_screen_contract.py <scratch>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
+   uv run scripts/lint_screen_contract.py <scratch>/screen-contract.yaml <scratch>/skeleton.json [<openapi.json>]
    ```
 
 2. Copy `<scratch>/screen-contract.yaml` to `docs/specs/<effort>/screen-contract.yaml`.

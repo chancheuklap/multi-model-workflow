@@ -1,11 +1,9 @@
 # Cutting something out of a ticket
 
-`<engine>` is resolved in this skill's `SKILL.md`.
-
 ## When something has to leave this ticket
 
 ```bash
-<engine> <n> --sub-issue <kind> <file>
+python3 scripts/verify-ticket.py <n> --sub-issue <kind> <file>
 ```
 
 `--sub-issue` takes a kind and a file whose first line is the child's title and whose rest is its body; it opens the child under this ticket and records it there.

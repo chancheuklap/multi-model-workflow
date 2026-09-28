@@ -87,7 +87,7 @@ An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro
      - **Rejected (bug)**: give a polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
 
-   A child whose default was right, or whose fix is already on the base branch, is closed through `<dispatch> route <ticket> <child> fixed` or `stale <invalid|fixed-elsewhere>` so its ticket records the route; `wontfix` means nobody will do it, not that it is done.
+   A child whose default was right, or whose fix is already on the base branch, is closed through the `dispatch` skill's `dispatch.sh route <ticket> <child> fixed` or `stale <invalid|fixed-elsewhere>` so its ticket records the route; `wontfix` means nobody will do it, not that it is done.
 
 ## Quick state override
 

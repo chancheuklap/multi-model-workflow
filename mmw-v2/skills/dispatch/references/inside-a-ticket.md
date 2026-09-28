@@ -1,8 +1,8 @@
 # A ticket you picked up yourself
 
-You picked ticket `<n>` up yourself; no `start` is behind you. Resolve `<dispatch>` in the `## Resolve `<dispatch>` once` section of [../SKILL.md](../SKILL.md).
+You picked ticket `<n>` up yourself; no `start` is behind you.
 
-Run `<dispatch> adopt <n>` first: it records you as the ticket's worker and makes sure a relay watches the ticket. Without it no event names your session, so your reviewer's report would wake nobody, and `start <n> reviewer` would refuse.
+Run `bash scripts/dispatch.sh adopt <n>` first: it records you as the ticket's worker and makes sure a relay watches the ticket. Without it no event names your session, so your reviewer's report would wake nobody, and `start <n> reviewer` would refuse.
 
 ## Exit codes
 
@@ -10,4 +10,4 @@ Run `<dispatch> adopt <n>` first: it records you as the ticket's worker and make
 
 ## After the closeout
 
-A ticket you adopted outside a night, where `adopt` started a relay with you as the session it wakes, has no main agent to land it: you are woken with `#<n> ticket.passed` or `#<n> ticket.returned`; `<dispatch> ack <n> <that event>`, then tell the user the ticket is closed and that `<dispatch> land <n>` merges it and stops that relay. Do not run `land` from this worker session: it stops every session the ticket's events name, including this one.
+A ticket you adopted outside a night, where `adopt` started a relay with you as the session it wakes, has no main agent to land it: you are woken with `#<n> ticket.passed` or `#<n> ticket.returned`; `bash scripts/dispatch.sh ack <n> <that event>`, then tell the user the ticket is closed and that `bash scripts/dispatch.sh land <n>` merges it and stops that relay. Do not run `land` from this worker session: it stops every session the ticket's events name, including this one.

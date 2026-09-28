@@ -86,7 +86,7 @@ Turning a ticket into a running session in its worktree with `dispatch.sh start 
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh`**:
-The dispatch skill's script, whose verbs open, advance, land, suspend and finish a night and start, message, ask after and stop sessions through each runner's adapter. The skill's text calls it `<dispatch>`.
+The dispatch skill's script, whose verbs open, advance, land, suspend and finish a night and start, message, ask after and stop sessions through each runner's adapter.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **advise**:

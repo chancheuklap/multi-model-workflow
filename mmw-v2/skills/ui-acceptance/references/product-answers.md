@@ -47,7 +47,7 @@ These hold for every product. How a given repository meets them is its own.
   directory, a user-level settings file) is pointed inside `MMW_DATA_DIR` here and
   seeded there, so a journey that saves changes nothing of this machine's own; a
   location that cannot be moved is listed under `leaves_machine`. It refuses to start with no lease and prints the command that
-  supplies one: `python3 <scripts>/lease.py run -- <the start command>`. When
+  supplies one: `python3 scripts/lease.py run -- <the start command>`. When
   `MMW_BREAK` is in that command's environment, this is also the process that
   arms the break switch.
 

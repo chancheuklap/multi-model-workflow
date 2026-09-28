@@ -9,15 +9,11 @@ Ship an install package for every product this change touched, far enough that t
 
 **Ship what is on the current branch now.** Whether the code is reviewed, whether it is finished, whether it is a good idea — that is the user's call, already made when they asked.
 
-## Resolve `<release>` and `<scripts>` once
-
-`<release>` in every command below is `bash <absolute path of scripts/release-flow.sh>` — the release engine, next to this file — so `<release> where` runs `bash /…/scripts/release-flow.sh where`. `<scripts>` is the `scripts/` directory the release engine lives in, and [key.md](references/key.md) runs two more executables out of it. Resolve both from this file's own location, once: the path differs by machine and by host.
-
 ## 1. Preconditions
 
 A **release manifest** is the JSON file that declares how one product is packaged: one product per file, its filename ending in `.release-adapter.json`.
 
-The build machine receives `git archive HEAD` and nothing else. Uncommitted work does not ship, so a dirty tree means the user would test a package that differs from the code in front of them: stop and say which files are uncommitted. `<release> init` refuses to start on a dirty tree for the same reason. Whether this repository ships anything is answered by the next step.
+The build machine receives `git archive HEAD` and nothing else. Uncommitted work does not ship, so a dirty tree means the user would test a package that differs from the code in front of them: stop and say which files are uncommitted. `bash scripts/release-flow.sh init` refuses to start on a dirty tree for the same reason. Whether this repository ships anything is answered by the next step.
 
 ## 2. Name the products for this run
 
@@ -48,14 +44,14 @@ Show this list once and continue. Do not wait for a reply:
 For each product from step 2, in order:
 
 ```bash
-<release> init --manifest <absolute path of that release manifest>
+bash scripts/release-flow.sh init --manifest <absolute path of that release manifest>
 ```
 
 Then read [driving.md](references/driving.md) in full and drive until the package is ready.
 
-`<release> close` one product before starting the next.
+`bash scripts/release-flow.sh close` one product before starting the next.
 
-Done when `<release> close` succeeded for every product on the step 2 list.
+Done when `bash scripts/release-flow.sh close` succeeded for every product on the step 2 list.
 
 ## 4. Same-commit check
 
@@ -64,7 +60,7 @@ A set whose packages come from different commits is two versions of the product:
 After every product on the step 2 list has shipped, run:
 
 ```bash
-<release> same-commit <product> [<product> ...]
+bash scripts/release-flow.sh same-commit <product> [<product> ...]
 ```
 
 with exactly the products on that list. It prints `OK <product>` or `MISMATCH <product> <commit>` for each. Reship each `MISMATCH` (back to step 3), then run it again — a reship can itself move HEAD.

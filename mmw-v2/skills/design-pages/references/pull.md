@@ -7,7 +7,7 @@ Pull when the user has signed the design off, and again whenever the user has ch
 ## Steps
 
 1. Two MCP calls. `list_files` on the project root: note the names of the `.dc.html` pages there. `render_preview`; set `MMW_DESIGN_PREVIEW_URL` to its `serve_url`. That address carries a project token and lasts about one hour; do not print it or write it to a file.
-2. `<scripts>/pull_design.py <package dir> --pages <page.dc.html>... [--state-list <README.md>] [--contract <screen-contract.yaml>]`, the package directory first and each page name quoted (names hold spaces and `·`). `<package dir>` is `prototypes/<effort>/claude-design/`, where `prototypes/<effort>/` is the directory that holds this effort's prototype leaves, or its `README.md` with the state list for an existing product; when neither exists, `<effort>` is as the `prototype` skill's rule 1 **Lives in `prototypes/`** defines it. Every pull of the project writes the same directory. File bytes do not pass through the model.
+2. `scripts/pull_design.py <package dir> --pages <page.dc.html>... [--state-list <README.md>] [--contract <screen-contract.yaml>]`, the package directory first and each page name quoted (names hold spaces and `·`). `<package dir>` is `prototypes/<effort>/claude-design/`, where `prototypes/<effort>/` is the directory that holds this effort's prototype leaves, or its `README.md` with the state list for an existing product; when neither exists, `<effort>` is as the `prototype` skill's rule 1 **Lives in `prototypes/`** defines it. Every pull of the project writes the same directory. File bytes do not pass through the model.
 
    Pass `--state-list` pointing at the `README.md` that holds the state list, when there is one.
 
@@ -44,6 +44,6 @@ For any other pull, whether the effort's screen contract `docs/specs/<effort>/sc
 
 ## A `contract` child answered by this pull
 
-When the pull answered a `contract` child, finish it after the package is committed and pushed to `origin/<base branch>` and the skill **Reached from here** names has run, with the `dispatch` skill's commands (written `<dispatch> …`, resolved from that skill's `SKILL.md`): comment on the child with the commit; `<dispatch> route <n> <child> fixed`; move the not-yet-started tickets the night moved to `needs-triage` back to `ready-for-agent`; `<dispatch> resume <n> "<the commit to integrate from>, then: continue"`. The worker then runs its criteria on the new package.
+When the pull answered a `contract` child, finish it after the package is committed and pushed to `origin/<base branch>` and the skill **Reached from here** names has run, with the `dispatch` skill's `dispatch.sh`: comment on the child with the commit; `dispatch.sh route <n> <child> fixed`; move the not-yet-started tickets the night moved to `needs-triage` back to `ready-for-agent`; `dispatch.sh resume <n> "<the commit to integrate from>, then: continue"`. The worker then runs its criteria on the new package.
 
 Git is the design's version history; Claude Design keeps none.

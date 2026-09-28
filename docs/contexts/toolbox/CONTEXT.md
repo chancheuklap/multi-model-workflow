@@ -154,7 +154,7 @@ The dispatch skill's hook that, in a session whose working directory is a ticket
 _Home_: `mmw-v2/skills/dispatch/scripts/tool-guard.py`
 
 **`verify-ticket.py`**:
-The verify-ticket skill's one script for a ticket's criteria and closing: the lint, the worker's runs, reverify, preflight, closeout, and the events around them. The skill's text calls it `<engine>`.
+The verify-ticket skill's one script for a ticket's criteria and closing: the lint, the worker's runs, reverify, preflight, closeout, and the events around them.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`issue_tree.py`**:

@@ -9,16 +9,12 @@ An `AGENTS.md` is loaded into every session of every agent that works in this re
 
 Two situations share one flow: set up in the situation's file, then the sections below in order; the situation's file says where its own step joins.
 
-## Resolve `<scripts>` once
-
-`<scripts>` in every command below is the `scripts/` directory next to this file. Resolve it from this file's own location: the path differs by machine and by host.
-
 ## Find your situation
 
 From the repository root, list what exists:
 
 ```bash
-bash <scripts>/check.sh --list .
+bash scripts/check.sh --list .
 ```
 
 | What you see | Your situation | Open |
@@ -151,7 +147,7 @@ Each rule, then what it catches.
 
 ### Language
 
-Write in the language the repository's existing instruction files use; in the create situation, the language the user answered in. Other skills add rows under `## Commands`, `## External References` and `## Key Conventions` by those headings, so the headings stay in English as written; the lines under them are in the repository's language. Keep the subdirectory sentence in English as shown, because `<scripts>/check.sh` looks for it by its English words.
+Write in the language the repository's existing instruction files use; in the create situation, the language the user answered in. Other skills add rows under `## Commands`, `## External References` and `## Key Conventions` by those headings, so the headings stay in English as written; the lines under them are in the repository's language. Keep the subdirectory sentence in English as shown, because `scripts/check.sh` looks for it by its English words.
 
 ### Steps
 
@@ -205,7 +201,7 @@ A fact that describes a practice is a convention; a fact that describes a conseq
 
 Hosts that load nested files on their own lose nothing by the last line; hosts that stop at the working directory depend on it.
 
-A root file carries only the sections above, plus one section of its own for a class of facts every task needs that no section above holds: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It stays within the limit `check.sh` sets — `bash <scripts>/check.sh --limit` prints it; past that, rules that hold only in one directory move to that directory's file and documents get a row in External References instead of a summary.
+A root file carries only the sections above, plus one section of its own for a class of facts every task needs that no section above holds: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It stays within the limit `check.sh` sets — `bash scripts/check.sh --limit` prints it; past that, rules that hold only in one directory move to that directory's file and documents get a row in External References instead of a summary.
 
 ### Code and test rules
 
@@ -280,7 +276,7 @@ Good — each rule has its own narrow trigger:
 Write the smallest useful file. Use only sections that add non-obvious value.
 
 - Use headings, bullets, and tables; avoid paragraphs outside the identity lines.
-- Use repository-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`packages/<name>/package.json`); `<scripts>/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
+- Use repository-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`packages/<name>/package.json`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
 - Prefer file-scoped lint and typecheck commands; include full builds only when no narrower command exists. Write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable gets `removed: discoverable` as its destination in `destinations.md`, every other one is kept.
 - Keep one rule per bullet.
 - Keep rationale out unless it prevents a likely mistake. The one rationale that does is the reason behind a deliberate unconventional choice: it stops the next agent from "fixing" it.
@@ -307,7 +303,7 @@ Two things close the work: the mechanical checks pass, and the report says what 
 From the repository root:
 
 ```bash
-bash <scripts>/check.sh .
+bash scripts/check.sh .
 ```
 
 Fix every line `check.sh` prints and run it again until it prints `ok`. A failure this repository cannot satisfy is a pass; write its cause down. Two reach that: a root file over the limit with nothing left to move into a directory's file, and a backticked path a clean checkout does not hold (a generated or ignored file).

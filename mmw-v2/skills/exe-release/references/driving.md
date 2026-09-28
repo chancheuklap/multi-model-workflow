@@ -9,18 +9,18 @@
 Each round, first run:
 
 ```bash
-<release> where
+bash scripts/release-flow.sh where
 ```
 
 Every verdict, `PAUSED` and `CORRUPT:` included, exits 0: read the state from stdout, never from the exit code. Exit 1 is one `ERROR:` line on stderr naming the fact the release engine cannot get past.
 
 | Output | Do | Stop and report to the user? |
 | --- | --- | --- |
-| `STAGE:<name>` | `<release> stage run --stage <name>` — when the stage fails, it dispatches a fix and counts the round itself before returning | No |
+| `STAGE:<name>` | `bash scripts/release-flow.sh stage run --stage <name>` — when the stage fails, it dispatches a fix and counts the round itself before returning | No |
 | `PAUSED:needs-context` | See "Pause: missing context" below. This is not the end | Only after two failed attempts |
-| `SUCCESS:all stages done` | `<release> close` | No |
-| `PAUSED:needs-redirection` | Read `<release> receipt`. Give it to the user as-is | Yes. Circuit breakers and spent budget must not continue on their own |
-| `CORRUPT:` | Read `<release> receipt`. Do not run a stage. Do not `resume` | Yes |
+| `SUCCESS:all stages done` | `bash scripts/release-flow.sh close` | No |
+| `PAUSED:needs-redirection` | Read `bash scripts/release-flow.sh receipt`. Give it to the user as-is | Yes. Circuit breakers and spent budget must not continue on their own |
+| `CORRUPT:` | Read `bash scripts/release-flow.sh receipt`. Do not run a stage. Do not `resume` | Yes |
 | Any other output, or the command itself errors | Do not guess the state. Do not `init` again | Yes, with the raw output |
 
 After a stage, ask `where` again until the table names a terminal state. **Do not stop to report to the user after every `where`.**

@@ -16,9 +16,9 @@
 #
 # | Command | 0 | 1 | 2 | 3 |
 # | --- | --- | --- | --- | --- |
-# | `<release> <subcommand>` | the subcommand ran; what happened is on stdout | one `ERROR: <the fact it cannot get past>` line on stderr | the subcommand is missing or unknown, usage on stderr (`--help` exits 0; an unknown verb after `stage` or `round` exits 1 with an `ERROR: usage:` line) | — |
-# | `<scripts>/verify_key.py` | no findings | the release manifest has problems: findings as a JSON envelope on stdout, or a contract error as a traceback on stderr | argparse usage error | — |
-# | `<scripts>/release_script_assembler.py assemble` | passed | — | argparse usage error | `INVALID: <reason>` on stderr |
+# | `release-flow.sh <subcommand>` | the subcommand ran; what happened is on stdout | one `ERROR: <the fact it cannot get past>` line on stderr | the subcommand is missing or unknown, usage on stderr (`--help` exits 0; an unknown verb after `stage` or `round` exits 1 with an `ERROR: usage:` line) | — |
+# | `scripts/verify_key.py` | no findings | the release manifest has problems: findings as a JSON envelope on stdout, or a contract error as a traceback on stderr | argparse usage error | — |
+# | `scripts/release_script_assembler.py assemble` | passed | — | argparse usage error | `INVALID: <reason>` on stderr |
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"

@@ -2,16 +2,12 @@
 
 You review one submitted story against one question: **does it show a problem that element parity does not cover?** You are read-only.
 
-## Resolve `<ui-acceptance scripts>` once
-
-`<ui-acceptance scripts>` in every command below is the `scripts/` directory of the `ui-acceptance` skill. Resolve it from that skill's own `SKILL.md`. The path differs by machine and by host.
-
 ## 1. Take the story screenshots
 
-Read the ticket, and copy its `story-parity.py` criterion's `--contract` and `--pages` (and `--scenes` when present). `--out` is a directory `mktemp` makes. The story service that command starts takes no lease and is not the product:
+Read the ticket, and copy its `story-parity.py` criterion's `--contract` and `--pages` (and `--scenes` when present). `--out` is a directory `mktemp` makes. The story service that command starts takes no lease and is not the product, run with the `ui-acceptance` skill's `story-parity.py`:
 
 ```sh
-uv run <ui-acceptance scripts>/story-parity.py --contract … --pages … --out <mktemp directory>
+uv run story-parity.py --contract … --pages … --out <mktemp directory>
 ```
 
 The run writes the submitted story screenshot (`-impl.png`), the design-side screenshot (`-baseline.png`), and the pixel difference image (`-diff.png`) under `--out/media` for every scene and viewport. A `DIFF` line or a green `STORY OK` is not this axis's verdict; look at those images. If the command cannot write them, say so and stop this axis.

@@ -1,6 +1,6 @@
 """`--lint` given a spec number lints every sub-issue, then the graph once.
 
-The night's pre-batch pass (dispatch `night.md` 1b) runs `<engine> <spec> --lint`. A spec
+The night's pre-batch pass (dispatch `night.md` 1b) runs `verify-ticket.py <spec> --lint`. A spec
 carries no `## Acceptance criteria`, so without this it is read as a ticket with nothing
 to check and comes back 0 without reading one sub-issue. What tells a spec apart from a
 criteria-less ticket is its layer label `mmw:spec`; an issue carrying no layer label at
