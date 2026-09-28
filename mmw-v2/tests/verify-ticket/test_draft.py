@@ -116,8 +116,6 @@ class FakeGh:
     def git(self, args):
         if args[:2] == ["rev-parse", "HEAD"]:
             return HEAD
-        if args[:1] == ["config"] and args[1].endswith(".mmw-base-branch"):
-            return "herdr-to-paseo"
         if args[:1] == ["log"]:
             return HEAD
         if args[:2] == ["rev-parse", "--abbrev-ref"]:
@@ -409,8 +407,8 @@ None
 
 ## In-ticket
 
-- Spec src/app.py:12 — the importer skips a row
-- Tests tests/test_import.py:4 — the case never fails
+- Spec [wrong-behavior] src/app.py:12 — the importer skips a row — source: #77 AC1
+- Tests [missing-case] tests/test_import.py:4 — the case never fails — source: #77 AC1 CHECK
 
 ## Out-of-ticket
 
@@ -445,9 +443,11 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:", text)
         self.assertIn(
-            "- Spec src/app.py:12 — the importer skips a row — <fill>", text)
+            "- Spec [wrong-behavior] src/app.py:12 — the importer skips a row — "
+            "source: #77 AC1 — <fill>", text)
         self.assertIn(
-            "- Tests tests/test_import.py:4 — the case never fails — <fill>", text)
+            "- Tests [missing-case] tests/test_import.py:4 — the case never fails — "
+            "source: #77 AC1 CHECK — <fill>", text)
 
     def test_out_of_ticket_and_withdrawn_findings_are_not_prefilled(self):
         code, err, text, _ = run_draft((MET_RUN, IN_TICKET_REVIEW))
@@ -490,11 +490,15 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
         code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)
         filled = (text
-                  .replace("- Spec src/app.py:12 — the importer skips a row — <fill>",
-                           "- Spec src/app.py:12 — the importer skips a row — "
+                  .replace("- Spec [wrong-behavior] src/app.py:12 — the importer skips a "
+                           "row — source: #77 AC1 — <fill>",
+                           "- Spec [wrong-behavior] src/app.py:12 — the importer skips a "
+                           "row — source: #77 AC1 — "
                            "fixed 9b1d40c7feedface0011223344556677889900aa")
-                  .replace("- Tests tests/test_import.py:4 — the case never fails — <fill>",
-                           "- Tests tests/test_import.py:4 — the case never fails — "
+                  .replace("- Tests [missing-case] tests/test_import.py:4 — the case "
+                           "never fails — source: #77 AC1 CHECK — <fill>",
+                           "- Tests [missing-case] tests/test_import.py:4 — the case "
+                           "never fails — source: #77 AC1 CHECK — "
                            "refuted: the case fails when the fixture is empty")
                   .replace(f"skipped: {vt.FILL}", "skipped: none")
                   .replace(f"\n{vt.FILL}\n", "\nnone\n"))

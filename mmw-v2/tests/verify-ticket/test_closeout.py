@@ -623,18 +623,6 @@ class TestReviewFindingCompleteness(unittest.TestCase):
                 self.assertIn(missing, err)
                 self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
 
-    def test_old_review_rows_accept_fixed_and_refuted_responses(self):
-        row = "- Spec src/app.py:12 — the importer skips a row"
-        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
-                       + row + "\n", base="abcdef0", head="1234567")
-        for response in ("fixed " + HEAD, "refuted: the fixture contains the row"):
-            with self.subTest(response=response):
-                text = draft(counts=counts_line()) + "\nReview findings:\n" \
-                       + row + " — " + response + "\n"
-                code, err, seen = check(text, comments=(review,))
-                self.assertEqual(code, 0, err)
-                self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
-
     def test_changed_source_does_not_satisfy_the_latest_review(self):
         row = "- Tests [Tautological] tests/events.py:256 — The test provides its expected value. — source: #430 AC2 CHECK"
         review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
@@ -875,7 +863,7 @@ class TestTargetJsonChecks(unittest.TestCase):
                                    side_effect=lambda n, b: posted.append(b)):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     vt.run_lint(77)
-                    code = vt.run_checks(77, True, None)
+                    code = vt.run_checks(77, True)
             self.assertEqual(code, 0)
             self.assertEqual([vt.events.parse(b)[1]["run"] for b in posted], ["reverify"])
             self.assertFalse(marker.exists())

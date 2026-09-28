@@ -49,8 +49,6 @@ LEDGER_NAME = "AC.md"
 # The summary line gate-check prints on its own stdout.
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
-IN_TICKET_ITEM_RE = re.compile(
-    r"^- (Standards|Spec|Tests|UI) (\S+):(\d+) — (.+)$")
 CAT_IN_TICKET_ITEM_RE = re.compile(
     r"^- (Standards|Spec|Tests|UI) \[([^\]]+)\] (\S+):(\d+) — (.+?) — source: (.+)$")
 IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
@@ -114,9 +112,6 @@ STATEFUL_COMMAND_RE = re.compile(
     r"\bgit (checkout|switch|branch\s+-[Dd]|reset|stash|merge|rebase)\b"
     r"|\bgh issue (close|reopen|edit|create|delete)\b"
     r"|\bgh pr (create|close|merge)\b")
-# The two git config keys the pipeline retired with #341. Nothing writes them, so a
-# criterion reading one compares against an empty string instead of a base commit.
-RETIRED_BASE_RE = re.compile(r"branch\.[A-Za-z0-9._/-]*\.mmw-base(-branch)?\b")
 # A `grep` — plain, `git grep`, `egrep`, `fgrep` — as the command whose exit code the
 # CHECK hands back. GNU and BSD grep both exit 1 when they selected no line.
 GREP_STAGE_RE = re.compile(r"^(?:git\s+)?[ef]?grep\b")
@@ -134,7 +129,9 @@ ECHOED_EXIT_RE = re.compile(r"^(?:echo|printf)\b.*\$\?")
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into --json
 # output under it, which json.loads cannot read. Every gh call here runs without it.
-GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+# `events.py`, loaded above, computes the same filter; this file shares its value rather
+# than filtering `os.environ` a second time.
+GH_ENV = events.GH_ENV
 
 
 class TrackerReadError(RuntimeError):
@@ -150,8 +147,7 @@ class TrackerReadError(RuntimeError):
 def tracker_failure(exc: BaseException) -> str:
     """The useful line from a failed tracker subprocess or parser."""
     if isinstance(exc, subprocess.CalledProcessError):
-        lines = str(exc.stderr or exc.stdout or "").strip().splitlines()
-        return lines[-1] if lines else f"gh exited {exc.returncode}"
+        return gh_detail(exc)
     return str(exc)
 
 
@@ -211,7 +207,7 @@ def ticket_spec(number: int) -> int | None:
     convenience, and an unwritten event is the loss that matters. Patched out in tests."""
     try:
         return spec_of(number)
-    except (ParentUnreadable, subprocess.CalledProcessError, OSError):
+    except (ParentUnreadable, subprocess.CalledProcessError, OSError, TrackerReadError):
         return None
 
 
@@ -339,13 +335,15 @@ def fetch_blocked_by(number: int) -> list[int]:
     return [b["number"] for b in (data.get("blockedBy") or {}).get("nodes", [])]
 
 
-def gh_detail(out: subprocess.CompletedProcess) -> str:
+def gh_detail(out) -> str:
     """The last line a failed `gh` call said, for the exception that carries it up.
 
     `gh` writes its reason on stderr and falls back to stdout; the last line is the
-    one that names the failure, the rest being the request it was making.
+    one that names the failure, the rest being the request it was making. Takes a
+    completed process or a `subprocess.CalledProcessError`, whichever carries it — both
+    have `stderr`, `stdout` and `returncode`.
     """
-    detail = (out.stderr or out.stdout).strip().splitlines()
+    detail = str(out.stderr or out.stdout or "").strip().splitlines()
     return detail[-1] if detail else f"gh exited {out.returncode}"
 
 
@@ -357,17 +355,13 @@ class SubIssuesUnreadable(RuntimeError):
     """
 
 
-def _gh(args: list[str]) -> tuple[int, str, str]:
-    out = subprocess.run(["gh", *args], capture_output=True, text=True, env=GH_ENV)
-    return out.returncode, out.stdout, out.stderr
-
-
 def fetch_tree(number: int, root: str = "spec") -> dict:
     """The tree of issues under `number`, an issue of layer `root`, in one query
-    (`issue_tree.py`). Raises `SubIssuesUnreadable` when the tracker could not answer for the
+    (`issue_tree.py`, which runs its own `gh` calls, filtered the same way this file's
+    `GH_ENV` is). Raises `SubIssuesUnreadable` when the tracker could not answer for the
     whole of it. Patched out in tests."""
     try:
-        return tree.read(number, root, gh=_gh)
+        return tree.read(number, root)
     except tree.TreeUnreadable as exc:
         raise SubIssuesUnreadable(str(exc)) from None
 
@@ -698,20 +692,18 @@ def write_ledger(body: str, directory: Path, lines: list[str] | None = None) -> 
     return path
 
 
-def check_timeout(body: str, asked: int | None) -> int:
+def check_timeout(body: str) -> int:
     """Seconds gate-check gets per `CHECK:` on this ticket.
 
-    The largest of `DEFAULT_TIMEOUT`, every `TIMEOUT:` in `## Acceptance criteria`, and
-    `--timeout` when given: a ticket can raise the limit and never lower it, and it is
-    read off the ticket body whichever run this is, so the final `--reverify` runs
-    under the same number as the worker's own run.
+    The largest of `DEFAULT_TIMEOUT` and every `TIMEOUT:` in `## Acceptance criteria`: a
+    ticket can raise the limit and never lower it, and it is read off the ticket body
+    whichever run this is, so the final `--reverify` runs under the same number as the
+    worker's own run.
     """
     values = [DEFAULT_TIMEOUT]
     for criterion in parse_criteria("\n".join(section(body, "Acceptance criteria"))):
         if criterion["timeout"].isdigit() and int(criterion["timeout"]) > 0:
             values.append(int(criterion["timeout"]))
-    if asked:
-        values.append(asked)
     return max(values)
 
 
@@ -1278,10 +1270,10 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
                                         "closeout draft") -> list[str]:
     """Each finding verbatim from `## In-ticket`; refuse a nonempty unknown row.
 
-    Historical rows have no category or source. Current rows carry both, and their
-    source and any unverified note remain in the one line handed to the worker.
-    `next_step` ends the refusal: the reviewer posting the report and the worker
-    drafting its closeout each have a different thing to do about the row.
+    A row carries its category and source, and its source and any unverified note remain
+    in the one line handed to the worker. `next_step` ends the refusal: the reviewer
+    posting the report and the worker drafting its closeout each have a different thing
+    to do about the row.
     """
     rows = [row.strip() for row in section(review, "In-ticket")
             if row.strip() and not re.fullmatch(r"<!-- mmw \{.*\} -->", row.strip())]
@@ -1289,7 +1281,7 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
         return []
     found = []
     for row in rows:
-        if CAT_IN_TICKET_ITEM_RE.fullmatch(row) or IN_TICKET_ITEM_RE.fullmatch(row):
+        if CAT_IN_TICKET_ITEM_RE.fullmatch(row):
             found.append(row)
         else:
             label = f"comment {comment}" if comment is not None else "review comment"
@@ -1729,18 +1721,17 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
             spent += SLOT_BEAT_S
 
 
-def run_checks(number: int, reverify: bool, timeout: int | None,
-               actor: str | None = None) -> int:
+def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
     """Run criteria under the lifetime of a non-ticket judge lease."""
     body = fetch_body(number)
     require_judges(body)
     root = repo_root()
     lease = load_lease() if needs_product(body) else None
     if lease is None:
-        return _run_checks(number, reverify, timeout, actor, body, root)
+        return _run_checks(number, reverify, actor, body, root)
     try:
         with lease.judge_run(root, stop=True):
-            return _run_checks(number, reverify, timeout, actor, body, root)
+            return _run_checks(number, reverify, actor, body, root)
     except lease.StopUnreadable as exc:
         sys.stderr.write(f"#{number}: {exc}; the judge's product slot was kept\n")
         return 2
@@ -1749,7 +1740,7 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
         return 2
 
 
-def _run_checks(number: int, reverify: bool, timeout: int | None,
+def _run_checks(number: int, reverify: bool,
                 actor: str | None, body: str, root: Path) -> int:
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
@@ -1780,7 +1771,7 @@ def _run_checks(number: int, reverify: bool, timeout: int | None,
         cmd = ["node", str(GATE_CHECK), "--cwd", str(root)]
         if reverify:
             cmd.append("--reverify")
-        cmd += ["--timeout", str(check_timeout(body, timeout))]
+        cmd += ["--timeout", str(check_timeout(body))]
         cmd.append(str(ledger))
         env = os.environ.copy()
         env["MMW_TICKET"] = str(number)
@@ -1862,7 +1853,7 @@ def blocker_fold(number: int) -> dict | None:
     """The events of blocker `number` folded, or None when the tracker did not answer."""
     try:
         return events.fold(fetch_comments(number), issue=number)
-    except (OSError, ValueError, subprocess.CalledProcessError):
+    except (OSError, ValueError, subprocess.CalledProcessError, TrackerReadError):
         return None
 
 
@@ -1962,7 +1953,7 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
     """
     try:
         comments = fetch_comments(number)
-    except (OSError, subprocess.CalledProcessError) as exc:
+    except TrackerReadError as exc:
         sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
         return
     started = events.newest(comments, "worker.started")
@@ -1976,7 +1967,7 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
         return
     try:
         body = fetch_body(number)
-    except (OSError, subprocess.CalledProcessError) as exc:
+    except TrackerReadError as exc:
         sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
         return
     run_baseline(number, body, base, root)
@@ -2015,7 +2006,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
             lines.append("")
         ledger = write_ledger(body, ledger_dir, lines)
         cmd = ["node", str(GATE_CHECK), "--cwd", str(worktree),
-               "--timeout", str(check_timeout(body, None)), str(ledger)]
+               "--timeout", str(check_timeout(body)), str(ledger)]
         env = os.environ.copy()
         env["MMW_TICKET"] = str(number)
         if TOOLS:
@@ -2107,31 +2098,6 @@ def run_preflight(number: int) -> int:
 
 
 ROW_ID_RE = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+\b")
-
-
-def review_problems(draft: str, body: str, comments: list[str]) -> list[str]:
-    """A `Missing` the Spec axis raised against a screen-contract row the ticket owns is
-    settled by a commit or a sub-issue the draft names; a draft silent on it is refused.
-    The row id is the handle: the reviewer writes it first, the draft repeats it."""
-    m = SCREEN_CONTRACT_ROWS_RE.search("\n".join(section(body, "Read first")))
-    if not m:
-        return []
-    rows = set(ROW_ID_RE.findall(m.group(1)))
-    review = (events.newest(comments, "reviewer.reported") or {}).get("body")
-    if not review:
-        return []
-    spec_axis = re.split(r"^## Tests", review, maxsplit=1, flags=re.M)[0]
-    spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
-    problems = []
-    for line in spec_axis.splitlines():
-        if not re.search(r"Missing|缺失", line) and not re.search(r"^\s*\d+\.\s", line):
-            continue
-        for rid in ROW_ID_RE.findall(line):
-            if rid in rows and rid not in draft:
-                problems.append(f"the review's Spec axis reports a `Missing` against "
-                                f"screen-contract row {rid} and the draft names no commit "
-                                f"or sub-issue for it")
-    return problems
 
 
 def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
@@ -2400,7 +2366,6 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     into = (started or {}).get("into") if passed else None
     problems = draft_problems(draft, comments)
     problems += verified_problems(draft, body, comments)
-    problems += review_problems(draft, body, comments)
     problems += review_finding_problems(draft, comments)
     problems += event_problems(comments)
     if started_problem:
@@ -2626,30 +2591,6 @@ def lint_timeouts(body: str) -> list[str]:
     return findings
 
 
-def lint_retired_base(body: str) -> list[str]:
-    """A `CHECK:` reading a git config key the pipeline stopped writing.
-
-    `dispatch` wrote the ticket's base commit into `branch.issue-<n>.mmw-base` and its
-    branch into `branch.issue-<n>.mmw-base-branch` until #339/#341 moved landing onto
-    `origin/<base branch>`. Neither is written now, so `git config --get` prints nothing
-    and exits 1, and a command built around it degrades instead of failing: `git diff
-    --name-only $(git config branch.issue-713.mmw-base)..HEAD -- <dir>` becomes `git diff
-    ..HEAD`, which compares HEAD with itself, reports nothing changed, and passes. The
-    base the pipeline supplies is `$MMW_BASE_REF`, set on every run of the criteria that
-    has one.
-    """
-    findings = []
-    for gate_id, check, _ in criteria_lines(body):
-        m = RETIRED_BASE_RE.search(check)
-        if m:
-            findings.append(
-                f"{gate_id}: CHECK reads `{m.group(0)}`, which no run writes since #341. "
-                f"It resolves to nothing and the command around it passes without "
-                f"comparing anything. Use `$MMW_BASE_REF` (for a diff, "
-                f"`$MMW_BASE_REF...HEAD`).")
-    return findings
-
-
 def final_stage(check: str) -> str:
     """The command whose exit code a CHECK's shell hands back: the text after the last
     `|`, `;` or `&` the shell reads as a separator.
@@ -2759,16 +2700,14 @@ FETCH_STUB_RE = re.compile(
     re.IGNORECASE,
 )
 FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
-# The scripts of this pipeline a criterion may run, and what each call must carry: the flags
-# it cannot leave out, and the ones that have been retired. `lint_pipeline_flags` reads it, so a
-# script that takes no flags at all has nothing to assert here and is left out of it, which is
-# why this holds fewer scripts than `JUDGES` below does.
+# The scripts of this pipeline a criterion may run, and the flags each call cannot leave
+# out. `lint_pipeline_flags` reads it, so a script that takes no flags at all has nothing
+# to assert here and is left out of it, which is why this holds fewer scripts than
+# `JUDGES` below does.
 # Their addresses come from the repository's `.mmw/target.json`, never from the line.
 PIPELINE_SCRIPTS = {
-    "story-parity.py": {"required": ("--contract", "--pages"),
-                        "retired": ("--baseline", "--impl",
-                                    "--impl-title", "--viewports", "--mount")},
-    "boundary-check.py": {"required": ("--run",), "retired": ()},
+    "story-parity.py": {"required": ("--contract", "--pages")},
+    "boundary-check.py": {"required": ("--run",)},
 }
 # The judges of the `ui-acceptance` skill: every script a `CHECK:` names by its bare name and
 # that `require_judges` refuses a run for when the shell could not find it. The default place
@@ -3065,13 +3004,14 @@ def boundary_test_paths(command: str, root: Path) -> list[Path]:
 def help_flags(script: str) -> set[str]:
     """The flags the installed script actually accepts, read from its `--help` once.
     This is the one place a criterion's reference to a capability that does not exist
-    yet is caught at the moment it is written."""
+    yet is caught at the moment it is written. Looked for in the directories in force,
+    then on PATH, the same two places a `CHECK:` itself resolves the script from."""
     if script not in _HELP_FLAGS:
-        path = tool(script)
+        path = tool(script) or shutil.which(script)
         text = ""
         if path is not None:
             try:
-                out = subprocess.run([sys.executable, str(path), "--help"], capture_output=True,
+                out = subprocess.run([str(path), "--help"], capture_output=True,
                                      text=True, timeout=60)
                 text = (out.stdout or "") + (out.stderr or "")
             except (OSError, subprocess.TimeoutExpired):
@@ -3089,15 +3029,12 @@ def lint_pipeline_flags(gate_id: str, check: str) -> list[str]:
         for flag in rules["required"]:
             if flag not in flags:
                 findings.append(f"{gate_id}: {script} without {flag}")
-        for flag in rules["retired"]:
-            if flag in flags:
-                findings.append(f"{gate_id}: {script} names {flag}; addresses and the seed "
-                                f"come from .mmw/target.json and the contract, not the line")
         known = help_flags(script)
         if known:
-            for flag in sorted(flags - known - set(rules["retired"])):
+            for flag in sorted(flags - known):
                 findings.append(f"{gate_id}: {script} does not accept {flag} (its --help "
-                                f"does not list it)")
+                                f"does not list it; addresses come from .mmw/target.json, "
+                                f"never from the line)")
     return findings
 
 
@@ -3669,8 +3606,6 @@ def lint_criteria(number: int, body: str, labels: list[str],
         say("error", finding, "screen-contract")
     for finding in contract_warnings:
         say("warn", finding, "screen-contract")
-    for finding in lint_retired_base(body):
-        say("error", finding, "retired-base")
     for finding in lint_undecidable_checks(body):
         say("error", finding, "undecidable-check")
     for finding in lint_check_effects(body):
@@ -3935,7 +3870,6 @@ def main(argv: list[str] | None = None) -> int:
                         help="check this closing comment, then post it and close the ticket")
     parser.add_argument("--check-only", action="store_true",
                         help="with --closeout: check the draft and change nothing")
-    parser.add_argument("--timeout", type=int, help="per-CHECK timeout in seconds")
     parser.add_argument("--decisions", type=Path, metavar="FILE",
                         help="post the two-section file as a DECISIONS comment")
     parser.add_argument("--touched", action="store_true",
@@ -4008,7 +3942,7 @@ def main(argv: list[str] | None = None) -> int:
             return lint_drafts(args.ticket, args.drafts)
         if args.lint:
             return run_lint(args.ticket)
-        return run_checks(args.ticket, args.reverify, args.timeout, args.actor)
+        return run_checks(args.ticket, args.reverify, args.actor)
     except TrackerReadError as exc:
         return refuse(f"verify-ticket: {exc}. Nothing was run or written; retry the same command")
     except JudgeUnreachable as exc:

@@ -1,11 +1,9 @@
-"""The screen-contract rules: what `--lint` reports under `[screen-contract]`, and the
-closeout refusal when the Spec axis reported a `Missing` against a row the draft ignores.
-"""
+"""The screen-contract rules: what `--lint` reports under `[screen-contract]`."""
 
 import os
 import tempfile
 import unittest
-from _load import event, load
+from _load import load
 
 vt = load()
 
@@ -33,8 +31,6 @@ def ticket(read_first, *criteria, parent="", blocked_by="", owns=""):
         body += "\n## Owns\n\n" + owns + "\n"
     return body
 
-
-ROWS = "- docs/specs/x/screen-contract.yaml rows: create-project.add-material (baseline)"
 
 CONTRACT = """
 effort: x
@@ -524,32 +520,6 @@ class TestSources(ContractFixture, unittest.TestCase):
                       gate("AC2", self.boundary_check), blocked_by="- #637")
         findings, _ = vt.lint_screen_contract(body, 639)
         self.assertTrue(any("--pages nowhere" in f for f in findings))
-
-
-REVIEW = event("reviewer.reported",
-               "REVIEW abc..def\n\n## Standards\n\nnone\n\n## Spec\n\n### Missing\n\n"
-               "1. **create-project.add-material calls nothing.** The button toggles a boolean.\n\n"
-               "## Tests\n\nnone\n", base="abc", head="def")
-BODY = ticket(ROWS, gate("AC1", STORY))
-
-
-class TestReviewProblems(unittest.TestCase):
-    def test_a_missing_against_an_owned_row_the_draft_ignores_is_refused(self):
-        problems = vt.review_problems("ALL MET\nBranch: x\n", BODY, [REVIEW])
-        self.assertEqual(len(problems), 1)
-        self.assertIn("create-project.add-material", problems[0])
-
-    def test_naming_the_row_in_the_draft_answers_it(self):
-        draft = ("ALL MET\nBranch: x\n\n"
-                 "Sub-issues opened: #91 (create-project.add-material wired, review finding)\n")
-        self.assertEqual(vt.review_problems(draft, BODY, [REVIEW]), [])
-
-    def test_no_review_no_problem(self):
-        self.assertEqual(vt.review_problems("ALL MET\n", BODY, ["self-run\nALL MET (1 met)"]), [])
-
-    def test_a_ticket_without_rows_is_not_held_to_it(self):
-        body = ticket("- ADR-0013 (baseline)", gate("AC1", "pytest -q"))
-        self.assertEqual(vt.review_problems("ALL MET\n", body, [REVIEW]), [])
 
 
 class TestContractPathInBackticks(unittest.TestCase):

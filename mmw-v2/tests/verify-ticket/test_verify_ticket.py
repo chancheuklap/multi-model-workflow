@@ -61,7 +61,7 @@ class LedgerRun(unittest.TestCase):
              mock.patch.object(vt, "current_branch", return_value="issue-1"), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             with redirect_stdout(io.StringIO()) as out:
-                code = vt.run_checks(1, reverify, None, actor)
+                code = vt.run_checks(1, reverify, actor)
         self.posted = posted
         return code, (posted[0] if posted else ""), out.getvalue()
 
@@ -305,17 +305,13 @@ class TestCheckTimeout(LedgerRun):
         return ticket(*lines)
 
     def test_the_default_is_ten_minutes(self):
-        self.assertEqual(vt.check_timeout(self.body(""), None), 600)
+        self.assertEqual(vt.check_timeout(self.body("")), 600)
 
     def test_a_ticket_raises_it_with_the_largest_timeout_line(self):
-        self.assertEqual(vt.check_timeout(self.body("900", "", "1500"), None), 1500)
+        self.assertEqual(vt.check_timeout(self.body("900", "", "1500")), 1500)
 
     def test_a_ticket_cannot_lower_it(self):
-        self.assertEqual(vt.check_timeout(self.body("30"), None), 600)
-
-    def test_the_command_line_raises_it_too(self):
-        self.assertEqual(vt.check_timeout(self.body("900"), 2000), 2000)
-        self.assertEqual(vt.check_timeout(self.body("900"), 100), 900)
+        self.assertEqual(vt.check_timeout(self.body("30")), 600)
 
     def test_the_ledger_handed_to_gate_check_carries_no_timeout_line(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -707,7 +703,7 @@ class TestOutsideOwns(unittest.TestCase):
                  mock.patch.object(vt, "post_comment",
                                    side_effect=lambda n, b: posted.append(b)):
                 with redirect_stdout(io.StringIO()):
-                    code = vt.run_checks(4, False, None)
+                    code = vt.run_checks(4, False)
             self.assertEqual(code, 0, posted)
             payload = payload_of(posted[0])
             self.assertEqual(payload["outside_owns"], [])
@@ -807,7 +803,7 @@ class TestTheProductSlot(unittest.TestCase):
             p.start()
         try:
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
-                code = vt.run_checks(1, reverify, None, actor)
+                code = vt.run_checks(1, reverify, actor)
         finally:
             for p in reversed(patches):
                 p.stop()
