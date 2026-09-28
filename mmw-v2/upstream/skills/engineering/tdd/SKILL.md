@@ -35,4 +35,4 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** It belongs to the round of fixes that follows a review, made on the ticket under the same writing rules as the code that was reviewed, not to the red → green implementation cycle.
+- **Refactoring is not part of the loop.** Green means the slice is done; restructuring is a separate pass over the finished change, where it is judged with fresh eyes instead of skipped under the next red. Working from a ticket, that pass is the round of fixes that follows its review; with no ticket, it is a deliberate pass once every slice is green. Keeping the change itself correct (a caller of what you changed, a branch your change made dead) is part of the slice, not refactoring.
