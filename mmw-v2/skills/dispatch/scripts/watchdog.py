@@ -344,9 +344,13 @@ NOT_READING = "not reading"
 # What to do next differs between the two, so the finding says it: a relay that is not
 # there has to be started again; one that is there and cannot read recovers by itself on
 # its next successful read, and a second `open` would put nothing new in its place.
-NEXT = {NOT_READING: "the process is there and cycling, and it recovers on its own with "
+NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the "
+             "recorded main agent, or `dispatch.sh open-ticket <n>` for a ticket outside "
+             "a night; ",
+        NOT_READING: "the process is there and cycling, and it recovers on its own with "
                      "the first read that works, so opening the night again replaces "
-                     "nothing; "}
+                     "nothing; when this repeats without clearing, the relay cannot read "
+                     "the tracker (network or credential); "}
 
 
 def relay_problem(state: Path, now: datetime) -> dict | None:
@@ -654,7 +658,9 @@ class Watchdog:
                 held.append(number)
                 unknown[str(number)] = {"why": "events unreadable"}
                 findings.append({"key": f"unreadable:{number}:{verdict['comments']}",
-                                 "text": f"watchdog: #{number} events unreadable", "to": to})
+                                 "text": f"watchdog: #{number} events unreadable; leave "
+                                         f"this finding as a comment for the user",
+                                 "to": to})
             elif state == "free":
                 pass
             elif state == "waiting":
@@ -681,7 +687,9 @@ class Watchdog:
                 findings.append({
                     "key": f"read:{self.beat.get('read_at')}",
                     "text": f"watchdog: cannot read the tracker since {self.beat.get('read_at')}: "
-                            f"{self.beat['read_failure']}",
+                            f"{self.beat['read_failure']}; run `gh issue view` on the "
+                            f"ticket this names; wait for tracker or network recovery, or "
+                            f"leave credential repair to the user",
                     "to": everyone,
                 })
         woke = self._report(findings, everyone)
@@ -704,7 +712,8 @@ class Watchdog:
             findings.append({
                 "key": f"unheld:{number}:{verdict.get('comment')}",
                 "text": f"watchdog: #{number} is held with no session to ask, silent "
-                        f"since {since or 'an unknown time'}",
+                        f"since {since or 'an unknown time'}; read status, and when "
+                        f"nothing works the ticket, dispatch.sh retract {number}",
                 "to": to,
             })
             return
@@ -721,7 +730,9 @@ class Watchdog:
                     "text": f"watchdog: #{number} liveness unknown: the {kind} session "
                             f"{session} was started on {machine or 'an unrecorded machine'}, "
                             f"not on {self.machine}, and only that machine can ask {runner}; "
-                            f"silent since {since or 'an unknown time'}",
+                            f"silent since {since or 'an unknown time'}; dispatch.sh resume "
+                            f"{number} \"Say in one line where you are, then continue\", and "
+                            f"act on its exit as night.md's Exit codes of resume says",
                     "to": to,
                 })
                 continue
@@ -734,7 +745,13 @@ class Watchdog:
                         "key": f"idle:{number}:{verdict.get('comment')}",
                         "text": f"watchdog: #{number} silent since {since} with nothing to wait "
                                 f"on: its worker {session} on {runner} is alive, and no "
-                                f"reviewer or product slot is pending",
+                                f"reviewer or product slot is pending; dispatch.sh resume "
+                                f"{number} \"You ended your turn with no result on the "
+                                f"ticket. Carry on from where its events say you are. If "
+                                f"something outside your code stops you, open a fault "
+                                f"sub-issue saying what you ran and what you saw, then "
+                                f"stop; if only a person can settle it, open a decision "
+                                f"sub-issue, take the default and carry on.\"",
                         "to": to,
                     })
                 continue
@@ -758,7 +775,9 @@ class Watchdog:
                 "key": f"unknown:{number}:{kind}:{runner}:{session}:{verdict.get('comment')}",
                 "text": f"watchdog: #{number} liveness unknown: {runner} could not say whether "
                         f"the {kind} session {session} is alive; silent since "
-                        f"{since or 'an unknown time'}",
+                        f"{since or 'an unknown time'}; dispatch.sh resume {number} \"Say "
+                        f"in one line where you are, then continue\", and act on its exit "
+                        f"as night.md's Exit codes of resume says",
                 "to": to,
             })
 

@@ -2,11 +2,11 @@
 
 You review one diff against one question: **are the test cases this ticket's acceptance criteria name worth trusting?** You are read-only and run no test.
 
-## 1. Build your scope from the ticket's acceptance criteria
+Every other check in the landing pipeline runs these tests and believes them. You are the only reader who asks whether a green result proves anything.
 
-```sh
-gh issue view <ticket>
-```
+Read the ticket (`gh issue view <ticket>`, comments included) and the diff against the merge-base (`git diff <base-commit>...HEAD`).
+
+## 1. Build your scope from the ticket's acceptance criteria
 
 Under `## Acceptance criteria`, every criterion carries a `CHECK:` line. Some of those commands name a test file and a case name: `pnpm vitest run tests/api/projects.create.test.ts -t "duplicate name returns 409"`, `uv run pytest tests/test_queue.py::test_empty_state -q`. Collect every file and case name they name. **That list is your scope.**
 
@@ -22,7 +22,7 @@ Also collect every `boundary-check.py` criterion's `--run` product test, and eve
 
 When no `CHECK:` names a test file, a boundary test, or a journey, report one line, `no test-backed criteria in this ticket`, and stop. There is nothing here for this axis.
 
-A `boundary-check.py` judge proves only that its product test goes red without the click. Confirm the `--run` command is the product test this ticket added, then read its assertions: whether they can go red, whether they only watch a success banner, whether they assert the four columns.
+A `boundary-check.py` judge proves only that its product test goes red without the click. Confirm the `--run` command is the product test this ticket added, then read its assertions: whether they can go red, whether they only watch a success banner, whether they assert the row's four columns (`calls`, `shows`, `next`, `on_failure`).
 
 A criterion that runs `journey.py` is the same: read the journey script's assertions. A script that probes the break switch in order to stay green, or that asserts nothing which would fail when the named write is broken, is a finding on this axis.
 
@@ -45,7 +45,7 @@ Each is a judgement call, and each review finding quotes the assertion it is abo
 
 ## 4. Report
 
-One entry per review finding: the file, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words.
+One entry per review finding: the file, the case name, which of the six shapes or which documented rule, the lines quoted, and what would make the case trustworthy. Say plainly, in one line, when a case in scope is sound: a criterion whose test holds up is worth as much as one whose test does not. Under 400 words: the worker reads all of it before fixing anything.
 
 ## Two things this axis never reports
 

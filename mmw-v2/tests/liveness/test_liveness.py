@@ -771,7 +771,12 @@ class Rounds(StateCase):
         self.assertEqual(self.send.calls[0][2],
                          "watchdog: #61 silent since 2026-09-10T00:00:00Z with nothing to wait on: "
                          "its worker h1 on herdr is alive, and no reviewer or product "
-                         "slot is pending")
+                         "slot is pending; dispatch.sh resume 61 \"You ended your turn with "
+                         "no result on the ticket. Carry on from where its events say you "
+                         "are. If something outside your code stops you, open a fault "
+                         "sub-issue saying what you ran and what you saw, then stop; if "
+                         "only a person can settle it, open a decision sub-issue, take the "
+                         "default and carry on.\"")
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1, "once per ticket and newest event")
 

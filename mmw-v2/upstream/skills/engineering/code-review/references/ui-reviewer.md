@@ -8,10 +8,6 @@ You review one submitted story against one question: **does it show a problem th
 
 ## 1. Take the story screenshots
 
-```sh
-gh issue view <ticket>
-```
-
 Read the ticket, and copy its `story-parity.py` criterion's `--contract` and `--pages` (and `--scenes` when present). `--out` is a directory `mktemp` makes. The story service that command starts takes no lease and is not the product:
 
 ```sh
@@ -38,7 +34,7 @@ One entry per review finding: axis `UI`, the category, a `<path>:<line>` in the 
 
 The path is a file in the repository, not the `--out` directory. The claim names the scene, the viewport, and what the image showed. The source is the story criterion's `CHECK` evidence. The `--out/media` images are what you look at; they are not the citation. A temp PNG is gone when the session verifies.
 
-Say plainly, in one line, when a scene you opened is sound. Under 400 words.
+Say plainly, in one line, when a scene you opened is sound. Under 400 words: the worker reads all of it before fixing anything.
 
 ## What is not yours
 

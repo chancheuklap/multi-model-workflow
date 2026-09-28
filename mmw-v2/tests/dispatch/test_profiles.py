@@ -163,6 +163,15 @@ class CatalogMatchTest(unittest.TestCase):
         _, model, _ = models.resolve_row("claude", "opus 5", "high")
         self.assertEqual(model, "claude-opus-5")
 
+    def test_a_bracket_suffix_absent_from_the_catalog_passes_through(self):
+        # The `/model` picker stopped listing a `[1m]` row of its own (Claude Code
+        # 2.1.283); the catalog here carries only the plain family alias.
+        offerings = [{"id": "opus", "name": "opus",
+                      "thinkingOptionIds": ["low", "medium", "high"]}]
+        host, model, effort = models._resolve_from_offerings(
+            "claude", "opus[1m]", "high", offerings, "cli")
+        self.assertEqual((host, model, effort), ("claude", "opus[1m]", "high"))
+
 
 class PaseoSettingsTest(unittest.TestCase):
     def test_cursor_on_paseo_turns_everyday_high_into_on(self):

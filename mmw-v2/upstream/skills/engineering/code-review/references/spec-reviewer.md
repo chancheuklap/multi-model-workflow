@@ -2,20 +2,15 @@
 
 You review one diff against one question: **does this code do what the ticket and the spec asked for, no less and no more?** You are read-only.
 
-## 1. Read the diff
+## Resolve `<dispatch>` once
 
-```sh
-git diff <base-commit>...HEAD
-git log <base-commit>..HEAD --oneline
-```
+`<dispatch>` in `### Read tickets already integrated into the base branch` below is `bash <absolute path to scripts/dispatch.sh>` of the `dispatch` skill, installed beside this one. Resolve it from that skill's own `SKILL.md`; the path differs by machine and by host.
 
-## 2. Read the ticket and what it points at
+Read the ticket (`gh issue view <ticket>`, comments included) and the diff against the merge-base (`git diff <base-commit>...HEAD`).
 
-```sh
-gh issue view <ticket>
-```
+## 1. Read the ticket and what it points at
 
-Read the whole ticket, comments included. The newest comment whose first line is `DECISIONS`, posted by the worker before it started the review, is the worker's own list of what it settled that neither the ticket nor the spec decides, and of the files it changed outside `## Owns` with the reason for each; section 3 asks you to judge every line of it. Then read what the ticket points you at, and nothing else:
+The newest comment whose first line is `DECISIONS`, posted by the worker before it started the review, is the worker's own list of what it settled that neither the ticket nor the spec decides, and of the files it changed outside `## Owns` with the reason for each; section 2 asks you to judge every line of it. Then read what the ticket points you at, and nothing else:
 
 - The spec sections the ticket's `## Parent` line names, and only those.
 - The spec's `## Testing Decisions`.
@@ -28,7 +23,7 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ### Read tickets already integrated into the base branch
 
-Read the newest `worker.started.base` from this ticket's events. Between that commit and the base commit from your prompt, follow the base branch's first-parent history and select commits whose subject is exactly `Merge branch 'issue-<n>'`. For each ticket those commits name, read the whole ticket and the closeout comment that carries `ticket.passed` or `ticket.returned`; do not trust its verdict as proof that the combined result is correct.
+Run `<dispatch> integrated <ticket>`, read every ticket it lists and its closeout comment; do not trust its verdict as proof that the combined result is correct.
 
 Review the current ticket together with those tickets from four angles:
 
@@ -47,7 +42,7 @@ Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes f
 
 **The story adapter you open too.** The product's story adapter maps each scene's input onto the product component. Each entry of an owned row's `shows` column names a value the region displays and the backend field it comes from; the component must draw every one of those values. Whether the interface field that feeds the shown value is the right field is a question for the boundary test, not this axis. A `shows` value the component does not draw is **Built wrong**, quoted from the row.
 
-## 3. What you are looking for
+## 2. What you are looking for
 
 Three kinds of review finding, each quoting the line of the ticket, the spec, or a baseline it comes from, and one judgement per line of the `DECISIONS` comment:
 
@@ -58,9 +53,9 @@ Three kinds of review finding, each quoting the line of the ticket, the spec, or
 
 Quote the requirement for each review finding. A review finding with no quoted line is your opinion about the design, which is not what this axis decides.
 
-## 4. Report
+## 3. Report
 
-Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its quoted line; nothing that is not a finding. Under 400 words.
+Group by the three kinds, then `Decisions`. One entry per review finding, each carrying its quoted line; nothing that is not a finding. Under 400 words: the worker reads all of it before fixing anything.
 
 ## What is not yours
 

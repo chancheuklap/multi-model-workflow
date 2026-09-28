@@ -5,7 +5,7 @@ description: Start a reviewer from inside a ticket, run a night as its main agen
 
 # Dispatch
 
-Choose the moment that matches your role.
+Choose the moment that matches your role. Where you are is what the ticket's events say, not what this session remembers.
 
 ## Resolve `<dispatch>` once
 
@@ -36,11 +36,5 @@ A **night** is one run of a spec's published tickets under one main agent, from 
 
 1. A wake can cut short a command you were running. Run that command again first.
 2. Read what the wake names on the ticket; the wake carries nothing the tracker does not.
-3. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts.
+3. `<dispatch> ack <n> <event>` with the ticket and the event the wake named (`<dispatch> ack relay.recovered` for that one), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts. A `watchdog:` or `MMW turn guard:` line is not acked.
 4. Act on it, as your moment's file says.
-
-## The arguments you supply
-
-`<n>`, `<spec>` and `<child>` are digits only, no `#`.
-
-`start`'s third argument is `worker` or `reviewer`. The base commit is computed from `origin/<base branch>` and the ticket branch; you do not pass it.

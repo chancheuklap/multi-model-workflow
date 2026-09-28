@@ -2733,6 +2733,29 @@ scenario_integratenamestickets() {
     || fail "clean result did not name exactly #62 and #63: $(cat "$TMP/out")"
 }
 
+scenario_integratedsincestart() {
+  local code
+  echo "--- integrated lists every ticket the base branch took in since this ticket's worker started, not one landed before it"
+  fresh_repo
+  echo '[]' > "$TMP/tickets.json"
+  merge_sibling_to_origin 60 earlier.txt earlier "earlier ticket"
+  git -C "$TMP/repo" pull -q --ff-only origin main
+  start_integrate_ticket
+  merge_sibling_to_origin 62 first.txt first "first sibling"
+  merge_sibling_to_origin 63 second.txt second "second sibling"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrated 61)"
+  [ "$code" = 0 ] || fail "integrated expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = "$(printf '62\n63\n')" ] \
+    || fail "integrated should list #62 and #63, not #60 (landed before #61's worker started): $(cat "$TMP/out")"
+
+  echo "--- a ticket with no recorded worker.started.base is refused, nothing printed"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" integrated 99)"
+  [ "$code" = 2 ] || fail "a ticket with no worker.started.base should refuse, got $code: $(cat "$TMP/err")"
+  [ ! -s "$TMP/out" ] || fail "nothing should be printed on refusal: $(cat "$TMP/out")"
+}
+
 scenario_integrateconflict() {
   local code
   fresh_repo
@@ -3690,6 +3713,53 @@ scenario_memory_closing() {
     || fail "human summary omits the deprecate mapping: $(cat "$MMW_GH_LAST_BODY")"
 }
 
+scenario_memorylist() {
+  local code
+  echo "--- memory-list computes the same Space id and writes a blank decision per record"
+  reset_log; fresh_repo; seed_closing_memories
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" memory-list 76)"
+  [ "$code" = 0 ] || fail "memory-list expected 0: $(cat "$TMP/err")"
+  has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-spec-76 :: --limit :: 1000"
+  python3 - "$TMP/out" <<'PY' || fail "the skeleton was not the expected shape"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["status"] == "complete", d
+assert (d["total"], d["returned"]) == (4, 4), d
+ids = sorted(x["memory_id"] for x in d["decisions"])
+assert ids == ["mem-deprecate", "mem-old", "mem-propose", "mem-retain"], ids
+assert all(x["decision"] == "" and x["reason"] == "" and x["evidence"] == "" for x in d["decisions"]), d
+PY
+
+  echo "--- an unreadable list writes an unchecked object with null totals, not an inferred empty set"
+  reset_log; fresh_repo
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable bash "$DISPATCH" "${TOOLS[@]}" memory-list 76)"
+  [ "$code" = 0 ] || fail "unreadable memory-list still expected 0, got $code: $(cat "$TMP/err")"
+  python3 - "$TMP/out" <<'PY' || fail "the unreadable skeleton was not the expected shape"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["status"] == "unchecked", d
+assert (d["total"], d["returned"], d["decisions"]) == (None, None, []), d
+assert d["reason"], "an unchecked object needs a non-empty reason"
+PY
+
+  echo "--- a truncated list writes unchecked with the two reported counts"
+  reset_log; fresh_repo
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["memory_list"] = {"memories": [{"id": "mem-a"}], "total": 5, "returned": 1}
+json.dump(data, open(path, "w"))
+PY
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" memory-list 76)"
+  [ "$code" = 0 ] || fail "truncated memory-list expected 0, got $code: $(cat "$TMP/err")"
+  python3 - "$TMP/out" <<'PY' || fail "the truncated skeleton did not carry the reported counts"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert (d["status"], d["total"], d["returned"], d["decisions"]) == ("unchecked", 5, 1, []), d
+PY
+}
+
 scenario_summary_retro() {
   local code runbook
   runbook="$(dirname "$(dirname "$HERE")")/skills/dispatch/references/night.md"
@@ -4342,6 +4412,52 @@ scenario_route() {
   hasnt "gh :: issue :: close"
   hasnt "gh :: issue :: edit"
   [ -z "$(posted_events 61)" ] || fail "nothing should be posted: $(posted_events 61)"
+}
+
+# #61 is a ticket under spec #76 (spec #76 itself carries no row, so the tree's own
+# root-children fallback treats every listed ticket as one of #76's own); its events
+# carry a child.opened for each of #90-#93, and #93 is a deferred child, not a finding.
+write_findings_batch() {
+  cat > "$TMP/tickets.json" <<JSON
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "children": [90, 91, 92, 93],
+   "comments": [$(ev child.opened 61 "Opened #90 (finding)" --spec 76 --field child=90 --field kind=finding),
+                $(ev child.opened 61 "Opened #91 (finding)" --spec 76 --field child=91 --field kind=finding),
+                $(ev child.opened 61 "Opened #92 (finding)" --spec 76 --field child=92 --field kind=finding),
+                $(ev child.opened 61 "Opened #93 (deferred)" --spec 76 --field child=93 --field kind=deferred)]},
+  {"number": 90, "state": "OPEN", "labels": ["mmw:child"]},
+  {"number": 91, "state": "OPEN", "labels": ["mmw:child"]},
+  {"number": 92, "state": "OPEN", "labels": ["mmw:child"]},
+  {"number": 93, "state": "OPEN", "labels": ["mmw:child"]}
+]
+JSON
+}
+
+scenario_findings() {
+  local code
+  reset_log
+  fresh_repo
+  write_findings_batch
+  echo "--- findings lists every open finding under the ticket whose fold names it, and skips the deferred child"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" findings 76)"
+  [ "$code" = 0 ] || fail "findings expected exit 0, got $code: $(cat "$TMP/err")"
+  [ "$(awk '{print $1, $2}' "$TMP/out" | sort)" = "$(printf '61 90\n61 91\n61 92\n' | sort)" ] \
+    || fail "findings should list #90, #91 and #92 under #61, not the deferred #93: $(cat "$TMP/out")"
+
+  echo "--- a finding the tracker shows closed drops out of the list"
+  python3 - "$TMP/tickets.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+rows = json.load(open(path))
+for row in rows:
+    if row["number"] == 90:
+        row["state"] = "CLOSED"
+json.dump(rows, open(path, "w"))
+PY
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" findings 76)"
+  [ "$code" = 0 ] || fail "findings after a close expected 0, got $code: $(cat "$TMP/err")"
+  [ "$(awk '{print $1, $2}' "$TMP/out" | sort)" = "$(printf '61 91\n61 92\n' | sort)" ] \
+    || fail "findings should drop #90 once the tracker shows it closed: $(cat "$TMP/out")"
 }
 
 scenario_retro_review_evidence() {
@@ -9167,13 +9283,14 @@ scenario_bounceretriesonce() {
   [ "$code" = 0 ] || fail "a first bounce should return to the agent queue: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 61 :: --remove-label :: needs-triage :: --add-label :: ready-for-agent :: --remove-assignee :: @me"
   hasnt "gh :: issue :: edit :: 61 :: --remove-label :: ready-for-agent :: --add-label :: needs-triage"
-  grep -q 'started 0' "$TMP/err" || fail "the same advance dispatched its own bounce: $(cat "$TMP/err")"
+  grep -q 'started 1' "$TMP/err" \
+    || fail "the same advance should restart the ticket it just bounced, in a later separate computation (ADR 0027): $(cat "$TMP/err")"
   posted_events 61 reason | grep -q '^ticket.bounced reason=conflict$' \
     || fail "the first conflict posted no ticket.bounced event with its reason"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_GH_MUTATES_ISSUES=1 \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
-  grep -q 'started 1' "$TMP/err" \
-    || fail "the advance after a first bounce should start a worker in its workspace: $(cat "$TMP/err")"
+  grep -q 'started 0' "$TMP/err" \
+    || fail "a ticket the previous advance already restarted should not be started again: $(cat "$TMP/err")"
 
   setup_bounced_conflict older
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -10288,7 +10405,8 @@ JSON
 ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
-ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry"
+ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
+ALL="$ALL findings integratedsincestart"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
@@ -10523,6 +10641,9 @@ banner_for() {
     orcaunobserved) echo ORCA-UNOBSERVED-OK ;;
     adopt) echo ADOPT-OK ;;
     adoptinto) echo ADOPT-INTO-OK ;;
+    findings) echo FINDINGS-OK ;;
+    memorylist) echo MEMORY-LIST-OK ;;
+    integratedsincestart) echo INTEGRATED-SINCE-START-OK ;;
   esac
 }
 

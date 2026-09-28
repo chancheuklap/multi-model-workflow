@@ -4,7 +4,9 @@ You have hit a decision. The advisor is a second opinion on a stronger model, st
 
 ## When it is worth a session
 
-What you can settle by reading the code, settle by reading the code. One decision gets one consultation, and reading this page is not that consultation: the value is a session that has not spent the last hour convincing itself.
+What you can settle by reading the code, settle by reading the code. The test is the cost of being wrong: a choice that is expensive to undo once work is built on it, or a problem whose repeated failure says your model of it is off. A choice you could reverse in minutes is not worth a session.
+
+Do not ask again to get a different answer. A second consultation is for a new decision, or for the evidence the advisor said would change its answer. Reading this page is not that consultation: the value is a session that has not spent the last hour convincing itself.
 
 ## Resolve `<dispatch>` once
 
@@ -12,11 +14,13 @@ What you can settle by reading the code, settle by reading the code. One decisio
 
 ## Start it
 
-Write the packet to a file. Run `<dispatch> advise <file>`. Read the answer where the selected runner shows the session. Exit 0 prints the session id. Exit 2 starts nothing; the reason is on stderr, read it verbatim.
+Write the packet to a file. Run `<dispatch> advise <file>`. Read the answer where the selected runner shows the session. It prints the advisor's session id; a refusal says what to fix.
 
-To change which host or model the advisor uses, read the dispatch skill's `references/editing-models.md`.
+Done when you have the answer and have acted on it as **The answer** says, and the user has the session id.
 
-Done when `advise` exits 0 and you have told the user its session id.
+## The answer
+
+The answer is advice, not a ruling: you still own the decision. Take it, or set it aside with a reason you can state. When it would change something the user decides (what the customer sees, scope, anything hard to undo), it goes to the user like any other such decision, with the advisor's reasoning attached.
 
 ## The packet
 
@@ -27,6 +31,8 @@ The advisor sees the packet and nothing else: not your session, not your tool tr
 3. The constraints you believe bind.
 4. The options you weighed, and which way you are leaning.
 5. The file paths you believe are relevant.
+
+The test for the packet: a stranger with only this and the repository can reconstruct the decision. For a problem that resisted two attempts, each attempt and what it produced is the core of the evidence.
 
 ## The question stays open
 

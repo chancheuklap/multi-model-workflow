@@ -6,6 +6,7 @@
     status.py --reverify-plan <spec>    the landed tickets `dispatch.sh reverify` runs again
     status.py --worker-grades <spec>    the worker-grade labels of every ticket in the queue
     status.py --summary <spec>          print the night summary; do not post it
+    status.py --findings <spec>         `<ticket> <child> <title>` for every open finding
     status.py --land-plan <n>...        what landing each of these tickets calls for
 
 One program, six forms, reading one source, so there is never a second truth to
@@ -803,17 +804,21 @@ def table(spec: int) -> int:
     return 0
 
 
-def print_summary(spec: int) -> int:
-    """The night summary. The spec's tickets come from one read of its tree; every
-    ticket's children are the ones its `child.opened` events name, plus any the tree
-    holds under it that no event names, and each child's kind and route are its
-    ticket's events. Where a child sits now decides nothing: a finding that became a
-    ticket has moved from under its ticket to under the spec."""
-    batch = spec_tree(spec)
+def batch_children(spec: int, batch: dict | None = None) -> list[dict]:
+    """Every child this batch's tickets name, once each.
+
+    A ticket's own fold names its children by `child.opened`, plus any the tree holds
+    under it that no event names; each child's kind and route are its owner's events.
+    Where a child sits now decides nothing: a finding that became a ticket has moved
+    from under its ticket to under the spec. Each child dict carries its owner ticket
+    number under `"owner"`, the one whose fold lists it and the one `route` posts to.
+    Pass an already-read `batch` (from `spec_tree`) to avoid a second read of the tree.
+    """
+    if batch is None:
+        batch = spec_tree(spec)
     numbers = [t["number"] for t in tree.children(batch)]
     tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
-    rows = build_rows(numbers, tickets)
-    children = []
+    children: list[dict] = []
     seen: set[int] = set()
     for node in tree.children(batch):
         number = node["number"]
@@ -829,8 +834,32 @@ def print_summary(spec: int) -> int:
                 child["kind"] = recorded["kind"]
             if recorded.get("resolution"):
                 child["resolution"] = recorded["resolution"]
+            child["owner"] = number
             children.append(child)
-    print(summary(rows, night_opened(), children=children))
+    return children
+
+
+def print_summary(spec: int) -> int:
+    """The night summary, from one read of the spec's tree and its tickets' events."""
+    batch = spec_tree(spec)
+    numbers = [t["number"] for t in tree.children(batch)]
+    tickets = {n: read_ticket(n) for n in sorted(set(numbers))}
+    rows = build_rows(numbers, tickets)
+    print(summary(rows, night_opened(), children=batch_children(spec, batch)))
+    return 0
+
+
+def open_findings(spec: int) -> list[tuple[int, int, str]]:
+    """(<ticket>, <child>, title) for every finding under this batch that `route` has
+    not yet closed. `<ticket>` is the one `route` posts to, the one whose fold lists it."""
+    return [(child["owner"], child["number"], child.get("title") or "")
+            for child in batch_children(spec)
+            if is_finding(child) and route_of(child) == "open"]
+
+
+def print_findings(spec: int) -> int:
+    for number, child_number, title in open_findings(spec):
+        print(f"{number} {child_number} {title}")
     return 0
 
 
@@ -860,6 +889,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                        help="print the night summary and do not post it")
     forms.add_argument("--closeout-ready", action="store_true",
                        help="exit zero only when writing spec.closed is safe")
+    forms.add_argument("--findings", action="store_true",
+                       help="print `<ticket> <child> <title>` for every open finding")
     forms.add_argument("--land-plan", action="store_true",
                        help="print what landing each of these tickets calls for")
     parser.add_argument("spec", type=int, nargs="+",
@@ -886,6 +917,8 @@ def main(argv: list[str] | None = None) -> int:
             return print_summary(args.spec[0])
         if args.closeout_ready:
             return closeout_ready(args.spec[0])
+        if args.findings:
+            return print_findings(args.spec[0])
         return table(args.spec[0])
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         print(f"dispatch: {exc}", file=sys.stderr)

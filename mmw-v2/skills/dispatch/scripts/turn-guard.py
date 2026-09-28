@@ -306,7 +306,9 @@ def guard(host: str, forced: bool = False) -> list[str]:
                 f"MMW turn guard: the night on {repo} has tickets in flight ({which}) and its "
                 f"watchdog is not healthy: {reason}. Until it is, nothing notices a worker "
                 f"that dies or a relay that stops. Run `python3 {Path(dog.__file__).resolve()} "
-                f"arm --repo {repo}`, act on what it prints, then end your turn."
+                f"arm --repo {repo}`, act on what it prints; if it exits non-zero, open a "
+                f"`fault` child on any held ticket with that command and its output. Then end "
+                f"your turn."
             )
     return blocks
 
