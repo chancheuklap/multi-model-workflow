@@ -1,6 +1,6 @@
 ---
 name: to-questionnaire
-description: Turn a decision you can't fully answer into a questionnaire for someone else to fill in.
+description: Turn a decision the user can't settle alone into a questionnaire for the one person who holds what is missing. Use when a decision or a grilling round is blocked on knowledge that lives in someone else's head (a client, a domain expert, a colleague), not in the user's or the codebase.
 ---
 
 Turn something the user can't answer alone into a **questionnaire**: a Markdown document they hand to one person to fill in async, or fill out together over a meeting. The recipient holds knowledge the user lacks; the questionnaire pulls it out of them.
@@ -13,6 +13,8 @@ Turn something the user can't answer alone into a **questionnaire**: a Markdown 
 2. **What do you need back?** Ask, in one exchange, the specific decisions or facts the user can't resolve alone and needs from this person. Done when you have a concrete list of what the user must walk away able to do or decide.
 
 3. **Write the questionnaire.** Draft questions aimed at the gap from steps 1–2, following the Document structure below. Write it to `to-questionnaire-<slug>.md` in the current directory (slug from the topic) and report the path. Done when the file exists and every item the user named in step 2 is covered by a question.
+
+The user's open questions are rarely the ones to send. Recast each into something the recipient can answer from their own position and in their own words, and keep the link back to the decision it serves.
 
 ## Document structure
 
