@@ -4409,14 +4409,21 @@ finish_spec() {
 # Make sure the repository has the layer label `$1`. A label the repository lacks makes
 # every `gh issue edit --add-label` naming it fail, so the first issue of each layer
 # creates it; one that already exists is left exactly as it is.
+# Creates label <name> when the repository lacks it, from the one definition of the
+# pipeline's labels in `verify-ticket.py`.
 ensure_label() {
-  local name="$1" color description out
-  case "$name" in
-    mmw:ticket) color=0e8a16; description="MMW layer: a ticket, one unit of work" ;;
-    *) return 1 ;;
-  esac
-  out="$(gh_ label create "$name" --color "$color" --description "$description" 2>&1)" && return 0
-  case "$out" in *"already exists"*) return 0 ;; esac
+  local name="$1" out
+  out="$(env -u CLICOLOR_FORCE -u CLICOLOR python3 - "$VERIFY" "$name" <<'PY' 2>&1
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("verify_ticket", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+reason = module.ensure_label(sys.argv[2])
+if reason:
+    print(reason)
+    sys.exit(1)
+PY
+)" && return 0
   echo "dispatch: the repository has no $name label and it could not be created: $out" >&2
   return 1
 }

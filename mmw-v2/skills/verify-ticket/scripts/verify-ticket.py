@@ -77,7 +77,7 @@ QUEUE_LABELS = {
     "wontfix": ("ffffff", "This will not be worked on"),
 }
 GRADE_LABELS = {
-    "junior-worker": ("C2E0C6", "worker grade: default row in models.md"),
+    "junior-worker": ("C2E0C6", "worker grade: default row in models.json"),
     "senior-worker": ("E99695", "worker grade: silent-failure work"),
 }
 # The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
