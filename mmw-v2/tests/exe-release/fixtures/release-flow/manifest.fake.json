@@ -59,10 +59,6 @@
   "derive": [
     "true"
   ],
-  "editable_paths": [
-    "scripts/release/**"
-  ],
-  "protection_source": "release_protection.json",
   "build_hooks": {
     "runtime_prepare": [
       "true"
@@ -76,12 +72,6 @@
     "asset_parity": null,
     "credential_proof": null
   },
-  "post_fix_gate": [
-    "true"
-  ],
-  "fix_executor": [
-    "true"
-  ],
   "event_sink": [
     "sh",
     "-c",

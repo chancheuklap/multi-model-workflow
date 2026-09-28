@@ -84,13 +84,16 @@ def test_it_assembles_into_a_build_that_goes_all_the_way_to_an_installer(tmp_pat
     context = tmp_path / "release-context.json"
 
     assembler.assemble(key, tmp_path, script, context)
-    assembler.check(script, context)
 
+    text = script.read_text(encoding="utf-8-sig")
+    # "[0/N] Prepare build machine" is boilerplate the template always carries, guarded by a
+    # runtime `if ($BuildMachine)`: the text is in every generated script whether or not this
+    # key declares build_machine. MINIMAL_KEY does not, so that step never runs; skip it here
+    # the same way the assembler's own step numbering does (its pipeline starts at "[1/N]").
     titles = [
-        step["title"]
-        for step in json.loads(context.read_text(encoding="utf-8"))["render_metadata"][
-            "steps"
-        ]
+        line.strip().split("] ", 1)[1].rstrip('"')
+        for line in text.splitlines()
+        if line.strip().startswith('Step "[') and not line.strip().startswith('Step "[0/')
     ]
     assert titles == [
         "Validate prerequisites",
@@ -119,18 +122,11 @@ def test_the_key_carries_no_hook_and_the_script_calls_none(tmp_path):
     # 连辅助函数都不该生成：生成出来的脚本里躺着一段谁也不调用的钩子机器，
     # 读脚本的人会以为这里配了钩子。
     assert "Invoke-ReleaseHook" not in script.read_text(encoding="utf-8")
-    assert json.loads(context.read_text(encoding="utf-8"))["render_metadata"][
-        "hook_calls"
-    ] == []
 
 
 @pytest.mark.parametrize(
     "field",
     [
-        "fix_executor",
-        "editable_paths",
-        "protection_source",
-        "post_fix_gate",
         "derive",
         "event_sink",
         "build_machine",

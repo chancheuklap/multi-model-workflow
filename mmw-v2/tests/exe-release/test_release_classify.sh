@@ -11,7 +11,9 @@ pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
 no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 reinit() {
-  bash "$RF" close >/dev/null 2>&1 || true
+  # abort, not close: close now refuses a round that is not DONE, and the previous scenario's
+  # round usually is not. abort always drops it and clears the state file so init can start.
+  bash "$RF" abort >/dev/null 2>&1 || true
   rm -f events.jsonl
   bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 }
@@ -34,7 +36,7 @@ case "$out" in
   *) no "P0 分级 ($out)" ;;
 esac
 [ "$(jq -r '.pause.reason' "$SF")" = "needs-redirection" ] && ok "P0 写 PAUSE needs-redirection" || no "P0 pause ($(jq -r '.pause.reason' "$SF"))"
-[ "$(bash "$RF" exit-check)" = "PAUSED:needs-redirection" ] && ok "P0 后 exit-check PAUSED" || no "exit-check"
+[ "$(bash "$RF" where)" = "PAUSED:needs-redirection" ] && ok "P0 后 where PAUSED" || no "where"
 [ "$(jq -r '[.attempt_ledger[]|select(.stage=="doctor" and .outcome=="fail")]|length' "$SF")" -ge 1 ] && ok "attempt_ledger 记 doctor fail" || no "attempt 缺"
 
 r="$(bash "$RF" receipt)"
@@ -43,9 +45,14 @@ echo "$r" | grep -q doctor && echo "$r" | grep -q "p0_path:deploy/env" && ok "re
 [ -s events.jsonl ] && ok "event_sink 收到 event" || no "events.jsonl 空"
 bad=0
 while IFS= read -r line; do
-  printf '%s' "$line" | uv run --quiet "$RC" validate-event - || bad=1
+  printf '%s' "$line" | uv run --quiet --with 'pydantic>=2' python3 -c '
+import sys
+sys.path.insert(0, "'"$(dirname "$RC")"'")
+from release_contracts import ReleaseLoopEvent
+ReleaseLoopEvent.model_validate_json(sys.stdin.read())
+' || bad=1
 done < events.jsonl
-[ "$bad" -eq 0 ] && ok "每条 event 过 validate-event" || no "有非法 event"
+[ "$bad" -eq 0 ] && ok "每条 event 都过 ReleaseLoopEvent 合同" || no "有非法 event"
 
 reinit
 out="$(bash "$RF" stage fail --stage doctor --findings "$FIX/finding.p1.json")"
@@ -54,7 +61,13 @@ case "$out" in
   *) no "P1 分级 ($out)" ;;
 esac
 [ "$(jq -r '.pause' "$SF")" = "null" ] && ok "P1 不 PAUSE" || no "P1 竟 PAUSE"
-[ "$(bash "$RF" exit-check)" = "NOT-DONE:stages=doctor" ] && ok "P1 后 NOT-DONE 列失败 stage" || no "exit-check ($(bash "$RF" exit-check))"
+close_err="$(mktemp)"
+if bash "$RF" close >/dev/null 2>"$close_err"; then
+  no "close 在失败 stage 还没处理时放行"
+else
+  grep -q "doctor" "$close_err" && ok "close 拒绝并点名失败的 stage" || no "close 拒绝理由未点名 stage ($(cat "$close_err"))"
+fi
+rm -f "$close_err"
 [ "$(jq -r '[.fingerprint_ledger[]|select(.fingerprint=="missing_module:scipy")][0].count' "$SF")" = "1" ] && ok "fingerprint_ledger 计数+1" || no "fp count"
 
 [ "$(bash "$RF" where)" = "RETRY-STAGE:doctor RUN:true" ] && ok "where 失败 stage 优先重跑" || no "where ($(bash "$RF" where))"
@@ -75,7 +88,7 @@ case "$out" in
   *) no "空 findings 未 escalate ($out)" ;;
 esac
 [ "$(jq -r '.pause.reason' "$SF")" = "needs-context" ] && ok "空 findings escalate needs-context" || no "空 findings pause ($(jq -r '.pause.reason' "$SF"))"
-[ "$(bash "$RF" exit-check)" = "PAUSED:needs-context" ] && ok "空 findings 后 exit-check PAUSED" || no "空 findings exit-check ($(bash "$RF" exit-check))"
+[ "$(bash "$RF" where)" = "PAUSED:needs-context" ] && ok "空 findings 后 where PAUSED" || no "空 findings where ($(bash "$RF" where))"
 [ "$(jq -r '[.attempt_ledger[]|select(.outcome=="fail" and (.root_cause_fingerprint == null))]|length' "$SF")" = "0" ] && ok "空 findings 不记无指纹 fail" || no "空 findings 记了无指纹 fail"
 if [ -f events.jsonl ] && grep -q '"event":"classified"' events.jsonl; then no "空 findings 不应 emit classified"; else ok "空 findings 不 emit classified"; fi
 

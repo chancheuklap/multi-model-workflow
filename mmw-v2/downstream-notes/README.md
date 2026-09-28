@@ -39,6 +39,7 @@
 - [492-skeleton-by-data-ui-id.md](492-skeleton-by-data-ui-id.md) — mmw #492
 - [494-screen-contract-format.md](494-screen-contract-format.md) — mmw #494
 - [514-interface-tickets.md](514-interface-tickets.md) — mmw #514
+- [release-self-heal-removed.md](release-self-heal-removed.md) — no mmw ticket (2026-09-28 lightweight review of exe-release)
 
 ## 已被取代
 

@@ -65,7 +65,7 @@ def _iter_argvs(manifest: ReleaseAdapterManifest) -> list[tuple[str, list[str]]]
         ),
         ("toolchain", manifest.toolchain),
     ]
-    for field in ("derive", "fix_executor", "post_fix_gate", "event_sink"):
+    for field in ("derive", "event_sink"):
         value = getattr(manifest, field)
         if value:
             argvs.append((field, value))
@@ -125,8 +125,6 @@ def _expand(manifest: ReleaseAdapterManifest, value: str) -> str | None:
 def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> list[dict]:
     product = manifest.product
     backend = manifest.python_backend
-    if backend is None:  # schema_version=2 的合同已经挡住，这里是防御
-        raise ValueError("verify_key only accepts a release manifest that declares python_backend")
     findings: list[dict] = []
 
     def missing(dimension: str, name: str, rel: str, what: str) -> None:
@@ -157,18 +155,13 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
         if rel is None or not (repo_root / rel).is_dir():
             missing("compile", "data_dir_missing", entry.source, "bundled data directory")
 
-    if manifest.build_target.desktop_dir:
-        if not (repo_root / manifest.build_target.desktop_dir).is_dir():
-            missing(
-                "electron",
-                "desktop_dir_missing",
-                manifest.build_target.desktop_dir,
-                "Electron app directory",
-            )
-
-    if manifest.protection_source:
-        if not (repo_root / manifest.protection_source).is_file():
-            missing("guard", "protection_source_missing", manifest.protection_source, "protection rule source")
+    if not (repo_root / manifest.build_target.desktop_dir).is_dir():
+        missing(
+            "electron",
+            "desktop_dir_missing",
+            manifest.build_target.desktop_dir,
+            "Electron app directory",
+        )
 
     # ── 声明之间自不自洽 ────────────────────────────────────────────────────
     if backend.smoke is not None:

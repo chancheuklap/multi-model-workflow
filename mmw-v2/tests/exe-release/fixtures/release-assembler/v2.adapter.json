@@ -112,10 +112,6 @@
   "derive": [
     "derive-release"
   ],
-  "editable_paths": [
-    "src/**"
-  ],
-  "protection_source": "release-protection.json",
   "build_hooks": {
     "runtime_prepare": [
       "prepare-runtime",
@@ -141,12 +137,6 @@
     ],
     "installer": null
   },
-  "post_fix_gate": [
-    "post-fix-gate"
-  ],
-  "fix_executor": [
-    "fix-release"
-  ],
   "event_sink": [
     "write-event"
   ]

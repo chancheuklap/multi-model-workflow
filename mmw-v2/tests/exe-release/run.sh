@@ -51,7 +51,7 @@ run() {
 
 run "引擎状态机" bash "$HERE/test_release_flow.sh"
 run "失败分级" bash "$HERE/test_release_classify.sh"
-run "修复派发与路径闸" bash "$HERE/test_release_dispatch.sh"
+run "派发:derive 提交、P0 直接 PAUSE、收敛护栏" bash "$HERE/test_release_dispatch.sh"
 
 if command -v uv >/dev/null 2>&1; then
   run "合同、装配、诊断、派修与最小钥匙" \

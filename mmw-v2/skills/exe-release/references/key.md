@@ -48,7 +48,7 @@ Applied to checks, the same question reads: **a check every product needs is the
 
 That is a complete release manifest. The release engine supplies the pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release manifest adds `stages` only for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. The release engine appends its three afterwards.
 
-Those three names are reserved; a release manifest that uses one is refused. If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
+If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
 
 Paths in the release manifest are repository-relative POSIX paths, and two templates are available: `${DESKTOP_DIR}` and `${BUILD_ROOT}`. Absolute paths are refused: the release manifest is written on one machine and executed on another. `${RELEASE_PLUGIN_DIR}` expands to the skill's own `scripts/` directory — use it for anything the skill provides, since where the skill is installed is the host's business.
 
@@ -190,11 +190,11 @@ Hooks hang on phases, not on step numbers: which steps exist depends on what the
 
 **A hook's own logging has to survive the build machine's codepage.** A Windows build machine outside an English locale runs Python with a legacy codepage on both ends, and a hook that moves subprocess output around crashes on it while the check it ran was passing. Both directions need saying, once, in the hook: read with `subprocess.run(..., encoding="utf-8", errors="replace")`, and at start-up `sys.stdout.reconfigure(errors="replace")` for what the hook prints itself. Without the first, the reader thread dies and `result.stdout` is `None`; without the second, one Chinese character or one replacement character raises on the way out.
 
-A hook is an addition, never a substitute. On every build the skill already checks that no business source ships (the packages in `python_backend.include_packages`), removes Nuitka's `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` leftovers, and checks that an installer landed at `installer_glob`. Keep `--remove-output` out of `extra_flags`: it deletes those directories during the compile and downgrades the payload check to comparing exe tails. `installer_glob` may point at a delivery directory the `package_integrity` hook fills, since the check runs after that hook.
+A hook is an addition, never a substitute. On every build the skill already checks that no business source ships (the packages in `python_backend.include_packages`). Compiling the backend exists so that no business source ships; a package that leaks it still installs and runs, so nothing but this check ever notices. The same build also removes Nuitka's `<entry>.build`, `<entry>.dist` and `<entry>.onefile-build` leftovers, and checks that an installer landed at `installer_glob`. Keep `--remove-output` out of `extra_flags`: it deletes those directories during the compile and downgrades the payload check to comparing exe tails. `installer_glob` may point at a delivery directory the `package_integrity` hook fills, since the check runs after that hook.
 
 ### What is genuinely optional
 
-`fix_executor`, `editable_paths`, `protection_source`, `post_fix_gate`, `derive`, `event_sink` are the self-heal and observability equipment. These are optional because each one only exists once the product has grown the thing it guards — a derived artifact to regenerate, a test suite to re-run after an automated fix, a log system to feed. A product with none of them still ships a correct package; the release engine skips what the release manifest does not declare, and says so rather than pretending it ran.
+`derive` and `event_sink` are the self-heal and observability equipment. These are optional because each one only exists once the product has grown the thing it guards — a derived artifact to regenerate, a log system to feed. A product with none of them still ships a correct package; the release engine skips what the release manifest does not declare, and says so rather than pretending it ran.
 
 ### `diagnose_rules` — this product's own log patterns
 
@@ -216,11 +216,9 @@ script="$out/release.ps1"
 context="$out/ctx.json"
 uv run --with 'pydantic>=2' python <scripts>/release_script_assembler.py assemble \
   --adapter <manifest> --repo-root <repo> --output "$script" --context-output "$context"
-uv run --with 'pydantic>=2' python <scripts>/release_script_assembler.py check \
-  --script "$script" --context "$context"
 ```
 
-`$out` is this run's own directory. A fixed name under `/tmp` is shared: two runs at once overwrite each other's assembled script, and the check reads whichever landed last.
+`$out` is this run's own directory. A fixed name under `/tmp` is shared: two runs at once overwrite each other's assembled script.
 
 Read the generated script. Every step it prints is a step the release manifest asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repository does not have.
 

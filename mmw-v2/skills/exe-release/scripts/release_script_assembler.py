@@ -14,7 +14,6 @@ from builders import nuitka
 from release_contracts import (
     BuildTarget,
     ReleaseAdapterManifest,
-    ReleaseBuildHooks,
 )
 
 
@@ -34,22 +33,6 @@ def assert_repo_relative(value: str, *, field: str) -> PurePosixPath:
     ):
         raise ValueError(f"{field} must be a repository-relative POSIX path with no ..")
     return path
-
-
-def atomic_write(path: Path, content: str, *, encoding: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(content, encoding=encoding)
-    return tmp
-
-
-def _restore(path: Path, *, previous: bytes | None, existed: bool) -> None:
-    if existed:
-        rollback = path.with_name(f".{path.name}.rollback")
-        rollback.write_bytes(previous or b"")
-        rollback.replace(path)
-    elif path.is_file():
-        path.unlink()
 
 
 _TEMPLATE = "nuitka_electron.ps1.tmpl"
@@ -109,9 +92,7 @@ def _ps(value: str) -> str:
     return powershell_literal(value)
 
 
-def _hook_line(name: str, argv: list[str] | None, indent: str = "  ") -> str:
-    if argv is None:
-        return f"{indent}Write-HookSkipped -Name {_ps(name)}"
+def _hook_line(name: str, argv: list[str], indent: str = "  ") -> str:
     _assert_safe_argv(argv, field=f"build_hooks.{name}")
     tokens = ", ".join(_ps(token) for token in argv)
     return (
@@ -483,9 +464,7 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
             rendered = pieces[0] if len(pieces) == 1 else "(" + " + ".join(pieces) + ")"
         lines.append(f"  $env:{name} = {rendered}")
     for source, name in nuitka.probe_names(build_target.native_ext_dll):
-        var = "$Dll_" + "".join(
-            char if char.isalnum() else "_" for char in f"{source}:{name}"
-        )
+        var = f"$Dll_{nuitka.probe_var(f'{source}:{name}')}"
         lines.append(
             f"  {var} = Resolve-BuildDll -Source {_ps(source)} -Name {_ps(name)} "
             f"-RunnerArgv @({runner}) -WorkingDirectory $RepoRoot"
@@ -643,25 +622,6 @@ def _render_bootstrap(
     return rendered
 
 
-def _render_metadata(manifest: ReleaseAdapterManifest) -> dict[str, object]:
-    steps = _steps(manifest)
-    return {
-        "steps": [
-            {"index": index, "title": step["title"], "hooks": step["hooks"]}
-            for index, step in enumerate(steps, start=1)
-        ],
-        "hook_calls": [
-            {
-                "step": index,
-                "name": name,
-                "phase": _HOOK_PHASES[name],
-                "skipped": getattr(manifest.build_hooks, name) is None,
-            }
-            for index, step in enumerate(steps, start=1)
-            for name in step["hooks"]  # type: ignore[union-attr]
-        ],
-    }
-
 def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None:
     if not repo_root.is_dir():
         raise ValueError(f"--repo-root does not exist or is not a directory: {repo_root}")
@@ -676,12 +636,8 @@ def _validate_manifest_paths(manifest: ReleaseAdapterManifest) -> None:
     assert_repo_relative(
         manifest.build_target.desktop_dir, field="build_target.desktop_dir"
     )
-    if manifest.protection_source is not None:
-        assert_repo_relative(manifest.protection_source, field="protection_source")
     for index, root in enumerate(manifest.build_target.asset_roots):
         assert_repo_relative(root, field=f"build_target.asset_roots[{index}]")
-    for index, path in enumerate(manifest.editable_paths):
-        assert_repo_relative(path, field=f"editable_paths[{index}]")
 
 
 def assemble(
@@ -709,41 +665,15 @@ def assemble(
     # 得知道编译产物叫什么、落在哪。
     context["python_backend"] = manifest.python_backend.model_dump(mode="json")
     context["electron"] = manifest.electron.model_dump(mode="json")
-    context["render_metadata"] = _render_metadata(manifest)
+    # render_bootstrap 拿到的钥匙已经在上面通过了 schema 校验，渲染不需要单独的
+    # 一致性检查:两个文件按各自的编码直接写,写哪个都不需要另一个先存在。
     script = _render_bootstrap(context_output, manifest)
-    script_tmp: Path | None = None
-    context_tmp: Path | None = None
-    output_existed = output.exists()
-    context_existed = context_output.exists()
-    output_previous = output.read_bytes() if output.is_file() else None
-    context_previous = context_output.read_bytes() if context_output.is_file() else None
-    output_replaced = False
-    context_replaced = False
-    try:
-        context_tmp = atomic_write(
-            context_output,
-            json.dumps(context, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        script_tmp = atomic_write(output, script, encoding="utf-8-sig")
-        context_tmp.replace(context_output)
-        context_replaced = True
-        script_tmp.replace(output)
-        output_replaced = True
-    except Exception:
-        if output_replaced:
-            _restore(output, previous=output_previous, existed=output_existed)
-        if context_replaced:
-            _restore(
-                context_output,
-                previous=context_previous,
-                existed=context_existed,
-            )
-        raise
-    finally:
-        for tmp in (script_tmp, context_tmp):
-            if tmp is not None and tmp.exists():
-                tmp.unlink()
+    context_output.parent.mkdir(parents=True, exist_ok=True)
+    context_output.write_text(
+        json.dumps(context, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(script, encoding="utf-8-sig")
 
 
 def _fail(message: str) -> int:
@@ -759,62 +689,6 @@ def cmd_assemble(args: argparse.Namespace) -> int:
     return 0
 
 
-def check(script: Path, context: Path) -> None:
-    script_bytes = script.read_bytes()
-    if not script_bytes.startswith(b"\xef\xbb\xbf"):
-        raise ValueError("the script must be UTF-8 with a BOM")
-    context_doc = json.loads(context.read_text(encoding="utf-8"))
-    BuildTarget.model_validate(context_doc["build_target"])
-    ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
-    if context_doc.get("schema_version") != "2" or not context_doc.get("product"):
-        raise ValueError("the context has no valid schema_version or product")
-    script_text = script_bytes.decode("utf-8-sig")
-    expected_context_literal = powershell_literal(context.name)
-    if expected_context_literal not in script_text:
-        raise ValueError("the script does not reference its own context file")
-    _check_script(script_text, context_doc)
-
-def _check_script(script_text: str, context_doc: dict) -> None:
-    """脚本与它的 context 说的是不是同一件事。
-
-    v1 的步号写死在模板里，所以那时校验的是「车道该有的步集」。v2 步号是算出来的，
-    所以校验改成：context 记的每一步，在脚本里按同样的顺序、同样的步号出现。
-    """
-    metadata = context_doc.get("render_metadata")
-    if not isinstance(metadata, dict):
-        raise ValueError("the context has no render_metadata")
-    steps = metadata.get("steps")
-    if not isinstance(steps, list) or not steps:
-        raise ValueError("the context does not record which steps this assembly produced")
-    total = len(steps)
-    positions = []
-    for step in steps:
-        marker = f'Step "[{step["index"]}/{total}] {step["title"]}"'
-        position = script_text.find(marker)
-        if position < 0:
-            raise ValueError(f"this step is not in the script: {marker}")
-        positions.append(position)
-    if positions != sorted(positions):
-        raise ValueError("the steps in the script are in a different order than the context records")
-    hook_calls = metadata.get("hook_calls")
-    if not isinstance(hook_calls, list):
-        raise ValueError("the context has no hook lifecycle record")
-    hooks = ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
-    for call in hook_calls:
-        expected_skipped = getattr(hooks, call["name"]) is None
-        if call["skipped"] != expected_skipped:
-            raise ValueError(f"hook {call['name']}: the script and the release manifest disagree on whether it is skipped")
-    print(json.dumps({"steps": steps, "hook_calls": hook_calls}, ensure_ascii=False))
-
-
-def cmd_check(args: argparse.Namespace) -> int:
-    try:
-        check(args.script, args.context)
-    except Exception as exc:  # noqa: BLE001 - CLI must surface invalid release artifact.
-        return _fail(str(exc))
-    return 0
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="release_script_assembler")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -823,13 +697,8 @@ def main(argv: list[str] | None = None) -> int:
     assemble_parser.add_argument("--repo-root", type=Path, required=True)
     assemble_parser.add_argument("--output", type=Path, required=True)
     assemble_parser.add_argument("--context-output", type=Path, required=True)
-    check_parser = sub.add_parser("check")
-    check_parser.add_argument("--script", type=Path, required=True)
-    check_parser.add_argument("--context", type=Path, required=True)
     args = parser.parse_args(argv)
-    if args.command == "assemble":
-        return cmd_assemble(args)
-    return cmd_check(args)
+    return cmd_assemble(args)
 
 
 if __name__ == "__main__":

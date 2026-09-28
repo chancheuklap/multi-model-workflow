@@ -78,7 +78,7 @@ Everything after `root` is optional, and each says something only that machine k
 
 `delivery_root` is where finished installers are gathered; without it the release engine uses `<root>-delivered`. Set it when that machine already keeps packages somewhere, so they do not land in a second place.
 
-`cache_root` is where uv, Nuitka, zig, ccache, pnpm and Electron keep their caches; without it the release engine uses `<root>-cache`. Left to themselves those six write under `%LOCALAPPDATA%` on the system drive, which fills until a disk check stops the release. Point several products at one folder and they share the downloads; the caches are content-addressed, so a second copy buys nothing. It has to be a folder the build survives, not one inside the build directory: a successful build deletes that directory, and a cache that dies each round is not a cache.
+`cache_root` defaults to `<root>-cache`; set it to share one cache folder across products. It must sit outside the build directory, which a successful build deletes.
 
 `build_env` is applied before anything else runs — mirrors that are reachable from that machine, where ccache is installed. Anything named here wins over what the release engine would have chosen, including the cache directories.
 
