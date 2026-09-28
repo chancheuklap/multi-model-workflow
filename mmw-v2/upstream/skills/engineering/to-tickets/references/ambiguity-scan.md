@@ -6,7 +6,7 @@ It is very likely that important decisions are missing or ambiguous, even if the
 
 ## Scan
 
-Load the spec and the drafted tickets. For each category below, mark status: Clear / Partial / Missing. Keep an internal map for prioritization (do not output it).
+Load the spec and the drafted tickets. Walk every category below.
 
 Functional Scope & Behavior:
 - Core user goals & success criteria
@@ -57,8 +57,6 @@ Completion Signals:
 Misc / Placeholders:
 - TODO markers / unresolved decisions
 - Ambiguous adjectives ("robust", "intuitive") lacking quantification
-
-For each category with Partial or Missing status, add a candidate question opportunity unless the answer would not change what a ticket delivers or what its criteria check.
 
 ## Questions
 

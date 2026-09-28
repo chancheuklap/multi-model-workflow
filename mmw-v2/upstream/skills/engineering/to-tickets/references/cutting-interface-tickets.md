@@ -6,6 +6,8 @@ Copy each criterion in the shape below; the judges are the `ui-acceptance` skill
 
 ## Criterion shapes
 
+Every one of these is a line written onto the ticket, run by a shell months later with no model between.
+
 ### Story criterion
 
 ```
@@ -17,8 +19,6 @@ EXPECT: STORY OK <passed>/<total>
 scenes belonging to those mounts. `<total>` is scene × viewport pairs.
 
 ### Boundary criterion
-
-The **boundary criterion** is the line written onto the ticket, run by a shell months later with no model between.
 
 ```
 CHECK: boundary-check.py --run "<the product's test command, a file or a case>"
@@ -46,13 +46,9 @@ whole product down is the appropriate control for that one criterion. Acceptance
 user-named journeys use `--break` so the control isolates the interface whose result
 the journey must observe.
 
-A break journey starts and stops the whole stack twice, so it is the slowest criterion
-on a ticket. When it needs longer than the ten minutes every `CHECK:` gets, the ticket
-says so on a `TIMEOUT: <seconds>` line under its `EVIDENCE:`.
+A break journey is the slowest criterion on a ticket; give it a `TIMEOUT:` when it needs more than ten minutes.
 
 ### Harness guard criterion
-
-Written onto the ticket, run by a shell months later with no model between.
 
 ```
 CHECK: harness-guard.py .

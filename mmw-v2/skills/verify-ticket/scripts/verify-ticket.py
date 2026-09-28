@@ -49,8 +49,6 @@ LEDGER_NAME = "AC.md"
 # The summary line gate-check prints on its own stdout.
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
-IN_TICKET_ITEM_RE = re.compile(
-    r"^- (Standards|Spec|Tests|UI) (\S+):(\d+) — (.+)$")
 CAT_IN_TICKET_ITEM_RE = re.compile(
     r"^- (Standards|Spec|Tests|UI) \[([^\]]+)\] (\S+):(\d+) — (.+?) — source: (.+)$")
 IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
@@ -66,6 +64,22 @@ CLASS_LABELS = {
 }
 # The one of them `--lint` asks after by name: which number is a batch's container.
 CLASS_SPEC = "mmw:spec"
+# The other two label sets `docs/agents/issue-tracker.md` `## Three label sets` names:
+# who a ticket is waiting on, and which `models.json` row starts its worker. Colour and
+# description are defined once, here, for all three sets; `ensure_label` and `--publish`
+# create whichever of them a repository lacks. `docs/agents/triage-labels.md` maps queue
+# labels to this repository's own roles; it does not redefine them.
+QUEUE_LABELS = {
+    "needs-triage": ("F9D0C4", "还没评估过，不知道该不该做、怎么做"),
+    "needs-info": ("B60205", "缺输入，等人补"),
+    "ready-for-agent": ("FEF2C0", "已写清楚，可以直接派工人 AFK 跑"),
+    "ready-for-human": ("BFDADC", "HITL 的活，不派工人"),
+    "wontfix": ("ffffff", "This will not be worked on"),
+}
+GRADE_LABELS = {
+    "junior-worker": ("C2E0C6", "worker grade: default row in models.md"),
+    "senior-worker": ("E99695", "worker grade: silent-failure work"),
+}
 # The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
 # A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
@@ -94,10 +108,6 @@ HANDOFF_KINDS = ("failed", "stuck")
 # never disagree about it.
 DEFAULT_TIMEOUT = 600
 ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
-COUNTS_RE = re.compile(
-    r"^Counts:\s*(\d+)\s+met,\s*(\d+)\s+unmet,\s*(\d+)\s+abandoned of\s*(\d+)\s*$")
-HANDOFF_RE = re.compile(
-    r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 # `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
 ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
@@ -114,9 +124,6 @@ STATEFUL_COMMAND_RE = re.compile(
     r"\bgit (checkout|switch|branch\s+-[Dd]|reset|stash|merge|rebase)\b"
     r"|\bgh issue (close|reopen|edit|create|delete)\b"
     r"|\bgh pr (create|close|merge)\b")
-# The two git config keys the pipeline retired with #341. Nothing writes them, so a
-# criterion reading one compares against an empty string instead of a base commit.
-RETIRED_BASE_RE = re.compile(r"branch\.[A-Za-z0-9._/-]*\.mmw-base(-branch)?\b")
 # A `grep` — plain, `git grep`, `egrep`, `fgrep` — as the command whose exit code the
 # CHECK hands back. GNU and BSD grep both exit 1 when they selected no line.
 GREP_STAGE_RE = re.compile(r"^(?:git\s+)?[ef]?grep\b")
@@ -134,7 +141,9 @@ ECHOED_EXIT_RE = re.compile(r"^(?:echo|printf)\b.*\$\?")
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into --json
 # output under it, which json.loads cannot read. Every gh call here runs without it.
-GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
+# `events.py`, loaded above, computes the same filter; this file shares its value rather
+# than filtering `os.environ` a second time.
+GH_ENV = events.GH_ENV
 
 
 class TrackerReadError(RuntimeError):
@@ -150,8 +159,7 @@ class TrackerReadError(RuntimeError):
 def tracker_failure(exc: BaseException) -> str:
     """The useful line from a failed tracker subprocess or parser."""
     if isinstance(exc, subprocess.CalledProcessError):
-        lines = str(exc.stderr or exc.stdout or "").strip().splitlines()
-        return lines[-1] if lines else f"gh exited {exc.returncode}"
+        return gh_detail(exc)
     return str(exc)
 
 
@@ -211,7 +219,7 @@ def ticket_spec(number: int) -> int | None:
     convenience, and an unwritten event is the loss that matters. Patched out in tests."""
     try:
         return spec_of(number)
-    except (ParentUnreadable, subprocess.CalledProcessError, OSError):
+    except (ParentUnreadable, subprocess.CalledProcessError, OSError, TrackerReadError):
         return None
 
 
@@ -339,13 +347,15 @@ def fetch_blocked_by(number: int) -> list[int]:
     return [b["number"] for b in (data.get("blockedBy") or {}).get("nodes", [])]
 
 
-def gh_detail(out: subprocess.CompletedProcess) -> str:
+def gh_detail(out) -> str:
     """The last line a failed `gh` call said, for the exception that carries it up.
 
     `gh` writes its reason on stderr and falls back to stdout; the last line is the
-    one that names the failure, the rest being the request it was making.
+    one that names the failure, the rest being the request it was making. Takes a
+    completed process or a `subprocess.CalledProcessError`, whichever carries it — both
+    have `stderr`, `stdout` and `returncode`.
     """
-    detail = (out.stderr or out.stdout).strip().splitlines()
+    detail = str(out.stderr or out.stdout or "").strip().splitlines()
     return detail[-1] if detail else f"gh exited {out.returncode}"
 
 
@@ -357,17 +367,13 @@ class SubIssuesUnreadable(RuntimeError):
     """
 
 
-def _gh(args: list[str]) -> tuple[int, str, str]:
-    out = subprocess.run(["gh", *args], capture_output=True, text=True, env=GH_ENV)
-    return out.returncode, out.stdout, out.stderr
-
-
 def fetch_tree(number: int, root: str = "spec") -> dict:
     """The tree of issues under `number`, an issue of layer `root`, in one query
-    (`issue_tree.py`). Raises `SubIssuesUnreadable` when the tracker could not answer for the
+    (`issue_tree.py`, which runs its own `gh` calls, filtered the same way this file's
+    `GH_ENV` is). Raises `SubIssuesUnreadable` when the tracker could not answer for the
     whole of it. Patched out in tests."""
     try:
-        return tree.read(number, root, gh=_gh)
+        return tree.read(number, root)
     except tree.TreeUnreadable as exc:
         raise SubIssuesUnreadable(str(exc)) from None
 
@@ -698,20 +704,18 @@ def write_ledger(body: str, directory: Path, lines: list[str] | None = None) -> 
     return path
 
 
-def check_timeout(body: str, asked: int | None) -> int:
+def check_timeout(body: str) -> int:
     """Seconds gate-check gets per `CHECK:` on this ticket.
 
-    The largest of `DEFAULT_TIMEOUT`, every `TIMEOUT:` in `## Acceptance criteria`, and
-    `--timeout` when given: a ticket can raise the limit and never lower it, and it is
-    read off the ticket body whichever run this is, so the final `--reverify` runs
-    under the same number as the worker's own run.
+    The largest of `DEFAULT_TIMEOUT` and every `TIMEOUT:` in `## Acceptance criteria`: a
+    ticket can raise the limit and never lower it, and it is read off the ticket body
+    whichever run this is, so the final `--reverify` runs under the same number as the
+    worker's own run.
     """
     values = [DEFAULT_TIMEOUT]
     for criterion in parse_criteria("\n".join(section(body, "Acceptance criteria"))):
         if criterion["timeout"].isdigit() and int(criterion["timeout"]) > 0:
             values.append(int(criterion["timeout"]))
-    if asked:
-        values.append(asked)
     return max(values)
 
 
@@ -818,14 +822,6 @@ def tally(criteria: list[dict], abandons: list[dict]) -> dict:
     return counts
 
 
-def draft_line(text: str, prefix: str) -> str | None:
-    """The first line starting with `prefix`, without it."""
-    for line in text.splitlines():
-        if line.startswith(prefix):
-            return line[len(prefix):].strip()
-    return None
-
-
 def newest_worker_started(number: int, comments: list) -> tuple[dict | None, str | None]:
     """The newest readable `worker.started` payload, or the fact that none exists."""
     record = events.newest(comments, "worker.started")
@@ -848,15 +844,50 @@ def worker_started_field(number: int, comments: list,
                   f"`dispatch.sh start {number} worker` again so it records one")
 
 
+def draft_summary(draft: str) -> tuple[str, dict]:
+    """The first line and the `Counts:` line's numbers `--closeout` writes for this
+    draft: whichever of `ALL MET` or `HANDOFF REQUIRED: …` its `ABANDON:` lines and
+    unmet criteria make true, and the ledger's own count. A worker need not get this
+    arithmetic right by hand; the closeout computes it from the draft every time.
+    """
+    criteria = parse_criteria(draft)
+    abandons = parse_abandons(draft)
+    counts = tally(criteria, abandons)
+    blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
+    if counts["unmet"] or blocking:
+        kinds = ", ".join(k for k in HANDOFF_KINDS if k in blocking)
+        first = (f"HANDOFF REQUIRED: {counts['abandoned']} abandoned ({kinds}), "
+                 f"{counts['unmet']} unmet, {counts['met']} met of {counts['total']}")
+    else:
+        first = "ALL MET"
+    return first, counts
+
+
+def rewrite_summary(draft: str, first: str, counts: dict) -> str:
+    """`draft` with its first line and `Counts:` line replaced by what `draft_summary`
+    computed, so the comment that posts states only what the draft's own `ABANDON:`
+    lines and criteria make true. A `Counts:` line the draft lacks is added."""
+    lines = draft.split("\n")
+    if lines:
+        lines[0] = first
+    counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
+                   f"{counts['abandoned']} abandoned of {counts['total']}")
+    for i, line in enumerate(lines):
+        if line.startswith("Counts:"):
+            lines[i] = counts_line
+            break
+    else:
+        lines.append(counts_line)
+    return "\n".join(lines)
+
+
 def draft_problems(draft: str, comments: list[str]) -> list[str]:
-    """Everything wrong with the draft itself, in the order a reader would hit it."""
+    """Everything wrong with the draft that its own `ABANDON:` lines cannot settle, in
+    the order a reader would hit it. The first line and `Counts:` are computed by
+    `draft_summary`, not checked here."""
+    if not draft.strip():
+        return ["the draft is empty"]
     problems = []
-    lines = draft.strip().splitlines()
-    first = lines[0].strip() if lines else ""
-    handoff = HANDOFF_RE.match(first)
-    if first != "ALL MET" and not handoff:
-        return ["first line is neither `ALL MET` nor `HANDOFF REQUIRED: <n> abandoned "
-                "(<kinds>), <m> unmet, <k> met of <total>`: " + (first or "(empty draft)")]
     if FILL in draft:
         problems.append("the draft still contains `<fill>`; replace the placeholders "
                         "in `skipped:`, `Review findings:`, `Green before work:` and "
@@ -872,12 +903,6 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
         if a["ac"] not in ids:
             problems.append(f"ABANDON: {a['ac']} points at a criterion the draft does not list")
 
-    blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
-    if first == "ALL MET" and blocking:
-        problems.append(f"first line is `ALL MET` but the draft abandons a criterion as "
-                        f"{', '.join(blocking)}; only `decision` may be abandoned and still "
-                        f"close the ticket")
-
     for c in criteria:
         if c.get("stray"):
             problems.append(f"{c['id']} continues its CHECK onto another line; wrap the "
@@ -886,40 +911,13 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
             problems.append(f"{c['id']} is ticked but its EVIDENCE is pending; "
                             f"either fill in what proved it or untick it")
 
-    counts = tally(criteria, abandons)
-    if first == "ALL MET" and counts["unmet"]:
-        problems.append(f"first line is `ALL MET` but {counts['unmet']} criteria are unmet")
-
-    stated = draft_line(draft, "Counts:")
-    m = COUNTS_RE.match("Counts: " + stated) if stated is not None else None
-    if not m:
-        problems.append("no `Counts: <k> met, <m> unmet, <n> abandoned of <total>` line")
-    else:
-        got = dict(zip(("met", "unmet", "abandoned", "total"),
-                       (int(g) for g in m.groups())))
-        if got != counts:
-            problems.append(
-                "Counts: says {met} met, {unmet} unmet, {abandoned} abandoned "
-                "of {total}".format(**got) +
-                "; the draft reads {met} met, {unmet} unmet, {abandoned} abandoned "
-                "of {total}".format(**counts))
-        if handoff:
-            said = {"abandoned": int(handoff.group(1)), "unmet": int(handoff.group(3)),
-                    "met": int(handoff.group(4)), "total": int(handoff.group(5))}
-            off = [f"{k}: first line says {said[k]}, `Counts:` says {got[k]}"
-                   for k in ("abandoned", "unmet", "met", "total") if said[k] != got[k]]
-            if off:
-                problems.append("the first line and the `Counts:` line disagree — "
-                                + "; ".join(off))
-
     return problems
 
 
-def verified_problems(draft: str, body: str, comments: list[str]) -> list[str]:
-    """What an `ALL MET` draft lacks in the worker's final full run."""
+def verified_problems(draft: str, body: str, comments: list[str], first: str) -> list[str]:
+    """What an `ALL MET` draft lacks in the worker's final full run. `first` is the one
+    `draft_summary` computed, not necessarily the draft's own literal first line."""
     problems = []
-    lines = draft.strip().splitlines()
-    first = lines[0].strip() if lines else ""
     if first != "ALL MET":
         return problems
 
@@ -1278,10 +1276,10 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
                                         "closeout draft") -> list[str]:
     """Each finding verbatim from `## In-ticket`; refuse a nonempty unknown row.
 
-    Historical rows have no category or source. Current rows carry both, and their
-    source and any unverified note remain in the one line handed to the worker.
-    `next_step` ends the refusal: the reviewer posting the report and the worker
-    drafting its closeout each have a different thing to do about the row.
+    A row carries its category and source, and its source and any unverified note remain
+    in the one line handed to the worker. `next_step` ends the refusal: the reviewer
+    posting the report and the worker drafting its closeout each have a different thing
+    to do about the row.
     """
     rows = [row.strip() for row in section(review, "In-ticket")
             if row.strip() and not re.fullmatch(r"<!-- mmw \{.*\} -->", row.strip())]
@@ -1289,7 +1287,7 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
         return []
     found = []
     for row in rows:
-        if CAT_IN_TICKET_ITEM_RE.fullmatch(row) or IN_TICKET_ITEM_RE.fullmatch(row):
+        if CAT_IN_TICKET_ITEM_RE.fullmatch(row):
             found.append(row)
         else:
             label = f"comment {comment}" if comment is not None else "review comment"
@@ -1562,19 +1560,40 @@ def run_draft(number: int, out_file: Path | None) -> int:
 
 
 def ensure_label(name: str) -> str | None:
-    """Make sure the repository has the layer label `name`; the reason when it could not.
+    """Make sure the repository has label `name`, from any of the three sets defined
+    above (layer, queue, grade); the reason when it could not.
 
     A label the repository lacks makes `gh issue create --label` fail outright, so the
-    first issue of each layer creates its label. One that already exists is left exactly
-    as it is. Patched out in tests.
+    first issue that would carry it creates it instead. One that already exists is left
+    exactly as it is. Patched out in tests.
     """
-    color, description = CLASS_LABELS[name]
+    color, description = (CLASS_LABELS.get(name) or QUEUE_LABELS.get(name)
+                          or GRADE_LABELS.get(name) or (None, None))
+    if color is None:
+        raise KeyError(name)
     out = subprocess.run(["gh", "label", "create", name, "--color", color,
                           "--description", description],
                          capture_output=True, text=True, env=GH_ENV)
     if out.returncode == 0 or "already exists" in (out.stderr or out.stdout or ""):
         return None
     return gh_detail(out)
+
+
+def gh_issue_create(args: list[str], body: str) -> tuple[subprocess.CompletedProcess, int | None]:
+    """Run `gh issue create <args> --body-file <body>`: the completed process, and the
+    issue number `gh` printed, or None when there was none to parse from its output.
+    Patched out in tests through `subprocess.run`."""
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
+        fh.write(body)
+        body_path = fh.name
+    try:
+        result = subprocess.run(["gh", "issue", "create", *args, "--body-file", body_path],
+                                capture_output=True, text=True, env=GH_ENV)
+    finally:
+        os.unlink(body_path)
+    printed = (result.stdout or "").strip()
+    found = re.search(r"/issues/(\d+)", printed)
+    return result, (int(found.group(1)) if found else None)
 
 
 def run_sub_issue(number: int, kind: str, path: Path) -> int:
@@ -1599,34 +1618,20 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     posted = f"A `{kind}` child of #{number}.\n\n" + text
     if not posted.endswith("\n"):
         posted += "\n"
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
-        fh.write(posted)
-        body_path = fh.name
-    try:
-        result = subprocess.run(
-            ["gh", "issue", "create",
-             "--parent", str(number),
-             "--label", "needs-triage",
-             "--label", "mmw:child",
-             "--title", title,
-             "--body-file", body_path],
-            capture_output=True, text=True, check=False, env=GH_ENV,
-        )
-    finally:
-        os.unlink(body_path)
+    result, child = gh_issue_create(
+        ["--parent", str(number), "--label", "needs-triage", "--label", "mmw:child",
+         "--title", title], posted)
     if result.returncode != 0:
         sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
         return 2
     printed = (result.stdout or "").strip()
-    found = re.search(r"/issues/(\d+)", printed)
     recorded = 0
-    if not found:
+    if child is None:
         sys.stderr.write(f"opened a sub-issue of #{number} but `gh issue create` printed no "
                          f"issue number ({printed[:80] or 'nothing'}), so no child.opened "
                          f"event was written on #{number}; do not open it again\n")
         recorded = 1
     else:
-        child = int(found.group(1))
         try:
             post_event(number, "child.opened", f"Opened #{child} ({kind}): {title}",
                        child=child, kind=kind, title=title)
@@ -1634,8 +1639,89 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
             sys.stderr.write(f"opened #{child} under #{number}, but the child.opened event "
                              f"on #{number} was not written ({exc}); do not open it again\n")
             recorded = 1
-    print(found.group(1) if found else printed)
+    print(str(child) if child is not None else printed)
     return recorded
+
+
+def issue_db_id(number: int) -> int:
+    """The tracker's own numeric id of issue `number`, the one its dependency links use
+    (never the `#number` or the GraphQL node id). Patched out in tests."""
+    out = subprocess.run(
+        ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{number}", "--jq", ".id"],
+        capture_output=True, text=True, env=GH_ENV,
+    )
+    if out.returncode != 0 or not out.stdout.strip():
+        raise TrackerReadError(number, "database id", gh_detail(out))
+    return int(out.stdout.strip())
+
+
+def add_blocking_link(child: int, blocker: int) -> str | None:
+    """Record `child` as blocked by `blocker` in the tracker's native issue dependencies,
+    the same link `docs/agents/issue-tracker.md` `## Wayfinding operations` adds by hand.
+    The reason when it could not be recorded, None when it was. Patched out in tests."""
+    try:
+        blocker_id = issue_db_id(blocker)
+    except TrackerReadError as exc:
+        return str(exc)
+    out = subprocess.run(
+        ["gh", "api", "--method", "POST",
+         f"repos/{{owner}}/{{repo}}/issues/{child}/dependencies/blocked_by",
+         "-F", f"issue_id={blocker_id}"],
+        capture_output=True, text=True, env=GH_ENV,
+    )
+    if out.returncode != 0:
+        return gh_detail(out)
+    return None
+
+
+def label_defined(name: str) -> bool:
+    """Whether `name` is one this file knows the colour and description of."""
+    return name in CLASS_LABELS or name in QUEUE_LABELS or name in GRADE_LABELS
+
+
+def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int:
+    """Publish a spec: one issue carrying the layer label `mmw:spec`, and, when
+    `map_number` is given, a native sub-issue of that map — the link the board and the
+    retro find a spec's map through; nothing written in the body stands in for it.
+
+    A spec is a container for the tickets underneath it, not a piece of work, so it
+    carries no triage label.
+    """
+    text = body_path.read_text(encoding="utf-8") if body_path.is_file() else ""
+    if not text.strip():
+        return refuse(f"{body_path} is empty")
+    missing = ensure_label(CLASS_SPEC)
+    if missing:
+        return refuse(f"the repository has no `{CLASS_SPEC}` label and it could not be "
+                      f"created ({missing}); nothing was published")
+    args = ["--title", title, "--label", CLASS_SPEC]
+    if map_number is not None:
+        args += ["--parent", str(map_number)]
+    result, number = gh_issue_create(args, text)
+    if result.returncode != 0:
+        sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
+        return 2
+    if number is None:
+        printed = (result.stdout or "").strip()
+        return refuse(f"gh issue create printed no issue number ({printed[:80] or 'nothing'}); "
+                      f"check the tracker directly for whether the spec was published")
+    if map_number is not None:
+        try:
+            parent = fetch_parent(number)
+        except ParentUnreadable as exc:
+            print(str(number))
+            sys.stderr.write(f"#{number} was published, but its native parent could not be "
+                             f"confirmed ({exc}); check it by hand\n")
+            return 1
+        if parent != map_number:
+            print(str(number))
+            sys.stderr.write(f"#{number} was published, but its native parent is "
+                             f"{('#' + str(parent)) if parent else 'unset'}, not #{map_number}; "
+                             f"`## Sources`, the title and semantic similarity do not replace "
+                             f"the native parent — check it by hand\n")
+            return 1
+    print(str(number))
+    return 0
 
 
 # ----------------------------------------------------------------- subcommands
@@ -1729,18 +1815,17 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
             spent += SLOT_BEAT_S
 
 
-def run_checks(number: int, reverify: bool, timeout: int | None,
-               actor: str | None = None) -> int:
+def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
     """Run criteria under the lifetime of a non-ticket judge lease."""
     body = fetch_body(number)
     require_judges(body)
     root = repo_root()
     lease = load_lease() if needs_product(body) else None
     if lease is None:
-        return _run_checks(number, reverify, timeout, actor, body, root)
+        return _run_checks(number, reverify, actor, body, root)
     try:
         with lease.judge_run(root, stop=True):
-            return _run_checks(number, reverify, timeout, actor, body, root)
+            return _run_checks(number, reverify, actor, body, root)
     except lease.StopUnreadable as exc:
         sys.stderr.write(f"#{number}: {exc}; the judge's product slot was kept\n")
         return 2
@@ -1749,7 +1834,7 @@ def run_checks(number: int, reverify: bool, timeout: int | None,
         return 2
 
 
-def _run_checks(number: int, reverify: bool, timeout: int | None,
+def _run_checks(number: int, reverify: bool,
                 actor: str | None, body: str, root: Path) -> int:
     """Run the ticket's criteria and post the run as one `ticket.checked` event.
 
@@ -1780,7 +1865,7 @@ def _run_checks(number: int, reverify: bool, timeout: int | None,
         cmd = ["node", str(GATE_CHECK), "--cwd", str(root)]
         if reverify:
             cmd.append("--reverify")
-        cmd += ["--timeout", str(check_timeout(body, timeout))]
+        cmd += ["--timeout", str(check_timeout(body))]
         cmd.append(str(ledger))
         env = os.environ.copy()
         env["MMW_TICKET"] = str(number)
@@ -1862,7 +1947,7 @@ def blocker_fold(number: int) -> dict | None:
     """The events of blocker `number` folded, or None when the tracker did not answer."""
     try:
         return events.fold(fetch_comments(number), issue=number)
-    except (OSError, ValueError, subprocess.CalledProcessError):
+    except (OSError, ValueError, subprocess.CalledProcessError, TrackerReadError):
         return None
 
 
@@ -1962,7 +2047,7 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
     """
     try:
         comments = fetch_comments(number)
-    except (OSError, subprocess.CalledProcessError) as exc:
+    except TrackerReadError as exc:
         sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
         return
     started = events.newest(comments, "worker.started")
@@ -1976,7 +2061,7 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
         return
     try:
         body = fetch_body(number)
-    except (OSError, subprocess.CalledProcessError) as exc:
+    except TrackerReadError as exc:
         sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
         return
     run_baseline(number, body, base, root)
@@ -2015,7 +2100,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
             lines.append("")
         ledger = write_ledger(body, ledger_dir, lines)
         cmd = ["node", str(GATE_CHECK), "--cwd", str(worktree),
-               "--timeout", str(check_timeout(body, None)), str(ledger)]
+               "--timeout", str(check_timeout(body)), str(ledger)]
         env = os.environ.copy()
         env["MMW_TICKET"] = str(number)
         if TOOLS:
@@ -2060,6 +2145,42 @@ def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
                actor="worker", stage=events.checked_stage("baseline", "worker"))
 
 
+def resume_at(comments: list[str], head: str) -> str | None:
+    """Where a worker re-entering this ticket picks up: the resume table in the
+    `implement` skill's `## Closing steps`, the paragraph starting "A ticket that
+    already carries a run of your own". None for a ticket that carries none of that
+    paragraph's markers — a fresh claim, not a resume.
+    """
+    self_run = newest_run(comments, "self")
+    reviewed = events.newest(comments, "reviewer.reported")
+    reverify = newest_run(comments, "reverify", actor="worker")
+    state = events.fold(comments)
+    if not (self_run or reviewed or state["decided"] or reverify):
+        return None
+    ordered = state["events"]
+    terminal = next((e["event"] for e in reversed(ordered)
+                     if e["event"] in ("ticket.passed", "ticket.returned", "ticket.bounced")),
+                    None)
+    if terminal in ("ticket.returned", "ticket.bounced"):
+        return f"step 1, then step 4 onward ({terminal})"
+    if self_run is None:
+        return "step 1 (no run of your own)"
+    if not state["decided"]:
+        return "step 2 (no worker.decided)"
+    if reviewed is None:
+        if events.live_of(state, "reviewer"):
+            return "step 3 (reviewer.started, no reviewer.reported yet)"
+        return "step 3 (worker.decided, no reviewer.reported)"
+    if self_run["comment"] <= reviewed["comment"]:
+        return "step 3 (reviewer.reported, no run of your own since)"
+    if reverify is None or reverify["comment"] < self_run["comment"]:
+        return "step 4 (a run of your own since reviewer.reported, no worker reverify)"
+    if reverify["payload"].get("commit") == head and (
+            not ordered or reverify["comment"] == ordered[-1]["comment"]):
+        return "step 5 (worker reverify on HEAD)"
+    return None
+
+
 def run_preflight(number: int) -> int:
     """Claim the ticket, or say on the ticket itself why it cannot be claimed.
 
@@ -2095,6 +2216,14 @@ def run_preflight(number: int) -> int:
                          f"written ({exc})\n")
     run_baseline_if_needed(number, root)
     print(f"READY: #{number} claimed on issue-{number}")
+    try:
+        resume = resume_at(fetch_comments(number), git("rev-parse", "HEAD", cwd=root))
+    except TrackerReadError as exc:
+        resume = None
+        sys.stderr.write(f"#{number}: could not read where to resume ({exc}); read the "
+                         f"ticket's comments by hand\n")
+    if resume:
+        print(f"RESUME: {resume}")
     # Getting here with a dirty tree means the claim was already this account's, so the
     # changes came in under it: this is a worker back on its own work, and the only thing
     # left to say is where they have to be by the closing steps.
@@ -2107,31 +2236,6 @@ def run_preflight(number: int) -> int:
 
 
 ROW_ID_RE = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+\b")
-
-
-def review_problems(draft: str, body: str, comments: list[str]) -> list[str]:
-    """A `Missing` the Spec axis raised against a screen-contract row the ticket owns is
-    settled by a commit or a sub-issue the draft names; a draft silent on it is refused.
-    The row id is the handle: the reviewer writes it first, the draft repeats it."""
-    m = SCREEN_CONTRACT_ROWS_RE.search("\n".join(section(body, "Read first")))
-    if not m:
-        return []
-    rows = set(ROW_ID_RE.findall(m.group(1)))
-    review = (events.newest(comments, "reviewer.reported") or {}).get("body")
-    if not review:
-        return []
-    spec_axis = re.split(r"^## Tests", review, maxsplit=1, flags=re.M)[0]
-    spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
-    problems = []
-    for line in spec_axis.splitlines():
-        if not re.search(r"Missing|缺失", line) and not re.search(r"^\s*\d+\.\s", line):
-            continue
-        for rid in ROW_ID_RE.findall(line):
-            if rid in rows and rid not in draft:
-                problems.append(f"the review's Spec axis reports a `Missing` against "
-                                f"screen-contract row {rid} and the draft names no commit "
-                                f"or sub-issue for it")
-    return problems
 
 
 def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
@@ -2383,9 +2487,13 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
 
 def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     """Check the closing comment against the ticket and the repository, then post it."""
-    draft = draft_path.read_text(encoding="utf-8")
+    raw = draft_path.read_text(encoding="utf-8")
     comments = fetch_comments(number)
-    first = (draft.strip().splitlines() or [""])[0].strip()
+    # The first line and `Counts:` are computed here, from the draft's own `ABANDON:`
+    # lines and criteria, and written into what posts — never taken as the worker wrote
+    # them.
+    first, counts = draft_summary(raw)
+    draft = rewrite_summary(raw, first, counts)
     passed = first == "ALL MET"
     ticket = fetch_ticket(number)
     head = git("rev-parse", "HEAD")
@@ -2399,8 +2507,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     base = (started or {}).get("base")
     into = (started or {}).get("into") if passed else None
     problems = draft_problems(draft, comments)
-    problems += verified_problems(draft, body, comments)
-    problems += review_problems(draft, body, comments)
+    problems += verified_problems(draft, body, comments, first)
     problems += review_finding_problems(draft, comments)
     problems += event_problems(comments)
     if started_problem:
@@ -2441,7 +2548,9 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
             named = ", ".join(f["command"] for f in checks["failed"]) or checks["problem"]
             sys.stderr.write(f"closeout stopped: the repository's checks did not pass "
                              f"({named}); the ticket.checked event on #{number} carries "
-                             f"each failed command and its last lines\n")
+                             f"each failed command and its last lines. Fix the code, run "
+                             f"that suite yourself, commit, run --reverify --actor worker "
+                             f"again, and run --closeout again\n")
             return 1
         problem = push_ticket_branch(number, repo_root(), head)
         if problem:
@@ -2455,7 +2564,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     event = "ticket.passed" if passed else "ticket.returned"
     fields = dict(spec=spec_field(ticket), commit=head or None,
                   branch=current_branch(repo_root()) or None,
-                  counts=tally(parse_criteria(draft), abandons),
+                  counts=counts,
                   abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
                              for a in abandons] or None)
     if passed:
@@ -2626,30 +2735,6 @@ def lint_timeouts(body: str) -> list[str]:
     return findings
 
 
-def lint_retired_base(body: str) -> list[str]:
-    """A `CHECK:` reading a git config key the pipeline stopped writing.
-
-    `dispatch` wrote the ticket's base commit into `branch.issue-<n>.mmw-base` and its
-    branch into `branch.issue-<n>.mmw-base-branch` until #339/#341 moved landing onto
-    `origin/<base branch>`. Neither is written now, so `git config --get` prints nothing
-    and exits 1, and a command built around it degrades instead of failing: `git diff
-    --name-only $(git config branch.issue-713.mmw-base)..HEAD -- <dir>` becomes `git diff
-    ..HEAD`, which compares HEAD with itself, reports nothing changed, and passes. The
-    base the pipeline supplies is `$MMW_BASE_REF`, set on every run of the criteria that
-    has one.
-    """
-    findings = []
-    for gate_id, check, _ in criteria_lines(body):
-        m = RETIRED_BASE_RE.search(check)
-        if m:
-            findings.append(
-                f"{gate_id}: CHECK reads `{m.group(0)}`, which no run writes since #341. "
-                f"It resolves to nothing and the command around it passes without "
-                f"comparing anything. Use `$MMW_BASE_REF` (for a diff, "
-                f"`$MMW_BASE_REF...HEAD`).")
-    return findings
-
-
 def final_stage(check: str) -> str:
     """The command whose exit code a CHECK's shell hands back: the text after the last
     `|`, `;` or `&` the shell reads as a separator.
@@ -2759,16 +2844,14 @@ FETCH_STUB_RE = re.compile(
     re.IGNORECASE,
 )
 FLAG_RE = re.compile(r"(?<!\S)(--[a-z][a-z0-9-]*)")
-# The scripts of this pipeline a criterion may run, and what each call must carry: the flags
-# it cannot leave out, and the ones that have been retired. `lint_pipeline_flags` reads it, so a
-# script that takes no flags at all has nothing to assert here and is left out of it, which is
-# why this holds fewer scripts than `JUDGES` below does.
+# The scripts of this pipeline a criterion may run, and the flags each call cannot leave
+# out. `lint_pipeline_flags` reads it, so a script that takes no flags at all has nothing
+# to assert here and is left out of it, which is why this holds fewer scripts than
+# `JUDGES` below does.
 # Their addresses come from the repository's `.mmw/target.json`, never from the line.
 PIPELINE_SCRIPTS = {
-    "story-parity.py": {"required": ("--contract", "--pages"),
-                        "retired": ("--baseline", "--impl",
-                                    "--impl-title", "--viewports", "--mount")},
-    "boundary-check.py": {"required": ("--run",), "retired": ()},
+    "story-parity.py": {"required": ("--contract", "--pages")},
+    "boundary-check.py": {"required": ("--run",)},
 }
 # The judges of the `ui-acceptance` skill: every script a `CHECK:` names by its bare name and
 # that `require_judges` refuses a run for when the shell could not find it. The default place
@@ -3065,13 +3148,14 @@ def boundary_test_paths(command: str, root: Path) -> list[Path]:
 def help_flags(script: str) -> set[str]:
     """The flags the installed script actually accepts, read from its `--help` once.
     This is the one place a criterion's reference to a capability that does not exist
-    yet is caught at the moment it is written."""
+    yet is caught at the moment it is written. Looked for in the directories in force,
+    then on PATH, the same two places a `CHECK:` itself resolves the script from."""
     if script not in _HELP_FLAGS:
-        path = tool(script)
+        path = tool(script) or shutil.which(script)
         text = ""
         if path is not None:
             try:
-                out = subprocess.run([sys.executable, str(path), "--help"], capture_output=True,
+                out = subprocess.run([str(path), "--help"], capture_output=True,
                                      text=True, timeout=60)
                 text = (out.stdout or "") + (out.stderr or "")
             except (OSError, subprocess.TimeoutExpired):
@@ -3089,15 +3173,12 @@ def lint_pipeline_flags(gate_id: str, check: str) -> list[str]:
         for flag in rules["required"]:
             if flag not in flags:
                 findings.append(f"{gate_id}: {script} without {flag}")
-        for flag in rules["retired"]:
-            if flag in flags:
-                findings.append(f"{gate_id}: {script} names {flag}; addresses and the seed "
-                                f"come from .mmw/target.json and the contract, not the line")
         known = help_flags(script)
         if known:
-            for flag in sorted(flags - known - set(rules["retired"])):
+            for flag in sorted(flags - known):
                 findings.append(f"{gate_id}: {script} does not accept {flag} (its --help "
-                                f"does not list it)")
+                                f"does not list it; addresses come from .mmw/target.json, "
+                                f"never from the line)")
     return findings
 
 
@@ -3669,8 +3750,6 @@ def lint_criteria(number: int, body: str, labels: list[str],
         say("error", finding, "screen-contract")
     for finding in contract_warnings:
         say("warn", finding, "screen-contract")
-    for finding in lint_retired_base(body):
-        say("error", finding, "retired-base")
     for finding in lint_undecidable_checks(body):
         say("error", finding, "undecidable-check")
     for finding in lint_check_effects(body):
@@ -3774,7 +3853,6 @@ DRAFTS_NOT_CHECKED = (
     "that each ticket is a sub-issue of the spec and carries the labels on the tracker "
     "(the LABELS: header is checked instead)",
     "the blocking links the tracker records (the BLOCKED BY: headers are checked instead)",
-    "each ticket's title against its `## What to build` (the read-back of to-tickets step 8)",
 )
 
 
@@ -3894,6 +3972,103 @@ def lint_drafts(spec: int, directory: Path) -> int:
     return 1 if (failed or graph) else 0
 
 
+def _draft_dependencies(draft: dict, names: set[str], directory: Path) -> list[int | str]:
+    """A draft's `BLOCKED BY:` header read as the graph `validate_dag` and
+    `compute_levels` take: an existing issue as its number, another draft in this batch
+    by name. Raises `ValueError` naming the first blocker that is neither."""
+    out: list[int | str] = []
+    for blocker in draft["blocked"]:
+        issue = DRAFT_ISSUE_RE.match(blocker)
+        if issue:
+            out.append(int(issue.group(1)))
+        elif blocker in names:
+            out.append(blocker)
+        else:
+            raise ValueError(f"{draft['name']} is blocked by `{blocker}`, which is "
+                             f"neither a draft in {directory} nor `#<issue number>`")
+    return out
+
+
+def run_publish_drafts(spec: int, directory: Path) -> int:
+    """Publish every draft in `directory` as a native sub-issue of `spec`: create each
+    blocker before what it blocks, wire the blocking links its `BLOCKED BY:` header
+    names, print the draft name to issue number table, then run `--lint` on the
+    published spec once, because only the tracker shows what publishing did.
+
+    A cycle, or a blocker naming no draft and no `#<n>`, is refused before anything is
+    created: publishing is deterministic given a valid batch, so an invalid one is
+    reported, not half built. A `gh` failure partway through names every draft already
+    published, so nothing has to be guessed from the tracker by hand.
+    """
+    paths = sorted(directory.glob("*.md"))
+    if not paths:
+        return refuse(f"{directory} holds no `*.md` drafts; nothing to publish")
+    drafts: list[dict] = []
+    for path in paths:
+        try:
+            drafts.append(read_draft(path))
+        except (DraftUnreadable, OSError, UnicodeError) as exc:
+            return refuse(str(exc))
+    names = {d["name"] for d in drafts}
+    entries = []
+    for draft in drafts:
+        try:
+            deps = _draft_dependencies(draft, names, directory)
+        except ValueError as exc:
+            return refuse(str(exc))
+        entries.append({"id": draft["name"], "dependencies": deps})
+    errors = validate_dag(in_batch(entries))
+    if errors:
+        return refuse("; ".join(error.split("  [")[0] for error in errors))
+    entries_by_name = {entry["id"]: entry for entry in entries}
+    levels = compute_levels(in_batch(entries))
+    order = sorted(drafts, key=lambda d: (levels.get(d["name"], 0), d["name"]))
+
+    def already_published(numbers: dict[str, int]) -> str:
+        return ("; already published: "
+                + ", ".join(f"{n} -> #{i}" for n, i in numbers.items()) if numbers else "")
+
+    numbers: dict[str, int] = {}
+    for draft in order:
+        for label in draft["labels"]:
+            if not label_defined(label):
+                continue
+            missing = ensure_label(label)
+            if missing:
+                return refuse(f"the repository has no `{label}` label and it could not "
+                              f"be created ({missing}); {draft['name']} was not published"
+                              + already_published(numbers))
+        args = ["--parent", str(spec), "--title", draft["title"]]
+        for label in draft["labels"]:
+            args += ["--label", label]
+        result, number = gh_issue_create(args, draft["body"])
+        if result.returncode != 0:
+            sys.stderr.write((result.stderr or result.stdout or "gh issue create failed")
+                             .rstrip() + already_published(numbers) + "\n")
+            return 2
+        if number is None:
+            printed = (result.stdout or "").strip()
+            sys.stderr.write(f"gh issue create for {draft['name']} printed no issue number "
+                             f"({printed[:80] or 'nothing'})" + already_published(numbers) + "\n")
+            return 2
+        numbers[draft["name"]] = number
+        print(f"{draft['name']} -> #{number}")
+
+    problems = []
+    for draft in order:
+        child = numbers[draft["name"]]
+        for dep in entries_by_name[draft["name"]]["dependencies"]:
+            blocker = numbers[dep] if isinstance(dep, str) else dep
+            problem = add_blocking_link(child, blocker)
+            if problem:
+                problems.append(f"#{child} ({draft['name']}) could not be linked as "
+                                f"blocked by #{blocker}: {problem}")
+    for problem in problems:
+        sys.stderr.write(problem + "\n")
+    lint_result = lint_spec(spec)
+    return 1 if problems else lint_result
+
+
 EXIT_CODES = """\
 exit codes:
   a criteria run (no flag, or --reverify --actor worker|main)
@@ -3905,10 +4080,30 @@ exit codes:
   --preflight
     0 the ticket is now yours; 2 refused, reason on stderr: a NOT_READY refusal is
     on the ticket as ticket.refused, any other posted nothing
+  --lint
+    0 nothing reported an ERROR; 1 a ticket or the graph has one (on a spec, any of
+    its open sub-issues having one; a closed one's ERROR is printed and counts for
+    nothing); 2 a criterion names a judge this run cannot reach, refused before
+    anything is read. No CHECK: runs and no comment is posted on any exit
   --decisions, --touched
     0 posted (for --touched, or nothing to post); 2 refused, nothing posted
   --draft
     0 the file was written and its path printed; 2 refused, no file written
+  --sub-issue
+    0 the sub-issue is open and recorded; 1 the sub-issue is open and its
+    child.opened event could not be written, named on stderr — do not open it
+    again; 2 a refusal, reason on stderr
+  --review
+    0 posted; 2 refused (the file does not open REVIEW <base>..<head>, or an
+    ## In-ticket row is not recognized), reason on stderr
+  --publish
+    --spec-body: 0 published, printed as the issue number (with --map, its native
+    parent was confirmed too); 1 published but the native parent could not be
+    confirmed as --map, printed then said on stderr; 2 refused, nothing published
+    --drafts: 0 every draft published, every blocking link recorded, and --lint on
+    the published spec reported no ERROR; 1 published with a blocking link that
+    could not be recorded, or --lint on the published spec found one; 2 refused
+    before anything was created, or gh failed partway (stderr names what published)
   --closeout
     0 the ticket is closed (or handed back) and its event posted, or with
     --check-only the draft passes; 1 refused by a draft condition, the repository's
@@ -3920,7 +4115,11 @@ exit codes:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0], epilog=EXIT_CODES,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("ticket", type=int)
+    # Optional only for `--publish --spec-body`, which creates an issue that has no
+    # number yet; every other job needs one.
+    parser.add_argument("ticket", type=int, nargs="?",
+                        help="the ticket (or, with --publish --drafts, the spec) this run "
+                             "is about; omit only for --publish --spec-body")
     parser.add_argument("--reverify", action="store_true",
                         help="re-run every criterion, including the ones already ticked")
     parser.add_argument("--lint", action="store_true",
@@ -3928,14 +4127,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--drafts", type=Path, metavar="DIR",
                         help="with --lint, the ticket being the spec: lint the unpublished "
                              "drafts in DIR (TITLE:/LABELS:/BLOCKED BY: header, `---`, body) "
-                             "instead of the spec's sub-issues")
+                             "instead of the spec's sub-issues; with --publish, publish them "
+                             "as native sub-issues of the spec")
+    parser.add_argument("--publish", action="store_true",
+                        help="publish a spec (--spec-body FILE --title T [--map N]) or a "
+                             "batch of ticket drafts (--drafts DIR, the ticket being the "
+                             "spec they publish under)")
+    parser.add_argument("--spec-body", type=Path, metavar="FILE",
+                        help="with --publish: the new spec's body")
+    parser.add_argument("--title", metavar="TITLE",
+                        help="with --publish --spec-body: the new spec's title")
+    parser.add_argument("--map", type=int, metavar="N",
+                        help="with --publish --spec-body: publish as a native sub-issue "
+                             "of map N")
     parser.add_argument("--preflight", action="store_true",
                         help="claim the ticket, or refuse and say why on the ticket")
     parser.add_argument("--closeout", type=Path, metavar="DRAFT",
                         help="check this closing comment, then post it and close the ticket")
     parser.add_argument("--check-only", action="store_true",
                         help="with --closeout: check the draft and change nothing")
-    parser.add_argument("--timeout", type=int, help="per-CHECK timeout in seconds")
     parser.add_argument("--decisions", type=Path, metavar="FILE",
                         help="post the two-section file as a DECISIONS comment")
     parser.add_argument("--touched", action="store_true",
@@ -3969,11 +4179,11 @@ def main(argv: list[str] | None = None) -> int:
                ("--decisions", args.decisions is not None), ("--touched", args.touched),
                ("--draft", args.draft is not None),
                ("--sub-issue", args.sub_issue is not None),
-               ("--review", args.review is not None)) if on]
+               ("--review", args.review is not None), ("--publish", args.publish)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
-    if args.drafts is not None and not args.lint:
-        parser.error("--drafts belongs to --lint")
+    if args.drafts is not None and not (args.lint or args.publish):
+        parser.error("--drafts belongs to --lint or --publish")
     if args.drafts is not None and not args.drafts.is_dir():
         parser.error(f"no directory at {args.drafts}")
     if args.check_only and args.closeout is None:
@@ -3982,7 +4192,28 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--actor belongs to --reverify")
     if args.reverify and args.actor is None:
         parser.error("--reverify requires --actor worker|main")
+    if args.spec_body is not None and not args.publish:
+        parser.error("--spec-body belongs to --publish")
+    if args.title is not None and args.spec_body is None:
+        parser.error("--title belongs to --publish --spec-body")
+    if args.map is not None and args.spec_body is None:
+        parser.error("--map belongs to --publish --spec-body")
+    if args.publish and args.spec_body is None and args.drafts is None:
+        parser.error("--publish needs --spec-body --title, or --drafts")
+    if args.publish and args.spec_body is not None and args.drafts is not None:
+        parser.error("--spec-body and --drafts are different forms of --publish; pick one")
+    if args.publish and args.spec_body is not None:
+        if args.ticket is not None:
+            parser.error("--publish --spec-body creates a new issue; do not name a ticket number")
+        if not args.title:
+            parser.error("--publish --spec-body requires --title")
+        if not args.spec_body.is_file():
+            parser.error(f"no file at {args.spec_body}")
+    elif args.ticket is None:
+        parser.error("a ticket number is required")
     try:
+        if args.publish and args.spec_body is not None:
+            return run_publish_spec(args.spec_body, args.title, args.map)
         if args.preflight:
             return run_preflight(args.ticket)
         if args.closeout is not None:
@@ -4004,11 +4235,13 @@ def main(argv: list[str] | None = None) -> int:
             if not args.review.is_file():
                 parser.error(f"no file at {args.review}")
             return run_review(args.ticket, args.review)
+        if args.publish:
+            return run_publish_drafts(args.ticket, args.drafts)
         if args.lint and args.drafts is not None:
             return lint_drafts(args.ticket, args.drafts)
         if args.lint:
             return run_lint(args.ticket)
-        return run_checks(args.ticket, args.reverify, args.timeout, args.actor)
+        return run_checks(args.ticket, args.reverify, args.actor)
     except TrackerReadError as exc:
         return refuse(f"verify-ticket: {exc}. Nothing was run or written; retry the same command")
     except JudgeUnreachable as exc:

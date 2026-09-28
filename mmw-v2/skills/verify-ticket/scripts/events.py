@@ -48,8 +48,8 @@ but `fold`) a comment carries an event block nobody can read, named on stderr.
 never its prose. `checked` prints the newest `ticket.checked` the same way, of one run
 when `--run` names it. `live` prints "runner<TAB>session" for every session of that kind
 whose hold no event has ended, oldest first. `child` prints, for a child this issue's
-`child.opened` names, "kind<TAB>spec<TAB>resolution<TAB>became" (`-` for none yet), and
-nothing when no `child.opened` on this issue names it.
+`child.opened` names, "kind<TAB>spec<TAB>resolution<TAB>ticket<TAB>reason" (`-` for none
+yet), and nothing when no `child.opened` on this issue names it.
 """
 
 from __future__ import annotations

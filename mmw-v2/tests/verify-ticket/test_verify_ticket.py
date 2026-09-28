@@ -61,7 +61,7 @@ class LedgerRun(unittest.TestCase):
              mock.patch.object(vt, "current_branch", return_value="issue-1"), \
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             with redirect_stdout(io.StringIO()) as out:
-                code = vt.run_checks(1, reverify, None, actor)
+                code = vt.run_checks(1, reverify, actor)
         self.posted = posted
         return code, (posted[0] if posted else ""), out.getvalue()
 
@@ -305,17 +305,13 @@ class TestCheckTimeout(LedgerRun):
         return ticket(*lines)
 
     def test_the_default_is_ten_minutes(self):
-        self.assertEqual(vt.check_timeout(self.body(""), None), 600)
+        self.assertEqual(vt.check_timeout(self.body("")), 600)
 
     def test_a_ticket_raises_it_with_the_largest_timeout_line(self):
-        self.assertEqual(vt.check_timeout(self.body("900", "", "1500"), None), 1500)
+        self.assertEqual(vt.check_timeout(self.body("900", "", "1500")), 1500)
 
     def test_a_ticket_cannot_lower_it(self):
-        self.assertEqual(vt.check_timeout(self.body("30"), None), 600)
-
-    def test_the_command_line_raises_it_too(self):
-        self.assertEqual(vt.check_timeout(self.body("900"), 2000), 2000)
-        self.assertEqual(vt.check_timeout(self.body("900"), 100), 900)
+        self.assertEqual(vt.check_timeout(self.body("30")), 600)
 
     def test_the_ledger_handed_to_gate_check_carries_no_timeout_line(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -707,7 +703,7 @@ class TestOutsideOwns(unittest.TestCase):
                  mock.patch.object(vt, "post_comment",
                                    side_effect=lambda n, b: posted.append(b)):
                 with redirect_stdout(io.StringIO()):
-                    code = vt.run_checks(4, False, None)
+                    code = vt.run_checks(4, False)
             self.assertEqual(code, 0, posted)
             payload = payload_of(posted[0])
             self.assertEqual(payload["outside_owns"], [])
@@ -807,7 +803,7 @@ class TestTheProductSlot(unittest.TestCase):
             p.start()
         try:
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
-                code = vt.run_checks(1, reverify, None, actor)
+                code = vt.run_checks(1, reverify, actor)
         finally:
             for p in reversed(patches):
                 p.stop()
@@ -990,6 +986,24 @@ class TestReverifyActorIsExplicit(unittest.TestCase):
             vt.main(["1", "--actor", "worker"])
         self.assertEqual(caught.exception.code, 2)
         self.assertIn("--actor belongs to --reverify", err.getvalue())
+
+
+class TestExitCodesHelp(unittest.TestCase):
+    """`--lint`, `--sub-issue` and `--review` each have their own exit codes documented
+    beside the rest, so `references/linting.md` and `references/sub-issues.md` no
+    longer have to carry a second copy."""
+
+    def test_lint_sub_issue_and_review_are_documented(self):
+        for flag in ("--lint", "--sub-issue", "--review"):
+            with self.subTest(flag=flag):
+                self.assertIn(flag, vt.EXIT_CODES)
+
+    def test_help_prints_the_exit_codes(self):
+        with redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit) as caught:
+            vt.main(["--help"])
+        self.assertEqual(caught.exception.code, 0)
+        self.assertIn("--sub-issue", out.getvalue())
+        self.assertIn("--review", out.getvalue())
 
 
 if __name__ == "__main__":

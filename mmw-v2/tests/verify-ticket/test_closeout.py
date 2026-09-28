@@ -178,24 +178,35 @@ def check(text, comments=(),
 
 
 class TestFirstLine(unittest.TestCase):
-    def test_a_first_line_in_neither_shape_is_refused(self):
-        code, err, _ = check(draft(first="done!", counts=counts_line()))
-        self.assertEqual(code, 1)
-        self.assertIn("first line is neither", err)
+    """`--closeout` computes the first line and `Counts:` from the draft's own criteria
+    and `ABANDON:` lines every time; whatever the draft itself states there is replaced,
+    never trusted."""
 
-    def test_all_met_over_a_failed_abandon_is_refused(self):
+    def test_a_garbled_first_line_is_overwritten_with_the_computed_one(self):
+        code, err, seen = check(draft(first="done!", counts=counts_line()), check_only=False)
+        self.assertEqual(code, 0, err)
+        prose, _ = posted_as(seen["posted"][0][1])
+        self.assertEqual(prose.splitlines()[0], "ALL MET")
+
+    def test_a_stuck_abandon_computes_a_handoff_first_line(self):
         text = draft(criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 stuck the endpoint it checks does not exist yet",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        code, err, _ = check(text)
-        self.assertEqual(code, 1)
-        self.assertIn("only `decision` may be abandoned", err)
+        code, err, seen = check(text, check_only=False)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(seen["handed"], [77])
+        prose, _ = posted_as(seen["posted"][0][1])
+        self.assertTrue(prose.splitlines()[0].startswith("HANDOFF REQUIRED"), prose)
 
-    def test_all_met_over_a_stuck_abandon_is_refused(self):
+    def test_a_failed_abandon_computes_a_handoff_first_line(self):
         text = draft(criteria=(MET, UNMET),
-                     abandons=("ABANDON: AC2 stuck chromium is not installed; tried …",),
+                     abandons=("ABANDON: AC2 failed nothing worked",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        self.assertEqual(check(text)[0], 1)
+        code, err, seen = check(text, check_only=False)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(seen["handed"], [77])
+        prose, _ = posted_as(seen["posted"][0][1])
+        self.assertTrue(prose.splitlines()[0].startswith("HANDOFF REQUIRED"), prose)
 
     def test_all_met_over_a_decision_abandon_passes(self):
         """The self-run is generated from the ticket body, which carries no `ABANDON:`
@@ -257,24 +268,30 @@ class TestBody(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("is ticked but its EVIDENCE is pending", err)
 
-    def test_counts_that_disagree_with_the_body_are_refused(self):
-        code, err, _ = check(draft(criteria=(MET,), counts=counts_line(met=4, total=4)))
-        self.assertEqual(code, 1)
-        self.assertIn("the draft reads 1 met", err)
+    def test_a_wrong_counts_line_is_overwritten_not_trusted(self):
+        code, err, seen = check(draft(criteria=(MET,), counts=counts_line(met=4, total=4)),
+                                check_only=False)
+        self.assertEqual(code, 0, err)
+        prose, _ = posted_as(seen["posted"][0][1])
+        self.assertIn(counts_line(), prose)
+        self.assertNotIn(counts_line(met=4, total=4), prose)
 
-    def test_a_missing_counts_line_is_refused(self):
-        code, err, _ = check(draft(criteria=(MET,), counts=None))
-        self.assertEqual(code, 1)
-        self.assertIn("no `Counts:", err)
+    def test_a_missing_counts_line_is_added(self):
+        code, err, seen = check(draft(criteria=(MET,), counts=None), check_only=False)
+        self.assertEqual(code, 0, err)
+        prose, _ = posted_as(seen["posted"][0][1])
+        self.assertIn(counts_line(), prose)
 
-    def test_a_first_line_that_disagrees_with_counts_is_refused(self):
+    def test_a_first_line_that_disagrees_with_counts_is_computed_not_trusted(self):
         text = draft(first="HANDOFF REQUIRED: 2 abandoned (stuck), 0 unmet, 1 met of 2",
                      criteria=(MET, UNMET),
                      abandons=("ABANDON: AC2 stuck the device this needs is not on this machine",),
                      counts=counts_line(met=1, abandoned=1, total=2))
-        code, err, _ = check(text)
-        self.assertEqual(code, 1)
-        self.assertIn("first line says 2, `Counts:` says 1", err)
+        code, err, seen = check(text, check_only=False)
+        self.assertEqual(code, 0, err)
+        prose, _ = posted_as(seen["posted"][0][1])
+        self.assertEqual(prose.splitlines()[0],
+                        "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 2")
 
 
 HANDOFF = "HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 0 met of 1"
@@ -495,27 +512,35 @@ class TestTheFirstLineCarriesTheWholeRefusal(unittest.TestCase):
     worker takes in the whole set at once. Naming only the first would have it fix one
     per run, and nothing caps that loop."""
 
-    def three_problems(self):
-        return draft(criteria=(MET, UNMET), counts=counts_line(met=9, total=9))
+    def some_problems(self):
+        """Two genuine problems `--closeout` cannot compute its way around: an unknown
+        `ABANDON:` kind, and a ticked criterion with no real evidence."""
+        ticked_pending = MET.replace(
+            "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9", "EVIDENCE: pending")
+        return draft(criteria=(ticked_pending, UNMET),
+                     abandons=("ABANDON: AC2 giveup nothing worked",),
+                     counts=counts_line(met=0, unmet=1, abandoned=1, total=2))
 
     def test_the_first_line_counts_the_problems(self):
-        code, err, _ = check(self.three_problems())
+        code, err, _ = check(self.some_problems())
         first = err.strip().splitlines()[0]
         self.assertTrue(first.startswith("closeout rejected, "), first)
         self.assertRegex(first, r"closeout rejected, \d+ problems?: ")
 
     def test_the_first_line_says_how_to_read_the_rest(self):
-        code, err, _ = check(self.three_problems())
+        code, err, _ = check(self.some_problems())
         self.assertIn("--check-only", err.strip().splitlines()[0])
 
     def test_a_single_problem_does_not_point_at_a_second(self):
-        code, err, _ = check(draft(criteria=(MET,), counts=counts_line(met=4, total=4)))
+        ticked_pending = MET.replace(
+            "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9", "EVIDENCE: pending")
+        code, err, _ = check(draft(criteria=(ticked_pending,), counts=counts_line(met=0, unmet=1)))
         first = err.strip().splitlines()[0]
         self.assertIn("1 problem:", first)
         self.assertNotIn("--check-only", first)
 
     def test_the_later_problems_are_still_printed(self):
-        code, err, _ = check(self.three_problems())
+        code, err, _ = check(self.some_problems())
         lines = err.strip().splitlines()
         self.assertGreater(len(lines), 1)
         self.assertTrue(all(l.startswith("also: ") for l in lines[1:]), lines)
@@ -534,9 +559,13 @@ class TestTheCriteriaTheFinalRunUsedAreTheCriteriaTheTicketStates(unittest.TestC
         self.assertEqual(code, 1)
         self.assertIn("acceptance criteria have changed since the worker's final run", err)
 
+    ADDED = MET.replace("AC1: the importer writes six rows", "AC3: a second criterion")
+
     def test_a_criterion_added_after_the_final_run_is_refused(self):
+        # Both criteria read as met on the draft's own face, so the computed first line
+        # is ALL MET; only the reverify's own shape then catches the addition.
         code, err, _ = check(
-            draft(criteria=(MET, UNMET), counts=counts_line(met=1, unmet=1, total=2)),
+            draft(criteria=(MET, self.ADDED), counts=counts_line(met=2, total=2)),
             comments=(FINAL_RUN, reverify_of([MET])))
         self.assertEqual(code, 1)
         self.assertIn("acceptance criteria have changed since the worker's final run", err)
@@ -623,18 +652,6 @@ class TestReviewFindingCompleteness(unittest.TestCase):
                 self.assertIn(missing, err)
                 self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
 
-    def test_old_review_rows_accept_fixed_and_refuted_responses(self):
-        row = "- Spec src/app.py:12 — the importer skips a row"
-        review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
-                       + row + "\n", base="abcdef0", head="1234567")
-        for response in ("fixed " + HEAD, "refuted: the fixture contains the row"):
-            with self.subTest(response=response):
-                text = draft(counts=counts_line()) + "\nReview findings:\n" \
-                       + row + " — " + response + "\n"
-                code, err, seen = check(text, comments=(review,))
-                self.assertEqual(code, 0, err)
-                self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
-
     def test_changed_source_does_not_satisfy_the_latest_review(self):
         row = "- Tests [Tautological] tests/events.py:256 — The test provides its expected value. — source: #430 AC2 CHECK"
         review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\n\n"
@@ -651,7 +668,9 @@ class TestNoSideEffectOnFail(unittest.TestCase):
     """A refused draft leaves the ticket exactly as it was."""
 
     def test_a_refused_draft_posts_nothing_and_closes_nothing(self):
-        text = draft(criteria=(MET,), counts=counts_line(met=9, total=9))
+        text = draft(criteria=(MET, UNMET),
+                     abandons=("ABANDON: AC2 giveup nothing worked",),
+                     counts=counts_line(met=1, abandoned=1, total=2))
         code, _, seen = check(text, check_only=False)
         self.assertEqual(code, 1)
         self.assertEqual(seen, {"posted": [], "closed": [], "handed": []})
@@ -784,6 +803,8 @@ class TestTargetJsonChecks(unittest.TestCase):
         tail = commands[0]["tail"].splitlines()
         self.assertEqual((tail[0], tail[-1], len(tail)), ("6", "25", 20))
         self.assertNotIn(text.strip(), seen["posted"][0][1])
+        self.assertIn("Fix the code, run that suite yourself, commit, run --reverify "
+                      "--actor worker again, and run --closeout again", err)
 
     def test_passing_checks_are_an_event_before_the_closing_comment(self):
         with TemporaryDirectory() as tmp:
@@ -875,7 +896,7 @@ class TestTargetJsonChecks(unittest.TestCase):
                                    side_effect=lambda n, b: posted.append(b)):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     vt.run_lint(77)
-                    code = vt.run_checks(77, True, None)
+                    code = vt.run_checks(77, True)
             self.assertEqual(code, 0)
             self.assertEqual([vt.events.parse(b)[1]["run"] for b in posted], ["reverify"])
             self.assertFalse(marker.exists())
