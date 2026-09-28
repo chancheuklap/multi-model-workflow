@@ -91,7 +91,10 @@ case "$out" in
   *"DERIVED-COMMITTED:verify_key commit="*) ok "P2 derive 提交到功能分支" ;;
   *) no "P2 未提交 ($out)" ;;
 esac
-[ "$(git -C "$repo" log -1 --format=%s)" = "chore(release): regenerate drift:REQUIRED_RUNTIME_PATHS" ] && ok "P2 commit message 使用 fingerprint" || no "P2 commit message"
+case "$(git -C "$repo" log -1 --format=%s)" in
+  *drift:REQUIRED_RUNTIME_PATHS*) ok "P2 commit message 使用 fingerprint" ;;
+  *) no "P2 commit message ($(git -C "$repo" log -1 --format=%s))" ;;
+esac
 assert_all_pending_from_verify_key "$repo" && ok "P2 提交后从 verify_key 全量重验" || no "P2 未失效全部 stages"
 jq -e 'any(.attempt_ledger[]; .action_kind == "derive" and .outcome == "applied" and (.artifact_refs | any(startswith("git-commit:"))))' "$sf" >/dev/null && ok "P2 ledger 记录 commit" || no "P2 ledger"
 git -C "$repo" diff --quiet HEAD && ok "P2 后 tracked worktree 干净" || no "P2 后 tracked worktree 脏"

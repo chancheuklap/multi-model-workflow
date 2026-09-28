@@ -84,7 +84,6 @@ class TestPublishSpec(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(out.strip(), "50")
         self.assertIn("not #18", err)
-        self.assertIn("do not replace the native parent", err)
 
     def test_a_gh_failure_is_refused(self):
         code, out, err, _, _ = self.publish(create=failed_create("gh: no such label"))

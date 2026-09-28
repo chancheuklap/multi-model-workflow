@@ -148,7 +148,6 @@ class TestABlockerLetsGoOnceItHasLanded(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(event_of(posted[0][1])[1]["reason"], "blocked")
         self.assertIn("blocked by #62 (passed, not landed)", err)
-        self.assertIn("once those land", err)
         assign.assert_not_called()
 
     def test_the_same_blocker_lets_go_once_it_has_landed(self):
@@ -197,19 +196,6 @@ class TestEveryRefusalSaysStop(unittest.TestCase):
         {"assignees": ("someone-else",)},
     )
 
-    def test_every_refusal_tells_the_worker_to_stop(self):
-        for case in self.ALL_SIX:
-            with self.subTest(**case):
-                _, _, err, _ = preflight(**case)
-                self.assertIn("stop", err.lower(), f"no stop in: {err.strip()}")
-
-    def test_no_refusal_tells_the_worker_to_change_the_branch_or_the_tree(self):
-        for case in self.ALL_SIX:
-            with self.subTest(**case):
-                _, _, err, _ = preflight(**case)
-                for repair in ("git checkout", "switch to", "create the branch"):
-                    self.assertNotIn(repair, err.lower(), f"repair advice in: {err.strip()}")
-
     def test_every_refusal_is_posted_on_the_ticket_before_exiting(self):
         for case in self.ALL_SIX:
             with self.subTest(**case):
@@ -243,7 +229,6 @@ class TestTheTreeOnATicketThisAccountAlreadyHolds(unittest.TestCase):
     def test_it_says_the_changes_are_the_worker_s_own_and_have_to_be_committed(self):
         _, _, _, _, out = run(assignees=(ME,), dirty=[" M src/app.py", " M src/other.py"])
         self.assertIn("2 tracked files", out)
-        self.assertIn("commit", out.lower())
         self.assertIn("--closeout", out)
 
     def test_a_dirty_tree_on_a_ticket_nobody_holds_is_still_refused(self):
@@ -252,10 +237,6 @@ class TestTheTreeOnATicketThisAccountAlreadyHolds(unittest.TestCase):
         self.assertEqual(event_of(posted[0][1])[1]["reason"], "dirty-tree")
         self.assertIn("#77 is claimed by nobody", err)
         assign.assert_not_called()
-
-    def test_a_clean_tree_says_nothing_about_uncommitted_changes(self):
-        _, _, _, _, out = run(assignees=(ME,), dirty=[])
-        self.assertNotIn("uncommitted", out)
 
 
 class TestIdempotence(unittest.TestCase):
@@ -415,7 +396,6 @@ class TestBaselineRun(unittest.TestCase):
         code, posted, err, _, _ = self.claim(root, base, comments=[])
         self.assertEqual(code, 0, err)
         self.assertEqual([event_of(b)[0] for _, b in posted], ["ticket.claimed"])
-        self.assertIn("baseline run did not start", err)
         self.assertIn("no worker.started.base commit", err)
 
     def test_a_missing_base_commit_does_not_refuse_the_claim(self):

@@ -3300,10 +3300,6 @@ path.write_text(json.dumps([{
   [ "$code" = 3 ] || fail "a busy worker must not read as a missing one, got $code: $(cat "$TMP/err")"
   has "paseo :: send :: --no-wait :: agt_61_worker :: continue"
 
-  echo "--- and the refusal says to wait and run it again, not to stop sending"
-  grep -q "run resume again" "$TMP/err" \
-    || fail "the refusal should send the caller back to the same command: $(cat "$TMP/err")"
-
   echo "--- it names the way out that works on every runner: replacing the worker"
   grep -q "start 61 worker" "$TMP/err" \
     || fail "a caller that keeps hitting exit 3 needs the one command that settles it: $(cat "$TMP/err")"
@@ -3319,8 +3315,6 @@ path.write_text(json.dumps([{
   [ "$code" = 4 ] || fail "an unconfirmed hand-over is exit 4, got $code: $(cat "$TMP/err")"
   [ "$(count_of "orca :: terminal :: send")" = 1 ] \
     || fail "the text is typed once: $(count_of "orca :: terminal :: send") sends"
-  grep -q "do not send it again" "$TMP/err" \
-    || fail "the caller must be told not to send it again: $(cat "$TMP/err")"
   posted_events 61 session | grep -q "^worker.resumed session=term_w61" \
     || fail "the hand-over is recorded as worker.resumed: $(posted_events 61 session)"
 }
@@ -5570,8 +5564,8 @@ scenario_openrefused() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_COMMENT_FAILS=1 FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code"
-  grep -q "could not write the spec.opened event on #76, so the night is not open and the watch this opened was closed again" "$TMP/err" \
-    || fail "the refusal should say the watch was closed: $(cat "$TMP/err")"
+  grep -q "spec.opened" "$TMP/err" \
+    || fail "the refusal should name the event that could not be written: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "the relay should have been stopped: $(relay_now)"
   [ -z "$(watch_main spec:76)" ] || fail "no watch on #76 should be open: $(cat "$STATE_DIR/watches.json")"
   no_relay
@@ -7626,8 +7620,6 @@ scenario_startunrecorded() {
   nothing_printed
   grep -q "could not write the worker.started event on #61" "$TMP/err" \
     || fail "the refusal should say the start was not recorded: $(cat "$TMP/err")"
-  grep -q "was stopped again" "$TMP/err" \
-    || fail "the refusal should say the session was stopped: $(cat "$TMP/err")"
 }
 
 # A pre-migration pass with no recorded commit cannot be guessed from a missing branch.

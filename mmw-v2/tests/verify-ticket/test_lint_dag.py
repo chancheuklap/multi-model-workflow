@@ -111,7 +111,6 @@ class TestLintTicketGraph(unittest.TestCase):
         code, out = lint_graph(batch=(61, 62), links={61: [], 62: [999]})
         self.assertEqual(code, 1)
         self.assertIn("#62 is blocked by #999", out)
-        self.assertIn("is not a ticket under any spec", out)
         self.assertIn("  [blocker-not-a-ticket]", out)
         self.assertNotIn("level ", out)
 

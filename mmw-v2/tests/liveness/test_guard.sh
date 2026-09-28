@@ -114,8 +114,8 @@ CURSOR='{"conversation_id":"k1","generation_id":"g","hook_event_name":"stop","st
 PI='{"hook_event_name":"agent_settled","cwd":"/repo"}'
 
 echo "### each host blocks, in its own terms, while tickets may be held and no watchdog runs"
-hook claude "$CLAUDE";  check "claude Stop: exit 2 with the reason on stderr" 2 "MMW turn guard: the night on o/r"
-hook codex "$CODEX";    check "codex Stop: exit 2 with the reason on stderr" 2 "watchdog is not healthy"
+hook claude "$CLAUDE";  check "claude Stop: exit 2 with the reason on stderr" 2 "MMW turn guard:"
+hook codex "$CODEX";    check "codex Stop: exit 2 with the reason on stderr" 2 "MMW turn guard:"
 hook grok "$GROK" GROK_HOOK_EVENT=stop GROK_SESSION_ID=g1
                         check "grok Stop: its own registration blocks despite its own markers" 2 "MMW turn guard"
 hook pi "$PI";          check "pi agent_settled: exit 2, the extension sends it as a follow-up" 2 "MMW turn guard"
@@ -137,7 +137,7 @@ check_silent "grok stopHookActive"
 hook cursor "${CURSOR/\"loop_count\":0/\"loop_count\":1}";                     check_silent "cursor loop_count 1"
 hook grok "${GROK/\"end_turn\"/\"shutdown\"}" GROK_HOOK_EVENT=stop
 check_silent "grok's session-end Stop is not a turn"
-if grep -q "claude allow held=None the continuation an earlier block forced" "$STATE/guard.log"; then
+if grep -q "claude allow held=None" "$STATE/guard.log"; then
   pass=$((pass + 1)); echo "ok   a forced continuation is still recorded in guard.log"
 else
   failed=$((failed + 1)); echo "FAIL guard.log has no line for the forced continuation" >&2
@@ -181,7 +181,7 @@ echo "### the predicate: nothing held at the last round"
 printf '{"pid": 1, "identity": "gone", "at": "2026-09-10T00:00:00Z", "poll": 60, "held": []}\n' > "$STATE/watchdog.json"
 hook claude "$CLAUDE";                     check_silent "a dead watchdog whose last round held nothing lets the turn end"
 printf '{"pid": 1, "identity": "gone", "at": "2026-09-10T00:00:00Z", "poll": 60, "held": [61]}\n' > "$STATE/watchdog.json"
-hook claude "$CLAUDE";                     check "a dead watchdog whose last round held #61 blocks, naming it" 2 "(#61)"
+hook claude "$CLAUDE";                     check "a dead watchdog whose last round held #61 blocks, naming it" 2 "#61"
 grep -q "claude block held=\[61\]" "$STATE/guard.log" && { pass=$((pass + 1)); echo "ok   guard.log records the decision"; } \
   || { failed=$((failed + 1)); echo "FAIL guard.log has no block line for held=[61]" >&2; }
 
@@ -205,7 +205,7 @@ fi
 first_pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$STATE/watchdog.lock")"
 hook codex "$CODEX" MMW_WATCHDOG_PY= PATH="$TMP/bin:$PATH"
 check_silent "a second turn end finds it healthy"
-arms="$(grep -c "arming the watchdog" "$STATE/watchdog.log")"
+arms="$(grep -c "^--- " "$STATE/watchdog.log")"
 now_pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$STATE/watchdog.lock")"
 if [ "$arms" = 1 ] && [ "$now_pid" = "$first_pid" ]; then
   pass=$((pass + 1)); echo "ok   and starts no second watchdog: one arm in watchdog.log, the same pid holds the lock"

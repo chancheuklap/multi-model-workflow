@@ -205,7 +205,7 @@ class JourneyOrder(unittest.TestCase):
         self.assertTrue(out.startswith("JOURNEY LEFT THE PRODUCT UP demo"), out)
         self.assertIn(pidfile.read_text(encoding="utf-8").strip(), out, "no pid to go to")
         self.assertNotIn("JOURNEY OK", out)
-        self.assertIn("Re-acquiring a slot from a live process", err)
+        self.assertIn("still has a listener", err)
         # Repo.run returning proves the release refusal did not escape as SystemExit;
         # an escaped exception would make this test error before `code` existed.
         self.assertIsNotNone(LEASE.registered(LEASE.worktree_of(self.repo.root)))

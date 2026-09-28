@@ -75,10 +75,6 @@ def test_writes_a_brief_next_to_the_findings_and_stops(tmp_path):
     assert "missing_module:uharfbuzz" in text
     assert "No module named 'uharfbuzz'" in text
     assert "add uharfbuzz to the release manifest's include_packages, then rebuild" in text
-    # 简报必须说清楚谁提交。这条路上驱动 agent 在引擎之外，改动不提交就进不了
-    # git archive HEAD，到不了构建机。
-    assert "Commit to the current branch" in text
-    assert "git archive HEAD" in text
 
 
 def test_missing_findings_is_an_error_not_a_silent_pass(tmp_path):

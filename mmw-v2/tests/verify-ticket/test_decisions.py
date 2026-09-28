@@ -44,12 +44,11 @@ TWO_SECTIONS_FILES = TWO_SECTIONS.replace(
     "src/helper.py was required for AC1\n"
     "lib/util.py was required for AC1")
 
-ALREADY_DECISIONS = (
-    "#{n} already carries a DECISIONS comment"
-)
-MISSING_SECTION = "the file is missing section `Decisions I made on my own`"
-NO_SELF_RUN = ("#{n} carries no ticket.checked of your own run to check "
-               "Outside Owns against")
+# Each refusal's distinguishing fact, not its wording: a fixed marker for each of the
+# three reasons `--decisions` can refuse.
+ALREADY_DECISIONS = "DECISIONS comment"
+MISSING_SECTION = "Decisions I made on my own"
+NO_SELF_RUN = "ticket.checked"
 
 
 class FakeGh:
@@ -121,7 +120,7 @@ class TestRefusesWhenTheTicketAlreadyHasOne(unittest.TestCase):
         code, err, posted, recorded = run_decisions(
             TWO_SECTIONS, comments=(SELF_RUN, existing))
         self.assertEqual(code, 2)
-        self.assertEqual(err.strip(), ALREADY_DECISIONS.format(n=77))
+        self.assertIn(ALREADY_DECISIONS, err)
         self.assertEqual(posted, [])
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))
 
@@ -131,7 +130,7 @@ class TestRefusesAFileMissingASection(unittest.TestCase):
         text = "## Outside Owns\n\nOutside Owns: None\n"
         code, err, posted, recorded = run_decisions(text)
         self.assertEqual(code, 2)
-        self.assertEqual(err.strip(), MISSING_SECTION)
+        self.assertIn(MISSING_SECTION, err)
         self.assertEqual(posted, [])
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))
 
@@ -154,7 +153,7 @@ class TestRefusesWithoutASelfRun(unittest.TestCase):
     def test_no_self_run_comment_is_refused(self):
         code, err, posted, recorded = run_decisions(TWO_SECTIONS, comments=())
         self.assertEqual(code, 2)
-        self.assertEqual(err.strip(), NO_SELF_RUN.format(n=77))
+        self.assertIn(NO_SELF_RUN, err)
         self.assertEqual(posted, [])
         self.assertFalse(any(c[:3] == ["gh", "issue", "comment"] for c in recorded))
 
@@ -163,7 +162,7 @@ class TestRefusesWithoutASelfRun(unittest.TestCase):
         the worker still has no run of its own to check the file against."""
         code, err, posted, _ = run_decisions(TWO_SECTIONS, comments=(TYPED_SELF_RUN,))
         self.assertEqual(code, 2)
-        self.assertEqual(err.strip(), NO_SELF_RUN.format(n=77))
+        self.assertIn(NO_SELF_RUN, err)
         self.assertEqual(posted, [])
 
     def test_a_reverify_is_not_the_workers_own_run(self):
@@ -171,15 +170,15 @@ class TestRefusesWithoutASelfRun(unittest.TestCase):
         reverify = checked("reverify", LEDGER, "ALL MET (1 met)")
         code, err, posted, _ = run_decisions(TWO_SECTIONS, comments=(reverify,))
         self.assertEqual(code, 2)
-        self.assertEqual(err.strip(), NO_SELF_RUN.format(n=77))
+        self.assertIn(NO_SELF_RUN, err)
         self.assertEqual(posted, [])
 
 
 class TestTheThreeRefusalsDiffer(unittest.TestCase):
-    def test_already_missing_section_and_no_self_run_are_three_wordings(self):
-        already = ALREADY_DECISIONS.format(n=77)
+    def test_already_missing_section_and_no_self_run_are_three_reasons(self):
+        already = ALREADY_DECISIONS
         missing = MISSING_SECTION
-        no_run = NO_SELF_RUN.format(n=77)
+        no_run = NO_SELF_RUN
         self.assertEqual(len({already, missing, no_run}), 3)
         cases = [
             (TWO_SECTIONS, (SELF_RUN, event("worker.decided", "DECISIONS\n\n## Decisions I made on my own\n\nx\n\n## Outside Owns\n\nOutside Owns: None\n")), already),
@@ -190,7 +189,7 @@ class TestTheThreeRefusalsDiffer(unittest.TestCase):
         for text, comments, want in cases:
             code, err, posted, _ = run_decisions(text, comments=comments)
             self.assertEqual(code, 2)
-            self.assertEqual(err.strip(), want)
+            self.assertIn(want, err)
             self.assertEqual(posted, [])
             seen.append(err.strip())
         self.assertEqual(len(set(seen)), 3)

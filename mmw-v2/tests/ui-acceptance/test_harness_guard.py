@@ -128,13 +128,14 @@ class WhatTheGuardReads(unittest.TestCase):
         (self.root / ".mmw" / "target.json").unlink()
         code, _ = self.guard()
         self.assertEqual(code, 2)
-        self.assertIn(".mmw/target.json is not there", self.err)
+        self.assertIn("is not there", self.err)
         self.assertNotIn("has no harness_markers", self.err)
 
     def test_unreadable_target_json_names_that_it_cannot_be_read(self):
         self.write(".mmw/target.json", "{bad\n")
         code, _ = self.guard()
         self.assertEqual(code, 2)
+        # lease.py's read_target_json documents this exact wording as depended upon.
         self.assertIn("cannot be read as JSON", self.err)
         self.assertNotIn("has no harness_markers", self.err)
 

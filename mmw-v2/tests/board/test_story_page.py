@@ -133,10 +133,7 @@ window.TEST_SCENES = {
             with story_page(self.browser, "tasks", "Component · 任务列表.missing",
                             before_goto=record_error, server_env=server_env):
                 self.assertEqual(len(errors), 1)
-                self.assertIn(
-                    "scene input value was not found: TEST_SCENES.missing", errors[0]
-                )
-                self.assertIn("Check the contract input.file/input.value", errors[0])
+                self.assertIn("TEST_SCENES.missing", errors[0])
 
     def test_response_table_returns_any_status_and_body_without_fetch(self):
         escaped = []

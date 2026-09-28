@@ -77,7 +77,7 @@ class ConditionalListReaderTest(unittest.TestCase):
 
     def test_not_modified_without_a_cached_page_fails(self):
         reader = ghlist.ConditionalListReader(lambda args: response(304))
-        with self.assertRaisesRegex(ghlist.ListReadError, "304 without a cached page"):
+        with self.assertRaisesRegex(ghlist.ListReadError, "304"):
             reader.read("repos/o/r/issues/1/comments?per_page=100")
 
     def test_failed_read_names_the_address(self):
@@ -93,8 +93,7 @@ class ConditionalListReaderTest(unittest.TestCase):
                     ghlist.ConditionalListReader(gh).read(address)
                 self.assertIn(address, str(caught.exception))
                 if index == 0:
-                    self.assertTrue("HTTP 502" in str(caught.exception)
-                                    or "gh exited 1" in str(caught.exception))
+                    self.assertIn("502", str(caught.exception))
 
     def test_counts_billed_and_not_modified(self):
         gh = TwoPageGh()

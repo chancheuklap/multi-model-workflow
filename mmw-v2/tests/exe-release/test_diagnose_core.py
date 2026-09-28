@@ -49,7 +49,7 @@ ENGINE_ERRORS = [
     (
         "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path in safe characters",
         "env:invalid_RELEASE_REMOTE_ROOT",
-        "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path in safe characters",
+        "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path",
     ),
     (
         "ERROR: remote build produced no exitcode within 7200s (task=mmw-release-duck)",
@@ -301,7 +301,7 @@ def test_cli_fails_loudly_when_a_branch_cannot_produce_findings(tmp_path):
         text=True,
     )
     assert result.returncode == 2
-    assert "diagnose_core" in result.stderr
+    assert "print('not json')" in result.stderr
 
 
 def test_a_smoke_that_ran_is_not_graded_as_a_missing_dependency():

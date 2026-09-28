@@ -118,8 +118,10 @@ class TestCarriedEditsAreStoppedAtTheCloseout(unittest.TestCase):
 
         code, out, err = tracker.run(vt.run_preflight, 77)
         self.assertEqual(code, 0, err)
-        self.assertIn("READY: #77 claimed on issue-77", out)
-        self.assertIn("CARRIED: 1 tracked files have uncommitted changes", out)
+        self.assertIn("READY:", out)
+        self.assertIn("#77", out)
+        self.assertIn("CARRIED:", out)
+        self.assertIn("1 tracked files", out)
         self.assertEqual(tracker.events()[-2:], ["ticket.claimed", "ticket.checked"])
         self.assertEqual(vt.events.parse(tracker.comments[-1])[1]["run"], "baseline")
 

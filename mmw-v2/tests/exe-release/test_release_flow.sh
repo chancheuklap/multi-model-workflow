@@ -404,7 +404,9 @@ export FAKE_BUILD_OUTCOME=fail:7
 init_for_remote_build
 remote_build >/dev/null 2>&1 || true
 bash "$RF" receipt > "$TMP/receipt.out"
-grep -q 'logs=' "$TMP/receipt.out" && ok "回执给出日志位置(自主处置的入口)" || no "回执没有日志位置"
+log_ref="$(jq -r '[.attempt_ledger[].log_refs[]?] | first // empty' "$SF")"
+[ -n "$log_ref" ] && grep -qF "$log_ref" "$TMP/receipt.out" \
+  && ok "回执给出日志位置(自主处置的入口)" || no "回执没有日志位置 (log_ref=$log_ref)"
 bash "$RF" abort >/dev/null
 unset FAKE_BUILD_OUTCOME FAKE_RUN_FAILS FAKE_REMOVE_FAILS
 bash "$RF" abort >/dev/null
@@ -575,15 +577,13 @@ printf 'sentinel\n' > "$bd_live/source/DO-NOT-WIPE"
 printf 'mmw-release-existing-task\n' > "$bd_live/build-run.task"
 # 有日志、没有 exitcode = 还在跑。产出由假构建机在被接上的那一刻写(真实构建也可能
 # 在任何一秒结束);接上去的那条路不会 schtasks /run,所以不能指望 /run 去写它。
+# 接上去就不再建第二个计划任务:假构建机的建任务历史在这一步前后行数不变。
+tasks_created_before="$(wc -l < "$FAKE_REMOTE_TASKS.history" 2>/dev/null || echo 0)"
 FAKE_ATTACH_FINISH=0 remote_build >/dev/null 2>&1 && attach_rc=0 || attach_rc=$?
-# 这一句由 _run_remote_build 打出，而它的输出整段进了这一步的日志文件，不在 stage run
-# 自己的 stdout 上。
-attach_log="$(find "$TMP/.release/release-artifacts" -name build.log 2>/dev/null | tail -1)"
-if grep -q "attaching to it" "$attach_log" 2>/dev/null; then
-  ok "认出远端还有一轮在跑,接上去"
-else
-  no "没认出正在跑的那一轮 ($(tail -2 "$attach_log" 2>/dev/null))"
-fi
+tasks_created_after="$(wc -l < "$FAKE_REMOTE_TASKS.history" 2>/dev/null || echo 0)"
+[ "$tasks_created_after" -eq "$tasks_created_before" ] \
+  && ok "认出远端还有一轮在跑,接上去,不另建计划任务" \
+  || no "没认出正在跑的那一轮,又建了计划任务 ($tasks_created_before -> $tasks_created_after)"
 [ "${attach_rc:-1}" -eq 0 ] && ok "接上去的那一轮按远端的 exitcode 判定" || no "接上去之后判定错 (rc=$attach_rc)"
 # 重传会先 Remove-Item 掉 source 再解压。这个哨兵文件只有不重传才活得下来。
 [ -f "$bd_live/source/DO-NOT-WIPE" ] \

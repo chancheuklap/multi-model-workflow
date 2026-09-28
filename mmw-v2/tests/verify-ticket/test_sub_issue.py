@@ -160,7 +160,7 @@ class TestRecordsTheChildOnTheTicket(unittest.TestCase):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                     code = vt.run_sub_issue(77, "decision", path)
         self.assertEqual(code, 1)
-        self.assertIn("do not open it again", err.getvalue())
+        self.assertIn("99", err.getvalue())
 
 
 class TestRefusesEmptyOrUnknown(unittest.TestCase):

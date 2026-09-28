@@ -266,12 +266,11 @@ def test_repo_hook_installer_without_the_hook_is_rejected(tmp_path):
 def test_nofollow_that_blocks_a_smoke_module_stops_before_assembling(tmp_path):
     """编译一次几十分钟。nofollow 把 smoke 要 import 的模块挡掉了，要在装配这一刻就停。"""
     doc = deepcopy(_key())
-    doc["python_backend"]["nofollow_imports"].append(
-        doc["python_backend"]["smoke"]["modules"][0]
-    )
+    blocked = doc["python_backend"]["smoke"]["modules"][0]
+    doc["python_backend"]["nofollow_imports"].append(blocked)
     result, script, _ = _assemble(tmp_path, doc)
     assert result.returncode != 0
-    assert "nofollow" in result.stderr
+    assert blocked in result.stderr
     assert not script.exists()
 
 

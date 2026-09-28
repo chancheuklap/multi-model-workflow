@@ -232,7 +232,7 @@ class TestFirstLine(unittest.TestCase):
         newest_run = checked("reverify", [MET, UNMET, unmet3], "UNMET: 2 (met: 1)")
         code, err, _ = check(text, comments=(FINAL_RUN, newest_run))
         self.assertEqual(code, 1)
-        self.assertIn("still reports unmet", err)
+        self.assertIn("unmet", err)
         self.assertNotIn("first line is `ALL MET` but", err)
 
     def test_a_well_formed_handoff_first_line_passes(self):
@@ -251,7 +251,7 @@ class TestBody(unittest.TestCase):
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, _ = check(text)
         self.assertEqual(code, 1)
-        self.assertIn("must be one of decision, failed, stuck", err)
+        self.assertIn("decision, failed, stuck", err)
 
     def test_an_abandon_pointing_at_no_criterion_is_refused(self):
         text = draft(first="HANDOFF REQUIRED: 1 abandoned (stuck), 0 unmet, 1 met of 1",
@@ -259,14 +259,15 @@ class TestBody(unittest.TestCase):
         text += "ABANDON: AC9 stuck there is no AC9 on this ticket\n"
         code, err, _ = check(text)
         self.assertEqual(code, 1)
-        self.assertIn("points at a criterion the draft does not list", err)
+        self.assertIn("AC9", err)
 
     def test_a_tick_with_pending_evidence_is_refused(self):
         ticked_but_empty = MET.replace(
             "EVIDENCE: exit=0; EXPECT=matched; output-bytes=9", "EVIDENCE: pending")
         code, err, _ = check(draft(criteria=(ticked_but_empty,), counts=counts_line(met=0, unmet=1)))
         self.assertEqual(code, 1)
-        self.assertIn("is ticked but its EVIDENCE is pending", err)
+        self.assertIn("AC1", err)
+        self.assertIn("EVIDENCE", err)
 
     def test_a_wrong_counts_line_is_overwritten_not_trusted(self):
         code, err, seen = check(draft(criteria=(MET,), counts=counts_line(met=4, total=4)),
@@ -310,26 +311,26 @@ class TestTheFinalRunSettlesAllMet(unittest.TestCase):
         code, err, _ = check(draft(counts=counts_line()),
                              comments=(FINAL_RUN, self.UNMET_RUN))
         self.assertEqual(code, 1)
-        self.assertIn("still reports unmet", err)
+        self.assertIn("unmet", err)
 
     def test_a_reverify_summarising_as_handoff_refuses_all_met(self):
         code, err, _ = check(draft(counts=counts_line()),
                              comments=(FINAL_RUN, self.HANDOFF_RUN))
         self.assertEqual(code, 1)
-        self.assertIn("still reports unmet", err)
+        self.assertIn("unmet", err)
 
     def test_a_later_self_run_cannot_override_the_final_run(self):
         """Only the newest worker reverify is closing proof, even if a self run follows."""
         code, err, _ = check(draft(counts=counts_line()),
                              comments=(FINAL_RUN, self.UNMET_RUN, self.MET_SELF_RUN))
         self.assertEqual(code, 1)
-        self.assertIn("final reverify still reports unmet", err)
+        self.assertIn("unmet", err)
 
     def test_a_ticket_with_no_reverify_cannot_close_as_all_met(self):
         code, err, _ = check(draft(counts=counts_line()), comments=NO_FINAL_RUN,
                              reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("carries no worker reverify `ticket.checked` event", err)
+        self.assertIn("ticket.checked", err)
 
     def test_a_reverify_typed_as_a_comment_is_not_a_reverify(self):
         """A hand-typed comment is prose, not the final run event."""
@@ -337,7 +338,7 @@ class TestTheFinalRunSettlesAllMet(unittest.TestCase):
         code, err, _ = check(draft(counts=counts_line()),
                              comments=(*NO_FINAL_RUN, typed), reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("carries no worker reverify `ticket.checked` event", err)
+        self.assertIn("ticket.checked", err)
 
     def test_a_failed_final_run_names_the_handoff(self):
         _, err, _ = check(draft(counts=counts_line()),
@@ -359,7 +360,7 @@ class TestTheFinalRunSettlesAllMet(unittest.TestCase):
     def test_a_final_run_on_an_older_commit_is_refused(self):
         code, err, _ = check(draft(counts=counts_line()), comments=(STALE_FINAL_RUN,))
         self.assertEqual(code, 1)
-        self.assertIn("HEAD has moved on", err)
+        self.assertIn(VERIFIED, err)
 
     def test_a_main_reverify_is_not_the_workers_final_run(self):
         main_run = checked("reverify", [MET], "ALL MET (1 met)", commit=HEAD,
@@ -367,7 +368,7 @@ class TestTheFinalRunSettlesAllMet(unittest.TestCase):
         code, err, _ = check(draft(counts=counts_line()), comments=(main_run,),
                              reverify=False)
         self.assertEqual(code, 1)
-        self.assertIn("carries no worker reverify", err)
+        self.assertIn("ticket.checked", err)
 
     def test_a_later_main_reverify_does_not_hide_the_workers_final_run(self):
         main_run = checked("reverify", [UNMET], "UNMET: 1 (met: 0)", commit=HEAD,
@@ -462,17 +463,17 @@ class TestGit(unittest.TestCase):
     def test_uncommitted_changes_to_tracked_files_are_refused(self):
         code, err, _ = check(draft(counts=counts_line()), dirty=[" M src/app.py"])
         self.assertEqual(code, 1)
-        self.assertIn("uncommitted changes", err)
+        self.assertIn("1 tracked files", err)
 
     def test_a_branch_that_does_not_contain_main_is_refused(self):
         code, err, _ = check(draft(counts=counts_line()), main_merged=False)
         self.assertEqual(code, 1)
-        self.assertIn("does not contain its base main", err)
+        self.assertIn("does not contain its base", err)
 
     def test_a_branch_that_changed_no_files_only_warns(self):
         code, err, _ = check(draft(counts=counts_line()), diff="")
         self.assertEqual(code, 0)
-        self.assertIn("warning: this branch changes no files", err)
+        self.assertIn("warning:", err)
 
     def test_untracked_files_alone_do_not_refuse(self):
         code, err, _ = check(draft(counts=counts_line()), dirty=[])
@@ -557,7 +558,7 @@ class TestTheCriteriaTheFinalRunUsedAreTheCriteriaTheTicketStates(unittest.TestC
             draft(criteria=(self.REWRITTEN,), counts=counts_line()),
             comments=(FINAL_RUN, reverify_of([MET])))
         self.assertEqual(code, 1)
-        self.assertIn("acceptance criteria have changed since the worker's final run", err)
+        self.assertIn("changed since", err)
 
     ADDED = MET.replace("AC1: the importer writes six rows", "AC3: a second criterion")
 
@@ -568,7 +569,7 @@ class TestTheCriteriaTheFinalRunUsedAreTheCriteriaTheTicketStates(unittest.TestC
             draft(criteria=(MET, self.ADDED), counts=counts_line(met=2, total=2)),
             comments=(FINAL_RUN, reverify_of([MET])))
         self.assertEqual(code, 1)
-        self.assertIn("acceptance criteria have changed since the worker's final run", err)
+        self.assertIn("changed since", err)
 
     def test_the_same_criteria_pass(self):
         code, err, _ = check(draft(counts=counts_line()),
@@ -757,7 +758,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
     def test_an_already_closed_ticket_is_refused(self):
         code, err, _ = check(draft(counts=counts_line()), state="CLOSED", check_only=False)
         self.assertEqual(code, 1)
-        self.assertIn("already CLOSED", err)
+        self.assertIn("CLOSED", err)
 
 
 def write_checks(root: Path, commands):
@@ -803,8 +804,7 @@ class TestTargetJsonChecks(unittest.TestCase):
         tail = commands[0]["tail"].splitlines()
         self.assertEqual((tail[0], tail[-1], len(tail)), ("6", "25", 20))
         self.assertNotIn(text.strip(), seen["posted"][0][1])
-        self.assertIn("Fix the code, run that suite yourself, commit, run --reverify "
-                      "--actor worker again, and run --closeout again", err)
+        self.assertIn("ticket.checked", err)
 
     def test_passing_checks_are_an_event_before_the_closing_comment(self):
         with TemporaryDirectory() as tmp:

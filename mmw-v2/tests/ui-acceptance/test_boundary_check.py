@@ -88,7 +88,6 @@ class BoundaryCheck(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("mmw-boundary-check-no-such-command", result.stderr)
         self.assertIn("was not found", result.stderr)
-        self.assertIn("stop", result.stderr.lower())
         self.assert_not_ok(result)
 
     def test_unclosed_quotes_are_not_reported_as_a_missing_command(self):

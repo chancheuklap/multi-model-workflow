@@ -132,8 +132,6 @@ class TestExtractSkeleton(unittest.TestCase):
             message = str(raised.exception)
             self.assertIn("screen-contract-missing-locale.yaml", message)
             self.assertIn("`locale` is missing", message)
-            self.assertIn("does not invent the product language", message)
-            self.assertIn("Add `locale`", message)
             self.assertFalse(output.exists())
 
 

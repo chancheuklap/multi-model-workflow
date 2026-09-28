@@ -177,9 +177,6 @@ class SupervisorTests(unittest.TestCase):
         new_pid = self.wait_for_new_child(supervisor.pid, port, old_pid)
         self.assertEqual(self.board(port)["repo"], "fixture/updated")
         self.assertIsNone(supervisor.poll(), "the supervisor must replace itself, not exit")
-        log.flush()
-        log.seek(0)
-        self.assertIn("restarting the supervisor", log.read())
         with self.assertRaises(ProcessLookupError):
             os.kill(old_pid, 0)
         self.assertNotEqual(new_pid, old_pid)

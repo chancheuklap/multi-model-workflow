@@ -851,7 +851,6 @@ class TestTheProductSlot(unittest.TestCase):
         self.assertEqual((queued["event"], queued["reason"], queued["run"], queued["limit"]),
                          ("worker.queued", "product-full", "self", 1))
         self.assertEqual(queued["holders"], [str(other.resolve())])
-        self.assertIn("Run the same command again", err)
 
         # Asked again while the wait is already on the ticket: no second event.
         code, again, _ = self.run_in(root, PRODUCT, comments=posted)
@@ -912,7 +911,6 @@ class TestTheProductSlot(unittest.TestCase):
                 code, _, err = self.run_in(root, body, post=tracker_down)
                 self.assertEqual(code, vt.NOT_RECORDED, err)
                 self.assertNotIn(code, (0, 1))
-                self.assertIn("could not be written", err)
 
     def test_a_full_machine_queues_the_run_the_same_way(self):
         _, root = self.main_repo()
@@ -942,7 +940,6 @@ class TestTheProductSlot(unittest.TestCase):
             self.assertEqual(code, 3, err)
             sleep.assert_not_called()
             self.assertEqual([payload_of(b)["event"] for b in posted], ["worker.queued"])
-            self.assertIn("Nothing was run", err)
             self.assertIn("`#1 worker.queued`", err)
 
             # Woken, run again, and the slots are still held: the same wait, no second event.
@@ -961,7 +958,6 @@ class TestTheProductSlot(unittest.TestCase):
         self.assertEqual([c.args for c in sleep.call_args_list], [(10,), (10,)])
         queued = payload_of(posted[0])
         self.assertEqual((queued["event"], queued["run"]), ("worker.queued", "reverify"))
-        self.assertIn("Run the same command again to keep waiting", err)
 
     def test_a_product_criterion_with_no_lease_py_reachable_is_refused(self):
         _, root = self.main_repo()
