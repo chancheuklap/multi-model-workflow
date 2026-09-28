@@ -69,3 +69,7 @@ Side effects happen inline as decisions crystallize; read the `domain-modeling` 
 - **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
 - **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing; skip ephemeral reasons ("not worth it right now") and self-evident ones.
 - **Want to explore alternative interfaces for the deepened module?** Read the `codebase-design` skill's `SKILL.md` and use its design-it-twice pattern, which asks your host for its own general-purpose subagents.
+
+### 4. Hand the decision on
+
+This skill changes no code. What the grilling settles is a decision: the deepened module, its interface, where the seam sits, which tests move to it. When the user confirms it, hand that decision to the `to-spec` skill, which turns this conversation into a spec the landing pipeline can build and verify; refactoring here would skip the tickets and the acceptance checks that make the change safe to land. Take one candidate per session, and tell the user the report's path so the others can be picked up later.
