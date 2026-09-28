@@ -5,6 +5,8 @@ description: Create or rewrite a repository's AGENTS.md and CLAUDE.md to one fix
 
 # Manage AGENTS.md
 
+An `AGENTS.md` is loaded into every session of every agent that works in this repository, on every host, and each line is obeyed as fact: a wrong or stale line misleads every agent after you, and a line the code already says only thins attention. So the file holds what an agent working here cannot find out by itself before it does damage: what this project is and what is at stake, what must not be touched, what must happen in order, what looks wrong but is deliberate, and where the documents are.
+
 Two situations share one flow: set up in the situation's file, then the sections below in order; the situation's file says where its own step joins.
 
 ## Resolve `<scripts>` once
@@ -24,20 +26,7 @@ bash <scripts>/check.sh --list .
 | Nothing | **create** | [references/create.md](references/create.md) |
 | Any file, and the user asked you (to rewrite, migrate, redo, or change these files) | **rewrite** | [references/rewrite.md](references/rewrite.md) |
 
-## The scratch directory
-
-`inputs.md` in the scratch directory has three headings, each followed by one line per item or the word `none`:
-
-```markdown
-## Other tools' instruction files
-<path>
-
-## Commands found in old files
-`<command>` — <file>:<line>
-
-## Imports found in old CLAUDE.md files
-<@line> — <file>:<line>
-```
+The survey and the questions exist to find what the user has not told you. When the user has already said what the file must say, survey only what verifies those facts and ask only what is still missing; the format, `check.sh` and the report stay the same.
 
 ## Survey
 
@@ -45,14 +34,14 @@ You are collecting the facts the `AGENTS.md` files will be written from. Everyth
 
 ### Groups
 
-Two kinds of group. Each gets the prompt template below with its own **assignment**.
+Each group gets the prompt template below with its own **assignment**, split so every part of the repository is read by someone whose share fits one session: by default, the four topic groups below plus one directory group per top-level directory. In a small repository, merge groups whose assignments would each be a few files into one dispatch.
 
 Topic groups, always these four, feeding the root file:
 
 | Group | Assignment |
 | --- | --- |
 | toolchain | manifests, lock files, `Makefile`, task runners, `scripts/`, CI workflows: which package manager and runtime; which commands exist; which of them a reader cannot understand from `--help` or the manifest alone; which are file-scoped |
-| documents | `README.md`, `CONTRIBUTING.md`, `docs/`, `specs/`, `SECURITY.md`, `.github/`, and every file listed in `inputs.md`: which documents cover setup, architecture, API, security, release, policy; where they disagree with each other or with the code |
+| documents | `README.md`, `CONTRIBUTING.md`, `docs/`, `specs/`, `SECURITY.md`, `.github/`, and other tools' instruction files (`.cursor/rules/`, `.cursorrules`, `.github/copilot-instructions.md`, `GEMINI.md`): which documents cover setup, architecture, API, security, release, policy; where they disagree with each other or with the code |
 | history | commit history: the busiest directories (command below); directories untouched for a year; committed files that a command generates; areas that look legacy |
 | patterns | the code: test layout and how one test file is run; generated files and their generators; ordering dependencies between modules; anything two parts of the code do differently |
 
@@ -74,7 +63,7 @@ Assignment: <ASSIGNMENT>
 
 Read everything in your assignment. Then report every fact that an agent working in this repository would need and could not learn by reading the obvious file (a manifest, a config, a README). Leave out what those files already say plainly.
 
-Cross-reference with the actual codebase: run the documented commands, check that referenced files exist, and verify architecture descriptions against the code.
+Cross-reference with the actual codebase: check that referenced files exist and verify architecture descriptions against the code. Run a command only when running it changes nothing outside a temporary directory: `--help`, a test, a lint, a local build. A command that deploys, publishes, migrates, sends messages or writes to a shared service is verified by reading the script it invokes, never by running it.
 
 Report format, one entry per fact, nothing else:
 
@@ -95,25 +84,17 @@ When two parts of the repository do the same thing differently, report both with
 
 Merge every report into one file, `survey-list.md` in the scratch directory: every entry kept with its evidence, exact duplicates dropped, sorted by place with `root` first. This file is the **survey list**; every later step reads it and nothing else from the survey. `## Ask the user` appends the user's answers to it as entries of type identity and purpose.
 
-Done when every group has reported ("nothing found" counts), every `- fact:` line in `survey-list.md` is followed by its own `  evidence:` line and every `  evidence:` line follows a `- fact:` line — read the file top to bottom and name every line on either side that has no partner — and the entries are sorted by place.
+Done when every group has reported ("nothing found" counts) and the entries are merged and sorted by place.
 
 ## Ask the user
 
 The survey list holds what the repository shows. Four things it cannot show: who the project serves and how serious it is, what this repository is not, the conventions nobody wrote down, and the reasons behind the odd choices. You get those from the user now, with the fixed questions below. Each question carries a recommended answer drawn from the survey list, so the user confirms or corrects instead of composing.
 
-This is one round: the questions are fixed, there is no follow-up tree, and nothing else is asked here.
+The questions below are a coverage checklist, not a script: one the survey list already answers with evidence becomes a one-line confirmation, and an answer that surfaces a fact the file still needs earns one follow-up question, never a design discussion.
 
 ### Format
 
-Ask the whole set in one message: number each question and give your recommended answer. Then wait for the user's answers before writing.
-
-Each question should be formatted like so:
-
-```
-❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
-
-➡️ <your recommended answer>
-```
+Ask the whole set in one message, each question numbered with your recommended answer under it, then wait for the answers.
 
 The recommended answer quotes the survey entry and its evidence. When the survey list has nothing for a question, the recommended answer is "the survey found nothing for this". In the rewrite situation, the lines `destinations.md` sent to `ask` are the old file's identity lines; they are the recommended answers to the four identity questions, each marked "from the current file".
 
@@ -134,9 +115,9 @@ The recommended answer quotes the survey entry and its evidence. When the survey
 6. How do machines or environments differ from each other (local and production, one OS and another)?
 7. Which areas are legacy and must be left alone?
 
-### Nested purpose, one question per directory
+### Nested purpose, one table
 
-A directory **earns a pair** when the survey list has at least one entry of type command, convention, or gotcha whose place is that directory; entries of type defect and reference do not count. Ask about every directory that earns a pair in one question: a table with one row per directory, the recommended purpose line in the second column, drawn from that directory's purpose entry in the survey list. The user edits rows or strikes directories out.
+A nested file is one more file that drifts as the code under it changes, and nothing reminds anyone to update it. A directory earns one when an agent working there would break something it would not notice; a rule the agent would learn from the first error or the first file it opens stays out, and a rule for one kind of work can be a domain section in the root instead. Ask about every directory that earns a pair in one question: a table with one row per directory, the recommended purpose line in the second column, drawn from that directory's purpose entry in the survey list. The user edits rows or strikes directories out.
 
 ### Record
 
@@ -148,16 +129,36 @@ Done when every question has an appended answer or the user's explicit "skip".
 
 You have `survey-list.md`, with the user's answers appended. You now write the files, root first, one at a time, from that list alone. Each line you write comes from one entry; an idea with no entry is not written. Entries of type defect are never written; they go to the report that `## Verify and report` writes at the end.
 
+### What NOT to Add
+
+Each rule, then what it catches.
+
+1. **Obvious code info** — what the code already says. Bad: `The UserService class handles user operations.` The class name already tells us this.
+2. **Discoverable from code** — cut any instruction the agent can discover from existing code patterns. LLMs are in-context learners — if your codebase consistently uses a pattern, the agent will follow it after a few searches. Bad: `Use named exports.` Every file in `src/` already does.
+3. **Generic best practices** — universal advice, quality slogans, "follow best practices". Bad: `Always write tests for new features.` `Use meaningful variable names.`
+4. **One-off fixes** — won't recur; clutters the file. Bad: `We fixed a bug in commit abc123 where the login button didn't work.`
+5. **Verbose explanations** — verbose explanations when a one-liner suffices. Bad: `The authentication system uses JWT tokens. JWT (JSON Web Tokens) are an open standard (RFC 7519) that defines a compact and self-contained way for securely transmitting information between parties as a JSON object. In our implementation, we use the HS256 algorithm which...` Good: `Auth: JWT with HS256, tokens in `Authorization: Bearer <token>` header.`
+6. **Linter territory** — anything a linter, formatter, typechecker, or pre-commit hook can enforce. When you cut one, suggest in the report wiring it as a pre-commit hook with the `code-checkers` skill. Bad: `Use camelCase for variables, PascalCase for components.`
+7. **Code snippets** — cut code snippets. They go stale and bloat the file. Use file path references instead (e.g., "see `src/utils/example.ts` for the pattern"). Bad: a ten-line example handler.
+8. **Copies of other documents** — content that `README.md`, `CONTRIBUTING.md`, or a policy doc already holds. Reference it instead. Bad: the setup steps from `CONTRIBUTING.md` pasted in.
+9. **Installed skills and plugins** — a list of what is installed. Bad: `Available skills: tdd, research, ...`
+10. **Welcome text** — welcome text, intros, conclusions, or pleasantries.
+    Bad: `Welcome! This file helps you work effectively in our codebase.`
+11. **Prose about why** — long prose explaining why instructions matter.
+    Bad: a paragraph on how following these rules keeps the team productive.
+12. **Nested repeats** — nested `AGENTS.md` files that repeat root instructions.
+    Bad: a nested file that restates the root's commit rule.
+
 ### Language
 
-Write in the language the repository's existing instruction files use; in the create situation, the language the user answered in. Translate the section headings of the templates; keep the subdirectory sentence in English as shown, because `<scripts>/check.sh` looks for it by its English words.
+Write in the language the repository's existing instruction files use; in the create situation, the language the user answered in. Other skills add rows under `## Commands`, `## External References` and `## Key Conventions` by those headings, so the headings stay in English as written; the lines under them are in the repository's language. Keep the subdirectory sentence in English as shown, because `<scripts>/check.sh` looks for it by its English words.
 
 ### Steps
 
 1. **List the nested directories**: the directories that earned a pair in `## Ask the user`.
 2. **Write each code or test rule**: every survey-list entry that says how code or tests are written here goes into `CODING_STANDARDS.md` or `TESTING.md` at the repository root, as `### Code and test rules` below says, not into an `AGENTS.md`.
 3. **Write the root `AGENTS.md`** on the root template below, from the entries whose place is `root`.
-4. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` line listed under `## Imports found in old CLAUDE.md files` in `inputs.md` that came from the root `CLAUDE.md`. Nothing else.
+4. **Write the root `CLAUDE.md`**: the line `@AGENTS.md`, plus any other `@` line whose destination in `destinations.md` is `CLAUDE.md`. Nothing else.
 5. **Write each nested pair** on the nested template, from the entries whose place is that directory. The `CLAUDE.md` beside it holds the one line `@AGENTS.md`, replacing whatever was there.
 
 ### Root template
@@ -167,7 +168,7 @@ Write the file in this shape. A section with no entries is left out, heading inc
 ```markdown
 # AGENTS.md
 
-<identity: one to four lines, from the entries of type identity — who it serves and what it solves; what stage it is at and whether real users, data, or money run through it; what this repository is not (split-out repositories, frozen directories); how an agent should treat the repository's contents. The tech stack is not identity.>
+<identity: one to four lines, from the entries of type identity — who it serves and what it solves; what stage it is at and whether real users, data, or money run through it; what this repository is not (split-out repositories, frozen directories); how an agent should treat the repository's contents. The tech stack is not identity. An agent decides what kind of task it is on, and how careful to be, from these lines.>
 
 ## Package Manager
 
@@ -204,7 +205,7 @@ A fact that describes a practice is a convention; a fact that describes a conseq
 
 Hosts that load nested files on their own lose nothing by the last line; hosts that stop at the working directory depend on it.
 
-A root file carries only the sections above: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It stays within the limit `check.sh` sets — `bash <scripts>/check.sh --limit` prints it; past that, rules that hold only in one directory move to that directory's file and documents get a row in External References instead of a summary.
+A root file carries only the sections above, plus one section of its own for a class of facts every task needs that no section above holds: no directory map, no environment variables, no list of installed skills, no commit attribution, no metadata header, no index of nested files. It stays within the limit `check.sh` sets — `bash <scripts>/check.sh --limit` prints it; past that, rules that hold only in one directory move to that directory's file and documents get a row in External References instead of a summary.
 
 ### Code and test rules
 
@@ -244,6 +245,8 @@ Every section after the purpose line appears only when it has rows. An entry who
 
 #### 1. Foundational context stays bare, domain guidance gets wrapped
 
+Not everything goes in an `<important if>` block. What every task needs (identity, package manager, commands, external references, key conventions, gotchas) stays as plain markdown; wrap only what some tasks reach.
+
 Domain-specific guidance that only matters for certain tasks — releasing, deploying, editing translations — gets wrapped in `<important if>` blocks with targeted conditions. Such a block is a **domain section**; in the survey list it is every entry that carries a `when` line, and entries with the same `when` value share one block.
 
 #### 2. Conditions must be specific and targeted
@@ -278,9 +281,7 @@ Write the smallest useful file. Use only sections that add non-obvious value.
 
 - Use headings, bullets, and tables; avoid paragraphs outside the identity lines.
 - Use repository-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`packages/<name>/package.json`); `<scripts>/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
-- List exact external files for setup, architecture, API specs, security, release, and policy docs when they exist.
-- Prefer file-scoped lint and typecheck commands; include full builds only when no narrower command exists. Write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable stays in `inputs.md`, every other one is kept.
-- Put commands in tables when there is more than one.
+- Prefer file-scoped lint and typecheck commands; include full builds only when no narrower command exists. Write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable gets `removed: discoverable` as its destination in `destinations.md`, every other one is kept.
 - Keep one rule per bullet.
 - Keep rationale out unless it prevents a likely mistake. The one rationale that does is the reason behind a deliberate unconventional choice: it stops the next agent from "fixing" it.
 - State each rule as the behaviour to perform. A prohibition stays only where no positive phrasing exists, and then sits next to the positive target.
@@ -293,42 +294,9 @@ Done when every pair from step 1 exists, every code or test rule is in `CODING_S
 
 ## Prune
 
-The files are written. Now read each one you wrote or edited line by line: first against the list of what must not be there, then through the self-check.
+The files are written. Read each one you wrote or edited as the agent who loads it at the start of every session, and cut every line that would not change what that agent does.
 
-### What NOT to Add
-
-Each rule, then what it catches.
-
-1. **Obvious code info** — what the code already says. Bad: `The UserService class handles user operations.` The class name already tells us this.
-2. **Discoverable from code** — cut any instruction the agent can discover from existing code patterns. LLMs are in-context learners — if your codebase consistently uses a pattern, the agent will follow it after a few searches. Bad: `Use named exports.` Every file in `src/` already does.
-3. **Generic best practices** — universal advice, quality slogans, "follow best practices". Bad: `Always write tests for new features.` `Use meaningful variable names.`
-4. **One-off fixes** — won't recur; clutters the file. Bad: `We fixed a bug in commit abc123 where the login button didn't work.`
-5. **Verbose explanations** — verbose explanations when a one-liner suffices. Bad: `The authentication system uses JWT tokens. JWT (JSON Web Tokens) are an open standard (RFC 7519) that defines a compact and self-contained way for securely transmitting information between parties as a JSON object. In our implementation, we use the HS256 algorithm which...` Good: `Auth: JWT with HS256, tokens in `Authorization: Bearer <token>` header.`
-6. **Linter territory** — anything a linter, formatter, typechecker, or pre-commit hook can enforce. When you cut one, suggest in the report wiring it as a pre-commit hook with the `code-checkers` skill. Bad: `Use camelCase for variables, PascalCase for components.`
-7. **Code snippets** — cut code snippets. They go stale and bloat the file. Use file path references instead (e.g., "see `src/utils/example.ts` for the pattern"). Bad: a ten-line example handler.
-8. **Copies of other documents** — content that `README.md`, `CONTRIBUTING.md`, or a policy doc already holds. Reference it instead. Bad: the setup steps from `CONTRIBUTING.md` pasted in.
-9. **Installed skills and plugins** — a list of what is installed. Bad: `Available skills: tdd, research, ...`
-10. **Welcome text** — welcome text, intros, conclusions, or pleasantries.
-    Bad: `Welcome! This file helps you work effectively in our codebase.`
-11. **Prose about why** — long prose explaining why instructions matter.
-    Bad: a paragraph on how following these rules keeps the team productive.
-12. **Nested repeats** — nested `AGENTS.md` files that repeat root instructions.
-    Bad: a nested file that restates the root's commit rule.
-
-### Self-check
-
-Answer each for the file in front of you. A "no" means the file is not finished: fix the lines behind it before going on. A "no" whose cause is that the repository has none of the thing (a project with no commands, no documents to reference) is a pass; write that cause down.
-
-| Criterion | Check |
-| --- | --- |
-| Commands | Has every command in the table passed the command rule in `## Write`, and is none of that kind missing? |
-| Orientation | Do the identity lines and External References let an agent find where things live? |
-| Non-obvious patterns | Are gotchas and quirks documented? |
-| Currency | Does it reflect current codebase state — no outdated versions? |
-| Actionability | Are instructions executable, not vague — no template text left uncustomized, no "TODO"? |
-| Single source | Does no line repeat a line of another `AGENTS.md` in this repository? |
-
-Done when every line of every file you wrote or edited has passed the list and the self-check, and every rule is phrased as the behaviour to perform or, where a prohibition had to stay, sits next to its positive target.
+Done when no line states an outdated version or count, and no template placeholder or `TODO` is left.
 
 ## Verify and report
 
@@ -344,7 +312,7 @@ bash <scripts>/check.sh .
 
 Fix every line `check.sh` prints and run it again until it prints `ok`. A failure this repository cannot satisfy is a pass; write its cause down. Two reach that: a root file over the limit with nothing left to move into a directory's file, and a backticked path a clean checkout does not hold (a generated or ignored file).
 
-Verify exact paths and commands exist. The script covers paths. Commands you verify yourself: run each one a file names, or read the script it invokes, and fix the line when it fails.
+Verify exact paths and commands exist. The script covers paths. Commands you verify yourself: run a command only when running it changes nothing outside a temporary directory (`--help`, a test, a lint, a local build); a command that deploys, publishes, migrates, sends messages or writes to a shared service is verified by reading the script it invokes, never by running it. Fix the line when it fails.
 
 ### Report
 
