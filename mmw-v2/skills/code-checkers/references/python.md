@@ -21,7 +21,7 @@ target-version = "py311"
 extend-exclude = ["archive"]   # whatever the test runner already ignores
 ```
 
-Recent `ruff` releases enable most rules by default. Leave them on — most of the count is machine-fixable, and the families that remain tend to be the ones that matter. Two calibrations:
+Recent `ruff` releases enable several hundred rules by default. Leave them on — most of the count is machine-fixable, and the families that remain tend to be the ones that matter. Two calibrations:
 
 **Line length.** Measure before choosing. Widening past the default usually *increases* the diff, because the formatter rejoins calls the old width had split. Compare before committing:
 
@@ -56,7 +56,13 @@ project-excludes = ["**/archive/**", "**/.venv/**", "**/node_modules/**", "**/__
 python-version = "3.11"
 search-path = ["src", "."]
 baseline = "pyrefly-baseline.json"
+disable-project-excludes-heuristics = true
+use-ignore-files = false
 ```
+
+`project-includes` lists every directory that holds Python; the four here are an example layout.
+
+**Worktrees under an ignored directory.** pyrefly matches ignore files and its default excludes against absolute paths, so a worktree whose path passes through a gitignored directory (`.worktrees/`, `.claude/worktrees/`) matches no file at all: the check fails with "No Python files matched", and every commit from that worktree needs `--no-verify`. List the excludes yourself and turn both of those off.
 
 **`search-path` is where most of a first run comes from.** pyrefly infers one import root from the project layout — typically `src`. Scripts that import each other by repository-relative path (`scripts.dev.common`) resolve against the repository root instead, and every one of those imports fails until the root is on the path. Fix this before reading a single error.
 
@@ -84,15 +90,4 @@ ignore = "..."
 
 Most of a first run is style opinion that buries the two things djlint is actually worth having: **syntax** (an unclosed tag, a mismatched block) and **accessibility** (an image with no alt text). Read the rule distribution and turn off what does not apply — rules naming another framework's helpers (`url_for` is Flask's; a FastAPI app has no such function), inline-style warnings in a project whose inline styles carry computed values, empty-tag warnings where empty tags are the icon-font convention, SEO hints on pages behind a login.
 
-The target is a clean run, so that the next non-zero count means something.
-
-## Commands
-
-```bash
-uv run ruff format <paths>            # writes
-uv run ruff format --check <paths>    # reports
-uv run ruff check <paths>
-uv run ruff check --fix <paths>
-uv run pyrefly check
-uv run djlint <template-dir> --lint
-```
+The target is a clean run, so that the next non-zero count means something. Run it with `uv run djlint <template-dir> --lint`; djlint does not check without `--lint`.
