@@ -23,8 +23,7 @@ declaring `scripts.run`; `journeys` in `.mmw/target.json` says where they live, 
   `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`.
 
 The script never receives `MMW_BREAK` or another signal saying which pass is running.
-Playwright's own API is what drives the product; there is no driver between the script
-and the page. Exit 0 for a pass, non-zero for a failure, and put what went wrong on the
+Drive the page with Playwright's own API. Exit 0 for a pass, non-zero for a failure, and put what went wrong on the
 last line of the output — that line is what the judge prints.
 
 **End by reading the result back from another page.** A journey that clicks Submit and
@@ -36,13 +35,9 @@ read interface makes the second pass fail for the reason the user path would fai
 the application and opens its debugging port, `discover` prints that address, and the
 journey connects to it with Playwright.
 
-## The criterion, in one shape
-
-The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds the `CHECK:` and `EXPECT:` lines.
-
 ## The break switch
 
-The product's break switch matches the method and route the criterion's `--break` names, fails only that interface, and affects only the product process. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference.
+The product's break switch matches the method and route the criterion's `--break` names, fails only that interface, and affects only the product process. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference. The switch lives in the product because only the product's own routing reaches every path its frontend takes; a forwarding proxy in front of it misses a frontend that calls its backend by another address.
 
 ## The negative control
 
@@ -60,13 +55,4 @@ control and leaves the next run blocked.
 
 ## Exit codes
 
-- **`0`**, `JOURNEY OK <name>`: the script passed against the normal product and failed
-  when the named interface was broken, or for the contract smoke journey without the
-  product.
-- **`1`**, `JOURNEY FAILED <name> at <last line>`: the first script run failed. The
-  control was not run. What to fix is what that last line names — the script's own
-  output, not this judge's words. A `<name>` with no executable `run` and no
-  `package.json` `scripts.run` reads the same way, naming the directory it looked in.
-- **`1`**, `JOURNEY GREEN WITH BREAK`, `JOURNEY GREEN WITHOUT PRODUCT` or
-  `JOURNEY LEFT THE PRODUCT UP`: the line says what to change.
-- **`2`**: a refusal naming the failed fact and the next action.
+On `JOURNEY FAILED`, what to fix is what the last line names: the script's own output, not this judge's words.

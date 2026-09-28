@@ -4,7 +4,7 @@
 # ///
 """Render the design package's declared scenes and write its row inventory.
 
-Usage: uv run python extract_skeleton.py <package dir> <out.json> --contract <yaml> [--tools <dir>]
+Usage: uv run extract_skeleton.py <package dir> <out.json> --contract <yaml> [--tools <dir>]
 
 Every scene in `scenes.json` is rendered at its page's own `pages.<page>.viewports`
 when the contract declares them, else at every top-level viewport,
@@ -14,18 +14,15 @@ declared scenes show that element, whether it is clickable or editable, the scen
 is disabled in (`disabled_in`: the `disabled` attribute or `aria-disabled="true"`), the displayed
 text values, and its accessible names as explanation rather than identity.
 
-Needs Chromium installed for Playwright. Playwright and PyYAML come from the dependency
-block above: `uv run --script` reads it, and a `uv run python` invocation, which does not,
-re-execs once through `uv run --script` when either import is missing. The three CDN
-scripts `support.js` loads are answered from the package's `vendor/` directory, else a
-local cache, else fetched once.
+Needs Chromium installed for Playwright. `uv run` reads the dependency block above and
+supplies Playwright and PyYAML from it. The three CDN scripts `support.js` loads are
+answered from the package's `vendor/` directory, else a local cache, else fetched once.
 """
 from __future__ import annotations
 
 import argparse
 import importlib.util
 import json
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -241,26 +238,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-_BOOTSTRAP = "MMW_EXTRACT_SKELETON_BOOTSTRAPPED"
-
-
-def _ensure_script_env() -> None:
-    """Re-exec through the PEP 723 block when the caller used `uv run python`."""
-    try:
-        import playwright.sync_api  # noqa: F401
-        import yaml  # noqa: F401
-    except ImportError:
-        if os.environ.get(_BOOTSTRAP) == "1":
-            raise SystemExit("extract_skeleton.py is missing playwright or pyyaml after "
-                             "uv run --script; install those with the script's metadata")
-        env = dict(os.environ)
-        env[_BOOTSTRAP] = "1"
-        os.execvpe("uv", ["uv", "run", "--script", str(Path(__file__).resolve()),
-                          *sys.argv[1:]], env)
-
-
 if __name__ == "__main__":
-    _ensure_script_env()
     args = parse_args(sys.argv[1:])
     TOOLS[:] = [directory.resolve() for directory in args.tools]
     main(args.handoff.resolve(), args.out.resolve(), args.contract.resolve())

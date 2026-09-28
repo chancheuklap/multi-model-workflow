@@ -23,7 +23,6 @@ What is read is what the repository tracks, or would track — `git ls-files --c
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import shlex
@@ -35,6 +34,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+from lease import TargetJSONError, read_target_json  # noqa: E402
 from refusal import refusal  # noqa: E402
 
 READ_MMW = re.compile(
@@ -66,16 +66,12 @@ def is_leak(line: str, markers: tuple[str, ...]) -> bool:
 
 
 def load_target(root: Path) -> tuple[dict | None, str | None]:
-    rel = ".mmw/target.json"
-    path = root / rel
-    if not path.is_file():
-        return None, f"{rel} is not there."
     try:
-        cfg = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        return None, f"{rel} cannot be read as JSON: {exc}"
-    if not isinstance(cfg, dict):
-        return None, f"{rel} must hold one JSON object."
+        cfg = read_target_json(root)
+    except TargetJSONError as exc:
+        return None, str(exc)
+    if cfg is None:
+        return None, ".mmw/target.json is not there."
     return cfg, None
 
 

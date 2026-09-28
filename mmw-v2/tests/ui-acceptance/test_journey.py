@@ -464,9 +464,8 @@ class NegativeControl(unittest.TestCase):
         ]))
 
         break_key = "MMW_BREAK"
-        retired_key = "MMW_" + "JOURNEY_NEGATIVE"
         with mock.patch.dict(
-            os.environ, {break_key: "inherited-break", retired_key: "inherited-pass"},
+            os.environ, {break_key: "inherited-break"},
             clear=False,
         ):
             code, out, err = self.repo.run("watch", "--break", "GET /result/{id}")
@@ -476,7 +475,6 @@ class NegativeControl(unittest.TestCase):
         self.assertEqual(first, second.removesuffix("pass-end\n"))
         for pass_environment in (first, second):
             self.assertNotIn(f"{break_key}=", pass_environment)
-            self.assertNotIn(f"{retired_key}=", pass_environment)
 
     def test_a_journey_that_asserts_nothing_is_caught(self):
         self.repo.write_journey("lazy", "exit 0")

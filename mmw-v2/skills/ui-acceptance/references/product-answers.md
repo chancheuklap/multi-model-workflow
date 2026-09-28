@@ -24,9 +24,7 @@ These hold for every product. How a given repository meets them is its own.
   unpairable. A static check the contract ticket delivers holds this.
 - **Time values come from scene data.** A client-rendered product loads the same
   paused clock the design side uses, so a clock reading is not a live instant.
-- **A boundary test replaces the outbound call module** the consuming repository
-  names — the layer that emits the call, whether the call travels as HTTP, IPC, or
-  an extension message.
+- **A boundary test replaces the outbound call module**, which the repository names ([boundary-check.md](boundary-check.md)).
 - **`.mmw/harness/` implements the break switch** that [journey.md](journey.md)
   **The break switch** specifies.
 - **A journey script reads only the addresses `discover` printed.** It starts
@@ -77,7 +75,7 @@ These hold for every product. How a given repository meets them is its own.
 - **`harness_markers`.** Judged by [harness-guard.md](harness-guard.md).
 
 - **`checks`.** The repository's own checks, which the `verify-ticket` skill's
-  `--closeout` runs. `checks` is optional: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Every command receives `MMW_BASE_REF=origin/<into>`, where `into` is from the newest `worker.started`. The run lands as a `ticket.checked` event of its own, run `repo-checks`, before the closing comment: result `met` and the count passed when every command exited 0, and the branch is then pushed and the ticket closes; result `unmet` with each failed command and its last 20 lines when any did not, and the ticket stays open. A key that is not a list, an entry of another shape, or a file that is not JSON is an `unmet` run naming that problem, not absence; a repository without the key runs nothing and posts no such event.
+  `--closeout` runs. `checks` is optional: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Every command receives `MMW_BASE_REF=origin/<into>`, where `into` is from the newest `worker.started`. A command that fails keeps the ticket open, so every entry must pass on the base branch as it stands.
 
 ## `.mmw/` directory
 
@@ -95,4 +93,4 @@ call the same start code `harness/` uses.
 
 ## Rules
 
-Real keys exist only on a paid-smoke ticket labelled `ready-for-human`.
+A night repeats every criterion unattended, often many times; with a real key each repeat can spend money or reach a real customer, and nobody is watching to stop it. So automation uses placeholder keys, vendor stubs and local accounts, records under `MMW_AUTOMATION=1` whatever would leave this machine (the `leaves_machine` answer), and real keys exist only on a paid-smoke ticket labelled `ready-for-human`.

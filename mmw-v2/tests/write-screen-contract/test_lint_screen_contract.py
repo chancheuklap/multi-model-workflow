@@ -17,9 +17,6 @@ lc = importlib.util.module_from_spec(spec)
 sys.modules["lint_screen_contract"] = lc
 spec.loader.exec_module(lc)
 
-# The ui-acceptance scripts the lint asks to validate `.mmw/target.json`.
-TOOLS_DIR = Path(__file__).resolve().parents[2] / "skills" / "ui-acceptance" / "scripts"
-
 PAGE_A = "Component · 新建商品项目.dc.html"
 PAGE_B = "Component · 壳头.dc.html"
 PAGE_APP = "App · 商品项目库.dc.html"
@@ -121,14 +118,13 @@ class Repo:
 
 class TestScreenAxis(unittest.TestCase):
     def setUp(self):
-        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
 
     def tearDown(self):
         self.repo.cleanup()
 
     def lint(self, doc):
-        errors, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+        errors, warnings = lc.lint_declarations(doc, SKELETON, self.repo.baseline)
         return errors, warnings
 
     def test_a_contract_outside_the_repository_resolves_against_the_run_directory(self):
@@ -177,30 +173,9 @@ class TestScreenAxis(unittest.TestCase):
 
     def test_a_complete_contract_has_no_errors(self):
         errors, warnings = lc.lint_declarations(
-            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+            contract(), SKELETON, self.repo.baseline)
         self.assertEqual(errors, [])
         self.assertFalse(any("story" in w for w in warnings), warnings)
-
-    def test_missing_target_json_is_a_warning(self):
-        (self.repo.root / ".mmw" / "target.json").unlink()
-        errors, warnings = self.lint(contract())
-        self.assertFalse(any("target.json" in e for e in errors), errors)
-        self.assertTrue(any("no .mmw/target.json" in w and "target_config.py --check" in w
-                            for w in warnings), warnings)
-
-    def test_an_incomplete_target_json_is_a_warning(self):
-        (self.repo.root / ".mmw" / "target.json").write_text('{"start": "s"}')
-        errors, warnings = self.lint(contract())
-        self.assertFalse(any("target.json" in e for e in errors), errors)
-        self.assertTrue(any("fails `target_config.py --validate`" in w
-                            and "target_config.py --check" in w for w in warnings), warnings)
-
-    def test_target_validate_exit_2_is_a_warning(self):
-        (self.repo.root / ".mmw" / "target.json").write_text("{bad")
-        errors, warnings = self.lint(contract())
-        self.assertFalse(any("target.json" in e for e in errors), errors)
-        self.assertTrue(any("cannot be read as JSON" in w or "exited 2" in w
-                            for w in warnings), warnings)
 
     def test_a_viewport_on_a_breakpoint(self):
         doc = contract()
@@ -271,12 +246,12 @@ class TestScreenAxis(unittest.TestCase):
         good = page.read_text()
         page.write_text(good.replace(' data-ui="fixture.action"', ""))
         errors, _ = lc.lint_declarations(
-            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+            contract(), SKELETON, self.repo.baseline)
         self.assertTrue(any(PAGE_A in error and "button" in error and "data-ui" in error
                             for error in errors), errors)
         page.write_text(good)
         errors, _ = lc.lint_declarations(
-            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+            contract(), SKELETON, self.repo.baseline)
         self.assertFalse(any("data-ui" in error for error in errors), errors)
 
     def test_editable_and_aria_controls_without_a_data_ui_id_are_errors(self):
@@ -323,12 +298,12 @@ class TestScreenAxis(unittest.TestCase):
         page.write_text(good.replace(
             '{"scene":{"editor":"enum","options":["ready"]}}', '{}'))
         errors, _ = lc.lint_declarations(
-            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+            contract(), SKELETON, self.repo.baseline)
         self.assertTrue(any(PAGE_A in error and "scene prop" in error for error in errors),
                         errors)
         page.write_text(good)
         errors, _ = lc.lint_declarations(
-            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+            contract(), SKELETON, self.repo.baseline)
         self.assertFalse(any("scene prop" in error for error in errors), errors)
 
     def test_every_page_declares_mount(self):
@@ -480,7 +455,6 @@ class TestRemovedFields(unittest.TestCase):
     """A deleted field is an error that says to delete it."""
 
     def setUp(self):
-        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
 
     def tearDown(self):
@@ -489,7 +463,7 @@ class TestRemovedFields(unittest.TestCase):
     def lint(self, doc):
         e1, w1 = lc.lint(doc, SKELETON, None)
         e2, w2 = lc.lint_declarations(
-            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+            doc, SKELETON, self.repo.baseline)
         return e1 + e2, w1 + w2
 
     def test_a_row_with_observe_or_after_is_an_error(self):
@@ -518,32 +492,6 @@ class TestRemovedFields(unittest.TestCase):
         doc["rows"][0]["next"] = "shell-header.ready"
         self.assertEqual(self.lint(doc)[0], [])
 
-    def test_story_coverage_warns_for_app_pages_too(self):
-        older = self.repo.spec_dir / "story-shots-old" / "media"
-        older.mkdir(parents=True)
-        for name in ("empty", "material-added", "shell-header.ready"):
-            png = older / f"{name}-1440x900-impl.png"
-            png.write_bytes(b"x")
-            os.utime(png, (1, 1))
-        media = self.repo.spec_dir / "story-shots" / "media"
-        media.mkdir(parents=True)
-        (media / "empty-1440x900-impl.png").write_bytes(b"x")
-        (media / "shell-header.ready-1440x900-impl.png").write_bytes(b"x")
-        errors, warnings = lc.lint_declarations(
-            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
-        story = [w for w in warnings if w.startswith("story coverage:")]
-        self.assertEqual(story, [
-            f"story coverage: {PAGE_APP} scenes library.ready are not "
-            f"in the latest element parity --out inventory",
-            f"story coverage: {PAGE_A} scenes material-added are not "
-            f"in the latest element parity --out inventory",
-        ], warnings)
-        self.assertFalse(any("empty" in w and "story coverage:" in w for w in warnings),
-                         warnings)
-        self.assertFalse(any("shell-header.ready" in w for w in warnings), warnings)
-        self.assertTrue(any("library.ready" in w for w in warnings), warnings)
-        self.assertFalse(any("story" in e for e in errors), errors)
-
     def test_a_removed_key_is_an_error_saying_to_delete_it(self):
         doc = contract()
         doc["target"] = {"kind": "web-spa"}
@@ -553,7 +501,7 @@ class TestRemovedFields(unittest.TestCase):
         doc["retired_ids"] = [{"id": "old.save", "note": "retired",
                                 "page": PAGE_A, "trigger": "create-project.save"}]
         errors, _ = lc.lint_declarations(
-            doc, SKELETON, self.repo.baseline, self.repo.spec_dir)
+            doc, SKELETON, self.repo.baseline)
         row_errors, _ = lc.lint(doc, SKELETON, {"paths": {}})
         errors += row_errors
         expected = (
@@ -569,7 +517,7 @@ class TestRemovedFields(unittest.TestCase):
                                 for error in errors), (finding, errors))
 
         errors, _ = lc.lint_declarations(
-            contract(), SKELETON, self.repo.baseline, self.repo.spec_dir)
+            contract(), SKELETON, self.repo.baseline)
         self.assertFalse(any("removed" in error for error in errors), errors)
 
 
@@ -634,7 +582,6 @@ class TestCallInventory(unittest.TestCase):
 
 class TestCommandOutput(unittest.TestCase):
     def setUp(self):
-        lc.TOOLS[:] = [TOOLS_DIR]
         self.repo = Repo()
 
     def tearDown(self):
@@ -700,13 +647,6 @@ class TestCrossComponentRows(unittest.TestCase):
         errors, _ = lc.lint(doc, self.composed_skeleton(), {"paths": {}})
         self.assertFalse(any("page has no rows" in error for error in errors), errors)
 
-    def test_page_coverage_uses_table_fallback_without_scene_pages(self):
-        skeleton = self.composed_skeleton()
-        del skeleton["scene_pages"]
-        doc = contract()
-        doc["rows"] = [row for row in doc["rows"] if row["trigger"] != "shell.sign-in"]
-        errors, _ = lc.lint(doc, skeleton, {"paths": {}})
-        self.assertTrue(any(f"page has no rows: {PAGE_B}" in error for error in errors), errors)
 
 
 class TestRetiredPrinted(unittest.TestCase):
@@ -717,52 +657,6 @@ class TestRetiredPrinted(unittest.TestCase):
                          ["RETIRED a.b: retired 2026-09-03 — verdict 2", "RETIRED c.d: (no note)"])
 
 
-class TestFindsUiAcceptanceWithoutTools(unittest.TestCase):
-    """The lint finds ui-acceptance `target_config.py` with TOOLS empty."""
-
-    def test_the_lint_runs_without_tools(self):
-        expected = (
-            Path(__file__).resolve().parents[2]
-            / "skills" / "ui-acceptance" / "scripts" / "target_config.py"
-        ).resolve()
-        self.assertTrue(expected.is_file())
-        self.assertEqual((lc.SIBLING_UA / "target_config.py").resolve(), expected)
-        saved_lc_tools = list(lc.TOOLS)
-        saved_tc = sys.modules.pop("target_config", None)
-        try:
-            lc.TOOLS[:] = []
-            tc = lc.target_config_mod()
-            self.assertEqual(Path(tc.__file__).resolve(), expected)
-            fixture = Path(__file__).resolve().parent / "fixtures" / "removed-fields"
-            output = io.StringIO()
-            with redirect_stdout(output):
-                code = lc.main([
-                    str(SCRIPT),
-                    str(fixture / "screen-contract.yaml"),
-                    str(fixture / "skeleton.json"),
-                ])
-            self.assertEqual(code, 1)
-            self.assertRegex(output.getvalue().splitlines()[-1],
-                             r"^\d+ errors, \d+ warnings over 1 rows$")
-        finally:
-            lc.TOOLS[:] = saved_lc_tools
-            if saved_tc is not None:
-                sys.modules["target_config"] = saved_tc
-
-    def test_explicit_tools_forms_reach_main(self):
-        fixture = Path(__file__).resolve().parent / "fixtures" / "removed-fields"
-        forms = (["--tools", str(TOOLS_DIR)], [f"--tools={TOOLS_DIR}"])
-        for form in forms:
-            with self.subTest(form=form):
-                output = io.StringIO()
-                with redirect_stdout(output):
-                    code = lc.main([
-                        str(SCRIPT), *form,
-                        str(fixture / "screen-contract.yaml"),
-                        str(fixture / "skeleton.json"),
-                    ])
-                self.assertEqual(code, 1, output.getvalue())
-                self.assertEqual(lc.TOOLS, [TOOLS_DIR.resolve()])
 
 
 if __name__ == "__main__":

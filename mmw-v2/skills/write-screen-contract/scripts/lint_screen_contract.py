@@ -4,16 +4,10 @@
 # ///
 """Lint a screen contract against the design package's skeleton and, when given, openapi.json.
 
-Usage: uv run python lint_screen_contract.py [--tools <ui-acceptance scripts>] <screen-contract.yaml> <skeleton.json> [<openapi.json>]
+Usage: uv run lint_screen_contract.py <screen-contract.yaml> <skeleton.json> [<openapi.json>]
 Exit 0 with no errors; 1 with errors listed one per line; warnings never fail.
 
-A `uv run python` invocation (the form a ticket CHECK writes) does not read the
-metadata block above; `main` then re-execs through `uv run --script` so PyYAML
-comes from that block. `uv run --script lint_screen_contract.py` skips the re-exec.
-
-`--tools` is the `scripts/` directory of the ui-acceptance skill, an override.
-Without it this file finds that directory beside this skill under `skills/`. The
-`.mmw/target.json` check comes from those scripts (`target_config.py --validate`).
+`uv run` reads the metadata block above and supplies PyYAML from it.
 Rules are the tables in ../references/screen-contract-format.md.
 
 Printed on every run, before the findings: each `retired_ids` entry with its note,
@@ -21,46 +15,19 @@ kept in sight so a retired identity is never a silent allowance.
 """
 from __future__ import annotations
 
-import io
 import json
-import os
 import re
 import sys
-from contextlib import redirect_stderr, redirect_stdout
 from html.parser import HTMLParser
 from pathlib import Path
 
-_BOOTSTRAP = "MMW_LINT_CONTRACT_BOOTSTRAPPED"
-try:
-    import yaml
-except ImportError:
-    yaml = None
-
-
-def _ensure_yaml() -> None:
-    """Re-exec through `uv run --script` when this process has no PyYAML.
-
-    Called from `main` only, so importing the module in a test without the
-    dependency fails the import of `yaml` and does not replace the test process.
-    """
-    if yaml is not None:
-        return
-    if os.environ.get(_BOOTSTRAP) == "1":
-        raise SystemExit(
-            "lint_screen_contract.py is missing pyyaml after uv run --script; "
-            "install it with the script's metadata"
-        )
-    env = dict(os.environ)
-    env[_BOOTSTRAP] = "1"
-    os.execvpe("uv", ["uv", "run", "--script", str(Path(__file__).resolve()),
-                      *sys.argv[1:]], env)
+import yaml
 
 GAPS = {"aligned", "design-only", "backend-only"}
 ID = re.compile(r"^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$")
 MOUNT = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 VIEWPORT = re.compile(r"^(\d+)x(\d+)$")
 LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
-IMPL_PNG = re.compile(r"^(.+)-(\d+x\d+)-impl\.png$")
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 BREAKPOINT = re.compile(r"@media[^{]*\((?:max|min)-width:\s*(\d+)px\)")
 INTERACTIVE_TAGS = {"button", "input", "select", "textarea"}
@@ -83,66 +50,6 @@ TOP_KEYS = {
 }
 REMOVED_TOP_KEYS = {"target", "volatile_values", "readme_dispositions"}
 REMOVED_PAGE_KEYS = {"route"}
-
-HERE = Path(__file__).resolve().parent
-# The ui-acceptance skill sits beside this one under `skills/`; `--tools` overrides that.
-SIBLING_UA = HERE.parents[1] / "ui-acceptance" / "scripts"
-
-# The directories `--tools` named, else the sibling ui-acceptance scripts.
-# `target_file_problem()` asks `target_config.py`.
-TOOLS: list[Path] = []
-
-
-def tools_dirs() -> list[Path]:
-    return TOOLS or [SIBLING_UA]
-
-
-def target_config_mod():
-    """`target_config.py` from `--tools` or the sibling ui-acceptance skill;
-    Python's import cache holds it. The `.mmw/target.json` check (`target_main`) comes
-    from this module."""
-    looked = tools_dirs()
-    for directory in looked:
-        if (directory / "target_config.py").is_file():
-            if str(directory) not in sys.path:
-                sys.path.insert(0, str(directory))
-            import target_config
-            return target_config
-    paths = ", ".join(str(d) for d in looked)
-    if TOOLS:
-        raise SystemExit(
-            f"no target_config.py in any --tools directory ({paths}). "
-            "Pass --tools <the ui-acceptance skill's scripts directory>."
-        )
-    raise SystemExit(
-        f"no target_config.py in the sibling ui-acceptance skill ({paths}). "
-        "Pass --tools <the ui-acceptance skill's scripts directory>."
-    )
-
-
-def target_file_problem(repo: Path) -> tuple[str, str] | None:
-    """`("warning", line)` about the repository's `.mmw/target.json`, from
-    `target_config.py`'s own validation; `None` when the file is complete.
-
-    Both a missing file and one that fails `--validate` are warnings naming
-    `target_config.py --check`: the contract ticket, cut after the spec that needs this
-    lint clean, is the ticket that lands `.mmw/` or brings a file written for an earlier
-    MMW version to the current shape.
-    """
-    if not (repo / ".mmw" / "target.json").exists():
-        return ("warning", "no .mmw/target.json yet; the contract ticket lands it — run "
-                           "`target_config.py --check` (the ui-acceptance skill) there")
-    buf_out, buf_err = io.StringIO(), io.StringIO()
-    with redirect_stdout(buf_out), redirect_stderr(buf_err):
-        code = target_config_mod().target_main(["--validate", "--repo", str(repo)])
-    if code == 0:
-        return None
-    text = (buf_out.getvalue() or buf_err.getvalue()).strip()
-    text = " ".join(text.split()) or f"exited {code}"
-    return ("warning", f".mmw/target.json fails `target_config.py --validate`: {text}; "
-                       "the contract ticket brings .mmw/ to the current shape — run "
-                       "`target_config.py --check` (the ui-acceptance skill) there")
-
 
 # The shapes a `source` may take. A story is legal for the audit trail and warned on:
 # no worker ever reads a story, so a behaviour decided only there reaches nobody.
@@ -174,11 +81,11 @@ def operation(entry) -> tuple[str, str] | None:
 
 
 def repo_root(contract: Path) -> Path:
-    """The repository `baselines.look` and `.mmw/target.json` are relative to.
+    """The repository `baselines.look` is relative to.
 
-    A contract still in a run's scratch directory (step 6 keeps it there until every
-    gap is aligned) sits in no repository; the repository is then the one the lint
-    is run from, found from the current directory rather than taken as it."""
+    A contract still in `<scratch>` (step 7 copies it to `docs/specs/` only once the
+    gap list is settled) sits in no repository; the repository is then the one the
+    lint is run from, found from the current directory rather than taken as it."""
     for start in (contract.resolve(), Path.cwd().resolve()):
         for parent in [start] + list(start.parents):
             if (parent / ".git").exists():
@@ -234,11 +141,7 @@ def removed_field(location: str, key: str) -> str:
 
 def skeleton_scene_pages(skeleton: dict) -> dict[str, str]:
     declared = skeleton.get("scene_pages") or {}
-    if declared:
-        return {str(scene): str(page) for scene, page in declared.items()}
-    return {str(scene): str(row["page"])
-            for row in skeleton.get("table") or []
-            for scene in row.get("scenes") or []}
+    return {str(scene): str(page) for scene, page in declared.items()}
 
 
 class HandoffPageParser(HTMLParser):
@@ -321,29 +224,10 @@ def handoff_page_errors(baseline: Path, pages: set[str]) -> list[str]:
     return errors
 
 
-def latest_story_out(contract_dir: Path) -> Path | None:
-    """The newest `media/` directory under the contract dir that holds
-    story-parity `--out` files (`<scene>-<WxH>-impl.png`), or None."""
-    found: list[tuple[float, Path]] = []
-    for media in contract_dir.rglob("media"):
-        if not media.is_dir():
-            continue
-        if "targets" in media.relative_to(contract_dir).parts:
-            continue
-        pngs = [p for p in media.iterdir() if p.is_file() and IMPL_PNG.match(p.name)]
-        if not pngs:
-            continue
-        found.append((max(p.stat().st_mtime for p in pngs), media))
-    if not found:
-        return None
-    found.sort()
-    return found[-1][1]
-
-
-def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
-                      contract_dir: Path | None) -> tuple[list[str], list[str]]:
-    """Validate removed/unknown fields, baseline pages, locale, target config,
-    viewports, page/component mappings, scenes, and story coverage.
+def lint_declarations(doc: dict, skeleton: dict,
+                      baseline: Path | None) -> tuple[list[str], list[str]]:
+    """Validate removed/unknown fields, baseline pages, locale, viewports,
+    page/component mappings, and scenes.
 
     Every finding names the key or artifact it is about.
     """
@@ -363,11 +247,6 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
         errors.append("locale missing (use the product's BCP 47 language tag)")
     elif not LOCALE.match(str(locale)):
         errors.append(f"locale {locale!r} is not a BCP 47 language tag")
-    # -- target runtime
-    if contract_dir is not None:
-        problem = target_file_problem(repo_root(Path(contract_dir)))
-        if problem is not None:
-            (errors if problem[0] == "error" else warnings).append(problem[1])
     # -- viewports
     raw_vps = doc.get("viewports")
     widths: list[int] = []
@@ -464,21 +343,6 @@ def lint_declarations(doc: dict, skeleton: dict, baseline: Path | None,
                           f"{scene_pages[name]!r}")
         if "input" in decl:
             errors += scene_input_errors(name, decl.get("input"), baseline)
-    # -- story coverage: the newest element-parity --out under the contract dir.
-    if contract_dir is not None:
-        media = latest_story_out(contract_dir)
-        if media is not None:
-            seen = {m.group(1) for p in media.iterdir()
-                    if p.is_file() and (m := IMPL_PNG.match(p.name))}
-            by_page: dict[str, list[str]] = {}
-            for sname, page in scene_pages.items():
-                by_page.setdefault(page, []).append(sname)
-            for page, names in sorted(by_page.items()):
-                missing = [n for n in names if n not in seen]
-                if missing:
-                    warnings.append(
-                        f"story coverage: {page} scenes {', '.join(missing)} are not "
-                        f"in the latest element parity --out inventory")
     return errors, warnings
 
 
@@ -686,21 +550,6 @@ def retired_lines(doc: dict) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
-    _ensure_yaml()
-    rest: list[str] = []
-    TOOLS[:] = []
-    i = 1
-    while i < len(argv):
-        if argv[i] == "--tools" and i + 1 < len(argv):
-            TOOLS.append(Path(argv[i + 1]).resolve())
-            i += 2
-        elif argv[i].startswith("--tools="):
-            TOOLS.append(Path(argv[i][len("--tools="):]).resolve())
-            i += 1
-        else:
-            rest.append(argv[i])
-            i += 1
-    argv = [argv[0], *rest]
     if len(argv) not in (3, 4):
         print(__doc__)
         return 2
@@ -713,7 +562,7 @@ def main(argv: list[str]) -> int:
     for line in retired_lines(doc):
         print(line)
     errors, warnings = lint(doc, skeleton, openapi)
-    e2, w2 = lint_declarations(doc, skeleton, baseline, contract.resolve().parent)
+    e2, w2 = lint_declarations(doc, skeleton, baseline)
     errors += e2
     warnings += w2
     for w in warnings:
