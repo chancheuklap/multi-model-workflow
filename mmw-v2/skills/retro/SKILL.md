@@ -21,26 +21,43 @@ and drop unsupported claims. Use Memory, Thread, Working Memory, agent reports,
 and issue status to discover what to verify; use primary tracker, git,
 repository, and check evidence to establish what happened or landed.
 
+Three readers act on this record: the user, who reads `NIGHT RETRO` before
+accepting the night; whoever triages each proposal, which becomes a
+`needs-triage` issue in its `repository` read by someone who did not watch the
+night, so its title and body stand on their own; and the next retro, which
+searches these problems for repeats. A problem the evidence does not carry
+costs twice: a triage decision now, and a false match later that makes one
+incident look like a pattern.
+
+Look for what in the environment let the mistake through: a check that did not
+exist, an instruction that arrived too late, a fact the agent could not reach.
+A cause addressed to "the agent" changes nothing on the next run. A night whose
+evidence supports no problem is a valid retro; record `none` rather than
+stretching a weak source into a finding.
+
 The script writes outputs; the agent judges causes and dispositions.
 
 ## Gather
 
-1. Run `<retro> gather <spec>`, save its JSON output to a temporary file
-   outside the repository, and read all of it before analysis.
+1. Run `<retro> gather <spec>` and save its JSON output to a temporary file
+   outside the repository. Find where the night went off course in
+   `tickets[].events` and `spec_events` (returns, queued workers, fault
+   children, handoffs, reviewer findings), then open the comment bodies behind
+   those events.
 2. `gather` writes the inventory of every source as present, missing, or
-   unreadable (`evidence_checked`). Carry its `evidence_checked`, `task_root`
-   and `observed.base_commit` into the analyzed JSON unchanged, copied by
-   program from its saved output. A missing source narrows the analysis; it
+   unreadable (`evidence_checked`). A missing source narrows the analysis; it
    never means that the corresponding problem did not happen.
 
 ## Analyze
 
 3. Check every earlier proposal named by the most recent Retro Memory. Record it
    as `landed` only when a commit, active Rule id, Memory id, or current file
-   proves the change, and give that proof as a commit SHA, `Rule: <active-id>`,
-   `nowledgemem://memory/<id>` or a repository-relative file path. When no such
-   evidence is found, record `no-evidence-found`, not "not done". Issue closure
-   alone is not landing evidence.
+   proves the change, and give that proof as a commit SHA, a
+   `https://github.com/<owner>/<name>/commit/<sha>` URL when the change landed
+   in another repository, `Rule: <active-id>`, `nowledgemem://memory/<id>` or a
+   repository-relative file path. When no such evidence is found, record
+   `no-evidence-found`, not "not done". Issue closure alone is not landing
+   evidence.
 4. Form current problems only from the gathered tracker events, commits, files,
    and observed checks. Merge duplicate representations of the same underlying
    event. Give every remaining problem its category, cause, and source. Treat a
@@ -56,9 +73,8 @@ The script writes outputs; the agent judges causes and dispositions.
    command whose actual output states the cause. `finalize` runs its arguments
    without a shell and refuses a check that prints nothing; a check already
    recorded by the pipeline uses the `ticket.checked` event URL instead.
-5. For each current problem, run `<retro> search <category> <cause>`, and write
-   the problem's `cause` exactly as you passed it, because `finalize` repeats
-   that search. Count an earlier occurrence only when its original source opens,
+5. For each current problem, run `<retro> search <category> <cause>` to find
+   candidates. Count an earlier occurrence only when its original source opens,
    shows the same cause, and belongs to a different ticket, spec, or night. An
    earlier occurrence names the Retro Memory id the search returned and the
    original event or commit URL in that Memory; reopen both. Two event comments
@@ -66,9 +82,15 @@ The script writes outputs; the agent judges causes and dispositions.
 6. Reconcile intent: take the expected surface from Problem Statement and User
    Stories, the observed surface from checks and events, and compare both with
    Out of Scope. Record aligned, diverged, or unverified; do not change the spec.
+   It catches a night that met every criterion yet delivered something other
+   than what the spec asked for.
 7. Review the review results: distinguish a finding that was invalid from one
    that was valid and fixed elsewhere. Record in `review_learning` each such
-   finding's claim, route reason, and source, or `none`.
+   finding's claim, route reason, and source, or `none`. This is how the
+   reviewer improves: two `invalid` findings of one category point to a
+   reviewer Rule to change, and two valid findings of one kind point to a
+   check. A finding another ticket fixed was right, and does not count against
+   the reviewer.
 8. Inspect all seven categories below. Record every source-backed candidate and
    record none for each category whose checked evidence supports no candidate.
    A problem in a category requires a candidate result there.
@@ -99,49 +121,40 @@ The script writes outputs; the agent judges causes and dispositions.
    - Handled here: how this instance was fixed, deferred, or accepted as-is.
    - Prevention: the `destination` from `## Prevention destinations` below
      that would prevent the next instance, or `none`.
-10. Reopen the primary source behind every subagent report, Memory match, agent
-    self-assessment, or inferred outcome used by a problem. Keep the problem only
-    when that source proves it.
-11. Give a problem a `proposal` when the same cause has two independently
-    verified event or commit occurrences, or when `spec.closed` proposed a
-    Memory record (an id in `proposed_memory_ids`) whose decision's `evidence`
-    URL is among the problem's evidence and one of the problem's event sources
-    is a blocking event. A **blocking event** is one of `worker.queued`,
-    `ticket.returned`, `child.opened` with `kind=fault`, or `ticket.checked`
-    with `result=handoff`. File and standalone-check sources support a problem,
-    not this threshold. The proposal has `repository` (`owner/name` responsible
-    for the change), `title`, `body`, and optional `prompt_change`. Leave the
-    proposed behaviour change for work the user approves, through the normal spec
-    and ticket flow.
-12. For a prompt change, `prompt_change` has `target_file`, `heading`, `source`
+10. Every prevention has a standing cost: a check runs on every commit, and an
+    `AGENTS.md` line or skill sentence is read by every later agent. One
+    occurrence is dealt with in `Handled here`; a pattern, shown by two
+    independent occurrences or by a blocker a worker already flagged for this
+    retro, is worth that cost. Give a problem a `proposal` when the same cause
+    has two independently verified event or commit occurrences, or when
+    `spec.closed` proposed a Memory record (an id in `proposed_memory_ids`)
+    whose decision's `evidence` URL is among the problem's evidence and one of
+    the problem's event sources is a blocking event. A **blocking event** is
+    one of `worker.queued`, `ticket.returned`, `child.opened` with
+    `kind=fault`, or `ticket.checked` with `result=handoff`. File and
+    standalone-check sources support a problem, not this threshold. The
+    proposal has `repository` (`owner/name` responsible for the change),
+    `title`, `body`, and optional `prompt_change`.
+11. For a prompt change, `prompt_change` has `target_file`, `heading`, `source`
     (one of the problem's primary evidence URLs), `current_passage`,
     `proposed_passage`, `changes_made` and `expected_behavior`. `target_file` is
     a path in the checkout the retro runs in; a proposal whose `repository` is
     another repository carries no `prompt_change`. Keep every unchanged sentence
     unchanged and submit both complete passages rather than a shorter paraphrase
-    or an isolated diff fragment. `changes_made` has four nonempty answers:
-    `context_or_constraints` (adds missing context or constraints), `ambiguity`
-    (clarifies ambiguity), `success_criteria_or_requirement` (adds success
-    criteria or a specific requirement) and `timing` (frontloads information
-    that arrived too late), each explaining whether that class changed or
-    explicitly saying it did not. Read the `writing-for-agents` skill's
-    `SKILL.md` before writing the proposed passage.
+    or an isolated diff fragment. `changes_made` is one sentence naming which of
+    missing context, ambiguity, success criteria or late information the change
+    addresses. Read the `writing-for-agents` skill's `SKILL.md` before writing
+    the proposed passage.
 
 ## Finalize
 
-13. Write the analyzed JSON: one UTF-8 file in a temporary path outside the
-    repository, in the shape below. `observed.at` is the actual retro time.
-    Keep every source reference and missing-evidence statement in it.
+12. Write the analyzed JSON: one UTF-8 file in a temporary path outside the
+    repository, in the shape below.
 
     ```json
     {
-      "spec": 0,
-      "task_root": {"kind": "map|standalone-spec", "number": 0},
-      "evidence_checked": [
-        {"source": "URL|path|commit range", "status": "present|missing|unreadable", "detail": "..."}
-      ],
       "previous_proposals": [
-        {"url": "...", "status": "landed|no-evidence-found", "evidence": "commit|Rule id|Memory id|file|none"}
+        {"url": "...", "status": "landed|no-evidence-found", "evidence": "commit SHA|GitHub commit URL|Rule id|Memory id|file|none"}
       ],
       "categories": {
         "Navigation": "none|candidate summary",
@@ -164,18 +177,18 @@ The script writes outputs; the agent judges causes and dispositions.
         }
       ],
       "intent_reconciliation": {"expected": "...", "observed": "...", "gap": "aligned|diverged|unverified"},
-      "review_learning": "...|none",
-      "observed": {"at": "ISO-8601", "base_commit": "40-hex"}
+      "review_learning": "...|none"
     }
     ```
-14. Run `<retro> finalize <spec> <file>`. It checks the file against a fresh
-    `gather`, and a refusal names what to correct.
+13. Run `<retro> finalize <spec> <analysis> <gather>`, `<gather>` the file step 1
+    saved. It checks that file against a fresh `gather`, and a refusal names
+    what to correct.
 
 Done when `finalize` has posted `spec.retroed` with `result=recorded`; then return to the dispatch skill's `references/night.md` `## 5. The night is over`, which tells the user.
 
 ## Prevention destinations
 
-A proposal asks for approval and changes none of these destinations. A problem's Prevention names one of them by its `destination` value:
+A problem's Prevention names one of them by its `destination` value:
 
 | `destination` | What belongs there |
 | --- | --- |
@@ -188,5 +201,11 @@ A proposal asks for approval and changes none of these destinations. A problem's
 | `toolbox-memory` | approved, broadly useful knowledge, copied into toolbox Memory while the source Memory remains in the repository |
 | `none` | nothing would prevent the next instance |
 
-Choose the destination whose reader acts on the lesson. A coding standard a
-reviewer can check goes in a reviewer Rule rather than in text every worker reads.
+Choose the destination whose reader acts on the lesson. Workers carry the
+heaviest context: they explore, implement and debug; the reviewer receives a
+diff and has room to spare. So a standard only judgement can apply goes to the
+reviewer's Rules; a violation with a fixed shape (a banned call, an import
+form, a file location) goes to a `check`, which no one has to remember; and
+`AGENTS.md` keeps only short pointers nearly every task needs. Before proposing
+a check, look at the repository's existing check commands: one that exists but
+is not wired in, or is silently broken, is the finding.

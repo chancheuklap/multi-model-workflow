@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inventory one completed spec, search older retro, and finalize its one receipt.
 
-Usage: retro.py gather <spec> | search <category> <cause> | finalize <spec> <analysis.json>
+Usage: retro.py gather <spec> | search <category> <cause> | finalize <spec> <analysis.json> <gather.json>
 The model owns analysis; this entry validates primary sources and writes proposals,
 one fixed-id Memory and the script-authored spec.retroed event, in that order.
 """
@@ -102,6 +102,7 @@ def issue(number: int, fields: str = "body,title,comments,parent") -> dict:
 
 
 def space() -> str:
+    """Confirm the repository Space exists; its sharing settings are dispatch's to repair."""
     global SPACE_CACHE
     if SPACE_CACHE:
         return SPACE_CACHE
@@ -110,9 +111,8 @@ def space() -> str:
     if value != expected or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", value):
         raise RetroError(f"NMEM_SPACE {value!r} differs from repository Space {expected}")
     row = parsed(["nmem", "--json", "spaces", "show", value])
-    if (row.get("id") != value or row.get("defaultRetrievalMode") != "shared" or
-            row.get("sharedSpaceIds") != ["mmw-toolbox"]):
-        raise RetroError(f"repository Space {value} did not read back as shared with mmw-toolbox only")
+    if row.get("id") != value:
+        raise RetroError(f"repository Space {value} does not exist")
     SPACE_CACHE = value
     return value
 
@@ -149,13 +149,9 @@ def memory_list(limit: int = 2) -> dict:
     result = parsed(["nmem", "--json", "memories", "list", "--label", "mmw-retro",
                      "--space", space(), "--limit", str(limit)])
     rows = result.get("memories")
-    if not isinstance(rows, list) or not isinstance(result.get("total", len(rows)), int):
-        raise RetroError("mmw-retro list has no readable memories and total")
-    # This is the intentionally bounded *latest* read, not a claim that history
-    # was exhaustively listed. A specific older record is discovered by search.
-    if len(rows) > limit:
-        raise RetroError("mmw-retro latest list ignored its requested limit")
-    return result
+    if not isinstance(rows, list):
+        raise RetroError("mmw-retro list has no readable memories")
+    return {"memories": rows[:limit]}
 
 
 def memory_show(ident: str) -> dict:
@@ -172,30 +168,43 @@ def nodes(root: dict):
 
 
 def valid_closing(value: object) -> bool:
+    """A loose shape check; `summary` (dispatch.sh) fully validated a `complete` closing
+    before it ever reached the tracker, so retro only needs to read `propose` ids back out."""
     if not isinstance(value, dict) or not isinstance(value.get("decisions"), list):
         return False
     if value.get("status") == "unchecked":
-        return (bool(value.get("reason")) and value["decisions"] == [] and
-                all(value.get(key) is None or isinstance(value[key], int)
-                    for key in ("total", "returned")))
+        return bool(value.get("reason"))
     if value.get("status") != "complete":
         return False
-    decisions = value["decisions"]
-    if (not isinstance(value.get("total"), int) or
-            value["total"] != value.get("returned") or value["total"] != len(decisions)):
-        return False
-    ids = []
-    for item in decisions:
-        if not isinstance(item, dict) or not all(
-                isinstance(item.get(key), str) and item[key].strip()
-                for key in ("memory_id", "decision", "reason", "evidence")):
-            return False
-        if item["decision"] not in ("retain", "propose", "deprecate", "supersede"):
-            return False
-        if item["decision"] == "supersede" and not item.get("replacement_id"):
-            return False
-        ids.append(item["memory_id"])
-    return len(ids) == len(set(ids))
+    return all(isinstance(item, dict) and isinstance(item.get("memory_id"), str)
+               and item.get("memory_id") and item.get("decision") for item in value["decisions"])
+
+
+BODY_KEPT_EVENTS = ("reviewer.reported", "ticket.returned", "child.opened")
+
+
+def event_comments(comments: list[dict], url_prefix: str, *, skip: tuple[str, ...] = ()) -> list[dict]:
+    """One `evidence_checked` entry per script-written event comment, skipping named events."""
+    out = []
+    for item in comments:
+        what, value = events.parse(item.get("body") or "")
+        if what == "event" and (not skip or not isinstance(value, dict)
+                                 or value.get("event") not in skip):
+            out.append(inventory(item.get("url") or f"{url_prefix} comment {item.get('id')}",
+                                 "present", "script-written event comment"))
+    return out
+
+
+def body_kept(comment: dict) -> bool:
+    """A comment worth reading in full during Gather; the rest are opened by URL on demand."""
+    what, value = events.parse(comment.get("body") or "")
+    return what == "event" and isinstance(value, dict) and value.get("event") in BODY_KEPT_EVENTS
+
+
+def urled_events(event_list: list[dict], comments: list[dict]) -> list[dict]:
+    """Each folded event with the URL of the comment it came from."""
+    by_id = {c.get("id"): c.get("url") for c in comments if isinstance(c.get("id"), int)}
+    return [dict(item, url=by_id.get(item.get("comment"))) for item in event_list]
 
 
 def gather(number: int) -> dict:
@@ -219,10 +228,7 @@ def gather(number: int) -> dict:
     if not isinstance(comments, list):
         raise RetroError(f"{spec_url} has no readable comments list")
     state = events.fold(comments, issue=number)
-    for item in comments:
-        if events.parse(item.get("body") or "")[0] == "event":
-            checked.append(inventory(item.get("url") or f"{spec_url} comment {item.get('id')}",
-                                     "present", "script-written event comment"))
+    checked.extend(event_comments(comments, spec_url, skip=("spec.retroed",)))
     if state["unreadable"]:
         checked.extend(inventory(f"{spec_url} comment {row['comment']}", "unreadable",
                                  row["reason"]) for row in state["unreadable"])
@@ -239,9 +245,14 @@ def gather(number: int) -> dict:
     elif isinstance(parent, dict) and isinstance(parent.get("number"), int):
         parent_issue = issue(parent["number"], "labels")
         labels = [x.get("name") for x in parent_issue.get("labels", []) if isinstance(x, dict)]
-        if "mmw:map" not in labels:
-            raise RetroError(f"#{number} has parent #{parent['number']} without mmw:map")
-        task_root = {"kind": "map", "number": parent["number"]}
+        if "mmw:map" in labels:
+            task_root = {"kind": "map", "number": parent["number"]}
+        else:
+            # A parent without mmw:map only narrows what `render` names the task root as;
+            # it does not gate the retro, which never reads this label for a decision.
+            task_root = {"kind": "parent", "number": parent["number"]}
+            checked.append(inventory(issue_url(parent["number"]), "present",
+                                     "parent issue carries no mmw:map label"))
     else:
         raise RetroError(f"#{number} parent was unreadable")
     try:
@@ -260,18 +271,16 @@ def gather(number: int) -> dict:
                 raise RetroError("comments is not a list")
             fold = events.fold(row["comments"], issue=node["number"])
             checked.append(inventory(target, "present", "event-bearing comments and fold"))
-            for comment in row["comments"]:
-                if events.parse(comment.get("body") or "")[0] == "event":
-                    checked.append(inventory(comment.get("url") or
-                                             f"{target} comment {comment.get('id')}",
-                                             "present", "script-written event comment"))
+            checked.extend(event_comments(row["comments"], target))
             for unreadable in fold["unreadable"]:
                 checked.append(inventory(f"{target} comment {unreadable['comment']}",
                                          "unreadable", unreadable["reason"]))
+            # Every event carries the URL of the comment it came from, so it can be opened
+            # on demand; only the few kinds whose prose states a cause keep their full body.
             tickets.append({"number": node["number"], "title": row.get("title"),
-                            "events": fold["events"],
+                            "events": urled_events(fold["events"], row["comments"]),
                             "comments": [{"url": c.get("url"), "body": c.get("body")}
-                                         for c in row["comments"] if "<!-- mmw " in str(c.get("body"))]})
+                                         for c in row["comments"] if body_kept(c)]})
         except RetroError as exc:
             checked.append(inventory(target, "unreadable", str(exc)))
     closing = (closed.get("payload") or {}).get("memory_closing")
@@ -323,7 +332,7 @@ def gather(number: int) -> dict:
         checked.append(inventory(f"{space()} mmw-retro latest", "unreadable", str(exc)))
     return {"spec": number, "spec_url": spec_url, "title": current.get("title", ""),
             "task_root": task_root, "intent": intent, "tree": native, "tickets": tickets,
-            "spec_events": state["events"], "spec_comments": comments,
+            "spec_events": urled_events(state["events"], comments), "spec_comments": comments,
             "memory_closing": closing, "proposed_memory_ids": proposed,
             "commits": commits, "prior_retro": earlier[0] if earlier else None,
             "evidence_checked": checked, "observed": {"at": datetime.now(timezone.utc).isoformat(),
@@ -419,25 +428,15 @@ def occurrence(url: str) -> str:
 
 
 def check_analysis(number: int, data: dict, gathered: dict) -> None:
-    required = ("spec", "task_root", "evidence_checked", "previous_proposals",
-                "categories", "problems", "intent_reconciliation", "review_learning", "observed")
-    if any(key not in data for key in required) or data["spec"] != number:
-        raise RetroError("analysis lacks a required field or names a different spec")
-    if data["task_root"] != gathered["task_root"]:
-        raise GatherChanged("task_root differs from the native parent")
-    if data["evidence_checked"] != gathered["evidence_checked"]:
-        raise GatherChanged("evidence_checked must carry gather's entire unchanged inventory")
-    if not isinstance(data["observed"], dict):
-        raise RetroError("observed must contain base_commit and at")
-    if data["observed"].get("base_commit") != gathered["observed"]["base_commit"]:
-        raise GatherChanged("observed.base_commit differs from gather's base commit")
-    if not data["observed"].get("at"):
-        raise RetroError("observed needs a retro time")
+    required = ("previous_proposals", "categories", "problems",
+                "intent_reconciliation", "review_learning")
+    if any(key not in data for key in required):
+        raise RetroError("analysis lacks a required field")
     if not isinstance(data["categories"], dict) or set(data["categories"]) != set(CATEGORIES):
         raise RetroError("all seven categories need an explicit result")
     if any(not isinstance(value, str) or not value.strip() for value in data["categories"].values()):
         raise RetroError("a category result is empty")
-    for name in ("evidence_checked", "previous_proposals", "problems"):
+    for name in ("previous_proposals", "problems"):
         if not isinstance(data[name], list):
             raise RetroError(f"{name} must be a list")
         if any(not isinstance(row, dict) for row in data[name]):
@@ -452,6 +451,7 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
             raise RetroError("landed proposal needs commit, active Rule, Memory or current file evidence")
         if row["status"] == "landed":
             proof = row["evidence"]
+            commit_url = re.fullmatch(r"https://github\.com/([^/]+)/([^/]+)/commit/([0-9a-f]{40})", proof)
             if SHA.fullmatch(proof):
                 command(["git", "cat-file", "-e", proof])
             elif proof.startswith("nowledgemem://memory/"):
@@ -461,6 +461,9 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
                 active = parsed(["nmem", "--json", "rules", "show", rule_id])
                 if active.get("id") != rule_id or active.get("status") != "active":
                     raise RetroError("previous proposal Rule is not active")
+            elif commit_url:
+                owner, name, sha = commit_url.groups()
+                parsed(["gh", "api", f"repos/{owner}/{name}/commits/{sha}"], env=GH_ENV)
             elif not (REPO / proof).resolve().is_relative_to(REPO.resolve()) or not (REPO / proof).is_file():
                 raise RetroError("previous proposal lacks a checked current file, commit or Memory")
     intent = data["intent_reconciliation"]
@@ -470,9 +473,6 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
         raise RetroError("intent reconciliation has no expected or observed surface")
     if not isinstance(data["review_learning"], str) or not data["review_learning"]:
         raise RetroError("review learning must report evidence or none")
-    if any(row.get("status") not in ("present", "missing", "unreadable") or
-           not row.get("source") for row in data["evidence_checked"]):
-        raise RetroError("evidence inventory has an unknown status or source")
     for problem in data["problems"]:
         if problem.get("category") not in CATEGORIES or not isinstance(problem.get("cause"), str) or not problem["cause"]:
             raise RetroError("problem needs one of seven categories and a cause")
@@ -490,15 +490,24 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
         if (not isinstance(problem.get("earlier_occurrences"), list) or
                 any(not isinstance(row, dict) for row in problem["earlier_occurrences"])):
             raise RetroError("problem lacks Earlier occurrences, even when none")
+        # Every source is opened once and cached: the loops below, and `qualifies`
+        # after them, would otherwise reopen the same URL two or three times.
+        cache: dict[str, tuple[str, str]] = {}
+
+        def opened(url: str) -> tuple[str, str]:
+            if url not in cache:
+                cache[url] = evidence_source(url)
+            return cache[url]
+
         for source in problem["evidence"]:
-            evidence_source(source)
+            opened(source)
         for previous in problem["earlier_occurrences"]:
             if not previous.get("memory_id") or not previous.get("evidence"):
                 raise RetroError("earlier occurrence needs a Memory id and original evidence")
-            evidence_source(previous["evidence"])
-            match = search(problem["category"], problem["cause"])["matches"]
-            matched = next((row for row in match if row["id"] == previous["memory_id"]), None)
-            if not matched or previous["evidence"] not in matched["content"]:
+            opened(previous["evidence"])
+            matched = memory_show(previous["memory_id"])
+            if ("mmw-retro" not in (matched.get("labels") or []) or
+                    previous["evidence"] not in matched["content"]):
                 raise RetroError("earlier mmw-retro does not cite the original same-cause source")
             if previous["evidence"] in problem["evidence"]:
                 raise RetroError("an earlier occurrence repeats the same event or commit")
@@ -510,10 +519,9 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
                 raise RetroError("proposal needs responsible repository, title and body")
             if not re.fullmatch(r"[^/\s]+/[^/\s]+", proposal["repository"]):
                 raise RetroError("proposal repository is not owner/name")
-            for key in ("prompt_change",):
-                if key in proposal:
-                    validate_prompt(proposal[key], problem)
-            if not qualifies(problem, gathered):
+            if "prompt_change" in proposal:
+                validate_prompt(proposal["prompt_change"], problem)
+            if not qualifies(problem, gathered, opened):
                 raise RetroError("proposal has no two independent sources or proposed Memory blocker")
 
 
@@ -521,15 +529,11 @@ def validate_prompt(change: dict, problem: dict) -> None:
     keys = ("target_file", "heading", "source", "current_passage", "proposed_passage",
             "changes_made", "expected_behavior")
     if not isinstance(change, dict) or any(not change.get(key) for key in keys):
-        raise RetroError("prompt_change lacks target, full passages, Changes Made or expected behavior")
+        raise RetroError("prompt_change lacks target, full passages, changes_made or expected behavior")
+    if not isinstance(change["changes_made"], str):
+        raise RetroError("changes_made must be one sentence naming what the change addresses")
     if change["source"] not in problem["evidence"]:
         raise RetroError("prompt change source is not this problem's primary evidence")
-    answers = change["changes_made"]
-    if not isinstance(answers, dict) or set(answers) != {"context_or_constraints", "ambiguity",
-                                                      "success_criteria_or_requirement", "timing"}:
-        raise RetroError("prompt_change needs all four Changes Made answers")
-    if any(not isinstance(x, str) or not x for x in answers.values()):
-        raise RetroError("prompt_change has an empty Changes Made answer")
     target = REPO / change["target_file"]
     if not target.resolve().is_relative_to(REPO.resolve()):
         raise RetroError("prompt target leaves the responsible repository")
@@ -541,9 +545,9 @@ def validate_prompt(change: dict, problem: dict) -> None:
         raise RetroError("prompt proposal does not change the passage")
 
 
-def qualifies(problem: dict, gathered: dict) -> bool:
+def qualifies(problem: dict, gathered: dict, source_of=evidence_source) -> bool:
     urls = list(dict.fromkeys(problem["evidence"] + [p["evidence"] for p in problem["earlier_occurrences"]]))
-    sources = [evidence_source(url) for url in urls]
+    sources = [source_of(url) for url in urls]
     occurrences = {occurrence(url) for url, (kind, _) in zip(urls, sources)
                    if kind in ("event", "commit")}
     if len(occurrences) >= 2:
@@ -579,7 +583,7 @@ def proposal_body(problem: dict, gathered: dict, memory_id: str) -> str:
                  f"Prompt source: {change['source']}\n"
                  f"Current complete passage:\n{change['current_passage']}\n"
                  f"Proposed complete passage:\n{change['proposed_passage']}\n"
-                 f"Changes Made:\n" + "".join(f"- {key}: {value}\n" for key, value in change["changes_made"].items()) +
+                 f"Changes Made: {change['changes_made']}\n"
                  f"Expected behavior: {change['expected_behavior']}\n")
     return text
 
@@ -636,10 +640,15 @@ def evidence_line(items: list[dict]) -> str:
 
 
 def render(data: dict, gathered: dict, proposal_urls: dict[int, str]) -> str:
-    root = data["task_root"]
-    label = f"map #{root['number']}" if root["kind"] == "map" else f"standalone spec #{root['number']}"
-    lines = [f"Spec: {repository()}#{data['spec']}", f"Task root: {label}",
-             "Evidence checked: " + evidence_line(data["evidence_checked"]),
+    root = gathered["task_root"]
+    if root["kind"] == "map":
+        label = f"map #{root['number']}"
+    elif root["kind"] == "parent":
+        label = f"parent #{root['number']}"
+    else:
+        label = f"standalone spec #{root['number']}"
+    lines = [f"Spec: {repository()}#{gathered['spec']}", f"Task root: {label}",
+             "Evidence checked: " + evidence_line(gathered["evidence_checked"]),
              "", "## Previous proposals"]
     lines += [f"- {x['url']} — " + (f"已落地：{x['evidence']}" if x["status"] == "landed"
                                      else "没找到证据") for x in data["previous_proposals"]] or ["none"]
@@ -657,7 +666,7 @@ def render(data: dict, gathered: dict, proposal_urls: dict[int, str]) -> str:
     lines += ["", "## Intent reconciliation", f"Expected: {intent['expected']}",
               f"Observed: {intent['observed']}", f"Gap: {intent['gap']}", "",
               "## Review learning", data["review_learning"], "",
-              f"Observed: {data['observed']['at']} {data['observed']['base_commit']}"]
+              f"Observed: {gathered['observed']['at']} {gathered['observed']['base_commit']}"]
     return "\n".join(lines) + "\n"
 
 
@@ -683,10 +692,25 @@ def receipt(number: int, *, result: str, memory_id: str = "", problems: int = 0,
     gh("issue", "comment", str(number), "--body-file", "-", stdin=body)
 
 
-def finalize(number: int, file: Path) -> dict:
-    gathered = gather(number)
+def finalize(number: int, analysis_file: Path, gather_file: Path) -> dict:
     try:
-        data = json.loads(file.read_text(encoding="utf-8"))
+        saved = json.loads(gather_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RetroError(f"saved gather output is unreadable: {exc}") from exc
+    if not isinstance(saved, dict):
+        raise RetroError("saved gather output is not one JSON object")
+    gathered = gather(number)
+    # Retro's own `spec.retroed` receipts are never inventoried (`event_comments`
+    # skips them), so a retry after an unrecorded one still matches this saved
+    # gather; a real tracker change since step 1 does not, and is refused below.
+    if saved.get("task_root") != gathered["task_root"]:
+        raise GatherChanged("task_root differs from a fresh gather")
+    if saved.get("evidence_checked") != gathered["evidence_checked"]:
+        raise GatherChanged("evidence_checked differs from a fresh gather")
+    if (saved.get("observed") or {}).get("base_commit") != gathered["observed"]["base_commit"]:
+        raise GatherChanged("observed.base_commit differs from a fresh gather")
+    try:
+        data = json.loads(analysis_file.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise RetroError(f"analyzed UTF-8 JSON is unreadable: {exc}") from exc
     if not isinstance(data, dict):
@@ -697,7 +721,7 @@ def finalize(number: int, file: Path) -> dict:
     for index, problem in enumerate(data["problems"]):
         if problem.get("proposal") is not None:
             links[index] = create_or_reuse(problem, gathered, ident)
-    unreadable = list(dict.fromkeys(x["source"] for x in data["evidence_checked"]
+    unreadable = list(dict.fromkeys(x["source"] for x in gathered["evidence_checked"]
                                 if x["status"] != "present"))
     content = render(data, gathered, links)
     env = dict(os.environ)
@@ -707,8 +731,8 @@ def finalize(number: int, file: Path) -> dict:
                           "--space", space(), "--source", "mmw-retro", "--unit-type", "event",
                           "--label", "mmw-retro", "--title",
                           f"Retro: {repository()}#{number} — {gathered['title']}"], stdin=content, env=env)
-        saved = json.loads(output)
-        if not isinstance(saved, dict) or saved.get("id") != ident:
+        written = json.loads(output)
+        if not isinstance(written, dict) or written.get("id") != ident:
             raise RetroError(f"Memory write did not confirm fixed id {ident}")
     except (RetroError, ValueError) as exc:
         reason = f"Retro Memory write failed: {exc}"
@@ -744,15 +768,14 @@ def refusal_for(exc: Exception, args: argparse.Namespace) -> str:
         why = "because the category, cause or earlier Memory could not be verified."
         next_step = f"Next: python3 {script} search 'Automated checks' '<specific cause>'."
     elif isinstance(exc, GatherChanged):
-        why = "because the tracker or origin changed after the gather the analysis copied."
-        next_step = (f"Next: run python3 {script} gather {args.spec} again, copy its task_root, "
-                     "evidence_checked and observed.base_commit into the analyzed JSON, "
-                     "then run finalize again.")
+        why = "because the tracker or origin changed after the gather this analysis was based on."
+        next_step = (f"Next: run python3 {script} gather {args.spec} again, save its output, and "
+                     f"run python3 {script} finalize {args.spec} {args.analysis} <new-gather-file> again.")
     else:
         why = "because analyzed evidence or proposal support could not be verified."
         next_step = (f"Next: correct what this refusal names in the analyzed JSON (for a failed gh "
                      f"or nmem read, wait until it answers), then run python3 {script} finalize "
-                     f"{args.spec} {args.analysis} again.")
+                     f"{args.spec} {args.analysis} {args.gather} again.")
     return refusal.refusal(fact, why, next_step, limit=1000)
 
 
@@ -769,6 +792,7 @@ def main(argv: list[str] | None = None) -> int:
     finish = sub.add_parser("finalize")
     finish.add_argument("spec", type=int)
     finish.add_argument("analysis", type=Path)
+    finish.add_argument("gather", type=Path)
     args = parser.parse_args(argv)
     try:
         REPO = git_root(args.repo.resolve() if args.repo else Path.cwd())
@@ -782,7 +806,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         value = (gather(args.spec) if args.verb == "gather" else
                  search(args.category, args.cause) if args.verb == "search" else
-                 finalize(args.spec, args.analysis))
+                 finalize(args.spec, args.analysis, args.gather))
         print(json.dumps(value, ensure_ascii=False, indent=2))
         return 0
     except (RetroError, events.EventError) as exc:

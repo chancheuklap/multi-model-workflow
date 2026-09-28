@@ -67,7 +67,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 ## Triage a specific issue or PR
 
-An issue labelled `mmw:child`, or a ticket labelled `mmw:ticket` whose newest result is `ticket.returned` or `ticket.bounced`, came from this repository's own pipeline: read [references/pipeline-issues.md](references/pipeline-issues.md) first; it replaces step 1's reproduction and adds step 5's destinations.
+An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro #<spec>: …`), came from this repository's own pipeline: read [references/pipeline-issues.md](references/pipeline-issues.md) first; it replaces step 1's reproduction and adds step 5's destinations.
 
 1. **Gather context.** Read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Run two checks against the codebase: (a) **redundancy**: search for an existing implementation of the requested behavior by domain concept (not just the request's wording), and report where you looked. If found, it's an already-implemented `wontfix` (step 5). (b) **prior rejection**: read `.out-of-scope/*.md` and surface any that resembles this request.
 
@@ -77,7 +77,7 @@ An issue labelled `mmw:child`, or a ticket labelled `mmw:ticket` whose newest re
 
 4. **Grill (if needed).** If the request needs fleshing out, read the `grilling` and `domain-modeling` skills' `SKILL.md` and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
 
-5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome. `needs-info`, `ready-for-human`, and `wontfix` move nothing: the parent stays.
+5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome.
 
    - `ready-for-agent`: when the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)), then route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's `references/revising-a-spec.md`, citing this issue as a source; close this issue with a comment linking that spec; then cut tickets from the spec with the `to-tickets` skill. The label goes on those tickets, not on this issue.
    - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label: **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
@@ -86,6 +86,8 @@ An issue labelled `mmw:child`, or a ticket labelled `mmw:ticket` whose newest re
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+
+   A child whose default was right, or whose fix is already on the base branch, is closed through `<dispatch> route <ticket> <child> fixed` or `stale <invalid|fixed-elsewhere>` so its ticket records the route; `wontfix` means nobody will do it, not that it is done.
 
 ## Quick state override
 
