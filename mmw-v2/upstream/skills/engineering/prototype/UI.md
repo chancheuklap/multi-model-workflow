@@ -33,7 +33,7 @@ In both sub-shapes the floating bottom bar is identical.
 
 ### When there is no app yet
 
-A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `prototypes/<effort>/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them, so there is no scaffolding to take down after the first pull of the design.
+A brand-new product has no route to host the variants and no routing convention to follow, so neither sub-shape applies. The variants are standalone pages in the leaf directory `prototypes/<effort>/<issue>/UI/`, built with the stack the effort has decided, sharing one switcher. Nothing outside the leaf directory mounts them.
 
 ## Process
 
@@ -118,4 +118,4 @@ The winner goes into Claude Design, so leave the scaffolding up until the first 
 
 ## Next
 
-A UI prototype hands off here, at step 6: its winner goes into Claude Design through the `design-pages` skill, whose first pull takes the scaffolding down.
+A UI prototype hands off here, at step 6: its winner goes into Claude Design through the `design-pages` skill.

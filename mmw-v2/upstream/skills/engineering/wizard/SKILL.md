@@ -26,7 +26,7 @@ Then show the user the ordered list of stages and the values each produces, and 
 
 ### 2. Map each stage's journey
 
-For each stage, write the precise path a human follows: which URL to open, what to do there, where a value is shown, which variable it fills: e.g. "Dashboard → Developers → API keys → Reveal test key → copy". Where you don't actually know the current UI or the exact command, say so and ask the user or check the docs: never invent steps that may not exist.
+For each stage, write the precise path a human follows: which URL to open, what to do there, where a value is shown, which variable it fills: e.g. "Dashboard → Developers → API keys → Reveal test key → copy". Where you don't actually know the current UI or the exact command, say so and ask the user or check the docs: never invent steps that may not exist. The human, not you, meets the live dashboard, and dashboards are redesigned more often than wizards are rewritten. With each click path, say what the step must achieve (the setting and its value, the permission granted, the key revealed), so a human facing a renamed or moved control can still find it. A path you wrote from memory rather than from current docs gets a `note` in the stage saying so.
 
 **Done when:** every stage traces to concrete instructions a stranger could follow.
 
@@ -34,7 +34,7 @@ For each stage, write the precise path a human follows: which URL to open, what 
 
 Copy `template.sh` to the target path. Replace the example stage with one `stage` per step, in dependency order. Use the library helpers: `stage`, `say`/`step`, `open_url`, `ask`/`ask_secret`, `write_env`, `set_secret`/`set_var`, `pause`/`confirm`. Set `TOTAL_STAGES` to the number of stages you wrote.
 
-Hold the bar the template sets: open the URL before asking for its value, use `ask_secret` for anything secret, `write_env` every persisted value, `set_secret` only the values CI actually needs, and `confirm` before any irreversible action. Each `stage` clears the screen so only the current step is visible: keep a stage to one focused task so nothing the human needs scrolls away. Don't touch the library above the marker.
+Hold the bar the template sets: open the URL before asking for its value, use `ask_secret` for anything secret, `write_env` every persisted value, `set_secret` only the values CI actually needs, and `confirm` before any irreversible action. Each `stage` clears the screen so only the current step is visible: keep a stage to one focused task so nothing the human needs scrolls away. Don't touch the library above the marker. In stage text write every variable as `${NAME}`: the machine's `/bin/bash` 3.2 reads a full-width character right after `$NAME` as part of the name and stops with an unbound variable.
 
 ### 4. Verify and hand off
 

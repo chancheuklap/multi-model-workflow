@@ -9,12 +9,13 @@ The user has asked you to teach them something. This is a stateful request - the
 
 ## Teaching Workspace
 
-Treat the current directory as a teaching workspace. The state of their learning is captured in this directory in several files:
+Treat the current directory as a teaching workspace. The workspace is the directory the user is learning in, never this skill's own directory where the `*-FORMAT.md` files sit. When the current directory belongs to another project, ask where the workspace is before writing anything. The state of their learning is captured in this directory in several files:
 
 - `MISSION.md`: A document capturing the _reason_ the user is interested in the topic. This should be used to ground all teaching. Use the format in [MISSION-FORMAT.md](./MISSION-FORMAT.md).
 - `./reference/*.html`: A directory of reference materials. These are the compressed learnings from the lessons - cheat sheets, reference algorithms, syntax, yoga poses, glossaries. They are the raw units of learning. They should be beautiful documents which print out well, and are designed for quick reference.
 - `RESOURCES.md`: A list of resources which can be explored to ground your teaching in contextual knowledge, or to acquire knowledge and wisdom. Use the format in [RESOURCES-FORMAT.md](./RESOURCES-FORMAT.md).
 - `./learning-records/*.md`: A directory of learning records, which capture what the user has learned. These are loosely equivalent to architectural decision records in software development - they capture non-obvious lessons and key insights that may need to be revised later, or drive future sessions. These should be used to calculate the zone of proximal development. They are titled `0001-<dash-case-name>.md`, where the number increments each time. Use the format in [LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md).
+- `GLOSSARY.md`: the workspace's canonical terms, one name per concept, used by every lesson and learning record. Use the format in [GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md).
 - `./lessons/*.html`: A directory of lessons. A **lesson** is a single, self-contained HTML output that teaches one tightly-scoped thing tied to the mission. This is the primary unit of teaching in this workspace.
 - `./assets/*`: Reusable **components** shared across lessons. See [Assets](#assets).
 - `NOTES.md`: A scratchpad for you to jot down user preferences, or working notes.
@@ -54,7 +55,7 @@ The lesson should be short, and completable very quickly. Learners' working memo
 
 The reader knows nothing about this topic. Pictures show what things are and how they connect. Words do only what a picture cannot: say which question the picture answers, point at the part that matters, and state what follows from it. A sentence that repeats what the picture shows is deleted; a picture that needs a paragraph to be read is redrawn.
 
-Hand the finished lesson over by serving the workspace root over a local HTTP server and giving the user the lesson's URL.
+Hand the finished lesson over by serving the workspace root over a local HTTP server and giving the user the lesson's URL. Opened straight from disk, under `file://`, some browsers block links that leave the page's own directory, so lessons and reference pages stop reaching each other.
 
 Each lesson should link via HTML anchors to other lessons and reference documents.
 
@@ -72,7 +73,7 @@ A shared stylesheet is the first component every workspace earns, so the lessons
 
 ### Self-contained pages
 
-Embed each component the page uses as a `<style>` or `<script>` block between `<!--CSS-->` and `<!--JS-->` markers. `./assets/` stays the editable source: write `./assets/build.py` alongside the first component so it refills those markers across `./lessons/` and `./reference/`, and re-run it after editing a component.
+A lesson is often opened away from its folder (an editor preview, a rendering pane, a copy someone was sent), where every file it points at is lost and it arrives as unstyled text. So each page carries what it uses. Embed each component the page uses as a `<style>` or `<script>` block between `<!--CSS-->` and `<!--JS-->` markers. `./assets/` stays the editable source: write `./assets/build.py` alongside the first component so it refills those markers across `./lessons/` and `./reference/`, and re-run it after editing a component.
 
 ## The Mission
 
