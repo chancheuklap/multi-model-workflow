@@ -27,7 +27,8 @@ NAMES = {"complete-none": "RETRO-COMPLETE-NONE-OK",
          "proposal-threshold": "RETRO-PROPOSAL-THRESHOLD-OK",
          "prompt-and-record-contract": "RETRO-PROMPT-AND-RECORD-CONTRACT-OK",
          "retry-finalize": "RETRO-RETRY-FINALIZE-OK",
-         "large-evidence": "RETRO-LARGE-EVIDENCE-OK"}
+         "large-evidence": "RETRO-LARGE-EVIDENCE-OK",
+         "parent-without-map": "RETRO-PARENT-WITHOUT-MAP-OK"}
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -146,24 +147,29 @@ class Fixture:
         assert result.returncode == 0, f"{args}: {result.stderr}\n{result.stdout}"
         return json.loads(result.stdout)
 
-    def analysis(self, gathered: dict, problems: list[dict] | None = None) -> dict:
+    def analysis(self, problems: list[dict] | None = None) -> dict:
         problems = problems or []
         categories = {name: "none" for name in CATEGORIES}
         for problem in problems:
             categories[problem["category"]] = f"candidate: {problem['cause']}"
-        return {"spec": 70, "task_root": gathered["task_root"],
-                "evidence_checked": gathered["evidence_checked"],
-                "previous_proposals": [], "categories": categories,
-                "problems": problems,
+        return {"previous_proposals": [], "categories": categories, "problems": problems,
                 "intent_reconciliation": {"expected": "Receipt for the owner",
                                           "observed": "ticket event and landing commit",
                                           "gap": "aligned"},
-                "review_learning": "none", "observed": gathered["observed"]}
+                "review_learning": "none"}
 
-    def finish(self, analysis: dict) -> dict:
-        path = self.root / "analysis.json"
+    def write_gather(self, gathered: dict, name: str = "gather.json") -> str:
+        path = self.root / name
+        path.write_text(json.dumps(gathered), encoding="utf-8")
+        return str(path)
+
+    def write_analysis(self, analysis: dict, name: str = "analysis.json") -> str:
+        path = self.root / name
         path.write_text(json.dumps(analysis), encoding="utf-8")
-        return self.run("finalize", "70", str(path))
+        return str(path)
+
+    def finish(self, gathered: dict, analysis: dict) -> dict:
+        return self.run("finalize", "70", self.write_analysis(analysis), self.write_gather(gathered))
 
     def assert_receipt(self, result: str):
         rows = self.state("gh")["issues"]["70"]["comments"]
@@ -182,6 +188,7 @@ def current_problem(f: Fixture, earlier: bool = True, prompt: bool = False) -> d
     f.save()
     if earlier:
         f.update("nmem", memories={"prior-retro": {"id": "prior-retro", "space_id": SPACE,
+                 "labels": ["mmw-retro"],
                  "content": f"Spec: {REPOSITORY}#69\n## Problems observed\n"
                             f"### Automated checks: same cause\nEvidence: {prior}\n"}})
     body = "Owner approval requested; no behavior is applied here."
@@ -191,10 +198,7 @@ def current_problem(f: Fixture, earlier: bool = True, prompt: bool = False) -> d
             "target_file": "retro-target.md", "heading": "Context", "source": current,
             "current_passage": "Keep line.\nChange this.",
             "proposed_passage": "Keep line.\nChange that.",
-            "changes_made": {"context_or_constraints": "No additional context",
-                             "ambiguity": "Clarifies the ambiguous action",
-                             "success_criteria_or_requirement": "No additional criterion",
-                             "timing": "No timing change"},
+            "changes_made": "Clarifies the ambiguous action",
             "expected_behavior": "Agent follows the clarified action"}
     return {"category": "Automated checks", "cause": "same cause", "evidence": [current],
             "handled_here": "Accepted in this run", "prevention": {"destination": "script",
@@ -212,7 +216,8 @@ def complete_none(f: Fixture):
     assert gathered["commits"][0]["sha"] == f.landed
     assert all(x["status"] == "present" for x in gathered["evidence_checked"])
     assert gathered["tickets"][0]["events"]
-    outcome = f.finish(f.analysis(gathered))
+    assert gathered["tickets"][0]["events"][0]["url"]
+    outcome = f.finish(gathered, f.analysis())
     receipt = f.assert_receipt("recorded")
     assert outcome["problem_count"] == receipt["problem_count"] == 0
     assert outcome["proposals"] == receipt["proposals"] == []
@@ -243,8 +248,8 @@ def partial_evidence(f: Fixture):
                for x in gathered["evidence_checked"]), gathered["evidence_checked"]
     problem = current_problem(f, earlier=True)
     gathered = f.run("gather", "70")
-    analysis = f.analysis(gathered, [problem])
-    outcome = f.finish(analysis)
+    analysis = f.analysis([problem])
+    outcome = f.finish(gathered, analysis)
     receipt = f.assert_receipt("recorded")
     assert receipt["evidence"] == "partial" and receipt["unreadable_sources"] == missing
     content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
@@ -256,9 +261,8 @@ def partial_evidence(f: Fixture):
     invalid["earlier_occurrences"] = []
     invalid["proposal"] = None
     latest = f.run("gather", "70")
-    path = f.root / "unreadable.json"
-    path.write_text(json.dumps(f.analysis(latest, [invalid])), encoding="utf-8")
-    error = f.run("finalize", "70", str(path), ok=False)
+    error = f.run("finalize", "70", f.write_analysis(f.analysis([invalid]), "unreadable.json"),
+                 f.write_gather(latest), ok=False)
     assert "https://github.com/sample/" in error and "because" in error and "finalize 70" in error, error
     assert len(f.state("gh")["proposals"]) == 1
 
@@ -269,7 +273,7 @@ def proposal_threshold(f: Fixture):
     assert gathered["proposed_memory_ids"] == []
     search = f.run("search", "Automated checks", "same cause")
     assert search["matches"][0]["id"] == "prior-retro"
-    outcome = f.finish(f.analysis(gathered, [problem]))
+    outcome = f.finish(gathered, f.analysis([problem]))
     proposal = f.state("gh")["proposals"][0]
     assert proposal["labels"] == ["needs-triage"] and proposal["repository"] == REPOSITORY
     assert gathered["spec_url"] in proposal["body"] and problem["evidence"][0] in proposal["body"]
@@ -288,17 +292,18 @@ def proposal_threshold(f: Fixture):
     weak = current_problem(f, earlier=False)
     weak["proposal"]["title"] = "Weak proposed change"
     gathered = f.run("gather", "70")
-    path = f.root / "weak.json"
-    path.write_text(json.dumps(f.analysis(gathered, [weak])), encoding="utf-8")
-    assert "proposal has no two indep" in f.run("finalize", "70", str(path), ok=False)
+    error = f.run("finalize", "70", f.write_analysis(f.analysis([weak]), "weak.json"),
+                 f.write_gather(gathered), ok=False)
+    assert "proposal has no two indep" in error
     # Two comments on one ticket are two representations, not two occurrences.
     same = f.event(71, "ticket.checked", "same cause again", ticket=71,
                    run="self", result="unmet", commit=f.landed)
     f.save()
     weak["evidence"].append(same)
     latest = f.run("gather", "70")
-    path.write_text(json.dumps(f.analysis(latest, [weak])), encoding="utf-8")
-    assert "proposal has no two indep" in f.run("finalize", "70", str(path), ok=False)
+    error = f.run("finalize", "70", f.write_analysis(f.analysis([weak]), "weak.json"),
+                 f.write_gather(latest), ok=False)
+    assert "proposal has no two indep" in error
     # A proposed Memory record with an actual blocking event reaches the other
     # threshold without borrowing the older Memory as an occurrence.
     blocked = f.event(71, "ticket.returned", "same cause blocked the ticket", ticket=71)
@@ -314,7 +319,7 @@ def proposal_threshold(f: Fixture):
                             "body": "Proposed Worker Memory worker-memory has one actual blocker."}
     latest = f.run("gather", "70")
     assert latest["proposed_memory_ids"] == ["worker-memory"]
-    outcome = f.finish(f.analysis(latest, [blocker]))
+    outcome = f.finish(latest, f.analysis([blocker]))
     assert outcome["proposals"] and f.assert_receipt("recorded")["proposals"] == [900]
     # The repeated-cause threshold also admits two independent commit sources
     # with no event in the current problem.
@@ -334,7 +339,7 @@ def proposal_threshold(f: Fixture):
                           "title": "Prevent repeated commits", "body": "Owner approval requested."}}
         latest = commits.run("gather", "70")
         assert {row["sha"] for row in latest["commits"]} >= {first, second}
-        outcome = commits.finish(commits.analysis(latest, [commit_problem]))
+        outcome = commits.finish(latest, commits.analysis([commit_problem]))
         assert outcome["proposals"] == [f"https://github.com/{REPOSITORY}/issues/900"]
         assert commits.assert_receipt("recorded")["proposals"] == [900]
     finally:
@@ -350,7 +355,7 @@ def proposal_threshold(f: Fixture):
         semantic.save()
         cause = "validator fails when input is missing"
         semantic.update("nmem", memories={"prior-retro": {
-            "id": "prior-retro", "space_id": SPACE,
+            "id": "prior-retro", "space_id": SPACE, "labels": ["mmw-retro"],
             "content": f"Spec: {REPOSITORY}#69\n## Problems observed\n"
                        f"### Automated checks: absent input rejected\nEvidence: {prior}\n"}},
             semantic_aliases={f"Automated checks {cause}": ["prior-retro"]})
@@ -361,7 +366,7 @@ def proposal_threshold(f: Fixture):
                             "proposal": {"repository": REPOSITORY, "title": "Check missing input",
                                          "body": "Owner approval requested."}}
         latest = semantic.run("gather", "70")
-        outcome = semantic.finish(semantic.analysis(latest, [semantic_problem]))
+        outcome = semantic.finish(latest, semantic.analysis([semantic_problem]))
         assert outcome["proposals"] and semantic.assert_receipt("recorded")["proposals"] == [900]
     finally:
         semantic.close()
@@ -377,38 +382,38 @@ def prompt_and_record_contract(f: Fixture):
                                                  f"- {landed_url} — landed in retro-target.md\n")
     f.update("nmem", memories=memories)
     gathered = f.run("gather", "70")
-    analysis = f.analysis(gathered, [problem])
+    analysis = f.analysis([problem])
     analysis["previous_proposals"] = [{"url": prior_url, "status": "no-evidence-found",
                                        "evidence": "none"},
                                       {"url": landed_url, "status": "landed",
                                        "evidence": "retro-target.md"}]
-    result = f.finish(analysis)
+    result = f.finish(gathered, analysis)
     body = f.state("gh")["proposals"][0]["body"]
     for part in ("Current complete passage:\nKeep line.\nChange this.",
                  "Proposed complete passage:\nKeep line.\nChange that.",
-                 "Changes Made:", "context_or_constraints:", "ambiguity:",
-                 "success_criteria_or_requirement:", "timing:", "Expected behavior:"):
+                 "Changes Made:", "Clarifies the ambiguous action", "Expected behavior:"):
         assert part in body, part
     content = f.state("nmem")["memories"][result["retro_memory"]]["content"]
     for part in ("Evidence:", "Handled here:", "Prevention:", "Earlier occurrences:",
                  "Proposal:", "Expected:", "Observed:", "Gap:",
                  f"{prior_url} — 没找到证据", f"{landed_url} — 已落地：retro-target.md"):
         assert part in content, part
-    bad = f.analysis(f.run("gather", "70"), [problem])
-    bad["problems"][0]["proposal"]["prompt_change"]["changes_made"].pop("timing")
-    path = f.root / "bad.json"
-    path.write_text(json.dumps(bad), encoding="utf-8")
-    assert "prompt_change needs all fo" in f.run("finalize", "70", str(path), ok=False)
-    problem["proposal"]["prompt_change"]["changes_made"]["timing"] = "No timing change"
-    no_change = f.analysis(f.run("gather", "70"), [problem])
+    bad = f.analysis([problem])
+    problem["proposal"]["prompt_change"]["changes_made"] = ["not", "a", "sentence"]
+    error = f.run("finalize", "70", f.write_analysis(bad, "bad.json"),
+                 f.write_gather(f.run("gather", "70")), ok=False)
+    assert "changes_made must be one sentence" in error
+    problem["proposal"]["prompt_change"]["changes_made"] = "Clarifies the ambiguous action"
+    no_change = f.analysis([problem])
     no_change["problems"][0]["proposal"]["prompt_change"]["proposed_passage"] = "Keep line.\nChange this."
-    path.write_text(json.dumps(no_change), encoding="utf-8")
-    assert "prompt proposal does not" in f.run("finalize", "70", str(path), ok=False)
-    malformed = f.analysis(f.run("gather", "70"), [problem])
-    malformed["observed"] = "unreadable shape"
-    path.write_text(json.dumps(malformed), encoding="utf-8")
-    refusal = f.run("finalize", "70", str(path), ok=False)
-    assert "observed must contain" in refusal and "because" in refusal and "finalize 70" in refusal
+    error = f.run("finalize", "70", f.write_analysis(no_change, "no-change.json"),
+                 f.write_gather(f.run("gather", "70")), ok=False)
+    assert "prompt proposal does not" in error
+    malformed = f.analysis([problem])
+    malformed.pop("review_learning")
+    error = f.run("finalize", "70", f.write_analysis(malformed, "malformed.json"),
+                 f.write_gather(f.run("gather", "70")), ok=False)
+    assert "analysis lacks a required field" in error and "because" in error and "finalize 70" in error
     # A current repository file and a re-runnable observed check are valid
     # primary evidence for problems without satisfying the proposal threshold.
     sources = Fixture()
@@ -425,7 +430,7 @@ def prompt_and_record_contract(f: Fixture):
              "prevention": {"destination": "none", "text": "No change proposed"},
              "earlier_occurrences": [], "proposal": None},
         ]
-        result = sources.finish(sources.analysis(gathered, problems))
+        result = sources.finish(gathered, sources.analysis(problems))
         assert result["problem_count"] == 2 and result["proposals"] == []
         assert sources.assert_receipt("recorded")["problem_count"] == 2
         content = sources.state("nmem")["memories"][result["retro_memory"]]["content"]
@@ -443,8 +448,8 @@ def retry_finalize(f: Fixture):
                      if events.parse(c["body"])[0] == "event" and
                      events.parse(c["body"])[1].get("event") == "spec.closed"]
     f.update("nmem", fail_add_once=True)
-    analysis = f.analysis(gathered, [problem])
-    first = f.finish(analysis)
+    analysis = f.analysis([problem])
+    first = f.finish(gathered, analysis)
     assert first["result"] == "unrecorded"
     f.assert_receipt("unrecorded")
     assert not f.state("nmem")["memories"].get(f"mmw-retro-{SPACE}-spec-70")
@@ -454,16 +459,9 @@ def retry_finalize(f: Fixture):
     assert [events.parse(c["body"])[1] for c in f.state("gh")["issues"]["70"]["comments"]
             if events.parse(c["body"])[0] == "event" and
             events.parse(c["body"])[1].get("event") == "spec.closed"] == closed_before
-    # The incomplete receipt is a new spec comment, so the first gather's
-    # inventory is stale: finalize refuses it and names a fresh gather.
-    stale = f.root / "stale.json"
-    stale.write_text(json.dumps(analysis), encoding="utf-8")
-    error = f.run("finalize", "70", str(stale), ok=False)
-    assert "evidence_checked must carry" in error and "gather 70 again" in error, error
-    assert len(f.state("gh")["proposals"]) == 1
-    # The latest receipt replaces the incomplete one in the fold.
-    next_gather = f.run("gather", "70")
-    second = f.finish(f.analysis(next_gather, [problem]))
+    # retro's own unrecorded receipt on the spec issue is not inventoried, so the
+    # same saved gather still matches a fresh one and needs no re-gather.
+    second = f.finish(gathered, analysis)
     assert second["result"] == "recorded"
     assert len(f.state("gh")["proposals"]) == 1
     assert len(f.state("nmem")["memories"]) == 2  # earlier + one fixed id
@@ -475,6 +473,28 @@ def retry_finalize(f: Fixture):
             events.parse(c["body"])[1].get("event") == "spec.closed"] == closed_before
     assert len([c for c in f.state("gh")["issues"]["70"]["comments"]
                 if '"event":"spec.closed"' in c["body"]]) == 1
+    # A real tracker change after gather, not retro's own receipt, is still
+    # caught: finalize refuses the saved gather and names a fresh one. This
+    # problem needs no proposal, so it needs no Retro Memory `f.save()` could wipe.
+    stale = Fixture()
+    try:
+        stale_problem = {"category": "Information access", "cause": "Change this.",
+                         "evidence": ["retro-target.md"], "handled_here": "Found in the current file",
+                         "prevention": {"destination": "none", "text": "No change proposed"},
+                         "earlier_occurrences": [], "proposal": None}
+        stale_gathered = stale.run("gather", "70")
+        gather_path = stale.write_gather(stale_gathered)
+        analysis_path = stale.write_analysis(stale.analysis([stale_problem]))
+        stale.event(71, "ticket.checked", "another run landed", ticket=71,
+                    run="self", result="unmet", commit=stale.landed)
+        stale.save()
+        error = stale.run("finalize", "70", analysis_path, gather_path, ok=False)
+        assert "evidence_checked differs" in error and "gather 70 again" in error, error
+        fresh = stale.run("gather", "70")
+        outcome = stale.finish(fresh, stale.analysis([stale_problem]))
+        assert outcome["result"] == "recorded"
+    finally:
+        stale.close()
 
 
 def large_evidence(f: Fixture):
@@ -487,7 +507,7 @@ def large_evidence(f: Fixture):
     gathered = f.run("gather", "70")
     present = [x for x in gathered["evidence_checked"] if x["status"] == "present"]
     assert len(present) > 400
-    outcome = f.finish(f.analysis(gathered))
+    outcome = f.finish(gathered, f.analysis())
     assert outcome["result"] == "recorded", outcome
     assert f.assert_receipt("recorded")["evidence"] == "complete"
     content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
@@ -498,11 +518,28 @@ def large_evidence(f: Fixture):
     assert f"{ticket} [present] event-bearing comments and fold" in content
 
 
+def parent_without_map(f: Fixture):
+    # A spec under a parent issue that carries no mmw:map label narrows the task
+    # root instead of refusing the whole retro.
+    f.add_issue(999, "Parent without map label", "Not a map", parent=None)
+    f.issues["70"]["parent"] = {"number": 999}
+    f.save()
+    gathered = f.run("gather", "70")
+    assert gathered["task_root"] == {"kind": "parent", "number": 999}
+    assert any(x["source"] == f"https://github.com/{REPOSITORY}/issues/999" and
+               "no mmw:map" in x["detail"] for x in gathered["evidence_checked"])
+    outcome = f.finish(gathered, f.analysis())
+    assert outcome["result"] == "recorded"
+    content = f.state("nmem")["memories"][outcome["retro_memory"]]["content"]
+    assert "Task root: parent #999" in content
+
+
 FUNCTIONS = {"complete-none": complete_none, "default-caller-repo": default_caller_repo,
              "partial-evidence": partial_evidence,
              "proposal-threshold": proposal_threshold,
              "prompt-and-record-contract": prompt_and_record_contract,
-             "retry-finalize": retry_finalize, "large-evidence": large_evidence}
+             "retry-finalize": retry_finalize, "large-evidence": large_evidence,
+             "parent-without-map": parent_without_map}
 
 
 def main():
