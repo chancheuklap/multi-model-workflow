@@ -17,6 +17,7 @@ import textwrap
 import threading
 import unittest
 import urllib.parse
+from unittest import mock
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -351,23 +352,11 @@ class PullDesign(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("is not a design page", result.stderr)
 
-    def test_a_saved_list_files_result_gives_the_root_pages_and_nothing_else(self):
-        self.preview.files["notes/Draft.dc.html"] = b"<html><head></head><body></body></html>"
-        listing = self.work / "list_files.json"
-        listing.write_text(json.dumps([
-            {"path": "Component · Demo.dc.html", "type": "file", "size": 1, "etag": "x"},
-            {"path": "Overview.dc.html", "type": "file", "size": 99999},
-            {"path": "notes/Draft.dc.html", "type": "file", "size": 5},
-            {"path": "styles", "type": "directory"},
-            {"path": "styles/app.css", "type": "file", "size": 0},
-        ]), encoding="utf-8")
-        result = self.pull(args=[str(listing), str(self.target)])
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        manifest = json.loads((self.target / "design-manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["pages"], ["Component · Demo.dc.html", "Overview.dc.html"])
-        self.assertFalse((self.target / "notes/Draft.dc.html").exists())
-        self.assertEqual(
-            (self.target / "styles/app.css").read_bytes(), self.preview.files["styles/app.css"])
+    def test_pages_are_required(self):
+        result = self.pull(args=[str(self.target)])
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("pull_design.py received", result.stderr)
+        self.assertFalse(self.target.exists())
 
     def test_the_manifest_records_pages_and_pulled_paths_and_a_repull_drops_stale_ones(self):
         self.preview.files["styles/extra.css"] = b"p { color: red; }\n"
@@ -462,7 +451,7 @@ class PullDesign(unittest.TestCase):
         self.assertIn("Passed: 2/2 scenes", readme)
         self.assertIn("Claude Design project id: `fixture-project`", readme)
 
-    def test_a_successful_pull_preserves_non_package_files_and_the_state_list(self):
+    def test_a_successful_pull_preserves_non_package_files(self):
         self.target.mkdir()
         (self.target / "prototype.tsx").write_text("keep me", encoding="utf-8")
         (self.target / "README.md").write_text(
@@ -472,8 +461,11 @@ class PullDesign(unittest.TestCase):
         result = self.pull()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.target / "prototype.tsx").read_text(), "keep me")
-        readme = (self.target / "README.md").read_text(encoding="utf-8")
-        self.assertIn("## State list\n\n### Header\n- ready", readme)
+        # The generated README is rewritten whole on every pull: a `## State list`
+        # section hand-written into the package's own README does not carry forward
+        # (the state list belongs beside the package, in a prototype's README, read
+        # in with `--state-list`, not inside the package the pull regenerates).
+        self.assertNotIn("## State list", (self.target / "README.md").read_text(encoding="utf-8"))
 
     def test_an_empty_offline_root_is_reported_without_blocking_the_pull(self):
         page = self.preview.files["Component · Demo.dc.html"]
@@ -660,6 +652,24 @@ class PullDesign(unittest.TestCase):
         self.assertIn("p: Unidentified copy", coverage)
         self.assertIn("可点或可输入却没有 `data-ui` id：", coverage)
         self.assertIn("button: Unidentified action", coverage)
+
+    def test_missing_ids_seen_in_several_scenes_of_one_page_are_one_line(self):
+        # Static markup with no `data-ui` renders identically in every scene of the
+        # page; the report groups by page so the same finding is not repeated once
+        # per scene.
+        page = self.preview.files["Component · Demo.dc.html"]
+        self.preview.files["Component · Demo.dc.html"] = page.replace(
+            b"</main>", b"<p>Unidentified copy</p><span>Second copy</span></main>", 1,
+        )
+        result = self.pull()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        coverage = self.report_section("覆盖")
+        lines = [line for line in coverage.splitlines() if line.startswith("- 带文字但没有 `data-ui` id：")]
+        self.assertEqual(len(lines), 1, coverage)
+        self.assertIn("Component · Demo.dc.html", lines[0])
+        self.assertIn("（2 处）", lines[0])
+        self.assertIn("p: Unidentified copy", lines[0])
+        self.assertIn("span: Second copy", lines[0])
 
     def test_the_report_lists_classes_no_stylesheet_defines(self):
         page = self.preview.files["Component · Demo.dc.html"]
@@ -881,15 +891,12 @@ class PullDesign(unittest.TestCase):
         self.assertIn("找不到同名页", report)
         self.assertIn("Missing page", report)
 
-    def test_unreadable_state_list_is_reported_as_not_checked_and_does_not_replace_readme(self):
+    def test_an_unreadable_state_list_is_reported_as_not_checked(self):
         first = self.pull()
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-        readme = self.target / "README.md"
-        readme.write_text(readme.read_text() + "\n## State list\n\n### Kept\n- ready\n")
         result = self.pull("--state-list", str(self.work / "missing-readme.md"))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("state list 无法读取，未核对", self.report_section("覆盖"))
-        self.assertIn("### Kept\n- ready", readme.read_text())
 
     def test_contract_without_rows_is_reported_as_not_checked(self):
         first = self.pull()
@@ -948,6 +955,30 @@ class PullDesign(unittest.TestCase):
         self.assertIn("demo.status-copy", report)
         self.assertIn("After override", report)
         self.assertIn("Before override", report)
+
+    def test_a_missing_chromium_names_the_install_command(self):
+        module = load_script_module()
+        self.target.mkdir()
+        package = module.HandoffPackage(root=self.target, scenes=[], sizes={}, pages=[])
+
+        class FakeChromium:
+            def launch(self):
+                raise RuntimeError("Executable doesn't exist at /fake/chromium")
+
+        class FakePlaywright:
+            chromium = FakeChromium()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        import playwright.sync_api as sync_api
+        with mock.patch.object(sync_api, "sync_playwright", return_value=FakePlaywright()):
+            with self.assertRaises(module.PullRefused) as ctx:
+                module.render_scenes(package, {}, None)
+        self.assertIn("playwright install chromium", ctx.exception.next_step)
 
     def test_executable_loads_its_pep_723_dependencies(self):
         result = subprocess.run([str(SCRIPT)], capture_output=True, text=True)

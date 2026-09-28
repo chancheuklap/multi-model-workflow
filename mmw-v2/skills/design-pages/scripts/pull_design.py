@@ -7,14 +7,11 @@
 
 Usage: pull_design.py <package-dir> --pages <page.dc.html>... [--tools <dir>]
                       [--state-list <README.md>] [--contract <screen-contract.yaml>]
-       pull_design.py <list_files.json> <package-dir> [the same options]
 
-The pages are the `.dc.html` files at the project root, by name; a saved
-`list_files` result of the `claude-design` MCP server may give them instead (its
-root `.dc.html` paths are taken, everything else in it is ignored). Every other file is found from
-the pages: the files they and their stylesheets reference, then every project file
-the offline render requests. The short-lived preview address is read only from
-`MMW_DESIGN_PREVIEW_URL`; it is never printed or persisted.
+The pages are the `.dc.html` files at the project root, by name. Every other file is
+found from the pages: the files they and their stylesheets reference, then every
+project file the offline render requests. The short-lived preview address is read
+only from `MMW_DESIGN_PREVIEW_URL`; it is never printed or persisted.
 """
 
 from __future__ import annotations
@@ -41,6 +38,9 @@ from pathlib import Path, PurePosixPath
 
 
 VENDOR_CONSTANTS = ("REACT_URL", "REACT_DOM_URL", "BABEL_URL")
+# The two page names acceptance pulls scenes from; every other `.dc.html` is a note
+# or exploration.
+PAGE_PREFIXES = ("Component · ", "App · ")
 # Renders of the whole scene set before the inventory must stop growing. Each render
 # after the first exists only because the one before requested a file not yet pulled.
 RENDER_ROUNDS = 5
@@ -54,7 +54,6 @@ class HandoffPackage:
     scenes: list[dict]
     sizes: dict[str, tuple[int, int]]
     pages: list[PageInfo]
-    state_list: str = ""
     # Referenced or requested paths the project does not have (HTTP 404), each with
     # the file that referenced it or `RENDER_REQUEST`.
     missing: dict[str, str] = field(default_factory=dict)
@@ -206,37 +205,6 @@ def page_name(raw: str) -> str:
             "Pass the `.dc.html` names list_files shows at the project root and re-run.",
         )
     return path
-
-
-def pages_from_list_files(path: Path) -> list[str]:
-    """The root `.dc.html` paths of a saved list_files result; nothing else in it is
-    read."""
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise PullRefused(
-            f"list_files result cannot be read: {path} ({type(exc).__name__}).",
-            "The pages to pull are unknown.",
-            "Pass the pages with --pages <name>... instead, and re-run.",
-        ) from exc
-    if isinstance(raw, dict):
-        raw = raw.get("files", raw.get("entries"))
-    if not isinstance(raw, list):
-        raise PullRefused(
-            f"{path} is not a list_files array.",
-            "The pages to pull are unknown.",
-            "Pass the pages with --pages <name>... instead, and re-run.",
-        )
-    pages = []
-    for row in raw:
-        if not isinstance(row, dict) or str(row.get("type") or "").lower() == "directory":
-            continue
-        name = str(row.get("path") or "")
-        while name.startswith("./"):
-            name = name[2:]
-        if name.endswith(".dc.html") and "/" not in name and name not in pages:
-            pages.append(name)
-    return pages
 
 
 def preview_file_url(preview: str, path: str) -> str:
@@ -582,10 +550,7 @@ class _RootParser(HTMLParser):
 
 def page_root(path: Path) -> tuple[str, str] | None:
     parser = _RootParser()
-    try:
-        parser.feed(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError):
-        return None
+    parser.feed(path.read_text(encoding="utf-8"))
     return parser.root
 
 
@@ -616,28 +581,21 @@ class _WiringParser(HTMLParser):
             self.logic.append(data)
 
 
-def app_page_wiring(path: Path) -> tuple[str, tuple] | None:
-    """`(logic text, dc-import attributes)` of one page; `None` when it cannot be read."""
+def app_page_wiring(path: Path) -> tuple[str, tuple]:
+    """`(logic text, dc-import attributes)` of one page."""
     parser = _WiringParser()
-    try:
-        parser.feed(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError):
-        return None
+    parser.feed(path.read_text(encoding="utf-8"))
     return " ".join("".join(parser.logic).split()), tuple(parser.imports)
 
 
 def wiring_changes(previous: Path, current: Path) -> list[tuple[str, str]]:
     """Each `App · ` page present in both packages whose logic block or `dc-import`
-    attributes differ, with what differs. A page either side cannot read
-    counts as changed, as an unreadable previous package does."""
+    attributes differ, with what differs."""
     old = {p.relative_to(previous).as_posix(): p for p in previous.rglob("App · *.dc.html")}
     new = {p.relative_to(current).as_posix(): p for p in current.rglob("App · *.dc.html")}
     changes = []
     for name in sorted(set(old) & set(new)):
         before, after = app_page_wiring(old[name]), app_page_wiring(new[name])
-        if before is None or after is None:
-            changes.append((name, "页面无法读取，接线未核对"))
-            continue
         parts = []
         if before[0] != after[0]:
             parts.append("`data-dc-script` 逻辑块")
@@ -653,8 +611,6 @@ def design_pages(root: Path) -> list[PageInfo]:
     for page in sorted(root.rglob("*.dc.html")):
         rel = page.relative_to(root).as_posix()
         filename = PurePosixPath(rel).name
-        if filename.casefold() == "overview.dc.html":
-            continue
         props = page_props(page)
         scene = props.get("scene")
         options = scene.get("options") if isinstance(scene, dict) else None
@@ -679,13 +635,13 @@ def design_pages(root: Path) -> list[PageInfo]:
 
 
 def scenes_from_pages(
-    staged: Path, state_list: str = "", pages: list[PageInfo] | None = None,
+    staged: Path, pages: list[PageInfo] | None = None,
 ) -> HandoffPackage:
     scenes = []
     sizes = {}
     pages = pages if pages is not None else design_pages(staged)
     for page in pages:
-        if page.scene_values is None:
+        if page.scene_values is None or not PurePosixPath(page.path).name.startswith(PAGE_PREFIXES):
             continue
         preview = page.preview
         if not isinstance(preview, dict):
@@ -720,7 +676,7 @@ def scenes_from_pages(
                     "Rename that page or scene option in Claude Design, then re-run.",
                 )
             scenes.append({"name": scene_name, "page": page.path, "props": {"scene": value}})
-    return HandoffPackage(staged, scenes, sizes, pages, state_list)
+    return HandoffPackage(staged, scenes, sizes, pages)
 
 
 def load_design_render(tools: Path | None):
@@ -835,7 +791,17 @@ def render_scenes(
 
     try:
         with sync_playwright() as pw:
-            browser = pw.chromium.launch()
+            try:
+                browser = pw.chromium.launch()
+            except Exception as exc:
+                if "Executable doesn't exist" in str(exc):
+                    raise PullRefused(
+                        "Chromium is not installed for Playwright.",
+                        "The offline render check needs a local headless Chromium.",
+                        "Install it once with `uv run --with playwright python -m "
+                        "playwright install chromium`, then re-run.",
+                    ) from exc
+                raise
             context = browser.new_context(device_scale_factor=1, reduced_motion="reduce")
             context.route("**/*", route_offline)
             page = context.new_page()
@@ -928,7 +894,7 @@ def render_scenes(
                         }
                     """)
                     for label in audit["textMissing"]:
-                        row = (scene["name"], label)
+                        row = (scene["page"], label)
                         if row not in text_without_id:
                             text_without_id.append(row)
                     for cls, where in audit["undefinedClasses"]:
@@ -936,7 +902,7 @@ def render_scenes(
                         if not any(r[0] == row[0] and r[1] == row[1] for r in undefined_classes):
                             undefined_classes.append(row)
                     for label in audit["controlsMissing"]:
-                        row = (scene["name"], label)
+                        row = (scene["page"], label)
                         if row not in controls_without_id:
                             controls_without_id.append(row)
             finally:
@@ -1004,18 +970,7 @@ def write_readme(
         f"- Claude Design project id: `{project}`.",
         "",
     ])
-    if package.state_list:
-        lines.extend([package.state_list.rstrip(), ""])
     (package.root / "README.md").write_text("\n".join(lines), encoding="utf-8")
-
-
-def state_list_section(readme: Path) -> str:
-    try:
-        text = readme.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return ""
-    match = re.search(r"(?ms)^## State list\s*\n.*?(?=^## |\Z)", text)
-    return match.group(0).rstrip() if match else ""
 
 
 def read_state_list_input(path: Path | None) -> StateListInput:
@@ -1057,23 +1012,20 @@ def state_list_regions(section: str) -> dict[str, list[str]]:
 def page_inventory(
     pages: list[PageInfo],
 ) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str]]:
+    # A page without a `Component · ` or `App · ` prefix is a note or exploration,
+    # never accepted, so nothing about its `scene` is reported.
+    accepted = [page for page in pages if PurePosixPath(page.path).name.startswith(PAGE_PREFIXES)]
     scene_values = {
         page.path: set(page.scene_values)
-        for page in pages
+        for page in accepted
         if page.scene_values is not None
     }
     excluded_values = {
         page.path: set(page.out_of_scope)
-        for page in pages
+        for page in accepted
         if page.scene_values is not None
     }
-    # Pages without a `Component · ` or `App · ` prefix are notes or explorations,
-    # never accepted, so a missing `scene` there is not reported.
-    no_scene = [
-        page.path for page in pages
-        if page.scene_values is None
-        and PurePosixPath(page.path).name.startswith(("Component · ", "App · "))
-    ]
+    no_scene = [page.path for page in accepted if page.scene_values is None]
     return scene_values, excluded_values, no_scene
 
 
@@ -1086,20 +1038,15 @@ def selector_audit(root: Path) -> SelectorAudit:
     under `_ds/` is copied from its source and not edited in the editor, so it is
     not audited."""
     sources: list[tuple[str, str]] = []
-    try:
-        for path in sorted(root.rglob("*.css")):
-            rel = path.relative_to(root)
-            if rel.parts[0] == "_ds":
-                continue
-            sources.append((rel.as_posix(), path.read_text(encoding="utf-8")))
-        for path in sorted(root.glob("*.dc.html")):
-            blocks = STYLE_BLOCK.findall(path.read_text(encoding="utf-8"))
-            if blocks:
-                sources.append((f"{path.name} <style>", "\n".join(blocks)))
-    except (OSError, UnicodeError) as exc:
-        return SelectorAudit(
-            False, (), f"选择器检查未完成：{type(exc).__name__}，未核对。",
-        )
+    for path in sorted(root.rglob("*.css")):
+        rel = path.relative_to(root)
+        if rel.parts[0] == "_ds":
+            continue
+        sources.append((rel.as_posix(), path.read_text(encoding="utf-8")))
+    for path in sorted(root.glob("*.dc.html")):
+        blocks = STYLE_BLOCK.findall(path.read_text(encoding="utf-8"))
+        if blocks:
+            sources.append((f"{path.name} <style>", "\n".join(blocks)))
     if not sources:
         return SelectorAudit(False, (), "页面没有自己的样式（`_ds/` 以外的 `.css` 或 `<style>`），选择器未核对。")
     check = Path(__file__).with_name("check_editable_selectors.py")
@@ -1364,6 +1311,17 @@ def design_check_lines(package: HandoffPackage, audit: RenderAudit) -> list[str]
     return lines
 
 
+def _by_page(rows: list[tuple[str, str]]) -> dict[str, list[str]]:
+    """`rows` of `(page, label)`, one repeated per scene the label was seen in,
+    collapsed to each page's unique labels."""
+    grouped: dict[str, list[str]] = {}
+    for page, label in rows:
+        labels = grouped.setdefault(page, [])
+        if label not in labels:
+            labels.append(label)
+    return grouped
+
+
 def coverage_lines(
     package: HandoffPackage, audit: RenderAudit, state_list: StateListInput,
 ) -> list[str]:
@@ -1389,10 +1347,10 @@ def coverage_lines(
                     lines.append(f"- state list 状态缺失：`{region}` 的 `{state}` 不在该页 `scene` prop。")
         if not regions:
             lines.append("- state list 的 `## State list` 下没有可核对的区域。")
-    for scene, label in audit.text_without_id:
-        lines.append(f"- 带文字但没有 `data-ui` id：`{scene}` — {label}")
-    for scene, label in audit.controls_without_id:
-        lines.append(f"- 可点或可输入却没有 `data-ui` id：`{scene}` — {label}")
+    for page, labels in sorted(_by_page(audit.text_without_id).items()):
+        lines.append(f"- 带文字但没有 `data-ui` id：`{page}`（{len(labels)} 处）：" + "；".join(labels))
+    for page, labels in sorted(_by_page(audit.controls_without_id).items()):
+        lines.append(f"- 可点或可输入却没有 `data-ui` id：`{page}`（{len(labels)} 处）：" + "；".join(labels))
     for page in no_scene:
         lines.append(f"- 没有 `scene` prop 的页面：`{page}`")
     for page in package.pages:
@@ -1504,8 +1462,8 @@ def write_pull_report(
 
 
 def previous_paths(target: Path) -> set[str]:
-    """The project files the last pull wrote, from its `design-manifest.json`: `files`
-    is a list of paths, or of `{"path": …}` rows in a package pulled before that."""
+    """The project files the last pull wrote, from its `design-manifest.json`'s
+    `files` list of paths."""
     path = target / "design-manifest.json"
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
@@ -1514,20 +1472,14 @@ def previous_paths(target: Path) -> set[str]:
     rows = doc.get("files") if isinstance(doc, dict) else None
     if not isinstance(rows, list):
         return set()
-    paths = set()
-    for row in rows:
-        value = row.get("path") if isinstance(row, dict) else row
-        if isinstance(value, str):
-            paths.add(value)
-    return paths
+    return {row for row in rows if isinstance(row, str)}
 
 
-def prepare_staging(target: Path, staged: Path) -> str:
+def prepare_staging(target: Path, staged: Path) -> None:
     """Copy the target to `staged` without the files the last pull wrote, so every
     project file in the result comes from this pull and a file the project no longer
     serves is gone. Files beside the package (a prototype, the state list in
     README.md) stay."""
-    state_list = state_list_section(target / "README.md")
     old_paths = previous_paths(target)
     if target.exists():
         if not target.is_dir():
@@ -1554,16 +1506,15 @@ def prepare_staging(target: Path, staged: Path) -> str:
         shutil.rmtree(vendor)
     elif vendor.exists():
         vendor.unlink()
-    return state_list
 
 
 def render_until_settled(
-    inventory: Inventory, vendor: dict[str, Path], state_list: str, tools: Path | None,
+    inventory: Inventory, vendor: dict[str, Path], tools: Path | None,
 ) -> tuple[HandoffPackage, RenderAudit]:
     """Render, pull every project file the render requested that is not pulled yet,
     and render again, until a render requests nothing new."""
     for _round in range(RENDER_ROUNDS):
-        package = scenes_from_pages(inventory.staged, state_list, design_pages(inventory.staged))
+        package = scenes_from_pages(inventory.staged, design_pages(inventory.staged))
         requested: set[str] = set()
         audit = render_scenes(package, vendor, tools, requested)
         new = sorted(path for path in requested if not inventory.known(path))
@@ -1626,15 +1577,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "The command shape is fixed.",
             USAGE,
         ) from exc
-    expected = 1 if args.pages else 2
-    if unknown or len(args.positional) != expected:
+    if unknown or len(args.positional) != 1 or not args.pages:
         raise PullRefused(
             f"pull_design.py received {len(argv)} arguments.",
-            "It needs a package directory and the pages (or a list_files JSON before it).",
+            "It needs a package directory and the pages.",
             USAGE,
         )
-    args.list_files = None if args.pages else args.positional[0]
-    args.target = args.positional[-1]
+    args.target = args.positional[0]
     return args
 
 
@@ -1649,14 +1598,7 @@ def run(args: argparse.Namespace) -> None:
     target = Path(args.target)
     tools = Path(args.tools) if args.tools else None
     project = project_id_from_preview(preview)
-    names = args.pages if args.pages else pages_from_list_files(Path(args.list_files))
-    pages = list(dict.fromkeys(page_name(name) for name in names))
-    if not pages:
-        raise PullRefused(
-            f"{args.list_files} lists 0 `.dc.html` pages at the project root.",
-            "A pull starts from the project's pages.",
-            "Pass the pages with --pages <name>... and re-run.",
-        )
+    pages = list(dict.fromkeys(page_name(name) for name in args.pages))
     requested_state_list = Path(args.state_list) if args.state_list else None
     state_list_input = read_state_list_input(requested_state_list)
     contract = contract_input(Path(args.contract) if args.contract else None, tools)
@@ -1669,7 +1611,7 @@ def run(args: argparse.Namespace) -> None:
             if previous_root is not None else None
         )
         staged = temp_root / "package"
-        preserved_state_list = prepare_staging(target, staged)
+        prepare_staging(target, staged)
         inventory = Inventory(preview, staged)
         inventory.pull(pages, None)
         # A bound design system's readme.md ends with its Unifications table, which
@@ -1681,7 +1623,7 @@ def run(args: argparse.Namespace) -> None:
         })
         inventory.pull([f"{folder}/readme.md" for folder in folders], DESIGN_SYSTEM_README)
         vendor = pull_vendor(staged)
-        package, audit = render_until_settled(inventory, vendor, preserved_state_list, tools)
+        package, audit = render_until_settled(inventory, vendor, tools)
         (staged / "scenes.json").write_text(
             json.dumps(package.scenes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
