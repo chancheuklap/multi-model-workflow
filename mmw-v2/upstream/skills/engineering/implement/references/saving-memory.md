@@ -11,6 +11,8 @@ path the fact concerns: a later worker's Related experience ranks a record first
 it names a path that worker owns. Write this exact body:
 
 ```sh
+[[ "$MMW_TASK_SCOPE" == mmw-map-* || "$MMW_TASK_SCOPE" == mmw-spec-* ]] || exit 0
+
 label_args=(
   --label mmw-experience
   --label "mmw-spec-$MMW_SPEC"

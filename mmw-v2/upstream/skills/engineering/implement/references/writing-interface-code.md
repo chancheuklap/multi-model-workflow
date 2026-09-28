@@ -38,8 +38,6 @@ Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one p
 
 The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are closing step 1's.
 
-When the review's Spec axis reports a `Missing` that names one of this ticket's screen-contract rows, the closing comment names that row id too: beside the commit that fixed it, or under `Sub-issues opened:`.
-
 **Done when** the story criterion prints no `DIFF` line, or closing step 1 has recorded that it is abandoned.
 
 ## When the design side is the defect
@@ -60,4 +58,4 @@ Leave the design package as it is: **pull** of the design-pages skill is what wr
 
 ## One code path
 
-The story page's data comes only from the story adapter reading scene data. No request path of the product chooses its projection by whether a data source is present, by a query parameter, or by a build switch.
+The story page's data comes only from the story adapter reading scene data. No request path of the product chooses its projection by whether a data source is present, by a query parameter, or by a build switch. Otherwise the story judge passes on a path no user ever takes, and every criterion goes green on it.
