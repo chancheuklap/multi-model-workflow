@@ -50,3 +50,20 @@ The glossary records every concept of this repository's own text that an agent r
 - A term whose meaning is only its field's ordinary one (a Fowler smell, exit code, worktree) gets no entry.
 
 Stale entries found by the inventory are corrected against their `_Home_` (the `Audit` entry describes a closing step that no longer recounts `Counts:` or traces `EVIDENCE:`). Every "same concept, several names" and "same name, several concepts" case in the inventories is resolved by the renames above or by qualifying the name in the text and the glossary.
+
+## Second pass: candidates from the glossary completion
+
+The glossary agents name-checked every entry they added or touched and listed candidates in `vocabulary-candidates/<context>.md`, without renaming. The decisions:
+
+| # | Concept | Old name | Decision | Reason |
+| --- | --- | --- | --- | --- |
+| S1 | The relay absorbing an event into a wake already queued and unacked | folded (the relay's log line and prose) | **coalesced** | the established term of event-driven systems for merging duplicate events; "folded" sits beside **fold**, a different concept. The code variable `folded` stays |
+| S2 | The confirmation `dispatch.sh finish` checks before merging | receipt, Retro receipt | the **`spec.retroed` event** (its identifier, its one name) | the concept already has an identifier; "receipt" also names the reverify receipt |
+| S3 | The product module the compiled exe imports before serving, to catch a missing dependency | self-check module | **smoke module** | smoke test is exact, and the release manifest's field is already `smoke` |
+| S4 | The fixed order that takes a toolbox change from `dev` to every host | the four release steps | **the four promotion steps** | promotion is release engineering's word for moving a build through ordered gates; "release" is `exe-release`'s domain |
+| S5 | The session that runs `code-review` on a ticket | reviewer session | **reviewer** | the name every caller and event already use |
+| S6 | The screen contract, in `code-review`'s `references/spec-reviewer.md` | the contract | **the screen contract** | "contract" alone is the `contract` child |
+| S7 | `to-spec`'s fixed Implementation Decisions subsection for cross-component rows | `App · ` 页组合 | **cross-component composition** | skill text is English; no program reads the Chinese title |
+| S8 | The screen contract's `rows` | control axis | **`rows`** (the identifier as its one name) | "axis" calls up a paired row/column sense that does not hold |
+
+Not adopted: renaming the task board's edge state `done`, its `closeout` field and the UI axis category `design-page` (identifiers; the glossary tells them apart); prose names for the two senses of "decision" (each already has an identifier or a heading as its one name); `signature` → fingerprint (not the same mechanism); "cache" (upstream `writing-for-agents`' own term, used in its sense); "visual acceptance" (no term found whose meaning matches exactly).

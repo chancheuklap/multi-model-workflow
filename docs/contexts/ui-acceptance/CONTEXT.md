@@ -14,6 +14,10 @@ _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
 A Claude Design project holding a product's look — variables, fonts, icons and reusable parts — from which the pages of a bound project are drawn; Claude Design copies it into that project's `_ds/<folder>/`. It holds no page regions, example data or product logic.
 _Home_: `mmw-v2/skills/design-pages/references/template-design-system-claude-md.md`
 
+**Unifications**:
+The table at the end of a design system's `readme.md` recording each value it unified, the code values it joined, and its class name; the product follows it once pages drawn from the design system are pulled.
+_Home_: `mmw-v2/skills/design-pages/references/design-system.md`
+
 **edit pages**:
 The `design-pages` skill's moment for creating the Claude Design project and taking the sign-off; comments sent to Claude and drawing are in `references/draw.md`, bringing an existing product in is in `references/design-system.md`.
 _Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
@@ -25,6 +29,26 @@ _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 **pull report**:
 `pull-report.md` in the **design package**, written at every **pull**. Its findings do not fail the command.
 _Home_: `mmw-v2/skills/design-pages/references/pull.md`
+
+**`MMW_DESIGN_PREVIEW_URL`**:
+The environment variable pull sets to the MCP `render_preview` result's `serve_url`, the short-lived address `pull_design.py` reads to render a page offline; never printed or written to a file.
+_Home_: `mmw-v2/skills/design-pages/references/pull.md`
+
+**`task.md`**:
+The Claude Design project-root file this session writes, listing the work its own agent does now, one checkbox item per piece of work; it never overrides `CLAUDE.md`.
+_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`, `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+
+**`state-list.md`**:
+The Claude Design project-root file, when present, listing the regions and states to draw, one `### <region>` heading per `Component ·` page; a page and the list disagreeing is put to the user, never silently edited.
+_Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+
+**`ui-ids.md`**:
+The Claude Design project-root file, when present, listing the `data-ui` ids a product already carries, collected by reading every `[data-ui]` its story pages render; a page drawn for such a product reuses those ids.
+_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`, `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+
+**`CLAUDE.md`** (Claude Design project):
+The instruction file at a Claude Design project's root — a page project's page conventions, or a design system's sources and unification rules — that only the agent inside that project reads, on every conversation. Distinct from a repository's own `CLAUDE.md` (`docs/contexts/toolbox/CONTEXT.md`), which holds only `@AGENTS.md`.
+_Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`, `mmw-v2/skills/design-pages/references/template-design-system-claude-md.md`
 
 **state list**:
 The fixed heading `## State list` in a UI prototype's leaf `README.md`: every state of the winning variant, one heading per **region**. On a wayfinder map it is in the **design ticket**'s leaf `README.md`.
@@ -38,12 +62,28 @@ _Home_: `mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-r
 A `Component · <name>` design page: one **region** of the screen, the unit acceptance checks, exposing a `scene` prop whose values are that region's accepted states. Distinct from the `component` column of a screen contract's `pages`, which names the **product component**.
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
+**App page**:
+An `App · <name>` design page: a whole screen made of `Component ·` pages, needed only when their states must be checked together; it sets no region's own background, so a region drawn over others shows through what it covers.
+_Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+
 **product component**:
 The product's own component that a **story** page renders and a `pages` entry's `component` column names; on a story page it is presentational and reaches for no backend of its own.
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
+**composition module**:
+The product's own code, mounted by an **App page**, that wires its regions together and feeds them scene data without wiring the components itself; a region the product leaves unwired stays unwired on the story page.
+_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+
 **region**:
 One `Component · ` page's area of a screen, named by that page: the `<region>` half of a **`data-ui` id** (`<region>.<part>`).
+_Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+
+**`dc-import`**:
+The mechanism by which an `App ·` page wires in the `Component ·` pages it shows, repeating their `data-ui` ids by doing so; the screen contract's cross-component rows are read off this wiring.
+_Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+
+**`$preview`**:
+The `data-props` field every `Component ·`/`App ·` page declares, `width` and `height` in pixels: the size each scene is rendered and checked at.
 _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **design package**:
@@ -68,14 +108,48 @@ A DESIGN.md-format file a consuming repository may keep. It is not the design so
 _Home_: `docs/adr/0029-claude-design-is-the-design-source.md`
 
 **prototype**:
-Code that answers one design question, kept under `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`. A UI prototype is several structurally different variants on one real route, of which the user picks the winner.
+Code that answers one design question, kept under `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`. A UI prototype is several structurally different variants on one real route, of which the user picks the winner, handed to Claude Design rather than folded into the real code directly.
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
 **leaf directory**:
-`prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind. Its `README.md` is read to its verdict as a `## Read first` item.
+`prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind, `<issue>` the ticket number or a short feature name when there is no ticket. Its `README.md` is read to its verdict as a `## Read first` item.
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
+**effort** (`<effort>`):
+The development effort's directory name, shared verbatim under `prototypes/<effort>/` and `docs/specs/<effort>/`: lowercase ASCII words joined by `-`, from a wayfinder map's `## Notes` when the ticket has one, otherwise asked of the user with the current branch name as fallback.
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
+
+**scaffolding**:
+The mount point or prototype route, the floating switcher, the leaf directory's import, and any route-side symlink that let a UI prototype's variants render inside the real app; taken down after the design's first pull.
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/UI.md`, `mmw-v2/skills/design-pages/references/pull.md`
+
+**shell**:
+The throwaway wrapper kept outside a prototype's reusable core — the HTML page around a logic prototype's pure module, the harness around an experiment's boundary — never promoted to production.
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/LOGIC.md`, `mmw-v2/upstream/skills/engineering/prototype/EXP.md`
+
+**experiment round**:
+One run, or one batch of runs, made to answer an experiment's question under one set of parameters; the leaf `README.md`'s **Rounds** section holds one subsection per round, newest first.
+_Avoid_: round (for this; the tickets context's **round** is a different unit of work)
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/EXP.md`
+
+**experiment `README.md` section**:
+One of the six fixed sections of an experiment's leaf `README.md`, in order: Question and bar, How to run, Legend, Rounds, Conclusion, Reusable parts.
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/EXP.md`
+
+**evidence page**:
+The static HTML page an experiment's own generator writes at the end of every run, laying its outputs side by side as a comparison grid (one row per sample, one column per approach) or a catalogue (a summary table plus one block per item); facts only, no verdict, and the next run overwrites it.
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/EXP.md`, `mmw-v2/upstream/skills/engineering/prototype/evidence-page.md`
+
+**evidence scratch directory**:
+`.scratch/<effort>/<issue>/evidence/<name>/`, the project's own git-ignored location an evidence page and its media are written to, mirroring the leaf path; deleted once the approach is settled, since the generator can reproduce it.
+_Avoid_: scratch (for this; write-screen-contract's `<scratch>` is a different, `mktemp`-created directory)
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/EXP.md`
+
 ### The oracles
+
+**target**:
+The product a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know about it.
+_Home_: `mmw-v2/skills/ui-acceptance/SKILL.md`
 
 **oracle**:
 One of the four scripts an acceptance criterion names by its bare name: the **story oracle**, `boundary-check.py`, `journey.py` and the **harness guard**.
@@ -108,6 +182,15 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 What puts a **product component** into one scene on a **story** page: one per design page, identified by its `mount`, mapping the scene's **scene data** onto the component.
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
+**story service**:
+The server `.mmw/target.json`'s `stories` command brings up under `.mmw/stories/`, serving the story pages both the story oracle and the harness guard read.
+_Avoid_: story-service files (for the server itself; that phrase names its files, in `references/harness-guard.md`)
+_Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
+
+**`[data-story-root]`**:
+The attribute on the product component's own root element that the story oracle compares from; the design page's root carries the same `data-ui` id.
+_Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
+
 **boundary**:
 In this repository, the word for one class of acceptance criterion and the oracle that runs it, the **boundary criterion**. It is not a word for a **seam**.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
@@ -125,12 +208,20 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 An acceptance criterion running `boundary-check.py --run "<the product's test command>"` against a **four-column boundary test**: the command must pass as written and fail with `MMW_NEGATIVE=1`.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
+**journey criterion**:
+An acceptance criterion running `journey.py run <name>`, with `--break "<METHOD> <route>"` on an acceptance ticket's journey so its second start fails that one interface; the contract ticket's smoke journey runs without it, and its second pass runs with the product down.
+_Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
+
+**harness guard criterion**:
+An acceptance criterion running `harness-guard.py .` from the repository root, passing on `HARNESS OK`.
+_Home_: `mmw-v2/skills/ui-acceptance/references/harness-guard.md`
+
 **interaction helper**:
 The one shared click-and-fill helper the **contract ticket** delivers, which every four-column boundary test calls to act on the page. Under `MMW_NEGATIVE=1` it does nothing, which is what the boundary criterion's **negative control** relies on.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **fault-injection switch**:
-The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on its second start, so that the product itself fails one named interface.
+The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on its second start, so that the product itself fails one named interface. On that start `journey.py` puts the interface in `MMW_BREAK`, and `start` must print the exact line `BREAK ARMED <METHOD> <route>`; anything else is a refusal.
 _Avoid_: break switch
 _Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
 
@@ -146,14 +237,39 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 `harness-guard.py` of the ui-acceptance skill, which checks that the names a repository uses only to make itself drivable stay in their allowed places. It judges files, not a running product.
 _Home_: `mmw-v2/skills/ui-acceptance/references/harness-guard.md`
 
+**`harness_markers`**:
+The `.mmw/target.json` field declaring a product's own **back door** strings; `[]` is a legal answer, and a missing key is not a default.
+_Home_: `mmw-v2/skills/ui-acceptance/references/harness-guard.md`, `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+
+**back door**:
+A name a repository uses only to make itself drivable for automated acceptance, which must stay inside the places `harness-guard.py` allows (`.mmw/`, `tests/`, `scripts/dev/`, a test file beside the code it tests, or a file `leaves_machine` names); found anywhere else it ships to a customer's machine with the release.
+_Avoid_: back-door strings, back-door markers (this text uses three phrases for one concept)
+_Home_: `mmw-v2/skills/ui-acceptance/references/harness-guard.md`
+
 **negative control**:
 The pass an oracle makes to prove it can fail: the story oracle perturbs its inputs, the boundary criterion reruns the test with `MMW_NEGATIVE=1`, and a journey runs with the **fault-injection switch** armed or the product down. The harness guard has none.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/story-parity.py`, `mmw-v2/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v2/skills/ui-acceptance/scripts/journey.py`
+
+**oracle output line**:
+The fixed line an oracle prints to state its verdict or explain a refusal, one set per oracle: `MISS`, `GREEN WITHOUT INTERACTION`, `BOUNDARY OK` (`boundary-check.py`); `JOURNEY OK`, `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK`, `JOURNEY GREEN WITHOUT PRODUCT`, `JOURNEY LEFT THE PRODUCT UP` (`journey.py`); the `DIFF` line and `NEGATIVE CONTROL FAILED` (`story-parity.py`); `HARNESS LEAK`, `HARNESS DESIGN PAGE`, `HARNESS OK` (`harness-guard.py`).
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v2/skills/ui-acceptance/scripts/journey.py`, `mmw-v2/skills/ui-acceptance/scripts/story-parity.py`, `mmw-v2/skills/ui-acceptance/scripts/harness-guard.py`
 
 ### Screen contract
 
 **screen contract**:
 `docs/specs/<effort>/screen-contract.yaml`: one row per user-visible behaviour — the control, what it calls, which field feeds each shown value, what state follows, what a failure shows — written by the `write-screen-contract` skill. It is an interface's behaviour baseline, beside the design package as its look-and-copy baseline.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**control axis**:
+The screen contract's `rows`, one per user-visible behaviour, keyed by the control's `data-ui` id; distinct from `pages` and `scenes`, which declare which story page and which scene each row is visible on, and cannot be derived from the rows.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**row** (screen-contract row):
+One entry of the control axis, identified by `trigger` plus `precondition`; the same control in different states is several rows.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**row column**:
+One of a row's fixed fields — `id` (the row's own identity, distinct from `trigger`), `component`, `trigger`, `precondition`, `scenes`, `calls`, `shows`, `next`, `on_failure`, `source`, `gap`, and `app` on a cross-component row — each with its own rule.
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 **cross-component row**:
@@ -176,9 +292,41 @@ _Home_: `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`
 The JSON `extract_skeleton.py` writes: every visible `[data-ui]` control of the design package, keyed by page and **`data-ui` id**, the inventory of controls a screen contract is linted against.
 _Home_: `mmw-v2/skills/write-screen-contract/scripts/extract_skeleton.py`, `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
+**`dump_openapi.py`**:
+The write-screen-contract skill's script that calls a FastAPI app factory and writes its OpenAPI document to a file, for a repository with no exporter of its own.
+_Home_: `mmw-v2/skills/write-screen-contract/scripts/dump_openapi.py`
+
+**`<scratch>`**:
+The `mktemp`-created directory holding a write-screen-contract run's screen contract in progress, until step 7 copies it to `docs/specs/<effort>/`.
+_Home_: `mmw-v2/skills/write-screen-contract/SKILL.md`
+
 **`retired_ids`**:
 The screen contract's top-level list of row ids that once had a row. An id is never reused.
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**`states`** (top-level key):
+The screen contract's list of domain and local view-state names `next` and `on_failure` may use when they are not a scene; the lint accepts only this list. Distinct from the **state list**, the fixed `## State list` heading enumerating a prototype's regions and states, and from `state-list.md`, the Claude Design project file carrying that list in.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**`baselines.precedence`**:
+The screen contract's top-level string stating which file governs which columns: look and verbatim copy to the design package, `calls`/`shows`/`next`/`on_failure` to the screen contract.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**`proposed_operations`**:
+The screen contract's top-level list of operations rows need that `openapi.json` lacks yet; the reverse sweep requires every such operation to appear here, in a row's `calls`, or in `backend_without_ui`.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**`backend_without_ui`**:
+The screen contract's top-level list of decisions or operations with no control, one line each saying why the interface has no place for it.
+_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
+
+**screen-contract lint**:
+Running `lint_screen_contract.py` directly on a screen contract against its skeleton and, optionally, `openapi.json`; narrower than the tickets context's **lint**, `verify-ticket.py --lint`, which runs it as one of several checks.
+_Home_: `mmw-v2/skills/write-screen-contract/SKILL.md`
+
+**screen-contract lint output line**:
+One of `lint_screen_contract.py`'s own printed lines: `RETIRED <id>: <note>` for every `retired_ids` entry on every run, `UNVERIFIED …` for a row or the whole reverse sweep with no machine-readable source, and the `WARN`/`ERROR` levels the tickets context's lint also uses.
+_Home_: `mmw-v2/skills/write-screen-contract/scripts/lint_screen_contract.py`
 
 The ticket kinds a screen contract produces (contract ticket, acceptance ticket and the rest) and a spec's Critical flows bullet are defined in `docs/contexts/tickets/CONTEXT.md`.
 
@@ -197,6 +345,10 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
 What a consuming repository answers in `.mmw/` so the oracles can run its product: `.mmw/target.json`, `.mmw/harness/`, `.mmw/journeys/` and `.mmw/stories/`. Answering them makes the repository an acceptance runtime.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
+**Claude Design runtime marker**:
+One of the four strings (`sc-interp`, `data-dc-tpl`, `data-dc-script`, `dc-root`) that mark an element as drawn by Claude Design's own renderer; neither a story page nor an App page may carry one.
+_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+
 **`target_config.py`**:
 `target_config.py` of the ui-acceptance skill, which reads and checks `.mmw/target.json`; `target_config.py --check` lists what a repository has not answered yet.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
@@ -204,6 +356,10 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
 **`.mmw/target.json`**:
 The consuming repository's machine facts, read by the runtime: what brings the product up and down on this machine, where it answers, where its stories and journeys are, and what it does that reaches past the machine.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+
+**`discover`**:
+The `.mmw/target.json` command printing the product's address and its `instance`; `journey.py` reads every key it prints, uppercased, into the journey script's environment.
+_Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
 
 **`checks`**:
 The optional `.mmw/target.json` key listing the repository's own commands, which `--closeout` runs after an `ALL MET` draft is accepted and before the ticket closes, posting them as a `ticket.checked` of run `repo-checks`.
@@ -223,6 +379,10 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
 One run's share of this machine: a registration of `worktree path -> slot` under `MMW_HOME/leases`, acquired by a ticket worktree at its first run that needs the product and kept until the ticket's work ends. `lease.py` is its whole interface.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
 
+**release** (lease):
+Giving a worktree's slot back once nothing still listens on its ports; refuses while a listener remains, because taking it back from a live process is the same act as killing it. Distinct from `ticket.released` and the `RELEASE` line of `status.py --advance-plan` (`docs/contexts/night/CONTEXT.md`).
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
+
 **slot**:
 What a lease hands out: a block of ports and a data directory that no other slot overlaps, numbered from 0.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
@@ -234,3 +394,9 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
 **`MMW_INSTANCE`, `MMW_SLOT`, `MMW_PORT_BASE`, `MMW_PORT_COUNT`, `MMW_DATA_DIR`, `MMW_AUTOMATION`**:
 The six variables a lease puts into the environment of every command `.mmw/target.json` declares: a readable name for the run, the slot number, the first port and the number of ports of its block, a directory it owns, and `1` as the signal to neutralise what would leave the machine.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
+
+### Refusals
+
+**`REPORT_BLOCKED`**:
+The fixed sentence given as a **refusal**'s next step when no command would help: report the ticket blocked and stop, with no wait, retry, environment change or touching another run.
+_Home_: `mmw-v2/skills/ui-acceptance/scripts/refusal.py`

@@ -1,6 +1,6 @@
 # Task board
 
-The local browser page over the pipeline's work: one small HTTP server per registered consuming repository, reading that repository's ticket state from the tracker and reading or writing this machine's agent configuration. The command that opens it, `dispatch.sh board`, is defined in `docs/contexts/night/CONTEXT.md`. Everything else the page shows is named by the term the other five contexts give it, in English, except an event row of the detail column, which shows an **event name**.
+The local browser page over the pipeline's work: one small HTTP server per registered consuming repository, reading that repository's ticket state from the tracker and reading or writing this machine's agent configuration. The command that opens it, `dispatch.sh board`, is defined in `docs/contexts/night/CONTEXT.md`. Every fact the page reads about a ticket, spec, map or decision — its number, title, events, blocking edges — is named by the term the other five contexts give it, in English. What belongs here is the page's own vocabulary: the names it coins for how it presents those facts, and for keeping what it shows current.
 
 ## Language
 
@@ -22,6 +22,10 @@ _Home_: `mmw-v2/board/supervisor.py`
 The secret `server.py` mints at every start and hands to the page, which sends it back as the `X-MMW-Token` header on every non-`GET` request. A write from another origin, a stale page or a bare `curl` is refused.
 _Home_: `mmw-v2/board/server.py`
 
+**`codeversion.py`**:
+`mmw-v2/board/codeversion.py`'s `Watch`, which fingerprints `board/*.py` and the five scripts in `LOADED` and reports a change only once two reads agree: `server.py` exits on it for the supervisor to start it again, and `supervisor.py` stops its servers and re-`execv`s itself.
+_Home_: `mmw-v2/board/codeversion.py`
+
 ### What the page shows
 
 **The Night**:
@@ -33,9 +37,67 @@ The dot in front of every issue row, and the four counters in the top bar, sayin
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
 **phase pill**:
-The capsule on every ticket card saying where the ticket stands inside its own run — `queued`, `working`, `waiting`, `review`, `verify` or `landed` — computed from the fold. Distinct from the **phase** column of `status` and from the `stage` field of an event.
+The capsule on every ticket card saying where the ticket stands inside its own run — `queued`, `working`, `waiting`, `review`, `verify` or `landed` — computed from the ticket's fold and its event history. Distinct from the **phase** column of `status` and from the `stage` field of an event.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
 **event name**:
 The English phrase an event row of the detail column shows for a pipeline **event** (Worker started, Ticket claimed, …), in place of the dotted identifier.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
+
+**run line**:
+The sentence under a ticket card's title naming what is or was running it: `host · model · effort` while a live session holds the ticket, `stopped · host · model` if a fault child stopped that session, `waiting for a slot · since HH:MM`, `claimed · no session yet`, `not dispatched`, or `closed, never dispatched`.
+_Home_: `mmw-v2/board/page/board-logic.mjs`
+
+**why**:
+The reasons a ticket's lamp is orange, listed in the detail column's "Needs you" callout: one line per open `decision`, `fault` or `contract` child, one when the ticket was handed back with criteria abandoned, and one for a bounce not yet resolved.
+_Home_: `mmw-v2/board/page/board-logic.mjs`
+
+**event block**:
+One run of a ticket's event history sharing one phase, shown in the detail column collapsed to its most telling event and the time span it covers; only the newest block, and one whose events need attention, open by default.
+_Home_: `mmw-v2/board/page/board-logic.mjs`
+
+### The canvas
+
+**container**:
+A map or spec card on the canvas: it can expand, laying out its children — a map's decision tickets, or a spec's tickets — in a column to its right joined by an expand line. Distinct from a ticket or decision card, neither of which expands.
+_Home_: `mmw-v2/board/page/canvas.mjs`
+
+**canvas edge**:
+One curve the canvas draws between two cards: a trunk line from a map to its spec column, an expand line from a container to a child in its first layer, or a block line between a blocked ticket (or decision) and its blocker. A block or expand line's state is `blocked` (the blocker is not yet released), `done` (released, but nothing behind it is running — the legend calls this state **walked**), or `flow` (released and being worked, drawn as a moving beam). Distinct from a **blocking edge**, the tracker relation a block line depicts.
+_Home_: `mmw-v2/board/page/canvas.mjs`, `mmw-v2/board/page/board-logic.mjs`
+
+**closeout bar**:
+The stripe the canvas draws on a ticket card whose `closeout` field is set: the ticket was itself opened by a closing pass's `route`, out of a finding on the ticket its `closeout.from` names. Distinct from **closeout**, `verify-ticket.py`'s closing gate.
+_Home_: `mmw-v2/board/page/canvas.mjs`, `mmw-v2/board/board_data.py`
+
+### Reading and refreshing
+
+**read-state line**:
+The line beside the topbar's counters naming when `tasks` was last read: quiet after an ordinary read, and hatched with the failed read's time and how long ago when GitHub could not be read and the page is showing the last good data instead.
+_Home_: `mmw-v2/board/page/topbar.mjs`
+
+**board feed**:
+The background read of `GET /api/board` that `app.mjs` starts once immediately and repeats every 60 seconds while the page is visible, feeding the same repaint the topbar's manual refresh uses.
+_Home_: `mmw-v2/board/page/board-feed.mjs`
+
+**signature**:
+The string `app.mjs` computes from what one column of the page reads, so that column is redrawn only when its signature changes rather than on every poll; a signature includes clock-derived text (a ticket's elapsed time), which is why that text keeps ticking.
+_Home_: `mmw-v2/board/page/app.mjs`
+
+### The settings sheet
+
+**settings sheet**:
+The dialog the topbar's gear opens, showing and editing this machine's `models.json`: one row per agent (host, model, effort) and the runner, validated and saved through `PUT /api/settings`. It writes nothing to GitHub.
+_Home_: `mmw-v2/board/page/settings.mjs`
+
+**host chip**:
+One tag in the settings sheet's host row, one per host `hosts.json` names: solid when this machine's scan says the host answers, dashed for every other state (not installed, silent, Paseo not running, or not launchable on the selected runner).
+_Home_: `mmw-v2/board/page/settings.mjs`, `mmw-v2/board/page/local-config.mjs`
+
+**hatched**:
+The board's mark, a diagonal fill, for a value that is not currently good, always paired with one line saying why: a settings cell whose saved value `start` would refuse, or the read-state line after a failed read.
+_Home_: `mmw-v2/board/page/settings.mjs`, `mmw-v2/board/page/topbar.mjs`
+
+**settings draft**:
+The settings sheet's unsaved copy of the rows and runner being edited: compared against the last saved copy to show what changed, and against the scan to find what would be hatched. Discarded on cancel, close, or Esc.
+_Home_: `mmw-v2/board/page/local-config.mjs`

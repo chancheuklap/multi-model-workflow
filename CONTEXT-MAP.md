@@ -1,6 +1,6 @@
 # Context Map
 
-One vocabulary, six bounded contexts. A term is defined in one of them; its `_Home_` line names the file that states the fact, and that file is right when the two disagree. The contexts live under `docs/contexts/` rather than beside their code because the code of most of them is a skill directory symlinked whole into every host, which holds only what the agent holding the skill reads or runs.
+One vocabulary, seven bounded contexts. A term is defined in one of them; its `_Home_` line names the file that states the fact, and that file is right when the two disagree. The contexts live under `docs/contexts/` rather than beside their code because the code of most of them is a skill directory symlinked whole into every host, which holds only what the agent holding the skill reads or runs.
 
 How to read an entry, in each context: the bold line is the term's name, and a term that is a literal string in a file, a command or a comment is named by that string exactly. The definition says in one or two sentences what the thing is and how it differs from its neighbours. `_Avoid_` lists wordings that name the concept less precisely in this repository's own text, each with the sense in which it is avoided. `_Home_` is the file that states the fact; an entry does not repeat what can be read there (a field list, an exit code, a command's switches, the branches of a behaviour).
 
@@ -14,6 +14,7 @@ What is written here is acted on, not just read: specs and tickets take their wo
 - [Night](./docs/contexts/night/CONTEXT.md): dispatching sessions onto tickets, runners and adapters, workspaces and worktrees, base and project branches, the relay, the watchdog and the turn guard, and the orchestrator's commands
 - [UI acceptance](./docs/contexts/ui-acceptance/CONTEXT.md): the design side (Claude Design, design package, scenes), the screen contract, the oracles (story, boundary, journey), the lease and `.mmw/target.json`
 - [Task board](./docs/contexts/task-board/CONTEXT.md): the local browser page, its registry and supervisor
+- [Release](./docs/contexts/release/CONTEXT.md): shipping an installable package for a product on the current branch — the release manifest, the release engine's build loop, and its diagnosis and repair of a failed build
 
 ## Relationships
 
