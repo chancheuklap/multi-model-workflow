@@ -793,16 +793,33 @@ def _fixture_offerings(data: dict, source: str, host: str) -> list[dict]:
     return []
 
 
+_CLAUDE_BRACKET_SUFFIX = re.compile(r"^(.+?)(\[[^\[\]]+\])$")
+
+
 def _resolve_from_offerings(host: str, model: str, effort: str,
                             offerings: list[dict], source: str) -> tuple[str, str, str]:
     hosts = load_hosts()["hosts"]
     if host not in hosts:
         raise ValueError(f"unknown host {host}")
     spec = hosts[host]
-    offering = match_offering(
-        model, offerings, effort=effort,
-        effort_in_model=bool(spec.get("effort_in_model")) and source != "paseo")
-    resolved = str(offering.get("id") or "")
+    effort_in_model = bool(spec.get("effort_in_model")) and source != "paseo"
+    try:
+        offering = match_offering(model, offerings, effort=effort,
+                                  effort_in_model=effort_in_model)
+        resolved = str(offering.get("id") or "")
+    except ValueError:
+        # Claude Code's own `/model` picker is this catalog, and a picker upgrade can
+        # stop listing a bracket suffix (`[1m]`, 1M context) as a row of its own even
+        # though the CLI still accepts it appended to a family name. When the full name
+        # does not match, a bracketed claude row is matched by the name in front of the
+        # bracket instead, checked for effort against that catalog entry, and passed on
+        # to the CLI exactly as the configuration wrote it.
+        bracket = _CLAUDE_BRACKET_SUFFIX.match(model) if host == "claude" else None
+        if not bracket:
+            raise
+        offering = match_offering(bracket.group(1), offerings, effort=effort,
+                                  effort_in_model=effort_in_model)
+        resolved = model
     allowed = spec.get("efforts")
     thinking_ids = offering.get("thinkingOptionIds")
     if allowed and effort not in ("—", "-", "") and spec.get("thinking") != "boolean":

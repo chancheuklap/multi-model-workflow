@@ -6,7 +6,7 @@ Run `<dispatch> adopt <n>` first: it records you as the ticket's worker and make
 
 ## Exit codes
 
-**`adopt <n> [--into <branch>]`**, for a session that picked ticket `<n>` up itself rather than being started on it: run from the ticket's worktree on branch `issue-<n>`, before claiming. `into` comes from the latest `worker.started`, else the open night's `spec.opened`, else the required `--into` outside a night; it must exist on origin. `0` this session is the ticket's worker and `worker.started` records its runner, session, grade row, worktree, ticket branch, base branch and base commit; a relay watches the ticket, stdout is the session id, and no product slot is taken. Adopting again from the same session writes nothing more. `2` nothing was adopted; stderr names a session it cannot identify, the ticket state, wrong ticket branch, missing `origin/<base branch>`, `worker.started` without `into`, an existing worker, relay failure or tracker failure.
+**`adopt <n> [--into <branch>]`**: run it from the ticket's worktree on branch `issue-<n>`, before claiming; outside a night add `--into <base branch>`. Exit 2 adopted nothing; its stderr names what to fix.
 
 ## After the closeout
 

@@ -375,6 +375,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh self
        dispatch.sh advance <spec>
        dispatch.sh integrate <n>
+       dispatch.sh integrated <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer
        dispatch.sh advise <packet file>
@@ -383,6 +384,8 @@ usage: dispatch.sh check <spec>
        dispatch.sh ack <n> <event> | relay.recovered
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
+       dispatch.sh findings <spec>
+       dispatch.sh memory-list <spec>
        dispatch.sh reverify <spec>
        dispatch.sh summary <spec> --memory-decisions <file>
        dispatch.sh finish <spec>
@@ -2058,7 +2061,6 @@ advise_one() {
 
   local row host model effort
   row="$(row_for_role advisor)" || exit 2
-  [ -n "$row" ] || refuse "the advisor row is missing from $MODELS_JSON; add it as the dispatch skill's references/editing-models.md says, then advise again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
   local cwd body prompt session
@@ -2473,6 +2475,27 @@ integrated_ticket_numbers() {
   git -C "$1" log --reverse --first-parent --format='%s' "$2" 2>/dev/null \
     | sed -n "s/^Merge branch 'issue-\([0-9][0-9]*\)'$/\1/p" \
     | awk '!seen[$0]++'
+}
+
+# Print one ticket number per line for every sibling ticket the code-review skill's Spec
+# axis has to cross-check: every `Merge branch 'issue-<n>'` on the base branch's own
+# first-parent history, between this ticket's newest recorded `worker.started.base` and
+# the freshly fetched `origin/<into>`. Read-only; run from any checkout of the repository.
+integrated_since_start() {
+  local number="$1" root base into rc
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so there is no base branch to read history on"
+  base="$(newest_worker_field "$number" base)"
+  rc=$?
+  case "$rc" in
+    0) ;;
+    3) refuse "#$number's events carry no worker.started.base, so there is no starting point to read history from" ;;
+    *) exit 2 ;;
+  esac
+  into="$(ticket_into "$number" "$(ticket_spec "$number")")" || exit 2
+  fetch_origin "$root" || exit 2
+  require_origin_branch "$root" "$into" || exit 2
+  integrated_ticket_numbers "$root" "$base..origin/$into"
 }
 
 integrate_conflict_report() {
@@ -3199,6 +3222,24 @@ advance() {
     fi
   done
 
+  # ADR 0027: the frontier computation that records a bounce must not restart that
+  # ticket in the same computation. This second, separate computation is that later
+  # restart, reading the plan again only after the bounce event, claim release and
+  # first round's starts are all on the tracker, and touching only the tickets this
+  # call itself just bounced.
+  if [ -n "$bounced_this_advance" ]; then
+    plan="$(python3 "$STATUS" --advance-plan "$spec")" \
+      || refuse "could not read the batch under #$spec a third time, after its bounces, so the returned tickets were not restarted"
+    for number in $(printf '%s\n' "$plan" | awk '$1 == "DISPATCH" { print $2 }'); do
+      case " $bounced_this_advance " in *" $number "*) ;; *) continue ;; esac
+      if bash "$SELF" ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} start "$number" worker; then
+        started=$((started + 1))
+      else
+        refused=$((refused + 1))
+      fi
+    done
+  fi
+
   echo "advance #$spec: merged $merged, already in $skipped, bounced $bounced, released $released, started $started, refused $refused, failed $failed" >&2
   sweep_orphan_merge_worktrees "$root" \
     || echo "dispatch: could not sweep orphan merge worktrees after advancing #$spec" >&2
@@ -3659,6 +3700,90 @@ print((rows[0].get("login") or "") if rows else "")
   [ "$recovered" -eq 0 ] || also=", $recovered recovered"
   echo "reverify #$spec: $green green, $red red$also"
   [ "$red" -eq 0 ] || exit 1
+}
+
+# Print a decision-file skeleton for the closing pass's Memory lifecycle step: the same
+# Space id `close_spec_memories` computes, the spec's full `mmw-spec-<spec>` record set,
+# and one empty decision per record with `total`/`returned` already filled in — or a
+# ready-made `unchecked` object when the list could not be read or was truncated, so a
+# main agent never has to infer an empty set from a bad answer. The main agent fills in
+# `decision`, `reason` and `evidence` (and `replacement_id` for `supersede`) per entry;
+# `close_spec_memories` still enforces every rule this stops short of, at `summary` time.
+memory_list_spec() {
+  local spec="$1" slug space
+  slug="$(repo_slug)" || return 2
+  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+
+  MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" python3 - <<'PY'
+import json
+import os
+import subprocess
+
+spec = os.environ["MMW_MEMORY_SPEC"]
+space = os.environ["MMW_MEMORY_SPACE"]
+label = f"mmw-spec-{spec}"
+
+
+def nmem(*args):
+    command = ["nmem", "--json", *args]
+    try:
+        return subprocess.run(command, text=True, capture_output=True, check=False)
+    except OSError as exc:
+        return subprocess.CompletedProcess(command, 127, "", str(exc))
+
+
+def object_output(completed):
+    try:
+        value = json.loads(completed.stdout)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def command_detail(completed):
+    return (completed.stderr or completed.stdout or f"exit {completed.returncode}").strip().replace("\n", "; ")
+
+
+listed_call = nmem("memories", "list", "--space", space, "--label", label, "--limit", "1000")
+listed = object_output(listed_call) if listed_call.returncode == 0 else None
+list_available = listed is not None
+if list_available:
+    rows = listed.get("memories")
+    total = listed.get("total")
+    returned = listed.get("returned")
+    list_available = (
+        isinstance(rows, list)
+        and isinstance(total, int) and not isinstance(total, bool) and total >= 0
+        and isinstance(returned, int) and not isinstance(returned, bool) and returned >= 0
+        and returned == len(rows)
+    )
+else:
+    rows, total, returned = [], None, None
+
+if not list_available:
+    manifest = {
+        "status": "unchecked",
+        "reason": f"nmem memories list returned an unreadable result ({command_detail(listed_call)})",
+        "total": None, "returned": None, "decisions": [],
+    }
+elif total > returned:
+    manifest = {
+        "status": "unchecked",
+        "reason": f"the fresh Memory list is truncated ({returned}/{total})",
+        "total": total, "returned": returned, "decisions": [],
+    }
+else:
+    ids = [row.get("id") for row in rows if isinstance(row, dict) and row.get("id")]
+    manifest = {
+        "status": "complete",
+        "total": total,
+        "returned": returned,
+        "decisions": [{"memory_id": ident, "decision": "", "reason": "", "evidence": ""}
+                      for ident in ids],
+    }
+
+print(json.dumps(manifest, ensure_ascii=False, indent=2))
+PY
 }
 
 close_spec_memories() {
@@ -4546,6 +4671,11 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     integrate_ticket "$2"
     ;;
+  integrated)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    integrated_since_start "$2"
+    ;;
   land)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
@@ -4580,6 +4710,17 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     python3 "$STATUS" --table "$2"
     exit $?
+    ;;
+  findings)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
+    python3 "$STATUS" --findings "$2"
+    exit $?
+    ;;
+  memory-list)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
+    memory_list_spec "$2"
     ;;
   reverify)
     [ "$#" -eq 2 ] || usage
