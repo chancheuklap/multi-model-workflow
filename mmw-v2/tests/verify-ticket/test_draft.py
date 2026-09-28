@@ -383,7 +383,7 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
         filled = text.replace(vt.FILL, "none")
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
-            problems = vt.verified_problems(filled, "", list(comments))
+            problems = vt.verified_problems(filled, "", list(comments), "ALL MET")
         self.assertTrue(any("carries no worker reverify `ticket.checked`" in p for p in problems),
                         problems)
 

@@ -9,7 +9,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import event, load
+from _load import checked, event, load
 
 vt = load()
 
@@ -458,6 +458,83 @@ class TestBaselineRun(unittest.TestCase):
         self.assertEqual(payload["skipped"], ["AC1"])
         self.assertIn("nothing ran", posted[1][1])
         self.assertNotIn("ALL MET", posted[1][1])
+
+
+SELF_LEDGER = "- [x] AC1: it works\n  CHECK: true\n  EXPECT: ok\n  EVIDENCE: exit=0"
+HEAD = "a" * 40
+
+
+class TestResume(unittest.TestCase):
+    """`--preflight` prints `RESUME:` after `READY:` for a ticket that already carries a
+    run of the worker's own, a `reviewer.reported`, a `worker.decided`, or a worker
+    reverify — the resume table in the `implement` skill's `## Closing steps`."""
+
+    def resume(self, comments):
+        with mock.patch.object(vt, "git", return_value=HEAD):
+            code, posted, err, _, out = run(number=77, history={77: comments})
+        self.assertEqual(code, 0, err)
+        return out
+
+    def test_a_fresh_ticket_prints_no_resume_line(self):
+        self.assertNotIn("RESUME", self.resume([]))
+
+    def test_a_run_of_your_own_with_no_decision_resumes_at_step_2(self):
+        out = self.resume([checked("self", SELF_LEDGER, ticket=77)])
+        self.assertIn("RESUME: step 2 (no worker.decided)", out)
+
+    def test_a_decision_with_no_reviewer_resumes_at_step_3(self):
+        out = self.resume([checked("self", SELF_LEDGER, ticket=77),
+                           event("worker.decided", "DECISIONS", ticket=77)])
+        self.assertIn("RESUME: step 3 (worker.decided, no reviewer.reported)", out)
+
+    def test_a_live_reviewer_resumes_asleep_at_step_3(self):
+        out = self.resume([
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("reviewer.started", "Reviewer started", ticket=77,
+                  session="rv-1", runner="paseo", machine="mac-1"),
+        ])
+        self.assertIn("RESUME: step 3 (reviewer.started, no reviewer.reported yet)", out)
+
+    def test_a_report_older_than_your_own_run_resumes_at_step_4(self):
+        out = self.resume([
+            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
+                  ticket=77, base="a" * 7, head="b" * 7),
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+        ])
+        self.assertIn("RESUME: step 4 "
+                      "(a run of your own since reviewer.reported, no worker reverify)", out)
+
+    def test_a_report_newer_than_your_own_run_resumes_at_its_fix_round(self):
+        out = self.resume([
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
+                  ticket=77, base="a" * 7, head="b" * 7),
+        ])
+        self.assertIn("RESUME: step 3 (reviewer.reported, no run of your own since)", out)
+
+    def test_a_worker_reverify_on_head_with_nothing_newer_resumes_at_step_5(self):
+        out = self.resume([
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
+                  ticket=77, base="a" * 7, head="b" * 7),
+            checked("self", SELF_LEDGER, ticket=77),
+            checked("reverify", SELF_LEDGER, ticket=77, actor="worker", commit=HEAD),
+        ])
+        self.assertIn("RESUME: step 5 (worker reverify on HEAD)", out)
+
+    def test_a_returned_ticket_resumes_at_step_1_then_4(self):
+        out = self.resume([
+            checked("self", SELF_LEDGER, ticket=77),
+            event("worker.decided", "DECISIONS", ticket=77),
+            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
+                  ticket=77, base="a" * 7, head="b" * 7),
+            checked("reverify", SELF_LEDGER, ticket=77, actor="worker", commit=HEAD),
+            event("ticket.returned", "HANDOFF REQUIRED", ticket=77),
+        ])
+        self.assertIn("RESUME: step 1, then step 4 onward (ticket.returned)", out)
 
 
 if __name__ == "__main__":

@@ -108,10 +108,6 @@ HANDOFF_KINDS = ("failed", "stuck")
 # never disagree about it.
 DEFAULT_TIMEOUT = 600
 ABANDON_RE = re.compile(r"^ABANDON:\s+(\S+)\s+(\S+)\s*(.*)$")
-COUNTS_RE = re.compile(
-    r"^Counts:\s*(\d+)\s+met,\s*(\d+)\s+unmet,\s*(\d+)\s+abandoned of\s*(\d+)\s*$")
-HANDOFF_RE = re.compile(
-    r"^HANDOFF REQUIRED:\s*(\d+)\s+abandoned\s*\(([^)]*)\),\s*(\d+)\s+unmet,\s*(\d+)\s+met of\s*(\d+)\s*$")
 # `owner/repo#n` and `repo#n` are another repository's issue, not this batch's spec.
 ISSUE_REF_RE = re.compile(r"(?<![A-Za-z0-9_/])#(\d+)")
 WORKER_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-worker$")
@@ -826,14 +822,6 @@ def tally(criteria: list[dict], abandons: list[dict]) -> dict:
     return counts
 
 
-def draft_line(text: str, prefix: str) -> str | None:
-    """The first line starting with `prefix`, without it."""
-    for line in text.splitlines():
-        if line.startswith(prefix):
-            return line[len(prefix):].strip()
-    return None
-
-
 def newest_worker_started(number: int, comments: list) -> tuple[dict | None, str | None]:
     """The newest readable `worker.started` payload, or the fact that none exists."""
     record = events.newest(comments, "worker.started")
@@ -856,15 +844,50 @@ def worker_started_field(number: int, comments: list,
                   f"`dispatch.sh start {number} worker` again so it records one")
 
 
+def draft_summary(draft: str) -> tuple[str, dict]:
+    """The first line and the `Counts:` line's numbers `--closeout` writes for this
+    draft: whichever of `ALL MET` or `HANDOFF REQUIRED: …` its `ABANDON:` lines and
+    unmet criteria make true, and the ledger's own count. A worker need not get this
+    arithmetic right by hand; the closeout computes it from the draft every time.
+    """
+    criteria = parse_criteria(draft)
+    abandons = parse_abandons(draft)
+    counts = tally(criteria, abandons)
+    blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
+    if counts["unmet"] or blocking:
+        kinds = ", ".join(k for k in HANDOFF_KINDS if k in blocking)
+        first = (f"HANDOFF REQUIRED: {counts['abandoned']} abandoned ({kinds}), "
+                 f"{counts['unmet']} unmet, {counts['met']} met of {counts['total']}")
+    else:
+        first = "ALL MET"
+    return first, counts
+
+
+def rewrite_summary(draft: str, first: str, counts: dict) -> str:
+    """`draft` with its first line and `Counts:` line replaced by what `draft_summary`
+    computed, so the comment that posts states only what the draft's own `ABANDON:`
+    lines and criteria make true. A `Counts:` line the draft lacks is added."""
+    lines = draft.split("\n")
+    if lines:
+        lines[0] = first
+    counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
+                   f"{counts['abandoned']} abandoned of {counts['total']}")
+    for i, line in enumerate(lines):
+        if line.startswith("Counts:"):
+            lines[i] = counts_line
+            break
+    else:
+        lines.append(counts_line)
+    return "\n".join(lines)
+
+
 def draft_problems(draft: str, comments: list[str]) -> list[str]:
-    """Everything wrong with the draft itself, in the order a reader would hit it."""
+    """Everything wrong with the draft that its own `ABANDON:` lines cannot settle, in
+    the order a reader would hit it. The first line and `Counts:` are computed by
+    `draft_summary`, not checked here."""
+    if not draft.strip():
+        return ["the draft is empty"]
     problems = []
-    lines = draft.strip().splitlines()
-    first = lines[0].strip() if lines else ""
-    handoff = HANDOFF_RE.match(first)
-    if first != "ALL MET" and not handoff:
-        return ["first line is neither `ALL MET` nor `HANDOFF REQUIRED: <n> abandoned "
-                "(<kinds>), <m> unmet, <k> met of <total>`: " + (first or "(empty draft)")]
     if FILL in draft:
         problems.append("the draft still contains `<fill>`; replace the placeholders "
                         "in `skipped:`, `Review findings:`, `Green before work:` and "
@@ -880,12 +903,6 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
         if a["ac"] not in ids:
             problems.append(f"ABANDON: {a['ac']} points at a criterion the draft does not list")
 
-    blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
-    if first == "ALL MET" and blocking:
-        problems.append(f"first line is `ALL MET` but the draft abandons a criterion as "
-                        f"{', '.join(blocking)}; only `decision` may be abandoned and still "
-                        f"close the ticket")
-
     for c in criteria:
         if c.get("stray"):
             problems.append(f"{c['id']} continues its CHECK onto another line; wrap the "
@@ -894,40 +911,13 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
             problems.append(f"{c['id']} is ticked but its EVIDENCE is pending; "
                             f"either fill in what proved it or untick it")
 
-    counts = tally(criteria, abandons)
-    if first == "ALL MET" and counts["unmet"]:
-        problems.append(f"first line is `ALL MET` but {counts['unmet']} criteria are unmet")
-
-    stated = draft_line(draft, "Counts:")
-    m = COUNTS_RE.match("Counts: " + stated) if stated is not None else None
-    if not m:
-        problems.append("no `Counts: <k> met, <m> unmet, <n> abandoned of <total>` line")
-    else:
-        got = dict(zip(("met", "unmet", "abandoned", "total"),
-                       (int(g) for g in m.groups())))
-        if got != counts:
-            problems.append(
-                "Counts: says {met} met, {unmet} unmet, {abandoned} abandoned "
-                "of {total}".format(**got) +
-                "; the draft reads {met} met, {unmet} unmet, {abandoned} abandoned "
-                "of {total}".format(**counts))
-        if handoff:
-            said = {"abandoned": int(handoff.group(1)), "unmet": int(handoff.group(3)),
-                    "met": int(handoff.group(4)), "total": int(handoff.group(5))}
-            off = [f"{k}: first line says {said[k]}, `Counts:` says {got[k]}"
-                   for k in ("abandoned", "unmet", "met", "total") if said[k] != got[k]]
-            if off:
-                problems.append("the first line and the `Counts:` line disagree — "
-                                + "; ".join(off))
-
     return problems
 
 
-def verified_problems(draft: str, body: str, comments: list[str]) -> list[str]:
-    """What an `ALL MET` draft lacks in the worker's final full run."""
+def verified_problems(draft: str, body: str, comments: list[str], first: str) -> list[str]:
+    """What an `ALL MET` draft lacks in the worker's final full run. `first` is the one
+    `draft_summary` computed, not necessarily the draft's own literal first line."""
     problems = []
-    lines = draft.strip().splitlines()
-    first = lines[0].strip() if lines else ""
     if first != "ALL MET":
         return problems
 
@@ -2155,6 +2145,42 @@ def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
                actor="worker", stage=events.checked_stage("baseline", "worker"))
 
 
+def resume_at(comments: list[str], head: str) -> str | None:
+    """Where a worker re-entering this ticket picks up: the resume table in the
+    `implement` skill's `## Closing steps`, the paragraph starting "A ticket that
+    already carries a run of your own". None for a ticket that carries none of that
+    paragraph's markers — a fresh claim, not a resume.
+    """
+    self_run = newest_run(comments, "self")
+    reviewed = events.newest(comments, "reviewer.reported")
+    reverify = newest_run(comments, "reverify", actor="worker")
+    state = events.fold(comments)
+    if not (self_run or reviewed or state["decided"] or reverify):
+        return None
+    ordered = state["events"]
+    terminal = next((e["event"] for e in reversed(ordered)
+                     if e["event"] in ("ticket.passed", "ticket.returned", "ticket.bounced")),
+                    None)
+    if terminal in ("ticket.returned", "ticket.bounced"):
+        return f"step 1, then step 4 onward ({terminal})"
+    if self_run is None:
+        return "step 1 (no run of your own)"
+    if not state["decided"]:
+        return "step 2 (no worker.decided)"
+    if reviewed is None:
+        if events.live_of(state, "reviewer"):
+            return "step 3 (reviewer.started, no reviewer.reported yet)"
+        return "step 3 (worker.decided, no reviewer.reported)"
+    if self_run["comment"] <= reviewed["comment"]:
+        return "step 3 (reviewer.reported, no run of your own since)"
+    if reverify is None or reverify["comment"] < self_run["comment"]:
+        return "step 4 (a run of your own since reviewer.reported, no worker reverify)"
+    if reverify["payload"].get("commit") == head and (
+            not ordered or reverify["comment"] == ordered[-1]["comment"]):
+        return "step 5 (worker reverify on HEAD)"
+    return None
+
+
 def run_preflight(number: int) -> int:
     """Claim the ticket, or say on the ticket itself why it cannot be claimed.
 
@@ -2190,6 +2216,14 @@ def run_preflight(number: int) -> int:
                          f"written ({exc})\n")
     run_baseline_if_needed(number, root)
     print(f"READY: #{number} claimed on issue-{number}")
+    try:
+        resume = resume_at(fetch_comments(number), git("rev-parse", "HEAD", cwd=root))
+    except TrackerReadError as exc:
+        resume = None
+        sys.stderr.write(f"#{number}: could not read where to resume ({exc}); read the "
+                         f"ticket's comments by hand\n")
+    if resume:
+        print(f"RESUME: {resume}")
     # Getting here with a dirty tree means the claim was already this account's, so the
     # changes came in under it: this is a worker back on its own work, and the only thing
     # left to say is where they have to be by the closing steps.
@@ -2453,9 +2487,13 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
 
 def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     """Check the closing comment against the ticket and the repository, then post it."""
-    draft = draft_path.read_text(encoding="utf-8")
+    raw = draft_path.read_text(encoding="utf-8")
     comments = fetch_comments(number)
-    first = (draft.strip().splitlines() or [""])[0].strip()
+    # The first line and `Counts:` are computed here, from the draft's own `ABANDON:`
+    # lines and criteria, and written into what posts — never taken as the worker wrote
+    # them.
+    first, counts = draft_summary(raw)
+    draft = rewrite_summary(raw, first, counts)
     passed = first == "ALL MET"
     ticket = fetch_ticket(number)
     head = git("rev-parse", "HEAD")
@@ -2469,7 +2507,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     base = (started or {}).get("base")
     into = (started or {}).get("into") if passed else None
     problems = draft_problems(draft, comments)
-    problems += verified_problems(draft, body, comments)
+    problems += verified_problems(draft, body, comments, first)
     problems += review_finding_problems(draft, comments)
     problems += event_problems(comments)
     if started_problem:
@@ -2510,7 +2548,9 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
             named = ", ".join(f["command"] for f in checks["failed"]) or checks["problem"]
             sys.stderr.write(f"closeout stopped: the repository's checks did not pass "
                              f"({named}); the ticket.checked event on #{number} carries "
-                             f"each failed command and its last lines\n")
+                             f"each failed command and its last lines. Fix the code, run "
+                             f"that suite yourself, commit, run --reverify --actor worker "
+                             f"again, and run --closeout again\n")
             return 1
         problem = push_ticket_branch(number, repo_root(), head)
         if problem:
@@ -2524,7 +2564,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     event = "ticket.passed" if passed else "ticket.returned"
     fields = dict(spec=spec_field(ticket), commit=head or None,
                   branch=current_branch(repo_root()) or None,
-                  counts=tally(parse_criteria(draft), abandons),
+                  counts=counts,
                   abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
                              for a in abandons] or None)
     if passed:
