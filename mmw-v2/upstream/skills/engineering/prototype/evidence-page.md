@@ -25,7 +25,6 @@ A section may open with a one-line *what to look for* note. It points the eye; i
 - Dark ground, one accent colour: outlines and overlays read better against it, and the page is obviously not the product.
 - Every media cell is captioned: sample, approach, time point.
 - Video: `controls preload="none"`; a row fits on one screen, so three to five columns at most.
-- Numbers in tables: `font-variant-numeric: tabular-nums`, right-aligned.
 - Long sample names are kept, not truncated: they are how the user recognises the sample.
 
 ## Skeleton
