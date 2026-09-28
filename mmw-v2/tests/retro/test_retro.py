@@ -457,7 +457,7 @@ def retry_finalize(f: Fixture):
     assert [events.parse(c["body"])[1] for c in f.state("gh")["issues"]["70"]["comments"]
             if events.parse(c["body"])[0] == "event" and
             events.parse(c["body"])[1].get("event") == "spec.closed"] == closed_before
-    # retro's own unrecorded receipt on the spec issue is not inventoried, so the
+    # retro's own unrecorded `spec.retroed` event on the spec issue is not inventoried, so the
     # same saved gather still matches a fresh one and needs no re-gather.
     second = f.finish(gathered, analysis)
     assert second["result"] == "recorded"

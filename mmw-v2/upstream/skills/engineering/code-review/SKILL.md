@@ -11,5 +11,5 @@ A worker wrote this diff and the tests that prove it, and watched them pass. Thi
 
 | You are | Read |
 | --- | --- |
-| The reviewer session: your prompt names this skill, a ticket and a base commit, and names no axis | [Running the session](references/session.md): pin the diff, start the axes, sort the findings, write the ticket |
+| The reviewer: your prompt names this skill, a ticket and a base commit, and names no axis | [Running the session](references/session.md): pin the diff, start the axes, sort the findings, write the ticket |
 | An axis: your prompt also names one axis | [Standards](references/standards-reviewer.md), [Spec](references/spec-reviewer.md), [Tests](references/tests-reviewer.md) or [UI](references/ui-reviewer.md) |

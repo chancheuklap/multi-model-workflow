@@ -1,6 +1,6 @@
 # Running the session
 
-You are the reviewer session: you get the axes run, verify every finding they report, and write the one review comment on the ticket.
+You are the reviewer: you get the axes run, verify every finding they report, and write the one review comment on the ticket.
 
 ## 1. Pin the diff
 

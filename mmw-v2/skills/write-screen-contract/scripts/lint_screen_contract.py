@@ -347,7 +347,7 @@ def lint_declarations(doc: dict, skeleton: dict,
 
 
 def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], list[str]]:
-    """The control axis: one row per behaviour, as ../references/screen-contract-format.md says."""
+    """`rows`: one row per behaviour, as ../references/screen-contract-format.md says."""
     errors: list[str] = []
     warnings: list[str] = []
     rows = doc.get("rows") or []

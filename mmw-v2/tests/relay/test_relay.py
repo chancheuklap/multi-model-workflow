@@ -260,7 +260,7 @@ class QueueTest(RelayCase):
                            comment(102, "ticket.passed", 61)]
         self.poll()
         self.assertEqual(self.summary(), [(1, 61, "ticket.passed")])
-        self.assertIn("folded #61 ticket.passed", self.out.getvalue())
+        self.assertIn("coalesced #61 ticket.passed", self.out.getvalue())
 
     def test_a_later_event_of_one_name_folds_into_the_wake_still_queued(self):
         self.board[61].append(comment(101, "ticket.passed", 61))

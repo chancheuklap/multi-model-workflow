@@ -11,7 +11,7 @@ Any session or subagent the pipeline starts or runs: the orchestrator, a worker,
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **session**:
-A host process a runner started, or the orchestrator the user started; a session `dispatch.sh start` started is named on its ticket by its started event. A code-review axis runs inside the reviewer session and is not one.
+A host process a runner started, or the orchestrator the user started; a session `dispatch.sh start` started is named on its ticket by its started event. A code-review axis runs inside the reviewer and is not one.
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **orchestrator**:
@@ -196,7 +196,7 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **retro**:
-The orchestrator's step right after `summary` records `spec.closed`: the retro skill, which writes the night's **Retro Memory** and posts the `spec.retroed` receipt.
+The orchestrator's step right after `summary` records `spec.closed`: the retro skill, which writes the night's **Retro Memory** and posts `spec.retroed`.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **`status.py`**:
@@ -224,7 +224,7 @@ One line of `status.py --worker-grades`: `BATCH <ticket>` for each child of the 
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **reverify receipt**:
-The local marker `mmw-reverify-<spec>` in the repository's common Git directory, recording `reverify`'s green count, red count and the fetched `origin/<base branch>` commit; `summary` refuses the night when it is missing, red, or for an older commit. Distinct from the unrelated, informal use of "receipt" for `spec.retroed`'s recorded result.
+The local marker `mmw-reverify-<spec>` in the repository's common Git directory, recording `reverify`'s green count, red count and the fetched `origin/<base branch>` commit; `summary` refuses the night when it is missing, red, or for an older commit. Distinct from `spec.retroed`, the event `finish` checks before merging.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **advance**:
@@ -275,8 +275,9 @@ _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 A recipient saying it has read a wake (`relay.py ack`, or `dispatch.sh ack <n> <event>`), which removes its rows up to that point.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
-**folded**:
-What the relay's log records when an event's translation is absorbed into an already-queued, unacked row rather than starting a new one, because the two wakes read `#<n> <event>` alike and a second row would only ask for a second ack of one reading of one ticket. Distinct from ticket-run's **fold**, a ticket's state replayed from its events; the two share a root word and nothing else.
+**coalesced**:
+What the relay's log records when an event's translation is absorbed into an already-queued, unacked row rather than starting a new one, because the two wakes read `#<n> <event>` alike and a second row would only ask for a second ack of one reading of one ticket. Distinct from ticket-run's **fold**, a ticket's state replayed from its events.
+_Avoid_: folded
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **unconfirmed**:

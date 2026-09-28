@@ -132,8 +132,9 @@ _Home_: `mmw-v2/skills/exe-release/references/key.md`
 Data that ships beside the compiled exe rather than embedded inside it, read by path at run time: for a package that cannot be embedded at all, one too large to unpack on every launch, or one that must stay replaceable after install.
 _Home_: `mmw-v2/skills/exe-release/references/key.md`
 
-**self-check module**:
+**smoke module**:
 The module a compiled exe can run on its own, before it serves its first request, that imports everything the app needs: the one guard between a missing dynamic dependency and a customer finding it first.
+_Avoid_: self-check module
 _Home_: `mmw-v2/skills/exe-release/references/new-product.md`
 
 **smoke**:

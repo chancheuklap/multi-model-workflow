@@ -77,7 +77,7 @@ Each subsection is read on its own: a worker opens only the subsections its tick
 
 An effort with a screen contract has one fixed subsection here, **API contract**: one entry per distinct operation in the contract's `calls` column (its request fields, its response fields, its failure cases), derived from the rows' `shows` and `on_failure`, each entry citing the row ids that use it. This is where a new project's OpenAPI document starts.
 
-The same effort has one fixed subsection here, **`App · ` 页组合**: one entry per **cross-component row**, naming the request fields that row's action carries and the state the other region enters, citing the row id.
+The same effort has one fixed subsection here, **cross-component composition**: one entry per **cross-component row**, naming the request fields that row's action carries and the state the other region enters, citing the row id.
 
 The same effort has one paragraph on **visual acceptance**, in its own numbered subsection or the one that carries the `data-ui` ids, and it restates no command: appearance is decided by **element parity** (the story oracle of the `ui-acceptance` skill pairs both sides by `data-ui` id), citing the contract's `pages`, `App · ` pages included. Each design page's `mount` is the story page id.
 

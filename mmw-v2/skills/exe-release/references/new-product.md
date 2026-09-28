@@ -19,12 +19,12 @@ Each item is work in the product repository, and the agent adding the product wr
 | --- | --- |
 | A backend entry module per compiled executable | nothing to compile |
 | Runtime dependencies resolvable by one command | the compile packages the dev environment, not the shipped one |
-| A self-check module the **compiled exe** can run | a green build that crashes on the customer's machine |
+| A smoke module the **compiled exe** can run | a green build that crashes on the customer's machine |
 | An `electron-builder.yml` that carries the backend | a package that installs and then does nothing |
 | A committed frontend lockfile | this package's dependencies are not the ones the repository records |
 | An `.ico` per window the product shows | a default icon on a paid product |
 
-### The self-check module
+### The smoke module
 
 The only thing standing between a missing dynamic dependency and a customer finding it. It is a module that imports everything the app needs before it can serve its first request, and returns:
 

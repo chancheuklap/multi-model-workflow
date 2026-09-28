@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inventory one completed spec, search older retro, and finalize its one receipt.
+"""Inventory one completed spec, search older retro, and finalize its one `spec.retroed` event.
 
 Usage: retro.py gather <spec> | search <category> <cause> | finalize <spec> <analysis.json> <gather.json>
 The model owns analysis; this entry validates primary sources and writes proposals,
@@ -700,7 +700,7 @@ def finalize(number: int, analysis_file: Path, gather_file: Path) -> dict:
     if not isinstance(saved, dict):
         raise RetroError("saved gather output is not one JSON object")
     gathered = gather(number)
-    # Retro's own `spec.retroed` receipts are never inventoried (`event_comments`
+    # Retro's own `spec.retroed` events are never inventoried (`event_comments`
     # skips them), so a retry after an unrecorded one still matches this saved
     # gather; a real tracker change since step 1 does not, and is refused below.
     if saved.get("task_root") != gathered["task_root"]:

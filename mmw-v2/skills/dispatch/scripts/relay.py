@@ -85,8 +85,8 @@ watch its ticket belongs to; none on relay.recovered), the recipient's `runner` 
 queue that has not been sent yet queues no row of its own: the two wakes read `#<n>
 <event>` alike, and an unacked row is the only record that something has not been handled,
 so a second one asks for a second ack for one reading of one ticket. The event is recorded
-as translated all the same — what handles it is the wake it folded into, which is still to
-be sent and which has its recipient read that ticket — and `folded ...` says so in the log.
+as translated all the same — what handles it is the wake it coalesced into, which is still to
+be sent and which has its recipient read that ticket — and `coalesced ...` says so in the log.
 Once a wake has been sent its recipient may have acted on it already, so an event that
 lands after it queues a wake of its own. Delivered: the relay ran `runners/<runner>.sh send <session> "#<ticket>
 <event>"` — the text carries the ticket number and the event name and nothing else; what
@@ -1086,7 +1086,7 @@ class Relay:
             # second copy of one nobody has even been sent yet tells its recipient nothing,
             # and — an unacked row being the only record that something is unhandled —
             # costs it a second ack for one reading of one ticket. The event itself is
-            # recorded as translated: what handles it is the wake it folded into, which
+            # recorded as translated: what handles it is the wake it coalesced into, which
             # has still to be sent and which makes the recipient read that ticket. Once
             # that wake is sent, the recipient may already have acted on it, so an event
             # landing after it queues a wake of its own.
@@ -1160,7 +1160,7 @@ class Relay:
         for row in added:
             self.out.write(f"queued {row['seq']} {wake_text(row)} for {row['to']} {row['session']}\n")
         for row in folded:
-            self.out.write(f"folded {wake_text(row)} for {row['to']} {row['session']}: that wake "
+            self.out.write(f"coalesced {wake_text(row)} for {row['to']} {row['session']}: that wake "
                            f"is queued and not acked, and says the same thing\n")
         for number, cid, why in reported:
             self.err.write(f"relay: comment {cid} on #{number} was not translated: {why}. "

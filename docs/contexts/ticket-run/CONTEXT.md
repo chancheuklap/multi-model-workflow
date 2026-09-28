@@ -135,11 +135,11 @@ The event `verify-ticket.py <n> --review <file>` posts carrying the **review com
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`reviewer.lost`**:
-The event the **watchdog** posts for a reviewer session that stopped before its report landed. The relay wakes the worker on it.
+The event the **watchdog** posts for a reviewer that stopped before its report landed. The relay wakes the worker on it.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`spec.opened`, `spec.closed`, `spec.retroed`**:
-The events of a night on its spec: `spec.opened` from `open` (the orchestrator, the base branch and the project branch), `spec.closed` from `summary` (the `NIGHT SUMMARY`), and `spec.retroed` from the retro (its receipt). Distinct from `spec.merged`, which `finish` posts.
+The events of a night on its spec: `spec.opened` from `open` (the orchestrator, the base branch and the project branch), `spec.closed` from `summary` (the `NIGHT SUMMARY`), and `spec.retroed` from the retro. Distinct from `spec.merged`, which `finish` posts.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`spec.suspended`**:
@@ -232,19 +232,19 @@ _Home_: `mmw-v2/upstream-unlazy/scripts/gate-lint.mjs`
 ### Code review
 
 **code review**:
-One review of a ticket's diff by the reviewer session, ending with one **review comment**. Its in-ticket findings get one round of fixes and no second review.
+One review of a ticket's diff by the reviewer, ending with one **review comment**. Its in-ticket findings get one round of fixes and no second review.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **axis**:
-One dimension of a code review — Standards, Spec, Tests, and UI when the ticket has a story criterion — run as a subagent of the reviewer session where the host can run one, and by the session itself in turn where it cannot.
+One dimension of a code review — Standards, Spec, Tests, and UI when the ticket has a story criterion — run as a subagent of the reviewer where the host can run one, and by the reviewer itself in turn where it cannot.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **story criterion**:
-A `CHECK:` that names `story-parity.py`: what tells the reviewer session to run a fourth axis, UI, and tells the worker that `references/writing-interface-code.md` applies.
+A `CHECK:` that names `story-parity.py`: what tells the reviewer to run a fourth axis, UI, and tells the worker that `references/writing-interface-code.md` applies.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **finding verdict**:
-The one conclusion the reviewer session renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or could not tell (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across `code-review` and `implement`.
+The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or could not tell (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across `code-review` and `implement`.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **category**:

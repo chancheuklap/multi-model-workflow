@@ -6,7 +6,7 @@ Those axes are never merged and never re-ranked. The report ends with a worst is
 
 ## When to reach for it
 
-It reviews one ticket's diff. The worker on a ticket starts a reviewer session through the `dispatch` skill, and that session runs this skill with the ticket number and a base commit. It has no use on a branch or PR without a ticket.
+It reviews one ticket's diff. The worker on a ticket starts a reviewer through the `dispatch` skill, and that reviewer runs this skill with the ticket number and a base commit. It has no use on a branch or PR without a ticket.
 
 | Your situation | Reach for |
 | --- | --- |
@@ -62,7 +62,7 @@ After every ticket: the skill reviews one ticket's diff, which keeps each diff s
 
 **Can I trust the findings?**
 
-Mostly. Sub-agent output is a hypothesis, not evidence, so the reviewer session checks every finding at the cited file and line before it posts the review, and withdraws the ones that do not hold. A finding it could not settle says what would settle it. Read the citation on a finding before acting on it. Every finding must carry a repository rule, a requirement, or a check and test line, which makes it checkable.
+Mostly. Sub-agent output is a hypothesis, not evidence, so the reviewer checks every finding at the cited file and line before it posts the review, and withdraws the ones that do not hold. A finding it could not settle says what would settle it. Read the citation on a finding before acting on it. Every finding must carry a repository rule, a requirement, or a check and test line, which makes it checkable.
 
 **Why does it find new problems every single time I run it?**
 
@@ -84,7 +84,7 @@ No. It diffs `<fixed-point>...HEAD`, three-dot, which is measured from the merge
 
 `code-review` is the review step at the tail of the build chain: `grill-with-docs → to-spec → to-tickets → implement → code-review`. It reviews one ticket's diff and has no use on a branch or PR without a ticket.
 
-- [implement](https://aihero.dev/skills-implement) is the closest neighbour: it drives the build of one ticket, commits, and then starts the reviewer session that runs this skill on the ticket's diff.
+- [implement](https://aihero.dev/skills-implement) is the closest neighbour: it drives the build of one ticket, commits, and then starts the reviewer that runs this skill on the ticket's diff.
 - [to-spec](https://aihero.dev/skills-to-spec) and [to-tickets](https://aihero.dev/skills-to-tickets) produce the document the Spec axis checks against; a vague spec makes that axis vague.
 - [improve-codebase-architecture](https://aihero.dev/skills-improve-codebase-architecture) is the whole-codebase counterpart: this skill only ever looks at one diff.
 

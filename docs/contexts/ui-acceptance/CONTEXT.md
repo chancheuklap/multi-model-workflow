@@ -260,12 +260,8 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v2/skills/
 `docs/specs/<effort>/screen-contract.yaml`: one row per user-visible behaviour — the control, what it calls, which field feeds each shown value, what state follows, what a failure shows — written by the `write-screen-contract` skill. It is an interface's behaviour baseline, beside the design package as its look-and-copy baseline.
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
-**control axis**:
-The screen contract's `rows`, one per user-visible behaviour, keyed by the control's `data-ui` id; distinct from `pages` and `scenes`, which declare which story page and which scene each row is visible on, and cannot be derived from the rows.
-_Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
-
 **row** (screen-contract row):
-One entry of the control axis, identified by `trigger` plus `precondition`; the same control in different states is several rows.
+One entry of `rows`, the screen contract's list of one row per user-visible behaviour, keyed by the control's `data-ui` id and identified by `trigger` plus `precondition` (the same control in different states is several rows); distinct from `pages` and `scenes`, which declare which story page and which scene each row is visible on, and cannot be derived from `rows`.
 _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.md`
 
 **row column**:

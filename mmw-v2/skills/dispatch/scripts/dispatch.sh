@@ -4168,10 +4168,10 @@ finish_preflight() {
   retro="$(newest_field "$spec" result spec.retroed spec.closed)"; rc=$?
   case "$rc" in
     0) ;;
-    2) echo "dispatch: could not read #$spec while checking its Retro receipt" >&2; return 2 ;;
+    2) echo "dispatch: could not read #$spec while checking its spec.retroed event" >&2; return 2 ;;
     3) echo "dispatch: #$spec carries no spec.retroed after its latest spec.closed; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2 ;;
     4) echo "dispatch: #$spec's latest spec.retroed carries no result; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2 ;;
-    *) echo "dispatch: could not verify #$spec's Retro receipt" >&2; return 2 ;;
+    *) echo "dispatch: could not verify #$spec's spec.retroed event" >&2; return 2 ;;
   esac
   [ "$retro" = recorded ] \
     || { echo "dispatch: #$spec's latest spec.retroed result is $retro, not recorded; run the retro skill on #$spec first: finish merges only a night whose retro is recorded" >&2; return 2; }
