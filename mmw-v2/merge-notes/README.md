@@ -39,7 +39,6 @@ mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型�
 
 ## 目前有说明的技能
 
-- [ask-matt](ask-matt.md) — `engineering/ask-matt`
 - [code-review](code-review.md) — `engineering/code-review`
 - [codebase-design](codebase-design.md) — `engineering/codebase-design`
 - [domain-modeling](domain-modeling.md) — `engineering/domain-modeling`

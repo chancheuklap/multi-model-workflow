@@ -8,7 +8,6 @@
 #   self/<名>         我们自己写的，路径相对 mmw-v2/skills/
 #   dd/<名>           diagram-design upstream 的，路径相对 mmw-v2/upstream-diagram-design/skills/
 
-engineering/ask-matt
 engineering/code-review
 engineering/codebase-design
 engineering/diagnosing-bugs
