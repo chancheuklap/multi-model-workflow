@@ -38,6 +38,8 @@ On a host that cannot run subagents, run the axis files yourself, one after anot
 
 ## 3. Verify every finding the axes report
 
+The axes read the code in slices, and some of what they report is wrong. The worker treats every in-ticket line as work to do before the ticket closes: a false finding you pass on costs a fix round and can break code that was right; a real one you withdraw ships.
+
 At the cited file and line, does the bad outcome the axis describes actually occur? Read beyond the changed lines (follow callers, guards upstream, etc.) until you can answer yes or no. A different finding about nearby code does not settle this one. Judge whether the problem is real, not whether the proposed fix is plausible. Code that loudly fails on a situation you never showed the program can reach is correct behavior, not a defect.
 
 Render exactly one conclusion:
@@ -53,6 +55,8 @@ You report: you do not assign severity, fix a finding, or drop one because its f
 Done when every finding has one conclusion.
 
 ## 4. Sort every review finding into in-ticket or out-of-ticket
+
+The split asks whose work the repair is: in-ticket means this ticket should not close with it unfixed.
 
 A review finding is **in-ticket** when it touches one of six things: this ticket's acceptance criteria, a decision in the spec section the ticket names, a baseline under the ticket's `## Read first`, the spec's `## Out of Scope`, the spec's `## Testing Decisions`, or a file inside this ticket's `## Owns`. Everything else is **out-of-ticket**.
 

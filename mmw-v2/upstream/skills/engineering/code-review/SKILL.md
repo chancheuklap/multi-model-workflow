@@ -5,6 +5,8 @@ description: Review of one ticket's diff along the Standards, Spec, Tests and UI
 
 # Code review
 
+A worker wrote this diff and the tests that prove it, and watched them pass. This review is the first reading by anyone who did not write it: what it reports, the worker fixes before the ticket closes; what it misses ships.
+
 ## Find your moment
 
 | You are | Read |
