@@ -6,10 +6,6 @@ A criterion whose premise later disappears is taken out of its ticket's `## Acce
 
 ## When the rows change
 
-When a later pull's `pull-report.md` records `增删控件或改流转`, and the `write-screen-contract` skill's **Re-runs** have rewritten the rows:
-
-- A ticket already cut and not yet landed has its criteria and **Read first** corrected to the new rows.
-- A new row gains one boundary criterion on the ticket that owns it.
-- A ticket already landed is followed by a correction ticket whose criterion is the same as the original's.
+When a later pull's `pull-report.md` records `增删控件或改流转`, and the `write-screen-contract` skill's **Re-runs** rewrote the rows, the same holds row by row, and a new row gains one boundary criterion on the ticket that owns it.
 
 Done when the issue body reads as if written that way from the start, the comment saying what changed is posted, and every ticket cut from the section and not yet landed matches the new text.
