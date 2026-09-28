@@ -2,8 +2,6 @@
 
 The written half of the landing pipeline: what a spec and a ticket are, the sections each one carries, how a batch is published, read back and linted, and which labels and queues an issue carries while it waits. Every other context reads what this one wrote.
 
-How to read an entry: the bold line is the term's name, and a term that is a literal string in a file, a command or a comment is named by that string exactly. The definition says in one or two sentences what the thing is and how it differs from its neighbours. `_Avoid_` lists wordings that name the concept less precisely in this repository's own text, each with the sense in which it is avoided. `_Home_` is the file that states the fact; an entry does not repeat what can be read there (a field list, an exit code, a command's switches, the branches of a behaviour), and when the two disagree, `_Home_` is right.
-
 ## Language
 
 ### Worker grades

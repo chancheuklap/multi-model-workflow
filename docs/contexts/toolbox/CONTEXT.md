@@ -2,8 +2,6 @@
 
 MMW seen as a repository and as an install target: the skills it ships, the three subtrees it carries, where an install puts things on a machine, the prompts and hooks each host reads, and the notes and ADRs that record why. Everything here is about the toolbox as an artifact, not about a run of the pipeline through it.
 
-How to read an entry: the bold line is the term's name, and a term that is a literal string in a file, a command or a comment is named by that string exactly. The definition says in one or two sentences what the thing is and how it differs from its neighbours. `_Avoid_` lists wordings that name the concept less precisely in this repository's own text, each with the sense in which it is avoided. `_Home_` is the file that states the fact; an entry does not repeat what can be read there (a field list, an exit code, a command's switches, the branches of a behaviour), and when the two disagree, `_Home_` is right.
-
 Vocabulary that belongs to one skill alone — `exe-release`'s release manifest, tiers, build machine and hooks; `design-pages`'s `pull_design.py` switches and exit codes and the style rules in `template-project-claude-md.md`; `manage-agents-md`'s survey entries; `code-checkers`'s per-language checkers, their versions, and the file that silences a repository's existing errors; the design vocabulary of upstream skills such as `codebase-design` — is defined in that skill's own files and is not repeated here. The design-pages entries and the page conventions are defined in `docs/contexts/ui-acceptance/CONTEXT.md`.
 
 ## Language

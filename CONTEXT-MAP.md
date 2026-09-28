@@ -2,6 +2,10 @@
 
 One vocabulary, six bounded contexts. A term is defined in one of them; its `_Home_` line names the file that states the fact, and that file is right when the two disagree. The contexts live under `docs/contexts/` rather than beside their code because the code of most of them is a skill directory symlinked whole into every host, which holds only what the agent holding the skill reads or runs.
 
+How to read an entry, in each context: the bold line is the term's name, and a term that is a literal string in a file, a command or a comment is named by that string exactly. The definition says in one or two sentences what the thing is and how it differs from its neighbours. `_Avoid_` lists wordings that name the concept less precisely in this repository's own text, each with the sense in which it is avoided. `_Home_` is the file that states the fact; an entry does not repeat what can be read there (a field list, an exit code, a command's switches, the branches of a behaviour).
+
+What is written here is acted on, not just read: specs and tickets take their wording from these entries, a night worker names code after them without anyone to ask, and review holds a diff to them. So write a definition only once the user has settled it or its `_Home_` bears it out, and put a word under `_Avoid_` only when it is actually wrong in this repository's text: every word listed there becomes a correction someone will make.
+
 ## Contexts
 
 - [Toolbox](./docs/contexts/toolbox/CONTEXT.md): MMW as a repository and install target — skills, subtrees, install locations, prompts, hosts, notes and ADRs

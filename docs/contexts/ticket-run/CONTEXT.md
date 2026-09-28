@@ -2,8 +2,6 @@
 
 One ticket from claim to close: the sessions that work and judge it, the events they leave on it, the runs of its criteria, the code review, the advisor, the closing steps and the gate that closes it. Everything this part of the pipeline knows is written on the ticket, where the next session reads it with an empty context.
 
-How to read an entry: the bold line is the term's name, and a term that is a literal string in a file, a command or a comment is named by that string exactly. The definition says in one or two sentences what the thing is and how it differs from its neighbours. `_Avoid_` lists wordings that name the concept less precisely in this repository's own text, each with the sense in which it is avoided. `_Home_` is the file that states the fact; an entry does not repeat what can be read there (a field list, an exit code, a command's switches, the branches of a behaviour), and when the two disagree, `_Home_` is right.
-
 ## Language
 
 ### Roles
