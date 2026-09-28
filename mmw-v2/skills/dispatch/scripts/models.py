@@ -917,6 +917,18 @@ def scan_host_catalogs(runner: str, hosts: Sequence[str] = CLI_HOSTS) -> dict:
     }
 
 
+def _offered_row(offered: list[dict], host: str, model: str) -> dict | None:
+    """The scanned catalog row for a configured model; a bracketed claude name
+    (`opus[1m]`) the picker does not list as a row of its own is checked against the
+    row of the name in front of the bracket, as `_resolve_from_offerings` resolves it."""
+    for name in (model, *(m.group(1) for m in [_CLAUDE_BRACKET_SUFFIX.match(model)]
+                          if m and host == "claude")):
+        row = next((item for item in offered if item.get("model") == name), None)
+        if row is not None:
+            return row
+    return None
+
+
 def _validate_local_config(config: dict, scan: dict,
                            roles: Sequence[str] | None = None) -> list[dict[str, str]]:
     errors = _validate_config_shape(config)
@@ -955,8 +967,7 @@ def _validate_local_config(config: dict, scan: dict,
                            f"host {host} is unavailable: {state}; restore it and scan again"})
             continue
         model = row.get("model")
-        offered = next((item for item in found.get("offered") or []
-                        if item.get("model") == model), None)
+        offered = _offered_row(found.get("offered") or [], host, str(model))
         if offered is None:
             errors.append({"cell": f"{role}.model",
                            "reason": f"model {model!r} is not in the current {scan.get('source')} catalog for {host}; choose an offered model"})

@@ -233,6 +233,19 @@ class LocalConfigTest(unittest.TestCase):
             [{"cell": "reviewer", "reason": "host, model, and effort are required"}],
         )
 
+    def test_a_claude_bracket_suffix_the_catalog_does_not_list_is_checked_by_its_name(self):
+        scan = self.scan()
+        offered = scan["hosts"]["claude"]["offered"][0]
+        config = base_config()
+        config["rows"]["reviewer"] = {"host": "claude", "model": offered["model"] + "[1m]",
+                                      "effort": offered["efforts"][0]}
+        errors = models._validate_local_config(config, scan)
+        self.assertEqual([item for item in errors if item["cell"].startswith("reviewer")], [])
+        config["rows"]["reviewer"]["model"] = "no such model[1m]"
+        errors = models._validate_local_config(config, scan)
+        self.assertEqual([item["cell"] for item in errors if item["cell"].startswith("reviewer")],
+                         ["reviewer.model"])
+
 
 if __name__ == "__main__":
     unittest.main()
