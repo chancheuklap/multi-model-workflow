@@ -14,6 +14,8 @@ Scaffold the per-repo configuration that the engineering skills assume:
 
 This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
 
+What you write here is read at the moment of acting by every skill that publishes or triages an issue, and by every agent that explores this codebase; a wrong command or label is repeated by each spec, ticket and night after it, without an error. So make these files true of this repository rather than filling in the templates: check a command against the repository before you write it down.
+
 ## Process
 
 ### 1. Explore
@@ -46,6 +48,8 @@ Default posture: these skills were designed for GitHub. If a `git remote` points
 - **Local markdown**: issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
 - **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
 
+In this toolbox the tracker is also the landing pipeline's store: the skills that publish specs and tickets, the night's scripts and the task board talk to GitHub Issues through `gh` and to nothing else. Any other choice leaves the planning skills usable by hand, but no night can run on this repository; say that when you propose it.
+
 Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
 
 **Section B: Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no labels.
@@ -56,9 +60,13 @@ If it is installed, ask exactly one question:
 
 The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no, usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`), collect the overrides so `triage` applies existing labels instead of creating duplicates.
 
+The night's scripts and the ticket skills write the default label strings verbatim; an override changes what `triage` applies and nothing else. In a repository the pipeline runs on, keep the defaults.
+
 **Section C: Domain docs.** Default to **single-context** (one `CONTEXT.md` + `docs/adr/` at the repo root). This fits almost every repo; write it without asking.
 
 Offer **multi-context** (a root `CONTEXT-MAP.md` pointing to per-context `CONTEXT.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
+
+An existing `CONTEXT-MAP.md` settles this section as multi-context, whether or not the repository is a monorepo; describe the layout it already has.
 
 ### 3. Confirm and edit
 
@@ -71,13 +79,13 @@ Let them edit before writing.
 
 ### 4. Write
 
-Add one row per written `docs/agents/` file to the `## External References` table (`| Need | File |`) of `AGENTS.md`, creating the file or the section when it does not exist; a row already pointing at the same file is updated, not duplicated. Don't overwrite user edits to the surrounding sections.
+Add one row per written `docs/agents/` file to the `## External References` table (`| Need | File |`) of `AGENTS.md`, creating the file or the section when it does not exist; a row already pointing at the same file is updated, not duplicated. A pointer to a `docs/agents/` file in another shape (an `## Agent skills` block, an `## Issue tracker` section) counts as that file's row: replace it with the row rather than adding a second pointer. Don't overwrite user edits to the surrounding sections.
 
 `CLAUDE.md` holds the line `@AGENTS.md` and nothing else. Create it with that one line when it is missing; when it exists carrying content of its own, move that content into `AGENTS.md` and leave behind the `@AGENTS.md` line plus any other `@` import lines it already had.
 
 Write `docs/agents/triage-labels.md`, and its row, only when `triage` is installed and Section B ran.
 
-Then write the docs files using the seed templates in this skill folder as a starting point; a file that already exists under `docs/agents/` is updated in place, keeping the sections the seed lacks:
+Then write the docs files using the seed templates in this skill folder as a starting point. A file that already exists under `docs/agents/` is this repository's own record, and the seed is only where it started: change what this run's answers change, add what the seed has and the file lacks, and leave every other line as it stands. Report the other differences from the seed to the user instead of resolving them.
 
 - [issue-tracker-github.md](./issue-tracker-github.md): GitHub issue tracker
 - [issue-tracker-gitlab.md](./issue-tracker-gitlab.md): GitLab issue tracker
