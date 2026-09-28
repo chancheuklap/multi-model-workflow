@@ -7,6 +7,8 @@ description: Break a plan, spec, or the current conversation into a set of trace
 
 Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
+Each ticket is read by agents who were not in this conversation and cannot ask it anything: a worker at night, a reviewer in another session. This session is the last one that holds the spec, the codebase and the user at once, so settle here what can be settled: a choice left open is made at night by a worker who cannot ask.
+
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
 
 ## Process
@@ -38,6 +40,8 @@ Break the work into **tracer bullet** tickets.
 - Any prefactoring should be done first
 
 </vertical-slice-rules>
+
+Split where the parts can run at the same time, or where one part's criteria can fail without the other's; keep together what would write the same files, since splitting that only adds an edge.
 
 When the spec has a screen contract, read [references/cutting-interface-tickets.md](references/cutting-interface-tickets.md).
 
@@ -89,14 +93,14 @@ Done when every criterion on every ticket carries a number, a `CHECK:` and an `E
 
 ### 5. Give each ticket its blocking edges
 
-Give each ticket its **blocking edges**: the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
+Give each ticket its **blocking edges**: the other tickets that must complete before it can start. The edges are the night's schedule: every ticket whose blockers have landed starts at once, so a missing edge sends two workers into one file or onto work not built yet, and an edge that gates nothing makes the night wait for no reason.
 
 **What a ticket creates is put in service by an edit to something it did not create**: the registry, router, parent template, index, story adapter or stylesheet that has to name it. Until one does, no criterion of that ticket can see it; and when several tickets that can run at the same time each make that edit, all but the first to land bounce on a merge conflict. For each path a ticket marks `(new)`, `grep` the nearest existing file of its kind twice, once for its file name and once for the one identifier it declares for others (its root class, exported symbol or route path), and put every file that answers under this ticket's **Owns**, whoever created it. Where that sibling is still to be built in this batch, its ticket's **Owns** is the same list.
 
 What overlaps there now decides the shape of the batch:
 
 - **Two tickets that can run at the same time**: the **Blocked by** edge the **Owns** section already calls for.
-- **Three or more on the same files**: a chain that long works the night one ticket at a time. Cut a **prefactor ticket** ahead of them (prefactoring goes first in any case), which owns those files and lands in one pass every entry, route, include and export, each naming a placeholder the ticket behind it fills; and where a shared file is only a list of independent entries, a stylesheet or a registry or a bundle index, splits it into one file per ticket that the shared one includes once. Each of them is then blocked by that ticket alone, and they run together.
+- **Several tickets on the same registration files**, where chaining them would make a large part of the night run one ticket at a time: cut a **prefactor ticket** ahead of them (prefactoring goes first in any case), which owns those files and lands in one pass every entry, route, include and export, each naming a placeholder the ticket behind it fills; and where a shared file is only a list of independent entries, a stylesheet or a registry or a bundle index, splits it into one file per ticket that the shared one includes once. Each of them is then blocked by that ticket alone, and they run together.
 
 A shared file that is one body of logic, such as a route module several tickets add handlers to, is neither pre-landed nor split, because what each ticket writes there is the ticket's own work. Those tickets keep their chain.
 
@@ -140,7 +144,7 @@ Done when the user has approved the breakdown and every answered choice is writt
 
 Lint the batch before anything is live: write each approved ticket as one draft file `<draft name>.md` in a directory `mktemp -d` makes: the header lines `TITLE:`, `LABELS:` (comma-separated) and `BLOCKED BY:` (comma-separated draft names, `#<n>` for an issue already on the tracker, or `(none)`), all three required, then a line `---`, then the body exactly as it will be published. A draft's name, its file name without `.md`, stands in for the issue number it does not have yet, in `BLOCKED BY:` and in everything the lint prints. Run the `verify-ticket` skill's `--lint` with the spec's number and `--drafts <that directory>`. Fix every `ERROR` in the drafts, then publish them as they now stand.
 
-Publish the approved tickets to the issue tracker the `setup-matt-pocock-skills` skill configured: one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native issue dependencies and sub-issue relationship. Create each ticket as a sub-issue of the spec (`gh issue create --parent <spec>`, or attach it through the `sub_issues` API): the scripts find the batch only through that relationship and take a ticket's direct parent as its spec. Every ticket carries the layer label `mmw:ticket`; create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it. Apply the `ready-for-agent` triage label to every ticket an agent works, and beside it the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; the ones a person must judge carry `ready-for-human` instead, and no worker.
+Write each draft's `LABELS:` with `mmw:ticket`, and, for a ticket an agent works, `ready-for-agent` beside the `junior-worker` or `senior-worker` label the approved list of step 6 gives it; a ticket a person must judge carries `ready-for-human` instead, and no worker label. Then publish them with the `verify-ticket` skill's `--publish --drafts <that directory>`, naming the spec.
 
 Close no parent issue.
 
@@ -150,9 +154,6 @@ Done when every approved ticket is published as a sub-issue of the spec, with it
 
 After publishing, fetch each ticket again and check:
 
-- The title and **What to build** describe the same slice.
-- The spec's sub-issue count equals the number of tickets in this batch, and every one of them carries `mmw:ticket`.
-- On each ticket an agent works, **Read first** and **Seam** are present and non-empty ("none" counts as present), and where **Read first** carries a baseline (anything that records a settled conclusion), its line marks it as one. **Owns** is present and non-empty, and every entry is a repository-relative path or glob.
 - The `verify-ticket` skill's `--lint`, run again on the spec's issue number, reports no `ERROR`, and every `WARN` has been read once and either fixed or kept on purpose. The drafts run of step 7 does not stand in for it: only this run sees the tracker's labels, sub-issues and blocking links.
 - Each `ready-for-human` ticket holds all of **the five things** in [references/person-ticket.md](references/person-ticket.md), because no agent can repair one.
 
@@ -166,7 +167,7 @@ A reference to the parent issue on the tracker, followed by the numbered Impleme
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A choice the user settled in the quiz of step 6 is a point of its own here, stated as the ticket's decision.
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph. A choice the user settled in the quiz of step 6 is a point of its own here, stated as the ticket's decision.
 
 ## Read first
 

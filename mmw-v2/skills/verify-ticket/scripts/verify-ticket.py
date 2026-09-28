@@ -3853,7 +3853,6 @@ DRAFTS_NOT_CHECKED = (
     "that each ticket is a sub-issue of the spec and carries the labels on the tracker "
     "(the LABELS: header is checked instead)",
     "the blocking links the tracker records (the BLOCKED BY: headers are checked instead)",
-    "each ticket's title against its `## What to build` (the read-back of to-tickets step 8)",
 )
 
 
