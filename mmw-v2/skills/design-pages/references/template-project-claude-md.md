@@ -48,5 +48,5 @@ When a page passes `scene` down to a `dc-import`ed child, the child's `renderVal
 
 ## Files
 
-A page loads only files inside this project (the bound design system is under `_ds/`), so it renders the same after it is pulled. It loads no product code: its look comes from the design system and its own markup.
+A page loads only files inside this project (the bound design system is under `_ds/`), so it renders the same after it is pulled. It loads no product code: its look comes from the design system and its own markup. A page that runs the product's own code would make acceptance compare the product with itself, and product stylesheets bring in selectors the editor cannot reach.
 ```

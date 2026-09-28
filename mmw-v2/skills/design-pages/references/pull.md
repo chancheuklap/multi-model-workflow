@@ -7,9 +7,9 @@ Pull when the user has signed the design off, and again whenever the user has ch
 ## Steps
 
 1. Two MCP calls. `list_files` on the project root: note the names of the `.dc.html` pages there. `render_preview`; set `MMW_DESIGN_PREVIEW_URL` to its `serve_url`. That address carries a project token and lasts about one hour; do not print it or write it to a file.
-2. `<scripts>/pull_design.py <package dir> --pages <page.dc.html>... [--tools <dir>] [--state-list <README.md>] [--contract <screen-contract.yaml>]`, the package directory first and each page name quoted (names hold spaces and `·`). `<package dir>` is `prototypes/<effort>/claude-design/`, where `prototypes/<effort>/` is the directory that holds this effort's prototype leaves, or its `README.md` with the state list for an existing product; when neither exists, `<effort>` is as the `prototype` skill's rule 1 **Lives in `prototypes/`** defines it. Every pull of the project writes the same directory. File bytes do not pass through the model. The command renders in Chromium through Playwright; a machine without that browser installs it once with `uv run --with playwright python -m playwright install chromium`.
+2. `<scripts>/pull_design.py <package dir> --pages <page.dc.html>... [--state-list <README.md>] [--contract <screen-contract.yaml>]`, the package directory first and each page name quoted (names hold spaces and `·`). `<package dir>` is `prototypes/<effort>/claude-design/`, where `prototypes/<effort>/` is the directory that holds this effort's prototype leaves, or its `README.md` with the state list for an existing product; when neither exists, `<effort>` is as the `prototype` skill's rule 1 **Lives in `prototypes/`** defines it. Every pull of the project writes the same directory. File bytes do not pass through the model.
 
-   Pass `--state-list` pointing at the `README.md` that holds the state list, when there is one: the leaf `README.md` of the `prototype` skill's `UI.md` step 6, or `prototypes/<effort>/README.md` for an existing product brought in as [design-system.md](design-system.md) **An existing product** says.
+   Pass `--state-list` pointing at the `README.md` that holds the state list, when there is one.
 
    Pass `--contract` pointing at the screen contract when one already exists, so `改动分类` can compare the text those rows cite. Skip it on a first pull.
 3. Read `pull-report.md` in the package directory; the command exits 0 whatever the report finds. Under `设计检查`, an `编辑器点不中的选择器` line, and a line saying `未核对` (a check that did not run), are information for the next edit in Claude Design, not a defect; every other `设计检查` line is a design fix, handled as **Design problems in the report** says. `改动分类` decides **Reached from here**.
@@ -25,7 +25,9 @@ Done when nothing outside the leaf directories imports them: each can be deleted
 
 ## Design problems in the report
 
-- While the design ticket is still open: return to [edit pages](edit-pages.md), fix the pages in Claude Design, and pull again. The design ticket closes after the first pull whose `设计检查` has nothing left to fix, with a comment naming that commit and the package directory.
+- While the design ticket is still open: return to [edit pages](edit-pages.md), fix the pages in Claude Design, and pull again. The design ticket closes after the first pull whose `设计检查` and `覆盖` have nothing left to fix, with a comment naming that commit and the package directory.
+
+  Under `覆盖`, a state the state list names that no page draws, a page with no `scene`, and a page root with no `data-ui` are design fixes like the `设计检查` lines: acceptance cannot check what the pages do not declare, and the `write-screen-contract` lint refuses them after the design ticket has closed. When `本地改过的说明` says the package had local edits, those edits are gone now: tell the user, because a change they wanted has to be made again in Claude Design.
 - During implementation: open a `contract` child under the interface ticket whose page it is, with the `verify-ticket` skill's `--sub-issue contract` on that ticket, naming the Claude Design page, the problem, and the `design-pages` skill's `references/pull.md`.
 
 MCP tools cannot create a comment on a design page, so this does not go through comments.
