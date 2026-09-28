@@ -135,7 +135,7 @@ How much of the source survives. This is a *count* dial — it governs how many 
 
 1. **Zoning is mandatory.** Above 9 nodes, every node belongs to a labeled zone (2–4 zones, hairline-bordered, `paper-2` fill, mono uppercase zone label at top-left). An unzoned 20-node diagram is a wiring diagram, not a schematic.
 2. **Connector rules don't relax.** SKILL.md §6 rules 1–5 still apply at 24 nodes. If you can't route it without overlaps, you're over the real ceiling — split.
-3. **Above 24 nodes, split.** Produce an overview (zones as nodes, `balanced` grammar) plus one detail diagram per zone. Name them `<base>-overview.html`, `<base>-<zone>.html`. Never ship a 40-node single canvas.
+3. **Above 24 nodes, re-draw in a type that nests, with the budget binding per level** (SKILL.md §7's degrade ladder). Split into an overview (zones as nodes, `balanced` grammar) plus one detail diagram per zone only when the source genuinely holds two independent questions; name them `<base>-overview.html`, `<base>-<zone>.html`.
 4. **Accent stays at 2.** More nodes never buys more focal elements.
 
 ### Degrade ladder
@@ -147,7 +147,7 @@ When the source has more than the level allows, cut in this order and stop as so
 3. **Leaf clusters** — a container whose children are all leaves collapses to the container: `Core Services` replaces its three boxes. The extractor lists these under *collapsible groups*.
 4. **Degree-1 sinks that don't change the story** — a monitoring hook, a log bucket, an archive tier.
 5. **Cross-cutting infrastructure** — logging, metrics, secrets, CI. At `simplified` these go without asking; at `balanced` keep at most one, and only if the diagram is about it.
-6. **Still over?** Re-draw in a type that nests — nested, layers, tree, high-level — with the budget binding per level. Nesting beats shrinking, and both beat splitting; split into overview + detail only when the source holds two independent questions.
+6. **Still over?** Re-draw in a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture), with the budget binding per level. Nesting beats shrinking, and both beat splitting; split into overview + detail only when the source holds two independent questions.
 
 Anything cut in steps 2–6 goes in the fidelity ledger (§5). Step 1 doesn't need reporting.
 

@@ -18,13 +18,13 @@ Forty visual types. Semantic patterns describe behavior independently; type refe
 
 **Before your first diagram in a new project, settle which style guide it draws in.**
 
-Name the one you used beside the deliverable.
+Name the one you used beside the deliverable, so a default-skinned diagram never reaches a branded context unannounced.
 
 First resolve any project `.diagram-design` marker per [`references/profiles.md`](references/profiles.md); a successfully resolved marker selects its profile and bypasses this gate. That reference owns failures, the protected default, and save behavior.
 
-For a markerless project, open [`references/style-guide.md`](references/style-guide.md). If it still has the shipped paper, ink, and accent tokens, **draw with them**; keep the note beside the deliverable to one line and name in it the four ways to change it: from a website URL, from a local design-system directory, from pasted tokens, or from a saved client profile.
+For a markerless project, open [`references/style-guide.md`](references/style-guide.md). If it still has the shipped paper, ink, and accent tokens, **draw with them**; keep the note beside the deliverable to one line and name in it the four ways to change it: from a website URL, from a local design-system directory, from pasted tokens, or from a saved client profile. Most diagrams are read once to understand something and never leave the room; stopping every one of them at a branding question costs more than it saves.
 
-When the artifact is going to a client, a customer, or anywhere the project's own visual identity is part of the message, ask first: present the choices from [`references/onboarding.md`](references/onboarding.md) and follow the selected method; saved profiles route to `references/profiles.md`.
+When the artifact is going to a client, a customer, or anywhere the project's own visual identity is part of the message, ask first: present the choices from [`references/onboarding.md`](references/onboarding.md) and follow the selected method; saved profiles route to `references/profiles.md`. Keep the result out of the installed `style-guide.md`: this install is shared by every repository on the machine. Save it as a profile and bind this project with a `.diagram-design` marker (`references/profiles.md`).
 
 After customization or an explicit default choice, skip this gate. Detect and save active/custom profiles exactly as `references/profiles.md` specifies; all-default tokens with no marker or header take the default path above.
 
@@ -127,7 +127,7 @@ Rules of thumb:
 
 - If a 3-column table communicates the same thing, pick the table.
 - If two types seem useful, pick the dominant axis; a semantic pattern may add behavior-specific primitives, not a second layout grammar.
-- If you're past the complexity budget (§7), re-pick a type that nests — nested, layers, tree, high-level — and carry the whole subject on one canvas.
+- If you're past the complexity budget (§7), re-pick a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture) and carry the whole subject on one canvas.
 
 **Always load the chosen type reference linked in the guide before drawing.** When routed above, also load `semantic-patterns.md`; when animation is chosen, load `animation.md`.
 
@@ -275,7 +275,7 @@ These six rules are **non-negotiable**. Run the pre-output checklist (§9) to ve
 
 2. **Label-to-connector margin: 6–10px gap, always.** A label must never sit *on* its arrow — the connector must remain visible. Place the label centered above (or beside, for vertical segments) the line with a **minimum 6px gap** between the bottom of the label's mask rect and the connector stroke. The opaque mask rect prevents the arrow from bleeding through, but the *visible* gap between mask edge and line preserves the reader's ability to trace the connection. If the label is large enough that 6px feels cramped, push it to 8–10px. Never let the mask rect touch or overlap the stroke.
 
-3. **No overlapping connectors.** Two connectors must never share the same stroke path, run parallel on top of each other, or be drawn on top of each other for any segment. When two orthogonal arrows must cross at a single point, apply the **bridge / hop** primitive (see `references/type-architecture.md` § Crossing arrows). When two arrows naturally want to overlap, offset their routing by ≥12px so each line is independently traceable. If you find yourself stacking connectors, redesign the layout — it means two nodes are too close, or the diagram is over budget (split into overview + detail).
+3. **No overlapping connectors.** Two connectors must never share the same stroke path, run parallel on top of each other, or be drawn on top of each other for any segment. When two orthogonal arrows must cross at a single point, apply the **bridge / hop** primitive (see `references/type-architecture.md` § Crossing arrows). When two arrows naturally want to overlap, offset their routing by ≥12px so each line is independently traceable. If you find yourself stacking connectors, redesign the layout — it means two nodes are too close, or the diagram is over budget (see §7).
 
 4. **Shared edge → fan the attach points.** When two or more connectors enter or exit the *same edge* of a box, each must have its own distinct attach point along that edge — **no two connectors may share a single point on a box**. Spread the attach points evenly along the edge with **≥12px** between adjacent points (8px minimum for very small boxes). Routing rules:
    - For N connectors on an edge of length L, attach point `k` (1..N) sits at offset `L * k / (N + 1)` from the edge's leading corner.
@@ -405,9 +405,9 @@ Expand SVG `viewBox` height by ~60px.
 | Max annotation callouts | 2 |
 | Max motion (optional) | 8 steps, 12 marked items, 2 simultaneous items — see [animation.md](references/animation.md) |
 
-If you exceed, re-draw in a type that nests — nested, layers, tree, high-level — and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, while the canvas as a whole may exceed it. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
+If you exceed, re-draw in a type whose grammar has containers (Nested, Layer stack, Tree, or zones in Architecture) and hold the whole subject on one canvas. The budget then binds **per level**: each band, container or sub-region stays inside it on its own, while the canvas as a whole may exceed it. These types are written for their own canonical subjects and will need bending; a Layers example that draws no connectors between its bands does not mean your connectors come off.
 
-Split into overview + detail only when the subject genuinely holds two independent questions — then say which question each diagram answers. The per-type caps above (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
+Split into overview + detail only when the subject genuinely holds two independent questions — then say which question each diagram answers. A reader who has to hold two canvases in their head to see one system has lost the thing they came for. The per-type caps above (lanes, entities, axes, series) are physical limits of their grammar and still bind absolutely.
 
 ### Page layout
 
@@ -489,6 +489,7 @@ Run before producing any diagram.
 - [ ] Node origins, dimensions, gaps, padding on the 4px grid; type sizes on the role ramp?
 - [ ] From the installed skill directory, did `python3 scripts/self_check.py <file>` pass? (Accessible-SVG contract, single-file safety, motion basics.)
 - [ ] If animated, does the complete static/no-JS frame work, does reduced motion hide/disable playback, and is the controller copied verbatim from `assets/template-motion.html`? Also run `python3 repo-root/scripts/verify-motion.py path/to/generated.html` plus the skin linter (`python3 repo-root/scripts/lint-skin.py <file>`) from this skill's own directory.
+- [ ] Opened the rendered file and looked at every diagram in it? The checks above read the source; clipped text, crossing strokes and a picture that does not answer its question show only in the render.
 
 **Typography:**
 
