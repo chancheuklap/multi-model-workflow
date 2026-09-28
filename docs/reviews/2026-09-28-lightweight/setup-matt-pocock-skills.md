@@ -22,7 +22,7 @@
 | # | 位置与原文 | 处理 | 依据 |
 | --- | --- | --- | --- |
 | D1 | 种子 `issue-tracker-github.md` `## Wayfinding operations` **Map** 那一行列举的四节名 | 改为 "holding the map body the `wayfinder` skill writes"；两个 label 与那条命令保留；落地件第 78 行、合并说明同步 | 已经过时（`wayfinder` 的 map 正文有五节），也没有人照着这里写。 |
-| D2 | 种子 `## Three label sets` 的颜色与说明表，以及 `to-spec`、`to-tickets`、`wayfinder` 各一句 "create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it" | 三组 label（layer、queue、grade）的名字、颜色与说明只在 `verify-ticket.py` 里定义一次：把现有的 `CLASS_LABELS` 扩成三组，`to-spec`、`to-tickets` 共用的那一个发布命令（见这两份定稿的 D1）在发布时缺什么建什么；`dispatch.sh` 的 `ensure_label` 改为读这份定义。种子表格删掉，改为一句指向它；三个技能那一句删掉；本技能不另加建 label 的步骤，也不另写脚本 | 同一组颜色与说明现在有四份（`verify-ticket.py` 的 `CLASS_LABELS`、`dispatch.sh` 的 `ensure_label`、种子、落地件）；queue 和 grade 两组没有任何东西负责建，xiaohuangya 因此缺 label，第一次发票就会失败。label 在第一次发布时由发布命令补齐，就不需要单独的建 label 脚本和记得去跑它的那句话 |
+| D2 | 种子 `## Three label sets` 的颜色与说明表，以及 `to-spec`、`to-tickets`、`wayfinder` 各一句 "create it as `docs/agents/issue-tracker.md` `## Three label sets` gives, when the repository lacks it" | 三组 label（layer、queue、grade）的名字、颜色与说明只在 `verify-ticket.py` 里定义一次：把现有的 `CLASS_LABELS` 扩成三组，`to-spec`、`to-tickets` 共用的那一个发布命令（见这两份定稿的 D1）在发布时缺什么建什么；`dispatch.sh` 的 `ensure_label` 改为读这份定义。种子表格删掉，改为一句指向它；`to-spec`、`to-tickets` 那一句删掉（`wayfinder` 的保留：map issue 由 `wayfinder` 自己发布，不经过这个发布命令）；本技能不另加建 label 的步骤，也不另写脚本 | 同一组颜色与说明现在有四份（`verify-ticket.py` 的 `CLASS_LABELS`、`dispatch.sh` 的 `ensure_label`、种子、落地件）；queue 和 grade 两组没有任何东西负责建，xiaohuangya 因此缺 label，第一次发票就会失败。label 在第一次发布时由发布命令补齐，就不需要单独的建 label 脚本和记得去跑它的那句话 |
 
 ## 结论
 
