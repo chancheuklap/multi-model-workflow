@@ -70,7 +70,7 @@ fi
 rm -f "$close_err"
 [ "$(jq -r '[.fingerprint_ledger[]|select(.fingerprint=="missing_module:scipy")][0].count' "$SF")" = "1" ] && ok "fingerprint_ledger 计数+1" || no "fp count"
 
-[ "$(bash "$RF" where)" = "RETRY-STAGE:doctor RUN:true" ] && ok "where 失败 stage 优先重跑" || no "where ($(bash "$RF" where))"
+[ "$(bash "$RF" where)" = "STAGE:doctor RUN:true" ] && ok "where 失败 stage 优先重跑" || no "where ($(bash "$RF" where))"
 
 reinit
 out="$(bash "$RF" stage fail --stage doctor --findings "$FIX/finding.bad.json")"

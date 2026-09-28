@@ -463,16 +463,15 @@ cmd_where() {
   # 管线是有序的,所以下一步就是**第一个还没 done 的阶段**——按位置,不按状态。曾经这里先挑
   # failed 再挑 pending,于是失效守卫把靠前的 assemble 打回 pending 之后,where 还指着靠后
   # 那个 failed 的 build:引擎要求先重装配,where 却让人重跑构建,驱动在这里原地打转。
-  local cur status
+  local cur
   cur="$(jq -r '[.stages[]|select(.status!="done")][0].name // ""' "$f")"
   if [ -z "$cur" ]; then
     echo "SUCCESS:all stages done"
     return 0
   fi
-  status="$(jq -r --arg c "$cur" '[.stages[]|select(.name==$c)][0].status' "$f")"
-  local verb="STAGE"
-  [ "$status" = "failed" ] && verb="RETRY-STAGE"
-  jq -r --arg c "$cur" --arg v "$verb" '$v+":"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
+  # 失败而没有停下的 stage 同样是 STAGE:stage run 失败时自己分诊派发、计轮次,轮次上限
+  # 保证它不会无限重跑。
+  jq -r --arg c "$cur" '"STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
 }
 
 cmd_stage() {

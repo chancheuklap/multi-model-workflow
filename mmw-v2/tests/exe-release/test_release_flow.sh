@@ -465,7 +465,7 @@ case "$(bash "$RF" where)" in
   *) no "CORRUPT 读" ;;
 esac
 
-# 回归:进程在 stage 标 running 后中断,where 必须报 STAGE 让该 stage 重跑(不是 RETRY-STAGE,那是失败后走 dispatch),不跳下一个、不报 SUCCESS。
+# 回归:进程在 stage 标 running 后中断,where 必须报 STAGE 让该 stage 重跑,不跳下一个、不报 SUCCESS。
 bash "$RF" abort >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 jq '(.stages[0].status)="running"' "$SF" > "$SF.tmp" && mv "$SF.tmp" "$SF"

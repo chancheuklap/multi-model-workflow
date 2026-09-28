@@ -9856,6 +9856,18 @@ JSON
   hasnt "paseo :: archive :: --force :: agt_61_worker"
 }
 
+# The instance data directory a lease on <worktree> gets, created by claiming it.
+leased_data_dir() {
+  python3 - "$LEASE_PY" "$1" <<'PY'
+import importlib.util, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("lease", sys.argv[1])
+lease = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(lease)
+print(lease.leased_environment(Path(sys.argv[2]))["MMW_DATA_DIR"])
+PY
+}
+
 scenario_archiveremovesinstance() {
   rm -f "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
   reset_log
@@ -9864,7 +9876,7 @@ scenario_archiveremovesinstance() {
   write_landable
   seed_workspace 64
   local data code
-  data="$(python3 "$LEASE_PY" env "$(wt 64)" | sed -n 's/^MMW_DATA_DIR=//p')"
+  data="$(leased_data_dir "$(wt 64)")"
   [ -d "$data" ] || fail "the fixture did not create its instance data directory"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" land 64)"
@@ -9875,7 +9887,7 @@ scenario_archiveremovesinstance() {
 scenario_bouncekeepsinstance() {
   setup_bounced_conflict
   local data code
-  data="$(python3 "$LEASE_PY" env "$(wt 61)" | sed -n 's/^MMW_DATA_DIR=//p')"
+  data="$(leased_data_dir "$(wt 61)")"
   [ -d "$data" ] || fail "the fixture did not create its instance data directory"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
