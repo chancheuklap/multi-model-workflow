@@ -49,6 +49,8 @@ class WorkerMemoryCommandTest(unittest.TestCase):
             result = subprocess.run(["bash", "-c", command], env=env, text=True,
                                     capture_output=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
+            if not capture.exists():
+                return {"stdout": result.stdout}
             return json.loads(capture.read_text(encoding="utf-8"))
 
     def test_map_save_carries_repository_identity_and_all_task_labels(self):
@@ -70,6 +72,12 @@ class WorkerMemoryCommandTest(unittest.TestCase):
         self.assertEqual([args[i + 1] for i, arg in enumerate(args[:-1])
                           if arg == "--label"],
                          ["mmw-experience", "mmw-spec-76", "mmw-ticket-61"])
+
+    def test_a_scope_outside_a_map_or_spec_saves_nothing_and_says_so(self):
+        for scope in ("", "mmw-ticket-61"):
+            saved = self.save_example(scope)
+            self.assertEqual(list(saved), ["stdout"])
+            self.assertIn("not saved", saved["stdout"])
 
 
 if __name__ == "__main__":
