@@ -12,7 +12,7 @@
 One program, six forms, reading one source, so there is never a second truth to
 reconcile. The source is the tracker (`gh`): the spec's tree of tickets and their
 children, read in one query by `issue_tree.py`, and each ticket's state, labels, assignees,
-blocking links and comments. Where a ticket stands — which agent sessions were started
+blocking edges and comments. Where a ticket stands — which agent sessions were started
 on it and on which runner, whether its worker is still live or waiting for a product
 slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
 its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
@@ -546,7 +546,7 @@ def routed_counts(children: list[dict]) -> tuple[int, int, int, int, int, int]:
     """opened / fixed / became / skipped / unread / open among this batch's findings.
 
     opened is the `finding` children of the batch, plus any child the tracker could not
-    answer for. The other five partition it: main agent fixed on the closing pass,
+    answer for. The other five partition it: orchestrator fixed on the closing pass,
     became a ticket, left undone as stale, could not be classified (or read), and still
     open. The unread slot is what keeps an unreadable child from looking like a skipped
     one. The night window does not apply: this is the batch, not tonight's listing.
@@ -613,7 +613,7 @@ def collect(spec: int) -> tuple[list[dict], dict[int, dict]]:
 
 
 def advance_plan(spec: int) -> int:
-    """What the main agent's next `dispatch.sh advance` has to do, in order.
+    """What the orchestrator's next `dispatch.sh advance` has to do, in order.
 
     Three kinds of line and nothing else on stdout, because a script reads this, in the
     order `dispatch.sh` acts on them:

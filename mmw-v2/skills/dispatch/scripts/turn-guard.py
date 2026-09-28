@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
-"""The turn guard: the first layer of liveness, a hook on the main agent's own turn end.
+"""The turn guard: the first layer of liveness, a hook on the orchestrator's own turn end.
 
     turn-guard.py stop <host>      <host> is claude, codex, grok, cursor or pi;
                                    the host's turn-end payload is on stdin
 
-The worst way a night dies is the main agent stopping by itself: its turn ends and nothing
+The worst way a night dies is the orchestrator stopping by itself: its turn ends and nothing
 ever starts another. The relay wakes it when a ticket has news, and the watchdog
 (`watchdog.py`, beside this file) notices a ticket that went silent and a relay that died —
 but the watchdog is one process, and when it dies, nothing notices that. This hook does. It
-runs every time the main agent's turn ends, and:
+runs every time the orchestrator's turn ends, and:
 
 1. re-arms the watchdog (`watchdog.arm`) when it is not healthy, and
 2. keeps the turn from ending when tickets are held and the watchdog is still not healthy.
 
-**Whose turn.** Only a main agent's. For every state directory under `$MMW_HOME/state`
+**Whose turn.** Only an orchestrator's. For every state directory under `$MMW_HOME/state`
 with an open night (`watchdog.night_open`: the relay's `watches.json` names a watch), each
-open watch names its main agent's runner and session; this process asks each of those
-runners' adapter `self` which session it runs in, and acts when the answer is the main
-agent of any watch of that directory — a repository with two nights open guards both
-their main agents, and nobody else. Anything it cannot establish — no `watches.json`, one
+open watch names its orchestrator's runner and session; this process asks each of those
+runners' adapter `self` which session it runs in, and acts when the answer is the
+orchestrator of any watch of that directory — a repository with two nights open guards both
+their orchestrators, and nobody else. Anything it cannot establish — no `watches.json`, one
 it cannot read, no adapter for that runner, `self` answering anything but a session id —
-means this is not a main agent, and the turn ends: a worker, or a child process that
-inherited a runner's variables, must never be held by a main agent's guard. A real main
-agent always matches, because `dispatch.sh open` refuses to open a watch for a session
+means this is not an orchestrator, and the turn ends: a worker, or a child process that
+inherited a runner's variables, must never be held by an orchestrator's guard. A real
+orchestrator always matches, because `dispatch.sh open` refuses to open a watch for a session
 whose `self` cannot be read. A worker's turn end, or any session on a machine with no open
 night, is let through after reading a few files.
 
@@ -79,14 +79,14 @@ inside those hosts as well.
 **It never breaks a host.** Arguments it does not know, an unreadable payload, or an error
 of its own end in exit 0 (Cursor) or exit 1 with the reason on stderr — a hook error the
 host shows, which never blocks. Exit 2 means only "held tickets and no healthy watchdog".
-Each decision it makes for a main agent is appended to `guard.log` in that night's state
+Each decision it makes for an orchestrator is appended to `guard.log` in that night's state
 directory.
 
 **Checked against the real hosts** on 2026-09-10, one short session each with the prompt
 "reply OK; if a turn guard blocks you, run nothing and reply NOTED". The registrations were
 the ones install.sh's hook section writes, written into a throwaway home; the environment
 was emptied except for PATH, a throwaway `MMW_HOME` whose night was open and whose
-registered main agent was the session's own runner session, and `MMW_WATCHDOG_PY` naming a
+registered orchestrator was the session's own runner session, and `MMW_WATCHDOG_PY` naming a
 script that exits at once, so arming failed. "Fired" and "blocked" are read off
 `guard.log`; "replied" off the host's own output. Run this again for every new host and
 every host upgrade.
@@ -242,7 +242,7 @@ def open_states(dog) -> list[Path]:
 
 def is_main(state: Path, dog) -> bool:
     """True only when this process's own (runner, session), read by that runner's `self`,
-    is the main agent of a watch open on `state`. Whatever cannot be established is False."""
+    is the orchestrator of a watch open on `state`. Whatever cannot be established is False."""
     try:
         watches = dog.relay_mod.read_watches(state)
     except ValueError:

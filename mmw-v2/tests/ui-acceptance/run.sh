@@ -3,7 +3,7 @@
 #
 #   bash mmw-v2/tests/ui-acceptance/run.sh [-k <pattern>]
 #
-# unittest over the driver, the story judge, the lease and the refusal text.
+# unittest over the driver, the story oracle, the lease and the refusal text.
 # No tracker, no terminal. The story fixture starts Chromium.
 #
 # Pixel classes need Pillow. The runner is
@@ -25,8 +25,8 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 # No parent to tell. These tests exercise session-bound paths against made-up agents, so
 # an inherited Paseo identity must not turn their output into news about work nobody is doing.
-# They also test judge ownership itself: an outer acceptance run's ownership marker would
-# make their inner judge skip the release the assertions are meant to observe.
+# They also test oracle ownership itself: an outer acceptance run's ownership marker would
+# make their inner oracle skip the release the assertions are meant to observe.
 unset PASEO_AGENT_ID MMW_JUDGE_LEASE_OWNER
 
 if ! command -v uv >/dev/null 2>&1; then

@@ -6,15 +6,15 @@
 
 ## 哪些产物失效
 
-- 带 `--break` 的 ticket `CHECK:` 若消费仓库的 `.mmw/harness/` 尚未实现 break switch，会在第二遍启动后退出 2。
+- 带 `--break` 的 ticket `CHECK:` 若消费仓库的 `.mmw/harness/` 尚未实现 fault-injection switch，会在第二遍启动后退出 2。
 - journey 脚本若读取 `MMW_JOURNEY_NEGATIVE` 来提前结束第二遍，该分支不再运行，必须删除。
 - screen contract 与 `.mmw/target.json` 的字段没有改变；失效的是 `.mmw/harness/` 的启动行为和依赖旧变量的 journey 脚本。
 
 ## 怎么迁
 
 1. 删除 journey 脚本中读取 `MMW_JOURNEY_NEGATIVE` 的分支；脚本两遍执行同一路径。
-2. 在 `.mmw/harness/` 的 `start` 所启动的产品进程中实现 break switch：读取 `MMW_BREAK` 的 `<METHOD> <route pattern>`，按产品自己的路由规则匹配占位符，只让该接口失败，不改变其它接口。
-3. `start` 确认 break switch 已生效后打印逐字相同的 `BREAK ARMED <METHOD> <route>`；该变量不要传给 journey 脚本或其它会让脚本判断 pass 的进程。
+2. 在 `.mmw/harness/` 的 `start` 所启动的产品进程中实现 fault-injection switch：读取 `MMW_BREAK` 的 `<METHOD> <route pattern>`，按产品自己的路由规则匹配占位符，只让该接口失败，不改变其它接口。
+3. `start` 确认 fault-injection switch 已生效后打印逐字相同的 `BREAK ARMED <METHOD> <route>`；该变量不要传给 journey 脚本或其它会让脚本判断 pass 的进程。
 4. 把新 acceptance criterion 写成 `journey.py run <name> --break "<METHOD> <route>"`。
 
 **这一条已被 #512 取代**：`verify-ticket.py --lint` 现在要求 acceptance ticket 的 journey criterion 带 `--break`，缺了是 `ERROR`；contract ticket 的 smoke journey 与 flow 名为 `smoke` 的仍不要求，用户自己点名的 journey ticket 缺它是 `WARN`。已有不带 `--break` 的 acceptance ticket `CHECK:` 要按这条改写；规则见 `mmw-v2/skills/verify-ticket/references/linting.md`。

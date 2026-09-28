@@ -148,13 +148,13 @@ Write each draft's `LABELS:` with `mmw:ticket`, and, for a ticket an agent works
 
 Close no parent issue.
 
-Done when every approved ticket is published as a sub-issue of the spec, with its labels and its blocking links.
+Done when every approved ticket is published as a sub-issue of the spec, with its labels and its blocking edges.
 
 ### 8. Read every ticket back
 
 After publishing, fetch each ticket again and check:
 
-- The `verify-ticket` skill's `--lint`, run again on the spec's issue number, reports no `ERROR`, and every `WARN` has been read once and either fixed or kept on purpose. The drafts run of step 7 does not stand in for it: only this run sees the tracker's labels, sub-issues and blocking links.
+- The `verify-ticket` skill's `--lint`, run again on the spec's issue number, reports no `ERROR`, and every `WARN` has been read once and either fixed or kept on purpose. The drafts run of step 7 does not stand in for it: only this run sees the tracker's labels, sub-issues and blocking edges.
 - Each `ready-for-human` ticket holds all of **the five things** in [references/person-ticket.md](references/person-ticket.md), because no agent can repair one.
 
 Done when every check above passes. When the batch is a spec's night run, hand over to the `dispatch` skill: opening the night on this spec is one of its rows.

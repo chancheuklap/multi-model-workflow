@@ -2,12 +2,12 @@
 
 `validate_dag` and `compute_levels` are grok-bundled's
 `execute-plan/scripts/validate-plan.py` L145-280 with one change of shape: an id is
-an issue number and dependencies come from the tracker's blocking links. The cases
+an issue number and dependencies come from the tracker's blocking edges. The cases
 below are the ones that file's `_detect_cycles` and `compute_levels` distinguish — the
 two-node cycle Kahn's algorithm cannot drain, the longer cycle `_trace_cycle` walks
 back to a path, and the diamond where a level is the longest path, not the shortest.
 
-An edge is the blocking link the tracker records, and that is what the graph below is
+An edge is the blocking edge the tracker records, and that is what the graph below is
 built from.
 """
 
@@ -35,7 +35,7 @@ def body(parent=76):
 def lint_graph(ticket=77, spec=76, batch=(), links=None, outside=None):
     """Run the graph half of --lint over a made-up batch; return (exit code, output).
 
-    `links` is `{ticket: [blockers]}`, the blocking links the tracker records.
+    `links` is `{ticket: [blockers]}`, the blocking edges the tracker records.
 
     `outside` is `{blocker: (spec, state)}` for the blockers that are not in the batch:
     a spec number and `OPEN` or `CLOSED` for a ticket under another spec, and left out

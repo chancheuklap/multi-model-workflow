@@ -1,7 +1,7 @@
 """journey.py: fake start/stop/discover, a real lease registry.
 
 The seam is the command line and the files the commands write. Nothing here stubs
-lease.py: a slot is claimed because journey.py claims one, under a MMW_HOME of this
+lease.py: a slot is acquired because journey.py acquires one, under a MMW_HOME of this
 suite's own.
 """
 
@@ -38,8 +38,8 @@ def load(name: str, path: Path):
 
 
 jy = load("journey", JOURNEY)
-# The lease the driver claims through, reached from the function `journey.py` itself
-# imported: filling this registry is filling the one a run started here would claim from,
+# The lease the driver acquires through, reached from the function `journey.py` itself
+# imported: filling this registry is filling the one a run started here would acquire from,
 # and it is this suite's own `MMW_HOME`, never the machine's.
 LEASE = sys.modules[jy.command_env.__globals__["leased_environment"].__module__]
 
@@ -205,7 +205,7 @@ class JourneyOrder(unittest.TestCase):
         self.assertTrue(out.startswith("JOURNEY LEFT THE PRODUCT UP demo"), out)
         self.assertIn(pidfile.read_text(encoding="utf-8").strip(), out, "no pid to go to")
         self.assertNotIn("JOURNEY OK", out)
-        self.assertIn("Reclaiming a slot from a live process", err)
+        self.assertIn("Re-acquiring a slot from a live process", err)
         # Repo.run returning proves the release refusal did not escape as SystemExit;
         # an escaped exception would make this test error before `code` existed.
         self.assertIsNotNone(LEASE.registered(LEASE.worktree_of(self.repo.root)))
@@ -357,7 +357,7 @@ class JourneyOrder(unittest.TestCase):
 
 
 class NegativeControl(unittest.TestCase):
-    """A judge that cannot go red is not a judge. The control pass runs the script once
+    """An oracle that cannot go red is not an oracle. The control pass runs the script once
     more with the product stopped and every discovered address pointing nowhere."""
 
     def setUp(self):
@@ -434,7 +434,7 @@ class NegativeControl(unittest.TestCase):
         self.assertEqual(code, 2, out + err)
         self.assertNotIn("JOURNEY OK", out)
         self.assertIn("break-start-failed", err)
-        self.assertIn("break switch", err)
+        self.assertIn("fault-injection switch", err)
         self.assertIn("references/journey.md", err)
         self.assertIn("If this ticket owns .mmw/harness/, fix the switch", err)
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),
@@ -448,7 +448,7 @@ class NegativeControl(unittest.TestCase):
         code, out, err = self.repo.run("real", "--break", "GET /result/{id}")
 
         self.assertEqual(code, 2, out + err)
-        self.assertIn("break switch", err)
+        self.assertIn("fault-injection switch", err)
         self.assertIn("references/journey.md", err)
         self.assertIn("If this ticket owns .mmw/harness/, fix the switch", err)
         self.assertEqual(self.repo.log.read_text(encoding="utf-8").splitlines(),

@@ -8,4 +8,4 @@ python3 scripts/verify-ticket.py <n> --lint                     # one ticket, an
 python3 scripts/verify-ticket.py <spec> --lint                  # every sub-issue of the spec, then the graph once
 ```
 
-The graph it checks is the tracker's blocking links, the same ones `--preflight` refuses on and `advance` dispatches from, so an edge is fixed there, not in a ticket body. The batch is ready when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.
+The graph it checks is the tracker's blocking edges, the same ones `--preflight` refuses on and `advance` dispatches from, so an edge is fixed there, not in a ticket body. The batch is ready when `ERROR` is at zero and every `WARN` has been looked at and either fixed or kept on purpose.

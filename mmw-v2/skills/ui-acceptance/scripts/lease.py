@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """One run's share of this machine.
 
-    lease.py claim [<worktree>]           claim (or return) this worktree's slot; 4 none free
-    lease.py run [<worktree>] -- CMD…     run CMD with the claim in its environment
+    lease.py claim [<worktree>]           acquire (or return) this worktree's slot; 4 none free
+    lease.py run [<worktree>] -- CMD…     run CMD with the lease in its environment
     lease.py release <worktree> [--stop]  give the slot back, with --stop after running the
                                           product's `stop`; 0 given back, 3 there was none
     lease.py remove-instance <worktree>   remove its data directory after its worktree is gone;
                                           0 removed or absent, 3 worktree exists/delete failed
-    lease.py list                         every live claim
-    lease.py count <directory>            how many claims sit under a directory
+    lease.py list                         every live lease
+    lease.py count <directory>            how many leases sit under a directory
 
-What a claim puts in the environment:
+What a lease puts in the environment:
 
     MMW_INSTANCE     a stable, readable, machine-unique name for this run
     MMW_SLOT         the slot number
@@ -34,27 +34,27 @@ number is right to; a derived port leaking into it turns a correct suite red.
 # worker's worth of work.
 #
 # A **lease** is that missing word. It is a registration of `worktree path -> slot`, and a
-# slot is a block of ports and a data directory that no other slot overlaps. It is claimed
+# slot is a block of ports and a data directory that no other slot overlaps. It is acquired
 # once per worktree, by the first run of that worktree's criteria that needs the product,
 # and lives until the ticket's work ends — landed, handed back, released, suspended or its
 # start retracted: a worktree runs its criteria many times in a night — the worker's own
 # run, the worker's final reverify, the closeout checks — and they all want the same
 # application, so the lease cannot be per run. Writing code takes no slot. A criterion or
-# judge run outside a ticket worktree gives back the slot **it claimed** when that run
-# ends, and leaves a slot that was already held to whoever claimed it; `lease.py run`
+# oracle run outside a ticket worktree gives back the slot **it acquired** when that run
+# ends, and leaves a slot that was already held to whoever acquired it; `lease.py run`
 # starts a product for a person or agent and leaves its lease in place.
 #
-# Two limits bound a claim. The machine's is `SLOTS`. The product's is `instance.max` in
+# Two limits bound a lease. The machine's is `SLOTS`. The product's is `instance.max` in
 # the repository's `.mmw/target.json` — a product that cannot move its ports declares how
-# many copies of it can run at once — and it counts every claim made from that repository,
+# many copies of it can run at once — and it counts every lease made from that repository,
 # wherever its directory is: a ticket worktree, the main checkout running the night's
-# reverify, or any other checkout sharing the repository's git directory. Each claim
-# records that git directory, so the count holds after a worktree is gone. A claim past
+# reverify, or any other checkout sharing the repository's git directory. Each lease
+# records that git directory, so the count holds after a worktree is gone. A lease past
 # either limit is not taken: `claim` exits 4 and prints which limit and
 # who holds the slots, because the caller waits and asks again rather than giving up
 # (`verify-ticket.py` does, and says on the ticket that it is waiting).
 #
-# `claim` is atomic against other claimers: the count and the take happen under one lock on
+# `claim` is atomic against other acquirers: the count and the take happen under one lock on
 # the registry, and a slot is taken by creating its file with `O_CREAT | O_EXCL`, so two
 # processes racing for the last slot cannot both win. There is no fallback to another slot
 # on conflict — a worktree's slot is decided once and then it is simply looked up.
@@ -69,7 +69,7 @@ number is right to; a derived port leaking into it turns a correct suite red.
 # **Nothing here ends a process except through the repository's own `stop`.** `release
 # --stop` runs that command, which ends only what this run started, and ends the command
 # itself if it runs past `MMW_STOP_TIMEOUT_S`. `release` refuses while anything still listens
-# on the slot, and says which pid and which directory, because reclaiming a slot from a live
+# on the slot, and says which pid and which directory, because re-acquiring a slot from a live
 # process is the same act as killing it.
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ from refusal import REPORT_BLOCKED, refusal  # noqa: E402
 # derives for its own long-lived services and below the ephemeral range macOS hands out.
 PORT_BASE = int(os.environ.get("MMW_LEASE_PORT_BASE", "21000"))
 PORT_STRIDE = int(os.environ.get("MMW_LEASE_PORT_STRIDE", "20"))
-# How many runs this machine will hold. No claim goes past it; a machine that can hold
+# How many runs this machine will hold. No lease goes past it; a machine that can hold
 # more says so here rather than in any skill's code.
 SLOTS = int(os.environ.get("MMW_LEASE_SLOTS", "8"))
 # Seconds the product's `stop` gets before `release --stop` ends it and asks for the slot
@@ -194,7 +194,7 @@ def read_slot(slot: int) -> dict | None:
 
 
 def registered(worktree: Path) -> dict | None:
-    """This worktree's claim as the registry has it, or None when it holds none."""
+    """This worktree's lease as the registry has it, or None when it holds none."""
     target = str(worktree)
     for slot in range(SLOTS):
         record = read_slot(slot)
@@ -204,7 +204,7 @@ def registered(worktree: Path) -> dict | None:
 
 
 def claimed() -> list[dict]:
-    """Every live claim, slot order."""
+    """Every live lease, slot order."""
     out = []
     for slot in range(SLOTS):
         record = read_slot(slot)
@@ -302,7 +302,7 @@ def sweep() -> list[int]:
     """Slots whose worktree is gone and whose ports are quiet, given back.
 
     Without this a machine fills up and never empties: a worktree may be removed while
-    its registration remains, and later claims need to recover that quiet slot.
+    its registration remains, and later leases need to recover that quiet slot.
 
     A slot is only taken back when **both** are true — the directory is gone *and*
     nothing listens on the block. A live process on a slot whose directory somebody
@@ -401,7 +401,7 @@ def _git(worktree: Path, *args: str) -> str:
 
 def repository_of(worktree: Path) -> str | None:
     """The git directory every checkout of this worktree's repository shares, or None
-    outside a repository. It is what a claim is counted against a product's limit by."""
+    outside a repository. It is what a lease is counted against a product's limit by."""
     common = _git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
     if not common:
         return None
@@ -428,7 +428,7 @@ def product_cap(worktree: Path) -> tuple[int, str] | None:
 
 
 class _Locked:
-    """An exclusive lock on the registry, held while a claim counts and takes."""
+    """An exclusive lock on the registry, held while acquiring counts and takes."""
 
     def __enter__(self):
         directory = registry()
@@ -445,7 +445,7 @@ class _Locked:
 def try_claim(worktree: Path) -> dict:
     """This worktree's slot, taken now if it does not have one; `Full` when no slot may be.
 
-    Re-claiming is a lookup, so every command of a run agrees without a shared file to
+    Re-acquiring is a lookup, so every command of a run agrees without a shared file to
     keep in step, and a worktree that already holds its slot is never refused one.
     """
     target = str(worktree)
@@ -489,10 +489,10 @@ def try_claim(worktree: Path) -> dict:
 def claim(worktree: Path) -> dict:
     """This worktree's slot, or the refusal a caller that cannot wait gets.
 
-    The judges of the ui-acceptance skill come here through `leased_environment` in the
+    The oracles of the ui-acceptance skill come here through `leased_environment` in the
     middle of a criterion, where there is nobody to wait: `verify-ticket.py` has already
-    claimed the slot before the run began, and waited for it when none was free, so a
-    judge reaching this with no slot free is a run that skipped that step.
+    acquired the slot before the run began, and waited for it when none was free, so an
+    oracle reaching this with no slot free is a run that skipped that step.
     """
     try:
         return try_claim(worktree)
@@ -508,7 +508,7 @@ def claim(worktree: Path) -> dict:
                 REPORT_BLOCKED,
             )) from None
         raise SystemExit(refusal(
-            f"All {SLOTS} instance slots on this machine are claimed.",
+            f"All {SLOTS} instance slots on this machine are acquired.",
             "A run needs one and none is free.",
             REPORT_BLOCKED,
         )) from None
@@ -523,7 +523,7 @@ def stop_command(worktree: Path) -> str | None:
 
 
 def stop_product(worktree: Path, record: dict) -> str | None:
-    """Run the product's `stop` from inside `worktree`, under the claim `record` it was
+    """Run the product's `stop` from inside `worktree`, under the lease `record` it was
     started under; the reason when it did not stop cleanly, None when it did or declares
     no `stop`.
 
@@ -559,7 +559,7 @@ def release(worktree: Path, stop: bool = False) -> dict:
     said on stderr and the slot is still asked for: the listener check is what keeps a
     live product's slot, whatever the stop did. A `.mmw/target.json` that cannot be read
     raises `StopUnreadable` and gives nothing back. A worktree with no slot runs no stop:
-    the product starts only under a claim, so without one nothing of this run's is up.
+    the product starts only under a lease, so without one nothing of this run's is up.
 
     Returns what happened, as fields: `released`, the `slot` it was, and a `reason` when
     nothing came back. A live listener still earns the three-part refusal on stderr,
@@ -582,7 +582,7 @@ def release(worktree: Path, stop: bool = False) -> dict:
         port, pid = held
         raise SystemExit(refusal(
             f"Slot {slot} still has a listener: port {port}, pid {pid}, cwd {holder(pid)}.",
-            "Reclaiming a slot from a live process is the same act as killing it.",
+            "Re-acquiring a slot from a live process is the same act as killing it.",
             "Stop that process where it was started, then release again.",
         ))
     slot_file(slot).unlink(missing_ok=True)
@@ -590,7 +590,7 @@ def release(worktree: Path, stop: bool = False) -> dict:
 
 
 def count_under(prefix: Path) -> int:
-    """How many live claims sit under `prefix`.
+    """How many live leases sit under `prefix`.
 
     Both sides are resolved before they are compared. A registry stores the resolved
     path and a caller usually has the unresolved one, and on macOS `/var` is a symlink
@@ -627,11 +627,11 @@ def environment(record: dict) -> dict[str, str]:
 
 
 def leased_environment(worktree: Path | None = None) -> dict[str, str]:
-    """The claim for `worktree`, as environment. Used by the driver before it runs any
+    """The lease for `worktree`, as environment. Used by the driver before it runs any
     command `.mmw/target.json` declares."""
     # Always through `worktree_of`: a caller passing a relative path (the driver runs
     # commands with `cwd=` whatever it was handed) would otherwise register a lease
-    # under a name like "." that no later run can match or reclaim.
+    # under a name like "." that no later run can match or re-acquire.
     record = claim(worktree_of(worktree))
     env = environment(record)
     Path(env["MMW_DATA_DIR"]).mkdir(parents=True, exist_ok=True)
@@ -640,12 +640,12 @@ def leased_environment(worktree: Path | None = None) -> dict[str, str]:
 
 @contextmanager
 def judge_run(worktree: Path | None = None, *, stop: bool = False):
-    """Release the non-ticket lease this judge claimed, and no other.
+    """Release the non-ticket lease this oracle acquired, and no other.
 
     Ticket worktrees keep one lease across the worker's and reviewer's runs.
-    A judge in any other checkout owns the lease it claimed itself, for this context
-    only. A lease the worktree already held when the judge started belongs to whoever
-    claimed it — a product a person left running under `lease.py run`, a journey running
+    An oracle in any other checkout owns the lease it acquired itself, for this context
+    only. A lease the worktree already held when the oracle started belongs to whoever
+    acquired it — a product a person left running under `lease.py run`, a journey running
     from the same checkout — and giving that one back, with or without running the
     product's `stop`, ends a process this run never started. `stop=True` is for an outer
     criteria runner that must also clean up a product its own check left up.

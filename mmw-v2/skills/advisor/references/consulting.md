@@ -10,7 +10,7 @@ Do not ask again to get a different answer. A second consultation is for a new d
 
 ## Start it
 
-Write the packet to a file. Run the `dispatch` skill's `dispatch.sh advise <file>`. Read the answer where the selected runner shows the session. It prints the advisor's session id; a refusal says what to fix.
+Write the brief to a file. Run the `dispatch` skill's `dispatch.sh advise <file>`. Read the answer where the selected runner shows the session. It prints the advisor's session id; a refusal says what to fix.
 
 Done when you have the answer and have acted on it as **The answer** says, and the user has the session id.
 
@@ -18,9 +18,9 @@ Done when you have the answer and have acted on it as **The answer** says, and t
 
 The answer is advice, not a ruling: you still own the decision. Take it, or set it aside with a reason you can state. When it would change something the user decides (what the customer sees, scope, anything hard to undo), it goes to the user like any other such decision, with the advisor's reasoning attached.
 
-## The packet
+## The brief
 
-The advisor sees the packet and nothing else: not your session, not your tool trace, not the file you have open. All five parts:
+The advisor sees the brief and nothing else: not your session, not your tool trace, not the file you have open. All five parts:
 
 1. The recent user/assistant exchange, quoted.
 2. Your current understanding of the problem.
@@ -28,10 +28,10 @@ The advisor sees the packet and nothing else: not your session, not your tool tr
 4. The options you weighed, and which way you are leaning.
 5. The file paths you believe are relevant.
 
-The test for the packet: a stranger with only this and the repository can reconstruct the decision. For a problem that resisted two attempts, each attempt and what it produced is the core of the evidence.
+The test for the brief: a stranger with only this and the repository can reconstruct the decision. For a problem that resisted two attempts, each attempt and what it produced is the core of the evidence.
 
 ## The question stays open
 
-Your framing is the thing under review, so the packet leaves the advisor's work to the advisor: it reads what it decides to read, once it has looked, and reaches whatever conclusion that produces. Out of the packet, then: the list of what to check, the file you would have it skip, the conclusion you expect confirmed, and the narrowing of "which option" down to one option's details.
+Your framing is the thing under review, so the brief leaves the advisor's work to the advisor: it reads what it decides to read, once it has looked, and reaches whatever conclusion that produces. Out of the brief, then: the list of what to check, the file you would have it skip, the conclusion you expect confirmed, and the narrowing of "which option" down to one option's details.
 
 A second opinion you steered is your own opinion in a stronger model's voice.

@@ -1,21 +1,22 @@
 # Night
 
-The main agent's commands that run a spec's published tickets, the runners that keep the sessions alive, the workspaces and branches they work in, and the three layers — relay, watchdog, turn guard — that deliver each result to whoever waits on it and notice a stopped session.
+The orchestrator's commands that run a spec's published tickets, the runners that keep the sessions alive, the workspaces and branches they work in, and the three layers — relay, watchdog, turn guard — that deliver each result to whoever waits on it and notice a stopped session.
 
 ## Language
 
 ### Roles
 
 **agent**:
-Any session or subagent the pipeline starts or runs: the main agent, a worker, a reviewer, the advisor, a code-review axis. Four have a `models.json` row: `junior-worker`, `senior-worker`, `reviewer` and `advisor`.
+Any session or subagent the pipeline starts or runs: the orchestrator, a worker, a reviewer, the advisor, a code-review axis. Four have a `models.json` row: `junior-worker`, `senior-worker`, `reviewer` and `advisor`.
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **session**:
-A host process a runner started, or the main agent the user started; a session `dispatch.sh start` started is named on its ticket by its started event. A code-review axis runs inside the reviewer session and is not one.
+A host process a runner started, or the orchestrator the user started; a session `dispatch.sh start` started is named on its ticket by its started event. A code-review axis runs inside the reviewer session and is not one.
 _Home_: `docs/contexts/night/how-it-works.md`
 
-**main agent**:
+**orchestrator**:
 The session the user started, which runs one spec's night with the dispatch skill's commands, from `check` to `summary` and, after the user accepts the result, `finish`. It has no `models.json` row.
+_Avoid_: main agent
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **runner**:
@@ -90,7 +91,7 @@ The dispatch skill's script, whose verbs open, advance, land, suspend and finish
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **advise**:
-`dispatch.sh advise <packet file>`: the one way the advisor is started, as a session of the selected runner in the current worktree. It writes no event.
+`dispatch.sh advise <brief file>`: the one way the advisor is started, as a session of the selected runner in the current worktree. It writes no event.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh board`**:
@@ -98,7 +99,7 @@ The command that makes sure the repository's task board is registered and answer
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **start prompt**:
-The text a session is given when started: which skill to use on which ticket, the standing sentences for working with nobody watching, and the Memory indexes or reviewer Rules for its role. An advisor's is `Use the advisor skill.` followed by the question packet.
+The text a session is given when started: which skill to use on which ticket, the standing sentences for working with nobody watching, and the Memory indexes or reviewer Rules for its role. An advisor's is `Use the advisor skill.` followed by the brief.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### The night's commands
@@ -112,7 +113,7 @@ The Nowledge Mem Space for one tracker repository, id `<owner>__<name>` in lower
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **open**:
-`dispatch.sh open <spec>`: the night begins. It records the project branch, brings the base branch up to it, opens the relay's **watch** with the calling session as main agent, and posts `spec.opened`.
+`dispatch.sh open <spec>`: the night begins. It records the project branch, brings the base branch up to it, opens the relay's **watch** with the calling session as orchestrator, and posts `spec.opened`.
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **`dispatch.sh finish`**:
@@ -120,7 +121,7 @@ _Home_: `docs/contexts/night/how-it-works.md`
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **open-ticket**:
-`dispatch.sh open-ticket <n>`: what `open` is for one ticket outside a night, a relay watch on that ticket alone with the calling session as main agent.
+`dispatch.sh open-ticket <n>`: what `open` is for one ticket outside a night, a relay watch on that ticket alone with the calling session as orchestrator.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **start**:
@@ -160,11 +161,11 @@ _Home_: `docs/contexts/night/how-it-works.md`
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **Memory closing**:
-The part of the **closing pass** in which the main agent gives every Memory record labelled `mmw-spec-<spec>` one decision — `retain`, `propose`, `deprecate` or `supersede` — recorded as `memory_closing` in `spec.closed`.
+The part of the **closing pass** in which the orchestrator gives every Memory record labelled `mmw-spec-<spec>` one decision — `retain`, `propose`, `deprecate` or `supersede` — recorded as `memory_closing` in `spec.closed`.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **retro**:
-The main agent's step right after `summary` records `spec.closed`: the retro skill, which writes the night's Retro Memory and posts the `spec.retroed` receipt.
+The orchestrator's step right after `summary` records `spec.closed`: the retro skill, which writes the night's Retro Memory and posts the `spec.retroed` receipt.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **`status.py`**:
@@ -194,11 +195,11 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 ### The night
 
 **night**:
-One run of a spec's published tickets under one main agent, from `open` to `summary`, at any hour.
+One run of a spec's published tickets under one orchestrator, from `open` to `summary`, at any hour.
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **closing pass**:
-The pass the main agent runs when the frontier is empty: it routes every open `finding` child of the spec's tickets with **route**, runs `advance`, and repeats until none is left, then performs **Memory closing**.
+The pass the orchestrator runs when the frontier is empty: it routes every open `finding` child of the spec's tickets with **route**, runs `advance`, and repeats until none is left, then performs **Memory closing**.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **route**:
@@ -212,7 +213,7 @@ The dispatch skill's `relay.py`, one process per repository, which reads the tic
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **watch**:
-What the relay reads and whom it wakes about it: a night's spec, or tickets outside a night, with the session that opened it as its main agent. Two watches never share a ticket.
+What the relay reads and whom it wakes about it: a night's spec, or tickets outside a night, with the session that opened it as its orchestrator. Two watches never share a ticket.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **wake queue**:
@@ -220,7 +221,7 @@ The relay's `queue.jsonl` in the state directory, one row per wake to send. Only
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **recipient**:
-The session a wake queue row is for, named by its (runner, session) pair: the ticket's worker for a reviewer's result or a freed slot, the main agent of the ticket's watch for a ticket's result or child.
+The session a wake queue row is for, named by its (runner, session) pair: the ticket's worker for a reviewer's result or a freed slot, the orchestrator of the ticket's watch for a ticket's result or child.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **ack**:
@@ -236,7 +237,7 @@ What a lock file in the state directory holds while its lock is taken — the ho
 _Home_: `mmw-v2/skills/dispatch/scripts/statedir.py`
 
 **watchdog**:
-The dispatch skill's `watchdog.py`, one process per repository while a watch is open. It checks the relay and asks the runner of each silent held session whether it is alive, posting `worker.lost` or `reviewer.lost` for a stopped one and sending its other findings to the main agent as `watchdog:` lines.
+The dispatch skill's `watchdog.py`, one process per repository while a watch is open. It checks the relay and asks the runner of each silent held session whether it is alive, posting `worker.lost` or `reviewer.lost` for a stopped one and sending its other alerts to the orchestrator as `watchdog:` lines.
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **heartbeat**:
@@ -248,5 +249,5 @@ How old a watchdog heartbeat may be and still be fresh, and how long the tracker
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **turn guard**:
-The dispatch skill's `turn-guard.py`, a hook on each host's turn-end event that, in the main agent of an open watch, arms the watchdog and keeps the turn from ending while tickets are held and the watchdog is not healthy.
+The dispatch skill's `turn-guard.py`, a hook on each host's turn-end event that, in the orchestrator of an open watch, arms the watchdog and keeps the turn from ending while tickets are held and the watchdog is not healthy.
 _Home_: `mmw-v2/skills/dispatch/scripts/turn-guard.py`

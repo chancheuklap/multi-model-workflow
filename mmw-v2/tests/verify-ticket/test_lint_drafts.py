@@ -83,7 +83,7 @@ class TestDrafts(DraftsFixture, unittest.TestCase):
         _, printed = self.lint()
         self.assertIn("not checked on drafts", printed)
         self.assertIn("sub-issue of the spec", printed)
-        self.assertIn("blocking links the tracker records", printed)
+        self.assertIn("blocking edges the tracker records", printed)
 
     def test_a_per_ticket_finding_fails_the_run_and_names_the_draft(self):
         self.write("T1", draft())

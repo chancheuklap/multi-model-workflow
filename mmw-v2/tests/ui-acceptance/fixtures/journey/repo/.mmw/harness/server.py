@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A one-page fixture product with a write/read API and one route break switch."""
+"""A one-page fixture product with a write/read API and one route fault-injection switch."""
 
 from __future__ import annotations
 

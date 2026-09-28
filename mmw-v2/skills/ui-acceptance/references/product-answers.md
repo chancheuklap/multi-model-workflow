@@ -24,9 +24,9 @@ These hold for every product. How a given repository meets them is its own.
   unpairable. A static check the contract ticket delivers holds this.
 - **Time values come from scene data.** A client-rendered product loads the same
   paused clock the design side uses, so a clock reading is not a live instant.
-- **A boundary test replaces the outbound call module**, which the repository names ([boundary-check.md](boundary-check.md)).
-- **`.mmw/harness/` implements the break switch** that [journey.md](journey.md)
-  **The break switch** specifies.
+- **A boundary test replaces the gateway**, which the repository names ([boundary-check.md](boundary-check.md)).
+- **`.mmw/harness/` implements the fault-injection switch** that [journey.md](journey.md)
+  **The fault-injection switch** specifies.
 - **A journey script reads only the addresses `discover` printed.** It starts
   nothing of its own — no application, server, container, or backing service.
 - **`harness_markers` declares this product's back-door strings** — the names it
@@ -49,9 +49,9 @@ These hold for every product. How a given repository meets them is its own.
   location that cannot be moved is listed under `leaves_machine`. It refuses to start with no lease and prints the command that
   supplies one: `python3 scripts/lease.py run -- <the start command>`. When
   `MMW_BREAK` is in that command's environment, this is also the process that
-  arms the break switch.
+  arms the fault-injection switch.
 
-- **Servers under a burst.** A page opens many connections at once (stylesheets, scripts, data). Every server the judges load a page from, the story service and the product itself, accepts at least 64 pending connections (`request_queue_size` for Python's `socketserver`, whose default of 5 lets a busy machine reset the rest and the page render empty).
+- **Servers under a burst.** A page opens many connections at once (stylesheets, scripts, data). Every server the oracles load a page from, the story service and the product itself, accepts at least 64 pending connections (`request_queue_size` for Python's `socketserver`, whose default of 5 lets a busy machine reset the rest and the page render empty).
 
 - **`stop`.** The only way a run ends a process. It ends only what this run
   recorded as its own, leaves a neighbour's product alone, exits 0 with nothing to
@@ -82,7 +82,7 @@ These hold for every product. How a given repository meets them is its own.
 Product answers live here, not scattered through the repository:
 
 - `target.json` — the fields above
-- `harness/` — start the stack, the break switch, vendor stubs, account seeds, the
+- `harness/` — start the stack, the fault-injection switch, vendor stubs, account seeds, the
   few seeds a journey uses, the entry that records an action that would leave the
   machine
 - `journeys/` — one directory per named journey

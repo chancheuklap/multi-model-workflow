@@ -87,7 +87,7 @@ CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
 CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
 # The four runs of a ticket's criteria and checks: the worker's own run, a second run of
-# every criterion (the worker's final run, or the main agent's after landing),
+# every criterion (the worker's final run, or the orchestrator's after landing),
 # the repository's own `checks` of `.mmw/target.json` at the closeout, and the claim-time
 # run at `worker.started.base` of the criteria that need no product slot.
 CHECK_RUNS = ("self", "reverify", "repo-checks", "baseline")

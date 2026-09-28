@@ -12,7 +12,7 @@
 #   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer
-#   dispatch.sh advise <packet file>
+#   dispatch.sh advise <brief file>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer
 #   dispatch.sh ack <n> <event> | relay.recovered
@@ -63,7 +63,7 @@
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
 # the tracker and wakes the session waiting on each result event through that session's
 # runner's `send`. `open` (a night) and `open-ticket` (one ticket outside a night) open a
-# watch on the relay whose main agent is the calling session — the runner and session its
+# watch on the relay whose orchestrator is the calling session — the runner and session its
 # adapter's `self` reads — and start the relay when none runs; `summary` and `suspend`, or
 # `land` for one ticket, close that watch, and the relay ends with its last. `start` and `advance`
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
@@ -71,7 +71,7 @@
 # picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
 # runner and session this process runs in. `open` and `open-ticket` also make sure this
 # repository's task board is registered and answering and name its URL on the line they
-# print: everything else a watch starts is read by the main agent, and the board is what a
+# print: everything else a watch starts is read by the orchestrator, and the board is what a
 # person reads.
 #
 # Every refusal names its next step on stderr. What the agent must decide on an exit the
@@ -286,7 +286,7 @@ base_commit() {
 # the base branch at the merge-base, and a base kept from before the landing puts every
 # commit others made on the base branch in between into this ticket's own range. Seen on
 # agentflow #731, 2026-09-12: landed, reopened by `reverify`, started again with its first
-# base, and its `Outside Owns:` listed nine files that three commits by the main agent had
+# base, and its `Outside Owns:` listed nine files that three commits by the orchestrator had
 # written straight on the base branch. Prints nothing, exit 0, when the two share no commit;
 # exit 2 when the ticket's events could not be read, with the reason on stderr.
 worker_base() {
@@ -378,7 +378,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh integrated <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer
-       dispatch.sh advise <packet file>
+       dispatch.sh advise <brief file>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer
        dispatch.sh ack <n> <event> | relay.recovered
@@ -442,7 +442,7 @@ open_board() {
 # Wake-ups come from the board, never from here: `relay.py` reads the tickets' events and
 # hands each result to the session waiting on it through that session's runner's `send`.
 # What these helpers do is open and close a watch — a night, or tickets outside one — with
-# this session as its main agent, and ask whether the relay watches a ticket. One relay
+# this session as its orchestrator, and ask whether the relay watches a ticket. One relay
 # process serves every watch of the repository: it starts with the first and ends with the
 # last.
 
@@ -587,9 +587,9 @@ relay_watches() {
 
 # A night whose newest spec event is `spec.opened` is open, whatever became of the relay
 # process: a reboot or a crash ends the relay and leaves the night. This opens the spec's
-# watch again for the main agent `spec.opened` names and starts the relay when none runs.
+# watch again for the orchestrator `spec.opened` names and starts the relay when none runs.
 # Exit 0 when the spec is watched afterwards; 1 when the night is not open or the relay
-# refused (a main agent the runner shows stopped), with nothing changed.
+# refused (an orchestrator the runner shows stopped), with nothing changed.
 revive_night_watch() {
   local spec="$1" repo runner session out
   [ -n "$spec" ] || return 1
@@ -598,7 +598,7 @@ revive_night_watch() {
   repo="$(repo_slug)" || return 1
   out="$(python3 "$RELAY" start --repo "$repo" --spec "$spec" --runner "$runner" --session "$session" 2>&1)" \
     || { echo "dispatch: the night on #$spec is open and its watch could not be restored: ${out#relay: }" >&2; return 1; }
-  echo "dispatch: the night on #$spec is open and nothing watched it; the watch is restored with $runner session $session as its main agent" >&2
+  echo "dispatch: the night on #$spec is open and nothing watched it; the watch is restored with $runner session $session as its orchestrator" >&2
 }
 
 # Close the watch the arguments name (`--spec N` or `--tickets N`); the relay process ends
@@ -621,11 +621,11 @@ stop_relay() {
 }
 
 # Open the watch the arguments name (`--spec N` or `--tickets N`) with this session as its
-# main agent, and make sure the relay runs. One call to `relay.py start`, which checks
+# orchestrator, and make sure the relay runs. One call to `relay.py start`, which checks
 # everything before it writes anything: a refused watch leaves every open watch, and its
-# main agent, as it was. Prints "runner<TAB>session<TAB>started|running": `started` when
+# orchestrator, as it was. Prints "runner<TAB>session<TAB>started|running": `started` when
 # this call opened the watch, `running` when it was open already and this session is now
-# its main agent. Exit 2 with the reason on stderr.
+# its orchestrator. Exit 2 with the reason on stderr.
 open_relay() {
   local repo line runner session out
   repo="$(repo_slug)" || return 2
@@ -848,7 +848,7 @@ sync_base_with_project() {
 }
 
 # `open <spec>`: the night begins. The relay watches the spec's tickets with this session
-# as the night's main agent, and `spec.opened` on the spec records who is woken. A
+# as the night's orchestrator, and `spec.opened` on the spec records who is woken. A
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
@@ -867,7 +867,7 @@ open_night() {
   opened="$(open_relay --spec "$spec")" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
-       --line "NIGHT OPENED #$spec: wake-ups go to the main agent, $runner session $session" \
+       --line "NIGHT OPENED #$spec: wake-ups go to the orchestrator, $runner session $session" \
        --field "runner=$runner" --field "session=$session" --field "into=$into" \
        --field "project=$project"; then
     [ "$how" = started ] && stop_relay --spec "$spec"
@@ -879,7 +879,7 @@ open_night() {
   # Every other process a night needs starts itself: `open` starts the relay, and the
   # turn guard arms the watchdog. The task board was the one thing somebody had to
   # remember, and it is the only one of the three whose output is for a person — the
-  # relay's and the watchdog's are for the main agent. A board that will not start is
+  # relay's and the watchdog's are for the orchestrator. A board that will not start is
   # said so on stderr and takes nothing else with it: the night is open either way.
   if board="$(ensure_board)"; then
     echo "opened #$spec: wake-ups go to $runner session $session; task board $board"
@@ -890,7 +890,7 @@ open_night() {
 }
 
 # `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
-# session as its main agent; `land <n>` closes the watch. The task board is made sure of
+# session as its orchestrator; `land <n>` closes the watch. The task board is made sure of
 # the way `open` makes sure of it, for the same reason: the relay and the watchdog start
 # themselves, and the board is the one view of the ticket for a person. A board that will
 # not start is said on stderr and leaves the watch open.
@@ -928,8 +928,8 @@ ack_wake() {
 # that event with the session's own runner and session (its adapter's `self`) and the
 # facts `start` writes — the grade's models.json row, this worktree, its branch and base,
 # and no slot, which the first run of its criteria that runs the product claims — and makes sure a relay watches the ticket: the
-# watch already covering it, or a watch of this ticket alone with this session as its main
-# agent. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
+# watch already covering it, or a watch of this ticket alone with this session as its
+# orchestrator. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
 adopt_ticket() {
   local number="$1" explicit_into="${2:-}" line runner session
   line="$(own_session)" || exit 2
@@ -1865,7 +1865,7 @@ start_one() {
   local watched
   watched="$(relay_watches "$number" "$spec" 2>&1)" \
     || revive_night_watch "$spec" \
-    || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The main agent opens the night with open <spec>, or open-ticket <n> for a ticket outside a night; nothing was started"
+    || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The orchestrator opens the night with open <spec>, or open-ticket <n> for a ticket outside a night; nothing was started"
 
   local profile
   case "$kind" in
@@ -2002,8 +2002,8 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
     refuse "$RUNNER_NAME did not start $host for #$number $kind (its reason is above); nothing was retried. Fix what it names, then start again"
   fi
 
-  # A worker is started by the main agent, so its worktree is filed under the main
-  # agent's own. A reviewer is started by the worker, in the worktree it shares with it,
+  # A worker is started by the orchestrator, so its worktree is filed under the
+  # orchestrator's own. A reviewer is started by the worker, in the worktree it shares with it,
   # which is filed already.
   local -a attach_args=(--cwd "$cwd" --issue "$number")
   [ "$kind" = worker ] && attach_args+=(--under-caller)
@@ -2046,15 +2046,15 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
   printf '%s\n' "$session"
 }
 
-# `advise <packet file>`: resolve the advisor row against the selected runner, start a
+# `advise <brief file>`: resolve the advisor row against the selected runner, start a
 # session in the current worktree with `Use the advisor skill.` followed by the file,
 # and print the session id. An advisor is not a ticket's agent, so this writes no
 # event. A start the runner refuses is refused once: no retry, no other runner.
 advise_one() {
   local packet="$1"
   [ -n "$packet" ] || usage
-  [ -f "$packet" ] || refuse "no packet file at $packet; write the packet to a file, then advise again"
-  [ -s "$packet" ] || refuse "the packet file $packet is empty, and the advisor sees the packet and nothing else; write the five parts consulting.md lists, then advise again"
+  [ -f "$packet" ] || refuse "no brief file at $packet; write the brief to a file, then advise again"
+  [ -s "$packet" ] || refuse "the brief file $packet is empty, and the advisor sees the brief and nothing else; write the five parts consulting.md lists, then advise again"
 
   use_runner "$(tonight_runner)"
   use_catalog_of "$RUNNER_NAME"
@@ -2068,7 +2068,7 @@ advise_one() {
   [ -n "$cwd" ] \
     || refuse "not inside a git repository, so there is no worktree to start the advisor in; run advise from a worktree"
   body="$(cat -- "$packet")" \
-    || refuse "could not read the packet file $packet; make it readable, then advise again"
+    || refuse "could not read the brief file $packet; make it readable, then advise again"
   prompt="Use the advisor skill."$'\n'"$body"
 
   # Herdr's session id is basename(cwd) plus the title's last word; a constant
@@ -2212,7 +2212,7 @@ resume_one() {
   esac
   echo "dispatch: the worker $ident on #$number did not take the message" >&2
   [ -n "$out" ] && printf '  %s\n' "$out" >&2
-  echo "dispatch: it is most likely in a turn. End your turn and run resume again on the next wake or watchdog finding about #$number; if that exits 3 again with no ticket event in between, start $number worker replaces the worker, stopping it through its runner first" >&2
+  echo "dispatch: it is most likely in a turn. End your turn and run resume again on the next wake or watchdog alert about #$number; if that exits 3 again with no ticket event in between, start $number worker replaces the worker, stopping it through its runner first" >&2
   exit 3
 }
 
@@ -2721,7 +2721,7 @@ prepare_merge_worktree() {
 }
 
 # The merge worktree is filed under the worktree of the session running this command —
-# the main agent, for `open`, `advance`, `land`, `reverify` and `finish` — by the selected
+# the orchestrator, for `open`, `advance`, `land`, `reverify` and `finish` — by the selected
 # runner's `attach`, once per command however many landings it makes. A runner with no
 # such view does nothing; one that fails is reported on stderr and the landing goes on.
 FILED_MERGE_WORKTREES=""
@@ -3243,7 +3243,7 @@ advance() {
   echo "advance #$spec: merged $merged, already in $skipped, bounced $bounced, released $released, started $started, refused $refused, failed $failed" >&2
   sweep_orphan_merge_worktrees "$root" \
     || echo "dispatch: could not sweep orphan merge worktrees after advancing #$spec" >&2
-  # A refused start is its own exit code. Read as success it ends the main agent's turn,
+  # A refused start is its own exit code. Read as success it ends the orchestrator's turn,
   # and when nothing else of the batch is running no wake will ever come: the ticket sits
   # on the frontier, never started, and the night stops there without a word.
   # A ticket that could not be landed is exit 2 for the same reason, and it comes first:
@@ -3515,7 +3515,7 @@ suspend_night() {
   local back=0 rc
   if [ -f "$LEASE" ]; then
     [ -n "$(worktrees_root)" ] \
-      || echo "dispatch: no workspace of this checkout is standing, so a lease can be matched to a ticket only through a standing workspace; python3 $LEASE list shows what is still held, and claim reclaims a lease whose directory is gone" >&2
+      || echo "dispatch: no workspace of this checkout is standing, so a lease can be matched to a ticket only through a standing workspace; python3 $LEASE list shows what is still held, and claim re-acquires a lease whose directory is gone" >&2
     for number in $batch; do
       # A worker still running will start the product again, and the `stop` in between
       # tears up the record of what it started — leaving processes that stop can no
@@ -3631,7 +3631,7 @@ reverify_spec() {
                    | awk '$1 == "REVERIFY" || $1 == "RECOVER" { print $1 ":" $2 }'); do
     verb="${entry%%:*}"
     number="${entry#*:}"
-    # `--tools` is forwarded because the judges of a criterion are named bare and are
+    # `--tools` is forwarded because the oracles of a criterion are named bare and are
     # found only in the directories it names. Without it every interface criterion of
     # every ticket fails `command not found`, and the branch below would reopen and hand
     # back a whole night of finished work for a fault in this command line.
@@ -3706,7 +3706,7 @@ print((rows[0].get("login") or "") if rows else "")
 # Space id `close_spec_memories` computes, the spec's full `mmw-spec-<spec>` record set,
 # and one empty decision per record with `total`/`returned` already filled in — or a
 # ready-made `unchecked` object when the list could not be read or was truncated, so a
-# main agent never has to infer an empty set from a bad answer. The main agent fills in
+# orchestrator never has to infer an empty set from a bad answer. The orchestrator fills in
 # `decision`, `reason` and `evidence` (and `replacement_id` for `supersede`) per entry;
 # `close_spec_memories` still enforces every rule this stops short of, at `summary` time.
 memory_list_spec() {
@@ -4097,7 +4097,7 @@ summary_spec() {
 
   # The last slot of the summary's `Findings routed:` line is the findings of this batch
   # that no `child.closed` accounts for: the closing pass has not been through them. That
-  # number is computed here, and until now it reached the main agent only inside the
+  # number is computed here, and until now it reached the orchestrator only inside the
   # comment this command posts — after the pass it judges is over and after the watch that
   # would have carried the work is closed. So it is read before anything is posted, and a
   # night that still holds unrouted findings is refused with nothing written. A summary
@@ -4449,7 +4449,7 @@ print(number if isinstance(number, int) else "")
 # on the ticket it came from. That event is the one record of where the child went;
 # the night summary counts findings by it.
 #
-#   fixed               the main agent fixed it in the recorded commit; closed as completed
+#   fixed               the orchestrator fixed it in the recorded commit; closed as completed
 #   stale invalid       the finding never held; closed as not planned
 #   stale fixed-elsewhere
 #                       the finding held and another ticket or closing-pass fix resolved it;

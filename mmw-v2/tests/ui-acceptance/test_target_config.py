@@ -19,8 +19,8 @@ def load():
     """A fresh `target_config`, and with it a `lease` bound to `HOME`.
 
     Every command `target_config` declares runs with this run's lease in its
-    environment, and claiming one writes to a registry `lease.py` fixes at import
-    from `MMW_HOME`. Without a registry of its own here, the suite claims real
+    environment, and acquiring one writes to a registry `lease.py` fixes at import
+    from `MMW_HOME`. Without a registry of its own here, the suite acquires real
     slots and overwrites the record of a run that is live — after which `release`
     refuses, because the ports are still listened on, and that slot is lost for good.
     """
@@ -106,7 +106,7 @@ class TestTargetCheck(unittest.TestCase):
             finally:
                 os.chdir(here)
             self.assertEqual(code, 0, out)
-            self.assertIn("complete: the judges can drive this repository", out)
+            self.assertIn("complete: the oracles can drive this repository", out)
             self.assertIn(str(root / ".mmw" / "target.json"), out)
 
     def test_validate_names_the_first_problem_and_counts_the_rest(self):

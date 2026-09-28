@@ -15,11 +15,12 @@ The session a worker starts with `dispatch.sh start <n> reviewer` to review the 
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **advisor**:
-The second-opinion session on a stronger model, started with `dispatch.sh advise <packet file>` by whichever agent reached the decision. It implements nothing.
+The second-opinion session on a stronger model, started with `dispatch.sh advise <brief file>` by whichever agent reached the decision. It implements nothing.
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
-**question packet**:
+**brief**:
 What a caller hands the advisor, and the only thing the advisor sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude.
+_Avoid_: question packet, the packet
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
 **recommendation**:
@@ -82,7 +83,7 @@ _Avoid_: closed (for this; a closed ticket may not have landed)
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **first line**:
-The first line of a ticket comment: prose for a person on an event, and a script's input on a closeout draft (`ALL MET`, `HANDOFF REQUIRED:`), on a review report (`REVIEW <base commit>..<HEAD commit>`) and on a child's file (its title).
+The first line of a ticket comment: prose for a person on an event, and a script's input on a closing-comment draft (`ALL MET`, `HANDOFF REQUIRED:`), on a review report (`REVIEW <base commit>..<HEAD commit>`) and on a child's file (its title).
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`worker.started`, `reviewer.started`**:
@@ -94,7 +95,7 @@ The two events `--preflight` posts: `ticket.claimed` after the claim, beginning 
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`ticket.passed`, `ticket.returned`**:
-The events `--closeout` posts a closing comment as, each after the tracker change it announces: `ticket.passed` for an accepted `ALL MET` draft once the ticket is closed, `ticket.returned` for a `HANDOFF REQUIRED` draft once the ticket is handed back.
+The events `--closeout` posts a closing comment as, each after the tracker change it announces: `ticket.passed` for an accepted `ALL MET` closing-comment draft once the ticket is closed, `ticket.returned` for a `HANDOFF REQUIRED` closing-comment draft once the ticket is handed back.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`ticket.released`**:
@@ -130,7 +131,7 @@ The event the **watchdog** posts for a reviewer session that stopped before its 
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`spec.opened`, `spec.closed`, `spec.retroed`**:
-The events of a night on its spec: `spec.opened` from `open` (the main agent, the base branch and the project branch), `spec.closed` from `summary` (the `NIGHT SUMMARY`), and `spec.retroed` from the retro (its receipt). Distinct from `spec.merged`, which `finish` posts.
+The events of a night on its spec: `spec.opened` from `open` (the orchestrator, the base branch and the project branch), `spec.closed` from `summary` (the `NIGHT SUMMARY`), and `spec.retroed` from the retro (its receipt). Distinct from `spec.merged`, which `finish` posts.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`spec.suspended`**:
@@ -142,7 +143,7 @@ The events that record a ticket's children on the ticket: `--sub-issue` posts `c
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`, `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **child kind**:
-What a ticket's child records, named for who can answer it: `finding` (a review finding outside the ticket), `contract` (a baseline, spec section or criterion the ticket was told to follow that lacks a needed case or contradicts another authority), `deferred` (a convenient change outside `## Owns`), `decision` (a choice only a person can make), `fault` (the pipeline itself is broken: `verify-ticket.py`, `dispatch.sh`, a judge script, `lease.py`, a hook or `.mmw/target.json`).
+What a ticket's child records, named for who can answer it: `finding` (a review finding outside the ticket), `contract` (a baseline, spec section or criterion the ticket was told to follow that lacks a needed case or contradicts another authority), `deferred` (a convenient change outside `## Owns`), `decision` (a choice only a person can make), `fault` (the pipeline itself is broken: `verify-ticket.py`, `dispatch.sh`, an oracle script, `lease.py`, a hook or `.mmw/target.json`).
 _Home_: `mmw-v2/skills/verify-ticket/references/sub-issues.md`
 
 **`ticket.checked`**:
@@ -170,7 +171,7 @@ The reviewer's report on the ticket, carried by `reviewer.reported`: first line 
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **closing comment**:
-The comment a worker leaves on handing the ticket over, written first as a draft file that `--closeout <draft>` checks and posts: first line `ALL MET` or `HANDOFF REQUIRED: …`, then fixed lines accounting for every criterion, finding, file outside Owns and decision.
+The comment a worker leaves on handing the ticket over, written first as a closing-comment draft that `--closeout <draft>` checks and posts: first line `ALL MET` or `HANDOFF REQUIRED: …`, then fixed lines accounting for every criterion, finding, file outside Owns and decision.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`ALL MET`**:
@@ -236,11 +237,11 @@ Setting the ticket's assignee to oneself, followed by a `ticket.claimed` event. 
 _Home_: `docs/agents/issue-tracker.md`
 
 **hand back**:
-Swapping `ready-for-agent` for `needs-triage`, taking the claim off and leaving the ticket open: what `--closeout` does with a `HANDOFF REQUIRED` draft.
+Swapping `ready-for-agent` for `needs-triage`, taking the claim off and leaving the ticket open: what `--closeout` does with a `HANDOFF REQUIRED` closing-comment draft.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **continue**:
-The word the main agent ends a `resume` text with, telling a live worker to carry on from where it was.
+The word the orchestrator ends a `resume` text with, telling a live worker to carry on from where it was.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 ### Working discipline
@@ -258,5 +259,5 @@ The closing step that re-reads the whole ticket and every `## Read first` item, 
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closeout**:
-`verify-ticket.py <n> --closeout <draft>`, the closing gate: it checks the draft against the ticket and the repository and, only when the draft passes, pushes the branch, closes the ticket or hands it back, and posts the closing comment as an event. A worker's command that would go around it is refused by `tool-guard.py`.
+`verify-ticket.py <n> --closeout <draft>`, the closing gate: it checks the closing-comment draft against the ticket and the repository and, only when it passes, pushes the branch, closes the ticket or hands it back, and posts the closing comment as an event. A worker's command that would go around it is refused by `tool-guard.py`.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`

@@ -26,7 +26,7 @@ Review the current ticket together with those tickets from four angles:
 - **Combination behavior**: behaviors that pass alone still work when both changes are present.
 - **Contract consistency**: data models, interfaces, database schemas, serialization formats and registries agree across tickets, and a contract provided by one ticket is used correctly by another.
 - **Migration completeness**: data migrations run in the right order after the merge and every required companion migration is present.
-- **Shared state**: both tickets agree on ownership, ordering and lifecycle of persistent or process-wide state.
+- **Shared-state ownership**: both tickets agree on ownership, ordering and lifecycle of persistent or process-wide state.
 
 Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes from both tickets or their named baselines. State whether the repair target is inside the current ticket's `## Owns`.
 

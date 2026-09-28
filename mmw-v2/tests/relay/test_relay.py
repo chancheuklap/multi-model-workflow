@@ -4,8 +4,8 @@ The relay's outsides are the board (a `Board` whose `gh` answers from a dict of 
 here), the runner's `send` verb (a function here that records what it was handed and
 answers with the exit code a test chooses), the runner's `liveness` verb (a function
 answering what a test chooses) and the clock. Between them runs the whole relay: the
-watches and their main agents, reading events, dedup, who each row is for, the slot
-wake, the queue, delivery, ack, the unattended-stretch marker, the watch of a main agent
+watches and their orchestrators, reading events, dedup, who each row is for, the slot
+wake, the queue, delivery, ack, the unattended-stretch marker, the watch of an orchestrator
 that is gone. What is asserted is what an outsider can see: the watches, the rows in the
 queue, their order and recipients, what was sent to whom, and what is left after an ack.
 
@@ -157,7 +157,7 @@ class FakeAsk:
 
 
 class RelayCase(unittest.TestCase):
-    """One repository's state directory with tickets #61 and #62 watched, main agent main-a."""
+    """One repository's state directory with tickets #61 and #62 watched, orchestrator main-a."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -191,7 +191,7 @@ class RelayCase(unittest.TestCase):
         return self.relay.poll(30, grace)
 
     def watches(self):
-        """Each open watch's key and its main agent."""
+        """Each open watch's key and its orchestrator."""
         return {k: (w["runner"], w["session"]) for k, w in self.relay.watches().items()}
 
     def rows(self):
@@ -253,7 +253,7 @@ class QueueTest(RelayCase):
 
     def test_two_events_of_one_name_in_a_cycle_queue_one_wake(self):
         """2026-09-12 (#411): #746 was closed twice, its two `ticket.passed` events queued
-        rows 42 and 43 in one cycle, and the main agent was woken twice about one ticket
+        rows 42 and 43 in one cycle, and the orchestrator was woken twice about one ticket
         and acked twice. A wake carries the ticket and the event name and nothing else, so
         the second copy said nothing the first had not."""
         self.board[61] += [comment(101, "ticket.passed", 61),
@@ -326,7 +326,7 @@ class QueueTest(RelayCase):
             (7, "ticket.returned", "main", "main-a"),
             (8, "ticket.refused", "main", "main-a"),
         ])
-        # The three children that wake the main agent are contract, fault and decision.
+        # The three children that wake the orchestrator are contract, fault and decision.
         woken = [r for r in self.rows() if r["event"] == "child.opened"]
         self.assertEqual(len(woken), 3)
         self.assertEqual(sorted(r["ticket"] for r in woken), [62, 64, 65])
@@ -613,7 +613,7 @@ class DeliveryTest(RelayCase):
         self.relay.deliver()
         self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.refused")])
         self.assertEqual([(r["seq"], r["session"]) for r in self.rows()], [(3, "main-b")])
-        self.assertIn("addressed to paseo session main-a, and the main agent of tickets #61, #62 is "
+        self.assertIn("addressed to paseo session main-a, and the orchestrator of tickets #61, #62 is "
                       "now paseo session main-b", self.err.getvalue())
 
     def test_a_row_of_a_closed_watch_is_dropped_without_a_send(self):
@@ -854,7 +854,7 @@ class RecoveryTest(RelayCase):
 
 
 class WatchesTest(RelayCase):
-    """Several watches in one repository, each with its own main agent: a night on spec
+    """Several watches in one repository, each with its own orchestrator: a night on spec
     #76 (tickets #61 and #62) opened by main-a, and whatever a test opens beside it."""
 
     def setUp(self):
@@ -869,7 +869,7 @@ class WatchesTest(RelayCase):
 
     def test_a_ticket_outside_the_night_gets_its_own_watch_and_the_nights_main_is_untouched(self):
         # Opening a watch from a second session used to re-point the running night's
-        # wake-ups, findings and turn guard to that session.
+        # wake-ups, alerts and turn guard to that session.
         previous, _ = self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
         self.assertIsNone(previous)
         self.assertEqual(self.watches(), {"spec:76": MAIN_A, "tickets:5": ("paseo", "main-b")})
@@ -887,7 +887,7 @@ class WatchesTest(RelayCase):
         with self.assertRaises(relay.Refusal) as caught:
             self.relay.open_watch({"tickets": [61]}, "paseo", "main-b")
         self.assertIn("ticket #61 was not opened: #61 is a sub-issue of spec #76, which is watched "
-                      "with paseo session main-a as its main agent", str(caught.exception))
+                      "with paseo session main-a as its orchestrator", str(caught.exception))
         self.assertEqual(self.written(), before)
 
     def test_a_spec_one_of_whose_tickets_is_watched_alone_is_refused(self):
@@ -897,7 +897,7 @@ class WatchesTest(RelayCase):
         with self.assertRaises(relay.Refusal) as caught:
             self.relay.open_watch({"spec": 80}, "paseo", "main-c")
         self.assertIn("spec #80 was not opened: its sub-issue #5 is already watched as ticket #5, "
-                      "whose main agent is paseo session main-b", str(caught.exception))
+                      "whose orchestrator is paseo session main-b", str(caught.exception))
         self.assertEqual(self.written(), before)
 
     def test_a_spec_takes_over_a_ticket_watch_its_own_main_agent_left(self):
@@ -1094,7 +1094,7 @@ class SlotWakeTest(RelayCase):
 
 
 class MainGoneTest(RelayCase):
-    """A watch whose main agent's session is gone: tickets #61 and #62 opened by main-a,
+    """A watch whose orchestrator's session is gone: tickets #61 and #62 opened by main-a,
     whose runner answers `stopped`, and ticket #70 opened by main-b, alive."""
 
     def setUp(self):

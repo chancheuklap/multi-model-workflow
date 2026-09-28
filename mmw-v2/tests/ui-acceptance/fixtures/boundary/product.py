@@ -1,6 +1,6 @@
 """Fake consuming-repository product for four-column and cross-component samples.
 
-The outbound call module is the layer that emits outbound calls. The page
+The gateway is the layer that emits outbound calls. The page
 holds displayed values, scene, failure copy, and two regions. The interaction
 helper finds a control by its data-ui id and does nothing under MMW_NEGATIVE=1.
 """

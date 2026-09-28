@@ -733,7 +733,7 @@ PLAIN = ticket("- [ ] AC1: the importer writes six rows",
                "  EVIDENCE: pending")
 TARGET_CHECK = ticket("- [ ] AC1: the target file is complete",
                       "  CHECK: python3 mmw-v2/skills/ui-acceptance/scripts/target_config.py --check",
-                      "  EXPECT: complete: the judges can drive this repository",
+                      "  EXPECT: complete: the oracles can drive this repository",
                       "  EVIDENCE: pending")
 
 
@@ -747,7 +747,7 @@ class TestTargetConfigCheckNeedsNoProduct(unittest.TestCase):
 
 class TestTheProductSlot(unittest.TestCase):
     """Writing code takes no slot. The first run of the criteria that needs the product
-    claims one before anything runs; with none free it waits, visibly, on the ticket."""
+    acquires one before anything runs; with none free it waits, visibly, on the ticket."""
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())

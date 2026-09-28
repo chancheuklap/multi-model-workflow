@@ -12,4 +12,4 @@
 
 ## 怎么迁
 
-把 `CHECK:` 和文档里的 `screen_driver.py target --check` 换成 `target_config.py --check`。`--repo`、`--kind`、`--contract` 参数不变。跑通的标志仍是退出 0 且打印 `complete: the judges can drive this repository`。
+把 `CHECK:` 和文档里的 `screen_driver.py target --check` 换成 `target_config.py --check`。`--repo`、`--kind`、`--contract` 参数不变。跑通的标志仍是退出 0 且打印 `complete: the oracles can drive this repository`。

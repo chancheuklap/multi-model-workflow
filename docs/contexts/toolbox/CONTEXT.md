@@ -13,7 +13,7 @@ The command-line agent program a session runs on, one of `claude`, `codex`, `gro
 _Home_: `mmw-v2/skills/dispatch/hosts.json`
 
 **user**:
-The person who owns the products and works with the main agent on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` and `needs-info` wait on the user.
+The person who owns the products and works with the orchestrator on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` and `needs-info` wait on the user.
 _Home_: `docs/agents/triage-labels.md`
 
 **subagent**:
@@ -63,7 +63,7 @@ The state of an install location `install.sh` empties and does not install into 
 _Home_: `mmw-v2/install.sh`
 
 **issue tracker**:
-GitHub Issues for this repository (the tracker), every operation through `gh`: it holds the specs, tickets and children, their parent–child relations and blocking links, the claims and the events.
+GitHub Issues for this repository (the tracker), every operation through `gh`: it holds the specs, tickets and children, their parent–child relations and blocking edges, the claims and the events.
 _Avoid_: board (for the tracker; the task board is the local web page)
 _Home_: `docs/agents/issue-tracker.md`
 
@@ -142,7 +142,7 @@ A test-only variable that moves every path `install.sh` reads or writes under it
 _Home_: `mmw-v2/install.sh`
 
 **`--tools`**:
-The repeatable flag of `verify-ticket.py`, `dispatch.sh` and `pull_design.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own. `verify-ticket.py` puts the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names a judge bare.
+The repeatable flag of `verify-ticket.py`, `dispatch.sh` and `pull_design.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own. `verify-ticket.py` puts the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names an oracle bare.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **hook**:

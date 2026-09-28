@@ -82,7 +82,7 @@ GRADE_LABELS = {
 }
 # The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
-# A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
+# An oracle that starts the product, and so needs this worktree's slot. `story-parity.py`
 # is not one: it starts the story service, which has no backend behind it and takes
 # a port of its own.
 PRODUCT_JUDGES = ("journey.py", "lease.py")
@@ -419,7 +419,7 @@ def fetch_parent(number: int) -> int | None:
 def fetch_outsider(number: int) -> dict:
     """Where a blocker outside this batch belongs, and whether it is closed.
 
-    A blocking link always points at an issue that exists, so the question is not
+    A blocking edge always points at an issue that exists, so the question is not
     whether it is there but whether it is a ticket: an issue whose `## Parent` names a
     spec. `spec` is that number, or `None` for an issue that is something else.
     Patched out in tests.
@@ -985,7 +985,7 @@ def git_problems(base: str, root: Path | None = None) -> list[str]:
 # `validate_dag`, `_detect_cycles`, `_trace_cycle` and `compute_levels` are
 # grok-bundled's `execute-plan/scripts/validate-plan.py` L145-280, function for
 # function. Only the shape of an entry changed: an id is an issue number rather
-# than a `pr-<n>` string, and dependencies come from the tracker's blocking links.
+# than a `pr-<n>` string, and dependencies come from the tracker's blocking edges.
 #
 # A plan's steps all lived in one plan; a ticket's blockers do not. A spec delivered in
 # layers blocks its tickets on tickets under the spec before it, and an issue that is no
@@ -1108,7 +1108,7 @@ def compute_levels(entries: list[dict]) -> dict:
 def in_batch(entries: list[dict]) -> list[dict]:
     """The same entries with every dependency outside the batch dropped.
 
-    A blocking link to another spec's ticket is a real edge, and `--preflight`,
+    A blocking edge to another spec's ticket is a real edge, and `--preflight`,
     `dispatch.sh advance` and `status.py` all honour it — but it is not an edge this graph can
     order, because the other end has no entry here. Left in, it would hold that ticket's
     in-degree above zero forever, which Kahn's algorithm reads as a cycle and
@@ -1125,9 +1125,9 @@ def _outside(entry: dict, dep: int) -> dict:
 
 
 def blockers_not_tickets(entries: list[dict]) -> list[str]:
-    """Blocking links to issues that are not tickets under any spec.
+    """Blocking edges to issues that are not tickets under any spec.
 
-    A blocking link always points at an issue that exists, so what is asked here is
+    A blocking edge always points at an issue that exists, so what is asked here is
     whether that issue is a ticket: one whose `## Parent` names a spec. An issue that
     names none — a bug, a note, a discussion — is a blocker no part of this pipeline
     will ever close, and the ticket waiting on it can never start.
@@ -1144,7 +1144,7 @@ def blockers_not_tickets(entries: list[dict]) -> list[str]:
 
 
 def cross_batch_findings(entries: list[dict]) -> list[str]:
-    """Blocking links to tickets under another spec.
+    """Blocking edges to tickets under another spec.
 
     Not a fault to fix: it is the shape a layered delivery has, and `--preflight`,
     `dispatch.sh advance` and `status.py` all refuse to start a ticket while one of these is
@@ -1179,7 +1179,7 @@ def waiting_outside(entries: list[dict]) -> list[str]:
 
 
 def ticket_entries(numbers: list[int]) -> list[dict]:
-    """One entry per ticket: the blocking links the tracker records.
+    """One entry per ticket: the blocking edges the tracker records.
 
     `dependencies` is what the tracker records, and it is the graph every check below
     runs on — the same edges `--preflight` refuses on and `dispatch.sh advance` dispatches from.
@@ -1476,7 +1476,7 @@ def run_touched(number: int) -> int:
 def default_draft_path(number: int) -> Path:
     """A file of this run's own making, in a fresh directory outside every repository.
 
-    The skeleton recounts the ticket, so it carries every path and file name the ticket
+    The closing-comment draft recounts the ticket, so it carries every path and file name the ticket
     names — that is what a closing comment says. `--closeout` then runs the repository's
     own `checks` over the working tree, and a draft written into that tree is one more
     file those checks read. A prior ticket with every criterion met stayed open because a
@@ -1488,7 +1488,7 @@ def default_draft_path(number: int) -> Path:
 
 
 def run_draft(number: int, out_file: Path | None) -> int:
-    """Write the closing-comment skeleton to `out_file`, or to a path of this run's own
+    """Write the closing-comment draft to `out_file`, or to a path of this run's own
     when it is None, printing the path either way."""
     body = fetch_body(number)
     comments = fetch_comments(number)
@@ -1657,7 +1657,7 @@ def issue_db_id(number: int) -> int:
 
 def add_blocking_link(child: int, blocker: int) -> str | None:
     """Record `child` as blocked by `blocker` in the tracker's native issue dependencies,
-    the same link `docs/agents/issue-tracker.md` `## Wayfinding operations` adds by hand.
+    the same edge `docs/agents/issue-tracker.md` `## Wayfinding operations` adds by hand.
     The reason when it could not be recorded, None when it was. Patched out in tests."""
     try:
         blocker_id = issue_db_id(blocker)
@@ -1747,11 +1747,11 @@ def load_lease():
 
 def hold_slot(number: int, root: Path, run: str, comments: list,
               actor: str | None = None) -> dict | int:
-    """This worktree's product slot, claimed now when it holds none; an exit code when
+    """This worktree's product slot, acquired now when it holds none; an exit code when
     the run cannot go on.
 
     Writing code takes no slot. The first run of the criteria that needs the product
-    claims one, and the worktree holds it until its ticket's work ends — landed, handed
+    acquires one, and the worktree holds it until its ticket's work ends — landed, handed
     back, released, suspended or retracted — so every later run, including the final
     reverify and closeout checks, finds it already there.
 
@@ -1761,14 +1761,14 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
     ticket's work ends, and the event that ends it is what the relay of the dispatch skill
     wakes every queued worker on, with `#<n> worker.queued`; the worker runs the same
     command again then. Waiting here instead would cost the worker a turn every
-    `SLOT_WAIT_S` for as long as the slots stay held. A reverify by the worker or main
-    agent normally finds its worktree's slot already held; when it does not, it
+    `SLOT_WAIT_S` for as long as the slots stay held. A reverify by the worker or the
+    orchestrator normally finds its worktree's slot already held; when it does not, it
     asks again every `SLOT_BEAT_S` seconds and exits 3 after `SLOT_WAIT_S`, to be run again.
     """
     lease = load_lease()
     if lease is None:
         return refuse("a criterion runs the product and no directory in force holds "
-                      "lease.py, so no slot can be claimed for it. Nothing was run and "
+                      "lease.py, so no slot can be acquired for it. Nothing was run and "
                       "nothing was written. Pass --tools <the ui-acceptance skill's scripts "
                       "directory> and run again.")
     worktree = lease.worktree_of(root)
@@ -1778,7 +1778,7 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
         try:
             return lease.try_claim(worktree)
         except lease.CapUnreadable as exc:
-            return refuse(f"{exc}; the product's limit is unknown, so no slot was claimed "
+            return refuse(f"{exc}; the product's limit is unknown, so no slot was acquired "
                           f"and nothing was run. Fix that file and run again.")
         except lease.Full as full:
             if not announced:
@@ -1816,7 +1816,7 @@ def hold_slot(number: int, root: Path, run: str, comments: list,
 
 
 def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
-    """Run criteria under the lifetime of a non-ticket judge lease."""
+    """Run criteria under the lifetime of a non-ticket oracle lease."""
     body = fetch_body(number)
     require_judges(body)
     root = repo_root()
@@ -1827,10 +1827,10 @@ def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
         with lease.judge_run(root, stop=True):
             return _run_checks(number, reverify, actor, body, root)
     except lease.StopUnreadable as exc:
-        sys.stderr.write(f"#{number}: {exc}; the judge's product slot was kept\n")
+        sys.stderr.write(f"#{number}: {exc}; the oracle's product slot was kept\n")
         return 2
     except SystemExit as exc:
-        sys.stderr.write(f"#{number}: the judge's product slot was not given back: {exc}\n")
+        sys.stderr.write(f"#{number}: the oracle's product slot was not given back: {exc}\n")
         return 2
 
 
@@ -2570,7 +2570,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if passed:
         fields["into"] = into
     # The state change first, then the event that announces it: the event is what wakes
-    # the main agent and what `advance` merges on, so it must never stand on a ticket the
+    # the orchestrator and what `advance` merges on, so it must never stand on a ticket the
     # tracker did not close or hand back.
     if pending is None:
         try:
@@ -2601,7 +2601,7 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     except (OSError, subprocess.CalledProcessError) as exc:
         done = "closed" if passed else "handed back to needs-triage"
         sys.stderr.write(f"closeout incomplete: #{number} is {done}, and its {event} event could "
-                         f"not be posted ({exc}), so nothing wakes the main agent and nothing "
+                         f"not be posted ({exc}), so nothing wakes the orchestrator and nothing "
                          f"reads the ticket as {'passed' if passed else 'returned'} yet. Run "
                          f"--closeout again with the same draft: it sees the {done} ticket and "
                          f"posts the missing event\n")
@@ -2639,7 +2639,7 @@ def lint_batch_graph(spec: int, numbers: list[int],
                      entries: list[dict] | None = None) -> int:
     """Check that `numbers`, the sub-issues of `spec`, form a startable graph.
 
-    `entries` replaces the tracker's blocking links with ones read elsewhere: the
+    `entries` replaces the tracker's blocking edges with ones read elsewhere: the
     `BLOCKED BY:` headers of a directory of drafts, whose ids are draft names."""
     if not numbers and not entries:
         print(f"  ERROR #{spec} has no sub-issues — publish tickets as sub-issues of the "
@@ -2853,7 +2853,7 @@ PIPELINE_SCRIPTS = {
     "story-parity.py": {"required": ("--contract", "--pages")},
     "boundary-check.py": {"required": ("--run",)},
 }
-# The judges of the `ui-acceptance` skill: every script a `CHECK:` names by its bare name and
+# The oracles of the `ui-acceptance` skill: every script a `CHECK:` names by its bare name and
 # that `require_judges` refuses a run for when the shell could not find it. The default place
 # looked at is that skill's `scripts/`, resolved in `main()`; `--tools` overrides it.
 JUDGES = ("story-parity.py", "boundary-check.py", "journey.py", "harness-guard.py")
@@ -2864,7 +2864,7 @@ DOC_SOURCE_RE = re.compile(r"^(docs/\S+)")
 STORY_SOURCE_RE = re.compile(r"^#\d+ story \d+")
 _HELP_FLAGS: dict[str, set[str]] = {}
 # Where the scripts other skills own are found: the `ui-acceptance` skill's `scripts/` by
-# default, or the directories `--tools` named instead. A `CHECK:` names a judge by its bare
+# default, or the directories `--tools` named instead. A `CHECK:` names an oracle by its bare
 # name (`story-parity.py …`), and this process puts these directories on the PATH of the
 # shell that runs it. Nothing here looks for such a script by any other route.
 TOOLS: list[Path] = []
@@ -2879,11 +2879,11 @@ def tool(script: str) -> Path | None:
 
 
 class JudgeUnreachable(RuntimeError):
-    """A `CHECK:` names one of the judges and no directory in force holds it."""
+    """A `CHECK:` names one of the oracles and no directory in force holds it."""
 
 
 def require_judges(body: str) -> None:
-    """Refuse, before anything runs, when a criterion names a judge this run cannot reach.
+    """Refuse, before anything runs, when a criterion names an oracle this run cannot reach.
 
     Without the directory, the criterion fails `command not found`, which reads exactly
     like a criterion that ran and did not pass: gate-check records it as one more unmet
@@ -2893,7 +2893,7 @@ def require_judges(body: str) -> None:
     names the script, and writes nothing to the ticket.
 
     `PATH` is the second place looked at: a directory put there by hand is a legitimate
-    way to reach the judges, and refusing it would refuse something that works.
+    way to reach the oracles, and refusing it would refuse something that works.
     """
     missing = sorted({judge
                       for _, check, _ in criteria_lines(body)
@@ -2940,11 +2940,11 @@ def script_segment(check: str, script: str) -> str:
 
 
 def segment_flags(segment: str) -> set[str]:
-    """The flags of the judge's own command line.
+    """The flags of the oracle's own command line.
 
     `--run` carries a whole command as its value, and that command has flags of its
     own (`pnpm --dir desktop-chameleon exec vitest run …`). The shell hands a quoted
-    value to the judge as one word, so the words are cut the way the shell cuts them
+    value to the oracle as one word, so the words are cut the way the shell cuts them
     and only a word that is itself a flag is read; a line whose quotes do not balance
     is cut on whitespace instead, which is what this did before shell words."""
     try:
@@ -3423,7 +3423,7 @@ def lint_screen_contract(
     acceptance journeys require `--break`, while a user-named journey without it is
     a warning;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
-    nock, fetch-mock) — mocking the product's outbound call module is not that; the
+    nock, fetch-mock) — mocking the product's gateway is not that; the
     pipeline scripts are given what they need and nothing they retired; every
     baseline-class source of an owned row is under `## Read first` and every
     spec-section source is named by `## Parent`.
@@ -3472,7 +3472,7 @@ def lint_screen_contract(
         findings.extend(lint_pipeline_flags(gate_id, check))
         if FETCH_STUB_RE.search(check):
             findings.append(f"{gate_id}: CHECK stubs the application's own network; mock "
-                            f"the product's outbound call module instead")
+                            f"the product's gateway instead")
         for value in run_values(check):
             if not value.strip():
                 findings.append(f"{gate_id}: boundary-check.py --run is empty")
@@ -3609,7 +3609,7 @@ def lint_screen_contract(
                 findings.append(
                     f"{kind} {rid} trigger is not a string, so its data-ui id cannot be "
                     f"checked against a boundary test; the contract row is unreadable to "
-                    f"this rule; write `trigger` as the skeleton's data-ui id string")
+                    f"this rule; write `trigger` as the closing-comment draft's data-ui id string")
                 continue
             trigger = trigger_value
             boundary_rows.append((kind, rid, trigger))
@@ -3721,7 +3721,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
         ledger = write_ledger(body, Path(tmp))
         result = subprocess.run(
             # No `--strict`: it fails the run on any warning, and a warning is the level
-            # for findings the main agent weighs and may keep. The exit code says one thing —
+            # for findings the orchestrator weighs and may keep. The exit code says one thing —
             # there is an ERROR — which is what the read-back step converges on.
             ["node", str(GATE_LINT), str(ledger)],
             capture_output=True, text=True,
@@ -3852,7 +3852,7 @@ DRAFT_ISSUE_RE = re.compile(r"^#(\d+)$")
 DRAFTS_NOT_CHECKED = (
     "that each ticket is a sub-issue of the spec and carries the labels on the tracker "
     "(the LABELS: header is checked instead)",
-    "the blocking links the tracker records (the BLOCKED BY: headers are checked instead)",
+    "the blocking edges the tracker records (the BLOCKED BY: headers are checked instead)",
 )
 
 
@@ -3991,7 +3991,7 @@ def _draft_dependencies(draft: dict, names: set[str], directory: Path) -> list[i
 
 def run_publish_drafts(spec: int, directory: Path) -> int:
     """Publish every draft in `directory` as a native sub-issue of `spec`: create each
-    blocker before what it blocks, wire the blocking links its `BLOCKED BY:` header
+    blocker before what it blocks, wire the blocking edges its `BLOCKED BY:` header
     names, print the draft name to issue number table, then run `--lint` on the
     published spec once, because only the tracker shows what publishing did.
 
@@ -4083,7 +4083,7 @@ exit codes:
   --lint
     0 nothing reported an ERROR; 1 a ticket or the graph has one (on a spec, any of
     its open sub-issues having one; a closed one's ERROR is printed and counts for
-    nothing); 2 a criterion names a judge this run cannot reach, refused before
+    nothing); 2 a criterion names an oracle this run cannot reach, refused before
     anything is read. No CHECK: runs and no comment is posted on any exit
   --decisions, --touched
     0 posted (for --touched, or nothing to post); 2 refused, nothing posted
@@ -4100,8 +4100,8 @@ exit codes:
     --spec-body: 0 published, printed as the issue number (with --map, its native
     parent was confirmed too); 1 published but the native parent could not be
     confirmed as --map, printed then said on stderr; 2 refused, nothing published
-    --drafts: 0 every draft published, every blocking link recorded, and --lint on
-    the published spec reported no ERROR; 1 published with a blocking link that
+    --drafts: 0 every draft published, every blocking edge recorded, and --lint on
+    the published spec reported no ERROR; 1 published with a blocking edge that
     could not be recorded, or --lint on the published spec found one; 2 refused
     before anything was created, or gh failed partway (stderr names what published)
   --closeout
@@ -4145,7 +4145,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--closeout", type=Path, metavar="DRAFT",
                         help="check this closing comment, then post it and close the ticket")
     parser.add_argument("--check-only", action="store_true",
-                        help="with --closeout: check the draft and change nothing")
+                        help="with --closeout: check the closing-comment draft and change nothing")
     parser.add_argument("--decisions", type=Path, metavar="FILE",
                         help="post the two-section file as a DECISIONS comment")
     parser.add_argument("--touched", action="store_true",
@@ -4153,7 +4153,7 @@ def main(argv: list[str] | None = None) -> int:
     # The path is optional, and an empty string is what argparse leaves when the flag came
     # without one — a file of the run's own, outside the repository the checks read.
     parser.add_argument("--draft", nargs="?", const="", metavar="OUT",
-                        help="write the closing-comment skeleton to this file; with no "
+                        help="write the closing-comment draft to this file; with no "
                              "path, to one of its own outside the repository, printed as "
                              "`DRAFT: wrote <path>`")
     parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
@@ -4168,7 +4168,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="a directory holding scripts of other skills (the ui-acceptance "
                              "skill's scripts/); put on the PATH of every CHECK; repeatable")
     args = parser.parse_args(argv)
-    # The judges live in the `ui-acceptance` skill, beside this one under `skills/`, so this
+    # The oracles live in the `ui-acceptance` skill, beside this one under `skills/`, so this
     # file's own location answers where they are and no caller has to know. `--tools`
     # overrides that for a run against a copy somewhere else.
     TOOLS[:] = ([d.resolve() for d in args.tools]

@@ -1,6 +1,6 @@
 # UI acceptance
 
-How an interface is proved correct by machine: the design package a Claude Design project leaves in the repository, the judges that compare a product story with its design page, run a four-column boundary test twice and run a real journey, the screen contract that says what every control does, and the lease that gives each run its own share of this machine.
+How an interface is proved correct by machine: the design package a Claude Design project leaves in the repository, the oracles that compare a product story with its design page, run a four-column boundary test twice and run a real journey, the screen contract that says what every control does, and the lease that gives each run its own share of this machine.
 
 ## Language
 
@@ -75,18 +75,19 @@ _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind. Its `README.md` is read to its verdict as a `## Read first` item.
 _Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
 
-### The judges
+### The oracles
 
-**judge**:
-One of the four scripts an acceptance criterion names by its bare name: the **story judge**, `boundary-check.py`, `journey.py` and the **harness guard**.
+**oracle**:
+One of the four scripts an acceptance criterion names by its bare name: the **story oracle**, `boundary-check.py`, `journey.py` and the **harness guard**.
+_Avoid_: judge
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **`data-ui` id**:
-The element identity shared by a design page and the matching product element. The story judge pairs elements by it, and a four-column boundary test finds the control by it.
+The element identity shared by a design page and the matching product element. The story oracle pairs elements by it, and a four-column boundary test finds the control by it.
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **element parity**:
-The story judge's comparison of a product story with its design page, both sides paired by **`data-ui` id**: presence, visibility, text, size, position and the listed style facts, one `DIFF` line per difference.
+The story oracle's comparison of a product story with its design page, both sides paired by **`data-ui` id**: presence, visibility, text, size, position and the listed style facts, one `DIFF` line per difference.
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story**:
@@ -95,11 +96,12 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **user story**:
 One line of a spec's `## User Stories`.
-_Avoid_: story (for this; a story is the product page the story judge opens)
+_Avoid_: story (for this; a story is the product page the story oracle opens)
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
-**story judge**:
+**story oracle**:
 `story-parity.py` of the ui-acceptance skill, which decides **element parity** between a product story and the design page it was built from.
+_Avoid_: story judge
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **story adapter**:
@@ -107,15 +109,16 @@ What puts a **product component** into one scene on a **story** page: one per de
 _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 
 **boundary**:
-In this repository, the word for one class of acceptance criterion and the judge that runs it, the **boundary criterion**. It is not a word for a **seam**.
+In this repository, the word for one class of acceptance criterion and the oracle that runs it, the **boundary criterion**. It is not a word for a **seam**.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **four-column boundary test**:
-A product test that asserts one screen-contract row's `calls`, `shows`, `next` and `on_failure` together, finding the control by its **`data-ui` id** and replacing the **outbound call module** with a mock.
+A product test that asserts one screen-contract row's `calls`, `shows`, `next` and `on_failure` together, finding the control by its **`data-ui` id** and replacing the **gateway** with a mock.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
-**outbound call module**:
+**gateway**:
 The layer a consuming repository names as the one that makes outbound calls, over HTTP, IPC or an extension message. A four-column boundary test replaces it with a mock.
+_Avoid_: outbound call module
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
 **boundary criterion**:
@@ -126,8 +129,9 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 The one shared click-and-fill helper the **contract ticket** delivers, which every four-column boundary test calls to act on the page. Under `MMW_NEGATIVE=1` it does nothing, which is what the boundary criterion's **negative control** relies on.
 _Home_: `mmw-v2/skills/ui-acceptance/references/boundary-check.md`
 
-**break switch**:
+**fault-injection switch**:
 The product-owned switch in `.mmw/harness/` that a journey criterion with `--break` arms on its second start, so that the product itself fails one named interface.
+_Avoid_: break switch
 _Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
 
 **journey**:
@@ -135,7 +139,7 @@ One Playwright path run against the real product on this machine, from a directo
 _Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
 
 **`.mmw/harness`**:
-The directory in a consuming repository that holds what starts the stack, the **break switch**, vendor stubs, seeds, and the record of actions that would leave the machine.
+The directory in a consuming repository that holds what starts the stack, the **fault-injection switch**, vendor stubs, seeds, and the record of actions that would leave the machine.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **harness guard**:
@@ -143,7 +147,7 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 _Home_: `mmw-v2/skills/ui-acceptance/references/harness-guard.md`
 
 **negative control**:
-The pass a judge makes to prove it can fail: the story judge perturbs its inputs, the boundary criterion reruns the test with `MMW_NEGATIVE=1`, and a journey runs with the **break switch** armed or the product down. The harness guard has none.
+The pass an oracle makes to prove it can fail: the story oracle perturbs its inputs, the boundary criterion reruns the test with `MMW_NEGATIVE=1`, and a journey runs with the **fault-injection switch** armed or the product down. The harness guard has none.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/story-parity.py`, `mmw-v2/skills/ui-acceptance/scripts/boundary-check.py`, `mmw-v2/skills/ui-acceptance/scripts/journey.py`
 
 ### Screen contract
@@ -190,7 +194,7 @@ _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.m
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/design_render.py`
 
 **product answers**:
-What a consuming repository answers in `.mmw/` so the judges can run its product: `.mmw/target.json`, `.mmw/harness/`, `.mmw/journeys/` and `.mmw/stories/`. Answering them makes the repository an acceptance runtime.
+What a consuming repository answers in `.mmw/` so the oracles can run its product: `.mmw/target.json`, `.mmw/harness/`, `.mmw/journeys/` and `.mmw/stories/`. Answering them makes the repository an acceptance runtime.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`target_config.py`**:
@@ -216,7 +220,7 @@ _Home_: `mmw-v2/skills/ui-acceptance/scripts/target_config.py`
 ### The lease
 
 **lease**:
-One run's share of this machine: a registration of `worktree path -> slot` under `MMW_HOME/leases`, claimed by a ticket worktree at its first run that needs the product and kept until the ticket's work ends. `lease.py` is its whole interface.
+One run's share of this machine: a registration of `worktree path -> slot` under `MMW_HOME/leases`, acquired by a ticket worktree at its first run that needs the product and kept until the ticket's work ends. `lease.py` is its whole interface.
 _Home_: `mmw-v2/skills/ui-acceptance/scripts/lease.py`
 
 **slot**:

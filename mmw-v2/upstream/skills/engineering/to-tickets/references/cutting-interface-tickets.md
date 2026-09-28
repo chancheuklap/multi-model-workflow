@@ -2,7 +2,7 @@
 
 The five kinds of ticket below are what a screen contract produces. An **interface ticket** is one whose **Read first** carries a `screen-contract.yaml rows:` line, as `verify-ticket.py --lint` reads it: the **component page ticket** and the **app page ticket**.
 
-Copy each criterion in the shape below; the judges are the `ui-acceptance` skill's scripts, named bare.
+Copy each criterion in the shape below; the oracles are the `ui-acceptance` skill's scripts, named bare.
 
 ## Criterion shapes
 
@@ -61,7 +61,7 @@ The one argument is the repository root, and a `CHECK:` line runs there, so it i
 
 ## Seam and Owns on these tickets
 
-**Seam** names, for each criterion shape the ticket uses, where it observes and what puts the product there: a story criterion observes the product's story page, put into its scene by the story adapter reading the scene data; a boundary criterion observes the product's outbound call module, replaced for the test, with the interaction helper acting on the row's `data-ui` id; a journey criterion observes the real product brought up by `start` in `.mmw/target.json`; the design-system, static-guard and harness-guard criteria read the repository tree. **Seam** also names the precedent to copy; on a product from zero that is what the **contract ticket** lands.
+**Seam** names, for each criterion shape the ticket uses, where it observes and what puts the product there: a story criterion observes the product's story page, put into its scene by the story adapter reading the scene data; a boundary criterion observes the product's gateway, replaced for the test, with the interaction helper acting on the row's `data-ui` id; a journey criterion observes the real product brought up by `start` in `.mmw/target.json`; the design-system, static-guard and harness-guard criteria read the repository tree. **Seam** also names the precedent to copy; on a product from zero that is what the **contract ticket** lands.
 
 When a contract row a ticket owns cites a section of an earlier spec as its source, **Parent** names that spec and its sections after the parent's, in the same words, and never first (for example, "#12, Implementation Decisions sections 5 and 7; #7 Implementation Decisions section 4").
 
@@ -91,17 +91,17 @@ What it delivers:
 - the interaction helper that finds a control by its `data-ui` id
 - this product's element parity precedent: one existing component made comparable, with the design page's `data-ui` ids written onto its elements and `[data-story-root]` on its root, rendered by the first story adapter; for a new product with no component yet, see below
 - the static guards: the interface takes no fake data; `mount` is unique in one render; a `data-ui` id repeats only on the repeating part of a list
-- the **break switch** under `.mmw/harness/`: `start` reads `MMW_BREAK` and the switch acts only on the product process
+- the **fault-injection switch** under `.mmw/harness/`: `start` reads `MMW_BREAK` and the switch acts only on the product process
 - the smoke journey
 - the **harness guard**
 
-Of those, only the smoke journey carries a criterion on this ticket. The static guards and the harness guard sweep the whole repository, which every later page ticket adds to, so their criteria (one command each) go on the batch's last ticket: the last **acceptance ticket** where the batch has one, otherwise the last **app page ticket** or **component page ticket**, made last by being blocked by every other agent ticket of the batch. The rest are precedents, first decided by a command on the ticket that copies them: the first **component page ticket** for the story service, the story adapter, the interaction helper and the element parity precedent; the first **acceptance ticket** for the break switch. Whether any of them is built well is code review's.
+Of those, only the smoke journey carries a criterion on this ticket. The static guards and the harness guard sweep the whole repository, which every later page ticket adds to, so their criteria (one command each) go on the batch's last ticket: the last **acceptance ticket** where the batch has one, otherwise the last **app page ticket** or **component page ticket**, made last by being blocked by every other agent ticket of the batch. The rest are precedents, first decided by a command on the ticket that copies them: the first **component page ticket** for the story service, the story adapter, the interaction helper and the element parity precedent; the first **acceptance ticket** for the fault-injection switch. Whether any of them is built well is code review's.
 
 The contract ticket's **What to build** fixes each static guard's test file and case name; the last ticket's static-guard `CHECK:` runs that case with the repository's test runner, and its `EXPECT:` is the runner's success line.
 
 This ticket writes the `data-ui` ids onto the precedent's component and builds the story adapter for its page, and its **Owns** lists those component files beside `.mmw/`. The **component page ticket** that takes that component's page owns the same directory, is blocked by this one, and carries the story and boundary criteria that first judge the precedent. A new product with no component yet has nothing to make comparable here: its precedent is the component the first **component page ticket** builds, and this ticket delivers the story service, the story adapter shape and the interaction helper that ticket uses, with no component files under **Owns**.
 
-The smoke journey uses the journey criterion and omits `--break`. It requires the product to come up and answer; it signs in when the product has a login. Its second pass is the product-down pass the **Journey criterion** above already names. The first **acceptance ticket**'s journey is what proves the break switch.
+The smoke journey uses the journey criterion and omits `--break`. It requires the product to come up and answer; it signs in when the product has a login. Its second pass is the product-down pass the **Journey criterion** above already names. The first **acceptance ticket**'s journey is what proves the fault-injection switch.
 
 **Read first** names three sections of the `ui-acceptance` skill: `references/story-parity.md` **The story page the product serves**; `references/journey.md`; and `references/product-answers.md`. **Owns** is `.mmw/`, the story service and the interaction helper, and, as the prefactor ticket below, every file that registers a design page's scenes and routes.
 

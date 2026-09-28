@@ -79,7 +79,7 @@ An effort with a screen contract has one fixed subsection here, **API contract**
 
 The same effort has one fixed subsection here, **`App · ` 页组合**: one entry per **cross-component row**, naming the request fields that row's action carries and the state the other region enters, citing the row id.
 
-The same effort has one paragraph on **visual acceptance**, in its own numbered subsection or the one that carries the `data-ui` ids, and it restates no command: appearance is decided by **element parity** (the story judge of the `ui-acceptance` skill pairs both sides by `data-ui` id), citing the contract's `pages`, `App · ` pages included. Each design page's `mount` is the story page id.
+The same effort has one paragraph on **visual acceptance**, in its own numbered subsection or the one that carries the `data-ui` ids, and it restates no command: appearance is decided by **element parity** (the story oracle of the `ui-acceptance` skill pairs both sides by `data-ui` id), citing the contract's `pages`, `App · ` pages included. Each design page's `mount` is the story page id.
 
 Do NOT include implementation file paths (the module you will edit, the function you will add) or code snippets. They may end up being outdated very quickly. Paths to source material (ADRs, research files, prototype directories, domain docs, test directories, shared contract locations) are what the tickets and the implementer read from: write them.
 

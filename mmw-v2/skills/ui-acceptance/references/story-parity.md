@@ -1,6 +1,6 @@
 # Story parity
 
-`story-parity.py`, the **story judge**, compares a product story with the Claude Design
+`story-parity.py`, the **story oracle**, compares a product story with the Claude Design
 page it was built from, element by element, by `data-ui` id.
 
 Two agents use this page. An agent building a story reads **The story page the product
@@ -13,10 +13,10 @@ The contract ticket builds the **story service** (the server that `.mmw/target.j
 tickets add one story adapter per design page.
 
 - `.mmw/target.json`'s `stories` command starts the service in the foreground and
-  prints `origin=<url>`. The judge starts that command with `MMW_AUTOMATION=1` and
+  prints `origin=<url>`. The oracle starts that command with `MMW_AUTOMATION=1` and
   ends the command and all descendants it started. A story uses a machine-chosen
   port and no lease.
-- The judge opens
+- The oracle opens
   `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. `mount` comes from the
   contract's `pages`; `name` comes from `scenes.json`. `Component · ` and `App · `
   pages use the same request and comparison.
@@ -25,7 +25,7 @@ tickets add one story adapter per design page.
   around the component and not a child inside it.
 - Every other product element being compared carries the same `data-ui` id as the
   corresponding element on the design page. Repeated component instances may reuse
-  an id; the judge pairs them in document order.
+  an id; the oracle pairs them in document order.
 - The adapter takes the scene's **scene data** and maps it to the product
   component. Scene data is the `data` field of the scene's `scenes.json` entry:
   the displayed text keyed by `data-ui` id, nested where one id contains another,
@@ -46,7 +46,7 @@ the design package's page, rendered offline in the same contract viewport window
 `#dc-root` keeps the size the design page renders at in that window.
 Both browser contexts take `locale` from the contract. Neither side reads a live clock: the
 design side keeps its paused clock, and the product's time values come from scene
-data. Both sides are read as rendered. The judge does not hide controls or replace
+data. Both sides are read as rendered. The oracle does not hide controls or replace
 display values.
 
 For each `[data-ui]` element, the common reader records these facts in document
@@ -70,11 +70,11 @@ compared.
 
 ## Element parity
 
-The judge's comparison is **element parity**. The same id on each side is one
+The oracle's comparison is **element parity**. The same id on each side is one
 pair. Repeated ids pair in document order. An id only on the design side is
 `missing`; one only on the product side is `extra`.
 
-If either paired element is not visible, the judge compares only `visible`. It does
+If either paired element is not visible, the oracle compares only `visible`. It does
 not report any descendant carrying `data-ui`, so hiding one parent produces one
 line. When both are visible it compares `text`, `size`, the five style facts,
 `parent`, and `position`:
@@ -113,6 +113,6 @@ keeps both screenshots, their pixel difference image and the ARIA capture.
 
 ## Negative controls
 
-Once per run the judge proves it can see a changed style and a missing id; when it
+Once per run the oracle proves it can see a changed style and a missing id; when it
 cannot, it exits 2 with `NEGATIVE CONTROL FAILED`, so a design page with no `data-ui`
 cannot pass.

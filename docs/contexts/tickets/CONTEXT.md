@@ -131,7 +131,7 @@ The ticket section holding the acceptance criteria. A `ready-for-human` ticket h
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **Blocked by**:
-The item of a `ready-for-human` ticket naming the ticket that produces the thing it waits on. An agent ticket's blocking is on the tracker's blocking links alone.
+The item of a `ready-for-human` ticket naming the ticket that produces the thing it waits on. An agent ticket's blocking is on the tracker's blocking edges alone.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/person-ticket.md`
 
 ### Acceptance criteria
@@ -182,8 +182,9 @@ _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 ### The graph
 
-**blocking link**:
+**blocking edge**:
 The tracker's native issue dependency between two tickets, the copy every script reads. A blocker is a ticket that must land before the ticket it blocks is started.
+_Avoid_: blocking link, native issue dependencies
 _Home_: `docs/agents/issue-tracker.md`
 
 **frontier**:

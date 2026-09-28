@@ -1,6 +1,6 @@
 #!/bin/sh
 # A product of one page and a write/read API, on this run's own port, recorded so
-# `stop` can end what it started and nothing else. Its break switch belongs to the
+# `stop` can end what it started and nothing else. Its fault-injection switch belongs to the
 # product process and fails only the method and route pattern MMW_BREAK names.
 set -e
 rm -f .mmw/stop-ran

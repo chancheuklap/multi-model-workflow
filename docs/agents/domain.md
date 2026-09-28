@@ -37,7 +37,7 @@ This repository is multi-context, and its context files sit apart from the code 
 │       ├── tickets/CONTEXT.md         ← what a spec and a ticket are
 │       ├── ticket-run/CONTEXT.md      ← one ticket from claim to close
 │       ├── night/CONTEXT.md           ← dispatching sessions onto tickets
-│       ├── ui-acceptance/CONTEXT.md   ← design side, screen contract, judges
+│       ├── ui-acceptance/CONTEXT.md   ← design side, screen contract, oracles
 │       └── task-board/CONTEXT.md      ← the local browser board
 └── mmw-v2/
 ```

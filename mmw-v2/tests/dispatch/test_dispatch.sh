@@ -1667,7 +1667,7 @@ if holder:
 PY
 }
 
-# The main agent of the open watch <key> (`spec:N` or `tickets:N`), "runner session";
+# The orchestrator of the open watch <key> (`spec:N` or `tickets:N`), "runner session";
 # nothing when that watch is not open.
 watch_main() {
   python3 - "$STATE_DIR/watches.json" "$1" <<'PY'
@@ -1681,7 +1681,7 @@ if watch:
 PY
 }
 
-# A Paseo agent `paseo ls` lists as idle, standing in for the main agent's own session.
+# A Paseo agent `paseo ls` lists as idle, standing in for the orchestrator's own session.
 seed_main_agent() {
   MMW_ID="$1" python3 -c '
 import json, os
@@ -3175,7 +3175,7 @@ scenario_nobaseconfig() {
 scenario_advise() {
   local code packet dest
   packet="$TMP/packet.txt"
-  printf '%s\n' 'the packet body' > "$packet"
+  printf '%s\n' 'the brief body' > "$packet"
 
   echo "--- advise starts the advisor row in the current worktree and prints the session id"
   reset_log
@@ -3193,8 +3193,8 @@ scenario_advise() {
     *) fail "the advisor dispatch line is missing: $(out_json initialPrompt)" ;;
   esac
   case "$(out_json initialPrompt)" in
-    *"the packet body"*) ;;
-    *) fail "the packet is missing from the prompt: $(out_json initialPrompt)" ;;
+    *"the brief body"*) ;;
+    *) fail "the brief is missing from the prompt: $(out_json initialPrompt)" ;;
   esac
   dest="$(cd "$TMP/repo" && git rev-parse --show-toplevel)"
   [ "$(out_json cwd)" = "$dest" ] || fail "cwd: $(out_json cwd), want $dest"
@@ -3224,24 +3224,24 @@ scenario_advise() {
     || fail "stderr should carry the runner's own reason: $(cat "$TMP/err")"
   nothing_printed
 
-  echo "--- a missing packet file is refused, and nothing is started"
+  echo "--- a missing brief file is refused, and nothing is started"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/nope.txt")"
   [ "$code" = 2 ] || fail "missing file expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "no packet file at" "$TMP/err" \
+  grep -q "no brief file at" "$TMP/err" \
     || fail "the refusal should name the missing file: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
-  echo "--- an empty packet file is refused, and nothing is started"
+  echo "--- an empty brief file is refused, and nothing is started"
   reset_log
   fresh_repo
   : > "$TMP/empty-packet.txt"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise "$TMP/empty-packet.txt")"
   [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q "is empty" "$TMP/err" \
-    || fail "the refusal should say the packet is empty: $(cat "$TMP/err")"
+    || fail "the refusal should say the brief is empty: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
@@ -3534,7 +3534,7 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL=62 \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
-  echo "--- each run is the main agent's reverify, and a green one writes nothing but its own run"
+  echo "--- each run is the orchestrator's reverify, and a green one writes nothing but its own run"
   has "verify-ticket :: 61 :: --reverify :: --actor :: main"
   has "verify-ticket :: 62 :: --reverify :: --actor :: main"
   hasnt "gh :: issue :: comment :: 61"
@@ -3774,7 +3774,7 @@ scenario_summary_retro() {
   [ "$code" = 0 ] || fail "summary did not record a completed spec: $(cat "$TMP/err")"
   posted_events 76 | grep -q '^spec.closed' \
     || fail "summary never produced the prerequisite spec.closed event"
-  python3 - "$runbook" <<'PY' || fail "the same main-agent runbook does not reach retro after spec.closed"
+  python3 - "$runbook" <<'PY' || fail "the same orchestrator runbook does not reach retro after spec.closed"
 from pathlib import Path
 import sys
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
@@ -3782,7 +3782,7 @@ start = text.index("## 5. The night is over")
 end = text.index("## 6. Merge the accepted night")
 section = text[start:end]
 assert section.index("bash scripts/dispatch.sh summary <spec>") < section.index("Immediately after `summary` records `spec.closed`")
-assert section.index("invoke the `retro` skill in this same main-agent session") < section.index("Then tell the user")
+assert section.index("invoke the `retro` skill in this same orchestrator session") < section.index("Then tell the user")
 assert "`finish` needs its `recorded` receipt" in section
 PY
   hasnt "runner :: start :: retro"
@@ -5495,15 +5495,15 @@ scenario_open() {
   no_relay
   write_open_batch
   seed_main_agent agt_main
-  echo "--- open opens the spec's watch with this session as its main agent, starts the relay, and writes spec.opened"
+  echo "--- open opens the spec's watch with this session as its orchestrator, starts the relay, and writes spec.opened"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
   grep -qx "opened #76: wake-ups go to paseo session agt_main; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
-  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's main agent should be agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's orchestrator should be agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
   posted_events 76 runner session | grep -qx "spec.opened runner=paseo session=agt_main" \
-    || fail "#76 should carry spec.opened naming the main agent: $(posted_events 76 runner session)"
+    || fail "#76 should carry spec.opened naming the orchestrator: $(posted_events 76 runner session)"
 
   echo "--- the relay open started reads the board on its own"
   for _ in $(seq 1 100); do
@@ -5519,25 +5519,25 @@ scenario_open() {
   [ "$code" = 0 ] || fail "a second open of #76 expected 0, got $code: $(cat "$TMP/err")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the relay should be the same process: $pid, now $(relay_now)"
 
-  echo "--- another night in this repository, opened by another session, joins the one relay with its own main agent"
+  echo "--- another night in this repository, opened by another session, joins the one relay with its own orchestrator"
   seed_main_agent agt_other
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 77)"
   [ "$code" = 0 ] || fail "open 77 expected 0, got $code: $(cat "$TMP/err")"
   grep -qx "opened #77: wake-ups go to paseo session agt_other; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the second night should join relay $pid: $(relay_now)"
-  [ "$(watch_main spec:77)" = "paseo agt_other" ] || fail "spec 77's main agent should be agt_other: $(cat "$STATE_DIR/watches.json")"
-  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's main agent should still be agt_main: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main spec:77)" = "paseo agt_other" ] || fail "spec 77's orchestrator should be agt_other: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's orchestrator should still be agt_main: $(cat "$STATE_DIR/watches.json")"
   posted_events 77 runner session | grep -qx "spec.opened runner=paseo session=agt_other" \
-    || fail "#77 should carry spec.opened naming its main agent: $(posted_events 77 runner session)"
+    || fail "#77 should carry spec.opened naming its orchestrator: $(posted_events 77 runner session)"
 
-  echo "--- a ticket of an open night is refused a watch of its own, and the night keeps its main agent"
+  echo "--- a ticket of an open night is refused a watch of its own, and the night keeps its orchestrator"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-ticket 61)"
   [ "$code" = 2 ] || fail "open-ticket 61 expected 2, got $code"
-  grep -q "#61 is a sub-issue of spec #76, which is watched with paseo session agt_main as its main agent" "$TMP/err" \
+  grep -q "#61 is a sub-issue of spec #76, which is watched with paseo session agt_main as its orchestrator" "$TMP/err" \
     || fail "the refusal should name the watch it overlaps: $(cat "$TMP/err")"
-  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "a refused open must not touch spec 76's main agent: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "a refused open must not touch spec 76's orchestrator: $(cat "$STATE_DIR/watches.json")"
   [ -z "$(watch_main tickets:61)" ] || fail "no watch on #61 should be open: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- summary closes its night's watch, and the relay goes on for the other night"
@@ -5595,7 +5595,7 @@ scenario_openrefused() {
           FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 2 ] || fail "an unnamed Herdr agent expected 2, got $code"
   grep -q "has no name" "$TMP/err" || fail "the refusal should be Herdr's, not an Orca registration: $(cat "$TMP/err")"
-  [ ! -f "$STATE_DIR/watches.json" ] || fail "the outer Orca terminal must not be made a main agent: $(cat "$STATE_DIR/watches.json")"
+  [ ! -f "$STATE_DIR/watches.json" ] || fail "the outer Orca terminal must not be made an orchestrator: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- a session the runner shows stopped is refused"
   reset_log
@@ -5634,12 +5634,12 @@ scenario_openticket() {
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}
 ]
 JSON
-  echo "--- open-ticket opens a watch of that ticket alone with this session as its main agent, and starts the relay"
+  echo "--- open-ticket opens a watch of that ticket alone with this session as its orchestrator, and starts the relay"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
   [ "$code" = 0 ] || fail "open-ticket expected 0, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"tickets": [90]}'*) ;; *) fail "a relay should watch #90: $(relay_now)" ;; esac
-  [ "$(watch_main tickets:90)" = "paseo agt_main" ] || fail "#90's main agent should be agt_main: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main tickets:90)" = "paseo agt_main" ] || fail "#90's orchestrator should be agt_main: $(cat "$STATE_DIR/watches.json")"
   hasnt "gh :: issue :: comment"
 
   echo "--- a ticket of a spec is not what this relay watches, so its start is refused"
@@ -5660,7 +5660,7 @@ JSON
   [ "$code" = 0 ] || fail "land with a night open expected 0, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "the night's relay should still run: $(relay_now)" ;; esac
 
-  echo "--- a ticket outside the open night gets a watch of its own beside it, and the night keeps its main agent"
+  echo "--- a ticket outside the open night gets a watch of its own beside it, and the night keeps its orchestrator"
   local pid
   pid="$(relay_now | cut -d' ' -f1)"
   seed_main_agent agt_other
@@ -5669,8 +5669,8 @@ JSON
   [ "$code" = 0 ] || fail "open-ticket 95 beside the night expected 0, got $code: $(cat "$TMP/err")"
   grep -q "^opened #95: wake-ups go to paseo session agt_other; task board http://127.0.0.1:[0-9]*$" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now)" = "$pid "'{"spec": 76} {"tickets": [95]}' ] || fail "relay $pid should watch the night and #95: $(relay_now)"
-  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "the night's main agent should still be agt_main: $(cat "$STATE_DIR/watches.json")"
-  [ "$(watch_main tickets:95)" = "paseo agt_other" ] || fail "#95's main agent should be agt_other: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "the night's orchestrator should still be agt_main: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_main tickets:95)" = "paseo agt_other" ] || fail "#95's orchestrator should be agt_other: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }
 
@@ -5731,7 +5731,7 @@ assert w.get("slot") is None, w
     || fail "adopt took a slot; the first run that needs the product claims it: $(python3 "$LEASE_PY" list)"
   case "$(relay_now)" in *'{"tickets": [61]}'*) ;; *) fail "a relay should watch #61: $(relay_now)" ;; esac
   [ "$(watch_main tickets:61)" = "paseo agt_self" ] \
-    || fail "the adopting session is the main agent of #61's watch: $(cat "$STATE_DIR/watches.json")"
+    || fail "the adopting session is the orchestrator of #61's watch: $(cat "$STATE_DIR/watches.json")"
 
   echo "--- and from there its reviewer can be started: the ticket can finish"
   code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
@@ -5773,7 +5773,7 @@ JSON
   [ "$code" = 0 ] || fail "adopt in a night expected 0, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "the night's relay should be the one: $(relay_now)" ;; esac
   [ "$(watch_main spec:76)" = "paseo agt_main" ] && [ -z "$(watch_main tickets:61)" ] \
-    || fail "the night's main agent is not this session's to take: $(cat "$STATE_DIR/watches.json")"
+    || fail "the night's orchestrator is not this session's to take: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }
 
@@ -5814,7 +5814,7 @@ scenario_ack() {
   fresh_repo
   reset_log
   seed_queue
-  echo "--- the main agent acks the wake it read, by ticket and event; the worker's row stays"
+  echo "--- the orchestrator acks the wake it read, by ticket and event; the worker's row stays"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack 61 ticket.passed)"
   [ "$code" = 0 ] || fail "ack expected 0, got $code: $(cat "$TMP/err")"
   [ "$(queue_seqs)" = "2 3" ] || fail "only row 1 should be gone: $(queue_seqs)"
@@ -5825,7 +5825,7 @@ scenario_ack() {
   grep -q "Queued for this session: \`#62 ticket.returned\`" "$TMP/err" || fail "the refusal should list what is queued for it: $(cat "$TMP/err")"
   [ "$(queue_seqs)" = "2 3" ] || fail "nothing more should go: $(queue_seqs)"
 
-  echo "--- the main agent acking the worker's wake is refused: another session's row stays"
+  echo "--- the orchestrator acking the worker's wake is refused: another session's row stays"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main bash "$DISPATCH" "${TOOLS[@]}" ack 61 reviewer.reported)"
   [ "$code" = 2 ] || fail "acking another session's wake expected 2, got $code"
   [ "$(queue_seqs)" = "2 3" ] || fail "the worker's row must stay: $(queue_seqs)"
@@ -5881,7 +5881,7 @@ scenario_unopened() {
 }
 
 # A reboot or a crash ends the relay and leaves the night open: advance restores the watch
-# for the main agent spec.opened names instead of reading the night as never opened.
+# for the orchestrator spec.opened names instead of reading the night as never opened.
 scenario_advancerestoreswatch() {
   local code
   fresh_repo
@@ -7494,7 +7494,7 @@ seed_orca_caller() {
 
 scenario_orcaworktreeparent() {
   local code main destination
-  echo "--- a worker's worktree is filed under the worktree of the main agent that started it"
+  echo "--- a worker's worktree is filed under the worktree of the orchestrator that started it"
   reset_log; fresh_repo
   main="$(cd "$TMP/repo" && pwd -P)"
   seed_orca_caller "$main"
@@ -7564,7 +7564,7 @@ scenario_orcaparentskips() {
 
 scenario_orcamergeparent() {
   local code main merge_tree
-  echo "--- the merge worktree is filed under the worktree of the main agent that lands"
+  echo "--- the merge worktree is filed under the worktree of the orchestrator that lands"
   reset_log; fresh_repo
   make_branch issue-61 ticket.txt ticket
   write_one_passed 61 "$(git -C "$TMP/repo" rev-parse issue-61)"
@@ -8614,7 +8614,7 @@ scenario_finishcleans() {
   return 0
 }
 
-# #913: the main agent's session lives in a worktree on the base branch, and a runner closes a
+# #913: the orchestrator's session lives in a worktree on the base branch, and a runner closes a
 # session whose worktree disappears. finish, run from inside that worktree, must leave it and the
 # session's current directory in place while cleaning everything the pipeline made.
 scenario_finishkeepssession() {
@@ -10189,7 +10189,7 @@ PY
 }
 
 # The shape of agentflow #731: a ticket lands, the base branch moves on — a sibling
-# ticket's merge and a commit the main agent made straight on it — `reverify` finds the
+# ticket's merge and a commit the orchestrator made straight on it — `reverify` finds the
 # ticket red and reopens it, and it is started again. Its first run's work is in the base
 # branch now, so the new worker's base is where the new branch leaves origin/main, and the
 # `Outside Owns:` its own run computes from that base names none of the commits other
@@ -10222,7 +10222,7 @@ JSON
   merge_sibling_to_origin 62 sibling.txt sibling "sibling landed after #61"
   other="$(other_clone)"
   git -C "$other" pull -q --ff-only origin main
-  commit_file "$other" hotfix.txt hotfix "main agent's fix straight on the base branch"
+  commit_file "$other" hotfix.txt hotfix "orchestrator's fix straight on the base branch"
   git -C "$other" push -q origin main
   tip="$(git -C "$TMP/origin.git" rev-parse main)"
 

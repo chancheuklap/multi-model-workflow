@@ -27,8 +27,9 @@ searches these problems for repeats. A problem the evidence does not carry
 costs twice: a triage decision now, and a false match later that makes one
 incident look like a pattern.
 
-Look for what in the environment let the mistake through: a check that did not
-exist, an instruction that arrived too late, a fact the agent could not reach.
+Look for what in the environment let the mistake through, the discipline of a
+blameless postmortem: a check that did not exist, an instruction that arrived
+too late, a fact the agent could not reach.
 A cause addressed to "the agent" changes nothing on the next run. A night whose
 evidence supports no problem is a valid retro; record `none` rather than
 stretching a weak source into a finding.
@@ -95,7 +96,7 @@ The script writes outputs; the agent judges causes and dispositions.
    - Navigation: how easy was it for the agent to find the right authority and
      files? Are there hidden dependencies? Would a navigation pointer help?
      Use when the evidence shows time or errors spent finding information.
-   - Automated checks: could linting, typing, a test, a judge, a boundary check,
+   - Automated checks: could linting, typing, a test, an oracle, a boundary check,
      or a repository script have caught the mistake? Use when such a check can
      deterministically detect the observed problem.
    - Coding standards: should the reviewer receive a stable rule, or should an
@@ -127,7 +128,7 @@ The script writes outputs; the agent judges causes and dispositions.
     has two independently verified event or commit occurrences, or when
     `spec.closed` proposed a Memory record (an id in `proposed_memory_ids`)
     whose decision's `evidence` URL is among the problem's evidence and one of
-    the problem's event sources is a blocking event. A **blocking event** is
+    the problem's event sources is a stall event. A **stall event** is
     one of `worker.queued`, `ticket.returned`, `child.opened` with
     `kind=fault`, or `ticket.checked` with `result=handoff`. File and
     standalone-check sources support a problem, not this threshold. The
@@ -190,7 +191,7 @@ A problem's Prevention names one of them by its `destination` value:
 
 | `destination` | What belongs there |
 | --- | --- |
-| `check` | a mechanical invariant a lint, test, judge or boundary check can detect |
+| `check` | a mechanical invariant a lint, test, oracle or boundary check can detect |
 | `script` | a mechanical step a script can carry out |
 | `repository-agents` | a short repository-wide, non-inferable navigation pointer or universal instruction, in that repository's `AGENTS.md` |
 | `repository-skill` | a repeated multi-step workflow specific to one repository, as a repository-local skill with a discovery test |

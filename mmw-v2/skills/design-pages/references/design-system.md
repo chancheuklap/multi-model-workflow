@@ -6,7 +6,7 @@ A Claude Design design system is a separate project holding a product's variable
 
 It gives every page one look: the agent inside Claude Design composes named parts and steps instead of guessing values, so a page drawn next month matches one drawn today. Built from an existing product, it is also where the product's inconsistencies are settled: each unified value is a row of `Unifications`, and the product follows once pages drawn with it are pulled.
 
-No judge compares against the design system: pull brings in only its `readme.md`, for the `Unifications` table the product's code follows, and the story judge works from the pulled pages. It is not a step every design must pass through.
+No oracle compares against the design system: pull brings in only its `readme.md`, for the `Unifications` table the product's code follows, and the story oracle works from the pulled pages. It is not a step every design must pass through.
 
 ## When, and from what
 

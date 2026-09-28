@@ -13,8 +13,8 @@ With `--break`, it starts the product again with `MMW_BREAK` supplied only to `s
 requires `BREAK ARMED <METHOD> <route>`, discovers the product again, and re-runs the
 script in the same environment. That pass must fail. Without `--break`, the contract
 smoke journey keeps the product down, moves discovered addresses to a closed port, and
-runs the same script again. A judge that cannot go red is not a
-judge (`docs/adr/0008-silence-is-never-a-pass.md`).
+runs the same script again. An oracle that cannot go red is not an
+oracle (`docs/adr/0008-silence-is-never-a-pass.md`).
 
 Then `stop` runs once more and this run's slot must be quiet: a journey ends leaving the
 machine as it found it, and anything still listening on the slot outlives the run and
@@ -46,7 +46,7 @@ from target_config import command_env, discover, repo_root, run_command, target_
 from lease import holder, judge_run, listener, ports_of, registered, worktree_of  # noqa: E402
 from refusal import refusal  # noqa: E402
 
-# The first acceptance ticket builds the break switch, so a switch that does not arm is
+# The first acceptance ticket builds the fault-injection switch, so a switch that does not arm is
 # that worker's own defect to fix; for any other ticket it is a fault to report.
 BREAK_NEXT = ("If this ticket owns .mmw/harness/, fix the switch and run the criterion "
               "again; otherwise report the ticket blocked and stop.")
@@ -225,14 +225,14 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
             proc = exc.code
             return bail(refusal(
                 f"`start` exited {proc.returncode} while arming {break_spec!r}.",
-                "The break switch in references/journey.md did not come up.",
+                "The fault-injection switch in references/journey.md did not come up.",
                 BREAK_NEXT,
             ), proc=proc)
         expected_arm = f"BREAK ARMED {break_spec}"
         if expected_arm not in (armed.stdout + armed.stderr).splitlines():
             return bail(refusal(
                 f"`start` exited 0 without printing `{expected_arm}`.",
-                "The break switch in references/journey.md was not confirmed.",
+                "The fault-injection switch in references/journey.md was not confirmed.",
                 BREAK_NEXT,
             ))
         try:

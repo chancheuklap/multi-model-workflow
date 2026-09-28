@@ -114,7 +114,7 @@ class WhatTheGuardReads(unittest.TestCase):
 
     def test_a_target_json_without_harness_markers_exits_2_naming_it(self):
         """The refusal names `target_config.py --check`. This test does not load
-        that script and does not claim a lease, so it does not set MMW_HOME."""
+        that script and does not acquire a lease, so it does not set MMW_HOME."""
         self.declare(omit_markers=True)
         code, out = self.guard()
         self.assertEqual(code, 2)

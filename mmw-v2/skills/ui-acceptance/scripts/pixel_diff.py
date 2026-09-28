@@ -7,7 +7,7 @@
 
 Element facts decide story parity. This module produces an image for a person to
 inspect and makes no pass/fail decision. Invoking it as a command exits 2 and names
-the judge that uses it.
+the oracle that uses it.
 """
 
 from __future__ import annotations

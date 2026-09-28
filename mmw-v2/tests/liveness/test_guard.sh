@@ -7,7 +7,7 @@
 #
 # The seam is this machine's state directory plus the runner: MMW_HOME is a temporary
 # directory holding one open watch (a watches.json entry whose relay is not running) whose
-# main agent is main-1 under a fake runner, `fake`, whose adapter answers `self` with
+# orchestrator is main-1 under a fake runner, `fake`, whose adapter answers `self` with
 # $FAKE_SELF. MMW_WATCHDOG_PY names a script that exits at once, so the hook's attempt
 # to arm the watchdog fails and the night is left unwatched — the state in which a turn
 # end must be kept. One case arms the real watchdog.py instead, against a fake `gh`. What
@@ -161,16 +161,16 @@ hook cursor "$GROK" GROK_HOOK_EVENT=stop
 check_silent "cursor copy loaded by grok (no cursor_version in the payload) stands down"
 
 echo "### whose turn, and which night"
-hook claude "$CLAUDE" FAKE_SELF=worker-9;  check_silent "a session that is the main agent of no watch is let through"
-hook claude "$CLAUDE" FAKE_SELF=;          check_silent "a process in no session of the main agent's runner is let through"
-hook claude "$CLAUDE" FAKE_SELF_RC=1;      check_silent "a session whose runner cannot name it is not taken for the main agent"
+hook claude "$CLAUDE" FAKE_SELF=worker-9;  check_silent "a session that is the orchestrator of no watch is let through"
+hook claude "$CLAUDE" FAKE_SELF=;          check_silent "a process in no session of the orchestrator's runner is let through"
+hook claude "$CLAUDE" FAKE_SELF_RC=1;      check_silent "a session whose runner cannot name it is not taken for the orchestrator"
 printf '%s\n' '{"tickets:61": {"tickets": [61], "runner": "fake", "session": "main-1"},
                 "spec:76": {"spec": 76, "runner": "fake", "session": "main-2"}}' > "$STATE/watches.json"
-hook claude "$CLAUDE" FAKE_SELF=main-2;    check "the main agent of a second watch on the repository is guarded too" 2 "MMW turn guard"
+hook claude "$CLAUDE" FAKE_SELF=main-2;    check "the orchestrator of a second watch on the repository is guarded too" 2 "MMW turn guard"
 hook claude "$CLAUDE" FAKE_SELF=main-1;    check "and so is the first one's" 2 "MMW turn guard"
-hook claude "$CLAUDE" FAKE_SELF=main-3;    check_silent "a third session, the main agent of neither, is let through"
+hook claude "$CLAUDE" FAKE_SELF=main-3;    check_silent "a third session, the orchestrator of neither, is let through"
 printf '{"tickets:61": {"tickets": [61], "runner": "nosuch", "session": "main-1"}}\n' > "$STATE/watches.json"
-hook claude "$CLAUDE";                     check_silent "a main agent on a runner with no adapter: nobody's turn is held"
+hook claude "$CLAUDE";                     check_silent "an orchestrator on a runner with no adapter: nobody's turn is held"
 printf 'not json\n' > "$STATE/watches.json"
 hook claude "$CLAUDE";                     check_silent "unreadable watches: nobody's turn is held"
 rm -f "$STATE/watches.json"

@@ -83,7 +83,7 @@ judgement in this skill that is theirs, and it is a grilling, not a form. Expect
 handful of entries, not dozens; dozens means a decision was skipped upstream,
 and that goes back to the map or the conversation.
 
-Two things a gap list does not carry: an implementation that today does less than the decisions say (that is a finding for the ticket owning the code, note it in the run's notes), and an accessible name that the shipped product will render differently from the design package (that is for the story judge to catch, not for this file to predict).
+Two things a gap list does not carry: an implementation that today does less than the decisions say (that is a finding for the ticket owning the code, note it in the run's notes), and an accessible name that the shipped product will render differently from the design package (that is for the story oracle to catch, not for this file to predict).
 
 ### 7. Lint and publish
 

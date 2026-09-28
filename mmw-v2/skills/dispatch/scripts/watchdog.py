@@ -12,20 +12,20 @@ This process is what notices. It costs no tokens and holds no session: it reads 
 `gh` and the runner adapters, and it is not an agent.
 
 **Three layers, and which one this is.** The first layer is `turn-guard.py`, beside this
-file: a hook on each main agent's own turn end that re-arms this process and will not let
+file: a hook on each orchestrator's own turn end that re-arms this process and will not let
 that turn end while tickets are held and this process is not healthy. This file is the
 second layer (it beats, it watches the relay) and the third (it asks a silent ticket's
 runner whether its worker is still there). When this process dies, the first layer finds
-out at a main agent's next turn end; there is no fourth layer, so a crash of the host a
-main agent runs in is found by a person.
+out at an orchestrator's next turn end; there is no fourth layer, so a crash of the host a
+orchestrator runs in is found by a person.
 
 **What it watches.** Every watch the relay has open for the repository (`watches.json` in
 the state directory, relay.py): a night — a spec, whose sub-issues are listed again every
-round — or tickets outside a night. Each watch has its own main agent. A closed sub-issue
+round — or tickets outside a night. Each watch has its own orchestrator. A closed sub-issue
 of a spec is not read: a closed ticket's worker has handed in its work. A ticket a tickets
 watch names is always read. A night is open while `watches.json` names a watch: `relay.py
 stop`, which `summary`, `suspend` and `land` run, closes one, and the relay closes the
-watch of a main agent that has been gone for an hour. A relay that died leaves its
+watch of an orchestrator that has been gone for an hour. A relay that died leaves its
 watches open, so a dead relay is an open night with no relay, never a closed one. When no
 watch is open this process writes a last heartbeat saying so and exits.
 
@@ -34,8 +34,8 @@ watch is open this process writes a last heartbeat saying so and exits.
 1. The relay, two questions with an answer each. Is it running: its lock record
    (`relay.lock`: pid and process identity, statedir.py) names a live process, and it
    finished a cycle (`cycle_at` in `beat.json`, written by every cycle, a failed one
-   included) within its grace; otherwise the finding `relay down`. Is it reading: its last
-   good poll (`at`) is within its grace too; otherwise the finding `relay not reading` —
+   included) within its grace; otherwise the alert `relay down`. Is it reading: its last
+   good poll (`at`) is within its grace too; otherwise the alert `relay not reading` —
    the process is there and cannot see the tracker, which is not the same thing and does not
    call for another `open`. Both are measured less the time spent delivering, which delays
    a cycle without stopping it, and a relay that has not cycled or polled yet is given its
@@ -59,39 +59,39 @@ watch is open this process writes a last heartbeat saying so and exits.
        stopped   `<kind>.lost` is posted on the ticket, naming that pair: `worker.lost`
                  or `reviewer.lost`. They are the only events not written
                  by the agent they are about, and this process is their one writer. Each
-                 ends that session's hold; the relay wakes the main agent on
+                 ends that session's hold; the relay wakes the orchestrator on
                  `worker.lost`, and the ticket's worker on `reviewer.lost`, so a worker
                  asleep on a reviewer that died is woken to start another.
-       unknown   recorded as unknown in the heartbeat, and a finding. Never rendered as
+       unknown   recorded as unknown in the heartbeat, and an alert. Never rendered as
                  alive, never a `*.lost`: an answer the adapter could not give — or a
                  missing adapter, a non-zero exit, a timeout — is not a death.
 
    A silent ticket held by no session to ask (a claim no start names, or only sessions
-   whose results are in) is a finding too. So is a ticket whose events cannot be read.
+   whose results are in) is an alert too. So is a ticket whose events cannot be read.
 4. A silent ticket whose newest event is at least `--idle` seconds old (default 3600),
    whose worker's runner answered `alive`, and whose fold shows it waiting for nothing —
-   no live reviewer session, no `waiting`, not `passed` — is a finding: its
+   no live reviewer session, no `waiting`, not `passed` — is an alert: its
    worker is there and nothing will ever wake it (a worker that ended its turn with no
    result, say). Once per ticket and newest event.
 
-**Findings wake the main agent directly**, through the `send` of the runner that main
-agent runs in, one message on one line, each finding in it beginning `watchdog:`. Not
-through the relay's queue: the relay may be the thing that is down. A finding about a
-ticket goes to the main agent of the watch the ticket belongs to; `relay down`, `relay not
-reading` and `cannot read the tracker` go to every watch's main agent. Each finding is sent
-to each of its main agents once — keyed by that main agent, what the finding is about, and
+**Alerts wake the orchestrator directly**, through the `send` of the runner that
+orchestrator runs in, one message on one line, each alert in it beginning `watchdog:`. Not
+through the relay's queue: the relay may be the thing that is down. An alert about a
+ticket goes to the orchestrator of the watch the ticket belongs to; `relay down`, `relay not
+reading` and `cannot read the tracker` go to every watch's orchestrator. Each alert is sent
+to each of its orchestrators once — keyed by that orchestrator, what the alert is about, and
 the ticket's newest event or the relay's last good poll — and never again for the same
-stretch, across restarts of this process. A relay that goes from not reading to down is a
-finding of its own: the key carries which of the two it is. What `send` answered decides what happens next:
+stretch, across restarts of this process. A relay that goes from not reading to down is an
+alert of its own: the key carries which of the two it is. What `send` answered decides what happens next:
 
     0      delivered and a turn started. This process exits once the round's sends are
-           done: that main agent is now in a turn, and that turn's end re-arms it
+           done: that orchestrator is now in a turn, and that turn's end re-arms it
            (one-shot, re-armed by the hook)
     4      handed over, not confirmed: not sent again, and this process keeps running
     3, 5+  nothing was sent: kept, and sent again next round
-    2      that main agent's session is gone: recorded, kept, nobody to tell
+    2      that orchestrator's session is gone: recorded, kept, nobody to tell
 
-The findings exactly:
+The alerts exactly:
 
     watchdog: relay down (<what is wrong>); details: python3 <this file> status --repo <repo>
     watchdog: relay not reading (<what is wrong>); the process is there and cycling, and it
@@ -138,18 +138,18 @@ Files in the state directory, beside the relay's:
 
     watchdog.lock   held for as long as a `run` runs: one watchdog per repository
     watchdog.json   the heartbeat: pid, identity, machine, at, poll, tolerance, silence,
-                    idle, watches (the open watches as last read, with their main agents),
+                    idle, watches (the open watches as last read, with their orchestrators),
                     held, waiting, unknown, lost, relay, read_at, read_failure, pending
-                    (findings not yet sent, each with the runner and session it is for),
-                    reported ([runner, session, key] of each finding sent), main (per main
-                    agent, why its findings could not be sent), closed, reads (billed and
+                    (alerts not yet sent, each with the runner and session it is for),
+                    reported ([runner, session, key] of each alert sent), main (per
+                    orchestrator, why its alerts could not be sent), closed, reads (billed and
                     not-modified comment-list reads since this process started; null for a
                     `Board` that does not count them)
     watchdog.log    what every started watchdog printed, appended
 
 Exit codes:
 
-    run      0 ran until no watch was open, until it woke a main agent, or one round with
+    run      0 ran until no watch was open, until it woke an orchestrator, or one round with
              --once; 1 refused (the repository name, a state file that is not JSON).
              Another watchdog already running is 0: arming twice is not an error
     arm      0 the watchdog is healthy (now, or already); 1 it could not be made healthy,
@@ -331,7 +331,7 @@ def to_ask(fold: dict) -> list[tuple[str, str, str, str]]:
 def night_open(state: Path) -> bool:
     """Whether a night — any watch — is open on this state directory: the relay's
     `watches.json` names one. `relay.py stop` closes a watch, and the relay closes the
-    watch of a main agent gone for an hour; a relay that died leaves its watches open. A
+    watch of an orchestrator gone for an hour; a relay that died leaves its watches open. A
     `watches.json` that cannot be read is not a closed night."""
     try:
         return bool(relay_mod.read_watches(state))
@@ -341,11 +341,11 @@ def night_open(state: Path) -> bool:
 
 DOWN = "down"
 NOT_READING = "not reading"
-# What to do next differs between the two, so the finding says it: a relay that is not
+# What to do next differs between the two, so the alert says it: a relay that is not
 # there has to be started again; one that is there and cannot read recovers by itself on
 # its next successful read, and a second `open` would put nothing new in its place.
 NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the "
-             "recorded main agent, or `dispatch.sh open-ticket <n>` for a ticket outside "
+             "recorded orchestrator, or `dispatch.sh open-ticket <n>` for a ticket outside "
              "a night; ",
         NOT_READING: "the process is there and cycling, and it recovers on its own with "
                      "the first read that works, so opening the night again replaces "
@@ -373,7 +373,7 @@ def relay_problem(state: Path, now: datetime) -> dict | None:
     it started. A beat with no cycle stamp was written by a relay older than that field,
     and its last good poll then answers both questions, as it did before.
 
-    Returns the finding's `kind` (one of the two above), `why` — one checkable fact each
+    Returns the alert's `kind` (one of the two above), `why` — one checkable fact each
     time — and the `key` that makes one report per stretch.
     """
     holder = statedir.holder(state / "relay.lock")
@@ -516,7 +516,7 @@ def repo_of(state: Path) -> str:
 # ----------------------------------------------------------------- the watchdog
 
 class Watchdog:
-    """One repository's watchdog: its rounds, its heartbeat, its findings."""
+    """One repository's watchdog: its rounds, its heartbeat, its alerts."""
 
     def __init__(self, state: Path, repo: str, board=None,
                  ask: Callable[[str, str], str] = ask_liveness,
@@ -588,7 +588,7 @@ class Watchdog:
 
     def watched(self, watches: dict[str, dict], failures: list[str]) -> dict[int, dict]:
         """Every ticket to read this round, each with its watch: `spec` (None for a
-        tickets watch) and `main`, the (runner, session) its findings go to. Tickets
+        tickets watch) and `main`, the (runner, session) its alerts go to. Tickets
         watches are taken first, as the relay takes them. A closed sub-issue of a spec is
         left out; a spec whose sub-issues cannot be listed is a failure."""
         tickets: dict[int, dict] = {}
@@ -612,7 +612,7 @@ class Watchdog:
         return tickets
 
     def round(self) -> str:
-        """One round. Returns `closed` (no watch is open), `woke` (a main agent was woken
+        """One round. Returns `closed` (no watch is open), `woke` (an orchestrator was woken
         and is in a turn) or `watching`."""
         now = self.clock()
         self.beat["round"] += 1
@@ -659,7 +659,7 @@ class Watchdog:
                 unknown[str(number)] = {"why": "events unreadable"}
                 findings.append({"key": f"unreadable:{number}:{verdict['comments']}",
                                  "text": f"watchdog: #{number} events unreadable; leave "
-                                         f"this finding as a comment for the user",
+                                         f"this alert as a comment for the user",
                                  "to": to})
             elif state == "free":
                 pass
@@ -782,8 +782,8 @@ class Watchdog:
             })
 
     def _report(self, findings: list[dict], everyone: list[tuple[str, str]]) -> bool:
-        """Send each main agent what has not been sent to it. True when a turn started on
-        one of them. A finding kept for a session that is the main agent of no open watch
+        """Send each orchestrator what has not been sent to it. True when a turn started on
+        one of them. An alert kept for a session that is the orchestrator of no open watch
         any more is let go: there is nobody left to tell."""
         reported = [r for r in self.beat.get("reported") or [] if isinstance(r, list) and len(r) == 3]
         done = {tuple(r) for r in reported}
@@ -820,10 +820,10 @@ class Watchdog:
             kept.extend(items)
             if code == 2:
                 problems[f"{runner} {session}"] = f"{runner} has no session {session}"
-                self.err.write(f"watchdog: the main agent's session ({runner} {session}) is "
+                self.err.write(f"watchdog: the orchestrator's session ({runner} {session}) is "
                                f"gone, so nobody can be told: {text}\n")
             else:
-                self.err.write(f"watchdog: {runner}.sh send answered {code}; the findings for "
+                self.err.write(f"watchdog: {runner}.sh send answered {code}; the alerts for "
                                f"{session} are sent again next round\n")
         self.beat["reported"] = reported[-REPORTED_KEEP:]
         self.beat["pending"] = kept

@@ -1,8 +1,8 @@
 """boundary-check.py runs a command twice; the pass that skips interaction must go red.
 
-Nothing here is stubbed. The judge is a real process and the commands are the
+Nothing here is stubbed. The oracle is a real process and the commands are the
 fixture scripts under fixtures/boundary/. Shell scripts choose their exit
-code from MMW_NEGATIVE. Python samples drive a fake outbound call module
+code from MMW_NEGATIVE. Python samples drive a fake gateway
 and a helper that no-ops under that variable, so a skipped click fails the
 row's assertions.
 """

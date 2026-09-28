@@ -8,7 +8,7 @@ fake `Board` answering from a dict of comments, and the runner's `liveness` and 
 verbs, and the `worker.lost` post, are functions here that record what they were handed.
 What is asserted is what an outsider sees: whether a turn end is blocked, whether a
 watchdog reads as healthy, what was posted on which ticket, who was asked, and what the
-main agent was sent.
+orchestrator was sent.
 
     python3 -m unittest discover -s mmw-v2/tests/liveness -p 'test_*.py'
 """
@@ -125,7 +125,7 @@ class StateCase(unittest.TestCase):
         (self.state / name).write_text(json.dumps(value) + "\n", encoding="utf-8")
 
     def open_watches(self, *entries: dict) -> None:
-        """watches.json holding each entry: a watch (`spec` or `tickets`) with its main agent."""
+        """watches.json holding each entry: a watch (`spec` or `tickets`) with its orchestrator."""
         self.write("watches.json", {
             (f"spec:{e['spec']}" if e.get("spec") else
              "tickets:" + ",".join(str(n) for n in e["tickets"])): e for e in entries})
@@ -460,7 +460,7 @@ class Rounds(StateCase):
         self.assertEqual((repo, kind, ticket, spec, runner, session),
                          ("o/r", "worker", 61, 7, "herdr", "h1"))
         self.assertEqual(since, stamp(self.SILENT))
-        self.assertEqual(self.send.calls, [], "worker.lost wakes the main agent through the relay")
+        self.assertEqual(self.send.calls, [], "worker.lost wakes the orchestrator through the relay")
         self.assertEqual(self.heartbeat()["lost"]["61"][0]["session"], "h1")
 
     def test_unknown_is_recorded_and_reported_never_posted(self):
@@ -582,7 +582,7 @@ class Rounds(StateCase):
                 raise dog.relay_mod.PollError("gh exited 1: HTTP 502")
         self.board = Failing({}, {7: [61]})
         self.watchdog().round()
-        self.assertEqual(self.send.calls, [], "inside the tolerance it is not yet a finding")
+        self.assertEqual(self.send.calls, [], "inside the tolerance it is not yet an alert")
         self.clock.moment = T0 + timedelta(seconds=301)
         self.watchdog().round()   # a restarted watchdog keeps the time of the last whole read
         self.watchdog().round()
@@ -709,7 +709,7 @@ class Rounds(StateCase):
     OTHER = {"runner": "paseo", "session": "main-b"}
 
     def two_watches(self):
-        """The night on spec 7 (main agent term_main) and ticket #70 alone (main-b)."""
+        """The night on spec 7 (orchestrator term_main) and ticket #70 alone (main-b)."""
         self.open_watches({"spec": 7, **MAIN}, {"tickets": [70], **self.OTHER})
 
     def test_a_finding_about_a_ticket_goes_to_the_main_agent_of_its_watch_alone(self):
@@ -734,7 +734,7 @@ class Rounds(StateCase):
                          [("orca", "term_main"), ("paseo", "main-b")])
         self.assertTrue(all("watchdog: relay down" in c[2] for c in self.send.calls))
         self.watchdog().round()
-        self.assertEqual(len(self.send.calls), 2, "each main agent is told once per stretch")
+        self.assertEqual(len(self.send.calls), 2, "each orchestrator is told once per stretch")
 
     def test_a_main_agent_that_was_not_told_is_told_next_round_and_the_other_not_again(self):
         self.two_watches()

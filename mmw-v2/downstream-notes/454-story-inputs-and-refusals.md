@@ -14,6 +14,6 @@
 ## 怎么迁
 
 1. 在 screen contract 顶层写 `locale:` 一个 BCP 47 标签（例如 `zh-CN`）。
-2. 删掉 `volatile_values`；从 `retired_ids` 去掉 `trigger`（只留 id 与 note）。若产品还缺那个控件，把控件改回 Claude Design，而不是靠 judge 藏掉。
+2. 删掉 `volatile_values`；从 `retired_ids` 去掉 `trigger`（只留 id 与 note）。若产品还缺那个控件，把控件改回 Claude Design，而不是靠 oracle 藏掉。
 3. 产品 story 页只渲染产品组件：不要出现 `span.sc-interp`、`data-dc-tpl`、`data-dc-script` 或 `id="dc-root"`。
 4. 重新跑该 ticket 的 story criterion。

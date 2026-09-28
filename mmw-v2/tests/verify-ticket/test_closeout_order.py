@@ -1,6 +1,6 @@
 """`--closeout` posts its event only after the state change the event announces.
 
-`ticket.passed` is what wakes the main agent and what `advance` merges on, and
+`ticket.passed` is what wakes the orchestrator and what `advance` merges on, and
 `ticket.returned` is what frees the rest of the batch; either one standing on a ticket the
 tracker did not close or hand back would be read as true by every program. So the close
 or the hand back comes first, and when the tracker refuses it, nothing is posted.

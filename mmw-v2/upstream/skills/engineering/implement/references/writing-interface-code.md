@@ -6,7 +6,7 @@ Read this file when the ticket's **Read first** lists a screen contract. An inte
 
 Read the screen-contract rows this ticket owns.
 
-Then take the design side's values (the design package's pages as the story judge renders them). `--contract` is the screen contract **Read first** names; `--pages` is the `pages` mounts this ticket owns; `--out` is a directory `mktemp` makes, with the `ui-acceptance` skill's `story-parity.py`:
+Then take the design side's values (the design package's pages as the story oracle renders them). `--contract` is the screen contract **Read first** names; `--pages` is the `pages` mounts this ticket owns; `--out` is a directory `mktemp` makes, with the `ui-acceptance` skill's `story-parity.py`:
 
 ```
 uv run story-parity.py --contract … --pages … --render-only --out <mktemp directory>
@@ -54,4 +54,4 @@ Leave the design package as it is: **pull** of the design-pages skill is what wr
 
 ## One code path
 
-The story page's data comes only from the story adapter reading scene data. No request path of the product chooses its projection by whether a data source is present, by a query parameter, or by a build switch. Otherwise the story judge passes on a path no user ever takes, and every criterion goes green on it.
+The story page's data comes only from the story adapter reading scene data. No request path of the product chooses its projection by whether a data source is present, by a query parameter, or by a build switch. Otherwise the story oracle passes on a path no user ever takes, and every criterion goes green on it.

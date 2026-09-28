@@ -3,12 +3,12 @@
 Whether one end-to-end path still works against the real product is
 `scripts/journey.py`.
 
-A journey is the only judge in this skill that starts the whole product. There are few
+A journey is the only oracle in this skill that starts the whole product. There are few
 of them on purpose: the user names which paths are worth one, and the default three are
 money, sign-in, and one submit chain.
 
-Two agents come here. The one **writing** the journey script or the break switch needs
-**What the script gets, and what it must be** and **The break switch**. The one
+Two agents come here. The one **writing** the journey script or the fault-injection switch needs
+**What the script gets, and what it must be** and **The fault-injection switch**. The one
 **reading** a line it printed needs the last two sections.
 
 ## What the script gets, and what it must be
@@ -24,7 +24,7 @@ declaring `scripts.run`; `journeys` in `.mmw/target.json` says where they live, 
 
 The script never receives `MMW_BREAK` or another signal saying which pass is running.
 Drive the page with Playwright's own API. Exit 0 for a pass, non-zero for a failure, and put what went wrong on the
-last line of the output — that line is what the judge prints.
+last line of the output — that line is what the oracle prints.
 
 **End by reading the result back from another page.** A journey that clicks Submit and
 accepts a success message or redirect has proved only that the click handler ran. Go to
@@ -35,9 +35,9 @@ read interface makes the second pass fail for the reason the user path would fai
 the application and opens its debugging port, `discover` prints that address, and the
 journey connects to it with Playwright.
 
-## The break switch
+## The fault-injection switch
 
-The product's break switch matches the method and route the criterion's `--break` names, fails only that interface, and affects only the product process. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference. The switch lives in the product because only the product's own routing reaches every path its frontend takes; a forwarding proxy in front of it misses a frontend that calls its backend by another address.
+The product's fault-injection switch matches the method and route the criterion's `--break` names, fails only that interface, and affects only the product process: this deliberate, controlled failure is fault injection, proving the journey notices when the interface it depends on breaks. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference. The switch lives in the product because only the product's own routing reaches every path its frontend takes; a forwarding proxy in front of it misses a frontend that calls its backend by another address.
 
 ## The negative control
 
@@ -55,4 +55,4 @@ control and leaves the next run blocked.
 
 ## Exit codes
 
-On `JOURNEY FAILED`, what to fix is what the last line names: the script's own output, not this judge's words.
+On `JOURNEY FAILED`, what to fix is what the last line names: the script's own output, not this oracle's words.

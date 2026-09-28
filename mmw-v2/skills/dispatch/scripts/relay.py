@@ -13,10 +13,10 @@
 the events in `WAKES` lands on a ticket it watches, it writes one row into the wake queue
 ("wake session S about ticket N, event E") and hands that row to the runner that runs
 session S. It does not know what a spec, a frontier, a phase or a blocker is, and it
-decides nothing: whether to advance, resume, retract or stop belongs to the main agent,
+decides nothing: whether to advance, resume, retract or stop belongs to the orchestrator,
 which reads the tracker to decide it (docs/adr/0009-night-orchestration-on-paseo.md). It is
 not `board.py`, the modelless night watcher that ADR removed because it decided on the
-main agent's behalf. That one judged; this one translates.
+orchestrator's behalf. That one judged; this one translates.
 
 **It never writes to GitHub.** Its only calls to the tracker are `gh api` reads of issue
 comments and sub-issues; its only writes are files in this repository's state directory
@@ -26,13 +26,13 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
 **Watches.** What the relay reads is the union of its watches. A watch is what one
 `dispatch.sh open`, `open-ticket` or `adopt` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
-night. Each watch has its own main agent, a (runner, session) pair: the session that
-opened it. Nothing names a main agent but the watch it opened; there is no registration
+night. Each watch has its own orchestrator, a (runner, session) pair: the session that
+opened it. Nothing names an orchestrator but the watch it opened; there is no registration
 apart from a watch. A repository has one relay process and one state directory however many
 watches are open, so nights run from several branches or worktrees, one-ticket runs and
 adopted tickets all go through the same process. Two watches never share a ticket: a
 tickets watch naming a sub-issue of a watched spec, or a spec one of whose sub-issues a
-tickets watch names, is refused, since that ticket's wakes would have two main agents. A
+tickets watch names, is refused, since that ticket's wakes would have two orchestrators. A
 ticket that comes to sit under a watched spec after both were opened stays with its
 tickets watch.
 
@@ -43,8 +43,8 @@ tickets watch.
              `runner` and `session` fields of the ticket's latest `worker.started` before
              the event. And worker.queued, when a product slot is given back (below)
     main     ticket.passed, ticket.returned, ticket.refused, child.opened of kind contract,
-             fault (the pipeline itself broken) or decision, worker.lost: the main agent of the
-             ticket's watch. The relay's own relay.recovered: every watch's main agent
+             fault (the pipeline itself broken) or decision, worker.lost: the orchestrator of the
+             ticket's watch. The relay's own relay.recovered: every watch's orchestrator
 
 A worker needs no registration: the ticket says who it is. Each row is written with its
 recipient's runner and session, and only that recipient — the pair, never the session
@@ -105,9 +105,9 @@ happened is read on the tracker. What `send` answered decides what happens to th
     anything else     the send could not be run or did not answer; the row stays
 
 A row that is no longer its recipient's is dropped without a send, for the same reason
-as a 2: its watch was closed; its watch's main agent is now another session (the watch
+as a 2: its watch was closed; its watch's orchestrator is now another session (the watch
 was opened again from a new session); a later `worker.started` put another worker on the
-ticket; or, for relay.recovered, its recipient is the main agent of no watch any more.
+ticket; or, for relay.recovered, its recipient is the orchestrator of no watch any more.
 Every drop is reported on stderr. A recipient's rows reach it in sequence order: after
 one of them stays, that recipient gets nothing more this pass, and the other recipients
 are not held up by it. Delivery never removes a row: only `ack --runner R --session S
@@ -127,11 +127,11 @@ adapter for the runner, when that runner's `liveness` says the session is `stopp
 (every wake-up sent to it would be dropped), or when the watch overlaps another (the
 sub-issues of the specs involved are read from the tracker for that; a read that fails is
 a refusal too). A spec watch first takes over every ticket watch whose tickets are all
-sub-issues of the spec and whose main agent is the session opening the spec or one its
+sub-issues of the spec and whose orchestrator is the session opening the spec or one its
 runner shows stopped, and prints one `closed the watch on …` line for each; a ticket
-watch held by any other session is still an overlap. Only when every check passes is the watch written with its main agent,
-under the queue lock. Opening a watch that is open already replaces that watch's main
-agent — a main agent replaced by a new session — and never touches another watch's.
+watch held by any other session is still an overlap. Only when every check passes is the watch written with its orchestrator,
+under the queue lock. Opening a watch that is open already replaces that watch's
+orchestrator — an orchestrator replaced by a new session — and never touches another watch's.
 Then, when no relay runs for the repository, it starts `run` as a process of its own
 session, detached from the caller, with its output appended to `relay.log`, and returns
 once that process holds `relay.lock`: a caller's turn ending does not end the relay. A
@@ -139,18 +139,18 @@ relay that does not come up has the watch this call opened closed again. When a 
 runs, `start` only records the watch, and that process reads it on its next cycle. `add`
 is `start` without the process: the checks and the write.
 
-**Closing a watch.** `stop --spec N` or `--tickets N` closes that watch and its main
-agent; with none named it closes every watch. When no watch is left it ends the process
+**Closing a watch.** `stop --spec N` or `--tickets N` closes that watch and its
+orchestrator; with none named it closes every watch. When no watch is left it ends the process
 with SIGTERM and forgets the last good poll: the night was closed on purpose, and the time
 until the next start is nobody's unattended stretch. Closing a watch that is not open
 changes nothing. `watching` says whether a running relay would see a ticket's events: a
 tickets watch names the ticket, or a spec watch is the ticket's spec; with `--spec`
 alone, whether that spec is watched.
 
-**A main agent that is gone.** A night whose main agent's session was closed without
+**An orchestrator that is gone.** A night whose orchestrator's session was closed without
 `summary` or `suspend` would otherwise be polled for ever, a few thousand REST requests an
-hour. Every 10 cycles the relay asks each watch's main agent's runner `liveness`. A main
-agent answered `stopped` at every ask for 3600 seconds or more has its watch closed as
+hour. Every 10 cycles the relay asks each watch's orchestrator's runner `liveness`. An orchestrator
+answered `stopped` at every ask for 3600 seconds or more has its watch closed as
 `stop` would close it, with a line in `relay.log`; `alive` or `unknown` starts the count
 again. The hour lets reviewers still at work bring their results back
 to their workers first, and the next `open` reads everything in full. The relay exits
@@ -160,7 +160,7 @@ when no watch is left.
 failing. Time spent in delivery passes is not part of it: a slow send delays the next poll,
 and the relay was attending all the while. When the time since the last good poll, less
 the time spent delivering, exceeds `--grace` seconds (default three intervals), the next
-good poll queues one `relay.recovered` row to each watch's main agent (one per session,
+good poll queues one `relay.recovered` row to each watch's orchestrator (one per session,
 however many watches it opened) for the whole stretch, ahead of the events it recovered:
 one announcement per stretch, never one per missed event. A stretch is named by the time
 of the last good poll before it — its generation — and `gap.json` records the latest one
@@ -178,7 +178,7 @@ Files in the state directory:
                     worker.queued (`waiting`: its comment id, or null) and the newest
                     comment id applied to that flag (`waiting_read`)
     watches.json    every open watch, keyed `spec:<n>` or `tickets:<n>[,<n>...]`: the
-                    watch (`spec` or `tickets`), its main agent's `runner` and `session`,
+                    watch (`spec` or `tickets`), its orchestrator's `runner` and `session`,
                     when it was opened (`at`), and since when that runner has answered
                     `stopped` (`stopped_since`, null while it has not). It outlives the
                     process: a relay that died leaves its watches open
@@ -220,7 +220,7 @@ Exit codes:
 
 `start` and `add` print `opened the watch on <watch> for <repo>: wake-ups go to <runner>
 session <session>` for a watch that was not open, or `reopened ...` for one that was
-(`, was <runner> session <session>` when its main agent changed); `start` then prints
+(`, was <runner> session <session>` when its orchestrator changed); `start` then prints
 `relay started for <repo>: pid <pid>, watching <watches>, log <path>` or `relay already
 running for <repo>: pid <pid>, watching <watches>`. `stop` prints `stopped the relay for
 <repo>: pid <pid>, watching <watches closed>` when the process ended, `stopped watching
@@ -278,7 +278,7 @@ SEND_TIMEOUT = 180
 LIVENESS_TIMEOUT = 60
 START_WAIT = 15.0
 STOP_WAIT = 15.0
-# Every this many cycles the relay asks each watch's main agent's runner whether it lives,
+# Every this many cycles the relay asks each watch's orchestrator's runner whether it lives,
 MAIN_CHECK_EVERY = 10
 # and closes the watch of one answered `stopped` at every ask for this many seconds.
 MAIN_GONE_AFTER = 3600
@@ -428,7 +428,7 @@ def watch_of(args) -> dict | None:
 
 def read_watches(state: Path) -> dict[str, dict]:
     """The open watches of a state directory, by key: each a watch (`spec` or `tickets`)
-    with its main agent's `runner` and `session`. An entry without a main agent is no
+    with its orchestrator's `runner` and `session`. An entry without an orchestrator is no
     watch. Raises ValueError when `watches.json` is there and is not JSON."""
     data = statedir.read_json(Path(state) / "watches.json", {})
     out: dict[str, dict] = {}
@@ -459,17 +459,17 @@ def overlap(want: dict, watches: dict[str, dict], children: dict[int, list[int]]
                 shared = sorted(mine & set(other["tickets"]))
                 if shared:
                     return (f"#{shared[0]} is already watched as {describe_watch(other)}, whose "
-                            f"main agent is {whose}")
+                            f"orchestrator is {whose}")
             else:
                 shared = sorted(mine & set(children.get(int(other["spec"]), [])))
                 if shared:
                     return (f"#{shared[0]} is a sub-issue of spec #{other['spec']}, which is "
-                            f"watched with {whose} as its main agent")
+                            f"watched with {whose} as its orchestrator")
         elif other.get("tickets"):
             shared = sorted(set(children.get(int(want["spec"]), [])) & set(other["tickets"]))
             if shared:
                 return (f"its sub-issue #{shared[0]} is already watched as "
-                        f"{describe_watch(other)}, whose main agent is {whose}")
+                        f"{describe_watch(other)}, whose orchestrator is {whose}")
     return None
 
 
@@ -743,9 +743,9 @@ class Relay:
     def _absorbable(self, want: dict, watches: dict[str, dict], children: dict[int, list[int]],
                     runner: str, session: str) -> list[str]:
         """The ticket watches a spec watch takes over as it opens: every ticket of the watch
-        is a sub-issue of the spec, and its main agent is the one opening the night or a
+        is a sub-issue of the spec, and its orchestrator is the one opening the night or a
         session its runner shows stopped. Such a watch is left over from `open-ticket` with no
-        `land` after it, and nobody else waits on its wake-ups. A ticket watch whose main agent
+        `land` after it, and nobody else waits on its wake-ups. A ticket watch whose orchestrator
         is another session that is alive, or whose liveness is unknown, keeps its ticket, and
         the overlap refuses the night."""
         if not want.get("spec"):
@@ -762,8 +762,8 @@ class Relay:
         return keys
 
     def open_watch(self, want: dict, runner: str, session: str) -> tuple[dict | None, dict]:
-        """Record `want` with (runner, session) as its main agent, unless it shares a ticket
-        with another open watch. Opening a watch that is open replaces its main agent and
+        """Record `want` with (runner, session) as its orchestrator, unless it shares a ticket
+        with another open watch. Opening a watch that is open replaces its orchestrator and
         nothing else; a spec watch takes over the ticket watches `_absorbable` names, listed
         afterwards in `self.absorbed`. Returns (the entry replaced, or None for a new watch;
         the running relay's record as it stood when the watch was written)."""
@@ -782,7 +782,7 @@ class Relay:
                 problem = overlap(want, watches, children)
                 if problem:
                     raise Refusal(f"{describe_watch(want)} was not opened: {problem}. A ticket "
-                                  f"is watched once, so that its wake-ups have one main agent. "
+                                  f"is watched once, so that its wake-ups have one orchestrator. "
                                   f"Close that watch first (land for one ticket, summary or "
                                   f"suspend for a night), or work the ticket in the watch that "
                                   f"has it. Nothing was recorded.")
@@ -829,7 +829,7 @@ class Relay:
             return True
 
     def check_mains(self) -> None:
-        """Ask each watch's main agent's runner whether it lives, and close the watch of one
+        """Ask each watch's orchestrator's runner whether it lives, and close the watch of one
         answered `stopped` at every ask for MAIN_GONE_AFTER seconds or more."""
         answers: dict[tuple[str, str], str] = {}
         for entry in self.watches().values():
@@ -844,7 +844,7 @@ class Relay:
             for key, entry in sorted(watches.items()):
                 answer = answers.get(main_of(entry))
                 if answer is None:
-                    continue  # opened, or given another main agent, while the runners were asked
+                    continue  # opened, or given another orchestrator, while the runners were asked
                 if answer != "stopped":
                     if entry.get("stopped_since"):
                         entry["stopped_since"] = None
@@ -869,7 +869,7 @@ class Relay:
                 self._forget_last_poll()
         for _, entry in gone:
             self.out.write(f"closed the watch on {describe_watch(entry)}: {entry['runner']} has "
-                           f"answered that its main agent, session {entry['session']}, is "
+                           f"answered that its orchestrator, session {entry['session']}, is "
                            f"stopped at every ask since {entry['stopped_since']}, "
                            f"{MAIN_GONE_AFTER}s or more, so its wake-ups have nobody to go to\n")
         if gone and not watches:
@@ -940,7 +940,7 @@ class Relay:
 
     def cycle(self, interval: int, grace: int) -> bool:
         """One cycle of `run`: poll, deliver, and every MAIN_CHECK_EVERY cycles ask after
-        the main agents. True when every read was made."""
+        the orchestrators. True when every read was made."""
         self.cycles += 1
         good = self.poll(interval, grace)
         self.deliver()
@@ -1028,7 +1028,7 @@ class Relay:
         unaddressed: list[dict] = []
         reported: list[tuple[int, object, str]] = []
         with self.queue_lock():
-            # Read here, under the lock every change to them is made under: a main agent
+            # Read here, under the lock every change to them is made under: an orchestrator
             # replaced while the tracker was read addresses these rows, not the one before it.
             watches = self.watches()
             seen = self._read_state("seen.json", {})
@@ -1131,7 +1131,7 @@ class Relay:
                                      f"there is no session to wake"))
                 elif item["to"] == MAIN:
                     problems.append((item["home"], item["cid"], f"{item['cid']}:reported",
-                                     f"it wakes the main agent of "
+                                     f"it wakes the orchestrator of "
                                      f"{describe_watch(watch_from_key(item['watch']))}, and that "
                                      f"watch was closed"))
                 else:
@@ -1321,7 +1321,7 @@ class Relay:
             whose = f"#{row.get('ticket')}'s worker"
         elif watch is not None:
             current = main_of(watches[watch])
-            whose = f"the main agent of {describe_watch(watches[watch])}"
+            whose = f"the orchestrator of {describe_watch(watches[watch])}"
         elif address in {main_of(e) for e in watches.values()}:
             return "send", None
         else:
@@ -1520,14 +1520,14 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
     answer = ask_liveness(args.runner, args.session)
     if answer == "stopped":
         raise Refusal(f"{args.runner} says session {args.session} is stopped, so every wake-up sent "
-                      f"to it would be dropped. Open the watch from the main agent's live session.")
+                      f"to it would be dropped. Open the watch from the orchestrator's live session.")
     if answer != "alive":
         sys.stderr.write(f"relay: {args.runner} could not say whether session {args.session} is "
                          f"alive; the watch is opened all the same, and the first delivery will tell\n")
     found = running(state)
     if found is not None and "watch" in found[1]:
         # A record that names a `watch` was written by a relay that serves that one watch,
-        # takes its main agent from recipient.json and never reads watches.json.
+        # takes its orchestrator from recipient.json and never reads watches.json.
         raise Refusal(f"the relay running for {args.repo} (pid {found[0].get('pid')}) serves one "
                       f"watch, {describe_watch(found[1]['watch'])}, and would never read this one. "
                       f"End it with `relay.py stop --repo {args.repo}`, open its night again "
@@ -1541,7 +1541,7 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
 
 def absorbed_lines(repo: str, want: dict, absorbed: list[dict]) -> str:
     return "".join(f"closed the watch on {describe_watch(other)} for {repo}: {describe_watch(want)} "
-                   f"watches it now, and its main agent was {other['runner']} session "
+                   f"watches it now, and its orchestrator was {other['runner']} session "
                    f"{other['session']}\n" for other in absorbed)
 
 
@@ -1690,7 +1690,7 @@ def cmd_watching(args) -> int:
         if (args.spec and entry.get("spec") == args.spec) \
                 or (args.ticket is not None and args.ticket in (entry.get("tickets") or [])):
             print(f"{asked} is watched by the relay for {args.repo}: pid {pid}, as "
-                  f"{describe_watch(entry)}, whose main agent is {entry['runner']} session "
+                  f"{describe_watch(entry)}, whose orchestrator is {entry['runner']} session "
                   f"{entry['session']}")
             return 0
     if args.ticket is not None:
@@ -1758,7 +1758,7 @@ def main(argv: list[str] | None = None) -> int:
         which.add_argument("--tickets", type=ticket_list)
         which.add_argument("--spec", type=positive_int)
 
-    start = sub.add_parser("start", help="open a watch with its main agent, and run the relay unless it runs")
+    start = sub.add_parser("start", help="open a watch with its orchestrator, and run the relay unless it runs")
     start.add_argument("--repo", required=True)
     watch_args(start, True)
     start.add_argument("--runner", required=True)
@@ -1767,7 +1767,7 @@ def main(argv: list[str] | None = None) -> int:
     start.add_argument("--grace", type=non_negative_int)
     start.set_defaults(fn=cmd_start)
 
-    add = sub.add_parser("add", help="open a watch with its main agent, starting nothing")
+    add = sub.add_parser("add", help="open a watch with its orchestrator, starting nothing")
     add.add_argument("--repo", required=True)
     watch_args(add, True)
     add.add_argument("--runner", required=True)

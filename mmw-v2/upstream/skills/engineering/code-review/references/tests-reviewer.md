@@ -22,9 +22,9 @@ Also collect every `boundary-check.py` criterion's `--run` product test, and eve
 
 When no `CHECK:` names a test file, a boundary test, or a journey, report one line, `no test-backed criteria in this ticket`, and stop. There is nothing here for this axis.
 
-A `boundary-check.py` judge proves only that its product test goes red without the click. Confirm the `--run` command is the product test this ticket added, then read its assertions: whether they can go red, whether they only watch a success banner, whether they assert the row's four columns (`calls`, `shows`, `next`, `on_failure`).
+A `boundary-check.py` oracle proves only that its product test goes red without the click. Confirm the `--run` command is the product test this ticket added, then read its assertions: whether they can go red, whether they only watch a success banner, whether they assert the row's four columns (`calls`, `shows`, `next`, `on_failure`).
 
-A criterion that runs `journey.py` is the same: read the journey script's assertions. A script that probes the break switch in order to stay green, or that asserts nothing which would fail when the named write is broken, is a finding on this axis.
+A criterion that runs `journey.py` is the same: read the journey script's assertions. A script that probes the fault-injection switch in order to stay green, or that asserts nothing which would fail when the named write is broken, is a finding on this axis.
 
 ## 2. Find the repository's documented test rules
 

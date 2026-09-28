@@ -270,7 +270,7 @@ class TestClockAndNavigation(unittest.TestCase):
 
 
 class TestBoxes(unittest.TestCase):
-    """The pixel judge sees the mount's layout box intersected with the viewport."""
+    """The oracle sees the mount's layout box intersected with the viewport."""
 
     class Page:
         """`mount_rect` is one page evaluation; the fake answers it with a fixed box."""

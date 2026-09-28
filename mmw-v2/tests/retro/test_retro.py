@@ -304,7 +304,7 @@ def proposal_threshold(f: Fixture):
     error = f.run("finalize", "70", f.write_analysis(f.analysis([weak]), "weak.json"),
                  f.write_gather(latest), ok=False)
     assert "proposal has no two indep" in error
-    # A proposed Memory record with an actual blocking event reaches the other
+    # A proposed Memory record with an actual stall event reaches the other
     # threshold without borrowing the older Memory as an occurrence.
     blocked = f.event(71, "ticket.returned", "same cause blocked the ticket", ticket=71)
     manifest = {"status": "complete", "total": 1, "returned": 1,

@@ -215,7 +215,7 @@ but are
 $got"
 }
 
-# watch <watch arguments> [session]: open a watch with no relay process, main agent main-a
+# watch <watch arguments> [session]: open a watch with no relay process, orchestrator main-a
 # unless another session is named.
 watch() {
   local code
@@ -236,7 +236,7 @@ wait_for() {
 
 scenario_wake() {
   local code
-  echo "--- a landed ticket wakes the main agent through the runner, and stays until acked"
+  echo "--- a landed ticket wakes the orchestrator through the runner, and stays until acked"
   reset
   watch --tickets 61,62
   event 61 101 ticket.passed
@@ -285,7 +285,7 @@ scenario_worker() {
 
 scenario_busy() {
   local code
-  echo "--- a wake that arrives while the main agent is in a turn stays and is sent on the next pass"
+  echo "--- a wake that arrives while the orchestrator is in a turn stays and is sent on the next pass"
   reset
   watch --tickets 61
   event 61 101 ticket.passed
@@ -302,7 +302,7 @@ scenario_busy() {
 
 scenario_retired() {
   local code
-  echo "--- rows for a session that is no longer the watch's main agent are dropped unsent"
+  echo "--- rows for a session that is no longer the watch's orchestrator are dropped unsent"
   reset
   watch --tickets 61 main-a
   event 61 101 ticket.passed
@@ -317,7 +317,7 @@ scenario_retired() {
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
   hasnt "main-a :: #61"
   has "paseo :: send :: --no-wait :: main-b :: #61 ticket.refused"
-  grep -q "dropped row 1 (#61 ticket.passed for main main-a): it is addressed to paseo session main-a, and the main agent of ticket #61 is now paseo session main-b" "$TMP/err" \
+  grep -q "dropped row 1 (#61 ticket.passed for main main-a): it is addressed to paseo session main-a, and the orchestrator of ticket #61 is now paseo session main-b" "$TMP/err" \
     || fail "the drop should be reported: $(cat "$TMP/err")"
   expect_rows "2 61 ticket.refused main-b delivered"
 }
@@ -450,7 +450,7 @@ scenario_nothing() {
 
 scenario_openstopped() {
   local code
-  echo "--- a watch whose main agent the runner says is stopped is refused, and nothing is recorded"
+  echo "--- a watch whose orchestrator the runner says is stopped is refused, and nothing is recorded"
   reset
   agents main-a
   code="$(relay_ add --repo "$REPO" --tickets 61 --runner paseo --session main-z)"
@@ -574,7 +574,7 @@ scenario_startstop() {
 
 scenario_watches() {
   local code pid
-  echo "--- a second watch beside a running one has its own main agent, and the first keeps its own"
+  echo "--- a second watch beside a running one has its own orchestrator, and the first keeps its own"
   reset
   agents main-a main-b main-c
   sub_issues 76 62 63
@@ -596,25 +596,25 @@ tickets:61 paseo main-a"
   echo "--- a watch that shares a ticket with an open one is refused, and nothing is recorded"
   code="$(relay_ start --repo "$REPO" --tickets 62 --runner paseo --session main-c)"
   [ "$code" = 1 ] || fail "a ticket of the watched spec expected 1, got $code"
-  grep -q "ticket #62 was not opened: #62 is a sub-issue of spec #76, which is watched with paseo session main-b as its main agent" "$TMP/err" \
+  grep -q "ticket #62 was not opened: #62 is a sub-issue of spec #76, which is watched with paseo session main-b as its orchestrator" "$TMP/err" \
     || fail "the refusal should name the overlap: $(cat "$TMP/err")"
   sub_issues 77 61
   code="$(relay_ start --repo "$REPO" --spec 77 --runner paseo --session main-c)"
   [ "$code" = 1 ] || fail "a spec with a watched ticket expected 1, got $code"
-  grep -q "spec #77 was not opened: its sub-issue #61 is already watched as ticket #61, whose main agent is paseo session main-a" "$TMP/err" \
+  grep -q "spec #77 was not opened: its sub-issue #61 is already watched as ticket #61, whose orchestrator is paseo session main-a" "$TMP/err" \
     || fail "the refusal should name the overlap: $(cat "$TMP/err")"
   expect_watches "spec:76 paseo main-b
 tickets:61 paseo main-a"
 
-  echo "--- a night opened by the main agent of a leftover ticket watch takes that ticket over"
+  echo "--- a night opened by the orchestrator of a leftover ticket watch takes that ticket over"
   code="$(relay_ add --repo "$REPO" --spec 77 --runner paseo --session main-a)"
   [ "$code" = 0 ] || fail "spec #77 from main-a expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "closed the watch on ticket #61 for o/r: spec #77 watches it now, and its main agent was paseo session main-a" "$TMP/out" \
+  grep -q "closed the watch on ticket #61 for o/r: spec #77 watches it now, and its orchestrator was paseo session main-a" "$TMP/out" \
     || fail "stdout should say the ticket watch was taken over: $(cat "$TMP/out")"
   expect_watches "spec:76 paseo main-b
 spec:77 paseo main-a"
 
-  echo "--- and so does a night beside a ticket watch whose main agent is stopped"
+  echo "--- and so does a night beside a ticket watch whose orchestrator is stopped"
   relay_ stop --repo "$REPO" --spec 77 >/dev/null
   relay_ add --repo "$REPO" --tickets 61 --runner paseo --session main-a >/dev/null
   agents main-b main-c

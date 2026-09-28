@@ -1,4 +1,4 @@
-"""One run's share of the machine: claiming it, giving it back, and refusing to take it.
+"""One run's share of the machine: acquiring it, giving it back, and refusing to take it.
 
 Nothing here is stubbed. A slot is busy because the test binds a real socket on it, and a
 worktree is gone because the test deletes a real directory — the two facts the lease is
@@ -137,7 +137,7 @@ class SeeingWhatListens(Base):
 
 class Claiming(Base):
     def test_a_worktree_keeps_the_slot_it_was_given(self):
-        """Re-claiming is a lookup. Every command of a run has to agree on the ports
+        """Re-acquiring is a lookup. Every command of a run has to agree on the ports
         without a file they all have to keep in step."""
         first = self.lease.claim(self.tree("issue-640"))
         again = self.lease.claim(self.tree("issue-640"))
@@ -153,7 +153,7 @@ class Claiming(Base):
 
     def test_a_relative_path_is_resolved_before_it_is_registered(self):
         """A lease registered under a name like "." matches nothing later and can never
-        be reclaimed. The driver runs declared commands with whatever `cwd` it was
+        be re-acquired. The driver runs declared commands with whatever `cwd` it was
         handed, so the normalising has to happen here rather than at every call site."""
         tree = self.tree("issue-642")
         here = Path.cwd()
@@ -249,7 +249,7 @@ class Releasing(Base):
             self.lease.release(tree.resolve())
 
     def test_a_judge_leaves_a_slot_it_found_already_held(self):
-        """The slot was somebody's before this judge started — a product left running
+        """The slot was somebody's before this oracle started — a product left running
         under `lease.py run`, a journey going in the same checkout. Ending it is ending a
         process this run never started."""
         tree = self.tree("main-checkout")
@@ -261,7 +261,7 @@ class Releasing(Base):
         with self.lease.judge_run(tree, stop=True):
             self.lease.leased_environment(tree)
         self.assertEqual([r["worktree"] for r in self.lease.claimed()],
-                         [str(tree.resolve())], "a slot this run never claimed was taken")
+                         [str(tree.resolve())], "a slot this run never acquired was taken")
         self.assertFalse(stopped.exists(), "a product this run never started was stopped")
 
     def test_a_ticket_judge_run_keeps_the_slot_for_its_later_runs(self):
@@ -304,7 +304,7 @@ class StoppingBeforeReleasing(Base):
         self.assertEqual(json.loads(out)["released"], True)
         where, held, instance = seen.read_text(encoding="utf-8").splitlines()
         self.assertEqual((where, held), (str(tree.resolve()), "held"))
-        self.assertTrue(instance.startswith("issue-640-"), "the stop ran outside its claim")
+        self.assertTrue(instance.startswith("issue-640-"), "the stop ran outside its lease")
         self.assertEqual(self.lease.claimed(), [])
 
     def test_a_stop_that_fails_is_said_and_the_slot_is_still_given_back(self):
@@ -469,7 +469,7 @@ class WhichRootThePathsAreUnder(unittest.TestCase):
 class RegistryIsolation(unittest.TestCase):
     """No test of this suite may write to the machine's own lease registry.
 
-    A slot claim is the only thing keeping two runs off one range of ports. A claim made
+    A slot lease is the only thing keeping two runs off one range of ports. A lease acquired
     by a test overwrites the record of whatever run holds that slot, and the overwritten
     record names the wrong worktree: `release` then refuses, because the ports are still
     listened on, and the slot is lost until someone edits the registry by hand. Two of
@@ -479,7 +479,7 @@ class RegistryIsolation(unittest.TestCase):
     `lease.py` reads `MMW_HOME` at the moment it needs a path, so the environment a
     module runs under decides which registry it writes to. The two checks below are the
     two ways a module can get that wrong: running it with the ambient environment, and
-    running a script that claims a lease in a subprocess.
+    running a script that acquires a lease in a subprocess.
     """
 
     TESTS = Path(__file__).resolve().parent
@@ -517,7 +517,7 @@ class RegistryIsolation(unittest.TestCase):
             bound |= more
 
     def test_every_test_that_names_a_lease_bound_script_sets_its_own_home(self):
-        """The static half of the same rule. It also covers a claim made in a subprocess,
+        """The static half of the same rule. It also covers a lease acquired in a subprocess,
         which leaves no module in this process for the check above to find."""
         bound = self.lease_bound_scripts()
         named = []
@@ -529,7 +529,7 @@ class RegistryIsolation(unittest.TestCase):
             with self.subTest(test_file=path.name):
                 self.assertIn(
                     "MMW_HOME", text,
-                    f"{path.name} loads a script that claims a lease and never says "
+                    f"{path.name} loads a script that acquires a lease and never says "
                     f"which registry it writes to")
         self.assertTrue(named, "no test file names a lease-bound script; this check "
                                "found nothing to check")
@@ -537,8 +537,8 @@ class RegistryIsolation(unittest.TestCase):
 
 class TheProductsLimit(Base):
     """`instance.max` in `.mmw/target.json` is how many copies of a product that cannot
-    move its ports may run at once. The claim itself enforces it, at the first run of a
-    worktree's criteria that needs the product, and counts the claims of that
+    move its ports may run at once. Acquiring itself enforces it, at the first run of a
+    worktree's criteria that needs the product, and counts the leases of that
     repository's ticket worktrees — the ones under `<main checkout>/.worktrees`."""
 
     def setUp(self):
@@ -587,7 +587,7 @@ class TheProductsLimit(Base):
         self.assertEqual(self.lease.try_claim(second)["worktree"], str(second))
 
     def test_the_main_checkout_counts_toward_the_limit_like_any_other(self):
-        """The night's reverify runs the product in the main checkout; a claim there that
+        """The night's reverify runs the product in the main checkout; a lease there that
         the limit did not count would put a second copy on the ports the limit exists to
         protect."""
         (self.repo / ".mmw").mkdir()
@@ -653,7 +653,7 @@ class TheProductsLimit(Base):
 
     def test_the_count_and_the_take_are_one_act_under_a_lock(self):
         """Two runs asking for the last slot at once must not both count one free slot.
-        With the registry's lock held elsewhere, a claim waits for it rather than
+        With the registry's lock held elsewhere, acquiring waits for it rather than
         counting on its own."""
         import fcntl
         import subprocess
@@ -670,7 +670,7 @@ class TheProductsLimit(Base):
             waiting = proc.poll() is None
             fcntl.flock(held, fcntl.LOCK_UN)
         out, err = proc.communicate(timeout=30)
-        self.assertTrue(waiting, "the claim went ahead while the registry was locked")
+        self.assertTrue(waiting, "the acquire went ahead while the registry was locked")
         self.assertEqual(proc.returncode, 0, err)
         self.assertEqual(json.loads(out)["worktree"], str(tree))
 
@@ -690,8 +690,8 @@ class WhatTheCommandLineAnswers(Base):
         return code, out.getvalue()
 
     def test_release_says_which_outcome_in_the_exit_code(self):
-        # Claimed through the command line too: `main` resolves the path it is given
-        # before it looks a lease up, so a test that claims past it would be asking
+        # Acquired through the command line too: `main` resolves the path it is given
+        # before it looks a lease up, so a test that acquires past it would be asking
         # about a worktree under a different name.
         tree = self.tree("issue-640")
         self.run_cli("claim", str(tree))

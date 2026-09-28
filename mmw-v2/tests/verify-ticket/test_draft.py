@@ -1,4 +1,4 @@
-"""`--draft`: write the closing-comment skeleton, with two `<fill>` placeholders."""
+"""`--draft`: write the closing-comment draft, with two `<fill>` placeholders."""
 
 import io
 import json
@@ -166,7 +166,7 @@ class FakeGh:
 
 
 def run_draft(comments, body=BODY, sub_issues=(), started_event=STARTED):
-    """Write a skeleton for ticket 77 to a named file; return (exit, stderr, text, fake)."""
+    """Write a closing-comment draft for ticket 77 to a named file; return (exit, stderr, text, fake)."""
     with TemporaryDirectory() as tmp:
         code, _, err, text, _, fake = draft_run(
             comments, Path(tmp) / "draft.md", body=body, sub_issues=sub_issues,
@@ -190,7 +190,7 @@ def draft_run(comments, out_file, body=BODY, sub_issues=(), started_event=STARTE
 
 
 class TestWhereTheDraftLands(unittest.TestCase):
-    """The skeleton names every path and file name the ticket names — that is what a
+    """The closing-comment draft names every path and file name the ticket names — that is what a
     closing comment says — and `--closeout` runs the repository's own `checks` over the
     tree straight after. A draft written into the repository is content those checks read:
     agentflow-hq/agentflow #831 was held open by a guard that found two reference file
@@ -255,7 +255,7 @@ class TestFirstLine(unittest.TestCase):
 class TestOnlyTheRunsEventIsRead(unittest.TestCase):
     def test_a_typed_self_run_comment_is_not_a_run(self):
         """A comment whose first line is `self-run` and that carries no event is prose:
-        the skeleton takes its ticks and its Outside Owns from nothing."""
+        the closing-comment draft takes its ticks and its Outside Owns from nothing."""
         code, err, text, _ = run_draft((TYPED_SELF_RUN,))
         self.assertEqual(code, 0, err)
         self.assertIn("- [ ] AC1: the importer writes six rows", text)
@@ -289,7 +289,7 @@ class TestFixedLines(unittest.TestCase):
         self.assertIn("dispatch.sh start 77 worker", err)
 
     def test_the_draft_carries_no_line_about_commits_after_the_final_run(self):
-        """A worker's account of its own commits settled nothing, so the skeleton
+        """A worker's account of its own commits settled nothing, so the closing-comment draft
         stopped asking for one."""
         code, err, text, _ = run_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
@@ -374,7 +374,7 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
 
     def test_no_final_worker_run_is_named_on_an_all_met_draft(self):
-        """A skeleton is well formed on its face while the closing gate still requires
+        """A closing-comment draft is well formed on its face while the closing gate still requires
         the worker's final full run."""
         comments = (MET_RUN,)
         code, err, text, fake = run_draft(comments)
@@ -591,7 +591,7 @@ class TestGreenBeforeWork(unittest.TestCase):
         self.assertNotIn("not run:", text)
 
     def test_a_baseline_tick_does_not_count_as_a_run_of_your_own(self):
-        """`newest_run` for the skeleton's ticks still reads only `self`."""
+        """`newest_run` for the closing-comment draft's ticks still reads only `self`."""
         code, err, text, _ = run_draft((BASELINE_GREEN,))
         self.assertEqual(code, 0, err)
         self.assertIn("- [ ] AC1: the importer writes six rows", text)

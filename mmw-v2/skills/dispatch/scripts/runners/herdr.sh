@@ -31,7 +31,7 @@
 # be ended.
 # self prints the id of the session this process itself runs in, the id `send` reaches:
 # exit 0 printed; 3 this process runs in no session of this runner; 1 it does, and its id
-# cannot be read (the reason on stderr). The main agent names itself to the relay with it.
+# cannot be read (the reason on stderr). The orchestrator names itself to the relay with it.
 # Herdr sets HERDR_ENV=1 and HERDR_PANE_ID in every pane it runs; the session id is the
 # name `agent list` gives the agent in that pane, since a name is what `send` takes. An
 # agent with no name there cannot be addressed and is refused.

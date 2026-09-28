@@ -34,7 +34,7 @@ sp = load()
 
 def story_env(home, extra_env=None):
     env = dict(os.environ)
-    # The story judge takes no lease — the story service picks its own port — and
+    # The story oracle takes no lease — the story service picks its own port — and
     # this home is here so that a run which did take one could not reach the
     # machine's registry.
     env["MMW_HOME"] = home

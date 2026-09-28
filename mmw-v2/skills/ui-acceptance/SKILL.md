@@ -5,11 +5,11 @@ description: Use when filling `.mmw/target.json`, reading a DIFF, MISS, JOURNEY 
 
 # UI acceptance
 
-A **target** is the product a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know. Four **judges**, scripts a `CHECK:` names by bare name, read that answer: the **story judge** (`story-parity.py`, element parity between a product story and its design page), `boundary-check.py`, `journey.py` and `harness-guard.py`. `lease.py` gives each run its own ports and directories.
+A **target** is the product a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know. Four **oracles**, scripts a `CHECK:` names by bare name, read that answer: the **story oracle** (`story-parity.py`, element parity between a product story and its design page), `boundary-check.py`, `journey.py` and `harness-guard.py`. `lease.py` gives each run its own ports and directories.
 
-During a night these judges are the only eyes on an interface: when every criterion is green, the ticket closes and the code lands with no person looking at the screen. So write the story, the test, the journey and the harness so that green can only mean the product is right; when a judge is red, change the product, or open a child when the design or the contract is wrong, never the check.
+During a night these oracles are the only eyes on an interface: when every criterion is green, the ticket closes and the code lands with no person looking at the screen. So write the story, the test, the journey and the harness so that green can only mean the product is right; when an oracle is red, change the product, or open a child when the design or the contract is wrong, never the check.
 
-A criterion names a judge bare; run one by hand as `scripts/<name>`.
+A criterion names an oracle bare; run one by hand as `scripts/<name>`.
 
 ## Find your moment
 
@@ -18,9 +18,9 @@ A criterion names a judge bare; run one by hand as `scripts/<name>`.
 | Writing an interface ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
 | Building the product's story service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
 | Writing a story, boundary, journey or harness guard criterion onto a ticket | the `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** |
-| Reading the `DIFF` line the story judge printed, or how it compares a product story with its design page by element parity | [references/story-parity.md](references/story-parity.md) |
+| Reading the `DIFF` line the story oracle printed, or how it compares a product story with its design page by element parity | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
-| Writing a journey script or the product's break switch, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md) |
+| Writing a journey script or the product's fault-injection switch, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md) |
 | Making a repository an acceptance runtime (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 scripts/target_config.py --check` in that repository. Fill `.mmw/target.json` until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
 | Checking that acceptance names are not scattered through the consuming repository, or reading `HARNESS LEAK` / `HARNESS DESIGN PAGE` | `python3 scripts/harness-guard.py <repository-root>` — [references/harness-guard.md](references/harness-guard.md) |
 | Giving a run its own ports and directories, or reading what `lease.py` refused | `python3 scripts/lease.py run -- <the start command>`; every refusal names its next step |
@@ -33,6 +33,6 @@ Several runs share one machine, and each gets its own ports and directories from
 2. **Never start the product outside the lease.** Running the repository's start script yourself, in your own terminal, is how a run ends up on the ports another run is already using. The script refuses without a lease and prints the command that gives it one: `python3 scripts/lease.py run -- <the start command>`.
 3. **Never complete a human step by hand.** If a run cannot get past something without a person — an authorization in a browser, a click — that is a defect in the automation. Report the ticket blocked: satisfying it makes a broken automation look healthy, and the next run has no person in it.
 4. **When the product cannot be reached, report the ticket blocked and stop.** Do not wait, do not build a retry loop, do not change the environment, do not touch another run.
-5. **A fault in the pipeline itself is reported blocked the same way.** `verify-ticket.py`, `dispatch.sh`, a judge script, `lease.py`, a hook, `.mmw/target.json` — a fault in one of those is not yours to route around and not a reason to keep trying. A workaround built instead hides it from every ticket after yours.
+5. **A fault in the pipeline itself is reported blocked the same way.** `verify-ticket.py`, `dispatch.sh`, an oracle script, `lease.py`, a hook, `.mmw/target.json` — a fault in one of those is not yours to route around and not a reason to keep trying. A workaround built instead hides it from every ticket after yours.
 
 Reporting blocked, in rules 3 to 5, goes through an event, because an event on the ticket is the only thing the relay of the `dispatch` skill wakes anybody for: a plain comment carries none, and a session that ends its turn wakes nobody. A worker opens a `fault` child, as the `implement` skill says, and stops.

@@ -279,7 +279,7 @@ def target_main(argv: list[str]) -> int:
     if problems:
         print(f"{len(problems)} to answer; run this again when the file is filled")
         return 1
-    print("complete: the judges can drive this repository")
+    print("complete: the oracles can drive this repository")
     return 0
 
 

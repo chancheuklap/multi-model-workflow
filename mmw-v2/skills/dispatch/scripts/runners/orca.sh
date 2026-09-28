@@ -57,13 +57,13 @@
 # stop ends the session: exit 0 it is gone (or was already), 1 it could not be ended.
 # self prints the id of the session this process itself runs in, the id `send` reaches:
 # exit 0 printed; 3 this process runs in no session of this runner; 1 it does, and its id
-# cannot be read (the reason on stderr). The main agent names itself to the relay with it.
+# cannot be read (the reason on stderr). The orchestrator names itself to the relay with it.
 # Orca sets ORCA_TERMINAL_HANDLE in every terminal it runs, and that handle is the one
 # `terminal list` lists and `send` takes.
 # attach files an existing worktree in Orca's sidebar. `--issue N` links it to the
 # ticket (`worktree set --issue`). `--under-caller` records as its parent the worktree of
 # the Orca terminal this process runs in (ORCA_TERMINAL_HANDLE, looked up in `terminal
-# list`), so the worktrees a main agent makes sit under that agent's own worktree. A
+# list`), so the worktrees an orchestrator makes sit under that agent's own worktree. A
 # caller in no Orca terminal, or in a terminal of that same worktree, has nothing to file
 # it under, and that step is skipped. The two are separate `worktree set` calls: Orca
 # refuses a parent that would make a cycle (`LINEAGE_PARENT_CYCLE`, Orca 1.4.205, read

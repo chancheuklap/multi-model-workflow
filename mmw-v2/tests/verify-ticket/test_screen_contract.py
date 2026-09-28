@@ -419,7 +419,7 @@ class TestPipelineFlags(unittest.TestCase):
 
     def test_a_flag_inside_a_quoted_run_value_belongs_to_that_command(self):
         """`--run` carries a whole command; `pnpm --dir <app>` is how this repository
-        runs a front-end test, and `--dir` is pnpm's, not the judge's."""
+        runs a front-end test, and `--dir` is pnpm's, not the oracle's."""
         check = ('boundary-check.py --run "pnpm --dir desktop-chameleon exec vitest run '
                  'tests/boundary/add-material.test.ts"')
         self.assertEqual(vt.lint_pipeline_flags("AC2", check), [])

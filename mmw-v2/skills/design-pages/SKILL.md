@@ -7,7 +7,7 @@ description: Moves a design between Claude Design and the repository. Use when a
 
 The user designs in Claude Design, with the agent inside it. This skill covers what happens around that work: the project is set up so its pages carry what the repository reads back, and the signed-off project is pulled into the repository for the screen contract and acceptance.
 
-What this skill pulls is copied exactly by implementation and compared element by element by the story judge, and only a session with the Claude Design tools can correct it: a page that is wrong in the repository becomes a wrong product, or a night ticket stalled on a `contract` child. So hold the pages to the conventions in the project `CLAUDE.md`; how they look is the user's call.
+What this skill pulls is copied exactly by implementation and compared element by element by the story oracle, and only a session with the Claude Design tools can correct it: a page that is wrong in the repository becomes a wrong product, or a night ticket stalled on a `contract` child. So hold the pages to the conventions in the project `CLAUDE.md`; how they look is the user's call.
 
 ## Find your moment
 

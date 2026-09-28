@@ -26,7 +26,7 @@ with one `DIFF` line per differing element fact. Exit 2 when a negative control
 fails, the story service does not start, a story page is unreachable or 404, the
 requested mount or scene is outside the contract, `--pages` is empty, there is no
 visible `[data-story-root]`, the contract lacks `viewports` or `locale`, the
-contract still carries a key the judge no longer executes, or the product story
+contract still carries a key the oracle no longer executes, or the product story
 page hosts Claude Design runtime.
 
 `--out` holds screenshots, capture evidence and a pixel difference image for every
@@ -228,11 +228,11 @@ class Stories:
         if code is not None:
             raise SystemExit(refusal(
                 f"`{command}` exited {code} before printing origin: {first}",
-                "The story service must print origin before the judge can open a page.",
+                "The story service must print origin before the oracle can open a page.",
                 "Fix the stories command so it prints origin, then re-run."))
         raise SystemExit(refusal(
             f"`{command}` printed no origin within {ORIGIN_WAIT_S}s: {first}",
-            "The story service must print origin before the judge can open a page.",
+            "The story service must print origin before the oracle can open a page.",
             "Fix the stories command so it prints origin, then re-run."))
 
     def __exit__(self, *exc) -> None:
@@ -368,12 +368,12 @@ def negative_control_gate(design_differences: list[ElementDifference],
     if not design_differences:
         return 2, [refusal(
             "NEGATIVE CONTROL FAILED: changing every design font-size reported no difference.",
-            "The judge could not prove that it can observe element differences.",
+            "The oracle could not prove that it can observe element differences.",
             "Confirm the design page and product story carry corresponding data-ui ids, then re-run.")]
     if not any(diff.property == "missing" for diff in missing_differences):
         return 2, [refusal(
             "NEGATIVE CONTROL FAILED: removing every product data-ui id reported no missing element.",
-            "The design page carries no data-ui id this judge can compare.",
+            "The design page carries no data-ui id this oracle can compare.",
             "Give the design page's elements data-ui ids in Claude Design and pull again, "
             "put the same ids on the product story's elements, then re-run.")]
     return 0, []
@@ -462,7 +462,7 @@ def refuse_story_inputs(doc: dict, contract: str) -> str | None:
     if doc.get("viewports") in (None, [], ""):
         return refusal(
             f"{contract} has no top-level `viewports`.",
-            "Both browser windows are one contract viewport; the judge does not invent a size.",
+            "Both browser windows are one contract viewport; the oracle does not invent a size.",
             "Add `viewports` as the write-screen-contract skill's references/screen-contract-format.md says, then re-run.")
     locale = doc.get("locale")
     if not isinstance(locale, str) or not locale.strip():
@@ -504,7 +504,7 @@ def run(args) -> int:
     if not mounts:
         print(refusal(
             "--pages is empty.",
-            "The judge needs at least one pages.mount value.",
+            "The oracle needs at least one pages.mount value.",
             "Pass --pages with a declared mount, then re-run."), file=sys.stderr)
         return 2
     why = refuse_pages(mounts, doc, catalogue)
@@ -602,7 +602,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
                 except PlaywrightError as exc:
                     raise SystemExit(refusal(
                         f"story page {url} could not be opened: {exc}",
-                        "The judge could not reach the stories service.",
+                        "The oracle could not reach the stories service.",
                         "Fix the stories command so it stays up and prints origin, then re-run."
                     )) from exc
                 status = response.status if response is not None else 0

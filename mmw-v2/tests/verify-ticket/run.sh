@@ -30,8 +30,8 @@ GATE_TESTS="$(dirname -- "$(dirname -- "$HERE")")/upstream-unlazy/tests"
 # `verify-ticket.py` takes the ticket it is about from `MMW_TICKET` when no number is on
 # the command line, and a worker session sets it. Under one, a test that means to
 # exercise a made-up ticket would act on the real one that session is working. Measured
-# 2026-09-10 on #320. The suite also tests judge ownership itself, so an outer acceptance
-# run's ownership marker must not make those inner judges skip their release.
+# 2026-09-10 on #320. The suite also tests oracle ownership itself, so an outer acceptance
+# run's ownership marker must not make those inner oracles skip their release.
 unset MMW_TICKET MMW_JUDGE_LEASE_OWNER
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/parse_k.sh

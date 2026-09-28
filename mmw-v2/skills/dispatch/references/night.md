@@ -1,6 +1,6 @@
 # Running a night
 
-You are the main agent. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create worktrees, and start the sessions. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
+You are the orchestrator. A spec's tickets will be worked while you are not watching each one. The scripts merge, archive, create worktrees, and start the sessions. Every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again.
 
 The night is read in the morning by the user, cold, from `NIGHT SUMMARY`, `NIGHT RETRO` and the tracker, with none of this session's context. So each decision you make leaves its reason where that reader will look: on the child, the ticket or the spec, in a comment that stands on its own. A reason that lives only in this session is lost when it ends.
 
@@ -8,7 +8,7 @@ The night's output is a batch the user can accept in the morning, not a count of
 
 This file is the order of the night. How a wake reaches you and what you do on one is in the skill's [../SKILL.md](../SKILL.md).
 
-Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch gets an event that needs the main agent (step 3), and the watchdog tells you when the tracker has gone silent where it should not; nothing else does, and no agent polls another.
+Between the steps below you end your turn. The relay you start in step 1 wakes you when a ticket of the batch gets an event that needs the orchestrator (step 3), and the watchdog tells you when the tracker has gone silent where it should not; nothing else does, and no agent polls another.
 
 Find where you are by the first row whose fact holds:
 
@@ -16,7 +16,7 @@ Find where you are by the first row whose fact holds:
 | --- | --- |
 | The user has said the night starts, and the spec carries no `spec.opened` | [1. The user says the night starts](#1-the-user-says-the-night-starts), then 1b and 2 |
 | The spec's newest night event is `spec.suspended`, or you are deciding to stop the night because the fault is in the pipeline | [Suspending the night](#suspending-the-night) |
-| A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` findings, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
+| A wake arrived: `#<n> <event>`, `relay.recovered since <time>`, a line of `watchdog:` alerts, or `MMW turn guard:` | [3. Each time something wakes you](#3-each-time-something-wakes-you) |
 | `bash scripts/dispatch.sh status <spec>` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | [4. The closing pass](#4-the-closing-pass) |
 | The spec carries `spec.closed` and no later `spec.retroed` whose result is `recorded` | [5. The night is over](#5-the-night-is-over), from the paragraph that invokes the `retro` skill |
 | The spec carries `spec.closed` and a later `spec.retroed` whose result is `recorded`, and the user has accepted the result | [6. Merge the accepted night](#6-merge-the-accepted-night) |
@@ -37,7 +37,7 @@ Then, from this session — the one the night's wakes must reach:
 bash scripts/dispatch.sh open <spec>
 ```
 
-**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>; task board <url>`, and this session is the night's main agent. **Exit 2:** fix stderr's named condition and run `open` again.
+**Exit 0:** stdout reads `opened #<spec>: wake-ups go to <runner> session <session>; task board <url>`, and this session is the night's orchestrator. **Exit 2:** fix stderr's named condition and run `open` again.
 
 Hand the user the task board URL from that line in your first message of the night. A board that did not start is one stderr line and holds nothing up; `bash scripts/dispatch.sh board` starts it later.
 
@@ -49,7 +49,7 @@ Run this once, before the first `advance`, on every spec, with the `verify-ticke
 verify-ticket.py <spec> --lint
 ```
 
-Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2: a criterion names a judge this run cannot reach, and nothing was read.
+Exit 0: no `ERROR`. Exit 1: fix each `ERROR` on its ticket, except one saying the tracker could not answer (tagged `[parent-unreadable]` or `[sub-issues-unreadable]`, or a traceback from a `gh` call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2: a criterion names an oracle this run cannot reach, and nothing was read.
 
 When the batch drives a screen contract, whether the consuming repository can be driven
 at all is a separate question, answered there by the `ui-acceptance` skill's `target_config.py --check`, which prints
@@ -183,13 +183,13 @@ Tickets left for human acceptance, handed back to triage by their worker, or beh
 
 `summary` exit 0: `NIGHT SUMMARY` is posted and the spec watch is closed. Exit 1: posted and closed, and a relay was left running; end the pid stderr names. Exit 2: nothing was posted; fix what stderr names and run `summary` again. A refusal counting findings no route reached sends you back to step 4.
 
-Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same main-agent session for this spec; `finish` needs its `recorded` receipt.
+Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same orchestrator session for this spec; `finish` needs its `recorded` receipt.
 
-Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the main agent will run `finish` to merge it into the project branch.
+Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the orchestrator will run `finish` to merge it into the project branch.
 
 ## 6. Merge the accepted night
 
-Only after the user has accepted the result, the main agent runs:
+Only after the user has accepted the result, the orchestrator runs:
 
 ```bash
 bash scripts/dispatch.sh finish <spec>

@@ -574,7 +574,7 @@ def write_values(path: Path, values: list[dict]) -> None:
 def visible_box(page, selector: str, viewport: tuple[int, int]) -> tuple[int, int, int, int]:
     """The mount element's layout box intersected with the viewport, in viewport CSS
     pixels. `getBoundingClientRect()` gives the layout box — a 3000 px table is 3000 px
-    tall, not "what is visible" — and the intersection is what the pixel judge compares;
+    tall, not "what is visible" — and the intersection is what the oracle compares;
     the rest is the tree's."""
     rect = mount_rect(page, selector)
     if rect is None:

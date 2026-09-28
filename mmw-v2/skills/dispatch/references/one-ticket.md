@@ -4,7 +4,7 @@ You are starting one worker on one ticket, with no batch behind it. A ticket out
 
 Four steps:
 
-1. `bash scripts/dispatch.sh open-ticket <n>`: this session becomes the ticket's main agent, and the line it prints ends with the task board's URL; hand it to the user.
+1. `bash scripts/dispatch.sh open-ticket <n>`: this session becomes the ticket's orchestrator, and the line it prints ends with the task board's URL; hand it to the user.
 2. `bash scripts/dispatch.sh start <n> worker`, from a checkout of the branch this ticket will merge into, which must exist on origin. Then end your turn.
 3. You are woken with `#<n> ticket.passed` or `#<n> ticket.returned`, or with one of the four below. Read that event on the ticket and `bash scripts/dispatch.sh ack <n> <that event>`, then act on it.
    - `#<n> worker.lost`: the worker's session stopped. `bash scripts/dispatch.sh start <n> worker` starts another in the same workspace; it first commits tracked edits and pushes the ticket branch to origin.

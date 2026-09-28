@@ -1,6 +1,6 @@
-"""A run refuses when a `CHECK:` names a judge it cannot reach.
+"""A run refuses when a `CHECK:` names an oracle it cannot reach.
 
-The failure this prevents is not a loud one. A judge that is not on the shell's PATH
+The failure this prevents is not a loud one. An oracle that is not on the shell's PATH
 makes its criterion fail `command not found`, gate-check records one more unmet gate,
 and the run exits 1 — indistinguishable from work that did not pass. `dispatch.sh
 reverify` was found on 2026-09-08 running with no `--tools` at all, which reads as a
@@ -90,7 +90,7 @@ class NothingIsWritten(unittest.TestCase):
     """The refusal comes before the run, so the ticket is left exactly as it was.
 
     `main` falls back to the `ui-acceptance` skill's `scripts/` beside this one, which in
-    a checkout holds every judge. These runs point that fallback at an empty directory,
+    a checkout holds every oracle. These runs point that fallback at an empty directory,
     so nothing is reachable and the refusal is the one being tested.
     """
 
