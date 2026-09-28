@@ -988,5 +988,23 @@ class TestReverifyActorIsExplicit(unittest.TestCase):
         self.assertIn("--actor belongs to --reverify", err.getvalue())
 
 
+class TestExitCodesHelp(unittest.TestCase):
+    """`--lint`, `--sub-issue` and `--review` each have their own exit codes documented
+    beside the rest, so `references/linting.md` and `references/sub-issues.md` no
+    longer have to carry a second copy."""
+
+    def test_lint_sub_issue_and_review_are_documented(self):
+        for flag in ("--lint", "--sub-issue", "--review"):
+            with self.subTest(flag=flag):
+                self.assertIn(flag, vt.EXIT_CODES)
+
+    def test_help_prints_the_exit_codes(self):
+        with redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit) as caught:
+            vt.main(["--help"])
+        self.assertEqual(caught.exception.code, 0)
+        self.assertIn("--sub-issue", out.getvalue())
+        self.assertIn("--review", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

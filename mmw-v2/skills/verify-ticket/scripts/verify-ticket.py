@@ -64,6 +64,22 @@ CLASS_LABELS = {
 }
 # The one of them `--lint` asks after by name: which number is a batch's container.
 CLASS_SPEC = "mmw:spec"
+# The other two label sets `docs/agents/issue-tracker.md` `## Three label sets` names:
+# who a ticket is waiting on, and which `models.json` row starts its worker. Colour and
+# description are defined once, here, for all three sets; `ensure_label` and `--publish`
+# create whichever of them a repository lacks. `docs/agents/triage-labels.md` maps queue
+# labels to this repository's own roles; it does not redefine them.
+QUEUE_LABELS = {
+    "needs-triage": ("F9D0C4", "还没评估过，不知道该不该做、怎么做"),
+    "needs-info": ("B60205", "缺输入，等人补"),
+    "ready-for-agent": ("FEF2C0", "已写清楚，可以直接派工人 AFK 跑"),
+    "ready-for-human": ("BFDADC", "HITL 的活，不派工人"),
+    "wontfix": ("ffffff", "This will not be worked on"),
+}
+GRADE_LABELS = {
+    "junior-worker": ("C2E0C6", "worker grade: default row in models.md"),
+    "senior-worker": ("E99695", "worker grade: silent-failure work"),
+}
 # The scripts of the ui-acceptance skill that run a command `.mmw/target.json` declares,
 # under this worktree's lease. A criterion naming one needs the product, and so a slot.
 # A judge that starts the product, and so needs this worktree's slot. `story-parity.py`
@@ -1554,19 +1570,40 @@ def run_draft(number: int, out_file: Path | None) -> int:
 
 
 def ensure_label(name: str) -> str | None:
-    """Make sure the repository has the layer label `name`; the reason when it could not.
+    """Make sure the repository has label `name`, from any of the three sets defined
+    above (layer, queue, grade); the reason when it could not.
 
     A label the repository lacks makes `gh issue create --label` fail outright, so the
-    first issue of each layer creates its label. One that already exists is left exactly
-    as it is. Patched out in tests.
+    first issue that would carry it creates it instead. One that already exists is left
+    exactly as it is. Patched out in tests.
     """
-    color, description = CLASS_LABELS[name]
+    color, description = (CLASS_LABELS.get(name) or QUEUE_LABELS.get(name)
+                          or GRADE_LABELS.get(name) or (None, None))
+    if color is None:
+        raise KeyError(name)
     out = subprocess.run(["gh", "label", "create", name, "--color", color,
                           "--description", description],
                          capture_output=True, text=True, env=GH_ENV)
     if out.returncode == 0 or "already exists" in (out.stderr or out.stdout or ""):
         return None
     return gh_detail(out)
+
+
+def gh_issue_create(args: list[str], body: str) -> tuple[subprocess.CompletedProcess, int | None]:
+    """Run `gh issue create <args> --body-file <body>`: the completed process, and the
+    issue number `gh` printed, or None when there was none to parse from its output.
+    Patched out in tests through `subprocess.run`."""
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
+        fh.write(body)
+        body_path = fh.name
+    try:
+        result = subprocess.run(["gh", "issue", "create", *args, "--body-file", body_path],
+                                capture_output=True, text=True, env=GH_ENV)
+    finally:
+        os.unlink(body_path)
+    printed = (result.stdout or "").strip()
+    found = re.search(r"/issues/(\d+)", printed)
+    return result, (int(found.group(1)) if found else None)
 
 
 def run_sub_issue(number: int, kind: str, path: Path) -> int:
@@ -1591,34 +1628,20 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
     posted = f"A `{kind}` child of #{number}.\n\n" + text
     if not posted.endswith("\n"):
         posted += "\n"
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
-        fh.write(posted)
-        body_path = fh.name
-    try:
-        result = subprocess.run(
-            ["gh", "issue", "create",
-             "--parent", str(number),
-             "--label", "needs-triage",
-             "--label", "mmw:child",
-             "--title", title,
-             "--body-file", body_path],
-            capture_output=True, text=True, check=False, env=GH_ENV,
-        )
-    finally:
-        os.unlink(body_path)
+    result, child = gh_issue_create(
+        ["--parent", str(number), "--label", "needs-triage", "--label", "mmw:child",
+         "--title", title], posted)
     if result.returncode != 0:
         sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
         return 2
     printed = (result.stdout or "").strip()
-    found = re.search(r"/issues/(\d+)", printed)
     recorded = 0
-    if not found:
+    if child is None:
         sys.stderr.write(f"opened a sub-issue of #{number} but `gh issue create` printed no "
                          f"issue number ({printed[:80] or 'nothing'}), so no child.opened "
                          f"event was written on #{number}; do not open it again\n")
         recorded = 1
     else:
-        child = int(found.group(1))
         try:
             post_event(number, "child.opened", f"Opened #{child} ({kind}): {title}",
                        child=child, kind=kind, title=title)
@@ -1626,8 +1649,89 @@ def run_sub_issue(number: int, kind: str, path: Path) -> int:
             sys.stderr.write(f"opened #{child} under #{number}, but the child.opened event "
                              f"on #{number} was not written ({exc}); do not open it again\n")
             recorded = 1
-    print(found.group(1) if found else printed)
+    print(str(child) if child is not None else printed)
     return recorded
+
+
+def issue_db_id(number: int) -> int:
+    """The tracker's own numeric id of issue `number`, the one its dependency links use
+    (never the `#number` or the GraphQL node id). Patched out in tests."""
+    out = subprocess.run(
+        ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{number}", "--jq", ".id"],
+        capture_output=True, text=True, env=GH_ENV,
+    )
+    if out.returncode != 0 or not out.stdout.strip():
+        raise TrackerReadError(number, "database id", gh_detail(out))
+    return int(out.stdout.strip())
+
+
+def add_blocking_link(child: int, blocker: int) -> str | None:
+    """Record `child` as blocked by `blocker` in the tracker's native issue dependencies,
+    the same link `docs/agents/issue-tracker.md` `## Wayfinding operations` adds by hand.
+    The reason when it could not be recorded, None when it was. Patched out in tests."""
+    try:
+        blocker_id = issue_db_id(blocker)
+    except TrackerReadError as exc:
+        return str(exc)
+    out = subprocess.run(
+        ["gh", "api", "--method", "POST",
+         f"repos/{{owner}}/{{repo}}/issues/{child}/dependencies/blocked_by",
+         "-F", f"issue_id={blocker_id}"],
+        capture_output=True, text=True, env=GH_ENV,
+    )
+    if out.returncode != 0:
+        return gh_detail(out)
+    return None
+
+
+def label_defined(name: str) -> bool:
+    """Whether `name` is one this file knows the colour and description of."""
+    return name in CLASS_LABELS or name in QUEUE_LABELS or name in GRADE_LABELS
+
+
+def run_publish_spec(body_path: Path, title: str, map_number: int | None) -> int:
+    """Publish a spec: one issue carrying the layer label `mmw:spec`, and, when
+    `map_number` is given, a native sub-issue of that map — the link the board and the
+    retro find a spec's map through; nothing written in the body stands in for it.
+
+    A spec is a container for the tickets underneath it, not a piece of work, so it
+    carries no triage label.
+    """
+    text = body_path.read_text(encoding="utf-8") if body_path.is_file() else ""
+    if not text.strip():
+        return refuse(f"{body_path} is empty")
+    missing = ensure_label(CLASS_SPEC)
+    if missing:
+        return refuse(f"the repository has no `{CLASS_SPEC}` label and it could not be "
+                      f"created ({missing}); nothing was published")
+    args = ["--title", title, "--label", CLASS_SPEC]
+    if map_number is not None:
+        args += ["--parent", str(map_number)]
+    result, number = gh_issue_create(args, text)
+    if result.returncode != 0:
+        sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
+        return 2
+    if number is None:
+        printed = (result.stdout or "").strip()
+        return refuse(f"gh issue create printed no issue number ({printed[:80] or 'nothing'}); "
+                      f"check the tracker directly for whether the spec was published")
+    if map_number is not None:
+        try:
+            parent = fetch_parent(number)
+        except ParentUnreadable as exc:
+            print(str(number))
+            sys.stderr.write(f"#{number} was published, but its native parent could not be "
+                             f"confirmed ({exc}); check it by hand\n")
+            return 1
+        if parent != map_number:
+            print(str(number))
+            sys.stderr.write(f"#{number} was published, but its native parent is "
+                             f"{('#' + str(parent)) if parent else 'unset'}, not #{map_number}; "
+                             f"`## Sources`, the title and semantic similarity do not replace "
+                             f"the native parent — check it by hand\n")
+            return 1
+    print(str(number))
+    return 0
 
 
 # ----------------------------------------------------------------- subcommands
@@ -3829,6 +3933,103 @@ def lint_drafts(spec: int, directory: Path) -> int:
     return 1 if (failed or graph) else 0
 
 
+def _draft_dependencies(draft: dict, names: set[str], directory: Path) -> list[int | str]:
+    """A draft's `BLOCKED BY:` header read as the graph `validate_dag` and
+    `compute_levels` take: an existing issue as its number, another draft in this batch
+    by name. Raises `ValueError` naming the first blocker that is neither."""
+    out: list[int | str] = []
+    for blocker in draft["blocked"]:
+        issue = DRAFT_ISSUE_RE.match(blocker)
+        if issue:
+            out.append(int(issue.group(1)))
+        elif blocker in names:
+            out.append(blocker)
+        else:
+            raise ValueError(f"{draft['name']} is blocked by `{blocker}`, which is "
+                             f"neither a draft in {directory} nor `#<issue number>`")
+    return out
+
+
+def run_publish_drafts(spec: int, directory: Path) -> int:
+    """Publish every draft in `directory` as a native sub-issue of `spec`: create each
+    blocker before what it blocks, wire the blocking links its `BLOCKED BY:` header
+    names, print the draft name to issue number table, then run `--lint` on the
+    published spec once, because only the tracker shows what publishing did.
+
+    A cycle, or a blocker naming no draft and no `#<n>`, is refused before anything is
+    created: publishing is deterministic given a valid batch, so an invalid one is
+    reported, not half built. A `gh` failure partway through names every draft already
+    published, so nothing has to be guessed from the tracker by hand.
+    """
+    paths = sorted(directory.glob("*.md"))
+    if not paths:
+        return refuse(f"{directory} holds no `*.md` drafts; nothing to publish")
+    drafts: list[dict] = []
+    for path in paths:
+        try:
+            drafts.append(read_draft(path))
+        except (DraftUnreadable, OSError, UnicodeError) as exc:
+            return refuse(str(exc))
+    names = {d["name"] for d in drafts}
+    entries = []
+    for draft in drafts:
+        try:
+            deps = _draft_dependencies(draft, names, directory)
+        except ValueError as exc:
+            return refuse(str(exc))
+        entries.append({"id": draft["name"], "dependencies": deps})
+    errors = validate_dag(in_batch(entries))
+    if errors:
+        return refuse("; ".join(error.split("  [")[0] for error in errors))
+    entries_by_name = {entry["id"]: entry for entry in entries}
+    levels = compute_levels(in_batch(entries))
+    order = sorted(drafts, key=lambda d: (levels.get(d["name"], 0), d["name"]))
+
+    def already_published(numbers: dict[str, int]) -> str:
+        return ("; already published: "
+                + ", ".join(f"{n} -> #{i}" for n, i in numbers.items()) if numbers else "")
+
+    numbers: dict[str, int] = {}
+    for draft in order:
+        for label in draft["labels"]:
+            if not label_defined(label):
+                continue
+            missing = ensure_label(label)
+            if missing:
+                return refuse(f"the repository has no `{label}` label and it could not "
+                              f"be created ({missing}); {draft['name']} was not published"
+                              + already_published(numbers))
+        args = ["--parent", str(spec), "--title", draft["title"]]
+        for label in draft["labels"]:
+            args += ["--label", label]
+        result, number = gh_issue_create(args, draft["body"])
+        if result.returncode != 0:
+            sys.stderr.write((result.stderr or result.stdout or "gh issue create failed")
+                             .rstrip() + already_published(numbers) + "\n")
+            return 2
+        if number is None:
+            printed = (result.stdout or "").strip()
+            sys.stderr.write(f"gh issue create for {draft['name']} printed no issue number "
+                             f"({printed[:80] or 'nothing'})" + already_published(numbers) + "\n")
+            return 2
+        numbers[draft["name"]] = number
+        print(f"{draft['name']} -> #{number}")
+
+    problems = []
+    for draft in order:
+        child = numbers[draft["name"]]
+        for dep in entries_by_name[draft["name"]]["dependencies"]:
+            blocker = numbers[dep] if isinstance(dep, str) else dep
+            problem = add_blocking_link(child, blocker)
+            if problem:
+                problems.append(f"#{child} ({draft['name']}) could not be linked as "
+                                f"blocked by #{blocker}: {problem}")
+    for problem in problems:
+        sys.stderr.write(problem + "\n")
+    lint_result = lint_spec(spec)
+    return 1 if problems else lint_result
+
+
 EXIT_CODES = """\
 exit codes:
   a criteria run (no flag, or --reverify --actor worker|main)
@@ -3840,10 +4041,30 @@ exit codes:
   --preflight
     0 the ticket is now yours; 2 refused, reason on stderr: a NOT_READY refusal is
     on the ticket as ticket.refused, any other posted nothing
+  --lint
+    0 nothing reported an ERROR; 1 a ticket or the graph has one (on a spec, any of
+    its open sub-issues having one; a closed one's ERROR is printed and counts for
+    nothing); 2 a criterion names a judge this run cannot reach, refused before
+    anything is read. No CHECK: runs and no comment is posted on any exit
   --decisions, --touched
     0 posted (for --touched, or nothing to post); 2 refused, nothing posted
   --draft
     0 the file was written and its path printed; 2 refused, no file written
+  --sub-issue
+    0 the sub-issue is open and recorded; 1 the sub-issue is open and its
+    child.opened event could not be written, named on stderr — do not open it
+    again; 2 a refusal, reason on stderr
+  --review
+    0 posted; 2 refused (the file does not open REVIEW <base>..<head>, or an
+    ## In-ticket row is not recognized), reason on stderr
+  --publish
+    --spec-body: 0 published, printed as the issue number (with --map, its native
+    parent was confirmed too); 1 published but the native parent could not be
+    confirmed as --map, printed then said on stderr; 2 refused, nothing published
+    --drafts: 0 every draft published, every blocking link recorded, and --lint on
+    the published spec reported no ERROR; 1 published with a blocking link that
+    could not be recorded, or --lint on the published spec found one; 2 refused
+    before anything was created, or gh failed partway (stderr names what published)
   --closeout
     0 the ticket is closed (or handed back) and its event posted, or with
     --check-only the draft passes; 1 refused by a draft condition, the repository's
@@ -3855,7 +4076,11 @@ exit codes:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0], epilog=EXIT_CODES,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("ticket", type=int)
+    # Optional only for `--publish --spec-body`, which creates an issue that has no
+    # number yet; every other job needs one.
+    parser.add_argument("ticket", type=int, nargs="?",
+                        help="the ticket (or, with --publish --drafts, the spec) this run "
+                             "is about; omit only for --publish --spec-body")
     parser.add_argument("--reverify", action="store_true",
                         help="re-run every criterion, including the ones already ticked")
     parser.add_argument("--lint", action="store_true",
@@ -3863,7 +4088,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--drafts", type=Path, metavar="DIR",
                         help="with --lint, the ticket being the spec: lint the unpublished "
                              "drafts in DIR (TITLE:/LABELS:/BLOCKED BY: header, `---`, body) "
-                             "instead of the spec's sub-issues")
+                             "instead of the spec's sub-issues; with --publish, publish them "
+                             "as native sub-issues of the spec")
+    parser.add_argument("--publish", action="store_true",
+                        help="publish a spec (--spec-body FILE --title T [--map N]) or a "
+                             "batch of ticket drafts (--drafts DIR, the ticket being the "
+                             "spec they publish under)")
+    parser.add_argument("--spec-body", type=Path, metavar="FILE",
+                        help="with --publish: the new spec's body")
+    parser.add_argument("--title", metavar="TITLE",
+                        help="with --publish --spec-body: the new spec's title")
+    parser.add_argument("--map", type=int, metavar="N",
+                        help="with --publish --spec-body: publish as a native sub-issue "
+                             "of map N")
     parser.add_argument("--preflight", action="store_true",
                         help="claim the ticket, or refuse and say why on the ticket")
     parser.add_argument("--closeout", type=Path, metavar="DRAFT",
@@ -3903,11 +4140,11 @@ def main(argv: list[str] | None = None) -> int:
                ("--decisions", args.decisions is not None), ("--touched", args.touched),
                ("--draft", args.draft is not None),
                ("--sub-issue", args.sub_issue is not None),
-               ("--review", args.review is not None)) if on]
+               ("--review", args.review is not None), ("--publish", args.publish)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
-    if args.drafts is not None and not args.lint:
-        parser.error("--drafts belongs to --lint")
+    if args.drafts is not None and not (args.lint or args.publish):
+        parser.error("--drafts belongs to --lint or --publish")
     if args.drafts is not None and not args.drafts.is_dir():
         parser.error(f"no directory at {args.drafts}")
     if args.check_only and args.closeout is None:
@@ -3916,7 +4153,28 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--actor belongs to --reverify")
     if args.reverify and args.actor is None:
         parser.error("--reverify requires --actor worker|main")
+    if args.spec_body is not None and not args.publish:
+        parser.error("--spec-body belongs to --publish")
+    if args.title is not None and args.spec_body is None:
+        parser.error("--title belongs to --publish --spec-body")
+    if args.map is not None and args.spec_body is None:
+        parser.error("--map belongs to --publish --spec-body")
+    if args.publish and args.spec_body is None and args.drafts is None:
+        parser.error("--publish needs --spec-body --title, or --drafts")
+    if args.publish and args.spec_body is not None and args.drafts is not None:
+        parser.error("--spec-body and --drafts are different forms of --publish; pick one")
+    if args.publish and args.spec_body is not None:
+        if args.ticket is not None:
+            parser.error("--publish --spec-body creates a new issue; do not name a ticket number")
+        if not args.title:
+            parser.error("--publish --spec-body requires --title")
+        if not args.spec_body.is_file():
+            parser.error(f"no file at {args.spec_body}")
+    elif args.ticket is None:
+        parser.error("a ticket number is required")
     try:
+        if args.publish and args.spec_body is not None:
+            return run_publish_spec(args.spec_body, args.title, args.map)
         if args.preflight:
             return run_preflight(args.ticket)
         if args.closeout is not None:
@@ -3938,6 +4196,8 @@ def main(argv: list[str] | None = None) -> int:
             if not args.review.is_file():
                 parser.error(f"no file at {args.review}")
             return run_review(args.ticket, args.review)
+        if args.publish:
+            return run_publish_drafts(args.ticket, args.drafts)
         if args.lint and args.drafts is not None:
             return lint_drafts(args.ticket, args.drafts)
         if args.lint:
