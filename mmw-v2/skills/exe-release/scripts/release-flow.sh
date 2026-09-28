@@ -2,12 +2,13 @@
 # release-flow.sh -- 通用 release-flow 引擎(确定层:操作 release-state.json)。
 #
 #   init        --manifest <path> [--max-rounds N]
-#   where       报当前 stage+run / SUCCESS / PAUSED / NO-STAGES / CORRUPT
-#   stage       run|done|fail
+#   where       报当前 stage+run / SUCCESS / PAUSED / CORRUPT
+#   stage       run|done|fail  -- run 失败时自己接着分诊派发、计轮次，再返回
 #   round next  轮账;到 max_rounds 自动 surface 熔断
-#   surface|resume|close|abort|exit-check
+#   surface|resume|close|abort  -- close refuses a round that is not DONE (pause or unfinished stages)
+#   same-commit <product>...   逐个比对交付记录的 source_commit 是否等于当前 HEAD
 #   receipt     从 attempt_ledger 渲染已试动作
-#   dispatch    --stage <n> --findings <p>  收敛护栏 + 按 tier 派修(P2 derive/P1 fix/P0 停)
+#   dispatch    --stage <n> --findings <p>  收敛护栏 + 按 tier 处置(P2 derive 自动提交/P1 写简报交人/P0 停)
 #
 # Exit codes. What happened is on stdout (`STAGE:`, `PAUSED:`, `SUCCESS:`, `DONE`, `NOT-DONE:`,
 # `CORRUPT:`, `TRANSIENT-RETRY:`, `ENV-ACTION:`, `P0:`, `BUDGET-EXCEEDED:` and the rest); the exit
@@ -17,7 +18,7 @@
 # | --- | --- | --- | --- | --- |
 # | `<release> <subcommand>` | the subcommand ran; what happened is on stdout | one `ERROR: <the fact it cannot get past>` line on stderr | the subcommand is missing or unknown, usage on stderr (`--help` exits 0; an unknown verb after `stage` or `round` exits 1 with an `ERROR: usage:` line) | — |
 # | `<scripts>/verify_key.py` | no findings | the release manifest has problems: findings as a JSON envelope on stdout, or a contract error as a traceback on stderr | argparse usage error | — |
-# | `<scripts>/release_script_assembler.py assemble\|check` | passed | — | argparse usage error | `INVALID: <reason>` on stderr |
+# | `<scripts>/release_script_assembler.py assemble` | passed | — | argparse usage error | `INVALID: <reason>` on stderr |
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -47,7 +48,8 @@ release-flow.sh init --manifest <path> [--max-rounds N]
 release-flow.sh where
 release-flow.sh stage run|done|fail
 release-flow.sh round next
-release-flow.sh surface|resume|close|abort|exit-check
+release-flow.sh surface|resume|close|abort
+release-flow.sh same-commit <product> [<product> ...]
 release-flow.sh receipt
 release-flow.sh dispatch --stage <n> --findings <path>
 
@@ -163,16 +165,6 @@ _convergence_guard() {
   return 0
 }
 
-_match_any() {
-  local path="$1" g
-  shift
-  for g in "$@"; do
-    # shellcheck disable=SC2053 # $g 是 release_protection 配置的 glob，不是字面字符串。
-    [[ "$path" == $g ]] && return 0
-  done
-  return 1
-}
-
 _json_array() {
   if [ "$#" -eq 0 ]; then echo "[]"; return; fi
   printf '%s\n' "$@" | jq -R . | jq -s -c .
@@ -192,58 +184,8 @@ patch_last_attempt() {
      | .attempt_ledger[-1].command=(if $c=="" then null else $c end)'
 }
 
-_file_sha256() {
-  shasum -a 256 "$1" | awk '{print $1}'
-}
-
-_snapshot_baseline_untracked() {
-  local top="$1" f="${2:-}" path
-  BASELINE_UNTRACKED_PATHS=()
-  BASELINE_UNTRACKED_HASHES=()
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    BASELINE_UNTRACKED_PATHS+=("$path")
-    BASELINE_UNTRACKED_HASHES+=("$(_file_sha256 "$top/$path")")
-  done < <(git -C "$top" ls-files --others --exclude-standard)
-  # P0:被 gitignore 的受保护文件(如已有 .env)也纳入 baseline(带原始 hash),让「自愈修复改写
-  # 已有受保护文件」走 baseline_untracked_changed 的诚实 PAUSE、保留原文件,而不是被当成本轮
-  # 新建候选、在 reject cleanup 时误 rm 掉(会丢失原 secret)。
-  if [ -n "$f" ] && _load_path_hard_deny "$f" 2>/dev/null; then
-    while IFS= read -r path; do
-      [ -n "$path" ] || continue
-      _match_any "$path" "${PROTECTION_MATCHERS[@]-}" || continue
-      _is_baseline_untracked "$path" && continue
-      BASELINE_UNTRACKED_PATHS+=("$path")
-      BASELINE_UNTRACKED_HASHES+=("$(_file_sha256 "$top/$path")")
-    done < <(git -C "$top" ls-files --others --ignored --exclude-standard)
-  fi
-}
-
-_is_baseline_untracked() {
-  local candidate="$1" path
-  for path in "${BASELINE_UNTRACKED_PATHS[@]-}"; do
-    [ "$candidate" = "$path" ] && return 0
-  done
-  return 1
-}
-
-_baseline_untracked_changed() {
-  local top="$1" index path actual
-  BASELINE_CHANGED_PATHS=()
-  for index in "${!BASELINE_UNTRACKED_PATHS[@]}"; do
-    path="${BASELINE_UNTRACKED_PATHS[$index]}"
-    if [ ! -e "$top/$path" ] && [ ! -L "$top/$path" ]; then
-      BASELINE_CHANGED_PATHS+=("$path")
-      continue
-    fi
-    actual="$(_file_sha256 "$top/$path")"
-    [ "$actual" = "${BASELINE_UNTRACKED_HASHES[$index]}" ] || BASELINE_CHANGED_PATHS+=("$path")
-  done
-  [ ${#BASELINE_CHANGED_PATHS[@]} -eq 0 ]
-}
-
 _collect_candidate_paths() {
-  local top="$1" f="$2" path
+  local top="$1" path
   TRACKED_PATHS=()
   NEW_UNTRACKED_PATHS=()
   CHANGED_PATHS=()
@@ -251,140 +193,14 @@ _collect_candidate_paths() {
     [ -n "$path" ] && TRACKED_PATHS+=("$path")
   done < <(git -C "$top" diff --name-only HEAD)
   while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    _is_baseline_untracked "$path" || NEW_UNTRACKED_PATHS+=("$path")
+    [ -n "$path" ] && NEW_UNTRACKED_PATHS+=("$path")
   done < <(git -C "$top" ls-files --others --exclude-standard)
-  # P0 安全:一般候选集用 --exclude-standard 排除 gitignored,曾致自愈修复新建的 gitignored
-  # 受保护文件(如 .env/secret)看不见,流程误判「无改动」直接放过、不进 path-gate、不拦不存 patch。
-  # 这里额外扫 gitignored 未跟踪文件,只把匹配 hard-deny 的纳入候选(缓存等不匹配的不受影响)。
-  if [ -n "${f:-}" ] && _load_path_hard_deny "$f" 2>/dev/null; then
-    while IFS= read -r path; do
-      [ -n "$path" ] || continue
-      _is_baseline_untracked "$path" && continue
-      _match_any "$path" "${PROTECTION_MATCHERS[@]-}" && NEW_UNTRACKED_PATHS+=("$path")
-    done < <(git -C "$top" ls-files --others --ignored --exclude-standard)
-  fi
   if [ ${#TRACKED_PATHS[@]} -gt 0 ]; then
     CHANGED_PATHS+=("${TRACKED_PATHS[@]}")
   fi
   if [ ${#NEW_UNTRACKED_PATHS[@]} -gt 0 ]; then
     CHANGED_PATHS+=("${NEW_UNTRACKED_PATHS[@]}")
   fi
-}
-
-# 不管产品声明了什么，自动修复永远不许碰这几类路径。产品的 protection_source 加在它之上，
-# 不是取代它——一把新钥匙什么都还没写的时候，闸门不该是整个开着的。
-# 匹配用 bash 的 [[ == ]]，其中 * 也跨 /，所以 *foo 等于「任意深度下的 foo」。
-_SKILL_HARD_DENY=(
-  '.env' '.env.*' '*/.env' '*/.env.*'
-  '*.pem' '*.key' '*.p12' '*.pfx' '*id_rsa' '*id_ed25519' '*id_ecdsa'
-  '.git' '.git/*'
-  '*.lock' '*package-lock.json' '*pnpm-lock.yaml' '*yarn.lock'
-  '*.release-adapter.json'
-)
-
-_load_path_hard_deny() {
-  local f="$1" top mp source_rel source_file matchers path
-  # P0:本轮 dispatch 若已在跑修复前冻结过 hard-deny 快照,后续一律用冻结值,不再从可能被修复
-  # 改坏的 protection_source 重读——否则「改写 release_protection.json 本身」会让规则源读不出、
-  # 把 P0 受保护路径违规降级成 needs-context「规则源不可读」,等于破坏被保护物就能关掉它自己的闸。
-  if [ "${PROTECTION_FROZEN:-0}" = "1" ]; then
-    [ ${#PROTECTION_MATCHERS[@]} -gt 0 ] && return 0
-    PATH_GATE_ERROR="the frozen protection_source snapshot is empty"
-    return 1
-  fi
-  top="$(_repo_top)"
-  mp="$(jq -r '.manifest_path' "$f")"
-  PROTECTION_MATCHERS=("${_SKILL_HARD_DENY[@]}")
-  # 钥匙没有自己的保护规则，就只有技能这份底线——这不是缺陷，是一把还没长出自愈装备的钥匙。
-  if [ "$(jq -r 'has("protection_source") and (.protection_source != null)' "$mp")" != "true" ]; then
-    return 0
-  fi
-  source_rel="$(jq -er '.protection_source' "$mp" 2>/dev/null)" || {
-    PATH_GATE_ERROR="manifest.protection_source cannot be read"
-    return 1
-  }
-  case "$source_rel" in
-    /*|..|../*|*/../*) PATH_GATE_ERROR="protection_source must be a path relative to the repo root: $source_rel"; return 1 ;;
-  esac
-  source_file="$top/$source_rel"
-  [ -f "$source_file" ] || { PATH_GATE_ERROR="protection_source does not exist: $source_rel"; return 1; }
-  matchers="$(mktemp)"
-  if ! jq -er '.rules
-    | if type == "array" then . else error("rules must be array") end
-    | [ .[]
-        | select(.kind == "path_hard_deny")
-        | .matcher
-        | if type == "string" and length > 0 then . else error("hard-deny matcher must be non-empty string") end
-      ]
-    | if length > 0 then .[] else error("no path_hard_deny matcher") end' "$source_file" > "$matchers"; then
-    rm -f "$matchers"
-    PATH_GATE_ERROR="protection_source is not valid: $source_rel"
-    return 1
-  fi
-  while IFS= read -r path; do
-    [ -n "$path" ] && PROTECTION_MATCHERS+=("$path")
-  done < "$matchers"
-  # 规则源自己也不许被自动修复改：改得掉它，就等于能关掉自己头上的闸。
-  PROTECTION_MATCHERS+=("$source_rel")
-  rm -f "$matchers"
-  [ ${#PROTECTION_MATCHERS[@]} -gt 0 ] || {
-    PATH_GATE_ERROR="protection_source declares no path_hard_deny matcher"
-    return 1
-  }
-}
-
-_path_gate() {
-  local f="$1" mode="${2:-fix}" mp path matcher
-  _load_path_hard_deny "$f" || return 1
-  mp="$(jq -r '.manifest_path' "$f")"
-  EDITABLE_MATCHERS=()
-  while IFS= read -r matcher; do
-    [ -n "$matcher" ] && EDITABLE_MATCHERS+=("$matcher")
-  done < <(jq -r '.editable_paths[]' "$mp")
-  BLOCKED_PATHS=()
-  for path in "${CHANGED_PATHS[@]-}"; do
-    [ -n "$path" ] || continue
-    if _match_any "$path" "${PROTECTION_MATCHERS[@]-}"; then
-      BLOCKED_PATHS+=("$path")
-      continue
-    fi
-    # P2 derive:引擎从唯一事实来源单向重生消费方派生物,derive.regenerate 自身已把输出约束在派生目录;
-    # 派生物刻意不入 P1 的 editable_paths(否则 P1 fix_executor 能直改派生物,破坏「derive 唯一 writer」)。
-    # 设计意图是 derive 只过 P0 保护路径 hard-deny,不施 P1 的 editable 白名单;否则 P2 无感自愈对真钥匙失效。
-    if [ "$mode" = "derive" ]; then
-      continue
-    fi
-    if [ ${#EDITABLE_MATCHERS[@]} -eq 0 ] || ! _match_any "$path" "${EDITABLE_MATCHERS[@]-}"; then
-      BLOCKED_PATHS+=("$path")
-    fi
-  done
-}
-
-_write_path_gate_patch() {
-  local f="$1" name="$2" top="$3" attempt_id artifact path rc
-  attempt_id="a$(jq -r '.attempt_ledger | length' "$f")-$name"
-  artifact="$(dirname "$f")/release-artifacts/$attempt_id-path-gate.patch"
-  mkdir -p "$(dirname "$artifact")" || return 1
-  git -C "$top" diff --binary HEAD > "$artifact" || return 1
-  for path in "${NEW_UNTRACKED_PATHS[@]-}"; do
-    [ -n "$path" ] || continue
-    rc=0
-    git -C "$top" diff --no-index --binary /dev/null -- "$path" >> "$artifact" || rc=$?
-    [ "$rc" -eq 1 ] || [ "$rc" -eq 0 ] || return "$rc"
-  done
-  PATH_GATE_ARTIFACT="file:$artifact"
-}
-
-_restore_rejected_candidates() {
-  local top="$1" path
-  if [ ${#TRACKED_PATHS[@]} -gt 0 ]; then
-    git -C "$top" restore --source=HEAD --staged --worktree -- "${TRACKED_PATHS[@]-}" || return 1
-  fi
-  for path in "${NEW_UNTRACKED_PATHS[@]-}"; do
-    [ -n "$path" ] || continue
-    rm -f -- "$top/$path" || return 1
-  done
 }
 
 _record_pause() {
@@ -411,8 +227,8 @@ _invalidate_all_stages() {
 # 钥匙不该知道。${RELEASE_STAGE_DIR}/${RELEASE_LOOP_DIR} 只在 stage 里有意义，其余场合传空。
 _expand_argv_token() {
   local raw="$1" stage_dir="${2:-}" loop_dir="${3:-}" out
-  # 每-attempt 目录与整轮目录只在 stage 里存在。diagnose 之外的字段（fix_executor / post_fix_gate /
-  # event_sink）没有它们，此时用了就直接停——展开成空字符串会变成一条指向根目录的路径，
+  # 每-attempt 目录与整轮目录只在 stage 里存在。diagnose 之外的字段（derive / event_sink）
+  # 没有它们，此时用了就直接停——展开成空字符串会变成一条指向根目录的路径，
   # 那种失败要到跑起来才看得见，而且看不出是这里丢的。
   case "$raw" in
     *'${RELEASE_STAGE_DIR}'*) [ -n "$stage_dir" ] || die "\${RELEASE_STAGE_DIR} has no meaning in this field: $raw" ;;
@@ -438,95 +254,25 @@ _diagnose_argv_source() {
     '${RELEASE_PLUGIN_DIR}/diagnose_core.py' --adapter "$mp"
 }
 
-_run_direct_action() {
-  local f="$1" mode="$2" findings="$3" top mp key arg ref_file
+_run_derive() {
+  local f="$1" top mp arg
   top="$(_repo_top)"
   mp="$(jq -r '.manifest_path' "$f")"
-  case "$mode" in
-    fix) key="fix_executor" ;;
-    derive) key="derive" ;;
-    *) die "unknown direct action: $mode" ;;
-  esac
   ACTION_ARGV=()
   while IFS= read -r arg; do ACTION_ARGV+=("$(_expand_argv_token "$arg")"); done \
-    < <(jq -r --arg key "$key" '(.[$key] // [])[]' "$mp")
+    < <(jq -r '(.derive // [])[]' "$mp")
   ACTION_COMMAND="${ACTION_ARGV[*]}"
   ACTION_RC=0
-  RF_WORKER_REF=""
-  if [ "$mode" = "fix" ]; then
-    ref_file="$(mktemp)"
-    : > "$ref_file"
-    (
-      cd "$top"
-      unset RELEASE_FIX_STAGING
-      RELEASE_FIX_FINDINGS="$findings" RELEASE_FIX_WORKER_REF_FILE="$ref_file" "${ACTION_ARGV[@]-}"
-    ) || ACTION_RC=$?
-    RF_WORKER_REF="$(head -1 "$ref_file" 2>/dev/null || true)"
-    rm -f "$ref_file"
-    return 0
-  fi
-  (
-    cd "$top"
-    unset RELEASE_FIX_STAGING
-    "${ACTION_ARGV[@]-}"
-  ) || ACTION_RC=$?
+  ( cd "$top" && "${ACTION_ARGV[@]-}" ) || ACTION_RC=$?
 }
 
-_post_fix_gate() {
-  local f="$1" name="$2" fp="$3" repair_sha="$4" mp a rc=0 gate_out
-  mp="$(jq -r '.manifest_path' "$f")"
-  # 没有这一关，跟「跑了并通过」在回执里必须分得开。
-  if [ "$(jq -r '(.post_fix_gate // []) | length' "$mp")" -eq 0 ]; then
-    append_attempt "$f" "$name" "post_fix_gate" "skipped" "$fp" "git-commit:$repair_sha"
-    echo "POST-FIX-GATE-SKIPPED:$name (the release manifest declares no post_fix_gate)"
-    return 0
-  fi
-  local gate_argv=()
-  while IFS= read -r a; do gate_argv+=("$(_expand_argv_token "$a")"); done < <(jq -r '.post_fix_gate[]' "$mp")
-  gate_out="$( cd "$(_repo_top)" && "${gate_argv[@]}" 2>&1 )" || rc=$?
-
-  local gate_cmd
-  gate_cmd="$(jq -r '.post_fix_gate|join(" ")' "$mp")"
-  local gate_result
-  gate_result="$(jq -nc --argjson rc "$rc" --arg cmd "$gate_cmd" \
-    --arg out "$(printf '%s' "$gate_out" | head -c 400)" '[{gate:$cmd, rc:$rc, output:$out}]')"
-
-  if [ "$rc" -eq 0 ]; then
-    append_attempt "$f" "$name" "post_fix_gate" "pass" "$fp" "git-commit:$repair_sha"
-    patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
-    _invalidate_all_stages "$f" "$repair_sha"
-    emit_event "$f" "classified" "$name" "P1" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "POST-FIX-GATE-PASS:$name (gate green, re-run the stage)"
-    return 0
-  fi
-
-  local top revert_sha diag_argv=() findings_tmp
-  top="$(_repo_top)"
-  if ! git -C "$top" revert --no-edit "$repair_sha" >/dev/null; then
-    _record_pause "$f" "$name" "post_fix_gate" "revert_failed" "$fp" "git-commit:$repair_sha" \
-      "needs-context" "the post-fix gate went red and the repair commit could not be rolled back; stopping for the agent driving the release" "[]" "[]" "" "$gate_cmd" "P1"
-    echo "POST-FIX-GATE-REVERT-FAILED:$name"
-    return 0
-  fi
-  revert_sha="$(git -C "$top" rev-parse HEAD)"
-  append_attempt "$f" "$name" "post_fix_gate" "fail" "$fp" "git-revert:$revert_sha"
-  patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
-  edit "$f" --arg sc "$revert_sha" '.source_commit=$sc'
-  while IFS= read -r a; do diag_argv+=("$(_expand_argv_token "$a")"); done < <(_diagnose_argv_source "$mp")
-  findings_tmp="$(mktemp)"
-  ( cd "$top" && "${diag_argv[@]}" ) > "$findings_tmp" 2>/dev/null || true
-  echo "FIX-REVERTED:$repair_sha commit=$revert_sha"
-  echo "POST-FIX-GATE-FAIL:$name (gate red, classify again)"
-  cmd_stage_fail --stage "$name" --findings "$findings_tmp"
-  rm -f "$findings_tmp"
-}
-
-cmd_dispatch_direct() {
-  local f="$1" name="$2" fp="$3" findings="$4" mode="$5" top mp commit_sha message
-  local changed_json blocked_json artifact_ref="" action_kind
+# P2 只有一条自愈路径:产品自己的确定性重生脚本(derive)。它的提交前只查一件事——功能分支
+# 没有事先存在的未提交改动,这就够了:derive 只单向重生消费方派生物,没有可写坏的业务路径要挡。
+cmd_dispatch_p2() {
+  local f="$1" name="$2" fp="$3" findings="$4" top mp commit_sha
+  local changed_json
   top="$(_repo_top)"
   mp="$(jq -r '.manifest_path' "$f")"
-  action_kind="$mode"
   if ! git -C "$top" diff --quiet HEAD; then
     _record_pause "$f" "$name" "preflight" "tracked_dirty" "$fp" "" \
       "needs-context" "the feature branch already holds uncommitted tracked changes; they must not be mixed into an automatic fix commit" "[]" "[]" "" "git diff --quiet HEAD" ""
@@ -534,125 +280,52 @@ cmd_dispatch_direct() {
     return 0
   fi
 
-  # P0:跑修复前先加载并冻结 protection hard-deny 快照;后续 baseline/candidate/path-gate 都用它,
-  # 使「自愈修复改写 protection_source 本身」仍被判 P0 受保护路径违规,而非降级成「规则源不可读」。
-  PROTECTION_FROZEN=0
-  if ! _load_path_hard_deny "$f"; then
-    _record_pause "$f" "$name" "preflight" "protection_source_unreadable" "$fp" "" \
-      "needs-context" "protection_source was already unusable before the automatic fix ($PATH_GATE_ERROR); keeping the state for the agent driving the release" "[]" "[]" "" "" ""
-    echo "DISPATCH-PAUSED:$name(protection source unreadable)"
-    return 0
-  fi
-  PROTECTION_FROZEN=1
-
   # 钥匙没配这一件自愈装备，就没有这一步。说成引擎坏了，下一个人会去查引擎。
-  if [ "$(jq -r --arg k "$( [ "$mode" = fix ] && echo fix_executor || echo derive )" \
-        '(.[$k] // []) | length' "$mp")" -eq 0 ]; then
-    _record_pause "$f" "$name" "preflight" "no_${mode}_executor" "$fp" "" \
-      "needs-context" "the release manifest declares no $( [ "$mode" = fix ] && echo fix_executor || echo derive ); this class of failure has no automatic path, so it goes to the agent driving the release" \
+  if [ "$(jq -r '(.derive // []) | length' "$mp")" -eq 0 ]; then
+    _record_pause "$f" "$name" "preflight" "no_derive_executor" "$fp" "" \
+      "needs-context" "the release manifest declares no derive; this class of failure has no automatic path, so it goes to the agent driving the release" \
       "[]" "[]" "" "" ""
-    echo "DISPATCH-PAUSED:$name(no $mode executor in the release manifest)"
+    echo "DISPATCH-PAUSED:$name(no derive executor in the release manifest)"
     return 0
   fi
 
-  _snapshot_baseline_untracked "$top" "$f"
-  _run_direct_action "$f" "$mode" "$findings"
-  _collect_candidate_paths "$top" "$f"
+  _run_derive "$f"
+  _collect_candidate_paths "$top"
   changed_json="$(_json_changed_paths)"
 
-  if ! _baseline_untracked_changed "$top"; then
-    _record_pause "$f" "$name" "$action_kind" "baseline_untracked_changed" "$fp" "" \
-      "needs-context" "the automatic fix rewrote an untracked file that existed before this round; keeping the state for the agent driving the release" \
-      "$(_json_array "${BASELINE_CHANGED_PATHS[@]-}")" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
-    echo "DISPATCH-PAUSED:$name(baseline untracked changed)"
-    return 0
-  fi
-
   if [ "$ACTION_RC" -ne 0 ]; then
-    _record_pause "$f" "$name" "$action_kind" "action_failed" "$fp" "" \
-      "needs-context" "$mode exited non-zero; keeping the state for the agent driving the release" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
-    echo "DISPATCH-PAUSED:$name($mode rc=$ACTION_RC)"
+    _record_pause "$f" "$name" "derive" "action_failed" "$fp" "" \
+      "needs-context" "derive exited non-zero; keeping the state for the agent driving the release" "$changed_json" "[]" "" "$ACTION_COMMAND" ""
+    echo "DISPATCH-PAUSED:$name(derive rc=$ACTION_RC)"
     return 0
   fi
 
   if [ ${#CHANGED_PATHS[@]} -eq 0 ]; then
-    _record_pause "$f" "$name" "$action_kind" "no_change" "$fp" "" \
-      "needs-context" "$mode produced no committable change; this must not pass as fixed" "[]" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    _record_pause "$f" "$name" "derive" "no_change" "$fp" "" \
+      "needs-context" "derive produced no committable change; this must not pass as fixed" "[]" "[]" "" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(no change)"
     return 0
   fi
 
-  if ! _path_gate "$f" "$mode"; then
-    BLOCKED_PATHS=("${CHANGED_PATHS[@]-}")
-    if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
-      _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "protection_source is unusable and this round's changes could not be fully saved or restored; keeping the state for the agent driving the release" \
-        "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
-      echo "PATH-GATE-PAUSED:$name($PATH_GATE_ERROR)"
-      return 0
-    fi
-    artifact_ref="$PATH_GATE_ARTIFACT"
-    blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
-    _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
-      "needs-context" "protection_source cannot serve as the path gate's single source of truth ($PATH_GATE_ERROR); the patch is saved and this stops for the agent driving the release" \
-      "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
-    echo "PATH-GATE-REJECT:$name protection_source=[$PATH_GATE_ERROR]"
-    return 0
-  fi
-
-  if [ ${#BLOCKED_PATHS[@]} -gt 0 ]; then
-    if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
-      _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "the path gate rejected the changes and they could not be fully saved or restored; keeping the state for the agent driving the release" \
-        "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
-      echo "PATH-GATE-PAUSED:$name(cleanup failed)"
-      return 0
-    fi
-    artifact_ref="$PATH_GATE_ARTIFACT"
-    blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
-    _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
-      "needs-redirection" "the automatic fix touched a protected path or reached outside editable_paths; the patch is saved, the changes are restored, and this stops for the owner to decide" \
-      "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
-    echo "PATH-GATE-REJECT:$name out-of-bounds=[${BLOCKED_PATHS[*]}]"
-    return 0
-  fi
-
   if ! git -C "$top" add -- "${CHANGED_PATHS[@]-}"; then
-    _record_pause "$f" "$name" "$action_kind" "add_failed" "$fp" "" \
-      "needs-context" "the automatic fix passed the path gate but the changes could not be staged; keeping the state for the agent driving the release" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    _record_pause "$f" "$name" "derive" "add_failed" "$fp" "" \
+      "needs-context" "derive produced changes but they could not be staged; keeping the state for the agent driving the release" "$changed_json" "[]" "" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git add failed)"
     return 0
   fi
-  case "$mode" in
-    fix) message="fix(release): $fp" ;;
-    derive) message="chore(release): regenerate $fp" ;;
-  esac
-  if ! git -C "$top" commit -m "$message" >/dev/null; then
-    _record_pause "$f" "$name" "$action_kind" "commit_failed" "$fp" "" \
-      "needs-context" "the automatic fix passed the path gate but the feature branch commit could not be created; keeping the state for the agent driving the release" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+  if ! git -C "$top" commit -m "chore(release): regenerate $fp" >/dev/null; then
+    _record_pause "$f" "$name" "derive" "commit_failed" "$fp" "" \
+      "needs-context" "derive produced changes but the feature branch commit could not be created; keeping the state for the agent driving the release" "$changed_json" "[]" "" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git commit failed)"
     return 0
   fi
   commit_sha="$(git -C "$top" rev-parse HEAD)"
-  append_attempt "$f" "$name" "$action_kind" "applied" "$fp" "git-commit:$commit_sha"
-  patch_last_attempt "$f" "$changed_json" "[]" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND"
+  append_attempt "$f" "$name" "derive" "applied" "$fp" "git-commit:$commit_sha"
+  patch_last_attempt "$f" "$changed_json" "[]" "[]" "" "$ACTION_COMMAND"
   edit "$f" '.budget.fix_rounds += 1'
-  emit_event "$f" "classified" "$name" "$( [ "$mode" = fix ] && echo P1 || echo P2 )" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-  if [ "$mode" = "derive" ]; then
-    _invalidate_all_stages "$f" "$commit_sha"
-    echo "DERIVED-COMMITTED:$name commit=$commit_sha"
-    return 0
-  fi
-  echo "FIX-COMMITTED:$name commit=$commit_sha"
-  _post_fix_gate "$f" "$name" "$fp" "$commit_sha"
-}
-
-cmd_dispatch_p1() {
-  cmd_dispatch_direct "$1" "$2" "$3" "$4" "fix"
-}
-
-cmd_dispatch_p2() {
-  cmd_dispatch_direct "$1" "$2" "$3" "$4" "derive"
+  emit_event "$f" "classified" "$name" "P2" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
+  _invalidate_all_stages "$f" "$commit_sha"
+  echo "DERIVED-COMMITTED:$name commit=$commit_sha"
 }
 
 # $1=state $2=event $3=stage $4=tier $5=fingerprint $6=attempt_ref
@@ -674,10 +347,8 @@ emit_event() {
           fingerprint:(if $fp=="" then null else $fp end),
           round:$r, trace_id:$tr,
           attempt_ref:(if $ar=="" then null else $ar end), timestamp:$ts}')"
-  printf '%s' "$ev" | uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-event - \
-    || { echo "ERROR: the engine produced an invalid ReleaseLoopEvent: $ev" >&2; return 0; }
 
-  # 没接日志系统的产品，事件到此为止：验过合同就够了，不凭空造一个落地点。
+  # 没接日志系统的产品，事件到此为止：不凭空造一个落地点。
   [ "$(jq -r '(.event_sink // []) | length' "$mp")" -gt 0 ] || return 0
   local sink_argv=()
   while IFS= read -r arg; do
@@ -775,9 +446,6 @@ cmd_where() {
     echo "PAUSED:$(jq -r '.pause.reason' "$f")"
     return 0
   fi
-  local n
-  n="$(jq -r '.stages|length' "$f")"
-  [ "$n" -gt 0 ] || { echo "NO-STAGES:the manifest is valid but has no stage to run; a person has to fix it"; return 0; }
   # running 优先于 failed/pending:进程在「已标 running、未写终态」间中断后,该 stage 必须重跑。
   # 不认 running 会让 where 指向下一个 pending(stage run 二次防线 die)甚至误报 SUCCESS。
   local interrupted
@@ -1018,8 +686,10 @@ _run_remote_build() {
     # - /sc weekly /d SUN 而非 /sc once:过期的 once 任务会被 Task Scheduler 判「不再运行」而在
     #   create→run 之间自动删除(旧路径注释记 build5 踩过此竞态);weekly 任务永不过期,/run 强制立即跑;
     # - 不加 /it /rl HIGHEST:构建机是已登录交互工作机,默认就在登录用户会话跑,旧路径长年长构建无需 /it。
-    # 先删同名残留任务再建,避免上轮崩溃遗留条目。三条 schtasks 各一次 ssh:PC 默认 shell 是 PowerShell,
-    # `&`/`;` 串联在 PS5.1 非法或变后台 job,没有顺序语义。
+    # 先删同名残留任务再建,避免上轮崩溃遗留条目。三条 schtasks 各一次裸 ssh(不经 `_ssh_ps`,
+    # 因为远端默认 shell 是 cmd.exe,schtasks 是它认得的命令,见上方 `_ssh_ps` 的注释):
+    # 分开调用是为了各自的退出码可判——链在同一次 ssh 里只能拿到最后一条的退出码,
+    # 而 /delete 允许失败(上一轮可能没留下残留任务)、/create 不能。
     ssh "$remote_host" "schtasks /delete /tn $task_name /f" >/dev/null 2>&1 || true
     ssh "$remote_host" "schtasks /create /tn $task_name /tr $runner_cmd_win /sc weekly /d SUN /st 23:59 /f" || return $?
     # 任务名留在远端:这一侧断掉之后再来接,尾部的清理要靠它才知道该结束哪个任务。
@@ -1211,7 +881,6 @@ cmd_stage_run() {
   while IFS= read -r raw; do
     argv+=("$(_expand_argv_token "$raw" "$stage_dir" "$loop_dir")")
   done < <(jq -r --arg n "$name" '.stages[] | select(.name == $n) | .run[]' "$f")
-  [ ${#argv[@]} -gt 0 ] || die "stage $name has an empty argv"
 
   # 装配之后技能自己改了，$loop_dir 里那份脚本就过期了。拿它去构建机跑，每一步都对，
   # 只是跑的不是刚改的那一份——这一类失败在日志里完全看不出来。
@@ -1280,7 +949,6 @@ cmd_stage_run() {
   while IFS= read -r diag_arg; do
     diagnose_argv+=("$(_expand_argv_token "$diag_arg" "$stage_dir" "$loop_dir")")
   done < <(_diagnose_argv_source "$mp")
-  [ ${#diagnose_argv[@]} -gt 0 ] || die "manifest.diagnose is empty"
   # 把失败现场交给 diagnose:RELEASE_BUILD_LOG 是回传的远端构建日志(仅远程 build 失败时有),
   # RELEASE_STAGE_LOG 是本 stage 的引擎侧日志。diagnose 据此把真实失败翻译成带 tier+fingerprint
   # 的 finding,而不是只看 Mac 本地状态、把远程失败降级成「无法分类交人」。
@@ -1293,6 +961,16 @@ cmd_stage_run() {
   ) > "$findings_file" 2>&1 || true
   echo "STAGE-RUN-FAILED $name rc=$rc; going to diagnose and classify" >&2
   cmd_stage_fail --stage "$name" --findings "$findings_file"
+
+  # 驱动 agent 的循环只剩"问 where,跑它说的 stage":分诊派发(原来的 dispatch)和轮次计数
+  # (原来的 round next)以前要驱动 agent 自己再跑两条命令,现在这里替它做完再返回。只有出现
+  # 需要人判断的 pause 时才停下——那是唯一必须交回给 agent 的状态。
+  if [ "$(jq -r '.pause // "null"' "$f")" = "null" ]; then
+    cmd_dispatch --stage "$name" --findings "$findings_file"
+    if [ "$(jq -r '.pause // "null"' "$f")" = "null" ]; then
+      cmd_round next
+    fi
+  fi
 }
 
 cmd_stage_done() {
@@ -1308,7 +986,7 @@ cmd_stage_done() {
   f="$(need_state)"
   jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "no such stage: $name"
   # stage run 是唯一执行器;stage done 只是人工确认位,只能确认最早未完成 stage,否则可把从未
-  # 执行的 build 直接标 done、让 exit-check 在没有安装包的情况下报 DONE。
+  # 执行的 build 直接标 done、让 close 在没有安装包的情况下把这一轮当 DONE 收束。
   earliest="$(jq -r '[.stages[] | select(.status == "pending" or .status == "failed" or .status == "running")][0].name // ""' "$f")"
   [ -n "$earliest" ] || die "no unfinished stage to confirm"
   [ "$name" = "$earliest" ] || die "only the earliest unfinished stage may be confirmed: $earliest"
@@ -1474,6 +1152,21 @@ cmd_dispatch() {
   esac
 }
 
+# P1 有一条固定路径,不是一件钥匙能插拔的装备:fix_dispatch.py 是技能自己的脚本,把 findings
+# 写成一份简报、打印它的路径、非零退出。驱动这次出包的本来就是一个会写代码的 agent,
+# 在引擎之外自己提交、自己 resume——引擎在这条路上不是唯一 committer,也就没有路径闸可跑。
+cmd_dispatch_p1() {
+  local f="$1" name="$2" fp="$3" findings="$4" aref fix_out fix_path
+  fix_out="$(RELEASE_FIX_FINDINGS="$findings" python3 "$SCRIPT_DIR/fix_dispatch.py" 2>/dev/null)" || true
+  fix_path="${fix_out#FIX-BRIEF=}"
+  append_attempt "$f" "$name" "fix_dispatch" "handed_to_agent" "$fp" "$findings"
+  aref="$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
+  edit "$f" --arg n "$name" --arg q "P1 handed to you: read $fix_path" \
+    '.pause={at_stage:$n, kind:"surface", reason:"needs-context", question:$q}'
+  emit_event "$f" "paused" "$name" "P1" "$fp" "$aref"
+  echo "P1:$name handed to the agent driving the release ($fix_path)"
+}
+
 cmd_round() {
   local verb="${1:-}"
   shift || true
@@ -1544,6 +1237,18 @@ cmd_close() {
   local top f main product commit
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
   f="$top/$RELEASE_SUBDIR/$STATE_NAME"
+  # close 写的交付记录说的是「这个产品在这个 commit 上出过包」,所以它先核实这一轮真的
+  # 到了那个状态——`where` 判 SUCCESS 用的就是这两条(无 pause、每个 stage 都 done),
+  # 两者读同一份状态,不会不一致。没到 DONE 的轮次用 abort 收掉,不写假记录。
+  if [ -f "$f" ]; then
+    jq -e . "$f" >/dev/null 2>&1 || die "release-state is corrupt; refusing to close"
+    [ "$(jq -r '.pause // "null"' "$f")" = "null" ] \
+      || die "this round is paused, not done; use abort to drop a round that will not ship"
+    local rem
+    rem="$(jq -r '[.stages[]|select(.status!="done")|.name]|join(",")' "$f")"
+    [ -z "$rem" ] \
+      || die "stage(s) not done ($rem); use abort to drop a round that will not ship"
+  fi
   # 收束时留一份交付记录再删状态。一次改动影响多个产品时,后一个产品的自愈修复会
   # 产生新提交推进 HEAD,早前那个产品的包就已经不是最终代码了——把几个包混着发出去,
   # 客户装到的是两份不同的东西。这几份记录是发出去之前唯一能发现这件事的地方。
@@ -1588,21 +1293,24 @@ cmd_abort() {
   echo "ABORTED:no delivery record written; the state of this round is kept at $keep"
 }
 
-cmd_exit_check() {
-  local f
-  f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state is empty or not valid JSON"; return 0; }
-  if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
-    echo "PAUSED:$(jq -r '.pause.reason' "$f")"
-    return 0
-  fi
-  local n
-  n="$(jq -r '.stages|length' "$f")"
-  [ "$n" -gt 0 ] || { echo "NOT-DONE:stages=EMPTY (the manifest has no stages)"; return 0; }
-  local rem
-  rem="$(jq -r '[.stages[]|select(.status=="failed")|.name]|join(",")' "$f")"
-  [ -n "$rem" ] || rem="$(jq -r '[.stages[]|select(.status!="done")|.name]|join(",")' "$f")"
-  [ -z "$rem" ] && echo "DONE" || echo "NOT-DONE:stages=$rem"
+# 逐个比对本轮清单上的产品:交付记录必须来自当前 HEAD,否则这一批包里混着不同版本的代码。
+# 只读调用方点名的产品——真实记录跨仓库、跨任务混在一起(main checkout 的 delivered/ 里
+# 常年躺着别的产品最后一次出包的记录),读全部会把无关产品的陈旧记录当成这一批的一部分。
+cmd_same_commit() {
+  [ $# -gt 0 ] || die "usage: same-commit <product> [<product> ...]"
+  local main head product record commit
+  main="$(main_root)" || die "not inside a git repository"
+  head="$(git rev-parse HEAD 2>/dev/null)" || die "not inside a git repository"
+  for product in "$@"; do
+    record="$main/$RELEASE_SUBDIR/delivered/$product.json"
+    commit=""
+    [ -f "$record" ] && commit="$(jq -r '.source_commit // empty' "$record" 2>/dev/null || true)"
+    if [ "$commit" = "$head" ]; then
+      echo "OK $product"
+    else
+      echo "MISMATCH $product ${commit:-none}"
+    fi
+  done
 }
 
 cmd_receipt() {
@@ -1633,9 +1341,9 @@ case "${1:-}" in
   round)      shift; cmd_round "$@" ;;
   surface)    shift; cmd_surface "$@" ;;
   resume)     shift; cmd_resume "$@" ;;
-  close)      shift; cmd_close "$@" ;;
-  abort)      shift; cmd_abort "$@" ;;
-  exit-check) shift; cmd_exit_check "$@" ;;
+  close)        shift; cmd_close "$@" ;;
+  abort)        shift; cmd_abort "$@" ;;
+  same-commit)  shift; cmd_same_commit "$@" ;;
   receipt)    shift; cmd_receipt "$@" ;;
   dispatch)   shift; cmd_dispatch "$@" ;;
   *) usage_release ;;

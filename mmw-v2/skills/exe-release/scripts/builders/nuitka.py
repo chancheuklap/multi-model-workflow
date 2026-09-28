@@ -180,7 +180,7 @@ def _native_ext_segments(entries: list) -> list[Segment]:
     """原生扩展缺的 DLL。
 
     `compile_interpreter` / `system32` 两种来源的真实路径只有构建机知道，所以它们在这里
-    留成一个 PowerShell 变量名，由模板先探好再代入；`repo` 来源在仓库里，直接拼。
+    留成一个 PowerShell 变量名，由模板先探好再代入。
     """
     segments: list[Segment] = []
     for entry in entries:
@@ -206,8 +206,6 @@ def probe_names(entries: list) -> list[tuple[str, str]]:
     """要构建机现场探的 DLL：`(来源, 文件名)`。模板照这个清单生成探测步骤。"""
     seen: list[tuple[str, str]] = []
     for entry in entries:
-        if entry.dll_source == "repo":
-            continue
         for name in entry.dll_names:
             pair = (entry.dll_source, name)
             if pair not in seen:
@@ -287,7 +285,7 @@ def powershell_argv(segments: list[Segment]) -> str:
                 pieces.append(f"(Join-Path $RepoRoot {_ps_literal(value)})")
             elif kind == "probe":
                 literal_only = False
-                pieces.append(f"$Dll_{_probe_var(value)}")
+                pieces.append(f"$Dll_{probe_var(value)}")
             else:  # pragma: no cover
                 raise ValueError(f"unknown fragment kind: {kind}")
         if literal_only and len(pieces) == 1:
@@ -297,8 +295,12 @@ def powershell_argv(segments: list[Segment]) -> str:
     return "@(" + ", ".join(rendered) + ")"
 
 
-def _probe_var(token: str) -> str:
-    """`compile_interpreter:python3.dll` → `compile_interpreter_python3_dll`。"""
+def probe_var(token: str) -> str:
+    """`compile_interpreter:python3.dll` → `compile_interpreter_python3_dll`。
+
+    公开的：`release_script_assembler.py` 的探测行用同一条命名规则，直接调用这个函数,
+    不重写一遍——两边一旦改得不一致,生成的 PowerShell 会在 StrictMode 下遇到未定义变量。
+    """
     return "".join(char if char.isalnum() else "_" for char in token)
 
 

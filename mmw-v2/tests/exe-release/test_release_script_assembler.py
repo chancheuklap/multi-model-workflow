@@ -82,7 +82,6 @@ def test_assembles_and_the_script_parses_as_one_pipeline(tmp_path):
     ]
     doc = json.loads(context.read_text(encoding="utf-8"))
     assert doc["schema_version"] == "2"
-    assert [step["title"] for step in doc["render_metadata"]["steps"]] == titles[1:]
 
 
 def test_compile_step_carries_every_nuitka_flag_from_the_key(tmp_path):
@@ -250,12 +249,8 @@ def test_repo_hook_installer_replaces_the_electron_builder_step(tmp_path):
     text = script.read_text(encoding="utf-8-sig")
     assert "electron-builder --win nsis" not in text
     assert "-Name 'installer'" in text
-    calls = json.loads(context.read_text(encoding="utf-8"))["render_metadata"][
-        "hook_calls"
-    ]
-    assert {"name": "installer", "phase": "installer_ready"}.items() <= next(
-        call for call in calls if call["name"] == "installer"
-    ).items()
+    line = next(l for l in text.splitlines() if "-Name 'installer'" in l)
+    assert "-Phase 'installer_ready'" in line
 
 
 def test_repo_hook_installer_without_the_hook_is_rejected(tmp_path):
@@ -278,51 +273,6 @@ def test_nofollow_that_blocks_a_smoke_module_stops_before_assembling(tmp_path):
     assert result.returncode != 0
     assert "nofollow" in result.stderr
     assert not script.exists()
-
-
-def test_check_accepts_the_pair_it_just_assembled(tmp_path):
-    _, script, context = _assemble(tmp_path, _key())
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(SCRIPTS / "release_script_assembler.py"),
-            "check",
-            "--script",
-            str(script),
-            "--context",
-            str(context),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
-
-
-def test_check_rejects_a_script_whose_steps_do_not_match_its_context(tmp_path):
-    _, script, context = _assemble(tmp_path, _key())
-    text = script.read_text(encoding="utf-8-sig")
-    # 按标题找那一行，不写死步号：步号是算出来的，加一步就会把写死编号的测试打红，
-    # 而它要守的根本不是编号。
-    line = next(s for s in _steps(script) if "Verify compiled backend" in s)
-    script.write_text(
-        text.replace(line, line.replace("Verify compiled backend", "Nothing")),
-        encoding="utf-8-sig",
-    )
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(SCRIPTS / "release_script_assembler.py"),
-            "check",
-            "--script",
-            str(script),
-            "--context",
-            str(context),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode != 0
-    assert "Verify compiled backend" in result.stderr
 
 
 @pytest.mark.parametrize("mutation", [{"schema_version": "1"}, {"python_backend": None}])
@@ -373,35 +323,6 @@ def test_key_paths_must_stay_inside_the_repository():
     with pytest.raises(ValueError, match="build_root"):
         nuitka.expand("${BUILD_ROOT}/x", desktop_dir="d", build_root=None)
 
-
-def test_assemble_leaves_the_previous_pair_alone_when_the_key_is_bad(tmp_path):
-    result, script, context = _assemble(tmp_path, _key())
-    assert result.returncode == 0
-    before = (script.read_bytes(), context.read_bytes())
-
-    bad = deepcopy(_key())
-    bad["python_backend"]["targets"] = []
-    adapter = tmp_path / "key.json"
-    adapter.write_text(json.dumps(bad), encoding="utf-8")
-    again = subprocess.run(
-        [
-            sys.executable,
-            str(SCRIPTS / "release_script_assembler.py"),
-            "assemble",
-            "--adapter",
-            str(adapter),
-            "--repo-root",
-            str(tmp_path),
-            "--output",
-            str(script),
-            "--context-output",
-            str(context),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert again.returncode != 0
-    assert (script.read_bytes(), context.read_bytes()) == before
 
 
 def test_package_integrity_hook_runs_before_the_installer_assert(tmp_path):

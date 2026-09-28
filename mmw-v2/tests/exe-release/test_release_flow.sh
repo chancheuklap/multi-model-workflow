@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release-flow.sh 引擎空跑:载入 fail-loud、状态机推进、exit-check、round cap、resume、原子写。
+# release-flow.sh 引擎空跑:载入 fail-loud、状态机推进、stage run 失败后自动派发、round cap、resume、原子写。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../../skills/exe-release/scripts/release-flow.sh"
@@ -45,13 +45,18 @@ if bash "$RF" stage run --stage doctor >/dev/null; then
 else
   no "stage run 应执行当前普通 argv"
 fi
-[ "$(bash "$RF" exit-check)" = "NOT-DONE:stages=smoke,verify_key,assemble,build" ] && ok "exit-check 列剩余" || no "exit-check ($(bash "$RF" exit-check))"
+close_err="$(mktemp)"
+if bash "$RF" close >/dev/null 2>"$close_err"; then
+  no "close 在阶段未全部完成时放行"
+else
+  grep -q "smoke" "$close_err" && ok "close 拒绝未完成的轮次并点名剩余 stage" || no "close 拒绝理由未点名剩余 stage ($(cat "$close_err"))"
+fi
+rm -f "$close_err"
 
 for stage in smoke verify_key assemble build; do bash "$RF" stage done --stage "$stage" >/dev/null; done
-[ "$(bash "$RF" exit-check)" = "DONE" ] && ok "全 done -> DONE" || no "DONE ($(bash "$RF" exit-check))"
 [ "$(bash "$RF" where)" = "SUCCESS:all stages done" ] && ok "where -> SUCCESS" || no "SUCCESS ($(bash "$RF" where))"
+bash "$RF" close >/dev/null && ok "全 done 后 close 成功收束" || no "全 done 后 close 被拒"
 
-bash "$RF" close >/dev/null
 mkdir -p capture-bin
 cat > capture-bin/capture-argv <<'SH'
 #!/usr/bin/env bash
@@ -70,7 +75,7 @@ else
   no "stage run 应执行 capture argv"
 fi
 
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 cat > diagnose-p0.sh <<SH
 #!/usr/bin/env bash
 cat "$FIX/finding.p0.json"
@@ -84,7 +89,28 @@ else
   no "普通 stage 非零应进入诊断分级而非直接退回 drive"
 fi
 
-bash "$RF" close >/dev/null
+# 守:stage run 失败后自己接着派发(原来的 dispatch)和计轮次(原来的 round next),
+# 驱动 agent 不用再跑那两条命令——只剩"问 where,跑它说的 stage"。
+bash "$RF" abort >/dev/null
+cat > diagnose-transient.sh <<SH
+#!/usr/bin/env bash
+cat "$FIX/finding.transient.json"
+SH
+chmod +x diagnose-transient.sh
+jq --arg diagnose "$TMP/diagnose-transient.sh" '.stages=[{name:"doctor",run:["false"]}] | .diagnose=[$diagnose]' "$FIX/manifest.fake.json" > transient-stage-manifest.json
+bash "$RF" init --manifest transient-stage-manifest.json >/dev/null
+round_before="$(jq -r '.round' "$SF")"
+out="$(bash "$RF" stage run --stage doctor 2>&1)"
+case "$out" in
+  *"TRANSIENT-RETRY:doctor"*) ok "stage run 失败后自己派发,不用驱动 agent 再跑 dispatch" ;;
+  *) no "stage run 未自动派发 ($out)" ;;
+esac
+[ "$(jq -r '.stages[0].status' "$SF")" = "pending" ] && ok "stage run 自动派发后重置该 stage" || no "stage run 自动派发未重置 stage"
+[ "$(jq -r '.round' "$SF")" = "$((round_before + 1))" ] && ok "stage run 自动派发后自己计了轮次" || no "stage run 自动派发未计轮次(round=$(jq -r '.round' "$SF"))"
+[ "$(jq -r '.pause' "$SF")" = "null" ] && ok "自动派发后没有 pause,驱动 agent 只需再问 where" || no "自动派发后意外 pause"
+bash "$RF" abort >/dev/null
+
+bash "$RF" abort >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 [ "$(jq -r '.source_commit' "$SF")" = "$(git rev-parse HEAD)" ] && ok "init 绑定完整 source_commit" || no "init 未绑定 source_commit"
 bash "$RF" stage fail --stage doctor --findings "$FIX/finding.p1.json" >/dev/null
@@ -92,7 +118,7 @@ bash "$RF" resume >/dev/null
 [ "$(jq -r '.current_stage' "$SF")" = "doctor" ] && ok "同 HEAD resume 从最早 failed stage 继续" || no "同 HEAD resume 未回到 doctor"
 [ "$(jq -r '[.stages[] | select(.status == "pending")] | length' "$SF")" = "5" ] && ok "同 HEAD resume 令失败 stage 及后继 pending" || no "同 HEAD resume stage 状态错误"
 
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 bash "$RF" stage done --stage doctor >/dev/null
 echo changed > source-change
@@ -103,7 +129,7 @@ bash "$RF" resume >/dev/null
 [ "$(jq -r '.current_stage' "$SF")" = "doctor" ] && ok "HEAD 改变后从首 stage 重验" || no "HEAD 改变后未回首 stage"
 [ "$(jq -r '[.stages[] | select(.status == "pending")] | length' "$SF")" = "5" ] && ok "HEAD 改变后所有 stage pending" || no "HEAD 改变后残留旧产物状态"
 
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 # ── 远程构建 ────────────────────────────────────────────────────────────────
 # 假构建机在 fixtures/fake-remote/：它维护一棵目录树当远端文件系统、一份登记表当
 # Task Scheduler，不记录命令文本。下面每条断的都是这两样的最终状态——引擎把任务名
@@ -142,7 +168,9 @@ seed_loop_pair() {
 }
 jq '.stages=[]' "$FIX/manifest.fake.json" > remote-build-manifest.json
 init_for_remote_build() {
-  bash "$RF" close >/dev/null 2>&1 || true
+  # abort, not close: close now refuses a round that is not DONE, and the previous scenario's
+  # round usually is not. abort always drops it and clears the state file so init can start.
+  bash "$RF" abort >/dev/null 2>&1 || true
   bash "$RF" init --manifest remote-build-manifest.json >/dev/null
   bash "$RF" stage done --stage verify_key >/dev/null
   bash "$RF" stage done --stage assemble >/dev/null
@@ -185,7 +213,7 @@ if remote_build >/dev/null; then
 else
   no "构建成功场景 stage run 应退 0"
 fi
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:装配之后技能自己改了,_loop 里那份 release.ps1 就过期了。拿它去构建机跑,每一步都对,
 # 只是跑的不是刚改的那一份——这一类失败在日志里完全看不出来。
@@ -208,7 +236,7 @@ case "$(bash "$RF" where)" in
   STAGE:assemble*) ok "where 指向第一个还没 done 的阶段(装配),不是靠后那个 failed 的构建" ;;
   *) no "where ($(bash "$RF" where))" ;;
 esac
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:schtasks 的命令行跨 cmd、PowerShell 语言、native CLI 三个解析器,单引号只在其中
 # 一个是定界符。任务必须指向一个上传好的 .cmd,不能把多段命令串进任务命令行,也不能带
@@ -251,7 +279,7 @@ remote_build >/dev/null 2>&1 || true
 [ -n "$(find "$FAKE_REMOTE_ROOT/release-input-delivered" -name '*-setup.exe' 2>/dev/null)" ] \
   && ok "安装包收进推出来的交付目录" || no "安装包没进交付目录"
 [ -z "$(build_dir)" ] && ok "成功并交付后删掉远端构建目录" || no "远端构建目录留在构建机上"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:失败的构建目录必须留下。根因只存在于那台机器上的那个目录里,删了就再也查不出来。
 remote_reset
@@ -259,7 +287,7 @@ init_for_remote_build
 export FAKE_BUILD_OUTCOME=fail:3
 remote_build >/dev/null 2>&1 || true
 [ -n "$(build_dir)" ] && ok "失败的构建目录留在构建机上" || no "失败现场被删掉了"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 printf '{"repo_root":"/placeholder","product":"test-product"}\n' > "$LOOP_DIR/release-context.json"
 
 # 守:失败的构建目录只留最近两个。一个几个 GB,不封顶的话构建机迟早被自己的中间产物填满;
@@ -282,7 +310,7 @@ remote_build >/dev/null 2>&1 || true
 [ -e "$input_root/000000000002-test-product" ] && [ -e "$input_root/000000000003-test-product" ] \
   && ok "最近两个失败目录留着" || no "还要查的现场被删掉了"
 [ -e "$input_root/000000000004-other-product" ] && ok "不碰别的产品的目录" || no "删到了别的产品"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:装配之后技能自己改了，那份生成脚本就过期了。拿它去构建机跑，日志里每一步都对——
 # 只是跑的不是刚改的那一份。引擎只按产品仓库的 HEAD 判断要不要重来，看不见这一类改动。
@@ -296,7 +324,7 @@ else
   [ "$(jq -r '.current_stage' "$SF")" = "assemble" ] \
     && ok "技能改过就先回去重新装配" || no "没有回到 assemble"
 fi
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:上一轮的 attempt 目录不能留。attempt 号从 a0 重新数,旧目录跟本轮同名对撞,于是
 # 「本轮的 a0-build」读到的是上一个产品的结果,而没有任何一步报错。
@@ -306,7 +334,7 @@ printf '别的产品的结果\n' > "$(dirname "$SF")/release-artifacts/a0-build/
 init_for_remote_build
 [ ! -e "$(dirname "$SF")/release-artifacts/a0-build/build.findings.json" ] \
   && ok "init 不继承上一轮的 attempt 目录" || no "上一轮的 attempt 目录跟本轮同名对撞"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:重跑同一个 commit 时,若不清上一轮的退出码,第一次轮询就会读到上轮的 0,把仍在跑
 # 或已失败的本轮判成成功——错的包会被当成好包发出去。
@@ -319,7 +347,7 @@ printf '上一轮的日志\n' > "$stale/build-run.log"
 export FAKE_BUILD_OUTCOME=fail:3
 remote_build >/dev/null 2>&1 || true
 [ "$(build_status)" != "done" ] && ok "本轮失败不被上一轮的退出码盖成成功" || no "读到过期退出码误判成功"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:清不掉旧产物还往下走,等于拿上一轮的结果当本轮的。
 remote_reset
@@ -328,7 +356,7 @@ init_for_remote_build
 remote_build >/dev/null 2>&1 || true
 [ "$(build_status)" != "done" ] && ok "清不掉旧产物就不开工" || no "清理失败仍判 done"
 [ "$(task_count)" = "0" ] && ok "清不掉旧产物时不建计划任务" || no "清理失败仍建了任务"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:构建卡死时若不结束任务,孤儿构建会抢写下一轮同 commit 的退出码。
 remote_reset
@@ -339,7 +367,7 @@ PATH="$REMOTE_FIX:$PATH" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 RELEASE_REMOTE_BUIL
   bash "$RF" stage run --stage build >/dev/null 2>&1 || true
 [ "$(build_status)" != "done" ] && ok "构建超时不判 done" || no "超时误判 done"
 [ "$(task_count)" = "0" ] && ok "构建超时清掉计划任务" || no "超时留下孤儿任务"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:启动命令偶发「返回 0 但任务没起来」,已建的任务必须清掉,否则同样留孤儿。
 remote_reset
@@ -348,7 +376,7 @@ init_for_remote_build
 remote_build >/dev/null 2>&1 || true
 [ "$(build_status)" != "done" ] && ok "任务起不来不判 done" || no "起不来仍判 done"
 [ "$(task_count)" = "0" ] && ok "任务起不来也清掉已建的任务" || no "起不来留下孤儿任务"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:退出码文件损坏时判不出成败,同样要清干净再交人。
 remote_reset
@@ -357,7 +385,7 @@ init_for_remote_build
 remote_build >/dev/null 2>&1 || true
 [ "$(build_status)" != "done" ] && ok "退出码非法不判 done" || no "退出码非法仍判 done"
 [ "$(task_count)" = "0" ] && ok "退出码非法也清掉计划任务" || no "退出码非法留下孤儿任务"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:远端路径里的空格与引号会打断 PowerShell 字符串或触发变量展开,而跨三个解析器
 # 没有统一的引号合同。这类根路径必须在碰构建机之前就被拒。
@@ -367,7 +395,7 @@ for bad_root in "C:/release input" "C:/release'input" 'C:/release$input'; do
   remote_build "$bad_root" >/dev/null 2>&1 || true
   [ "$(build_status)" != "done" ] && ok "危险远端根被拒($bad_root)" || no "危险远端根未被拒($bad_root)"
   [ -z "$(ls -A "$FAKE_REMOTE_ROOT")" ] && ok "危险远端根没碰到构建机($bad_root)" || no "危险远端根已在构建机落地($bad_root)"
-  bash "$RF" close >/dev/null
+  bash "$RF" abort >/dev/null
 done
 
 # 守:失败根因只存在于构建机的日志里。不回传,Mac 侧永远诊断不出 finding,自愈闭环断掉。
@@ -377,9 +405,9 @@ init_for_remote_build
 remote_build >/dev/null 2>&1 || true
 bash "$RF" receipt > "$TMP/receipt.out"
 grep -q 'logs=' "$TMP/receipt.out" && ok "回执给出日志位置(自主处置的入口)" || no "回执没有日志位置"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 unset FAKE_BUILD_OUTCOME FAKE_RUN_FAILS FAKE_REMOVE_FAILS
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:构建机是哪一台,不能只活在人的记忆里。两个值都缺时出包停在这一步等人补,
 # 而钥匙旁边放一份 remote-build.json 就没人需要记它。
@@ -392,7 +420,7 @@ if grep -rq 'ERROR: remote build has no RELEASE_REMOTE_HOST' .release 2>/dev/nul
 else
   no "缺构建机的报错文字变了"
 fi
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 printf '{"host":"fake@pc","root":"C:/from-file"}\n' > remote-build.json
 remote_reset
@@ -404,7 +432,7 @@ case "$(build_dir)" in
   */from-file/*) ok "构建落在文件里写的远端根" ;;
   *) no "远端根不是文件里那个($(build_dir))" ;;
 esac
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 守:环境变量必须压过文件——临时换一台构建机只有这一个手段,测试也靠它灌假值。
 remote_reset
@@ -414,7 +442,7 @@ case "$(build_dir)" in
   */from-env/*) ok "环境变量压过 remote-build.json" ;;
   *) no "文件盖掉了环境变量($(build_dir))" ;;
 esac
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 rm -f remote-build.json
 
 bash "$RF" init --manifest "$FIX/manifest.fake.json" --max-rounds 1 >/dev/null
@@ -423,7 +451,7 @@ case "$out" in
   ROUND-CAP:max=1*) ok "round 越 cap 熔断" ;;
   *) no "round cap ($out)" ;;
 esac
-[ "$(bash "$RF" exit-check)" = "PAUSED:needs-redirection" ] && ok "熔断后 exit-check PAUSED" || no "PAUSED ($(bash "$RF" exit-check))"
+[ "$(bash "$RF" where)" = "PAUSED:needs-redirection" ] && ok "熔断后 where PAUSED" || no "PAUSED ($(bash "$RF" where))"
 
 printf 'not json' > "$SF"
 if bash "$RF" resume 2>/dev/null; then
@@ -432,13 +460,13 @@ else
   ok "corrupt 上 write 拒空/非法退非零"
 fi
 [ "$(cat "$SF")" = "not json" ] && ok "write 拒后原文件保留(不截 0 字节)" || no "文件被截断"
-case "$(bash "$RF" exit-check)" in
-  CORRUPT:*) ok "corrupt -> exit-check CORRUPT(fail-closed)" ;;
+case "$(bash "$RF" where)" in
+  CORRUPT:*) ok "corrupt -> where CORRUPT(fail-closed)" ;;
   *) no "CORRUPT 读" ;;
 esac
 
 # 回归:进程在 stage 标 running 后中断,where 必须报 STAGE 让该 stage 重跑(不是 RETRY-STAGE,那是失败后走 dispatch),不跳下一个、不报 SUCCESS。
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 jq '(.stages[0].status)="running"' "$SF" > "$SF.tmp" && mv "$SF.tmp" "$SF"
 case "$(bash "$RF" where)" in
@@ -451,8 +479,8 @@ case "$(bash "$RF" where)" in
   *) no "running+无 pending 误报 ($(bash "$RF" where))" ;;
 esac
 
-# 回归:stage done 只是人工确认位,拒绝跳步把从未执行的 stage 标 done(伪造 exit-check DONE)。
-bash "$RF" close >/dev/null
+# 回归:stage done 只是人工确认位,拒绝跳步把从未执行的 stage 标 done(伪造 close 眼中的 DONE)。
+bash "$RF" abort >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 if bash "$RF" stage done --stage build 2>/dev/null; then
   no "stage done 跳步应被拒绝"
@@ -462,7 +490,7 @@ fi
 [ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" = "pending" ] && ok "被拒后 build 仍 pending" || no "被拒后状态被改"
 
 # 回归:transient 指纹不派修,直接重置该 stage 重跑;同指纹熔断兜底防无限重试。
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 bash "$RF" stage fail --stage doctor --findings "$FIX/finding.transient.json" >/dev/null
 out="$(bash "$RF" dispatch --stage doctor --findings "$FIX/finding.transient.json")"
@@ -482,21 +510,12 @@ case "$out" in
   *) no "fix_rounds 熔断 ($out)" ;;
 esac
 
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # 回归:env: 指纹是环境处置,不派修。停在 needs-context 的 .pause 上,question 就是这条
 # finding 的 remediation;跑出包流程的那个 agent 做完那件事自己 resume。
-# 这一段的 fix_executor 会往 editable_paths 里写一个文件:它没被写出来,就是没派修的证据。
-mkdir -p scripts/release
-jq '.fix_executor=["sh","-c","printf fixed > scripts/release/env-fix.txt"]' \
-  "$FIX/manifest.fake.json" > env-branch.json
-# 保护规则源要在位、要已提交:否则 dispatch 在跑 fix_executor 之前就停在
-# 「protection source unreadable」上,后面那两条反向断言就是白绿的。
-cp "$FIX/release_protection.fake.json" release_protection.json
-git add release_protection.json
-git commit -qm env-branch-seed
 env_head_before="$(git rev-parse HEAD)"
-bash "$RF" init --manifest env-branch.json >/dev/null
+bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 bash "$RF" stage fail --stage doctor --findings "$FIX/finding.env.json" >/dev/null
 out="$(bash "$RF" dispatch --stage doctor --findings "$FIX/finding.env.json")"
 case "$out" in
@@ -507,9 +526,8 @@ esac
   && ok "env: 停在 needs-context 的 .pause 上" || no "env: pause=$(jq -c '.pause' "$SF")"
 [ "$(jq -r '.pause.question // ""' "$SF")" = "$(jq -r '.findings[0].remediation' "$FIX/finding.env.json")" ] \
   && ok "env: question 就是这条 finding 的 remediation" || no "env: question=$(jq -r '.pause.question // ""' "$SF")"
-[ ! -f scripts/release/env-fix.txt ] && ok "env: 一个 fix agent 都没派" || no "env: 竟派了 fix agent"
 [ "$(git rev-parse HEAD)" = "$env_head_before" ] && ok "env: 没有自动修复提交" || no "env: 竟产生了修复提交"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 # ── 放弃这一轮 ──────────────────────────────────────────────────────────────
 #
@@ -547,7 +565,7 @@ remote_reset
 init_for_remote_build
 # 先跑一轮成功的,借它把远端目录与源码树建起来。
 remote_build >/dev/null 2>&1 || true
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 remote_reset
 init_for_remote_build
 bd_live="$FAKE_REMOTE_ROOT/release-input/$(git rev-parse HEAD | cut -c1-12)-test-product"
@@ -571,7 +589,7 @@ fi
 [ -f "$bd_live/source/DO-NOT-WIPE" ] \
   && ok "接上去不重传,正在被读写的源码树没被冲掉" || no "接上去时把远端源码树重传了"
 [ "$(task_count)" = "0" ] && ok "接上去的那一轮也把计划任务清干净" || no "残留计划任务($(cat "$FAKE_REMOTE_TASKS"))"
-bash "$RF" close >/dev/null
+bash "$RF" abort >/dev/null
 
 echo "=== $pass PASS / $fail FAIL ==="
 [ "$fail" -eq 0 ]

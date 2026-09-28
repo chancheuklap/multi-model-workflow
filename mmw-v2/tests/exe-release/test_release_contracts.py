@@ -28,26 +28,17 @@ def test_manifest_rejects_unknown_field():
 
 @pytest.mark.parametrize(
     "field",
-    ["event_sink", "derive", "post_fix_gate"],
+    ["event_sink", "derive"],
 )
 def test_a_product_can_ship_before_it_has_any_of_the_self_heal_machinery(field):
     """自愈与观测那一套是可选装备，不是入场券。
 
-    一个产品第一次出包时，它没有派生物要重生、没有闸门要跑、没有日志系统要接。
-    把这些设成必填，等于要求「能出包」之前先写四份仓库侧 Python——而这个技能存在的
-    全部理由就是不必再写那些。
+    一个产品第一次出包时，它没有派生物要重生、没有日志系统要接。把这些设成必填，
+    等于要求「能出包」之前先写仓库侧 Python——而这个技能存在的全部理由就是不必再写那些。
     """
     good = _fake_manifest()
     del good[field]
     assert getattr(rc.ReleaseAdapterManifest.model_validate(good), field) is None
-
-
-def test_a_key_that_automates_nothing_needs_no_path_gate():
-    """protection_source 同理可缺，只是它跟「谁能写」绑在一起（见下）。"""
-    good = {**_fake_manifest(), "editable_paths": []}
-    for name in ("protection_source", "fix_executor"):
-        good.pop(name, None)
-    assert rc.ReleaseAdapterManifest.model_validate(good).protection_source is None
 
 
 def test_manifest_empty_stages_allowed():
@@ -228,23 +219,6 @@ def test_cli_classify_rejects_bad_finding():
     assert r.returncode == 3
 
 
-def test_cli_validate_event_accepts_neutral_event_and_rejects_extra_field():
-    event = {
-        "schema_version": "1",
-        "event": "paused",
-        "product": "duck",
-        "round": 1,
-        "trace_id": "t-123",
-        "timestamp": "2026-07-09T00:00:00Z",
-    }
-    ok = _cli("validate-event", "-", input=json.dumps(event))
-    assert ok.returncode == 0
-    bad = _cli(
-        "validate-event", "-", input=json.dumps({**event, "audit_trace_id": "x"})
-    )
-    assert bad.returncode == 3
-
-
 def test_contract_import_robust_via_spec_from_file_location():
     # 跨仓消费方（agentflow tests/contracts）用最朴素 loader 动态 import 本合同：
     # spec_from_file_location + exec_module，不预注册 sys.modules。
@@ -280,16 +254,3 @@ def test_contract_import_robust_via_spec_from_file_location():
         )
 
 
-@pytest.mark.parametrize("writer", ["fix_executor", "editable_paths"])
-def test_anything_that_can_write_needs_a_path_gate(writer):
-    """有东西能自动改文件，却不声明任何硬禁止路径，等于闸门整个是开的。
-
-    全都缺是合法的：那把钥匙的意思是「这个产品不自动改任何东西」。
-    """
-    bad = _fake_manifest()
-    del bad["protection_source"]
-    for name in ("fix_executor", "editable_paths"):
-        if name != writer:
-            bad.pop(name, None)
-    with pytest.raises(Exception, match="protection_source"):
-        rc.ReleaseAdapterManifest.model_validate(bad)

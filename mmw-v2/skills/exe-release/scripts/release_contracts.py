@@ -5,7 +5,7 @@
 """通用 release-flow 合同。
 
 三合同: ReleaseAdapterManifest / ReleaseFinding / ReleaseLoopEvent。
-CLI: validate-manifest / classify-findings / validate-event。
+CLI: validate-manifest / classify-findings。
 """
 
 import argparse
@@ -462,10 +462,6 @@ class ReleaseAdapterManifest(BaseModel):
     # Python——而那正是这个技能存在的理由的反面。
     #
     # 没声明就没有那一步：引擎跳过，不报错，也不假装做过。
-    fix_executor: list[str] | None = None
-    editable_paths: list[str] = Field(default_factory=list)
-    protection_source: str | None = None
-    post_fix_gate: list[str] | None = None
     derive: list[str] | None = None
     event_sink: list[str] | None = None
 
@@ -479,16 +475,6 @@ class ReleaseAdapterManifest(BaseModel):
                 "a release manifest that produces an installer must declare build_target.installer_glob: "
                 "without it, \"the step exited 0\" and \"an installer really exists\" are indistinguishable, "
                 "and the next one to find out is the customer"
-            )
-        writers = sorted(
-            name
-            for name in ("fix_executor", "editable_paths")
-            if getattr(self, name)
-        )
-        if writers and self.protection_source is None:
-            raise ValueError(
-                f"declaring {', '.join(writers)} requires protection_source: "
-                "something can rewrite files while no path is hard-denied, which leaves the gate wide open"
             )
         if self.electron.installer == "repo_hook":
             if self.build_hooks.installer is None:
@@ -521,14 +507,6 @@ def cmd_validate_manifest(path: str) -> int:
     except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
         return _fail(f"manifest is not valid: {exc}")
     print(manifest.model_dump_json())
-    return 0
-
-
-def cmd_validate_event(path: str) -> int:
-    try:
-        ReleaseLoopEvent.model_validate_json(_read(path))
-    except Exception as exc:  # noqa: BLE001 - CLI must report validation failure.
-        return _fail(f"event is not valid: {exc}")
     return 0
 
 
@@ -572,14 +550,13 @@ def cmd_classify_findings(path: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="release_contracts")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    for name in ("validate-manifest", "classify-findings", "validate-event"):
+    for name in ("validate-manifest", "classify-findings"):
         sp = sub.add_parser(name)
         sp.add_argument("path", help="file path, or - to read stdin")
     args = parser.parse_args(argv)
     return {
         "validate-manifest": cmd_validate_manifest,
         "classify-findings": cmd_classify_findings,
-        "validate-event": cmd_validate_event,
     }[args.cmd](args.path)
 
 
