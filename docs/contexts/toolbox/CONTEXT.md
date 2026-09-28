@@ -142,7 +142,7 @@ A test-only variable that moves every path `install.sh` reads or writes under it
 _Home_: `mmw-v2/install.sh`
 
 **`--tools`**:
-The repeatable flag of `verify-ticket.py`, `dispatch.sh` and `lint_screen_contract.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own. `verify-ticket.py` puts the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names a judge bare.
+The repeatable flag of `verify-ticket.py`, `dispatch.sh` and `pull_design.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own. `verify-ticket.py` puts the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names a judge bare.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **hook**:
