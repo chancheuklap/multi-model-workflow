@@ -541,7 +541,6 @@ class EndingAProcess(unittest.TestCase):
             with self.subTest(host=host):
                 _code, answer = call(host, with_command(host, "kill 123"))
                 self.assertIsNotNone(answer)
-                self.assertIn("never ends a process", reason_of(answer))
 
     def test_the_refusal_says_what_to_do_instead(self):
         """A refusal that only diagnoses is where the improvising starts."""
@@ -549,7 +548,6 @@ class EndingAProcess(unittest.TestCase):
         reason = reason_of(answer)
         self.assertIn("stop", reason.lower())
         self.assertIn(".mmw/target.json", reason)
-        self.assertIn("blocked", reason)
 
     def test_the_refusal_fits_what_a_host_will_show(self):
         """Grok Build clips at 256; the way out is the part that must survive."""

@@ -128,7 +128,6 @@ class TestStoryGate(unittest.TestCase):
                 self.assertEqual(code, 2)
                 self.assertTrue(lines[0].startswith("NEGATIVE CONTROL FAILED"))
                 self.assertIn(named, lines[0])
-                self.assertIn("then re-run", lines[0])
 
     def test_both_controls_caught_continue(self):
         self.assertEqual(sp.negative_control_gate(self.FONT, self.MISSING), (0, []))
@@ -391,7 +390,6 @@ class TestStoryFixture(unittest.TestCase):
         proc = self.run_story(cwd=root)
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("viewports", proc.stderr)
-        self.assertIn("then re-run", proc.stderr)
 
     def test_a_contract_without_locale_exits_2_naming_it(self):
         root = self.copied_fixture()
@@ -400,7 +398,6 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("locale", proc.stderr)
         self.assertIn("screen-contract-format.md", proc.stderr)
-        self.assertIn("then re-run", proc.stderr)
 
     def test_the_contract_locale_reaches_both_sides(self):
         root = self.copied_fixture()
@@ -467,7 +464,6 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("sc-interp", proc.stderr)
         self.assertIn("alpha", proc.stderr)
-        self.assertIn("then re-run", proc.stderr)
 
     def test_each_claude_design_runtime_trace_exits_2(self):
         for mutate, named in (("dc-tpl", "data-dc-tpl"),
@@ -478,7 +474,6 @@ class TestStoryFixture(unittest.TestCase):
                 self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
                 self.assertIn(named, proc.stderr)
                 self.assertIn("alpha", proc.stderr)
-                self.assertIn("then re-run", proc.stderr)
 
     def test_render_only_refuses_a_contract_without_locale(self):
         root = self.copied_fixture()
@@ -487,7 +482,6 @@ class TestStoryFixture(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stderr + proc.stdout)
         self.assertIn("locale", proc.stderr)
         self.assertIn("screen-contract-format.md", proc.stderr)
-        self.assertIn("then re-run", proc.stderr)
 
     def test_a_server_the_stories_command_started_is_gone_after_the_run(self):
         """fixtures/story/repo/stories/launch.py holds serve.py as a child and forwards

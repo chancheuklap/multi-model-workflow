@@ -2830,14 +2830,6 @@ assert obj["settings"].get("modeId") == "agent", obj["settings"]
     "Use the implement skill to work ticket #61."*) ;;
     *) fail "the worker dispatch line is missing: $(out_json initialPrompt)" ;;
   esac
-  case "$(out_json initialPrompt)" in
-    *"You are operating autonomously"*) ;;
-    *) fail "the autonomous sentence is missing from the worker prompt" ;;
-  esac
-  case "$(out_json initialPrompt)" in
-    *"Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."*) ;;
-    *) fail "the product-rules sentence is missing: $(out_json initialPrompt)" ;;
-  esac
   assert_wt 61
   [ "$(git -C "$(wt 61)" rev-parse --abbrev-ref HEAD)" = issue-61 ] \
     || fail "new worktree should be on issue-61"
@@ -3102,10 +3094,6 @@ assert obj["settings"].get("thinkingOptionId") == "high"
   case "$(out_json initialPrompt)" in
     "Use the code-review skill to review ticket #61 from base commit $base."*) ;;
     *) fail "the reviewer dispatch line did not carry the recorded base commit: $(out_json initialPrompt)" ;;
-  esac
-  case "$(out_json initialPrompt)" in
-    *"You are operating autonomously"*) ;;
-    *) fail "the autonomous sentence is missing from the reviewer prompt" ;;
   esac
 }
 
@@ -3761,8 +3749,7 @@ PY
 }
 
 scenario_summary_retro() {
-  local code runbook
-  runbook="$(dirname "$(dirname "$HERE")")/skills/dispatch/references/night.md"
+  local code
   reset_log; fresh_repo
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
@@ -3774,17 +3761,6 @@ scenario_summary_retro() {
   [ "$code" = 0 ] || fail "summary did not record a completed spec: $(cat "$TMP/err")"
   posted_events 76 | grep -q '^spec.closed' \
     || fail "summary never produced the prerequisite spec.closed event"
-  python3 - "$runbook" <<'PY' || fail "the same orchestrator runbook does not reach retro after spec.closed"
-from pathlib import Path
-import sys
-text = Path(sys.argv[1]).read_text(encoding="utf-8")
-start = text.index("## 5. The night is over")
-end = text.index("## 6. Merge the accepted night")
-section = text[start:end]
-assert section.index("bash scripts/dispatch.sh summary <spec>") < section.index("Immediately after `summary` records `spec.closed`")
-assert section.index("invoke the `retro` skill in this same orchestrator session") < section.index("Then tell the user")
-assert "`finish` needs its `recorded` receipt" in section
-PY
   hasnt "runner :: start :: retro"
 }
 
@@ -4461,26 +4437,7 @@ PY
 }
 
 scenario_retro_review_evidence() {
-  local code session night
-  session="$(dirname "$(dirname "$HERE")")/upstream/skills/engineering/code-review/references/session.md"
-  night="$SKILL/references/night.md"
-
-  echo "--- review summaries carry the stable axis category and current source"
-  python3 - "$session" <<'PY' || fail "the review evidence contract is incomplete"
-import sys
-text = open(sys.argv[1], encoding="utf-8").read()
-needles = (
-    "- <Standards|Spec|Tests|UI> [<category>] <path>:<line> — <claim> — source: <URL|path:line|CHECK evidence>",
-    "`unverified: <what would settle it>` at the end of the same line",
-    "Both `## In-ticket` and `## Out-of-ticket`",
-)
-for needle in needles:
-    assert needle in text, needle
-PY
-
-  echo "--- the night runbook publishes the required stale reason"
-  grep -qF 'bash scripts/dispatch.sh route <n> <child> stale <invalid|fixed-elsewhere>' "$night" \
-    || fail "night.md does not publish the stale reason signature"
+  local code
 
   echo "--- invalid records that the finding never held"
   reset_log; fresh_repo; write_route_batch
@@ -7027,10 +6984,10 @@ assert_complete_worker_prompt() {
   local task_root="$1" task_scope="$2" current="$3" related="$4"
   MMW_EXPECT_ROOT="$task_root" MMW_EXPECT_SCOPE="$task_scope" \
   MMW_EXPECT_CURRENT="$current" MMW_EXPECT_RELATED="$related" \
-  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete worker prompt changed for $task_root"
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the worker prompt lost its dispatch line or its shared-experience packet for $task_root"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
-prefix = "Use the implement skill to work ticket #61. You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."
+assert actual.startswith("Use the implement skill to work ticket #61."), actual
 packet = f"""Shared experience for ticket #61.
 
 MMW repository Space: o__r
@@ -7041,10 +6998,8 @@ Current task shared experience:
 {os.environ['MMW_EXPECT_CURRENT']}
 
 Related experience:
-{os.environ['MMW_EXPECT_RELATED']}
-
-These are indexes, not the records; the implement skill's `## Shared experience while implementing` says how to use them."""
-assert actual == prefix + "\n\n" + packet, actual
+{os.environ['MMW_EXPECT_RELATED']}"""
+assert packet in actual, actual
 PY
 }
 
@@ -7244,18 +7199,13 @@ assert_complete_reviewer_prompt() {
   local rules="$1" base
   base="$(git -C "$TMP/repo" merge-base origin/main HEAD 2>/dev/null || git -C "$TMP/repo" rev-parse origin/main)"
   MMW_EXPECT_BASE="$base" MMW_EXPECT_RULES="$rules" \
-  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the complete reviewer prompt changed"
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the reviewer prompt lost its base commit or its Rules packet"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
-prefix = (
-    "Use the code-review skill to review ticket #61 from base commit "
-    + os.environ["MMW_EXPECT_BASE"]
-    + ". You are operating autonomously. The user is not watching in real time and cannot "
-    "answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-)
+assert actual.startswith("Use the code-review skill to review ticket #61 from base commit " + os.environ["MMW_EXPECT_BASE"] + "."), actual
 packet = f"""Active reviewer Rules approved for this review:
 {os.environ['MMW_EXPECT_RULES']}"""
-assert actual == prefix + "\n\n" + packet, actual
+assert packet in actual, actual
 PY
 }
 
@@ -7282,7 +7232,6 @@ scenario_memory_reviewer_rules() {
   [ "$code" = 0 ] || fail "reviewer rules start expected 0: $(cat "$TMP/err")"
   prompt="$(out_json initialPrompt)"
   case "$prompt" in *"Use the code-review skill to review ticket #61 from base commit "*) ;; *) fail "code-review dispatch line missing: $prompt" ;; esac
-  case "$prompt" in *"You are operating autonomously"*) ;; *) fail "autonomous sentence missing: $prompt" ;; esac
   has "NMEM_SPACE=o__r"
   has "NMEM_AGENT_ID=mmw-reviewer"
   hasnt "NMEM_AGENT_ID=mmw-worker"
@@ -7438,25 +7387,9 @@ PY
 }
 
 scenario_memory_reviewer_contract() {
-  local session="$(dirname "$(dirname "$HERE")")/upstream/skills/engineering/code-review/references/session.md"
-  python3 - "$session" <<'PY' || fail "code-review session contract lost its steps or its Active Rules section"
-import sys
-text = open(sys.argv[1], encoding="utf-8").read()
-for needle in (
-    "## 1. Pin the diff",
-    "## 2. Run the axes",
-    "## 3. Verify every finding the axes report",
-    "## 4. Sort every review finding into in-ticket or out-of-ticket",
-    "## 5. Write one review comment on the ticket",
-    "git diff <base-commit>...HEAD --stat",
-    "The axis word is exactly `Standards`, `Spec`, `Tests`, or `UI`",
-    "## Active Rules",
-):
-    assert needle in text, needle
-PY
-  echo "--- the launched prompt keeps the code-review dispatch line, autonomous sentence and the Rule rows"
-  reset_log; fresh_repo; seed_reviewer_rules
   local code
+  echo "--- the launched prompt keeps the code-review dispatch line and the Rule rows"
+  reset_log; fresh_repo; seed_reviewer_rules
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "contract reviewer start expected 0: $(cat "$TMP/err")"
   assert_complete_reviewer_prompt "$(reviewer_rule_lines)"

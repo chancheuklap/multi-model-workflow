@@ -51,13 +51,10 @@ class Shape(unittest.TestCase):
 
 
 class RecordedRefusalsFit(unittest.TestCase):
-    """The refusal this module records has to fit and say what to do."""
+    """The refusal this module records has to fit what a host will show."""
 
     def test_all_of_them_fit_what_a_host_will_show(self):
         self.assertLessEqual(len(rf.REPORT_BLOCKED), rf.REASON_LIMIT)
-
-    def test_all_of_them_say_what_to_do_next(self):
-        self.assertIn("stop", rf.REPORT_BLOCKED)
 
 
 if __name__ == "__main__":

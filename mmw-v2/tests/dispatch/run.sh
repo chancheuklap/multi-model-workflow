@@ -7,7 +7,6 @@
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
 #   test_profiles.py    unittest, models.bypass_argv, catalog match, adopt, create_agent settings, CLI scan
-#   test_memory_skill_commands.py  unittest, worker save example against fake nmem
 #   test_tool_guard.py  unittest, host payloads against dispatch's command guard
 #   test_dispatch.sh    dispatch.sh against a fake `paseo` and a fake `gh` on PATH
 #

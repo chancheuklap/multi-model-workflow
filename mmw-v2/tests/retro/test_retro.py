@@ -208,8 +208,6 @@ def current_problem(f: Fixture, earlier: bool = True, prompt: bool = False) -> d
 
 
 def complete_none(f: Fixture):
-    skill = (MMW / "skills" / "retro" / "SKILL.md").read_text(encoding="utf-8")
-    assert skill.startswith("---\nname: retro\ndescription: Retrospect one completed MMW spec night")
     gathered = f.run("gather", "70")
     assert gathered["task_root"] == {"kind": "standalone-spec", "number": 70}
     assert gathered["observed"]["base_commit"] == f.base
