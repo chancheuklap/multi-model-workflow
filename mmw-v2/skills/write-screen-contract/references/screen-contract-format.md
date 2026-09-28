@@ -43,25 +43,19 @@ retired_ids:                              # ids that once had a row; never reuse
 rows: [...]
 ```
 
-The lint checks these top-level keys: `effort`, `baselines`, `locale`, `viewports`, `pages`, `scenes`, `states`, `backend_without_ui`, `proposed_operations`, `retired_ids`, `rows`. A key that is not in this list at the top level is an error that names the key. The same rule holds on a page (only `mount`, `component`, `viewports`), a scene (only `page`, `input`), a row (only the Column rules columns, plus `app` on a cross-component row), and a `retired_ids` entry (only `id` and `note`). A Column-rules name written at the top level is an error.
-
 ## Pages, scenes, viewports, locale, states, retired_ids
 
-| Key | Rule | Lint |
-| --- | --- | --- |
-| `viewports` | `WIDTHxHEIGHT` entries: the sizes the pages that declare no `viewports` of their own are rendered and compared at. A viewport equal to a media-query breakpoint of the package's stylesheets compares two reflows and verifies nothing. | parseable; no width equals a `@media (max-width\|min-width: Npx)` of any `.css` in the package (including `_ds/`) or a page's `<style>` block; missing is an error |
-| `locale` | BCP 47 tag (`zh-CN`, `en-US`) the story judge sets on both browser contexts. The story judge reads it and does not fall back. | present; matches a BCP 47 language tag |
-| `states` | The state names this product allows in `next` that are not a scene: domain states, and local view states no scene draws (a zoomed canvas, an expanded container, a closed dialog). Omit the key when `next` never names one. | `next` that is not a row id, a scene name, or `stay` must be a member of this list |
-| `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. | present, `[a-z0-9-]`, unique across pages |
-| `pages.<page>.viewports` | The sizes this page's scenes are rendered and compared at, when they are not the top-level `viewports`: a page drawn at its own `$preview` size (a 236-wide column, a 52-high bar) is compared there only, not at every size of the other pages. Omit it for a page drawn at a top-level size. | each entry `WIDTHxHEIGHT`, not empty, no width on a stylesheet breakpoint |
-| `pages.<page>.component` | For a `Component · ` page: the rows' `component` value this page owns. `App · ` pages are whole-surface roots and carry none. | Component pages ↔ distinct `component` values one to one |
-| `scenes.<name>.page` | The `.dc.html` from `scenes.json`. | equals scenes.json; every scene of scenes.json has one entry and nothing else does |
-| `scenes.<name>.input` | Only when the design page draws this scene from a data file in the design package rather than from literals in the page. A mapping: `file`, the package file the page loads; `value`, the value in it the page reads for this scene (`NOTE_SCENES.ready`); `with`, optional, the fields the page's script sets on top of that value for this scene, merged key by key at every depth (`{selected: {note: 2}}` for a scene that reuses a data set with another note selected). The story adapter feeds the product component from that same merged value. Omit it when the page's text is the whole of what the scene shows. | a mapping with `file` and `value`; `with` a mapping; the file exists inside the design package |
-| `retired_ids[]` | `id` of a row that once existed, and `note` (the date and the verdict). An id is never reused. | printed on every run as `RETIRED <id>: <note>`; a live row must not reuse the id |
-
-`pages` and `scenes` are filled at design time, with no running product: `page` from `scenes.json`, `mount` as a declaration.
-
-`baselines.look` is the design package directory.
+| Key | Rule |
+| --- | --- |
+| `viewports` | `WIDTHxHEIGHT` entries: the sizes the pages that declare no `viewports` of their own are rendered and compared at. A viewport equal to a media-query breakpoint of the package's stylesheets — any `.css` in the package (including `_ds/`), or a page's `<style>` block — compares two reflows and verifies nothing. |
+| `locale` | BCP 47 tag (`zh-CN`, `en-US`) the story judge sets on both browser contexts. The story judge reads it and does not fall back. |
+| `states` | The state names this product allows in `next` that are not a scene: domain states, and local view states no scene draws (a zoomed canvas, an expanded container, a closed dialog). Omit the key when `next` never names one. |
+| `pages.<page>.mount` | A short stable id — the story page id the product serves as `?page=<mount>`. |
+| `pages.<page>.viewports` | The sizes this page's scenes are rendered and compared at, when they are not the top-level `viewports`: a page drawn at its own `$preview` size (a 236-wide column, a 52-high bar) is compared there only, not at every size of the other pages. Omit it for a page drawn at a top-level size. |
+| `pages.<page>.component` | For a `Component · ` page: the rows' `component` value this page owns. `App · ` pages are whole-surface roots and carry none. |
+| `scenes.<name>.page` | The `.dc.html` from `scenes.json`. |
+| `scenes.<name>.input` | Only when the design page draws this scene from a data file in the design package rather than from literals in the page. A mapping: `file`, the package file the page loads; `value`, the value in it the page reads for this scene (`NOTE_SCENES.ready`); `with`, optional, the fields the page's script sets on top of that value for this scene, merged key by key at every depth (`{selected: {note: 2}}` for a scene that reuses a data set with another note selected). The story adapter feeds the product component from that same merged value. Omit it when the page's text is the whole of what the scene shows. |
+| `retired_ids[]` | `id` of a row that once existed, and `note` (the date and the verdict). An id is never reused. |
 
 ## A row
 
@@ -85,7 +79,7 @@ Server-rendered product — a form POST against an HTTP API:
   gap: aligned                            # aligned | design-only | backend-only
 ```
 
-Desktop product — a non-HTTP host call. The lint prints `UNVERIFIED` (no machine-readable source) and does not fail the run:
+Desktop product — a non-HTTP host call:
 
 ```yaml
 - id: notes.save
@@ -103,28 +97,26 @@ Desktop product — a non-HTTP host call. The lint prints `UNVERIFIED` (no machi
 
 ## Column rules
 
-| Column | Rule | Lint |
-| --- | --- | --- |
-| `id` | `<component-short>.<behaviour>`, lowercase, dots and dashes. Never renumbered, never reused. | unique; every id in `retired_ids` absent from rows |
-| `component` | A path or name the implementation owns the control under, inside the repository. It is not the name of a `.dc.html` page in the design package — that name is a `pages.<page>` key under **Pages, scenes, viewports, locale, states, retired_ids**. | one `Component · ` page claims it |
-| `trigger` | The control's `data-ui` id, a string, copied from the skeleton. | the id exists in the skeleton; every skeleton control that is clickable or editable has ≥1 row |
-| `precondition` | Key/value state that selects this row among rows with the same trigger. | rows sharing a trigger have distinct preconditions |
-| `scenes` | Names from `scenes.json`. `[]` when the design package shows no scene for this precondition — allowed, and reported. A control that several pages share is one trigger; its scenes are the union over those pages, and a row that must tell the pages apart puts `screen: <page>` in `precondition`. | each exists in the skeleton for this trigger; `[]` is a warning |
-| `calls` | `METHOD /path` exactly as in `openapi.json`; `none`; or a non-HTTP form written as the product issues it. Order is the order of effect. An operation the backend does not have yet is listed under `proposed_operations`; the spec's **API contract** subsection describes it. A server-rendered form post is `POST /path`. | HTTP entries exist in `openapi.json` or in `proposed_operations` (a warning); without an `openapi.json`, reported as `unverified`; a non-HTTP form prints `UNVERIFIED` (no machine-readable source) and does not fail the run |
-| `shows` | Displayed name → the binding: `field@METHOD /path`, `field@<non-HTTP call>`, `key@RuntimePolicy`, or several of those; then optionally ` → ` and, in words, what is drawn from them (`notes[].pinned@GET /api/notes → count of pinned notes`). No literal numbers or strings in the binding — a status code is a number too. | the binding (before ` → `) contains `@` and no digits outside `{…}` |
-| `next` | Where the end user is after the call succeeds; for `calls: [none]`, where the end user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). | a row id, a scene name, a name in `states`, or `stay` |
-| `on_failure` | Failure kind → the outcome, then optionally ` — ` and what the end user sees there in words. The outcome is where the end user is after that failure, in the words `next` uses (a row id, a scene, a name in `states`, `stay`), or `toast:<KEY>` for a message over an unchanged page: `version_conflict_409: note-changed — the banner names the time the note changed`. Every non-`none` call has at least one. The four-column boundary test of the ui-acceptance skill reads this column. | present when `calls` is not `[none]`; a mapping; each outcome is one of those |
-| `source` | Where the behaviour was decided, in one of these shapes: `#<n>` (a decision ticket), `#<n> Implementation Decisions <k>` or `#<n> Testing Decisions` (a spec section), `ADR-<nnnn>`, `docs/<path> …` (a domain document), `README §…`, `conversation <YYYY-MM-DD>` plus one sentence of the conclusion, or `code:<path>` as a last resort. A user story (`#<n> story <k>`) is an audit trail no worker ever reads: `to-spec` folds a story's conclusion into the Implementation Decisions subsection that implements it, and the row cites that. At least one source that is neither README nor `code:`, or `gap` is not `aligned`. | non-empty; a story or an unrecognised shape is a warning |
-| `gap` | `aligned` when design and backend agree; `design-only` when the control has no backend behaviour to call; `backend-only` when a decision has no control. | `to-spec` refuses a file with any non-`aligned` row |
-| `app` | Only on a cross-component row: the `App · ` page the row is written on. See **A cross-component row**. | the value is a declared `App · ` page |
+| Column | Rule |
+| --- | --- |
+| `id` | `<component-short>.<behaviour>`, lowercase, dots and dashes. Never renumbered, never reused. |
+| `component` | A path or name the implementation owns the control under, inside the repository. It is not the name of a `.dc.html` page in the design package — that name is a `pages.<page>` key under **Pages, scenes, viewports, locale, states, retired_ids**. |
+| `trigger` | The control's `data-ui` id, a string, copied from the skeleton; every skeleton control that is clickable or editable needs at least one row. |
+| `precondition` | Key/value state that selects this row among rows with the same trigger. |
+| `scenes` | Names from `scenes.json`. `[]` when the design package shows no scene for this precondition — allowed, and reported. A control that several pages share is one trigger; its scenes are the union over those pages, and a row that must tell the pages apart puts `screen: <page>` in `precondition`. |
+| `calls` | `METHOD /path` exactly as in `openapi.json`; `none`; or a non-HTTP form written as the product issues it. Order is the order of effect. An operation the backend does not have yet is listed under `proposed_operations`; the spec's **API contract** subsection describes it. A server-rendered form post is `POST /path`. |
+| `shows` | Displayed name → the binding: `field@METHOD /path`, `field@<non-HTTP call>`, `key@RuntimePolicy`, or several of those; then optionally ` → ` and, in words, what is drawn from them (`notes[].pinned@GET /api/notes → count of pinned notes`). No literal numbers or strings in the binding, and no digits outside `{…}` — a status code is a number too. |
+| `next` | Where the end user is after the call succeeds; for `calls: [none]`, where the end user is after the click. `stay` when nothing about the page changes (a disabled control, a cancelled dialog). |
+| `on_failure` | Failure kind → the outcome, then optionally ` — ` and what the end user sees there in words. The outcome is where the end user is after that failure, in the words `next` uses (a row id, a scene, a name in `states`, `stay`), or `toast:<KEY>` for a message over an unchanged page: `version_conflict_409: note-changed — the banner names the time the note changed`. Every non-`none` call has at least one. The four-column boundary test of the ui-acceptance skill reads this column. |
+| `source` | Where the behaviour was decided, in one of these shapes: `#<n>` (a decision ticket), `#<n> Implementation Decisions <k>` or `#<n> Testing Decisions` (a spec section), `ADR-<nnnn>`, `docs/<path> …` (a domain document), `README §…`, `conversation <YYYY-MM-DD>` plus one sentence of the conclusion, or `code:<path>` as a last resort. A user story (`#<n> story <k>`) is an audit trail no worker ever reads: `to-spec` folds a story's conclusion into the Implementation Decisions subsection that implements it, and the row cites that. An earlier spec that a decision ticket cites as its basis is citable too, as `#<n> <section>`: cite the decision ticket first, and the earlier spec for what no decision ticket covers. At least one source that is neither README nor `code:`, or `gap` is not `aligned`. |
+| `gap` | `aligned` when design and backend agree; `design-only` when the control has no backend behaviour to call; `backend-only` when a decision has no control. |
+| `app` | Only on a cross-component row: the `App · ` page the row is written on. See **A cross-component row**. |
 
 A design page with no row is an error. Reverse sweep: every operation in `openapi.json` appears in some row's `calls`, in `backend_without_ui`, or in `proposed_operations`; one that does not is an error naming the method and path.
 
 ## A cross-component row
 
 A **cross-component row** records that region A's action affects region B. It is written on an `App · ` page, one row per control whose action the page's `dc-import` wiring carries from one region to another: a callback that several controls fire is one row for each of them. A control whose action also changes its own region keeps its row on its `Component · ` page as well. When no scene of the `App · ` page draws the control, the row's `scenes` is `[]` and the lint warns.
-
-Every declared `App · ` page carries at least one such row: the lint covers an App page only through its own `app:` rows and otherwise reports `page has no rows`. An App page whose wiring passes nothing between regions goes to the user in the gap list, not into an invented row.
 
 The row carries `app: "<App · page name>"`. `trigger` is region A's `data-ui` id. `calls` is the OpenAPI operation (`METHOD /path` with no query string); name the other region's state the request must carry beside it, not spliced into the path. `next` is the scene region B enters.
 
