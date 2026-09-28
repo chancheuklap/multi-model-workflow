@@ -50,7 +50,3 @@ def refusal(what: str, why: str, next_step: str, limit: int = REASON_LIMIT) -> s
     if len(what) > room:
         what = what[: max(1, room - 1)].rstrip() + "…"
     return (what + tail).strip()
-
-
-def within_limit(text: str, limit: int = REASON_LIMIT) -> bool:
-    return len(text) <= limit

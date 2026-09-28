@@ -13,28 +13,21 @@ not a default.
 Story-service files — everything under `.mmw/stories/`, and files the `stories`
 command names — may reference `scenes.json` and must not reference `.dc.html`.
 
-## What it reads
-
-Every file git tracks or would track is judged, committed or not; what the product wrote
-while the criteria ran is not part of the repository.
-
-## The criterion, in one shape
-
-The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds it.
-
 What widens the allowed set for one file is `.mmw/target.json`'s `leaves_machine`, never
 an exception written into the check and never a name assembled at run time to get past it
 (`process.env["MMW_" + "NEGATIVE"]`): a check that is evaded reports nothing about the
 leaks beside what evaded it.
 
+## What it reads
+
+Every file git tracks or would track is judged, committed or not; what the product wrote
+while the criteria ran is not part of the repository.
+
 ## Exit codes
 
-- `0`, one line `HARNESS OK`: no acceptance name appears outside the allowed places,
-  and no story-service file names a `.dc.html`.
 - `1`, one line `HARNESS LEAK <file>:<line>` per leak, and one line
   `HARNESS DESIGN PAGE <file>:<line>` per story-service file that names a `.dc.html`
   (the first such line in that file). Move a leak into `.mmw/`, `tests/` or
   `scripts/dev/`, or name the file in `leaves_machine` when what it does is a thing
   that reaches past this machine. A design-page hit is a story service rendering a
   design page: point it at `scenes.json` instead.
-- `2`: a refusal naming what it found and the command that fixes it.

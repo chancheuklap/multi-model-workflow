@@ -60,6 +60,7 @@ def _load(name: str, modname: str):
 
 
 dr = _load("design_render.py", "design_render")
+lease_mod = _load("lease.py", "lease")
 tc = _load("target_config.py", "target_config")
 
 pixel_diff = _load("pixel_diff.py", "pixel_diff").pixel_diff
@@ -147,13 +148,18 @@ def product_root() -> Path:
 
 
 def load_stories_config(root: Path) -> dict:
-    path = root / ".mmw" / "target.json"
-    if not path.exists():
+    try:
+        cfg = lease_mod.read_target_json(root)
+    except lease_mod.TargetJSONError as exc:
+        raise SystemExit(refusal(
+            str(exc),
+            "story-parity.py starts the product story pages with the stories command in that file.",
+            "Fix .mmw/target.json so it holds one valid JSON object, then re-run."))
+    if cfg is None:
         raise SystemExit(refusal(
             "no .mmw/target.json.",
             "story-parity.py starts the product story pages with the stories command in that file.",
             "Add .mmw/target.json with a stories command, then re-run."))
-    cfg = json.loads(path.read_text(encoding="utf-8"))
     if not cfg.get("stories"):
         raise SystemExit(refusal(
             ".mmw/target.json has no `stories` command.",

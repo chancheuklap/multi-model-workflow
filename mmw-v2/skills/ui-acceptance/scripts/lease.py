@@ -2,7 +2,6 @@
 """One run's share of this machine.
 
     lease.py claim [<worktree>]           claim (or return) this worktree's slot; 4 none free
-    lease.py env [<worktree>]             print the claim as KEY=VALUE lines
     lease.py run [<worktree>] -- CMD…     run CMD with the claim in its environment
     lease.py release <worktree> [--stop]  give the slot back, with --stop after running the
                                           product's `stop`; 0 given back, 3 there was none
@@ -62,8 +61,8 @@ number is right to; a derived port leaking into it turns a correct suite red.
 #
 # Every verb answers a program or an agent; none of them formats for a person, because on
 # this pipeline nobody reads a terminal. `claim`, `release`, `remove-instance` and `list`
-# print JSON, `env` prints `KEY=VALUE`, `count` prints a number, and what a caller has to
-# *decide* on is the exit code, never the wording. The one piece of prose here is the
+# print JSON, `count` prints a number, and what a caller has to *decide* on is the exit
+# code, never the wording. The one piece of prose here is the
 # refusal a live listener earns, on stderr: its reader is an agent choosing what to do
 # next, and it is written so that agent needs nothing else.
 #
@@ -348,24 +347,47 @@ class StopUnreadable(RuntimeError):
     """`.mmw/target.json` is there and cannot be read, so the product's `stop` is unknown."""
 
 
+class TargetJSONError(Exception):
+    """`.mmw/target.json` is there and is not one readable JSON object."""
+
+
+def read_target_json(root: Path) -> dict | None:
+    """The parsed object at `root/.mmw/target.json`, or None when the file is not there.
+
+    Every reader of this file parses it exactly this way, once, here: `target_config.py`
+    (which already imports this module), `harness-guard.py` and `story-parity.py` each
+    wrap `TargetJSONError` into their own refusal wording. It lives in `lease.py` rather
+    than `target_config.py` because `target_config.py` imports `lease`, and the reverse
+    would cycle.
+
+    The message names the file by its short, relative spelling, never the absolute
+    `path`: this run's own `product_cap` and `stop_command` feed it straight into
+    `refusal()`, which trims from the front to stay under Grok Build's 256-character
+    deny-reason limit, and a long temp-directory path can trim away the very words
+    ("cannot be read as JSON") a caller or a test depends on.
+    """
+    path = root / ".mmw" / "target.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TargetJSONError(f".mmw/target.json cannot be read as JSON: {exc}") from None
+    if not isinstance(data, dict):
+        raise TargetJSONError(".mmw/target.json must hold one JSON object")
+    return data
+
+
 def target_json(worktree: Path, unreadable: type[RuntimeError]):
     """What this worktree's `.mmw/target.json` holds, or None when it has none.
 
-    Raises `unreadable` for a file that is there and is not JSON: what it declares is then
-    unknown, and unknown is not "declares nothing".
+    Raises `unreadable` for a file that is there and is not one JSON object: what it
+    declares is then unknown, and unknown is not "declares nothing".
     """
-    path = worktree / ".mmw" / "target.json"
-    if not path.is_file():
-        return None
-    # Short, so the refusal built on it keeps its whole first part: the reader needs to
-    # know which file and why, and the worktree it sits in is the one it is running in.
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise unreadable(f".mmw/target.json cannot be read as JSON ({exc.msg}, line "
-                         f"{exc.lineno})") from None
-    except OSError as exc:
-        raise unreadable(f".mmw/target.json cannot be read: {exc.strerror}") from None
+        return read_target_json(worktree)
+    except TargetJSONError as exc:
+        raise unreadable(str(exc)) from None
 
 
 def _git(worktree: Path, *args: str) -> str:
@@ -705,10 +727,6 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(full.as_json(), ensure_ascii=False))
             return 4
         print(json.dumps(record, ensure_ascii=False))
-        return 0
-    if verb == "env":
-        for key, value in leased_environment(tree).items():
-            print(f"{key}={value}")
         return 0
     if verb == "release":
         try:

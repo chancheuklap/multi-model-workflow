@@ -53,7 +53,6 @@ BREAK_NEXT = ("If this ticket owns .mmw/harness/, fix the switch and run the cri
 
 DEFAULT_JOURNEYS = ".mmw/journeys"
 BREAK_RE = re.compile(r"[A-Z]+ /\S*")
-RETIRED_PASS_SIGNAL = "MMW_" + "JOURNEY_NEGATIVE"
 
 
 def last_line(text: str) -> str:
@@ -165,7 +164,6 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
     env.pop("MMW_BREAK", None)
-    env.pop(RETIRED_PASS_SIGNAL, None)
 
     def bail(message: str | None = None,
              proc: subprocess.CompletedProcess | None = None) -> int:

@@ -25,7 +25,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from lease import leased_environment, worktree_of  # noqa: E402
+from lease import TargetJSONError, leased_environment, read_target_json, worktree_of  # noqa: E402
 
 
 # ---------------------------------------------------------------- repository config
@@ -110,16 +110,14 @@ def repo_root(start: Path | None = None) -> Path:
 
 def target_config(root: Path) -> dict:
     path = root / ".mmw" / "target.json"
-    if not path.exists():
+    try:
+        cfg = read_target_json(root)
+    except TargetJSONError as exc:
+        raise SystemExit(str(exc))
+    if cfg is None:
         raise SystemExit(f"no {path}: the repository has not said how its product is "
                          f"reached. Run `target_config.py --check --repo {root}` "
                          f"(the ui-acceptance skill) and answer what it names")
-    try:
-        cfg = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise SystemExit(f"{path} cannot be read as JSON: {exc}")
-    if not isinstance(cfg, dict):
-        raise SystemExit(f"{path} must hold one JSON object")
     if not cfg.get("discover"):
         raise SystemExit(f"{path} has no `discover` command; run `target_config.py "
                          f"--check --repo {root}` and answer what it names")
@@ -243,16 +241,11 @@ def target_main(argv: list[str]) -> int:
         print(f"no such directory: {repo}", file=sys.stderr)
         return 2
     path = repo / ".mmw" / "target.json"
-    cfg: dict = {}
-    if path.exists():
-        try:
-            cfg = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            print(f"{path} cannot be read as JSON: {exc}", file=sys.stderr)
-            return 2
-        if not isinstance(cfg, dict):
-            print(f"{path} must hold one JSON object", file=sys.stderr)
-            return 2
+    try:
+        cfg = read_target_json(repo) or {}
+    except TargetJSONError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     problems = target_problems(cfg)
     if args.validate:
         if problems:

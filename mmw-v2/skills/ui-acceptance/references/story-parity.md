@@ -3,8 +3,7 @@
 `story-parity.py`, the **story judge**, compares a product story with the Claude Design
 page it was built from, element by element, by `data-ui` id.
 
-Three agents use this page. An agent taking design facts before implementation uses
-**`--render-only`**. An agent building a story reads **The story page the product
+Two agents use this page. An agent building a story reads **The story page the product
 serves**. An agent fixing a failure reads **The DIFF line**.
 
 ## The story page the product serves
@@ -94,10 +93,6 @@ Any element difference exits 1. Pixel differences never decide the exit code, bu
 every scene and viewport still writes its pixel difference image under `--out` as
 evidence.
 
-## The criterion, in one shape
-
-The `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** holds it.
-
 ## The DIFF line
 
 One fact produces one line:
@@ -111,29 +106,13 @@ DIFF <mount> <scene> <W>x<H> <data-ui id> extra
 Repeated ids appear as `<id>#<n>`. `<property>` is `visible`, `text`, `size`,
 `position`, `parent`, `font-size`, `font-weight`, `color`, `background-color`, or
 `border-radius`. The named id and property are the complete repair target; pixel
-images are supporting evidence, not another verdict.
+images are supporting evidence, not another verdict. Fix the product component, not
+the story page: the story page only puts the real component into a scene, so a style
+or wrapper added there closes the `DIFF` while the product stays wrong. `--out <dir>`
+keeps both screenshots, their pixel difference image and the ARIA capture.
 
 ## Negative controls
 
 Once per run the judge proves it can see a changed style and a missing id; when it
 cannot, it exits 2 with `NEGATIVE CONTROL FAILED`, so a design page with no `data-ui`
 cannot pass.
-
-## `--render-only`
-
-`--render-only` renders only the design side and does not read `.mmw/target.json`.
-It writes screenshots under `--out/media` and the element facts from that same
-render to:
-
-`--out/values/<mount>/<scene>-<W>x<H>.json`
-
-The JSON array uses the fields in **The two sides** and preserves document order.
-
-## Exit codes
-
-- `0`: one line `STORY OK <passed>/<total>`.
-- `1`: one or more lines in **The DIFF line** shape.
-- `2`: a refusal that names the fact, why, and what to do next.
-
-`--out <dir>` keeps both screenshots, their pixel difference image and the ARIA
-capture beside each screenshot.
