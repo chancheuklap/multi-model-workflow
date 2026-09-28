@@ -41,3 +41,9 @@ mmw-v2 里退役的技能与 subagent。**不装、不跑、不当事实**：`mm
 以初见者身份判断界面的 subagent，只被 `ui-qa` 的 B2、B3、B4 派。那三种归用户自己判之后，它没有调用方了。
 
 `out/` 里五个宿主的成品是退役当天的那一份，此后不再装配。
+
+## `hooks/rule-at-moment.py`（2026-09-28 退役）
+
+Claude Code 的 hook：在 Read、Edit、Bash 等调用前后，从 `~/.claude/CLAUDE.md` 里截出当下适用的那条规则贴给模型；Read 之前还附上文件的行数、字节数和估算的 token 数。`tests/` 是它自己的测试。
+
+它从来不由 `install.sh` 安装，要手动登记。退役是因为它按的是旧版 CLAUDE.md 的结构——它要截取 `## Ground rules` 下第 1–7 条，而 `mmw-v2/prompt/shared.md` 已没有这个标题，放在现在的文件上它什么也不输出；那份提示词又是 Claude Code、Codex、Pi、Grok 四家共用，只对 Claude Code 生效的提醒不能当作提示词的前提。`shared.md` 规则 12 现在让模型自己按文件大小决定读多少。

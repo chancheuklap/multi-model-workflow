@@ -155,10 +155,6 @@ _Home_: `mmw-v2/install.sh`
 The dispatch skill's hook that, in a session whose working directory is a ticket worktree (`issue-<n>`), refuses a command that would end a process or take the ticket out of the agent queue (`pretool`) and a call to the host's question tool (`question`).
 _Home_: `mmw-v2/skills/dispatch/scripts/tool-guard.py`
 
-**`rule-at-moment.py`**:
-`mmw-v2/hooks/rule-at-moment.py`, a Claude Code hook kept in the repository and not installed by `install.sh`, which cuts a numbered rule out of `~/.claude/CLAUDE.md` and shows it to the model when that rule applies.
-_Home_: `mmw-v2/hooks/rule-at-moment.py`
-
 **`verify-ticket.py`**:
 The verify-ticket skill's one script for a ticket's criteria and closing: the lint, the worker's runs, reverify, preflight, closeout, and the events around them. The skill's text calls it `<engine>`.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
