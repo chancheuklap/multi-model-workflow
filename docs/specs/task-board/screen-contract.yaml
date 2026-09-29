@@ -222,6 +222,11 @@ scenes:
     input:
       file: data/detail-scenes.js
       value: DETAIL_SCENES.ticket-missing-blocker
+  Component · 详情.ticket-cleared-blocker:
+    page: Component · 详情.dc.html
+    input:
+      file: data/detail-scenes.js
+      value: DETAIL_SCENES.ticket-cleared-blocker
   Component · 详情.spec:
     page: Component · 详情.dc.html
     input:
@@ -545,6 +550,7 @@ rows:
   - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
+  - Component · 详情.ticket-cleared-blocker
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault
   - Component · 详情.ticket-missing-blocker
@@ -572,6 +578,7 @@ rows:
   - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
+  - Component · 详情.ticket-cleared-blocker
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault
   - Component · 详情.ticket-missing-blocker
@@ -616,6 +623,7 @@ rows:
   - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
+  - Component · 详情.ticket-cleared-blocker
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault
   - Component · 详情.ticket-missing-blocker
@@ -643,6 +651,7 @@ rows:
   - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
+  - Component · 详情.ticket-cleared-blocker
   - Component · 详情.ticket-landed
   - Component · 详情.ticket-fault
   - Component · 详情.ticket-missing-blocker
@@ -671,6 +680,7 @@ rows:
   - Component · 详情.ticket-waiting
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
+  - Component · 详情.ticket-cleared-blocker
   - Component · 详情.ticket-fault
   calls:
   - none
@@ -718,6 +728,7 @@ rows:
   - Component · 详情.twenty-tickets
   - Component · 详情.ticket-review
   - Component · 详情.ticket-queued
+  - Component · 详情.ticket-cleared-blocker
   - Component · 详情.ticket-landed
   calls:
   - none
