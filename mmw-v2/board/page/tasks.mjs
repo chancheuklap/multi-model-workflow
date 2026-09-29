@@ -94,7 +94,7 @@ export function render(host, data = {}, api = undefined) {
   root.dataset.screen = "tasks";
   root.dataset.ui = "任务列表.root";
   root.className = "tasks board";
-  root.setAttribute("aria-label", "The Night");
+  root.setAttribute("aria-label", "Maps & specs");
 
   const paint = (selectedTask) => {
     const next = rowsFor(data, selectedTask);
@@ -102,7 +102,7 @@ export function render(host, data = {}, api = undefined) {
     eyebrow.className = "eyebrow spread";
     eyebrow.dataset.ui = "任务列表.eyebrow";
     const label = document.createElement("span");
-    label.textContent = "The Night";
+    label.textContent = "Maps & specs";
     label.dataset.ui = "任务列表.eyebrow.label";
     const count = document.createElement("span");
     count.textContent = String(next.count);

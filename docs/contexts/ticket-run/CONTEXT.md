@@ -82,7 +82,7 @@ What the fold says of a ticket an agent may still be working: it stays off the f
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`blocker_hold`**:
-Why a ticket's blocker still holds it back, read off the blocker's own events, not this ticket's: `"open"` while the blocker has not closed, `"passed, not landed"` while its pass has not reached the base branch yet, `"its events cannot be read"` or `"the tracker did not answer for it"` when the fold cannot say, and empty once the blocker's work is on the base branch or it closed with nothing that will ever land — a blocker lets go on its own `ticket.landed`, not on closing. The task board reads the empty case as **released**.
+Why a ticket's blocker still holds it back, read off the blocker's own events, not this ticket's: `"open"` while the blocker has not closed, `"passed, not landed"` while its pass has not reached the base branch yet, `"its events cannot be read"` or `"the tracker did not answer for it"` when the fold cannot say, and empty once the blocker's work is on the base branch or it closed with nothing that will ever land — a blocker lets go on its own `ticket.landed`, not on closing. The task board reads the empty case as **cleared**.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **unreadable event**:

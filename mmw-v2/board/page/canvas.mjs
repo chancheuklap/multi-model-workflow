@@ -277,8 +277,8 @@ function legend() {
   mark.className = "legend-bar";
   bar.append(mark, "closing pass");
   root.append(
-    item("legend-line", "contains · released", "walked"),
-    item("legend-line flow", "released · working", "flow"),
+    item("legend-line", "contains · cleared", "walked"),
+    item("legend-line flow", "cleared · working", "flow"),
     item("legend-line blocked", "blocked", "blocked"),
     bar,
   );
@@ -326,11 +326,11 @@ function emptyState() {
   const title = document.createElement("p");
   title.className = "display";
   dataUi(title, "画布.empty.title");
-  title.textContent = "The Night 还没开始";
+  title.textContent = "还没有 map";
   const text = document.createElement("p");
   text.className = "empty-text";
   dataUi(text, "画布.empty.text");
-  text.append("The Night 是一次讨论开出的那张 ticket。给它打上 ");
+  text.append("map 是一次讨论开出的那张 ticket。给它打上 ");
   const code = document.createElement("span");
   code.className = "code";
   code.textContent = "mmw:map";
