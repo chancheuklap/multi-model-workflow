@@ -1,0 +1,372 @@
+<title>MMW 分层方案概要</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single calm reading column; one small diagram per section; component colors match the detailed page. */
+:root{
+  --bg:#F3F4F2; --surface:#FFFFFF; --ink:#1C2224; --muted:#5B6568; --line:#D6DBDA; --soft:#EEF0EE;
+  --mode:#2a78d6; --play:#eb6834; --cap:#1baf7a; --ref:#eda100; --pri:#e87ba4; --lev:#4a3aa7; --cfg:#008300;
+  --bad:#C2412D; --good:#2F7A3B;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-disp:"Noto Serif SC","Songti SC","STSong",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121718; --surface:#1A2123; --ink:#E4EAE9; --muted:#9AA6A7; --line:#2F3A3C; --soft:#222A2C;
+  --mode:#3987e5; --play:#d95926; --cap:#199e70; --ref:#c98500; --pri:#d55181; --lev:#9085e9; --cfg:#2f9e2f;
+  --bad:#F08A7C; --good:#79C987; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121718; --surface:#1A2123; --ink:#E4EAE9; --muted:#9AA6A7; --line:#2F3A3C; --soft:#222A2C;
+  --mode:#3987e5; --play:#d95926; --cap:#199e70; --ref:#c98500; --pri:#d55181; --lev:#9085e9; --cfg:#2f9e2f;
+  --bad:#F08A7C; --good:#79C987; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15.5px;line-height:1.75}
+.wrap{max-width:980px;margin:0 auto;padding-inline:20px;padding-block:44px 80px}
+h1,h2{font-family:var(--f-disp);text-wrap:balance;margin:0}
+h1{font-size:34px;line-height:1.3}
+h2{font-size:22px;line-height:1.4;margin-top:60px;display:flex;gap:12px;align-items:baseline}
+h2 .n{font-family:var(--f-mono);font-size:14px;color:var(--muted);font-weight:500}
+p{margin:0}
+.lede{margin-top:14px;font-size:17px;max-width:44em}
+.meta{margin-top:12px;color:var(--muted);font-size:13.5px}
+.meta a{color:var(--mode)}
+.text{margin-top:12px;max-width:46em}
+.text+.text{margin-top:8px}
+code{font-family:var(--f-mono);font-size:.86em}
+figure{margin:18px 0 0}
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;overflow-x:auto}
+.diagram svg{display:block;width:100%;height:auto;min-width:720px}
+figcaption{margin-top:10px;color:var(--muted);font-size:13.5px;max-width:52em}
+svg text{font-family:var(--f-body);fill:var(--ink)}
+svg .t-s{font-size:12.5px} svg .t-m{font-size:14px} svg .t-l{font-size:16px;font-weight:700}
+svg .mut{fill:var(--muted)} svg .mono{font-family:var(--f-mono);font-size:12px}
+svg .bad{fill:var(--bad)} svg .good{fill:var(--good)}
+.box{stroke-width:1.5}
+.b-mode{fill:color-mix(in srgb,var(--mode) 15%,var(--surface));stroke:var(--mode)}
+.b-play{fill:color-mix(in srgb,var(--play) 15%,var(--surface));stroke:var(--play)}
+.b-cap{fill:color-mix(in srgb,var(--cap) 15%,var(--surface));stroke:var(--cap)}
+.b-ref{fill:color-mix(in srgb,var(--ref) 15%,var(--surface));stroke:var(--ref)}
+.b-pri{fill:color-mix(in srgb,var(--pri) 15%,var(--surface));stroke:var(--pri)}
+.b-lev{fill:color-mix(in srgb,var(--lev) 15%,var(--surface));stroke:var(--lev)}
+.b-cfg{fill:color-mix(in srgb,var(--cfg) 13%,var(--surface));stroke:var(--cfg)}
+.b-neu{fill:var(--soft);stroke:var(--line)}
+.b-dash{stroke-dasharray:6 4}
+.ln{stroke:var(--muted);stroke-width:1.5;fill:none}
+.ln-pri{stroke:var(--pri);stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+.ln-wake{stroke:var(--play);stroke-width:1.5;fill:none;stroke-dasharray:8 3 2 3}
+.s-mode{fill:var(--mode)} .s-play{fill:var(--play)} .s-cap{fill:var(--cap)} .s-pri{fill:var(--pri)} .s-lev{fill:var(--lev)}
+
+/* idea cards */
+.ideas{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:18px}
+.idea{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;gap:12px}
+.idea .k{font-family:var(--f-disp);font-size:22px;font-weight:700;color:var(--muted);line-height:1.2;min-width:22px}
+.idea b{display:block;font-size:15px;line-height:1.5}
+.idea span{display:block;color:var(--muted);font-size:13.5px;line-height:1.6;margin-top:4px}
+
+/* decisions */
+.dlist{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.d{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:10px;padding:10px 14px;font-size:14px;line-height:1.6}
+.d b{display:block}
+.d.open{border-left-color:var(--ref)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;border:1.5px solid;margin-right:6px;vertical-align:-1px}
+@media (max-width:640px){ h1{font-size:27px} .lede{font-size:16px} }
+</style>
+
+<div class="wrap">
+  <h1>MMW 分层方案概要</h1>
+  <p class="lede">把今天混在每个技能里的五类内容分开，各归一层。做完之后：做一件事只读一个文件；改一条规则只动一处；以后要从 pstack 加东西，只是加文件、加一行登记。</p>
+  <p class="meta">约 5 分钟读完。完整的逐项设计见 <a href="https://claude.ai/artifact/Njn1HgVWEmzXF9RbC9g8SJ" target="_blank" rel="noopener">MMW 分层布置图</a>，写 spec 时以它和定稿 <code>docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md</code>（第 17 节是你的决定）为准。</p>
+
+  <!-- 1 problem -->
+  <h2><span class="n">01</span>今天的问题</h2>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 300" role="img" aria-label="今天一个技能里混着五类内容，导致三个后果：规则散在多处，做一张票要在五个技能之间跳，上游技能被大量改写。">
+        <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <text x="30" y="30" class="t-m" font-weight="700">今天的一个技能（例如 implement）</text>
+        <rect x="30" y="44" width="300" height="236" rx="10" class="box b-neu"/>
+        <rect x="46" y="60" width="268" height="36" rx="6" class="box b-cap"/><text x="60" y="83" class="t-s">一件事怎么做</text>
+        <rect x="46" y="102" width="268" height="36" rx="6" class="box b-play"/><text x="60" y="125" class="t-s">先做什么、后做什么</text>
+        <rect x="46" y="144" width="268" height="36" rx="6" class="box b-mode"/><text x="60" y="167" class="t-s">谁调用我、下一步交给谁</text>
+        <rect x="46" y="186" width="268" height="36" rx="6" class="box b-pri"/><text x="60" y="209" class="t-s">跨任务的判断（为什么这样做）</text>
+        <rect x="46" y="228" width="268" height="36" rx="6" class="box b-lev"/><text x="60" y="251" class="t-s">流水线的状态与命令</text>
+
+        <g color="var(--muted)">
+          <path d="M330 90 C 400 90, 420 70, 480 70" class="ln" marker-end="url(#a1)"/>
+          <path d="M330 162 C 400 162, 420 160, 480 160" class="ln" marker-end="url(#a1)"/>
+          <path d="M330 234 C 400 234, 420 250, 480 250" class="ln" marker-end="url(#a1)"/>
+        </g>
+        <rect x="484" y="40" width="390" height="64" rx="10" class="box b-neu"/>
+        <text x="500" y="66" class="t-m" font-weight="700">改一条规则要改很多处</text>
+        <text x="500" y="89" class="t-s mut">29 条跨任务规则，平均每条散在 6 处以上，措辞不一</text>
+        <rect x="484" y="128" width="390" height="64" rx="10" class="box b-neu"/>
+        <text x="500" y="154" class="t-m" font-weight="700">做一张票要在 5 个技能之间来回跳</text>
+        <text x="500" y="177" class="t-s mut" textLength="356" lengthAdjust="spacingAndGlyphs">implement、verify-ticket、dispatch、code-review、ui-acceptance</text>
+        <rect x="484" y="216" width="390" height="64" rx="10" class="box b-neu"/>
+        <text x="500" y="242" class="t-m" font-weight="700">借来的上游技能被改得面目全非</text>
+        <text x="500" y="265" class="t-s mut">MMW 往上游文本里加了约 1674 行，拉上游就冲突</text>
+      </svg>
+    </div>
+    <figcaption>MMW 今天只有一种组件：技能。35 个技能里都混着这五类内容，所以流程散、规则重复、上游难以跟进。</figcaption>
+  </figure>
+
+  <!-- 2 ideas -->
+  <h2><span class="n">02</span>方案的五条理念（取自 pstack 的做法）</h2>
+  <div class="ideas">
+    <div class="idea"><div class="k">1</div><div><b>按内容类型分层，每类内容只有一个家</b><span>顺序只写在 playbook，做法只写在能力技能，理由只写在原则。改哪类就去哪一层。</span></div></div>
+    <div class="idea"><div class="k">2</div><div><b>只按名字连线，方向只往下</b><span>mode → playbook → 能力技能 → 脚本。原则只被点名，自己不调用任何东西。</span></div></div>
+    <div class="idea"><div class="k">3</div><div><b>能力技能不知道谁调用它</b><span>它只讲怎么做、交回什么，不写「下一步」。所以任何流程都能复用它，借来的上游技能也能回到原文。</span></div></div>
+    <div class="idea"><div class="k">4</div><div><b>确定的事交给脚本，文字只写判断</b><span>票的状态、该从哪一步接着做、唤醒谁，都由脚本算出；文字负责「怎么判断」。</span></div></div>
+    <div class="idea"><div class="k">5</div><div><b>外来组件原样落位，按需进来</b><span>pstack 的 playbook、原则、技能不改原文，按类型放进对应目录、加一行登记；你点名要什么才进来什么。</span></div></div>
+  </div>
+
+  <!-- 3 framework -->
+  <h2><span class="n">03</span>升级后的框架</h2>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 560" role="img" aria-label="升级后的框架：三种入口进入 mode，mode 选 playbook，playbook 按名调用能力技能，能力技能运行脚本；原则在右侧被点名；底部是 tracker 与配置。">
+        <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g color="var(--muted)">
+        <!-- entries -->
+        <rect x="30" y="16" width="200" height="46" rx="8" class="box b-neu"/><text x="130" y="44" text-anchor="middle" class="t-s">你：/mmw，或直接说一件事</text>
+        <rect x="250" y="16" width="220" height="46" rx="8" class="box b-neu"/><text x="360" y="44" text-anchor="middle" class="t-s">dispatch.sh 启动的 worker 等</text>
+        <rect x="490" y="16" width="170" height="46" rx="8" class="box b-neu"/><text x="575" y="44" text-anchor="middle" class="t-s">唤醒、上下文被压缩</text>
+        <path d="M130 62 V 96" class="ln" marker-end="url(#a2)"/>
+        <path d="M360 62 V 96" class="ln" marker-end="url(#a2)"/>
+        <path d="M575 62 V 96" class="ln" marker-end="url(#a2)"/>
+
+        <!-- mode -->
+        <rect x="30" y="100" width="630" height="78" rx="10" class="box b-mode"/>
+        <text x="46" y="126" class="t-l">mode：mmw</text>
+        <text x="46" y="150" class="t-s">遇到什么情况用什么 · 任务走哪份 playbook · 无人时能自己定什么 · 被唤醒后怎么接上</text>
+        <text x="46" y="169" class="t-s mut">一个技能，约 170 行；人起的会话用 /mmw，脚本起的会话由启动提示词点名</text>
+        <path d="M345 178 V 206" class="ln" marker-end="url(#a2)"/><text x="355" y="197" class="t-s mut">选一份</text>
+
+        <!-- playbooks -->
+        <rect x="30" y="210" width="630" height="96" rx="10" class="box b-play"/>
+        <text x="46" y="236" class="t-l">playbook：一类任务的步骤顺序</text>
+        <text x="46" y="260" class="t-s">白天 11 份：write-a-spec-and-tickets、map-a-large-effort、bug-fix、research-a-question …</text>
+        <text x="46" y="281" class="t-s">夜间 5 份：run-a-night、work-a-ticket、review-a-ticket、land-one-ticket、accept-the-night</text>
+        <text x="46" y="299" class="t-s mut">每一步点名一个能力技能、一条原则或一条脚本命令</text>
+        <path d="M345 306 V 334" class="ln" marker-end="url(#a2)"/><text x="355" y="325" class="t-s mut">按名调用</text>
+
+        <!-- capabilities -->
+        <rect x="30" y="338" width="630" height="78" rx="10" class="box b-cap"/>
+        <text x="46" y="364" class="t-l">能力技能：一件事怎么做</text>
+        <text x="46" y="388" class="t-s">to-spec、to-tickets、verify-ticket、ui-acceptance、tdd、grilling、prototype、retro …</text>
+        <text x="46" y="407" class="t-s mut">不写下一步；借来的上游技能回到原文；新拆出 setup-mmw、memory-records</text>
+        <path d="M345 416 V 444" class="ln" marker-end="url(#a2)"/><text x="355" y="435" class="t-s mut">运行命令</text>
+
+        <!-- scripts -->
+        <rect x="30" y="448" width="630" height="58" rx="10" class="box b-lev"/>
+        <text x="46" y="473" class="t-l">脚本：状态、唤醒、检查</text>
+        <text x="46" y="495" class="t-s" style="font-size:12px">mmw/scripts：dispatch.sh、relay、watchdog、ticket_state.py、where、hook；接线检查 check_wiring.py</text>
+        </g>
+
+        <!-- principles -->
+        <rect x="700" y="100" width="170" height="316" rx="10" class="box b-pri"/>
+        <text x="716" y="126" class="t-l">原则</text>
+        <text x="716" y="150" class="t-s">为什么这样做</text>
+        <text x="716" y="176" class="t-s">MMW 自有 12 条</text>
+        <text x="716" y="196" class="t-s mut">silence-is-never-</text>
+        <text x="716" y="212" class="t-s mut">a-pass …</text>
+        <text x="716" y="240" class="t-s">pstack 原则</text>
+        <text x="716" y="260" class="t-s mut">只进被 MMW</text>
+        <text x="716" y="276" class="t-s mut">点名的那些</text>
+        <text x="716" y="310" class="t-s mut">只被点名，</text>
+        <text x="716" y="326" class="t-s mut">不调用别人</text>
+        <path d="M660 258 H 696" class="ln-pri"/><path d="M660 377 H 696" class="ln-pri"/>
+        <text x="664" y="250" class="t-s mut" font-size="11">点名</text>
+
+        <!-- state -->
+        <rect x="30" y="520" width="840" height="34" rx="8" class="box b-cfg"/>
+        <text x="46" y="542" class="t-s">状态与配置：tracker 上的票与事件 · roles.json（角色 → playbook → 模型）· ~/.mmw/models.json · 运行中冻结的已安装版本</text>
+      </svg>
+    </div>
+    <figcaption>从上往下是调用方向。人起的会话从 mode 进门；脚本起的会话由启动提示词直接点名 mode 和它该读的 playbook。原则在旁边，被 playbook 和能力技能按名字点名。</figcaption>
+  </figure>
+
+  <!-- 4 example -->
+  <h2><span class="n">04</span>一件事从头到尾怎么走</h2>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 250" role="img" aria-label="一个想法经过 write-a-spec-and-tickets 变成票，夜里 run-a-night 派 worker 按 work-a-ticket 做、review-a-ticket 评审，早上 accept-the-night，你验收后 finish。">
+        <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g color="var(--muted)">
+        <text x="20" y="24" class="t-s mut">白天</text><text x="330" y="24" class="t-s mut">夜里</text><text x="740" y="24" class="t-s mut">早上</text>
+        <line x1="316" y1="12" x2="316" y2="238" stroke="var(--line)" stroke-dasharray="4 4"/>
+        <line x1="726" y1="12" x2="726" y2="238" stroke="var(--line)" stroke-dasharray="4 4"/>
+
+        <rect x="20" y="40" width="84" height="50" rx="8" class="box b-neu"/><text x="62" y="62" text-anchor="middle" class="t-s">你：把这个</text><text x="62" y="80" text-anchor="middle" class="t-s">想法做出来</text>
+        <path d="M104 65 H 122" class="ln" marker-end="url(#a3)"/>
+        <rect x="124" y="40" width="178" height="50" rx="8" class="box b-mode"/><text x="213" y="62" text-anchor="middle" class="t-s">mmw 路由到</text><text x="213" y="80" text-anchor="middle" class="t-s mono" style="font-size:11px">write-a-spec-and-tickets</text>
+        <path d="M237 90 V 110" class="ln" marker-end="url(#a3)"/>
+        <rect x="20" y="112" width="282" height="120" rx="8" class="box b-play"/>
+        <text x="34" y="134" class="t-s mono" font-weight="500">write-a-spec-and-tickets</text>
+        <text x="34" y="156" class="t-s">问清楚 → 能运行的先原型 → 谁来检查</text>
+        <text x="34" y="176" class="t-s">→ 写 spec → 切票 → lint → 交给夜</text>
+        <text x="34" y="202" class="t-s mut">调用：grilling、prototype、</text>
+        <text x="34" y="220" class="t-s mut">to-spec、to-tickets、verify-ticket</text>
+        <path d="M302 172 H 328" class="ln" marker-end="url(#a3)"/>
+
+        <rect x="330" y="40" width="382" height="54" rx="8" class="box b-play"/>
+        <text x="344" y="62" class="t-s mono" font-weight="500">run-a-night（orchestrator）</text>
+        <text x="344" y="82" class="t-s">开夜 · 派 worker · 每次被唤醒推进 · 收尾 · 复盘</text>
+        <path d="M521 94 V 112" class="ln" marker-end="url(#a3)"/>
+        <rect x="330" y="114" width="190" height="118" rx="8" class="box b-play"/>
+        <text x="344" y="136" class="t-s mono" font-weight="500">work-a-ticket</text>
+        <text x="344" y="156" class="t-s">worker 的 11 步：</text>
+        <text x="344" y="174" class="t-s">认领 → 写码 → 跑判据</text>
+        <text x="344" y="192" class="t-s">→ 评审 → 复跑 → 关票</text>
+        <text x="344" y="208" class="t-s mut">tdd、verify-ticket、</text>
+        <text x="344" y="225" class="t-s mut">ticket_state.py</text>
+        <path d="M520 172 H 538" class="ln" marker-end="url(#a3)"/>
+        <rect x="540" y="114" width="172" height="118" rx="8" class="box b-play"/>
+        <text x="554" y="136" class="t-s mono" font-weight="500">review-a-ticket</text>
+        <text x="554" y="156" class="t-s">reviewer：四个评审轴，</text>
+        <text x="554" y="174" class="t-s">写一份报告</text>
+        <text x="554" y="214" class="t-s mut">评审轴在 references</text>
+
+        <path d="M712 67 H 736" class="ln" marker-end="url(#a3)"/>
+        <rect x="738" y="40" width="144" height="70" rx="8" class="box b-play"/>
+        <text x="752" y="62" class="t-s mono" font-weight="500">accept-the-night</text>
+        <text x="752" y="82" class="t-s">读结果、处理</text><text x="752" y="100" class="t-s">待分诊的票</text>
+        <path d="M810 110 V 130" class="ln" marker-end="url(#a3)"/>
+        <rect x="738" y="132" width="144" height="100" rx="8" class="box b-neu"/>
+        <text x="752" y="156" class="t-s" font-weight="700">你验收</text>
+        <text x="752" y="180" class="t-s">之后才 finish：</text>
+        <text x="752" y="198" class="t-s">合进项目分支</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>每个方框是一份 playbook，读的人只读这一个文件；方框下方的灰字是它按名字调用的能力技能和脚本。worker 做一张票，今天要在 5 个技能之间跳，升级后只读 <code>work-a-ticket</code>。</figcaption>
+  </figure>
+
+  <!-- 5 night -->
+  <h2><span class="n">05</span>夜里为什么更稳</h2>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 250" role="img" aria-label="今天的唤醒消息只有事件名，会话要靠记忆找回位置；升级后唤醒消息带上该去的步骤，被压缩的会话可以运行 where 算出当前步骤，接线检查保证所指的步骤存在。">
+        <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g color="var(--muted)">
+        <text x="20" y="28" class="t-m" font-weight="700">今天</text>
+        <rect x="20" y="42" width="250" height="40" rx="8" class="box b-neu"/><text x="36" y="67" class="mono">#12 reviewer.reported</text>
+        <path d="M270 62 H 300" class="ln" marker-end="url(#a4)"/>
+        <rect x="302" y="42" width="560" height="40" rx="8" class="box b-neu"/>
+        <text x="318" y="67" class="t-s">会话要靠自己的记忆找回该做哪一步；被压缩过就可能找错 <tspan class="bad">✗</tspan></text>
+
+        <text x="20" y="124" class="t-m" font-weight="700">升级后</text>
+        <rect x="20" y="138" width="420" height="40" rx="8" class="box b-lev"/><text x="36" y="163" class="mono">#12 reviewer.reported · mmw work-a-ticket#Get reviewed</text>
+        <path d="M440 158 H 470" class="ln-wake" marker-end="url(#a4)"/>
+        <rect x="472" y="138" width="390" height="40" rx="8" class="box b-play"/>
+        <text x="488" y="163" class="t-s">直接回到 work-a-ticket 的「Get reviewed」一步 <tspan class="good">✓</tspan></text>
+
+        <rect x="20" y="194" width="420" height="40" rx="8" class="box b-lev"/><text x="36" y="219" class="t-s">被压缩的会话：运行 <tspan class="mono">dispatch.sh where</tspan>，从票上的事件算出当前一步</text>
+        <path d="M440 214 H 470" class="ln" marker-end="url(#a4)"/>
+        <rect x="472" y="194" width="390" height="40" rx="8" class="box b-neu"/>
+        <text x="488" y="219" class="t-s">接线检查保证：指针和算出的步骤在文件里一定存在</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>位置由脚本算，不靠会话记忆。同一批还修掉四处已核实的夜间断点，例如 turn guard 的拦截消息在 <code>night.md</code> 里找不到处理它的一行。</figcaption>
+  </figure>
+
+  <!-- 6 extend -->
+  <h2><span class="n">06</span>以后怎么加东西</h2>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 220" role="img" aria-label="加一份 playbook、一条原则或一个能力技能，都是加一个文件和一行登记；pstack 的组件从子树经导入脚本放进对应目录，按需由你点名。">
+        <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g color="var(--muted)">
+        <rect x="20" y="20" width="200" height="180" rx="10" class="box b-neu b-dash"/>
+        <text x="36" y="46" class="t-m" font-weight="700">来源</text>
+        <text x="36" y="72" class="t-s">MMW 自己新写的</text>
+        <text x="36" y="100" class="t-s">pstack 子树</text>
+        <text x="36" y="118" class="t-s mut mono">upstream-pstack/</text>
+        <text x="36" y="146" class="t-s mut">原文不改；</text>
+        <text x="36" y="164" class="t-s mut">你点名要什么才导入</text>
+        <path d="M220 110 H 262" class="ln" marker-end="url(#a5)"/>
+        <rect x="264" y="80" width="160" height="60" rx="10" class="box b-lev"/>
+        <text x="344" y="106" text-anchor="middle" class="t-s">导入脚本</text>
+        <text x="344" y="126" text-anchor="middle" class="t-s mut">复制、登记、查冲突</text>
+        <path d="M424 110 C 450 110, 450 46, 476 46" class="ln" marker-end="url(#a5)"/>
+        <path d="M424 110 H 476" class="ln" marker-end="url(#a5)"/>
+        <path d="M424 110 C 450 110, 450 174, 476 174" class="ln" marker-end="url(#a5)"/>
+        <rect x="478" y="20" width="400" height="52" rx="8" class="box b-play"/>
+        <text x="494" y="42" class="t-s" font-weight="700">加一份 playbook</text><text x="494" y="61" class="t-s mut">mmw/playbooks/ 一个文件 + 路由表一行</text>
+        <rect x="478" y="84" width="400" height="52" rx="8" class="box b-pri"/>
+        <text x="494" y="106" class="t-s" font-weight="700">加一条原则</text><text x="494" y="125" class="t-s mut">mmw/principles/ 一个文件 + 原则索引一行</text>
+        <rect x="478" y="148" width="400" height="52" rx="8" class="box b-cap"/>
+        <text x="494" y="170" class="t-s" font-weight="700">加一个能力技能</text><text x="494" y="189" class="t-s mut">skills.txt 一行；现有技能的正文都不用改</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>需要人判断的改动（例如 pstack 的 <code>bug-fix</code> 和 MMW 版合并时插入的一步）单独记账，不混进机械搬运。pstack 里依赖 Cursor 云 agent、PR、运行中重读 playbook 的组件不导入。</figcaption>
+  </figure>
+
+  <!-- 7 steps -->
+  <h2><span class="n">07</span>分几步做</h2>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 230" role="img" aria-label="三批落地：B0 地基，B1 mode 与白天，B2 夜间；之后 pstack 组件按需导入。每批发布后流水线照常能跑。">
+        <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g color="var(--muted)">
+        <rect x="20" y="20" width="200" height="190" rx="10" class="box b-lev"/>
+        <text x="36" y="46" class="t-l">B0 地基</text>
+        <text x="36" y="72" class="t-s">指针、角色表、where</text>
+        <text x="36" y="92" class="t-s">接线检查</text>
+        <text x="36" y="112" class="t-s">修四处夜间断点</text>
+        <text x="36" y="132" class="t-s">#591：researcher 角色</text>
+        <text x="36" y="152" class="t-s">宿主实测</text>
+        <text x="36" y="172" class="t-s" style="font-size:11.5px">文字检查（逐字搬运、结构 lint）</text>
+        <text x="36" y="192" class="t-s mut">你：授权 install.sh</text>
+        <path d="M220 115 H 242" class="ln" marker-end="url(#a6)"/>
+        <rect x="244" y="20" width="200" height="190" rx="10" class="box b-mode"/>
+        <text x="260" y="46" class="t-l">B1 mode 与白天</text>
+        <text x="260" y="72" class="t-s">mmw、原则</text>
+        <text x="260" y="92" class="t-s">白天 11 份 playbook</text>
+        <text x="260" y="112" class="t-s">白天技能回上游原文</text>
+        <text x="260" y="132" class="t-s">to-spec、to-tickets 分叉</text>
+        <text x="260" y="152" class="t-s">#591 的 playbook</text>
+        <text x="260" y="192" class="t-s mut">你：授权、开新会话</text>
+        <path d="M444 115 H 466" class="ln" marker-end="url(#a6)"/>
+        <rect x="468" y="20" width="200" height="190" rx="10" class="box b-play"/>
+        <text x="484" y="46" class="t-l">B2 夜间</text>
+        <text x="484" y="72" class="t-s">夜间 5 份 playbook</text>
+        <text x="484" y="92" class="t-s">dispatch 解散</text>
+        <text x="484" y="112" class="t-s">implement、code-review</text>
+        <text x="484" y="130" class="t-s">回上游原文</text>
+        <text x="484" y="152" class="t-s">先在隔离环境跑一整夜</text>
+        <text x="484" y="192" class="t-s mut">你：没夜在跑时授权</text>
+        <path d="M668 115 H 690" class="ln" marker-end="url(#a6)"/>
+        <rect x="692" y="20" width="188" height="190" rx="10" class="box b-neu b-dash"/>
+        <text x="708" y="46" class="t-l">之后：按需</text>
+        <text x="708" y="72" class="t-s">你点名要 pstack 的</text>
+        <text x="708" y="92" class="t-s">哪个组件，就走一次</text>
+        <text x="708" y="112" class="t-s">「导入组件」流程</text>
+        <text x="708" y="152" class="t-s mut">例如多模型评审</text>
+        <text x="708" y="170" class="t-s mut">interrogate</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>每批都作为本仓库的票，由当时已安装的冻结版本来跑；每批发布后流水线照常能跑，出问题可以把已安装版本移回上一个提交。B2 改动面最大，发布后你照常跑的下一个 spec 就是验收。</figcaption>
+  </figure>
+
+  <!-- 8 decisions -->
+  <h2><span class="n">08</span>已经定下的事</h2>
+  <div class="dlist">
+    <div class="d"><b>pstack 按需导入</b>这次只进被 MMW 点名的 pstack 原则；其余组件你点名才进来。</div>
+    <div class="d"><b>不用 PR</b>现在的「关票 → 合进项目分支 → 你验收 → finish」已经覆盖 PR 流程的作用。</div>
+    <div class="d"><b>不考虑 Cursor</b>现役宿主是 Claude Code、Codex、Grok，runner 是 Orca。</div>
+    <div class="d"><b>不改各仓库的 AGENTS.md</b>用 <code>/mmw</code>，或由 mode 的 description 加载。</div>
+    <div class="d"><b>加 researcher 角色</b>#591：调研另起会话，默认跑在 Codex 上。</div>
+    <div class="d"><b>扩展工具箱与多模型面板保持按需</b>pstack 的 reflect、eval 等扩展工具与多模型面板不进核心批次，随第一个需要它的组件加入。</div>
+    <div class="d"><b>任务面板只经稳定接口读 MMW</b>路径从 <code>locations.py</code>、当前步骤从 <code>dispatch.sh where</code>、角色从 <code>roles.json</code> 取，不写死技能目录里的位置。</div>
+    <div class="d"><b>写作规范与范本作票的基准</b>搬运的句子逐字保留，由逐字搬运检查与结构 lint 强制；MMW 自有的名字趁这次系统改名，上游的名字不改。</div>
+    <div class="d open"><b>mode 名 <code>mmw</code>（Claude 代定，待你复核）</b>你授权 Claude 当夜代定；备选是 <code>mmw-mode</code>，复核时改用它只动三处。</div>
+    <div class="d open"><b>还要实测的</b>三个宿主能否自动加载 mode、hook 能否注入提醒，在 B0 的隔离环境里测。</div>
+  </div>
+</div>

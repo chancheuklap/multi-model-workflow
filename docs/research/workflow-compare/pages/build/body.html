@@ -1,0 +1,149 @@
+<div class="wrap">
+<header>
+  <div class="eyebrow" id="h-sub"></div>
+  <h1>MMW 分层布置图</h1>
+  <p class="lead" id="h-claims"></p>
+  <div class="nums" id="h-nums"></div>
+  <div class="legend" id="h-legend"></div>
+</header>
+
+<section id="s1">
+<h2>图 1　全景：升级后的 MMW</h2>
+<figure><div class="diagram" id="f1"></div>
+<figcaption><b>读法：</b>从上往下是一次任务经过的层。三种入口都先到 mode <code>mmw</code>；mode 的路由表把任务交给一份 playbook；playbook 的每一步按名调用能力技能、写出脚本命令、点名原则（右侧竖条，虚线）；脚本读写票上的事件，再把带步骤指针的一行送回会话（右侧点划线）。左侧竖条是外来子树、导入工具与任务面板（面板只经 <code>locations.py</code>、<code>dispatch.sh where</code>、<code>roles.json</code> 读 MMW，R18 §17 D8），底部是状态与配置。虚线框是按需导入的 pstack 组件：你点名时才导入（D6、D7）。</figcaption></figure>
+<p>七种组件各管一件事，下表是它们的分工。图里没有画出的逐项连线在表后的折叠列表里。</p>
+<div id="t1-nums"></div>
+<div class="eyebrow">今天的混装程度</div>
+<div class="facts" id="h-facts"></div>
+<p class="sub" id="h-rule"></p>
+<div id="t-constraints"></div>
+<div id="t1-comp"></div>
+<div id="t1-mode"></div>
+<div id="t1-board"></div>
+<div id="t1-verbs"></div>
+<div id="t1-rules"></div>
+<div id="t1-edges"></div>
+</section>
+
+<section id="s2">
+<h2>图 2　内容去哪了</h2>
+<figure><div class="diagram" id="f2"></div>
+<figcaption><b>读法：</b>最上面的矩阵是这张图的主张：行是今天的容器，列是升级后的层，格内数字是搬过去的条数，格子颜色是目标层的组件类型。中间一排卡片写每一层装什么。下面逐行列出 126 条搬迁：左边是今天的位置，中间是动作与内容，行尾的彩色标签写它去哪一层。悬停任何一格或一行看源位置、目标小节、R14 的混装记号与批次。</figcaption></figure>
+<p>126 段内容逐条都有去处：路由与重入进 mode，任务顺序进 playbook，跨任务的理由进原则，命令与状态进 <code>mmw/scripts</code>，按需读的材料进 reference；上游技能回原文。</p>
+<div id="t2-cats"></div>
+<h3>能力技能变纯：每个技能剥离了什么、去了哪里</h3>
+<div id="t2-skills"></div>
+<div id="t2-upstream"></div>
+<div id="t2-more"></div>
+</section>
+
+<section id="s3">
+<h2>图 3　目录结构对照</h2>
+<figure><div class="diagram" id="f3"></div><div class="diagram" id="f3b"></div><div class="diagram" id="f3c"></div><div class="diagram" id="f3d"></div>
+<figcaption><b>读法：</b>分四张：<code>mmw-v2/</code>、本仓库根、<code>~/.mmw/</code>、消费仓库。每张左边是今天，右边是第 2 批完成后。每个盒子用它的组件类型着色，只写名字和一行说明：左边的「→」是去向，右边的「←」是来处，「新」是本次新建，「搬」是搬来的，虚线框与 <code>ps</code> 是 pstack 的内容。第一张里的细线画出 <code>dispatch/</code> 与 <code>verify-ticket/</code> 解散后各部分落到哪里，线色是目标的类型。完整说明在悬停提示与图下「目录逐项」表。</figcaption></figure>
+<div id="t3-moves"></div>
+</section>
+
+<section id="s4">
+<h2>图 4　一夜怎么跑</h2>
+<figure><div class="diagram" id="f4"></div>
+<figcaption><b>读法：</b>六条泳道从左到右是你、夜的 orchestrator、<code>mmw/scripts</code>、worker、reviewer、tracker；时间从上往下。实线是命令与消息，点划线是事件唤醒送进会话的那一行，每行末尾都带步骤指针 <code>· mmw &lt;playbook&gt;#&lt;step&gt;</code>。每条消息下方的小字是它属于哪份 playbook 的哪一步；标「推断」的形状是按 R18 的规则推出的。</figcaption></figure>
+<figure><div class="diagram" id="f4b"></div>
+<figcaption><b>旁支：</b>七条异常路径，每条写明回到主序列的哪一步。watchdog 告警与上下文压缩是最常见的两条。</figcaption></figure>
+<div id="t4-more"></div>
+</section>
+
+<section id="s5">
+<h2>图 5　白天的 playbook 怎么接起来</h2>
+<figure><div class="diagram" id="f5"></div>
+<figcaption><b>读法：</b>最上面是 mode 的路由表和不经 playbook、直接指向能力技能的路由行。下面三排卡片从上到下：从想法到可做（分诊、调研、画地图、设计、原型），动手改（write-a-spec-and-tickets、make-a-small-change、bug-fix 等），出口（交给夜、交给单票、交付、发布）。每张卡片是一份 playbook，卡片里的小块是它按名调用的能力技能；折线是 playbook 之间的交接，标签写交接的条件，线只在卡片之间的通道里走。虚线卡片与虚线是 pstack 按需导入后才有的（R18 §17 D6）。</figcaption></figure>
+<p>判据：一类任务里多项能力的先后，有自己的门槛、所有权或交付物，就是 playbook。只调用一个能力、内部步骤属于那项能力做法的请求，由路由表直接指向能力技能，例如出包直接交给 <code>exe-release</code>（R18 §3 判据）。</p>
+<div id="t5-cat"></div>
+<div id="t5-more"></div>
+</section>
+
+<section id="s6">
+<h2>图 6　一份 playbook 长什么样：以 work-a-ticket 为例</h2>
+<figure><div class="diagram" id="f6"></div>
+<figcaption><b>读法：</b>左边是 playbook 文件从上到下的骨架，每块旁注它做什么、在 work-a-ticket 里写的是什么。右边是 11 步 × 四列：这一步调用的能力技能、写出的脚本命令、点名的原则、留在票上的事件。步骤标题就是锚点：唤醒带的指针（例如 <code>mmw work-a-ticket#Get reviewed</code>）和 <code>dispatch.sh where</code> 算出的位置都指向标题，不指向编号。</figcaption></figure>
+<figure><div class="diagram" id="f6b"></div>
+<figcaption><b>对比：</b>今天一个 worker 做一张票要在五个技能之间来回跳，每一跳都有已核实的故障；升级后读一个文件。</figcaption></figure>
+<div id="t6-more"></div>
+</section>
+
+<section id="s7">
+<h2>图 7　各类会话怎样找到自己该读的东西</h2>
+<figure><div class="diagram" id="f7"></div>
+<figcaption><b>读法：</b>行是会话类型，列是到达路径。实心圆是确定的路径，半圆是待实测（带探针编号），带点的圆是部分宿主已观察到，空格表示这条路径不服务这类会话。消费仓库 <code>AGENTS.md</code> 加一行这条路径已按 R18 §17 D4 删去。每一行至少有一个实心圆：依赖实测的路径都有不依赖实测的备用路径。</figcaption></figure>
+<div id="t7-roles"></div>
+<div id="t7-more"></div>
+</section>
+
+<section id="s8">
+<h2>图 8　重入：被打断的会话怎样接上</h2>
+<figure><div class="diagram" id="f8"></div>
+<figcaption><b>读法：</b>上一条线是唤醒：票上的事件经发出方查 <code>roles.json</code>，变成一行带指针的唤醒，会话读 mode 的 <code>## Re-entry</code> 四步后去指针所指的步骤。下一条线是压缩：<code>mode-hook.py</code> 调 <code>dispatch.sh where</code>，从事件算出四种输出之一。盒子右下角的虚线小标签表示它被 <code>check_wiring.py</code> 核对或登记在 <code>locations.py</code>。</figcaption></figure>
+<div id="t8-fix"></div>
+<div id="t8-more"></div>
+</section>
+
+<section id="s9">
+<h2>图 9　原则层</h2>
+<figure><div class="diagram" id="f9"></div>
+<figcaption><b>读法：</b>左边是 MMW 自有 12 条（索引组 Pipeline），每条写一句中文规则和它吸收的 R14 编号；右边是 pstack 23 条，按 Core、Architecture、Verification、Delegation、Meta 分组，实线框第 1 批导入，虚线框按需导入（B3，R18 §17 D6），下方小字是它接住的 MMW 规则。左下是冲突时的四级优先级：上层赢；能力技能自带的人工闸门不在这条链里，人在场时照闸门停，无人会话走本角色的无人出路。</figcaption></figure>
+<figure><div class="diagram" id="f9b"></div>
+<figcaption><b>点名点阵：</b>行是原则，列是点名它的 mode、playbook、能力技能与文档；一个点表示一处点名，悬停看在哪一步。P4、P7、P9、P10 不点名任何原则，所以不列。</figcaption></figure>
+
+<div id="t9-more"></div>
+</section>
+
+<section id="s10">
+<h2>图 10　以后怎样从 pstack 搬东西进来</h2>
+<figure><div class="diagram" id="f10"></div>
+<figcaption><b>读法：</b>pstack 以子树原样进来；私有 playbook <code>Import a component</code> 六步里，<code>import_component.py</code> 只做机械改写，再按八种类型扇出到各自的位置并登记。pstack 专有的名字由 <code>pstack-names.md</code> 翻译（「Opening a PR」读作 <code>Deliver a change</code>，R18 §17 D2）；需要人判断的改动单独记账。</figcaption></figure>
+<figure><div class="diagram" id="f10b"></div>
+<figcaption><b>全量核算：</b>pstack 共 102 项都判了去处；需要判断的改动全部批次共 10 处；<code>bug-fix</code> 是「原文 + 插入一步」的合并例子；按需导入的清单里没有 PR 组（R18 §17 D2），另有从 B1 推迟的 session-pickup、pause-safely（D6）。</figcaption></figure>
+<div id="t10-more"></div>
+</section>
+
+<section id="s11">
+<h2>图 11　#591：调研票在新架构里怎么跑</h2>
+<figure><div class="diagram" id="f11"></div>
+<figcaption><b>读法：</b>左边是今天：画地图的会话把调研票派给宿主自带的子代理，子代理写报告被拒，主会话代写代关。右边是升级后：<code>dispatch.sh research &lt;n&gt;</code> 另起一个 researcher 会话（codex，工作树 <code>.worktrees/research-&lt;n&gt;</code>），它提交报告、在票上贴结论并关票；地图正文只由下一次推进地图的会话补指针。</figcaption></figure>
+<div id="t11-more"></div>
+</section>
+
+<section id="s12">
+<h2>图 12　六批落地</h2>
+<figure><div class="diagram" id="f12"></div>
+<figcaption><b>读法：</b>从左到右是 B0 到 B5，每批一列：落地的内容按组件类型着色，下面依次是「为什么这时流水线还能跑」「你要做的」「这一批转为失败的连线检查」。B3–B5 是虚线框：按需，每次由你点名要导入的组件；核心批次只到 B0–B2（R18 §17 D6、D7）。</figcaption></figure>
+<div id="t12-more"></div>
+</section>
+
+<section id="s13">
+<h2>已定的事</h2>
+<p id="d-boundary"></p>
+<div class="cards" id="d-cards"></div>
+<div id="d-renames"></div>
+<h3>设计里已做的工程决定（有异议就告诉我）</h3>
+<div id="d-eng"></div>
+</section>
+
+<section id="s14">
+<h2>风险与实测</h2>
+<div class="cards" id="r-cards"></div>
+<h3>新增的九项机制（panel 随需要它的组件按需加入）</h3>
+<div id="r-mech"></div>
+<h3>探针 U-1…U-17</h3>
+<p id="r-where"></p>
+<div id="r-probes"></div>
+</section>
+
+<section id="s15">
+<h2>我的判断</h2>
+<div id="j-par"></div>
+<h2>依据</h2>
+<div id="b-basis"></div>
+</section>
+</div>
+<div id="tip" hidden></div>

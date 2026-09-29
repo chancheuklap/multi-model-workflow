@@ -1,0 +1,27 @@
+kind	old	new	scope
+path	mmw-v2/skills/design-pages/references/edit-pages.md	mmw-v2/skills/design-pages/references/set-up-and-sign-off.md
+path	mmw-v2/skills/exe-release/references/driving.md	mmw-v2/skills/exe-release/references/release-loop.md
+path	mmw-v2/skills/exe-release/references/key.md	mmw-v2/skills/exe-release/references/release-manifest.md
+path	mmw-v2/skills/verify-ticket/references/sub-issues.md	mmw-v2/skills/verify-ticket/references/child-issues.md
+path	mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md	mmw-v2/skills/to-tickets/references/screen-contract-tickets.md
+path	mmw-v2/upstream/skills/engineering/to-spec/references/several-specs.md	mmw-v2/skills/to-spec/references/spec-division.md
+path	mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-remake.md	mmw-v2/skills/mmw/references/ui-and-remake-tickets.md
+path	mmw-v2/upstream/skills/engineering/implement/references/writing-interface-code.md	mmw-v2/skills/ui-acceptance/references/writing-ui-code.md
+token	edit-pages.md	set-up-and-sign-off.md
+token	driving.md	release-loop.md
+token	key.md	release-manifest.md	mmw-v2/skills/exe-release/**
+token	sub-issues.md	child-issues.md
+token	cutting-interface-tickets.md	screen-contract-tickets.md
+token	several-specs.md	spec-division.md
+token	interface-and-remake.md	ui-and-remake-tickets.md
+token	writing-interface-code.md	writing-ui-code.md
+token	--preflight	--claim
+token	--draft	--closing-draft
+token	--sub-issue	--open-child
+text	dispatch.sh open	dispatch.sh open-night
+text	dispatch.sh open-ticket	dispatch.sh open-ticket-watch
+text	dispatch.sh summary	dispatch.sh close-night
+text	dispatch.sh wait	dispatch.sh result
+text	dispatch.sh integrated	dispatch.sh landed-since
+text	dispatch.sh memory-list	dispatch.sh prepare-memory-decisions
+text	dispatch.sh route	dispatch.sh resolve-child

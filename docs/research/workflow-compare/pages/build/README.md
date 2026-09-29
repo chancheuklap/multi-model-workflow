@@ -1,0 +1,2 @@
+`mmw-layering-detailed.html` is built by `python3 build.py`: it loads `../data/*.json`, applies `patch.py`, `patch_d17.py` and `patch_r19.py` in that order, and concatenates `head.html`, `body.html`, `lib.js` and `app1.js` to `app4.js` around the patched data.
+The JSON under `../data/` is the raw extraction from R18, R14 and R13; every correction to it lives in the three patch files, never in the JSON.
