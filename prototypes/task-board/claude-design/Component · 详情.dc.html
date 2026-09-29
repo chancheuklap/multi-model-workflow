@@ -31,7 +31,7 @@
   <script src="data/detail-scenes.js"></script>
   <style>body { margin: 0; background: var(--desk); }</style>
 </helmet>
-<aside class="detail board" data-ui="详情.root" aria-label="详情" style="width: 340px; max-width: 100%; height: 100vh; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--rule); padding: var(--sp-16) var(--sp-20) var(--sp-24); display: flex; flex-direction: column; gap: var(--sp-16)">
+<aside class="board" data-ui="详情.root" aria-label="详情" style="width: 340px; max-width: 100%; height: 100vh; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--rule); padding: var(--sp-16) var(--sp-20) var(--sp-24); display: flex; flex-direction: column; gap: var(--sp-16)">
   <sc-if value="{{ hasCard }}" hint-placeholder-val="{{ true }}">
     <div data-ui="详情.head" style="display: flex; align-items: center; gap: var(--sp-8)">
       <span class="eyebrow" data-ui="详情.head.eyebrow" style="flex: 1; min-width: 0">{{ eyebrow }}</span>

@@ -6,12 +6,6 @@
 - 编辑器点不中的选择器：App · 任务板.dc.html <style>: [data-ui="画布.root"]  (attribute selector)
 - 编辑器点不中的选择器：App · 任务板.dc.html <style>: [data-ui="详情.root"]  (attribute selector)
 - 编辑器点不中的选择器：App · 任务板.dc.html <style>: [data-ui="本机配置.root"]  (attribute selector)
-- 样式表里没有的类名：`App · 任务板.dc.html` — `.tasks`（在 `任务列表.root`）
-- 样式表里没有的类名：`App · 任务板.dc.html` — `.map`（在 `画布.container-card.title`）
-- 样式表里没有的类名：`App · 任务板.dc.html` — `.detail`（在 `详情.root`）
-- 样式表里没有的类名：`Component · 任务列表.dc.html` — `.tasks`（在 `任务列表.root`）
-- 样式表里没有的类名：`Component · 画布.dc.html` — `.map`（在 `画布.container-card.title`）
-- 样式表里没有的类名：`Component · 详情.dc.html` — `.detail`（在 `详情.root`）
 
 ## 覆盖
 
@@ -24,7 +18,7 @@
 ## 改动分类
 
 - 分类：只改外观或文案
-- design page：`Component · 任务列表.dc.html`、`Component · 画布.dc.html`
+- design page：`Component · 任务列表.dc.html`、`Component · 详情.dc.html`
 - `data-ui` id 新增：无
 - `data-ui` id 删除：无
 

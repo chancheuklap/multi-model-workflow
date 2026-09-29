@@ -287,7 +287,7 @@
         containers.push({n: c.n, ...pos(node), title: c.title,
           num: "#" + c.n + (isMap ? " · " + c.kind : ""),
           cls: "card" + (on ? " on" : ""),
-          titleCls: isMap ? "card-title map one-line" : "card-title one-line",
+          titleCls: "card-title one-line",
           lampCls: "lamp " + aggregate(list), lampWord: LAMP_WORD[aggregate(list)],
           count: done + "/" + list.length,
           canExpand: isMap ? c.decisions.length > 0 : c.tickets.length > 0,
