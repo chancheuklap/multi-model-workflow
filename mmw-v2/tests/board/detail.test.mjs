@@ -67,7 +67,7 @@ const ticketView = {
 const emptyView = {
   empty: true,
   emptyTitle: "这里是详情",
-  emptyText: "The Night 开起来之后，点画布上的卡，它的细节显示在这一栏。",
+  emptyText: "有了 map 之后，点画布上的卡，它的细节显示在这一栏。",
 };
 
 function mount(view, api, hooks) {
@@ -81,7 +81,7 @@ test("empty view shows the empty copy and no GitHub button", () => {
   assert.equal(root.dataset.screen, "detail");
   assert.equal(root.getAttribute("aria-label"), "详情");
   assert.match(root.textContent, /这里是详情/);
-  assert.match(root.textContent, /The Night 开起来之后/);
+  assert.match(root.textContent, /有了 map 之后，点画布上的卡，它的细节显示在这一栏。/);
   assert.equal(walk(root).filter(node => node.tagName === "BUTTON").length, 0);
 });
 
@@ -315,4 +315,43 @@ test("event times follow the board clock and two README names", () => {
   assert.equal(describeEvent({event: "worker.started", at, payload: {}}).time, hhmm(at));
   assert.equal(describeEvent({event: "ticket.refused", payload: {}}).name, "Pick-up refused");
   assert.equal(describeEvent({event: "spec.merged", payload: {}}).name, "Night's branch merged");
+});
+
+test("a map's detail is headed Map", () => {
+  const tasks = [{
+    n: 98, kind: "map", title: "落地流水线改造", decisions: [],
+    specs: [{n: 131, title: "唤醒回路", tickets: []}],
+  }];
+  const view = fromBoard({tasks, repo: "x/y"}, 98);
+  const {root} = mount(view);
+  const eyebrow = walk(root).find(node => node.dataset.ui === "详情.head.eyebrow");
+  assert.equal(eyebrow.textContent, "Map");
+});
+
+test("with no rows the empty detail names a map", () => {
+  const view = fromBoard({tasks: []});
+  const {root} = mount(view);
+  assert.match(root.textContent, /有了 map 之后，点画布上的卡，它的细节显示在这一栏。/);
+});
+
+test("a closed unpassed blocker that no longer holds reads cleared", () => {
+  const blocker = {
+    n: 132, title: "中继进程骨架", state: "closed", blocked: [], children: [], events: [],
+    blocker_hold: "",
+    fold: fold({landed: false, passed: false}),
+  };
+  const here = {
+    n: 133, title: "折叠接入中继", blocked: [132], children: [], events: [],
+    fold: fold(),
+  };
+  const view = fromBoard({
+    repo: "example/board",
+    tasks: [{
+      n: 98, kind: "map", title: "map", decisions: [],
+      specs: [{n: 131, title: "唤醒回路", tickets: [blocker, here]}],
+    }],
+  }, 133);
+  const {root} = mount(view);
+  const tail = walk(root).find(node => node.dataset.ui === "详情.blocker.state");
+  assert.equal(tail && tail.textContent, "closed unpassed · cleared");
 });

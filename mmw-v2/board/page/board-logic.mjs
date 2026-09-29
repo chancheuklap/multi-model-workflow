@@ -83,7 +83,7 @@ export const Board = {
   // that passed and has not landed yet is not finished, and neither is one whose events
   // could not be read: those still say why they hold.
   done(ticket) {
-    return Boolean(ticket.fold.landed) || this.released(ticket);
+    return Boolean(ticket.fold.landed) || this.cleared(ticket);
   },
 
   phase(ticket) {
@@ -182,13 +182,13 @@ export const Board = {
     return {done: tickets.filter(ticket => this.done(ticket)).length, total: tickets.length};
   },
 
-  released(blocker) {
+  cleared(blocker) {
     return blocker.blocker_hold === "";
   },
 
   edgeState(blocker, blocked, type = "ticket") {
     if (type === "decision") return String(blocker.state).toLowerCase() === "closed" ? "done" : "blocked";
-    if (!this.released(blocker)) return "blocked";
+    if (!this.cleared(blocker)) return "blocked";
     return this.running(blocked) ? "flow" : "done";
   },
 
@@ -420,9 +420,9 @@ const EVENT_NAME = {
   "worker.started": "Worker started", "worker.resumed": "Worker resumed",
   "worker.retracted": "Worker retracted", "worker.replaced": "Worker replaced",
   "worker.decided": "Decisions recorded", "worker.queued": "Waiting for a slot",
-  "worker.touched": "Another ticket touched its files", "worker.lost": "Worker session lost",
+  "worker.touched": "Another ticket touched its files", "worker.lost": "Worker lost",
   "reviewer.started": "Reviewer started", "reviewer.reported": "Review posted",
-  "reviewer.lost": "Reviewer session lost",
+  "reviewer.lost": "Reviewer lost",
 };
 const CHILD_NAME = {
   finding: "Finding raised", contract: "Spec does not hold", deferred: "Left for a later ticket",

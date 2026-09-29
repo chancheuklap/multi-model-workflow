@@ -35,11 +35,14 @@ function relRowFromBoard(tasks, n, role, hereSpec, thisTicket) {
   if (found.type === "ticket") {
     lamp = Board.lamp(found.ref);
     phase = Board.phase(found.ref);
+    const clearedUnpassed = role === "blocker" && !found.ref.fold.landed && Board.cleared(found.ref);
     state = found.ref.fold.landed ? "landed"
       : role !== "blocker" ? LAMP_WORD[lamp]
-        : Board.released(found.ref) ? "closed unpassed · released" : "not landed";
-    hold = role === "blocker" ? !Board.released(found.ref)
-      : Boolean(thisTicket) && !Board.released(thisTicket);
+        : clearedUnpassed ? "closed unpassed · cleared" : "not landed";
+    // The phase would be landed and that pill would hide this sentence.
+    if (clearedUnpassed) phase = undefined;
+    hold = role === "blocker" ? !Board.cleared(found.ref)
+      : Boolean(thisTicket) && !Board.cleared(thisTicket);
   } else if (found.type === "spec") {
     lamp = Board.aggregate(found.ref.tickets);
     state = `${found.ref.tickets.filter(ticket => Board.done(ticket)).length}/${found.ref.tickets.length}`;
@@ -141,7 +144,7 @@ function containerView(tasks, found) {
   const done = list.filter(ticket => Board.done(ticket)).length;
   return {
     empty: false, kind: isMap ? "map" : "spec",
-    eyebrow: isMap ? "The Night" : "Spec",
+    eyebrow: isMap ? "Map" : "Spec",
     num: `#${container.n}` + (isMap ? ` · ${container.kind}` : ""),
     links: isMap || found.task.n === container.n ? [] : [{label: `map #${found.task.n}`, n: found.task.n}],
     title: container.title, lamp, statusWord: LAMP_WORD[lamp],
@@ -187,7 +190,7 @@ export function fromBoard(payload = {}, selected, now) {
     emptyTitle: tasks.length ? "点一张卡" : "这里是详情",
     emptyText: tasks.length
       ? "画布上任意一张卡——map、spec、ticket 或 decision ticket——点一下，它的全部细节就在这一栏。"
-      : "The Night 开起来之后，点画布上的卡，它的细节显示在这一栏。",
+      : "有了 map 之后，点画布上的卡，它的细节显示在这一栏。",
     repo: payload.repo,
   };
   if (!found) return empty;

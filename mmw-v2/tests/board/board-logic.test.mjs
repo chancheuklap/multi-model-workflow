@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {Board, defaultExpanded} from "../../board/page/board-logic.mjs";
+import {Board, defaultExpanded, describeEvent} from "../../board/page/board-logic.mjs";
 
 function ticket(overrides = {}) {
   const fold = {
@@ -152,8 +152,8 @@ test("edge is blocked, flow or done", () => {
 });
 
 test("a blocker closed without a pass lets go and a passed unlanded one holds", () => {
-  assert.equal(Board.released(ticket({state: "closed", blocker_hold: ""})), true);
-  assert.equal(Board.released(ticket({state: "closed", blocker_hold: "passed, not landed"})), false);
+  assert.equal(Board.cleared(ticket({state: "closed", blocker_hold: ""})), true);
+  assert.equal(Board.cleared(ticket({state: "closed", blocker_hold: "passed, not landed"})), false);
 });
 
 test("layers follow the longest chain and an implied edge is not drawn", () => {
@@ -200,6 +200,14 @@ test("container and decision lamps", () => {
   assert.equal(Board.aggregate([orange, green]), "orange");
   assert.equal(Board.decisionLamp({state: "closed"}), "ink");
   assert.equal(Board.decisionLamp({state: "open"}), "hollow");
+});
+
+test("reviewer.lost is shown as Reviewer lost", () => {
+  assert.equal(describeEvent({event: "reviewer.lost", payload: {}}).name, "Reviewer lost");
+});
+
+test("worker.lost is shown as Worker lost", () => {
+  assert.equal(describeEvent({event: "worker.lost", payload: {}}).name, "Worker lost");
 });
 
 test("default expansion", () => {

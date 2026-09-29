@@ -32,8 +32,8 @@ _Home_: `mmw-v2/board/codeversion.py`
 The four areas of the task board page, each a `Component · ` page of the screen contract: the top bar (`顶栏`), the left column (`任务列表`), the canvas (`画布`) and the detail column (`详情`). The settings sheet (`本机配置`) is a dialog over them, not a region.
 _Home_: `docs/specs/task-board/screen-contract.yaml`, `mmw-v2/board/page/app.mjs`
 
-**The Night**:
-The task board's label for one top-level map, or a spec no open map holds, with every spec and ticket under it: the left column's title over their rows, with their count, and the detail column's eyebrow over a map (a standalone spec's eyebrow is `Spec`). Distinct from a **night**, one run of one spec's tickets.
+**Maps & specs**:
+One row of the left column, and that column's title: a top-level map, or a spec no open map holds, together with the specs and tickets under it. A selected map's detail title is `Map`, and a selected spec's stays `Spec`. Distinct from a **night**, one run of one spec's tickets.
 _Home_: `mmw-v2/board/page/tasks.mjs`, `mmw-v2/board/page/detail.mjs`
 
 **lamp**:
@@ -67,7 +67,7 @@ A map or spec card on the canvas: it can expand, laying out its children — a m
 _Home_: `mmw-v2/board/page/canvas.mjs`
 
 **canvas edge**:
-One curve the canvas draws between two cards: a trunk line from a map to its spec column, an expand line from a container to a child in its first layer, or a block line between a blocked ticket (or decision) and its blocker. A block or expand line's state is `blocked` (the blocker is not yet released), `done` (released, but nothing behind it is running — the legend calls this state **walked**), or `flow` (released and being worked, drawn as a moving beam). Distinct from a **blocking edge**, the tracker relation a block line depicts.
+One curve the canvas draws between two cards: a trunk line from a map to its spec column, an expand line from a container to a child in its first layer, or a block line between a blocked ticket (or decision) and its blocker. A block or expand line's state is `blocked` (the blocker is not yet cleared), `done` (cleared, but nothing behind it is running — the legend calls this state **walked**), or `flow` (cleared and being worked, drawn as a moving beam). Distinct from a **blocking edge**, the tracker relation a block line depicts.
 _Home_: `mmw-v2/board/page/canvas.mjs`, `mmw-v2/board/page/board-logic.mjs`
 
 **closeout bar**:

@@ -3,7 +3,8 @@ import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-import {taskListView} from "../../board/page/tasks.mjs";
+import {render, taskListView} from "../../board/page/tasks.mjs";
+import {installDom} from "./fake-dom.mjs";
 
 function exampleScene(name) {
   const context = {window: {}};
@@ -45,4 +46,11 @@ test("no map tickets is the empty list", () => {
   assert.equal(view.count, 0);
   assert.equal(view.empty, true);
   assert.deepEqual(view.rows, []);
+});
+
+test("the task list is named Maps & specs", () => {
+  const {document} = installDom();
+  const host = document.createElement("div");
+  const root = render(host, {tasks: []});
+  assert.equal(root.getAttribute("aria-label"), "Maps & specs");
 });
