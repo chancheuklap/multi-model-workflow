@@ -277,12 +277,26 @@ test("a claim after a waiting event stays in that waiting block", () => {
   assert.equal(blocks[0].items[1].name, "Ticket claimed");
 });
 
-test("fromBoard sorts a holding blocker above a released one and names the other spec", () => {
+function boardBehind(blockers, {alsoBlocked = [], specs = []} = {}) {
   const here = {
-    n: 133, title: "折叠接入中继", blocked: [132, 220], children: [], events: [],
-    fold: fold(),
+    n: 133, title: "折叠接入中继",
+    blocked: blockers.map(item => item.n).concat(alsoBlocked),
+    children: [], events: [], fold: fold(),
   };
-  const released = {
+  return {
+    repo: "example/board",
+    tasks: [{
+      n: 98, kind: "map", title: "map", decisions: [],
+      specs: [
+        {n: 131, title: "唤醒回路", tickets: [...blockers, here]},
+        ...specs,
+      ],
+    }],
+  };
+}
+
+test("fromBoard sorts a holding blocker above a cleared one and names the other spec", () => {
+  const cleared = {
     n: 132, title: "中继进程骨架", blocked: [], children: [], events: [],
     blocker_hold: "",
     fold: fold({landed: true}),
@@ -292,16 +306,10 @@ test("fromBoard sorts a holding blocker above a released one and names the other
     blocker_hold: "open",
     fold: fold(),
   };
-  const view = fromBoard({
-    repo: "example/board",
-    tasks: [{
-      n: 98, kind: "wayfinder", title: "map", decisions: [],
-      specs: [
-        {n: 131, title: "唤醒回路", tickets: [released, here]},
-        {n: 211, title: "判活三层", tickets: [holding]},
-      ],
-    }],
-  }, 133);
+  const view = fromBoard(boardBehind([cleared], {
+    alsoBlocked: [220],
+    specs: [{n: 211, title: "判活三层", tickets: [holding]}],
+  }), 133);
   const {root} = mount(view);
   assert.ok(namedButton(root, "#220 判活扫描循环 spec #211 held"));
   assert.ok(namedButton(root, "#132 中继进程骨架 landed"));
@@ -335,22 +343,12 @@ test("with no rows the empty detail names a map", () => {
 });
 
 test("a closed unpassed blocker that no longer holds reads cleared", () => {
-  const blocker = {
-    n: 132, title: "中继进程骨架", state: "closed", blocked: [], children: [], events: [],
+  const cleared = {
+    n: 132, title: "中继进程骨架", blocked: [], children: [], events: [],
     blocker_hold: "",
-    fold: fold({landed: false, passed: false}),
+    fold: fold({landed: false}),
   };
-  const here = {
-    n: 133, title: "折叠接入中继", blocked: [132], children: [], events: [],
-    fold: fold(),
-  };
-  const view = fromBoard({
-    repo: "example/board",
-    tasks: [{
-      n: 98, kind: "map", title: "map", decisions: [],
-      specs: [{n: 131, title: "唤醒回路", tickets: [blocker, here]}],
-    }],
-  }, 133);
+  const view = fromBoard(boardBehind([cleared]), 133);
   const {root} = mount(view);
   const tail = walk(root).find(node => node.dataset.ui === "详情.blocker.state");
   assert.equal(tail && tail.textContent, "closed unpassed · cleared");

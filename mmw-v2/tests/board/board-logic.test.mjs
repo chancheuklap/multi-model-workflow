@@ -143,10 +143,10 @@ test("a stopped ticket keeps the phase it stopped at", () => {
 
 test("edge is blocked, flow or done", () => {
   const held = ticket({state: "open", blocker_hold: "open"});
-  const released = ticket({state: "closed", blocker_hold: ""});
+  const cleared = ticket({state: "closed", blocker_hold: ""});
   assert.equal(Board.edgeState(held, ticket()), "blocked");
-  assert.equal(Board.edgeState(released, ticket({fold: {sessions: [worker()]}})), "flow");
-  assert.equal(Board.edgeState(released, ticket()), "done");
+  assert.equal(Board.edgeState(cleared, ticket({fold: {sessions: [worker()]}})), "flow");
+  assert.equal(Board.edgeState(cleared, ticket()), "done");
   assert.equal(Board.edgeState({state: "open"}, ticket(), "decision"), "blocked");
   assert.equal(Board.edgeState({state: "closed"}, ticket(), "decision"), "done");
 });

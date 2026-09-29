@@ -34,13 +34,12 @@ function relRowFromBoard(tasks, n, role, hereSpec, thisTicket) {
   let lamp, state, phase, hold = false;
   if (found.type === "ticket") {
     lamp = Board.lamp(found.ref);
-    phase = Board.phase(found.ref);
     const clearedUnpassed = role === "blocker" && !found.ref.fold.landed && Board.cleared(found.ref);
     state = found.ref.fold.landed ? "landed"
       : role !== "blocker" ? LAMP_WORD[lamp]
         : clearedUnpassed ? "closed unpassed · cleared" : "not landed";
-    // The phase would be landed and that pill would hide this sentence.
-    if (clearedUnpassed) phase = undefined;
+    // A cleared blocker that never landed is finished, so its phase is landed, and that pill would hide this sentence.
+    phase = clearedUnpassed ? undefined : Board.phase(found.ref);
     hold = role === "blocker" ? !Board.cleared(found.ref)
       : Boolean(thisTicket) && !Board.cleared(thisTicket);
   } else if (found.type === "spec") {
