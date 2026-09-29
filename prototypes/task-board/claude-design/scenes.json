@@ -40,7 +40,7 @@
         },
         "任务列表.root": {
           "任务列表.eyebrow": {
-            "任务列表.eyebrow.label": "The Night",
+            "任务列表.eyebrow.label": "Maps & specs",
             "任务列表.eyebrow.count": "3"
           },
           "任务列表.task": [
@@ -235,8 +235,8 @@
             }
           ],
           "画布.legend": {
-            "画布.legend.walked": "contains · released",
-            "画布.legend.flow": "released · working",
+            "画布.legend.walked": "contains · cleared",
+            "画布.legend.flow": "cleared · working",
             "画布.legend.blocked": "blocked",
             "画布.legend.closeout": "closing pass"
           },
@@ -417,7 +417,7 @@
         },
         "任务列表.root": {
           "任务列表.eyebrow": {
-            "任务列表.eyebrow.label": "The Night",
+            "任务列表.eyebrow.label": "Maps & specs",
             "任务列表.eyebrow.count": "1"
           },
           "任务列表.task": {
@@ -632,8 +632,8 @@
             }
           ],
           "画布.legend": {
-            "画布.legend.walked": "contains · released",
-            "画布.legend.flow": "released · working",
+            "画布.legend.walked": "contains · cleared",
+            "画布.legend.flow": "cleared · working",
             "画布.legend.blocked": "blocked",
             "画布.legend.closeout": "closing pass"
           },
@@ -781,7 +781,7 @@
         },
         "任务列表.root": {
           "任务列表.eyebrow": {
-            "任务列表.eyebrow.label": "The Night",
+            "任务列表.eyebrow.label": "Maps & specs",
             "任务列表.eyebrow.count": "1"
           },
           "任务列表.task": {
@@ -864,8 +864,8 @@
             }
           ],
           "画布.legend": {
-            "画布.legend.walked": "contains · released",
-            "画布.legend.flow": "released · working",
+            "画布.legend.walked": "contains · cleared",
+            "画布.legend.flow": "cleared · working",
             "画布.legend.blocked": "blocked",
             "画布.legend.closeout": "closing pass"
           },
@@ -1033,15 +1033,15 @@
         },
         "任务列表.root": {
           "任务列表.eyebrow": {
-            "任务列表.eyebrow.label": "The Night",
+            "任务列表.eyebrow.label": "Maps & specs",
             "任务列表.eyebrow.count": "0"
           },
           "任务列表.empty": "没有带 mmw:map label 的 ticket。"
         },
         "画布.root": {
           "画布.empty": {
-            "画布.empty.title": "The Night 还没开始",
-            "画布.empty.text": "The Night 是一次讨论开出的那张 ticket。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。"
+            "画布.empty.title": "还没有 map",
+            "画布.empty.text": "map 是一次讨论开出的那张 ticket。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。"
           }
         }
       }
@@ -1088,7 +1088,7 @@
         },
         "任务列表.root": {
           "任务列表.eyebrow": {
-            "任务列表.eyebrow.label": "The Night",
+            "任务列表.eyebrow.label": "Maps & specs",
             "任务列表.eyebrow.count": "3"
           },
           "任务列表.task": [
@@ -1283,8 +1283,8 @@
             }
           ],
           "画布.legend": {
-            "画布.legend.walked": "contains · released",
-            "画布.legend.flow": "released · working",
+            "画布.legend.walked": "contains · cleared",
+            "画布.legend.flow": "cleared · working",
             "画布.legend.blocked": "blocked",
             "画布.legend.closeout": "closing pass"
           },
@@ -1339,7 +1339,7 @@
         },
         "任务列表.root": {
           "任务列表.eyebrow": {
-            "任务列表.eyebrow.label": "The Night",
+            "任务列表.eyebrow.label": "Maps & specs",
             "任务列表.eyebrow.count": "3"
           },
           "任务列表.task": [
@@ -1534,8 +1534,8 @@
             }
           ],
           "画布.legend": {
-            "画布.legend.walked": "contains · released",
-            "画布.legend.flow": "released · working",
+            "画布.legend.walked": "contains · cleared",
+            "画布.legend.flow": "cleared · working",
             "画布.legend.blocked": "blocked",
             "画布.legend.closeout": "closing pass"
           },
@@ -1770,7 +1770,7 @@
     "data": {
       "任务列表.root": {
         "任务列表.eyebrow": {
-          "任务列表.eyebrow.label": "The Night",
+          "任务列表.eyebrow.label": "Maps & specs",
           "任务列表.eyebrow.count": "3"
         },
         "任务列表.task": [
@@ -1807,7 +1807,7 @@
     "data": {
       "任务列表.root": {
         "任务列表.eyebrow": {
-          "任务列表.eyebrow.label": "The Night",
+          "任务列表.eyebrow.label": "Maps & specs",
           "任务列表.eyebrow.count": "1"
         },
         "任务列表.task": {
@@ -1829,7 +1829,7 @@
     "data": {
       "任务列表.root": {
         "任务列表.eyebrow": {
-          "任务列表.eyebrow.label": "The Night",
+          "任务列表.eyebrow.label": "Maps & specs",
           "任务列表.eyebrow.count": "1"
         },
         "任务列表.task": {
@@ -1851,7 +1851,7 @@
     "data": {
       "任务列表.root": {
         "任务列表.eyebrow": {
-          "任务列表.eyebrow.label": "The Night",
+          "任务列表.eyebrow.label": "Maps & specs",
           "任务列表.eyebrow.count": "0"
         },
         "任务列表.empty": "没有带 mmw:map label 的 ticket。"
@@ -3009,8 +3009,8 @@
           }
         ],
         "画布.legend": {
-          "画布.legend.walked": "contains · released",
-          "画布.legend.flow": "released · working",
+          "画布.legend.walked": "contains · cleared",
+          "画布.legend.flow": "cleared · working",
           "画布.legend.blocked": "blocked",
           "画布.legend.closeout": "closing pass"
         },
@@ -3234,8 +3234,8 @@
           }
         ],
         "画布.legend": {
-          "画布.legend.walked": "contains · released",
-          "画布.legend.flow": "released · working",
+          "画布.legend.walked": "contains · cleared",
+          "画布.legend.flow": "cleared · working",
           "画布.legend.blocked": "blocked",
           "画布.legend.closeout": "closing pass"
         },
@@ -3327,8 +3327,8 @@
           }
         ],
         "画布.legend": {
-          "画布.legend.walked": "contains · released",
-          "画布.legend.flow": "released · working",
+          "画布.legend.walked": "contains · cleared",
+          "画布.legend.flow": "cleared · working",
           "画布.legend.blocked": "blocked",
           "画布.legend.closeout": "closing pass"
         },
@@ -3350,8 +3350,8 @@
     "data": {
       "画布.root": {
         "画布.empty": {
-          "画布.empty.title": "The Night 还没开始",
-          "画布.empty.text": "The Night 是一次讨论开出的那张 ticket。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。"
+          "画布.empty.title": "还没有 map",
+          "画布.empty.text": "map 是一次讨论开出的那张 ticket。给它打上 mmw:map label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。"
         }
       }
     }
@@ -3532,8 +3532,8 @@
           }
         ],
         "画布.legend": {
-          "画布.legend.walked": "contains · released",
-          "画布.legend.flow": "released · working",
+          "画布.legend.walked": "contains · cleared",
+          "画布.legend.flow": "cleared · working",
           "画布.legend.blocked": "blocked",
           "画布.legend.closeout": "closing pass"
         },
@@ -3874,7 +3874,7 @@
     "data": {
       "详情.root": {
         "详情.empty": {
-          "_text": "The Night 开起来之后，点画布上的卡，它的细节显示在这一栏。",
+          "_text": "有了 map 之后，点画布上的卡，它的细节显示在这一栏。",
           "详情.empty.title": "这里是详情"
         }
       }
@@ -4921,7 +4921,7 @@
     "data": {
       "详情.root": {
         "详情.head": {
-          "详情.head.eyebrow": "The Night",
+          "详情.head.eyebrow": "Map",
           "详情.head.close": "×"
         },
         "详情.title": "落地流水线改造",

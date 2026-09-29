@@ -80,8 +80,8 @@
       </sc-for>
     </div>
     <div class="legend" data-ui="画布.legend" style="position: absolute; right: var(--sp-16); top: var(--sp-16); max-width: calc(100% - 32px)">
-      <span class="legend-item" data-ui="画布.legend.walked"><span class="legend-line"></span>contains · released</span>
-      <span class="legend-item" data-ui="画布.legend.flow"><span class="legend-line flow"></span>released · working</span>
+      <span class="legend-item" data-ui="画布.legend.walked"><span class="legend-line"></span>contains · cleared</span>
+      <span class="legend-item" data-ui="画布.legend.flow"><span class="legend-line flow"></span>cleared · working</span>
       <span class="legend-item" data-ui="画布.legend.blocked"><span class="legend-line blocked"></span>blocked</span>
       <span class="legend-item" data-ui="画布.legend.closeout"><span class="legend-bar"></span>closing pass</span>
     </div>
@@ -95,8 +95,8 @@
   </sc-if>
   <sc-if value="{{ noTask }}" hint-placeholder-val="{{ false }}">
     <div class="empty center" data-ui="画布.empty" style="position: absolute; inset: 0">
-      <p class="display" data-ui="画布.empty.title">The Night 还没开始</p>
-      <p class="empty-text" data-ui="画布.empty.text">The Night 是一次讨论开出的那张 ticket。给它打上 <span class="code">mmw:map</span> label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。</p>
+      <p class="display" data-ui="画布.empty.title">还没有 map</p>
+      <p class="empty-text" data-ui="画布.empty.text">map 是一次讨论开出的那张 ticket。给它打上 <span class="code">mmw:map</span> label，下一次读取时它和它下面的 spec、ticket 就会出现在这里。</p>
     </div>
   </sc-if>
 </main>
