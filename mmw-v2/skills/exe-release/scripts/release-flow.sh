@@ -133,7 +133,8 @@ _convergence_guard() {
 
   # 预算按「修复轮次」记账,不按动作数:一轮正常修复(stage run+classify+fix+gate+全量重跑)
   # 会产生 ~9 条 attempt 账目,若按动作数熔断,第二个不同根因必然在修复前被误熔断。
-  # attempt_ledger 保留全动作审计,熔断只看 fix_rounds。
+  # fix_rounds 只在 P2 derive 提交成功时加一;失败后重跑的总轮数由 round next 的
+  # ROUND-CAP 另外限制,两者上限都取 --max-rounds。attempt_ledger 保留全动作审计。
   local fr max
   fr="$(jq -r '.budget.fix_rounds // 0' "$f")"
   max="$(jq -r '.budget.max_fix_rounds // 0' "$f")"
