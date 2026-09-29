@@ -4799,6 +4799,69 @@
     }
   },
   {
+    "name": "Component · 详情.ticket-cleared-blocker",
+    "page": "Component · 详情.dc.html",
+    "props": {
+      "scene": "ticket-cleared-blocker"
+    },
+    "data": {
+      "详情.root": {
+        "详情.head": {
+          "详情.head.eyebrow": "Ticket",
+          "详情.head.github": "GitHub ↗",
+          "详情.head.close": "×"
+        },
+        "详情.title": "投递回执",
+        "详情.origin": {
+          "_text": "· ·",
+          "详情.origin.number": "#135",
+          "详情.origin.link": [
+            "spec #131",
+            "map #98"
+          ]
+        },
+        "详情.status": {
+          "详情.status.lamp": "",
+          "详情.status.status": "queued",
+          "详情.status.phase": "queued"
+        },
+        "详情.runtime": "not dispatched yet",
+        "详情.blocked-by": {
+          "详情.blocked-by.title": "Blocked by",
+          "详情.blocked-by.count": "2",
+          "详情.blocker": [
+            {
+              "详情.blocker.lamp": "",
+              "详情.blocker.number": "#134",
+              "详情.blocker.title": "唤醒队列持久化",
+              "详情.blocker.hold": "held"
+            },
+            {
+              "详情.blocker.lamp": "",
+              "详情.blocker.number": "#133",
+              "详情.blocker.title": "折叠接入中继，重放时跳过无法解析的旧格式事件",
+              "详情.blocker.state": "closed unpassed · cleared"
+            }
+          ]
+        },
+        "详情.blocking": {
+          "详情.blocking.title": "Blocking",
+          "详情.blocking.count": "1",
+          "详情.blocks": {
+            "详情.blocks.lamp": "",
+            "详情.blocks.number": "#137",
+            "详情.blocks.title": "中继自检命令",
+            "详情.blocks.hold": "held"
+          }
+        },
+        "详情.events": {
+          "详情.events.title": "Events",
+          "详情.events.count": "0"
+        }
+      }
+    }
+  },
+  {
     "name": "Component · 详情.spec",
     "page": "Component · 详情.dc.html",
     "props": {

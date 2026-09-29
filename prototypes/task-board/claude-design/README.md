@@ -11,9 +11,9 @@
 
 ## Offline render check
 
-- Passed: 46/46 scenes rendered with external network requests blocked.
+- Passed: 47/47 scenes rendered with external network requests blocked.
 
 ## Pull provenance
 
-- Pulled at: `2026-09-29T02:55:59+00:00`.
+- Pulled at: `2026-09-29T03:13:28+00:00`.
 - Claude Design project id: `c9e1a903-013c-411c-9a1f-7c6b2f85f58a`.

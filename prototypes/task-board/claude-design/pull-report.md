@@ -9,7 +9,6 @@
 
 ## 覆盖
 
-- state list 未给出，未核对。
 - 带文字但没有 `data-ui` id：`App · 任务板.dc.html`（11 处）：span: ·；b: #150 contract；b: #151 decision；span.code: mmw:map；span.code: start；span.code: ~/.mmw/models.json；span.code: MMW_RUNNER；span: agent；span: host；span: model；span: effort
 - 带文字但没有 `data-ui` id：`Component · 本机配置.dc.html`（8 处）：span.code: start；span.code: ~/.mmw/models.json；span.code: MMW_RUNNER；span: agent；span: host；span: model；span: effort；b: 没有保存。
 - 带文字但没有 `data-ui` id：`Component · 画布.dc.html`（1 处）：span.code: mmw:map
@@ -17,10 +16,11 @@
 
 ## 改动分类
 
-- 分类：只改外观或文案
-- design page：`Component · 任务列表.dc.html`、`Component · 详情.dc.html`
+- 分类：增删控件或改流转
+- design page：`Component · 详情.dc.html`
 - `data-ui` id 新增：无
 - `data-ui` id 删除：无
+- `scene` 取值变化：`Component · 详情.dc.html`；新增 ticket-cleared-blocker；删除 无。
 
 ## 本地改过的说明
 

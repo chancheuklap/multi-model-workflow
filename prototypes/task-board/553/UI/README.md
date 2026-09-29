@@ -51,6 +51,7 @@
 - ticket-landed：已落地
 - ticket-fault：开了 `fault` 后停下
 - ticket-missing-blocker：前置不在这棵树里，写 `unknown`
+- ticket-cleared-blocker：一个前置已关闭、未通过、不再挡路，写 `closed unpassed · cleared`，与仍挡着的前置并排
 - spec：选中一个 spec，右栏是汇总
 - map：选中一张 map，右栏是汇总
 - decision：选中一张决策票
