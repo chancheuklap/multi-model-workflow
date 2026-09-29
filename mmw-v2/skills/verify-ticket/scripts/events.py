@@ -165,7 +165,7 @@ EVENTS: dict[str, dict] = {
     "worker.touched":    {"stage": "work",     "actor": "worker",
                           "required": ("by", "files")},
     # The three `*.lost` events are the only ones not written by the agent they are about:
-    # a dead agent cannot write its own obituary. The liveness judge writes them, once the
+    # a dead agent cannot write its own obituary. The watchdog writes them, once the
     # session's own runner says it has stopped (the dispatch skill's watchdog.py).
     "worker.lost":       {"stage": "work",     "actor": "judge",
                           "required": ("session", "runner")},

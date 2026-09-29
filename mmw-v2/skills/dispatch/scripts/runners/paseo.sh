@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Paseo adapter: the three verbs of the runner boundary, `stop`, and `self`.
+# Paseo adapter: the runner adapter's three core verbs (`start`, `send`, `liveness`), `stop`, and `self`.
 #
 #   runners/paseo.sh start --host H --model M --effort E --cwd DIR [--skip-approval]
 #                          [--title T] [--env KEY=VALUE]... --prompt TEXT
@@ -16,7 +16,7 @@
 #
 # start runs `paseo run -d` in DIR and prints the agent id Paseo answers with; exit 1,
 # with the reason on stderr, when Paseo did not start it. The host's mode and thinking
-# level come from `models.py paseo-args`.
+# option come from `models.py paseo-args`.
 # send: exit 0 the text was delivered; 3 the session is there and did not take it;
 # 2 there is no such session.
 # liveness prints one of `alive`, `stopped`, `unknown` on stdout.

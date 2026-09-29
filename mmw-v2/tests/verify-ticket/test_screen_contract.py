@@ -125,8 +125,8 @@ class ContractFixture:
 
 
 class TestLintScreenContract(ContractFixture, unittest.TestCase):
-    """An interface ticket names its screen-contract rows; no CHECK stubs the
-    application's own network. Against a contract that is on disk."""
+    """A page ticket names its screen-contract rows; no CHECK stubs the
+    application's own network. Against a screen contract that is on disk."""
     def test_an_interface_ticket_without_row_ids_is_an_error(self):
         findings, _ = vt.lint_screen_contract(
             ticket("- README (baseline)", gate("AC1", STORY)))
@@ -493,7 +493,7 @@ class TestSources(ContractFixture, unittest.TestCase):
         self.assertEqual(self._lint(extra, parent), [])
 
     def test_an_earlier_spec_named_after_the_parent_spec_satisfies_its_row_sources(self):
-        """A contract row may cite an earlier spec's section; the to-tickets reference cutting-interface-tickets.md
+        """A screen-contract row may cite an earlier spec's section; the to-tickets reference cutting-interface-tickets.md
         names that spec after the parent spec in `## Parent`, and both are read."""
         rows = {"tasks.pick": {"source": ["#555 Implementation Decisions 4",
                                           "#318 Implementation Decisions 4"]}}
@@ -523,7 +523,7 @@ class TestSources(ContractFixture, unittest.TestCase):
 
 
 class TestContractPathInBackticks(unittest.TestCase):
-    """A Read first line usually wraps the path in backticks; the contract is still read."""
+    """A Read first line usually wraps the path in backticks; the screen contract is still read."""
 
     def test_an_unreadable_contract_is_a_finding_not_a_pass(self):
         read_first = "- `/nowhere/screen-contract.yaml rows: a.view`（基线）"
@@ -544,7 +544,7 @@ class TestContractPathInBackticks(unittest.TestCase):
 
 
 class TestCriterionShapes(ContractFixture, unittest.TestCase):
-    """Each `--pages` mount is a non-App page of the contract; a boundary-check.py
+    """Each `--pages` mount is a non-App page of the screen contract; a boundary-check.py
     --run is a non-empty command; a journey.py run <name> exists under .mmw/journeys/."""
 
     def setUp(self):
@@ -725,7 +725,7 @@ class TestJourneyBreakRules(unittest.TestCase):
             body, 639, root=self.dir.name,
             fetch_spec_body=lambda number: fetched.append(number) or self.SPEC)
         self.assertEqual(fetched, [537])
-        self.assertTrue(any("acceptance journey `checkout`" in finding
+        self.assertTrue(any("critical-flow journey `checkout`" in finding
                             for finding in findings), findings)
         self.assertEqual(warnings, [])
 
@@ -777,7 +777,7 @@ class TestJourneyBreakRules(unittest.TestCase):
         )
         for spec in bodies:
             findings, warnings = self.lint("checkout", spec_body=spec)
-            self.assertTrue(any("acceptance journey `checkout`" in finding
+            self.assertTrue(any("critical-flow journey `checkout`" in finding
                                 for finding in findings), (spec, findings))
             self.assertEqual(warnings, [], spec)
 

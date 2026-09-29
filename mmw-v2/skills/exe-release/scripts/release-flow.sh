@@ -5,7 +5,7 @@
 #   where       报当前 stage+run / SUCCESS / PAUSED / CORRUPT
 #   stage       run|done|fail  -- run 失败时自己接着分诊派发、计轮次，再返回
 #   round next  轮账;到 max_rounds 自动 surface 熔断
-#   surface|resume|close|abort  -- close refuses a round that is not DONE (pause or unfinished stages)
+#   surface|resume|close|abort  -- close refuses a release loop that is not DONE (pause or unfinished stages)
 #   same-commit <product>...   逐个比对交付记录的 source_commit 是否等于当前 HEAD
 #   receipt     从 attempt_ledger 渲染已试动作
 #   dispatch    --stage <n> --findings <p>  收敛护栏 + 按 tier 处置(P2 derive 自动提交/P1 写简报交人/P0 停)
@@ -420,7 +420,7 @@ cmd_init() {
 
   local canon
   canon="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-manifest "$manifest")" \
-    || die "the release manifest does not satisfy the contract; a person has to fix it"
+    || die "the release manifest does not satisfy release_contracts.py; a person has to fix it"
 
   local f top mp source_commit
   top="$(git rev-parse --show-toplevel)"
@@ -649,7 +649,7 @@ _run_remote_build() {
     # 远端默认 shell(PowerShell)与 powershell.exe 三层,$_ 会在到达 powershell.exe 之前就被
     # 当成变量吃掉,于是筛选条件恒空、什么也不匹配,而且一声不响。
     if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object -Property Name -Like '*-$product' | Where-Object -Property Name -NE '${source_commit:0:12}-$product' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
-      echo "WARN: could not prune old remote build dirs (this round is unaffected); take a look by hand: $remote_root" >&2
+      echo "WARN: could not prune old remote build dirs (this build is unaffected); take a look by hand: $remote_root" >&2
     fi
     scp "$archive" "$remote_host:$remote_input/source.zip" || return $?
     # 传完即删:这份 zip 是 `git archive $(cat SOURCE_COMMIT.txt)` 一字不差重生得出来的,
@@ -715,7 +715,7 @@ _run_remote_build() {
   if [ -z "$task_name" ]; then
     # 接上来的那一轮没读回任务名(建任务时没写下,或文件丢了)。构建判定不受影响,
     # 但残留的任务会在下一轮同 commit 抢写产物,所以必须留痕、指出手工清的办法。
-    echo "WARN: this round attached to a running build and could not learn its task name; look for a leftover mmw-release-* task on $remote_host and delete it by hand" >&2
+    echo "WARN: this stage run attached to a running build and could not learn its task name; look for a leftover mmw-release-* task on $remote_host and delete it by hand" >&2
   elif ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
     echo "WARN: could not delete the scheduled task (task=$task_name); remove it by hand with schtasks /delete" >&2
   fi
@@ -751,7 +751,7 @@ DELIVER_PS1
       deliver_out="$(ssh "$remote_host" "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File '$remote_input_win\\deliver-installer.ps1' -Dest '$dest_win' -SrcGlob '$src_glob_win'" 2>&1)"; then
       printf '%s\n' "$deliver_out" | grep '^DELIVERED ' >&2 && delivered=1 || true
     else
-      echo "WARN: could not gather the installer into $dest_win (the build did succeed; the installer is still at $src_glob_win): $deliver_out" >&2
+      echo "WARN: could not copy the installer into $dest_win (the build did succeed; the installer is still at $src_glob_win): $deliver_out" >&2
     fi
   fi
   # 构建目录是过程,不是记录。安装包已经收进交付目录、日志已经回传到 stage_dir 之后,
@@ -1253,11 +1253,11 @@ cmd_close() {
   if [ -f "$f" ]; then
     jq -e . "$f" >/dev/null 2>&1 || die "release-state is corrupt; refusing to close"
     [ "$(jq -r '.pause // "null"' "$f")" = "null" ] \
-      || die "this round is paused, not done; use abort to drop a round that will not ship"
+      || die "this release loop is paused, not done; use abort to drop a release loop that will not ship"
     local rem
     rem="$(jq -r '[.stages[]|select(.status!="done")|.name]|join(",")' "$f")"
     [ -z "$rem" ] \
-      || die "stage(s) not done ($rem); use abort to drop a round that will not ship"
+      || die "stage(s) not done ($rem); use abort to drop a release loop that will not ship"
   fi
   # 收束时留一份交付记录再删状态。一次改动影响多个产品时,后一个产品的自愈修复会
   # 产生新提交推进 HEAD,早前那个产品的包就已经不是最终代码了——把几个包混着发出去,
@@ -1304,7 +1304,7 @@ cmd_abort() {
 }
 
 # 逐个比对本轮清单上的产品:交付记录必须来自当前 HEAD,否则这一批包里混着不同版本的代码。
-# 只读调用方点名的产品——真实记录跨仓库、跨任务混在一起(main checkout 的 delivered/ 里
+# 只读调用方点名的产品——真实记录跨仓库、跨任务混在一起(main worktree 的 delivered/ 里
 # 常年躺着别的产品最后一次出包的记录),读全部会把无关产品的陈旧记录当成这一批的一部分。
 cmd_same_commit() {
   [ $# -gt 0 ] || die "usage: same-commit <product> [<product> ...]"

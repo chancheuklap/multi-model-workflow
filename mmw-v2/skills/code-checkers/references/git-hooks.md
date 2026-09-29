@@ -17,7 +17,7 @@ repos:
         types_or: [python, pyi]
 ```
 
-`language: system` means prek runs the command as-is instead of building an environment of its own. Without it you get a second copy of every checker, on its own version schedule, disagreeing with the manual entry point about whether the code passes.
+`language: system` means prek runs the command as-is instead of building an environment of its own. Without it you get a second copy of every checker, on its own version schedule, disagreeing with the checker command about whether the code passes.
 
 `--force-exclude` matters whenever a checker is handed explicit filenames: several ignore their own exclude config unless told to apply it to named files.
 

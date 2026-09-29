@@ -1,4 +1,4 @@
-"""Design-side rendering without a browser: the contract's screen axis, the box
+"""Design-side rendering without a browser: the screen contract's screen axis, the box
 arithmetic, the tree's ancestor line, and the baseline server.
 """
 

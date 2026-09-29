@@ -7,7 +7,7 @@ Reads of `MMW_` variables, and the strings `.mmw/target.json`'s `harness_markers
 lists, may appear in `.mmw/`, `tests/`, `scripts/dev/`, a test file that ships with
 no release (`__tests__/`, `__mocks__/`, `*.test.*`, `*.spec.*`), and files
 `leaves_machine` names. Anywhere else is a leak. `[]` is a legal answer: this
-product has no back-door markers. Missing or unusable `harness_markers` is a
+product has no back doors. Missing or unusable `harness_markers` is a
 refusal, not a default.
 
 Story-service files — everything under `.mmw/stories/`, and files the `stories`

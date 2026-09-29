@@ -41,7 +41,7 @@
 # The ticket number and the kind of agent are the whole input for `start`. Which
 # of the worker rows a worker session starts from is the ticket's own `*-worker`
 # label, so one ticket keeps the same worker every time it is started. Which
-# host, model and thinking level the session gets come from that
+# host, model and reasoning effort the session gets come from that
 # row of models.json under MMW_HOME, resolved against the catalog of the runner
 # that starts it (`use_catalog_of`). The selected runner is `models.py runner`: MMW_RUNNER,
 # then models.json, then, when its runner is auto, the runner this process runs in, then orca.
@@ -49,7 +49,7 @@
 # session, writes a `worker.started` or `reviewer.started` event
 # on the ticket — session, runner, host, model, effort, grade, the worktree's absolute
 # path, branch and base commit — and prints the session id. A worker takes no product
-# slot here: the first run of its criteria that needs the product claims one
+# slot here: the first run of its criteria that needs the product acquires one
 # (`verify-ticket.py`), and the worktree keeps it until the ticket lands. A start the
 # adapter refuses is refused once: no retry, no other host, no other runner. A worker
 # started on a ticket whose events still show a live worker replaces that one: the old
@@ -412,7 +412,7 @@ ensure_board() {
   fi
   repository="$(main_checkout)"
   if [ -z "$repository" ]; then
-    echo "dispatch: not inside a git repository, so there is no main checkout to register a task board for" >&2
+    echo "dispatch: not inside a git repository, so there is no main worktree to register a task board for" >&2
     return 2
   fi
   if ! port="$(python3 "$BOARD_SUPERVISOR" --ensure "$repository")"; then
@@ -425,7 +425,7 @@ ensure_board() {
 open_board() {
   local current url answer rc
   current="$(git rev-parse --show-toplevel 2>/dev/null)"
-  [ -n "$current" ] || refuse "not inside a git repository, so there is no workspace for the task board tab"
+  [ -n "$current" ] || refuse "not inside a git repository, so there is no checkout for the task board tab"
   url="$(ensure_board)" || exit 2
   use_runner "$(tonight_runner)"
   answer="$(runner open-url --cwd "$current" --url "$url" 2>&1)"
@@ -927,7 +927,7 @@ ack_wake() {
 # reviewer's report would wake nobody, and `start <n> reviewer` would refuse. This writes
 # that event with the session's own runner and session (its adapter's `self`) and the
 # facts `start` writes — the grade's models.json row, this worktree, its branch and base,
-# and no slot, which the first run of its criteria that runs the product claims — and makes sure a relay watches the ticket: the
+# and no slot, which the first run of its criteria that runs the product acquires — and makes sure a relay watches the ticket: the
 # watch already covering it, or a watch of this ticket alone with this session as its
 # orchestrator. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
 adopt_ticket() {
@@ -1132,7 +1132,7 @@ else:
 # no runner name in the path, and the slug stays `issue-<n>` so tool-guard.py's
 # TICKET_DIR still governs the session.
 
-# The repository's main checkout: where every ticket's worktree lives, whichever
+# The repository's main worktree: where every ticket's worktree lives, whichever
 # checkout — and whichever branch — a command runs from.
 main_checkout() {
   git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p'
@@ -1154,7 +1154,7 @@ workspace_cwd_for() {
 }
 
 # A ticket's workspace path that is not a worktree of its own: git reads a plain directory
-# there as part of the main checkout, and a worktree deleted by hand stays registered and
+# there as part of the main worktree, and a worktree deleted by hand stays registered and
 # refuses `worktree add`. Registrations whose directory is gone are pruned, an empty
 # directory is removed, and a directory holding files is refused, because they may be work.
 clear_stray_workspace() {
@@ -1274,7 +1274,7 @@ for rec in mod.claimed():
 #
 # Several runs share one machine. `lease.py` hands each worktree a block of ports and a
 # directory nothing else uses. Nothing here takes a slot: a worker writes code without
-# one, and the first run of its criteria that needs the product claims it, waiting while
+# one, and the first run of its criteria that needs the product acquires it, waiting while
 # the product's `instance.max` or the machine's slots are all held. What this script does
 # is give slots back — at landing, at a retraction, at a suspension — after taking the
 # product down, since a slot is free only once nothing listens on its ports.
@@ -1544,8 +1544,8 @@ start_session() {
   printf '%s\n' "$session" | tail -n 1
 }
 
-# Build the deterministic Memory packet appended to a worker's first prompt. Native
-# parent links alone choose the task root; a malformed graph yields a disclosed packet
+# Build the deterministic Memory indexes appended to a worker's first prompt. Native
+# parent links alone choose the task root; a malformed graph yields disclosed Memory indexes
 # with no task scope and no task-scoped list. Both blocks are indexes (id, title, the
 # record's first line) with fixed caps, so the prompt does not grow with the store: the
 # worker opens the records it judges relevant. Related experience comes from several
@@ -1554,7 +1554,7 @@ start_session() {
 # names an anchor no record holds, which long task prose always does. A record whose
 # body names one of those paths ranks first; then how many searches returned it; then
 # its best score, which is only comparable within one search. Nowledge failures are
-# data in the packet rather than a reason to stop otherwise-completable ticket work.
+# data in the Memory indexes rather than a reason to stop otherwise-completable ticket work.
 worker_memory_packet() {
   local number="$1" spec="$2" repository_space="$3"
   MMW_MEMORY_TICKET="$number" MMW_MEMORY_SPEC="$spec" \
@@ -1744,10 +1744,10 @@ print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_erro
 PY
 }
 
-# Build the reviewer packet appended after the existing code-review dispatch line. Only
+# Build the reviewer Rules appended after the existing code-review dispatch line. Only
 # the compiled active rule_stack is read; ordinary Memory list/search is never attempted.
-# A failed or unreadable Context Bundle is named in the packet and the reviewer still starts.
-# The packet carries the Rule rows only; how the reviewer applies them is stated once, in the
+# A failed or unreadable Context Bundle is named in the reviewer Rules and the reviewer still starts.
+# The reviewer Rules carry the Rule rows only; how the reviewer applies them is stated once, in the
 # code-review skill's `references/session.md` under `## Active Rules`.
 reviewer_rules_packet() {
   local repository_space="$1"
@@ -1943,9 +1943,9 @@ start_one() {
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
       memory_packet="$(worker_memory_packet "$number" "$native_spec" "$repository_space")" || \
-        refuse "could not build the worker Memory packet for #$number"
+        refuse "could not build the worker's Memory indexes for #$number"
       task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
-        refuse "the worker Memory packet for #$number could not be read"
+        refuse "the worker's Memory indexes for #$number could not be read"
       prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES
 
 $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
@@ -1963,7 +1963,7 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
       [ -n "$base" ] \
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
       memory_packet="$(reviewer_rules_packet "$repository_space")" || \
-        refuse "could not build the reviewer Rules packet for #$number"
+        refuse "could not build the reviewer Rules for #$number"
       prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS
 
 $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
@@ -2700,7 +2700,7 @@ prepare_merge_worktree() {
   local root="$1" into="$2" main slug dest
   main="$(main_checkout)"
   [ -n "$main" ] \
-    || { echo "dispatch: could not resolve the main checkout from $root" >&2; return 2; }
+    || { echo "dispatch: could not resolve the main worktree from $root" >&2; return 2; }
   slug="$(merge_slug "$into")"
   dest="$main/.worktrees/merge-$slug"
   acquire_merge_lock "$into" || return 2
@@ -3632,7 +3632,7 @@ reverify_spec() {
     verb="${entry%%:*}"
     number="${entry#*:}"
     # `--tools` is forwarded because the oracles of a criterion are named bare and are
-    # found only in the directories it names. Without it every interface criterion of
+    # found only in the directories it names. Without it every UI criterion of
     # every ticket fails `command not found`, and the branch below would reopen and hand
     # back a whole night of finished work for a fault in this command line.
     # The run writes its own `ticket.checked` (run `reverify`, actor `main`), which is the
@@ -3702,7 +3702,7 @@ print((rows[0].get("login") or "") if rows else "")
   [ "$red" -eq 0 ] || exit 1
 }
 
-# Print a decision-file skeleton for the closing pass's Memory lifecycle step: the same
+# Print a `--memory-decisions` file skeleton for the closing pass's Memory lifecycle step: the same
 # Space id `close_spec_memories` computes, the spec's full `mmw-spec-<spec>` record set,
 # and one empty decision per record with `total`/`returned` already filled in — or a
 # ready-made `unchecked` object when the list could not be read or was truncated, so a
@@ -3807,7 +3807,7 @@ label = f"mmw-spec-{spec}"
 
 def fail(fact):
     why = f"Memory closing for #{spec} cannot safely close because its exact decision set and lifecycle result are not established"
-    action = f"correct the named condition in {manifest_path or '<memory-decisions file>'}, then run dispatch.sh summary {spec} --memory-decisions {manifest_path or '<file>'} again"
+    action = f"correct the named condition in {manifest_path or 'the --memory-decisions file'}, then run dispatch.sh summary {spec} --memory-decisions {manifest_path or '<file>'} again"
     print(f"dispatch: {fact}; {why}; {action}", file=sys.stderr)
     raise SystemExit(2)
 
@@ -4273,7 +4273,7 @@ delete_local_base_branch() {
     main="$(main_checkout)" || main=""
     while IFS= read -r path; do
       if [ "$path" = "$main" ]; then
-        echo "dispatch: keeping the main checkout $path on $into; switch it off $into, then run git branch -D $into" >&2
+        echo "dispatch: keeping the main worktree $path on $into; switch it off $into, then run git branch -D $into" >&2
         continue
       fi
       echo "dispatch: keeping worktree $path and the local $into it has checked out; once its session is done, remove the worktree (git worktree remove $path), then run git branch -D $into" >&2

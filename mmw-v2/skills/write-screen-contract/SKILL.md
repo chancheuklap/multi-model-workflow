@@ -1,11 +1,11 @@
 ---
 name: write-screen-contract
-description: Writes an interface's screen contract, `docs/specs/<effort>/screen-contract.yaml`. Use when a design package has landed and a spec is about to be written, when a design package was pulled again, or when a spec decision changed and the contract has to follow. Not for writing the spec itself.
+description: Writes a UI's screen contract, `docs/specs/<effort>/screen-contract.yaml`. Use when a design package has landed and a spec is about to be written, when a design package was pulled again, or when a spec decision changed and the screen contract has to follow. Not for writing the spec itself.
 ---
 
 # write-screen-contract — the screen contract between a design package and the backend
 
-A design package says what the interface looks like and what it says. The backend decisions — a wayfinder map's, or a conversation's — say what the system does. Nothing in between says which control calls what, or which story page each design page is. This skill writes that file: the **screen contract**, `docs/specs/<effort>/screen-contract.yaml`. From then on the design package binds look and verbatim copy, the screen contract binds calls, shown values and transitions, and every downstream skill reads the two by that split.
+A design package says what the UI looks like and what it says. The backend decisions — a wayfinder map's, or a conversation's — say what the system does. Nothing in between says which control calls what, or which story page each design page is. This skill writes that file: the **screen contract**, `docs/specs/<effort>/screen-contract.yaml`. From then on the design package binds look and verbatim copy, the screen contract binds calls, shown values and transitions, and every downstream skill reads the two by that split.
 
 Every row becomes a requirement a ticket owns: workers build from the row, not from the decisions behind it, and the review and the boundary test hold them to its four columns. A row that lints clean but rests on no decision is built and tested exactly as written. So where the decisions and the design are both silent about a column (most often `on_failure`), do not fill in the plausible default: ask the user and cite the answer as `conversation <YYYY-MM-DD>`, or put the question on the gap list.
 
@@ -48,7 +48,7 @@ Then a control whose behaviour differs by state gets one row per state — `prec
 - **A disabled state is a row.** The end user sees the control; the row says `calls: [none]` and `next: stay`.
 - **A state the design package never shows** (the form complete, ready to submit) is still a row when the backend decisions reach it. Its `scenes` is `[]`; the lint reports it as a warning so the gap in the design package is on record.
 
-A placeholder or hint that the accessibility tree folds into a name is an accessibility defect of the design package; record it in the run's notes. It is not a contract field.
+A placeholder or hint that the accessibility tree folds into a name is an accessibility defect of the design package; record it in the run's notes. It is not a screen-contract field.
 
 ### 3. Fill the behaviour columns and the scene declarations from the backend sources
 
@@ -70,7 +70,7 @@ When an App page's wiring passes nothing from one region to another, that is a f
 
 ### 5. Reverse sweep
 
-The forward pass finds only what the design draws. This pass finds what the backend decided that the design forgot, while the user is still here to settle it. The lint sweeps `openapi.json` for you; you sweep the decisions: every decision line an end user could notice (a value shown, a state reached, a failure seen) lands in a row's `source`, becomes a `backend-only` row, or gets one line under `backend_without_ui` saying why the interface has no place for it.
+The forward pass finds only what the design draws. This pass finds what the backend decided that the design forgot, while the user is still here to settle it. The lint sweeps `openapi.json` for you; you sweep the decisions: every decision line an end user could notice (a value shown, a state reached, a failure seen) lands in a row's `source`, becomes a `backend-only` row, or gets one line under `backend_without_ui` saying why the UI has no place for it.
 
 ### 6. Write the gap list and stop for the user
 
@@ -112,10 +112,10 @@ A re-run makes a new `<scratch>`, copies `docs/specs/<effort>/screen-contract.ya
 
 ## Next
 
-A contract written for a wayfinder map's alignment ticket resolves that ticket: return to the `wayfinder` skill to record the resolution; `to-spec` runs once the map is clear, as that skill says.
+A screen contract written for a wayfinder map's alignment ticket resolves that ticket: return to the `wayfinder` skill to record the resolution; `to-spec` runs once the map is clear, as that skill says.
 
 Otherwise:
 
-- A contract written for the first time: the `to-spec` skill, which writes the spec this effort does not have yet.
-- A contract changed by **Re-runs**: the `to-spec` skill's `references/revising-a-spec.md`, with the tickets already cut corrected against the new text.
+- A screen contract written for the first time: the `to-spec` skill, which writes the spec this effort does not have yet.
+- A screen contract changed by **Re-runs**: the `to-spec` skill's `references/revising-a-spec.md`, with the tickets already cut corrected against the new text.
 

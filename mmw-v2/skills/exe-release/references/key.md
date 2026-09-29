@@ -46,7 +46,7 @@ Applied to checks, the same question reads: **a check every product needs is the
 }
 ```
 
-That is a complete release manifest. The release engine supplies the pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release manifest adds `stages` only for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. The release engine appends its three afterwards.
+That is a complete release manifest. The release engine supplies the build pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release manifest adds `stages` only for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. The release engine appends its three afterwards.
 
 If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
 
@@ -145,7 +145,7 @@ What each field prevents:
 - **`include_modules` for anything imported inside a function body.** The compiler traces imports statically; a C extension imported lazily is invisible to it and simply will not be in the package. The customer finds out when they reach that feature.
 - **`smoke.modules` is also the guard on `nofollow_imports`.** A nofollow pattern can block a module the built exe needs. The skill checks this at assemble time, because finding out after the compile costs tens of minutes.
 - **`console: false` for a GUI app**, or every customer gets a black console window.
-- **`env` values may use `${REPO_ROOT}`.** The build machine's repository path changes every round (the directory is named after the commit), so anything that has to name that path -- a compile cache's base directory, for one -- can only be computed there.
+- **`env` values may use `${REPO_ROOT}`.** The build machine's repository path changes every commit (the directory is named after the commit), so anything that has to name that path -- a compile cache's base directory, for one -- can only be computed there.
 - **`isolate_dirs` moves directories out of the way during the compile.** When the Electron app's `node_modules` sits inside the Python package scan path, the compiler scans it: compile time explodes and front-end files can end up in the package. They are moved back afterwards, and a failed restore stops the build — an Electron build against a missing `node_modules` fails in a way nobody can trace back to here.
 
 Native extensions that need a DLL the compiler does not carry go in `build_target.native_ext_dll`:
@@ -194,7 +194,7 @@ A hook is an addition, never a substitute. On every build the skill already chec
 
 ### What is genuinely optional
 
-`derive` and `event_sink` are the self-heal and observability equipment. These are optional because each one only exists once the product has grown the thing it guards — a derived artifact to regenerate, a log system to feed. A product with none of them still ships a correct package; the release engine skips what the release manifest does not declare, and says so rather than pretending it ran.
+`derive` and `event_sink` are the self-heal and observability mechanisms. These are optional because each one only exists once the product has grown the thing it guards — a derived artifact to regenerate, a log system to feed. A product with none of them still ships a correct package; the release engine skips what the release manifest does not declare, and says so rather than pretending it ran.
 
 ### `diagnose_rules` — this product's own log patterns
 

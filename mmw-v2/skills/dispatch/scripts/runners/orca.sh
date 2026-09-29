@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Orca adapter: the three verbs of the runner boundary, `stop`, and `self`.
+# Orca adapter: the runner adapter's three core verbs (`start`, `send`, `liveness`), `stop`, and `self`.
 #
 #   runners/orca.sh start --host H --model M --effort E --cwd DIR [--skip-approval] [--title T] [--env KEY=VALUE]... --prompt TEXT
 #   runners/orca.sh send <session-id> <text>

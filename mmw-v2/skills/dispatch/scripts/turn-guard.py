@@ -303,7 +303,7 @@ def guard(host: str, forced: bool = False) -> list[str]:
             which = ", ".join(f"#{n}" for n in held) if isinstance(held, list) else \
                 "which ones is not known: no watchdog round has read them all"
             blocks.append(
-                f"MMW turn guard: the night on {repo} has tickets in flight ({which}) and its "
+                f"MMW turn guard: the night on {repo} has held tickets ({which}) and its "
                 f"watchdog is not healthy: {reason}. Until it is, nothing notices a worker "
                 f"that dies or a relay that stops. Run `python3 {Path(dog.__file__).resolve()} "
                 f"arm --repo {repo}`, act on what it prints; if it exits non-zero, open a "

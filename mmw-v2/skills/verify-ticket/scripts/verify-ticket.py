@@ -790,7 +790,7 @@ def parse_criteria(text: str) -> list[dict]:
 
 
 def count_gates(ledger: Path) -> tuple[int, int]:
-    """(met, total) read off the ledger: a met gate is ticked with real evidence."""
+    """(met, total) read off the ledger: a met criterion is ticked with real evidence."""
     criteria = parse_criteria(ledger.read_text(encoding="utf-8"))
     met = sum(1 for c in criteria
               if c["ticked"] and c["evidence"] and c["evidence"] != "pending")
@@ -915,7 +915,7 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
 
 
 def verified_problems(draft: str, body: str, comments: list[str], first: str) -> list[str]:
-    """What an `ALL MET` draft lacks in the worker's final full run. `first` is the one
+    """What an `ALL MET` draft lacks in the worker's final run. `first` is the one
     `draft_summary` computed, not necessarily the draft's own literal first line."""
     problems = []
     if first != "ALL MET":
@@ -956,7 +956,7 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
 def event_problems(comments: list) -> list[str]:
     """Comments on the ticket whose event cannot be read.
 
-    The closing gate decides from the ticket's events, so a comment that carries one
+    The closeout decides from the ticket's events, so a comment that carries one
     this pipeline cannot read is a question left unanswered, not a comment to skip.
     """
     return [f"comment {item['comment']} (`{item['line'][:50]}`) carries an event this "
@@ -1272,7 +1272,7 @@ def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
 
 
 def in_ticket_findings(review: str, comment: int | str | None = None,
-                       next_step: str = "correct the review comment before writing a "
+                       next_step: str = "correct the review report before writing a "
                                         "closeout draft") -> list[str]:
     """Each finding verbatim from `## In-ticket`; refuse a nonempty unknown row.
 
@@ -1290,7 +1290,7 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
         if CAT_IN_TICKET_ITEM_RE.fullmatch(row):
             found.append(row)
         else:
-            label = f"comment {comment}" if comment is not None else "review comment"
+            label = f"comment {comment}" if comment is not None else "review report"
             raise ValueError(f"{label} (`{review.splitlines()[0] if review else '(empty)'}`) "
                              f"has an unrecognized ## In-ticket row: {row}; {next_step}")
     return found
@@ -1394,7 +1394,7 @@ def run_review(number: int, path: Path) -> int:
     dispatch skill turns into the worker's wake-up, so a report that lands is a report
     its worker hears about, however the reviewer's turns fell.
 
-    The file opens `REVIEW <base commit>..<HEAD commit>`: that line becomes the
+    The file opens `REVIEW <base-commit>..<HEAD commit>`: that line becomes the
     comment's first line, and the two commits become the `reviewer.reported` event's
     `base` and `head`. A file that does not open with it is refused rather than posted,
     since a report that names no commits does not say which diff it read.
@@ -1405,7 +1405,7 @@ def run_review(number: int, path: Path) -> int:
     found = REVIEW_HEAD_RE.match(head)
     if not found:
         return refuse(
-            "a review comment opens `REVIEW <base commit>..<HEAD commit>`, and this file "
+            "a review report opens `REVIEW <base-commit>..<HEAD commit>`, and this file "
             + (f"opens `{head[:60]}`" if head else "is empty"))
     try:
         in_ticket_findings(stripped, next_step=(
@@ -2887,10 +2887,10 @@ def require_judges(body: str) -> None:
 
     Without the directory, the criterion fails `command not found`, which reads exactly
     like a criterion that ran and did not pass: gate-check records it as one more unmet
-    gate and this run exits 1. On 2026-09-08 `dispatch.sh reverify` was found running
-    with no `--tools` at all, which would have reopened and handed back every interface
-    ticket of a batch for a fault in the invocation. So the run stops here instead,
-    names the script, and writes nothing to the ticket.
+    criterion and this run exits 1. On 2026-09-08 `dispatch.sh reverify` was found running
+    with no `--tools` at all, which would have reopened and handed back every ticket of
+    a batch whose criteria name an oracle, for a fault in the invocation. So the run
+    stops here instead, names the script, and writes nothing to the ticket.
 
     `PATH` is the second place looked at: a directory put there by hand is a legitimate
     way to reach the oracles, and refusing it would refuse something that works.
@@ -3413,14 +3413,14 @@ def lint_screen_contract(
     spec_bodies: dict[int, str] | None = None,
     fetch_spec_body: Callable[[int], str] | None = None,
 ) -> tuple[list[str], list[str]]:
-    """The interface rules of `to-tickets`, made mechanical.
+    """The UI rules of `to-tickets`, made mechanical.
 
-    A `screen-contract.yaml rows: …` line makes this an interface ticket. Its rows
+    A `screen-contract.yaml rows: …` line makes this a page ticket. Its rows
     determine the required Component or App story mounts and boundary criteria, and
     each readable boundary test file must contain the row's trigger. A
     `boundary-check.py --run` is a non-empty command; a `journey.py run <name>` exists
     under `.mmw/journeys/` unless this ticket's `## Owns` covers that directory;
-    acceptance journeys require `--break`, while a user-named journey without it is
+    critical-flow journeys require `--break`, while a user-named journey without it is
     a warning;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
     nock, fetch-mock) — mocking the product's gateway is not that; the
@@ -3509,7 +3509,7 @@ def lint_screen_contract(
                 continue
             if name in acceptance:
                 findings.append(
-                    f"{gate_id}: acceptance journey `{name}` has no --break; its Critical "
+                    f"{gate_id}: critical-flow journey `{name}` has no --break; its Critical "
                     f"flows entry makes a negative control mandatory; add --break "
                     f"\"<METHOD> <route>\" for the flow's last write")
             else:
@@ -3521,13 +3521,13 @@ def lint_screen_contract(
     interface_ticket = any("story-parity.py" in check for _, check, _ in checks)
     if not m:
         if interface_ticket:
-            findings.append("interface ticket (a criterion runs story-parity.py) names no "
+            findings.append("page ticket (a criterion runs story-parity.py) names no "
                             "`screen-contract.yaml rows: <id, id>` line under `## Read first`")
         return findings, warning_findings
     row_ids = ROW_ID_RE.findall(m.group(1))
     doc, contract_path = load_contract_doc(read_first)
     if doc is None and contract_path:
-        findings.append(f"the contract {contract_path} could not be read from here (not in "
+        findings.append(f"the screen contract {contract_path} could not be read from here (not in "
                         f"the working tree, or neither pyyaml nor uv is available); the "
                         f"source rules did not run")
     if doc is not None:
@@ -3537,7 +3537,7 @@ def lint_screen_contract(
         missing_rows = [row_id for row_id in row_ids if row_id not in rows_by_id]
         for row_id in missing_rows:
             findings.append(
-                f"screen-contract.yaml rows names `{row_id}`, but the contract has no such "
+                f"screen-contract.yaml rows names `{row_id}`, but the screen contract has no such "
                 f"row; no page or boundary requirement can be derived; correct the row id "
                 f"under `## Read first`")
         rows = [rows_by_id[row_id] for row_id in row_ids if row_id in rows_by_id]
@@ -3548,7 +3548,7 @@ def lint_screen_contract(
                 page = mounts_of.get(mount)
                 if page is None:
                     findings.append(f"{gate_id}: --pages {mount} is declared by no page "
-                                    f"of the contract")
+                                    f"of the screen contract")
         story_mount_set = {mount for _, check, _ in checks for mount in story_mounts(check)}
         expected_pages: dict[str, list[str]] = defaultdict(list)
         for row in rows:
@@ -3559,7 +3559,7 @@ def lint_screen_contract(
             if mount not in story_mount_set:
                 findings.append(
                     f"screen-contract rows {', '.join(ids)} claim page mount `{mount}`, but "
-                    f"no story criterion names it; those rows make this an interface ticket; "
+                    f"no story criterion names it; those rows make this a page ticket; "
                     f"add one story-parity.py criterion whose --pages includes `{mount}`")
 
         boundary_present = False
@@ -3608,7 +3608,7 @@ def lint_screen_contract(
             if not isinstance(trigger_value, str):
                 findings.append(
                     f"{kind} {rid} trigger is not a string, so its data-ui id cannot be "
-                    f"checked against a boundary test; the contract row is unreadable to "
+                    f"checked against a boundary test; the screen-contract row is unreadable to "
                     f"this rule; write `trigger` as the closing-comment draft's data-ui id string")
                 continue
             trigger = trigger_value
@@ -3651,7 +3651,7 @@ def parent_order_findings(body: str, spec: int) -> list[str]:
     `parent_spec` reads the first issue number there as the ticket's spec, and it is
     what `spec_of` falls back to, what `fetch_outsider` asks of a blocker in another
     batch, and what `--drafts` has in place of a tracker link. An earlier spec whose
-    sections a contract row cites as its source is named after it, in the same words."""
+    sections a screen-contract row cites as its source is named after it, in the same words."""
     first = parent_spec(body)
     if first is None or first == spec:
         return []
@@ -3666,7 +3666,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
                   fetch_spec_body: Callable[[int], str] | None = None,
                   spec: int | None = None, name: str | None = None) -> int:
     """Everything `--lint` says about one ticket's own text: its worker label, how its
-    criteria are written, and their interface rules. The batch graph is not here;
+    criteria are written, and their UI rules. The batch graph is not here;
     `run_lint` checks that once per batch.
 
     `spec`, when known, is the spec this ticket sits under, and `## Parent` must name it

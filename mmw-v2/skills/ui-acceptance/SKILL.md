@@ -1,13 +1,13 @@
 ---
 name: ui-acceptance
-description: Use when filling `.mmw/target.json`, reading a DIFF, MISS, JOURNEY or HARNESS line, giving a run its own ports, or before writing an interface ticket's code.
+description: Use when filling `.mmw/target.json`, reading a DIFF, MISS, JOURNEY or HARNESS line, giving a run its own ports, or before writing a page ticket's code.
 ---
 
 # UI acceptance
 
-A **target** is the product a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know. Four **oracles**, scripts a `CHECK:` names by bare name, read that answer: the **story oracle** (`story-parity.py`, element parity between a product story and its design page), `boundary-check.py`, `journey.py` and `harness-guard.py`. `lease.py` gives each run its own ports and directories.
+The **product under test** (the product, for short) is the application a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know. Four **oracles**, scripts a `CHECK:` names by bare name, read that answer: the **story oracle** (`story-parity.py`, element parity between a product story and its design page), `boundary-check.py`, `journey.py` and `harness-guard.py`. `lease.py` gives each ticket worktree its own ports and directories.
 
-During a night these oracles are the only eyes on an interface: when every criterion is green, the ticket closes and the code lands with no person looking at the screen. So write the story, the test, the journey and the harness so that green can only mean the product is right; when an oracle is red, change the product, or open a child when the design or the contract is wrong, never the check.
+During a night these oracles are the only eyes on a UI: when every criterion is green, the ticket closes and the code lands with no person looking at the screen. So write the story, the test, the journey and the harness so that green can only mean the product is right; when an oracle is red, change the product, or open a child when the design or the screen contract is wrong, never the check.
 
 A criterion names an oracle bare; run one by hand as `scripts/<name>`.
 
@@ -15,13 +15,13 @@ A criterion names an oracle bare; run one by hand as `scripts/<name>`.
 
 | You are | Run or read |
 | --- | --- |
-| Writing an interface ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
+| Writing a page ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
 | Building the product's story service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
 | Writing a story, boundary, journey or harness guard criterion onto a ticket | the `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** |
 | Reading the `DIFF` line the story oracle printed, or how it compares a product story with its design page by element parity | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
 | Writing a journey script or the product's fault-injection switch, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md) |
-| Making a repository an acceptance runtime (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 scripts/target_config.py --check` in that repository. Fill `.mmw/target.json` until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
+| Writing a repository's product answers (it has no `.mmw/target.json`, or a run refused for want of one) | `python3 scripts/target_config.py --check` in that repository. Fill `.mmw/target.json` until it exits 0. The reasons behind the fields are [references/product-answers.md](references/product-answers.md) |
 | Checking that acceptance names are not scattered through the consuming repository, or reading `HARNESS LEAK` / `HARNESS DESIGN PAGE` | `python3 scripts/harness-guard.py <repository-root>` — [references/harness-guard.md](references/harness-guard.md) |
 | Giving a run its own ports and directories, or reading what `lease.py` refused | `python3 scripts/lease.py run -- <the start command>`; every refusal names its next step |
 

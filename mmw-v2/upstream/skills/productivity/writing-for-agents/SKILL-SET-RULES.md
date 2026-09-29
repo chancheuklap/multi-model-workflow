@@ -39,7 +39,7 @@ Each sentence is tested against what the agent would do without it (`SKILL.md` `
 
 - **Duplication**: one meaning stated in two places across the set, counting a script's `--help`, its refusal text, a start prompt it builds and a template. Keep the copy the acting agent loads at the moment it acts; delete the others. When a third thing exists to reconcile two copies (a lint that compares them, a step that counts them), that is the reason to delete a copy, not to keep the reconciler.
 - **Cache** (`SKILL.md` `## Pruning`): text restating a script's `--help`, a config file, the tracker, or a skill the agent has loaded.
-- **No-op**: an instruction the model already follows by default, or an attitude where an action would do ("be careful", "make sure"). A stance is not an attitude: it names the temptation particular to this work and what to do instead (upstream `wayfinder`: "The pull to just do the work is usually the signal you've reached the edge of the map"), and a model does not hold it by default.
+- **No-op**: an instruction the model already follows by default, or an attitude where an action would do ("be careful", "make sure"). A stance is not a bare attitude: it names the temptation particular to this work and what to do instead (upstream `wayfinder`: "The pull to just do the work is usually the signal you've reached the edge of the map"), and a model does not hold it by default.
 - **Over-specification**: a numbered procedure for work a capable agent does unprompted; an if-then list that mirrors a script's branches; an enumeration of cases where one criterion covers them; a procedure added to enforce a rule. Replace it with the goal, the criterion and the one or two judgement calls the agent would get wrong.
 - **Over-defense**: text or a mechanism that guards a path that does not occur. Judge it with four questions: has it ever fired (the tracker history, logs, state files)? Is its case reachable by normal input? Is its premise true when measured, not reasoned? If it is removed, what handles the case? When the first two answers are no, delete it and state the residual risk once in the report.
 - **Sediment**: text that is not about the task at hand now.
@@ -97,7 +97,7 @@ A **hand-off** is an edge A → B: skill or agent A leaves something that B read
 
 ### Prompts written for other agents
 
-- A start prompt carries only what is known when the agent is started (the ticket number, a base commit, where the task came from). Rules reach the agent through the skill it loads; a ticket or spec is named and read from the tracker, not retold. A packet a model writes from a template counts as a start prompt, and the template lists everything the receiver needs.
+- A start prompt carries only what is known when the agent is started (the ticket number, a base commit, where the task came from). Rules reach the agent through the skill it loads; a ticket or spec is named and read from the tracker, not retold. A brief a model writes from a template counts as a start prompt, and the template lists everything the receiver needs.
 - Everything an agent must apply reaches it by one of two means: a skill or file its prompt tells it to load, or text pasted into the prompt. A rule the prompt says the agent applies, delivered by neither, is a broken hand-off. A rule stated both in a skill and in a prompt a script builds is duplication; the prompt keeps the data.
 - A subagent's brief states what it returns and its length (upstream `code-review`: "Under 400 words"), so its report fits the caller's attention.
 

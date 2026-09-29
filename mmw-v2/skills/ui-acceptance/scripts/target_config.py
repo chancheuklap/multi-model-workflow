@@ -130,8 +130,8 @@ def command_env(cwd: Path) -> dict[str, str]:
     Every command `.mmw/target.json` declares is run through here, so a repository is
     told which run it is in rather than having to work it out — and never has to invent
     an allocation of its own. Inventing one is how a machine ended up with five worktrees
-    sharing three fixed ports (2026-09-05): the contract's seven questions were all in
-    the singular, so nobody was ever asked.
+    sharing three fixed ports (2026-09-05): `.mmw/target.json`'s seven questions were all
+    in the singular, so nobody was ever asked.
 
     The variables reach the declared command and stop there. A repository translates
     them at the moment it starts a process, never into the session or the test
@@ -272,7 +272,7 @@ def target_main(argv: list[str]) -> int:
             print(f"  absent   {f.key} ({f.shape}, optional) — {f.what}")
     field_keys = {f.key for f in FIELDS}
     for key in sorted(set(cfg) - field_keys):
-        print(f"  stale  {key} — not used by the acceptance runtime; delete it")
+        print(f"  stale  {key} — no MMW script reads it; delete it")
     print("rules:")
     print("  automation uses placeholder keys, vendor stubs, and local accounts")
     print("  leaves_machine actions record under MMW_AUTOMATION=1")

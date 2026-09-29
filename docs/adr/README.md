@@ -20,9 +20,9 @@
 | 编号 | 标题 | 日期 | 改写了哪几份 | 被哪几份改写 |
 | --- | --- | --- | --- | --- |
 | [0001](0001-tracker-repo-authority.md) | tracker 与仓库文件的权威归属 | 2026-08-11 | 无 | 无 |
-| [0002](0002-ui-qa-binds-format-not-tool.md) | 界面 QA 绑设计系统的格式规范，不绑生成它的工具 | 2026-08-13 | 无 | 0004（见表下注：设计时截图检查 edit-pages，pull report） |
+| [0002](0002-ui-qa-binds-format-not-tool.md) | 界面 QA 绑设计系统的格式规范，不绑生成它的工具 | 2026-08-13 | 无 | 0004（见表下注：pull report，sign-off） |
 | [0003](0003-no-plugin-packaging.md) | MMW 不打包成插件，五个宿主由 `install.sh` 统一散装 | 2026-08-18 | 无 | 0006、0015 |
-| [0004](0004-design-system-trust-comes-from-lint.md) | 设计系统文件可不可信，由校验结果定，不由来源定 | 2026-08-21 | 0002 | 无（见表下注：设计时截图检查 edit-pages，pull report） |
+| [0004](0004-design-system-trust-comes-from-lint.md) | 设计系统文件可不可信，由校验结果定，不由来源定 | 2026-08-21 | 0002 | 无（见表下注：pull report，sign-off） |
 | [0005](0005-docs-layer-adopted-by-v2.md) | docs 文档层过继到 v2：tracker 配置落地，索引与编号脱离冻结 CLI | 2026-08-25 | 无 | 无 |
 | [0006](0006-skills-install-to-neutral-dir.md) | 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份 | 2026-08-26 | 0003 | 0015 |
 | [0007](0007-prompt-source-lives-in-repo.md) | 用户级提示词的源放在仓库里，host 目录只放软链或生成物 | 2026-09-05 | 无 | 无 |
@@ -51,7 +51,7 @@
 | [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 无 |
 | [0031](0031-worker-start-memory-is-a-searched-index.md) | worker 开工时拿到两份有上限的 Memory 索引：相关经验用本票 `## Owns` 路径和各级标题的短查询搜出，不用 spec 或 map 正文 | 2026-09-18 | 无 | 无 |
 
-0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由设计时截图检查（design-pages `references/edit-pages.md`）与 pull report（`references/pull.md`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
+0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
 ## 编号在本仓库以外仍会出现
 

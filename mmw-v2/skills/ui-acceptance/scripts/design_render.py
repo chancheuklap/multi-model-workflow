@@ -42,10 +42,10 @@ CLOCK_EPOCH_MS = 1_700_000_000_000
 VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)$")
 
 
-# ---------------------------------------------------------------- the contract
+# --------------------------------------------------------- the screen contract
 @dataclass
 class Scene:
-    """One screen declaration of the contract, joined with its `scenes.json` entry."""
+    """One screen declaration of the screen contract, joined with its `scenes.json` entry."""
     name: str
     page: str
     mount: str
@@ -84,12 +84,12 @@ def load_yaml(path: Path) -> dict:
 
 
 def load_contract(path: Path, doc: dict | None = None) -> dict:
-    """Read the contract, or reuse a dict already loaded from `path`."""
+    """Read the screen contract, or reuse a dict already loaded from `path`."""
     if doc is None:
         doc = load_yaml(Path(path))
     for key in ("pages", "scenes"):
         if key not in doc:
-            raise SystemExit(f"{path}: contract has no top-level `{key}`; run write-screen-contract "
+            raise SystemExit(f"{path}: screen contract has no top-level `{key}`; run write-screen-contract "
                              f"step 2 to declare pages")
     return doc
 
@@ -235,7 +235,7 @@ def wrapper_page(component: str, props: dict, inline_head: str = "", lang: str |
     from state by a `<select>`. `inline_head` is
     served as part of the page, which is what the negative control needs: an error that
     is in the bytes the server sends, not injected by the client.
-    `lang` is the contract's locale, written on `<html>`: the browser picks the fallback
+    `lang` is the screen contract's locale, written on `<html>`: the browser picks the fallback
     face for Chinese, Japanese and Korean text from it, as it does on the product's page.
     """
     attrs = []

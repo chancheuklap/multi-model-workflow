@@ -1,4 +1,4 @@
-"""The closing gate: who it governs, what it stops, and what it says.
+"""The tool guard: who it governs, what it stops, and what it says.
 
 Every test drives `tool-guard.py` the way a host does — one event as JSON on stdin, one
 answer as JSON on stdout. `pretool` reads the working directory's basename;
@@ -523,7 +523,7 @@ class EndingAProcess(unittest.TestCase):
     Several tickets are worked on one machine at once. Another run's application is
     indistinguishable from a stuck one, and on 2026-09-05 a worker ended one to take its
     ports. The gate refuses the whole family rather than trying to work out whose process
-    it is — the same "refuses rather than checks" the closing gate above is built on,
+    it is — the same "refuses rather than checks" the `gh issue close` refusal above is built on,
     for the same reason: guessing wrong is the outcome the gate exists to prevent.
     """
 

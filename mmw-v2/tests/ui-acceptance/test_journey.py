@@ -605,7 +605,7 @@ class FixtureRepo(unittest.TestCase):
         self.assertIn("stop-ran", (root / ".mmw" / "stop-ran").read_text())
 
     def test_the_committed_demo_would_go_red_without_its_product(self):
-        """The fixture is a miniature of a real target: `start` brings a product up on
+        """The fixture is a miniature of a real product under test: `start` brings a product up on
         this run's own port, `stop` ends the pid it recorded, and the journey asserts
         something only that product answers. Its `JOURNEY OK` above therefore means the
         control pass went red, which is the whole point of committing it."""

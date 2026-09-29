@@ -1,6 +1,6 @@
 # Ticket run
 
-One ticket from claim to close: the sessions that work and judge it, the events they leave on it, the runs of its criteria, the code review, the advisor, the closing steps and the gate that closes it. Everything this part of the pipeline knows is written on the ticket, where the next session reads it with an empty context.
+One ticket from claim to close: the sessions that work and judge it, the events they leave on it, the runs of its criteria, the code review, the advisor, the closing steps and the closeout. Everything this part of the pipeline knows is written on the ticket, where the next session reads it with an empty context.
 
 ## Language
 
@@ -11,7 +11,7 @@ The session dispatched to work one ticket from claim to closing comment, running
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **reviewer**:
-The session a worker starts with `dispatch.sh start <n> reviewer` to review the ticket's diff from a base commit with the `code-review` skill; its report is the **review comment**. Its code-review axes run inside it.
+The session a worker starts with `dispatch.sh start <n> reviewer` to review the ticket's diff from a base commit with the `code-review` skill; its report is the **review report**. Its code-review axes run inside it.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **advisor**:
@@ -45,8 +45,8 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 The index of `mmw-experience` Memory records a worker's start finds by searching the ticket's `## Owns` paths and the ticket, spec and map titles, put into the start prompt.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
-**capture gate**:
-`implement`'s three-condition test for when a Memory is worth saving: another ticket or later agent may reuse the fact, a current command result or authority verifies it, and the ticket and code do not already make it obvious.
+**save conditions**:
+`implement`'s three conditions that must all hold before a Memory is saved: another ticket or later agent may reuse the fact, a current command result or authority verifies it, and the ticket and code do not already make it obvious.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **`MMW_TICKET`**:
@@ -61,8 +61,8 @@ _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 ### Comments on the ticket
 
-**ticket comment**:
-One comment a script or an agent leaves on a ticket. Every one a script leaves is an **event**; a comment an agent types is prose, which no program reads.
+**issue comment**:
+One comment a script or an agent leaves on a tracker issue: a ticket, a spec or a child. Every one a script leaves is an **event**; a comment an agent types is prose, which no program reads.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **event**:
@@ -73,8 +73,12 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 A ticket's state, computed and stored nowhere: the ticket's comments read in comment-id order and their events replayed from an empty state. `events.py fold <issue>` prints it.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
+**hold**:
+What a `ticket.claimed` or any `*.started` begins on a ticket, and what the events after it end: `ENDS_EVERY_HOLD` ends every hold on the ticket, `ENDS_ONE_HOLD` the hold of the one session it names, and `reviewer.reported` its own reviewer's. `ticket.passed` ends none, and no label ends one. Distinct from **`blocker_hold`** and from the night's `HOLD` **plan line**.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
+
 **held**:
-What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. Distinct from a product **slot**, which a worktree keeps until its ticket's work ends, and from **`blocker_hold`**, another ticket's hold on this one.
+What the fold says of a ticket an agent may still be working: it stays off the frontier and `advance` does not give its claim back. Distinct from a product **slot**, which a worktree keeps until its ticket's work ends, and from **`blocker_hold`**, the wait on a blocker that has not landed.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`blocker_hold`**:
@@ -91,7 +95,7 @@ _Avoid_: closed (for this; a closed ticket may not have landed)
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **first line**:
-The first line of a ticket comment: prose for a person on an event, and a script's input on a closing-comment draft (`ALL MET`, `HANDOFF REQUIRED:`), on a review report (`REVIEW <base commit>..<HEAD commit>`) and on a child's file (its title).
+The first line of an issue comment: prose for a person on an event, and a script's input on a closing-comment draft (`ALL MET`, `HANDOFF REQUIRED:`), on a review report (`REVIEW <base-commit>..<HEAD commit>`) and on a child's file (its title).
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`worker.started`, `reviewer.started`**:
@@ -131,7 +135,7 @@ The events about one worker session after its start, each naming it by runner an
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`reviewer.reported`**:
-The event `verify-ticket.py <n> --review <file>` posts carrying the **review comment**. The relay turns it into the worker's wake.
+The event `verify-ticket.py <n> --review <file>` posts carrying the **review report**. The relay turns it into the worker's wake.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/events.py`
 
 **`reviewer.lost`**:
@@ -160,7 +164,7 @@ _Avoid_: the five questions (`to-tickets`' own name for a different five-step la
 _Home_: `mmw-v2/skills/verify-ticket/references/sub-issues.md`
 
 **`ticket.checked`**:
-One run of a ticket's criteria, or of the repository's `checks`, on one commit. Its `run` says whose: `self`, `reverify`, `repo-checks` or `baseline`; its `stage` (`CHECK_STAGES`) groups those into `work`, `verify` or `close`.
+One run of a ticket's criteria, or of the repository's `checks`, on one commit. Its `run` says whose: `self`, `reverify`, `repo-checks` or `baseline`; its `stage` (`CHECK_STAGES`) groups those into `claim`, `work`, `verify` or `close`, and a `reverify` by the orchestrator (`actor` `main`) is `regress`.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **baseline run**:
@@ -179,8 +183,8 @@ _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 The event (the `DECISIONS` comment) `--decisions <file>` posts once, before the reviewer starts: the worker's `## Decisions I made on my own`, one line per decision, and `## Outside Owns`, one line per file changed outside `## Owns` with the reason. The Spec axis gives each line `reasonable` or `should not`.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
-**review comment**:
-The reviewer's report on the ticket, carried by `reviewer.reported`: first line `REVIEW <base commit>..<HEAD commit>`, then the axis reports, the refuted findings, and the in-ticket and out-of-ticket findings.
+**review report**:
+The reviewer's one report on the ticket, carried by `reviewer.reported`: first line `REVIEW <base-commit>..<HEAD commit>`, then the axis reports, the refuted findings, and the in-ticket and out-of-ticket findings.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **closing comment**:
@@ -222,7 +226,7 @@ The temporary `AC.md` file `verify-ticket.py` writes from `## Acceptance criteri
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **gate-check**:
-The judging program from unlazy: it runs each criterion's `CHECK:` in its own shell, counts the criterion met when the command exits 0 and its output matches `EXPECT:`, writes `EVIDENCE:`, and prints a summary line.
+The program from unlazy that runs each criterion's `CHECK:` in its own shell: it counts the criterion met when the command exits 0 and its output matches `EXPECT:`, writes `EVIDENCE:`, and prints a summary line.
 _Home_: `mmw-v2/upstream-unlazy/scripts/gate-check.mjs`
 
 **gate-lint**:
@@ -232,7 +236,7 @@ _Home_: `mmw-v2/upstream-unlazy/scripts/gate-lint.mjs`
 ### Code review
 
 **code review**:
-One review of a ticket's diff by the reviewer, ending with one **review comment**. Its in-ticket findings get one round of fixes and no second review.
+One review of a ticket's diff by the reviewer, ending with one **review report**. Its in-ticket findings get one round of fixes and no second review.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **axis**:
@@ -240,15 +244,15 @@ One dimension of a code review — Standards, Spec, Tests, and UI when the ticke
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **story criterion**:
-A `CHECK:` that names `story-parity.py`: what tells the reviewer to run a fourth axis, UI, and tells the worker that `references/writing-interface-code.md` applies.
+A `CHECK:` that names `story-parity.py`: what tells the reviewer to run a fourth axis, UI. `implement`'s `references/writing-interface-code.md` is read when **Read first** lists a screen contract, not because of this criterion.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
-**finding verdict**:
-The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or could not tell (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across `code-review` and `implement`.
+**Holds / `refuted` / Could not tell**:
+The one conclusion the reviewer renders on each axis finding by rereading the cited code, before it sorts the finding: **Holds** (the bad outcome does occur), `refuted` (checked, and it does not — moved to `## Withdrawn` with the disproof), or **Could not tell** (marked `unverified: <what would settle it>` on its in-ticket/out-of-ticket line). `refuted` is the same word a worker's closing comment uses for the same judgement, one name across `code-review` and `implement`.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
-**category**:
-The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: a Standards smell or `less-code`/`pass-through`, a Tests shape, a Spec or UI kind, or `documented-standard` for a breach of a rule the repository itself documents.
+**review category**:
+The name an axis gives one of its own findings on its `## In-ticket` / `## Out-of-ticket` line: a Standards smell or `less-code`/`pass-through`, a Tests shape, a Spec or UI kind, or `documented-standard` for a breach of a rule the repository itself documents. Distinct from the retro's categories (`retro.py` `CATEGORIES`).
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/session.md`
 
 **review finding**:
@@ -260,16 +264,15 @@ The Spec axis's three kinds of review finding: something the ticket, its named s
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/spec-reviewer.md`
 
 **`reasonable` / `should not`**:
-The Spec axis's one-word judgement of each line of the worker's `DECISIONS` comment: `reasonable` when the ticket or spec left a gap and the decision is the likeliest repair, `should not` when it goes against the ticket, a named spec section, `## Out of Scope`, or a baseline — itself a review finding of one of the three Spec kinds.
+The Spec axis's judgement of each line of the worker's `DECISIONS` comment, one of two values: `reasonable` when the ticket or spec left a gap and the decision is the likeliest repair, `should not` when it goes against the ticket, a named spec section, `## Out of Scope`, or a baseline — itself a review finding of one of the three Spec kinds.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/spec-reviewer.md`
 
-**four angles**:
-The Spec axis's four-way review of this ticket together with every ticket `dispatch.sh integrated <ticket>` lists as already integrated into the base branch: **Combination behavior** (behaviours that pass alone still work together), **Contract consistency** (data models, interfaces, schemas and registries agree across tickets), **Migration completeness** (migrations run in the right order with every companion present), and **Shared-state ownership** (both tickets agree on ownership, ordering and lifecycle of shared state). Another ticket's own passed verdict is evidence of what ran, not proof the combination is correct.
+**semantic-conflict angles**:
+The Spec axis's review of this ticket together with every ticket `dispatch.sh integrated <ticket>` lists as already integrated into the base branch, for semantic conflicts (Martin Fowler, SemanticConflict: changes that merge cleanly as text but make the program behave differently), from four angles: **Combination behavior** (behaviours that pass alone still work together), **Contract consistency** (data models, interfaces, schemas and registries agree across tickets), **Migration completeness** (migrations run in the right order with every companion present), and **Shared-state ownership** (both tickets agree on ownership, ordering and lifecycle of shared state). Another ticket's own passed verdict is evidence of what ran, not proof the combination is correct.
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/spec-reviewer.md`
 
-**undecorated / overall-look / design-page**:
-The UI axis's three kinds of review finding, each about what its story screenshots show that element parity does not already cover: **undecorated** (a design-page decoration with no `data-ui` id, so element parity cannot pair it, missing, extra or misplaced in the submitted story), **overall-look** (the submitted story's overall look against the design page, not named by any `DIFF` line), and **design-page** (the design page itself is drawn wrong).
-_Avoid_: design page (bare, for this finding kind — collides with **design package**, the pulled handoff directory)
+**`unpaired-decoration` / `overall-look` / `design-page-wrong`**:
+The UI axis's three kinds of review finding, each about what its story screenshots show that element parity does not already cover: **`unpaired-decoration`** (a design-page decoration with no `data-ui` id, so element parity cannot pair it, missing, extra or misplaced in the submitted story), **`overall-look`** (the submitted story's overall look against the design page, not named by any `DIFF` line), and **`design-page-wrong`** (the design page itself is drawn wrong; the repair is not a product change).
 _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/ui-reviewer.md`
 
 **Only the happy path**:
@@ -278,7 +281,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/tests-reviewe
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.
-_Home_: `AGENTS.md`
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 ### Claiming and handing back
 
@@ -287,7 +290,7 @@ _Home_: `AGENTS.md`
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`NOT_READY:`, `READY:`, `RESUME:`, `CARRIED:`**:
-The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY: <reason>` when it cannot (one of `wrong-branch`, `dirty-tree`, `not-open`, `not-ready`, `blocked`, `claimed-by-other`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim.
+The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY:` on stderr when it cannot, with a sentence saying why and what to do next (the refusal's code, `wrong-branch`, `dirty-tree`, `not-open`, `not-ready`, `blocked` or `claimed-by-other`, goes into the `ticket.refused` event's `reason`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:
@@ -304,20 +307,24 @@ _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 ### Working discipline
 
-**writing rules**:
+**code-writing rules**:
 The rules under `implement`'s `While writing code:` that govern every write on a ticket, the fixes of the review round included.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closing steps**:
-What `implement` does once the code is written, from integrating the base branch through the review, the final full run and the Audit to `--closeout`.
+What `implement` does once the code is written, from integrating the base branch through the review, the **final run** and the Audit to `--closeout`.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
+
+**final run**:
+`verify-ticket.py <n> --reverify --actor worker`, the worker's last run of every criterion, after the last step that writes a commit and with no fix round after it. `--closeout` accepts an `ALL MET` draft only when the newest such run is on `HEAD` and ran the ticket's current criteria.
+_Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`, `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`Audit`**:
 The closing step that reads the ticket once more against the branch, the way the user will read the closing comment: each point under `## What to build` holds in the product, not only in a test, and each baseline under `## Read first` is followed where it applies, with what does not hold said in the closing comment. It computes nothing itself: `Counts:` is `--closeout`'s own tally of the draft's `ABANDON:` lines.
 _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **closeout**:
-`verify-ticket.py <n> --closeout <draft>`, the closing gate: it checks the closing-comment draft against the ticket and the repository and, only when it passes, pushes the branch, closes the ticket or hands it back, and posts the closing comment as an event. A worker's command that would go around it is refused by `tool-guard.py`.
+`verify-ticket.py <n> --closeout <draft>`: it checks the closing-comment draft against the ticket and the repository and, only when it passes, pushes the branch, closes the ticket or hands it back, and posts the closing comment as an event. A worker's command that would go around it is refused by `tool-guard.py`.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 ### Writing interface code

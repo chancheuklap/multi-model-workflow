@@ -23,16 +23,20 @@ _Home_: `docs/adr/0015-no-custom-subagents.md`
 ### Places
 
 **MMW**:
-This toolbox (the toolbox): the skills the user shares across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a dispatched worker → a closed ticket) and the task board. Only `mmw-v2/` is live; `archive/`, `deprecated/` and `docs/research/` are frozen.
+This toolbox (the toolbox): the skills the user shares across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a dispatched worker → a closed ticket) and the task board. Only `mmw-v2/` is live; `archive/` (the previous generation), `deprecated/` (what v2 retired) and `docs/research/code-landing-refs/` (read-only snapshots of third-party repositories) are kept for history, and the rest of `docs/research/` holds research notes a spec may cite.
 _Home_: `AGENTS.md`
 
 **consuming repository**:
-A repository whose real tickets run through the pipeline and which holds the `.mmw/` acceptance runtime, its screen contracts and its `prototypes/`. This repository is one too, for its own task board tickets.
+A repository whose real tickets run through the pipeline and which holds its **product answers** in `.mmw/`, its screen contracts and its `prototypes/`. This repository is one too, for its own task board tickets.
 _Home_: `AGENTS.md`
 
 **repository root**:
 `git rev-parse --show-toplevel`: the working directory of every `CHECK:` unless a `CWD:` line moves it.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+
+**main worktree**:
+The working tree of the repository's own clone, as against the linked worktrees `git worktree add` makes (git-worktree(1): "A repository has one main worktree … and zero or more linked worktrees"). Every worktree the pipeline makes, and this repository's **installed checkout**, sits under its `.worktrees/`. Distinct from the **repository root**, which inside a ticket worktree is that worktree's top level.
+_Home_: `AGENTS.md`
 
 **subtree**:
 How an upstream repository is carried inside this one (`git subtree pull --prefix … --squash`): `mmw-v2/upstream/` is `mattpocock/skills`, `mmw-v2/upstream-diagram-design/` is `cathrynlavery/diagram-design`, `mmw-v2/upstream-unlazy/` is `Leonxlnx/unlazy`. A change to a skill inside one, or to unlazy's scripts, gets a **merge-note**.
@@ -55,17 +59,21 @@ The host-neutral install location `install.sh` fills on every machine, scanned b
 _Home_: `docs/adr/0006-skills-install-to-neutral-dir.md`
 
 **stale link**:
-A symlink or hook registration that points back into this repository but is not on the install list, or a link left in a **retired** location. `install.sh --check` reports it as `残留` and `install.sh` removes it.
+A symlink, host hook registration or generated Paseo Agent profile that this repository installed and no longer installs, or a link left in a **retired** location. `install.sh --check` reports each as a `残留` line and `install.sh` removes it.
 _Home_: `mmw-v2/install.sh`
 
 **retired**:
-The state of an install location `install.sh` empties and does not install into although its host still scans it (the four per-host `skills/` directories and the six subagent directories), and of a skill or subagent moved to `deprecated/`. Distinct from a frozen directory (`archive/`, `deprecated/`, `docs/research/`), which is kept as it is.
+The state of an install location `install.sh` empties and does not install into although its host still scans it (the four per-host `skills/` directories and the six subagent directories), and of a skill or subagent moved to `deprecated/`. Distinct from the directories `AGENTS.md` keeps for history (`archive/`, `deprecated/`, `docs/research/code-landing-refs/`), which stay as they are.
 _Home_: `mmw-v2/install.sh`
 
 **issue tracker**:
 GitHub Issues for this repository (the tracker), every operation through `gh`: it holds the specs, tickets and children, their parent–child relations and blocking edges, the claims and the events.
 _Avoid_: board (for the tracker; the task board is the local web page)
 _Home_: `docs/agents/issue-tracker.md`
+
+**Memory record**:
+One memory in Nowledge Mem, kept in the **repository Space** and found by its labels: a worker's saved fact carries `mmw-experience`, `mmw-spec-<n>`, `mmw-ticket-<n>` and, for a map task, `mmw-map-<n>`; the night's **Retro Memory** carries `mmw-retro`.
+_Home_: `mmw-v2/upstream/skills/engineering/implement/references/saving-memory.md`
 
 **`docs/agents/`**:
 The three files the `setup-matt-pocock-skills` skill seeds once — `issue-tracker.md`, `triage-labels.md`, `domain.md` — from which the upstream skills read this repository's tracker commands, labels and domain docs.
@@ -93,8 +101,8 @@ _Home_: `AGENTS.md`
 The one list deciding which skills `install.sh` installs, one `<root>/<name>` line per skill.
 _Home_: `mmw-v2/install.sh`
 
-**`tests/run.sh`**:
-The hand-run test entry point of one skill or subsystem, one directory each under `mmw-v2/tests/`. There is no aggregate runner.
+**`mmw-v2/tests/<name>/run.sh`**:
+The hand-run test entry point of one skill or subsystem, one directory each under `mmw-v2/tests/`. There is no aggregate test runner.
 _Home_: `mmw-v2/tests/AGENTS.md`
 
 **merge-note**:
@@ -106,18 +114,18 @@ One note per change in this repository that invalidates a consuming repository's
 _Home_: `mmw-v2/downstream-notes/README.md`
 
 **`disable-model-invocation` pairing**:
-The rule that a skill's frontmatter `disable-model-invocation: true` (read by Claude Code) and its `agents/openai.yaml` `policy.allow_implicit_invocation: false` (read by Codex) say the same thing — the skill fires only when the user names it — and change together: touching one without the other leaves a skill user-triggered on half the hosts and model-triggered on the rest.
+The rule that a skill's frontmatter `disable-model-invocation: true` (read by Claude Code) and its `agents/openai.yaml` `policy.allow_implicit_invocation: false` (read by Codex) say the same thing — the skill fires only when the user names it — and change together: touching one without the other leaves a skill user-invoked on half the hosts and model-invoked on the rest.
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **`models.json`**:
-The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per dispatched agent — `junior-worker`, `senior-worker`, `reviewer`, `advisor` — with its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
+The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per role, the dispatched agent it configures (`junior-worker`, `senior-worker`, `reviewer`, `advisor`), with its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **`effort`**:
-The `effort` field of a `models.json` row: the reasoning effort the host is started with (`high`, `xhigh`, `medium`, …). How each host takes it is in `hosts.json`.
+The `effort` field of a `models.json` row: the reasoning effort the host is started with (`high`, `xhigh`, `medium`, …). How each host takes it is in `hosts.json`. Distinct from ui-acceptance's **effort** (`<effort>`), a development effort's directory name.
 _Home_: `mmw-v2/skills/dispatch/hosts.json`
 
-**permissions**:
+**permission mode**:
 How a dispatched session is started: with every tool granted, spelled per host in `hosts.json`. There is no read-only value, so an agent that must not write is a subagent told to read only.
 _Home_: `mmw-v2/skills/dispatch/hosts.json`
 
@@ -127,6 +135,10 @@ _Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
 **`MMW_CATALOG_MODE`**:
 The variable naming the catalog `models.py` resolves a row's model name against: `paseo` for Paseo's provider catalog, `cli` (the default) for the host's own CLI. `dispatch.sh` sets it from the selected runner.
+_Home_: `mmw-v2/skills/dispatch/scripts/models.py`
+
+**catalog**:
+The models one host offers, each with the reasoning efforts it takes, read from the source the selected runner starts sessions through: Paseo's provider catalog for `paseo`, the host's own CLI otherwise (`MMW_CATALOG_MODE`). Reading every host's catalog is the scan (`models.py` `scan_host_catalogs`), and `models.json` accepts a row only with a model and `effort` the scan offered.
 _Home_: `mmw-v2/skills/dispatch/scripts/models.py`
 
 **`install.sh`**:
@@ -145,12 +157,12 @@ _Home_: `mmw-v2/install.sh`
 The rule that while this repository consumes its own landing pipeline, the runtime for the whole open watch is the checkout named in `~/.mmw/installed-root` when the watch opened — its skills, scripts, prompts, event vocabulary, relay and watchdog held as one frozen version until the watch closes.
 _Home_: `AGENTS.md`
 
-**frozen checkout**:
-The installed checkout a watch holds fixed for its whole duration, under the self-hosting boundary. Distinct from a frozen directory (`archive/`, `deprecated/`, `docs/research/`), which stays as it is indefinitely and for an unrelated reason.
+**installed checkout**:
+The checkout whose `mmw-v2/` directory `~/.mmw/installed-root` records, and which every host symlink points at; in this repository, the hand-made worktree `.worktrees/mmw-installed`. A watch holds it fixed for its whole duration, under the **self-hosting boundary**.
 _Home_: `AGENTS.md`
 
 **the four promotion steps**:
-The fixed order that finishes a change to this toolbox itself, taking it from `dev` to every host: commit on `dev`; fast-forward `main` to it; move the installed worktree to `main` and confirm with `install.sh --check`; push both. The third step waits while any watch is open.
+The fixed order that finishes a change to this toolbox itself, taking it from `dev` to every host: commit on `dev`; fast-forward `main` to it; move the installed checkout to `main` and confirm with `install.sh --check`; push both. The third step waits while any watch is open.
 _Avoid_: release (bare; risks reading as `exe-release`'s shipping of a product, a different act defined in `docs/contexts/release/CONTEXT.md`)
 _Home_: `AGENTS.md`
 
@@ -159,7 +171,7 @@ The line both install modes print once every host hook is in place.
 _Home_: `mmw-v2/install.sh`
 
 **`没查` / `不一致`**:
-`install.sh --check`'s two diagnostic words for one runner adapter's binary: "not checked" when its help page cannot be read, "inconsistent" when a flag the adapter's `# MMW_USES:` declares is gone from it.
+`install.sh --check`'s two diagnostic words: `没查` ("not checked") for a check that could read nothing (a runner adapter's binary whose help page cannot be read, Orca's settings, the Nowledge Mem objects), `不一致` ("inconsistent") when a flag a runner adapter's `# MMW_USES:` declares is gone from its binary.
 _Home_: `mmw-v2/install.sh`
 
 **`MMW_V2_HOME`**:
@@ -198,13 +210,17 @@ _Home_: `mmw-v2/upstream/skills/engineering/research/SKILL.md`
 The fixed three-part shape every script refusal in this repository takes: what happened, with one checkable fact; why; what to do next. A check that can verify nothing says so rather than reading like a pass.
 _Home_: `CODING_STANDARDS.md`; built by the `ui-acceptance` skill's `scripts/refusal.py`
 
-**shared preflight checks**:
-The three checks every skill's or subsystem's `tests/run.sh` runs before its own: `check_module_paths.py` (a script names a module file that no longer exists), `check_upstream_em_dashes.py` (an em-dash outside a fenced code block in an upstream skill's Markdown), `check_own_skill_frontmatter.py` (invalid YAML, or a key beyond `name`/`description`, on one of this repository's own skills). Distinct from `verify-ticket.py --preflight`, a worker's first step on a ticket (`docs/contexts/ticket-run/CONTEXT.md`).
+**shared lints**:
+The three checks every `mmw-v2/tests/<name>/run.sh` runs before its own: `check_module_paths.py` (a script names a module file that no longer exists), `check_upstream_em_dashes.py` (an em-dash outside a fenced code block in an upstream skill's Markdown), `check_own_skill_frontmatter.py` (invalid YAML, or a key beyond `name`/`description`, on one of this repository's own skills).
 _Home_: `AGENTS.md`
 
 ### Skill-set review
 
 Vocabulary of `writing-for-agents`' `SKILL-SET-RULES.md` and `REVIEWING-A-SKILL-SET.md`: the rules and the review method this repository applies to its own skill set.
+
+**skill set**:
+The skills one install list ships (in MMW, `mmw-v2/skills.txt`), with their references and scripts, run by agents that each load only their own part; the unit `SKILL-SET-RULES.md` checks and `REVIEWING-A-SKILL-SET.md` reviews.
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **moment**:
 A point in a task that needs one coherent set of material and that a given run may reach without the others: a role arriving, one branch of a choice, a re-entry later in the same task. Inside a moment the agent follows steps.
@@ -263,12 +279,24 @@ A skill kept in an upstream subtree, or adapted from one, entering the set as it
 _Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **skill-set-review finding**:
-An established problem in a skill's text or structure, always fixed once evidenced — there are no severity levels. Distinct from ticket-run's review finding, and from the bare word "finding" `exe-release` uses for a build-failure diagnosis (`docs/contexts/release/CONTEXT.md`).
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
+An established problem in a skill's text or structure, always fixed once evidenced — there are no severity levels. Distinct from ticket-run's **review finding** and release's **release finding**.
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/REVIEWING-A-SKILL-SET.md`
 
 **load finding**:
 A skill-set-review finding that happens on every run of a task: material read but unused, a jump, a fragment, duplication, a cache, a no-op, over-specification.
 _Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/REVIEWING-A-SKILL-SET.md`
+
+**failure finding**:
+A skill-set-review finding that an agent ends wrong or stuck, naming how that occurs where the set is actually used: the user's setup, the tracker history of past runs, or an input a script receives in normal use. A path nobody takes is not one, and text guarding such a path is an **over-defense**.
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/REVIEWING-A-SKILL-SET.md`
+
+**wording finding**:
+A skill-set-review finding about a sentence that misled, fixed in that sentence rather than by adding a second sentence to correct it. Distinct from a **load finding**, which is fixed in the structure.
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
+
+**`Done when` line**:
+The line, beginning `Done when`, on which the set's own text states a step's or a task's completion criterion. A step without one, or two statements of what "done" means for one task, is a finding.
+_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
 
 **cognitive walkthrough**:
 The review method of `REVIEWING-A-SKILL-SET.md` (the usability-inspection method): for each task an agent does with the set, read and run what that agent would, in its order, holding nothing it would not hold.
@@ -297,7 +325,7 @@ _Home_: `mmw-v2/skills/code-checkers/references/python.md`
 The fallback for a checker with no baseline mechanism: intersect its JSON output's line numbers with `git diff --unified=0`, after normalising both sides to the same path form.
 _Home_: `mmw-v2/skills/code-checkers/SKILL.md`
 
-**the one command**:
+**checker command**:
 The single command a repository's `AGENTS.md` names that runs every installed checker, reporting only, with a flag for the fixes safe to apply automatically; in a consuming repository this is what `.mmw/target.json`'s `checks` runs.
 _Home_: `mmw-v2/skills/code-checkers/SKILL.md`
 
@@ -318,7 +346,7 @@ A repository whose git config sets `core.hooksPath` never executes `.git/hooks/`
 _Home_: `mmw-v2/skills/code-checkers/references/git-hooks.md`
 
 **probe**:
-Planting a defect that must fail, running the checker or a real commit, confirming the failure, then deleting it — the only way to trust that a checker reporting zero problems is clean rather than silently broken.
+A deliberately planted input with a known outcome, run through a checker or a real commit and then deleted: a defect that must fail, so a zero means clean rather than silently broken, or one clean line in a file with existing findings that must pass, so the checker baseline or changed-lines filter does not block clean edits. Distinct from an oracle's **negative control** (ui-acceptance), a pass built into the oracle itself.
 _Home_: `mmw-v2/skills/code-checkers/SKILL.md`
 
 ### Managing AGENTS.md
@@ -328,20 +356,28 @@ The one file, `survey-list.md` in the scratch directory, that merges every group
 _Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 
 **survey entry**:
-One line of the survey list, naming one fact an `AGENTS.md` might carry. Its fields, listed in its `_Home_`, decide where the fact goes and whether it is written at all.
+One line of the survey list, naming one fact an `AGENTS.md` might carry. Its fields, listed in its `_Home_`, decide where the fact goes and whether it is written at all; its `type` is one of `command`, `convention`, `gotcha`, `reference`, `defect` and `purpose` from the survey, or `identity` and `purpose` for the user's answers, and decides which section takes it (a `defect` goes to the report, never into a file).
 _Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 
-**domain section**:
+**`<important if>` block**:
 An `<important if="...">` block in an `AGENTS.md`, gathering every convention or gotcha entry that shares one `when` value, read only by tasks of that kind.
 _Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 
+**assignment**:
+The share of the repository one survey group reads, sent in that group's copy of the prompt template: a topic (toolchain, documents, history, patterns) feeding the root file, or everything under one top-level directory. Assignments are split so each fits one session.
+_Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
+
+**command rule**:
+The `### Writing rules` bullet that keeps a command in an `AGENTS.md` only when `--help` and the manifest's scripts do not give its meaning; on a rewrite every command of the old file passes through it.
+_Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
+
 **recommended answer**:
-The suggested answer `manage-agents-md` puts beside each fixed question to the user, drawn from the survey list, so the user confirms or corrects it instead of composing one from nothing. Grilling's merge-note names the same pattern for its own skill, independently.
+The suggested answer `manage-agents-md` puts beside each fixed question to the user, drawn from the survey list, so the user confirms or corrects it instead of composing one from nothing. The term and the pattern are upstream `grilling`'s own.
 _Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 
 **nested pair**:
 An `AGENTS.md` and `CLAUDE.md` written for one directory that earned its own file, because an agent working there would break something it would not notice from the root file alone.
-_Home_: `mmw-v2/skills/manage-agents-md/references/create.md`
+_Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 
 **situation** (create / rewrite):
 `manage-agents-md`'s two entry points, chosen by whether the repository already has an instruction file: create starts from nothing, rewrite migrates what exists.
@@ -369,16 +405,16 @@ _Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 
 ### This repository's additions to other upstream skills
 
-**`visual` tag**:
-`wait-what`'s own routing flag: the bare argument `visual`, recognised as plain text rather than through `$ARGUMENTS`, sends the skill to `VISUAL.md` instead of its default text-only rerun.
+**`visual` argument**:
+`wait-what`'s own argument: `/wait-what visual`, recognised as plain text rather than through `$ARGUMENTS`, sends the skill to `VISUAL.md` instead of its default re-pitch in words.
 _Home_: `mmw-v2/merge-notes/wait-what.md`
 
 **`VISUAL.md`**:
-This repository's own reference file for `wait-what` — not in the upstream subtree, unaffected by a subtree pull — which draws an HTML page through the `diagram-design` skill instead of rerunning the explanation as text.
+This repository's own reference file for `wait-what` — not in the upstream subtree, unaffected by a subtree pull — which draws an HTML page through the `diagram-design` skill instead of re-pitching the explanation as text.
 _Home_: `mmw-v2/merge-notes/wait-what.md`
 
-**stage note** (wizard):
-`wizard`'s own field marking a stage's click path as written from memory rather than verified, so a later console redesign is easier to find and fix.
+**`note`** (wizard):
+The `template.sh` library function that prints one dim hint line in a stage. This repository's addition is the rule that a click path written from memory rather than from current docs gets a `note` saying so, so a later console redesign is easier to find and fix.
 _Home_: `mmw-v2/merge-notes/wizard.md`
 
 **self-contained page**:
@@ -386,8 +422,7 @@ _Home_: `mmw-v2/merge-notes/wizard.md`
 _Home_: `mmw-v2/merge-notes/teach.md`
 
 **`GLOSSARY.md`** (Teaching Workspace):
-`teach`'s own addition to the Teaching Workspace file list: one name per concept, used by every lesson and learning record in that workspace.
-_Avoid_: not to be confused with this repository's own `CONTEXT.md` glossary
+`teach`'s own addition to the Teaching Workspace file list: one name per concept, used by every lesson and learning record in that workspace. Distinct from this repository's own `CONTEXT.md` glossaries.
 _Home_: `mmw-v2/merge-notes/teach.md`
 
 **`repo-root` symlink**:

@@ -1141,7 +1141,7 @@ def runner_name(environ: Mapping[str, str] | None = None) -> str:
 
 
 def paseo_run_args(host: str, model: str, effort: str) -> list[str]:
-    """The `paseo run` flags for a host: provider/model, mode and thinking level.
+    """The `paseo run` flags for a host: provider/model, mode and thinking option.
 
     `paseo run` carries `--mode` and `--thinking` and no other setting (Paseo 0.7.2,
     `cli/dist/commands/agent/run.js`), so a host's `features` are not passed.

@@ -1,6 +1,6 @@
 # Task board
 
-The local browser page over the pipeline's work: one small HTTP server per registered consuming repository, reading that repository's ticket state from the tracker and reading or writing this machine's agent configuration. The command that opens it, `dispatch.sh board`, is defined in `docs/contexts/night/CONTEXT.md`. Every fact the page reads about a ticket, spec, map or decision — its number, title, events, blocking edges — is named by the term the other five contexts give it, in English. What belongs here is the page's own vocabulary: the names it coins for how it presents those facts, and for keeping what it shows current.
+The local browser page over the pipeline's work: one small HTTP server per registered consuming repository, reading that repository's ticket state from the tracker and reading or writing this machine's agent configuration. The command that opens it, `dispatch.sh board`, is defined in `docs/contexts/night/CONTEXT.md`. Every fact the page reads about a ticket, spec, map or decision — its number, title, events, blocking edges — is named by the term the other six contexts give it, in English. What belongs here is the page's own vocabulary: the names it coins for how it presents those facts, and for keeping what it shows current.
 
 ## Language
 
@@ -11,7 +11,7 @@ The local browser page for reading a spec's ticket state and editing this machin
 _Home_: `mmw-v2/board/server.py`
 
 **`boards.json`**:
-The machine-level registry at `MMW_HOME/boards.json` mapping each consuming repository's main-checkout path to its task board's fixed local port. It holds no ticket or model state.
+The machine-level registry at `MMW_HOME/boards.json` mapping each consuming repository's **main worktree** path to its task board's fixed local port. It holds no ticket or model state.
 _Home_: `mmw-v2/board/supervisor.py`
 
 **`supervisor.py`**:
@@ -19,8 +19,8 @@ _Home_: `mmw-v2/board/supervisor.py`
 _Home_: `mmw-v2/board/supervisor.py`
 
 **page token**:
-The secret `server.py` mints at every start and hands to the page, which sends it back as the `X-MMW-Token` header on every non-`GET` request. A write from another origin, a stale page or a bare `curl` is refused.
-_Home_: `mmw-v2/board/server.py`
+The secret `server.py` mints at every start and hands to the page, which sends it back as the `X-MMW-Token` header on every non-`GET` request. A write from another origin, a stale page or a bare `curl` is refused. This repository's own product answers read it from `<meta name="mmw-page-token">` as their liveness proof and instance check.
+_Home_: `mmw-v2/board/server.py`, `.mmw/harness/target.py`
 
 **`codeversion.py`**:
 `mmw-v2/board/codeversion.py`'s `Watch`, which fingerprints `board/*.py` and the five scripts in `LOADED` and reports a change only once two reads agree: `server.py` exits on it for the supervisor to start it again, and `supervisor.py` stops its servers and re-`execv`s itself.
@@ -28,9 +28,13 @@ _Home_: `mmw-v2/board/codeversion.py`
 
 ### What the page shows
 
+**page regions**:
+The four areas of the task board page, each a `Component · ` page of the screen contract: the top bar (`顶栏`), the left column (`任务列表`), the canvas (`画布`) and the detail column (`详情`). The settings sheet (`本机配置`) is a dialog over them, not a region.
+_Home_: `docs/specs/task-board/screen-contract.yaml`, `mmw-v2/board/page/app.mjs`
+
 **The Night**:
-What the task board calls one row of its left column and the tree it opens on the canvas: one top-level map, or a spec no open map holds, with every spec and ticket under it. Distinct from a **night**, one run of one spec's tickets.
-_Home_: `mmw-v2/board/page/tasks.mjs`
+The task board's label for one top-level map, or a spec no open map holds, with every spec and ticket under it: the left column's title over their rows, with their count, and the detail column's eyebrow over a map (a standalone spec's eyebrow is `Spec`). Distinct from a **night**, one run of one spec's tickets.
+_Home_: `mmw-v2/board/page/tasks.mjs`, `mmw-v2/board/page/detail.mjs`
 
 **lamp**:
 The dot in front of every issue row, and the four counters in the top bar, saying what the issue wants from outside it: `needs you`, `running`, `done` or `queued`. Distinct from the **phase pill**, which says where a ticket stands inside its own run.
@@ -40,7 +44,7 @@ _Home_: `mmw-v2/board/page/board-logic.mjs`
 The capsule on every ticket card saying where the ticket stands inside its own run — `queued`, `working`, `waiting`, `review`, `verify` or `landed` — computed from the ticket's fold and its event history. Distinct from the **phase** column of `status` and from the `stage` field of an event.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
-**event name**:
+**event display name**:
 The English phrase an event row of the detail column shows for a pipeline **event** (Worker started, Ticket claimed, …), in place of the dotted identifier.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
@@ -53,7 +57,7 @@ The reasons a ticket's lamp is orange, listed in the detail column's "Needs you"
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
 **event block**:
-One run of a ticket's event history sharing one phase, shown in the detail column collapsed to its most telling event and the time span it covers; only the newest block, and one whose events need attention, open by default.
+One stretch of consecutive events in a ticket's history sharing one phase, shown in the detail column collapsed to its most telling event and the time span it covers; only the newest block, and one whose events need attention, open by default.
 _Home_: `mmw-v2/board/page/board-logic.mjs`
 
 ### The canvas
@@ -67,17 +71,17 @@ One curve the canvas draws between two cards: a trunk line from a map to its spe
 _Home_: `mmw-v2/board/page/canvas.mjs`, `mmw-v2/board/page/board-logic.mjs`
 
 **closeout bar**:
-The stripe the canvas draws on a ticket card whose `closeout` field is set: the ticket was itself opened by a closing pass's `route`, out of a finding on the ticket its `closeout.from` names. Distinct from **closeout**, `verify-ticket.py`'s closing gate.
+The stripe the canvas draws on a ticket card whose `closeout` field is set: the ticket was itself opened by a closing pass's `route`, out of a finding on the ticket its `closeout.from` names. Distinct from **closeout**, `verify-ticket.py --closeout`.
 _Home_: `mmw-v2/board/page/canvas.mjs`, `mmw-v2/board/board_data.py`
 
 ### Reading and refreshing
 
 **read-state line**:
-The line beside the topbar's counters naming when `tasks` was last read: quiet after an ordinary read, and hatched with the failed read's time and how long ago when GitHub could not be read and the page is showing the last good data instead.
+The line beside the top bar's counters naming when `tasks` was last read: quiet after an ordinary read, and hatched with the failed read's time and how long ago when GitHub could not be read and the page is showing the last good data instead.
 _Home_: `mmw-v2/board/page/topbar.mjs`
 
-**board feed**:
-The background read of `GET /api/board` that `app.mjs` starts once immediately and repeats every 60 seconds while the page is visible, feeding the same repaint the topbar's manual refresh uses.
+**board polling**:
+The background read of `GET /api/board` that `app.mjs` starts once immediately and repeats every 60 seconds while the page is visible, feeding the same repaint the top bar's manual refresh uses.
 _Home_: `mmw-v2/board/page/board-feed.mjs`
 
 **signature**:
@@ -87,11 +91,11 @@ _Home_: `mmw-v2/board/page/app.mjs`
 ### The settings sheet
 
 **settings sheet**:
-The dialog the topbar's gear opens, showing and editing this machine's `models.json`: one row per agent (host, model, effort) and the runner, validated and saved through `PUT /api/settings`. It writes nothing to GitHub.
+The dialog the top bar's gear opens, showing and editing this machine's `models.json`: one row per agent (host, model, effort) and the runner, validated and saved through `PUT /api/settings`. It writes nothing to GitHub.
 _Home_: `mmw-v2/board/page/settings.mjs`
 
 **host chip**:
-One tag in the settings sheet's host row, one per host `hosts.json` names: solid when this machine's scan says the host answers, dashed for every other state (not installed, silent, Paseo not running, or not launchable on the selected runner).
+One chip in the settings sheet's host row, one per host `hosts.json` names: solid when this machine's scan says the host answers, dashed for every other state (not installed, silent, Paseo not running, or not launchable on the selected runner).
 _Home_: `mmw-v2/board/page/settings.mjs`, `mmw-v2/board/page/local-config.mjs`
 
 **hatched**:

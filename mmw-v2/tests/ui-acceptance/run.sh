@@ -34,7 +34,7 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-# A lease registry of its own. The driver claims this machine's instance slots before it
+# A lease registry of its own. The driver acquires this machine's instance slots before it
 # runs any command a repository declares, so a suite that exercises that path would
 # otherwise fill the real registry with directories that stop existing when it ends.
 MMW_HOME="$(mktemp -d)"

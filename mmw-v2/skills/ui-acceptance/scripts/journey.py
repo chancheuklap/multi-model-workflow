@@ -3,7 +3,7 @@
 
     journey.py run <name> [--break "<METHOD> <route>"]
 
-Claims or reuses this worktree's lease, runs `.mmw/target.json`'s `start` every
+Acquires or reuses this worktree's lease, runs `.mmw/target.json`'s `start` every
 time, runs `discover` and puts each printed address into the environment under
 its uppercase key (plus the lease variables), runs `<journeys>/<name>` (a `run`
 executable, or the command `package.json` declares), and runs `stop` whether
@@ -12,8 +12,8 @@ the script succeeded or not.
 With `--break`, it starts the product again with `MMW_BREAK` supplied only to `start`,
 requires `BREAK ARMED <METHOD> <route>`, discovers the product again, and re-runs the
 script in the same environment. That pass must fail. Without `--break`, the contract
-smoke journey keeps the product down, moves discovered addresses to a closed port, and
-runs the same script again. An oracle that cannot go red is not an
+ticket's smoke journey keeps the product down, moves discovered addresses to a closed
+port, and runs the same script again. An oracle that cannot go red is not an
 oracle (`docs/adr/0008-silence-is-never-a-pass.md`).
 
 Then `stop` runs once more and this run's slot must be quiet: a journey ends leaving the
@@ -46,7 +46,7 @@ from target_config import command_env, discover, repo_root, run_command, target_
 from lease import holder, judge_run, listener, ports_of, registered, worktree_of  # noqa: E402
 from refusal import refusal  # noqa: E402
 
-# The first acceptance ticket builds the fault-injection switch, so a switch that does not arm is
+# The first critical-flow ticket builds the fault-injection switch, so a switch that does not arm is
 # that worker's own defect to fix; for any other ticket it is a fault to report.
 BREAK_NEXT = ("If this ticket owns .mmw/harness/, fix the switch and run the criterion "
               "again; otherwise report the ticket blocked and stop.")
@@ -243,7 +243,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
         control_env = env
         green_prefix = f"JOURNEY GREEN WITH BREAK {name} — "
         green_explanation = (
-            " — it passed again with that interface failing. Make the journey read the "
+            " — it passed again with that operation failing. Make the journey read the "
             "result back through a different page and assert it there."
         )
     else:

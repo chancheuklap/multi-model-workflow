@@ -83,7 +83,7 @@ def operation(entry) -> tuple[str, str] | None:
 def repo_root(contract: Path) -> Path:
     """The repository `baselines.look` is relative to.
 
-    A contract still in `<scratch>` (step 7 copies it to `docs/specs/` only once the
+    A screen contract still in `<scratch>` (step 7 copies it to `docs/specs/` only once the
     gap list is settled) sits in no repository; the repository is then the one the
     lint is run from, found from the current directory rather than taken as it."""
     for start in (contract.resolve(), Path.cwd().resolve()):
@@ -115,7 +115,7 @@ def scene_input_errors(name: str, spec: object, baseline: Path | None) -> list[s
     """`scenes.<name>.input`: {file, value, with?}; the file lies inside the package."""
     if not isinstance(spec, dict):
         return [f"scenes: {name!r} input must be a mapping with file and value"]
-    errors = [f"scenes: {name!r} input.{key} is not a contract field"
+    errors = [f"scenes: {name!r} input.{key} is not a screen-contract field"
               for key in unknown_keys(spec, SCENE_INPUT_KEYS)]
     file, value = spec.get("file"), spec.get("value")
     if not isinstance(file, str) or not file or not isinstance(value, str) or not value:
@@ -237,7 +237,7 @@ def lint_declarations(doc: dict, skeleton: dict,
     for key in sorted(REMOVED_TOP_KEYS & set(doc)):
         errors.append(removed_field("", key))
     for key in unknown_keys(doc, TOP_KEYS | REMOVED_TOP_KEYS):
-        errors.append(f"{key} is not a contract field")
+        errors.append(f"{key} is not a screen-contract field")
     if baseline is None:
         errors.append("baselines.look is missing")
     elif not baseline.is_dir():
@@ -284,7 +284,7 @@ def lint_declarations(doc: dict, skeleton: dict,
         for key in sorted(REMOVED_PAGE_KEYS & set(decl)):
             errors.append(removed_field(f"pages: {page!r} ", key))
         for key in unknown_keys(decl, PAGE_KEYS | REMOVED_PAGE_KEYS):
-            errors.append(f"pages: {page!r} {key} is not a contract field")
+            errors.append(f"pages: {page!r} {key} is not a screen-contract field")
         if page not in handoff_pages:
             errors.append(f"pages: {page!r} is not a page of scenes.json")
         if "viewports" in decl:
@@ -333,7 +333,7 @@ def lint_declarations(doc: dict, skeleton: dict,
             errors.append(f"scenes: {name!r} must be a mapping")
             continue
         for key in unknown_keys(decl, SCENE_KEYS):
-            errors.append(f"scenes: {name!r} {key} is not a contract field")
+            errors.append(f"scenes: {name!r} {key} is not a screen-contract field")
         if name not in scene_pages:
             errors.append(f"scenes: {name!r} is not in scenes.json")
             continue
@@ -395,7 +395,7 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
             continue
         rid = str(row.get("id", "<no id>"))
         for key in unknown_keys(row, ROW_KEYS):
-            errors.append(f"{rid}: {key} is not a contract field")
+            errors.append(f"{rid}: {key} is not a screen-contract field")
         if not ID.match(rid):
             errors.append(f"{rid}: id must look like <component>.<behaviour>")
         if rid in seen_ids:
@@ -498,7 +498,7 @@ def lint(doc: dict, skeleton: dict, openapi: dict | None) -> tuple[list[str], li
 
     if ops is None:
         warnings.append(
-            "UNVERIFIED no machine-readable interface inventory; reverse sweep was not run")
+            "UNVERIFIED no machine-readable operation inventory; reverse sweep was not run")
     else:
         for method, path in sorted(ops - accounted):
             errors.append(f"reverse sweep: {method} {path} has no row, backend_without_ui, "

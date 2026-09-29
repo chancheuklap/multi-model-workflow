@@ -24,6 +24,10 @@ The program that starts and keeps running the sessions the pipeline starts on th
 _Avoid_: host (for this; the host is the agent program the runner starts)
 _Home_: `mmw-v2/skills/dispatch/scripts/runners/`
 
+**runner adapter**:
+The dispatch skill's `scripts/runners/<runner>.sh`, the one way `dispatch.sh`, the relay and the watchdog reach a **runner**: the verbs `start`, `send` and `liveness` (which answers `alive`, `stopped` or `unknown`), with `stop`, `self`, `attach` and the `catalog-*` reads, each answering with the same exit codes on every runner.
+_Home_: `mmw-v2/skills/dispatch/scripts/runners/`
+
 ### Places
 
 **Paseo**:
@@ -43,7 +47,7 @@ What the relay sends a session when an event it waits on lands on a ticket: `#<n
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **worktree**:
-A git worktree under the main checkout's `.worktrees/`: `issue-<n>` for one ticket's work, or a detached `merge-<slug>` for landing onto one branch, which persists and takes one merge at a time.
+A git worktree under the main worktree's `.worktrees/`: `issue-<n>` for one ticket's work, or a merge worktree, the detached `merge-<slug>` for landing onto one branch (`<slug>` is the branch name with `/` replaced by `-`), which persists and takes one merge at a time.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **ticket branch**:
@@ -61,7 +65,7 @@ The merge-base of a night's project and base branches, as `spec.opened` records 
 _Home_: `mmw-v2/skills/retro/scripts/retro.py`
 
 **base branch**:
-The temporary integration branch on `origin` a night's tickets merge into. `finish` merges it into the **project branch** once the user accepts the night.
+The branch on `origin` a ticket's work merges into: the newest `worker.started.into`, else the open night's `spec.opened.into`, else the branch of the checkout `start` runs from. In a night it is the temporary integration branch the night's tickets merge into, which `finish` merges into the **project branch** once the user accepts the night.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **project branch**:
@@ -81,7 +85,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **merge lock**:
-The lock in the state directory naming which base branch's merge worktree is in use, `merge-<slug>.lock`, so `advance`, `land`, `reverify` and `finish` take one merge at a time per base branch.
+The lock in the state directory naming which branch's merge worktree is in use, `merge-<slug>.lock`, so `open`, `advance`, `land`, `reverify` and `finish` take one merge at a time per branch.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### Dispatch
@@ -112,9 +116,8 @@ _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### Models and runners
 
-**pair**:
-One selectable (model, level) combination a host offers, when the host carries the level inside the model rather than as a setting of its own; `models.py config set` selects among the pairs the scan returns.
-_Avoid_: offering (`models.py`'s own internal name for the same)
+**model-and-level pair**:
+One selectable combination of a model and a reasoning effort that a host offers when it carries the reasoning effort inside the model rather than as a setting of its own; `models.py config set` selects among the pairs the scan returns.
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **fast**:
@@ -122,8 +125,8 @@ A suffix in a model's own name, not a value of `effort`.
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **thinking option**:
-How a runner passes a reasoning level to a host that offers thinking only as on or off: `off`, or no level at all, turns it off, and every other level turns it on, so such a host takes nothing else from the level.
-_Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
+The value the Paseo runner passes as a host's thinking setting (`paseo run --thinking`): for most hosts the reasoning effort itself, one of the model's `thinkingOptionIds`. A host that offers thinking only as on or off takes `false` for `off` or no reasoning effort at all and `true` for every other reasoning effort, so it takes nothing else from the reasoning effort.
+_Home_: `mmw-v2/skills/dispatch/references/editing-models.md`, `mmw-v2/skills/dispatch/scripts/models.py` (`thinking_option`)
 
 ### The night's commands
 
@@ -132,7 +135,7 @@ _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 _Home_: `docs/contexts/night/how-it-works.md`
 
 **repository Space**:
-The Nowledge Mem Space for one tracker repository, id `<owner>__<name>` in lower case, which `open` creates or repairs and `start` verifies before it starts a session.
+The Nowledge Mem Space for one tracker repository, id `<owner>__<name>` in lower case, which `open` before the night opens and `start` before it starts a session each confirm, creating or repairing it when it is absent or wrong.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **open**:
@@ -164,7 +167,7 @@ _Home_: `mmw-v2/skills/dispatch/scripts/runners/`
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **wait**:
-`dispatch.sh wait <n> worker|reviewer`: reads that agent's newest result event once, after a wake has said it is there. It asks no runner and writes nothing.
+`dispatch.sh wait <n> worker|reviewer`: reads that agent's newest result event once, its newest `ticket.passed` or `ticket.returned` (worker) or `reviewer.reported` (reviewer), after a wake has said it is there. It does not block: with no result yet it exits 3 and tells the caller to end its turn. It asks no runner and writes nothing.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh resume`**:
@@ -192,8 +195,12 @@ The part of the **closing pass** in which the orchestrator gives every Memory re
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **memory-list**:
-`dispatch.sh memory-list <spec>`: computes the repository Space id, pulls the spec's full `mmw-spec-<spec>` Memory record set, and writes a decision-file skeleton, one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated.
+`dispatch.sh memory-list <spec>`: computes the repository Space id, pulls the spec's full `mmw-spec-<spec>` Memory record set, and writes a **`--memory-decisions` file** skeleton, one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+
+**`--memory-decisions` file**:
+The JSON file of **Memory closing** decisions that `summary` reads through `--memory-decisions`: `memory-list` writes its skeleton, and the orchestrator gives each record's entry a `decision`, `reason` and `evidence` (and a `replacement_id` for `supersede`), or leaves the `unchecked` object as written.
+_Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **retro**:
 The orchestrator's step right after `summary` records `spec.closed`: the retro skill, which writes the night's **Retro Memory** and posts `spec.retroed`.
@@ -219,6 +226,10 @@ _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 One line of `status.py`'s read-only plans, each read by `dispatch.sh` and nobody else: `MERGE`, `RELEASE` and `DISPATCH` from `--advance-plan`; `REVERIFY` and `RECOVER` from `--reverify-plan`; `MERGE`, `RELEASE`, `ARCHIVE`, `HOLD` and `NOTHING` from `--land-plan`. `RELEASE` gives back the tracker claim once an event has ended every hold on the ticket, and is not `lease.py release`; `HOLD <ticket> <why>` is this line, not the fold state ticket-run's **held** names.
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
+**`ARCHIVE`, archive**:
+Archiving a ticket's workspace: giving its product slot back, ending every session the ticket's events name, and deleting its worktree and the ticket's instance data, so nothing of the directory is kept; the ticket branch and its pushed commits are what remain. `advance` archives a ticket's workspace once it lands, `land` once the ticket is closed (the `ARCHIVE` plan line), and `retract` a gone worker's; a ticket handed back keeps its workspace for the next `start`, and a workspace whose product is still up, or whose events cannot be read, is kept.
+_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh` (`archive_workspace`), `mmw-v2/skills/dispatch/scripts/status.py`
+
 **worker-grades line**:
 One line of `status.py --worker-grades`: `BATCH <ticket>` for each child of the spec, `GRADE <ticket> [<label> ...]` for each one open and labelled `ready-for-agent`. `check` refuses the night when a `GRADE` line names a row `models.json` lacks, or a ticket carrying two; `suspend` reads the `BATCH` lines as the spec's children.
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
@@ -236,7 +247,7 @@ _Home_: `docs/contexts/night/how-it-works.md`
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **suspend**:
-`dispatch.sh suspend <spec>`: gives a night up when the fault is in the pipeline, stopping every session still holding a ticket, pushing their work, giving back every claim and slot, and closing the spec's watch. Distinct from `ABANDON:`, which gives up one criterion.
+`dispatch.sh suspend <spec>`: pauses a night when the fault is in the pipeline, stopping every session still holding a ticket, pushing their work, giving back every claim and slot, and closing the spec's watch. Its workspaces, branches and pushed commits stay, and `open` then `advance` take the same batch up again once the fault is fixed. Distinct from `ABANDON:`, which gives up one criterion.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### The night
@@ -246,7 +257,7 @@ One run of a spec's published tickets under one orchestrator, from `open` to `su
 _Home_: `mmw-v2/skills/dispatch/SKILL.md`
 
 **closing pass**:
-The pass the orchestrator runs when the frontier is empty: it routes every open `finding` child of the spec's tickets with **route**, runs `advance`, and repeats until none is left, then performs **Memory closing**.
+The pass the orchestrator runs when the frontier is empty: it routes every open `finding` child of the spec's tickets with **route**, performs **Memory closing**, and runs `advance`, and repeats until no open finding is left.
 _Home_: `mmw-v2/skills/dispatch/references/night.md`
 
 **route**:
@@ -285,23 +296,27 @@ The flag the relay sets on a delivered row whose `send` answered 4: the text rea
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **slot given back**:
-What the relay does when an event of `SLOT_ENDS` frees a product slot: it queues `worker.queued` again for the oldest watched ticket whose own `worker.queued` is still pending, so the ticket that has waited longest is woken first.
+What the relay does when an event of `SLOT_ENDS` frees a product slot: it queues `worker.queued` again, one row for the worker of each watched ticket whose own `worker.queued` is still pending and older than the comment that freed the slot.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **good poll**:
-A read of the tracker that actually succeeded, as against a **cycle**, which is recorded whether or not its reads worked. Only a good poll can end an **unattended stretch**.
+A **cycle** in which every read of the tracker succeeded, as against a cycle as such, which is recorded whether or not its reads worked. Only a good poll can end an **unattended stretch**.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **cycle**:
-One round of the relay's read-and-deliver loop, recorded (`cycle_at`) whether or not its reads worked. The watchdog's `relay down` alert asks whether the relay has finished one within its **grace**.
+One pass of the relay's read-and-deliver loop, recorded (`cycle_at`) whether or not its reads worked. The watchdog's `relay down` alert asks whether the relay has finished one within its **grace**.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **unattended stretch**:
 Time with no **good poll** — the relay down, or its reads failing — measured less time spent delivering. Once it exceeds **grace**, the next good poll queues one `relay.recovered` to every watch's orchestrator for the whole stretch, ahead of the events it recovered.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
+**`relay.recovered`**:
+The relay's one wake of its own, which it never posts on the tracker: `relay.recovered since <time>`, queued to every watch's orchestrator when an **unattended stretch** longer than **grace** ends, `<time>` being the last good poll before it. The orchestrator acks it with `dispatch.sh ack relay.recovered`; the wakes for the events the stretch hid follow it.
+_Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
+
 **generation**:
-The timestamp of the last good poll before an **unattended stretch**, naming that stretch so it is announced once, however many rows it produced.
+The `gap.json` counter that rises by one each time an **unattended stretch** is announced. The stretch itself is named by `since`, the time of the last good poll before it, so it is announced once, however many rows it produced.
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **grace**:
@@ -313,15 +328,15 @@ _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`, `mmw-v2/skills/dispatch/scrip
 _Home_: `mmw-v2/skills/dispatch/scripts/statedir.py`
 
 **lock record**:
-What a lock file in the state directory holds while its lock is taken — the holder's pid, its process identity (the process's own start time, so a pid later handed to another process is not mistaken for the same holder), when it took the lock, and its purpose — so a reader that will not take the lock can name the holder.
+What a lock file in the state directory holds while its lock is taken — the lock holder's pid, its process identity (the process's own start time, so a pid later handed to another process is not mistaken for the same lock holder), when it took the lock, and its purpose — so a reader that will not take the lock can name the lock holder.
 _Home_: `mmw-v2/skills/dispatch/scripts/statedir.py`
 
 **watchdog**:
-The dispatch skill's `watchdog.py`, one process per repository while a watch is open. It checks the relay and asks the runner of each silent held session whether it is alive, posting `worker.lost` or `reviewer.lost` for a stopped one and sending its other **alert**s to the orchestrator as `watchdog:` lines.
+The dispatch skill's `watchdog.py`, one process per repository while a watch is open, running one round every `--poll` seconds (default 60). Each round it checks the relay and asks the runner of each silent held session whether it is alive, posting `worker.lost` or `reviewer.lost` for a stopped one and sending its other **alert**s to the orchestrator as `watchdog:` lines.
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **liveness layer**:
-The watchdog's three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at an orchestrator's turn end, is the first layer; the watchdog's own check of the relay's heartbeat is the second; the watchdog asking a silent ticket's runner whether its session is still there is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
+The three-part cover for a dead session that writes no event: the turn guard, re-arming the watchdog at an orchestrator's turn end, is the first layer; the watchdog's own check of the relay's **heartbeat** is the second; the watchdog asking a silent ticket's runner whether its session is still there is the third. A crash of the host an orchestrator runs in has no fourth layer, and is found by a person.
 _Avoid_: layer (unqualified; tickets' **test layer** is a different concept sharing the word)
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
@@ -339,11 +354,11 @@ A **silent** ticket whose newest event is at least `--idle` seconds old (default
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **arm**:
-`watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is, or when it is beating but cannot read the tracker; otherwise ends a hung one (a live holder past its heartbeat **tolerance**) and starts a fresh one. What `turn-guard.py` calls when the watchdog is not healthy.
+`watchdog.py arm --repo O/R [--wait S]`: makes the watchdog healthy. Does nothing when it already is, or when it is beating but cannot read the tracker; otherwise ends a hung one (a live watchdog process past its heartbeat **tolerance**) and starts a fresh one. What `turn-guard.py` calls when the watchdog is not healthy.
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **heartbeat**:
-`watchdog.json` in the state directory, which the watchdog writes at start, after every ticket and at the end of every round. The watchdog is healthy when its lock names a live process that wrote a heartbeat within its **tolerance**.
+A file in the state directory that a daemon rewrites to show it is alive: the watchdog's `watchdog.json`, written at start, after every ticket and at the end of every watchdog round, and the relay's `beat.json`, written every **cycle**. The watchdog is healthy when its lock names a live process that wrote its heartbeat within its **tolerance**.
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **tolerance**:
@@ -364,6 +379,14 @@ _Home_: `mmw-v2/skills/retro/scripts/retro.py`
 `gather`'s inventory of every source it read for the retro, each recorded present, missing or unreadable. A missing source narrows the analysis; it is never read as proof that the thing it would have shown did not happen.
 _Home_: `mmw-v2/skills/retro/scripts/retro.py`
 
+**retro problem**:
+One thing that went wrong in a night, as the retro records it: a **retro category**, a cause, and evidence from primary sources whose text or output states that cause (event comment or commit URLs, a repository file, or a read-only `check:` command), with two dispositions, `handled_here` (how this instance was dealt with) and `prevention` (one of the **Prevention destinations**), plus its **earlier occurrence**s and, when it qualifies, a **proposal**. A problem no such source proves is not recorded.
+_Home_: `mmw-v2/skills/retro/SKILL.md`
+
+**retro category**:
+One of the seven areas the retro inspects in every night and files each **retro problem** under: Navigation, Automated checks, Coding standards, Global AGENTS.md, Tool economy, No-ops, Information access; each is recorded with a candidate summary or `none`, and it is the `<category>` of `retro.py search`. Distinct from ticket-run's **review category**, a code-review axis's name for a finding.
+_Home_: `mmw-v2/skills/retro/scripts/retro.py` (`CATEGORIES`), `mmw-v2/skills/retro/SKILL.md`
+
 **`retro.py search`**:
 `retro.py search <category> <cause>`: finds Retro Memory records citing an **earlier occurrence** of the same cause, for one current problem.
 _Home_: `mmw-v2/skills/retro/scripts/retro.py`
@@ -373,16 +396,16 @@ A prior problem of the same cause `retro.py search` finds, counted only when its
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **finalize**:
-`retro.py finalize <spec> <analysis> <gather>`: checks the analysis against a fresh `gather`, writes the **Retro Memory**, and posts `spec.retroed`.
+`retro.py finalize <spec> <analysis> <gather>`: checks the analysis against a fresh `gather`, files each **proposal** as a `needs-triage` issue in its repository, writes the **Retro Memory**, and posts `spec.retroed`.
 _Home_: `mmw-v2/skills/retro/scripts/retro.py`
 
 **stall event**:
-One of `worker.queued`, `ticket.returned`, `child.opened` with `kind=fault`, or `ticket.checked` with `result=handoff`: an event a retro problem needs among its evidence, with two independently verified occurrences, before it earns a **proposal**.
+One of `worker.queued`, `ticket.returned`, `child.opened` with `kind=fault`, or `ticket.checked` with `result=handoff`: the event a **retro problem** without two independently verified occurrences needs among its event sources to earn a **proposal** through a Memory record `spec.closed` proposed.
 _Avoid_: blocking event
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **review_learning**:
-The retro's record distinguishing a review finding that was invalid from one that was valid and fixed elsewhere; two invalid findings of one category point to a reviewer Rule to change, two valid findings of one kind point to a check.
+The retro's record distinguishing a review finding that was invalid from one that was valid and fixed elsewhere; two invalid findings of one review category point to a reviewer Rule to change, two valid findings of one kind point to a check.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **intent_reconciliation**:
@@ -394,11 +417,15 @@ The eight values a retro problem's Prevention names by its `destination`, each w
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **proposal**:
-A retro problem's candidate change, given only when its cause has two independently verified occurrences, or `spec.closed` already proposed it; it names the responsible repository, a title and body, and, for a change to an instruction file, a **`prompt_change`**.
+A retro problem's candidate change, given only when its cause has two independently verified event or commit occurrences, or when `spec.closed` proposed a Memory record whose decision's `evidence` is among the problem's evidence and one of the problem's event sources is a **stall event**; it names the responsible repository, a title and body, and, for a change to an instruction file, a **`prompt_change`**.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **`prompt_change`**:
 A proposal's structured edit to one instruction file: the target file and heading, the complete current and proposed passages, and which of missing context, ambiguity, success criteria or late information it addresses.
+_Home_: `mmw-v2/skills/retro/SKILL.md`
+
+**`previous_proposals`**:
+The retro's check of every proposal the most recent **Retro Memory** named, each recorded `landed`, with the commit, active Rule, Memory or current file that proves the change, or `no-evidence-found`. A closed issue alone is not proof that a proposal landed.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **Retro Memory**:

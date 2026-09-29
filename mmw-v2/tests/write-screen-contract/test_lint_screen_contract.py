@@ -82,7 +82,7 @@ def contract():
 
 class Repo:
     """A temporary repository: `.git`, a design package with two pages and a stylesheet
-    carrying a breakpoint, and the spec directory the contract lives in."""
+    carrying a breakpoint, and the spec directory the screen contract lives in."""
 
     def __init__(self):
         self.dir = tempfile.TemporaryDirectory()
@@ -157,7 +157,7 @@ class TestScreenAxis(unittest.TestCase):
         decl["input"] = {"file": "data/scenes.js", "value": "S.ready", "with": "x", "extra": 1}
         errs = self.lint(doc)[0]
         self.assertTrue(any("input.with must be a mapping" in e for e in errs), errs)
-        self.assertTrue(any("input.extra is not a contract field" in e for e in errs), errs)
+        self.assertTrue(any("input.extra is not a screen-contract field" in e for e in errs), errs)
         decl["input"] = "data/scenes.js S.ready"
         self.assertTrue(any("input must be a mapping" in e for e in self.lint(doc)[0]))
 

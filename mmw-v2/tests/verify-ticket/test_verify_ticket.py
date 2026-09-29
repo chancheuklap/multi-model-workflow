@@ -763,7 +763,7 @@ class TestTheProductSlot(unittest.TestCase):
         self.lease.try_claim = claim
 
     def main_repo(self, instance_max=None):
-        """A main checkout, with `.mmw/target.json` declaring `instance.max` when given,
+        """A main worktree, with `.mmw/target.json` declaring `instance.max` when given,
         and a ticket worktree `.worktrees/issue-1` cut from it."""
         main = self.tmp / "main"
         main.mkdir()
@@ -867,7 +867,7 @@ class TestTheProductSlot(unittest.TestCase):
         self.assertIsNotNone(state["slot"])
 
     def test_the_main_checkout_waits_for_the_limit_like_any_ticket(self):
-        """The night's reverify runs the product in the main checkout; the limit counts
+        """The night's reverify runs the product in the main worktree; the limit counts
         that run as it counts a ticket's."""
         main, _ = self.main_repo(instance_max=1)
         other = main / ".worktrees" / "issue-2"
@@ -887,7 +887,7 @@ class TestTheProductSlot(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(payload_of(posted[-1])["actor"], "main")
         self.assertIsNotNone(payload_of(posted[-1])["slot"])
-        self.assertEqual(self.lease.claimed(), [], "the main checkout kept its slot")
+        self.assertEqual(self.lease.claimed(), [], "the main worktree kept its slot")
         self.assertTrue(stopped.exists(), "the product was not stopped before the release")
 
     def test_a_workers_reverify_keeps_the_worktrees_slot(self):

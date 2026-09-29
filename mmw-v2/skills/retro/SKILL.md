@@ -86,7 +86,7 @@ The script writes outputs; the agent judges causes and dispositions.
 7. Review the review results: distinguish a finding that was invalid from one
    that was valid and fixed elsewhere. Record in `review_learning` each such
    finding's claim, route reason, and source, or `none`. This is how the
-   reviewer improves: two `invalid` findings of one category point to a
+   reviewer improves: two `invalid` findings of one review category point to a
    reviewer Rule to change, and two valid findings of one kind point to a
    check. A finding another ticket fixed was right, and does not count against
    the reviewer.
@@ -123,8 +123,8 @@ The script writes outputs; the agent judges causes and dispositions.
 10. Every prevention has a standing cost: a check runs on every commit, and an
     `AGENTS.md` line or skill sentence is read by every later agent. One
     occurrence is dealt with in `Handled here`; a pattern, shown by two
-    independent occurrences or by a blocker a worker already flagged for this
-    retro, is worth that cost. Give a problem a `proposal` when the same cause
+    independent occurrences or by a Memory record `spec.closed` proposed, is
+    worth that cost. Give a problem a `proposal` when the same cause
     has two independently verified event or commit occurrences, or when
     `spec.closed` proposed a Memory record (an id in `proposed_memory_ids`)
     whose decision's `evidence` URL is among the problem's evidence and one of

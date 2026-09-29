@@ -1,10 +1,10 @@
 """A run refuses when a `CHECK:` names an oracle it cannot reach.
 
 The failure this prevents is not a loud one. An oracle that is not on the shell's PATH
-makes its criterion fail `command not found`, gate-check records one more unmet gate,
+makes its criterion fail `command not found`, gate-check records one more unmet criterion,
 and the run exits 1 — indistinguishable from work that did not pass. `dispatch.sh
 reverify` was found on 2026-09-08 running with no `--tools` at all, which reads as a
-whole batch of interface tickets failing at once.
+whole batch of tickets that name an oracle failing at once.
 """
 
 import io

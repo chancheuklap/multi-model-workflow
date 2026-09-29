@@ -16,9 +16,9 @@ The run writes the submitted story screenshot (`-impl.png`), the design-side scr
 
 Three kinds of review finding, each naming the scene, the viewport, and a repository path the session can open:
 
-- **undecorated**: a decoration the design page draws that carries no `data-ui` id, so element parity never pairs it, and the product story is missing it, extra with it, or places it differently. Cite the product component the story renders.
+- **unpaired-decoration**: a decoration the design page draws that carries no `data-ui` id, so element parity never pairs it, and the product story is missing it, extra with it, or places it differently. Cite the product component the story renders.
 - **overall-look**: the overall look of the submitted story against the design page (spacing that is not an element fact, a region that feels off) which no `DIFF` line names. Cite the product component the story renders.
-- **design-page**: the design page itself is drawn wrong (a control this ticket must build is missing there, a value that cannot be right, a flow that does not match the screen contract). Cite the page in the design package **Read first** names. The repair is not a product change.
+- **design-page-wrong**: the design page itself is drawn wrong (a control this ticket must build is missing there, a value that cannot be right, a flow that does not match the screen contract). Cite the page in the design package **Read first** names. The repair is not a product change.
 
 A pixel difference that already has a `DIFF` line is element parity's, not yours. Report only what that comparison does not cover.
 

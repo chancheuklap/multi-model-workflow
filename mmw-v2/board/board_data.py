@@ -39,7 +39,7 @@ def iso(value: dt.datetime) -> str:
 
 
 def finished(ticket: dict) -> bool:
-    """Whether this ticket is done and its comments will not say anything new: the ledger
+    """Whether this ticket is done and its comments will not say anything new: its events
     landed it, or it closed with nothing that will ever land, which is what an empty
     `blocker_hold` says. A ticket taken through by hand, outside the pipeline, is written
     no `ticket.landed` and can have no events at all; re-reading its comments every poll
@@ -270,9 +270,9 @@ class BoardStore:
             try:
                 # Which tickets to read is decided once, from the tree and the comments
                 # of one snapshot, both the same age: `finished` weighs a ticket's state
-                # on the tracker against its own ledger, and this poll's fresh tree read
-                # would judge a ticket that closed since the last poll on a ledger that
-                # has not seen its landing yet — dropping it from the read for good.
+                # on the tracker against its own events, and this poll's fresh tree read
+                # would judge a ticket that closed since the last poll on events that
+                # have not recorded its landing yet — dropping it from the read for good.
                 cached_tasks = self._shape(map_trees, comments) if map_trees else []
                 flat = [ticket for task in cached_tasks for spec in task["specs"]
                         for ticket in spec["tickets"]]

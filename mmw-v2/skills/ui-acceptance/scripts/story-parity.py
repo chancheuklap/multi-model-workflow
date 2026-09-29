@@ -14,7 +14,7 @@ origin, and the story URL is
 `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`.
 
 The product side is `[data-story-root]`; the design side is `#dc-root` at the size
-the design page renders in the contract viewport. The same reader takes each side's
+the design page renders in the screen-contract viewport. The same reader takes each side's
 `data-ui` facts. Pixel difference images are written as evidence and do not decide
 the result. Class names, font families, line heights, hover and focus styles are
 not compared.
@@ -24,9 +24,9 @@ Exit codes
 Exit 0 and one line `STORY OK <passed>/<total>` when every pair matches. Exit 1
 with one `DIFF` line per differing element fact. Exit 2 when a negative control
 fails, the story service does not start, a story page is unreachable or 404, the
-requested mount or scene is outside the contract, `--pages` is empty, there is no
-visible `[data-story-root]`, the contract lacks `viewports` or `locale`, the
-contract still carries a key the oracle no longer executes, or the product story
+requested mount or scene is outside the screen contract, `--pages` is empty, there is no
+visible `[data-story-root]`, the screen contract lacks `viewports` or `locale`, the
+screen contract still carries a key the oracle no longer executes, or the product story
 page hosts Claude Design runtime.
 
 `--out` holds screenshots, capture evidence and a pixel difference image for every
@@ -186,7 +186,7 @@ class Stories:
     run on the machine. A lease would instead cost the run one of the product's
     `instance.max` slots — the count of how many copies of a product whose ports cannot
     move may run at once — and hold it for the rest of the ticket, which is how
-    agentflow spent a night with two interface tickets in acceptance and six free slots.
+    agentflow spent a night with two page tickets in acceptance and six free slots.
     """
 
     def __init__(self, root: Path, cfg: dict):
@@ -446,29 +446,29 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def refuse_pages(mounts: list[str], doc: dict, catalogue: dict) -> str | None:
-    """Why `--pages` cannot run, or None. Exit 2 for a mount the contract does not declare."""
+    """Why `--pages` cannot run, or None. Exit 2 for a mount the screen contract does not declare."""
     declared = {s.mount for s in dr.scenes_of(doc, catalogue).values()}
     missing = [m for m in mounts if m not in declared]
     if missing:
         return refusal(
-            f"--pages names mount(s) the contract does not declare: {', '.join(missing)}.",
+            f"--pages names mount(s) the screen contract does not declare: {', '.join(missing)}.",
             "Every mount must be a pages.mount value in the screen contract.",
             "Pass a declared --pages mount, then re-run.")
     return None
 
 
 def refuse_story_inputs(doc: dict, contract: str) -> str | None:
-    """Why this contract cannot be judged, or None. Exit 2, refusal.py three parts."""
+    """Why this screen contract cannot be judged, or None. Exit 2, refusal.py three parts."""
     if doc.get("viewports") in (None, [], ""):
         return refusal(
             f"{contract} has no top-level `viewports`.",
-            "Both browser windows are one contract viewport; the oracle does not invent a size.",
+            "Both browser windows are one screen-contract viewport; the oracle does not invent a size.",
             "Add `viewports` as the write-screen-contract skill's references/screen-contract-format.md says, then re-run.")
     locale = doc.get("locale")
     if not isinstance(locale, str) or not locale.strip():
         return refusal(
             f"{contract} has no top-level `locale`.",
-            "story-parity.py reads locale from the contract and does not fall back to zh-CN.",
+            "story-parity.py reads locale from the screen contract and does not fall back to zh-CN.",
             "Add `locale` as the write-screen-contract skill's references/screen-contract-format.md says, then re-run.")
     return None
 

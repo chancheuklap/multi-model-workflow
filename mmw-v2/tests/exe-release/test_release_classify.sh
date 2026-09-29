@@ -11,8 +11,8 @@ pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
 no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 reinit() {
-  # abort, not close: close now refuses a round that is not DONE, and the previous scenario's
-  # round usually is not. abort always drops it and clears the state file so init can start.
+  # abort, not close: close now refuses a release loop that is not DONE, and the previous scenario's
+  # release loop usually is not. abort always drops it and clears the state file so init can start.
   bash "$RF" abort >/dev/null 2>&1 || true
   rm -f events.jsonl
   bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null

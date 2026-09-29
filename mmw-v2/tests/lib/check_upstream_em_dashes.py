@@ -9,7 +9,7 @@ check_module_paths.py.
 
 It reads every `.md` under mmw-v2/upstream/skills/ and reports each line outside a fenced
 code block that contains U+2014. A fenced block is exempt because what it holds is a
-format a program reads, copied verbatim (the review comment's finding row, which
+format a program reads, copied verbatim (the review report's finding row, which
 verify-ticket.py parses by its separators), not prose. Exit 0 prints nothing; exit 1
 prints one line per hit, then why and what to do.
 """

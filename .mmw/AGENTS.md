@@ -1,6 +1,6 @@
 # .mmw
 
-This repository's own acceptance runtime: `target.json` names the local task board as the product, `harness/` starts and stops it behind a fake `gh`, `stories/` serves its component stories, `journeys/` holds the whole-product journeys. The handoff package is `prototypes/task-board/claude-design/`; `docs/specs/task-board/screen-contract.yaml` maps each complete scene name to the input value that drew it.
+This repository's own product answers: `target.json` names the local task board as the product, `harness/` starts and stops it behind a fake `gh`, `stories/` serves its component stories, `journeys/` holds the whole-product journeys. The design package is `prototypes/task-board/claude-design/`; `docs/specs/task-board/screen-contract.yaml` maps each complete scene name to the input value that drew it.
 
 ## Key Conventions
 

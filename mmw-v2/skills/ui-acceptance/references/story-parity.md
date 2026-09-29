@@ -9,7 +9,7 @@ serves**. An agent fixing a failure reads **The DIFF line**.
 ## The story page the product serves
 
 The contract ticket builds the **story service** (the server that `.mmw/target.json`'s
-`stories` command brings up) under `.mmw/stories/`; later interface
+`stories` command brings up) under `.mmw/stories/`; later page
 tickets add one story adapter per design page.
 
 - `.mmw/target.json`'s `stories` command starts the service in the foreground and
@@ -18,7 +18,7 @@ tickets add one story adapter per design page.
   port and no lease.
 - The oracle opens
   `<origin>/?page=<mount>&scene=<name>&viewport=<WxH>`. `mount` comes from the
-  contract's `pages`; `name` comes from `scenes.json`. `Component · ` and `App · `
+  screen contract's `pages`; `name` comes from `scenes.json`. `Component · ` and `App · `
   pages use the same request and comparison.
 - `[data-story-root]` is on the product component's own root element. That same
   element carries the `data-ui` id on the design page's root. It is not a wrapper
@@ -29,22 +29,22 @@ tickets add one story adapter per design page.
 - The adapter takes the scene's **scene data** and maps it to the product
   component. Scene data is the `data` field of the scene's `scenes.json` entry:
   the displayed text keyed by `data-ui` id, nested where one id contains another,
-  `_text` holding a node's own text, a list where an id repeats. When the contract
+  `_text` holding a node's own text, a list where an id repeats. When the screen contract
   declares `scenes.<name>.input`, the adapter takes that value from the design
   package file instead, with the input's `with` fields
   merged over it: it is what the design page
   itself drew the scene from, so lamp colours, layout and other state that the
   displayed text does not carry reach the product component too. No backend, seed,
   route or alternate preview projection runs. After a click the region enters the
-  scene the contract row's `next` names, and the adapter draws that scene's own
+  scene the screen-contract row's `next` names, and the adapter draws that scene's own
   input: a scene stands for a state, so the clicked object needs no data of its own.
 
 ## The two sides
 
 The product side is the subtree rooted at `[data-story-root]`. The design side is
-the design package's page, rendered offline in the same contract viewport window;
+the design package's page, rendered offline in the same screen-contract viewport window;
 `#dc-root` keeps the size the design page renders at in that window.
-Both browser contexts take `locale` from the contract. Neither side reads a live clock: the
+Both browser contexts take `locale` from the screen contract. Neither side reads a live clock: the
 design side keeps its paused clock, and the product's time values come from scene
 data. Both sides are read as rendered. The oracle does not hide controls or replace
 display values.

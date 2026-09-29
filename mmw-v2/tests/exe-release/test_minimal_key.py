@@ -140,7 +140,7 @@ def test_the_key_carries_no_hook_and_the_script_calls_none(tmp_path):
         "toolchain",
     ],
 )
-def test_the_self_heal_equipment_is_all_optional(field):
+def test_the_self_heal_mechanisms_are_all_optional(field):
     """自愈与观测那一套，一个产品第一次出包时一件都没有。
 
     每一件都对应一份仓库侧 Python 或一份仓库侧配置。把它们设成必填，等于要求

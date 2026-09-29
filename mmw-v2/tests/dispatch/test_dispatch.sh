@@ -2966,7 +2966,7 @@ JSON
   [ "$code" = 0 ] || fail "start expected exit 0, got $code: $(cat "$TMP/err")"
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "start should hold no slot, it holds $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
-  # The worker's first run of a criterion that needs the product claims it.
+  # The worker's first run of a criterion that needs the product acquires it.
   MMW_LEASE_SLOTS=1 python3 "$LEASE_PY" claim "$(wt 61)" >/dev/null
   set_agent_status "$(cat "$TMP/out")" closed
   : > "$MMW_TEST_LOG"
@@ -4528,7 +4528,7 @@ scenario_suspend() {
 
   [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the night did not open a worktree for #61"
   [ -d "$TMP/repo/.worktrees/issue-63" ] || fail "the night did not open a worktree for #63"
-  # The starts took no slot; each worker's first run that needs the product claims one.
+  # The starts took no slot; each worker's first run that needs the product acquires one.
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
     || fail "the starts should hold no slot, they hold $(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")"
   python3 "$LEASE_PY" claim "$TMP/repo/.worktrees/issue-61" >/dev/null
@@ -4634,7 +4634,7 @@ JSON
   mkdir -p "$ws/.mmw"
   printf '{"start":"true","discover":"true","reach":"true","stop":"touch %s"}\n' "$marker" \
     > "$ws/.mmw/target.json"
-  # The product runs only under a slot, which the first run of the worker's criteria claims.
+  # The product runs only under a slot, which the first run of the worker's criteria acquires.
   python3 "$LEASE_PY" claim "$ws" >/dev/null
 
   : > "$MMW_TEST_LOG"
@@ -5679,7 +5679,7 @@ assert w.get("slot") is None, w
   posted_events 61 into | grep -qx "worker.started into=main" \
     || fail "the adopted worker.started should name main as into: $(posted_events 61 into)"
   [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "adopt took a slot; the first run that needs the product claims it: $(python3 "$LEASE_PY" list)"
+    || fail "adopt took a slot; the first run that needs the product acquires it: $(python3 "$LEASE_PY" list)"
   case "$(relay_now)" in *'{"tickets": [61]}'*) ;; *) fail "a relay should watch #61: $(relay_now)" ;; esac
   [ "$(watch_main tickets:61)" = "paseo agt_self" ] \
     || fail "the adopting session is the orchestrator of #61's watch: $(cat "$STATE_DIR/watches.json")"
@@ -6195,7 +6195,7 @@ import os, socket
 socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=2).close()
 PY
   python3 - "$MMW_HOME/boards.json" "$(cd "$TMP/repo" && pwd -P)" <<'PY' \
-    || fail "open should register the main checkout: $(cat "$MMW_HOME/boards.json")"
+    || fail "open should register the main worktree: $(cat "$MMW_HOME/boards.json")"
 import json, sys
 registry = json.load(open(sys.argv[1]))
 assert list(registry) == [sys.argv[2]], registry
@@ -6239,7 +6239,7 @@ import os, socket
 socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=2).close()
 PY
   python3 - "$MMW_HOME/boards.json" "$(cd "$TMP/repo" && pwd -P)" <<'PY' \
-    || fail "open-ticket should register the main checkout: $(cat "$MMW_HOME/boards.json")"
+    || fail "open-ticket should register the main worktree: $(cat "$MMW_HOME/boards.json")"
 import json, sys
 registry = json.load(open(sys.argv[1]))
 assert list(registry) == [sys.argv[2]], registry
@@ -6978,7 +6978,7 @@ assert_complete_worker_prompt() {
   local task_root="$1" task_scope="$2" current="$3" related="$4"
   MMW_EXPECT_ROOT="$task_root" MMW_EXPECT_SCOPE="$task_scope" \
   MMW_EXPECT_CURRENT="$current" MMW_EXPECT_RELATED="$related" \
-  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the worker prompt lost its dispatch line or its shared-experience packet for $task_root"
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the worker prompt lost its dispatch line or its shared-experience Memory indexes for $task_root"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
 assert actual.startswith("Use the implement skill to work ticket #61."), actual
@@ -7193,7 +7193,7 @@ assert_complete_reviewer_prompt() {
   local rules="$1" base
   base="$(git -C "$TMP/repo" merge-base origin/main HEAD 2>/dev/null || git -C "$TMP/repo" rev-parse origin/main)"
   MMW_EXPECT_BASE="$base" MMW_EXPECT_RULES="$rules" \
-  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the reviewer prompt lost its base commit or its Rules packet"
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY' || fail "the reviewer prompt lost its base commit or its reviewer Rules"
 import json, os, sys
 actual = json.loads(open(sys.argv[1], encoding="utf-8").read().splitlines()[-1])["initialPrompt"]
 assert actual.startswith("Use the code-review skill to review ticket #61 from base commit " + os.environ["MMW_EXPECT_BASE"] + "."), actual
@@ -7552,7 +7552,7 @@ scenario_runneronticket() {
   [ "$(posted_events 61 session runner host model effort grade worktree branch)" = "$want" ] \
     || fail "the reviewer.started event is wrong: $(posted_events 61 session runner host model effort grade worktree branch)"
 
-  echo "--- a worker's start carries no slot: the first run that needs the product claims it"
+  echo "--- a worker's start carries no slot: the first run that needs the product acquires it"
   reset_log
   fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
@@ -8002,7 +8002,7 @@ scenario_orcarefusalreason() {
 
 scenario_nightfromtask() {
   local code task
-  echo "--- a night run from a task-branch worktree cuts tickets from that branch, under the main checkout"
+  echo "--- a night run from a task-branch worktree cuts tickets from that branch, under the main worktree"
   reset_log
   fresh_repo
   git -C "$TMP/repo" checkout -q -b feature-x
@@ -8015,7 +8015,7 @@ scenario_nightfromtask() {
   git -C "$TMP/repo" worktree add -q "$task" feature-x
   code="$( (cd "$task" && bash "$DISPATCH" "${TOOLS[@]}" start 61 worker) > "$TMP/out" 2> "$TMP/err"; echo $?)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the ticket worktree should be under the main checkout's .worktrees"
+  [ -d "$TMP/repo/.worktrees/issue-61" ] || fail "the ticket worktree should be under the main worktree's .worktrees"
   [ ! -d "$task/.worktrees/issue-61" ] || fail "no second .worktrees under the task worktree"
   [ -f "$TMP/repo/.worktrees/issue-61/feat.txt" ] || fail "issue-61 should be cut from feature-x, the branch the night runs on"
   posted_events 61 into | grep -qx "worker.started into=feature-x" \
@@ -8535,7 +8535,7 @@ scenario_finishcleans() {
     || fail "finish did not name the kept worktree: $(cat "$TMP/err")"
   [ ! -e "$TMP/repo/.worktrees/merge-night" ] || fail "base merge worktree remains"
   [ ! -e "$lock" ] || fail "base merge lock remains"
-  [ -d "$main_path" ] || fail "main checkout was removed"
+  [ -d "$main_path" ] || fail "main worktree was removed"
   return 0
 }
 

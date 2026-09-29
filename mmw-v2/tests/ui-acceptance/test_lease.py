@@ -539,7 +539,7 @@ class TheProductsLimit(Base):
     """`instance.max` in `.mmw/target.json` is how many copies of a product that cannot
     move its ports may run at once. Acquiring itself enforces it, at the first run of a
     worktree's criteria that needs the product, and counts the leases of that
-    repository's ticket worktrees — the ones under `<main checkout>/.worktrees`."""
+    repository's ticket worktrees — the ones under `<main worktree>/.worktrees`."""
 
     def setUp(self):
         super().setUp()
@@ -587,7 +587,7 @@ class TheProductsLimit(Base):
         self.assertEqual(self.lease.try_claim(second)["worktree"], str(second))
 
     def test_the_main_checkout_counts_toward_the_limit_like_any_other(self):
-        """The night's reverify runs the product in the main checkout; a lease there that
+        """The night's reverify runs the product in the main worktree; a lease there that
         the limit did not count would put a second copy on the ports the limit exists to
         protect."""
         (self.repo / ".mmw").mkdir()

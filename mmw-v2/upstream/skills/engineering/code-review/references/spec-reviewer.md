@@ -19,9 +19,9 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ### Read tickets already integrated into the base branch
 
-Run the `dispatch` skill's `dispatch.sh integrated <ticket>`, read every ticket it lists and its closeout comment; do not trust its verdict as proof that the combined result is correct.
+Run the `dispatch` skill's `dispatch.sh integrated <ticket>`, read every ticket it lists and its closing comment; do not trust its verdict as proof that the combined result is correct.
 
-Review the current ticket together with those tickets from four angles:
+Review the current ticket together with those tickets for semantic conflicts, from four angles:
 
 - **Combination behavior**: behaviors that pass alone still work when both changes are present.
 - **Contract consistency**: data models, interfaces, database schemas, serialization formats and registries agree across tickets, and a contract provided by one ticket is used correctly by another.
@@ -30,7 +30,7 @@ Review the current ticket together with those tickets from four angles:
 
 Report a mismatch under `Missing`, `Scope creep` or `Built wrong`, with quotes from both tickets or their named baselines. State whether the repair target is inside the current ticket's `## Owns`.
 
-### The interface a UI ticket owns
+### The UI a page ticket owns
 
 **The screen contract you do open.** The ticket's `## Read first` names `screen-contract.yaml` and the row ids the ticket owns. Each row is a requirement in the shape this axis reads: `calls`, `shows`, `next`, `on_failure`. A control in the diff that calls nothing where its row names a call, shows a literal where its row names a field, or lands somewhere other than its `next`, is **Missing** or **Built wrong**, quoted from the row. A `Missing` against a row's `calls` is the finding that blocks closeout, so word it with the row id first.
 

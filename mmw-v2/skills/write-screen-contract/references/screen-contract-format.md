@@ -59,9 +59,9 @@ rows: [...]
 
 ## A row
 
-A row is identified by `trigger` plus `precondition`. `trigger` is the control's `data-ui` id, copied from the skeleton as a string. The id format (`<region>.<part>`) is defined by the design-pages skill's `template-project-claude-md.md`; this file copies whatever the skeleton has. Role and accessible name are explanation the skeleton also carries, not the key.
+A row is identified by `trigger` plus `precondition`. `trigger` is the control's `data-ui` id, copied from the skeleton as a string. The id format (`<region>.<element>`) is defined by the design-pages skill's `template-project-claude-md.md`; this file copies whatever the skeleton has. Role and accessible name are explanation the skeleton also carries, not the key.
 
-The same control in different states is several rows, split by `precondition`. A part that repeats in a list is one row; the values that change go in `shows`, not extra rows.
+The same control in different states is several rows, split by `precondition`. An element that repeats in a list is one row; the values that change go in `shows`, not extra rows.
 
 Server-rendered product — a form POST against an HTTP API:
 

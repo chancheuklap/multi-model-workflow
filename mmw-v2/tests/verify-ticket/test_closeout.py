@@ -1,4 +1,4 @@
-"""The closing gate: what a closing comment must say before the ticket may close."""
+"""The closeout: what a closing comment must say before the ticket may close."""
 
 import io
 import json
@@ -301,7 +301,7 @@ NO_FINAL_RUN = (checked("self", [UNMET], "UNMET: 1 (met: 0)"),)
 
 
 class TestTheFinalRunSettlesAllMet(unittest.TestCase):
-    """`ALL MET` requires the worker's final full run on the current HEAD."""
+    """`ALL MET` requires the worker's final run on the current HEAD."""
 
     UNMET_RUN = checked("reverify", [UNMET], "UNMET: 1 (met: 0)")
     HANDOFF_RUN = checked("reverify", [UNMET], "HANDOFF REQUIRED: 1 abandoned (met: 0)")
@@ -401,7 +401,7 @@ class TestACheckThatNeededAFence(unittest.TestCase):
     """A draft carries its criteria verbatim, so it carries their fences too.
 
     Both readers of a ledger have to agree on where a command ends. `gates.mjs`
-    refuses a bare line under a `CHECK:`; if the closing gate read the same ledger as
+    refuses a bare line under a `CHECK:`; if the closeout read the same ledger as
     fine, a ticket could close on criteria the engine would not even parse.
     """
 

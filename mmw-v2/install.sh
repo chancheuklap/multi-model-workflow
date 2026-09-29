@@ -363,7 +363,7 @@ import { basename } from "node:path";
 const HOOK = "%(hook)s";
 
 export default function (pi) {
-  // cwd 的 basename 是 issue-<n> 才调 tool-guard.py；main agent 不在这样的目录里。
+  // cwd 的 basename 是 issue-<n> 才调 tool-guard.py；orchestrator 不在这样的目录里。
   if (!/^issue-\\d+$/.test(basename(process.cwd()))) return;
 
   pi.on("tool_call", async (event, ctx) => {

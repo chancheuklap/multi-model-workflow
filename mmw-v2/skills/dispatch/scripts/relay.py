@@ -163,10 +163,10 @@ the time spent delivering, exceeds `--grace` seconds (default three intervals), 
 good poll queues one `relay.recovered` row to each watch's orchestrator (one per session,
 however many watches it opened) for the whole stretch, ahead of the events it recovered:
 one announcement per stretch, never one per missed event. A stretch is named by the time
-of the last good poll before it — its generation — and `gap.json` records the latest one
-announced; a stretch already announced is never announced again, whatever became of its
-rows. Consuming rows goes by sequence number and announcing a stretch goes by generation;
-neither touches the other.
+of the last good poll before it, `since`, and `gap.json` records the latest one announced
+with its `generation`, a count that rises by one per announced stretch; a stretch already
+announced is never announced again, whatever became of its rows. Consuming rows goes by
+sequence number and announcing a stretch goes by `since`; neither touches the other.
 
 Files in the state directory:
 

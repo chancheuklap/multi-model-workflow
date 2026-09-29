@@ -19,13 +19,13 @@ You have read every old file in full, and you have `survey-list.md`. Now every o
 
 1. **Identify the project identity** — extract what the old files say about what this is. It becomes the recommended answer in `SKILL.md` `## Ask the user`, where the user confirms or replaces it.
 2. **Extract commands and imports** — every command in the old file passes through the command rule in `SKILL.md` `## Write`; every `@` line in an old `CLAUDE.md` other than `@AGENTS.md` gets `CLAUDE.md` as its destination when it came from the root `CLAUDE.md`, or is dropped when it came from a nested one (only `@AGENTS.md` survives there).
-3. **Assign `when` values** — a line that matters to one kind of work only gets a `when` value, chosen as `SKILL.md` `### Domain sections` says.
+3. **Assign `when` values** — a line that matters to one kind of work only gets a `when` value, chosen as `SKILL.md` `` ### `<important if>` blocks `` says.
 4. **Move code and test rules out** — a line that is a code rule gets `CODING_STANDARDS.md` as its destination, a test rule `TESTING.md` (`SKILL.md` `### Code and test rules`); copy it into that file verbatim.
 5. **Send the rest to prune** — a line that matches the list in `SKILL.md` `### What NOT to Add` gets `removed: <reason>` as its destination now, so the "what was removed" list is complete before writing starts.
 
 Record the outcome as `destinations.md` in the scratch directory: one line per rule or command, as `<old file>:<line> → <destination>`, where the destination is a section name of the templates in `SKILL.md` `## Write`, `CODING_STANDARDS.md` or `TESTING.md`, `ask` (identity lines only), or `removed: <reason>`.
 
-Then append every line whose destination is a section to `survey-list.md` as an entry: `fact` is the line, `evidence` is `<old file>:<line>`, `place` is root or the directory the old file sat in, `type` is command, convention, gotcha, or reference by the section, and `when` is the value chosen in step 3 for a line that goes into a domain section. The writer reads only the survey list; a kept line that is not in it is not written. Lines whose destination is `ask` stay in `destinations.md`; `SKILL.md` `## Ask the user` reads them there as recommended answers.
+Then append every line whose destination is a section to `survey-list.md` as an entry: `fact` is the line, `evidence` is `<old file>:<line>`, `place` is root or the directory the old file sat in, `type` is command, convention, gotcha, or reference by the section, and `when` is the value chosen in step 3 for a line that goes into an `<important if>` block. The writer reads only the survey list; a kept line that is not in it is not written. Lines whose destination is `ask` stay in `destinations.md`; `SKILL.md` `## Ask the user` reads them there as recommended answers.
 
 ### What happens to each old file on disk
 

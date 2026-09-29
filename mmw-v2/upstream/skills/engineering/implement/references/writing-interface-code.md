@@ -1,6 +1,6 @@
 # Writing interface code
 
-Read this file when the ticket's **Read first** lists a screen contract. An interface ticket has two baselines, each binding its own domain: the design package binds look and verbatim copy; the screen contract binds what each control calls, which field feeds each shown value, what state follows, what failure shows, and timing. A statement of the design package about the second domain is a reference the contract has already adopted or overridden, so the two never compete. A `contract` child for a screen-contract row that does not fit also names the wayfinder map's alignment ticket when the spec came from a map, since that is where the row is rewritten.
+Read this file when the ticket's **Read first** lists a screen contract. A page ticket has two baselines, each binding its own domain: the design package binds look and verbatim copy; the screen contract binds what each control calls, which field feeds each shown value, what state follows, what failure shows, and timing. A statement of the design package about the second domain is a reference the screen contract has already adopted or overridden, so the two never compete. A `contract` child for a screen-contract row that does not fit also names the wayfinder map's alignment ticket when the spec came from a map, since that is where the row is rewritten.
 
 ## Before the first line
 

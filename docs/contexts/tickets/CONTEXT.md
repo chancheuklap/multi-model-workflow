@@ -8,7 +8,7 @@ The written half of the landing pipeline: what a spec and a ticket are, the sect
 
 **worker grade**:
 Which of the two workers a ticket goes to: at once a ticket label and a `models.json` row. `dispatch.sh` reads the label afresh each time the ticket is started.
-_Home_: `docs/agents/issue-tracker.md`
+_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`junior-worker`**:
 The default worker grade (`DEFAULT_WORKER` in `dispatch.sh`).
@@ -29,20 +29,19 @@ A container for a batch of tickets, not a piece of work: an issue labelled `mmw:
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Implementation Decisions`**:
-The spec section of decisions made, in numbered subsections `### 1.` … that a ticket's `## Parent` points at. Each decision names its source.
+The spec section of decisions made, in numbered subsections `### 1.` … that a ticket's `## Parent` points at. Each decision names its source, or carries the marker "this spec's decision" when no source settles it.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **API contract**:
-The Implementation Decisions subsection an effort with a screen contract always has, one entry per operation the contract's `calls` column names — its request fields, response fields and failure cases — which a new project's OpenAPI document starts from.
+The Implementation Decisions subsection an effort with a screen contract always has, one entry per operation the screen contract's `calls` column names — its request fields, response fields and failure cases — which a new project's OpenAPI document starts from.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **cross-component composition**:
 The Implementation Decisions subsection an effort with a screen contract always has, one entry per **cross-component row**, naming the request fields that row's action carries and the state the other region enters.
-_Avoid_: `App · ` 页组合 (the source names this subsection only in Chinese; see the vocabulary candidates file)
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **visual acceptance**:
-The Implementation Decisions paragraph, written only with a screen contract, stating that appearance is decided by **element parity**, citing the contract's pages (`App · ` pages included), with each design page's `mount` as the story page id.
+The Implementation Decisions paragraph, written only with a screen contract, stating that appearance is decided by **element parity**, citing the screen contract's pages (`App · ` pages included), with each design page's `mount` as the story page id.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Testing Decisions`**:
@@ -50,11 +49,11 @@ The spec section that says where a test observes the result, the seam and what i
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **How a test arrives at a state**:
-The Testing Decisions item naming, per test layer, what a test can and cannot write to reach a state, and the mechanism that reaches what the seam's write surface does not. A ticket's `## Seam` derives from it, and a state it names with no mechanism yet becomes a `reach` ticket.
+The Testing Decisions item naming, per test layer, what a test can and cannot write to reach a state, and the mechanism that reaches what a test cannot write through the seam. A ticket's `## Seam` derives from it, and a state it names with no mechanism yet becomes a `reach` ticket.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **Critical flows**:
-The bullet of `## Testing Decisions`, written only in a spec with a screen contract, naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/journeys/` each one runs from.
+The bullet of `## Testing Decisions`, written only in a spec with a screen contract, naming, one line each, the flows whose failure costs most (money, sign-in, a submit chain) with the directory under `.mmw/journeys/` each one runs from and the Implementation Decisions section numbers it involves, which `--lint` reads to decide which journeys need `--break`.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
 **`## Out of Scope`**:
@@ -69,7 +68,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 The spec section holding the spec-division bookkeeping when step 1 divides a reference into several specs and the reference is not a wayfinder map: one line per spec, naming it, what it covers, its position in the order and its link once published.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 
-**several specs**:
+**spec division**:
 The step-1 judgement of whether what a reference leads to is one spec or several, by whether the decisions share a **seam** and whether the dependency between parts runs one way. The division is written to the map's `## Specs` section, or, with no map, the first spec's `## Further Notes`.
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`, `mmw-v2/upstream/skills/engineering/to-spec/references/several-specs.md`
 
@@ -78,8 +77,8 @@ Changing a section of an already-published spec in place rather than publishing 
 _Home_: `mmw-v2/upstream/skills/engineering/to-spec/references/revising-a-spec.md`
 
 **seam**:
-The public interface a test observes behaviour at, without reaching inside. `## Testing Decisions` names it and a ticket copies it into `## Seam`.
-_Home_: `mmw-v2/upstream/skills/engineering/tdd/SKILL.md`
+The place where a module's interface lives: where a test observes behaviour without reaching inside, and where what is behind the interface can be replaced (a stub, an adapter). `## Testing Decisions` names it and a ticket copies it into `## Seam`.
+_Home_: `mmw-v2/upstream/skills/engineering/codebase-design/SKILL.md`, `mmw-v2/upstream/skills/engineering/tdd/SKILL.md`
 
 **precedent**:
 The similar existing test `## Testing Decisions` names per test layer. The ticket copies it into `## Seam`, and the ticket writer copies its invocation into `CHECK:` and its success line into `EXPECT:`.
@@ -92,7 +91,11 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
 ### Tickets
 
 **ticket**:
-An issue that is a native sub-issue of its spec, in the `<issue-template>` shape and labelled `mmw:ticket`: one vertical slice a worker takes from claim to close. A batch is the tickets under one spec, published together.
+An issue that is a native sub-issue of its spec, in the `<issue-template>` shape and labelled `mmw:ticket`: one vertical slice a worker takes from claim to close.
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+
+**batch**:
+The tickets under one spec, published together: `--lint` checks them as one graph of blocking edges, and the closing pass re-runs every one of their criteria on the base branch. Distinct from a migrate batch of a **wide refactor**, one step of an expand-contract sequence.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **vertical slice**:
@@ -108,7 +111,7 @@ The final ticket of an expand-contract sequence whose migrate batches cannot eac
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **prefactor ticket**:
-The ticket cut ahead of tickets that would otherwise all edit the same files nobody owns: it owns those files and lands the entries they need, so each of those tickets is blocked by it alone. Where the spec has a screen contract, it is also the **contract ticket**.
+The ticket cut ahead of several tickets that would otherwise all edit the same registration files: it owns those files and lands in one pass the entries they need, each naming a placeholder the ticket behind it fills, so each of those tickets is blocked by it alone. Where the spec has a screen contract, it is also the **contract ticket**.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **design-system ticket**:
@@ -119,8 +122,8 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interf
 The ticket that lands or completes `.mmw/` so later tickets have a precedent to copy. Distinct from a **component page ticket**, which builds the product code of design pages, and from a **design-system ticket**, which does not depend on `.mmw/`.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
-**interface ticket**:
-A ticket whose **Read first** carries a `screen-contract.yaml rows:` line: a component page or app page ticket. The contract, design-system and acceptance tickets a screen contract also produces are not interface tickets.
+**page ticket**:
+A ticket whose **Read first** carries a `screen-contract.yaml rows:` line: a component page or app page ticket. The contract, design-system and critical-flow tickets a screen contract also produces are not page tickets.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **component page ticket**:
@@ -131,12 +134,12 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interf
 The ticket that takes one `App · ` page and builds the product's composition module for it, blocked by the **component page ticket** of every `Component · ` page it composes.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
-**acceptance ticket**:
+**critical-flow ticket**:
 The ticket for one **Critical flows** line, whose journey criterion runs with `--break`. Distinct from the **contract ticket**, whose smoke journey has no `--break`.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **static guards**:
-The contract ticket's repository-wide deliverables that every later interface ticket adds to rather than owns alone: the interface takes no fake data, a `mount` is unique in one render, and a `data-ui` id repeats only on the repeating part of a list. Their criteria sit on the batch's last ticket.
+The contract ticket's repository-wide deliverables that every later page ticket adds to rather than owns alone: the UI takes no fake data, a `mount` is unique in one render, and a `data-ui` id repeats only on the repeating part of a list. Their criteria sit on the batch's last ticket.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **Shared journey helper**:
@@ -152,7 +155,7 @@ The ticket section routing it to its spec: `#<spec>, Implementation Decisions se
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## What to build`**:
-The end-to-end behaviour the ticket makes work, from the user's point of view, in numbered points each with the test that decides it.
+The end-to-end behaviour the ticket makes work, from the end user's point of view, in numbered points each with the test that decides it.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Read first`**:
@@ -176,8 +179,8 @@ The ticket section holding the acceptance criteria. A `ready-for-human` ticket h
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **Blocked by**:
-The item of a `ready-for-human` ticket naming the ticket that produces the thing it waits on. An agent ticket's blocking is on the tracker's blocking edges alone.
-_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/person-ticket.md`
+The tickets one ticket waits on. On an agent ticket they are its blocking edges on the tracker alone, which the quiz lists and step 5 of `to-tickets` calls a **Blocked by** edge; on a `ready-for-human` ticket, the body item naming the ticket that produces the thing it waits on.
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`, `mmw-v2/upstream/skills/engineering/to-tickets/references/person-ticket.md`
 
 ### Acceptance criteria
 
@@ -190,7 +193,7 @@ The shell command that decides a criterion, run in its own shell at the reposito
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`EXPECT:`**:
-The string, or `/…/flags` regex, the `CHECK:` output must contain: a line the precedent prints only on success.
+The string, or `/…/flags` regex, the `CHECK:` output must contain: a **success-only marker**, the line the precedent prints only when it passed.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`EVIDENCE:`**:
@@ -229,7 +232,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/implement/SKILL.md`
 
 **blocking edge**:
 The tracker's native issue dependency between two tickets, the copy every script reads. A blocker is a ticket that must land before the ticket it blocks is started.
-_Avoid_: blocking link, native issue dependencies
+_Avoid_: blocking link; native issue dependencies as this concept's name (it names GitHub's mechanism)
 _Home_: `docs/agents/issue-tracker.md`
 
 **frontier**:
@@ -238,12 +241,12 @@ _Home_: `mmw-v2/skills/dispatch/scripts/status.py`
 
 **sub-issue**:
 The tracker's native parent–child relation. A map's children are its decision tickets and specs, a spec's direct children are its tickets, and a ticket's direct children are the issues a worker opens under it with `--sub-issue <kind>`.
-_Home_: `mmw-v2/skills/verify-ticket/references/sub-issues.md`
+_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/verify-ticket/references/sub-issues.md`
 
 ### Labels and queues
 
 **label**:
-A GitHub label on an issue, from one of three sets that never stand in for each other: a **layer label** says which layer of the tree the issue is, a triage label which queue it is in, a worker-grade label which worker row starts it.
+A GitHub label on an issue. This repository's own labels come from three sets that never stand in for each other: a **layer label** says which layer of the tree the issue is, a triage label which queue it is in, a worker-grade label which worker row starts it. Triage's `bug` and `enhancement` and wayfinder's `wayfinder:<type>` labels sit outside the three.
 _Home_: `docs/agents/issue-tracker.md`
 
 **layer label**:
@@ -252,15 +255,15 @@ _Home_: `docs/agents/issue-tracker.md`
 
 **queue**:
 What a triage label expresses: `ready-for-agent` is the agent queue, `needs-triage` holds what nobody has judged, `ready-for-human` is the user's queue.
-_Home_: `docs/agents/triage-labels.md`
+_Home_: `docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md`
 
 **triage role**:
-A canonical label name the upstream skills use, mapped in `docs/agents/triage-labels.md` to this repository's label string: five state roles and two category roles.
-_Home_: `docs/agents/triage-labels.md`
+A canonical label name the upstream skills use: five state roles, which `docs/agents/triage-labels.md` maps to this repository's label strings, and two category roles, `bug` and `enhancement`, used as named.
+_Home_: `docs/agents/triage-labels.md`, `mmw-v2/upstream/skills/engineering/triage/SKILL.md`
 
 **`needs-triage`**:
 The label of an issue nobody has judged yet: an issue from outside, a ticket its worker handed back or that bounced twice, a landed ticket `reverify` reopened, or a child a worker opened. The triage skill reads this queue.
-_Home_: `mmw-v2/upstream/skills/engineering/triage/SKILL.md`
+_Home_: `mmw-v2/upstream/skills/engineering/triage/SKILL.md`, `mmw-v2/upstream/skills/engineering/triage/references/pipeline-issues.md`
 
 **`needs-info`**:
 Waiting on the user for more information; one of triage's four outcomes.
@@ -271,7 +274,7 @@ The agent-queue label, which `to-tickets` puts on every agent ticket beside a wo
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`ready-for-human`**:
-The label of a ticket holding one thing only a person can do, of kind `reaction` or `reach`. Such a ticket holds only **the five things**, with no Seam, Owns, criteria or worker grade.
+The label of a person ticket: a ticket holding one thing only a person can do, of kind `reaction` or `reach`. Such a ticket holds only **the five things**, with no Seam, Owns, criteria or worker grade.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`reaction`**:
@@ -283,11 +286,11 @@ The `ready-for-human` kind where a machine would decide it if it could get to th
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **the five things**:
-The fixed, minimal content of a `ready-for-human` ticket, the whole of it: **Parent**, its kind, **What to look at**, **What makes it right**, **Blocked by**.
+The fixed, minimal content of a `ready-for-human` ticket, the whole of it: **Parent**, **Which kind**, **What to look at**, **What makes it right**, **Blocked by**.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/person-ticket.md`
 
 **retiring line**:
-The line a `reach` ticket adds naming what would retire it: a test account, a spare device, a runner, a mechanism under **How a test arrives at a state** nobody owns yet, or a `TESTING.md` rule that gives a test no exit.
+The line a `reach` ticket adds naming what would retire it, that is, make the ticket no longer needed: a test account, a spare device, a CI runner, a mechanism under **How a test arrives at a state** nobody owns yet, or a `TESTING.md` rule that gives a test no exit. Distinct from toolbox's **retired** and the screen contract's `retired_ids`, where the same verb means withdrawn from use.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/person-ticket.md`
 
 **`wontfix`**:
@@ -329,8 +332,12 @@ _Home_: `mmw-v2/upstream/skills/engineering/triage/AGENT-BRIEF.md`
 ### Publishing and linting
 
 **ambiguity scan**:
-The read-only pass over a spec and its drafted tickets that feeds questions into the `to-tickets` quiz's Choices before the breakdown is shown.
+The read-only pass over a spec and its drafted tickets that feeds questions into the `to-tickets` quiz's **Choices** before the breakdown is shown.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/ambiguity-scan.md`
+
+**Choices**:
+The line the `to-tickets` quiz shows for each ticket an agent works: every choice the fifth of **the five questions** sent there and every question the **ambiguity scan** returned, each with its options and the one the ticket writer would take. An answered choice is written into the ticket's `## What to build`, or back into the spec when it changes a decision there.
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **ticket draft**:
 An approved ticket written to a local file, `<draft name>.md`, in the directory `--lint --drafts <dir>` checks and `--publish --drafts <dir>` later creates as an issue: the header lines `TITLE:`, `LABELS:` and `BLOCKED BY:`, then `---`, then the body. The file's name, standing in for the issue number it does not have yet, is what `BLOCKED BY:` and the lint use to reference it.
@@ -344,8 +351,8 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 `verify-ticket.py <n> --lint`: gate-lint plus the ticket-graph, worker-label and screen-contract checks, run on one ticket, on a spec's batch, or on the batch's drafts before publishing.
 _Home_: `mmw-v2/skills/verify-ticket/references/linting.md`
 
-**problem tag**:
-The tag in `[brackets]` at the end of a lint finding's line, naming the kind of problem it reports: a cycle in the batch's blocking edges, a worker-grade or layer label out of place, an unreadable `screen-contract.yaml rows:` line, a weak `EXPECT:`, and others.
+**lint rule ID**:
+The string in `[brackets]` at the end of a lint finding's line, naming the check that reported it, as ESLint's and SARIF's `ruleId` does: a cycle in the batch's blocking edges, a worker-grade or layer label out of place, an unreadable `screen-contract.yaml rows:` line, a weak `EXPECT:`, and others. Always qualified: `retro`'s Rule id names a Nowledge Mem Rule.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`, `mmw-v2/upstream-unlazy/scripts/gate-lint.mjs`
 
 **`ERROR`, `WARN`**:

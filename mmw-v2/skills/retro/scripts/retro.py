@@ -522,7 +522,7 @@ def check_analysis(number: int, data: dict, gathered: dict) -> None:
             if "prompt_change" in proposal:
                 validate_prompt(proposal["prompt_change"], problem)
             if not qualifies(problem, gathered, opened):
-                raise RetroError("proposal has no two independent sources or proposed Memory blocker")
+                raise RetroError("proposal has neither two independent occurrences nor a Memory record spec.closed proposed with a stall event")
 
 
 def validate_prompt(change: dict, problem: dict) -> None:

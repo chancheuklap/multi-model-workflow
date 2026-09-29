@@ -323,7 +323,7 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                             "adapter_points_at_another_key",
                             label,
                             f"{label} passes --adapter {token}, which is not this release manifest {name}",
-                            f"point it at {name}; otherwise this round runs another product's release manifest and every log line still reads green",
+                            f"point it at {name}; otherwise this release loop runs another product's release manifest and every log line still reads green",
                         )
                     )
 

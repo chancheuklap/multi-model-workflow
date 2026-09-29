@@ -121,7 +121,7 @@ bash scripts/dispatch.sh route <n> <child> became-ticket <new ticket>
 
 Judge each one by the four steps below, **in order, first match wins**, after the check that comes before them.
 
-**Step 0, before you classify at all.** Check the condition the finding's own body states against the current `HEAD`. If it never held, run `bash scripts/dispatch.sh route <n> <child> stale invalid` and do nothing else. If it held but a later ticket of the same batch or a closing-pass fix already resolved it, run `bash scripts/dispatch.sh route <n> <child> stale fixed-elsewhere` and do nothing else. A judge's claim disproved by current evidence is `invalid`; a valid claim satisfied somewhere else is `fixed-elsewhere`. `fixed-elsewhere` is not a reviewer false positive.
+**Step 0, before you classify at all.** Check the condition the finding's own body states against the current `HEAD`. If it never held, run `bash scripts/dispatch.sh route <n> <child> stale invalid` and do nothing else. If it held but a later ticket of the same batch or a closing-pass fix already resolved it, run `bash scripts/dispatch.sh route <n> <child> stale fixed-elsewhere` and do nothing else. A finding's claim disproved by current evidence is `invalid`; a valid claim satisfied somewhere else is `fixed-elsewhere`. `fixed-elsewhere` is not a reviewer false positive.
 
 1. **Does it fall inside another still-open ticket's `## Owns`?** → a ticket, `Blocked by` that open one. Not a question of size: the constraint is concurrency. Fixing it yourself in the origin-tracking checkout makes the next `advance` conflict when that ticket's branch merges.
 2. **Is it a gap in the criteria themselves** — a `CHECK:` that is already green while the thing it names is broken or never reached? → a ticket, `senior-worker`, and it asks for a negative control.
@@ -150,7 +150,7 @@ Read its exit as in 1b; fix every `ERROR` and lint again.
 
 Once every finding has a route, close this spec's Memory records before leaving the pass. These records are what this spec's workers left for the workers after them: each carries the `mmw-experience` label, so later workers in this repository see it in their start prompt and act on it before reading any code. A record that was true mid-night can be wrong once the batch has landed. Judge each against what landed: keep what still holds, deprecate or supersede what the batch made untrue, and propose to the retro what should change how the pipeline works.
 
-Run `bash scripts/dispatch.sh memory-list <spec>` and save its output to a file: it computes the repository's Space id, pulls the spec's full `mmw-spec-<spec>` record set, and writes a decision-file skeleton with `total` and `returned` already filled in, one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated.
+Run `bash scripts/dispatch.sh memory-list <spec>` and save its output to a file: it computes the repository's Space id, pulls the spec's full `mmw-spec-<spec>` record set, and writes a `--memory-decisions` file skeleton with `total` and `returned` already filled in, one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated.
 
 For each id in the file decide exactly one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is; `propose` is a candidate for the later retro and does not change the Memory here; `deprecate` is no longer valid; `supersede` names the existing `replacement_id` that replaces it. A `propose` decision's `evidence` is exactly one event comment URL (`https://github.com/<owner>/<name>/issues/<n>#issuecomment-<id>`) or commit URL (`https://github.com/<owner>/<name>/commit/<40-hex sha>`): the retro counts the proposal only when that string is one of its problem's sources, and `summary` refuses any other value.
 
@@ -177,7 +177,7 @@ bash scripts/dispatch.sh summary <spec> --memory-decisions <file>
 
 To recover a reopened ticket, repair the cause on the base branch, push it, and run `reverify <spec>` again; all met, `reverify` closes it itself. Still red, `summary` refuses the night: tell the user which ticket stays red and why, and stop.
 
-When `summary` refuses the decisions file, list the Memory records again, rewrite the file, and run `summary` again; a rerun repeats no completed action.
+When `summary` refuses the `--memory-decisions` file, list the Memory records again, rewrite the file, and run `summary` again; a rerun repeats no completed action.
 
 Tickets left for human acceptance, handed back to triage by their worker, or behind an open blocker are valid outcomes; `summary` does not require every ticket to succeed.
 

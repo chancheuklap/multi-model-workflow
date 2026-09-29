@@ -1,6 +1,6 @@
 # Running the session
 
-You are the reviewer: you get the axes run, verify every finding they report, and write the one review comment on the ticket.
+You are the reviewer: you get the axes run, verify every finding they report, and write the one review report on the ticket.
 
 ## 1. Pin the diff
 
@@ -23,7 +23,7 @@ When the ticket has a story criterion, run four axes: Standards, Spec, Tests and
 On a host that can run subagents, start one of your host's general-purpose subagents per axis, all in one message, so they run at once and never see each other's findings. Name no model and no thinking level: each axis runs on this session's. Each prompt is one sentence naming this skill, the ticket, the base commit, and one axis. The axis word is exactly `Standards`, `Spec`, `Tests`, or `UI`:
 
 ```
-Use the code-review skill to review ticket #<ticket> from base commit <base commit>, axis Standards.
+Use the code-review skill to review ticket #<ticket> from base commit <base-commit>, axis Standards.
 ```
 
 Nothing else: the skill is what they read, and the axis word picks their file in the skill's table.
@@ -62,7 +62,7 @@ For a finding about a ticket merged into the base branch, apply the same ownersh
 
 In-ticket findings get one round of fixes on this ticket; out-of-ticket findings become `finding` children the worker opens, and block nothing.
 
-## 5. Write one review comment on the ticket
+## 5. Write one review report on the ticket
 
 Write the report to a file, then hand that file to the `verify-ticket` skill's `verify-ticket.py`:
 
@@ -70,10 +70,10 @@ Write the report to a file, then hand that file to the `verify-ticket` skill's `
 verify-ticket.py <ticket> --review <file>
 ```
 
-The review comment's first line is fixed:
+The review report's first line is fixed:
 
 ```
-REVIEW <base commit>..<HEAD commit>
+REVIEW <base-commit>..<HEAD commit>
 ```
 
 Then the axis reports under `## Standards`, `## Spec` and `## Tests`, verbatim or lightly cleaned, in that order, and `## UI` when that axis ran. Then `## Withdrawn`, each `refuted` finding with the refutation that disproves that specific claim. Then two lists, `## In-ticket` and `## Out-of-ticket`. Both `## In-ticket` and `## Out-of-ticket` use this exact shape for every finding:

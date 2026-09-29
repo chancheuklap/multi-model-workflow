@@ -29,7 +29,7 @@ last line of the output — that line is what the oracle prints.
 **End by reading the result back from another page.** A journey that clicks Submit and
 accepts a success message or redirect has proved only that the click handler ran. Go to
 the page that owns the saved result and assert the value there, so breaking the write or
-read interface makes the second pass fail for the reason the user path would fail.
+read operation makes the second pass fail for the reason the user path would fail.
 
 **A journey script starts nothing itself.** For a desktop application, `start` launches
 the application and opens its debugging port, `discover` prints that address, and the
@@ -37,13 +37,13 @@ journey connects to it with Playwright.
 
 ## The fault-injection switch
 
-The product's fault-injection switch matches the method and route the criterion's `--break` names, fails only that interface, and affects only the product process: this deliberate, controlled failure is fault injection, proving the journey notices when the interface it depends on breaks. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference. The switch lives in the product because only the product's own routing reaches every path its frontend takes; a forwarding proxy in front of it misses a frontend that calls its backend by another address.
+The product's fault-injection switch matches the method and route the criterion's `--break` names, fails only that operation, and affects only the product process: this deliberate, controlled failure is fault injection, proving the journey notices when the operation it depends on breaks. On the second start, and only then, `journey.py` puts the exact value in `MMW_BREAK` for `start`. When the switch is active, `start` prints the exact line `BREAK ARMED <METHOD> <route>`. A non-zero second `start`, or a successful one without that line, is a refusal: the script does not run and the message points back to this reference. The switch lives in the product because only the product's own routing reaches every path its frontend takes; a forwarding proxy in front of it misses a frontend that calls its backend by another address.
 
 ## The negative control
 
-With `--break`, the second pass starts the product again with the named interface
+With `--break`, the second pass starts the product again with the named operation
 failing and runs the same script with nothing telling it which pass it is; **that pass
-has to fail**, or the journey did not prove the interface matters to the result it
+has to fail**, or the journey did not prove the operation matters to the result it
 asserted. Without `--break`, the smoke journey's second pass runs with the product
 stopped and every discovered address pointing at a closed port.
 

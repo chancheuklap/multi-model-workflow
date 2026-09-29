@@ -13,7 +13,7 @@ This is the design system of <product>. It distils the product's look into one r
 
 ## Sources
 
-- Code: <source>. Nothing outside it bears on the interface.
+- Code: <source>. Nothing outside it bears on the UI.
 - Example data: <example data>. Use it to see the parts with real content.
 - Fonts and icons already in this project are the product's own files; keep them.
 

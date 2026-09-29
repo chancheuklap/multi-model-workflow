@@ -6,13 +6,13 @@
 
 ## State table: do what `where` says
 
-Each round, first run:
+Each time, first run:
 
 ```bash
 bash scripts/release-flow.sh where
 ```
 
-Every verdict, `PAUSED` and `CORRUPT:` included, exits 0: read the state from stdout, never from the exit code. Exit 1 is one `ERROR:` line on stderr naming the fact the release engine cannot get past.
+Every state `where` prints, `PAUSED` and `CORRUPT:` included, exits 0: read the state from stdout, never from the exit code. Exit 1 is one `ERROR:` line on stderr naming the fact the release engine cannot get past.
 
 | Output | Do | Stop and report to the user? |
 | --- | --- | --- |
@@ -29,21 +29,21 @@ After a stage, ask `where` again until the table names a terminal state. **Do no
 
 `PAUSED:needs-context` means the release engine lacks information it cannot judge. **Resolve it yourself when you can.**
 
-Goal: the round resumes with the cause gone, or the user holds the one question only they can answer. The engine's receipt and the logs it names are the evidence; do not guess past them. Environment causes you act on; code or config causes you fix and commit (the build ships `git archive HEAD`); then `resume`.
+Goal: the release loop resumes with the cause gone, or the user holds the one question only they can answer. The release receipt and the logs it names are the evidence; do not guess past them. Environment causes you act on; code or config causes you fix and commit (the build ships `git archive HEAD`); then `resume`.
 
 **Same root cause twice, or the cause is billing, a contract, or a product decision the user must make — stop and report to the user.** Do not loop.
 
 The paragraph above says commit because the remote build ships `git archive HEAD`. A change left in the
-worktree never reaches the build machine, so the next round rebuilds the same code and fails the
+worktree never reaches the build machine, so the next build rebuilds the same code and fails the
 same way. `resume` sees the new HEAD and re-verifies every stage — that is what you want after a
 code change.
 
 ## Close
 
-- Package paths come from the build stage's `DELIVERED` lines. On gather failure, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
+- Package paths come from the build stage's `DELIVERED` lines. If copying the package into the delivery directory failed, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
 - `close` leaves a delivery record (product name plus the ship commit). `exe-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
-- `close` refuses a round that has not shipped; `abort` drops it and writes no record.
+- `close` refuses a release loop that has not shipped; `abort` drops it and writes no record.
 
 ## An interrupted build
 
-An interrupted build keeps running on the build machine. Run the stage `where` names again: `stage run` asks the build machine whether this round (same commit, same product) is still running and attaches to it. Do not `abort` or `init` to restart it: a fresh round wipes the source tree that build is reading.
+An interrupted build keeps running on the build machine. Run the stage `where` names again: `stage run` asks the build machine whether this build (same commit, same product) is still running and attaches to it. Do not `abort` or `init` to restart it: a fresh release loop wipes the source tree that build is reading.

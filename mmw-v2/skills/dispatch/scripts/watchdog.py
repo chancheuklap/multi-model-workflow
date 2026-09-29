@@ -70,7 +70,7 @@ watch is open this process writes a last heartbeat saying so and exits.
    whose results are in) is an alert too. So is a ticket whose events cannot be read.
 4. A silent ticket whose newest event is at least `--idle` seconds old (default 3600),
    whose worker's runner answered `alive`, and whose fold shows it waiting for nothing —
-   no live reviewer session, no `waiting`, not `passed` — is an alert: its
+   no live reviewer, no `waiting`, not `passed` — is an alert: its
    worker is there and nothing will ever wake it (a worker that ended its turn with no
    result, say). Once per ticket and newest event.
 

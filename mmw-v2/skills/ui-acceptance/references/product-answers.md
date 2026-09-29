@@ -1,4 +1,4 @@
-# How a repository becomes an acceptance runtime
+# Product answers
 
 The **product answers** live in `.mmw/` at the repository root; `target_config.py --check`
 lists the fields. This page says what every answer must guarantee and why each field is
@@ -29,7 +29,7 @@ These hold for every product. How a given repository meets them is its own.
   **The fault-injection switch** specifies.
 - **A journey script reads only the addresses `discover` printed.** It starts
   nothing of its own — no application, server, container, or backing service.
-- **`harness_markers` declares this product's back-door strings** — the names it
+- **`harness_markers` declares this product's back doors** — the names it
   uses only to make itself drivable. `[]` is an answer.
 
 ## What the repository answers

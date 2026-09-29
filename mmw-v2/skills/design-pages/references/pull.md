@@ -28,7 +28,7 @@ Done when nothing outside the leaf directories imports them: each can be deleted
 - While the design ticket is still open: return to [edit pages](edit-pages.md), fix the pages in Claude Design, and pull again. The design ticket closes after the first pull whose `设计检查` and `覆盖` have nothing left to fix, with a comment naming that commit and the package directory.
 
   Under `覆盖`, a state the state list names that no page draws, a page with no `scene`, and a page root with no `data-ui` are design fixes like the `设计检查` lines: acceptance cannot check what the pages do not declare, and the `write-screen-contract` lint refuses them after the design ticket has closed. When `本地改过的说明` says the package had local edits, those edits are gone now: tell the user, because a change they wanted has to be made again in Claude Design.
-- During implementation: open a `contract` child under the interface ticket whose page it is, with the `verify-ticket` skill's `--sub-issue contract` on that ticket, naming the Claude Design page, the problem, and the `design-pages` skill's `references/pull.md`.
+- During implementation: open a `contract` child under the page ticket whose page it is, with the `verify-ticket` skill's `--sub-issue contract` on that ticket, naming the Claude Design page, the problem, and the `design-pages` skill's `references/pull.md`.
 
 MCP tools cannot create a comment on a design page, so this does not go through comments.
 
@@ -38,7 +38,7 @@ A pull made for a wayfinder map's design ticket ends at that ticket: once **Desi
 
 For any other pull, whether the effort's screen contract `docs/specs/<effort>/screen-contract.yaml` exists, and then `改动分类` in the pull report, decide which skill this run hands to; there is no default:
 
-- **No screen contract yet**, whatever `改动分类` says — the `write-screen-contract` skill, for the whole contract.
+- **No screen contract yet**, whatever `改动分类` says — the `write-screen-contract` skill, for the whole screen contract.
 - **增删控件或改流转** — the `write-screen-contract` skill at its **Re-runs** section, which edits only the rows those controls belong to.
 - **只改外观或文案** — the screen contract does not change, because no `data-ui` id did. An open ticket picks up the new package on its next run. Landed tickets are re-run by the `dispatch` skill's `reverify <spec>` on `origin/<base branch>`, which reopens a red one into triage with `ticket.regressed`; that reopened ticket is the correction. Until the night's `finish`, push the commit to `origin/<base branch>`: while the night is open, its closing pass runs `reverify`; after its `summary`, run `reverify <spec>` from this session. After `finish` the base branch is gone: push to the project branch the night merged into, and tell the user that the spec's landed tickets were not re-run against the new package.
 

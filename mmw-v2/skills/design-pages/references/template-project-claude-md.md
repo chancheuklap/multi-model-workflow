@@ -24,7 +24,7 @@ A state that is not shipping may stay in `options` if it is also listed under `o
 
 `state-list.md` at the project root, when present, is the list of regions and states to draw. Read it before drawing or changing a page: each `### <region>` heading in it is one `Component · <region>` page, and each list item's leading name is one `scene` value of that page. When a page and the list disagree, ask the user which one changes; do not edit `state-list.md` yourself.
 
-## Example data
+## Page data
 
 Each `Component · ` page draws its scenes from one data file under `data/` that holds one entry per `scene` value, written `window.<NAME> = { "<scene>": { ... }, ... };`. The page's own `renderVals()` turns the entry into what it shows. Whatever decides the look but is not visible text (a lamp's colour, which row is selected, which option is chosen) is a field of the entry, so the repository can hand the product the same values. A page whose controls change what it shows or send a request also loads, from `data/`, the backend-shaped data its entries were computed from, one entry per `scene` value under the same names: the product's own logic runs on that data when its controls are checked. An `App · ` page passes its `scene` down to the pages it shows.
 
@@ -34,11 +34,11 @@ Every `Component · ` and `App · ` page declares `$preview` in `data-props` wit
 
 ## `data-ui`
 
-Every control that can be clicked or typed into, and every element whose look will be checked, carries `data-ui="<region>.<part>"`, where `<region>` is the name of the `Component · ` page it belongs to. The page's root element (the first element inside `<x-dc>`, outside `<helmet>`) carries `data-ui="<region>.root"`, and an `App · ` page's root `data-ui="<name>.root"` with its own name: the product's region is compared from that element down. Repeated parts of a list share one id. An `App · ` page repeats the ids of the `Component · ` pages it shows (a `dc-import` of those pages does this by itself); no two `Component · ` pages use the same `<region>`.
+Every control that can be clicked or typed into, and every element whose look will be checked, carries `data-ui="<region>.<element>"`, where `<region>` is the name of the `Component · ` page it belongs to. The page's root element (the first element inside `<x-dc>`, outside `<helmet>`) carries `data-ui="<region>.root"`, and an `App · ` page's root `data-ui="<name>.root"` with its own name: the product's region is compared from that element down. Repeated items of a list share one id. An `App · ` page repeats the ids of the `Component · ` pages it shows (a `dc-import` of those pages does this by itself); no two `Component · ` pages use the same `<region>`.
 
-`ui-ids.md` at the project root, when present, lists the ids the product already carries. When a page is drawn for such a product, each of those ids goes on the element that means that part.
+`ui-ids.md` at the project root, when present, lists the ids the product already carries. When a page is drawn for such a product, each of those ids goes on the element that means the same thing.
 
-When a page is edited, an existing `data-ui` stays with the element that still means that part; it goes only when that element is deleted. The ids are how the repository recognises a control across edits.
+When a page is edited, an existing `data-ui` stays with the element that still means the same thing; it goes only when that element is deleted. The ids are how the repository recognises a control across edits.
 
 When a page passes `scene` down to a `dc-import`ed child, the child's `renderVals()` does not return a key named `scene`.
 

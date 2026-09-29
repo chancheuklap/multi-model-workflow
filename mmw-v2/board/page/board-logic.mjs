@@ -77,9 +77,9 @@ export const Board = {
   },
 
   // Whether this ticket is finished, which is the same question `blocker_hold` already
-  // answers for the ticket behind it: nothing more is coming from it. The ledger landed
+  // answers for the ticket behind it: nothing more is coming from it. Its events landed
   // it, or it closed with nothing that will ever land — taken through by hand outside the
-  // pipeline, which writes no `ticket.landed` and can leave the ledger empty. A ticket
+  // pipeline, which writes no `ticket.landed` and can leave it with no events. A ticket
   // that passed and has not landed yet is not finished, and neither is one whose events
   // could not be read: those still say why they hold.
   done(ticket) {

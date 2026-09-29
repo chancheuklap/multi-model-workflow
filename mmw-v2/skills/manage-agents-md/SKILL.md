@@ -113,7 +113,7 @@ The recommended answer quotes the survey entry and its evidence. When the survey
 
 ### Nested purpose, one table
 
-A nested file is one more file that drifts as the code under it changes, and nothing reminds anyone to update it. A directory earns one when an agent working there would break something it would not notice; a rule the agent would learn from the first error or the first file it opens stays out, and a rule for one kind of work can be a domain section in the root instead. Ask about every directory that earns a pair in one question: a table with one row per directory, the recommended purpose line in the second column, drawn from that directory's purpose entry in the survey list. The user edits rows or strikes directories out.
+A nested file is one more file that drifts as the code under it changes, and nothing reminds anyone to update it. A directory earns one when an agent working there would break something it would not notice; a rule the agent would learn from the first error or the first file it opens stays out, and a rule for one kind of work can be an `<important if>` block in the root instead. Ask about every directory that earns a pair in one question: a table with one row per directory, the recommended purpose line in the second column, drawn from that directory's purpose entry in the survey list. The user edits rows or strikes directories out.
 
 ### Record
 
@@ -235,15 +235,15 @@ A repository's code rules (how code is written here) live in its `CODING_STANDAR
 | <only documents that cover this directory and the root does not list> | `<path>` |
 ```
 
-Every section after the purpose line appears only when it has rows. An entry whose place is this directory and which carries a `when` line goes in bare under its type: the nested file is already scoped, so it carries no domain sections. A nested file says only what differs from the root: keep narrower files shorter than root files. Nothing in it points back to the root, wraps in `<important if>`, names a skill, or carries a metadata header.
+Every section after the purpose line appears only when it has rows. An entry whose place is this directory and which carries a `when` line goes in bare under its type: the nested file is already scoped, so it carries no `<important if>` blocks. A nested file says only what differs from the root: keep narrower files shorter than root files. Nothing in it points back to the root, wraps in `<important if>`, names a skill, or carries a metadata header.
 
-### Domain sections
+### `<important if>` blocks
 
-#### 1. Foundational context stays bare, domain guidance gets wrapped
+#### 1. Foundational context stays bare, task-specific guidance gets wrapped
 
 Not everything goes in an `<important if>` block. What every task needs (identity, package manager, commands, external references, key conventions, gotchas) stays as plain markdown; wrap only what some tasks reach.
 
-Domain-specific guidance that only matters for certain tasks — releasing, deploying, editing translations — gets wrapped in `<important if>` blocks with targeted conditions. Such a block is a **domain section**; in the survey list it is every entry that carries a `when` line, and entries with the same `when` value share one block.
+Guidance that only matters for certain tasks — releasing, deploying, editing translations — gets wrapped in **`<important if>` blocks** with targeted conditions. In the survey list such a block is every entry that carries a `when` line, and entries with the same `when` value share one block.
 
 #### 2. Conditions must be specific and targeted
 
@@ -277,7 +277,7 @@ Write the smallest useful file. Use only sections that add non-obvious value.
 
 - Use headings, bullets, and tables; avoid paragraphs outside the identity lines.
 - Use repository-relative paths; avoid vague references like "see docs". A path that stands for a whole class of files carries a `<name>` placeholder for the varying segment (`packages/<name>/package.json`); `scripts/check.sh` skips a backticked token with `<…>` and checks every other slashed token against the disk.
-- Prefer file-scoped lint and typecheck commands; include full builds only when no narrower command exists. Write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable gets `removed: discoverable` as its destination in `destinations.md`, every other one is kept.
+- Prefer file-scoped lint and typecheck commands; include full builds only when no narrower command exists. The **command rule**: write only commands whose meaning `--help` and the manifest's scripts do not give. On a rewrite every command in the old file passes through this rule: one whose meaning is discoverable gets `removed: discoverable` as its destination in `destinations.md`, every other one is kept.
 - Keep one rule per bullet.
 - Keep rationale out unless it prevents a likely mistake. The one rationale that does is the reason behind a deliberate unconventional choice: it stops the next agent from "fixing" it.
 - State each rule as the behaviour to perform. A prohibition stays only where no positive phrasing exists, and then sits next to the positive target.

@@ -374,8 +374,8 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
             self.assertEqual(vt.draft_problems(filled, list(comments)), [])
 
     def test_no_final_worker_run_is_named_on_an_all_met_draft(self):
-        """A closing-comment draft is well formed on its face while the closing gate still requires
-        the worker's final full run."""
+        """A closing-comment draft is well formed on its face while the closeout still requires
+        the worker's final run."""
         comments = (MET_RUN,)
         code, err, text, fake = run_draft(comments)
         self.assertEqual(code, 0, err)

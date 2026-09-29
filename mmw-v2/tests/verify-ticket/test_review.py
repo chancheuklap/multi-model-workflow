@@ -147,7 +147,7 @@ class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
     def test_a_first_line_that_is_not_review_is_refused_and_nothing_is_posted(self):
         code, err, fake = run_review("## Standards\n\nNone\n")
         self.assertEqual(code, 2)
-        self.assertIn("REVIEW <base commit>..<HEAD commit>", err)
+        self.assertIn("REVIEW <base-commit>..<HEAD commit>", err)
         self.assertEqual(fake.recorded, [])
 
     def test_an_empty_file_is_refused(self):

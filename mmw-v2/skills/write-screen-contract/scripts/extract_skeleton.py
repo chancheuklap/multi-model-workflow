@@ -7,8 +7,8 @@
 Usage: uv run extract_skeleton.py <package dir> <out.json> --contract <yaml> [--tools <dir>]
 
 Every scene in `scenes.json` is rendered at its page's own `pages.<page>.viewports`
-when the contract declares them, else at every top-level viewport,
-with the contract locale, through the same `design_render.py` the story oracle uses.
+when the screen contract declares them, else at every top-level viewport,
+with the screen contract's locale, through the same `design_render.py` the story oracle uses.
 The output has one entry per (design page, `data-ui` id). Each entry says which
 declared scenes show that element, whether it is clickable or editable, the scenes it
 is disabled in (`disabled_in`: the `disabled` attribute or `aria-disabled="true"`), the displayed
@@ -83,7 +83,7 @@ def load_refusal():
 
 def load_conditions(dr, refusal, contract: Path
                     ) -> tuple[str, list[tuple[int, int]], dict[str, list[tuple[int, int]]]]:
-    """The rendering conditions this command reads from the contract: the locale, the
+    """The rendering conditions this command reads from the screen contract: the locale, the
     top-level viewports, and each page's own `pages.<page>.viewports`."""
     doc = dr.load_yaml(contract)
     locale = doc.get("locale")
@@ -98,7 +98,7 @@ def load_conditions(dr, refusal, contract: Path
     except (TypeError, ValueError) as exc:
         raise SystemExit(refusal.refusal(
             f"{contract.name} has invalid top-level `viewports` ({exc}).",
-            "Every scene must be rendered at the contract's declared sizes.",
+            "Every scene must be rendered at the screen contract's declared sizes.",
             "Add `viewports` as WIDTHxHEIGHT values, then re-run."
         )) from None
     try:

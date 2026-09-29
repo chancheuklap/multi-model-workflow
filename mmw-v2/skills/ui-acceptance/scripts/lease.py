@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One run's share of this machine.
+"""One ticket worktree's share of this machine.
 
     lease.py claim [<worktree>]           acquire (or return) this worktree's slot; 4 none free
     lease.py run [<worktree>] -- CMD…     run CMD with the lease in its environment
@@ -28,7 +28,7 @@ number is right to; a derived port leaking into it turns a correct suite red.
 # The pipeline runs several agents at once on one machine: `dispatch` sends every startable
 # ticket of a spec out together, each in its own git worktree. A worktree isolates files.
 # Nothing isolated the machine — listening ports, the running application, the backing
-# service behind it, the account inside that service — because the target contract never
+# service behind it, the account inside that service — because `.mmw/target.json` never
 # had a word for "this run's instance" and so no repository was ever asked to answer for
 # one. On 2026-09-05 five workers shared three fixed ports and a night produced one
 # worker's worth of work.
@@ -47,7 +47,7 @@ number is right to; a derived port leaking into it turns a correct suite red.
 # Two limits bound a lease. The machine's is `SLOTS`. The product's is `instance.max` in
 # the repository's `.mmw/target.json` — a product that cannot move its ports declares how
 # many copies of it can run at once — and it counts every lease made from that repository,
-# wherever its directory is: a ticket worktree, the main checkout running the night's
+# wherever its directory is: a ticket worktree, the main worktree running the night's
 # reverify, or any other checkout sharing the repository's git directory. Each lease
 # records that git directory, so the count holds after a worktree is gone. A lease past
 # either limit is not taken: `claim` exits 4 and prints which limit and

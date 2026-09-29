@@ -144,7 +144,7 @@ RULES: tuple[tuple[str, str, str, str], ...] = (
         r"Onefile payload mismatch",
         "onefile_payload_mismatch",
         "payload_mismatch:{product}",
-        "a compiled exe does not carry the payload built for it this round, so it is running another "
+        "a compiled exe does not carry the payload built for it in this build, so it is running another "
         "target's program or a stale one. Something between Nuitka and the C compiler handed one "
         "compile another one's object: check that NUITKA_RESOURCE_MODE is still a route that keeps the "
         "payload out of the compiler, clear the compiler caches named in the log, and rebuild. Never "

@@ -57,7 +57,7 @@ Draft each variant. Hold each one to:
 
 Variants must be **structurally different**: different layout, different information hierarchy, different primary affordance, not just different colours. Three slightly-tweaked card grids isn't a UI prototype, it's wallpaper. If two drafts come out too similar, redo one with explicit "do not use a card grid" guidance.
 
-Style with variables and split the interface into reusable components, so a design system can be built from this variant if one is wanted.
+Style with variables and split the UI into reusable components, so a design system can be built from this variant if one is wanted.
 
 ### 3. Wire them together
 
@@ -105,7 +105,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer
 
-Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region (the region name is the later `Component · <region>` page), and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them. An interface has one state list. On a wayfinder map it is written in the design ticket's leaf `README.md`, gathering the winner of every UI prototype ticket on the map, one heading per region; each prototype ticket's own leaf `README.md` keeps its verdict and names the regions it settled.
+Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region (the region name is the later `Component · <region>` page), and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them. A UI has one state list. On a wayfinder map it is written in the design ticket's leaf `README.md`, gathering the winner of every UI prototype ticket on the map, one heading per region; each prototype ticket's own leaf `README.md` keeps its verdict and names the regions it settled.
 
 The winner goes into Claude Design, so leave the scaffolding up until the first pull: the winner running behind it is the reference the pages are drawn against, and a design system built from it reads its styles and components.
 

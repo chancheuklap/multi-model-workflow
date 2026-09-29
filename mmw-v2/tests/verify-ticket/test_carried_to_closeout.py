@@ -55,7 +55,7 @@ class Tracker:
         return [vt.events.parse(body)[1]["event"] for body in self.comments]
 
     def verified_at(self, commit):
-        """The worker's own run and final full run of the criteria on `commit`."""
+        """The worker's own run and final run of the criteria on `commit`."""
         self.comments.append(checked("self", CRITERION, "ALL MET (1 met)", commit=commit))
         self.comments.append(checked("reverify", CRITERION, "ALL MET (1 met)",
                                      commit=commit, actor="worker"))

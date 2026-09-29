@@ -168,8 +168,8 @@ seed_loop_pair() {
 }
 jq '.stages=[]' "$FIX/manifest.fake.json" > remote-build-manifest.json
 init_for_remote_build() {
-  # abort, not close: close now refuses a round that is not DONE, and the previous scenario's
-  # round usually is not. abort always drops it and clears the state file so init can start.
+  # abort, not close: close now refuses a release loop that is not DONE, and the previous scenario's
+  # release loop usually is not. abort always drops it and clears the state file so init can start.
   bash "$RF" abort >/dev/null 2>&1 || true
   bash "$RF" init --manifest remote-build-manifest.json >/dev/null
   bash "$RF" stage done --stage verify_key >/dev/null
