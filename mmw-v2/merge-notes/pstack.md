@@ -31,13 +31,13 @@ git subtree add --prefix mmw-v2/upstream-pstack <clone> pstack-split --squash
 
 ## U-13
 
-U-13（能否从 `cursor/plugins` 的 `pstack/` 干净切出子树）的结果：能。2026-10-01 在临时克隆里对 `12d587dfb20741cafc376c42c696c5f6e2a64487` 跑 `git subtree split --prefix=pstack`，切出的提交是 `dd6ba52b0bf000ee0c8defef96832572944d1e00`，树是 `975600f2f90dc6f755d58cccdccee27f950edcd2`。
+U-13（能否从 `cursor/plugins` 的 `pstack/` 干净切出 subtree）的结果：能。2026-10-01 在临时克隆里对 `12d587dfb20741cafc376c42c696c5f6e2a64487` 跑 `git subtree split --prefix=pstack`，切出的提交是 `dd6ba52b0bf000ee0c8defef96832572944d1e00`，树是 `975600f2f90dc6f755d58cccdccee27f950edcd2`。
 
 ## 与研究快照
 
-研究快照 `docs/research/code-landing-refs/pstack/` 停在 0.15.4（上游提交 `b0b9c7a0`），不随子树更新。R18、R20、R21 与范本引的 pstack 行号出自这份快照。
+研究快照 `docs/research/code-landing-refs/pstack/` 停在 0.15.4（上游提交 `b0b9c7a0`），不随 subtree 更新。R18、R20、R21 与范本引的 pstack 行号出自这份快照。
 
-子树与快照相差 16 个文件（43 行增、36 行删）：
+subtree 与快照相差 16 个文件（43 行增、36 行删）：
 
 - `.cursor-plugin/plugin.json`
 - `skills/architect/SKILL.md`
@@ -56,13 +56,13 @@ U-13（能否从 `cursor/plugins` 的 `pstack/` 干净切出子树）的结果�
 - `skills/poteto-mode/playbooks/opening-a-pr.md`
 - `skills/poteto-mode/scripts/check-plan.mjs`
 
-子树另多快照没有收的 7 个图片：`assets/logo.png`，以及 `docs/guide/images/` 下的 `design.jpg`、`overnight.jpg`、`recipes.jpg`、`router.jpg`、`understanding.jpg`、`verification.jpg`。
+subtree 另多快照没有收的 7 个图片：`assets/logo.png`，以及 `docs/guide/images/` 下的 `design.jpg`、`overnight.jpg`、`recipes.jpg`、`router.jpg`、`understanding.jpg`、`verification.jpg`。
 
 本批与 spec #595 取文字的 27 个文件在两边逐字节相同：23 个 `skills/principle-*/SKILL.md`、`skills/reflect/references/synthesizer.md`、`skills/poteto-mode/playbooks/` 下的 `prototype.md`、`authoring-a-skill.md`、`bug-fix.md`。
 
 ## 总原则
 
-这个子树里的文字不改。`LICENSE`（MIT）留在子树里，技能的 `disable-model-invocation` 行也留着。
+这个 subtree 里的文字不改。`LICENSE`（MIT）留在 subtree 里，技能的 `disable-model-invocation` 行也留着。
 
 用到的组件由 `mmw-v2/import/import_component.py` 复制进 `mmw-v2/skills/mmw/`，登记在 `mmw-v2/skills/mmw/imports.tsv`。需要判断的改动记在本文件。
 
@@ -74,4 +74,4 @@ U-13（能否从 `cursor/plugins` 的 `pstack/` 干净切出子树）的结果�
 git subtree pull --prefix mmw-v2/upstream-pstack <clone> <切出的分支> --squash
 ```
 
-这一条是照 `git subtree` 的用法推出的，本批没有跑过，没有实测。
+这一条是照 `git subtree` 的用法推出的，本批没有跑过，没有实测。拉完后改写开头钉定提交那一段，并重新核对「与研究快照」一节的差异与 27 个文件。
