@@ -23,7 +23,7 @@ The secret `server.py` mints at every start and hands to the page, which sends i
 _Home_: `mmw-v2/board/server.py`, `.mmw/harness/target.py`
 
 **`codeversion.py`**:
-`mmw-v2/board/codeversion.py`'s `Watch`, which fingerprints `board/*.py` and the five scripts in `LOADED` and reports a change only once two reads agree: `server.py` exits on it for the supervisor to start it again, and `supervisor.py` stops its servers and re-`execv`s itself.
+`mmw-v2/board/codeversion.py`'s `Watch`, which fingerprints `board/*.py` and the Python files the board loads through `locations.py` (when `locations.py` cannot be loaded, the bytes of its candidate files instead) and reports a change only once two reads agree: `server.py` exits on it for the supervisor to start it again, and `supervisor.py` stops its servers and re-`execv`s itself.
 _Home_: `mmw-v2/board/codeversion.py`
 
 ### What the page shows
