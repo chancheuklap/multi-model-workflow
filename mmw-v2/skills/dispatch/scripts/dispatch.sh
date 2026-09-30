@@ -2134,7 +2134,8 @@ research_one() {
 
   local row host model effort
   row="$(row_for_role researcher)" || exit 2
-  [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 mmw-v2/skills/dispatch/scripts/models.py config set researcher codex \"gpt 6 sol\" high, then research $number again"
+  local models_path=${MODELS_PY//\'/\'\\\'\'}
+  [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 '$models_path' config set researcher codex \"gpt 6 sol\" high, then research $number again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
   local root cwd branch prompt session

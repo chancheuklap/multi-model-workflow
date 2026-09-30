@@ -3350,18 +3350,36 @@ PY
 }
 
 scenario_researchnorow() {
-  local code
+  local code script copied="$TMP/toolbox's dispatch"
   reset_log
   fresh_repo
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
-  [ "$code" = 2 ] || fail "missing researcher row expected 2, got $code: $(cat "$TMP/err")"
-  grep -qF 'python3 mmw-v2/skills/dispatch/scripts/models.py config set researcher codex "gpt 6 sol" high' "$TMP/err" \
-    || fail "missing researcher row did not name the config command: $(cat "$TMP/err")"
-  [ ! -e "$TMP/repo/.worktrees/research-61" ] || fail "missing row left a research worktree"
-  git -C "$TMP/repo" show-ref --verify --quiet refs/heads/research/61 \
-    && fail "missing row left a research branch"
-  never_ran
-  nothing_printed
+  cp -R "$SKILL" "$copied"
+  for script in "$DISPATCH" "$copied/scripts/dispatch.sh"; do
+    reset_log
+    code="$(run_dispatch bash "$script" "${TOOLS[@]}" research 61)"
+    [ "$code" = 2 ] || fail "missing researcher row expected 2, got $code: $(cat "$TMP/err")"
+    python3 - "$TMP/err" "$(dirname "$script")/models.py" <<'PY'
+from pathlib import Path
+import re, shlex, sys
+message = Path(sys.argv[1]).read_text()
+match = re.search(r'python3 .+ config set researcher codex "gpt 6 sol" high', message)
+assert match, message
+command = match[0]
+assert command[len('python3 ')] in (chr(39), chr(34)), command
+args = shlex.split(command)
+assert args[0] == 'python3' and args[2:] == [
+    'config', 'set', 'researcher', 'codex', 'gpt 6 sol', 'high'], args
+path = Path(args[1])
+assert path.is_absolute() and path.is_file(), path
+assert path.resolve() == Path(sys.argv[2]).resolve(), args
+PY
+    [ "$?" = 0 ] || fail "missing researcher row did not give a usable models.py command"
+    [ ! -e "$TMP/repo/.worktrees/research-61" ] || fail "missing row left a research worktree"
+    git -C "$TMP/repo" show-ref --verify --quiet refs/heads/research/61 \
+      && fail "missing row left a research branch"
+    never_ran
+    nothing_printed
+  done
 }
 
 scenario_researchusage() {
