@@ -39,12 +39,11 @@ def dispatch_context(cwd):
         if not runner or not session:
             raise ValueError("empty session identity")
         sys.path.insert(0, str(scripts))
-        from statedir import home
+        from statedir import repo_state_dirs
         from relay import read_watches
 
         governed = any(watch.get("runner") == runner and watch.get("session") == session
-                       for directory in (home() / "state").glob("*")
-                       if directory.is_dir()
+                       for directory in repo_state_dirs()
                        for watch in read_watches(directory).values())
     if not governed:
         return None

@@ -133,6 +133,27 @@ class StateCase(unittest.TestCase):
 
 # ----------------------------------------------------------------- tolerance and health
 
+class RepositoryStateDirectories(StateCase):
+    def test_repository_state_directories_are_listed_sorted_without_strays(self):
+        root = self.state.parent
+        self.state.rmdir()
+        second = root / "b__two"
+        first = root / "a__one"
+        stray = root / "notes"
+        ordinary_file = root / "c__three"
+        for directory in (second, first, stray):
+            directory.mkdir()
+        ordinary_file.write_text("not a directory", encoding="utf-8")
+
+        self.assertEqual(statedir.repo_state_dirs(), [first, second])
+
+        for directory in (second, first, stray):
+            directory.rmdir()
+        ordinary_file.unlink()
+        root.rmdir()
+        self.assertEqual(statedir.repo_state_dirs(), [])
+
+
 class Tolerance(unittest.TestCase):
     def test_short_polls_keep_the_floor(self):
         self.assertEqual(dog.tolerance(60), 300)
