@@ -4,7 +4,7 @@ Paths are relative to mmw-v2/skills/ so this module moves with dispatch/scripts/
 Readers resolve the strings; this registry imports no other module.
 """
 
-PLAYBOOK_STEPS = {
+PLAYBOOK_ANCHORS = {
     "work-a-ticket": (
         "Adopted ticket",
         "Claim",

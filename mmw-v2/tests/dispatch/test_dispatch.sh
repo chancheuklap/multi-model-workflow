@@ -1667,27 +1667,33 @@ if holder:
 PY
 }
 
-# The orchestrator of the open watch <key> (`spec:N` or `tickets:N`), "runner session";
-# nothing when that watch is not open.
-watch_main() {
-  python3 - "$STATE_DIR/watches.json" "$1" <<'PY'
+# Read one field of the watch at <key>; `exists` distinguishes an absent key from a
+# watch whose requested field is absent. `main` prints its "runner session" pair.
+watch_field() {
+  python3 - "$STATE_DIR/watches.json" "$1" "$2" <<'PY'
 import json, sys
+unreadable = False
 try:
-    watch = json.load(open(sys.argv[1])).get(sys.argv[2])
+    watches = json.load(open(sys.argv[1]))
 except (OSError, ValueError):
-    watch = None
-if watch:
+    watches = {}
+    unreadable = True
+key, field = sys.argv[2:4]
+watch = watches.get(key)
+if field == "exists":
+    if unreadable:
+        print("unreadable")
+    else:
+        print("present" if key in watches else "absent")
+elif watch and field == "main":
     print(watch["runner"], watch["session"])
+elif watch:
+    print(watch.get(field, ""))
 PY
 }
 
-watch_kind() {
-  python3 - "$STATE_DIR/watches.json" "$1" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-print(json.loads(path.read_text()).get(sys.argv[2], {}).get("kind", ""))
-PY
+watch_main() {
+  watch_field "$1" main
 }
 
 # A Paseo agent `paseo ls` lists as idle, standing in for the orchestrator's own session.
@@ -5871,7 +5877,7 @@ scenario_watchkind() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open 76)"
   [ "$code" = 0 ] || fail "open expected 0: $(cat "$TMP/err")"
-  [ "$(watch_kind spec:76)" = night ] || fail "open should record night: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_field spec:76 kind)" = night ] || fail "open should record night: $(cat "$STATE_DIR/watches.json")"
 
   seed_main_agent agt_self
   self_picked_worktree
@@ -5879,9 +5885,9 @@ scenario_watchkind() {
   code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into night) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "adopt in a watched night expected 0: $(cat "$TMP/err")"
-  [ "$(watch_kind spec:76)" = night ] \
+  [ "$(watch_field spec:76 kind)" = night ] \
     || fail "adopt must keep the existing night watch: $(cat "$STATE_DIR/watches.json")"
-  [ -z "$(watch_kind tickets:61)" ] \
+  [ "$(watch_field tickets:61 exists)" = absent ] \
     || fail "adopt must not open another watch for the night's ticket: $(cat "$STATE_DIR/watches.json")"
 
   no_relay
@@ -5895,7 +5901,7 @@ JSON
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
   [ "$code" = 0 ] || fail "open-ticket expected 0: $(cat "$TMP/err")"
-  [ "$(watch_kind tickets:90)" = ticket ] || fail "open-ticket should record ticket: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_field tickets:90 kind)" = ticket ] || fail "open-ticket should record ticket: $(cat "$STATE_DIR/watches.json")"
 
   no_relay
   fresh_repo
@@ -5908,7 +5914,7 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
   [ "$code" = 0 ] || fail "advance expected 0: $(cat "$TMP/err")"
-  [ "$(watch_kind spec:76)" = night ] || fail "restored night should record night: $(cat "$STATE_DIR/watches.json")"
+  [ "$(watch_field spec:76 kind)" = night ] || fail "restored night should record night: $(cat "$STATE_DIR/watches.json")"
 
   no_relay
   fresh_repo
@@ -5923,7 +5929,7 @@ JSON
   code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "adopt expected 0: $(cat "$TMP/err")"
-  [ "$(watch_kind tickets:61)" = adopted-ticket ] \
+  [ "$(watch_field tickets:61 kind)" = adopted-ticket ] \
     || fail "adopt should record adopted-ticket: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }

@@ -12,11 +12,15 @@ SKILLS = Path(__file__).resolve().parents[2] / "skills"
 
 
 def locations_file():
-    for relative in ("mmw/scripts/locations.py", "dispatch/scripts/locations.py"):
+    candidates = ("mmw/scripts/locations.py", "dispatch/scripts/locations.py")
+    for relative in candidates:
         candidate = SKILLS / relative
         if candidate.is_file():
             return candidate
-    raise AssertionError("locations.py is missing: run bash mmw-v2/install.sh --check")
+    raise AssertionError(
+        "neither mmw-v2/skills/mmw/scripts/locations.py nor "
+        "mmw-v2/skills/dispatch/scripts/locations.py exists; shared text anchors "
+        "and cross-skill paths cannot be resolved: run bash mmw-v2/install.sh --check")
 
 
 def locations():
@@ -60,7 +64,7 @@ class RolesAndLocationsTest(unittest.TestCase):
         })
 
     def test_every_role_and_where_step_is_registered(self):
-        registered = locations().PLAYBOOK_STEPS
+        registered = locations().PLAYBOOK_ANCHORS
         expected = {
             "work-a-ticket": {"Adopted ticket", "Claim", "Read yourself in",
                               "Integrate and run every criterion", "Post the decisions",
@@ -113,10 +117,13 @@ class RolesAndLocationsTest(unittest.TestCase):
 
     def test_locations_governed_session_pattern_matches_tool_guard(self):
         module = locations()
-        guard = (SKILLS / "dispatch" / "scripts" / "tool-guard.py").read_text()
-        match = re.search(r'^TICKET_DIR = re\.compile\(r"([^"]+)"\)', guard, re.MULTILINE)
-        self.assertIsNotNone(match)
-        self.assertEqual(module.GOVERNED_TICKET_DIR_PATTERN, match.group(1))
+        path = SKILLS / "dispatch" / "scripts" / "tool-guard.py"
+        spec = importlib.util.spec_from_file_location("tool_guard", path)
+        guard = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(guard)
+        self.assertEqual(module.GOVERNED_TICKET_DIR_PATTERN, guard.TICKET_DIR.pattern)
+        self.assertEqual(re.compile(module.GOVERNED_TICKET_DIR_PATTERN).flags,
+                         guard.TICKET_DIR.flags)
 
 
 if __name__ == "__main__":
