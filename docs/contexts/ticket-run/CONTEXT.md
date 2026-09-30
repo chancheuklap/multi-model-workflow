@@ -281,7 +281,7 @@ _Home_: `mmw-v2/upstream/skills/engineering/code-review/references/tests-reviewe
 
 **reference file**:
 A document under a skill's `references/` directory, reached from its `SKILL.md`.
-_Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.md`
+_Home_: `mmw-v2/skills/mmw/references/skill-set-rules.md`
 
 ### Claiming and handing back
 
