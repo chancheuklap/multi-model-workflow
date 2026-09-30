@@ -5,7 +5,9 @@
 #                     +model-invoked 的目标是 ~/.mmw/skill-copies/<名>/ 安装副本
 #   hook              经复制的 .mmw/bin/hook-launcher 登记（普通文件，不是软链）。源文件是
 #                     mmw-v2/hook-launcher.py；各 host 的命令都调这个启动器，由它按
-#                     installed-root 找到 dispatch 的 tool-guard.py 与 turn-guard.py。
+#                     installed-root 找到 tool-guard.py、turn-guard.py 与 mode-hook.py。
+#                     mode-hook 依据 U-2，只登记 Claude Code、Codex 的 SessionStart、
+#                     SubagentStart、UserPromptSubmit 三个事件。
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
@@ -492,6 +494,8 @@ done
 # 的 Stop，cursor 的 stop，pi 的 agent_settled）。四家写 JSON，pi 写扩展文件；每一处都指向
 # 安装目标家目录下复制的 ~/.mmw/bin/hook-launcher。启动器按 installed-root 找到脚本，
 # 脚本搬动不改变登记命令；启动器源文件改动则需重新安装，--check 逐字节核对副本。
+# mode-hook.py 是辅助提示，按 U-2 只挂在 claude、codex 的 SessionStart、SubagentStart、
+# UserPromptSubmit，任何失败都不拦截；其他 host 不登记。
 #
 # Cursor 与 Grok 都读 ~/.claude/settings.json，Grok 还读 ~/.cursor/hooks.json，所以写给 claude
 # 的每一条命令前面都带同一个环境变量守卫：GROK_AGENT 或 GROK_HOOK_EVENT 有值就退出——两个都判，
@@ -898,6 +902,19 @@ point(home / ".cursor", home / ".cursor/hooks.json", "stop",
       STOP + "cursor")
 point(pi_home, pi_home / "extensions/mmw-turn-guard.ts", "agent_settled",
       extension(pi_home / "extensions/mmw-turn-guard.ts", GUARD_EXTENSION))
+
+# U-2: Claude Code 2.1.285、Codex 0.159.2（2026-09-30；results.md 与 #613）
+# 三个事件都能注入一行。where 的 20 秒时限短于宿主的 GUARD_TIMEOUT。
+for host, host_home, path in grouped_hosts:
+    if host not in ("claude", "codex"):
+        continue
+    for event, argument, timeout in (
+        ("SessionStart", "session-start", GUARD_TIMEOUT),
+        ("SubagentStart", "subagent-start", TIMEOUT),
+        ("UserPromptSubmit", "prompt-submit", TIMEOUT),
+    ):
+        command = for_host(host, f"exec python3 '{launcher}' mode-hook {argument} ")
+        point(host_home, path, event, grouped(path, event, None, command, timeout), command)
 
 count = 0
 for host_home, path, event, (install, installed) in points:
