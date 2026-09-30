@@ -8,7 +8,14 @@
 #   runners/herdr.sh stop <session-id>
 #   runners/herdr.sh self
 #   runners/herdr.sh attach --cwd DIR [--issue N] [--under-caller]
+#   runners/herdr.sh probe-server start|stop
+#   runners/herdr.sh probe-workspace <cwd>
 # `open-url` is optional and unsupported here: exit 3.
+# probe-server and probe-workspace require a probe-owned HERDR_SESSION,
+# HERDR_SOCKET_PATH and HERDR_CONFIG_PATH. They bootstrap only an isolated
+# measurement server; dispatch does not call them. Herdr 0.9.0, 2026-09-30:
+# headless server starts without a TTY, but tab create refuses with
+# workspace_not_found until a workspace has been created.
 #
 # start takes host, model, effort, cwd, skip-approval, and the first prompt, and
 # prints a session id, or refuses with exit 1 and one stderr line naming what failed.
@@ -41,6 +48,9 @@
 # MMW_USES: agent prompt --wait --until --timeout
 # MMW_USES: agent list
 # MMW_USES: pane close
+# MMW_USES: server
+# MMW_USES: server stop
+# MMW_USES: workspace create --cwd --no-focus
 
 set -uo pipefail
 
@@ -59,7 +69,34 @@ usage() {
   echo "       runners/herdr.sh stop <session-id>" >&2
   echo "       runners/herdr.sh self" >&2
   echo "       runners/herdr.sh attach --cwd DIR [--issue N] [--under-caller]" >&2
+  echo "       runners/herdr.sh probe-server start|stop" >&2
+  echo "       runners/herdr.sh probe-workspace <cwd>" >&2
   exit 2
+}
+
+probe_scope() {
+  case "${HERDR_SESSION:-}" in mmw-probe-*) ;; *)
+    echo "runners/herdr.sh: HERDR_SESSION is not a named probe session; bootstrap would address another run; set a new mmw-probe- session and private socket/config paths" >&2
+    return 1 ;;
+  esac
+  if [ -z "${HERDR_SOCKET_PATH:-}" ] || [ -z "${HERDR_CONFIG_PATH:-}" ] \
+     || [ "$(dirname -- "$HERDR_SOCKET_PATH")" != "$(dirname -- "$HERDR_CONFIG_PATH")" ]; then
+    echo "runners/herdr.sh: private socket and config paths are absent or in different directories; bootstrap is not isolated; provide both paths in the probe's temporary directory" >&2
+    return 1
+  fi
+}
+
+probe_server() {
+  [ "$#" = 1 ] || usage
+  case "$1" in start|stop) ;; *) usage ;; esac
+  probe_scope || return 1
+  if [ "$1" = start ]; then herdr_ server; else herdr_ server stop; fi
+}
+
+probe_workspace() {
+  [ "$#" = 1 ] && [ -d "$1" ] || usage
+  probe_scope || return 1
+  herdr_ workspace create --cwd "$1" --no-focus >/dev/null
 }
 
 # Prints the session's agent_status when list named it. Exit 0 found, 1 listed
@@ -355,5 +392,7 @@ case "$verb" in
   self) self_ ;;
   attach) exit 0 ;;
   open-url) exit 3 ;;
+  probe-server) probe_server "$@" ;;
+  probe-workspace) probe_workspace "$@" ;;
   *) usage ;;
 esac
