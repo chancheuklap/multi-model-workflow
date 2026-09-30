@@ -527,19 +527,16 @@ def large_evidence(f: Fixture):
 
 
 def layer_destinations(f: Fixture):
-    rejected = current_problem(f, earlier=False)
-    rejected["proposal"] = None
-    rejected["prevention"] = {"destination": "workshop", "text": "Outside the table"}
-    accepted = []
-    for destination in ("principle", "playbook", "mode"):
-        problem = current_problem(f, earlier=False)
-        problem["proposal"] = None
-        problem["prevention"] = {"destination": destination,
-                                 "text": f"Land the lesson as {destination}"}
-        accepted.append(problem)
+    base = current_problem(f, earlier=False)
+    base["proposal"] = None
+    rejected = {**base, "prevention": {"destination": "workshop",
+                                       "text": "Outside the table"}}
+    accepted = [{**base, "prevention": {"destination": destination,
+                                        "text": f"Land the lesson as {destination}"}}
+                for destination in ("principle", "playbook", "mode")]
     gathered = f.run("gather", "70")
     error = f.run("finalize", "70",
-                  f.write_analysis(f.analysis([rejected]), "unknown-destination.json"),
+                  f.write_analysis(f.analysis([rejected]), "unknown-layer.json"),
                   f.write_gather(gathered, "gather-unknown.json"), ok=False)
     assert "destination" in error, error
     assert f.receipts() == 0

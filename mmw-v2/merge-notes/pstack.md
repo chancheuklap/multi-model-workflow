@@ -87,13 +87,13 @@ git subtree pull --prefix mmw-v2/upstream-pstack <clone> <切出的分支> --squ
 | 子树原文 | `retro` 现文 | 为什么 |
 | --- | --- | --- |
 | `each criterion to every finding` | `each of these four rules to every Prevention` | synthesizer 有八条，这里只取四条；在 `retro` 里被分拣的是一个 problem 的 Prevention，不是 reviewer 的 finding |
-| `` `new skill via create-skill:` `` | `a new skill, under the `mmw-skill` or `repository-skill` destination,` | pstack 的 `create-skill` 没有导入；新技能走 `## Prevention destinations` 里已有的 `mmw-skill` 或 `repository-skill` |
+| `` `new skill via create-skill:` `` | `` a new skill, under the `mmw-skill` or `repository-skill` destination, `` | pstack 的 `create-skill` 没有导入；新技能走 `## Prevention destinations` 里已有的 `mmw-skill` 或 `repository-skill` |
 | `route to Backlog` | `` route to the `check` or `script` destination `` | `retro` 没有 Backlog 这一节；能由检查或脚本强制的去处是 `check` 或 `script` |
 | `read the target skill before accepting any body-edit row` | `read the file a Prevention would change before you record it` | 去处不总是一个技能；`retro` 没有 Accepted 表，也就没有 body-edit row |
 | `If the proposal duplicates` | `If the Prevention duplicates` | 在 `retro` 里 proposal 是第 10 步才有的字段，不能再拿来指 Prevention |
 | `` reject as `already-covered` `` | `` give it the destination `none` and name that guidance in its `text` `` | `retro` 没有 Rejected 清单；一个 Prevention 的去处是表里的一个值或 `none`，已有的那条指引写在 `text` 里 |
 | `accept the row but reframe the proposal as` | `write the Prevention as` | `retro` 没有 Accepted 表；proposal 是另一个字段 |
 
-这几行不进 `mmw-v2/skills/mmw/imports.tsv`。导入脚本只认八种类型（playbook、principle、skill、mode-trigger、mode-section、mode-reference、mode-script、agent），这一段哪一种都不是，所以 `import_component.py --refresh` 不会报这几行在上游的变化。
+这几行不进 `mmw-v2/skills/mmw/imports.tsv`。导入脚本只认 `mmw-v2/import/import_component.py` 的 `LAYOUTS` 里的类型，这一段哪一种都不是，所以 `import_component.py --refresh` 不会报这几行在上游的变化。
 
 上游再改这五行时：拉子树之后人工比这五行，收上游的措辞，上面七处改写保留。
