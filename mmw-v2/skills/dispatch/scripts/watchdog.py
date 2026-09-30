@@ -673,12 +673,12 @@ class Watchdog:
             elif state == "waiting":
                 held.append(number)
                 waiting.append(number)
-                self._silent(number, home["spec"], verdict, unknown, findings, to, home["kind"])
+                self._silent(number, home, verdict, unknown, findings)
             elif state == "recent":
                 held.append(number)
             else:
                 held.append(number)
-                self._silent(number, home["spec"], verdict, unknown, findings, to, home["kind"])
+                self._silent(number, home, verdict, unknown, findings)
             self.beat["unknown"] = unknown
             self.write_beat()
 
@@ -710,14 +710,17 @@ class Watchdog:
             return {}
         return value if isinstance(value, dict) else {}
 
-    def _silent(self, number: int, spec: int | None, verdict: dict, unknown: dict,
-                findings: list[dict], to: list[tuple[str, str]], watch_kind: str | None) -> None:
+    def _silent(self, number: int, home: dict, verdict: dict, unknown: dict,
+                findings: list[dict]) -> None:
         """The third layer, for one held and silent ticket."""
+        spec, to = home["spec"], [home["main"]]
         since = verdict.get("since")
-        unknown_next = (
+        tell_user = (
             "tell the user what this alert says; this adopted ticket has no orchestrator "
             "and this session cannot resume itself"
-            if watch_kind == "adopted-ticket" else
+            if home["kind"] == "adopted-ticket" else None
+        )
+        unknown_next = tell_user or (
             f"dispatch.sh resume {number} \"Say in one line where you are, then continue\", "
             "and act on its exit as night.md's Exit codes of resume says"
         )
@@ -753,9 +756,7 @@ class Watchdog:
             if answer == "alive":
                 if kind == "worker" and verdict.get("idle"):
                     # Alive, and nothing it waits on will ever land: nobody is coming to wake it.
-                    idle_next = (
-                        unknown_next
-                        if watch_kind == "adopted-ticket" else
+                    idle_next = tell_user or (
                         f"dispatch.sh resume {number} \"You ended your turn with no result on the "
                         "ticket. Carry on from where its events say you are. If "
                         "something outside your code stops you, open a fault "

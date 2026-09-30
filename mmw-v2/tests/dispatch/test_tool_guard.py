@@ -447,9 +447,6 @@ class TestTheQuestionGate(unittest.TestCase):
         self.assertIn("unverified:", reason)
         self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), rf.REASON_LIMIT)
 
-    def test_it_arrives_whole_on_the_host_that_clips_it(self):
-        self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), rf.REASON_LIMIT)
-
 
 class TestClaudeCopyNoOpsInsideCursor(unittest.TestCase):
     """Cursor CLI imports Claude Code hooks and has no off switch.
