@@ -1884,12 +1884,13 @@ store.write_text(json.dumps(posted))
 }
 
 # The events posted on ticket <n> during this run, one `name key=value...` per line, for
-# the keys asked for: `posted_events 61 session runner`.
+# the keys asked for: `posted_events 61 session runner`. A reader that stops at the first
+# match closes this pipe; the writer then exits 0, so the reader's status is the answer.
 posted_events() {
   local n="$1"
   shift
   MMW_N="$n" MMW_KEYS="$*" python3 -c '
-import importlib.util, json, os
+import importlib.util, json, os, sys
 from pathlib import Path
 spec = importlib.util.spec_from_file_location("ev", os.environ["MMW_EVENTS_PY_FOR_TESTS"])
 ev = importlib.util.module_from_spec(spec)
@@ -1897,13 +1898,18 @@ spec.loader.exec_module(ev)
 store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
 posted = json.loads(store.read_text()).get(os.environ["MMW_N"], []) if store.is_file() else []
 keys = os.environ["MMW_KEYS"].split()
-for body in posted:
-    what, payload = ev.parse(body)
-    if what != "event":
-        print("UNREADABLE " + str(payload))
-        continue
-    values = [body.splitlines()[0] if k == "line" else payload.get(k) for k in keys]
-    print(" ".join([payload["event"]] + [f"{k}={v}" for k, v in zip(keys, values)]))
+try:
+    for body in posted:
+        what, payload = ev.parse(body)
+        if what != "event":
+            print("UNREADABLE " + str(payload))
+            continue
+        values = [body.splitlines()[0] if k == "line" else payload.get(k) for k in keys]
+        print(" ".join([payload["event"]] + [f"{k}={v}" for k, v in zip(keys, values)]))
+    sys.stdout.flush()
+except BrokenPipeError:
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull, sys.stdout.fileno())
 '
 }
 export MMW_EVENTS_PY_FOR_TESTS="$(dirname "$SKILL")/verify-ticket/scripts/events.py"
@@ -2319,21 +2325,11 @@ JSON
   [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
   grep -q 'install.sh --check still finds this' "$TMP/err" && grep -q '缺 something' "$TMP/err" \
     || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
-  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "--check --check " ] \
-    || fail "a checkout that is not the installed one should only check: $(cat "$TMP/install-calls")"
-
-  echo "--- the installed checkout repairs itself with install.sh before it warns"
-  printf '#!/usr/bin/env bash\necho "run ${1:-install}" >> "%s/install-calls"\n[ "${1:-}" = --check ] && [ ! -f "%s/installed" ] && exit 1\ntouch "%s/installed"\nexit 0\n' "$TMP" "$TMP" "$TMP" > "$TMP/fake/install.sh"
-  rm -f "$TMP/install-calls" "$TMP/installed"
-  mkdir -p "$MMW_HOME"
-  printf '%s\n' "$TMP/fake" > "$MMW_HOME/installed-root"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
-  rm -f "$MMW_HOME/installed-root"
-  [ "$code" = 0 ] || fail "expected exit 0 after the repair, got $code: $(cat "$TMP/err")"
-  [ "$(tr '\n' ' ' < "$TMP/install-calls")" = "run --check run install run --check " ] \
-    || fail "expected check, install, check: $(cat "$TMP/install-calls")"
-  grep -q 'still finds' "$TMP/err" && fail "a repaired install should not warn: $(cat "$TMP/err")"
+  [ -s "$TMP/install-calls" ] \
+    || fail "install.sh was not asked to --check"
+  if grep -v -x -- '--check' "$TMP/install-calls" >/dev/null; then
+    fail "a checkout that is not the installed one should only be asked to --check: $(cat "$TMP/install-calls")"
+  fi
 
   echo "--- a row that does not resolve on tonight's runner is refused in the resolver's words, whatever the tickets carry"
   copy="$(skill_copy_for check)"
@@ -2365,6 +2361,44 @@ json.dump(catalog, open(sys.argv[2], "w"))
   [ "$code" = 2 ] || fail "a runner with no adapter is exit 2, got $code: $(cat "$TMP/err")"
   grep -q "the selected runner is tmux, and this skill has no adapter for it" "$TMP/err" \
     || fail "the refusal should name the runner: $(cat "$TMP/err")"
+}
+
+scenario_checkreportsonly() {
+  local copy code next
+  copy="$(skill_copy_for checkreportsonly)"
+  fresh_project_night
+
+  echo "--- the installed checkout only reports a failing install.sh --check and does not install"
+  cat > "$TMP/tickets.json" <<'JSON'
+[
+  {"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "junior-worker"]}
+]
+JSON
+  reset_log
+  printf '#!/usr/bin/env bash\necho "${1:-FULL}" >> "%s/install-calls"\n[ "${1:-}" = --check ] && { echo "缺 something"; exit 1; }\nexit 0\n' "$TMP" > "$TMP/fake/install.sh"
+  rm -f "$TMP/install-calls"
+  mkdir -p "$MMW_HOME"
+  printf '%s\n' "$TMP/fake" > "$MMW_HOME/installed-root"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
+  rm -f "$MMW_HOME/installed-root"
+  [ "$code" = 0 ] || fail "expected exit 0 when only install.sh --check fails, got $code: $(cat "$TMP/err")"
+  [ -s "$TMP/install-calls" ] \
+    || fail "install.sh was not asked to --check"
+  if grep -v -x -- '--check' "$TMP/install-calls" >/dev/null; then
+    fail "the installed checkout must only be asked to --check: $(cat "$TMP/install-calls")"
+  fi
+  grep -q '^dispatch: warning: install.sh --check still finds this' "$TMP/err" \
+    || fail "the warning's first line changed: $(cat "$TMP/err")"
+  grep -q '缺 something' "$TMP/err" \
+    || fail "the warning should carry install.sh's line: $(cat "$TMP/err")"
+  next="$(grep '^dispatch: ' "$TMP/err" | grep -v 'install.sh --check still finds this' || true)"
+  [ "$(printf '%s\n' "$next" | sed '/^$/d' | wc -l | tr -d ' ')" = 1 ] \
+    || fail "the next step should be one line: $(cat "$TMP/err")"
+  printf '%s\n' "$next" | grep -q 'install.sh' \
+    || fail "the next step should name install.sh: $(cat "$TMP/err")"
+  printf '%s\n' "$next" | grep -q 'open' \
+    || fail "the next step should name open: $(cat "$TMP/err")"
 }
 
 # A row resolves against the catalog of the runner that starts the session: Orca runs the
@@ -7072,6 +7106,96 @@ PY
     || fail "check did not name the bad row: $(cat "$TMP/err")"
 }
 
+scenario_installcheckwatches() {
+  local home="$TMP/watch-mmw" state pid code
+  echo "--- a complete install with one open watch and one live relay lock stays exit 0 and names both"
+  run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
+  rm -rf "$home"
+  mkdir -p "$home"
+  cp "$MMW_HOME/models.json" "$home/models.json"
+  state="$home/state/acme__widgets"
+  STATE_DIR="$state" fake_relay
+  pid="$(STATE_DIR="$state" relay_now | awk 'NR==1 { print $1 }')"
+  [ -n "$pid" ] || fail "the stand-in relay has no pid"
+  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  code="$(cat "$TMP/code")"
+  STATE_DIR="$state" no_relay
+  [ "$code" = 0 ] || fail "an open watch must not change --check's exit, got $code: $(cat "$TMP/err")"
+  grep -qx 'OPEN-WATCH acme/widgets spec:76' "$TMP/out" \
+    || fail "missing the open watch: $(cat "$TMP/out")"
+  grep -qx "LIVE-LOCK acme/widgets relay pid $pid" "$TMP/out" \
+    || fail "missing the live relay lock: $(cat "$TMP/out")"
+  [ "$(tail -n 1 "$TMP/out")" = "NOT-SAFE-TO-MOVE-INSTALLED 1 open watches, 1 live locks" ] \
+    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
+}
+
+scenario_installchecksafe() {
+  local home="$TMP/safe-mmw" state pid code
+  echo "--- a complete install with no watch and a dead lock is safe to move, exit 0"
+  run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
+  rm -rf "$home"
+  mkdir -p "$home"
+  cp "$MMW_HOME/models.json" "$home/models.json"
+  state="$home/state/acme__widgets"
+  STATE_DIR="$state" fake_relay
+  pid="$(STATE_DIR="$state" relay_now | awk 'NR==1 { print $1 }')"
+  [ -n "$pid" ] || fail "the stand-in relay has no pid"
+  kill "$pid" 2>/dev/null || true
+  local _
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.05
+  done
+  printf '%s\n' '{}' > "$state/watches.json"
+  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  code="$(cat "$TMP/code")"
+  [ "$code" = 0 ] || fail "a dead lock must not change --check's exit, got $code: $(cat "$TMP/err")"
+  if grep -q '^OPEN-WATCH ' "$TMP/out"; then
+    fail "an empty watches.json was listed: $(cat "$TMP/out")"
+  fi
+  if grep -q '^LIVE-LOCK ' "$TMP/out"; then
+    fail "a dead lock was listed: $(cat "$TMP/out")"
+  fi
+  [ "$(tail -n 1 "$TMP/out")" = "SAFE-TO-MOVE-INSTALLED" ] \
+    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
+}
+
+scenario_installcheckunreadable() {
+  local home="$TMP/unreadable-mmw" state code
+  echo "--- a watches.json that is there but cannot be parsed is not a closed night"
+  run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
+  rm -rf "$home"
+  mkdir -p "$home"
+  cp "$MMW_HOME/models.json" "$home/models.json"
+  state="$home/state/acme__widgets"
+  mkdir -p "$state"
+  printf '%s' '{' > "$state/watches.json"
+  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  code="$(cat "$TMP/code")"
+  [ "$code" = 0 ] || fail "an unreadable watches.json must not change --check's exit, got $code: $(cat "$TMP/err")"
+  grep -qx 'UNREADABLE acme/widgets watches.json' "$TMP/out" \
+    || fail "the unreadable file was not named: $(cat "$TMP/out")"
+  if grep -q '^OPEN-WATCH ' "$TMP/out"; then
+    fail "an unreadable watches.json was listed as a watch: $(cat "$TMP/out")"
+  fi
+  [ "$(tail -n 1 "$TMP/out")" = "NOT-SAFE-TO-MOVE-INSTALLED 0 open watches, 0 live locks, 1 unreadable watches.json" ] \
+    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
+
+  echo "--- an entry without an orchestrator is not an open watch"
+  printf '%s\n' '{"spec:76":{"spec":76}}' > "$state/watches.json"
+  MMW_HOME="$home" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  code="$(cat "$TMP/code")"
+  [ "$code" = 0 ] || fail "an entry that is not a watch must not change --check's exit, got $code: $(cat "$TMP/err")"
+  if grep -q '^OPEN-WATCH ' "$TMP/out"; then
+    fail "an entry without an orchestrator was listed: $(cat "$TMP/out")"
+  fi
+  [ "$(tail -n 1 "$TMP/out")" = "SAFE-TO-MOVE-INSTALLED" ] \
+    || fail "the move verdict is wrong: $(tail -n 1 "$TMP/out")"
+}
+
 scenario_installmodelsjsonhome() {
   local home="$TMP/home-contract"
   rm -rf "$home"; mkdir -p "$home"
@@ -10735,6 +10859,7 @@ ALL="$ALL where wherespec whereunknown"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
+ALL="$ALL checkreportsonly installcheckwatches installchecksafe installcheckunreadable"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -10780,6 +10905,9 @@ banner_for() {
     installinitialvalues) echo INSTALL-INITIAL-VALUES-OK ;;
     installkeepsmodelsjson) echo INSTALL-KEEPS-MODELS-JSON-OK ;;
     installcheckmodelsjson) echo INSTALL-CHECK-MODELS-JSON-OK ;;
+    installcheckwatches) echo INSTALL-CHECK-WATCHES-OK ;;
+    installchecksafe) echo INSTALL-CHECK-SAFE-OK ;;
+    installcheckunreadable) echo INSTALL-CHECK-UNREADABLE-OK ;;
     installmodelsjsonhome) echo INSTALL-MODELS-JSON-HOME-OK ;;
     installkeepsnewestbackup) echo INSTALL-KEEPS-NEWEST-BACKUP-OK ;;
     orcaworktreelink) echo ORCA-WORKTREE-LINK-OK ;;
@@ -10791,6 +10919,7 @@ banner_for() {
     orcamergeparent) echo ORCA-MERGE-PARENT-OK ;;
     worktreelinknoop) echo WORKTREE-LINK-NOOP-OK ;;
     check) echo DISPATCH-CHECK-OK ;;
+    checkreportsonly) echo CHECK-REPORTS-ONLY-OK ;;
     checknoorigin) echo CHECK-NO-ORIGIN-OK ;;
     checknopush) echo CHECK-NO-PUSH-OK ;;
     checkbasemissing) echo CHECK-BASE-MISSING-OK ;;

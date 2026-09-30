@@ -31,6 +31,11 @@
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
 #                         另读 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
+#                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
+#                         watch，以及锁文件记录的进程仍在运行的 relay.lock、watchdog.lock。
+#                         watches.json 在但读不成时点名该文件，不当成没有夜。
+#                         末行是 SAFE-TO-MOVE-INSTALLED，或 NOT-SAFE-TO-MOVE-INSTALLED。
+#                         这份列表不改退出码。
 #
 # 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
@@ -1855,10 +1860,59 @@ else
   echo "跳过  ${CURSOR_MCP}（本机没有可用的 nmem）"
 fi
 
+# 开着的 watch 与仍在跑的 relay、watchdog。列表是状况，不是缺项：写在 stdout，跟
+# HOOKS-INSTALLED 一侧，退出码仍只表示安装齐不齐。开着的 watch 与 relay.read_watches
+# 相同：没有 orchestrator 的项不是 watch。watches.json 在但读不成，与
+# watchdog.night_open 相同，不是没有夜。锁算不算活着，问 statedir.holder。
+report_move_safety() {
+  PYTHONPATH="$SELF_SRC/dispatch/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+  MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
+  python3 - <<'PY'
+import relay
+import statedir
+
+root = statedir.home() / "state"
+opens = []
+locks = []
+unreadable = []
+if root.is_dir():
+    for repo_dir in sorted(p for p in root.iterdir() if p.is_dir() and "__" in p.name):
+        owner, name = repo_dir.name.split("__", 1)
+        repo = f"{owner}/{name}"
+        try:
+            watches = relay.read_watches(repo_dir)
+        except (OSError, ValueError):
+            unreadable.append(f"UNREADABLE {repo} watches.json")
+            continue
+        for key in sorted(watches):
+            opens.append(f"OPEN-WATCH {repo} {key}")
+        for kind in ("relay", "watchdog"):
+            holder = statedir.holder(repo_dir / f"{kind}.lock")
+            if holder is None:
+                continue
+            locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
+for line in opens:
+    print(line)
+for line in locks:
+    print(line)
+for line in unreadable:
+    print(line)
+watched, held, bad = len(opens), len(locks), len(unreadable)
+if bad:
+    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks, "
+          f"{bad} unreadable watches.json")
+elif watched == 0 and held == 0:
+    print("SAFE-TO-MOVE-INSTALLED")
+else:
+    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks")
+PY
+}
+
 if [ "$mode" = check ]; then
   if [ "$rc" -eq 0 ]; then
     echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，hook 见上"
   fi
+  report_move_safety || true
 else
   mkdir -p "$(dirname "$INSTALLED_ROOT_FILE")"
   printf '%s\n' "$ROOT" > "$INSTALLED_ROOT_FILE"
