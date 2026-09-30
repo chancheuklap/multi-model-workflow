@@ -30,9 +30,12 @@ L4 overlap: across drafts, source ranges do not overlap and target locations
 are not repeated. A whole-file location occupies that whole file.
 L5 rename-table: every rename line matches one row's kind, old, new and scope.
 RENAME-NOT-IN-TABLE.
-L6 rename-carried: when one draft executes a rename, every other draft whose
-source text, existing target text or new sentence contains that old name (by
-kind and scope) carries the same line. RENAME-NOT-CARRIED.
+L6 rename-carried: when one draft executes a rename, every other draft carries
+the same line when text it carries to a target, text already at that target,
+or a new sentence contains the old name. Kind and scope match the path where
+the night check compares that text: the transfer's target for carried source
+text, and the location's own path for existing target text and a new sentence.
+RENAME-NOT-CARRIED.
 L7 rename-order: of the drafts that carry one rename line, one blocks the other
 directly or through a chain of BLOCKED BY edges, including drafts that do not
 carry the line. Two drafts that can still run in the same batch are reported.
@@ -98,15 +101,21 @@ except ImportError as exc:
 
 
 @dataclass
+class Replacement:
+    old: str
+    new: str
+    line: int
+    provenance: str
+
+
+@dataclass
 class Transfer:
     kind: str
     source: Location
     target: Location
     any_order: bool = False
-    replacements: list[tuple[str, str]] = field(default_factory=list)
+    replacements: list[Replacement] = field(default_factory=list)
     line: int = 0
-    replacement_lines: list[int] = field(default_factory=list)
-    replacement_provenance: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -222,9 +231,8 @@ def parse_manifest(text: str, *, lenient_provenance: bool = False) -> Manifest:
                     raise TextError('replace old text cannot be empty')
                 if not provenance.strip() and not lenient_provenance:
                     raise TextError('replace requires a preceding move/copy and provenance')
-                previous.replacements.append((directive[1], directive[3]))
-                previous.replacement_lines.append(number)
-                previous.replacement_provenance.append(provenance.strip())
+                previous.replacements.append(
+                    Replacement(directive[1], directive[3], number, provenance.strip()))
                 continue
             elif verb in ('drop', 'new'):
                 try:
@@ -395,7 +403,8 @@ class Comparison:
             src = [i for i in src if (rev, i.id) not in drops]
             if transfer.kind == 'move':
                 self.removals.setdefault((rev, transfer.source.path), []).extend(src)
-            for old, new in transfer.replacements:
+            for replacement in transfer.replacements:
+                old, new = replacement.old, replacement.new
                 joined = joined_unit_text(item.unit for item in src)
                 if joined.count(old) != 1:
                     raise TextError(f'STALE replace {transfer.source.path}: old text matched {joined.count(old)} times')
@@ -555,11 +564,12 @@ def ticket_manifest(number: str) -> str:
     if not isinstance(body, str):
         raise TextError(f'gh issue view {number}: response body is not text',
                         f'restore tracker access to a text body for ticket #{number} and rerun.')
-    return moves_manifest(body)
+    text, _line = moves_manifest(body)
+    return text
 
 
-def moves_manifest(body: str, required: bool = True) -> str | None:
-    """Only a real Moves section and its exactly named fence are authoritative."""
+def moves_manifest(body: str, required: bool = True) -> tuple[str, int] | None:
+    """The moves fence text, and the 1-based line of its first directive within `body`."""
     lines = body.replace('\r\n', '\n').replace('\r', '\n').splitlines(keepends=True)
     sections = 0
     in_moves = False
@@ -575,7 +585,7 @@ def moves_manifest(body: str, required: bool = True) -> str | None:
             if in_moves and info.strip() == 'moves':
                 if end == len(lines):
                     raise TextError('## Moves has an unclosed moves fence')
-                manifests.append(''.join(lines[i+1:end]))
+                manifests.append((''.join(lines[i+1:end]), i + 2))
             i = end + 1
             continue
         heading = HEADING.match(lines[i])
@@ -736,6 +746,7 @@ class Place:
     span: Span | None
     units: list[Unit] | None
     tree: GitTree
+    lands_at: str | None
 
 
 @dataclass
@@ -743,24 +754,34 @@ class Draft:
     name: str
     blocked_by: tuple[str, ...]
     manifest: Manifest | None
-    origin: int
+    manifest_start: int
 
 
-def draft_error(fact: str, next_step: str) -> int:
-    print(f'DRAFTS ERROR {fact}')
+def repository_root(next_step: str) -> Path:
+    result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
+    if result.returncode:
+        raise TextError('not in a git repository', next_step)
+    return Path(result.stdout.strip())
+
+
+def failure_next_step(exc: BaseException, fallback: str, missing_name: str, encoding: str) -> str:
+    if isinstance(exc, TextError) and exc.next_step:
+        return exc.next_step
+    if isinstance(exc, OSError):
+        return f'restore read access to {exc.filename or missing_name} and rerun.'
+    if isinstance(exc, UnicodeError):
+        return encoding
+    return fallback
+
+
+def refuse(prefix: str, fact: str, next_step: str, why: str) -> int:
+    print(f'{prefix} {fact}')
     print('Next: ' + next_step)
-    print('Why: a draft batch that cannot be read cannot be judged.')
+    print('Why: ' + why)
     return 2
 
 
-def commit_exists(root: Path, revision: str) -> bool:
-    result = subprocess.run(
-        ['git', '-C', str(root), 'rev-parse', '--verify', '--quiet', revision + '^{commit}'],
-        capture_output=True, text=True)
-    return result.returncode == 0
-
-
-def load_rename_table(path: Path) -> set[tuple]:
+def load_rename_table(path: Path) -> set[Rename]:
     text = path.read_text(encoding='utf-8')
     keys = set()
     for number, raw in enumerate(text.splitlines(), 1):
@@ -780,31 +801,8 @@ def load_rename_table(path: Path) -> set[tuple]:
         if kind == 'path' and scope:
             raise TextError(f'{path}:{number}: a path rename has no scope',
                             f'remove the scope at {path}:{number} and rerun.')
-        keys.add((kind, old, new, scope))
+        keys.add(Rename(kind, old, new, scope))
     return keys
-
-
-def fence_body_line(lines: list[str], body_start: int) -> int:
-    """File line of the first directive inside the moves fence."""
-    in_moves = False
-    index = body_start
-    while index < len(lines):
-        fence = FENCE.match(lines[index])
-        if fence:
-            marker, info = fence.groups()
-            end = index + 1
-            while end < len(lines) and not closes_fence(lines[end], marker):
-                end += 1
-            if in_moves and info.strip() == 'moves':
-                return index + 2
-            index = end + 1
-            continue
-        heading = HEADING.match(lines[index])
-        if heading and len(heading.group(1)) <= 2:
-            in_moves = heading.groups() == ('##', 'Moves')
-        index += 1
-    raise TextError('moves fence not found',
-                    'put one closed moves fence in ## Moves and rerun.')
 
 
 def read_draft(path: Path) -> Draft:
@@ -830,21 +828,22 @@ def read_draft(path: Path) -> Draft:
                     if part.strip() and part.strip() != '(none)')
     body = '\n'.join(lines[split + 1:])
     try:
-        manifest_text = moves_manifest(body, required=False)
+        found = moves_manifest(body, required=False)
     except TextError as exc:
         raise TextError(f'{path.name}: {exc}', exc.next_step) from exc
-    if manifest_text is None:
+    if found is None:
         return Draft(path.stem, blocked, None, 0)
-    origin = fence_body_line(lines, split + 1)
+    manifest_text, body_line = found
+    manifest_start = split + 1 + body_line
     try:
         manifest = parse_manifest(manifest_text, lenient_provenance=True)
     except TextError as exc:
         raise TextError(f'{path.name}: {exc}', exc.next_step) from exc
-    return Draft(path.stem, blocked, manifest, origin)
+    return Draft(path.stem, blocked, manifest, manifest_start)
 
 
 def file_line(draft: Draft, manifest_line: int) -> int:
-    return draft.origin + manifest_line - 1
+    return draft.manifest_start + manifest_line - 1
 
 
 def pinned_revisions(manifest: Manifest) -> set[str]:
@@ -895,8 +894,10 @@ def location_span(tree: GitTree, location: Location) -> Span | None:
         hits = [anchor for anchor in anchors(text) if anchor.title == normalize_title(location.value)]
         if len(hits) != 1:
             return None
-        # Anchor.end is the line index where the next anchor starts; the span
-        # is half-open at the following line, so adjacent sections do not overlap.
+        # Anchor.end is the line index where the next heading starts. The span
+        # is that anchor, half-open at the following line, so adjacent sections
+        # do not overlap. Blank lines inside the section are part of the span
+        # and are not units, so the span is not the unit list select() returns.
         return Span(hits[0].start, hits[0].end + 1)
     if location.selector == 'field':
         try:
@@ -911,10 +912,6 @@ def location_span(tree: GitTree, location: Location) -> Span | None:
 
 
 def same_place(left: Location, right: Location) -> bool:
-    if left.path != right.path:
-        return False
-    if left.whole or right.whole:
-        return True
     if left.selector != right.selector:
         return False
     if left.selector == 'heading':
@@ -934,16 +931,10 @@ def places_overlap(left: Place, right: Place) -> bool:
     return False
 
 
-def rename_key(rule: Rename) -> tuple:
-    return rule.kind, rule.old, rule.new, rule.scope
-
-
 def place_mentions(place: Place, rule: Rename) -> bool:
-    path = place.location.path
-    if rule.kind == 'path' and path == rule.old:
-        return True
-    if not place.units:
+    if not place.lands_at or not place.units:
         return False
+    path = place.location.path
     for unit in place.units:
         if rule.kind == 'path':
             if rule.old in unit.text:
@@ -954,7 +945,7 @@ def place_mentions(place: Place, rule: Rename) -> bool:
                 continue
             if f'\x00path:{rule.old}\x00' in canon:
                 return True
-        elif rename_text(unit.text, unit.kind, [rule], path) != unit.text:
+        elif rename_text(unit.text, unit.kind, [rule], place.lands_at) != unit.text:
             return True
     return False
 
@@ -962,7 +953,7 @@ def place_mentions(place: Place, rule: Rename) -> bool:
 def addition_mentions(addition: Allowance, rule: Rename) -> bool:
     path = addition.location.path
     if rule.kind == 'path':
-        return path == rule.old or bool(addition.text and rule.old in addition.text)
+        return bool(addition.text and rule.old in addition.text)
     if not addition.text or not rule.applies(path):
         return False
     if rename_text(addition.text, 'sentence', [rule], path) != addition.text:
@@ -1001,27 +992,16 @@ def reaches(blocked: dict[str, set[str]], start: str, goal: str) -> bool:
 
 
 def judge_drafts(args) -> int:
-    root_result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
-    if root_result.returncode:
-        raise TextError('not in a git repository',
-                        'run from the git repository the drafts read with from.')
-    root = Path(root_result.stdout.strip())
+    root = repository_root('run from the git repository the drafts read with from.')
     directory = args.lint_drafts
     if not directory.is_dir():
         raise TextError(f'{directory} is not a readable draft directory',
                         'pass the directory of to-tickets step 7 drafts and rerun.')
-    table_keys = set()
+    table_keys: set[Rename] = set()
     for path in args.renames_table or []:
         table_keys |= load_rename_table(path)
     drafts = [read_draft(path) for path in sorted(directory.iterdir())
               if path.is_file() and path.suffix == '.md']
-    for draft in drafts:
-        if draft.manifest is None:
-            continue
-        for revision in sorted(pinned_revisions(draft.manifest)):
-            if not commit_exists(root, revision):
-                raise TextError(f'{draft.name}.md: {revision} is not a commit',
-                                'pin from to a commit that exists in this repository and rerun.')
     cache: dict = {}
 
     def tree_for(revision: str) -> GitTree:
@@ -1029,6 +1009,15 @@ def judge_drafts(args) -> int:
             GitTree(root, revision, cache)
         return cache[revision]
 
+    for draft in drafts:
+        if draft.manifest is None:
+            continue
+        for revision in sorted(pinned_revisions(draft.manifest)):
+            try:
+                tree_for(revision)
+            except TextError as exc:
+                raise TextError(f'{draft.name}.md: {revision} is not a commit',
+                                'pin from to a commit that exists in this repository and rerun.') from exc
     findings: list[DraftFinding] = []
     places: list[Place] = []
     places_of: dict[str, list[Place]] = {draft.name: [] for draft in drafts}
@@ -1039,11 +1028,16 @@ def judge_drafts(args) -> int:
         base = tree_for(manifest.revision)
         dropped: set[tuple] = set()
 
-        def consider(location: Location, role: str, manifest_line: int) -> list[Unit] | None:
+        def consider(location: Location, role: str, manifest_line: int,
+                     lands_at: str | None, hide: set[tuple] | None = None) -> list[Unit] | None:
             tree = base.at_revision(location.revision) if location.revision else base
             fault, units = inspect_location(tree, location, role == 'source')
             span = None if fault else location_span(tree, location)
-            place = Place(draft.name, file_line(draft, manifest_line), role, location, span, units, tree)
+            stored = None if units is None else [
+                unit for unit in units
+                if hide is None or (location.path, unit.line, unit.identity) not in hide]
+            place = Place(draft.name, file_line(draft, manifest_line), role, location,
+                          span, stored, tree, lands_at)
             places.append(place)
             places_of[draft.name].append(place)
             if fault:
@@ -1051,7 +1045,7 @@ def judge_drafts(args) -> int:
             return units
 
         for drop in manifest.drops:
-            units = consider(drop.location, 'source', drop.line)
+            units = consider(drop.location, 'source', drop.line, None)
             if not drop.provenance.strip():
                 findings.append(DraftFinding(draft.name, file_line(draft, drop.line), 'L3',
                                              'provenance is empty'))
@@ -1067,29 +1061,31 @@ def judge_drafts(args) -> int:
                         f'drop prefix matched {len(chosen)} sentences'))
             dropped.update((drop.location.path, unit.line, unit.identity) for unit in chosen)
         for transfer in manifest.transfers:
-            source_units = consider(transfer.source, 'source', transfer.line)
-            consider(transfer.target, 'target', transfer.line)
+            source_units = consider(transfer.source, 'source', transfer.line,
+                                    transfer.target.path, dropped)
+            consider(transfer.target, 'target', transfer.line, transfer.target.path)
             if source_units is None:
-                for provenance, manifest_line in zip(transfer.replacement_provenance, transfer.replacement_lines):
-                    if not provenance.strip():
-                        findings.append(DraftFinding(draft.name, file_line(draft, manifest_line), 'L3',
-                                                     'provenance is empty'))
+                for replacement in transfer.replacements:
+                    if not replacement.provenance.strip():
+                        findings.append(DraftFinding(
+                            draft.name, file_line(draft, replacement.line), 'L3',
+                            'provenance is empty'))
                 continue
             kept = [unit for unit in source_units
                     if (transfer.source.path, unit.line, unit.identity) not in dropped]
             joined = joined_unit_text(kept)
-            for (old, _new), manifest_line, provenance in zip(
-                    transfer.replacements, transfer.replacement_lines, transfer.replacement_provenance):
-                count = joined.count(old)
+            for replacement in transfer.replacements:
+                count = joined.count(replacement.old)
                 if count != 1:
                     findings.append(DraftFinding(
-                        draft.name, file_line(draft, manifest_line), 'L2',
+                        draft.name, file_line(draft, replacement.line), 'L2',
                         f'replace old text matched {count} times'))
-                if not provenance.strip():
-                    findings.append(DraftFinding(draft.name, file_line(draft, manifest_line), 'L3',
-                                                 'provenance is empty'))
+                if not replacement.provenance.strip():
+                    findings.append(DraftFinding(
+                        draft.name, file_line(draft, replacement.line), 'L3',
+                        'provenance is empty'))
         for addition in manifest.additions:
-            consider(addition.location, 'target', addition.line)
+            consider(addition.location, 'target', addition.line, addition.location.path)
             open_new = addition.text is None and not addition.title
             if not addition.provenance.strip():
                 detail = 'provenance is empty'
@@ -1100,7 +1096,7 @@ def judge_drafts(args) -> int:
             if detail:
                 findings.append(DraftFinding(draft.name, file_line(draft, addition.line), 'L3', detail))
         for manifest_line, rule in manifest.rename_lines:
-            if rename_key(rule) not in table_keys:
+            if rule not in table_keys:
                 findings.append(DraftFinding(draft.name, file_line(draft, manifest_line), 'L5',
                                              'RENAME-NOT-IN-TABLE'))
 
@@ -1118,14 +1114,13 @@ def judge_drafts(args) -> int:
         if draft.manifest is None:
             continue
         for _line, rule in draft.manifest.rename_lines:
-            key = rename_key(rule)
             for other in drafts:
                 if other.name == draft.name:
                     continue
-                if other.manifest and any(rename_key(other_rule) == key
+                if other.manifest and any(other_rule == rule
                                            for _other_line, other_rule in other.manifest.rename_lines):
                     continue
-                mark = (other.name, key)
+                mark = (other.name, rule)
                 if mark in reported_carries:
                     continue
                 line = mention_line(other, places_of[other.name], rule)
@@ -1135,24 +1130,23 @@ def judge_drafts(args) -> int:
                 findings.append(DraftFinding(other.name, line, 'L6', 'RENAME-NOT-CARRIED'))
 
     blocked = {draft.name: set(draft.blocked_by) for draft in drafts}
-    carriers: dict[tuple, list[tuple[Draft, int]]] = {}
+    carriers: dict[Rename, list[tuple[Draft, int]]] = {}
     for draft in drafts:
         if draft.manifest is None:
             continue
-        seen = set()
+        seen: set[Rename] = set()
         for manifest_line, rule in draft.manifest.rename_lines:
-            key = rename_key(rule)
-            if key in seen:
+            if rule in seen:
                 continue
-            seen.add(key)
-            carriers.setdefault(key, []).append((draft, manifest_line))
-    for _key, group in carriers.items():
-        for index, (left, _left_line) in enumerate(group):
+            seen.add(rule)
+            carriers.setdefault(rule, []).append((draft, manifest_line))
+    for _rule, group in carriers.items():
+        for index, (left, left_line) in enumerate(group):
             for right, right_line in group[index + 1:]:
                 if reaches(blocked, left.name, right.name) or reaches(blocked, right.name, left.name):
                     continue
                 later, later_line, other = ((right, right_line, left)
-                                            if right.name >= left.name else (left, _left_line, right))
+                                            if right.name >= left.name else (left, left_line, right))
                 findings.append(DraftFinding(
                     later.name, file_line(later, later_line), 'L7',
                     f'can run in the same batch as {other.name}.md'))
@@ -1174,15 +1168,12 @@ def run_lint(args) -> int:
     try:
         return judge_drafts(args)
     except (TextError, OSError, UnicodeError) as exc:
-        if isinstance(exc, TextError) and exc.next_step:
-            next_step = exc.next_step
-        elif isinstance(exc, OSError):
-            next_step = f'restore read access to {exc.filename or args.lint_drafts} and rerun.'
-        elif isinstance(exc, UnicodeError):
-            next_step = 'correct the file to UTF-8 and rerun.'
-        else:
-            next_step = 'correct the draft batch and rerun.'
-        return draft_error(str(exc), next_step)
+        return refuse(
+            'DRAFTS ERROR', str(exc),
+            failure_next_step(
+                exc, 'correct the draft batch and rerun.', str(args.lint_drafts),
+                'correct the file to UTF-8 and rerun.'),
+            'a draft batch that cannot be read cannot be judged.')
 
 
 def main(argv=None):
@@ -1203,26 +1194,22 @@ def main(argv=None):
         print('Why: a comparison reads renames from the manifest, not from a table.')
         return 2
     try:
-        root_result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
-        if root_result.returncode:
-            raise TextError('not in a git repository', 'run from the git repository containing the manifest source and target files.')
+        root = repository_root('run from the git repository containing the manifest source and target files.')
         text = (ticket_manifest(args.ticket) if args.ticket else
                 args.manifest.read_text(encoding='utf-8'))
         manifest = parse_manifest(text)
-        comparison = Comparison(Path(root_result.stdout.strip()), manifest).run()
+        comparison = Comparison(root, manifest).run()
         untouched = check_untouched(comparison, args.base or os.environ.get('MMW_BASE_REF'), args.ticket)
     except (TextError, OSError, UnicodeError) as exc:
-        print(f'VERBATIM ERROR no units checked: {exc}')
-        input_name = args.manifest or f'ticket #{args.ticket}'
-        if isinstance(exc, TextError):
-            next_step = exc.next_step or 'correct the reported manifest directive, location or pinned revision and rerun.'
-        elif isinstance(exc, OSError):
-            next_step = f'restore read access to {exc.filename or input_name} and rerun.'
-        else:
-            next_step = f'correct the UTF-8 encoding of {input_name} or the reported snapshot file and rerun.'
-        print('Next: ' + next_step)
-        print('Why: comparison requires readable, unambiguous snapshots and directives.')
-        return 2
+        input_name = str(args.manifest or f'ticket #{args.ticket}')
+        return refuse(
+            'VERBATIM ERROR no units checked:', str(exc),
+            failure_next_step(
+                exc,
+                'correct the reported manifest directive, location or pinned revision and rerun.',
+                input_name,
+                f'correct the UTF-8 encoding of {input_name} or the reported snapshot file and rerun.'),
+            'comparison requires readable, unambiguous snapshots and directives.')
     if not comparison.counts['checked'] or comparison.findings:
         counts = Counter(f.kind for f in comparison.findings)
         print('VERBATIM FAIL ' + (', '.join(f'{v} {k}' for k, v in counts.items()) if comparison.counts['checked'] else 'checked nothing'))

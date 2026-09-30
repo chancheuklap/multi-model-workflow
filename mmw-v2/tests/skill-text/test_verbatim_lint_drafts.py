@@ -45,29 +45,16 @@ class VerbatimLintDrafts(unittest.TestCase):
             if child.is_file():
                 child.unlink()
 
-    def draft(self, name, moves, blocked='(none)'):
+    def draft(self, name, moves=None, blocked='(none)'):
+        body = '## Owns\n\n- file\n'
+        if moves is not None:
+            body += f'\n## Moves\n\n```moves\n{moves.strip()}\n```\n'
         text = (
             f'TITLE: {name}\n'
             'LABELS: mmw:ticket, ready-for-agent, junior-worker\n'
             f'BLOCKED BY: {blocked}\n'
             '---\n'
-            '## Owns\n\n'
-            '- file\n\n'
-            '## Moves\n\n'
-            '```moves\n'
-            f'{moves.strip()}\n'
-            '```\n'
-        )
-        (self.drafts / f'{name}.md').write_text(text, encoding='utf-8')
-
-    def draft_without_moves(self, name, blocked='(none)'):
-        text = (
-            f'TITLE: {name}\n'
-            'LABELS: mmw:ticket, ready-for-agent, junior-worker\n'
-            f'BLOCKED BY: {blocked}\n'
-            '---\n'
-            '## Owns\n\n'
-            '- file\n'
+            f'{body}'
         )
         (self.drafts / f'{name}.md').write_text(text, encoding='utf-8')
 
@@ -76,10 +63,10 @@ class VerbatimLintDrafts(unittest.TestCase):
         path.write_text(HEADER + body, encoding='utf-8')
         return path
 
-    def lint(self, code=0, token=None, tables=(), message=''):
+    def lint(self, code=0, token=None, tables=(), message='', directory=None):
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(('MMW_', 'NMEM_'))}
-        args = [sys.executable, str(SCRIPT), '--lint-drafts', str(self.drafts)]
+        args = [sys.executable, str(SCRIPT), '--lint-drafts', str(directory or self.drafts)]
         for path in tables:
             args.extend(['--renames-table', str(path)])
         result = subprocess.run(args, cwd=self.root, env=env, text=True,
@@ -87,11 +74,13 @@ class VerbatimLintDrafts(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, code, message + '\n' + output)
         if token:
-            self.assertIn(token, output, message)
+            self.assertRegex(output, rf'(?m)^[A-Za-z0-9_.-]+\.md:\d+: {token}\b', message)
         if code == 0:
             self.assertRegex(output, r'(?m)^DRAFTS OK \d+ drafts, \d+ moves checked$')
         else:
             self.assertNotIn('DRAFTS OK', output, message)
+        if code == 2:
+            self.assertIn('DRAFTS ERROR', output, message)
         return output
 
     def test_lint_drafts_locations_and_provenance(self):
@@ -114,7 +103,6 @@ class VerbatimLintDrafts(unittest.TestCase):
         self.lint(1, 'L1', message='a source file that is not on from')
 
         self.begin()
-        self.draft('alpha', f'from {self.sha}\nmove source.md#Other -> dest.md#Place')
         # dest.md has one Place. Give the target two anchors of that name.
         self.write('dest.md', '## Place\n\nOne.\n\n## Place\n\nTwo.\n')
         self.pin()
@@ -209,6 +197,16 @@ class VerbatimLintDrafts(unittest.TestCase):
         self.draft('beta', f'from {self.sha}\nnew dest.md#Claim "A further sentence." : R20 §5.2 Reply')
         self.lint(1, 'L4', message='a whole-file target shares the file with a section target')
 
+        self.begin()
+        self.draft('alpha', f'from {self.sha}\nmove left.md:L1-L2 -> out-a.md')
+        self.draft('beta', f'from {self.sha}\nmove left.md:L3-L4 -> out-b.md')
+        self.lint(0, message='adjacent source ranges do not overlap')
+
+        self.begin()
+        self.draft('alpha', f'from {self.sha}\nmove src.md#Claim -> out-a.md')
+        self.draft('beta', f'from {self.sha}\nmove src.md#Other -> out-b.md')
+        self.lint(0, message='sibling headings in one file do not overlap')
+
     def test_lint_drafts_renames(self):
         skill = 'mmw-v2/skills/exe-release/SKILL.md'
         self.write(skill, '## One\n\nRead `key.md` now.\n\n## Two\n\nRead `key.md` later.\n')
@@ -216,6 +214,8 @@ class VerbatimLintDrafts(unittest.TestCase):
         self.write('notes.md', 'Read `key.md` in a note.\n')
         self.write('mmw-v2/skills/demo/old.md', 'Keep the wording.\n')
         self.write('plain.md', '## Claim\n\nNothing renamed here.\n')
+        self.write('pointer.md', 'Read `mmw-v2/skills/demo/old.md` before editing.\n')
+        self.write('up/a.md', '## Part\n\nRead `key.md` now.\n')
         self.pin()
         edit = self.table('edit.tsv', EDIT_ROW)
         key = self.table('key.tsv', KEY_ROW)
@@ -256,7 +256,29 @@ class VerbatimLintDrafts(unittest.TestCase):
             'rename path mmw-v2/skills/demo/old.md -> mmw-v2/skills/demo/new.md'
         ))
         self.draft('beta', f'from {self.sha}\nmove mmw-v2/skills/demo/old.md -> kept.md')
-        self.lint(1, 'L6', tables=(paths,), message='a source path is the renamed path')
+        self.lint(0, tables=(paths,), message='text that never names the old path is not a carried rename')
+
+        self.begin()
+        self.draft('alpha', (
+            f'from {self.sha}\n'
+            'rename path mmw-v2/skills/demo/old.md -> mmw-v2/skills/demo/new.md'
+        ))
+        self.draft('beta', f'from {self.sha}\nmove pointer.md -> pointer.md')
+        self.lint(1, 'L6', tables=(paths,), message='carried text names the old path')
+
+        landing = 'token\tkey.md\trelease-manifest.md\tex/**\n'
+        source_scope = 'token\tkey.md\trelease-manifest.md\tup/**\n'
+        self.begin()
+        self.draft('alpha', f'from {self.sha}\nrename token key.md -> release-manifest.md in ex/**')
+        self.draft('beta', f'from {self.sha}\nmove up/a.md#Part -> ex/new.md#Part')
+        self.lint(1, 'L6', tables=(self.table('landing.tsv', landing),),
+                  message='the old token lands inside the rename scope')
+
+        self.begin()
+        self.draft('alpha', f'from {self.sha}\nrename token key.md -> release-manifest.md in up/**')
+        self.draft('beta', f'from {self.sha}\nmove up/a.md#Part -> ex/new.md#Part')
+        self.lint(0, tables=(self.table('source-scope.tsv', source_scope),),
+                  message='the old token leaves the rename scope when it lands')
 
         self.begin()
         self.draft('alpha', (
@@ -273,14 +295,14 @@ class VerbatimLintDrafts(unittest.TestCase):
         self.lint(1, 'L7', tables=(edit,), message='two drafts carry one rename and can run together')
 
         self.begin()
-        self.draft_without_moves('alpha')
+        self.draft('alpha')
         self.draft('beta', f'from {self.sha}\n{carried}', blocked='alpha')
         self.draft('gamma', f'from {self.sha}\n{carried}', blocked='alpha')
         self.lint(1, 'L7', tables=(edit,), message='siblings blocked by one draft can still run together')
 
         self.begin()
         self.draft('alpha', f'from {self.sha}\n{carried}')
-        self.draft_without_moves('beta', blocked='alpha')
+        self.draft('beta', blocked='alpha')
         self.draft('gamma', f'from {self.sha}\n{carried}', blocked='beta')
         self.lint(0, tables=(edit,), message='a chain through another draft orders the rename')
 
@@ -296,17 +318,9 @@ class VerbatimLintDrafts(unittest.TestCase):
         self.assertRegex(output, r'(?m)^DRAFTS OK 2 drafts, 4 moves checked$')
 
     def test_lint_drafts_that_cannot_be_read_exit_2(self):
-        missing = self.drafts / 'no-such-directory'
-        env = {k: v for k, v in os.environ.items()
-               if not k.startswith(('MMW_', 'NMEM_'))}
-        result = subprocess.run(
-            [sys.executable, str(SCRIPT), '--lint-drafts', str(missing)],
-            cwd=self.root, env=env, text=True, capture_output=True)
-        output = result.stdout + result.stderr
-        self.assertEqual(result.returncode, 2, output)
-        self.assertNotIn('DRAFTS OK', output)
+        self.lint(2, directory=self.drafts / 'no-such-directory',
+                  message='the draft directory cannot be read')
 
         self.begin()
         self.draft('alpha', 'from 1111111111111111111111111111111111111111\nmove source.md -> dest.md')
-        output = self.lint(2, message='from is not a commit')
-        self.assertNotIn('DRAFTS OK', output)
+        self.lint(2, message='from is not a commit')
