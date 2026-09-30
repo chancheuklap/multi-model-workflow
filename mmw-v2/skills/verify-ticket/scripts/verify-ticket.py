@@ -24,6 +24,7 @@ import sys
 import tempfile
 import time
 from collections import Counter, defaultdict, deque
+from typing import NamedTuple
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -247,20 +248,101 @@ def gh_login() -> str:
     return out.stdout.strip()
 
 
-def own_session() -> tuple[str, str] | None:
-    """(runner, session) of the session this run is part of, as `dispatch.sh self` of the
-    dispatch skill beside this one reads it, or None when it cannot say: outside any
-    runner, or with that skill not there. Patched out in tests."""
+class SelfRead(NamedTuple):
+    """One answer from `dispatch.sh self` of the dispatch skill beside this one.
+
+    `returncode` is None when `path` is not a file. `error` is set when the script could
+    not be run. `stdout` and `stderr` are whatever it printed.
+    """
+
+    path: str
+    returncode: int | None
+    stdout: str
+    stderr: str
+    error: str | None
+
+
+def read_self() -> SelfRead:
+    """Ask `dispatch.sh self` who this process is. Patched out in tests."""
     script = HERE.parents[1] / "dispatch" / "scripts" / "dispatch.sh"
+    path = str(script)
     if not script.is_file():
-        return None
+        return SelfRead(path, None, "", "", None)
     try:
-        out = subprocess.run(["bash", str(script), "self"], capture_output=True, text=True,
+        out = subprocess.run(["bash", path, "self"], capture_output=True, text=True,
                              timeout=60, env=GH_ENV)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    runner, _, session = out.stdout.strip().partition("\t")
-    return (runner, session) if out.returncode == 0 and runner and session else None
+    except (OSError, subprocess.SubprocessError) as exc:
+        return SelfRead(path, None, "", "", str(exc))
+    return SelfRead(path, out.returncode, out.stdout or "", out.stderr or "", None)
+
+
+# The `read_self` answer behind the latest `own_session` that returned None. The next
+# call, and a refusal that is about to call `own_session`, clears it. A test that
+# patches `own_session` leaves it clear, so the refusal line stays the one it had.
+_unnamed_session: SelfRead | None = None
+
+# Quoted `dispatch.sh self` output on the refusal line. Past this many characters the
+# dump is cut, so it does not fill the line a person reads.
+_SELF_OUTPUT_LIMIT = 300
+
+
+def own_session() -> tuple[str, str] | None:
+    """(runner, session) of the session this run is part of, as `read_self` reports it,
+    or None when it cannot say: outside any runner, or with that skill not there.
+
+    On None, `_unnamed_session` is that `read_self` answer. Patched out in tests.
+    """
+    global _unnamed_session
+    _unnamed_session = None
+    read = read_self()
+    if read.error is None and read.returncode == 0:
+        runner, _, session = read.stdout.strip().partition("\t")
+        if runner and session:
+            return (runner, session)
+    _unnamed_session = read
+    return None
+
+
+_refusal_call = None
+
+
+def _refusal():
+    """`refusal` from the ui-acceptance skill: the three parts of one refusal line."""
+    global _refusal_call
+    if _refusal_call is None:
+        spec = importlib.util.spec_from_file_location(
+            "mmw_refusal", HERE.parents[1] / "ui-acceptance" / "scripts" / "refusal.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _refusal_call = module.refusal
+    return _refusal_call
+
+
+def _self_output(read: SelfRead) -> str:
+    text = " ".join(f"{read.stdout} {read.stderr}".split())
+    if not text:
+        return "no output"
+    if len(text) > _SELF_OUTPUT_LIMIT:
+        return text[:_SELF_OUTPUT_LIMIT - 3].rstrip() + "..."
+    return text
+
+
+def unnamed_session_line(number: int, read: SelfRead) -> str:
+    """Why this refusal could not name its session, and what to do next.
+
+    The event is already posted without `runner` and `session`, so the hold does not end.
+    """
+    if read.error:
+        what = f"dispatch.sh self at {read.path} could not be run ({read.error})."
+    elif read.returncode is None:
+        what = f"no dispatch.sh at {read.path}."
+    elif read.returncode == 0:
+        what = f"dispatch.sh self exit 0, printed no session: {_self_output(read)}."
+    else:
+        what = f"dispatch.sh self exit {read.returncode}: {_self_output(read)}."
+    why = f"This refusal does not end this session's hold on #{number}."
+    next_step = f"dispatch.sh retract {number}, or during a night tell the orchestrator."
+    return _refusal()(what, why, next_step, limit=2000)
 
 
 def assign_self(number: int) -> None:
@@ -2200,11 +2282,16 @@ def run_preflight(number: int) -> int:
     if problems:
         reason, sentence = problems[0]
         # The refusing session is named so its own hold ends with this event and the
-        # ticket is free for the next start; a session that cannot name itself ends none.
+        # ticket is free for the next start. A session that cannot name itself ends
+        # none, and stderr says why and what to do next.
+        global _unnamed_session
+        _unnamed_session = None
         runner, session = own_session() or (None, None)
         post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
                    reason=reason, branch=branch or None, runner=runner, session=session)
         sys.stderr.write(sentence + "\n")
+        if (runner is None or session is None) and _unnamed_session is not None:
+            sys.stderr.write(unnamed_session_line(number, _unnamed_session) + "\n")
         return 2
     assign_self(number)
     try:
