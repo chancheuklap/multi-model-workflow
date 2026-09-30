@@ -3225,26 +3225,30 @@ scenario_nobaseconfig() {
   no_relay
 }
 
+add_researcher_row() {
+  cp "$MMW_HOME/models.json" "$1"
+  python3 - "$MMW_HOME/models.json" "${2:-high}" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["rows"]["researcher"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": sys.argv[2]}
+json.dump(data, open(path, "w"))
+PY
+}
+
 scenario_research() {
   local code saved="$TMP/models.saved"
   reset_log
   fresh_repo
   no_relay
-  cp "$MMW_HOME/models.json" "$saved"
-  python3 - "$MMW_HOME/models.json" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["rows"]["researcher"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
-json.dump(data, open(path, "w"))
-PY
+  add_researcher_row "$saved" low
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
   [ "$code" = 0 ] || fail "research expected 0, got $code: $(cat "$TMP/err")"
   if [ "$code" = 0 ]; then
     started_once
     [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
     [ "$(out_json provider)" = codex/gpt-5.6-sol ] || fail "research did not use its row: $(out_json provider)"
-    [ "$(out_json settings.thinkingOptionId)" = high ] || fail "research effort: $(out_json settings.thinkingOptionId)"
+    [ "$(out_json settings.thinkingOptionId)" = low ] || fail "research effort: $(out_json settings.thinkingOptionId)"
     hasnt "gh :: issue :: comment"
     hasnt_runner_worktree
   fi
@@ -3266,14 +3270,7 @@ scenario_researchworktree() {
   local code tree caller_head saved="$TMP/models.saved"
   reset_log
   fresh_repo
-  cp "$MMW_HOME/models.json" "$saved"
-  python3 - "$MMW_HOME/models.json" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["rows"]["researcher"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
-json.dump(data, open(path, "w"))
-PY
+  add_researcher_row "$saved"
   git -C "$TMP/repo" worktree add --quiet -b mapper "$TMP/mapper"
   commit_file "$TMP/mapper" context.txt context context
   caller_head="$(git -C "$TMP/mapper" rev-parse HEAD)"
@@ -3296,14 +3293,7 @@ scenario_researchreuse() {
   local code tree head saved="$TMP/models.saved"
   reset_log
   fresh_repo
-  cp "$MMW_HOME/models.json" "$saved"
-  python3 - "$MMW_HOME/models.json" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["rows"]["researcher"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
-json.dump(data, open(path, "w"))
-PY
+  add_researcher_row "$saved"
   tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/research-61"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
   [ "$code" = 0 ] || fail "first research expected 0, got $code: $(cat "$TMP/err")"
@@ -3314,6 +3304,7 @@ PY
     printf '%s\n' unfinished > "$tree/unfinished.txt"
     code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
     [ "$code" = 0 ] || fail "second research expected 0, got $code: $(cat "$TMP/err")"
+    [ "$(count_of "paseo :: run")" = 2 ] || fail "second research did not start another session"
     [ "$(out_json cwd)" = "$tree" ] || fail "research did not reuse the worktree"
     [ "$(git -C "$TMP/repo" worktree list --porcelain | grep -cF "worktree $tree")" = 1 ] \
       || fail "research created another worktree"
@@ -3339,14 +3330,7 @@ scenario_researchprompt() {
   local code saved="$TMP/models.saved"
   reset_log
   fresh_repo
-  cp "$MMW_HOME/models.json" "$saved"
-  python3 - "$MMW_HOME/models.json" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-data["rows"]["researcher"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
-json.dump(data, open(path, "w"))
-PY
+  add_researcher_row "$saved"
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
   mv "$saved" "$MMW_HOME/models.json"
   [ "$code" = 0 ] || fail "research prompt expected 0, got $code: $(cat "$TMP/err")"

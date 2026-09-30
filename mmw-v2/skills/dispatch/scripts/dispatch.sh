@@ -1211,6 +1211,32 @@ clear_stray_workspace() {
   return 1
 }
 
+# Check an existing worktree without changing its branch or files. An absent
+# directory needs no check; the caller decides whether and when to create it.
+require_worktree_branch() {
+  local dest="$1" branch="$2" retry="$3" on
+  [ -d "$dest" ] || return 0
+  on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  [ "$on" = "$branch" ] && return 0
+  echo "dispatch: $dest is on ${on:-no branch}, not $branch; it is not this ticket's worktree; move it or rename it, then $retry" >&2
+  return 1
+}
+
+# Attach the existing branch, or cut a new branch at the caller's chosen ref.
+# git creates leading directories; a failure leaves its own error visible.
+add_branch_worktree() {
+  local root="$1" dest="$2" branch="$3" from="$4" retry="$5"
+  local args=(worktree add --quiet)
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    args+=("$dest" "$branch")
+  else
+    args+=(-b "$branch" "$dest" "$from")
+  fi
+  git -C "$root" "${args[@]}" && return 0
+  echo "dispatch: could not create $dest on $branch (new branches start at $from), so no session was started; resolve the git error above, then $retry" >&2
+  return 1
+}
+
 # Read-only checks that must pass before a replacement stops the worker holding the
 # ticket. `ensure_workspace` repeats them after the stop because origin may move between
 # the check and the worktree update.
@@ -1221,14 +1247,7 @@ workspace_origin_ready() {
   fetch_origin "$root" || return 1
   require_origin_branch "$root" "$into" || return 1
   clear_stray_workspace "$root" "$dest" || return 1
-  if [ -d "$dest" ]; then
-    local on
-    on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-    [ "$on" = "$branch" ] || {
-      echo "dispatch: $dest is on ${on:-no branch}, not $branch; it is not this ticket's worktree — move it or rename it, then start again" >&2
-      return 1
-    }
-  fi
+  require_worktree_branch "$dest" "$branch" "start again" || return 1
   if git -C "$root" show-ref --verify --quiet "refs/heads/$branch" \
       && git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
     read -r local_left remote_left <<<"$(git -C "$root" rev-list --left-right --count "$branch...origin/$branch")"
@@ -1389,12 +1408,7 @@ ensure_workspace() {
   fetch_origin "$root" || return 1
   require_origin_branch "$root" "$into" || return 1
   clear_stray_workspace "$root" "$dest" || return 1
-  if [ -d "$dest" ]; then
-    local on
-    on="$(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-    [ "$on" = "$branch" ] \
-      || { echo "dispatch: $dest is on ${on:-no branch}, not $branch; it is not this ticket's worktree — move it or rename it, then start again" >&2; return 1; }
-  fi
+  require_worktree_branch "$dest" "$branch" "start again" || return 1
   remote=0
   git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch" && remote=1
 
@@ -1422,20 +1436,10 @@ ensure_workspace() {
     printf '%s\t%s\t0\n' "$dest" "$dest"
     return 0
   fi
-  mkdir -p "$root/.worktrees"
-  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-    git -C "$root" worktree add --quiet "$dest" "$branch" \
-      || { echo "dispatch: could not create a worktree for $branch" >&2; return 1; }
-    created=1
-  elif [ "$remote" = 1 ]; then
-    git -C "$root" worktree add --quiet -b "$branch" "$dest" "origin/$branch" \
-      || { echo "dispatch: could not create a worktree for $branch from origin/$branch" >&2; return 1; }
-    created=1
-  else
-    git -C "$root" worktree add --quiet -b "$branch" "$dest" "origin/$into" \
-      || { echo "dispatch: could not create a worktree for $branch from origin/$into" >&2; return 1; }
-    created=1
-  fi
+  local from="origin/$into"
+  [ "$remote" = 0 ] || from="origin/$branch"
+  add_branch_worktree "$root" "$dest" "$branch" "$from" "start again" || return 1
+  created=1
   if [ "$remote" = 0 ]; then
     push_ticket_branch "$number" "$dest" || return 1
   fi
@@ -2133,24 +2137,15 @@ research_one() {
   [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 mmw-v2/skills/dispatch/scripts/models.py config set researcher codex \"gpt 6 sol\" high, then research $number again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local root cwd branch on prompt session
+  local root cwd branch prompt session
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so there is no HEAD to start research/$number from; run research $number from a worktree"
   cwd="$(worktrees_root)/research-$number"
   branch="research/$number"
   clear_stray_workspace "$root" "$cwd" || exit 2
-  if [ -d "$cwd" ]; then
-    on="$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-    [ "$on" = "$branch" ] || refuse "$cwd is on ${on:-no branch}, not $branch; it is not this research ticket's worktree. Move it or rename it, then research $number again"
-  else
-    mkdir -p "$(dirname "$cwd")" || refuse "could not create $(dirname "$cwd"), so research has no worktree directory; make it writable, then research $number again"
-    if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
-      git -C "$root" worktree add --quiet "$cwd" "$branch" \
-        || refuse "could not create $cwd on $branch, so no research session was started; resolve the git error above, then research $number again"
-    else
-      git -C "$root" worktree add --quiet -b "$branch" "$cwd" HEAD \
-        || refuse "could not create $cwd from this checkout's HEAD, so no research session was started; resolve the git error above, then research $number again"
-    fi
+  require_worktree_branch "$cwd" "$branch" "research $number again" || exit 2
+  if [ ! -d "$cwd" ]; then
+    add_branch_worktree "$root" "$cwd" "$branch" HEAD "research $number again" || exit 2
   fi
   prompt="Use the research skill to resolve research ticket #$number in this session and start no other agent. Commit the report to the current branch research/$number and push it, post a resolution comment on #$number that links the report file on that branch and gives the answer in three sentences, then close #$number. $AUTONOMOUS"
   if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number researcher $$")"; then

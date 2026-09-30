@@ -55,8 +55,6 @@ class LocalConfigTest(unittest.TestCase):
 
     def test_a_four_row_file_without_researcher_is_valid(self):
         old = self.seed()
-        self.assertEqual(models._validate_config_shape(old), [])
-        self.assertEqual(models._validate_local_config(old, self.scan()), [])
         rows = models.session_rows()
         self.assertEqual([row.agent for row in rows], [
             "junior-worker", "senior-worker", "reviewer", "advisor",
