@@ -50,6 +50,7 @@
 | [0029](0029-claude-design-is-the-design-source.md) | 设计的唯一源头是 Claude Design 项目，仓库里的 handoff package 只由 pull 写入 | 2026-09-20 | 无 | 0030 |
 | [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 无 |
 | [0031](0031-worker-start-memory-is-a-searched-index.md) | worker 开工时拿到两份有上限的 Memory 索引：相关经验用本票 `## Owns` 路径和各级标题的短查询搜出，不用 spec 或 map 正文 | 2026-09-18 | 无 | 无 |
+| [0032](0032-the-set-is-layered.md) | MMW 分成 mode、playbook、原则、能力技能、reference、脚本、角色与配置七种组件，按类型各住一层，每段内容默认搬到它该在的层，留在原处必须写明是 H1–H6 或 S 的哪一条 | 2026-09-30 | 无 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
