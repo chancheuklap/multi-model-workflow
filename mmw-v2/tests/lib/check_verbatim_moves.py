@@ -79,6 +79,14 @@ class Allowance:
     text: str | None
     title: bool = False
 
+    def selects(self, unit: Unit, prefix: bool = False) -> bool:
+        if self.text is None:
+            return True
+        if self.title:
+            return unit.kind == 'title' and unit.text == normalize_title(self.text)
+        text = re.sub(r'\s+', ' ', self.text).strip()
+        return unit.kind == 'sentence' and (unit.text.startswith(text) if prefix else unit.text == text)
+
 
 @dataclass
 class Manifest:
@@ -299,7 +307,7 @@ class Comparison:
         for allowance in self.manifest.drops:
             items = self.items(self.before, allowance.location)
             if allowance.text is not None:
-                items = [i for i in items if i.unit.kind == 'sentence' and i.unit.text.startswith(allowance.text)]
+                items = [i for i in items if allowance.selects(i.unit, prefix=True)]
                 if len(items) != 1:
                     raise TextError(f'STALE drop {allowance.location.path}: prefix matched {len(items)} sentences')
             tree = (self.before.at_revision(allowance.location.revision).revision
@@ -416,8 +424,7 @@ class Comparison:
                         self.counts['new'] += 1
             else:
                 text = normalize_title(addition.text) if addition.title else re.sub(r'\s+', ' ', addition.text).strip()
-                match = next((d for d in dest if d.id not in self.used and d.unit.text == text and
-                              (d.unit.kind == 'title' if addition.title else d.unit.kind == 'sentence')), None)
+                match = next((d for d in dest if d.id not in self.used and addition.selects(d.unit)), None)
                 if match:
                     self.used.add(match.id)
                     self.counts['new'] += 1
@@ -469,9 +476,11 @@ def ticket_manifest(number: str) -> str:
     try:
         body = json.loads(result.stdout)['body']
     except (ValueError, KeyError, TypeError) as exc:
-        raise TextError(f'gh issue view {number}: response has no readable body') from exc
+        raise TextError(f'gh issue view {number}: response has no readable body',
+                        f'restore tracker access to a readable body for ticket #{number} and rerun.') from exc
     if not isinstance(body, str):
-        raise TextError(f'gh issue view {number}: response body is not text')
+        raise TextError(f'gh issue view {number}: response body is not text',
+                        f'restore tracker access to a text body for ticket #{number} and rerun.')
     return moves_manifest(body)
 
 
@@ -546,56 +555,48 @@ def check_untouched(comparison: Comparison, base: str | None,
     subjects = head.git('log', '--format=%s', f'{revision}..HEAD')
     prefixes = sorted(set(re.findall(r"^Squashed '(.+?)/'", subjects, re.M)))
     manifest = comparison.manifest
-    locations = ([t.source for t in manifest.transfers] +
-                 [t.target for t in manifest.transfers] +
-                 [a.location for a in manifest.drops + manifest.additions])
-    named = {location.path for location in locations}
+    scopes = ([(Allowance(t.source, None), False) for t in manifest.transfers] +
+              [(Allowance(t.target, None), False) for t in manifest.transfers] +
+              [(a, True) for a in manifest.drops] +
+              [(a, False) for a in manifest.additions])
+    named = {allowance.location.path for allowance, _ in scopes}
     named.update(value for rule in manifest.renames if rule.kind == 'path'
                  for value in (rule.old, rule.new))
-    scopes = ([(t.source, None, False, False) for t in manifest.transfers] +
-              [(t.target, None, False, False) for t in manifest.transfers] +
-              [(a.location, a.text, a.title, True) for a in manifest.drops] +
-              [(a.location, a.text, a.title, False) for a in manifest.additions])
 
     def outside(tree: GitTree, path: str) -> list[Item]:
         if not tree.exists(path):
             return []
         excluded = set()
-        for location, text, title, prefix in scopes:
+        for allowance, prefix in scopes:
+            location = allowance.location
             if location.path != path:
                 continue
             try:
                 # Explicit source revisions define scopes, not the Q3 snapshot.
-                if location.selector == 'lines' and tree is head:
+                if location.selector == 'lines':
                     # Source line numbers belong to the pinned snapshot. A move
                     # shifts later units into those lines without authorizing them.
-                    selected = comparison.items(comparison.before, location)
+                    pinned = (comparison.before.at_revision(location.revision)
+                              if location.revision else comparison.before)
+                    selected = [item for item in comparison.items(pinned, location)
+                                if allowance.selects(item.unit, prefix)]
                     available = comparison.items(tree, Location(path))
                     items = []
                     for prior in selected:
-                        value = untouched_text(comparison, comparison.before, prior, True)
+                        value = untouched_text(comparison, pinned, prior, True)
                         match = next((item for item in available
                                       if item.unit.kind == prior.unit.kind and item.unit.key == prior.unit.key and
-                                      untouched_text(comparison, tree, item, False) == value), None)
+                                      untouched_text(comparison, tree, item, tree is before) == value), None)
                         if match:
                             items.append(match)
                             available.remove(match)
                 else:
-                    items = comparison.items(tree, replace(location, revision=None))
+                    items = [item for item in comparison.items(tree, replace(location, revision=None))
+                             if allowance.selects(item.unit, prefix)]
             except TextError as exc:
                 if 'matched 0 locations' in str(exc) or 'field not found' in str(exc):
                     continue  # A moved/dropped section need not survive.
                 raise
-            if text is not None:
-                if title:
-                    items = [item for item in items if item.unit.kind == 'title' and
-                             item.unit.text == normalize_title(text)]
-                elif prefix:
-                    items = [item for item in items if item.unit.kind == 'sentence' and
-                             item.unit.text.startswith(text)]
-                else:
-                    items = [item for item in items if item.unit.kind == 'sentence' and
-                             item.unit.text == re.sub(r'\s+', ' ', text).strip()]
             excluded.update(item.id for item in items)
         result = []
         for item in comparison.items(tree, Location(path)):
@@ -646,12 +647,13 @@ def main(argv=None):
         untouched = check_untouched(comparison, args.base or os.environ.get('MMW_BASE_REF'), args.ticket)
     except (TextError, OSError, UnicodeError) as exc:
         print(f'VERBATIM ERROR no units checked: {exc}')
+        input_name = args.manifest or f'ticket #{args.ticket}'
         if isinstance(exc, TextError):
             next_step = exc.next_step or 'correct the reported manifest directive, location or pinned revision and rerun.'
         elif isinstance(exc, OSError):
-            next_step = f'restore read access to {exc.filename or args.manifest} and rerun.'
+            next_step = f'restore read access to {exc.filename or input_name} and rerun.'
         else:
-            next_step = f'correct the UTF-8 encoding of {args.manifest} or the reported snapshot file and rerun.'
+            next_step = f'correct the UTF-8 encoding of {input_name} or the reported snapshot file and rerun.'
         print('Next: ' + next_step)
         print('Why: comparison requires readable, unambiguous snapshots and directives.')
         return 2

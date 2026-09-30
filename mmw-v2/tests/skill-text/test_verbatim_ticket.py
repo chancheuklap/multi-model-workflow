@@ -110,6 +110,14 @@ class VerbatimTicket(unittest.TestCase):
                 if kind != 'path':
                     self.manifest = baseline_manifest + f'rename {kind} `{old}` -> `{new}` in no-match/**\n'
                     self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
+                else:
+                    rename_manifest = self.manifest
+                    self.manifest = baseline_manifest
+                    self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
+                    self.manifest = rename_manifest
+                    self.write(SKILL, text.replace(old, new).replace('Use ', 'Open '))
+                    self.commit()
+                    self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
         # A sentence drop grants only that instance, not the whole section.
         self.git('reset', '--hard', original)
         self.git('branch', '-f', 'base', self.base)
@@ -162,9 +170,9 @@ class VerbatimTicket(unittest.TestCase):
     def test_untouched_text_needs_a_base(self):
         self.env.pop('MMW_BASE_REF')
         self.check('--manifest', 'manifest', code=2, token='--base')
-        self.check('--manifest', 'manifest', '--base', 'base', token='untouched text:')
+        self.check('--manifest', 'manifest', '--base', 'base', token='subtree pulled: none')
         self.env['MMW_BASE_REF'] = 'no-such-ref'
-        self.check('--manifest', 'manifest', '--base', 'base')
+        self.check('--manifest', 'manifest', '--base', 'base', token='subtree pulled: none')
         self.check('--manifest', 'manifest', code=2, token='VERBATIM ERROR')
         # merge-base, not the tip of a base that has advanced independently.
         worker = self.git('rev-parse', 'HEAD')
@@ -245,3 +253,47 @@ class VerbatimTicket(unittest.TestCase):
         self.write('source.md', '## Allowed\n\n## Other\n\nChange this reason.\n')
         self.commit()
         self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
+
+    def test_source_line_scopes_stay_pinned_when_base_advances(self):
+        self.git('checkout', '-q', 'base')
+        self.write(SKILL, '## Allowed\n\nMove this sentence.\n\n## Other\n\nKeep this reason.\n')
+        pinned = self.commit()
+        prefix = '## Earlier ticket\n\nEarlier instruction.\n\n'
+        self.write(SKILL, prefix + '## Allowed\n\nMove this sentence.\n\n## Other\n\nKeep this reason.\n')
+        self.commit()
+        self.git('checkout', '-q', 'issue-603')
+        self.git('reset', '--hard', 'base')
+        start = self.git('rev-parse', 'HEAD')
+        for directive in ('move', 'drop'):
+            with self.subTest(directive=directive):
+                self.git('reset', '--hard', start)
+                self.write(SKILL, prefix + '## Allowed\n\n## Other\n\nKeep this reason.\n')
+                if directive == 'move':
+                    self.manifest = f'from {pinned}\nmove {SKILL}:L3 -> target.md\n'
+                    self.write('target.md', 'Move this sentence.\n')
+                else:
+                    self.manifest = (f'from {pinned}\ncopy source.md -> target.md\n'
+                                     f'drop {SKILL}:L3 "Move this sentence." : Spec\n')
+                    self.write('target.md', 'Carry this sentence.\n')
+                self.commit()
+                self.check('--manifest', 'manifest')
+                self.write(SKILL, prefix.replace('Earlier instruction.', 'Unauthorized instruction.') +
+                           '## Allowed\n\n## Other\n\nKeep this reason.\n')
+                self.commit()
+                self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
+
+    def test_ticket_read_errors_identify_the_input_for_the_next_step(self):
+        self.ticket_body()
+        for response in ('invalid-json', '{}', '{"body": null}', '[]'):
+            with self.subTest(response=response):
+                self.env['VERBATIM_GH_RESPONSE'] = response
+                output = self.check('--ticket', '603', code=2, token='VERBATIM ERROR')
+                next_line = next(line for line in output.splitlines() if line.startswith('Next:'))
+                self.assertIn('ticket #603', next_line)
+        self.env.pop('VERBATIM_GH_RESPONSE')
+        (self.root / SKILL).write_bytes(b'Invalid UTF-8: \xff\n')
+        self.commit()
+        output = self.check('--ticket', '603', code=2, token='VERBATIM ERROR')
+        next_line = next(line for line in output.splitlines() if line.startswith('Next:'))
+        self.assertIn('ticket #603', next_line)
+        self.assertNotIn('None', next_line)
