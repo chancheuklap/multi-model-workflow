@@ -25,6 +25,9 @@ _STRIP = (
     "PASEO_AGENT_ID",
     "ORCA_TERMINAL_HANDLE",
     "HERDR_PANE_ID",
+    "CODEX_HOME",
+    "PI_CODING_AGENT_DIR",
+    "PI_HOME",
 )
 
 

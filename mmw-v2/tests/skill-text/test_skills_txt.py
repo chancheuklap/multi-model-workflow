@@ -69,14 +69,14 @@ class SkillsTxt(unittest.TestCase):
         combined = refused.stdout + refused.stderr
         self.assertEqual(1, refused.returncode, combined)
         self.assertEqual(1, combined.count(unknown), combined)
-        self.assertNotIn("the file does not exist", combined)
+        self.assertIn("1 finding(s)", combined)
 
         own = "self/dispatch +model-invoked"
         refused = self.run_frontmatter(own + "\n")
         combined = refused.stdout + refused.stderr
         self.assertEqual(1, refused.returncode, combined)
         self.assertEqual(1, combined.count(own), combined)
-        self.assertNotIn("the file does not exist", combined)
+        self.assertIn("1 finding(s)", combined)
 
     def test_installed_skills_maps_a_pstack_line_to_the_pstack_subtree(self):
         with tempfile.TemporaryDirectory() as raw:

@@ -85,21 +85,6 @@ def skill_md(entry: str) -> Path:
     return base / "SKILL.md"
 
 
-def skill_rows() -> list[tuple[str, Path | str]]:
-    rows = []
-    for raw in SKILLS_TXT.read_text(encoding="utf-8").splitlines():
-        parsed = classify_line(raw)
-        if parsed is None:
-            continue
-        kind, value = parsed
-        rows.append((kind, value if kind == "error" else skill_md(value)))
-    return rows
-
-
-def installed_skill_md_paths() -> list[Path]:
-    return [path for kind, path in skill_rows() if kind == "skill"]
-
-
 def frontmatter_text(path: Path) -> str | None:
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     if not lines or lines[0].strip() != "---":
@@ -112,11 +97,15 @@ def frontmatter_text(path: Path) -> str | None:
 
 def findings() -> list[str]:
     rows = []
-    for kind, value in skill_rows():
+    for raw in SKILLS_TXT.read_text(encoding="utf-8").splitlines():
+        parsed = classify_line(raw)
+        if parsed is None:
+            continue
+        kind, value = parsed
         if kind == "error":
             rows.append(value)
             continue
-        path = value
+        path = skill_md(value)
         rel = path.relative_to(MMW.parent)
         if not path.is_file():
             rows.append(f"{rel}: mmw-v2/skills.txt names this skill, but the file does not exist")

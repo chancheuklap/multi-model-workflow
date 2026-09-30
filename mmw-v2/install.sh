@@ -168,10 +168,10 @@ while IFS= read -r line; do
   path="${tokens[0]}"
   if [ "${#tokens[@]}" -ne 1 ]; then
     if [ "${#tokens[@]}" -ne 2 ] || [ "${tokens[1]}" != "+model-invoked" ]; then
-      die "skills.txt 的这一行有不认识的记号：${tokens[*]}"
+      die "skills.txt 的这一行有不认识的记号：${tokens[*]}。只认 +model-invoked；删掉或改正这个记号"
     fi
     case "$path" in
-      self/*) die "skills.txt 的 self/ 行不能带 +model-invoked：${tokens[*]}" ;;
+      self/*) die "skills.txt 的 self/ 行不能带 +model-invoked：${tokens[*]}。self/ 技能的 frontmatter 没有调用开关可去；删掉标记" ;;
     esac
   fi
   case "$path" in
