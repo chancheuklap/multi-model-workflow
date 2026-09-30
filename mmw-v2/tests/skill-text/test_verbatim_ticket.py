@@ -129,6 +129,16 @@ class VerbatimTicket(unittest.TestCase):
         self.commit()
         self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
 
+    def test_a_scope_gone_from_the_file_is_allowed_and_an_ambiguous_one_exits_2(self):
+        self.manifest = f'from {self.base}\nmove {SKILL}#Other -> moved.md\n'
+        self.write(SKILL, '## Allowed\n\nKeep this rule.\n')
+        self.write('moved.md', '## Other\n\nKeep this reason.\n')
+        self.commit()
+        self.check('--manifest', 'manifest')
+        self.write(SKILL, '## Allowed\n\nKeep this rule.\n\n## Other\n\n## Other\n')
+        self.commit()
+        self.check('--manifest', 'manifest', code=2, token='matched 2 locations')
+
     def ticket_body(self, text=None):
         body = text if text is not None else (FIXTURES / 'body.md').read_text(encoding='utf-8')
         body = body.replace('{{MANIFEST}}', self.manifest.rstrip('\n'))

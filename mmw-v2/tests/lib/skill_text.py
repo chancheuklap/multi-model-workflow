@@ -32,6 +32,10 @@ class TextError(ValueError):
         self.next_step = next_step
 
 
+class LocationMissing(TextError):
+    """The heading or frontmatter field a location names is not in the text."""
+
+
 @dataclass(frozen=True)
 class Unit:
     kind: str
@@ -325,13 +329,14 @@ def select(text: str, location: Location) -> Selection:
     if location.selector == 'field':
         data, _, _ = frontmatter(text)
         if location.value not in data:
-            raise TextError(f'{location.path}@{location.value}: field not found')
+            raise LocationMissing(f'{location.path}@{location.value}: field not found')
         units = [u for u in markdown_units(text) if u.key == location.value]
         return Selection(units)
     if location.selector == 'heading':
         hits = [a for a in anchors(text) if a.title == normalize_title(location.value)]
         if len(hits) != 1:
-            raise TextError(f'{location.path}#{location.value}: matched {len(hits)} locations')
+            error = TextError if hits else LocationMissing
+            raise error(f'{location.path}#{location.value}: matched {len(hits)} locations')
         start, end = hits[0].start, hits[0].end
     else:
         bounds = re.split(r'-(?:L)?', location.value)

@@ -89,8 +89,8 @@ import subprocess
 import sys
 
 try:
-    from skill_text import (FENCE, HEADING, GitTree, Location, Rename, TextError, Unit,
-                            anchors, closes_fence, frontmatter,
+    from skill_text import (FENCE, HEADING, GitTree, Location, LocationMissing, Rename,
+                            TextError, Unit, anchors, closes_fence, frontmatter,
                             canonical_text, markdown_units, normalize_title,
                             parse_location, read_imports, rename_text, sentences)
 except ImportError as exc:
@@ -679,10 +679,8 @@ def check_untouched(comparison: Comparison, base: str | None,
                 else:
                     items = [item for item in comparison.items(tree, replace(location, revision=None))
                              if allowance.selects(item.unit, prefix)]
-            except TextError as exc:
-                if 'matched 0 locations' in str(exc) or 'field not found' in str(exc):
-                    continue  # A moved/dropped section need not survive.
-                raise
+            except LocationMissing:
+                continue  # A moved/dropped section need not survive.
             excluded.update(item.id for item in items)
         result = []
         for item in comparison.items(tree, Location(path)):
@@ -868,11 +866,10 @@ def inspect_location(tree: GitTree, location: Location, source: bool) -> tuple[s
         return None, None
     try:
         units = at.selection(location).units
+    except LocationMissing as exc:
+        return (str(exc), None) if source else (None, None)
     except TextError as exc:
-        message = str(exc)
-        if not source and ('matched 0 locations' in message or 'field not found' in message):
-            return None, None
-        return message, None
+        return str(exc), None
     return None, units
 
 
