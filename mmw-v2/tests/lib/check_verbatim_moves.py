@@ -86,6 +86,29 @@ def quoted_value(value: str) -> str:
     return value[1:-1] if value.startswith('`') and value.endswith('`') else value
 
 
+def manifest_words(text: str) -> list[str]:
+    lexer = shlex.shlex(text, posix=True)
+    lexer.quotes = '"'
+    lexer.whitespace_split = True
+    lexer.commenters = ''
+    return list(lexer)
+
+
+def provenance_parts(text: str) -> tuple[str, str]:
+    """A colon inside a quoted sentence is text, not the provenance delimiter."""
+    quoted = escaped = False
+    for i, char in enumerate(text):
+        if escaped:
+            escaped = False
+        elif char == '\\' and quoted:
+            escaped = True
+        elif char == '"':
+            quoted = not quoted
+        elif not quoted and text[i:i+3] == ' : ':
+            return text[:i], text[i+3:]
+    raise TextError('directive requires a standalone provenance colon')
+
+
 def parse_manifest(text: str) -> Manifest:
     revisions = []
     transfers = []
@@ -99,7 +122,7 @@ def parse_manifest(text: str) -> Manifest:
             continue
         try:
             # shlex preserves the punctuation in locations and quoted sentences.
-            parts = shlex.split(line)
+            parts = manifest_words(line)
             if not parts:
                 continue
             verb = parts[0]
@@ -110,8 +133,8 @@ def parse_manifest(text: str) -> Manifest:
                 if not match:
                     raise TextError('invalid transfer')
                 source, target, any_order = match.groups()
-                source = ' '.join(shlex.split(source))
-                target = ' '.join(shlex.split(target))
+                source = ' '.join(manifest_words(source))
+                target = ' '.join(manifest_words(target))
                 previous = Transfer(verb, parse_location(source, True),
                                     parse_location(target), bool(any_order))
                 transfers.append(previous)
@@ -123,22 +146,22 @@ def parse_manifest(text: str) -> Manifest:
                     raise TextError('replace old text cannot be empty')
                 previous.replacements.append((parts[1], parts[3]))
             elif verb in ('drop', 'new'):
-                match = re.fullmatch(r'(?:drop|new)\s+(.+?)\s+:\s*(.*)', line)
-                if not match or not match.group(2).strip():
+                declaration, provenance = provenance_parts(line)
+                if not provenance.strip():
                     raise TextError(f'{verb} requires a location and provenance')
-                location = match.group(1)
+                location = declaration[len(verb):].strip()
                 sentence = re.search(r'\s+"((?:\\.|[^"\\])*)"$', location)
                 value = None
                 title = False
                 if sentence:
-                    value = shlex.split(sentence.group().strip())[0]
+                    value = manifest_words(sentence.group().strip())[0]
                     location = location[:sentence.start()]
                     if verb == 'new' and location.endswith(' title'):
                         title = True
                         location = location[:-6]
                 elif '"' in location and not (location.startswith('"') and location.endswith('"')):
                     raise TextError(f'invalid {verb} sentence')
-                allowance = Allowance(parse_location(' '.join(shlex.split(location)), verb == 'drop'), value, title)
+                allowance = Allowance(parse_location(' '.join(manifest_words(location)), verb == 'drop'), value, title)
                 (drops if verb == 'drop' else additions).append(allowance)
             elif verb == 'rename':
                 match = re.fullmatch(r'rename\s+(path|token|text)\s+(.+?)\s+->\s+(.+?)(?:\s+in\s+(\S+))?', line)
@@ -147,7 +170,7 @@ def parse_manifest(text: str) -> Manifest:
                 kind, old, new, scope = match.groups()
                 if scope and kind == 'path':
                     raise TextError('scope is only for token/text renames')
-                old, new = (quoted_value(' '.join(shlex.split(value))) for value in (old, new))
+                old, new = (quoted_value(' '.join(manifest_words(value))) for value in (old, new))
                 if not old or not new:
                     raise TextError('rename values cannot be empty')
                 renames.append(Rename(kind, old, new, scope))

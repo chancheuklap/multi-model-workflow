@@ -330,6 +330,10 @@ class VerbatimCompare(unittest.TestCase):
         self.write('target.md', '**Where you are.** Keep the rule. Read the reason.\n')
         self.check('copy "source.md#Where you are" -> "target.md#Where you are"')
         self.check('copy source.md#Where you are -> target.md#Where you are')
+        self.source("## Reader's decision\n\nKeep the rule.\n")
+        self.write('target.md', "## Reader's decision\n\nKeep the rule. Record this : reason.\n")
+        self.check("copy source.md#Reader's decision -> target.md#Reader's decision\n"
+                   "new target.md#Reader's decision \"Record this : reason.\" : Owner's decision")
         self.source('## Start\n\nKeep the original rule.\n')
         pinned = self.base
         self.source('Never use this replacement source.\n')
