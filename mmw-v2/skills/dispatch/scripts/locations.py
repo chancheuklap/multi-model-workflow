@@ -34,6 +34,43 @@ PLAYBOOK_ANCHORS = {
     "research-a-question": (),
 }
 
+# Event-derived positions. A missing playbook uses the role's roles.json entry.
+WHERE_ROWS = {
+    "worker": {
+        "fresh": {"kind": "FRESH", "step": "Claim"},
+        "claimed": {"kind": "BETWEEN", "step": "Read yourself in",
+                    "until": "Integrate and run every criterion"},
+        "checked": {"kind": "AT", "step": "Post the decisions"},
+        "decided": {"kind": "AT", "step": "Get reviewed"},
+        "waiting": {"kind": "AT", "step": "Get reviewed",
+                    "note": "waiting: end your turn"},
+        "reported": {"kind": "AT", "step": "Get reviewed", "note": "fix round"},
+        "reviewed": {"kind": "AT", "step": "Run every criterion one final time"},
+        "final": {"kind": "BETWEEN", "step": "Audit against the ticket", "until": "Close out"},
+        "returned": {"kind": "AT", "step": "Claim",
+                     "note": "then from #Integrate and run every criterion"},
+    },
+}
+WHERE_ROWS["adopting-worker"] = {
+    **WHERE_ROWS["worker"],
+    "closed": {"kind": "AT", "step": "After the closeout of an adopted ticket"},
+}
+WHERE_ROWS["reviewer"] = {"fresh": {"kind": "FRESH", "step": "Pin the diff"}}
+WHERE_ROWS["night-orchestrator"] = {
+    "fresh": {"kind": "FRESH", "step": "Check and open"},
+    "opened": {"kind": "BETWEEN", "step": "Lint the batch", "until": "Advance, then end your turn"},
+    "working": {"kind": "AT", "step": "Handle each wake"},
+    "findings": {"kind": "AT", "step": "Closing pass"},
+    "closing": {"kind": "BETWEEN", "step": "Close the Memory records", "until": "Reverify and summarize"},
+    "closed": {"kind": "AT", "step": "Retro"},
+    "retroed": {"kind": "AT", "playbook": "accept-the-night", "step": "Read the night out"},
+}
+WHERE_ROWS["one-ticket-orchestrator"] = {
+    "fresh": {"kind": "FRESH", "step": "Start the worker"},
+    "working": {"kind": "AT", "step": "Handle each wake"},
+    "finished": {"kind": "AT", "step": "Land"},
+}
+
 TICKET_HEADINGS = (
     "## Parent",
     "## Owns",

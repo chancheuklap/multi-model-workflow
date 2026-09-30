@@ -438,21 +438,21 @@ def read_imports(root: Path) -> dict[str, Component]:
 
 
 def classify(path: str, imports: dict[str, Component] | None = None) -> Component:
+    if re.match(r'mmw-v2/upstream[^/]*/', path):
+        return Component('upstream', True)
     if imports and path in imports:
         return imports[path]
     if path == MODE_ROOT + '/SKILL.md':
         return Component('mode')
-    if path.startswith(MODE_ROOT + '/playbooks/') and path.endswith('.md'):
+    if re.fullmatch(re.escape(MODE_ROOT) + r'/playbooks/[^/]+\.md', path):
         return Component('playbook')
-    if path.startswith('.mmw/playbooks/') and path.endswith('.md') and PurePosixPath(path).name != 'INDEX.md':
+    if re.fullmatch(r'\.mmw/playbooks/[^/]+\.md', path) and PurePosixPath(path).name != 'INDEX.md':
         return Component('playbook')
-    if path.startswith(MODE_ROOT + '/principles/principle-') and path.endswith('.md'):
+    if re.fullmatch(re.escape(MODE_ROOT) + r'/principles/principle-[^/]+\.md', path):
         return Component('principle')
     if path.startswith(MODE_ROOT + '/references/'):
         return Component('mode-reference')
-    if re.match(r'mmw-v2/upstream[^/]*/', path):
-        return Component('upstream', True)
-    if path.startswith('mmw-v2/skills/') and (path.endswith('/SKILL.md') or '/references/' in path and path.endswith('.md')):
+    if re.fullmatch(r'mmw-v2/skills/[^/]+/(?:SKILL\.md|references/.+\.md)', path):
         return Component('capability')
     return Component('other')
 

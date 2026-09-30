@@ -8,6 +8,7 @@
 #   dispatch.sh board
 #   dispatch.sh adopt <n>
 #   dispatch.sh self
+#   dispatch.sh where [<spec>|<n>]
 #   dispatch.sh advance <spec>
 #   dispatch.sh integrate <n>
 #   dispatch.sh land <n>
@@ -373,6 +374,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh board
        dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
+       dispatch.sh where [<spec>|<n>]
        dispatch.sh advance <spec>
        dispatch.sh integrate <n>
        dispatch.sh integrated <n>
@@ -572,6 +574,43 @@ own_session() {
   rm -f "$err"
   echo "dispatch: this session runs in no runner whose adapter can name it (asked:${asked:- none}), so no wake could reach it; run it inside a session of one of them" >&2
   return 2
+}
+
+# Read this session's event-derived position. No watch, ticket or model selection is
+# changed; an unreadable identity or source is one UNKNOWN line, never an empty answer.
+where_one() {
+  local number="${1:-}" line repo name session out err rc
+  local -a target=()
+  if [ -n "$number" ]; then
+    case "$number" in
+      *[!0-9]*) printf 'UNKNOWN the spec or ticket number must be digits only\n'; return 2 ;;
+    esac
+    target+=("$number")
+  fi
+  if ! line="$(own_session 2>&1)"; then
+    printf 'UNKNOWN %s\n' "$(printf '%s' "$line" | tr '\n' ' ')"
+    return 2
+  fi
+  name="${line%%$'\t'*}"
+  session="${line#*$'\t'}"
+  if ! repo="$(repo_slug 2>&1)"; then
+    printf 'UNKNOWN %s\n' "$(printf '%s' "$repo" | tr '\n' ' ')"
+    return 2
+  fi
+  err="$(mktemp)"
+  out="$(python3 "$STATUS" --where --runner "$name" --session "$session" --repo "$repo" \
+        "${target[@]+"${target[@]}"}" 2>"$err")"
+  rc=$?
+  case "$out" in
+    AT\ * | BETWEEN\ * | FRESH\ * | UNKNOWN\ *)
+      printf '%s\n' "$out"
+      rm -f "$err"
+      return "$rc" ;;
+    *)
+      printf 'UNKNOWN status.py could not establish a position: %s\n' "$(tr '\n' ' ' < "$err")"
+      rm -f "$err"
+      return 2 ;;
+  esac
 }
 
 # Exit 0 when a running relay sees ticket <n>'s events — a watch of the ticket's spec, or of
@@ -4574,8 +4613,6 @@ if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
   exit $?
 fi
 
-[ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
-
 # `--tools <dir>` may appear anywhere and any number of times. Everything else is
 # positional. A script of another skill is looked up by basename in those directories,
 # in the order given.
@@ -4601,6 +4638,8 @@ while [ "$#" -gt 0 ]; do
 done
 set -- ${positional[@]+"${positional[@]}"}
 
+[ "${1:-}" = where ] || [ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
+
 tool() {
   local dir
   for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
@@ -4615,8 +4654,13 @@ SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
 LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/ui-acceptance/scripts/lease.py")"
 VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
 EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
-[ -f "$EVENTS" ] \
-  || refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
+if [ ! -f "$EVENTS" ]; then
+  if [ "${1:-}" = where ]; then
+    printf 'UNKNOWN no events.py at %s; run bash mmw-v2/install.sh --check\n' "$EVENTS"
+    exit 2
+  fi
+  refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
+fi
 # `status.py` folds the same events, and reads them through the same file.
 export MMW_EVENTS_PY="$EVENTS"
 # `advance` runs `start` through this same script; the directories travel with it.
@@ -4626,6 +4670,10 @@ for dir in ${TOOLS[@]+"${TOOLS[@]}"}; do
 done
 
 case "${1:-}" in
+  where)
+    [ "$#" -le 2 ] || { printf 'UNKNOWN where takes at most one spec or ticket number\n'; exit 2; }
+    where_one "${2:-}"
+    exit $? ;;
   board)
     [ "$#" -eq 1 ] || usage
     open_board

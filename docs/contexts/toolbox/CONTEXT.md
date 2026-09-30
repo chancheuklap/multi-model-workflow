@@ -211,8 +211,16 @@ The fixed three-part shape every script refusal in this repository takes: what h
 _Home_: `CODING_STANDARDS.md`; built by the `ui-acceptance` skill's `scripts/refusal.py`
 
 **shared lints**:
-The checks `mmw-v2/tests/lib/run_shared_lints.sh` lists, which every `mmw-v2/tests/<name>/run.sh` runs through that entry before its own. Today those are `check_module_paths.py` (a script names a module file that no longer exists), `check_upstream_em_dashes.py` (an em-dash outside a fenced code block in an upstream skill's Markdown), and `check_own_skill_frontmatter.py` (invalid YAML, or a key beyond `name`/`description`, on one of this repository's own skills).
+The checks `mmw-v2/tests/lib/run_shared_lints.sh` lists, which every `mmw-v2/tests/<name>/run.sh` runs through that entry before its own: `check_module_paths.py` (a script names a module file that no longer exists), `check_upstream_em_dashes.py` (an em-dash outside a fenced code block in an upstream skill's Markdown), `check_own_skill_frontmatter.py` (invalid YAML, or a key beyond `name`/`description`, on one of this repository's own skills), and `check_component_structure.py` (component structure and prohibited routing language, with counted exceptions).
 _Home_: `mmw-v2/tests/lib/run_shared_lints.sh`
+
+**structure lint**:
+The check of a file's structure and prohibited routing language according to its component type. It checks the file itself, not whether a named destination exists; existing findings are accounted for by **`structure-exceptions.tsv`**.
+_Home_: `mmw-v2/tests/lib/check_component_structure.py`
+
+**`structure-exceptions.tsv`**:
+The counted register of existing structure-lint findings and the batch that retires each one. It is distinct from a checker baseline: it records the component rule and original excerpt of each finding, and follows registered path renames.
+_Home_: `mmw-v2/tests/lib/structure-exceptions.tsv`; read by `mmw-v2/tests/lib/check_component_structure.py`
 
 ### Skill-set review
 
