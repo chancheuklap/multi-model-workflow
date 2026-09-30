@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The relay: events on the tracker in, wake-ups for the session waiting on them out.
 
-    relay.py start --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S [--interval S] [--grace S]
-    relay.py add --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S
+    relay.py start --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S [--kind K] [--interval S] [--grace S]
+    relay.py add --repo O/R (--spec N | --tickets N[,N...]) --runner R --session S [--kind K]
     relay.py stop --repo O/R [--spec N | --tickets N[,N...]]
     relay.py watching --repo O/R [--ticket N] [--spec S]
     relay.py run --repo O/R [--once] [--interval S] [--grace S]
@@ -26,9 +26,10 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
 **Watches.** What the relay reads is the union of its watches. A watch is what one
 `dispatch.sh open`, `open-ticket` or `adopt` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
-night. Each watch has its own orchestrator, a (runner, session) pair: the session that
-opened it. Nothing names an orchestrator but the watch it opened; there is no registration
-apart from a watch. A repository has one relay process and one state directory however many
+night. Its `kind` records `night`, `ticket` or `adopted-ticket`; older watches without
+`kind` remain readable. Each watch has its own orchestrator, a (runner, session) pair:
+the session that opened it. The watch is the only registration of that orchestrator.
+A repository has one relay process and one state directory however many
 watches are open, so nights run from several branches or worktrees, one-ticket runs and
 adopted tickets all go through the same process. Two watches never share a ticket: a
 tickets watch naming a sub-issue of a watched spec, or a spec one of whose sub-issues a
@@ -179,7 +180,8 @@ Files in the state directory:
                     comment id applied to that flag (`waiting_read`)
     watches.json    every open watch, keyed `spec:<n>` or `tickets:<n>[,<n>...]`: the
                     watch (`spec` or `tickets`), its orchestrator's `runner` and `session`,
-                    when it was opened (`at`), and since when that runner has answered
+                    its `kind` when recorded, when it was opened (`at`), and since
+                    when that runner has answered
                     `stopped` (`stopped_since`, null while it has not). It outlives the
                     process: a relay that died leaves its watches open
     relay.json      the running relay's pid, process identity, interval, grace, start
@@ -285,6 +287,7 @@ MAIN_GONE_AFTER = 3600
 
 MAIN = "main"
 WORKER = "worker"
+WATCH_KINDS = ("night", "ticket", "adopted-ticket")
 
 # Which events wake whom. `to` is the role of the session woken; `when`, where present,
 # lists the payload values the event must carry for it to wake anyone.
@@ -399,8 +402,8 @@ def watch_key(watch: dict) -> str:
 
 
 def watch_from_key(key: str) -> dict:
-    kind, _, numbers = (key or "").partition(":")
-    if kind == "spec":
+    prefix, _, numbers = (key or "").partition(":")
+    if prefix == "spec":
         return {"spec": int(numbers)}
     return {"tickets": [int(n) for n in numbers.split(",") if n]}
 
@@ -419,17 +422,21 @@ def describe_watches(watches: dict) -> str:
 
 
 def watch_of(args) -> dict | None:
+    watch = None
     if getattr(args, "spec", None):
-        return {"spec": args.spec}
-    if getattr(args, "tickets", None):
-        return {"tickets": sorted(set(args.tickets))}
-    return None
+        watch = {"spec": args.spec}
+    elif getattr(args, "tickets", None):
+        watch = {"tickets": sorted(set(args.tickets))}
+    if watch is not None and getattr(args, "kind", None):
+        watch["kind"] = args.kind
+    return watch
 
 
 def read_watches(state: Path) -> dict[str, dict]:
     """The open watches of a state directory, by key: each a watch (`spec` or `tickets`)
-    with its orchestrator's `runner` and `session`. An entry without an orchestrator is no
-    watch. Raises ValueError when `watches.json` is there and is not JSON."""
+    with its orchestrator's `runner` and `session`, and `kind` when one was recorded.
+    An entry without an orchestrator is no watch. Raises ValueError when `watches.json`
+    is there and is not JSON."""
     data = statedir.read_json(Path(state) / "watches.json", {})
     out: dict[str, dict] = {}
     for key, entry in (data.items() if isinstance(data, dict) else []):
@@ -1763,6 +1770,7 @@ def main(argv: list[str] | None = None) -> int:
     watch_args(start, True)
     start.add_argument("--runner", required=True)
     start.add_argument("--session", required=True)
+    start.add_argument("--kind", choices=WATCH_KINDS)
     start.add_argument("--interval", type=positive_int, default=DEFAULT_INTERVAL)
     start.add_argument("--grace", type=non_negative_int)
     start.set_defaults(fn=cmd_start)
@@ -1772,6 +1780,7 @@ def main(argv: list[str] | None = None) -> int:
     watch_args(add, True)
     add.add_argument("--runner", required=True)
     add.add_argument("--session", required=True)
+    add.add_argument("--kind", choices=WATCH_KINDS)
     add.set_defaults(fn=cmd_add)
 
     stop = sub.add_parser("stop", help="close a watch, or every watch; the relay ends with the last")

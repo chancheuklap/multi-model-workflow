@@ -864,6 +864,25 @@ class WatchesTest(RelayCase):
     def written(self) -> bytes:
         return (self.state / "watches.json").read_bytes()
 
+    def test_a_watch_keeps_its_kind(self):
+        with mock.patch.object(relay, "ask_liveness", return_value="alive"), \
+             mock.patch.object(relay, "Board", return_value=self.relay.board):
+            self.assertEqual(relay.main([
+                "add", "--repo", "o/r", "--tickets", "5", "--runner", "paseo",
+                "--session", "main-b", "--kind", "adopted-ticket",
+            ]), 0)
+        self.assertEqual(self.fresh().watches()["tickets:5"]["kind"], "adopted-ticket")
+
+    def test_a_watch_without_a_kind_works_as_before(self):
+        self.assertNotIn("kind", self.relay.watches()["spec:76"])
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.poll()
+        self.relay.deliver()
+        self.assertIn(("paseo", "main-a", "#61 ticket.passed"), self.send.sent)
+        closed, left = self.relay.close_watch("spec:76")
+        self.assertIn("spec:76", closed)
+        self.assertNotIn("spec:76", left)
+
     def test_a_ticket_outside_the_night_gets_its_own_watch_and_the_nights_main_is_untouched(self):
         # Opening a watch from a second session used to re-point the running night's
         # wake-ups, alerts and turn guard to that session.

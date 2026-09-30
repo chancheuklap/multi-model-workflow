@@ -596,7 +596,7 @@ revive_night_watch() {
   runner="$(newest_field "$spec" runner spec.opened spec.suspended spec.closed 2>/dev/null)" || return 1
   session="$(newest_field "$spec" session spec.opened spec.suspended spec.closed 2>/dev/null)" || return 1
   repo="$(repo_slug)" || return 1
-  out="$(python3 "$RELAY" start --repo "$repo" --spec "$spec" --runner "$runner" --session "$session" 2>&1)" \
+  out="$(python3 "$RELAY" start --repo "$repo" --spec "$spec" --kind night --runner "$runner" --session "$session" 2>&1)" \
     || { echo "dispatch: the night on #$spec is open and its watch could not be restored: ${out#relay: }" >&2; return 1; }
   echo "dispatch: the night on #$spec is open and nothing watched it; the watch is restored with $runner session $session as its orchestrator" >&2
 }
@@ -864,7 +864,7 @@ open_night() {
   sync_base_with_project "$root" "$into" "$project" || exit 2
   repository="$(repo_slug)" || exit 2
   ensure_repository_memory "$repository" || exit 2
-  opened="$(open_relay --spec "$spec")" || exit 2
+  opened="$(open_relay --spec "$spec" --kind night)" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if ! post_event "$spec" spec.opened --spec "$spec" \
        --line "NIGHT OPENED #$spec: wake-ups go to the orchestrator, $runner session $session" \
@@ -896,7 +896,7 @@ open_night() {
 # not start is said on stderr and leaves the watch open.
 open_ticket() {
   local number="$1" opened runner session how board
-  opened="$(open_relay --tickets "$number")" || exit 2
+  opened="$(open_relay --tickets "$number" --kind ticket)" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if board="$(ensure_board)"; then
     echo "opened #$number: wake-ups go to $runner session $session; task board $board"
@@ -998,7 +998,7 @@ for r in state.get("sessions") or []:
   local started=""
   if ! relay_watches "$number" "$spec" 2>/dev/null; then
     local opened
-    opened="$(open_relay --tickets "$number")" \
+    opened="$(open_relay --tickets "$number" --kind adopted-ticket)" \
       || refuse "no relay watches #$number and no watch could be opened for it (the reason is above), so nothing was adopted"
     case "$opened" in *$'\t'started) started=1 ;; esac
   fi
