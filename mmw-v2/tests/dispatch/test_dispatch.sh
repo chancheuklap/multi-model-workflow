@@ -15,6 +15,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove|installorca
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh installboardagent|installcheckboardagent|installtoolguard
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckmodehook
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckstalecopy
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh installcopyretired
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckwiringfails|installcheckwiringunchecked
@@ -7075,6 +7076,39 @@ scenario_installcheckwiringunchecked() {
     || fail "unreadable registry must be named: $(cat "$TMP/err")"
 }
 
+scenario_installcheckmodehook() {
+  echo "--- a clean mode-hook install passes; a missing registration is named and not repaired"
+  local home="$TMP/install-home" config
+  mkdir -p "$home/.claude" "$home/.codex"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "install failed: $(cat "$TMP/err")"; return; }
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean --check failed: $(cat "$TMP/err")"; return; }
+  grep -qx 'HOOKS-INSTALLED' "$TMP/out" || fail "clean --check did not report hooks installed"
+  config="$home/.claude/settings.json"
+  python3 - "$config" <<'REMOVE' || { fail "could not remove the mode-hook registration"; return; }
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+groups = data['hooks'].get('SessionStart', [])
+before = sum(' mode-hook session-start claude' in h.get('command', '')
+             for g in groups for h in g.get('hooks', []))
+assert before == 1, groups
+for group in groups:
+    group['hooks'] = [h for h in group['hooks']
+                      if ' mode-hook session-start claude' not in h.get('command', '')]
+path.write_text(json.dumps(data))
+REMOVE
+  cp "$config" "$TMP/missing-mode-hook"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "missing mode-hook must make --check exit 1"
+  grep -F "$config" "$TMP/err" | grep -qE '^不一致 .*SessionStart' \
+    || fail "--check did not name the inconsistent file and event: $(cat "$TMP/err")"
+  grep -qx 'HOOKS-INSTALLED' "$TMP/out" && fail "missing mode-hook was reported installed"
+  cmp -s "$config" "$TMP/missing-mode-hook" || fail "--check repaired the missing hook"
+}
+
 scenario_installcheckhookbypass() {
   echo "--- --check rejects direct hook calls in each host, including both Pi extensions"
   local home="$TMP/install-home" config
@@ -11236,7 +11270,7 @@ ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-e
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart watchkind"
-ALL="$ALL installchecklauncher installcheckhookbypass"
+ALL="$ALL installchecklauncher installcheckhookbypass installcheckmodehook"
 ALL="$ALL installcheckstalecopy"
 ALL="$ALL installcopyretired"
 ALL="$ALL installcheckwiringfails installcheckwiringunchecked"
@@ -11258,6 +11292,7 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
+    installcheckmodehook) echo INSTALL-CHECK-MODE-HOOK-OK ;;
     installcheckstalecopy) echo INSTALL-CHECK-STALE-COPY-OK ;;
     installcopyretired) echo INSTALL-COPY-RETIRED-OK ;;
     installcheckwiringfails) echo INSTALL-CHECK-WIRING-FAILS-OK ;;
