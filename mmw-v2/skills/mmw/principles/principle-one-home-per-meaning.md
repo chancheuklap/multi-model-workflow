@@ -1,0 +1,14 @@
+---
+name: principle-one-home-per-meaning
+description: "Apply when a rule, a term or a fact is about to be written where it already lives elsewhere. Keep each meaning in one authoritative place, and point to that place by name from everywhere else."
+---
+
+# One home per meaning
+
+Keep each meaning in a single source of truth: one authoritative place, so changing the behaviour is a one-place edit. Everywhere else reaches it by naming that place.
+
+**Why:** A second copy has to be kept in step with the first, and in time contradicts it.
+
+**Pattern:**
+- **Keep the copy the reader acts on.** Keep the copy the acting agent loads at the moment it acts; delete the others.
+- **Delete a copy before you build a reconciler.** When a third thing exists to reconcile two copies (a lint that compares them, a step that counts them), that is the reason to delete a copy, not to keep the reconciler.
