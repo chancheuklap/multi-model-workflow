@@ -437,7 +437,7 @@ cmd_init() {
   standard="$(_standard_stages "$mp")"
   printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" --argjson std "$standard" \
     '{schema_version:"1", product:.product, manifest_path:$mp, source_commit:$sc,
-      stages:[(.stages + $std)[] | {name:.name, run:.run, status:"pending"}],
+      stages:[(.stages + $std + .post_build_stages)[] | {name:.name, run:.run, status:"pending"}],
       current_stage:(.stages[0].name // $std[0].name // null),
       round:1, max_rounds:$mr, fingerprint_ledger:[],
       budget:{attempts:0, fix_rounds:0, max_fix_rounds:$mr, started_at:$ts, max_wall_clock_seconds:$wall},
@@ -719,6 +719,22 @@ _run_remote_build() {
     echo "WARN: this stage run attached to a running build and could not learn its task name; look for a leftover mmw-release-* task on $remote_host and delete it by hand" >&2
   elif ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
     echo "WARN: could not delete the scheduled task (task=$task_name); remove it by hand with schtasks /delete" >&2
+  fi
+  # Return declared non-customer artifacts before the remote source tree is removed.
+  # A failed transfer keeps the build directory and fails the stage; publishing cannot
+  # complete without the exact maps from the successful build.
+  if [ "$rc" -eq 0 ]; then
+    local artifact_source artifact_name artifact_tmp
+    while IFS=$'\t' read -r artifact_source artifact_name; do
+      [ -n "$artifact_source" ] || continue
+      artifact_tmp="$(dirname "$context")/$artifact_name.tmp"
+      if scp "$remote_host:$remote_input/source/$artifact_source" "$artifact_tmp"; then
+        mv "$artifact_tmp" "$(dirname "$context")/$artifact_name" || return $?
+      else
+        echo "ERROR: could not return build artifact $artifact_source; build kept at $remote_input" >&2
+        return 74
+      fi
+    done < <(jq -r '.build_target.return_artifacts // {} | to_entries[] | [.key, .value] | @tsv' "$context")
   fi
   # 构建成功且钥匙声明了安装包落点:把安装包从 commit 哈希构建目录收拢到统一交付目录
   # $RELEASE_DELIVERY_ROOT/<product>/(缺省 D:\agentflow-releases),按产品分子目录、覆盖同名(每产品各占各的,
