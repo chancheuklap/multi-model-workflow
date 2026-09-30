@@ -5,7 +5,7 @@
 # ///
 """Check destinations and directions of MMW's cross-file connections.
 
-Only product scripts and skill text are inputs; tests and research are not.
+Inputs are product scripts and skill text, excluding mmw-v2/tests and research.
 The class policy is the batch switch, not a register of individual exceptions.
 """
 from __future__ import annotations
@@ -13,9 +13,11 @@ from __future__ import annotations
 import argparse
 import ast
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 import json
 import difflib
+import importlib.util
 import subprocess
 import re
 
@@ -23,21 +25,41 @@ from skill_text import (MODE_DIR, MODE_ROOT, TextError, anchors, classify, front
                         installed_skills, normalize_title, read_imports, markdown_units,
                         component_root, sentences)
 
-# class: (fail now, batch in which it must fail)
+
+@dataclass(frozen=True)
+class Policy:
+    fails: bool
+    batch: str
+    registry: Policy | None = None
+
+
+# class: failure policy and the batch in which it must fail.
 CLASS_POLICY = {
-    1: (True, 'B0'),
-    2: (False, 'B1'),
-    3: (False, 'B2 end'),
-    5: (False, 'B1'),
-    6: (False, 'B2 end'),
-    7: (False, 'B1'),
-    8: (True, 'B0'),
-    9: (False, 'B1'),
-    10: (True, 'B0'),
-    '10 registry': (False, 'B2 end'),
-    11: (False, 'B2 end'),
-    12: (False, 'B2'),
+    1: Policy(True, 'B0'),
+    2: Policy(False, 'B1'),
+    3: Policy(False, 'B2 end'),
+    5: Policy(False, 'B1'),
+    6: Policy(False, 'B2 end'),
+    7: Policy(False, 'B1'),
+    8: Policy(True, 'B0'),
+    9: Policy(False, 'B1'),
+    10: Policy(True, 'B0', registry=Policy(False, 'B2 end')),
+    11: Policy(False, 'B2 end'),
+    12: Policy(False, 'B2'),
 }
+
+
+class RegistryError(TextError):
+    """Only locations.py or roles.json cannot be read as a registry."""
+
+
+def source_line(text, offset):
+    return text.count('\n', 0, offset) + 1
+
+
+def subtree_root(source):
+    match = re.match(r'(mmw-v2/upstream[^/]*)/', source)
+    return match[1] if match else 'mmw-v2'
 
 
 @dataclass(frozen=True)
@@ -47,7 +69,7 @@ class Finding:
     category: int
     message: str
     report_only: bool = False
-    policy: int | str | None = None
+    registry_path: bool = False
 
 
 class Wiring:
@@ -59,8 +81,17 @@ class Wiring:
         self.edges = set()
         self.objects = set()
         self.session_templates = []
+        self.python_trees = {}
+        self.alert_templates = []
+        try:
+            self.read_registries()
+        except (OSError, UnicodeError, ValueError, SyntaxError, TypeError, KeyError, NameError) as exc:
+            raise RegistryError(str(exc)) from exc
         self.imports = read_imports(self.root)
         self.skills = installed_skills(self.root)
+        self.files = self.scan_files()
+
+    def read_registries(self):
         candidates = [self.mode / 'scripts/locations.py',
                       self.root / 'mmw-v2/skills/dispatch/scripts/locations.py']
         registry = next((p for p in candidates if p.is_file()), None)
@@ -83,12 +114,14 @@ class Wiring:
                 not isinstance(k, str) or not isinstance(v, (tuple, list)) or
                 any(not isinstance(x, str) for x in v) for k, v in self.playbooks.items()):
             raise TextError('locations.py has no valid PLAYBOOK_ANCHORS')
-        self.sections = self.data.get('MODE_SECTIONS', self.data.get('MODE_ANCHORS', ()))
+        self.sections = self.data.get('MODE_SECTIONS', ())
         if not isinstance(self.sections, (tuple, list)) or any(not isinstance(s, str) for s in self.sections):
             raise TextError('locations.py mode sections are not a sequence of titles')
         positions = self.data.get('WHERE_ROWS', {})
         if not isinstance(positions, dict) or any(
-                not isinstance(rows, dict) or any(not isinstance(row, dict) for row in rows.values())
+                not isinstance(rows, dict) or any(not isinstance(row, dict) or any(key in row and not isinstance(row[key], str)
+                                                   for key in ('step', 'until', 'playbook'))
+                                               for row in rows.values())
                 for rows in positions.values()):
             raise TextError('locations.py WHERE_ROWS is not a role/position mapping')
         roles_path = self.root / 'mmw-v2/skills/dispatch/roles.json'
@@ -96,10 +129,11 @@ class Wiring:
         self.roles = json.loads(self.roles_text)
         if not isinstance(self.roles, dict) or not self.roles or any(
                 not isinstance(v, dict) or not isinstance(v.get('wakes', {}), dict) or
-                not isinstance(v.get('playbook', v.get('skill')), str)
+                not isinstance(v.get('playbook', v.get('skill')), str) or
+                ('entry' in v and not isinstance(v['entry'], str)) or
+                any(not isinstance(k, str) or not isinstance(t, str) for k, t in v.get('wakes', {}).items())
                 for v in self.roles.values()):
             raise TextError('roles.json is not a role mapping')
-        self.files = self.scan_files()
 
     def scan_files(self):
         result = {}
@@ -108,7 +142,7 @@ class Wiring:
             if not path.is_file():
                 continue
             rel = path.relative_to(self.root).as_posix()
-            if 'tests' in path.relative_to(mmw).parts or '__pycache__' in path.parts:
+            if path.relative_to(mmw).parts[0] == 'tests' or '__pycache__' in path.parts:
                 continue
             skill_md = bool(re.match(r'mmw-v2/(?:skills|upstream[^/]*/skills)/', rel))
             if path.suffix in ('.py', '.sh') or (path.suffix == '.md' and skill_md):
@@ -118,9 +152,9 @@ class Wiring:
         result['mmw-v2/skills/dispatch/roles.json'] = self.roles_text
         return result
 
-    def add(self, path, line, category, message, report_only=False, policy=None):
+    def add(self, path, line, category, message, report_only=False, registry_path=False):
         self.objects.add(category)
-        finding = Finding(path, line, category, message, report_only, policy)
+        finding = Finding(path, line, category, message, report_only, registry_path)
         if finding not in self.findings:
             self.findings.append(finding)
 
@@ -160,8 +194,7 @@ class Wiring:
                     continue
                 # A literal may be followed by BETWEEN's range or a note.
                 raw = re.split(r' \.\. #| · |[.;]', raw)[0].strip()
-                title = raw
-                self.pointer(path, text.count('\n', 0, match.start()) + 1, slug, title)
+                self.pointer(path, source_line(text, match.start()), slug, raw)
         path = 'mmw-v2/skills/dispatch/roles.json'
         for role, row in self.roles.items():
             slug = row.get('playbook')
@@ -169,11 +202,9 @@ class Wiring:
                 continue
             if slug not in self.playbooks:
                 self.add(path, 1, 1, f'{role} playbook {slug} is not registered')
-            for title in [row['entry']] if 'entry' in row else []:
-                self.pointer(path, 1, slug, title)
+            if 'entry' in row:
+                self.pointer(path, 1, slug, row['entry'])
             for event, title in row.get('wakes', {}).items():
-                if not isinstance(title, str):
-                    raise TextError(f'roles.json {role}/{event} has no step title')
                 line = next((i for i, s in enumerate(self.roles_text.splitlines(), 1)
                              if json.dumps(event) in s), 1)
                 self.pointer(path, line, slug, title)
@@ -184,6 +215,24 @@ class Wiring:
                     if slug and key in row:
                         self.pointer(self.registry.relative_to(self.root).as_posix(),
                                      self.registry_lines.get(row[key], 1), slug, row[key])
+
+    def python_tree(self, path, text):
+        if path not in self.python_trees:
+            try:
+                self.python_trees[path] = ast.parse(text, filename=path)
+            except SyntaxError as exc:
+                raise TextError(f'{path}:{exc.lineno}: cannot inspect invalid Python: {exc.msg}') from exc
+        return self.python_trees[path]
+
+    @cached_property
+    def state_home(self):
+        if self.test_root:
+            return self.root / '.mmw'
+        scripts = self.root / 'mmw-v2/skills' / self.data['DISPATCH_SCRIPTS']
+        spec = importlib.util.spec_from_file_location('wiring_statedir', scripts / 'statedir.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.home()
 
     @staticmethod
     def python_text(node, values=None):
@@ -219,7 +268,7 @@ class Wiring:
     def templates(self):
         for path, text in self.files.items():
             if path.endswith('.py'):
-                tree = ast.parse(text)
+                tree = self.python_tree(path, text)
                 values = {}
                 for node in ast.walk(tree):
                     if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value:
@@ -235,7 +284,9 @@ class Wiring:
                     if isinstance(node, ast.Dict) and Path(path).name in ('relay.py', 'watchdog.py', 'turn-guard.py'):
                         for key, value in zip(node.keys, node.values):
                             if isinstance(key, ast.Constant) and key.value == 'text':
-                                self.template(path, value.lineno, self.python_text(value, values))
+                                template = self.python_text(value, values)
+                                self.alert_templates.append((path, value.lineno, template))
+                                self.template(path, value.lineno, template)
                     if isinstance(node, ast.Call) and Path(path).name in ('relay.py', 'watchdog.py'):
                         callee = node.func.id if isinstance(node.func, ast.Name) else (
                             node.func.attr if isinstance(node.func, ast.Attribute) else '')
@@ -247,6 +298,17 @@ class Wiring:
                             self.template(path, node.lineno, value)
             elif path.endswith('/dispatch.sh'):
                 self.shell_templates(path, text)
+            self.resume_templates(path, text)
+
+    def resume_templates(self, path, text):
+        # The public command's text argument is supplied by the caller, not by
+        # resume_one's positional $2. Read written calls in scripts and skill text.
+        for match in re.finditer(r'\bdispatch\.sh["\'`\s]+resume\s+(?:<[^>]+>|[^\s`]+)\s+', text):
+            words = self.shell_words(text[match.end():], source_line(text, match.end()))
+            if words:
+                raw, line = words[0]
+                for value, _ in self.shell_value(raw, {}):
+                    self.template(path, line, value)
 
     @staticmethod
     def shell_words(text, base_line=1):
@@ -327,7 +389,7 @@ class Wiring:
 
     def shell_templates(self, path, text):
         words = self.shell_words(text)
-        functions = [(text.count('\n', 0, m.start()) + 1, m[1]) for m in re.finditer(r'^([a-zA-Z_]\w*)\(\)\s*\{', text, re.M)]
+        functions = [(source_line(text, m.start()), m[1]) for m in re.finditer(r'^([a-zA-Z_]\w*)\(\)\s*\{', text, re.M)]
         def function_at(line):
             return next((name for pos, name in reversed(functions) if pos <= line), '')
         scopes = {}
@@ -372,7 +434,7 @@ class Wiring:
         if not target.exists():
             self.add(source, line, 10, f'{label} does not exist')
         elif (self.root / source).resolve() != self.registry:
-            self.add(source, line, 10, f'{label} is not obtained through locations.py', policy='10 registry')
+            self.add(source, line, 10, f'{label} is not obtained through locations.py', registry_path=True)
             origin = component_root(source)
             if origin != component_root(label):
                 self.add(source, line, 3, f'{label} is a cross-directory path not obtained through locations.py')
@@ -395,8 +457,7 @@ class Wiring:
                 for match in pattern.finditer(text):
                     parts = re.findall(r'/\s*["\']([^"\']+)["\']', match[0])
                     if kind == 'skills':
-                        subtree = re.match(r'(mmw-v2/upstream[^/]*)/', source)
-                        target = self.root / (subtree[1] if subtree else 'mmw-v2') / 'skills'
+                        target = self.root / subtree_root(source) / 'skills'
                         for part in parts:
                             target /= part
                     elif kind == 'parents':
@@ -404,8 +465,7 @@ class Wiring:
                         for part in parts:
                             target /= part
                     elif kind == 'literal':
-                        subtree = re.match(r'(mmw-v2/upstream[^/]*)/', source)
-                        base = self.root / (subtree[1] if subtree else 'mmw-v2')
+                        base = self.root / subtree_root(source)
                         target = base / match[0].removeprefix('mmw-v2/')
                     elif kind == 'dirname':
                         target = file.parent.parent / match[1]
@@ -413,7 +473,7 @@ class Wiring:
                         target = self.root / skill[1] / 'scripts' / match[1]
                     else:
                         continue
-                    self.path_literal(source, text.count('\n', 0, match.start()) + 1, target)
+                    self.path_literal(source, source_line(text, match.start()), target)
 
     def component_files(self):
         return {p: t for p, t in self.files.items() if p.endswith('.md') and
@@ -426,12 +486,12 @@ class Wiring:
                 target = (self.mode if path.startswith(MODE_ROOT) else (self.root / path).parent) / literal
                 self.edge(path, target.relative_to(self.root).as_posix(), 2)
                 if not target.is_file():
-                    self.add(path, text.count('\n', 0, match.start())+1, 2, f'{literal} does not exist')
+                    self.add(path, source_line(text, match.start()), 2, f'{literal} does not exist')
                 elif match[2] and literal.startswith('scripts/'):
                     command = match[2].split()[0]
                     names = {name for _, name in self.public_commands(str(target), target.read_text(encoding='utf-8'))}
                     if re.fullmatch(r'[a-z][\w-]*', command) and command not in names:
-                        self.add(path, text.count('\n', 0, match.start())+1, 2,
+                        self.add(path, source_line(text, match.start()), 2,
                                  f'{literal} has no subcommand {command}')
             for match in re.finditer(r'(?:the\s+`?([a-z][\w-]*)`?\s+skill|(?:use|Use) /([a-z][\w-]*))', text):
                 name = match[1] or match[2]
@@ -445,28 +505,31 @@ class Wiring:
                             if cells and cells[0] == name and any(c in self.skills for c in cells[1:]):
                                 mapped = True
                     if not mapped:
-                        self.add(path, text.count('\n', 0, match.start())+1, 2, f'{name} is not in skills.txt or pstack-names.md')
+                        self.add(path, source_line(text, match.start()), 2, f'{name} is not in skills.txt or pstack-names.md')
                 elif not (self.root / self.skills[name] / 'SKILL.md').is_file():
-                    self.add(path, text.count('\n', 0, match.start())+1, 2, f'{name}/SKILL.md does not exist')
+                    self.add(path, source_line(text, match.start()), 2, f'{name}/SKILL.md does not exist')
 
     def directions(self):
         constants = [v for k, v in self.data.items() if isinstance(v, (str, tuple)) and
-                     k not in ('PLAYBOOK_ANCHORS', 'MODE_SECTIONS', 'MODE_ANCHORS')]
+                     k not in ('PLAYBOOK_ANCHORS', 'MODE_SECTIONS')]
         literal_anchors = {x for v in constants for x in (v if isinstance(v, tuple) else [v])
                            if isinstance(x, str) and (x.startswith('## ') or x.endswith(' OK'))}
         for path, text in self.files.items():
-            if not path.endswith(('.py', '.sh')) or (self.root / path).resolve() == self.registry:
+            if not path.endswith(('.py', '.sh')):
                 continue
             capability = bool(re.match(r'mmw-v2/skills/(?!' + re.escape(MODE_DIR) + r'/)[^/]+/scripts/', path))
             if capability:
                 for match in re.finditer(r'(?:mmw/scripts/(?:dispatch\.sh|ticket_state\.py)|\bmmw\s+[a-z][a-z-]*\b)', text):
                     self.edge(path, match[0], 3)
-                    self.add(path, text.count('\n', 0, match.start())+1, 3,
+                    self.add(path, source_line(text, match.start()), 3,
                              'capability script calls a mode command directly')
+            # The registry declares anchors; only its consumers must obtain them there.
+            if (self.root / path).resolve() == self.registry:
+                continue
             for literal in literal_anchors:
                 for match in re.finditer(re.escape(literal), text):
                     self.edge(path, 'locations.py#' + literal, 3)
-                    self.add(path, text.count('\n', 0, match.start())+1, 3,
+                    self.add(path, source_line(text, match.start()), 3,
                              f'{literal} is a text anchor not obtained through locations.py')
             if capability and re.search(r'["\']events\.py["\']', text):
                 self.add(path, 1, 3, 'events.py path is not obtained through locations.py')
@@ -495,7 +558,7 @@ class Wiring:
                 slug = match[1]
                 self.edge(path, slug, 5)
                 if not (self.mode / 'principles' / (slug + '.md')).is_file():
-                    self.add(path, text.count('\n', 0, match.start())+1, 5, f'{slug} has no principle file')
+                    self.add(path, source_line(text, match.start()), 5, f'{slug} has no principle file')
 
     def routes(self):
         collections = [(self.mode / 'playbooks', self.mode / 'SKILL.md'),
@@ -529,17 +592,15 @@ class Wiring:
                               s.split()[0].rsplit('/', 1)[-1] == name), '')
                 if '+model-invoked' not in entry:
                     self.add(source, 1, 9, f'{name} needs +model-invoked in skills.txt')
-                # Copies are a product tree, not the current machine's installation.
-                copy_home = self.root if self.test_root else Path.home()
-                for copy in (copy_home / '.mmw/skill-copies' / name,):
-                    if not copy.is_dir():
-                        continue
-                    skill = copy / 'SKILL.md'
-                    if skill.is_file() and 'disable-model-invocation' in frontmatter(skill.read_text())[0]:
-                        self.add(source, 1, 9, f'{copy.name} installation copy still has invocation switch')
-                    policy = copy / 'agents/openai.yaml'
-                    if policy.is_file() and re.search(r'^policy:', policy.read_text(), re.M):
-                        self.add(source, 1, 9, f'{copy.name} installation copy still has policy')
+                copy = self.state_home / 'skill-copies' / name
+                if not copy.is_dir():
+                    continue
+                skill = copy / 'SKILL.md'
+                if skill.is_file() and 'disable-model-invocation' in frontmatter(skill.read_text())[0]:
+                    self.add(source, 1, 9, f'{copy.name} installation copy still has invocation switch')
+                policy = copy / 'agents/openai.yaml'
+                if policy.is_file() and re.search(r'^policy:', policy.read_text(), re.M):
+                    self.add(source, 1, 9, f'{copy.name} installation copy still has policy')
         for name, skill_path in self.skills.items():
             if not skill_path.startswith('mmw-v2/skills/'):
                 continue
@@ -548,10 +609,11 @@ class Wiring:
                 self.add(skill_path + '/SKILL.md', 1, 9, 'owned skill has an invocation switch')
 
     def events(self):
-        relay = next((t for p, t in self.files.items() if p.endswith('/relay.py')), '')
+        relay_path = next((p for p in self.files if p.endswith('/relay.py')), '')
+        relay = self.files.get(relay_path, '')
         emitted = []
         if relay:
-            tree = ast.parse(relay)
+            tree = self.python_tree(relay_path, relay)
             for node in ast.walk(tree):
                 if isinstance(node, (ast.Assign, ast.AnnAssign)):
                     targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -563,38 +625,36 @@ class Wiring:
                                               if isinstance(k, ast.Constant) and k.value == 'to'), '')
                             roles = ('worker', 'adopting-worker') if recipient == 'WORKER' else (
                                 'night-orchestrator', 'one-ticket-orchestrator', 'adopting-worker')
-                            emitted.extend((r, key.value, key.lineno) for r in roles if r in self.roles)
+                            emitted.extend((r, key.value, relay_path, key.lineno) for r in roles if r in self.roles)
         main_roles = [r for r in ('night-orchestrator', 'one-ticket-orchestrator', 'adopting-worker')
                       if r in self.roles]
         if 'relay.recovered' in relay:
-            emitted.extend((r, 'relay.recovered', 1) for r in main_roles)
+            emitted.extend((r, 'relay.recovered', relay_path, source_line(relay, relay.index('relay.recovered')))
+                           for r in main_roles)
+        for path, line, template in self.alert_templates:
+            if path.endswith('/watchdog.py') and template.startswith('watchdog:'):
+                emitted.extend((r, template.split(';', 1)[0], path, line) for r in main_roles)
         for path, content in self.files.items():
-            if path.endswith('/watchdog.py'):
-                for node in ast.walk(ast.parse(content)):
-                    if not isinstance(node, ast.Dict):
-                        continue
-                    for key, value in zip(node.keys, node.values):
-                        if isinstance(key, ast.Constant) and key.value == 'text':
-                            template = self.python_text(value)
-                            if template.startswith('watchdog:'):
-                                emitted.extend((r, template.split(';', 1)[0], 1) for r in main_roles)
-            elif path.endswith('/turn-guard.py') and 'MMW turn guard:' in content:
-                emitted.extend((r, 'MMW turn guard:', 1) for r in main_roles)
+            if path.endswith('/turn-guard.py') and 'MMW turn guard:' in content:
+                emitted.extend((r, 'MMW turn guard:', path, source_line(content, content.index('MMW turn guard:')))
+                               for r in main_roles)
             elif path.endswith('/dispatch.sh') and 'resume_one()' in content:
-                emitted.extend((r, 'resume', 1) for r in ('worker', 'adopting-worker') if r in self.roles)
+                emitted.extend((r, 'resume', path, source_line(content, content.index('resume_one()')))
+                               for r in ('worker', 'adopting-worker') if r in self.roles)
         for role, row in self.roles.items():
-            emitted.extend((role, event, 1) for event in row.get('wakes', {}) if event != '*')
-        for role, event, line in sorted(set(emitted)):
+            emitted.extend((role, event, 'mmw-v2/skills/dispatch/roles.json', 1)
+                           for event in row.get('wakes', {}) if event != '*')
+        for role, event, source, line in sorted(set(emitted)):
             row = self.roles[role]
             wakes = row.get('wakes', {})
             step = wakes.get(event, wakes.get('*'))
             target = self.mode / 'playbooks' / (row.get('playbook', '') + '.md')
             self.edge(f'{role}/{event}', f'{row.get("playbook")}/{step}', 6)
             if step is None:
-                self.add('mmw-v2/skills/dispatch/roles.json', line, 6,
+                self.add(source, line, 6,
                          f'{role}/{event} has no registered handler')
             elif not target.is_file():
-                self.add('mmw-v2/skills/dispatch/roles.json', line, 6,
+                self.add(source, line, 6,
                          f'{role}/{event} handler {step} is not built')
             else:
                 content = target.read_text(encoding='utf-8')
@@ -633,17 +693,17 @@ class Wiring:
             if not path.endswith(('/dispatch.sh', '/ticket_state.py')):
                 continue
             for offset, name in self.public_commands(path, text):
-                self.edge(path + '#' + name, 'command consumers', 11)
+                self.objects.add(11)
                 pattern = re.compile(re.escape(Path(path).name) + r'["\'`\s]+(?:<[^>]+>\s+)?' + re.escape(name) + r'\b')
                 consumers = [p for p, t in self.files.items() if p != path and
                              (p.endswith(('.py', '.sh')) or p in components) and pattern.search(t)]
+                for consumer in consumers:
+                    self.edge(consumer, path + '#' + name, 11)
                 if not consumers:
-                    self.add(path, text.count('\n', 0, offset)+1, 11, f'{name} has no command consumer')
+                    self.add(path, source_line(text, offset), 11, f'{name} has no command consumer')
 
     def frozen_paths(self):
-        marker = (Path.home() / '.mmw/installed-root' if
-                  not self.test_root else
-                  self.root / '.mmw/installed-root')
+        marker = self.state_home / 'installed-root'
         installed = Path(marker.read_text(encoding='utf-8').strip()).expanduser().resolve() if marker.is_file() else None
         inputs = self.session_templates + [('mmw-v2/skills/dispatch/roles.json', 1, self.roles_text)]
         for path, line, text in inputs:
@@ -692,7 +752,9 @@ class Wiring:
                 general = self.root / 'mmw-v2/merge-notes/README.md'
                 registry = general.read_text(encoding='utf-8') if general.is_file() else ''
                 file_name = str(Path(path).relative_to(root))
-                owns_content = name in ('code-review', 'implement', 'to-tickets') and name in registry
+                owners = next((a for a in anchors(registry) if a.title == '本仓自有正文的技能'), None)
+                owner_text = '\n'.join(registry.splitlines()[owners.start:owners.end]) if owners else ''
+                owns_content = name in re.findall(r'`([^`]+)`', owner_text)
                 registered_file = file_name in notes or Path(path).name in notes
                 file_notes = notes
                 headings = list(re.finditer(r'^(#{2,4}) (.+)$', notes, re.M))
@@ -701,7 +763,7 @@ class Wiring:
                     end = next((h.start() for h in headings if h.start() > file_heading.start() and
                                 len(h[1]) <= len(file_heading[1])), len(notes))
                     file_notes = notes[file_heading.end():end]
-                section_titles = [a for a in anchors(content)]
+                section_titles = anchors(content)
                 old_sections = anchors(original.stdout)
                 matcher = difflib.SequenceMatcher(a=[u.identity for u in old], b=[u.identity for u in new], autojunk=False)
                 for operation, a, b, c, d in matcher.get_opcodes():
@@ -744,11 +806,18 @@ def main():
     try:
         check = Wiring(args.root or Path(__file__).resolve().parents[3], test_root=args.root is not None)
         findings = check.run()
-    except (OSError, ValueError, SyntaxError, TypeError, KeyError, NameError) as exc:
-        print(f'wiring check cannot read its registry: {' '.join(str(exc).splitlines())}; run bash mmw-v2/install.sh --check')
+    except RegistryError as exc:
+        detail = ' '.join(str(exc).splitlines())
+        print(f'wiring check cannot read its registry: {detail}; run bash mmw-v2/install.sh --check')
         return 2
+    except (OSError, UnicodeError, TextError) as exc:
+        print('wiring check failed: a product input cannot be inspected')
+        print('Next: correct the named product input and rerun.')
+        print('Why: connections cannot be checked in an unreadable or invalid source.')
+        print(str(exc))
+        return 1
     failures = [f for f in findings if not f.report_only and
-                CLASS_POLICY[f.policy or f.category][0]]
+                (CLASS_POLICY[f.category].registry if f.registry_path else CLASS_POLICY[f.category]).fails]
     if args.graph:
         for source, target, category in sorted(check.edges):
             print(f'{source} -> {target} : {category}')
@@ -761,7 +830,7 @@ def main():
         report = f not in failures
         print(f'{"report: " if report else ""}{f.path}:{f.line}: class {f.category} {f.message}')
     for category in CLASS_POLICY:
-        if isinstance(category, int) and category not in check.objects:
+        if category not in check.objects:
             print(f'report: class {category}: no objects yet')
     return 1 if failures else 0
 
