@@ -6,6 +6,7 @@
 """Check the committed Markdown units carried by a moves manifest.
 
 Run: uv run check_verbatim_moves.py --manifest <file> [--all]
+Run: uv run check_verbatim_moves.py --ticket <n> [--base <ref>] [--all]
 Run from the git repository being checked. Both snapshots are committed: sources
 come from `from` (or their explicit revision), destinations from HEAD.
 
@@ -32,8 +33,10 @@ apply. --all prints findings beyond the default limit of 40.
 
 Exit 0: VERBATIM OK with counts, then NEW lines for open-ended new allowances.
 Exit 1: findings, or VERBATIM FAIL checked nothing. Exit 2: malformed, missing or
-ambiguous input; nothing could be judged. Q3/--ticket/--lint-drafts are separate
-from this manifest comparison.
+ambiguous input; nothing could be judged. --ticket reads exactly one moves fence
+in the ticket body's ## Moves section. Untouched units outside the manifest are
+checked only on issue-$MMW_TICKET, against merge-base(HEAD, --base or MMW_BASE_REF).
+Squashed subtree prefixes are excluded and named in the success line.
 """
 from __future__ import annotations
 
@@ -41,6 +44,8 @@ import argparse
 from collections import Counter
 from dataclasses import dataclass, field, replace
 import difflib
+import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -48,7 +53,8 @@ import subprocess
 import sys
 
 try:
-    from skill_text import (GitTree, Location, Rename, TextError, Unit,
+    from skill_text import (FENCE, HEADING, GitTree, Location, Rename, TextError, Unit,
+                            closes_fence,
                             canonical_text, markdown_units, normalize_title,
                             parse_location, read_imports, rename_text, sentences)
 except ImportError as exc:
@@ -454,17 +460,190 @@ class Comparison:
         return self
 
 
+def ticket_manifest(number: str) -> str:
+    result = subprocess.run(['gh', 'issue', 'view', number, '--json', 'body'],
+                            capture_output=True, text=True)
+    if result.returncode:
+        raise TextError(f'gh issue view {number}: {result.stderr.strip()}',
+                        f'restore tracker access for ticket #{number} and rerun.')
+    try:
+        body = json.loads(result.stdout)['body']
+    except (ValueError, KeyError, TypeError) as exc:
+        raise TextError(f'gh issue view {number}: response has no readable body') from exc
+    if not isinstance(body, str):
+        raise TextError(f'gh issue view {number}: response body is not text')
+    return moves_manifest(body)
+
+
+def moves_manifest(body: str) -> str:
+    """Only a real Moves section and its exactly named fence are authoritative."""
+    lines = body.replace('\r\n', '\n').replace('\r', '\n').splitlines(keepends=True)
+    sections = 0
+    in_moves = False
+    manifests = []
+    i = 0
+    while i < len(lines):
+        fence = FENCE.match(lines[i])
+        if fence:
+            marker, info = fence.groups()
+            end = i + 1
+            while end < len(lines) and not closes_fence(lines[end], marker):
+                end += 1
+            if in_moves and info.strip() == 'moves':
+                if end == len(lines):
+                    raise TextError('## Moves has an unclosed moves fence')
+                manifests.append(''.join(lines[i+1:end]))
+            i = end + 1
+            continue
+        heading = HEADING.match(lines[i])
+        if heading and len(heading.group(1)) <= 2:
+            in_moves = heading.groups() == ('##', 'Moves')
+            sections += int(in_moves)
+        i += 1
+    if sections != 1 or len(manifests) != 1:
+        raise TextError(f'ticket needs one ## Moves section with one moves fence; '
+                        f'found {sections} sections and {len(manifests)} fences',
+                        'have the ticket author supply exactly one moves fence in ## Moves and rerun.')
+    return manifests[0]
+
+
+def untouched_text(comparison: Comparison, tree: GitTree, item: Item, source: bool) -> str:
+    """In-place units allow listed renames, not the reformatting allowed by moves."""
+    text = item.unit.text
+    if item.unit.kind == 'code':
+        return rename_text(text, 'code', comparison.manifest.renames, item.path) if source else text
+    path_rules = [r for r in comparison.manifest.renames if r.kind == 'path']
+    refs = re.compile(r"the `[^`]+` skill's `[^`]+`|\[[^\]]*\]\([^\s)]+\)|`[^`\n]+`")
+
+    def reference(match):
+        value = match.group()
+        unit = replace(item.unit, text=value)
+        canonical = canonical_text(unit, tree, item.path, item.path,
+                                   path_rules, source, comparison.head)
+        # Normalize only references affected by a declared path mapping.
+        if any('\x00path:' + r.new + '\x00' in canonical for r in path_rules):
+            form = 'link' if value.startswith('[') else 'named' if value.startswith('the ') else 'code'
+            return '\x00' + form + ':' + canonical
+        return value
+
+    text = refs.sub(reference, text)
+    return rename_text(text, item.unit.kind, comparison.manifest.renames, item.path) if source else text
+
+
+def check_untouched(comparison: Comparison, base: str | None,
+                    number: str | None = None) -> str:
+    """Compare only this ticket's diff, excluding its declared unit scopes."""
+    head = comparison.head
+    branch = head.git('branch', '--show-current').strip()
+    ticket = os.environ.get('MMW_TICKET')
+    if not ticket or branch != f'issue-{ticket}' or number is not None and number != ticket:
+        return "not checked, not on this ticket's branch"
+    if not base:
+        raise TextError('untouched text needs --base (MMW_BASE_REF is not set)',
+                        'pass --base <ref> for this ticket\'s base branch and rerun.')
+    revision = head.git('merge-base', 'HEAD', base).strip()
+    before = head.at_revision(revision)
+    subjects = head.git('log', '--format=%s', f'{revision}..HEAD')
+    prefixes = sorted(set(re.findall(r"^Squashed '(.+?)/'", subjects, re.M)))
+    manifest = comparison.manifest
+    locations = ([t.source for t in manifest.transfers] +
+                 [t.target for t in manifest.transfers] +
+                 [a.location for a in manifest.drops + manifest.additions])
+    named = {location.path for location in locations}
+    named.update(value for rule in manifest.renames if rule.kind == 'path'
+                 for value in (rule.old, rule.new))
+    scopes = ([(t.source, None, False, False) for t in manifest.transfers] +
+              [(t.target, None, False, False) for t in manifest.transfers] +
+              [(a.location, a.text, a.title, True) for a in manifest.drops] +
+              [(a.location, a.text, a.title, False) for a in manifest.additions])
+
+    def outside(tree: GitTree, path: str) -> list[Item]:
+        if not tree.exists(path):
+            return []
+        excluded = set()
+        for location, text, title, prefix in scopes:
+            if location.path != path:
+                continue
+            try:
+                # Explicit source revisions define scopes, not the Q3 snapshot.
+                if location.selector == 'lines' and tree is head:
+                    # Source line numbers belong to the pinned snapshot. A move
+                    # shifts later units into those lines without authorizing them.
+                    selected = comparison.items(comparison.before, location)
+                    available = comparison.items(tree, Location(path))
+                    items = []
+                    for prior in selected:
+                        value = untouched_text(comparison, comparison.before, prior, True)
+                        match = next((item for item in available
+                                      if item.unit.kind == prior.unit.kind and item.unit.key == prior.unit.key and
+                                      untouched_text(comparison, tree, item, False) == value), None)
+                        if match:
+                            items.append(match)
+                            available.remove(match)
+                else:
+                    items = comparison.items(tree, replace(location, revision=None))
+            except TextError as exc:
+                if 'matched 0 locations' in str(exc) or 'field not found' in str(exc):
+                    continue  # A moved/dropped section need not survive.
+                raise
+            if text is not None:
+                if title:
+                    items = [item for item in items if item.unit.kind == 'title' and
+                             item.unit.text == normalize_title(text)]
+                elif prefix:
+                    items = [item for item in items if item.unit.kind == 'sentence' and
+                             item.unit.text.startswith(text)]
+                else:
+                    items = [item for item in items if item.unit.kind == 'sentence' and
+                             item.unit.text == re.sub(r'\s+', ' ', text).strip()]
+            excluded.update(item.id for item in items)
+        result = []
+        for item in comparison.items(tree, Location(path)):
+            if item.id not in excluded:
+                result.append(replace(item, canonical=untouched_text(comparison, tree, item, tree is before)))
+        return result
+
+    paths = head.git('diff', '--name-only', '--no-renames', '-z', revision, 'HEAD').split('\x00')
+    checked = 0
+    for path in filter(None, paths):
+        skill = (path.endswith('.md') and
+                 (path.startswith(('mmw-v2/skills/', '.mmw/playbooks/')) or
+                  re.match(r'mmw-v2/upstream[^/]*/skills/', path)))
+        if not (skill or path in named) or any(path.startswith(p + '/') for p in prefixes):
+            continue
+        checked += 1
+        prior, current = outside(before, path), outside(head, path)
+        # Pair instances, not unique strings: a repeated sentence is not free.
+        for item in prior:
+            match = next((other for other in current if item.matches(other)), None)
+            if match:
+                current.remove(match)
+            else:
+                comparison.findings.append(Finding('UNTOUCHED-CHANGED', item,
+                                                   detail='removed or changed outside the manifest'))
+        comparison.findings.extend(Finding('UNTOUCHED-CHANGED', item,
+                                           detail='added or changed outside the manifest')
+                                   for item in current)
+    return f'{checked} files, 0 changes; subtree pulled: {", ".join(prefixes) or "none"}'
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--manifest', required=True, type=Path)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument('--manifest', type=Path)
+    inputs.add_argument('--ticket')
     parser.add_argument('--all', action='store_true')
+    parser.add_argument('--base')
     args = parser.parse_args(argv)
     try:
         root_result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
         if root_result.returncode:
             raise TextError('not in a git repository', 'run from the git repository containing the manifest source and target files.')
-        manifest = parse_manifest(args.manifest.read_text(encoding='utf-8'))
+        text = (ticket_manifest(args.ticket) if args.ticket else
+                args.manifest.read_text(encoding='utf-8'))
+        manifest = parse_manifest(text)
         comparison = Comparison(Path(root_result.stdout.strip()), manifest).run()
+        untouched = check_untouched(comparison, args.base or os.environ.get('MMW_BASE_REF'), args.ticket)
     except (TextError, OSError, UnicodeError) as exc:
         print(f'VERBATIM ERROR no units checked: {exc}')
         if isinstance(exc, TextError):
@@ -494,7 +673,7 @@ def main(argv=None):
           f'{c["title"]} title, {c["format"]} reflow), '
           f'{c["replaced"]} replaced, {c["new"]} new, {c["dropped"]} dropped; '
           f'{c["prior"]} prior units accounted; '
-          'untouched text: not checked (manifest comparison)')
+          f'untouched text: {untouched}')
     for item in comparison.new_lines:
         print(f'NEW {item.address}: {item.unit.text}')
     return 0
