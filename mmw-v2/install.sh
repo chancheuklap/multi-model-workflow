@@ -21,9 +21,12 @@
 # 本仓库上一代装过、这次不装的东西（技能软链、subagent 定义文件、hook 登记、从 models.md 生成的 Agent profile），
 # install 摘掉，--check 报残留。
 #
-# 技能有三个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
-# 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/）。三者
-# 装法完全一样。
+# 技能有四个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
+# 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/），
+# pstack 的在 upstream-pstack/skills/（前缀 pstack/）。四者装法完全一样。
+#
+# skills.txt 一行的路径后面可以跟行尾标记 +model-invoked，表示这个上游技能被 mode 或
+# playbook 点名、要让模型自己能调用；带标记的一行按路径部分安装。
 #
 # 软链不是拷贝：host 读的就是仓库里那个文件。在用技能的当中直接改 source directory 下的
 # SKILL.md，下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是 host 启动时扫的，
@@ -60,6 +63,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$ROOT/upstream/skills"
 SELF_SRC="$ROOT/skills"
 DD_SRC="$ROOT/upstream-diagram-design/skills"
+PSTACK_SRC="$ROOT/upstream-pstack/skills"
 LIST="$ROOT/skills.txt"
 
 # 一条软链是不是本仓库装的：目标落在本仓库任一 checkout（主 checkout 或某个 worktree）
@@ -67,7 +71,7 @@ LIST="$ROOT/skills.txt"
 # checkout：从哪个 checkout 运行本脚本，哪个 checkout 的 source directory 就接管这批软链。
 ours_skill_target() {
   case "$1" in
-    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/*) return 0 ;;
+    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/* | */mmw-v2/upstream-pstack/skills/*) return 0 ;;
   esac
   return 1
 }
@@ -151,21 +155,34 @@ fi
 [ -f "$LIST" ] || die "缺 skills.txt：$LIST"
 [ -d "$SKILLS_SRC" ] || die "缺 upstream 技能目录：$SKILLS_SRC"
 
-# 读 skills.txt。顺便当场验证每个都真的存在——写错要在动 host 之前就停。
+# 读 skills.txt。一行是 <前缀>/<名>，后面可以跟一个 +model-invoked。
+# 别的记号，或标记写在 self/ 行上，在这里停下：这时还没有建任何 host 目录。
+# 每个技能都要真的存在——写错要在动 host 之前就停。
 wanted_dirs=()
 wanted_names=()
 while IFS= read -r line; do
   line="${line%%#*}"
-  line="$(echo "$line" | tr -d '[:space:]')"
-  [ -n "$line" ] || continue
-  case "$line" in
-    self/*) dir="$SELF_SRC/${line#self/}" ;;
-    dd/*) dir="$DD_SRC/${line#dd/}" ;;
-    *) dir="$SKILLS_SRC/$line" ;;
+  tokens=()
+  read -r -a tokens <<< "$line"
+  [ "${#tokens[@]}" -gt 0 ] || continue
+  path="${tokens[0]}"
+  if [ "${#tokens[@]}" -ne 1 ]; then
+    if [ "${#tokens[@]}" -ne 2 ] || [ "${tokens[1]}" != "+model-invoked" ]; then
+      die "skills.txt 的这一行有不认识的记号：${tokens[*]}"
+    fi
+    case "$path" in
+      self/*) die "skills.txt 的 self/ 行不能带 +model-invoked：${tokens[*]}" ;;
+    esac
+  fi
+  case "$path" in
+    self/*) dir="$SELF_SRC/${path#self/}" ;;
+    dd/*) dir="$DD_SRC/${path#dd/}" ;;
+    pstack/*) dir="$PSTACK_SRC/${path#pstack/}" ;;
+    *) dir="$SKILLS_SRC/$path" ;;
   esac
-  [ -f "$dir/SKILL.md" ] || die "skills.txt 里的技能不存在：$line"
+  [ -f "$dir/SKILL.md" ] || die "skills.txt 里的技能不存在：$path"
   wanted_dirs+=("$dir")
-  wanted_names+=("$(basename "$line")")
+  wanted_names+=("$(basename "$path")")
 done < "$LIST"
 
 [ "${#wanted_names[@]}" -gt 0 ] || die "skills.txt 是空的：$LIST"
@@ -1923,7 +1940,7 @@ else
   mkdir -p "$(dirname "$INSTALLED_ROOT_FILE")"
   printf '%s\n' "$ROOT" > "$INSTALLED_ROOT_FILE"
   echo
-  echo "source directory：${SKILLS_SRC}（mattpocock/skills）、${SELF_SRC}（自研）、${DD_SRC}（cathrynlavery/diagram-design）"
+  echo "source directory：${SKILLS_SRC}（mattpocock/skills）、${SELF_SRC}（自研）、${DD_SRC}（cathrynlavery/diagram-design）、${PSTACK_SRC}（pstack）"
   echo "改技能直接改 source directory 里的文件，host 下次调用就是新的。"
   echo "装自  ${ROOT}（记在 ${INSTALLED_ROOT_FILE}；别的 checkout 跑 --check 时按它核对）"
 fi
