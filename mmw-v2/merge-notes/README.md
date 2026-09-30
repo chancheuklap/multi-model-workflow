@@ -37,7 +37,7 @@
 
 `code-review`、`implement`、`to-tickets` 放在 `mmw-v2/upstream/skills/engineering/` 下，正文却几乎全是本仓写的。拉 upstream 时不合并上游对这三个技能的改动：冲突取本仓的，自动合进来的上游段落也改回本仓的。它们的说明记的是本仓各段的意图，不是与上游的差异。
 
-`mmw-v2/skills/retro/` 是本仓自己的技能，不在任何 subtree 里，没有说明；上游的 `in-progress/retro` 是另一个技能，不合进来。
+`mmw-v2/skills/retro/` 是本仓自己的技能，不在任何 subtree 里。它 `## Decide` 第 9 步从 pstack 的 synthesizer 抄来的四条分拣规则，说明在 [pstack](pstack.md) 的 `## retro 的四条分拣规则`。上游的 `in-progress/retro` 是另一个技能，不合进来。
 
 ## 目前有说明的技能
 

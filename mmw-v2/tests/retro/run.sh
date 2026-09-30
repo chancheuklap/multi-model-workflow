@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Isolated command-level retro suite: temporary Git checkout, fake gh and nmem.
 # Needs bash, python3 and git. No live tracker, Space, install or product.
-# Run one path: bash mmw-v2/tests/retro/run.sh complete-none|partial-evidence|proposal-threshold|prompt-and-record-contract|retry-finalize|large-evidence|parent-without-map|all
+# Run one path: bash mmw-v2/tests/retro/run.sh complete-none|partial-evidence|proposal-threshold|prompt-and-record-contract|retry-finalize|large-evidence|parent-without-map|layer-destinations|all
 set -euo pipefail
 bash "$(dirname -- "${BASH_SOURCE[0]}")/../lib/run_shared_lints.sh" || exit 1
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
