@@ -46,7 +46,9 @@ Applied to checks, the same question reads: **a check every product needs is the
 }
 ```
 
-That is a complete release manifest. The release engine supplies the build pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release manifest adds `stages` only for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. The release engine appends its three afterwards.
+That is a complete release manifest. The release engine supplies the build pipeline — `verify_key`, `assemble`, `build` — and the skill supplies the diagnoser. A release manifest adds `stages` for what it needs to run *before* that, on its own repository: the version is not one that already shipped, the repository still matches what it claims. `post_build_stages` run on the repository machine after the successful remote build. Both fields contain the same stage declarations; the engine puts its three between them.
+
+`build_target.return_artifacts` maps repository-relative build files to filenames in `${RELEASE_LOOP_DIR}`. The engine copies these non-customer artifacts back before deleting the successful remote build tree, so a `post_build_stages` command can read the exact build's files. A failed transfer fails `build`, preserves its remote tree and blocks the later stages. Use this for separately retained diagnostic assets, not for customer resources or the installer delivery path.
 
 If a product needs a different assemble or a different build, the skill is missing a capability: add it there, not by shadowing a stage here.
 

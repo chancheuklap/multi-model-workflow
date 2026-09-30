@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from copy import deepcopy
@@ -6,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "exe-release" / "scripts" / "release_contracts.py"
+SCRIPT = (
+    Path(__file__).resolve().parents[2]
+    / "skills"
+    / "exe-release"
+    / "scripts"
+    / "release_contracts.py"
+)
 FIX = Path(__file__).resolve().parent / "fixtures" / "release-flow"
 
 sys.path.insert(0, str(SCRIPT.parent))
@@ -45,6 +52,143 @@ def test_manifest_empty_stages_allowed():
     good = _fake_manifest()
     good["stages"] = []
     rc.ReleaseAdapterManifest.model_validate(good)
+
+
+@pytest.mark.parametrize(
+    "source,destination",
+    [
+        ("../secret", "maps.zip"),
+        ("/absolute", "maps.zip"),
+        ("source/maps.zip", "../maps.zip"),
+        ("source/maps.zip", "bad;command"),
+    ],
+)
+def test_returned_artifacts_stay_within_build_and_loop_directories(source, destination):
+    target = deepcopy(_fake_manifest()["build_target"])
+    target["return_artifacts"] = {source: destination}
+    with pytest.raises(Exception):
+        rc.BuildTarget.model_validate(target)
+
+
+def test_post_build_stage_names_cannot_repeat_pre_build_names():
+    manifest = _fake_manifest()
+    manifest["post_build_stages"] = [manifest["stages"][0]]
+    with pytest.raises(Exception):
+        rc.ReleaseAdapterManifest.model_validate(manifest)
+
+
+@pytest.mark.parametrize("artifact_exists", [True, False])
+def test_post_build_stage_requires_returned_artifact_before_remote_cleanup(
+    tmp_path, artifact_exists
+):
+    """Transfer real bytes through the remote filesystem seam, then run the next stage."""
+    fake_remote = FIX.parent / "fake-remote"
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("MMW_", "NMEM_", "RELEASE_", "FAKE_"))
+        and key != "PASEO_AGENT_ID"
+    }
+    env.update(
+        {
+            "PATH": str(fake_remote) + os.pathsep + env["PATH"],
+            "FAKE_REMOTE_ROOT": str(tmp_path / "remote-fs"),
+            "FAKE_REMOTE_TASKS": str(tmp_path / "remote-tasks.json"),
+            "RELEASE_REMOTE_HOST": "fake@pc",
+            "RELEASE_REMOTE_ROOT": "C:/release-input",
+            "RELEASE_REMOTE_BUILD_POLL_SECONDS": "0",
+        }
+    )
+
+    def command(*argv):
+        return subprocess.run(
+            argv, cwd=tmp_path, env=env, capture_output=True, text=True
+        )
+
+    assert command("git", "init", "-q").returncode == 0
+    (tmp_path / "source.txt").write_text("source\n")
+    assert command("git", "add", "source.txt").returncode == 0
+    assert (
+        command(
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-qm",
+            "source",
+        ).returncode
+        == 0
+    )
+    manifest = _fake_manifest()
+    manifest.update({"stages": [], "event_sink": None})
+    manifest["post_build_stages"] = [
+        {
+            "name": "publish_symbols",
+            "run": [
+                "python3",
+                "-c",
+                "from pathlib import Path; assert Path('.release/release-artifacts/_loop/symbols.zip').read_text() == 'fake installer\\n'; Path('published').touch()",
+            ],
+        }
+    ]
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest))
+    flow = str(SCRIPT.parent / "release-flow.sh")
+    assert (
+        command("bash", flow, "init", "--manifest", str(manifest_path)).returncode == 0
+    )
+    for stage in ("verify_key", "assemble"):
+        assert command("bash", flow, "stage", "done", "--stage", stage).returncode == 0
+    loop = tmp_path / ".release/release-artifacts/_loop"
+    loop.mkdir(parents=True, exist_ok=True)
+    (loop / "release.ps1").write_text("# fake release\n")
+    artifact_path = (
+        "out/test-product-setup.exe" if artifact_exists else "out/missing.zip"
+    )
+    (loop / "release-context.json").write_text(
+        json.dumps(
+            {
+                "repo_root": "/placeholder",
+                "product": "test-product",
+                "build_target": {
+                    "installer_glob": "out/*.exe",
+                    "return_artifacts": {artifact_path: "symbols.zip"},
+                },
+            }
+        )
+    )
+    assert (
+        command("bash", flow, "stage", "run", "--stage", "publish_symbols").returncode
+        != 0
+    )
+    assert not (tmp_path / "published").exists()
+    build = command("bash", flow, "stage", "run", "--stage", "build")
+    state = json.loads((tmp_path / ".release/release-state.json").read_text())
+    build_status = next(
+        stage["status"] for stage in state["stages"] if stage["name"] == "build"
+    )
+    remote_build_dirs = list((tmp_path / "remote-fs").rglob("run-release.cmd"))
+    if artifact_exists:
+        assert build.returncode == 0, build.stdout + build.stderr
+        assert build_status == "done", build.stdout + build.stderr
+        assert (loop / "symbols.zip").read_text() == "fake installer\n"
+        assert not remote_build_dirs, "successful delivery must clean the remote tree"
+        post = command("bash", flow, "stage", "run", "--stage", "publish_symbols")
+        assert post.returncode == 0, post.stdout + post.stderr
+        assert (tmp_path / "published").exists()
+    else:
+        assert build_status == "failed", build.stdout + build.stderr
+        assert remote_build_dirs, "failed artifact transfer must preserve the build"
+        assert not (loop / "symbols.zip").exists()
+        assert (
+            command(
+                "bash", flow, "stage", "run", "--stage", "publish_symbols"
+            ).returncode
+            != 0
+        )
+        assert not (tmp_path / "published").exists()
 
 
 def test_manifest_rejects_echo_stage_as_fake_build_teeth():
@@ -252,5 +396,3 @@ def test_contract_import_robust_via_spec_from_file_location():
                 "detail": "缺 tier",
             }
         )
-
-

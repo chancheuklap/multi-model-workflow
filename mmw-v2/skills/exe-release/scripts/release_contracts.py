@@ -10,6 +10,7 @@ CLI: validate-manifest / classify-findings。
 
 import argparse
 import json
+import re
 import sys
 from typing import Literal
 
@@ -72,7 +73,7 @@ ENGINE_STAGE_NAMES = ("verify_key", "assemble", "build")
 
 
 class StageSpec(BaseModel):
-    """钥匙自己的出发前检查。引擎把标准三段追加在这些之后。"""
+    """钥匙自己的命令。stages 在标准构建前，post_build_stages 在成功构建后。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -231,6 +232,24 @@ class BuildTarget(BaseModel):
     # 三个产品的成品就是它。第四个产品的 unpacked 只是个壳，真正交给客户的那棵树由它自己的
     # installer 钩子在别处装配，所以「成品在哪」是钥匙的值。随包出厂的闸门认这棵树。
     package_tree: str | None = None
+    # Repository-relative files copied back before successful remote build cleanup.
+    # Values are filenames in ${RELEASE_LOOP_DIR}, never customer resources.
+    return_artifacts: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _returned_artifact_paths_are_safe(self) -> "BuildTarget":
+        for source, destination in self.return_artifacts.items():
+            if (
+                not re.fullmatch(r"[A-Za-z0-9._/-]+", source)
+                or source.startswith("/")
+                or any(part in (".", "..", "") for part in source.split("/"))
+                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", destination)
+            ):
+                raise ValueError("return_artifacts needs safe repository-relative source paths and destination filenames")
+        if len(set(self.return_artifacts.values())) != len(self.return_artifacts):
+            raise ValueError("return_artifacts destination filenames must be unique")
+        return self
+
     asset_roots: list[str] = Field(default_factory=list)
     native_ext_dll: list[NativeExtDll] = Field(default_factory=list)
 
@@ -453,6 +472,8 @@ class ReleaseAdapterManifest(BaseModel):
     # 诊断器。声明了是「在标准之外还要跑什么」。四把钥匙里这两段曾经逐字相同、只有钥匙
     # 路径不同——抄四遍的直接后果就是有一把抄成了指向另一把钥匙，而每一步都报绿。
     stages: list[StageSpec] = Field(default_factory=list)
+    # Mac-side commands after a successful remote build and artifact return.
+    post_build_stages: list[StageSpec] = Field(default_factory=list)
     diagnose: list[str] = Field(default_factory=list)
     build_hooks: ReleaseBuildHooks = Field(default_factory=lambda: ReleaseBuildHooks())
     # ── 以下都是自愈与观测的可选装备 ──────────────────────────────────────
@@ -467,6 +488,9 @@ class ReleaseAdapterManifest(BaseModel):
 
     @model_validator(mode="after")
     def _declarations_must_agree(self) -> "ReleaseAdapterManifest":
+        names = [stage.name for stage in self.stages + self.post_build_stages]
+        if len(names) != len(set(names)):
+            raise ValueError("stage names must be unique across stages and post_build_stages")
         installs = bool(self.build_hooks.installer) or (
             self.electron.installer == "electron_builder"
         )
