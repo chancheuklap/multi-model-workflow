@@ -44,7 +44,7 @@ Other alerts go directly to the watch's orchestrator in one message, each beginn
 
 While tickets are held and the watchdog is not healthy, the turn guard installed by `install.sh` keeps the turn from ending. On a host that cannot hold a turn, it sends one follow-up message. It acts once per turn end, and its text names the command that arms the watchdog.
 
-Host hook commands are registered through `~/.mmw/bin/hook-launcher`, a copy of `mmw-v2/hook-launcher.py` rather than a symlink. The launcher reads `installed-root` and runs `tool-guard.py` or `turn-guard.py` from that checkout.
+Host hook commands are registered through `~/.mmw/bin/hook-launcher`, a copy of `mmw-v2/hook-launcher.py` rather than a symlink. The launcher reads `installed-root` and runs `tool-guard.py`, `turn-guard.py` or `mode-hook.py` from that checkout, looking in `skills/mmw/scripts/` first and `skills/dispatch/scripts/` second. When `mode-hook` is not found it returns 0 and prints nothing.
 
 ## Opening a night
 
