@@ -1,0 +1,1 @@
+target = ROOT / 'skills' / 'absent'

@@ -14,3 +14,4 @@ python3 "$HERE/check_module_paths.py" || { echo "a toolbox script names a module
 python3 "$HERE/check_upstream_em_dashes.py" >&2 || exit 1
 uv run "$HERE/check_own_skill_frontmatter.py" >&2 || exit 1
 uv run --quiet "$HERE/check_component_structure.py" >&2 || exit 1
+uv run --quiet "$HERE/check_wiring.py" >&2 || exit 1
