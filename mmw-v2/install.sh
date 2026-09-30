@@ -2111,26 +2111,28 @@ report_move_safety() {
 import relay
 import statedir
 
-root = statedir.home() / "state"
 opens = []
 locks = []
 unreadable = []
-if root.is_dir():
-    for repo_dir in sorted(p for p in root.iterdir() if p.is_dir() and "__" in p.name):
-        owner, name = repo_dir.name.split("__", 1)
-        repo = f"{owner}/{name}"
-        try:
-            watches = relay.read_watches(repo_dir)
-        except (OSError, ValueError):
-            unreadable.append(f"UNREADABLE {repo} watches.json")
+try:
+    repo_dirs = statedir.repo_state_dirs()
+except NotADirectoryError:
+    repo_dirs = []
+for repo_dir in repo_dirs:
+    owner, name = repo_dir.name.split("__", 1)
+    repo = f"{owner}/{name}"
+    try:
+        watches = relay.read_watches(repo_dir)
+    except (OSError, ValueError):
+        unreadable.append(f"UNREADABLE {repo} watches.json")
+        continue
+    for key in sorted(watches):
+        opens.append(f"OPEN-WATCH {repo} {key}")
+    for kind in ("relay", "watchdog"):
+        holder = statedir.holder(repo_dir / f"{kind}.lock")
+        if holder is None:
             continue
-        for key in sorted(watches):
-            opens.append(f"OPEN-WATCH {repo} {key}")
-        for kind in ("relay", "watchdog"):
-            holder = statedir.holder(repo_dir / f"{kind}.lock")
-            if holder is None:
-                continue
-            locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
+        locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
 for line in opens:
     print(line)
 for line in locks:

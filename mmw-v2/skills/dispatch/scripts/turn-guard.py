@@ -240,9 +240,8 @@ def runners_dir() -> Path:
 
 
 def open_states(dog) -> list[Path]:
-    root = statedir.home() / "state"
     try:
-        candidates = sorted(p for p in root.iterdir() if p.is_dir())
+        candidates = statedir.repo_state_dirs()
     except OSError:
         return []
     return [p for p in candidates if dog.night_open(p)]

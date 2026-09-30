@@ -19,6 +19,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -129,6 +130,24 @@ class StateCase(unittest.TestCase):
         self.write("watches.json", {
             (f"spec:{e['spec']}" if e.get("spec") else
              "tickets:" + ",".join(str(n) for n in e["tickets"])): e for e in entries})
+
+
+class RepositoryStateDirectories(StateCase):
+    def test_repository_state_directories_are_listed_sorted_without_strays(self):
+        root = self.state.parent
+        self.state.rmdir()
+        second = root / "b__two"
+        first = root / "a__one"
+        stray = root / "notes"
+        ordinary_file = root / "c__three"
+        for directory in (second, first, stray):
+            directory.mkdir()
+        ordinary_file.write_text("not a directory", encoding="utf-8")
+
+        self.assertEqual(statedir.repo_state_dirs(), [first, second])
+
+        shutil.rmtree(root)
+        self.assertEqual(statedir.repo_state_dirs(), [])
 
 
 # ----------------------------------------------------------------- tolerance and health
