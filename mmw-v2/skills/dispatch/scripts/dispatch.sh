@@ -2381,21 +2381,18 @@ check_machine() {
   fi
 
   # What install.sh checks is this machine's whole toolbox, most of it nothing the night
-  # uses, and what the night does use is checked below by what reads it. So an incomplete
-  # install does not stop the night: when this checkout is the installed one, install.sh
-  # runs to repair it; whatever is still missing after that is said and left.
+  # uses, and what the night does use is checked below by what reads it. An incomplete
+  # install does not stop the night, and check does not install: it reports what is still
+  # missing. The orchestrator shows that report and does not run open until the user
+  # authorises the install.
   if [ ! -f "$INSTALLER" ]; then
     echo "dispatch: warning: no install.sh at $INSTALLER, so the install was not checked" >&2
   elif ! bash "$INSTALLER" --check >/dev/null 2>&1; then
-    local installed_root_file="${MMW_HOME:-$HOME/.mmw}/installed-root" install_out
-    if [ -f "$installed_root_file" ] \
-       && [ "$(cd "$(cat "$installed_root_file")" 2>/dev/null && pwd -P)" = "$(cd "$(dirname "$INSTALLER")" && pwd -P)" ]; then
-      install_out="$(bash "$INSTALLER" 2>&1)" \
-        || echo "dispatch: warning: install.sh did not finish: $(printf '%s' "$install_out" | tail -2 | tr '\n' ' ')" >&2
-    fi
+    local install_out
     if ! install_out="$(bash "$INSTALLER" --check 2>&1)"; then
       echo "dispatch: warning: install.sh --check still finds this, which the night does not wait on:" >&2
       printf '%s\n' "$install_out" | grep -E '缺|残留|不齐|不一致|没查|不是|没在跑' | sed 's/^/  /' >&2
+      echo "dispatch: install.sh runs only after the user authorises it; do not run open before the user answers" >&2
     fi
   fi
 

@@ -31,6 +31,10 @@
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
 #                         另读 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
+#                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
+#                         watch，以及锁文件记录的进程仍在运行的 relay.lock、watchdog.lock。
+#                         末行是 SAFE-TO-MOVE-INSTALLED，或 NOT-SAFE-TO-MOVE-INSTALLED。
+#                         这份列表不改退出码。
 #
 # 两种模式在 hook 都齐了的时候都打印 HOOKS-INSTALLED。
 #
@@ -1855,10 +1859,60 @@ else
   echo "跳过  ${CURSOR_MCP}（本机没有可用的 nmem）"
 fi
 
+# 开着的 watch 与仍在跑的 relay、watchdog。列表是状况，不是缺项：写在 stdout，跟
+# HOOKS-INSTALLED 一侧，退出码仍只表示安装齐不齐。锁算不算活着，与 relay、watchdog
+# 自己问 statedir.holder 的办法相同：记录的 pid 现在在跑，且进程身份对得上。
+report_move_safety() {
+  MMW_STATE_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
+  MMW_STATEDIR="$SELF_SRC/dispatch/scripts" \
+  python3 - <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, os.environ["MMW_STATEDIR"])
+import statedir
+
+root = Path(os.environ["MMW_STATE_HOME"]) / "state"
+opens = []
+locks = []
+if root.is_dir():
+    for repo_dir in sorted(p for p in root.iterdir() if p.is_dir() and "__" in p.name):
+        owner, name = repo_dir.name.split("__", 1)
+        repo = f"{owner}/{name}"
+        try:
+            data = json.loads((repo_dir / "watches.json").read_text(encoding="utf-8") or "null")
+        except (OSError, json.JSONDecodeError):
+            data = None
+        if isinstance(data, dict):
+            for key in sorted(data):
+                opens.append(f"OPEN-WATCH {repo} {key}")
+        for kind in ("relay", "watchdog"):
+            lock = repo_dir / f"{kind}.lock"
+            if not lock.is_file():
+                continue
+            holder = statedir.holder(lock)
+            if holder is None:
+                continue
+            locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
+for line in opens:
+    print(line)
+for line in locks:
+    print(line)
+watched, held = len(opens), len(locks)
+if watched == 0 and held == 0:
+    print("SAFE-TO-MOVE-INSTALLED")
+else:
+    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks")
+PY
+}
+
 if [ "$mode" = check ]; then
   if [ "$rc" -eq 0 ]; then
     echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，hook 见上"
   fi
+  report_move_safety || true
 else
   mkdir -p "$(dirname "$INSTALLED_ROOT_FILE")"
   printf '%s\n' "$ROOT" > "$INSTALLED_ROOT_FILE"
