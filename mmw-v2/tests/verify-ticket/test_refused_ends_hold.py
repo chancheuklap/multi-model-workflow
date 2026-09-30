@@ -9,6 +9,8 @@ name its session ends nothing.
 
 import os
 import unittest
+from contextlib import ExitStack
+from pathlib import Path
 from unittest import mock
 
 import test_preflight as tp
@@ -55,9 +57,11 @@ class TestTheRefusalNamesItsSession(unittest.TestCase):
     def retract_line(self, err):
         return [row for row in err.splitlines() if "dispatch.sh retract 77" in row]
 
-    def test_a_refusal_without_dispatch_sh_says_why_on_stderr(self):
-        missing = tp.vt.SelfRead("/missing/dispatch.sh", None, "", "", None)
-        with mock.patch.object(tp.vt, "read_self", return_value=missing):
+    def refusal_line(self, read, **attrs):
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(tp.vt, "read_self", return_value=read))
+            for name, value in attrs.items():
+                stack.enter_context(mock.patch.object(tp.vt, name, value))
             code, posted, err, _ = tp.preflight(branch="main")
         self.assertEqual(code, 2)
         payload = ev.parse(posted[0][1])[1]
@@ -66,47 +70,35 @@ class TestTheRefusalNamesItsSession(unittest.TestCase):
         self.assertNotIn("session", payload)
         line = self.retract_line(err)
         self.assertEqual(len(line), 1)
-        self.assertIn("/missing/dispatch.sh", line[0])
+        return line[0]
+
+    def test_a_refusal_without_dispatch_sh_says_why_on_stderr(self):
+        line = self.refusal_line(tp.vt.SelfRead("/missing/dispatch.sh", None, "", "", None))
+        self.assertIn("/missing/dispatch.sh", line)
 
     def test_a_refusal_whose_self_fails_names_its_exit_code_on_stderr(self):
-        failed = tp.vt.SelfRead("/skills/dispatch/scripts/dispatch.sh", 17, "", "adapter-down", None)
-        with mock.patch.object(tp.vt, "read_self", return_value=failed):
-            code, posted, err, _ = tp.preflight(branch="main")
-        self.assertEqual(code, 2)
-        payload = ev.parse(posted[0][1])[1]
-        self.assertEqual(payload["event"], "ticket.refused")
-        self.assertNotIn("runner", payload)
-        self.assertNotIn("session", payload)
-        line = self.retract_line(err)
-        self.assertEqual(len(line), 1)
-        self.assertIn("17", line[0])
-        self.assertIn("adapter-down", line[0])
+        line = self.refusal_line(tp.vt.SelfRead(
+            "/skills/dispatch/scripts/dispatch.sh", 17, "", "adapter-down", None))
+        self.assertIn("17", line)
+        self.assertIn("adapter-down", line)
 
     def test_a_refusal_whose_self_prints_no_session_names_that_exit_on_stderr(self):
-        blank = tp.vt.SelfRead("/skills/dispatch/scripts/dispatch.sh", 0, "no-session-token", "", None)
-        with mock.patch.object(tp.vt, "read_self", return_value=blank):
-            code, posted, err, _ = tp.preflight(branch="main")
-        self.assertEqual(code, 2)
-        payload = ev.parse(posted[0][1])[1]
-        self.assertNotIn("runner", payload)
-        self.assertNotIn("session", payload)
-        line = self.retract_line(err)
-        self.assertEqual(len(line), 1)
-        self.assertIn("0", line[0])
-        self.assertIn("no-session-token", line[0])
+        line = self.refusal_line(tp.vt.SelfRead(
+            "/skills/dispatch/scripts/dispatch.sh", 0, "no-session-token", "", None))
+        self.assertIn("0", line)
+        self.assertIn("no-session-token", line)
 
     def test_a_refusal_whose_self_cannot_be_run_names_that_on_stderr(self):
-        broken = tp.vt.SelfRead("/skills/dispatch/scripts/dispatch.sh", None, "", "", "timed out")
-        with mock.patch.object(tp.vt, "read_self", return_value=broken):
-            code, posted, err, _ = tp.preflight(branch="main")
-        self.assertEqual(code, 2)
-        payload = ev.parse(posted[0][1])[1]
-        self.assertNotIn("runner", payload)
-        self.assertNotIn("session", payload)
-        line = self.retract_line(err)
-        self.assertEqual(len(line), 1)
-        self.assertIn("/skills/dispatch/scripts/dispatch.sh", line[0])
-        self.assertIn("timed out", line[0])
+        line = self.refusal_line(tp.vt.SelfRead(
+            "/skills/dispatch/scripts/dispatch.sh", None, "", "", "timed out"))
+        self.assertIn("/skills/dispatch/scripts/dispatch.sh", line)
+        self.assertIn("timed out", line)
+
+    def test_a_refusal_without_refusal_py_still_names_retract_on_stderr(self):
+        line = self.refusal_line(
+            tp.vt.SelfRead("/missing/dispatch.sh", None, "", "", None),
+            _REFUSAL_PY=Path("/missing/refusal.py"))
+        self.assertIn("/missing/dispatch.sh", line)
 
     def test_a_refusal_that_names_its_session_prints_no_session_line(self):
         with mock.patch.object(tp.vt, "own_session", return_value=("orca", "term_w77")):
@@ -123,9 +115,9 @@ class TestTheRefusalNamesItsSession(unittest.TestCase):
                if k not in ("ORCA_TERMINAL_HANDLE", "HERDR_ENV", "HERDR_PANE_ID", "TERM_PROGRAM")}
         inside = dict(env, PASEO_AGENT_ID="agt_self_test")
         with mock.patch.object(vt, "GH_ENV", inside):
-            self.assertEqual(vt.own_session(), ("paseo", "agt_self_test"))
+            self.assertEqual(vt.own_session(vt.read_self()), ("paseo", "agt_self_test"))
         with mock.patch.object(vt, "GH_ENV", env):
-            self.assertIsNone(vt.own_session())
+            self.assertIsNone(vt.own_session(vt.read_self()))
 
 
 class TestTheFoldEndsThatHoldOnly(unittest.TestCase):

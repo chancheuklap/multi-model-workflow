@@ -24,17 +24,20 @@ import sys
 import tempfile
 import time
 from collections import Counter, defaultdict, deque
-from typing import NamedTuple
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
+from typing import NamedTuple
 
 HERE = Path(__file__).resolve().parent
 
 
-def _load(name: str, filename: str):
-    """A module beside this file."""
-    spec = importlib.util.spec_from_file_location(name, HERE / filename)
+def _load(name: str, filename: str | Path):
+    """Load the module at `filename`. A name with no directory is a file beside this one."""
+    path = Path(filename)
+    if not path.is_absolute():
+        path = HERE / path
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -273,58 +276,33 @@ def read_self() -> SelfRead:
                              timeout=60, env=GH_ENV)
     except (OSError, subprocess.SubprocessError) as exc:
         return SelfRead(path, None, "", "", str(exc))
-    return SelfRead(path, out.returncode, out.stdout or "", out.stderr or "", None)
+    return SelfRead(path, out.returncode, out.stdout, out.stderr, None)
 
 
-# The `read_self` answer behind the latest `own_session` that returned None. The next
-# call, and a refusal that is about to call `own_session`, clears it. A test that
-# patches `own_session` leaves it clear, so the refusal line stays the one it had.
-_unnamed_session: SelfRead | None = None
+def own_session(read: SelfRead) -> tuple[str, str] | None:
+    """(runner, session) as `read` reports it, or None when it names neither.
 
-# Quoted `dispatch.sh self` output on the refusal line. Past this many characters the
-# dump is cut, so it does not fill the line a person reads.
-_SELF_OUTPUT_LIMIT = 300
-
-
-def own_session() -> tuple[str, str] | None:
-    """(runner, session) of the session this run is part of, as `read_self` reports it,
-    or None when it cannot say: outside any runner, or with that skill not there.
-
-    On None, `_unnamed_session` is that `read_self` answer. Patched out in tests.
+    Patched out in tests. `run_preflight` passes the `read_self` answer it just took.
     """
-    global _unnamed_session
-    _unnamed_session = None
-    read = read_self()
-    if read.error is None and read.returncode == 0:
-        runner, _, session = read.stdout.strip().partition("\t")
-        if runner and session:
-            return (runner, session)
-    _unnamed_session = read
+    if read.error is not None or read.returncode != 0:
+        return None
+    runner, _, session = read.stdout.strip().partition("\t")
+    if runner and session:
+        return (runner, session)
     return None
 
 
-_refusal_call = None
+# `refusal.py` of the ui-acceptance skill. One line is capped here, above a hook's
+# 256-character deny reason: `refusal` trims the cause and keeps the next step whole.
+_REFUSAL_PY = HERE.parents[1] / "ui-acceptance" / "scripts" / "refusal.py"
+_LINE_LIMIT = 2000
 
 
-def _refusal():
-    """`refusal` from the ui-acceptance skill: the three parts of one refusal line."""
-    global _refusal_call
-    if _refusal_call is None:
-        spec = importlib.util.spec_from_file_location(
-            "mmw_refusal", HERE.parents[1] / "ui-acceptance" / "scripts" / "refusal.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        _refusal_call = module.refusal
-    return _refusal_call
-
-
-def _self_output(read: SelfRead) -> str:
-    text = " ".join(f"{read.stdout} {read.stderr}".split())
-    if not text:
-        return "no output"
-    if len(text) > _SELF_OUTPUT_LIMIT:
-        return text[:_SELF_OUTPUT_LIMIT - 3].rstrip() + "..."
-    return text
+def _format_refusal(what: str, why: str, next_step: str) -> str:
+    """The three parts on one line. With no `refusal.py`, the parts joined as they stand."""
+    if not _REFUSAL_PY.is_file():
+        return f"{what} {why} {next_step}"
+    return _load("mmw_refusal", _REFUSAL_PY).refusal(what, why, next_step, limit=_LINE_LIMIT)
 
 
 def unnamed_session_line(number: int, read: SelfRead) -> str:
@@ -332,17 +310,16 @@ def unnamed_session_line(number: int, read: SelfRead) -> str:
 
     The event is already posted without `runner` and `session`, so the hold does not end.
     """
+    quoted = " ".join(f"{read.stdout} {read.stderr}".split()) or "no output"
     if read.error:
         what = f"dispatch.sh self at {read.path} could not be run ({read.error})."
     elif read.returncode is None:
         what = f"no dispatch.sh at {read.path}."
-    elif read.returncode == 0:
-        what = f"dispatch.sh self exit 0, printed no session: {_self_output(read)}."
     else:
-        what = f"dispatch.sh self exit {read.returncode}: {_self_output(read)}."
+        what = f"dispatch.sh self exit {read.returncode}: {quoted}."
     why = f"This refusal does not end this session's hold on #{number}."
     next_step = f"dispatch.sh retract {number}, or during a night tell the orchestrator."
-    return _refusal()(what, why, next_step, limit=2000)
+    return _format_refusal(what, why, next_step)
 
 
 def assign_self(number: int) -> None:
@@ -2284,14 +2261,14 @@ def run_preflight(number: int) -> int:
         # The refusing session is named so its own hold ends with this event and the
         # ticket is free for the next start. A session that cannot name itself ends
         # none, and stderr says why and what to do next.
-        global _unnamed_session
-        _unnamed_session = None
-        runner, session = own_session() or (None, None)
+        read = read_self()
+        named = own_session(read)
+        runner, session = named or (None, None)
         post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
                    reason=reason, branch=branch or None, runner=runner, session=session)
         sys.stderr.write(sentence + "\n")
-        if (runner is None or session is None) and _unnamed_session is not None:
-            sys.stderr.write(unnamed_session_line(number, _unnamed_session) + "\n")
+        if named is None:
+            sys.stderr.write(unnamed_session_line(number, read) + "\n")
         return 2
     assign_self(number)
     try:
