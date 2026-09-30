@@ -317,6 +317,24 @@ class VerbatimLintDrafts(unittest.TestCase):
         output = self.lint(0, tables=(key,), message='table, carried line and blocking edge all hold')
         self.assertRegex(output, r'(?m)^DRAFTS OK 2 drafts, 4 moves checked$')
 
+    def test_lint_drafts_a_new_sentence_that_is_a_separator_line(self):
+        table = self.table('separator.tsv', 'token\told-name\tnew-name\n')
+        rename = f'from {self.sha}\nrename token old-name -> new-name'
+        self.begin()
+        self.draft('alpha', rename)
+        self.draft('beta', f'from {self.sha}\nnew fresh.md "---" : Spec separator')
+        self.lint(0, tables=(table,), message='a new sentence that is only --- does not crash')
+
+        self.begin()
+        self.draft('alpha', rename)
+        self.draft('beta', (
+            f'from {self.sha}\n'
+            'new fresh.md "---" : Spec separator\n'
+            'new fresh.md "See `old-name` here." : Spec note'
+        ))
+        self.lint(1, 'L6', tables=(table,),
+                  message='inline code in another new sentence still carries the old token')
+
     def test_lint_drafts_that_cannot_be_read_exit_2(self):
         self.lint(2, directory=self.drafts / 'no-such-directory',
                   message='the draft directory cannot be read')

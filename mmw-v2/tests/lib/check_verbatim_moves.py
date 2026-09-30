@@ -954,7 +954,13 @@ def addition_mentions(addition: Allowance, rule: Rename) -> bool:
         return False
     if rename_text(addition.text, 'sentence', [rule], path) != addition.text:
         return True
-    for unit in markdown_units(addition.text + '\n'):
+    # The sentence text was judged above. A sentence that is not a Markdown
+    # document (a line that is only ---) cannot be split; that is not a draft error.
+    try:
+        units = markdown_units(addition.text + '\n')
+    except TextError:
+        return False
+    for unit in units:
         if rename_text(unit.text, unit.kind, [rule], path) != unit.text:
             return True
     return False
