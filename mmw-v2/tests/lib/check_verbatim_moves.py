@@ -89,8 +89,8 @@ import subprocess
 import sys
 
 try:
-    from skill_text import (FENCE, HEADING, GitTree, Location, LocationMissing, Rename,
-                            TextError, Unit, anchors, closes_fence, frontmatter,
+    from skill_text import (FENCE, HEADING, REFERENCE, GitTree, Location, LocationMissing,
+                            Rename, TextError, Unit, anchors, closes_fence, frontmatter,
                             canonical_text, markdown_units, normalize_title,
                             parse_location, read_imports, rename_text, sentences)
 except ImportError as exc:
@@ -608,7 +608,6 @@ def untouched_text(comparison: Comparison, tree: GitTree, item: Item, source: bo
     if item.unit.kind == 'code':
         return rename_text(text, 'code', comparison.manifest.renames, item.path) if source else text
     path_rules = [r for r in comparison.manifest.renames if r.kind == 'path']
-    refs = re.compile(r"the `[^`]+` skill's `[^`]+`|\[[^\]]*\]\([^\s)]+\)|`[^`\n]+`")
 
     def reference(match):
         value = match.group()
@@ -621,7 +620,7 @@ def untouched_text(comparison: Comparison, tree: GitTree, item: Item, source: bo
             return '\x00' + form + ':' + canonical
         return value
 
-    text = refs.sub(reference, text)
+    text = REFERENCE.sub(reference, text)
     return rename_text(text, item.unit.kind, comparison.manifest.renames, item.path) if source else text
 
 

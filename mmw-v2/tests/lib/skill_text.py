@@ -493,6 +493,16 @@ def rename_text(text: str, kind: str, renames: list[Rename], target: str) -> str
     return text
 
 
+# The three ways skill text writes a path: a skill-qualified path, a Markdown
+# link, and inline code. REFERENCE matches any of them, the skill-qualified form
+# first because it contains inline code.
+NAMED_REFERENCE = re.compile(r"the `([^`]+)` skill's `([^`]+)`")
+LINK_REFERENCE = re.compile(r'\[([^\]]*)\]\(([^\s)]+)\)')
+CODE_REFERENCE = re.compile(r'`([^`\n]+)`')
+REFERENCE = re.compile('|'.join(
+    p.pattern for p in (NAMED_REFERENCE, LINK_REFERENCE, CODE_REFERENCE)))
+
+
 def canonical_text(unit: Unit, tree: GitTree, path: str, target: str,
                    renames: list[Rename], source: bool = False,
                    head: GitTree | None = None) -> str:
@@ -520,20 +530,19 @@ def canonical_text(unit: Unit, tree: GitTree, path: str, target: str,
         return '\x00path:' + resolved + '\x00'
 
     # Resolve skill-qualified paths before standalone inline-code paths.
-    named = re.compile(r"the `([^`]+)` skill's `([^`]+)`")
     skills = installed_skills(tree)
-    text = named.sub(lambda m: resolve(m.group(2), skills.get(m.group(1), 'mmw-v2/skills/' + m.group(1)), m.group()), text)
+    text = NAMED_REFERENCE.sub(lambda m: resolve(m.group(2), skills.get(m.group(1), 'mmw-v2/skills/' + m.group(1)), m.group()), text)
     def link(m):
         resolved = resolve(m.group(2), str(PurePosixPath(path).parent), m.group())
         return '\x00label:' + m.group(1) + '\x00' + resolved if resolved.startswith('\x00path:') else resolved
-    text = re.sub(r'\[([^\]]*)\]\(([^\s)]+)\)', link, text)
+    text = LINK_REFERENCE.sub(link, text)
     def code_path(m):
         value = m.group(1)
         if '/' not in value:
             return m.group()
         base = '' if value.startswith(('mmw-v2/', '.mmw/')) else component_root(path)
         return resolve(value, base, m.group())
-    text = re.sub(r'`([^`\n]+)`', code_path, text)
+    text = CODE_REFERENCE.sub(code_path, text)
     if source:
         # Resolved paths use path renames only; token/text rules apply to the
         # remaining literal text, after resolution against the source snapshot.
