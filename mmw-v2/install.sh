@@ -2114,7 +2114,11 @@ import statedir
 opens = []
 locks = []
 unreadable = []
-for repo_dir in statedir.repo_state_dirs():
+try:
+    repo_dirs = statedir.repo_state_dirs()
+except NotADirectoryError:
+    repo_dirs = []
+for repo_dir in repo_dirs:
     owner, name = repo_dir.name.split("__", 1)
     repo = f"{owner}/{name}"
     try:

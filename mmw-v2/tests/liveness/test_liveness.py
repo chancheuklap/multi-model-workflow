@@ -19,6 +19,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -131,8 +132,6 @@ class StateCase(unittest.TestCase):
              "tickets:" + ",".join(str(n) for n in e["tickets"])): e for e in entries})
 
 
-# ----------------------------------------------------------------- tolerance and health
-
 class RepositoryStateDirectories(StateCase):
     def test_repository_state_directories_are_listed_sorted_without_strays(self):
         root = self.state.parent
@@ -147,12 +146,11 @@ class RepositoryStateDirectories(StateCase):
 
         self.assertEqual(statedir.repo_state_dirs(), [first, second])
 
-        for directory in (second, first, stray):
-            directory.rmdir()
-        ordinary_file.unlink()
-        root.rmdir()
+        shutil.rmtree(root)
         self.assertEqual(statedir.repo_state_dirs(), [])
 
+
+# ----------------------------------------------------------------- tolerance and health
 
 class Tolerance(unittest.TestCase):
     def test_short_polls_keep_the_floor(self):
