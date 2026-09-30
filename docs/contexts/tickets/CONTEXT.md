@@ -174,6 +174,10 @@ _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 The repository-relative paths the ticket may write, one per line, including its test files and any file it must edit to put what it creates in service. Everything outside is read-only for the ticket.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
+**`## Moves`**:
+The ticket's manifest of source text carried to named destinations and of the rewrites, omissions and new text it permits. It sits between `## Owns` and `## Acceptance criteria`, making each carried unit and each allowance checkable against the pinned source.
+_Home_: `mmw-v2/tests/lib/check_verbatim_moves.py`
+
 **`## Acceptance criteria`**:
 The ticket section holding the acceptance criteria. A `ready-for-human` ticket has none.
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
