@@ -6,6 +6,7 @@ How code in this repository is written. The reviewer's Standards axis applies th
 
 - A skill directory `mmw-v2/skills/<name>/` is symlinked whole into every host, so it holds only what the agent holding the skill reads or runs: `SKILL.md`, reference files, `scripts/<…>`.
 - A script finds its neighbours from its own resolved location. The only absolute paths it names are fixed user-level locations (`~/.mmw`, `~/.agents/skills`, `~/.claude/skills`) and paths the run made itself with `mktemp`, never a fixed name under `/tmp`.
+- A newly written script takes a text anchor, or a path into another skill's directory, only through `locations.py` (`mmw-v2/skills/dispatch/scripts/locations.py`).
 - A runner's own commands live only in its adapter `mmw-v2/skills/dispatch/scripts/runners/<runner>.sh`, whose `# MMW_USES:` header is the authoritative list of what it calls. The selected runner is whatever `models.py runner` selects (its last step is a default).
 - Every refusal has the three parts `refusal.py` builds: what happened, with one checkable fact; why; what to do next. A check that could verify nothing says so instead of reading like a pass (ADR 0008). Script headers record dated, version-pinned measurements from real runs (each host's hook payload, each runner's liveness tolerance) rather than claims from documentation.
 
