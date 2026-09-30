@@ -290,7 +290,7 @@ _Home_: `mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-SET-RULES.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **`NOT_READY:`, `READY:`, `RESUME:`, `CARRIED:`**:
-The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY:` on stderr when it cannot, with a sentence saying why and what to do next (the refusal's code, `wrong-branch`, `dirty-tree`, `not-open`, `not-ready`, `blocked` or `claimed-by-other`, goes into the `ticket.refused` event's `reason`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim.
+The fixed lines `--preflight` prints as it claims a ticket: `NOT_READY:` on stderr when it cannot, with a sentence saying why and what to do next (the refusal's code, `wrong-branch`, `dirty-tree`, `not-open`, `not-ready`, `blocked` or `claimed-by-other`, goes into the `ticket.refused` event's `reason`), `READY:` once claimed, `RESUME: step <k> (<event>)` naming which closing step a reclaiming worker resumes at, and `CARRIED:` when the worker's own uncommitted tracked changes are found on reclaim. Until B2 a where line stands beside `RESUME:`: for each role it gives one answer of the same kind, read from that role's events.
 _Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
 
 **claim**:

@@ -2,7 +2,9 @@
 # 把九样东西装到本机，让每个 host 都读得到：
 #
 #   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
-#   hook              dispatch 的 tool-guard.py 与 turn-guard.py，写进各 host 自己的配置
+#   hook              经复制的 .mmw/bin/hook-launcher 登记（普通文件，不是软链）。源文件是
+#                     mmw-v2/hook-launcher.py；各 host 的命令都调这个启动器，由它按
+#                     installed-root 找到 dispatch 的 tool-guard.py 与 turn-guard.py。
 #   提示词            prompt/shared.md 与 prompt/hosts/<host>.md：Claude Code 读软链，Codex、Pi、Grok
 #                     读 prompt/render.py 拼出的 AGENTS.md
 #   launchd 任务      盯着源文件，改了就重拼 Codex、Pi、Grok 的 AGENTS.md
@@ -31,8 +33,12 @@
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
 #                         另读 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
+#                         核对复制的 .mmw/bin/hook-launcher 与 mmw-v2/hook-launcher.py 逐字节相同
+#                         且不是软链，并核对各宿主的 hook 都经 hook-launcher；不同报「不一致」，
+#                         这一项改退出码。
 #                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
-#                         watch，以及锁文件记录的进程仍在运行的 relay.lock、watchdog.lock。
+#                         watch（行首 OPEN-WATCH），以及锁文件记录的进程仍在运行的 relay.lock、
+#                         watchdog.lock（行首 LIVE-LOCK）。
 #                         watches.json 在但读不成时点名该文件，不当成没有夜。
 #                         末行是 SAFE-TO-MOVE-INSTALLED，或 NOT-SAFE-TO-MOVE-INSTALLED。
 #                         这份列表不改退出码。
