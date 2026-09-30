@@ -9,6 +9,16 @@ import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'lib' / 'check_component_structure.py'
 FIXTURES = Path(__file__).resolve().parent / 'fixtures' / 'structure'
+# The acceptance contract, #602 What to build 2, fixes these 25 public rule ids.
+RULE_IDS = {
+    'mode-name', 'mode-sections', 'mode-imported-triggers', 'mode-principle-line',
+    'mode-route-line', 'playbook-title', 'playbook-owner-line', 'playbook-steps',
+    'playbook-where-table', 'step-title', 'step-done-when', 'step-names-component',
+    'playbook-reply', 'principle-frontmatter', 'principle-applies', 'principle-body',
+    'principle-direction', 'capability-next-step', 'capability-playbook-name',
+    'numbered-cross-reference', 'host-name', 'no-dash', 'description-trigger',
+    'description-content', 'skill-name',
+}
 
 
 class ComponentStructure(unittest.TestCase):
@@ -53,7 +63,9 @@ class ComponentStructure(unittest.TestCase):
     def test_each_rule_fails_its_own_fixture(self):
         playbook = 'mmw-v2/skills/mmw/playbooks/plan-a-change.md'
         self.fixture('short-playbook.md', playbook)
-        for fixture in sorted(FIXTURES.glob('*.bad.md')):
+        fixtures = sorted(FIXTURES.glob('*.bad.md'))
+        self.assertEqual({f.name.removesuffix('.bad.md') for f in fixtures}, RULE_IDS)
+        for fixture in fixtures:
             rule = fixture.name.removesuffix('.bad.md')
             if rule.startswith('mode-'):
                 path = 'mmw-v2/skills/mmw/SKILL.md'
@@ -80,9 +92,14 @@ class ComponentStructure(unittest.TestCase):
                    f'playbook\t{path}\tupstream.md\tabc123\t\t\tB1\n')
         result = self.run_check(path)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for text, rule in (('Imported\n\n**Reply:** evidence.\n', 'playbook-title'),
+                           ('### Imported\n\n1. Inspect evidence.\n', 'playbook-reply')):
+            self.write(path, text)
+            result = self.run_check(path)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            ids = re.findall(r'^.*\.md:\d+: ([\w-]+) ', result.stdout, re.M)
+            self.assertEqual(ids, [rule], result.stdout + result.stderr)
         self.write(path, 'An imported standard without Reply or H3.\n')
-        result = self.run_check(path)
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.write('mmw-v2/skills/mmw/imports.tsv',
                    'type\tpath\tsource\tcommit\tmechanical\tjudgement\tbatch\n'
                    f'playbook\t{path}\tupstream.md\tabc123\t\tstructure-exempt\tB1\n')
@@ -124,7 +141,15 @@ class ComponentStructure(unittest.TestCase):
                 self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
                 self.assertIn(' numbered-cross-reference ', result.stdout)
         for prose in ('Read `shared.md` rule 3.', 'Read rule 3.', 'Read steps from step 2.',
-                      'Follow rules 3 and 4.', 'Read the `example` skill\'s rule 3.'):
+                      'Follow rules 3 and 4.', 'Read the `example` skill\'s rule 3.',
+                      'After step 2 write `result.md`.',
+                      'Reporting in rules 3 to 5 invokes the `implement` skill.',
+                      'Run `python3 scripts/check.py finalize` with the file step 1 saved.',
+                      'Done when `bash scripts/check.sh close` succeeded for every product on the step 2 list.',
+                      'Leave its workspace for implement; step 4 continues the batch.',
+                      'The package was pulled and `pull-report.md` says `new controls`: lint as step 7 says.',
+                      'Use `pages.<page>.viewports` (write that entry now; step 2 fills it).',
+                      'A new page gets that size (step 2 fills it), so `other.md` receives the answer.'):
             with self.subTest(prose=prose):
                 self.write(path, original + '\n' + prose + '\n')
                 result = self.run_check(path)
@@ -136,7 +161,8 @@ class ComponentStructure(unittest.TestCase):
         original = (FIXTURES / 'capability.md').read_text(encoding='utf-8')
         for prose in ('Return to the implement skill.', 'Hand it over to the `implement` skill.',
                       'Hand on to the implement skill.', 'This goes through the implement skill first.',
-                      'These are steps of the implement skill.', 'The next step uses the implement skill.'):
+                      'These are steps of the implement skill.', 'The next step uses the implement skill.',
+                      'Return to `implement`.', 'Hand on to implement.'):
             with self.subTest(prose=prose):
                 self.write(path, original + '\n' + prose + '\n')
                 result = self.run_check(path)
@@ -186,8 +212,6 @@ class ComponentStructure(unittest.TestCase):
             result = self.run_check('--batch', batch)
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         new = 'mmw-v2/skills/example/references/renamed.md'
-        self.write(new, bad + bad)
-        (self.root / path).unlink()
         intermediate = 'mmw-v2/skills/example/references/middle.md'
         self.write('docs/specs/z-first/renames.tsv', f'kind\told\tnew\npath\t{path}\t{intermediate}\n')
         self.write('docs/specs/a-second/renames.tsv', f'kind\told\tnew\npath\t{intermediate}\t{new}\n')
@@ -207,6 +231,11 @@ class ComponentStructure(unittest.TestCase):
         result = self.run_check('--batch', 'B2')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout.count('WARN stale exception'), 2)
+        self.write(new, bad)
+        self.write(table, header + row.replace('\tB2\tR18 B2', '\tpermanent\tA literal button label'))
+        result = self.run_check('--batch', 'B10')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('1 exceptions in use, 0 stale', result.stdout)
         self.write(table, header + row.replace('\tB2\tR18 B2', '\tpermanent\t'))
         result = self.run_check()
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
@@ -221,6 +250,23 @@ class ComponentStructure(unittest.TestCase):
         self.assertIn('Codex', table)
         result = self.run_check()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_exception_writer_uses_the_moving_files_batch_for_unlisted_findings(self):
+        skill = 'mmw-v2/skills/design-pages/SKILL.md'
+        text = (FIXTURES / 'capability.md').read_text(encoding='utf-8')
+        self.write(skill, text.replace('name: example', 'name: design-pages') + '\nRead `UI.md` step 6.\n')
+        references = [f'mmw-v2/skills/design-pages/references/{name}.md'
+                      for name in ('design-system', 'pull')]
+        for path in references:
+            self.write(path, 'Read `other.md` rule 1.\n')
+        result = self.run_check('--write-exceptions')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('3 exceptions in use, 0 stale', result.stdout)
+        for batch, expected in (('B1', [skill]), ('B2', [skill, *references])):
+            result = self.run_check('--batch', batch)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            found = re.findall(r'^(.*\.md):\d+: numbered-cross-reference ', result.stdout, re.M)
+            self.assertEqual(sorted(found), sorted(expected), result.stdout)
 
     def test_component_scope_and_fenced_examples(self):
         path = 'mmw-v2/skills/example/references/notes.md'
@@ -264,7 +310,35 @@ class ComponentStructure(unittest.TestCase):
         self.write('mmw-v2/upstream/skills/example/SKILL.md', '# Upstream\n')
         result = self.run_check('mmw-v2/upstream/skills/example/SKILL.md')
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('0 findings in 0 files', result.stdout)
+        self.assertNotIn('STRUCTURE OK', result.stdout)
         (self.root / 'mmw-v2/skills.txt').unlink()
         result = self.run_check()
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertNotIn('STRUCTURE OK', result.stdout)
+
+    def test_descriptions_allow_identity_and_heading_closing_marks(self):
+        path = 'mmw-v2/skills/example/SKILL.md'
+        text = (FIXTURES / 'capability.md').read_text(encoding='utf-8')
+        text = text.replace('Use when evidence needs inspection.',
+                            'Inspect evidence for one criterion. Use when evidence needs inspection. Not for planning.')
+        self.write(path, text)
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.write(path, text + '\n## Next ##\n')
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(' capability-next-step ', result.stdout)
+
+    def test_unchecked_frontmatter_names_its_file_and_preserves_the_repair_path(self):
+        path = 'mmw-v2/skills/example/SKILL.md'
+        self.write(path, '---\nname: example\ndescription: unquoted: colon\n---\n')
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn(path, result.stderr)
+        self.fixture('capability.md', path)
+        self.write('mmw-v2/skills/mmw/imports.tsv', 'broken\n')
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        next_line = next(line for line in result.stderr.splitlines() if line.startswith('Next:'))
+        self.assertIn('imports.tsv:1', next_line)

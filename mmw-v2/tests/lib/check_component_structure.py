@@ -21,7 +21,7 @@ import sys
 import tempfile
 
 try:
-    from skill_text import (MODE_DIR, MODE_ROOT, TextError, classify, frontmatter,
+    from skill_text import (HEADING, MODE_DIR, MODE_ROOT, TextError, classify, frontmatter,
                             installed_skills, markdown_units, normalize_title,
                             read_imports, sentences)
 except ImportError as exc:
@@ -60,11 +60,19 @@ RULES = {
 
 
 @dataclass(frozen=True)
-class Finding:
+class FindingKey:
     path: str
-    line: int
     rule: str
     excerpt: str
+
+    @property
+    def key(self):
+        return FindingKey(self.path, self.rule, self.excerpt)
+
+
+@dataclass(frozen=True)
+class Finding(FindingKey):
+    line: int
 
     def render(self):
         return f'{self.path}:{self.line}: {self.rule} {RULES[self.rule]["message"]} | {self.excerpt}'
@@ -75,15 +83,19 @@ class Document:
         self.path = path
         self.text = text
         self.lines = text.splitlines()
-        self.data, self.start, self.marks = frontmatter(text)
-        self.units = markdown_units(text)
+        try:
+            self.data, self.start, self.marks = frontmatter(text)
+            self.units = markdown_units(text)
+        except TextError as exc:
+            raise TextError(f'{path}: {exc}', exc.next_step or
+                            f'correct the frontmatter in {path} and rerun.') from exc
         # All structural parsing uses the same Markdown segmentation as other text checks.
         self.hidden = {row for u in self.units if u.kind in ('code', 'html')
                        for row in range(u.line, u.end_line + 1)}
         self.body = [(i + 1, line) for i, line in enumerate(self.lines)
                      if i >= self.start and i + 1 not in self.hidden]
         self.headings = [(row, len(m[1]), normalize_title(m[2])) for row, line in self.body
-                         if (m := re.match(r'^ {0,3}(#{1,6})\s+(.+)$', line))]
+                         if (m := HEADING.match(line))]
         self.findings: list[Finding] = []
 
     def fail(self, rule: str, row: int = 1, match: str = ''):
@@ -99,7 +111,7 @@ class Document:
                     at = prefix.start()
                     break
         excerpt = raw if len(raw) <= 80 else raw[max(0, at):max(0, at) + 80]
-        finding = Finding(self.path, row, rule, excerpt)
+        finding = Finding(self.path, rule, excerpt, row)
         self.findings.append(finding)
 
     def section(self, title: str, level: int = 2):
@@ -282,7 +294,6 @@ def check_description(doc: Document, inv: Inventory):
     parts = sentences(description) if isinstance(description, str) else []
     exclusions = [s for s in parts if s.text.startswith(('Not for', 'Do not use'))]
     if (not parts or not any(s.text.startswith('Use ') for s in parts) or len(parts) > 3 or len(exclusions) > 1
-            or any(not s.text.startswith(('Use ', 'Not for', 'Do not use')) for s in parts)
             or len(description) > 1024):
         doc.fail('description-trigger', row)
     if isinstance(description, str):
@@ -302,9 +313,10 @@ def check_capability(doc: Document, inv: Inventory):
         if depth == 2 and title in ('Next', 'Reached from here'):
             doc.fail('capability-next-step', row)
     skill = inv.skill_pattern()
-    target = r'(?:the\s+)?`?' + skill + r'`?\s+skill'
+    target = r'(?:the\s+)?`?' + skill + r'`?'
     routing = re.compile(r'\b(?:return to|hand (?:it )?(?:over|on) to)\s+' + target +
-                         r'|\bgoes through\s+' + target + r'\s+first\b|\bare steps of\s+' + target, re.I)
+                         r'(?:\s+skill)?|\bgoes through\s+' + target +
+                         r'\s+skill\s+first\b|\bare steps of\s+' + target + r'\s+skill', re.I)
     doc.match_units('capability-next-step', routing)
     for unit in doc.units:
         if unit.kind == 'sentence' and re.search(skill, unit.text) and (m := re.search(r'\bnext step\b', unit.text, re.I)):
@@ -322,6 +334,11 @@ def check_own_prose(doc: Document, inv: Inventory):
     numbered = re.compile(r'\bclosing step\s+\d+|\bPhase\s+[A-Z]\b|\bstep\s+\d+|##\s+\d+|\brules?\s+\d+(?:\s+and\s+\d+)?', re.I)
     own = PurePosixPath(doc.path).name
     own_skill = doc.path.split('/')[2] if doc.path.startswith('mmw-v2/skills/') and own == 'SKILL.md' else ''
+    file_source = r'(?P<file>[\w./-]+\.(?:md|py|sh))'
+    skill_source = inv.skill_pattern(own_skill)
+    source = r'(?:' + file_source + '|' + skill_source + r'(?:`?\s+skill)?)'
+    before = re.compile(source + r"`?(?:['’]s)?\s+`?$", re.I)
+    after = re.compile(r'^\s+of\s+(?:the\s+)?`?' + source, re.I)
     for unit in doc.units:
         if unit.kind != 'sentence':
             continue
@@ -329,9 +346,13 @@ def check_own_prose(doc: Document, inv: Inventory):
             if re.match(r'closing step|Phase', m.group(), re.I):
                 cross = True
             else:
-                files = re.findall(r'[\w./-]+\.(?:md|py|sh)\b', unit.text)
-                cross = any(f != own for f in files)
-                cross = cross or bool(re.search(inv.skill_pattern(own_skill), unit.text))
+                # A source modifies its step/heading, or follows "rules N of".
+                # Merely mentioning a command, output file or destination in the
+                # same sentence does not change a reference to this file's steps.
+                named = before.search(unit.text[:m.start()])
+                if not named and re.match(r'rules?\b', m.group(), re.I):
+                    named = after.match(unit.text[m.end():])
+                cross = bool(named and named['file'] != own)
             if re.fullmatch(r'rules?\s+\d+(?:\s+and\s+\d+)?', m.group(), re.I) and re.search(r'`(?:[^`]+/)?shared\.md`\s*$', unit.text[:m.start()]):
                 continue
             if cross:
@@ -368,10 +389,7 @@ EXCEPTION_FIELDS = ['path', 'rule', 'excerpt', 'until', 'reason']
 
 
 @dataclass(frozen=True)
-class ExceptionRow:
-    path: str
-    rule: str
-    excerpt: str
+class ExceptionRow(FindingKey):
     until: str
     reason: str
 
@@ -429,7 +447,7 @@ def apply_exceptions(findings: list[Finding], rows: list[ExceptionRow], batch: s
     used = 0
     for finding in findings:
         match = next((i for i, row in enumerate(available)
-                      if (row.path, row.rule, row.excerpt) == (finding.path, finding.rule, finding.excerpt)), None)
+                      if row.key == finding.key), None)
         if match is None:
             remaining.append(finding)
             continue
@@ -449,7 +467,10 @@ def debt_assignment(finding: Finding):
         return 'permanent', r21 + ' §4.3: Claude Design 按钮上的字，照录。'
     if rule == 'capability-next-step' and path.startswith(('write-screen-contract/', 'design-pages/')):
         return 'B1', r21 + ' §4.3; ' + r18 + ' §4.1: 下一步进 P3/P1，§10 B1 搬白天 playbook。'
-    if rule == 'numbered-cross-reference' and path.startswith(('design-pages/', 'code-checkers/', 'exe-release/references/')):
+    b1_numbered_paths = {'design-pages/SKILL.md', 'code-checkers/references/git-hooks.md',
+                         'code-checkers/references/python.md', 'exe-release/references/driving.md',
+                         'exe-release/references/key.md'}
+    if rule == 'numbered-cross-reference' and path in b1_numbered_paths:
         return 'B1', r21 + ' §4.3; ' + r18 + ' §4.1, §10 B1: 白天步骤与 reference 改名时改编号引用。'
     if path.startswith(('verify-ticket/', 'dispatch/', 'retro/', 'advisor/', 'ui-acceptance/', 'exe-release/SKILL.md')):
         return 'B2', r18 + ' §10 B2 票 a: 夜间流程与能力技能剥离。'
@@ -510,21 +531,29 @@ def main():
             if args.files:
                 rows = [r for r in rows if r.path in paths]
             findings, used, stale = apply_exceptions(findings, rows, args.batch)
-        if not paths or findings:
+        failed = not paths or bool(findings)
+        if failed:
             print(f'STRUCTURE FAILED: {len(findings)} findings in {len(paths)} files')
             print('Next: fix the named component; if a rule does not apply, open a decision child, do not edit the exception table.')
             print('Why: component structure and routing direction must hold; checking nothing cannot establish them.')
             for finding in findings:
                 print(finding.render())
-            for row in stale:
-                print(f'WARN stale exception {row.path}: {row.rule} | {row.excerpt}')
-            return 1
         for row in stale:
             print(f'WARN stale exception {row.path}: {row.rule} | {row.excerpt}')
+        if failed:
+            return 1
         print(f'STRUCTURE OK {len(paths)} files ({used} exceptions in use, {len(stale)} stale)')
         return 0
     except (OSError, TextError, UnicodeError, ValueError) as exc:
-        print(f'STRUCTURE UNCHECKED: {exc}\nNext: correct the input and rerun.\nWhy: the checker could not read its inputs.', file=sys.stderr)
+        if isinstance(exc, TextError):
+            next_step = exc.next_step or 'correct the reported component path, TSV row or command option and rerun.'
+        elif isinstance(exc, OSError):
+            next_step = f'restore read access to {exc.filename or args.root} and rerun.'
+        elif isinstance(exc, UnicodeError):
+            next_step = f'correct the UTF-8 encoding of the component or TSV file under {args.root} and rerun.'
+        else:
+            next_step = f'give component paths inside {args.root} and rerun.'
+        print(f'STRUCTURE UNCHECKED: {exc}\nNext: {next_step}\nWhy: the checker could not read its inputs.', file=sys.stderr)
         return 2
 
 
