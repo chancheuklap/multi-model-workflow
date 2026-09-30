@@ -9,8 +9,9 @@ this file before running a shell command, and this file refuses that one command
 
 A question on the screen has nobody to answer it: nothing in this pipeline reads a
 form. So every host asks this file before calling its question tool, and this file
-refuses the call and says where the question goes instead — the default taken and
-recorded, or `ABANDON: AC<n> decision` with a sub-issue.
+refuses the call and gives three ways out: the worker takes and records the default,
+or writes `ABANDON: AC<n> decision` and opens a `decision` child, then continues;
+the reviewer appends `unverified: <what would settle it>` at the end of the finding's line.
 
 Ending a process is never this session's to do. Several runs share one machine, and
 another run's application is indistinguishable from a stuck one, so a session that is
@@ -72,12 +73,12 @@ REFUSAL = (
     "Unfinished work leaves the same way, first line `HANDOFF REQUIRED`."
 )
 
-# The same length rule. Nobody is at the screen; the two ways out are the ones the
-# `implement` skill already gives.
+# The same length rule, including the host's prefix: the worker records a default or
+# opens a decision child and continues; the reviewer marks the finding unverified.
 NO_QUESTION = (
-    "Nobody is at the screen. Take the likeliest option and note it under `Decisions I "
-    "made on my own`; if the answer changes what the ticket delivers, write `ABANDON: "
-    "AC<n> decision <question, options, default>` and open a needs-triage sub-issue."
+    "No one answers. Worker: pick likely; note `Decisions I made on my own`; if delivery "
+    "changes: ABANDON: AC<n> decision <question,options,default>; open decision child; "
+    "continue. Reviewer: end finding line with unverified: <what would settle it>."
 )
 
 # The tool each host calls to put a question on the screen.
