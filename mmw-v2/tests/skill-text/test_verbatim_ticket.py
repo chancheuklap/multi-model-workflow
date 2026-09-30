@@ -192,6 +192,7 @@ class VerbatimTicket(unittest.TestCase):
         self.env['MMW_TICKET'] = '999'
         self.ticket_body()
         self.check('--ticket', '603', token="untouched text: not checked, not on this ticket's branch")
+        self.git('checkout', '-q', 'closing-base')
         # Being off the ticket branch does not skip the manifest comparison.
         self.write('target.md', 'Changed carried sentence.\n')
         self.commit()
