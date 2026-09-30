@@ -1351,7 +1351,7 @@ cmd_receipt() {
   fi
   echo "## attempts so far:"
   # log_refs 必须进入 receipt：PAUSED:needs-context 的自主处置政策
-  # 在 driving.md 第一步从该命令读取日志 locator(file:/pc:)，漏印会迫使主 agent 翻 state 文件猜路径。
+  # 在 release-loop.md 第一步从该命令读取日志 locator(file:/pc:)，漏印会迫使主 agent 翻 state 文件猜路径。
   jq -r '.attempt_ledger[] | "- ["+.action_kind+"] stage="+.stage+" outcome="+.outcome+(if .root_cause_fingerprint then " fp="+.root_cause_fingerprint else "" end)+(if (.artifact_refs|length)>0 then " findings="+(.artifact_refs|join(",")) else "" end)+(if (.log_refs//[]|length)>0 then " logs="+(.log_refs|join(",")) else "" end)' "$f"
   echo "## fingerprints seen:"
   jq -r '.fingerprint_ledger[] | "- "+.fingerprint+" x"+(.count|tostring)' "$f"

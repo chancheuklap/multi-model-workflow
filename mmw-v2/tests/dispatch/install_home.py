@@ -81,7 +81,7 @@ print(json.dumps(result))
     nmem.chmod(0o755)
 
 
-def run_install(installer: Path, home: Path, bin_dir: Path) -> subprocess.CompletedProcess:
+def run_install(installer: Path, home: Path, bin_dir: Path, *args: str) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     for name in list(env):
         if name in _STRIP or name.startswith("NMEM_"):
@@ -90,7 +90,7 @@ def run_install(installer: Path, home: Path, bin_dir: Path) -> subprocess.Comple
     env["MMW_HOME"] = str(home / ".mmw")
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     return subprocess.run(
-        ["bash", str(installer)],
+        ["bash", str(installer), *args],
         env=env,
         capture_output=True,
         text=True,

@@ -5,7 +5,7 @@ Two ways in, and they meet at the same place — a release manifest, written onc
 - The product has never been packaged. Work through everything below.
 - The product ships today through its own packaging scripts. Read "Coming from existing packaging scripts" at the end; most of what follows already exists in that repository.
 
-Then write the release manifest: [key.md](key.md).
+Then write the release manifest: [release-manifest.md](release-manifest.md).
 
 ## The product shape this skill packages
 
@@ -86,7 +86,7 @@ Missing in both places is a `PAUSED:needs-context` you can often close yourself:
 
 ## Coming from existing packaging scripts
 
-A product that ships today through its own Python is the same job read backwards. Open each script and sort it with the one question from [key.md](key.md):
+A product that ships today through its own Python is the same job read backwards. Open each script and sort it with the one question from [release-manifest.md](release-manifest.md):
 
 - **Constants — lists of packages, paths, flags, versions, names.** These are the release manifest. Copy the values across verbatim. Do not re-decide any of them: a value in there is usually a fix for something that once broke, and the commit that explains it is long gone.
 - **Functions that build a command or copy a tree.** These are the skill. If the skill already does it, delete the copy. If it does not, add the capability there — not a second copy here.

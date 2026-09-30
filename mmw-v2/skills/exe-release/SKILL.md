@@ -31,7 +31,7 @@ If you cannot tell, include the product and write the reason in the table below,
 
 **A product this change touched but no release manifest names does not ship yet.** Bringing it in is one
 JSON file plus whatever the repository still lacks: [new-product.md](references/new-product.md) starts there and
-hands off to [key.md](references/key.md) for the fields.
+hands off to [release-manifest.md](references/release-manifest.md) for the fields.
 
 Show this list once and continue. Do not wait for a reply:
 
@@ -39,7 +39,7 @@ Show this list once and continue. Do not wait for a reply:
 | product | release manifest | why this run includes it |
 ```
 
-## 3. One product per loop, driven by driving.md
+## 3. One product per loop, driven by release-loop.md
 
 For each product from step 2, in order:
 
@@ -47,7 +47,7 @@ For each product from step 2, in order:
 bash scripts/release-flow.sh init --manifest <absolute path of that release manifest>
 ```
 
-Then read [driving.md](references/driving.md) in full and drive until the package is ready.
+Then read [release-loop.md](references/release-loop.md) in full and drive until the package is ready.
 
 `bash scripts/release-flow.sh close` one product before starting the next.
 

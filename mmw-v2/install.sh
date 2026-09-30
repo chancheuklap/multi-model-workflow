@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 把九样东西装到本机，让每个 host 都读得到：
 #
-#   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills
+#   技能              skills.txt 列出的，软链进 ~/.agents/skills 与 ~/.claude/skills；
+#                     +model-invoked 的目标是 ~/.mmw/skill-copies/<名>/ 安装副本
 #   hook              经复制的 .mmw/bin/hook-launcher 登记（普通文件，不是软链）。源文件是
 #                     mmw-v2/hook-launcher.py；各 host 的命令都调这个启动器，由它按
 #                     installed-root 找到 dispatch 的 tool-guard.py 与 turn-guard.py。
@@ -23,14 +24,16 @@
 #
 # 技能有四个来源：mattpocock/skills 的在 upstream/skills/，我们自己写的在 skills/（skills.txt
 # 里前缀 self/），cathrynlavery/diagram-design 的在 upstream-diagram-design/skills/（前缀 dd/），
-# pstack 的在 upstream-pstack/skills/（前缀 pstack/）。四者装法完全一样。
+# pstack 的在 upstream-pstack/skills/（前缀 pstack/）。来源不决定装法，行尾标记决定。
 #
 # skills.txt 一行的路径后面可以跟行尾标记 +model-invoked，表示这个上游技能被 mode 或
-# playbook 点名、要让模型自己能调用；带标记的一行按路径部分安装。
+# playbook 点名、要让模型自己能调用；带标记的一行从路径部分生成安装副本。
 #
-# 软链不是拷贝：host 读的就是仓库里那个文件。在用技能的当中直接改 source directory 下的
-# SKILL.md，下一次调用就是新的，不用重装。（只有 frontmatter 的 description 是 host 启动时扫的，
-# 改它要重开会话。）
+# 不带标记的技能软链不是拷贝：host 读的就是 source directory 的文件，改动下一次调用生效。
+# 带标记的技能有安装副本：SKILL.md 去掉 frontmatter 的 disable-model-invocation 行，
+# agents/openai.yaml 去掉顶层 policy 块；两份是普通文件，改源后要重跑 install.sh 才生效。
+# agents/ 是真目录，其余每项软链回源，仍即改即生效。description 由 host 启动时扫描，
+# 改它另要重开会话。
 #
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
@@ -39,6 +42,10 @@
 #                         核对复制的 .mmw/bin/hook-launcher 与 mmw-v2/hook-launcher.py 逐字节相同
 #                         且不是软链，并核对各 host 的 hook 都经 hook-launcher；不同报「不一致」，
 #                         这一项改退出码。
+#                         比对带标记技能的安装副本，缺失、内容或软链不符报「副本过期」，
+#                         取消标记或删除技能后留下的副本报「残留」；两项都回 1。
+#                         用本 checkout 的 check_wiring.py 核对连线，只打印第 2、7 类，
+#                         report 行不改退出码，其他选中类别的行回 1。跑不起来报「没查」并回 1。
 #                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
 #                         watch（行首 OPEN-WATCH），以及锁文件记录的进程仍在运行的 relay.lock、
 #                         watchdog.lock（行首 LIVE-LOCK）。
@@ -50,11 +57,11 @@
 #
 # 技能装两处，不按 host 分。~/.agents/skills 不属于任何一个 host，Codex、Cursor、Grok、Pi
 # 都原生扫它；Claude Code 不扫，只认 ~/.claude/skills，所以那一处再装一份。两处装的是
-# 同一批软链，都直接指向 source directory，彼此不串。
+# 同一批软链，不带标记的指向 source directory，带标记的指向安装副本，彼此不串。
 #
 # 每个 host 都读 SKILL.md 的 disable-model-invocation，Codex 另读技能目录里的
-# agents/openai.yaml。两者都在技能目录内，软链一并带过去，所以技能安装没有任何按 host
-# 分支的逻辑。
+# agents/openai.yaml。带标记的安装副本统一去掉这两处开关，不带标记的保持源文件；
+# 技能内容没有任何按 host 分支的逻辑。
 #
 
 set -euo pipefail
@@ -67,11 +74,12 @@ PSTACK_SRC="$ROOT/upstream-pstack/skills"
 LIST="$ROOT/skills.txt"
 
 # 一条软链是不是本仓库装的：目标落在本仓库任一 checkout（主 checkout 或某个 worktree）
-# 的对应 source directory 里，按路径段认。ADR 0006 说的「指回本仓库」是仓库，不是某一个
+# 的对应 source directory 里，或安装目标家目录的 skill-copies 下，按路径段认。
+# ADR 0006 说的「指回本仓库」是仓库，不是某一个
 # checkout：从哪个 checkout 运行本脚本，哪个 checkout 的 source directory 就接管这批软链。
 ours_skill_target() {
   case "$1" in
-    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/* | */mmw-v2/upstream-pstack/skills/*) return 0 ;;
+    "$SKILL_COPIES/"* | */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/* | */mmw-v2/upstream-pstack/skills/*) return 0 ;;
   esac
   return 1
 }
@@ -114,6 +122,7 @@ stale_links() {
 
 # MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
 HOME_DIR="${MMW_V2_HOME:-$HOME}"
+SKILL_COPIES="$HOME_DIR/.mmw/skill-copies"
 
 # 不属于任何一个 host，所以无条件建。
 NEUTRAL_DIR="$HOME_DIR/.agents/skills"
@@ -160,6 +169,7 @@ fi
 # 每个技能都要真的存在——写错要在动 host 之前就停。
 wanted_dirs=()
 wanted_names=()
+copy_sources=()
 while IFS= read -r line; do
   line="${line%%#*}"
   tokens=()
@@ -181,7 +191,12 @@ while IFS= read -r line; do
     *) dir="$SKILLS_SRC/$path" ;;
   esac
   [ -f "$dir/SKILL.md" ] || die "skills.txt 里的技能不存在：$path"
-  wanted_dirs+=("$dir")
+  if [ "${#tokens[@]}" -eq 2 ]; then
+    copy_sources+=("$dir")
+    wanted_dirs+=("$SKILL_COPIES/$(basename "$path")")
+  else
+    wanted_dirs+=("$dir")
+  fi
   wanted_names+=("$(basename "$path")")
 done < "$LIST"
 
@@ -196,6 +211,141 @@ installed_dests=0
 # hook 一段的成败。跑过且齐了才打印 HOOKS-INSTALLED。
 hooks_ran=0
 hooks_rc=0
+
+# 安装副本的两个普通文件由源字节生成，其他项仍指回源目录。
+# check 与 install 共用这一份预期，check 不建目录、不修复。
+copy_args=("$mode" "$SKILL_COPIES")
+if [ "${#copy_sources[@]}" -gt 0 ]; then
+  copy_args+=("${copy_sources[@]}")
+fi
+python3 - "${copy_args[@]}" <<'PY' || rc=1
+import re
+import shutil
+import sys
+from pathlib import Path
+
+mode, copies = sys.argv[1], Path(sys.argv[2])
+sources = [Path(value) for value in sys.argv[3:]]
+
+
+def skill_bytes(path):
+    lines = path.read_bytes().splitlines(keepends=True)
+    if not lines or lines[0].strip() != b'---':
+        raise ValueError('frontmatter 缺少开头的 ---')
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == b'---'), None)
+    if end is None:
+        raise ValueError('frontmatter 缺少结束的 ---')
+    return b''.join(line for i, line in enumerate(lines)
+                    if not (0 < i < end and re.match(rb'disable-model-invocation\s*:', line)))
+
+
+def openai_bytes(path):
+    lines = path.read_bytes().splitlines(keepends=True)
+    kept = []
+    policy = False
+    for line in lines:
+        if re.match(rb'policy\s*:', line):
+            policy = True
+            continue
+        if policy and (not line.strip() or line[:1] in (b' ', b'\t')):
+            continue
+        policy = False
+        kept.append(line)
+    return b''.join(kept)
+
+
+def copy_matches(copy, directories, files, links):
+    if not copy.is_dir() or copy.is_symlink():
+        return False
+    actual = {item.name for item in copy.iterdir()}
+    for name in directories:
+        target = copy / name
+        if not target.is_dir() or target.is_symlink():
+            return False
+        actual.update(name + '/' + item.name for item in target.iterdir())
+    for name, data in files.items():
+        target = copy / name
+        if not target.is_file() or target.is_symlink() or target.read_bytes() != data:
+            return False
+    for name, source in links.items():
+        target = copy / name
+        if not target.is_symlink() or target.readlink() != source:
+            return False
+    return actual == directories | files.keys() | links.keys()
+
+
+def remove_copy(path):
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    else:
+        shutil.rmtree(path)
+
+
+failed = False
+action = '没查' if mode == 'check' else '未生成'
+retry = '--check' if mode == 'check' else 'install.sh'
+for source in sources:
+    copy = copies / source.name
+    try:
+        directories, files, links = set(), {'SKILL.md': skill_bytes(source / 'SKILL.md')}, {}
+        for item in source.iterdir():
+            if item.name == 'SKILL.md':
+                continue
+            if item.name == 'agents' and item.is_dir():
+                directories.add('agents')
+                for agent in item.iterdir():
+                    name = 'agents/' + agent.name
+                    if agent.name == 'openai.yaml':
+                        files[name] = openai_bytes(agent)
+                    else:
+                        links[name] = agent
+            else:
+                links[item.name] = item
+    except (OSError, ValueError) as exc:
+        path = getattr(exc, 'filename', None) or source / 'SKILL.md'
+        print(f'{action}  安装副本 {copy}：源文件 {path} 无法生成副本（{exc}）；'
+              f'修正源文件格式或读取权限后再跑 {retry}', file=sys.stderr)
+        failed = True
+        continue
+    try:
+        if mode == 'check':
+            if not copy_matches(copy, directories, files, links):
+                print(f'副本过期  {copy}：跑一次 install.sh 重新生成', file=sys.stderr)
+                failed = True
+        else:
+            if copy.is_symlink() or copy.exists():
+                remove_copy(copy)
+            copy.mkdir(parents=True)
+            for name in directories:
+                (copy / name).mkdir(parents=True, exist_ok=True)
+            for name, data in files.items():
+                target = copy / name
+                target.write_bytes(data)
+            for name, source_item in links.items():
+                (copy / name).symlink_to(source_item)
+    except OSError as exc:
+        print(f'{action}  安装副本 {copy}：{exc}；'
+              f'检查报错路径的类型与访问权限后再跑 {retry}', file=sys.stderr)
+        failed = True
+try:
+    keep = {source.name for source in sources}
+    if copies.is_dir():
+        for stale in sorted(copies.iterdir()):
+            if not stale.is_dir() or stale.name in keep:
+                continue
+            if mode == 'check':
+                print(f'残留  {stale} 不在带标记的名单里，跑一次 install.sh 摘掉', file=sys.stderr)
+                failed = True
+            else:
+                remove_copy(stale)
+                print(f'摘掉  {stale}')
+except OSError as exc:
+    action = '没查' if mode == 'check' else '未清理'
+    print(f'{action}  残留副本 {copies}：{exc}；'
+          f'检查报错路径的类型与访问权限后再跑 {retry}', file=sys.stderr)
+    failed = True
+raise SystemExit(1 if failed else 0)
+PY
 
 for dest in "${HOST_DIRS[@]}"; do
   host_home="$(dirname "$dest")"
@@ -1669,6 +1819,56 @@ sys.exit(1 if failed else 0)
 PY
 fi
 
+# ---------------- 连线检查第 2、7 类 ----------------
+# CLASS_POLICY 由检查器自己管：report 行只报告，其他选中类别的行让 --check 失败。
+if [ "$mode" = check ]; then
+  MMW_WIRING="$ROOT/tests/lib/check_wiring.py" \
+  MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" python3 - <<'PY' || rc=1
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+checker = Path(os.environ['MMW_WIRING'])
+
+
+def unchecked(reason):
+    detail = ' '.join(str(reason).splitlines())
+    print(f'没查  连线检查 {checker}：{detail}；修正原因后再跑 install.sh --check', file=sys.stderr)
+    raise SystemExit(1)
+
+
+if not checker.is_file():
+    unchecked('check_wiring.py 不在')
+if shutil.which('uv') is None:
+    unchecked('PATH 里没有 uv')
+try:
+    result = subprocess.run(['uv', 'run', '--quiet', str(checker)],
+                            capture_output=True, text=True, check=False)
+except OSError as exc:
+    unchecked(exc)
+if result.returncode not in (0, 1):
+    unchecked(f'退出 {result.returncode}：{result.stdout.strip()} {result.stderr.strip()}')
+
+finding = re.compile(r'^(?:report: )?.+:\d+: class (\d+)\b')
+empty = re.compile(r'^report: class (2|7):')
+failed = False
+has_findings = False
+for line in result.stdout.splitlines():
+    match = finding.match(line)
+    if match:
+        has_findings = True
+    if (match and match[1] in ('2', '7')) or empty.match(line):
+        print(line, file=sys.stderr)
+        failed |= not line.startswith('report: ')
+if result.returncode == 1 and not has_findings:
+    unchecked(f'检查器未能检查输入：{result.stdout.strip()} {result.stderr.strip()}')
+raise SystemExit(1 if failed else 0)
+PY
+fi
+
 # Nowledge Mem 的共享对象。Identity 只写来源角色，default Space 固定为 mmw-toolbox，
 # 避免一次漏传 repository Space 时退回个人 Default。repository Space 由 dispatch.sh open 建立。
 MMW_MODE="$mode" python3 - <<'PY' || rc=1
@@ -1941,7 +2141,8 @@ else
   printf '%s\n' "$ROOT" > "$INSTALLED_ROOT_FILE"
   echo
   echo "source directory：${SKILLS_SRC}（mattpocock/skills）、${SELF_SRC}（自研）、${DD_SRC}（cathrynlavery/diagram-design）、${PSTACK_SRC}（pstack）"
-  echo "改技能直接改 source directory 里的文件，host 下次调用就是新的。"
+  echo "不带标记的技能及副本里的软链项：改 source directory，host 下次调用生效。"
+  echo "带 +model-invoked 的 SKILL.md 与 agents/openai.yaml：改源后跑一次 install.sh；description 另要重开会话。"
   echo "装自  ${ROOT}（记在 ${INSTALLED_ROOT_FILE}；别的 checkout 跑 --check 时按它核对）"
 fi
 
