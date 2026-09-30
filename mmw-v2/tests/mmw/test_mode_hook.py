@@ -150,10 +150,24 @@ else:
         plain.mkdir()
         for event in EVENTS:
             self.silent(self.call(event, cwd=plain))
+        # A scope check that crashes silently must not pass the same fixture.
+        (self.repo / ".mmw").mkdir()
+        (plain / ".mmw").mkdir()
+        for event in EVENTS:
+            for host in ("claude", "codex"):
+                self.context(self.call(event, host, cwd=cwd), event)
+                self.context(self.call(event, host, cwd=plain), event)
 
     def test_subagent_start_in_an_mmw_repository_injects_one_line(self):
         for host in ("claude", "codex"):
             self.context(self.call("subagent-start", host), "subagent-start")
+        copied = self.copied_hook()
+        self.silent(self.call("subagent-start", hook=copied))
+        registry = copied.with_name("locations.py")
+        shutil.copy2(DISPATCH.with_name("locations.py"), registry)
+        self.context(self.call("subagent-start", hook=copied), "subagent-start")
+        registry.write_text("raise SystemExit(2)\n")
+        self.silent(self.call("subagent-start", hook=copied))
 
     def test_session_start_of_a_watch_s_orchestrator_injects_the_where_line(self):
         self.tracker()
@@ -236,9 +250,15 @@ else:
     def test_watch_lookup_scans_other_repositories_and_bad_state_is_silent(self):
         self.tracker()
         self.watch(repository="else__where")
+        self.watch()
+        self.context(self.call("session-start"), "session-start")
+        own_watch = Path(self.env["MMW_HOME"]) / "state/o__r/watches.json"
+        own_watch.unlink()
+        before = len(self.calls.read_text().splitlines())
         # Candidate detection spans all repositories; where still uses this repo.
         # Its nonzero UNKNOWN response must not be injected as a reminder.
         self.silent(self.call("session-start"))
+        self.assertGreater(len(self.calls.read_text().splitlines()), before)
         path = Path(self.env["MMW_HOME"]) / "state/else__where/watches.json"
         path.write_text("not json")
         self.silent(self.call("session-start"))

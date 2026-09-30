@@ -6,19 +6,25 @@ U-2 measured all three events on Claude Code 2.1.285 and Codex 0.159.2,
 """
 
 
-def dispatch_context(cwd):
+def load_locations():
     import importlib.util
-    import re
-    import sys
     from pathlib import Path
 
     here = Path(__file__).resolve().parent
     candidates = (here / "locations.py",
-                  here.parents[2].joinpath(*("skills", "dispatch", "scripts", "locations.py")))
+                  here.parents[2].joinpath("skills", "dispatch", "scripts", "locations.py"))
     path = next(path for path in candidates if path.is_file())
     spec = importlib.util.spec_from_file_location("mode_hook_locations", path)
     locations = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(locations)
+    return path, locations
+
+
+def dispatch_context(cwd):
+    import re
+    import sys
+
+    path, locations = load_locations()
     scripts = path.parents[2] / locations.DISPATCH_SCRIPTS
     dispatch = scripts / "dispatch.sh"
     if not dispatch.is_file():
@@ -37,7 +43,7 @@ def dispatch_context(cwd):
         from relay import read_watches
 
         governed = any(watch.get("runner") == runner and watch.get("session") == session
-                       for directory in sorted((home() / "state").glob("*"))
+                       for directory in (home() / "state").glob("*")
                        if directory.is_dir()
                        for watch in read_watches(directory).values())
     if not governed:
@@ -95,7 +101,8 @@ def main():
         context = ("New task here? Playbook match or rigor needed → apply the mmw skill. "
                    "Casual turn or user opts out → don't.")
         if event == "subagent-start":
-            context = "Use the mmw skill: read its `## Principles` and the step you serve."
+            _, locations = load_locations()
+            context = f"Use the mmw skill: read its `{locations.MODE_PRINCIPLES}` and the step you serve."
         elif event == "session-start":
             context = dispatch_context(cwd) or context
         print(json.dumps({"hookSpecificOutput": {
