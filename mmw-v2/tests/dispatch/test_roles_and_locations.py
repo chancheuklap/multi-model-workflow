@@ -103,6 +103,23 @@ class RolesAndLocationsTest(unittest.TestCase):
         })
         self.assertEqual(module.PRODUCT_RUNNING_RULES, "## Five rules while the product is running")
 
+    def test_where_rows_only_use_registered_roles_playbooks_and_steps(self):
+        module = locations()
+        roles = json.loads((SKILLS / "dispatch" / "roles.json").read_text())
+        self.assertEqual(set(module.WHERE_ROWS), {
+            "worker", "adopting-worker", "reviewer", "night-orchestrator",
+            "one-ticket-orchestrator",
+        })
+        for role, rows in module.WHERE_ROWS.items():
+            for key, row in rows.items():
+                with self.subTest(role=role, key=key):
+                    steps = module.PLAYBOOK_ANCHORS[row.get("playbook", roles[role]["playbook"])]
+                    self.assertIn(row["kind"], ("AT", "BETWEEN", "FRESH"))
+                    self.assertIn(row["step"], steps)
+                    self.assertEqual(row["kind"] == "BETWEEN", "until" in row)
+                    if "until" in row:
+                        self.assertIn(row["until"], steps)
+
     def test_locations_cross_skill_paths_exist(self):
         module = locations()
         for name in ("DISPATCH_SCRIPTS", "EVENTS_PY", "VERIFY_TICKET_PY",
