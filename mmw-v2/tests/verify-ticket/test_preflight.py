@@ -5,7 +5,7 @@ import os
 import subprocess
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -14,6 +14,11 @@ from _load import checked, event, load
 vt = load()
 
 ME = "chancheuklap"
+# A refusal names a session unless the case replaced `read_self`. `dispatch.sh self`
+# answers from the terminal running the suite, and outside a runner it exits non-zero,
+# which adds a second stderr line these cases do not expect.
+NAMED_SELF = vt.SelfRead(
+    "/skills/dispatch/scripts/dispatch.sh", 0, "orca\tterm_test\n", "", None)
 
 
 def event_of(body):
@@ -58,16 +63,21 @@ def run(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
             raise found
         return list(found)
 
-    with mock.patch.object(vt, "fetch_ticket", return_value=ticket(**kwargs)), \
-         mock.patch.object(vt, "fetch_comments", side_effect=comments_of), \
-         mock.patch.object(vt, "gh_login", return_value=ME), \
-         mock.patch.object(vt, "current_branch", return_value=branch), \
-         mock.patch.object(vt, "dirty_tracked", return_value=list(dirty)), \
-         mock.patch.object(vt, "repo_root", return_value=None), \
-         mock.patch.object(vt, "assign_self") as assign, \
-         mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append((n, b))):
-        with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
-            code = vt.run_preflight(number)
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch.object(vt, "fetch_ticket", return_value=ticket(**kwargs)))
+        stack.enter_context(mock.patch.object(vt, "fetch_comments", side_effect=comments_of))
+        stack.enter_context(mock.patch.object(vt, "gh_login", return_value=ME))
+        stack.enter_context(mock.patch.object(vt, "current_branch", return_value=branch))
+        stack.enter_context(mock.patch.object(vt, "dirty_tracked", return_value=list(dirty)))
+        stack.enter_context(mock.patch.object(vt, "repo_root", return_value=None))
+        assign = stack.enter_context(mock.patch.object(vt, "assign_self"))
+        stack.enter_context(mock.patch.object(
+            vt, "post_comment", side_effect=lambda n, b: posted.append((n, b))))
+        if not isinstance(vt.read_self, mock.Mock):
+            stack.enter_context(mock.patch.object(vt, "read_self", return_value=NAMED_SELF))
+        out = stack.enter_context(redirect_stdout(io.StringIO()))
+        err = stack.enter_context(redirect_stderr(io.StringIO()))
+        code = vt.run_preflight(number)
     return code, posted, err.getvalue(), assign, out.getvalue()
 
 
