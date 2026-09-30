@@ -3,8 +3,9 @@
 
 Scripts across the skills load each other by file path (`HERE / "watchdog.py"`,
 `load("issue_tree")`), which no import check sees: a rename that misses one caller
-leaves that caller broken until something runs it. Every suite's run.sh runs this
-first, so a rename is caught by whichever suite runs next.
+leaves that caller broken until something runs it. The shared-lint entry
+`mmw-v2/tests/lib/run_shared_lints.sh` runs this first, so a rename is caught
+by whichever suite runs next.
 
 It reads every `.py`, `.sh` and `.mjs` file under mmw-v2/skills/ and mmw-v2/board/,
 collects each quoted `<name>.py` and each `load("<name>")`, and requires a file of

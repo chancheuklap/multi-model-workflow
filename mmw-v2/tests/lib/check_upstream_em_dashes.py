@@ -4,8 +4,8 @@
 mmw-v2/upstream/ is a subtree of mattpocock/skills, and its own AGENTS.md rules out
 em-dashes in prose; `writing-for-agents`' SKILL-SET-RULES.md makes that rule bind this
 repository's text inside the subtree too. Upstream's own text there has none, so every
-hit is a sentence this repository wrote. Every suite's run.sh runs this after
-check_module_paths.py.
+hit is a sentence this repository wrote. The shared-lint entry
+`mmw-v2/tests/lib/run_shared_lints.sh` runs this after check_module_paths.py.
 
 It reads every `.md` under mmw-v2/upstream/skills/ and reports each line outside a fenced
 code block that contains U+2014. A fenced block is exempt because what it holds is a

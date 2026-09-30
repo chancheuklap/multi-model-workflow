@@ -9,8 +9,9 @@ this file before running a shell command, and this file refuses that one command
 
 A question on the screen has nobody to answer it: nothing in this pipeline reads a
 form. So every host asks this file before calling its question tool, and this file
-refuses the call and says where the question goes instead — the default taken and
-recorded, or `ABANDON: AC<n> decision` with a sub-issue.
+refuses the call and gives three ways out: the worker takes and records the default,
+or writes `ABANDON: AC<n> decision` and opens a `decision` child, then continues;
+the reviewer appends `unverified: <what would settle it>` at the end of the finding's line.
 
 Ending a process is never this session's to do. Several runs share one machine, and
 another run's application is indistinguishable from a stuck one, so a session that is
@@ -44,6 +45,9 @@ It never asks the environment: Cursor exports `CURSOR_AGENT`, `CURSOR_VERSION`
 and friends into every child process, so a Claude session started by hand from
 a Cursor pane inherits them, and an environment test would switch off that
 Claude session's own gate. Claude Code never sends `cursor_version`.
+
+When the refusal module cannot be imported, this script exits 2 with one diagnostic
+on stderr in a governed session; in an ungoverned session it exits 0 without output.
 """
 
 from __future__ import annotations
@@ -59,8 +63,6 @@ _UI_ACCEPTANCE_SCRIPTS = _HERE.parents[1] / "ui-acceptance" / "scripts"
 if str(_UI_ACCEPTANCE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_UI_ACCEPTANCE_SCRIPTS))
 
-from refusal import refusal  # noqa: E402
-
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 GATES = ("pretool", "question")
 TICKET_DIR = re.compile(r"^issue-(\d+)$")
@@ -71,12 +73,12 @@ REFUSAL = (
     "Unfinished work leaves the same way, first line `HANDOFF REQUIRED`."
 )
 
-# The same length rule. Nobody is at the screen; the two ways out are the ones the
-# `implement` skill already gives.
+# The same length rule, including the host's prefix: the worker records a default or
+# opens a decision child and continues; the reviewer marks the finding unverified.
 NO_QUESTION = (
-    "Nobody is at the screen. Take the likeliest option and note it under `Decisions I "
-    "made on my own`; if the answer changes what the ticket delivers, write `ABANDON: "
-    "AC<n> decision <question, options, default>` and open a needs-triage sub-issue."
+    "No one answers. Worker: pick likely; note `Decisions I made on my own`; if delivery "
+    "changes: ABANDON: AC<n> decision <question,options,default>; open decision child; "
+    "continue. Reviewer: end finding line with unverified: <what would settle it>."
 )
 
 # The tool each host calls to put a question on the screen.
@@ -154,6 +156,19 @@ def governed_ticket() -> int | None:
         if match:
             return int(match.group(1))
     return None
+
+
+try:
+    from refusal import refusal  # noqa: E402
+except Exception as exc:
+    if governed_ticket() is not None:
+        module = getattr(exc, "name", None) or "refusal"
+        sys.stderr.write(f"MMW hook tool-guard could not import {module}: "
+                         "a governed session cannot run commands without an available tool guard; "
+                         "do not retry, end this turn; the orchestrator must check the installation "
+                         "from a session outside ticket worktrees with bash mmw-v2/install.sh --check\n")
+        sys.exit(2)
+    sys.exit(0)
 
 
 SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")

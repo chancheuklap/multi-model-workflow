@@ -11,3 +11,5 @@ Run `bash scripts/dispatch.sh adopt <n>` first: it records you as the ticket's w
 ## After the closeout
 
 A ticket you adopted outside a night, where `adopt` started a relay with you as the session it wakes, has no orchestrator to land it: you are woken with `#<n> ticket.passed` or `#<n> ticket.returned`; `bash scripts/dispatch.sh ack <n> <that event>`, then tell the user the ticket is closed and that `bash scripts/dispatch.sh land <n>` merges it and stops that relay. Do not run `land` from this worker session: it stops every session the ticket's events name, including this one.
+
+A `watchdog:` line that wakes you is not acked: tell the user what it says, since no orchestrator watches this ticket and this session cannot resume itself.

@@ -4,24 +4,24 @@
 #
 #   bash mmw-v2/tests/liveness/run.sh
 #
-# Two engines, two test files:
+# Two engines:
 #
 #   test_liveness.py   unittest: the guard predicate, heartbeat freshness, the tolerance,
 #                      the lock's identity against real processes (a recycled pid among
 #                      them), and the third layer's three answers against a fake board
 #                      and fake runner verbs
+#   test_hook_launcher.py  unittest: installed-root routing, missing hooks and companion
+#                          modules, and host refusals through the copied launcher
 #   test_guard.sh      turn-guard.py end to end: each host's turn-end payload, the
 #                      hook-collision cases, and one arm of the real watchdog.py
 #
-# Neither needs a host, the tracker, a runner or the network, and neither touches
-# ~/.mmw: both point MMW_HOME at a temporary directory. Neither proves that a real host
+# None needs a host, the tracker, a runner or the network, and none touches
+# ~/.mmw: each points MMW_HOME at a temporary directory. None proves that a real host
 # calls the hook with these payloads or honours its answer: that is checked by hand
 # against each host, and recorded in turn-guard.py's header.
 
 set -euo pipefail
-python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_module_paths.py" || { echo "a toolbox script names a module file that does not exist (above); fix it before running this suite" >&2; exit 1; }
-python3 "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_upstream_em_dashes.py" >&2 || exit 1
-uv run "$(dirname -- "${BASH_SOURCE[0]}")/../lib/check_own_skill_frontmatter.py" >&2 || exit 1
+bash "$(dirname -- "${BASH_SOURCE[0]}")/../lib/run_shared_lints.sh" || exit 1
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 

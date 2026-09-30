@@ -21,9 +21,10 @@ to that second check.
 
 It reads mmw-v2/skills.txt for the installed set, resolves each entry's
 SKILL.md, and parses the text between its first two `---` lines with PyYAML.
-Every suite's run.sh runs this after check_upstream_em_dashes.py, through
-`uv run` so PyYAML comes from this file's own PEP 723 block above; run directly
-with a plain `python3` on a machine that already has PyYAML on its path too.
+The shared-lint entry `mmw-v2/tests/lib/run_shared_lints.sh` runs this after
+check_upstream_em_dashes.py, through `uv run` so PyYAML comes from this file's
+own PEP 723 block above; run directly with a plain `python3` on a machine that
+already has PyYAML on its path too.
 Exit 0 prints nothing; exit 1 prints one line per finding, then why and what to
 do. Exit 2 means PyYAML itself is missing and nothing could be checked.
 """

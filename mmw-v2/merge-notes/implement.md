@@ -122,13 +122,29 @@ the ordinary-failure steps to the refusal.
 ## Put no question on the screen
 
 One bullet in the code-writing rules. A worker that puts a question up gets no answer:
-`tool-guard.py`'s `question` gate refuses the host's question tool in every dispatched session
-(`MMW_AUTONOMOUS=1`), and the refusal points at the same two ways out. So the bullet says
+The `dispatch` skill's `scripts/tool-guard.py` `question` gate refuses the host's question
+tool in an `issue-<n>` worktree, which the worker and reviewer share. The refusal gives
+the worker both ways out and gives the reviewer `unverified: <what would settle it>`
+at the end of the finding's line. So the bullet says
 what to do instead: take the option the ticket, its baselines and the spec make most likely, record it
 under **Decisions I made on my own**, and carry on; a question whose answer would change
 what the ticket delivers gets a sub-issue. The recording place and the sub-issue route are
 here too — this bullet is the third part, the one that says not to ask. Upstream rewrites
 the code-writing rules → keep the bullet.
+
+## Closing steps: re-entry on a wake
+
+Closing step 1 after the `worker.queued` sentence and closing step 3 after the
+`reviewer.reported` sentence each carry a connecting sentence added by this repository.
+Both point at the `dispatch` skill's `SKILL.md` `## On waking`, whose first action is
+to rerun a command a wake cut short. The route in `dispatch/SKILL.md` `## Find your
+moment` sends the worker straight to `implement` `## Closing steps`, so without these
+connections that first action never reaches it (`docs/research/workflow-compare/reports/N10-mmw-routing-and-invocation.md`
+`## 4. 断点与弱点`, B9). The step 3 connection says its following ack is the ack that
+`## On waking` asks for; the worker does not ack twice.
+
+Upstream rewrites either closing step → keep both connecting sentences and the
+single ack, with the command rerun before other work.
 
 ## Closing steps: resume after a re-prompt
 

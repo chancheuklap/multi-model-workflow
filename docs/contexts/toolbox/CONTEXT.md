@@ -211,8 +211,20 @@ The fixed three-part shape every script refusal in this repository takes: what h
 _Home_: `CODING_STANDARDS.md`; built by the `ui-acceptance` skill's `scripts/refusal.py`
 
 **shared lints**:
-The three checks every `mmw-v2/tests/<name>/run.sh` runs before its own: `check_module_paths.py` (a script names a module file that no longer exists), `check_upstream_em_dashes.py` (an em-dash outside a fenced code block in an upstream skill's Markdown), `check_own_skill_frontmatter.py` (invalid YAML, or a key beyond `name`/`description`, on one of this repository's own skills).
-_Home_: `AGENTS.md`
+The checks every `mmw-v2/tests/<name>/run.sh` runs before its own tests, through one entry. The entry is the one place that lists them; a shared lint is added by adding its line there.
+_Home_: `mmw-v2/tests/lib/run_shared_lints.sh`
+
+**structure lint**:
+The check of a file's structure and prohibited routing language according to its component type. It checks the file itself, not whether a named destination exists; existing findings are accounted for by **`structure-exceptions.tsv`**.
+_Home_: `mmw-v2/tests/lib/check_component_structure.py`
+
+**wiring check**:
+The check that names written in MMW skill text and scripts resolve to registered steps, existing components and permitted connections. Unlike **structure lint**, it checks connections between files rather than the shape of one file.
+_Home_: `mmw-v2/tests/lib/check_wiring.py`
+
+**`structure-exceptions.tsv`**:
+The counted register of existing structure-lint findings and the batch that retires each one. It is distinct from a checker baseline: it records the component rule and original excerpt of each finding, and follows registered path renames.
+_Home_: `mmw-v2/tests/lib/structure-exceptions.tsv`; read by `mmw-v2/tests/lib/check_component_structure.py`
 
 ### Skill-set review
 
