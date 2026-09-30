@@ -386,7 +386,7 @@ How old the watchdog's own heartbeat, and its last whole read of the tracker, ma
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **hook launcher**:
-The program `install.sh` copies to `~/.mmw/bin/hook-launcher` and names that copy in every toolbox's **host hook** it writes. The copy is a file, not a symlink, of `mmw-v2/hook-launcher.py`. It looks first in `skills/mmw/scripts/`, then in `skills/dispatch/scripts/`, and starts `tool-guard.py`, `turn-guard.py` or `mode-hook.py` from the checkout `installed-root` names. When `mode-hook` is not found it returns 0 and prints nothing.
+The program `install.sh` copies to `~/.mmw/bin/hook-launcher` and names that copy in every toolbox's **host hook** it writes. The copy is a file, not a symlink, of `mmw-v2/hook-launcher.py`, and it starts `tool-guard.py`, `turn-guard.py` or `mode-hook.py` from the checkout `installed-root` names.
 _Home_: `mmw-v2/install.sh`, `mmw-v2/hook-launcher.py`
 
 **turn guard**:
@@ -437,7 +437,7 @@ The retro's comparison of the spec's expected surface (Problem Statement and Use
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **Prevention destinations**:
-The eleven values a retro problem's Prevention names by its `destination`: `check`, `script`, `repository-agents`, `repository-skill`, `reviewer-rule`, `mmw-skill`, `principle`, `playbook`, `mode`, `toolbox-memory` and `none`. `principle` is a judgement that holds across tasks and changes a concrete decision, as a principle file of the `mmw` skill; `playbook` is the steps of one kind of task, who owns what and what is handed over, in a playbook of the `mmw` skill or of that repository; `mode` is what to use in which situation, which playbook a task goes to, or what an unattended session may decide, in the `mmw` skill's `SKILL.md`.
+The eleven values a retro problem's Prevention names by its `destination`: `check`, `script`, `repository-agents`, `repository-skill`, `reviewer-rule`, `mmw-skill`, `principle`, `playbook`, `mode`, `toolbox-memory` and `none`. `principle`, `playbook` and `mode` name the **principle**, **playbook** (a repository's own is a **private playbook**) and **mode** the fix is written into.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **proposal**:

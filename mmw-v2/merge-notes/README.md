@@ -1,6 +1,6 @@
 # merge-notes
 
-四个上游 subtree。被我们改过的技能和脚本，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
+四个上游 subtree 里被我们改过的技能和脚本，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
 给的是**意图**，不是 diff——diff 用 `git diff <上一个 Squashed 提交>:skills/<类别>/<技能> HEAD:mmw-v2/upstream/skills/<类别>/<技能>` 看（squash 提交的树根是上游仓库根，没有 `mmw-v2/upstream/` 前缀；上一个 Squashed 提交用 `git log --oneline --grep "Squashed 'mmw-v2/upstream/'"` 找）。
 反方向——本仓库改了、consuming repository 里哪些产物作废——是 downstream-note，见 [`../downstream-notes/README.md`](../downstream-notes/README.md)。
 

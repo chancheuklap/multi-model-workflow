@@ -51,7 +51,7 @@ The repository gate-check and gate-lint come from (`Leonxlnx/unlazy`, MIT), carr
 _Home_: `mmw-v2/merge-notes/unlazy.md`
 
 **source directory**:
-A directory a skill's files are taken from: `mmw-v2/skills/` (`self/`), `mmw-v2/upstream/skills/`, `mmw-v2/upstream-diagram-design/skills/` (`dd/`), or `mmw-v2/upstream-pstack/skills/` (`pstack/`). A host symlink for a skill with no **model-invoked marker** points straight at one of them. A marked skill's host symlink points at its **skill copy**, not at the source directory. `install.sh` treats a link as its own when the target resolves inside one of these directories or under `~/.mmw/skill-copies/`.
+A directory a skill's files are taken from: `mmw-v2/skills/`, `mmw-v2/upstream/skills/`, `mmw-v2/upstream-diagram-design/skills/` or `mmw-v2/upstream-pstack/skills/`. A host symlink for a skill with no **model-invoked marker** points straight at one of them. A marked skill is served from its **skill copy**.
 _Home_: `mmw-v2/install.sh`
 
 **`~/.agents/skills`**:
@@ -59,7 +59,7 @@ The host-neutral install location `install.sh` fills on every machine, scanned b
 _Home_: `docs/adr/0006-skills-install-to-neutral-dir.md`
 
 **stale link**:
-A symlink, host hook registration or generated Paseo Agent profile that this repository installed and no longer installs, a link left in a **retired** location, or a **skill copy** directory left after its **model-invoked marker** is removed. `install.sh --check` reports each as a `残留` line and `install.sh` removes it.
+A symlink, host hook registration or generated Paseo Agent profile that this repository installed and no longer installs, a link left in a **retired** location, or a **skill copy** directory left after its **model-invoked marker** is removed or the skill's `skills.txt` line is deleted. `install.sh --check` reports each as a `残留` line and `install.sh` removes it.
 _Home_: `mmw-v2/install.sh`
 
 **retired**:
@@ -115,7 +115,7 @@ The `+model-invoked` at the end of a `skills.txt` line: that upstream skill is n
 _Home_: `mmw-v2/install.sh`
 
 **skill copy**:
-The directory `install.sh` builds at `~/.mmw/skill-copies/<name>/` for a skill that carries the **model-invoked marker**. The host's skill symlink points at it. Its `SKILL.md` is a copy of the source with the `disable-model-invocation` line removed, and its `agents/openai.yaml` is a copy with the top-level `policy` block removed; the other entries are symlinks back to the source directory. A change to the source `SKILL.md` reaches the host only when `install.sh` is run again, and `install.sh --check` reports a copy that does not match as `副本过期` and exits 1.
+The directory `install.sh` builds at `~/.mmw/skill-copies/<name>/` for a skill that carries the **model-invoked marker**. The host's skill symlink points at it. Its `SKILL.md` has the invocation switch removed, so a change to the source reaches the host only when `install.sh` runs again; `install.sh --check` reports a copy that has fallen behind as `副本过期`.
 _Home_: `mmw-v2/install.sh`
 
 **private playbook**:
@@ -123,7 +123,7 @@ A playbook that belongs to one repository, kept in that repository's `.mmw/playb
 _Home_: `mmw-v2/skills/mmw/SKILL.md`
 
 **`SKILL.md`**:
-A skill's entry file: its location resolves the skill's `scripts/` and `references/`, and its frontmatter `description` is the one part a host scans at start. The frontmatter switch `disable-model-invocation` makes an unmarked skill user-invoked. A skill with the **model-invoked marker** is served from its **skill copy**, whose `SKILL.md` has that line removed.
+A skill's entry file: its location resolves the skill's `scripts/` and `references/`, and its frontmatter `description` is the one part a host scans at start. The frontmatter switch `disable-model-invocation` makes a skill user-invoked; a **skill copy** has it removed.
 _Home_: `AGENTS.md`
 
 **`skills.txt`**:
@@ -187,7 +187,7 @@ The rule that while this repository consumes its own landing pipeline, the runti
 _Home_: `AGENTS.md`
 
 **installed checkout**:
-The checkout whose `mmw-v2/` directory `~/.mmw/installed-root` records; in this repository, the hand-made worktree `.worktrees/mmw-installed`. A host symlink for an unmarked skill points at a skill directory there. A marked skill's host symlink points at the **skill copy**, whose other files link back into that checkout. A watch holds the checkout fixed for its whole duration, under the **self-hosting boundary**.
+The checkout whose `mmw-v2/` directory `~/.mmw/installed-root` records; in this repository, the hand-made worktree `.worktrees/mmw-installed`, which every host symlink points at, directly or through a **skill copy**. A watch holds the checkout fixed for its whole duration, under the **self-hosting boundary**.
 _Home_: `AGENTS.md`
 
 **the four promotion steps**:
