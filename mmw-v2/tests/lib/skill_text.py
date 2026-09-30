@@ -404,8 +404,8 @@ def installed_skills(root: Path | GitTree) -> dict[str, str]:
             path = 'mmw-v2/skills/' + entry[5:]
         elif entry.startswith('dd/'):
             path = 'mmw-v2/upstream-diagram-design/skills/' + entry[3:]
-        elif entry.startswith('ps/'):
-            path = 'mmw-v2/upstream-pstack/skills/' + entry[3:]
+        elif entry.startswith('pstack/'):
+            path = 'mmw-v2/upstream-pstack/skills/' + entry[len('pstack/'):]
         else:
             path = 'mmw-v2/upstream/skills/' + entry
         result[PurePosixPath(path).name] = path

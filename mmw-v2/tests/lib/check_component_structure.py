@@ -41,7 +41,7 @@ RULES = {
     'playbook-where-table': {'source': 'R20 S-P6; #592 §7', 'message': 'Where you are needs its first-line instruction, local step destinations and final Anything else row',
                              'role_playbooks': ('run-a-night', 'land-one-ticket', 'work-a-ticket', 'review-a-ticket', 'research-a-question')},
     'step-title': {'source': 'R18 §1.3; R20 X17, S-P3', 'message': 'each step needs a unique bold title ending in a period'},
-    'step-done-when': {'source': 'SKILL-SET-RULES.md Rules and completion criteria; R20 X10', 'message': 'step needs a line beginning Done when'},
+    'step-done-when': {'source': 'skill-set-rules.md Rules and completion criteria; R20 X10', 'message': 'step needs a line beginning Done when'},
     'step-names-component': {'source': 'R18 §3.2, §7.5; R20 S-P7', 'message': 'step must name a component or put (judgement) immediately after its title'},
     'playbook-reply': {'source': 'L7 A.2; R20 §5.2', 'message': 'exactly one Reply line must be the last nonempty line'},
     'principle-frontmatter': {'source': 'R18 §1.3, §5.1', 'message': 'principle frontmatter needs only name and description, named after its file'},
@@ -51,10 +51,10 @@ RULES = {
     'capability-next-step': {'source': 'R18 §4.5; R14 §2; R20 S-C3', 'message': 'next-step routing belongs in a playbook'},
     'capability-playbook-name': {'source': 'R18 §4.5; R20 S-C3', 'message': 'capability must not name a playbook or point into mode'},
     'numbered-cross-reference': {'source': 'R18 §7.5; R20 X9, N12; #592 §7', 'message': 'cross-file references use titles, not numbers'},
-    'host-name': {'source': 'SKILL-SET-RULES.md Paths and host neutrality; R21 §4.2', 'message': 'prose must not name a host, runner or host-specific tool'},
+    'host-name': {'source': 'skill-set-rules.md Paths and host neutrality; R21 §4.2', 'message': 'prose must not name a host, runner or host-specific tool'},
     'no-dash': {'source': 'R20 X5, S-G5, K8; R21 §4.2', 'message': 'new components must not use en or em dashes outside fenced code'},
-    'description-trigger': {'source': 'SKILL-SET-RULES.md Descriptions; Agent Skills MAX_DESCRIPTION_LENGTH', 'message': 'description needs Use triggers, at most one exclusion, at most three sentences and 1024 characters'},
-    'description-content': {'source': 'SKILL-SET-RULES.md Descriptions; R21 §4.2', 'message': 'description must not contain routing to other skills, internal paths, playbooks or numbered steps'},
+    'description-trigger': {'source': 'skill-set-rules.md Descriptions; Agent Skills MAX_DESCRIPTION_LENGTH', 'message': 'description needs Use triggers, at most one exclusion, at most three sentences and 1024 characters'},
+    'description-content': {'source': 'skill-set-rules.md Descriptions; R21 §4.2', 'message': 'description must not contain routing to other skills, internal paths, playbooks or numbered steps'},
     'skill-name': {'source': 'Agent Skills _validate_name; R21 §4.2', 'message': 'skill name must equal its directory name and be at most 64 characters'},
 }
 
@@ -137,9 +137,12 @@ class Inventory:
     playbooks: dict[str, str]
     scripts: set[str]
 
-    def skill_pattern(self, exclude: str = ''):
+    def skill_pattern(self, exclude: str = '', *, path_segment: bool = False):
+        # path_segment is description-content: a name touching "." or "/" is a
+        # path or file segment, not a mention of the skill.
+        edge = r'\w./-' if path_segment else r'\w-'
         names = [re.escape(n) for n in self.skills if n != exclude]
-        return r'(?<![\w-])(?:' + '|'.join(names or [r'(?!)']) + r')(?![\w-])'
+        return r'(?<![' + edge + r'])(?:' + '|'.join(names or [r'(?!)']) + r')(?![' + edge + r'])'
 
     def playbook_pattern(self):
         names = [r'(?<![\w-])' + re.escape(n) + r'(?![\w-])' for slug, title in self.playbooks.items()
@@ -181,8 +184,10 @@ def check_mode(doc: Document):
     for row, line in doc.section('Principles'):
         if re.match(r'^\s*[-*+]\s', line) and not re.fullmatch(r'\s*- \*\*[^*]+\*\* \(\*\*principle-[\w-]+\*\*\)\. .+\.\s*', line):
             doc.fail('mode-principle-line', row)
+    # Any list marker followed by a bold name is a route line. The shape
+    # still requires "- **". A direct capability line does not begin with bold.
     for row, line in doc.section('Playbooks'):
-        if re.match(r'^\s*[-*+]\s', line) and not re.fullmatch(r'\s*- \*\*[^*]+\.\*\* .+ `playbooks/[^`]+\.md`\.\s*', line):
+        if re.match(r'^\s*[-*+]\s+\*\*', line) and not re.fullmatch(r'\s*- \*\*[^*]+\.\*\* .+ `playbooks/[^`]+\.md`\.\s*', line):
             doc.fail('mode-route-line', row)
 
 
@@ -297,9 +302,9 @@ def check_description(doc: Document, inv: Inventory):
             or len(description) > 1024):
         doc.fail('description-trigger', row)
     if isinstance(description, str):
-        other = inv.skill_pattern(str(doc.data.get('name', '')))
-        pattern = other + r'|references/|scripts/|SKILL\.md|' + inv.playbook_pattern() + r'|\bstep\s+\d+'
-        if m := re.search(pattern, description, re.I):
+        names = inv.skill_pattern(str(doc.data.get('name', '')), path_segment=True)
+        rest = r'references/|scripts/|SKILL\.md|' + inv.playbook_pattern() + r'|\bstep\s+\d+'
+        if m := re.search(names + r'|(?i:' + rest + r')', description):
             doc.fail('description-content', row, m.group())
 
 

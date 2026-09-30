@@ -1,6 +1,6 @@
 # ADR 索引
 
-手工维护：新增 ADR 时追加一行，编号取现有最大号 + 1，编号那一格链到文件本身。
+手工维护：新增 ADR 时追加一行，编号取现有最大号 + 1；spec 已预留的号照预留取，空号留着。编号那一格链到文件本身。
 
 ## 一份 ADR 长什么样
 
@@ -24,7 +24,7 @@
 | [0003](0003-no-plugin-packaging.md) | MMW 不打包成插件，五个宿主由 `install.sh` 统一散装 | 2026-08-18 | 无 | 0006、0015 |
 | [0004](0004-design-system-trust-comes-from-lint.md) | 设计系统文件可不可信，由校验结果定，不由来源定 | 2026-08-21 | 0002 | 无（见表下注：pull report，sign-off） |
 | [0005](0005-docs-layer-adopted-by-v2.md) | docs 文档层过继到 v2：tracker 配置落地，索引与编号脱离冻结 CLI | 2026-08-25 | 无 | 无 |
-| [0006](0006-skills-install-to-neutral-dir.md) | 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份 | 2026-08-26 | 0003 | 0015 |
+| [0006](0006-skills-install-to-neutral-dir.md) | 技能装进一个各家通用的位置，只为 Claude Code 单独再装一份 | 2026-08-26 | 0003 | 0015、0034 |
 | [0007](0007-prompt-source-lives-in-repo.md) | 用户级提示词的源放在仓库里，host 目录只放软链或生成物 | 2026-09-05 | 无 | 无 |
 | [0008](0008-silence-is-never-a-pass.md) | 流水线里每一道闸口，拒绝要点名事实、给唯一出路，且不许靠什么都不做通过 | 2026-09-06 | 无 | 无 |
 | [0009](0009-night-orchestration-on-paseo.md) | 夜间编排从 Herdr 迁到 Paseo：脚本只做工具，判断归 main agent | 2026-09-06 | 无 | 0010、0018、0019 |
@@ -51,6 +51,7 @@
 | [0030](0030-design-system-built-by-claude-design-agent.md) | design system 由 Claude Design 里的 agent 从产品代码提炼，只装外观；设计页不加载产品代码 | 2026-09-22 | 0029 | 无 |
 | [0031](0031-worker-start-memory-is-a-searched-index.md) | worker 开工时拿到两份有上限的 Memory 索引：相关经验用本票 `## Owns` 路径和各级标题的短查询搜出，不用 spec 或 map 正文 | 2026-09-18 | 无 | 无 |
 | [0032](0032-the-set-is-layered.md) | MMW 分成 mode、playbook、原则、能力技能、reference、脚本、角色与配置七种组件，按类型各住一层，每段内容默认搬到它该在的层，留在原处必须写明是 H1–H6 或 S 的哪一条 | 2026-09-30 | 无 | 无 |
+| [0034](0034-pstack-enters-as-a-subtree.md) | pstack 以 squash subtree 进入 mmw-v2/upstream-pstack/，原文不改，钉在切票时上游最新的提交，研究快照停在 0.15.4 | 2026-10-01 | 0006 | 无 |
 
 0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 

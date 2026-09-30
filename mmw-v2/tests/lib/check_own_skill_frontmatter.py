@@ -8,7 +8,7 @@ skill this repository wrote carries a frontmatter key beyond name and descriptio
 
 Every host scans a skill's frontmatter into its system prompt at start
 (mmw-v2/install.sh header comment), and install.sh itself never parses it
-(`writing-for-agents`'s SKILL-SET-RULES.md `### Descriptions`), so an invalid
+(the `mmw` skill's `references/skill-set-rules.md` `### Descriptions`), so an invalid
 block is caught only here or by a host at start. It happened for real: `advisor`
 and `ui-acceptance` both shipped a `description` with an unquoted colon and
 space, which breaks a strict YAML parser though a lenient one accepts it
@@ -19,8 +19,13 @@ one authority; an upstream skill may legitimately carry a third
 (`disable-model-invocation`, see mmw-v2/merge-notes/README.md) and is not held
 to that second check.
 
-It reads mmw-v2/skills.txt for the installed set, resolves each entry's
-SKILL.md, and parses the text between its first two `---` lines with PyYAML.
+It reads mmw-v2/skills.txt for the installed set. A line is `<prefix>/<name>`,
+optionally followed by `+model-invoked`; `#` starts a comment. `self/` resolves
+under `skills/`, `dd/` under `upstream-diagram-design/skills/`, `pstack/` under
+`upstream-pstack/skills/`, and any other prefix under `upstream/skills/`. A
+token other than `+model-invoked`, or that marker on a `self/` line, is a
+finding: install.sh refuses the same lines. It resolves each remaining entry's
+SKILL.md and parses the text between its first two `---` lines with PyYAML.
 The shared-lint entry `mmw-v2/tests/lib/run_shared_lints.sh` runs this after
 check_upstream_em_dashes.py, through `uv run` so PyYAML comes from this file's
 own PEP 723 block above; run directly with a plain `python3` on a machine that
@@ -47,22 +52,37 @@ except ImportError:
 MMW = Path(__file__).resolve().parents[2]
 SKILLS_TXT = MMW / "skills.txt"
 OWN_SKILLS = MMW / "skills"
+MARKER = "+model-invoked"
 
 
-def installed_skill_md_paths() -> list[Path]:
-    paths = []
-    for raw in SKILLS_TXT.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("self/"):
-            base = OWN_SKILLS / line[len("self/"):]
-        elif line.startswith("dd/"):
-            base = MMW / "upstream-diagram-design" / "skills" / line[len("dd/"):]
-        else:
-            base = MMW / "upstream" / "skills" / line
-        paths.append(base / "SKILL.md")
-    return paths
+def classify_line(raw: str) -> tuple[str, str] | None:
+    """None skips a blank or comment line.
+
+    ('error', message) is a line install.sh refuses. ('skill', token) is the
+    path token, marker already removed.
+    """
+    line = raw.split("#", 1)[0].strip()
+    if not line:
+        return None
+    tokens = line.split()
+    shown = " ".join(tokens)
+    if len(tokens) != 1 and not (len(tokens) == 2 and tokens[1] == MARKER):
+        return ("error", f"mmw-v2/skills.txt: unrecognized token: {shown}")
+    if len(tokens) == 2 and tokens[0].startswith("self/"):
+        return ("error", f"mmw-v2/skills.txt: a self/ line cannot carry {MARKER}: {shown}")
+    return ("skill", tokens[0])
+
+
+def skill_md(entry: str) -> Path:
+    if entry.startswith("self/"):
+        base = OWN_SKILLS / entry[len("self/"):]
+    elif entry.startswith("dd/"):
+        base = MMW / "upstream-diagram-design" / "skills" / entry[len("dd/"):]
+    elif entry.startswith("pstack/"):
+        base = MMW / "upstream-pstack" / "skills" / entry[len("pstack/"):]
+    else:
+        base = MMW / "upstream" / "skills" / entry
+    return base / "SKILL.md"
 
 
 def frontmatter_text(path: Path) -> str | None:
@@ -77,7 +97,15 @@ def frontmatter_text(path: Path) -> str | None:
 
 def findings() -> list[str]:
     rows = []
-    for path in installed_skill_md_paths():
+    for raw in SKILLS_TXT.read_text(encoding="utf-8").splitlines():
+        parsed = classify_line(raw)
+        if parsed is None:
+            continue
+        kind, value = parsed
+        if kind == "error":
+            rows.append(value)
+            continue
+        path = skill_md(value)
         rel = path.relative_to(MMW.parent)
         if not path.is_file():
             rows.append(f"{rel}: mmw-v2/skills.txt names this skill, but the file does not exist")

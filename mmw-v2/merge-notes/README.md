@@ -19,13 +19,15 @@
 
 `SKILL.md` frontmatter 的 `disable-model-invocation: true`（Claude Code 读）与 `agents/openai.yaml` 的 `policy.allow_implicit_invocation: false`（Codex 读）说的是同一件事：这个 skill 只有 user 点名才触发。两处同增同删——只动一处，同一个 skill 在一半 host 上是 user 触发、在另一半是模型可触发。
 
-mattpocock 和 diagram-design 两个 subtree 装进来的 skill 默认让模型可触发：user 漏说技能名时，agent 自己认得出该用它。本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`writing-for-agents` 技能的 `SKILL-SET-RULES.md` `### Descriptions`）。两行都留着的只有 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`。上游改这两行 → 本仓的取舍不变，两处一起跟。
+被 mode 或 playbook 点名、要模型调用的上游技能不改子树，只在 `skills.txt` 那一行加 `+model-invoked`，由 `install.sh` 在安装副本里去掉这两处。
+
+本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`mmw` 技能的 `references/skill-set-rules.md` `### Descriptions`）。两行都留着的七个是 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`。其中 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`teach`、`wait-what` 在 `skills.txt` 带 `+model-invoked`；`grill-with-docs`、`improve-codebase-architecture` 不带标记，只由用户点名。`triage`、`wayfinder`、`to-questionnaire` 也带 `+model-invoked`。上游改这两行 → 子树里两处一起跟；带标记的，由安装副本去掉。
 
 下面每份说明只写它那个 skill 站在哪一边，不复述这条规则。
 
 ## host 中立
 
-上游技能的正文按一家 host 说话：`the Skill tool` 这个工具名只在一家 host 上存在，别的 host 的 agent 只能猜。技能名本身（`/名字` 或 `the X skill`）在每个 host 上都够用：技能已经加载在 agent 的运行时里。本仓的改法（点名另一个技能的写法、会话管理命令的写法）是技能文本的规则，写在 `writing-for-agents` 技能的 `SKILL-SET-RULES.md` `### Hand-offs` 与 `### Paths and host neutrality`。
+上游技能的正文按一家 host 说话：`the Skill tool` 这个工具名只在一家 host 上存在，别的 host 的 agent 只能猜。技能名本身（`/名字` 或 `the X skill`）在每个 host 上都够用：技能已经加载在 agent 的运行时里。本仓的改法（点名另一个技能的写法、会话管理命令的写法）是技能文本的规则，写在 `mmw` 技能的 `references/skill-set-rules.md` `### Hand-offs` 与 `### Paths and host neutrality`。
 
 **上游把某一段改回工具名或斜杠命令 → 收上游对那一段其余部分的措辞，按能力说话这一层不收回去。** 下面每份说明只写它那个技能改了哪几段，不复述这些写法。
 
