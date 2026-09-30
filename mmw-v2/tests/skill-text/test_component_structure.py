@@ -33,6 +33,9 @@ class ComponentStructure(unittest.TestCase):
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(text, encoding='utf-8')
 
+    def rule_ids(self, output):
+        return re.findall(r'^.*\.md:\d+: ([\w-]+) ', output, re.M)
+
     def run_check(self, *args):
         return subprocess.run([sys.executable, str(SCRIPT), '--root', str(self.root), *args],
                               capture_output=True, text=True)
@@ -80,8 +83,7 @@ class ComponentStructure(unittest.TestCase):
                 result = self.run_check('--no-exceptions', path)
                 output = result.stdout + result.stderr
                 self.assertEqual(result.returncode, 1, output)
-                ids = re.findall(r'^.*\.md:\d+: ([\w-]+) ', output, re.M)
-                self.assertEqual(ids, [rule], output)
+                self.assertEqual(self.rule_ids(output), [rule], output)
             self.fixture('short-playbook.md', playbook)
 
     def test_imported_playbook_keeps_its_own_steps(self):
@@ -97,8 +99,7 @@ class ComponentStructure(unittest.TestCase):
             self.write(path, text)
             result = self.run_check(path)
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-            ids = re.findall(r'^.*\.md:\d+: ([\w-]+) ', result.stdout, re.M)
-            self.assertEqual(ids, [rule], result.stdout + result.stderr)
+            self.assertEqual(self.rule_ids(result.stdout), [rule], result.stdout + result.stderr)
         self.write(path, 'An imported standard without Reply or H3.\n')
         self.write('mmw-v2/skills/mmw/imports.tsv',
                    'type\tpath\tsource\tcommit\tmechanical\tjudgement\tbatch\n'
@@ -343,8 +344,19 @@ class ComponentStructure(unittest.TestCase):
         result = self.run_check(path)
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 1, output)
-        ids = re.findall(r'^.*\.md:\d+: ([\w-]+) ', output, re.M)
-        self.assertEqual(ids, ['mode-route-line'], output)
+        self.assertEqual(self.rule_ids(output), ['mode-route-line'], output)
+
+        plain = direct + '* A diagram → the `diagram-design` skill.\n'
+        self.write(path, plain)
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for marker in ('*', '+'):
+            starred = direct + f'{marker} **Bug fix.** Fix it. `playbooks/bug.md`.\n'
+            self.write(path, starred)
+            result = self.run_check(path)
+            output = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 1, marker + '\n' + output)
+            self.assertEqual(self.rule_ids(output), ['mode-route-line'], output)
 
     def test_description_skill_names_are_matched_as_written_and_not_inside_paths(self):
         self.write('mmw-v2/skills.txt', 'self/mmw\n')
@@ -364,8 +376,7 @@ class ComponentStructure(unittest.TestCase):
         result = described('Use when the `mmw` skill applies.')
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 1, output)
-        ids = re.findall(r'^.*\.md:\d+: ([\w-]+) ', output, re.M)
-        self.assertEqual(ids, ['description-content'], output)
+        self.assertEqual(self.rule_ids(output), ['description-content'], output)
 
     def test_unchecked_frontmatter_names_its_file_and_preserves_the_repair_path(self):
         path = 'mmw-v2/skills/example/SKILL.md'
