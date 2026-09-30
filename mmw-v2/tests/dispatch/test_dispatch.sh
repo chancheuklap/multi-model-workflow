@@ -5408,6 +5408,135 @@ scenario_orcaunobserved() {
   RUNNER="$PASEO_RUNNER"
 }
 
+seed_where_start() {
+  local kind="$1" runner="$2"
+  shift 2
+  post_ev 61 "$kind.started" --ticket 61 --line "$kind started" \
+    --field runner="$runner" --field session=me --field machine=fake \
+    --field host=codex --field model=gpt-6.1-sol --field effort=high \
+    --field grade=senior-worker --field worktree="$TMP/repo/.worktrees/issue-61" \
+    --field branch=issue-61 --field base=0000000000000000000000000000000000000000 "$@"
+}
+
+seed_where_watch() {
+  local kind="$1" number="$2" runner="$3"
+  mkdir -p "$STATE_DIR"
+  python3 - "$STATE_DIR/watches.json" "$kind" "$number" "$runner" <<'PY'
+import json, sys
+path, kind, number, runner = sys.argv[1:]
+row = {"runner": runner, "session": "me"}
+if kind != "missing":
+    row["kind"] = kind
+row.update({"spec": int(number)} if kind == "night" else {"tickets": [int(number)]})
+with open(path, "w") as handle:
+    json.dump({"fixture": row}, handle)
+PY
+}
+
+assert_where_line() {
+  local code="$1" expected="$2"
+  [ "$code" = 0 ] || fail "where expected exit 0, got $code: $(cat "$TMP/out") $(cat "$TMP/err")"
+  [ "$(cat "$TMP/out")" = "$expected" ] || fail "where output: $(cat "$TMP/out"), expected: $expected"
+  [ "$(wc -l < "$TMP/out" | tr -d ' ')" = 1 ] || fail "where did not print one line"
+}
+
+scenario_where() {
+  local code runner role tree
+  local -a identity=()
+  for runner in paseo orca herdr; do
+    case "$runner" in
+      paseo) identity=(PASEO_AGENT_ID=me) ;;
+      orca) identity=(ORCA_TERMINAL_HANDLE=me) ;;
+      herdr) identity=(HERDR_ENV=1 HERDR_PANE_ID=pane_me) ;;
+    esac
+    for role in worker adopting-worker reviewer night-orchestrator one-ticket-orchestrator; do
+      echo "--- $runner identifies $role from self, events and watch kind"
+      reset_log; fresh_repo; no_relay
+      echo '[{"number":61,"state":"OPEN","labels":["ready-for-agent"]},{"number":76,"state":"OPEN","labels":["mmw:spec"],"children":[]}]' > "$TMP/tickets.json"
+      echo '[{"name":"me","agent_status":"idle","pane_id":"pane_me"}]' > "$MMW_FAKE_HERDR_STATE/agents.json"
+      case "$role" in
+        worker) seed_where_start worker "$runner" ;;
+        adopting-worker) seed_where_start worker "$runner" --json-field adopted=true ;;
+        reviewer) seed_where_start reviewer "$runner" ;;
+        night-orchestrator)
+          seed_where_watch night 76 "$runner"
+          post_ev 76 spec.opened --spec 76 --line opened --field runner="$runner" --field session=me ;;
+        one-ticket-orchestrator) seed_where_watch ticket 61 "$runner" ;;
+      esac
+      case "$role" in
+        worker|adopting-worker|reviewer)
+          tree="$TMP/repo/.worktrees/issue-61"
+          mkdir -p "$tree/subdirectory"
+          code="$( (cd "$tree/subdirectory" && env -u HERDR_ENV -u TERM_PROGRAM "${identity[@]}" \
+              FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+          case "$role" in
+            reviewer) assert_where_line "$code" "FRESH reviewer #61 · mmw review-a-ticket#Pin the diff" ;;
+            *) assert_where_line "$code" "FRESH $role #61 · mmw work-a-ticket#Claim" ;;
+          esac ;;
+        night-orchestrator)
+          code="$(run_dispatch env -u HERDR_ENV -u TERM_PROGRAM "${identity[@]}" \
+              FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where)"
+          assert_where_line "$code" "BETWEEN night-orchestrator #76 · mmw run-a-night#Lint the batch .. #Advance, then end your turn" ;;
+        one-ticket-orchestrator)
+          code="$(run_dispatch env -u HERDR_ENV -u TERM_PROGRAM "${identity[@]}" \
+              FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where)"
+          assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker" ;;
+      esac
+      hasnt "gh :: issue :: comment"
+    done
+  done
+}
+
+scenario_wherespec() {
+  local code
+  reset_log; fresh_repo; no_relay
+  echo '[{"number":76,"state":"OPEN","labels":["mmw:spec"],"children":[]}]' > "$TMP/tickets.json"
+  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 76)"
+  assert_where_line "$code" "FRESH night-orchestrator #76 · mmw run-a-night#Check and open"
+  seed_where_watch night 76 paseo
+  post_ev 76 spec.opened --spec 76 --line opened --field runner=paseo --field session=me
+  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 76)"
+  assert_where_line "$code" "BETWEEN night-orchestrator #76 · mmw run-a-night#Lint the batch .. #Advance, then end your turn"
+  post_ev 76 spec.closed --spec 76 --line closed
+  rm "$STATE_DIR/watches.json"
+  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 76)"
+  assert_where_line "$code" "AT night-orchestrator #76 · mmw run-a-night#Retro"
+  hasnt "gh :: issue :: comment"
+}
+
+assert_where_unknown() {
+  [ "$1" = 2 ] || fail "where expected exit 2, got $1: $(cat "$TMP/out") $(cat "$TMP/err")"
+  grep -q '^UNKNOWN ' "$TMP/out" || fail "where printed no UNKNOWN: $(cat "$TMP/out")"
+  [ "$(wc -l < "$TMP/out" | tr -d ' ')" = 1 ] || fail "UNKNOWN did not occupy one line"
+}
+
+scenario_whereunknown() {
+  local code copy
+  reset_log; fresh_repo; no_relay
+  echo '[{"number":61,"state":"OPEN","labels":["ready-for-agent"]}]' > "$TMP/tickets.json"
+  code="$(run_dispatch env -u HERDR_ENV -u TERM_PROGRAM FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
+  assert_where_unknown "$code"
+  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
+  assert_where_unknown "$code"
+  seed_where_watch missing 61 paseo
+  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
+  assert_where_unknown "$code"
+  copy="$TMP/where-copy/skills/dispatch"
+  mkdir -p "$(dirname "$copy")"
+  cp -R "$SKILL" "$copy"
+  ln -s "$(dirname "$SKILL")/verify-ticket" "$(dirname "$copy")/verify-ticket"
+  rm "$copy/roles.json"
+  code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
+  assert_where_unknown "$code"
+  grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing roles.json did not name install --check"
+  cp "$SKILL/roles.json" "$copy/roles.json"
+  rm "$copy/scripts/locations.py"
+  code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
+  assert_where_unknown "$code"
+  grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing locations.py did not name install --check"
+  hasnt "gh :: issue :: comment"
+}
+
 scenario_runnerself() {
   local code
   echo "--- paseo: PASEO_AGENT_ID is the session; without it this is not a Paseo agent"
@@ -10427,6 +10556,7 @@ ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-e
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart watchkind"
+ALL="$ALL where wherespec whereunknown"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
@@ -10442,6 +10572,9 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
+    where) echo WHERE-OK ;;
+    wherespec) echo WHERE-SPEC-OK ;;
+    whereunknown) echo WHERE-UNKNOWN-OK ;;
     memory-install) echo MEMORY-INSTALL-OK ;;
     memory-open-space) echo MEMORY-OPEN-SPACE-OK ;;
     memory-space-unavailable) echo MEMORY-SPACE-UNAVAILABLE-OK ;;
