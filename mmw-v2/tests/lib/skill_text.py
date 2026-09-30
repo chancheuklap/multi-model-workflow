@@ -27,6 +27,10 @@ MODE_ROOT = f'mmw-v2/skills/{MODE_DIR}'
 class TextError(ValueError):
     """A snapshot or location could not be read unambiguously."""
 
+    def __init__(self, message: str, next_step: str | None = None):
+        super().__init__(message)
+        self.next_step = next_step
+
 
 @dataclass(frozen=True)
 class Unit:
@@ -47,7 +51,6 @@ class Anchor:
     title: str
     start: int
     end: int
-    kind: str
 
 
 @dataclass(frozen=True)
@@ -64,10 +67,7 @@ class Location:
 
 @dataclass
 class Selection:
-    location: Location
     units: list[Unit]
-    start: int
-    end: int
 
 
 def normalize_title(text: str) -> str:
@@ -86,6 +86,10 @@ LIST = re.compile(r'^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$')
 HEADING = re.compile(r'^\s{0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$')
 BOLD_TITLE = re.compile(r'^\*\*([^*]+[.:?])\*\*(?:\s+|$)(.*)$')
 FENCE = re.compile(r'^\s*(`{3,}|~{3,})(.*)$')
+
+
+def closes_fence(line: str, marker: str) -> bool:
+    return bool(re.fullmatch(r'\s*' + re.escape(marker[0]) + '{' + str(len(marker)) + r',}\s*', line))
 
 
 def sentences(text: str, line: int = 1, line_map: list[int] | None = None) -> list[Unit]:
@@ -180,7 +184,7 @@ def markdown_units(text: str, first_line: int = 1) -> list[Unit]:
             j = i + 1
             marker = fence.group(1)
             while j < len(lines):
-                if re.match(r'^\s*' + re.escape(marker[0]) + '{' + str(len(marker)) + r',}\s*$', lines[j]):
+                if closes_fence(lines[j], marker):
                     j += 1
                     break
                 j += 1
@@ -253,7 +257,7 @@ def anchors(text: str) -> list[Anchor]:
             continue
         fence = FENCE.match(line)
         if in_fence:
-            if re.match(r'^\s*' + re.escape(in_fence[0]) + '{' + str(len(in_fence)) + r',}\s*$', line):
+            if closes_fence(line, in_fence):
                 in_fence = None
             continue
         if fence:
@@ -288,7 +292,7 @@ def anchors(text: str) -> list[Anchor]:
                 if indent <= level:
                     end = j
                     break
-        result.append(Anchor(title, start + 1, end, kind))
+        result.append(Anchor(title, start + 1, end))
     return result
 
 
@@ -317,14 +321,13 @@ def parse_location(raw: str, source: bool = False) -> Location:
 
 def select(text: str, location: Location) -> Selection:
     if location.whole:
-        return Selection(location, markdown_units(text), 1, len(text.splitlines()))
+        return Selection(markdown_units(text))
     if location.selector == 'field':
         data, _, _ = frontmatter(text)
         if location.value not in data:
             raise TextError(f'{location.path}@{location.value}: field not found')
         units = [u for u in markdown_units(text) if u.key == location.value]
-        return Selection(location, units, min(u.line for u in units) if units else 1,
-                         max(u.end_line for u in units) if units else 1)
+        return Selection(units)
     if location.selector == 'heading':
         hits = [a for a in anchors(text) if a.title == normalize_title(location.value)]
         if len(hits) != 1:
@@ -336,14 +339,21 @@ def select(text: str, location: Location) -> Selection:
         if start < 1 or end < start or end > len(text.splitlines()):
             raise TextError(f'{location.path}:L{location.value}: line range not found')
     fragment = ''.join(text.splitlines(keepends=True)[start-1:end])
-    return Selection(location, markdown_units(fragment, start), start, end)
+    return Selection(markdown_units(fragment, start))
 
 
 class GitTree:
-    def __init__(self, root: Path, revision: str):
+    def __init__(self, root: Path, revision: str, trees: dict | None = None):
         self.root = root
         self.revision = self.git('rev-parse', '--verify', revision + '^{commit}').strip()
         self._texts: dict[str, str | None] = {}
+        self._trees = {} if trees is None else trees
+        self._trees[revision] = self._trees[self.revision] = self
+
+    def at_revision(self, revision: str) -> GitTree:
+        if revision not in self._trees:
+            GitTree(self.root, revision, self._trees)
+        return self._trees[revision]
 
     def git(self, *args: str) -> str:
         result = subprocess.run(['git', '-C', str(self.root), *args],
@@ -365,7 +375,7 @@ class GitTree:
         return self._texts[path]  # type: ignore[return-value]
 
     def selection(self, location: Location) -> Selection:
-        tree = GitTree(self.root, location.revision) if location.revision else self
+        tree = self.at_revision(location.revision) if location.revision else self
         return select(tree.read(location.path), location)
 
 
@@ -415,7 +425,8 @@ def read_imports(root: Path) -> dict[str, Component]:
             continue
         cols = raw.split('\t')
         if len(cols) < 2:
-            raise TextError(f'{file}:{line}: imports.tsv needs at least two columns')
+            raise TextError(f'{file}:{line}: imports.tsv needs at least two columns',
+                            f'correct the tab-separated type and local path at {file}:{line} and rerun.')
         if header:
             header = False
             continue
@@ -478,7 +489,8 @@ def rename_text(text: str, kind: str, renames: list[Rename], target: str) -> str
 
 
 def canonical_text(unit: Unit, tree: GitTree, path: str, target: str,
-                   renames: list[Rename], source: bool = False) -> str:
+                   renames: list[Rename], source: bool = False,
+                   head: GitTree | None = None) -> str:
     """Canonicalize only the explicitly permitted mechanical differences."""
     text = unit.text
     if unit.kind == 'code':
@@ -487,8 +499,8 @@ def canonical_text(unit: Unit, tree: GitTree, path: str, target: str,
 
     def cite(match):
         names = re.findall(r'\*\*(principle-[\w-]+)\*\*', match.group())
-        head = GitTree(tree.root, 'HEAD')
-        return '' if all(head.exists(f'{MODE_ROOT}/principles/{n}.md') for n in names) else match.group()
+        current = head or tree.at_revision('HEAD')
+        return '' if all(current.exists(f'{MODE_ROOT}/principles/{n}.md') for n in names) else match.group()
 
     text = citation.sub(cite, text)
 
@@ -497,7 +509,7 @@ def canonical_text(unit: Unit, tree: GitTree, path: str, target: str,
         resolved = posixpath.normpath(posixpath.join(base, value))
         if resolved.startswith('../') or not tree.exists(resolved):
             return literal
-        for rule in renames:
+        for rule in renames if source else []:
             if rule.kind == 'path' and resolved == rule.old:
                 resolved = rule.new
         return '\x00path:' + resolved + '\x00'
@@ -506,8 +518,10 @@ def canonical_text(unit: Unit, tree: GitTree, path: str, target: str,
     named = re.compile(r"the `([^`]+)` skill's `([^`]+)`")
     skills = installed_skills(tree)
     text = named.sub(lambda m: resolve(m.group(2), skills.get(m.group(1), 'mmw-v2/skills/' + m.group(1)), m.group()), text)
-    text = re.sub(r'\[([^\]]*)\]\(([^\s)]+)\)',
-                  lambda m: resolve(m.group(2), str(PurePosixPath(path).parent), m.group()), text)
+    def link(m):
+        resolved = resolve(m.group(2), str(PurePosixPath(path).parent), m.group())
+        return '\x00label:' + m.group(1) + '\x00' + resolved if resolved.startswith('\x00path:') else resolved
+    text = re.sub(r'\[([^\]]*)\]\(([^\s)]+)\)', link, text)
     def code_path(m):
         value = m.group(1)
         if '/' not in value:

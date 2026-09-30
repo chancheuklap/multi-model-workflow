@@ -19,8 +19,9 @@ Manifest grammar, one directive per line (blank lines and # comments ignored):
   new <target> title "<Title>" : <provenance>
   rename <path|token|text> <old> -> <new> [in <glob>]
 
-replace belongs to the immediately preceding move/copy and matches exactly once
-in its whitespace-normalized source. Whole-file moves/copies automatically map
+Consecutive replace lines belong to the preceding move/copy; any other directive
+ends that group. Each matches exactly once in its whitespace-normalized source.
+Whole-file moves/copies automatically map
 the source path to the target path. Rename values may be backtick-quoted.
 Locations: path (whole file), path@<frontmatter key>, path#<heading or bold
 label>, path:L12 or path:L12-L30 (source only). A source may be <rev>:<location>.
@@ -47,7 +48,7 @@ import subprocess
 import sys
 
 try:
-    from skill_text import (GitTree, Location, Rename, Selection, TextError, Unit,
+    from skill_text import (GitTree, Location, Rename, TextError, Unit,
                             canonical_text, markdown_units, normalize_title,
                             parse_location, read_imports, rename_text, sentences)
 except ImportError as exc:
@@ -145,6 +146,7 @@ def parse_manifest(text: str) -> Manifest:
                 if not parts[1]:
                     raise TextError('replace old text cannot be empty')
                 previous.replacements.append((parts[1], parts[3]))
+                continue
             elif verb in ('drop', 'new'):
                 declaration, provenance = provenance_parts(line)
                 if not provenance.strip():
@@ -200,7 +202,18 @@ class Item:
 
     @property
     def key(self):
-        return self.unit.kind, self.unit.key if self.unit.kind == 'field' else '', self.canonical
+        text = re.sub(r'\x00label:[^\x00]*\x00', '', self.canonical)
+        return self.unit.kind, self.unit.key if self.unit.kind == 'field' else '', text
+
+    def matches(self, other: Item) -> bool:
+        # Labels must survive link-to-link comparison. An inline-code path has
+        # no label, so its allowed conversion to a link compares just the path.
+        if self.key != other.key:
+            return False
+        refs = r'(?:\x00label:([^\x00]*)\x00)?\x00path:[^\x00]*\x00'
+        labels = lambda value: [m.group(1) for m in re.finditer(refs, value)]
+        return all(a is None or b is None or a == b
+                   for a, b in zip(labels(self.canonical), labels(other.canonical)))
 
     @property
     def id(self):
@@ -236,23 +249,22 @@ class Comparison:
     """One comparison owns the target instances so no unit is counted twice."""
     def __init__(self, root: Path, manifest: Manifest):
         self.manifest = manifest
-        self.imports = read_imports(root)
+        read_imports(root)
         self.before = GitTree(root, manifest.revision)
-        self.head = GitTree(root, 'HEAD')
+        self.head = self.before.at_revision('HEAD')
         self.findings: list[Finding] = []
         self.new_lines: list[Item] = []
         self.counts = Counter()
         self.targets: dict[tuple, Item] = {}
         self.used: set[tuple] = set()
         self.expected = []
-        self.pairs = []
         self.target_scopes: dict[Location, list[Item]] = {}
         self.removals: dict[tuple, list[Item]] = {}
 
     def items(self, tree: GitTree, location: Location, target: str | None = None,
               source: bool = False) -> list[Item]:
         if location.revision:
-            tree = GitTree(tree.root, location.revision)
+            tree = tree.at_revision(location.revision)
         selection = tree.selection(location)
         full = markdown_units(tree.read(location.path))
         # Range parses preserve source addresses, including exact line ranges.
@@ -264,7 +276,7 @@ class Comparison:
             occurrences[(unit.identity, unit.line)] += 1
             ordinal = matches[occurrence] if occurrence < len(matches) else ('range', unit.line, occurrence, unit.identity)
             canonical = canonical_text(unit, tree, location.path, target or location.path,
-                                       self.manifest.renames, source)
+                                       self.manifest.renames, source, self.head)
             result.append(Item(location.path, unit, ordinal, canonical))
         return result
 
@@ -284,14 +296,14 @@ class Comparison:
                 items = [i for i in items if i.unit.kind == 'sentence' and i.unit.text.startswith(allowance.text)]
                 if len(items) != 1:
                     raise TextError(f'STALE drop {allowance.location.path}: prefix matched {len(items)} sentences')
-            tree = (GitTree(self.before.root, allowance.location.revision).revision
+            tree = (self.before.at_revision(allowance.location.revision).revision
                     if allowance.location.revision else self.before.revision)
             drops.update((tree, i.id) for i in items)
         self.counts['dropped'] = len(drops)
         for transfer in self.manifest.transfers:
             dest = self.target(transfer.target)
             src = self.items(self.before, transfer.source, transfer.target.path, True)
-            rev = GitTree(self.before.root, transfer.source.revision).revision if transfer.source.revision else self.before.revision
+            rev = self.before.at_revision(transfer.source.revision).revision if transfer.source.revision else self.before.revision
             src = [i for i in src if (rev, i.id) not in drops]
             if transfer.kind == 'move':
                 self.removals.setdefault((rev, transfer.source.path), []).extend(src)
@@ -320,11 +332,11 @@ class Comparison:
                          if prototype.unit.kind == 'sentence' else
                          [replace(prototype.unit, text=replacement_text)])
                 changed = []
-                tree = GitTree(self.before.root, rev)
+                tree = self.before.at_revision(rev)
                 for i, unit in enumerate(units):
                     unit = replace(unit, key=prototype.unit.key)
                     canonical = canonical_text(unit, tree, prototype.path, transfer.target.path,
-                                               self.manifest.renames, True)
+                                               self.manifest.renames, True, self.head)
                     changed.append(Item(prototype.path, unit,
                                         (prototype.ordinal, 'replace', i), canonical))
                 src = src[:first] + changed + src[last+1:]
@@ -355,11 +367,10 @@ class Comparison:
                     else:
                         leftovers.append((transfer, item, dest))
                     continue
-                match = next((d for d in dest if d.id not in self.used and d.key == item.key), None)
+                match = next((d for d in dest if d.id not in self.used and d.matches(item)), None)
                 if match:
                     self.used.add(match.id)
                     order.append(dest.index(match))
-                    self.pairs.append((item, match))
                     self.counts['carried'] += 1
                     self.counts['path'] += item.canonical.count('\x00path:')
                     self.counts['rename'] += int(rename_text(item.unit.text, item.unit.kind,
@@ -372,19 +383,22 @@ class Comparison:
                 else:
                     leftovers.append((transfer, item, dest))
             if not transfer.any_order and order != sorted(order):
-                self.findings.append(Finding('OUT-OF-ORDER', dest[min(order)]))
+                involved = [index for a, b in enumerate(order) for c in order[a+1:]
+                            if b > c for index in (b, c)]
+                self.findings.append(Finding('OUT-OF-ORDER', dest[min(involved)]))
         # Q2: prior text is an allowance only for scoped targets, never files.
         for location, dest in self.target_scopes.items():
             if location.whole or not self.before.exists(location.path):
                 continue
             try:
-                prior = Counter(i.key for i in self.items(self.before, location, location.path, True))
+                prior = self.items(self.before, location, location.path, True)
             except TextError:
                 continue  # This is a newly introduced heading/step.
             for item in dest:
-                if item.id not in self.used and prior[item.key]:
+                match = next((p for p in prior if p.matches(item)), None)
+                if item.id not in self.used and match:
                     self.used.add(item.id)
-                    prior[item.key] -= 1
+                    prior.remove(match)
                     self.counts['prior'] += 1
         for addition in self.manifest.additions:
             dest = self.target(addition.location)
@@ -405,24 +419,26 @@ class Comparison:
                     marker = dest[0] if dest else Item(addition.location.path, Unit('sentence', text, 1, 1), -1, text)
                     self.findings.append(Finding('MISSING-NEW', marker, detail=text))
         for transfer, item, dest in leftovers:
+            # A sentence carried to the wrong scope is missing here, even when
+            # unrelated new prose occupies its expected destination.
+            elsewhere = self.items(self.head, Location(transfer.target.path))
+            elsewhere.extend(self.targets.values())
+            scoped_ids = {d.id for d in dest}
+            found = next((d for d in elsewhere if d.id not in scoped_ids and d.matches(item)), None)
             candidates = [d for d in dest if d.id not in self.used and d.key[:2] == item.key[:2]]
             best = max(candidates, key=lambda d: difflib.SequenceMatcher(None, item.canonical, d.canonical, autojunk=False).ratio(), default=None)
-            if best:
+            if found:
+                self.findings.append(Finding('DELETED', item, detail=f'found in {found.address}'))
+            elif best:
                 self.used.add(best.id)
                 self.findings.append(Finding('CHANGED', best, item))
             else:
-                # Search the whole destination file, then the other declared
-                # targets; do not silently accept a sentence at the wrong step.
-                elsewhere = self.items(self.head, Location(transfer.target.path))
-                elsewhere.extend(self.targets.values())
-                found = next((d for d in elsewhere if d.key == item.key), None)
-                self.findings.append(Finding('DELETED', item, detail=
-                                             f'found in {found.address}' if found else ''))
+                self.findings.append(Finding('DELETED', item))
         for item in self.targets.values():
             if item.id not in self.used:
                 self.findings.append(Finding('ADDED', item))
         for (revision, path), moved in self.removals.items():
-            tree = GitTree(self.before.root, revision)
+            tree = self.before.at_revision(revision)
             original = Counter(u.identity for u in markdown_units(tree.read(path)))
             remaining_units = markdown_units(self.head.read(path)) if self.head.exists(path) else []
             remaining = Counter(u.identity for u in remaining_units)
@@ -446,12 +462,18 @@ def main(argv=None):
     try:
         root_result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
         if root_result.returncode:
-            raise TextError('not in a git repository')
+            raise TextError('not in a git repository', 'run from the git repository containing the manifest source and target files.')
         manifest = parse_manifest(args.manifest.read_text(encoding='utf-8'))
         comparison = Comparison(Path(root_result.stdout.strip()), manifest).run()
     except (TextError, OSError, UnicodeError) as exc:
         print(f'VERBATIM ERROR no units checked: {exc}')
-        print('Next: correct the manifest location or pinned revision and rerun.')
+        if isinstance(exc, TextError):
+            next_step = exc.next_step or 'correct the reported manifest directive, location or pinned revision and rerun.'
+        elif isinstance(exc, OSError):
+            next_step = f'restore read access to {exc.filename or args.manifest} and rerun.'
+        else:
+            next_step = f'correct the UTF-8 encoding of {args.manifest} or the reported snapshot file and rerun.'
+        print('Next: ' + next_step)
         print('Why: comparison requires readable, unambiguous snapshots and directives.')
         return 2
     if not comparison.counts['checked'] or comparison.findings:

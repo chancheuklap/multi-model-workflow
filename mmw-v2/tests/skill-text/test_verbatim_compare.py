@@ -65,6 +65,10 @@ class VerbatimCompare(unittest.TestCase):
         self.write('source.md', '')
         self.write('target.md', '1. **Claim.** Keep the\n   wording.\n\n   Read the reason.\n\n   * Retain the rule.\n   2) Preserve its order.\n')
         self.check('move source.md#Claim -> target.md#Claim')
+        self.source('## Claim\n\nKeep the wording. Read the reason.\n')
+        self.write('source.md', '')
+        self.write('target.md', '1. **Claim.** Keep the wording.\n\n2. **Read.** Read the reason.\n')
+        self.check('move source.md#Claim -> target.md\nnew target.md title "Read" : Spec steps')
 
     def test_one_changed_word_is_changed(self):
         self.source('Keep the original wording.\n')
@@ -85,6 +89,13 @@ class VerbatimCompare(unittest.TestCase):
         self.assertIn('found in target.md:7', output)
         self.check('move source.md#Claim -> target.md#Claim\n'
                    'drop source.md#Claim "Explain the reason." : Other carries it')
+        self.write('target.md', '## Claim\n\nKeep the rule. Unrelated new advice.\n')
+        self.write('other.md', '## Elsewhere\n\nExplain the reason.\n')
+        output = self.check('move source.md#Claim -> target.md#Claim\n'
+                            'new other.md#Elsewhere : Spec', 1, 'DELETED')
+        self.assertIn('found in other.md:3', output)
+        self.assertIn('target.md:3: ADDED', output)
+        self.assertNotIn(': CHANGED', output)
 
     def test_an_unlisted_sentence_is_added_unless_new(self):
         self.source('Keep the rule.\n')
@@ -127,6 +138,11 @@ class VerbatimCompare(unittest.TestCase):
         self.source('Read `references/rule.md`.\n', src)
         self.write(dst, 'Read [Rule](../demo/references/rule.md).\n')
         self.check(f'copy {src} -> {dst}')
+        self.source('Read [Rule](references/rule.md).\n', src)
+        self.write(dst, 'Read [Unrelated words](../demo/references/rule.md).\n')
+        self.check(f'copy {src} -> {dst}', 1, 'CHANGED')
+        self.write(dst, 'Read [Rule](../demo/references/rule.md).\n')
+        self.check(f'copy {src} -> {dst}')
         self.write(dst, "Read the `demo` skill's `references/rule.md`.\n")
         self.check(f'copy {src} -> {dst}')
         for target in ('Read [Rule](../demo/references/other.md).\n',
@@ -140,6 +156,8 @@ class VerbatimCompare(unittest.TestCase):
         self.write(dst, 'Read [Rule](references/rule.md).\n')
         self.write('mmw-v2/skills/other/references/rule.md', 'Rules.\n')
         self.check(f'copy {src} -> {dst}\nrename path mmw-v2/skills/demo/references/rule.md -> mmw-v2/skills/other/references/rule.md')
+        self.write(dst, 'Read [Rule](../demo/references/rule.md).\n')
+        self.check(f'copy {src} -> {dst}\nrename path mmw-v2/skills/demo/references/rule.md -> mmw-v2/skills/other/references/rule.md', 1, 'CHANGED')
         # An entire file relocation carries its own implicit path mapping.
         self.source('Read [Self](SKILL.md).\n', src)
         (self.root / src).unlink()
@@ -152,6 +170,8 @@ class VerbatimCompare(unittest.TestCase):
                  'rename text "dispatch.sh wait" -> "dispatch.sh result" in target.md\n')
         self.check(rules + 'copy source.md -> target.md')
         self.check(rules.replace('in target.md', 'in elsewhere/**') + 'copy source.md -> target.md', 1, 'CHANGED')
+        self.write('target.md', 'Run `--preflight` and `dispatch.sh wait`.\n')
+        self.check(rules.replace('in target.md', 'in elsewhere/**') + 'copy source.md -> target.md')
         self.source('Keep the original rule.\n')
         self.write('target.md', 'Keep the original rule (**principle-verbatim**).\n')
         self.check('copy source.md -> target.md', 1, 'CHANGED')
@@ -167,10 +187,13 @@ class VerbatimCompare(unittest.TestCase):
         self.source('Keep the imported rule.\n')
         self.write('target.md', '## Claim\n\nExisting local advice. Keep the imported rule.\n')
         self.check('copy source.md -> target.md#Claim')
+        self.write('target.md', '## Claim\n\nExisting local advice.\n\n1. **Imported.** Keep the imported rule.\n')
+        self.check('copy source.md -> target.md#Claim\nnew target.md#Claim title "Imported" : Spec')
 
     def test_nothing_checked_is_never_a_pass(self):
         self.source('## Claim\n\nKeep the rule.\n')
         self.write('target.md', '## Claim\n\nKeep the rule.\n')
+        self.check('copy source.md -> target.md')
         invalid = [
             'copy source.md#Absent -> target.md',
             'copy source.md -> target.md#Absent',
@@ -185,8 +208,12 @@ class VerbatimCompare(unittest.TestCase):
             with self.subTest(lines=lines):
                 self.check(lines, 2)
         self.write('target.md', '## Claim\n\nKeep the rule.\n\n## Claim\n\nKeep the rule.\n')
+        self.check('copy source.md -> target.md\nnew target.md title "Claim" : Spec\n'
+                   'new target.md "Keep the rule." : Spec')
         self.check('copy source.md -> target.md#Claim', 2)
         self.source('Keep the rule. Keep the rule.\n')
+        self.write('target.md', 'Keep the rule. Keep the rule.\n')
+        self.check('copy source.md -> target.md')
         self.check('copy source.md -> target.md\nreplace "Keep" -> "Retain" : Spec', 2, 'STALE')
         self.check('copy source.md -> target.md\ndrop source.md "Keep" : Spec', 2, 'STALE')
         self.base = 'no-such-commit'
@@ -204,6 +231,7 @@ class VerbatimCompare(unittest.TestCase):
         output = self.check('copy source.md -> target.md', 1, 'CHANGED')
         self.assertEqual([line.split()[0] for line in output.splitlines()[:3]],
                          ['VERBATIM', 'Next:', 'Why:'])
+        self.assertTrue(output.startswith('VERBATIM FAIL '), output)
         self.write('target.md', 'Preserve the original wording.\n\n' +
                    '\n\n'.join(f'Added advice number {i}.' for i in range(45)) + '\n')
         output = self.check('copy source.md -> target.md', 1, 'ADDED')
@@ -214,7 +242,19 @@ class VerbatimCompare(unittest.TestCase):
         self.assertEqual(sum(': ADDED' in line for line in output.splitlines()), 45)
 
     @staticmethod
-    def mutations(text, mode):
+    def fixture_sentences(text):
+        """Independent fixture oracle: hide inline syntax before finding stops."""
+        mask = list(text)
+        for pattern in (r'(`+).*?\1', r'\[[^]]*\]\([^)]*\)',
+                        r'\b(?:e\.g\.|i\.e\.|etc\.|vs\.|cf\.)'):
+            for match in re.finditer(pattern, text, re.I):
+                mask[match.start():match.end()] = 'x' * len(match.group())
+        cuts = [m.end() for m in re.finditer(r'[.?!](?=\s+[A-Z])', ''.join(mask))]
+        cuts = [0, *cuts, len(text)]
+        return [text[a:b].strip() for a, b in zip(cuts, cuts[1:]) if text[a:b].strip()]
+
+    @classmethod
+    def mutations(cls, text, mode):
         """Pick only sentence bodies, never titles, list markers or block starts."""
         result = []
         lines = text.splitlines(keepends=True)
@@ -254,9 +294,8 @@ class VerbatimCompare(unittest.TestCase):
                 if code:
                     changed = line[:code.start(1)] + 'changed-code' + line[code.end(1):]
             elif mode in (5, 6):
-                # These fixture sentences have a literal period + uppercase boundary.
                 prefix = re.match(r'^\s*(?:(?:[-*+]|\d+[.)])\s+)?', line).group()
-                pieces = re.split(r'(?<=[.?!])\s+(?=[A-Z])', line[len(prefix):].rstrip('\n'))
+                pieces = cls.fixture_sentences(line[len(prefix):].rstrip('\n'))
                 if len(pieces) > 1 and re.match(r'^[A-Z][a-z]', pieces[0]) and all(p.endswith(('.', '!', '?')) for p in pieces):
                     changed = prefix + (' '.join(pieces[:1] + pieces[2:]) if mode == 5 else
                                ' '.join([pieces[1], pieces[0], *pieces[2:]])) + '\n'
@@ -274,6 +313,8 @@ class VerbatimCompare(unittest.TestCase):
         return result
 
     def test_every_seeded_mutation_is_reported(self):
+        self.assertEqual(self.fixture_sentences('Keep `## 5. The night is over`. Read e.g. [Rule](a.md).'),
+                         ['Keep `## 5. The night is over`.', 'Read e.g. [Rule](a.md).'])
         fixtures = Path(__file__).parent / 'fixtures' / 'verbatim'
         texts = [(fixtures / f'{name}.md').read_text() for name in ('advisor', 'retro')]
         randomizer = random.Random(600)
@@ -306,10 +347,12 @@ class VerbatimCompare(unittest.TestCase):
             with self.subTest(reflow_iteration=iteration, mutation=mode):
                 self.write('target.md', change)
                 output = self.check('move source.md -> target.md', 1)
-                if mode not in (5, 6):
-                    self.assertIn(f'target.md:{row}:', output)
+                if mode == 5:
+                    deleted = self.fixture_sentences(target.splitlines()[row-1].strip())[1]
+                    source_row = next(i for i, line in enumerate(source.splitlines(), 1) if deleted in line)
+                    self.assertIn(f'source.md:{source_row}: DELETED', output)
                 else:
-                    self.assertRegex(output, r'(?:DELETED|OUT-OF-ORDER|CHANGED)')
+                    self.assertIn(f'target.md:{row}:', output)
 
     def test_markdown_units_and_locations(self):
         original = ('---\nname: fixture\ndescription: "Keep the rule. Read the reason."\n---\n'
@@ -356,6 +399,9 @@ class VerbatimCompare(unittest.TestCase):
         self.source('Keep the original\nwording.\n')
         self.write('target.md', 'Keep the approved wording.\n')
         self.check('copy source.md -> target.md\nreplace "original wording" -> "approved wording" : Spec')
+        self.write('target.md', 'Retain the approved wording.\n')
+        self.check('copy source.md -> target.md\nreplace "original wording" -> "approved wording" : Spec\n'
+                   'replace "Keep" -> "Retain" : Spec')
         self.source('Keep the rule. Read the reason.\n')
         self.write('target.md', 'Keep the rule. Retain the reason.\n')
         self.check('copy source.md -> target.md\nreplace "rule. Read" -> "rule. Retain" : Spec')
@@ -400,8 +446,20 @@ class VerbatimCompare(unittest.TestCase):
         self.write('mmw-v2/skills/mmw/imports.tsv',
                    'type\tlocal\tsource\tcommit\tmechanical\tjudgment\tbatch\n'
                    '\n# note\nplaybook\n')
-        self.check('copy source.md -> target.md', 2, 'imports.tsv:4:')
+        output = self.check('copy source.md -> target.md', 2, 'imports.tsv:4:')
+        self.assertIn('imports.tsv:4', output.splitlines()[1])
         self.write('mmw-v2/skills/mmw/imports.tsv',
                    'type\tlocal\tsource\tcommit\tmechanical\tjudgment\tbatch\n'
                    'playbook\tmmw-v2/skills/mmw/playbooks/imported.md\tx\tsha\t\tstructure-exempt\tB1\n')
         self.check('copy source.md -> target.md')
+        # Outside the disposable repository, neither a missing snapshot nor a
+        # malformed manifest is the cause; the checker must identify the cwd.
+        with tempfile.TemporaryDirectory(prefix='mmw-non-git-') as cwd:
+            result = subprocess.run([sys.executable, str(SCRIPT), '--manifest', 'manifest'],
+                                    cwd=cwd, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn('git repository', result.stdout.splitlines()[1])
+        result = subprocess.run([sys.executable, str(SCRIPT), '--manifest', 'absent-manifest'],
+                                cwd=self.root, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn('absent-manifest', result.stdout.splitlines()[1])

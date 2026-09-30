@@ -147,8 +147,8 @@ The module under `.mmw/harness/`, built once by the contract ticket or the first
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md`
 
 **`<issue-template>`**:
-The ticket template in the `to-tickets` skill's `SKILL.md`: `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, `## Acceptance criteria`.
-_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+The ticket template in the `to-tickets` skill's `SKILL.md`: `## Parent`, `## What to build`, `## Read first`, `## Seam`, `## Owns`, optional `## Moves` for text-moving tickets, `## Acceptance criteria`.
+_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`, `mmw-v2/tests/lib/check_verbatim_moves.py`
 
 **`## Parent`**:
 The ticket section routing it to its spec: `#<spec>, Implementation Decisions section <n>`.
@@ -175,7 +175,7 @@ The repository-relative paths the ticket may write, one per line, including its 
 _Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
 
 **`## Moves`**:
-The ticket's manifest of source text carried to named destinations and of the rewrites, omissions and new text it permits. It sits between `## Owns` and `## Acceptance criteria`, making each carried unit and each allowance checkable against the pinned source.
+A text-moving ticket's optional manifest of source text carried to named destinations and of the rewrites, omissions and new text it permits. It sits between `## Owns` and `## Acceptance criteria`, making each carried unit and each allowance checkable against the pinned source.
 _Home_: `mmw-v2/tests/lib/check_verbatim_moves.py`
 
 **`## Acceptance criteria`**:
