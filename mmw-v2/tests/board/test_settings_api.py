@@ -61,7 +61,21 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["version"], 2)
         self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["reviewer"]["model"], "sonnet 5")
 
-    def test_a_four_row_file_without_researcher_still_saves(self):
+    def test_put_keeps_the_researcher_row_the_page_does_not_show(self):
+        researcher = {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"}
+        stored = config()
+        stored["rows"]["researcher"] = dict(researcher)
+        (self.home / "models.json").write_text(json.dumps(stored) + "\n")
+        proposed = config()
+        proposed["rows"]["reviewer"]["model"] = "sonnet 5"
+        with running_board(self.home) as board:
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+        self.assertEqual(status, 200, raw)
+        written = json.loads((self.home / "models.json").read_text())
+        self.assertEqual(written["rows"].get("researcher"), researcher)
+        self.assertEqual(written["rows"]["reviewer"]["model"], "sonnet 5")
+
+    def test_a_four_row_models_json_reads_and_saves(self):
         with running_board(self.home) as board:
             status, raw = board.request("GET", "/api/settings")
             data = json.loads(raw)
