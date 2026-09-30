@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 # Shared lints. Every suite's run.sh calls this once before its own tests.
-# A new shared lint is one more line in this file.
-#
-# Today:
-#   check_module_paths.py
-#   check_upstream_em_dashes.py
-#   check_own_skill_frontmatter.py  (through uv run; its PEP 723 block brings PyYAML)
-#   check_component_structure.py  (through uv run; counted, expiring exceptions)
-#   check_wiring.py  (through uv run; cross-file connections)
+# The command lines below are the list of shared lints, and the only one:
+# a new shared lint is one more line here.
 
 set -euo pipefail
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
