@@ -771,6 +771,36 @@ class Rounds(StateCase):
         self.watchdog().round()
         self.assertEqual(len(self.send.calls), 1, "once per ticket and newest event")
 
+    def test_an_adopted_ticket_alert_carries_no_resume_command(self):
+        for alert, answer, machine, at in (
+                ("unknown", "unknown", HERE_MACHINE, self.SILENT),
+                ("elsewhere", "alive", "mac-2", self.SILENT),
+                ("idle", "alive", HERE_MACHINE, self.IDLE)):
+            with self.subTest(alert=alert):
+                self.write("watchdog.json", {})
+                self.send.calls.clear()
+                self.ask.default = answer
+                self.open_watches({"tickets": [70], "kind": "adopted-ticket",
+                                   "runner": "herdr", "session": "h70"})
+                self.board.tickets[70] = [
+                    comment(1, "worker.started", 70, at, runner="herdr", session="h70",
+                            machine=machine)]
+                self.watchdog().round()
+                self.assertEqual(len(self.send.calls), 1)
+                runner, session, text = self.send.calls[0]
+                self.assertEqual((runner, session), ("herdr", "h70"))
+                self.assertTrue(text.startswith("watchdog: #70"), text)
+                self.assertNotIn("dispatch.sh resume", text)
+                self.assertEqual(self.post.calls, [])
+
+        self.write("watchdog.json", {})
+        self.send.calls.clear()
+        self.open_watches({"tickets": [70], "kind": "ticket", **MAIN})
+        self.watchdog().round()
+        self.assertEqual(len(self.send.calls), 1)
+        self.assertEqual(self.send.calls[0][:2], ("orca", "term_main"))
+        self.assertIn("dispatch.sh resume 70", self.send.calls[0][2])
+
     def test_a_live_worker_silent_less_than_an_hour_is_not_idle(self):
         self.silent_worker()
         self.watchdog().round()
