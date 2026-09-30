@@ -41,7 +41,7 @@ RULES = {
     'playbook-where-table': {'source': 'R20 S-P6; #592 §7', 'message': 'Where you are needs its first-line instruction, local step destinations and final Anything else row',
                              'role_playbooks': ('run-a-night', 'land-one-ticket', 'work-a-ticket', 'review-a-ticket', 'research-a-question')},
     'step-title': {'source': 'R18 §1.3; R20 X17, S-P3', 'message': 'each step needs a unique bold title ending in a period'},
-    'step-done-when': {'source': 'SKILL-SET-RULES.md Rules and completion criteria; R20 X10', 'message': 'step needs a line beginning Done when'},
+    'step-done-when': {'source': 'skill-set-rules.md Rules and completion criteria; R20 X10', 'message': 'step needs a line beginning Done when'},
     'step-names-component': {'source': 'R18 §3.2, §7.5; R20 S-P7', 'message': 'step must name a component or put (judgement) immediately after its title'},
     'playbook-reply': {'source': 'L7 A.2; R20 §5.2', 'message': 'exactly one Reply line must be the last nonempty line'},
     'principle-frontmatter': {'source': 'R18 §1.3, §5.1', 'message': 'principle frontmatter needs only name and description, named after its file'},
@@ -51,10 +51,10 @@ RULES = {
     'capability-next-step': {'source': 'R18 §4.5; R14 §2; R20 S-C3', 'message': 'next-step routing belongs in a playbook'},
     'capability-playbook-name': {'source': 'R18 §4.5; R20 S-C3', 'message': 'capability must not name a playbook or point into mode'},
     'numbered-cross-reference': {'source': 'R18 §7.5; R20 X9, N12; #592 §7', 'message': 'cross-file references use titles, not numbers'},
-    'host-name': {'source': 'SKILL-SET-RULES.md Paths and host neutrality; R21 §4.2', 'message': 'prose must not name a host, runner or host-specific tool'},
+    'host-name': {'source': 'skill-set-rules.md Paths and host neutrality; R21 §4.2', 'message': 'prose must not name a host, runner or host-specific tool'},
     'no-dash': {'source': 'R20 X5, S-G5, K8; R21 §4.2', 'message': 'new components must not use en or em dashes outside fenced code'},
-    'description-trigger': {'source': 'SKILL-SET-RULES.md Descriptions; Agent Skills MAX_DESCRIPTION_LENGTH', 'message': 'description needs Use triggers, at most one exclusion, at most three sentences and 1024 characters'},
-    'description-content': {'source': 'SKILL-SET-RULES.md Descriptions; R21 §4.2', 'message': 'description must not contain routing to other skills, internal paths, playbooks or numbered steps'},
+    'description-trigger': {'source': 'skill-set-rules.md Descriptions; Agent Skills MAX_DESCRIPTION_LENGTH', 'message': 'description needs Use triggers, at most one exclusion, at most three sentences and 1024 characters'},
+    'description-content': {'source': 'skill-set-rules.md Descriptions; R21 §4.2', 'message': 'description must not contain routing to other skills, internal paths, playbooks or numbered steps'},
     'skill-name': {'source': 'Agent Skills _validate_name; R21 §4.2', 'message': 'skill name must equal its directory name and be at most 64 characters'},
 }
 
