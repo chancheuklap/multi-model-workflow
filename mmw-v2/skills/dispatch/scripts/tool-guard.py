@@ -44,6 +44,9 @@ It never asks the environment: Cursor exports `CURSOR_AGENT`, `CURSOR_VERSION`
 and friends into every child process, so a Claude session started by hand from
 a Cursor pane inherits them, and an environment test would switch off that
 Claude session's own gate. Claude Code never sends `cursor_version`.
+
+When the refusal module cannot be imported, a governed session is refused with exit 2
+and one diagnostic on stderr; an ungoverned session exits 0 without output.
 """
 
 from __future__ import annotations
@@ -58,8 +61,6 @@ _HERE = Path(__file__).resolve().parent
 _UI_ACCEPTANCE_SCRIPTS = _HERE.parents[1] / "ui-acceptance" / "scripts"
 if str(_UI_ACCEPTANCE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_UI_ACCEPTANCE_SCRIPTS))
-
-from refusal import refusal  # noqa: E402
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 GATES = ("pretool", "question")
@@ -154,6 +155,17 @@ def governed_ticket() -> int | None:
         if match:
             return int(match.group(1))
     return None
+
+
+try:
+    from refusal import refusal  # noqa: E402
+except Exception as exc:
+    if governed_ticket() is not None:
+        module = getattr(exc, "name", None) or "refusal"
+        sys.stderr.write(f"MMW hook tool-guard could not import {module}: "
+                         "run bash mmw-v2/install.sh --check\n")
+        sys.exit(2)
+    sys.exit(0)
 
 
 SEPARATORS = re.compile(r"[;\n]|&&|\|\||\|")

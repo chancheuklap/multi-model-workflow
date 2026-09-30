@@ -4,17 +4,19 @@
 #
 #   bash mmw-v2/tests/liveness/run.sh
 #
-# Two engines, two test files:
+# Two engines:
 #
 #   test_liveness.py   unittest: the guard predicate, heartbeat freshness, the tolerance,
 #                      the lock's identity against real processes (a recycled pid among
 #                      them), and the third layer's three answers against a fake board
 #                      and fake runner verbs
+#   test_hook_launcher.py  unittest: installed-root routing, missing hooks and companion
+#                          modules, and host refusals through the copied launcher
 #   test_guard.sh      turn-guard.py end to end: each host's turn-end payload, the
 #                      hook-collision cases, and one arm of the real watchdog.py
 #
-# Neither needs a host, the tracker, a runner or the network, and neither touches
-# ~/.mmw: both point MMW_HOME at a temporary directory. Neither proves that a real host
+# None needs a host, the tracker, a runner or the network, and none touches
+# ~/.mmw: each points MMW_HOME at a temporary directory. None proves that a real host
 # calls the hook with these payloads or honours its answer: that is checked by hand
 # against each host, and recorded in turn-guard.py's header.
 
