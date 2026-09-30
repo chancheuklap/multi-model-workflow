@@ -1,6 +1,6 @@
 # merge-notes
 
-三个上游 subtree 里被我们改过的技能和脚本，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
+四个上游 subtree 里被我们改过的技能和脚本，每个一份说明：改了哪几段、为什么改、上游再动这几段时怎么取舍。
 给的是**意图**，不是 diff——diff 用 `git diff <上一个 Squashed 提交>:skills/<类别>/<技能> HEAD:mmw-v2/upstream/skills/<类别>/<技能>` 看（squash 提交的树根是上游仓库根，没有 `mmw-v2/upstream/` 前缀；上一个 Squashed 提交用 `git log --oneline --grep "Squashed 'mmw-v2/upstream/'"` 找）。
 反方向——本仓库改了、consuming repository 里哪些产物作废——是 downstream-note，见 [`../downstream-notes/README.md`](../downstream-notes/README.md)。
 
@@ -8,7 +8,7 @@
 
 1. 拉对应的 subtree。mattpocock 的：
    `git subtree pull --prefix mmw-v2/upstream https://github.com/mattpocock/skills main --squash`
-   `diagram-design` 和 `unlazy` 各自一个，命令写在各自的说明里。
+   `diagram-design`、`unlazy` 和 `pstack` 各自一个，命令写在各自的说明里。
 2. 每个冲突文件，打开它所属技能的说明，对着冲突段落找到对应条目，按条目里的取舍规则决定留谁。
    说明里没覆盖的段落：我们没改过，取上游。
 3. 解完：通读该技能的 `SKILL.md` 及其 reference 一遍，确认没有互相矛盾的句子；跑 `bash mmw-v2/install.sh --check`。
@@ -65,3 +65,4 @@
 - [writing-for-agents](writing-for-agents.md) — `productivity/writing-for-agents`
 - [diagram-design](diagram-design.md) — `mmw-v2/upstream-diagram-design/`，另一个上游、另一个 subtree
 - [unlazy](unlazy.md) — `mmw-v2/upstream-unlazy/`，verify-ticket 的判定引擎 gate-check，不是装进 host 的技能
+- [pstack](pstack.md) — `mmw-v2/upstream-pstack/`，另一个上游、另一个 subtree；里面的文字不改

@@ -386,7 +386,7 @@ How old the watchdog's own heartbeat, and its last whole read of the tracker, ma
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **hook launcher**:
-The program `install.sh` copies to `~/.mmw/bin/hook-launcher` and names that copy in every toolbox's **host hook** it writes. The copy is a file, not a symlink, of `mmw-v2/hook-launcher.py`, and it starts `tool-guard.py` or `turn-guard.py` from the checkout `installed-root` names.
+The program `install.sh` copies to `~/.mmw/bin/hook-launcher` and names that copy in every toolbox's **host hook** it writes. The copy is a file, not a symlink, of `mmw-v2/hook-launcher.py`, and it starts `tool-guard.py`, `turn-guard.py` or `mode-hook.py` from the checkout `installed-root` names.
 _Home_: `mmw-v2/install.sh`, `mmw-v2/hook-launcher.py`
 
 **turn guard**:
@@ -437,7 +437,7 @@ The retro's comparison of the spec's expected surface (Problem Statement and Use
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **Prevention destinations**:
-The eight values a retro problem's Prevention names by its `destination`, each with one fixed reader: a check, a script, that repository's `AGENTS.md`, a repository-local skill, an active reviewer Rule, an MMW skill, toolbox Memory, or none.
+The eleven values a retro problem's Prevention names by its `destination`: `check`, `script`, `repository-agents`, `repository-skill`, `reviewer-rule`, `mmw-skill`, `principle`, `playbook`, `mode`, `toolbox-memory` and `none`. `principle`, `playbook` and `mode` name the **principle**, **playbook** (a repository's own is a **private playbook**) and **mode** the fix is written into.
 _Home_: `mmw-v2/skills/retro/SKILL.md`
 
 **proposal**:

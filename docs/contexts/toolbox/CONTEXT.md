@@ -1,6 +1,6 @@
 # Toolbox
 
-MMW seen as a repository and as an install target: the skills it ships, the three subtrees it carries, where an install puts things on a machine, the prompts and hooks each host reads, and the notes and ADRs that record why. Everything here is about the toolbox as an artifact, not about a run of the pipeline through it.
+MMW seen as a repository and as an install target: the skills it ships, the four subtrees it carries, where an install puts things on a machine, the prompts and hooks each host reads, and the notes and ADRs that record why. Everything here is about the toolbox as an artifact, not about a run of the pipeline through it.
 
 Vocabulary that belongs to one skill alone — `design-pages`'s `pull_design.py` switches and exit codes and the style rules in `template-project-claude-md.md`; the design vocabulary of upstream skills such as `codebase-design`; `code-checkers`'s own per-language tool choices, flags and pinned versions — is defined in that skill's own files and is not repeated here. `design-pages`'s entries and the page conventions are defined in `docs/contexts/ui-acceptance/CONTEXT.md`; `exe-release`'s own vocabulary (the release manifest, the release engine, tiers, build machine, build hooks) is defined in `docs/contexts/release/CONTEXT.md`. `code-checkers`'s and `manage-agents-md`'s own concepts, below, are this context's.
 
@@ -39,7 +39,7 @@ The working tree of the repository's own clone, as against the linked worktrees 
 _Home_: `AGENTS.md`
 
 **subtree**:
-How an upstream repository is carried inside this one (`git subtree pull --prefix … --squash`): `mmw-v2/upstream/` is `mattpocock/skills`, `mmw-v2/upstream-diagram-design/` is `cathrynlavery/diagram-design`, `mmw-v2/upstream-unlazy/` is `Leonxlnx/unlazy`. A change to a skill inside one, or to unlazy's scripts, gets a **merge-note**.
+How an upstream repository is carried inside this one (`git subtree pull --prefix … --squash`): `mmw-v2/upstream/` is `mattpocock/skills`, `mmw-v2/upstream-diagram-design/` is `cathrynlavery/diagram-design`, `mmw-v2/upstream-unlazy/` is `Leonxlnx/unlazy`, and `mmw-v2/upstream-pstack/` is the `pstack/` directory of `cursor/plugins`, not that whole repository. Pulling `upstream-pstack` is a split of that directory in a temporary clone, then a squash; the commands are in `mmw-v2/merge-notes/pstack.md`. A change to a skill inside one of the first three, or to unlazy's scripts, gets a **merge-note**. The text inside `upstream-pstack/` is not changed, so editing it is not a reason to write one.
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **upstream**:
@@ -51,7 +51,7 @@ The repository gate-check and gate-lint come from (`Leonxlnx/unlazy`, MIT), carr
 _Home_: `mmw-v2/merge-notes/unlazy.md`
 
 **source directory**:
-One of the three directories a host's skill symlink points straight at: `mmw-v2/skills/`, `mmw-v2/upstream/skills/`, `mmw-v2/upstream-diagram-design/skills/`. `install.sh` treats a link as its own when it resolves inside one of them.
+A directory a skill's files are taken from: `mmw-v2/skills/`, `mmw-v2/upstream/skills/`, `mmw-v2/upstream-diagram-design/skills/` or `mmw-v2/upstream-pstack/skills/`. A host symlink for a skill with no **model-invoked marker** points straight at one of them. A marked skill is served from its **skill copy**.
 _Home_: `mmw-v2/install.sh`
 
 **`~/.agents/skills`**:
@@ -59,7 +59,7 @@ The host-neutral install location `install.sh` fills on every machine, scanned b
 _Home_: `docs/adr/0006-skills-install-to-neutral-dir.md`
 
 **stale link**:
-A symlink, host hook registration or generated Paseo Agent profile that this repository installed and no longer installs, or a link left in a **retired** location. `install.sh --check` reports each as a `残留` line and `install.sh` removes it.
+A symlink, host hook registration or generated Paseo Agent profile that this repository installed and no longer installs, a link left in a **retired** location, or a **skill copy** directory left after its **model-invoked marker** is removed or the skill's `skills.txt` line is deleted. `install.sh --check` reports each as a `残留` line and `install.sh` removes it.
 _Home_: `mmw-v2/install.sh`
 
 **retired**:
@@ -93,12 +93,41 @@ _Home_: `mmw-v2/skills/manage-agents-md/SKILL.md`
 The unit the toolbox ships: one directory with a `SKILL.md`, installed when `mmw-v2/skills.txt` lists it.
 _Home_: `mmw-v2/skills.txt`
 
+**mode**:
+The one MMW skill `mmw`. It sends a task to its playbook, indexes the principles, says what an unattended session may decide for itself, and how a session that was woken or compacted picks the work up again. Distinct from a skill that does one thing: the mode knows who calls whom, and that skill does not.
+_Home_: `mmw-v2/skills/mmw/SKILL.md`
+
+**playbook**:
+The steps of one kind of task from start to finish, who owns what, and what is handed over. A playbook is a file `mmw-v2/skills/mmw/playbooks/<slug>.md`, not a skill: it has no frontmatter, and a host does not list it. Its steps are copied verbatim into the session's todo list.
+_Home_: `mmw-v2/skills/mmw/SKILL.md`
+
+**principle**:
+A judgement that holds across tasks and can change a concrete decision. One file `mmw-v2/skills/mmw/principles/principle-<slug>.md`, named from elsewhere as `**principle-<slug>**`. Distinct from a rule in `shared.md`, and not a skill: `skills.txt` does not list it, and a host does not load it on its own.
+_Home_: `mmw-v2/skills/mmw/SKILL.md`
+
+**pstack names**:
+The table that says how a name only pstack or Cursor has — a tool, a control, a delivery or forge position, an alias — reads in MMW.
+_Avoid_: slot (in this repository, the product slot a lease hands a worktree; `docs/contexts/ui-acceptance/CONTEXT.md` **slot**)
+_Home_: `mmw-v2/skills/mmw/references/pstack-names.md`
+
+**model-invoked marker**:
+The `+model-invoked` at the end of a `skills.txt` line: that upstream skill is named by the mode or a playbook and is to be callable by the model. Install serves the host a **skill copy** and leaves the subtree file unchanged.
+_Home_: `mmw-v2/install.sh`
+
+**skill copy**:
+The directory `install.sh` builds at `~/.mmw/skill-copies/<name>/` for a skill that carries the **model-invoked marker**. The host's skill symlink points at it. Its `SKILL.md` has the invocation switch removed, so a change to the source reaches the host only when `install.sh` runs again; `install.sh --check` reports a copy that has fallen behind as `副本过期`.
+_Home_: `mmw-v2/install.sh`
+
+**private playbook**:
+A playbook that belongs to one repository, kept in that repository's `.mmw/playbooks/` and listed in its `.mmw/playbooks/INDEX.md`. Used only in a session with the user present; a night's roles do not read it.
+_Home_: `mmw-v2/skills/mmw/SKILL.md`
+
 **`SKILL.md`**:
-A skill's entry file: its location resolves the skill's `scripts/` and `references/`, and its frontmatter `description` is the one part a host scans at start. The frontmatter switch `disable-model-invocation` makes a skill user-invoked.
+A skill's entry file: its location resolves the skill's `scripts/` and `references/`, and its frontmatter `description` is the one part a host scans at start. The frontmatter switch `disable-model-invocation` makes a skill user-invoked; a **skill copy** has it removed.
 _Home_: `AGENTS.md`
 
 **`skills.txt`**:
-The one list deciding which skills `install.sh` installs, one `<root>/<name>` line per skill.
+The one list deciding which skills `install.sh` installs, one `<root>/<name>` line per skill. A line may end with `+model-invoked`. A `pstack/<name>` line resolves to `mmw-v2/upstream-pstack/skills/<name>`.
 _Home_: `mmw-v2/install.sh`
 
 **`mmw-v2/tests/<name>/run.sh`**:
@@ -114,7 +143,7 @@ One note per change in this repository that invalidates a consuming repository's
 _Home_: `mmw-v2/downstream-notes/README.md`
 
 **`disable-model-invocation` pairing**:
-The rule that a skill's frontmatter `disable-model-invocation: true` (read by Claude Code) and its `agents/openai.yaml` `policy.allow_implicit_invocation: false` (read by Codex) say the same thing — the skill fires only when the user names it — and change together: touching one without the other leaves a skill user-invoked on half the hosts and model-invoked on the rest.
+The rule that a skill's frontmatter `disable-model-invocation: true` (read by Claude Code) and its `agents/openai.yaml` `policy.allow_implicit_invocation: false` (read by Codex) say the same thing — the skill fires only when the user names it — and change together in the subtree. A skill the mode or a playbook names is not edited there: its `skills.txt` line carries the **model-invoked marker**, and `install.sh` removes both switches in the **skill copy**.
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **`models.json`**:
@@ -158,7 +187,7 @@ The rule that while this repository consumes its own landing pipeline, the runti
 _Home_: `AGENTS.md`
 
 **installed checkout**:
-The checkout whose `mmw-v2/` directory `~/.mmw/installed-root` records, and which every host symlink points at; in this repository, the hand-made worktree `.worktrees/mmw-installed`. A watch holds it fixed for its whole duration, under the **self-hosting boundary**.
+The checkout whose `mmw-v2/` directory `~/.mmw/installed-root` records; in this repository, the hand-made worktree `.worktrees/mmw-installed`, which every host symlink points at, directly or through a **skill copy**. A watch holds the checkout fixed for its whole duration, under the **self-hosting boundary**.
 _Home_: `AGENTS.md`
 
 **the four promotion steps**:
@@ -183,7 +212,7 @@ The repeatable flag of `verify-ticket.py`, `dispatch.sh` and `pull_design.py` na
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **host hook**:
-A program a host runs at one of its own events. `install.sh` registers two, in each host's own configuration: `tool-guard.py` and `turn-guard.py` of the dispatch skill. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): the three share the bare word "hook" but run at different events for different reasons.
+A program a host runs at one of its own events. `install.sh` registers `tool-guard.py` and `turn-guard.py` of the dispatch skill in each host's own configuration, and `mode-hook.py` of the `mmw` skill on Claude Code and Codex only, for `SessionStart`, `SubagentStart` and `UserPromptSubmit`. `mode-hook.py` is an auxiliary path: on any failure it prints nothing and blocks nothing. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): the three share the bare word "hook" but run at different events for different reasons.
 _Home_: `mmw-v2/install.sh`
 
 **`tool-guard.py`**:
