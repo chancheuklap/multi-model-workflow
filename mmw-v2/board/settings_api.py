@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import sys
 import threading
-from pathlib import Path
 
-MODELS_DIR = Path(__file__).resolve().parents[1] / "skills" / "dispatch" / "scripts"
-if str(MODELS_DIR) not in sys.path:
-    sys.path.insert(0, str(MODELS_DIR))
+import codeversion
+
+_resolved = codeversion.require_scripts()
+if str(_resolved["dispatch_scripts"]) not in sys.path:
+    sys.path.insert(0, str(_resolved["dispatch_scripts"]))
 import models  # noqa: E402
 
 _state_lock = threading.Lock()
@@ -86,11 +87,34 @@ def _get() -> tuple[int, dict[str, str], bytes]:
     return _json(200, {**config, **_options(), "scan": _cached_scan(config["runner"])})
 
 
+def _keep_rows_the_page_did_not_send(proposed: dict) -> dict:
+    """Copy a saved role `models.py` allows when the request does not name it."""
+    rows = proposed.get("rows")
+    if not isinstance(rows, dict):
+        return proposed
+    try:
+        current = models.read_local_config()
+    except models.ConfigMissing:
+        return proposed
+    existing = current.get("rows")
+    if not isinstance(existing, dict):
+        return proposed
+    kept = {
+        role: dict(row)
+        for role, row in existing.items()
+        if role not in rows and role in models.ALLOWED_AGENTS and isinstance(row, dict)
+    }
+    if not kept:
+        return proposed
+    return {**proposed, "rows": {**kept, **rows}}
+
+
 def _put(request) -> tuple[int, dict[str, str], bytes]:
     proposed = _body(request)
     expected = proposed.get("version")
     if not isinstance(expected, int):
         return _json(422, {"errors": [{"cell": "version", "reason": "version must be an integer"}]})
+    proposed = _keep_rows_the_page_did_not_send(proposed)
     try:
         written = models.write_local_config(proposed, expected,
                                             _cached_scan(str(proposed.get("runner"))))

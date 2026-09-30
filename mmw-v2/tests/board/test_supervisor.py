@@ -82,7 +82,7 @@ class SupervisorTests(unittest.TestCase):
         return copy / "board" / "supervisor.py"
 
     def start(self, registry: dict[Path, int], fixtures: dict[Path, Path],
-              supervisor: Path = SUPERVISOR):
+              supervisor: Path = SUPERVISOR, extra_env: dict | None = None):
         (self.home / "boards.json").write_text(json.dumps({
             str(path): port for path, port in registry.items()
         }), encoding="utf-8")
@@ -96,6 +96,8 @@ class SupervisorTests(unittest.TestCase):
                 str(path.resolve()): str(fixture) for path, fixture in fixtures.items()
             }),
         })
+        if extra_env:
+            env.update(extra_env)
         process = subprocess.Popen(
             [sys.executable, "-u", str(supervisor), "--interval", "0.05"],
             cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT,
@@ -216,6 +218,80 @@ class SupervisorTests(unittest.TestCase):
                 break
             time.sleep(0.05)
         self.assertIn(str(missing), text)
+
+    def stamp_statedir(self, path: Path, label: str) -> None:
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            + "\n_mark = os.environ.get('MMW_BOARD_LOCATIONS_MARK')\n"
+            + "if _mark:\n"
+            + f"    Path(_mark).write_text({label!r} + '\\n', encoding='utf-8')\n",
+            encoding="utf-8",
+        )
+
+    def test_finds_locations_under_mmw_scripts_first(self):
+        copy = self.copied_supervisor()
+        scripts = copy.parents[1] / "skills"
+        shutil.copytree(scripts / "dispatch" / "scripts",
+                        scripts / "from-mmw" / "dispatch-scripts")
+        shutil.copytree(scripts / "verify-ticket" / "scripts",
+                        scripts / "from-mmw" / "verify-scripts")
+        mmw = scripts / "mmw" / "scripts"
+        mmw.mkdir(parents=True)
+        (mmw / "locations.py").write_text(
+            'DISPATCH_SCRIPTS = "from-mmw/dispatch-scripts"\n'
+            'EVENTS_PY = "from-mmw/verify-scripts/events.py"\n'
+            'ISSUE_TREE_PY = "from-mmw/verify-scripts/issue_tree.py"\n',
+            encoding="utf-8",
+        )
+        self.stamp_statedir(scripts / "from-mmw" / "dispatch-scripts" / "statedir.py", "mmw")
+        self.stamp_statedir(scripts / "dispatch" / "scripts" / "statedir.py", "dispatch")
+        mark = self.base / "locations-mark"
+        repository, fixture = self.repository("repo", "fixture/mmw-locations")
+        port = free_port()
+        self.start({repository: port}, {repository: fixture}, copy,
+                   {"MMW_BOARD_LOCATIONS_MARK": str(mark)})
+        self.assertEqual(self.board(port)["repo"], "fixture/mmw-locations")
+        self.assertEqual(mark.read_text(encoding="utf-8"), "mmw\n")
+
+    def test_finds_locations_under_dispatch_scripts_second(self):
+        copy = self.copied_supervisor()
+        scripts = copy.parents[1] / "skills"
+        self.assertFalse((scripts / "mmw" / "scripts" / "locations.py").exists())
+        self.assertTrue((scripts / "dispatch" / "scripts" / "locations.py").is_file())
+        self.stamp_statedir(scripts / "dispatch" / "scripts" / "statedir.py", "dispatch")
+        mark = self.base / "locations-mark"
+        repository, fixture = self.repository("repo", "fixture/dispatch-locations")
+        port = free_port()
+        self.start({repository: port}, {repository: fixture}, copy,
+                   {"MMW_BOARD_LOCATIONS_MARK": str(mark)})
+        self.assertEqual(self.board(port)["repo"], "fixture/dispatch-locations")
+        self.assertEqual(mark.read_text(encoding="utf-8"), "dispatch\n")
+
+    def test_refuses_naming_install_check_without_locations(self):
+        copy = self.copied_supervisor()
+        root = copy.parents[1]
+        for relative in ("skills/mmw/scripts/locations.py",
+                         "skills/dispatch/scripts/locations.py"):
+            path = root / relative
+            if path.exists():
+                path.unlink()
+        log = (self.base / "refuse.log").open("w+", encoding="utf-8")
+        env = os.environ.copy()
+        env["MMW_HOME"] = str(self.home)
+        process = subprocess.Popen(
+            [sys.executable, "-u", str(copy), "--interval", "0.05"],
+            cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT,
+        )
+        self.processes.append((process, log))
+        try:
+            code = process.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            self.fail("supervisor stayed up without locations.py")
+        log.seek(0)
+        text = log.read()
+        self.assertNotEqual(code, 0)
+        self.assertIn("bash mmw-v2/install.sh --check", text)
 
 
 if __name__ == "__main__":

@@ -10,21 +10,20 @@ import threading
 import urllib.parse
 from pathlib import Path
 
-
-SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "verify-ticket" / "scripts"
-DISPATCH_SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "dispatch" / "scripts"
+import codeversion
 
 
-def _load(name: str, directory: Path = SCRIPTS):
-    spec = importlib.util.spec_from_file_location(f"mmw_board_{name}", directory / f"{name}.py")
+def _load(path: Path):
+    spec = importlib.util.spec_from_file_location(f"mmw_board_{path.stem}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-events = _load("events")
-tree = _load("issue_tree")
-ghlist = _load("ghlist", DISPATCH_SCRIPTS)
+_resolved = codeversion.require_scripts()
+events = _load(_resolved["events"])
+tree = _load(_resolved["issue_tree"])
+ghlist = _load(_resolved["ghlist"])
 
 
 GitHubReadFailed = ghlist.ListReadError
