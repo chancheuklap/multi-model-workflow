@@ -16,12 +16,17 @@ def governed() -> bool:
     return False
 
 
-def missing(name: str, root: str) -> int:
+def missing(name: str, fact: str) -> int:
     if name == "mode-hook" or (name == "tool-guard" and not governed()):
         return 0
-    root = root.replace("\n", " ").replace("\r", " ")
-    sys.stderr.write(f"MMW hook {name} not found under {root}: "
-                     "run bash mmw-v2/install.sh --check\n")
+    fact = fact.replace("\n", " ").replace("\r", " ")
+    if name == "tool-guard":
+        next_step = ("a governed session cannot run commands without an available tool guard; "
+                     "do not retry, end this turn; the orchestrator must check the installation "
+                     "from a session outside ticket worktrees with bash mmw-v2/install.sh --check")
+    else:
+        next_step = "run bash mmw-v2/install.sh --check"
+    sys.stderr.write(f"MMW hook {name} {fact}: {next_step}\n")
     return 2 if name == "tool-guard" else 0
 
 
@@ -33,14 +38,17 @@ def main() -> int:
     marker = Path(os.environ.get("MMW_HOME") or Path.home() / ".mmw") / "installed-root"
     try:
         root = marker.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return missing(args[0], f"installed-root marker {marker} is missing")
     except (OSError, UnicodeError):
-        root = ""
-    if root:
-        for component in ("mmw", "dispatch"):
-            target = Path(root).joinpath("skills", component, "scripts", args[0] + ".py")
-            if target.is_file():
-                os.execv(sys.executable, [sys.executable, str(target), *args[1:]])
-    return missing(args[0], root or str(marker))
+        return missing(args[0], f"installed-root marker {marker} is unreadable")
+    if not root:
+        return missing(args[0], f"installed-root marker {marker} is empty")
+    for component in ("mmw", "dispatch"):
+        target = Path(root).joinpath("skills", component, "scripts", args[0] + ".py")
+        if target.is_file():
+            os.execv(sys.executable, [sys.executable, str(target), *args[1:]])
+    return missing(args[0], f"not found under {root}")
 
 
 if __name__ == "__main__":

@@ -153,6 +153,31 @@ class HookLauncher(unittest.TestCase):
     def test_a_missing_mode_hook_prints_nothing_and_exits_0(self):
         self.silent(self.launch("mode-hook"))
 
+    def marker_diagnostic(self, status):
+        marker = self.home / "installed-root"
+        for hook, code in (("tool-guard", 2), ("turn-guard", 0)):
+            with self.subTest(hook=hook):
+                result = self.launch(hook)
+                self.diagnostic(result, hook, code)
+                self.assertIn(str(marker), result.stderr)
+                self.assertIn(status, result.stderr)
+        self.silent(self.launch("tool-guard", managed=False))
+        self.silent(self.launch("mode-hook"))
+
+    def test_a_missing_installed_root_reports_the_marker_and_preserves_each_hooks_policy(self):
+        (self.home / "installed-root").unlink()
+        self.marker_diagnostic("missing")
+
+    def test_an_empty_installed_root_reports_the_marker_and_preserves_each_hooks_policy(self):
+        (self.home / "installed-root").write_text(" \n\t")
+        self.marker_diagnostic("empty")
+
+    def test_an_unreadable_installed_root_reports_the_marker_and_preserves_each_hooks_policy(self):
+        marker = self.home / "installed-root"
+        marker.unlink()
+        marker.mkdir()
+        self.marker_diagnostic("unreadable")
+
     def test_tool_guard_without_refusal_passes_outside_a_ticket_worktree(self):
         self.refusal.unlink()
         self.silent(self.launch("tool-guard", "pretool", "claude", managed=False))

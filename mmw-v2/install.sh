@@ -344,8 +344,7 @@ from datetime import datetime
 from pathlib import Path
 
 mode = os.environ["MMW_MODE"]
-hook = os.environ["MMW_LAUNCHER"]
-launcher = Path(hook)
+launcher = Path(os.environ["MMW_LAUNCHER"])
 launcher_source = Path(os.environ["MMW_LAUNCHER_SRC"])
 neutral = os.environ["MMW_NEUTRAL"]
 home = Path(os.environ["MMW_HOOK_HOME"])
@@ -381,7 +380,7 @@ PI_EXTENSION = """// installed by mmw-v2/install.sh
 import { spawnSync } from "node:child_process";
 import { basename } from "node:path";
 
-const HOOK = "%(hook)s";
+const LAUNCHER = "%(launcher)s";
 
 export default function (pi) {
   // cwd 的 basename 是 issue-<n> 才调 tool-guard.py；orchestrator 不在这样的目录里。
@@ -389,7 +388,7 @@ export default function (pi) {
 
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
-    const run = spawnSync("python3", [HOOK, "tool-guard", "pretool", "pi"], {
+    const run = spawnSync("python3", [LAUNCHER, "tool-guard", "pretool", "pi"], {
       input: JSON.stringify({ tool_name: "bash", tool_input: event.input }),
       encoding: "utf8",
       timeout: %(timeout)d000,
@@ -403,16 +402,15 @@ export default function (pi) {
     } catch {}
   });
 }
-""" % {"hook": hook, "timeout": TIMEOUT}
+""" % {"launcher": launcher, "timeout": TIMEOUT}
 
-COMMAND = f"exec python3 '{hook}' tool-guard pretool "
-QUESTION = f"exec python3 '{hook}' tool-guard question "
+COMMAND = f"exec python3 '{launcher}' tool-guard pretool "
+QUESTION = f"exec python3 '{launcher}' tool-guard question "
 
-guard = hook
 # turn-guard.py 在回合结束时可能要拉起 watchdog 并等它最多 5 秒，再问 runner 一次 self，
 # 所以给它比 tool-guard.py 长的超时。
 GUARD_TIMEOUT = 30
-STOP = f"exec python3 '{guard}' turn-guard stop "
+STOP = f"exec python3 '{launcher}' turn-guard stop "
 # 写给 claude 的每一条命令前面都带它（见本段开头）。
 GROK_GUARD = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
 # Cursor 自己的回合上限：turn-guard.py 只在 loop_count 为 0 时要一次 follow-up，这个数是
@@ -432,14 +430,14 @@ GUARD_EXTENSION = """// installed by mmw-v2/install.sh
 
 import { spawn } from "node:child_process";
 
-const GUARD = "%(guard)s";
+const LAUNCHER = "%(launcher)s";
 let followupPending = false;
 
 function runGuard() {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn("python3", [GUARD, "turn-guard", "stop", "pi"], { stdio: ["pipe", "ignore", "pipe"] });
+      child = spawn("python3", [LAUNCHER, "turn-guard", "stop", "pi"], { stdio: ["pipe", "ignore", "pipe"] });
     } catch {
       resolve({ code: 0, stderr: "" });
       return;
@@ -470,7 +468,7 @@ export default function (pi) {
     }
   });
 }
-""" % {"guard": guard, "timeout": GUARD_TIMEOUT}
+""" % {"launcher": launcher, "timeout": GUARD_TIMEOUT}
 
 # The tool each host calls to put a question on the screen: the matcher of its
 # question gate. Only hosts that expose a supported question tool carry one.
@@ -511,14 +509,11 @@ def marker_of(command):
     """What identifies one of ours across paths: the script's basename and its gate."""
     head, _, tail = command.rpartition("' ")
     name = os.path.basename(head.split("'")[-1])
-    if name == "hook-launcher":
-        name, _, tail = tail.partition(" ")
-        name += ".py"
     return name + "' " + tail
 
 
 def ours(handler, command):
-    return isinstance(handler, dict) and marker_of(command) == marker_of(str(handler.get("command", "")))
+    return isinstance(handler, dict) and marker_of(command) in str(handler.get("command", ""))
 
 
 def grouped(path, event, matcher, command, timeout=TIMEOUT):
@@ -617,7 +612,7 @@ def extension(path, text=PI_EXTENSION):
 #
 # 扫哪几个文件是下面这份显式清单，跟 RETIRED_DIRS 一个道理：「这次装什么」认不出本仓库
 # 曾写在哪个文件里，只有人手记着。不再往某个文件写的时候，把它留在清单里。
-MARKS = (f"'{neutral}/", f"'{hook}' ")
+MARKS = (f"'{neutral}/", f"'{launcher}' ")
 
 # 一行一处：文件、它的格式、整个文件是不是只有本仓库写。
 # 只有本仓库写的那种，条目清空之后连文件一起删——grok 把 hooks/*.json 全部合并读入，
@@ -736,7 +731,7 @@ for host_home, path, event, (install, installed) in points:
             print(f"hook  {path}  {event}")
             count += 1
         else:
-            sys.stderr.write(f"不一致  {path}  {event} 没有经 {hook} 登记："
+            sys.stderr.write(f"不一致  {path}  {event} 没有经 {launcher} 登记："
                              "run bash mmw-v2/install.sh\n")
             failed = True
         continue
@@ -748,8 +743,7 @@ for host_home, path, event, (install, installed) in points:
         continue
     count += 1
 
-# 装完再扫：一条只是换了路径的注册，上面已经原地更新过，它的新命令就在 keep 里；
-# 剩下认领得出、却没人再装的，才是上一代的残留。
+# 装完再扫：当前命令在 keep 里；能认领、却不在 keep 里的登记全部摘掉。
 for path, fmt, mmw_owned in SWEPT:
     if not path.exists():
         continue
@@ -758,12 +752,8 @@ for path, fmt, mmw_owned in SWEPT:
         continue
     if mode == "check":
         for event, command in dropped:
-            if marker_of(command).startswith(("tool-guard.py' ", "turn-guard.py' ")):
-                sys.stderr.write(f"不一致  {path}  {event}  {command}"
-                                 f" 不符合经 {hook} 的登记：run bash mmw-v2/install.sh\n")
-            else:
-                sys.stderr.write(f"残留  {path}  {event}  {command}"
-                                 " 指向本仓库的 hook，这次却不装它，跑一次 install.sh 摘掉\n")
+            sys.stderr.write(f"残留  {path}  {event}  {command}"
+                             " 指向本仓库的 hook，这次却不装它，跑一次 install.sh 摘掉\n")
         failed = True
         continue
     if mmw_owned and not (data.get("hooks") or {}):

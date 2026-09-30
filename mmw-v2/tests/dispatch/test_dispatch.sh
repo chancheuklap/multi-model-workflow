@@ -6540,6 +6540,42 @@ scenario_installtoolguard() {
 {"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 '$retired_path' pretool claude","timeout":10},{"type":"command","command":"echo external","timeout":10}]}]}}
 JSON
 
+  python3 - "$home" <<'UPGRADE' || { fail "could not seed the direct hook registrations"; return; }
+import json, sys
+from pathlib import Path
+home = Path(sys.argv[1])
+scripts = home / '.agents/skills/dispatch/scripts'
+prefix = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
+for host, path in [('claude', home / '.claude/settings.json'),
+                   ('codex', home / '.codex/hooks.json')]:
+    data = json.loads(path.read_text()) if path.exists() else {'hooks': {}}
+    hooks = data['hooks']
+    for gate, matcher in [('pretool', 'Bash'), ('question',
+                          'AskUserQuestion' if host == 'claude' else 'request_user_input')]:
+        hooks.setdefault('PreToolUse', []).append({'matcher': matcher, 'hooks': [{
+            'type': 'command', 'command': (prefix if host == 'claude' else '') +
+            f"python3 '{scripts / 'tool-guard.py'}' {gate} {host}", 'timeout': 10}]})
+    hooks['Stop'] = [{'hooks': [{'type': 'command', 'command':
+        (prefix if host == 'claude' else '') +
+        f"python3 '{scripts / 'turn-guard.py'}' stop {host}", 'timeout': 30}]}]
+    path.write_text(json.dumps(data))
+cursor = {'hooks': {
+    'beforeShellExecution': [{'command': f"python3 '{scripts / 'tool-guard.py'}' pretool cursor",
+                              'timeout': 10}],
+    'stop': [{'command': f"python3 '{scripts / 'turn-guard.py'}' stop cursor",
+              'timeout': 30, 'loop_limit': 3}]}}
+(home / '.cursor/hooks.json').write_text(json.dumps(cursor))
+hooks_path = home / '.codex/hooks.json'
+data = json.loads(hooks_path.read_text())['hooks']
+tables = []
+for event, label in [('PreToolUse', 'pre_tool_use'), ('Stop', 'stop')]:
+    for gi, group in enumerate(data[event]):
+        for hi, handler in enumerate(group['hooks']):
+            key = json.dumps(f'{hooks_path}:{label}:{gi}:{hi}')
+            tables.append(f'[hooks.state.{key}]\ntrusted_hash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"\n')
+(home / '.codex/config.toml').write_text('\n'.join(tables))
+UPGRADE
+
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
   [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
   for config in \
@@ -6562,7 +6598,7 @@ JSON
   cmp -s "$home/.mmw/bin/hook-launcher" "$(dirname "$INSTALLER")/hook-launcher.py" \
     || fail "the installed launcher differs from its source"
   python3 - "$home" <<'HOOKS' || fail "hook registrations are incomplete or bypass the launcher"
-import hashlib, json, sys, tomllib
+import json, re, sys, tomllib
 from pathlib import Path
 home = Path(sys.argv[1])
 launcher = home / '.mmw/bin/hook-launcher'
@@ -6604,12 +6640,9 @@ trust = tomllib.loads((home / '.codex/config.toml').read_text())['hooks']['state
 for event, label in [('PreToolUse', 'pre_tool_use'), ('Stop', 'stop')]:
     for gi, group in enumerate(json.loads(hooks_path.read_text())['hooks'][event]):
         for hi, handler in enumerate(group['hooks']):
-            identity = {'event_name': label, 'hooks': [{**handler, 'async': False}]}
-            if 'matcher' in group:
-                identity['matcher'] = group['matcher']
-            digest = 'sha256:' + hashlib.sha256(json.dumps(
-                identity, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
-            assert trust[f'{hooks_path}:{label}:{gi}:{hi}']['trusted_hash'] == digest
+            recorded = trust[f'{hooks_path}:{label}:{gi}:{hi}']['trusted_hash']
+            assert recorded != 'sha256:0000000000000000000000000000000000000000000000000000000000000000', (event, gi, hi)
+            assert re.fullmatch(r'sha256:[0-9a-f]{64}', recorded), recorded
 HOOKS
   # --check recomputes and checks the trusted_hash for every Codex hook handler,
   # including this tool guard; a generic trusted_hash line could belong to another hook.
