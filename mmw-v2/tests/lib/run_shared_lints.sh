@@ -7,6 +7,7 @@
 #   check_upstream_em_dashes.py
 #   check_own_skill_frontmatter.py  (through uv run; its PEP 723 block brings PyYAML)
 #   check_component_structure.py  (through uv run; counted, expiring exceptions)
+#   check_wiring.py  (through uv run; cross-file connections)
 
 set -euo pipefail
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
