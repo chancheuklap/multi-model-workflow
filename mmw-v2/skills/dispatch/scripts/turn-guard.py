@@ -81,6 +81,8 @@ of its own end in exit 0 (Cursor) or exit 1 with the reason on stderr — a hook
 host shows, which never blocks. Exit 2 means only "held tickets and no healthy watchdog".
 Each decision it makes for an orchestrator is appended to `guard.log` in that night's state
 directory.
+An unavailable companion module at startup is named in one diagnostic on stderr and
+exits 0 on every host, so an incomplete install never prevents a turn from ending.
 
 **Checked against the real hosts** on 2026-09-10, one short session each with the prompt
 "reply OK; if a turn guard blocks you, run nothing and reply NOTED". The registrations were
@@ -136,7 +138,13 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-import statedir  # noqa: E402
+try:
+    import statedir  # noqa: E402
+except Exception as exc:
+    module = getattr(exc, "name", None) or "statedir"
+    sys.stderr.write(f"MMW hook turn-guard could not import {module}: "
+                     "run bash mmw-v2/install.sh --check\n")
+    sys.exit(0)
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 ARM_WAIT = 5.0

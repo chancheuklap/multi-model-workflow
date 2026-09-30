@@ -6528,7 +6528,7 @@ scenario_installcheckboardagent() {
 
 scenario_installtoolguard() {
   local home="$TMP/install-home" retired_skill retired_script retired_path config
-  echo "--- install moves every host to dispatch's tool guard and sweeps the retired registration"
+  echo "--- install copies the launcher, registers both hooks for every host, and sweeps retired registrations"
   rm -rf "$home"
   mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" \
     "$home/.grok/hooks" "$home/.pi/agent"
@@ -6537,8 +6537,44 @@ scenario_installtoolguard() {
   retired_path="$home/.agents/skills/$retired_skill/scripts/$retired_script"
   printf '[compat.claude]\nagents = false\n' > "$home/.grok/config.toml"
   cat > "$home/.claude/settings.json" <<JSON
-{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 '$retired_path' pretool claude","timeout":10}]}]}}
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 '$retired_path' pretool claude","timeout":10},{"type":"command","command":"echo external","timeout":10}]}]}}
 JSON
+
+  python3 - "$home" <<'UPGRADE' || { fail "could not seed the direct hook registrations"; return; }
+import json, sys
+from pathlib import Path
+home = Path(sys.argv[1])
+scripts = home / '.agents/skills/dispatch/scripts'
+prefix = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
+for host, path in [('claude', home / '.claude/settings.json'),
+                   ('codex', home / '.codex/hooks.json')]:
+    data = json.loads(path.read_text()) if path.exists() else {'hooks': {}}
+    hooks = data['hooks']
+    for gate, matcher in [('pretool', 'Bash'), ('question',
+                          'AskUserQuestion' if host == 'claude' else 'request_user_input')]:
+        hooks.setdefault('PreToolUse', []).append({'matcher': matcher, 'hooks': [{
+            'type': 'command', 'command': (prefix if host == 'claude' else '') +
+            f"python3 '{scripts / 'tool-guard.py'}' {gate} {host}", 'timeout': 10}]})
+    hooks['Stop'] = [{'hooks': [{'type': 'command', 'command':
+        (prefix if host == 'claude' else '') +
+        f"python3 '{scripts / 'turn-guard.py'}' stop {host}", 'timeout': 30}]}]
+    path.write_text(json.dumps(data))
+cursor = {'hooks': {
+    'beforeShellExecution': [{'command': f"python3 '{scripts / 'tool-guard.py'}' pretool cursor",
+                              'timeout': 10}],
+    'stop': [{'command': f"python3 '{scripts / 'turn-guard.py'}' stop cursor",
+              'timeout': 30, 'loop_limit': 3}]}}
+(home / '.cursor/hooks.json').write_text(json.dumps(cursor))
+hooks_path = home / '.codex/hooks.json'
+data = json.loads(hooks_path.read_text())['hooks']
+tables = []
+for event, label in [('PreToolUse', 'pre_tool_use'), ('Stop', 'stop')]:
+    for gi, group in enumerate(data[event]):
+        for hi, handler in enumerate(group['hooks']):
+            key = json.dumps(f'{hooks_path}:{label}:{gi}:{hi}')
+            tables.append(f'[hooks.state.{key}]\ntrusted_hash = "sha256:0000000000000000000000000000000000000000000000000000000000000000"\n')
+(home / '.codex/config.toml').write_text('\n'.join(tables))
+UPGRADE
 
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
   [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
@@ -6547,20 +6583,152 @@ JSON
     "$home/.codex/hooks.json" \
     "$home/.cursor/hooks.json" \
     "$home/.grok/hooks/mmw-verify-ticket.json" \
-    "$home/.pi/agent/extensions/mmw-verify-ticket.ts"
+    "$home/.grok/hooks/mmw-turn-guard.json" \
+    "$home/.pi/agent/extensions/mmw-verify-ticket.ts" \
+    "$home/.pi/agent/extensions/mmw-turn-guard.ts"
   do
     [ -f "$config" ] || { fail "install did not write $config"; continue; }
-    grep -qF "/dispatch/scripts/tool-guard.py" "$config" \
-      || fail "$config does not point at dispatch's tool guard"
+    grep -qF "$home/.mmw/bin/hook-launcher" "$config" \
+      || fail "$config does not point at the copied launcher"
     grep -qF "$retired_script" "$config" \
       && fail "$config kept the retired script registration"
   done
+  [ -f "$home/.mmw/bin/hook-launcher" ] && [ ! -L "$home/.mmw/bin/hook-launcher" ] \
+    || fail "the launcher is not a regular copied file"
+  cmp -s "$home/.mmw/bin/hook-launcher" "$(dirname "$INSTALLER")/hook-launcher.py" \
+    || fail "the installed launcher differs from its source"
+  python3 - "$home" <<'HOOKS' || fail "hook registrations are incomplete or bypass the launcher"
+import json, re, sys, tomllib
+from pathlib import Path
+home = Path(sys.argv[1])
+launcher = home / '.mmw/bin/hook-launcher'
+prefix = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
+for host, path in (
+    ('claude', home / '.claude/settings.json'),
+    ('codex', home / '.codex/hooks.json'),
+    ('grok', home / '.grok/hooks/mmw-verify-ticket.json'),
+):
+    data = json.loads(path.read_text())['hooks']
+    commands = [handler['command'] for group in data['PreToolUse'] for handler in group['hooks']
+                if handler['command'] != 'echo external']
+    expected = [(prefix if host == 'claude' else '') +
+                f"exec python3 '{launcher}' tool-guard {gate} {host}"
+                for gate in ('pretool', 'question')]
+    assert sorted(commands) == sorted(expected), (host, commands)
+    stop_path = home / '.grok/hooks/mmw-turn-guard.json' if host == 'grok' else path
+    stop = json.loads(stop_path.read_text())['hooks']['Stop']
+    commands = [h['command'] for g in stop for h in g['hooks']]
+    assert commands == [(prefix if host == 'claude' else '') +
+                        f"exec python3 '{launcher}' turn-guard stop {host}"], (host, commands)
+assert any(h['command'] == 'echo external'
+           for g in json.loads((home / '.claude/settings.json').read_text())['hooks']['PreToolUse']
+           for h in g['hooks'])
+cursor = json.loads((home / '.cursor/hooks.json').read_text())['hooks']
+assert [h['command'] for h in cursor['beforeShellExecution']] == [
+    f"exec python3 '{launcher}' tool-guard pretool cursor"]
+assert [h['command'] for h in cursor['stop']] == [
+    f"exec python3 '{launcher}' turn-guard stop cursor"]
+for extension, selector, gate in (
+    ('mmw-verify-ticket.ts', 'tool-guard', 'pretool'),
+    ('mmw-turn-guard.ts', 'turn-guard', 'stop'),
+):
+    text = (home / '.pi/agent/extensions' / extension).read_text()
+    assert str(launcher) in text
+    assert f'"{selector}", "{gate}", "pi"' in text
+hooks_path = home / '.codex/hooks.json'
+trust = tomllib.loads((home / '.codex/config.toml').read_text())['hooks']['state']
+for event, label in [('PreToolUse', 'pre_tool_use'), ('Stop', 'stop')]:
+    for gi, group in enumerate(json.loads(hooks_path.read_text())['hooks'][event]):
+        for hi, handler in enumerate(group['hooks']):
+            recorded = trust[f'{hooks_path}:{label}:{gi}:{hi}']['trusted_hash']
+            assert recorded != 'sha256:0000000000000000000000000000000000000000000000000000000000000000', (event, gi, hi)
+            assert re.fullmatch(r'sha256:[0-9a-f]{64}', recorded), recorded
+HOOKS
   # --check recomputes and checks the trusted_hash for every Codex hook handler,
   # including this tool guard; a generic trusted_hash line could belong to another hook.
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 0 ] || fail "install --check failed: $(cat "$TMP/err")"
   grep -qx 'HOOKS-INSTALLED' "$TMP/out" \
     || fail "install --check did not report HOOKS-INSTALLED: $(cat "$TMP/out")"
+}
+
+scenario_installchecklauncher() {
+  echo "--- --check detects a changed launcher byte without repairing it"
+  run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
+  local launcher="$TMP/install-home/.mmw/bin/hook-launcher"
+  python3 - "$launcher" <<'CORRUPT' || { fail "could not change the installed launcher"; return; }
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+data = bytearray(path.read_bytes())
+data[0] ^= 1
+path.write_bytes(data)
+CORRUPT
+  cp "$launcher" "$TMP/changed-launcher"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "a changed launcher must make --check exit 1"
+  grep -qE '^不一致 .*hook-launcher' "$TMP/err" \
+    || fail "--check did not name the inconsistent launcher: $(cat "$TMP/err")"
+  grep -qx 'HOOKS-INSTALLED' "$TMP/out" && fail "a changed launcher was reported installed"
+  cmp -s "$launcher" "$TMP/changed-launcher" || fail "--check repaired the launcher"
+}
+
+scenario_installcheckhookbypass() {
+  echo "--- --check rejects direct hook calls in each host, including both Pi extensions"
+  local home="$TMP/install-home" config
+  mkdir -p "$home/.claude" "$home/.codex" "$home/.cursor" \
+    "$home/.grok/hooks" "$home/.pi/agent"
+  printf '[compat.claude]\nagents = false\n' > "$home/.grok/config.toml"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "install failed: $(cat "$TMP/err")"
+  for config in \
+    "$home/.claude/settings.json" \
+    "$home/.codex/hooks.json" \
+    "$home/.cursor/hooks.json" \
+    "$home/.grok/hooks/mmw-verify-ticket.json" \
+    "$home/.grok/hooks/mmw-turn-guard.json" \
+    "$home/.pi/agent/extensions/mmw-verify-ticket.ts" \
+    "$home/.pi/agent/extensions/mmw-turn-guard.ts"
+  do
+    cp "$config" "$TMP/pristine-hook"
+    python3 - "$config" "$home" <<'BYPASS' || { fail "could not bypass $config"; continue; }
+from pathlib import Path
+import json, sys
+path, home = Path(sys.argv[1]), Path(sys.argv[2])
+launcher = str(home / '.mmw/bin/hook-launcher')
+if path.suffix == '.ts':
+    selector = 'tool-guard' if path.name == 'mmw-verify-ticket.ts' else 'turn-guard'
+    direct = str(home / '.agents/skills/dispatch/scripts' / (selector + '.py'))
+    text = path.read_text().replace(launcher, direct)
+    text = text.replace(f', "{selector}",', ',')
+    path.write_text(text)
+else:
+    data = json.loads(path.read_text())
+    changed = False
+    for entries in data['hooks'].values():
+        for group in entries:
+            for handler in group.get('hooks', [group]):
+                command = handler.get('command', '')
+                if launcher not in command or changed:
+                    continue
+                selector = 'tool-guard' if 'tool-guard' in command else 'turn-guard'
+                direct = str(home / '.agents/skills/dispatch/scripts' / (selector + '.py'))
+                handler['command'] = command.replace(f"'{launcher}' {selector}", f"'{direct}'")
+                changed = True
+    assert changed, path
+    path.write_text(json.dumps(data))
+BYPASS
+    cp "$config" "$TMP/bypassed-hook"
+    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+    [ "$(cat "$TMP/code")" = 1 ] || fail "$config bypass must make --check exit 1"
+    grep -qE '^不一致 ' "$TMP/err" \
+      || fail "$config bypass was not reported inconsistent: $(cat "$TMP/err")"
+    grep -qF "$config" "$TMP/err" || fail "--check did not name $config"
+    grep -qx 'HOOKS-INSTALLED' "$TMP/out" && fail "$config bypass was reported installed"
+    cmp -s "$config" "$TMP/bypassed-hook" || fail "--check repaired $config"
+    cp "$TMP/pristine-hook" "$config"
+  done
 }
 
 run_uses_check() {
@@ -10562,6 +10730,7 @@ ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-e
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart watchkind"
+ALL="$ALL installchecklauncher installcheckhookbypass"
 ALL="$ALL where wherespec whereunknown"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
@@ -10603,6 +10772,8 @@ banner_for() {
     installboardagent) echo INSTALL-BOARD-AGENT-OK ;;
     installcheckboardagent) echo INSTALL-CHECK-BOARD-AGENT-OK ;;
     installtoolguard) echo INSTALL-TOOL-GUARD-OK ;;
+    installchecklauncher) echo INSTALL-CHECK-LAUNCHER-OK ;;
+    installcheckhookbypass) echo INSTALL-CHECK-HOOK-BYPASS-OK ;;
     startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;
     startnomodelsjson) echo START-NO-MODELS-JSON-OK ;;
     installimportsmodelsmd) echo INSTALL-IMPORTS-MODELS-MD-OK ;;
