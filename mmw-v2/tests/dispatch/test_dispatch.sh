@@ -5518,9 +5518,13 @@ scenario_whereunknown() {
   assert_where_unknown "$code"
   code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
   assert_where_unknown "$code"
+  seed_where_watch ticket 61 paseo
+  code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
+  assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker"
   seed_where_watch missing 61 paseo
   code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
   assert_where_unknown "$code"
+  grep -qF 'watch has no valid kind' "$TMP/out" || fail "missing watch kind reached a different UNKNOWN: $(cat "$TMP/out")"
   copy="$TMP/where-copy/skills/dispatch"
   mkdir -p "$(dirname "$copy")"
   cp -R "$SKILL" "$copy"
@@ -5528,11 +5532,13 @@ scenario_whereunknown() {
   rm "$copy/roles.json"
   code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
   assert_where_unknown "$code"
+  grep -qF 'roles.json or locations.py' "$TMP/out" || fail "missing roles.json reached a different UNKNOWN: $(cat "$TMP/out")"
   grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing roles.json did not name install --check"
   cp "$SKILL/roles.json" "$copy/roles.json"
   rm "$copy/scripts/locations.py"
   code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
   assert_where_unknown "$code"
+  grep -qF 'roles.json or locations.py' "$TMP/out" || fail "missing locations.py reached a different UNKNOWN: $(cat "$TMP/out")"
   grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing locations.py did not name install --check"
   hasnt "gh :: issue :: comment"
 }

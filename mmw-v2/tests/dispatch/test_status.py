@@ -1152,9 +1152,13 @@ class WhereForAnAdoptingWorker(WhereForAWorker):
 
 class WhereForAReviewer(WhereFixtures, unittest.TestCase):
     def test_its_own_started_session_is_fresh_until_it_reports(self):
-        self.issue(61, started(61, "worker"), started(61, "me", kind="reviewer"))
+        comments = [started(61, "worker"), started(61, "me", kind="reviewer")]
+        self.issue(61, *comments)
         self.assertEqual(self.where(),
                          (0, "FRESH reviewer #61 · mmw review-a-ticket#Pin the diff"))
+        self.issue(61, *comments, ev("reviewer.reported", "review"))
+        self.assertEqual(self.where(),
+                         (2, "UNKNOWN this reviewer has reported; no where row applies"))
 
 
 class WhereForANightOrchestrator(WhereFixtures, unittest.TestCase):
@@ -1171,6 +1175,9 @@ class WhereForANightOrchestrator(WhereFixtures, unittest.TestCase):
     def test_unopened_unwatched_spec_is_fresh(self):
         self.issue(76, labels=("mmw:spec",))
         self.assertEqual(self.where(76), self.expected("FRESH", "run-a-night#Check and open"))
+        self.watch("night", 76, session="another-orchestrator")
+        self.assertEqual(self.where(76),
+                         (2, "UNKNOWN this session is not the orchestrator of this spec's watch"))
 
     def test_nonempty_frontier_handles_wakes_without_live_agents(self):
         self.watch("night", 76)
@@ -1186,9 +1193,10 @@ class WhereForANightOrchestrator(WhereFixtures, unittest.TestCase):
         self.watch("night", 76)
         opened = ev("spec.opened", "opened", ticket=None, spec=76, runner="orca", session="me")
         self.issue(76, opened, labels=("mmw:spec",))
+        self.batch["children"] = [{"number": 61, "children": []}]
+        self.issue(61)
         self.assertEqual(self.where(76), self.expected(
             "BETWEEN", "run-a-night#Lint the batch .. #Advance, then end your turn"))
-        self.batch["children"] = [{"number": 61, "children": []}]
         self.issue(61, started(61, "worker"))
         self.assertEqual(self.where(76), self.expected("AT", "run-a-night#Handle each wake"))
         finding = ev("child.opened", "finding", child=90, kind="finding")
@@ -1305,18 +1313,30 @@ class WhereCannotTell(WhereFixtures, unittest.TestCase):
     def test_researcher_and_advisor_have_no_where_position(self):
         for role in ("researcher", "advisor"):
             self.issue(61)
-            self.watch(role)
-            self.assert_unknown(self.where())
+            with self.subTest(role=role):
+                self.assert_unknown(self.where(session=role),
+                                    "this session cannot be identified on the ticket")
+
+    def test_blank_or_malformed_watch_is_not_an_absent_watch(self):
+        self.issue(76, labels=("mmw:spec",))
+        self.watch("night", 76)
+        path = Path(self.home.name) / "state" / "o__r" / "watches.json"
+        for invalid in ("", "{", "[]"):
+            with self.subTest(invalid=invalid):
+                path.write_text(invalid)
+                self.assert_unknown(self.where(76))
 
     def test_missing_and_invalid_registries_name_install_check(self):
         root = Path(self.home.name) / "skills" / "dispatch"
         scripts = root / "scripts"
         scripts.mkdir(parents=True)
         original = STATUS_PATH.parent
+        (scripts / "relay.py").symlink_to(original / "relay.py")
+        self.issue(61, started(61, "me"))
         shutil.copy(original / "locations.py", scripts)
         roles = original.parent / "roles.json"
         for broken in ("roles-missing", "roles-json", "roles-shape", "locations-missing",
-                       "locations-syntax", "locations-shape", "locations-anchor"):
+                       "locations-syntax", "locations-shape", "locations-anchor", "locations-row"):
             with self.subTest(broken=broken):
                 shutil.copy(roles, root)
                 shutil.copy(original / "locations.py", scripts)
@@ -1332,9 +1352,12 @@ class WhereCannotTell(WhereFixtures, unittest.TestCase):
                     (scripts / "locations.py").write_text("WHERE_ROWS = {")
                 elif broken == "locations-shape":
                     (scripts / "locations.py").write_text("WHERE_ROWS = []")
-                else:
+                elif broken == "locations-anchor":
                     with (scripts / "locations.py").open("a") as handle:
                         handle.write('\nWHERE_ROWS["worker"]["fresh"]["step"] = "Not registered"\n')
+                else:
+                    with (scripts / "locations.py").open("a") as handle:
+                        handle.write('\ndel WHERE_ROWS["worker"]["fresh"]\n')
                 with patch.object(status, "__file__", str(scripts / "status.py")):
                     self.assert_unknown(self.where(), "bash mmw-v2/install.sh --check")
 

@@ -10,16 +10,20 @@
     status.py --land-plan <n>...        what landing each of these tickets calls for
     status.py --where [<spec>|<n>]      this runner/session's playbook position
 
-One program, reading one event source, so there is never a second truth to
-reconcile. The source is the tracker (`gh`): the spec's tree of tickets and their
+Ticket state has one source, the tracker (`gh`): the spec's tree of tickets and their
 children, read in one query by `issue_tree.py`, and each ticket's state, labels, assignees,
 blocking edges and comments. Where a ticket stands — which agent sessions were started
 on it and on which runner, whether its worker is still live or waiting for a product
 slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
 its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
 (`MMW_EVENTS_PY` names `events.py` when `dispatch.sh` resolved it somewhere else, and
-`issue_tree.py` is read from beside it). Nothing here asks a runner what it is running: a
-runner answers for one machine, and the ticket answers for all of them. Nothing this
+`issue_tree.py` is read from beside it). `--where` also reads relay `watches.json` to
+identify this session's orchestrator role and default issue, `roles.json` and
+`locations.py` to resolve its playbook pointer, and `git rev-parse HEAD` to compare the
+final reverify's commit. Its runner/session pair is supplied by `dispatch.sh self`.
+These inputs do not replace ticket state with a runner's view. Nothing here probes a
+runner's other sessions: a runner answers for one machine, and the ticket answers for
+all of them. Nothing this
 program does needs a model, and nothing it does writes to the tracker. Each invocation is
 a full re-read.
 """
@@ -936,12 +940,11 @@ def where_position(args) -> str:
     relay = load_neighbor("relay")
     state = relay.statedir.state_dir(repo, create=False)
     path = state / "watches.json"
-    if path.exists():
-        data = json.loads(path.read_text())
-        if not isinstance(data, dict):
-            raise RuntimeError(f"{path} is not a watch object")
-    else:
+    data = relay.statedir.read_json(path, None)
+    if data is None and not path.exists():
         data = {}
+    if not isinstance(data, dict):
+        raise RuntimeError(f"{path} is not a watch object")
     watches = relay.read_watches(state)
     if len(watches) != len(data):
         raise RuntimeError(f"{path} contains an unreadable watch")
@@ -969,16 +972,14 @@ def where_position(args) -> str:
         raise RuntimeError("this session's watch has no valid kind; run bash mmw-v2/install.sh --check")
     if len(mine_watches) > 1:
         raise RuntimeError("more than one watch names this session on this issue")
+    kind = mine_watches[0]["kind"] if mine_watches else None
     ticket = read_ticket(number)
-    why = unreadable_reason(ticket)
-    if why or ticket["comments_unreadable"]:
-        raise RuntimeError(f"#{ticket['number']}'s events cannot be read: "
-                           f"{why or 'comments is not a list'}")
+    where_readable(ticket)
     records = where_records(ticket)
-    if mine_watches and mine_watches[0]["kind"] == "night":
+    if kind == "night":
         key = where_night(ticket, records)
         return where_line("night-orchestrator", number, key, roles, locations)
-    if mine_watches and mine_watches[0]["kind"] == "ticket":
+    if kind == "ticket":
         key = where_one_ticket(ticket, records)
         return where_line("one-ticket-orchestrator", number, key, roles, locations)
     if "mmw:spec" in ticket["labels"]:
@@ -997,8 +998,7 @@ def where_position(args) -> str:
     mine = [record for record in records
             if record["event"].endswith(".started")
             and where_address(record["payload"]) == (args.runner, args.session)]
-    if (not records and mine_watches
-            and mine_watches[0]["kind"] == "adopted-ticket"):
+    if not records and kind == "adopted-ticket":
         return where_line("adopting-worker", number, "fresh", roles, locations)
     if not mine or len({r["event"] for r in mine}) != 1:
         raise RuntimeError("this session cannot be identified on the ticket")
@@ -1012,8 +1012,7 @@ def where_position(args) -> str:
         return where_line(role, ticket["number"], "fresh", roles, locations)
     if role != "worker":
         raise RuntimeError(f"{role} has no recorded position")
-    if ("adopted" in start["payload"]
-            or (mine_watches and mine_watches[0]["kind"] == "adopted-ticket")):
+    if "adopted" in start["payload"] or kind == "adopted-ticket":
         role = "adopting-worker"
     latest_worker = next(r for r in reversed(records) if r["event"] == "worker.started")
     if latest_worker != start:
@@ -1053,9 +1052,7 @@ def where_night(ticket: dict, records: list[dict]) -> str:
     batch = spec_tree(ticket["number"])
     tickets = {node["number"]: read_ticket(node["number"]) for node in tree.children(batch)}
     for child in tickets.values():
-        why = unreadable_reason(child)
-        if why or child["comments_unreadable"]:
-            raise RuntimeError(f"#{child['number']}'s events cannot be read: {why or 'comments is not a list'}")
+        where_readable(child)
     if not any(t["fold"]["worker"] for t in tickets.values()):
         return "opened"
     rows = build_rows(list(tickets), tickets)
@@ -1063,10 +1060,7 @@ def where_night(ticket: dict, records: list[dict]) -> str:
         return "working"
     children = batch_children(ticket["number"], batch)
     for child in children:
-        why = unreadable_reason(child)
-        if why or child["comments_unreadable"]:
-            raise RuntimeError(f"#{child['number']}'s events cannot be read: "
-                               f"{why or 'comments is not a list'}")
+        where_readable(child)
     if any(is_finding(child) and route_of(child) == "open" for child in children):
         return "findings"
     return "closing"
@@ -1074,6 +1068,14 @@ def where_night(ticket: dict, records: list[dict]) -> str:
 
 def where_address(payload: dict) -> tuple:
     return payload.get("runner"), payload.get("session")
+
+
+def where_readable(ticket: dict) -> None:
+    """Reject unreadable tracker answers or comments before choosing a position."""
+    why = unreadable_reason(ticket)
+    if why or ticket["comments_unreadable"]:
+        raise RuntimeError(f"#{ticket['number']}'s events cannot be read: "
+                           f"{why or 'comments is not a list'}")
 
 
 def where_records(ticket: dict) -> list[dict]:

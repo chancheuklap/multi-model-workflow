@@ -587,7 +587,7 @@ where_one() {
     esac
     target+=("$number")
   fi
-  if ! line="$(bash "$SELF" self 2>&1)"; then
+  if ! line="$(own_session 2>&1)"; then
     printf 'UNKNOWN %s\n' "$(printf '%s' "$line" | tr '\n' ' ')"
     return 2
   fi
