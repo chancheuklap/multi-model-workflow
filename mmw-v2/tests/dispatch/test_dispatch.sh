@@ -15,6 +15,9 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh worktreegit|worktreegoverned|worktreeremove|installorca
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh boardregisters|boardsameport|boardopenstab|boardprintsurl|openstartsboard|openticketstartsboard
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh installboardagent|installcheckboardagent|installtoolguard
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckstalecopy
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcopyretired
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh installcheckwiringfails|installcheckwiringunchecked
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh usesagree|usesmismatch|usesunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
@@ -6891,6 +6894,180 @@ CORRUPT
   cmp -s "$launcher" "$TMP/changed-launcher" || fail "--check repaired the launcher"
 }
 
+scenario_installcheckstalecopy() {
+  echo "--- a clean copy passes; changed bytes are named without being repaired"
+  run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "install failed: $(cat "$TMP/err")"; return; }
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean --check failed: $(cat "$TMP/err")"; return; }
+  local copy="$TMP/install-home/.mmw/skill-copies/handoff"
+  printf 'changed\n' >> "$copy/SKILL.md"
+  cp "$copy/SKILL.md" "$TMP/changed-copy"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "changed copy must exit 1"
+  grep -F "$copy" "$TMP/err" | grep -q '跑一次 install.sh' \
+    || fail "stale copy must name its directory and reinstall: $(cat "$TMP/err")"
+  cmp -s "$copy/SKILL.md" "$TMP/changed-copy" || fail "--check repaired the copy"
+  # Other mismatches must fail for the same reason, with no repair or source write.
+  local bad
+  for bad in missing-copy yaml-bytes skill-link yaml-link missing-link wrong-link agents-link extra-file; do
+    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+    [ "$(cat "$TMP/code")" = 0 ] || { fail "restoring install failed"; return; }
+    copy="$TMP/install-home/.mmw/skill-copies/triage"
+    python3 - "$copy" "$bad" <<'CORRUPT' || { fail "could not plant $bad"; return; }
+from pathlib import Path
+import shutil, sys
+copy, bad = Path(sys.argv[1]), sys.argv[2]
+source = (copy / 'AGENT-BRIEF.md').resolve().parent
+if bad == 'missing-copy':
+    shutil.rmtree(copy)
+elif bad == 'yaml-bytes':
+    (copy / 'agents/openai.yaml').write_bytes(b'changed\n')
+elif bad in ('skill-link', 'yaml-link'):
+    rel = 'SKILL.md' if bad == 'skill-link' else 'agents/openai.yaml'
+    (copy / rel).unlink()
+    (copy / rel).symlink_to(source / rel)
+elif bad in ('missing-link', 'wrong-link'):
+    (copy / 'AGENT-BRIEF.md').unlink()
+    if bad == 'wrong-link':
+        (copy / 'AGENT-BRIEF.md').symlink_to(source / 'SKILL.md')
+elif bad == 'agents-link':
+    shutil.rmtree(copy / 'agents')
+    (copy / 'agents').symlink_to(source / 'agents')
+else:
+    (copy / 'extra.txt').write_bytes(b'extra\n')
+CORRUPT
+    cp -R "$copy" "$TMP/bad-copy" 2>/dev/null || true
+    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+    [ "$(cat "$TMP/code")" = 1 ] || fail "$bad must exit 1"
+    grep -F "$copy" "$TMP/err" | grep -q '跑一次 install.sh' \
+      || fail "$bad must name its copy and reinstall: $(cat "$TMP/err")"
+    if [ "$bad" = missing-copy ]; then
+      [ ! -e "$copy" ] || fail "--check restored the copy"
+    else
+      diff -r "$copy" "$TMP/bad-copy" >/dev/null || fail "--check changed $bad"
+    fi
+    rm -rf "$TMP/bad-copy"
+  done
+}
+
+# A checkout-shaped fixture lets the real wiring check find root/.mmw too.
+install_checkout_copy() {
+  local copy="$TMP/install-checkout/mmw-v2"
+  rm -rf "$TMP/install-checkout"
+  mkdir -p "$TMP/install-checkout"
+  cp -R "$(dirname "$INSTALLER")" "$copy"
+  printf '%s\n' "$copy"
+}
+
+scenario_installcopyretired() {
+  echo "--- removing a marker or a skill retires only its copy and host links"
+  local copy home="$TMP/install-home" name
+  copy="$(install_checkout_copy)"
+  mkdir -p "$home/.claude"
+  MMW_TEST_INSTALLER="$copy/install.sh" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "copy install failed: $(cat "$TMP/err")"; return; }
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean copy check failed: $(cat "$TMP/err")"; return; }
+  python3 - "$copy/skills.txt" <<'RETIRE'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+rows = path.read_text().splitlines(keepends=True)
+path.write_text(''.join(row.replace(' +model-invoked', '') if row.startswith('productivity/handoff ') else row
+                        for row in rows if not row.startswith('productivity/teach ')))
+RETIRE
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "retired copies must exit 1"
+  for name in handoff teach; do
+    grep -F "$home/.mmw/skill-copies/$name" "$TMP/err" | grep -q '^残留' \
+      || fail "--check did not name retired copy $name: $(cat "$TMP/err")"
+    [ -d "$home/.mmw/skill-copies/$name" ] || fail "--check removed retired copy $name"
+  done
+  printf 'not a directory\n' > "$home/.mmw/skill-copies/unrelated-file"
+  mkdir -p "$home/.mmw/unrelated-dir"
+  MMW_TEST_INSTALLER="$copy/install.sh" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || fail "reinstall failed: $(cat "$TMP/err")"
+  python3 - "$home" "$copy" <<'LINKS' || fail "retirement did not restore the required installation"
+from pathlib import Path
+import sys
+home, root = map(Path, sys.argv[1:])
+for name in ('handoff', 'teach'):
+    assert not (home / '.mmw/skill-copies' / name).exists(), name
+for host in ('.agents', '.claude'):
+    assert (home / host / 'skills/handoff').resolve() == (root / 'upstream/skills/productivity/handoff').resolve()
+    assert not (home / host / 'skills/teach').is_symlink()
+assert (home / '.mmw/skill-copies/triage').is_dir()
+assert (home / '.mmw/skill-copies/unrelated-file').read_text() == 'not a directory\n'
+assert (home / '.mmw/unrelated-dir').is_dir()
+LINKS
+}
+
+scenario_installcheckwiringfails() {
+  echo "--- --check prints class 2/7 reports and follows the checker's class policy"
+  local copy books="$TMP/install-checkout/.mmw/playbooks"
+  copy="$(install_checkout_copy)"
+  MMW_TEST_INSTALLER="$copy/install.sh" run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "copy install failed: $(cat "$TMP/err")"; return; }
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean check failed: $(cat "$TMP/err")"; return; }
+  mkdir -p "$books"
+  printf '### Unrouted\n\n1. **Read.** `references/absent.md`.\n\n**Reply:** result.\n' > "$books/unrouted.md"
+  # A failing class 10 must not affect this installer-only class 2/7 check.
+  printf '\n# skills/absent-component/scripts/missing.py\n' >> "$copy/install.sh"
+  python3 - "$copy/tests/lib/check_wiring.py" False <<'POLICY'
+from pathlib import Path
+import re, sys
+path = Path(sys.argv[1])
+path.write_text(re.sub(r'(    [27]: Policy\()(True|False)', r'\g<1>' + sys.argv[2], path.read_text()))
+POLICY
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || fail "report-only class 2/7 must not fail: $(cat "$TMP/err")"
+  grep -q '^report: .*class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \
+    || fail "routing report was not forwarded unchanged: $(cat "$TMP/err")"
+  grep -q '^report: .*class 2 references/absent.md does not exist' "$TMP/err" \
+    || fail "class 2 report was not forwarded unchanged: $(cat "$TMP/err")"
+  grep -q 'class 10\|class 3' "$TMP/err" && fail "unselected classes leaked"
+  python3 - "$copy/tests/lib/check_wiring.py" True <<'POLICY'
+from pathlib import Path
+import re, sys
+path = Path(sys.argv[1])
+path.write_text(re.sub(r'(    7: Policy\()(True|False)', r'\g<1>' + sys.argv[2], path.read_text()))
+POLICY
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "failing class 7 must exit 1"
+  grep -q '^.mmw/playbooks/INDEX.md:1: class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \
+    || fail "failing routing line was not forwarded unchanged: $(cat "$TMP/err")"
+}
+
+scenario_installcheckwiringunchecked() {
+  echo "--- a missing wiring checker is explicitly unchecked, exit 1"
+  local copy
+  copy="$(install_checkout_copy)"
+  MMW_TEST_INSTALLER="$copy/install.sh" run_installer
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "copy install failed: $(cat "$TMP/err")"; return; }
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 0 ] || { fail "clean check failed: $(cat "$TMP/err")"; return; }
+  rm "$copy/tests/lib/check_wiring.py"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "missing wiring check must exit 1"
+  grep -q '^没查.*连线检查.*check_wiring.py' "$TMP/err" \
+    || fail "missing checker must name the unchecked wiring check: $(cat "$TMP/err")"
+  [ ! -e "$copy/tests/lib/check_wiring.py" ] || fail "--check restored the checker"
+  cp "$(dirname "$INSTALLER")/tests/lib/check_wiring.py" "$copy/tests/lib/check_wiring.py"
+  echo "--- no uv on PATH is explicitly unchecked too"
+  PATH="$TMP/bin:/usr/bin:/bin:/usr/sbin:/sbin" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "missing uv must exit 1"
+  grep -q '^没查.*连线检查.*uv' "$TMP/err" \
+    || fail "missing uv must be named: $(cat "$TMP/err")"
+  echo "--- an unreadable registry (checker exit 2) is explicitly unchecked"
+  printf 'invalid registry\n' > "$copy/skills/dispatch/scripts/locations.py"
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "unreadable wiring registry must exit 1"
+  grep -q '^没查.*连线检查.*退出 2' "$TMP/err" \
+    || fail "unreadable registry must be named: $(cat "$TMP/err")"
+}
+
 scenario_installcheckhookbypass() {
   echo "--- --check rejects direct hook calls in each host, including both Pi extensions"
   local home="$TMP/install-home" config
@@ -7036,7 +7213,7 @@ for i in range(1, n + 1):
 
 run_installer() {
   local installer home
-  installer="$(dirname "$(dirname "$HERE")")/install.sh"
+  installer="${MMW_TEST_INSTALLER:-$(dirname "$(dirname "$HERE")")/install.sh}"
   home="$TMP/install-home"
   [ "${MMW_TEST_REUSE_INSTALL_HOME:-0}" = 1 ] || rm -rf "$home"
   mkdir -p "$home"
@@ -11053,6 +11230,9 @@ ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-co
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart watchkind"
 ALL="$ALL installchecklauncher installcheckhookbypass"
+ALL="$ALL installcheckstalecopy"
+ALL="$ALL installcopyretired"
+ALL="$ALL installcheckwiringfails installcheckwiringunchecked"
 ALL="$ALL where wherespec whereunknown"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
@@ -11071,6 +11251,10 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
+    installcheckstalecopy) echo INSTALL-CHECK-STALE-COPY-OK ;;
+    installcopyretired) echo INSTALL-COPY-RETIRED-OK ;;
+    installcheckwiringfails) echo INSTALL-CHECK-WIRING-FAILS-OK ;;
+    installcheckwiringunchecked) echo INSTALL-CHECK-WIRING-UNCHECKED-OK ;;
     research) echo RESEARCH-OK ;;
     researchworktree) echo RESEARCH-WORKTREE-OK ;;
     researchreuse) echo RESEARCH-REUSE-OK ;;
