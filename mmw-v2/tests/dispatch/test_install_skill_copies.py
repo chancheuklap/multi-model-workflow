@@ -63,6 +63,8 @@ class InstallSkillCopiesTests(unittest.TestCase):
             self.assertTrue(installed.is_file(), str(installed))
             self.assertFalse(installed.is_symlink(), str(installed))
             self.assertEqual(expected, installed.read_bytes(), source.name)
+            frontmatter = installed.read_bytes().split(b"---", 2)[1]
+            self.assertNotRegex(frontmatter, rb"(?m)^disable-model-invocation\s*:")
         self.assertGreater(marked, 0)
         self.assertGreater(switched, 0, "no marked source exercises switch removal")
 
@@ -84,6 +86,9 @@ class InstallSkillCopiesTests(unittest.TestCase):
             self.assertFalse(installed.is_symlink(), str(installed))
             self.assertFalse(installed.parent.is_symlink(), str(installed.parent))
             self.assertEqual(expected, installed.read_bytes(), source.name)
+            self.assertNotRegex(installed.read_bytes(), rb"(?m)^policy\s*:")
+            if b"interface:" in data:
+                self.assertIn(b"interface:", installed.read_bytes())
         self.assertGreater(policies, 0, "no marked source exercises policy removal")
 
     def test_every_other_entry_of_a_copy_links_back_to_the_source(self):
@@ -133,7 +138,6 @@ class InstallSkillCopiesTests(unittest.TestCase):
                 self.assertEqual(skill_without_switch(source / "SKILL.md"),
                                  (self.copy(source) / "SKILL.md").read_bytes())
 
-    def test_reinstall_tracks_added_and_removed_source_entries(self):
         mmw = copy_mmw(self.root)
         source = next(source for source, invoked in skill_entries(mmw) if invoked)
         support = source / "support.txt"
@@ -184,6 +188,21 @@ class InstallSkillCopiesTests(unittest.TestCase):
                          (installed / "agents/openai.yaml").read_bytes())
         self.assertEqual(skill, (source / "SKILL.md").read_bytes())
         self.assertEqual(yaml, (source / "agents/openai.yaml").read_bytes())
+
+    def test_invalid_source_names_the_file_without_destroying_the_copy(self):
+        mmw = copy_mmw(self.root)
+        source = next(source for source, invoked in skill_entries(mmw) if invoked)
+        self.install(mmw / "install.sh")
+        installed = self.copy(source) / "SKILL.md"
+        previous = installed.read_bytes()
+        original = source / "SKILL.md"
+        original.write_bytes(b"---\nname: invalid\n")
+        for args in ((), ("--check",)):
+            with self.subTest(args=args):
+                result = run_install(mmw / "install.sh", self.home, self.bin, *args)
+                self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+                self.assertIn(str(original), result.stderr)
+                self.assertEqual(previous, installed.read_bytes())
 
 
 if __name__ == "__main__":

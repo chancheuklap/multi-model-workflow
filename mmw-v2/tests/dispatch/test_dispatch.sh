@@ -6913,6 +6913,8 @@ scenario_installcheckstalecopy() {
   for bad in missing-copy yaml-bytes skill-link yaml-link missing-link wrong-link agents-link extra-file; do
     MMW_TEST_REUSE_INSTALL_HOME=1 run_installer
     [ "$(cat "$TMP/code")" = 0 ] || { fail "restoring install failed"; return; }
+    MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+    [ "$(cat "$TMP/code")" = 0 ] || { fail "restored --check failed before $bad: $(cat "$TMP/err")"; return; }
     copy="$TMP/install-home/.mmw/skill-copies/triage"
     python3 - "$copy" "$bad" <<'CORRUPT' || { fail "could not plant $bad"; return; }
 from pathlib import Path
@@ -6946,6 +6948,10 @@ CORRUPT
       [ ! -e "$copy" ] || fail "--check restored the copy"
     else
       diff -r "$copy" "$TMP/bad-copy" >/dev/null || fail "--check changed $bad"
+      case "$bad" in
+        skill-link) [ -L "$copy/SKILL.md" ] || fail "--check replaced the SKILL.md symlink" ;;
+        yaml-link) [ -L "$copy/agents/openai.yaml" ] || fail "--check replaced the openai.yaml symlink" ;;
+      esac
     fi
     rm -rf "$TMP/bad-copy"
   done
@@ -6958,6 +6964,17 @@ install_checkout_copy() {
   mkdir -p "$TMP/install-checkout"
   cp -R "$(dirname "$INSTALLER")" "$copy"
   printf '%s\n' "$copy"
+}
+
+set_wiring_class_policy() {
+  python3 - "$@" <<'POLICY'
+from pathlib import Path
+import re, sys
+path, value = Path(sys.argv[1]), sys.argv[2]
+classes = '|'.join(sys.argv[3:])
+path.write_text(re.sub(r'(    (?:' + classes + r'): Policy\()(True|False)',
+                       r'\g<1>' + value, path.read_text()))
+POLICY
 }
 
 scenario_installcopyretired() {
@@ -7015,12 +7032,7 @@ scenario_installcheckwiringfails() {
   printf '### Unrouted\n\n1. **Read.** `references/absent.md`.\n\n**Reply:** result.\n' > "$books/unrouted.md"
   # A failing class 10 must not affect this installer-only class 2/7 check.
   printf '\n# skills/absent-component/scripts/missing.py\n' >> "$copy/install.sh"
-  python3 - "$copy/tests/lib/check_wiring.py" False <<'POLICY'
-from pathlib import Path
-import re, sys
-path = Path(sys.argv[1])
-path.write_text(re.sub(r'(    [27]: Policy\()(True|False)', r'\g<1>' + sys.argv[2], path.read_text()))
-POLICY
+  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" False 2 7
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 0 ] || fail "report-only class 2/7 must not fail: $(cat "$TMP/err")"
   grep -q '^report: .*class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \
@@ -7028,12 +7040,7 @@ POLICY
   grep -q '^report: .*class 2 references/absent.md does not exist' "$TMP/err" \
     || fail "class 2 report was not forwarded unchanged: $(cat "$TMP/err")"
   grep -q 'class 10\|class 3' "$TMP/err" && fail "unselected classes leaked"
-  python3 - "$copy/tests/lib/check_wiring.py" True <<'POLICY'
-from pathlib import Path
-import re, sys
-path = Path(sys.argv[1])
-path.write_text(re.sub(r'(    7: Policy\()(True|False)', r'\g<1>' + sys.argv[2], path.read_text()))
-POLICY
+  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" True 7
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "failing class 7 must exit 1"
   grep -q '^.mmw/playbooks/INDEX.md:1: class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \

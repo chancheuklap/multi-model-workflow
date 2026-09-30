@@ -79,10 +79,7 @@ LIST="$ROOT/skills.txt"
 # checkout：从哪个 checkout 运行本脚本，哪个 checkout 的 source directory 就接管这批软链。
 ours_skill_target() {
   case "$1" in
-    "$HOME_DIR/.mmw/skill-copies/"*) return 0 ;;
-  esac
-  case "$1" in
-    */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/* | */mmw-v2/upstream-pstack/skills/*) return 0 ;;
+    "$SKILL_COPIES/"* | */mmw-v2/upstream/skills/* | */mmw-v2/skills/* | */mmw-v2/upstream-diagram-design/skills/* | */mmw-v2/upstream-pstack/skills/*) return 0 ;;
   esac
   return 1
 }
@@ -125,6 +122,7 @@ stale_links() {
 
 # MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
 HOME_DIR="${MMW_V2_HOME:-$HOME}"
+SKILL_COPIES="$HOME_DIR/.mmw/skill-copies"
 
 # 不属于任何一个 host，所以无条件建。
 NEUTRAL_DIR="$HOME_DIR/.agents/skills"
@@ -172,7 +170,6 @@ fi
 wanted_dirs=()
 wanted_names=()
 copy_sources=()
-SKILL_COPIES="$HOME_DIR/.mmw/skill-copies"
 while IFS= read -r line; do
   line="${line%%#*}"
   tokens=()
@@ -233,7 +230,11 @@ sources = [Path(value) for value in sys.argv[3:]]
 
 def skill_bytes(path):
     lines = path.read_bytes().splitlines(keepends=True)
-    end = next(i for i in range(1, len(lines)) if lines[i].strip() == b'---')
+    if not lines or lines[0].strip() != b'---':
+        raise ValueError('frontmatter 缺少开头的 ---')
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == b'---'), None)
+    if end is None:
+        raise ValueError('frontmatter 缺少结束的 ---')
     return b''.join(line for i, line in enumerate(lines)
                     if not (0 < i < end and re.match(rb'disable-model-invocation\s*:', line)))
 
@@ -253,22 +254,24 @@ def openai_bytes(path):
     return b''.join(kept)
 
 
-def copy_matches(copy, expected):
+def copy_matches(copy, directories, files, links):
     if not copy.is_dir() or copy.is_symlink():
         return False
     actual = {item.name for item in copy.iterdir()}
-    for name, data in expected.items():
+    for name in directories:
         target = copy / name
-        if data is None:
-            if not target.is_dir() or target.is_symlink():
-                return False
-            actual.update(name + '/' + item.name for item in target.iterdir())
-        elif isinstance(data, Path):
-            if not target.is_symlink() or target.readlink() != data:
-                return False
-        elif not target.is_file() or target.is_symlink() or target.read_bytes() != data:
+        if not target.is_dir() or target.is_symlink():
             return False
-    return actual == set(expected)
+        actual.update(name + '/' + item.name for item in target.iterdir())
+    for name, data in files.items():
+        target = copy / name
+        if not target.is_file() or target.is_symlink() or target.read_bytes() != data:
+            return False
+    for name, source in links.items():
+        target = copy / name
+        if not target.is_symlink() or target.readlink() != source:
+            return False
+    return actual == directories | files.keys() | links.keys()
 
 
 def remove_copy(path):
@@ -279,37 +282,52 @@ def remove_copy(path):
 
 
 failed = False
-try:
-    for source in sources:
-        copy = copies / source.name
-        expected = {'SKILL.md': skill_bytes(source / 'SKILL.md')}
+action = '没查' if mode == 'check' else '未生成'
+retry = '--check' if mode == 'check' else 'install.sh'
+for source in sources:
+    copy = copies / source.name
+    try:
+        directories, files, links = set(), {'SKILL.md': skill_bytes(source / 'SKILL.md')}, {}
         for item in source.iterdir():
             if item.name == 'SKILL.md':
                 continue
             if item.name == 'agents' and item.is_dir():
-                expected['agents'] = None
+                directories.add('agents')
                 for agent in item.iterdir():
                     name = 'agents/' + agent.name
-                    expected[name] = openai_bytes(agent) if agent.name == 'openai.yaml' else agent
+                    if agent.name == 'openai.yaml':
+                        files[name] = openai_bytes(agent)
+                    else:
+                        links[name] = agent
             else:
-                expected[item.name] = item
+                links[item.name] = item
+    except (OSError, ValueError) as exc:
+        path = getattr(exc, 'filename', None) or source / 'SKILL.md'
+        print(f'{action}  安装副本 {copy}：源文件 {path} 无法生成副本（{exc}）；'
+              f'修正源文件格式或读取权限后再跑 {retry}', file=sys.stderr)
+        failed = True
+        continue
+    try:
         if mode == 'check':
-            if not copy_matches(copy, expected):
+            if not copy_matches(copy, directories, files, links):
                 print(f'副本过期  {copy}：跑一次 install.sh 重新生成', file=sys.stderr)
                 failed = True
         else:
             if copy.is_symlink() or copy.exists():
                 remove_copy(copy)
             copy.mkdir(parents=True)
-            for name, data in expected.items():
+            for name in directories:
+                (copy / name).mkdir(parents=True, exist_ok=True)
+            for name, data in files.items():
                 target = copy / name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                if data is None:
-                    target.mkdir(exist_ok=True)
-                elif isinstance(data, Path):
-                    target.symlink_to(data)
-                else:
-                    target.write_bytes(data)
+                target.write_bytes(data)
+            for name, source_item in links.items():
+                (copy / name).symlink_to(source_item)
+    except OSError as exc:
+        print(f'{action}  安装副本 {copy}：{exc}；'
+              f'检查报错路径的类型与访问权限后再跑 {retry}', file=sys.stderr)
+        failed = True
+try:
     keep = {source.name for source in sources}
     if copies.is_dir():
         for stale in sorted(copies.iterdir()):
@@ -321,9 +339,11 @@ try:
             else:
                 remove_copy(stale)
                 print(f'摘掉  {stale}')
-except (OSError, ValueError, StopIteration) as exc:
-    print(f'副本过期  {copies}：{exc}；跑一次 install.sh 重新生成', file=sys.stderr)
-    raise SystemExit(1)
+except OSError as exc:
+    action = '没查' if mode == 'check' else '未清理'
+    print(f'{action}  残留副本 {copies}：{exc}；'
+          f'检查报错路径的类型与访问权限后再跑 {retry}', file=sys.stderr)
+    failed = True
 raise SystemExit(1 if failed else 0)
 PY
 
