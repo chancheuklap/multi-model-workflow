@@ -137,9 +137,12 @@ class Inventory:
     playbooks: dict[str, str]
     scripts: set[str]
 
-    def skill_pattern(self, exclude: str = ''):
+    def skill_pattern(self, exclude: str = '', *, path_segment: bool = False):
+        # path_segment is description-content: a name touching "." or "/" is a
+        # path or file segment, not a mention of the skill.
+        edge = r'\w./-' if path_segment else r'\w-'
         names = [re.escape(n) for n in self.skills if n != exclude]
-        return r'(?<![\w-])(?:' + '|'.join(names or [r'(?!)']) + r')(?![\w-])'
+        return r'(?<![' + edge + r'])(?:' + '|'.join(names or [r'(?!)']) + r')(?![' + edge + r'])'
 
     def playbook_pattern(self):
         names = [r'(?<![\w-])' + re.escape(n) + r'(?![\w-])' for slug, title in self.playbooks.items()
@@ -181,8 +184,10 @@ def check_mode(doc: Document):
     for row, line in doc.section('Principles'):
         if re.match(r'^\s*[-*+]\s', line) and not re.fullmatch(r'\s*- \*\*[^*]+\*\* \(\*\*principle-[\w-]+\*\*\)\. .+\.\s*', line):
             doc.fail('mode-principle-line', row)
+    # Only a list item that begins "- **" is a route line. The other list
+    # items under Playbooks point straight at a capability skill.
     for row, line in doc.section('Playbooks'):
-        if re.match(r'^\s*[-*+]\s', line) and not re.fullmatch(r'\s*- \*\*[^*]+\.\*\* .+ `playbooks/[^`]+\.md`\.\s*', line):
+        if re.match(r'^\s*-\s+\*\*', line) and not re.fullmatch(r'\s*- \*\*[^*]+\.\*\* .+ `playbooks/[^`]+\.md`\.\s*', line):
             doc.fail('mode-route-line', row)
 
 
@@ -297,10 +302,17 @@ def check_description(doc: Document, inv: Inventory):
             or len(description) > 1024):
         doc.fail('description-trigger', row)
     if isinstance(description, str):
-        other = inv.skill_pattern(str(doc.data.get('name', '')))
-        pattern = other + r'|references/|scripts/|SKILL\.md|' + inv.playbook_pattern() + r'|\bstep\s+\d+'
-        if m := re.search(pattern, description, re.I):
-            doc.fail('description-content', row, m.group())
+        # Skill names match their skills.txt spelling. The other patterns in
+        # this rule stay case-insensitive, and the earlier match is the one reported.
+        names = inv.skill_pattern(str(doc.data.get('name', '')), path_segment=True)
+        rest = r'references/|scripts/|SKILL\.md|' + inv.playbook_pattern() + r'|\bstep\s+\d+'
+        name_hit = re.search(names, description)
+        rest_hit = re.search(rest, description, re.I)
+        match = name_hit
+        if rest_hit and (match is None or rest_hit.start() < match.start()):
+            match = rest_hit
+        if match:
+            doc.fail('description-content', row, match.group())
 
 
 def check_capability(doc: Document, inv: Inventory):

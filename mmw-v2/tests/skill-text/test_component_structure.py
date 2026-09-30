@@ -330,6 +330,43 @@ class ComponentStructure(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn(' capability-next-step ', result.stdout)
 
+    def test_mode_direct_capability_lines_are_not_route_lines(self):
+        path = 'mmw-v2/skills/mmw/SKILL.md'
+        mode = (FIXTURES / 'mode.md').read_text(encoding='utf-8')
+        direct = mode + '- A diagram → the `diagram-design` skill.\n'
+        self.write(path, direct)
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        routed = direct + '- **Ship.** Build an installer.\n'
+        self.write(path, routed)
+        result = self.run_check(path)
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1, output)
+        ids = re.findall(r'^.*\.md:\d+: ([\w-]+) ', output, re.M)
+        self.assertEqual(ids, ['mode-route-line'], output)
+
+    def test_description_skill_names_are_matched_as_written_and_not_inside_paths(self):
+        self.write('mmw-v2/skills.txt', 'self/mmw\n')
+        path = 'mmw-v2/skills/example/SKILL.md'
+        body = '# Example\n\nInspect the criterion and record the result.\n'
+
+        def described(description):
+            self.write(path, f'---\nname: example\ndescription: {description}\n---\n{body}')
+            return self.run_check(path)
+
+        for description in (
+            'Use when one MMW night is done.',
+            'Use when filling `.mmw/target.json`.',
+        ):
+            result = described(description)
+            self.assertEqual(result.returncode, 0, description + '\n' + result.stdout + result.stderr)
+        result = described('Use when the `mmw` skill applies.')
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1, output)
+        ids = re.findall(r'^.*\.md:\d+: ([\w-]+) ', output, re.M)
+        self.assertEqual(ids, ['description-content'], output)
+
     def test_unchecked_frontmatter_names_its_file_and_preserves_the_repair_path(self):
         path = 'mmw-v2/skills/example/SKILL.md'
         self.write(path, '---\nname: example\ndescription: unquoted: colon\n---\n')
