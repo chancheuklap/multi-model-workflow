@@ -473,8 +473,8 @@ def debt_assignment(finding: Finding):
     if rule == 'capability-next-step' and path.startswith(('write-screen-contract/', 'design-pages/')):
         return 'B1', r21 + ' §4.3; ' + r18 + ' §4.1: 下一步进 P3/P1，§10 B1 搬白天 playbook。'
     b1_numbered_paths = {'design-pages/SKILL.md', 'code-checkers/references/git-hooks.md',
-                         'code-checkers/references/python.md', 'exe-release/references/driving.md',
-                         'exe-release/references/key.md'}
+                         'code-checkers/references/python.md', 'exe-release/references/release-loop.md',
+                         'exe-release/references/release-manifest.md'}
     if rule == 'numbered-cross-reference' and path in b1_numbered_paths:
         return 'B1', r21 + ' §4.3; ' + r18 + ' §4.1, §10 B1: 白天步骤与 reference 改名时改编号引用。'
     if path.startswith(('verify-ticket/', 'dispatch/', 'retro/', 'advisor/', 'ui-acceptance/', 'exe-release/SKILL.md')):

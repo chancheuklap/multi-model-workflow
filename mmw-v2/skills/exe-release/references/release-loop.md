@@ -1,6 +1,6 @@
 # Drive one product
 
-`exe-release` step 3 reads this file. By then this product's loop is started, or a previous loop is still there to resume.
+`SKILL.md` reads this file under **One product per loop, driven by release-loop.md**. By then this product's loop is started, or a previous loop is still there to resume.
 
 **The release engine owns the loop.** Progress, next action, repair count, and success come from release engine state. Do not resume from session memory. Do not pick the next stage yourself. Do not keep a second log of what you already tried. You do not assign the tier (P0, P1 or P2).
 
@@ -41,7 +41,7 @@ code change.
 ## Close
 
 - Package paths come from the build stage's `DELIVERED` lines. If copying the package into the delivery directory failed, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
-- `close` leaves a delivery record (product name plus the ship commit). `exe-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
+- `close` leaves a delivery record (product name plus the ship commit). `SKILL.md` uses it under **Same-commit check**. **Do not delete it by hand.**
 - `close` refuses a release loop that has not shipped; `abort` drops it and writes no record.
 
 ## An interrupted build
