@@ -61,6 +61,20 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual(status, 200); self.assertEqual(json.loads(raw)["version"], 2)
         self.assertEqual(json.loads((self.home / "models.json").read_text())["rows"]["reviewer"]["model"], "sonnet 5")
 
+    def test_a_four_row_file_without_researcher_still_saves(self):
+        with running_board(self.home) as board:
+            status, raw = board.request("GET", "/api/settings")
+            data = json.loads(raw)
+            self.assertEqual(status, 200)
+            self.assertEqual(data["rows"], config()["rows"])
+            proposed = {key: data[key] for key in ("version", "runner", "rows")}
+            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
+        self.assertEqual(status, 200)
+        written = json.loads((self.home / "models.json").read_text())
+        self.assertEqual(written["version"], data["version"] + 1)
+        self.assertEqual(written["rows"], config()["rows"])
+        self.assertEqual(json.loads(raw)["version"], written["version"])
+
     def test_put_after_a_change_elsewhere_is_409(self):
         with running_board(self.home) as board:
             elsewhere = config(2); elsewhere["runner"] = "herdr"

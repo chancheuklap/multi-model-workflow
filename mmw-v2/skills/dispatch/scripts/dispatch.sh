@@ -14,6 +14,7 @@
 #   dispatch.sh land <n>
 #   dispatch.sh start <n> worker|reviewer
 #   dispatch.sh advise <brief file>
+#   dispatch.sh research <n>
 #   dispatch.sh retract <n>
 #   dispatch.sh wait <n> worker|reviewer
 #   dispatch.sh ack <n> <event> | relay.recovered
@@ -381,6 +382,7 @@ usage: dispatch.sh check <spec>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer
        dispatch.sh advise <brief file>
+       dispatch.sh research <n>
        dispatch.sh retract <n>
        dispatch.sh wait <n> worker|reviewer
        dispatch.sh ack <n> <event> | relay.recovered
@@ -731,7 +733,7 @@ project_for_night() {
   local candidate name merge_base distance best="" best_distance="" ties=""
   while IFS= read -r candidate; do
     name="${candidate#refs/remotes/origin/}"
-    case "$name" in HEAD|"$into"|"$default"|issue-*) continue ;; esac
+    case "$name" in HEAD|"$into"|"$default"|issue-*|research/*) continue ;; esac
     merge_base="$(git -C "$root" merge-base "refs/heads/$into" "$candidate" 2>/dev/null)" || continue
     distance="$(git -C "$root" rev-list --count "$merge_base..refs/heads/$into" 2>/dev/null)" || continue
     if [ -z "$best_distance" ] || [ "$distance" -lt "$best_distance" ]; then
@@ -2114,6 +2116,45 @@ advise_one() {
   # last word would collide on a second consultation in the same worktree.
   if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "advisor $$")"; then
     refuse "$RUNNER_NAME did not start $host as advisor (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then advise again"
+  fi
+  printf '%s\n' "$session"
+}
+
+# Start a research session in its own worktree without opening a watch or writing
+# ticket events. Its branch starts at the caller's HEAD and is left for the session
+# to commit and push; later calls reuse it without resetting any research work.
+research_one() {
+  local number="$1"
+  use_runner "$(tonight_runner)"
+  use_catalog_of "$RUNNER_NAME"
+
+  local row host model effort
+  row="$(row_for_role researcher)" || exit 2
+  [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 mmw-v2/skills/dispatch/scripts/models.py config set researcher codex \"gpt 6 sol\" high, then research $number again"
+  IFS=$'\t' read -r host model effort <<<"$row"
+
+  local root cwd branch on prompt session
+  root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$root" ] || refuse "not inside a git repository, so there is no HEAD to start research/$number from; run research $number from a worktree"
+  cwd="$(worktrees_root)/research-$number"
+  branch="research/$number"
+  clear_stray_workspace "$root" "$cwd" || exit 2
+  if [ -d "$cwd" ]; then
+    on="$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [ "$on" = "$branch" ] || refuse "$cwd is on ${on:-no branch}, not $branch; it is not this research ticket's worktree. Move it or rename it, then research $number again"
+  else
+    mkdir -p "$(dirname "$cwd")" || refuse "could not create $(dirname "$cwd"), so research has no worktree directory; make it writable, then research $number again"
+    if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+      git -C "$root" worktree add --quiet "$cwd" "$branch" \
+        || refuse "could not create $cwd on $branch, so no research session was started; resolve the git error above, then research $number again"
+    else
+      git -C "$root" worktree add --quiet -b "$branch" "$cwd" HEAD \
+        || refuse "could not create $cwd from this checkout's HEAD, so no research session was started; resolve the git error above, then research $number again"
+    fi
+  fi
+  prompt="Use the research skill to resolve research ticket #$number in this session and start no other agent. Commit the report to the current branch research/$number and push it, post a resolution comment on #$number that links the report file on that branch and gives the answer in three sentences, then close #$number. $AUTONOMOUS"
+  if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number researcher $$")"; then
+    refuse "$RUNNER_NAME did not start $host as researcher for #$number (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then research $number again"
   fi
   printf '%s\n' "$session"
 }
@@ -4739,6 +4780,11 @@ case "${1:-}" in
   advise)
     [ "$#" -eq 2 ] || usage
     advise_one "$2"
+    ;;
+  research)
+    [ "$#" -eq 2 ] || usage
+    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
+    research_one "$2"
     ;;
   retract)
     [ "$#" -eq 2 ] || usage
