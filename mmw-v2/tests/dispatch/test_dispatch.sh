@@ -19,7 +19,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
-#   bash mmw-v2/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved|adopt
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh open|openrefused|openticket|watchkind|ack|unopened|runnerself|orcaunobserved|adopt
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh startunlandedblocker
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
@@ -1678,6 +1678,15 @@ except (OSError, ValueError):
     watch = None
 if watch:
     print(watch["runner"], watch["session"])
+PY
+}
+
+watch_kind() {
+  python3 - "$STATE_DIR/watches.json" "$1" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+print(json.loads(path.read_text()).get(sys.argv[2], {}).get("kind", ""))
 PY
 }
 
@@ -5848,6 +5857,74 @@ scenario_advancerestoreswatch() {
   grep -q "is not open" "$TMP/err" && fail "advance still read the night as not open: $(cat "$TMP/err")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76 should be watched for agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
+  no_relay
+}
+
+scenario_watchkind() {
+  local code tree
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "open expected 0: $(cat "$TMP/err")"
+  [ "$(watch_kind spec:76)" = night ] || fail "open should record night: $(cat "$STATE_DIR/watches.json")"
+
+  seed_main_agent agt_self
+  self_picked_worktree
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into night) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 0 ] || fail "adopt in a watched night expected 0: $(cat "$TMP/err")"
+  [ "$(watch_kind spec:76)" = night ] \
+    || fail "adopt must keep the existing night watch: $(cat "$STATE_DIR/watches.json")"
+  [ -z "$(watch_kind tickets:61)" ] \
+    || fail "adopt must not open another watch for the night's ticket: $(cat "$STATE_DIR/watches.json")"
+
+  no_relay
+  fresh_repo
+  reset_log
+  no_relay
+  seed_main_agent agt_main
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 90, "state": "OPEN", "labels": []}]
+JSON
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
+  [ "$code" = 0 ] || fail "open-ticket expected 0: $(cat "$TMP/err")"
+  [ "$(watch_kind tickets:90)" = ticket ] || fail "open-ticket should record ticket: $(cat "$STATE_DIR/watches.json")"
+
+  no_relay
+  fresh_repo
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+  post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
+    --field runner=paseo --field session=agt_main --field into=main --field project=proj
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" advance 76)"
+  [ "$code" = 0 ] || fail "advance expected 0: $(cat "$TMP/err")"
+  [ "$(watch_kind spec:76)" = night ] || fail "restored night should record night: $(cat "$STATE_DIR/watches.json")"
+
+  no_relay
+  fresh_repo
+  reset_log
+  no_relay
+  seed_main_agent agt_self
+  cat > "$TMP/tickets.json" <<'JSON'
+[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "senior-worker"], "parent": null}]
+JSON
+  self_picked_worktree
+  tree="$(cd "$(wt 61)" && pwd -P)"
+  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 0 ] || fail "adopt expected 0: $(cat "$TMP/err")"
+  [ "$(watch_kind tickets:61)" = adopted-ticket ] \
+    || fail "adopt should record adopted-ticket: $(cat "$STATE_DIR/watches.json")"
   no_relay
 }
 
@@ -10343,7 +10420,7 @@ ALL="memory-install memory-open-space memory-space-unavailable boardregisters bo
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
-ALL="$ALL findings integratedsincestart"
+ALL="$ALL findings integratedsincestart watchkind"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
@@ -10538,6 +10615,7 @@ banner_for() {
     mergewithoutbranch) echo MERGE-WITHOUT-BRANCH-OK ;;
     retractunreadable) echo RETRACT-UNREADABLE-OK ;;
     open) echo OPEN-OK ;;
+    watchkind) echo WATCH-KIND-OK ;;
     advancerestoreswatch) echo ADVANCE-RESTORES-WATCH-OK ;;
     openinto) echo OPEN-INTO-OK ;;
     openpushesahead) echo OPEN-PUSHES-AHEAD-OK ;;
