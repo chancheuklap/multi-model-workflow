@@ -11,7 +11,7 @@ Any session or subagent the pipeline starts or runs: the orchestrator, a worker,
 _Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
 
 **role**:
-A key of `roles.json`, naming which playbook that role follows and which command starts it. Distinct from an **agent**, the session that runs, and from a `models.json` row, which selects the host, model and reasoning effort.
+A key of `roles.json`, naming which command starts it. Distinct from an **agent** and from a `models.json` row, which selects the host, model and reasoning effort.
 _Home_: `mmw-v2/skills/dispatch/roles.json`
 
 **session**:
@@ -119,7 +119,7 @@ A playbook step named `mmw <playbook>#<step>`, using a step title registered for
 _Home_: `mmw-v2/skills/dispatch/scripts/status.py`, `mmw-v2/skills/dispatch/scripts/locations.py`
 
 **where line**:
-The one line `dispatch.sh where` prints for the calling session. `AT`, `BETWEEN` and `FRESH` name the role and the **step pointer**; `UNKNOWN` names why no position was established. The line is read from that session's events and, when the session has a watch, from its **watch kind**.
+The one line `dispatch.sh where` prints for the calling session: its role and **step pointer**, or why no position was established.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **`dispatch.sh board`**:
@@ -291,7 +291,7 @@ What the relay reads and whom it wakes about it: a night's spec, or tickets outs
 _Home_: `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **watch kind**:
-The `kind` of a **watch**: `night` when `open` wrote it, `ticket` when `open-ticket` wrote it, `adopted-ticket` when `adopt` wrote it.
+The `kind` a **watch** records: which command opened it.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`, `mmw-v2/skills/dispatch/scripts/relay.py`
 
 **wake queue**:
@@ -386,7 +386,7 @@ How old the watchdog's own heartbeat, and its last whole read of the tracker, ma
 _Home_: `mmw-v2/skills/dispatch/scripts/watchdog.py`
 
 **hook launcher**:
-The program `install.sh` copies to `~/.mmw/bin/hook-launcher` and names in every host hook command it writes. The copy is a file, not a symlink, of `mmw-v2/hook-launcher.py`, and it starts `tool-guard.py` or `turn-guard.py` from the checkout `installed-root` names.
+The program `install.sh` copies to `~/.mmw/bin/hook-launcher` and names that copy in every toolbox's **host hook** it writes. The copy is a file, not a symlink, of `mmw-v2/hook-launcher.py`, and it starts `tool-guard.py` or `turn-guard.py` from the checkout `installed-root` names.
 _Home_: `mmw-v2/install.sh`, `mmw-v2/hook-launcher.py`
 
 **turn guard**:

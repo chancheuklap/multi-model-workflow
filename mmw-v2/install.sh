@@ -34,7 +34,7 @@
 #                         另读 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
 #                         核对复制的 .mmw/bin/hook-launcher 与 mmw-v2/hook-launcher.py 逐字节相同
-#                         且不是软链，并核对各宿主的 hook 都经 hook-launcher；不同报「不一致」，
+#                         且不是软链，并核对各 host 的 hook 都经 hook-launcher；不同报「不一致」，
 #                         这一项改退出码。
 #                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
 #                         watch（行首 OPEN-WATCH），以及锁文件记录的进程仍在运行的 relay.lock、
