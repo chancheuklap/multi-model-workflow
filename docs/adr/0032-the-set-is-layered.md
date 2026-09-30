@@ -5,11 +5,11 @@ amends: []
 
 # MMW 分成 mode、playbook、原则、能力技能、reference、脚本、角色与配置七种组件，按类型各住一层，每段内容默认搬到它该在的层，留在原处必须写明是 H1–H6 或 S 的哪一条
 
-今天的 MMW 只有 skill 一种组件，五类内容写在同一批 skill 里。这份 ADR 记下分层之后各批要遵守的决定，供以后的批次和评审引用。它不推翻 0009–0031：那些 ADR 里的机制继续成立，其中的路径随各批作为仓库文档改。唤醒带步骤指针、从而修订 ADR 0020 的，由 ADR 0033 在 B2 写。pstack 以 subtree 引入的，由 ADR 0034 在 B1 写。
+今天的 MMW 只有 skill 一种组件，五类内容写在同一批 skill 里。这份 ADR 记下分层之后各批要遵守的决定，供以后的批次和评审引用。优先级是 `shared.md` > mode > 所服务的 playbook（含它对原则的本地限定）> 原则；能力技能的人工闸门在无人会话里走本角色的无人出路。B2 解散 `dispatch`，并把 `verify-ticket` 拆成 `events.py` 与 `ticket_state.py`。一个 skill 的位置由 mode 路由表与 playbook 决定，能力技能以它交回什么结尾。搬运的句子逐字保留；MMW 自有的名字按 `docs/specs/mmw-layering/renames.tsv` 与 `docs/research/workflow-compare/reports/R19-naming-table.md` 执行，上游 mattpocock 与 pstack 的名字不改。分六批，核心到 B2；B3–B5 与多模型面板按需，PR 交付那一组不引入。它不推翻 0009–0031：那些 ADR 里的机制继续成立，其中的路径随各批作为仓库文档改。唤醒带步骤指针、从而修订 ADR 0020 的，由 ADR 0033 在 B2 写。pstack 以 subtree 引入的，由 ADR 0034 在 B1 写。
 
-## 七种组件与各批要遵守的决定
+## 七种组件与各批
 
-mode 的名字是 `mmw`，全套只有这一个。下面是每种组件回答的问题和它的家。这些目录按批出现：B0 不建 `mmw-v2/skills/mmw/`；mode、原则和白天的 playbook 在 B1；`dispatch` 解散、脚本整目录搬进 `mmw/scripts/` 在 B2。
+mode 的名字是 `mmw`，全套只有这一个。下文的 `mmw/` 指 `mmw-v2/skills/mmw/`。下面是每种组件回答的问题和它的家。这些目录按批出现：B0 不建 `mmw-v2/skills/mmw/`，`roles.json` 写在 `mmw-v2/skills/dispatch/roles.json`；mode、原则和白天的 playbook 在 B1；B2 解散 `dispatch`，脚本整目录与 `roles.json` 搬进 `mmw/`。
 
 | 组件 | 回答什么问题 | 放在哪里 |
 | --- | --- | --- |
@@ -48,11 +48,11 @@ mode 的名字是 `mmw`，全套只有这一个。下面是每种组件回答的
 **B0 已落地的两个机制。**
 
 - **watch 的 `kind`。** `watches.json` 里每个 watch 有字段 `kind`，由开它的命令写入：`dispatch.sh open` 写 `night`，`open-ticket` 写 `ticket`，`adopt` 写 `adopted-ticket`。B0 读它的是 `dispatch.sh where`（用来定角色）和 watchdog（`kind` 为 `adopted-ticket` 的 watch，告警不附 `dispatch.sh resume`，改为告诉用户）。没有 `kind` 的 watch，`where` 报 `UNKNOWN`。relay 按 `kind` 取收件角色不在 B0，由 ADR 0033 记。
-- **`dispatch.sh where`。** 用当前会话对照票上的 `*.started` 事件和 watch 的 `kind` 定出角色，再从事件算出位置，印一行。四种输出是 `AT`、`BETWEEN`、`FRESH`、`UNKNOWN`；前三种退出 0，`UNKNOWN` 退出 2。角色到 playbook 取自 `roles.json`，事件到步骤的表在 `locations.py`。B0 里它与 `verify-ticket.py --preflight` 印出的 `RESUME:` 并存，没有会话被要求照 `where` 的输出行事；第一个这样要求的是 B1 mode 的 `## Re-entry`。B0 的用途是与 `RESUME:` 并行核对，并给以后的读者（mode、任务板）一个稳定接口。`roles.json` 在 B0 的读者只有 `where` 与 `check_wiring.py`；relay、watchdog、turn guard 和 start prompt 到 B2 才读它。B2 删掉 `resume_at`，`where` 成为唯一，同一批把 `--preflight` 改名为 `--claim`。
+- **`dispatch.sh where`。** 用当前会话对照票上的 `*.started` 事件和 watch 的 `kind` 定出角色，再从事件算出位置，印一行。四种输出是 `AT`、`BETWEEN`、`FRESH`、`UNKNOWN`；前三种退出 0，`UNKNOWN` 退出 2。角色到 playbook 取自 `roles.json`，事件到步骤的表在 `locations.py`。B0 里它与 `verify-ticket.py --preflight` 印出的 `RESUME:` 并存，没有会话被要求照 `where` 的输出行事；第一个这样要求的是 B1 mode 的 `## Re-entry`。它同时给以后的读者（mode、任务板）一个稳定接口。`roles.json` 在 B0 的读者只有 `where` 与 `check_wiring.py`；relay、watchdog、turn guard 和 start prompt 到 B2 才读它。B2 删掉 `resume_at`，`where` 成为唯一，同一批把 `--preflight` 改名为 `--claim`。
 
 ## 十二条原则的出处
 
-原则文件不写出处。下面每条取 `docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md` 第 5.2 节表的「理由出处」列，原则名用 `docs/research/workflow-compare/reports/R19-naming-table.md` `### 4.3 原则（MMW 自有 12 条）` 的新名，写成与文件名一致的 `principle-<slug>`。B1 写原则文件时若核实出某条出处不同，由那张票改这一节。
+原则文件不写出处。下面每条取 `docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md` 第 5.2 节表的「理由出处」列，原则名用 `docs/research/workflow-compare/reports/R19-naming-table.md` `### 4.3 原则（MMW 自有 12 条）` 的新名，写成与文件名一致的 `principle-<slug>`。行号按 commit `5d61513384f1359adff4ecbca1cda6d36ac47ce9` 的文件。B1 写原则文件时若核实出某条出处不同，由那张票改这一节。
 
 - **principle-silence-is-never-a-pass**：ADR 0008 第 8 行；`implement` 第 22 行末两句；`night.md` 第 7、127 行；`ui-acceptance` 第 10 行；`to-tickets` 第 84 行
 - **principle-resume-from-durable-state**：`dispatch/SKILL.md` 第 8 行；`verify-ticket/SKILL.md` 第 10 行；`exe-release/references/driving.md` 第 5 行；ADR 0019
@@ -71,17 +71,15 @@ mode 的名字是 `mmw`，全套只有这一个。下面是每种组件回答的
 
 ## Considered Options
 
-- **脚本留在 `dispatch` 这个能力技能里**（R17）。否决。那个理由只对任务板和改模型成立，而且会让 `roles.json` 变成能力脚本向上读 mode 的数据。采用的是 R15 的布局：脚本进 `mmw/scripts/`，`dispatch` 解散，并入 R17 的 `roles.json` 与 `imports.tsv`，以及 R16 拆出的两个能力技能（R16 叫 `shared-experience`，现名 `memory-records`；以及 `deliver-a-change`）。
+- **脚本留在 `dispatch` 这个能力技能里**（R17）。否决。它的理由「被多个 playbook 或用户直接调用」只对任务板和改模型成立，而且会让 `roles.json` 变成能力脚本向上读 mode 的数据。
 - **`models.py`、`hosts.json` 搬进 `setup-mmw/scripts/`，hook 搬进 `mmw/scripts/hooks/`**（R18 的上一版）。否决。两处都切断同目录相对路径。前者让 B2 之后每次起 worker、reviewer、advisor 都失败。后者让两个 hook 导入失败后在 Claude Code 上静默放行。hook 与其他脚本平放。
 - **`resume_at` 留在 `verify-ticket.py`**（R16、R17）。否决。能力脚本仍然知道 worker 的步骤。「现在在哪一步」由 `dispatch.sh where` 从事件计算。
 - **回退不需要重跑 `install.sh`**（R17）。否决。B1、B2 改了 `skills.txt`，回退是把已安装 checkout 移回上一个 `main` 提交并重跑 `install.sh`。
 - **hook 启动器找不到目标时一律退出 2**（R18 的上一版）。否决。Claude Code 把 PreToolUse 的 exit 2 当作拦截，目标不在时本机每个会话的每条命令都会被拦。改为按 hook 分别处理：辅助路径和 Stop 放行，受管会话的 tool-guard 仍拒绝。
-- **整份采用 R16，或整份采用 R17，或不并入后两份而只留 R15。** 否决。R15 的目录是底稿，单独采用就没有 `roles.json`、`imports.tsv`，也没有 R16 拆出的两个能力技能（R16 叫 `shared-experience`，现名 `memory-records`；以及 `deliver-a-change`）。R16 把调用开关留在上游 subtree，并把导入原则 frontmatter 里的开关键留着；文件不是 skill，这个键没有作用，改为导入时删掉这一行、记在 `imports.tsv`，subtree 原文不动。R17 把脚本留在 `dispatch`，已在第一条否决。
+- **整份采用 R16，或整份采用 R17，或不并入后两份而只留 R15。** 否决。采用的是 R15 的布局：脚本进 `mmw/scripts/`，`dispatch` 解散，并入 R17 的 `roles.json` 与 `imports.tsv`，以及 R16 的两个能力技能 `shared-experience`（现名 `memory-records`）与 `setup-mmw`、playbook `deliver-a-change`。R15 单独采用就没有这几样。R16 D5 保留调用开关、靠模型按路径读 `SKILL.md`，把 H2 的解法押在未实测的行为上（U-1）。R16 还保留导入原则 frontmatter 里的开关键；文件不是 skill，这个键没有作用，改为导入时删掉这一行、记在 `imports.tsv`，删行发生在复制出的文件上，subtree 原文不动。
 
 ## Consequences
 
 - 七种组件、判据、优先级和这十二条原则的名字，是以后各批和评审引用的那一个决定。留在原处而不点名 H1–H6 或 S 的批次票不合格。
-- 0009–0031 的机制仍成立。本 ADR 的 `amends` 是空的。ADR 0033 只记 B2 的用法：relay 按 `kind` 取收件角色，唤醒带步骤指针。ADR 0034 记 pstack 以 subtree 引入。
 - B1 改写事实 7 与 `### Hand-offs` 第 5 条之后，能力技能不再以「下一步」或「谁调用我」结尾。在那之前，现行的 `SKILL-SET-RULES.md` 仍是评审 Standards 轴用的文本。
-- B2 解散 `dispatch`、拆出 `ticket_state.py` 与 `events.py` 之后，流水线的状态不再住在能力技能里。B2 之前，`where` 与 `RESUME:` 两套定位一起存在。
-- 核心批次到 B2。B3–B5、多模型面板和 PR 交付那一组都不在核心批次里。
+- B2 解散 `dispatch`、拆出 `ticket_state.py` 与 `events.py` 之后，流水线的状态不再住在能力技能里。
