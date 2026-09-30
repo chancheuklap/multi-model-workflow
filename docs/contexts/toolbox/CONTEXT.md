@@ -228,7 +228,7 @@ _Home_: `mmw-v2/tests/lib/structure-exceptions.tsv`; read by `mmw-v2/tests/lib/c
 
 ### Skill-set review
 
-Vocabulary of `writing-for-agents`' `mmw-v2/skills/mmw/references/skill-set-rules.md` and `mmw-v2/skills/mmw/references/reviewing-a-skill-set.md`: the rules and the review method this repository applies to its own skill set.
+Vocabulary of the `mmw` skill's `mmw-v2/skills/mmw/references/skill-set-rules.md` and `mmw-v2/skills/mmw/references/reviewing-a-skill-set.md`: the rules and the review method this repository applies to its own skill set.
 
 **skill set**:
 The skills one install list ships (in MMW, `mmw-v2/skills.txt`), with their references and scripts, run by agents that each load only their own part; the unit `mmw-v2/skills/mmw/references/skill-set-rules.md` checks and `mmw-v2/skills/mmw/references/reviewing-a-skill-set.md` reviews.

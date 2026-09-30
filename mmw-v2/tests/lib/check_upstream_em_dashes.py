@@ -2,7 +2,7 @@
 """Fail when a Markdown file under mmw-v2/upstream/skills/ carries an em-dash in its prose.
 
 mmw-v2/upstream/ is a subtree of mattpocock/skills, and its own AGENTS.md rules out
-em-dashes in prose; `writing-for-agents`' skill-set-rules.md makes that rule bind this
+em-dashes in prose; the `mmw` skill's `references/skill-set-rules.md` makes that rule bind this
 repository's text inside the subtree too. Upstream's own text there has none, so every
 hit is a sentence this repository wrote. The shared-lint entry
 `mmw-v2/tests/lib/run_shared_lints.sh` runs this after check_module_paths.py.
