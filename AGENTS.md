@@ -57,7 +57,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 - Every git worktree the pipeline makes sits under the main worktree's `.worktrees/`: `issue-<n>` per ticket, `merge-<branch>` per merge target with one lock each; those names belong to the pipeline. This checkout also carries one hand-made worktree, `mmw-installed`, a full checkout.
 - User-level prompts are edited in `mmw-v2/prompt/shared.md` (shared by four hosts) and `mmw-v2/prompt/hosts/<host>.md` (one host). `~/.codex/AGENTS.md`, `~/.pi/agent/AGENTS.md` and `~/.grok/AGENTS.md` are generated, and `render.py` refuses to overwrite a hand edit. Cursor's user-level prompt is maintained in the app.
 - `mmw-v2/upstream/` is a squash subtree of mattpocock/skills, `mmw-v2/upstream-diagram-design/` of cathrynlavery/diagram-design, and `mmw-v2/upstream-unlazy/` of Leonxlnx/unlazy. Upstream's own `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` (only `mmw-v2/upstream/` has them) stay as upstream wrote them; `mmw-v2/upstream/CONTEXT.md` is upstream's vocabulary; this repository's lives under `docs/contexts/` behind the root `CONTEXT-MAP.md`. A changed upstream skill, or a change to unlazy's scripts, gets its merge-note written or updated.
-- A change here that invalidates a consuming repository's screen contract, ticket `CHECK:` or `.mmw/target.json` gets a downstream-note named after the ticket that caused it plus a slug.
+- A change here that invalidates a consuming repository's screen contract, ticket `CHECK:`, `.mmw/target.json`, or a file a skill had it generate (a checker command, hook configuration, release manifest) gets a downstream-note named after the ticket that caused it plus a slug.
 
 ## Gotchas
 
