@@ -650,6 +650,22 @@ Options:
 """
 
 HERDR_HELP = {
+    ("server",): """Run or control the headless server
+
+Usage: herdr server [COMMAND]
+""",
+    ("server", "stop"): """Stop the running server
+
+Usage: herdr server stop
+""",
+    ("workspace", "create"): """Create a workspace
+
+Usage: herdr workspace create [OPTIONS]
+
+Options:
+      --cwd <PATH>
+      --no-focus
+""",
     ("pane", "close"): """Close a pane
 
 Usage: herdr pane close <pane_id>
@@ -3207,6 +3223,173 @@ scenario_nobaseconfig() {
   [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
   assert_no_retired_base_config "$TMP/repo" 61 adopt
   no_relay
+}
+
+add_researcher_row() {
+  cp "$MMW_HOME/models.json" "$1"
+  python3 - "$MMW_HOME/models.json" "${2:-high}" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["rows"]["researcher"] = {"host": "codex", "model": "gpt 5.6 sol", "effort": sys.argv[2]}
+json.dump(data, open(path, "w"))
+PY
+}
+
+scenario_research() {
+  local code saved="$TMP/models.saved"
+  reset_log
+  fresh_repo
+  no_relay
+  add_researcher_row "$saved" low
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
+  [ "$code" = 0 ] || fail "research expected 0, got $code: $(cat "$TMP/err")"
+  if [ "$code" = 0 ]; then
+    started_once
+    [ "$(cat "$TMP/out")" = agt_run_1 ] || fail "stdout should be the session id: $(cat "$TMP/out")"
+    [ "$(out_json provider)" = codex/gpt-5.6-sol ] || fail "research did not use its row: $(out_json provider)"
+    [ "$(out_json settings.thinkingOptionId)" = low ] || fail "research effort: $(out_json settings.thinkingOptionId)"
+    hasnt "gh :: issue :: comment"
+    hasnt_runner_worktree
+  fi
+
+  reset_log
+  no_relay
+  code="$(run_dispatch env MMW_FAKE_PASEO_SCENARIO=run-fail \
+          bash "$DISPATCH" "${TOOLS[@]}" research 61)"
+  [ "$code" = 2 ] || fail "refused research expected 2, got $code: $(cat "$TMP/err")"
+  started_once
+  nothing_printed
+  hasnt "orca :: terminal :: create"
+  hasnt "herdr :: agent :: start"
+  hasnt "gh :: issue :: comment"
+  mv "$saved" "$MMW_HOME/models.json"
+}
+
+scenario_researchworktree() {
+  local code tree caller_head saved="$TMP/models.saved"
+  reset_log
+  fresh_repo
+  add_researcher_row "$saved"
+  git -C "$TMP/repo" worktree add --quiet -b mapper "$TMP/mapper"
+  commit_file "$TMP/mapper" context.txt context context
+  caller_head="$(git -C "$TMP/mapper" rev-parse HEAD)"
+  code="$( (cd "$TMP/mapper" && bash "$DISPATCH" "${TOOLS[@]}" research 61) > "$TMP/out" 2> "$TMP/err"; echo $?)"
+  mv "$saved" "$MMW_HOME/models.json"
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/research-61"
+  [ "$code" = 0 ] || fail "research from a linked checkout expected 0, got $code: $(cat "$TMP/err")"
+  if [ "$code" = 0 ]; then
+    [ "$(out_json cwd)" = "$tree" ] || fail "cwd: $(out_json cwd), want $tree"
+    [ "$(git -C "$tree" branch --show-current)" = research/61 ] || fail "wrong research branch"
+    [ "$(git -C "$tree" rev-parse HEAD)" = "$caller_head" ] || fail "research did not start at the caller's HEAD"
+    [ ! -e "$TMP/mapper/.worktrees/research-61" ] || fail "worktree was placed under the calling checkout"
+    if git -C "$TMP/origin.git" show-ref --verify --quiet refs/heads/research/61; then
+      fail "dispatch pushed the research branch"
+    fi
+  fi
+}
+
+scenario_researchreuse() {
+  local code tree head saved="$TMP/models.saved"
+  reset_log
+  fresh_repo
+  add_researcher_row "$saved"
+  tree="$(cd "$TMP/repo" && pwd -P)/.worktrees/research-61"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
+  [ "$code" = 0 ] || fail "first research expected 0, got $code: $(cat "$TMP/err")"
+  if [ "$code" = 0 ]; then
+    commit_file "$tree" report.txt report report
+    head="$(git -C "$tree" rev-parse HEAD)"
+    commit_file "$TMP/repo" later.txt later later
+    printf '%s\n' unfinished > "$tree/unfinished.txt"
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
+    [ "$code" = 0 ] || fail "second research expected 0, got $code: $(cat "$TMP/err")"
+    [ "$(count_of "paseo :: run")" = 2 ] || fail "second research did not start another session"
+    [ "$(out_json cwd)" = "$tree" ] || fail "research did not reuse the worktree"
+    [ "$(git -C "$TMP/repo" worktree list --porcelain | grep -cF "worktree $tree")" = 1 ] \
+      || fail "research created another worktree"
+    [ "$(git -C "$tree" rev-parse HEAD)" = "$head" ] || fail "research reset the branch"
+    [ "$(cat "$tree/unfinished.txt")" = unfinished ] || fail "research lost unfinished work"
+    rm "$tree/unfinished.txt"
+    git -C "$TMP/repo" worktree remove "$tree"
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
+    [ "$code" = 0 ] || fail "branch-only reuse expected 0, got $code: $(cat "$TMP/err")"
+    [ "$(git -C "$tree" rev-parse HEAD)" = "$head" ] || fail "research replaced the standing branch"
+    git -C "$tree" checkout -q -b other-research
+    reset_log
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
+    [ "$code" = 2 ] || fail "a worktree on another branch expected 2, got $code"
+    grep -qF "$tree" "$TMP/err" || fail "the refusal did not name the worktree"
+    [ "$(git -C "$tree" branch --show-current)" = other-research ] || fail "research changed another branch"
+    never_ran
+  fi
+  mv "$saved" "$MMW_HOME/models.json"
+}
+
+scenario_researchprompt() {
+  local code saved="$TMP/models.saved"
+  reset_log
+  fresh_repo
+  add_researcher_row "$saved"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research 61)"
+  mv "$saved" "$MMW_HOME/models.json"
+  [ "$code" = 0 ] || fail "research prompt expected 0, got $code: $(cat "$TMP/err")"
+  if [ "$code" = 0 ]; then
+    python3 - "$DISPATCH" "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY'
+import json, re, shlex, sys
+from pathlib import Path
+prompt = json.loads(Path(sys.argv[2]).read_text().splitlines()[-1])["initialPrompt"]
+autonomous = shlex.split(re.search(r'^AUTONOMOUS=(.*)$', Path(sys.argv[1]).read_text(), re.M)[1])[0]
+assert "\n" not in prompt and "\r" not in prompt, repr(prompt)
+assert prompt.startswith("Use the research skill"), prompt
+assert "#61" in prompt and "research/61" in prompt, prompt
+assert prompt.endswith(" " + autonomous), prompt
+PY
+    [ "$?" = 0 ] || fail "research prompt shape or ticket data is wrong"
+  fi
+}
+
+scenario_researchnorow() {
+  local code script copied="$TMP/toolbox's dispatch"
+  reset_log
+  fresh_repo
+  cp -R "$SKILL" "$copied"
+  for script in "$DISPATCH" "$copied/scripts/dispatch.sh"; do
+    reset_log
+    code="$(run_dispatch bash "$script" "${TOOLS[@]}" research 61)"
+    [ "$code" = 2 ] || fail "missing researcher row expected 2, got $code: $(cat "$TMP/err")"
+    python3 - "$TMP/err" "$(dirname "$script")/models.py" <<'PY'
+from pathlib import Path
+import re, shlex, sys
+message = Path(sys.argv[1]).read_text()
+match = re.search(r'python3 .+ config set researcher codex "gpt 6 sol" high', message)
+assert match, message
+command = match[0]
+assert command[len('python3 ')] in (chr(39), chr(34)), command
+args = shlex.split(command)
+assert args[0] == 'python3' and args[2:] == [
+    'config', 'set', 'researcher', 'codex', 'gpt 6 sol', 'high'], args
+path = Path(args[1])
+assert path.is_absolute() and path.is_file(), path
+assert path.resolve() == Path(sys.argv[2]).resolve(), args
+PY
+    [ "$?" = 0 ] || fail "missing researcher row did not give a usable models.py command"
+    [ ! -e "$TMP/repo/.worktrees/research-61" ] || fail "missing row left a research worktree"
+    git -C "$TMP/repo" show-ref --verify --quiet refs/heads/research/61 \
+      && fail "missing row left a research branch"
+    never_ran
+    nothing_printed
+  done
+}
+
+scenario_researchusage() {
+  local code
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" research)"
+  [ "$code" = 2 ] || fail "research without a ticket expected 2, got $code"
+  grep -qF 'dispatch.sh research <n>' "$TMP/err" || fail "usage omitted research"
+  never_ran
 }
 
 scenario_advise() {
@@ -8766,6 +8949,21 @@ scenario_openprojecthistory() {
   no_relay
 }
 
+scenario_openprojectskipsresearch() {
+  local code
+  fresh_project_night
+  git -C "$TMP/repo" push -q -u origin night
+  git -C "$TMP/repo" branch research/61 night
+  git -C "$TMP/repo" push -q origin research/61
+  git -C "$TMP/repo" reflog expire --expire=now --all
+  open_project_fixture
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  [ "$code" = 0 ] || fail "research branch exclusion expected 0, got $code: $(cat "$TMP/err")"
+  posted_events 76 project | grep -qx 'spec.opened project=proj' \
+    || fail "spec.opened did not skip research/61: $(posted_events 76 project)"
+  no_relay
+}
+
 scenario_openprojecttie() {
   local code
   fresh_repo
@@ -10860,6 +11058,7 @@ ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
 ALL="$ALL checkreportsonly installcheckwatches installchecksafe installcheckunreadable"
+ALL="$ALL research researchworktree researchreuse researchprompt researchnorow researchusage openprojectskipsresearch"
 
 # One list of scenario names, ALL; a name on the command line is accepted when it is in it.
 case " $ALL all " in
@@ -10872,6 +11071,13 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
+    research) echo RESEARCH-OK ;;
+    researchworktree) echo RESEARCH-WORKTREE-OK ;;
+    researchreuse) echo RESEARCH-REUSE-OK ;;
+    researchprompt) echo RESEARCH-PROMPT-OK ;;
+    researchnorow) echo RESEARCH-NO-ROW-OK ;;
+    researchusage) echo RESEARCH-USAGE-OK ;;
+    openprojectskipsresearch) echo OPEN-PROJECT-SKIPS-RESEARCH-OK ;;
     where) echo WHERE-OK ;;
     wherespec) echo WHERE-SPEC-OK ;;
     whereunknown) echo WHERE-UNKNOWN-OK ;;

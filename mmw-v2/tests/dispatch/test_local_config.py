@@ -53,6 +53,19 @@ class LocalConfigTest(unittest.TestCase):
     def scan(self, runner="orca"):
         return models.scan_host_catalogs(runner)
 
+    def test_a_four_row_file_without_researcher_is_valid(self):
+        old = self.seed()
+        rows = models.session_rows()
+        self.assertEqual([row.agent for row in rows], [
+            "junior-worker", "senior-worker", "reviewer", "advisor",
+        ])
+        self.assertEqual({row.agent: {
+            "host": row.host, "model": row.model, "effort": row.effort,
+        } for row in rows}, old["rows"])
+        written = models.write_local_config(old, old["version"], self.scan())
+        self.assertEqual(written["rows"], old["rows"])
+        self.assertEqual(models.read_local_config(), written)
+
     def test_write_raises_the_version_by_one(self):
         old = self.seed()
         proposed = json.loads(json.dumps(old))
@@ -151,6 +164,21 @@ class LocalConfigTest(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("reviewer.model", err.getvalue())
         self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_cli_adds_the_researcher_row_to_a_four_row_file(self):
+        old = self.seed()
+        out, err = StringIO(), StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = models.main([
+                "config", "set", "researcher", "codex", "gpt 5.6 sol", "high"])
+        self.assertEqual((code, err.getvalue()), (0, ""))
+        written = models.read_local_config()
+        self.assertEqual(json.loads(out.getvalue()), written)
+        self.assertEqual(written["version"], old["version"] + 1)
+        self.assertEqual(written["rows"], {
+            **old["rows"],
+            "researcher": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
+        })
 
     def test_cli_sets_the_runner(self):
         self.seed()

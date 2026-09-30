@@ -130,7 +130,7 @@ class SessionRowsTest(unittest.TestCase):
         rows = rows_from(shuffled)
         self.assertEqual(
             [r.agent for r in rows],
-            ["junior-worker", "senior-worker", "reviewer", "advisor"])
+            ["junior-worker", "senior-worker", "reviewer", "advisor", "researcher"])
 
     def test_an_unknown_agent_is_refused(self):
         config = models.default_local_config()["rows"]
@@ -189,6 +189,15 @@ class PaseoSettingsTest(unittest.TestCase):
 
 
 class DefaultsTest(unittest.TestCase):
+    def test_the_default_researcher_row_is_codex_gpt_6_sol_high(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.dict(os.environ, {"MMW_HOME": tmp}):
+            result = models.install_local_config(Path(tmp) / "models.md")
+            self.assertTrue(result.created)
+            self.assertEqual(models.read_local_config()["rows"].get("researcher"), {
+                "host": "codex", "model": "gpt 6 sol", "effort": "high",
+            })
+
     def test_defaults_include_the_five_roles(self):
         config = models.default_local_config()
         self.assertEqual(config["version"], 1)
