@@ -18,6 +18,14 @@ checkout's `mmw-v2/hook-launcher.py`. The installed Orca adapter starts only
 probe sessions, not tickets. An unknown `path:` selector is recorded without
 registering a repository in Orca.
 
+Herdr uses the product adapter's `probe-server` and `probe-workspace` verbs to
+bootstrap a separate named server with private socket and configuration paths.
+Its `start`, `send` and `stop` verbs then reach a Grok pane. The UserPromptSubmit
+hook records the two-line probe payload, so a reply containing both markers
+alone cannot conceal two separate submissions. The bootstrap verbs refuse an
+unnamed session or missing private paths; the running night's frozen adapter
+is not changed or replaced.
+
 `python3 docs/research/workflow-compare/probes/check_results.py` is the
 read-only acceptance command. `--results <path>` checks another measurement.
 It never imports the real-host driver. These research probes are not part of
@@ -38,7 +46,15 @@ bash docs/research/workflow-compare/probes/run_probes.sh --user-config U-2 codex
 bash docs/research/workflow-compare/probes/run_probes.sh --user-config U-17 codex --ticket <reach-ticket-number>
 ```
 
-This mode temporarily adds project trust and hook `trusted_hash` entries to
+U-17 first asks Orca to open `path:<temporary repository>`. A refusal causes
+no user configuration write: its original refusal, a `CANNOT-RUN-UNATTENDED`
+row and equal checksum groups are posted to the ticket. It registers nothing
+in Orca. Spec #593 `Implementation Decisions` section 10, `Orca 拒绝时`, and
+#611 `What to build` point 5 define this outcome; #612 holds the owner's decision
+about a location where the measurement could actually run.
+
+After a successful U-17 terminal start, or directly for U-2, this mode adds
+project trust and hook `trusted_hash` entries to
 `~/.codex/config.toml`, restores its bytes and permissions on completion or a
 handled interruption, and posts the measurement and both checksum groups to
 the named ticket. It neither copies authentication files nor changes
@@ -46,7 +62,12 @@ the named ticket. It neither copies authentication files nor changes
 process, it cannot restore state after SIGKILL or power loss.
 
 The owner-only real Codex runs are not part of unattended acceptance. Restoration
-is checked separately against an isolated temporary configuration.
+is checked separately against an isolated temporary configuration. Codex 0.159.2
+app-server turns and compaction were measured with the existing login and
+read-only ephemeral threads without editing user configuration. An empty
+`CODEX_HOME` separately verified hook-trust discovery before authentication
+failed; no authentication file was copied. Neither proves the unrun owner-only
+three-event probe.
 
 ## Sources and evidence
 
@@ -62,6 +83,10 @@ is checked separately against an isolated temporary configuration.
 - [Grok hooks guide](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/10-hooks.md),
   `Hook Locations`: project folder trust; also consulted in the installed
   `~/.grok/docs/user-guide/10-hooks.md` and `08-skills.md`.
+- [Herdr CLI reference](https://raw.githubusercontent.com/herdrdev/herdr/v0.9.0/docs/next/website/src/content/docs/cli-reference.mdx),
+  `Environment variables` and `Agent commands`: named server/socket selection
+  and multiline `agent prompt`. The installed Herdr 0.9.0 binary is the command
+  authority used for the measurement.
 - `results-isolation-failure.md`: a rejected measurement. Codex 0.159.2 with
   `--dangerously-bypass-approvals-and-sandbox` persisted a trust entry for the
   temporary repository in `~/.codex/config.toml`. Removing only that entry

@@ -22,6 +22,10 @@ SUBITEMS = {
 }
 
 
+def verdict(probe, values):
+    return "PASS" if values == dict(SUBITEMS[probe]) else "FAIL"
+
+
 def check(path: Path) -> list[str]:
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -52,9 +56,8 @@ def check(path: Path) -> list[str]:
                 if not subitems:
                     errors.append(f"{probe} {host}: missing or invalid subitems at evidence start")
                 else:
-                    expected = tuple(value for _, value in SUBITEMS[probe])
-                    passing = subitems.groups() == expected
-                    if (status == "PASS") != passing:
+                    values = dict(zip((name for name, _ in SUBITEMS[probe]), subitems.groups()))
+                    if status != verdict(probe, values):
                         errors.append(f"{probe} {host}: {status} contradicts subitems")
         elif line.lstrip().startswith("CHECKSUM"):
             match = HASH_LINE.fullmatch(line)
@@ -84,17 +87,21 @@ def check(path: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--results", type=Path, default=Path(__file__).with_name("results.md"))
-    args = parser.parse_args()
-    errors = check(args.results)
+def report(path) -> int:
+    errors = check(path)
     if errors:
         print("PROBES FAIL")
         print("\n".join(errors))
         return 1
     print(f"PROBES OK {len(CELLS)} cells")
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results", type=Path, default=Path(__file__).with_name("results.md"))
+    args = parser.parse_args()
+    return report(args.results)
 
 
 if __name__ == "__main__":

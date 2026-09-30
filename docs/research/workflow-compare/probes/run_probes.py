@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
-"""Measure #611 in temporary repositories using the hosts' existing login."""
+"""Measure #611 in temporary repositories using the hosts' existing login.
+
+Measurements, 2026-09-30:
+Claude Code 2.1.285 returned fresh SessionStart (startup/resume/compact),
+SubagentStart and UserPromptSubmit context markers; a fresh non-.mmw run returned NONE.
+Grok 1.0.45 reads project skills/hooks with child-only GROK_FOLDER_TRUST=0,
+without changing its folder-trust store; passive hook execution is not injection.
+Codex 0.159.2 app-server initialize, thread/start, turn/start, item/completed
+agentMessage, thread/compact/start and turn/completed ran with existing login,
+ephemeral read-only threads: replies PROTOCOL-ONLY and PROTOCOL-AFTER surrounded
+successful compaction. In a separate empty CODEX_HOME (no credentials copied),
+the project trust and normalized hook hashes let SessionStart and UserPromptSubmit
+run before the expected authentication failure. The full owner hook probe remains
+unverified; these protocol checks do not prove its three capabilities.
+Orca 1.4.215 refused temporary path selectors before host launch. Successful
+Orca cleanup paths are exercised with a fake adapter, not claimed as real measurements.
+Herdr 0.9.0's private headless server and a Grok 1.0.45 pane received two literal
+lines in one UserPromptSubmit event; the pane and server were closed afterward.
+"""
 
 import argparse
 from contextlib import contextmanager
@@ -15,13 +33,21 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
-from check_results import CONFIG_PATHS, SUBITEMS, check
+from check_results import CONFIG_PATHS, SUBITEMS, report, verdict
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
 EVENTS = ("SessionStart", "SubagentStart", "UserPromptSubmit")
+RETAINED_DIRECTORIES = set()
+
+# Read the machine selection before building a child's private MMW_HOME. This is
+# the installed runtime, not the ticket's product copy, and never controls tickets.
+sys.path.insert(0, str(Path("~/.agents/skills/dispatch/scripts").expanduser().resolve()))
+import models
+import statedir
 
 
 @contextmanager
@@ -33,7 +59,8 @@ def temporary_directory():
     try:
         yield path
     finally:
-        shutil.rmtree(path)
+        if not any(directory.is_relative_to(path) for directory in RETAINED_DIRECTORIES):
+            shutil.rmtree(path)
 
 
 def run(argv, cwd=None, env=None):
@@ -104,9 +131,9 @@ def prepare(host, repo, mmw_home):
 
 def install_hooks(ctx, host):
     log = ctx["repo"] / "probe-events.jsonl"
-    marks = {event: marker() for event in EVENTS}
+    marks = {event: marker() for event in (*EVENTS, "Stop")}
     hooks = {}
-    for event in EVENTS:
+    for event in (*EVENTS, "Stop"):
         command = shlex.join(["env", f"MMW_HOME={ctx['home']}", sys.executable,
                               str(ROOT / "mmw-v2/hook-launcher.py"), "mode-hook",
                               event, marks[event], str(log)])
@@ -130,7 +157,7 @@ def host_command(host, prompt, extra=(), tools=None):
         return ["codex", "exec", "--json", "--sandbox", "read-only",
                 "-c", 'approval_policy="never"', prompt, *extra]
     return ["grok", "-p", prompt, "--output-format", "json", "--always-approve",
-            "--max-turns", "12", "--tools", tools or "read_file,list_dir", *extra]
+            "--max-turns", "12", "--tools", "read_file,list_dir" if tools is None else tools, *extra]
 
 
 def response(host, output):
@@ -155,12 +182,15 @@ def response(host, output):
 def records(ctx):
     if not ctx["log"].exists():
         return []
-    return [json.loads(line) for line in ctx["log"].read_text().splitlines()]
+    return [json.loads(line) for line in ctx["log"].read_text().splitlines(keepends=True)
+            if line.endswith("\n")]
 
 
-def capability(status_values, probe):
-    expected = dict(SUBITEMS[probe])
-    return "PASS" if status_values == expected else "FAIL"
+def measured(call, *args):
+    try:
+        return call(*args)
+    except (OSError, ValueError, RuntimeError, StopIteration) as exc:
+        return "CANNOT-RUN-UNATTENDED", f"{call.__name__}: {type(exc).__name__}: {exc}; no capability verified"
 
 
 def items(values):
@@ -199,12 +229,13 @@ def probe_skills(host, ctx, env):
                     collect(child)
         collect(inspection)
         if not any(row["name"] == "mmw" for row in skill_rows):
-            return u1, ("NEEDS-USER-CONFIG", "grok inspect --json project skills=" +
-                        json.dumps(skill_rows) + "; untrusted-folder project discovery is gated; "
-                        "trust grant writes ~/.grok/trusted_folders.toml (10-hooks.md Hook Locations)")
+            return ("CANNOT-RUN-UNATTENDED", "skill not advertised; " + evidence), (
+                "CANNOT-RUN-UNATTENDED", "grok inspect --json project skills=" + json.dumps(skill_rows) +
+                f"; exit={inspected.returncode}; GROK_FOLDER_TRUST=0; error={short(inspected.stderr)}")
         nested = any(row["name"] in ("nested-playbook-probe", "nested-principle-probe")
                      for row in skill_rows)
-        scan_evidence = "grok inspect --json project skills=" + json.dumps(skill_rows)
+        scan_evidence = "GROK_FOLDER_TRUST=0; grok inspect --json project skills=" + json.dumps(skill_rows)
+        u1 = status, evidence + "; project mmw skill advertised; GROK_FOLDER_TRUST=0"
     else:
         scan_prompt = ("Without opening any files or invoking skills, report whether your startup "
                        "skill catalog advertises each of these names: mmw, probe-copy, "
@@ -224,47 +255,59 @@ def probe_skills(host, ctx, env):
     copied_answer = response(host, copied.stdout)
     values = {"nested-md-scanned": "yes" if nested else "no",
               "symlink-copy-readable": "yes" if copied.returncode == 0 and ctx["copy_mark"] in copied_answer else "no"}
-    return u1, (capability(values, "U-3"), items(values) + "; " + scan_evidence +
+    return u1, (verdict("U-3", values), items(values) + "; " + scan_evidence +
                 f"; symlink reply={short(copied_answer)}; exit={copied.returncode}")
 
 
-def probe_claude_hooks(ctx, env):
+@contextmanager
+def without_mmw(ctx):
+    path = ctx["repo"] / ".mmw"
+    path.rmdir()
+    try:
+        yield
+    finally:
+        path.mkdir()
+
+
+def hook_verdict(ctx, answer, initial, after, outside, compact_detail):
+    values = {name: "yes" if any(row["event"] == event and row["in_mmw"] and
+              row["marker"] in answer for row in initial) else "no"
+              for (name, _), event in zip(SUBITEMS["U-2"], EVENTS)}
+    compact_markers = [row["marker"] for row in records(ctx)
+                       if row["event"] == "SessionStart" and row["source"] == "compact"]
+    compact_injected = any(mark in after for mark in compact_markers)
+    suppressed = not any(mark in outside for mark in ctx["marks"].values())
+    return verdict("U-2", values), (items(values) + f"; startup reply={short(answer)}; "
+            f"observed event/source={json.dumps([(row['event'], row['source']) for row in records(ctx)])}; "
+            f"{compact_detail}, SessionStart source=compact observed={bool(compact_markers)}, "
+            f"fresh compact context injected={compact_injected}, reply={short(after)}; "
+            f"without .mmw reply={short(outside)}, suppressed={suppressed}; "
+            "hook via product mmw-v2/hook-launcher.py")
+
+
+def probe_native_hooks(host, ctx, env):
     prompt = ("Isolated hook probe. Do not read files, settings, logs, or run shell commands. "
               "Repeat the PROBE_ context markers visible in this session. Then use one "
-              "general-purpose Agent to repeat ONLY the PROBE_ markers injected into its own "
+              "general-purpose subagent to repeat ONLY the PROBE_ markers injected into its own "
               "context; do not give it any marker values. Wait for it to finish. "
               "Your final reply must contain both your markers and its returned markers.")
     session = str(uuid.uuid4())
-    first = run(host_command("claude", prompt, ("--session-id", session), "Agent"), ctx["repo"], env)
-    answer = response("claude", first.stdout)
+    first = run(host_command(host, prompt, ("--session-id", session), "Agent" if host == "claude" else ""),
+                ctx["repo"], env)
+    answer = response(host, first.stdout)
     initial = records(ctx)
-    values = {name: "yes" if first.returncode == 0 and ctx["marks"][event] in answer and
-              any(row["event"] == event and row["in_mmw"] for row in initial) else "no"
-              for (name, _), event in zip(SUBITEMS["U-2"], EVENTS)}
-    compact = run(host_command("claude", "/compact", ("--resume", session), ""), ctx["repo"], env)
-    compact_seen = any(row["event"] == "SessionStart" and row["source"] == "compact"
-                       for row in records(ctx))
-    after = run(host_command("claude", "Repeat your PROBE_ context markers. Do not use tools.",
+    compact = run(host_command(host, "/compact", ("--resume", session), ""), ctx["repo"], env)
+    after = run(host_command(host, "Repeat your PROBE_ context markers. Do not use tools.",
                              ("--resume", session), ""), ctx["repo"], env)
-    after_answer = response("claude", after.stdout)
-    (ctx["repo"] / ".mmw").rmdir()
-    outside = run(host_command("claude", "Repeat only PROBE_ context markers, or NONE if absent. "
-                               "Do not use tools.", tools=""), ctx["repo"], env)
-    (ctx["repo"] / ".mmw").mkdir()
-    outside_answer = response("claude", outside.stdout)
-    outside_ok = outside.returncode == 0 and not any(mark in outside_answer for mark in ctx["marks"].values())
-    detail = (items(values) + f"; startup reply={short(answer)}; compact exit={compact.returncode},"
-              f" SessionStart source=compact observed={compact_seen}, reply={short(after_answer)}; "
-              f"without .mmw reply={short(outside_answer)}, suppressed={outside_ok}; "
-              "hook via product mmw-v2/hook-launcher.py")
-    if first.returncode or compact.returncode or after.returncode or outside.returncode:
-        return "CANNOT-RUN-UNATTENDED", detail + "; error=" + short(first.stderr + compact.stderr + after.stderr + outside.stderr)
-    compact_markers = [row["marker"] for row in records(ctx)
-                       if row["event"] == "SessionStart" and row["source"] == "compact"]
-    if not compact_seen or not any(mark in after_answer for mark in compact_markers) or not outside_ok:
-        values["session-start"] = "no"
-        detail = items(values) + detail[detail.index(";"):]
-    return capability(values, "U-2"), detail
+    with without_mmw(ctx):
+        outside = run(host_command(host, "Repeat only PROBE_ context markers, or NONE if absent. "
+                                   "Do not use tools.", tools=""), ctx["repo"], env)
+    result = hook_verdict(ctx, answer, initial, response(host, after.stdout),
+                          response(host, outside.stdout), f"/compact exit={compact.returncode}")
+    if any(proc.returncode for proc in (first, compact, after, outside)):
+        return "CANNOT-RUN-UNATTENDED", result[1] + "; error=" + short(
+            first.stderr + compact.stderr + after.stderr + outside.stderr)
+    return result
 
 
 class CodexServer:
@@ -310,21 +353,11 @@ class CodexServer:
                 return data["result"]
             self.notifications.append(data)
 
-    def completed(self, thread):
-        seen = self.notifications
-        self.notifications = []
-        while True:
-            data = seen.pop(0) if seen else self.receive()
-            params = data.get("params", {})
-            if params.get("threadId") == thread:
-                if data.get("method") == "turn/completed":
-                    turn = params["turn"]
-                    if turn.get("status") != "completed":
-                        raise RuntimeError("codex probe turn did not complete: " + json.dumps(turn.get("error")))
-                    return
-
     def turn(self, thread, prompt):
         self.call("turn/start", {"threadId": thread, "input": [{"type": "text", "text": prompt}]})
+        return self.completed(thread)
+
+    def completed(self, thread):
         # Gather only assistant message notifications; marker-bearing hook commands are not evidence.
         pending = self.notifications
         self.notifications = []
@@ -361,27 +394,14 @@ def probe_codex_hooks(ctx, env):
                              "injected PROBE_ context markers, without giving it marker values. Wait for it "
                              "to finish. Return your markers and its markers.")
         initial = records(ctx)
-        values = {name: "yes" if ctx["marks"][event] in answer and any(
-                  row["event"] == event and row["in_mmw"] for row in initial) else "no"
-                  for (name, _), event in zip(SUBITEMS["U-2"], EVENTS)}
         server.call("thread/compact/start", {"threadId": thread})
         server.completed(thread)
-        compact_seen = any(row["event"] == "SessionStart" and row["source"] == "compact"
-                           for row in records(ctx))
         after = server.turn(thread, "Repeat your PROBE_ context markers without using tools.")
-        (ctx["repo"] / ".mmw").rmdir()
-        outside_thread = server.call("thread/start", {"cwd": str(ctx["repo"]), "approvalPolicy": "never",
-                                     "sandbox": "danger-full-access", "ephemeral": True})["thread"]["id"]
-        outside = server.turn(outside_thread, "Repeat only PROBE_ context markers or NONE if absent. Do not use tools.")
-        (ctx["repo"] / ".mmw").mkdir()
-        suppressed = not any(mark in outside for mark in ctx["marks"].values())
-        compact_markers = [row["marker"] for row in records(ctx)
-                           if row["event"] == "SessionStart" and row["source"] == "compact"]
-        if not compact_seen or not any(mark in after for mark in compact_markers) or not suppressed:
-            values["session-start"] = "no"
-        return capability(values, "U-2"), (items(values) + f"; startup reply={short(answer)}; "
-                f"thread/compact/start SessionStart source=compact observed={compact_seen}, reply={short(after)}; "
-                f"without .mmw reply={short(outside)}, suppressed={suppressed}; hook via mmw-v2/hook-launcher.py")
+        with without_mmw(ctx):
+            outside_thread = server.call("thread/start", {"cwd": str(ctx["repo"]), "approvalPolicy": "never",
+                                         "sandbox": "danger-full-access", "ephemeral": True})["thread"]["id"]
+            outside = server.turn(outside_thread, "Repeat only PROBE_ context markers or NONE if absent. Do not use tools.")
+        return hook_verdict(ctx, answer, initial, after, outside, "thread/compact/start completed")
     except RuntimeError as exc:
         # A failed capability measurement is still a result, never a simulated PASS.
         return "CANNOT-RUN-UNATTENDED", str(exc)
@@ -390,59 +410,148 @@ def probe_codex_hooks(ctx, env):
             server.close()
 
 
-def frozen_runner():
-    root = Path(Path("~/.mmw/installed-root").expanduser().read_text().strip())
-    return root / "skills/dispatch/scripts/runners/orca.sh"
+def frozen_runner(name="orca"):
+    root = Path((statedir.home() / "installed-root").read_text().strip())
+    return root / f"skills/dispatch/scripts/runners/{name}.sh"
 
 
 def model_row(host):
-    config = json.loads(Path("~/.mmw/models.json").expanduser().read_text())
-    rows = config.get("rows", config)
-    for row in rows.values():
-        if isinstance(row, dict) and row.get("host") == host:
-            return row
-    raise ValueError(f"no current model row for {host}")
+    return next(row for row in models.session_rows() if row.host == host)
+
+
+def start_probe(host, ctx, env, runner="orca", prompt=None, adapter=None):
+    role = marker()
+    row = model_row(host)
+    adapter = adapter or frozen_runner(runner)
+    argv = ["bash", str(adapter), "start", "--host", host, "--model", row.model,
+            "--effort", row.effort, "--cwd", str(ctx["repo"]), "--title", "mmw-probe-" + host,
+            "--env", f"MMW_ROLE={role}", "--env", f"MMW_HOME={ctx['home']}"]
+    for key in ("PATH", "GROK_FOLDER_TRUST"):
+        if key in env:
+            argv += ["--env", f"{key}={env[key]}"]
+    argv += ["--prompt", prompt or "Isolated environment probe. Reply PROBE-DONE without using tools."]
+    return run(argv, ctx["repo"], env), role, adapter
+
+
+def wait_finished(ctx, adapter, handle, env, previous_stops=0):
+    # Never interrupt a working agent. Stop hooks are local completion evidence;
+    # adapter liveness covers a host which exited before its hook could run.
+    settled = None
+    while True:
+        logged = records(ctx)
+        stops = sum(row["event"] == "Stop" for row in logged)
+        prompts = sum(row["event"] == "UserPromptSubmit" for row in logged)
+        if stops > previous_stops and stops >= prompts:
+            if settled is None:
+                settled = time.monotonic()
+            elif time.monotonic() - settled >= 2:
+                return "Stop hooks completed for all submitted turns"
+        else:
+            settled = None
+        live = run(["bash", str(adapter), "liveness", handle], ctx["repo"], env)
+        if live.returncode == 0 and live.stdout.strip() == "stopped":
+            return "adapter liveness=stopped"
+        time.sleep(1)
+
+
+def finish_env(ctx, env, started, role, adapter):
+    if started.returncode:
+        # Preserve the adapter's original refusal, not a guessed reason.
+        return "CANNOT-RUN-UNATTENDED", started.stderr.strip() or started.stdout.strip()
+    handle = started.stdout.strip()
+    completed = wait_finished(ctx, adapter, handle, env)
+    found = [row for row in records(ctx) if row["event"] == "SessionStart"]
+    closed = run(["bash", str(adapter), "stop", handle], ctx["repo"], env)
+    if closed.returncode:
+        closed = run(["bash", str(adapter), "stop", handle], ctx["repo"], env)
+    if closed.returncode:
+        RETAINED_DIRECTORIES.update((ctx["repo"], ctx["home"]))
+        return "CANNOT-RUN-UNATTENDED", (f"probe-owned terminal={handle}; completed={completed}; "
+                f"adapter stop exit={closed.returncode}; {short(closed.stderr)}; close this probe terminal through the adapter")
+    inherited = any(row["MMW_ROLE"] == role for row in found)
+    return "PASS" if inherited else "FAIL", (f"runner --env MMW_ROLE={role}; hook log={json.dumps(found)}; "
+            f"terminal={handle}, completed={completed}, closed; hook via product mmw-v2/hook-launcher.py")
 
 
 def probe_env(host, ctx, env):
-    role = marker()
-    row = model_row(host)
-    result = run(["bash", str(frozen_runner()), "start", "--host", host, "--model", row["model"],
-                  "--effort", row.get("effort", "high"), "--cwd", str(ctx["repo"]),
-                  "--title", "mmw-probe-U17-" + host, "--env", f"MMW_ROLE={role}",
-                  "--env", f"MMW_HOME={ctx['home']}", "--prompt",
-                  "Isolated environment probe. Reply PROBE-DONE without using tools, then exit."],
-                 ctx["repo"], env)
-    if result.returncode:
-        return "CANNOT-RUN-UNATTENDED", f"path:{ctx['repo']}; runner start exit={result.returncode}; {short(result.stderr)}"
-    handle = result.stdout.strip()
-    # Wait for the probe to finish its turn before closing our own terminal.
-    waited = run(["orca", "terminal", "wait", "--terminal", handle, "--for", "tui-idle",
-                  "--timeout-ms", "60000", "--json"], ctx["repo"], env)
-    wait_data = json.loads(waited.stdout)
-    wait_result = wait_data.get("result", {}).get("wait", {})
-    if not wait_result.get("satisfied"):
-        raise RuntimeError(f"probe session {handle} did not finish: {short(waited.stdout)}; do not interrupt it")
-    found = [r for r in records(ctx) if r["event"] == "SessionStart"]
-    inherited = any(r["MMW_ROLE"] == role for r in found)
-    closed = run(["bash", str(frozen_runner()), "stop", handle], ctx["repo"], env)
-    if closed.returncode:
-        raise RuntimeError(f"could not close probe-owned terminal {handle}: {short(closed.stderr)}")
-    return ("PASS" if inherited else "FAIL", f"runner --env MMW_ROLE={role}; hook printed variable in "
-            f"probe log={json.dumps(found)}; terminal={handle}, closed; hook via mmw-v2/hook-launcher.py")
+    started, role, adapter = start_probe(host, ctx, env)
+    return finish_env(ctx, env, started, role, adapter)
+
+
+def probe_codex_env(ctx, env):
+    # The terminal must exist before owner configuration is touched. A private
+    # launch gate prevents Codex from reading hook trust before it is installed.
+    gate = ctx["repo"] / "launch-codex"
+    binary = shutil.which("codex")
+    wrapper = ctx["repo"] / "bin/codex"
+    write(wrapper, "#!/bin/sh\nwhile [ ! -f " + shlex.quote(str(gate)) +
+          " ]; do sleep 1; done\nexec " + shlex.quote(binary) + ' "$@"\n')
+    wrapper.chmod(0o700)
+    gated_env = dict(env, PATH=str(wrapper.parent) + os.pathsep + env["PATH"])
+    started, role, adapter = start_probe("codex", ctx, gated_env)
+    if started.returncode:
+        return finish_env(ctx, gated_env, started, role, adapter)
+    try:
+        with trusted_codex(ctx):
+            gate.touch()
+            return finish_env(ctx, gated_env, started, role, adapter)
+    except BaseException:
+        # Before the gate, there is no host or working agent to interrupt.
+        if not gate.exists():
+            run(["bash", str(adapter), "stop", started.stdout.strip()], ctx["repo"], gated_env)
+        raise
 
 
 def probe_herdr(env):
-    # #611 authorizes only a new isolated session, never the user's focused session.
-    with temporary_directory() as state:
-        session = "mmw-probe-" + uuid.uuid4().hex[:12]
-        private_env = dict(env, HERDR_CONFIG_PATH=str(state / "config.toml"))
-        attempted = run(["herdr", "--session", session], state, private_env)
-        stopped = run(["herdr", "--session", session, "session", "stop", session], state, private_env)
-        return "CANNOT-RUN-UNATTENDED", (f"isolated herdr --session {session} exit={attempted.returncode}; "
-                f"stdout={short(attempted.stdout)}, stderr={short(attempted.stderr)}; "
-                f"stdin-is-terminal={sys.stdin.isatty()}; isolated-session cleanup exit={stopped.returncode}; "
-                "no agent prompt submission was possible, no owner's session reused")
+    if not shutil.which("herdr"):
+        return "CANNOT-RUN-UNATTENDED", "herdr binary absent from PATH"
+    with temporary_directory() as state, temporary_directory() as repo, temporary_directory() as home:
+        private_env = {key: value for key, value in env.items() if not key.startswith("HERDR_")}
+        private_env.update(HERDR_CONFIG_PATH=str(state / "config.toml"),
+                           HERDR_SESSION="mmw-probe-" + uuid.uuid4().hex[:12],
+                           HERDR_SOCKET_PATH=str(state / "probe.sock"))
+        host = "grok"
+        private_env["GROK_FOLDER_TRUST"] = "0"
+        ctx = prepare(host, repo / "probe", home)
+        install_hooks(ctx, host)
+        adapter = ROOT / "mmw-v2/skills/dispatch/scripts/runners/herdr.sh"
+        with (state / "server.log").open("w+") as output:
+            server = subprocess.Popen(["bash", str(adapter), "probe-server", "start"], cwd=state, env=private_env,
+                                      stdin=subprocess.DEVNULL, stdout=output, stderr=output)
+            try:
+                while not Path(private_env["HERDR_SOCKET_PATH"]).exists() and server.poll() is None:
+                    time.sleep(0.1)
+                if server.poll() is not None:
+                    output.seek(0)
+                    return "CANNOT-RUN-UNATTENDED", f"private herdr server exit={server.returncode}; {short(output.read())}"
+                bootstrap = run(["bash", str(adapter), "probe-workspace", str(ctx["repo"])], state, private_env)
+                if bootstrap.returncode:
+                    return "CANNOT-RUN-UNATTENDED", "private workspace creation refused: " + short(bootstrap.stderr)
+                initial, _, adapter = start_probe(host, ctx, private_env, "herdr",
+                        "Isolated probe. Reply READY only and do not use tools.", adapter)
+                if initial.returncode:
+                    return "CANNOT-RUN-UNATTENDED", "private headless server started; " + short(initial.stderr)
+                handle = initial.stdout.strip()
+                wait_finished(ctx, adapter, handle, private_env)
+                previous = sum(row["event"] == "Stop" for row in records(ctx))
+                token = "U9_" + uuid.uuid4().hex
+                prompt = f"Reply with only {token}_A.\nAlso include {token}_B. Do not use tools."
+                sent = run(["bash", str(adapter), "send", handle, prompt], repo, private_env)
+                completed = wait_finished(ctx, adapter, handle, private_env, previous)
+                submissions = [row["probe_prompt"] for row in records(ctx) if "probe_prompt" in row]
+                closed = run(["bash", str(adapter), "stop", handle], repo, private_env)
+                evidence = (f"private headless herdr server; {host}={version(host)}; adapter send exit={sent.returncode}; "
+                            f"observed UserPromptSubmit count={len(submissions)}, payloads={json.dumps(submissions)}; "
+                            f"completed={completed}; pane closed exit={closed.returncode}; two-line input={json.dumps(prompt)}")
+                if sent.returncode not in (0, 4) or closed.returncode:
+                    return "CANNOT-RUN-UNATTENDED", evidence + "; " + short(sent.stderr + closed.stderr)
+                return "PASS" if submissions == [prompt] else "FAIL", evidence
+            finally:
+                # The isolated server owns only probe panes; no owner's server is addressed.
+                stopped = run(["bash", str(adapter), "probe-server", "stop"], state, private_env)
+                server.wait()
+                if stopped.returncode:
+                    print("PROBES FAIL: private Herdr server stop refused: " + short(stopped.stderr), file=sys.stderr)
 
 
 def cell(probe, host, result, versions):
@@ -463,11 +572,10 @@ def trusted_codex(ctx):
     tomllib.loads(text)
     added = [f"[projects.{json.dumps(str(ctx['repo']))}]\ntrust_level = \"trusted\"\n"]
     for event, groups in ctx["hooks"].items():
-        handler = dict(groups[0]["hooks"][0], async_=False)
-        handler["async"] = handler.pop("async_")
+        handler = {**groups[0]["hooks"][0], "async": False}
         label = re.sub(r"(?<!^)(?=[A-Z])", "_", event).lower()
         normal = {"event_name": label, "hooks": [handler]}
-        digest = "sha256:" + hashlib.sha256(json.dumps(normal, sort_keys=True,
+        digest = "sha256:" + hashlib.sha256(json.dumps(normal, sort_keys=True, ensure_ascii=False,
                    separators=(",", ":")).encode()).hexdigest()
         key = f"{ctx['hook_path']}:{label}:0:0"
         added.append(f"[hooks.state.{json.dumps(key)}]\ntrusted_hash = {json.dumps(digest)}\n")
@@ -518,19 +626,25 @@ def main():
                 ctx = prepare(host, Path(repo_dir), Path(home_dir))
                 install_hooks(ctx, host)
                 env["MMW_HOME"] = str(ctx["home"])
-                with trusted_codex(ctx):
-                    result = probe_codex_hooks(ctx, env) if probe == "U-2" else probe_env(host, ctx, env)
+                if probe == "U-17":
+                    result = measured(probe_codex_env, ctx, env)
+                else:
+                    with trusted_codex(ctx):
+                        result = measured(probe_codex_hooks, ctx, env)
                 lines.append(cell(probe, host, result, versions))
             else:
                 for host in ("claude", "codex", "grok"):
                     print(f"measuring {host}", flush=True)
                     ctx = prepare(host, Path(repo_dir) / host, Path(home_dir) / host)
                     env["MMW_HOME"] = str(ctx["home"])
+                    if host == "grok":
+                        env["GROK_FOLDER_TRUST"] = "0"
                     if versions[host] == "absent":
                         for probe in ("U-1", "U-2", "U-3", "U-17"):
                             lines.append(cell(probe, host, ("CANNOT-RUN-UNATTENDED", f"{host} binary absent from PATH"), versions))
                         continue
-                    u1, u3 = probe_skills(host, ctx, env)
+                    skill_result = measured(probe_skills, host, ctx, env)
+                    u1, u3 = (skill_result, skill_result) if isinstance(skill_result[0], str) else skill_result
                     lines.extend((cell("U-1", host, u1, versions), cell("U-3", host, u3, versions)))
                     install_hooks(ctx, host)
                     if host == "codex":
@@ -538,16 +652,11 @@ def main():
                                   "~/.codex/config.toml; mmw-v2/install.sh codex_trust_wanted and "
                                   "AGENTS.md Gotchas; no user config or hook-trust bypass written")
                         u2 = u17 = "NEEDS-USER-CONFIG", reason
-                    elif host == "grok":
-                        u2 = "NEEDS-USER-CONFIG", ("project .grok/hooks/*.json requires folder trust; "
-                              "grant writes ~/.grok/trusted_folders.toml; installed 10-hooks.md Hook Locations; "
-                              "no grant or trust bypass used")
-                        u17 = probe_env(host, ctx, env)
                     else:
-                        u2 = probe_claude_hooks(ctx, env)
-                        u17 = probe_env(host, ctx, env)
+                        u2 = measured(probe_native_hooks, host, ctx, env)
+                        u17 = measured(probe_env, host, ctx, env)
                     lines.extend((cell("U-2", host, u2, versions), cell("U-17", host, u17, versions)))
-                lines.append(cell("U-9", "herdr", probe_herdr(env), versions))
+                lines.append(cell("U-9", "herdr", measured(probe_herdr, env), versions))
     finally:
         after = checksum()
         lines.extend(checksum_lines("before", before))
@@ -555,25 +664,23 @@ def main():
         if not args.user_config:
             write(HERE / "results.md", "# Host probe measurements\n\n" + "\n".join(lines) + "\n")
     if before != after:
-        print("PROBES FAIL: user configuration changed; see checksum rows", file=sys.stderr)
+        changed = ", ".join(name for name in before if before[name] != after[name])
+        print(f"PROBES FAIL: user configuration changed: {changed}; isolation is not verified; "
+              "compare these hashes and restore the named configuration before using the measurement", file=sys.stderr)
+        print("\n".join(lines), file=sys.stderr)
         return 1
     if args.user_config:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".md") as body:
             body.write("# Host probe measurement\n\n" + "\n".join(lines) + "\n")
             body.flush()
-            posted = run(["gh", "issue", "comment", str(args.ticket), "--repo",
-                          "chancheuklap/multi-model-workflow", "--body-file", body.name], ROOT)
+            posted = run(["gh", "issue", "comment", str(args.ticket), "--body-file", body.name], ROOT)
         if posted.returncode:
             print(posted.stderr, file=sys.stderr)
             print("\n".join(lines), file=sys.stderr)
             return 1
         print(posted.stdout.strip())
     else:
-        errors = check(HERE / "results.md")
-        if errors:
-            print("PROBES FAIL\n" + "\n".join(errors))
-            return 1
-        print("PROBES OK 13 cells")
+        return report(HERE / "results.md")
     return 0
 
 
