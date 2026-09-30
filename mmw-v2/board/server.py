@@ -85,13 +85,7 @@ def stop_when_code_changes(server: http.server.HTTPServer, watch: codeversion.Wa
                            interval: float) -> None:
     while True:
         time.sleep(interval)
-        try:
-            changed = watch.changed()
-        except codeversion.LocationsMissing as exc:
-            print(exc, file=sys.stderr, flush=True)
-            server.shutdown()
-            return
-        if changed:
+        if watch.changed():
             print("board code changed on disk; exiting so the supervisor starts the new code",
                   flush=True)
             server.shutdown()

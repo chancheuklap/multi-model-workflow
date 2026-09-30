@@ -224,7 +224,8 @@ class SupervisorTests(unittest.TestCase):
             path.read_text(encoding="utf-8")
             + "\n_mark = os.environ.get('MMW_BOARD_LOCATIONS_MARK')\n"
             + "if _mark:\n"
-            + f"    Path(_mark).write_text({label!r} + '\\n', encoding='utf-8')\n",
+            + "    with Path(_mark).open('a', encoding='utf-8') as _out:\n"
+            + f"        _out.write({label!r} + '\\n')\n",
             encoding="utf-8",
         )
 
@@ -251,13 +252,26 @@ class SupervisorTests(unittest.TestCase):
         self.start({repository: port}, {repository: fixture}, copy,
                    {"MMW_BOARD_LOCATIONS_MARK": str(mark)})
         self.assertEqual(self.board(port)["repo"], "fixture/mmw-locations")
-        self.assertEqual(mark.read_text(encoding="utf-8"), "mmw\n")
+        lines = mark.read_text(encoding="utf-8").splitlines()
+        self.assertGreaterEqual(len(lines), 2)
+        self.assertEqual(set(lines), {"mmw"})
 
     def test_finds_locations_under_dispatch_scripts_second(self):
         copy = self.copied_supervisor()
         scripts = copy.parents[1] / "skills"
         self.assertFalse((scripts / "mmw" / "scripts" / "locations.py").exists())
-        self.assertTrue((scripts / "dispatch" / "scripts" / "locations.py").is_file())
+        locations = scripts / "dispatch" / "scripts" / "locations.py"
+        self.assertTrue(locations.is_file())
+        shutil.copytree(scripts / "dispatch" / "scripts",
+                        scripts / "picked-dispatch" / "scripts")
+        registered = 'DISPATCH_SCRIPTS = "dispatch/scripts"'
+        text = locations.read_text(encoding="utf-8")
+        self.assertIn(registered, text)
+        locations.write_text(
+            text.replace(registered, 'DISPATCH_SCRIPTS = "picked-dispatch/scripts"', 1),
+            encoding="utf-8",
+        )
+        self.stamp_statedir(scripts / "picked-dispatch" / "scripts" / "statedir.py", "picked")
         self.stamp_statedir(scripts / "dispatch" / "scripts" / "statedir.py", "dispatch")
         mark = self.base / "locations-mark"
         repository, fixture = self.repository("repo", "fixture/dispatch-locations")
@@ -265,7 +279,9 @@ class SupervisorTests(unittest.TestCase):
         self.start({repository: port}, {repository: fixture}, copy,
                    {"MMW_BOARD_LOCATIONS_MARK": str(mark)})
         self.assertEqual(self.board(port)["repo"], "fixture/dispatch-locations")
-        self.assertEqual(mark.read_text(encoding="utf-8"), "dispatch\n")
+        lines = mark.read_text(encoding="utf-8").splitlines()
+        self.assertGreaterEqual(len(lines), 2)
+        self.assertEqual(set(lines), {"picked"})
 
     def test_refuses_naming_install_check_without_locations(self):
         copy = self.copied_supervisor()
@@ -275,21 +291,25 @@ class SupervisorTests(unittest.TestCase):
             path = root / relative
             if path.exists():
                 path.unlink()
-        log = (self.base / "refuse.log").open("w+", encoding="utf-8")
+        stdout = (self.base / "refuse.out").open("w+", encoding="utf-8")
+        stderr = (self.base / "refuse.err").open("w+", encoding="utf-8")
         env = os.environ.copy()
         env["MMW_HOME"] = str(self.home)
         process = subprocess.Popen(
             [sys.executable, "-u", str(copy), "--interval", "0.05"],
-            cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT,
+            cwd=ROOT, env=env, stdout=stdout, stderr=stderr,
         )
-        self.processes.append((process, log))
+        self.processes.append((process, stdout))
         try:
-            code = process.wait(timeout=8)
-        except subprocess.TimeoutExpired:
-            process.terminate()
-            self.fail("supervisor stayed up without locations.py")
-        log.seek(0)
-        text = log.read()
+            try:
+                code = process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                self.fail("supervisor stayed up without locations.py")
+            stderr.seek(0)
+            text = stderr.read()
+        finally:
+            stderr.close()
         self.assertNotEqual(code, 0)
         self.assertIn("bash mmw-v2/install.sh --check", text)
 

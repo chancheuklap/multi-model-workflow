@@ -28,36 +28,33 @@ _REGISTERED = ("DISPATCH_SCRIPTS", "EVENTS_PY", "ISSUE_TREE_PY")
 
 
 class LocationsMissing(RuntimeError):
-    """Neither candidate `locations.py` is on disk, or the one found cannot be read."""
+    """Neither candidate `locations.py` is on disk, or the one found cannot be loaded."""
 
 
-def candidate_paths(root: Path | None = None) -> tuple[Path, Path]:
-    root = ROOT if root is None else root
-    return tuple(root.joinpath(*parts) for parts in _CANDIDATES)
-
-
-def locations_path(root: Path | None = None) -> Path:
-    found = [path for path in candidate_paths(root) if path.is_file()]
+def locations_path() -> Path:
+    candidates = tuple(ROOT.joinpath(*parts) for parts in _CANDIDATES)
+    found = [path for path in candidates if path.is_file()]
     if found:
         return found[0]
-    first, second = candidate_paths(root)
+    first, second = candidates
     raise LocationsMissing(
         f"neither {first} nor {second} exists; the task board cannot load its scripts: "
         "run bash mmw-v2/install.sh --check"
     )
 
 
-def resolved_scripts(root: Path | None = None) -> dict[str, Path]:
+def resolved_scripts() -> dict[str, Path]:
     """Paths of `locations.py` and the scripts the board loads through it."""
-    path = locations_path(root)
+    path = locations_path()
     spec = importlib.util.spec_from_file_location("mmw_board_locations", path)
-    if spec is None or spec.loader is None:
-        raise LocationsMissing(
-            f"{path} cannot be loaded; the task board cannot load its scripts: "
-            "run bash mmw-v2/install.sh --check"
-        )
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        raise LocationsMissing(
+            f"{path} cannot be loaded ({exc}); the task board cannot load its scripts: "
+            "run bash mmw-v2/install.sh --check"
+        ) from None
     missing = [name for name in _REGISTERED if not isinstance(getattr(module, name, None), str)]
     if missing:
         raise LocationsMissing(
@@ -77,34 +74,41 @@ def resolved_scripts(root: Path | None = None) -> dict[str, Path]:
     return resolved
 
 
-def require_scripts(root: Path | None = None) -> dict[str, Path]:
-    """The resolved scripts, or a refusal on stderr and exit 1 when they cannot be found."""
+def require_scripts() -> dict[str, Path]:
+    """The resolved scripts, or a refusal on stderr and exit 1 when they cannot be loaded."""
     try:
-        return resolved_scripts(root)
+        return resolved_scripts()
     except LocationsMissing as exc:
         sys.stderr.write(f"{exc}\n")
         raise SystemExit(1) from None
 
 
+def _hash_path(digest, path: Path) -> None:
+    digest.update(str(path).encode() + b"\0")
+    try:
+        digest.update(path.read_bytes())
+    except OSError:
+        digest.update(b"<missing>")
+    digest.update(b"\0")
+
+
 def fingerprint() -> str:
     digest = hashlib.sha256()
-    resolved = resolved_scripts()
-    watched = (
-        *BOARD.glob("*.py"),
-        resolved["locations"],
-        resolved["events"],
-        resolved["issue_tree"],
-        resolved["ghlist"],
-        resolved["models"],
-        resolved["statedir"],
-    )
+    try:
+        resolved = resolved_scripts()
+    except LocationsMissing:
+        # Candidate bytes, so two reads agree only once the file has settled.
+        digest.update(b"<locations-missing>\0")
+        for parts in _CANDIDATES:
+            _hash_path(digest, ROOT.joinpath(*parts))
+        watched = list(BOARD.glob("*.py"))
+    else:
+        watched = [
+            *BOARD.glob("*.py"),
+            *(path for path in resolved.values() if path.suffix == ".py"),
+        ]
     for path in sorted(set(watched)):
-        digest.update(str(path).encode() + b"\0")
-        try:
-            digest.update(path.read_bytes())
-        except OSError:
-            digest.update(b"<missing>")
-        digest.update(b"\0")
+        _hash_path(digest, path)
     return digest.hexdigest()
 
 

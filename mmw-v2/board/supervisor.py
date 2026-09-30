@@ -179,9 +179,6 @@ class Supervisor:
                 if watch.changed():
                     restart = True
                     break
-        except codeversion.LocationsMissing as exc:
-            print(f"supervisor: {exc}", file=sys.stderr)
-            return 1
         finally:
             self.shutdown()
         if restart:

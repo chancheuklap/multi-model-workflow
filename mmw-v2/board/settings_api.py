@@ -90,22 +90,14 @@ def _get() -> tuple[int, dict[str, str], bytes]:
 def _keep_rows_the_page_did_not_send(proposed: dict) -> dict:
     """Copy a saved role `models.py` allows when the request does not name it."""
     rows = proposed.get("rows")
-    if not isinstance(rows, dict):
-        return proposed
-    try:
-        current = models.read_local_config()
-    except models.ConfigMissing:
-        return proposed
-    existing = current.get("rows")
-    if not isinstance(existing, dict):
+    saved = models.read_local_config().get("rows")
+    if not isinstance(rows, dict) or not isinstance(saved, dict):
         return proposed
     kept = {
-        role: dict(row)
-        for role, row in existing.items()
-        if role not in rows and role in models.ALLOWED_AGENTS and isinstance(row, dict)
+        role: saved[role]
+        for role in models.ALLOWED_AGENTS
+        if role in saved and role not in rows
     }
-    if not kept:
-        return proposed
     return {**proposed, "rows": {**kept, **rows}}
 
 

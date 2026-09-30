@@ -78,19 +78,6 @@ class SettingsApiTest(unittest.TestCase):
     def test_a_four_row_models_json_reads_and_saves(self):
         with running_board(self.home) as board:
             status, raw = board.request("GET", "/api/settings")
-            self.assertEqual(status, 200)
-            data = json.loads(raw)
-            self.assertEqual(set(data["rows"]), set(config()["rows"]))
-            proposed = {key: data[key] for key in ("version", "runner", "rows")}
-            status, raw = board.request("PUT", "/api/settings", proposed, board.write_headers)
-        self.assertEqual(status, 200, raw)
-        written = json.loads((self.home / "models.json").read_text())
-        self.assertEqual(set(written["rows"]), set(config()["rows"]))
-        self.assertNotIn("researcher", written["rows"])
-
-    def test_a_four_row_file_without_researcher_still_saves(self):
-        with running_board(self.home) as board:
-            status, raw = board.request("GET", "/api/settings")
             data = json.loads(raw)
             self.assertEqual(status, 200)
             self.assertEqual(data["rows"], config()["rows"])

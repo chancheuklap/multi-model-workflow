@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import shutil
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 
@@ -56,6 +58,28 @@ class CodeversionTests(unittest.TestCase):
         before = self.module.fingerprint()
         self.models.write_text("models = 2\n", encoding="utf-8")
         self.assertNotEqual(self.module.fingerprint(), before)
+
+    def test_a_locations_file_that_cannot_be_loaded_settles_instead_of_raising(self):
+        watch = self.module.Watch()
+        self.locations.write_text("DISPATCH_SCRIPTS = {\n", encoding="utf-8")
+        self.assertFalse(watch.changed())
+        self.assertTrue(watch.changed())
+        broken = self.module.fingerprint()
+        self.locations.write_text(self.locations.read_text(encoding="utf-8") + "\n",
+                                  encoding="utf-8")
+        self.assertNotEqual(self.module.fingerprint(), broken)
+
+    def test_require_scripts_refuses_when_locations_cannot_be_loaded(self):
+        self.locations.write_text("import not_a_real_module_615\n", encoding="utf-8")
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as caught:
+                self.module.require_scripts()
+        self.assertEqual(caught.exception.code, 1)
+        message = stderr.getvalue()
+        self.assertIn(str(self.locations), message)
+        self.assertIn("cannot be loaded", message)
+        self.assertIn("bash mmw-v2/install.sh --check", message)
 
 
 if __name__ == "__main__":
