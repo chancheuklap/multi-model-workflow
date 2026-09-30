@@ -25,6 +25,7 @@ UPSTREAM_MODE = ('---\nname: Poteto Mode\n---\n# Poteto mode\n\n'
                  '## Non-negotiables\n\n- Trigger unchanged.\n\n'
                  '## Principles\n\n**Core**\n\n'
                  '- **One** (**principle-one**). First sentence.\n'
+                 '\n**Architecture**\n\n'
                  '- **Two** (**principle-two**). Second principle.\n\n'
                  '## Comments\n\nKeep comments useful.\n\n'
                  '## Playbooks\n\nMatch a playbook.\n')
@@ -95,6 +96,7 @@ class ImportComponent(unittest.TestCase):
         self.write(MODE + '/SKILL.md', LOCAL_MODE)
         result = self.run_import('principle', 'principle-one')
         self.assertIn('INDEX\tCore\t- **One** (**principle-one**). First sentence.\n', result.stdout)
+        self.assertIn('INDEX\tArchitecture\t- **Two** (**principle-two**). Second principle.\n', result.stdout)
         self.assertEqual((self.root / MODE / 'SKILL.md').read_bytes(), LOCAL_MODE.encode())
 
     def test_an_import_registers_one_row_of_seven_columns(self):
@@ -115,7 +117,8 @@ class ImportComponent(unittest.TestCase):
         self.run_import('principle', 'principle-one')
         before = self.snapshot()
         times = {p: (self.root / p).stat().st_mtime_ns for p in before}
-        self.run_import('principle', 'principle-one')
+        result = self.run_import('principle', 'principle-one')
+        self.assertNotIn('REWRITE\t', result.stdout)
         self.assertEqual(self.snapshot(), before)
         self.assertEqual({p: (self.root / p).stat().st_mtime_ns for p in before}, times)
         self.assertEqual(len(self.rows()), 2)
@@ -127,13 +130,20 @@ class ImportComponent(unittest.TestCase):
         before = self.snapshot()
         result = self.run_import('principle', 'principle-one', code=1)
         for keyword in ('AskQuestion', 'gh', 'Spawn Comment Sicko'):
-            self.assertIn(keyword, result.stderr)
-        self.assertIn(SUBTREE + '/skills/principle-two/SKILL.md:', result.stderr)
+            self.assertIn(SUBTREE + '/skills/principle-two/SKILL.md:10: ' + keyword, result.stderr)
         self.assertEqual(self.snapshot(), before)
         self.write(MODE + '/references/pstack-names.md',
                    '| pstack | MMW |\n|---|---|\n| `AskQuestion` | autonomy |\n'
                    '| `gh` | tracker |\n| Spawn Comment Sicko | a brief |\n')
         self.run_import('principle', 'principle-one')
+        (self.root / MODE / 'references/pstack-names.md').unlink()
+        self.write(SUBTREE + '/agents/helper.md',
+                   '---\nname: helper\ndescription: Help.\nis_background: true\nmodel: special\n'
+                   '---\n# Helper\n\nAskQuestion\n')
+        before = self.snapshot()
+        result = self.run_import('agent', 'helper', code=1)
+        self.assertIn(SUBTREE + '/agents/helper.md:9: AskQuestion', result.stderr)
+        self.assertEqual(self.snapshot(), before)
 
     def test_components_an_imported_file_names_are_imported_with_it(self):
         self.write(SUBTREE + '/skills/principle-two/SKILL.md',
@@ -146,6 +156,9 @@ class ImportComponent(unittest.TestCase):
             'skill:' + SUBTREE + '/skills/show-me-your-work/SKILL.md'})
         self.assertIn('IMPORTED\t3\n', result.stdout)
         self.assertIn('pstack/show-me-your-work\n', (self.root / 'mmw-v2/skills.txt').read_text())
+        self.assertEqual((self.root / MODE / 'principles/principle-two.md').read_bytes(),
+                         b'---\nname: principle-two\ndescription: Second principle.\n---\n# Two\n\n'
+                         b'Keep this too.\n\nApply the **one** principle, and the **show-me-your-work** skill.\n')
 
     def test_a_name_the_set_already_has_or_pstack_names_maps_is_not_imported(self):
         self.write(MODE + '/principles/principle-two.md', '# MMW Two\n')
@@ -169,6 +182,17 @@ class ImportComponent(unittest.TestCase):
         self.assertIn(SUBTREE + '/skills/principle-one/SKILL.md:', result.stderr)
         self.assertIn('principle-absent', result.stderr)
         self.assertEqual(self.snapshot(), before)
+        self.write(MODE + '/SKILL.md', LOCAL_MODE)
+        self.write(SUBTREE + '/skills/poteto-mode/SKILL.md',
+                   '# Source\n\n## Non-negotiables\n\n- Read principle-absent.\n\n'
+                   '## Comments\n\nRead principle-absent.\n\n## Playbooks\n')
+        for kind, name, line in (('mode-trigger', 'L5', 5), ('mode-section', 'Comments', 9)):
+            with self.subTest(kind=kind):
+                before = self.snapshot()
+                result = self.run_import(kind, name, code=1)
+                self.assertIn(SUBTREE + '/skills/poteto-mode/SKILL.md:' + str(line) +
+                              ': dangling dependency principle-absent', result.stderr)
+                self.assertEqual(self.snapshot(), before)
 
     def test_a_row_with_a_judgement_change_is_not_overwritten(self):
         self.run_import('principle', 'principle-one')
@@ -200,10 +224,11 @@ class ImportComponent(unittest.TestCase):
     def test_a_skill_becomes_a_skills_txt_line_marked_when_named(self):
         self.write(SUBTREE + '/skills/helper/SKILL.md', '# Helper\n')
         self.write(SUBTREE + '/skills/helper/references/leaf.md', '# Leaf\n')
+        before_files = set(self.snapshot())
         self.run_import('skill', 'helper')
         self.assertEqual((self.root / 'mmw-v2/skills.txt').read_text(),
                          '# Fixture skills\npstack/helper\n')
-        self.assertFalse((self.root / 'mmw-v2/skills/helper').exists())
+        self.assertEqual(set(self.snapshot()), before_files)
         self.assertEqual(self.rows()[0][1:3], [SUBTREE + '/skills/helper/SKILL.md'] * 2)
         self.assertEqual(self.rows()[0][4:6], ['', ''])
         self.write(MODE + '/SKILL.md', LOCAL_MODE + '\nUse the **helper** skill.\n')
@@ -219,6 +244,25 @@ class ImportComponent(unittest.TestCase):
         self.write(SUBTREE + '/skills/poteto-mode/playbooks/new.md', 'Use the **new-helper** skill.\n')
         self.run_import('playbook', 'new')
         self.assertIn('pstack/new-helper +model-invoked\n', (self.root / 'mmw-v2/skills.txt').read_text())
+        (self.root / MODE / 'playbooks/local.md').unlink()
+        source = UPSTREAM_MODE.replace('- Trigger unchanged.', '- Use the **helper** skill.').replace(
+            'Keep comments useful.', 'Use the **helper** skill.')
+        self.write(SUBTREE + '/skills/poteto-mode/SKILL.md', source)
+        self.write(SUBTREE + '/skills/poteto-mode/playbooks/later.md', 'Use the **helper** skill.\n')
+        for kind, name in (('playbook', 'later'), ('mode-trigger', 'L8'), ('mode-section', 'Comments')):
+            with self.subTest(later_import=kind):
+                self.write(MODE + '/SKILL.md', LOCAL_MODE)
+                self.write('mmw-v2/skills.txt', 'pstack/helper\npstack/new-helper +model-invoked\nself/native\n')
+                before = self.snapshot()
+                self.run_import(kind, name, '--dry-run')
+                self.assertEqual(self.snapshot(), before)
+                result = self.run_import(kind, name)
+                self.assertIn('SKILLS\tpstack/helper +model-invoked\n', result.stdout)
+                self.assertEqual((self.root / 'mmw-v2/skills.txt').read_text(),
+                                 'pstack/helper +model-invoked\npstack/new-helper +model-invoked\nself/native\n')
+                self.assertEqual(len([row for row in self.rows() if row[0] == 'skill' and
+                                      row[2].endswith('/helper/SKILL.md')]), 1)
+                (self.root / MODE / 'playbooks/later.md').unlink(missing_ok=True)
 
     def test_a_mode_reference_and_a_mode_script_land_under_pstack(self):
         self.write(SUBTREE + '/skills/poteto-mode/references/notes.md', '# Notes\n\nKeep bytes.\n')
@@ -249,6 +293,11 @@ class ImportComponent(unittest.TestCase):
         self.write(SUBTREE + '/skills/poteto-mode/scripts/js-helper.mjs', 'export const answer = 42;\n')
         self.run_import('mode-script', 'js-task.mjs')
         self.assertEqual((self.root / MODE / 'scripts/pstack/js-helper.mjs').read_bytes(), b'export const answer = 42;\n')
+        self.write(SUBTREE + '/skills/poteto-mode/scripts/broken.py', 'def broken(\n')
+        before = self.snapshot()
+        result = self.run_import('mode-script', 'broken.py', code=2)
+        self.assertIn(SUBTREE + '/skills/poteto-mode/scripts/broken.py:1', result.stderr)
+        self.assertEqual(self.snapshot(), before)
 
     def test_an_agent_lands_as_a_brief_without_host_fields(self):
         source = ('---\nname: helper-agent\ndescription: >-\n  Help carefully.\n  Read the brief.\n'
@@ -323,6 +372,17 @@ class ImportComponent(unittest.TestCase):
         result = self.run_import('--refresh')
         self.assertIn('REFRESH\t2\t0\t0\n', result.stdout)
         self.assertEqual(self.snapshot(), before)
+        rows = self.rows()
+        rows[1][5] = 'manual change'
+        header = 'type\tlocal\tsource\tcommit\tmechanical\tjudgement\tbatch\n'
+        self.write(IMPORTS, header + ''.join('\t'.join(row) + '\n' for row in rows))
+        before = self.snapshot()
+        result = self.run_import('--refresh')
+        self.assertIn('REFRESH\t2\t0\t0\n', result.stdout)
+        self.assertNotIn('REVIEW\t', result.stdout)
+        self.assertEqual(self.snapshot(), before)
+        rows[1][5] = ''
+        self.write(IMPORTS, header + ''.join('\t'.join(row) + '\n' for row in rows))
         self.write(SUBTREE + '/skills/principle-one/SKILL.md', PRINCIPLE + '\nNew source content.\n')
         self.pin(split='b' * 40)
         before = self.snapshot()
@@ -359,6 +419,7 @@ class ImportComponent(unittest.TestCase):
                 self.assertEqual(self.snapshot(), before)
 
     def test_a_missing_subtree_squash_commit_or_component_exits_2(self):
+        self.check_unreadable_registry_or_unknown_type_writes_nothing()
         before = self.snapshot()
         result = self.run_import('principle', 'principle-absent', code=2)
         self.assertIn('principle-absent', result.stderr)
@@ -493,7 +554,7 @@ class ImportComponent(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
 
 
-    def test_an_unreadable_registry_or_unknown_type_writes_nothing(self):
+    def check_unreadable_registry_or_unknown_type_writes_nothing(self):
         header = 'type\tlocal\tsource\tcommit\tmechanical\tjudgement\tbatch\n'
         bad_rows = ('broken\n', header + 'not-a-type\tlocal\tsource\t' + SPLIT + '\t\t\tB1\n',
                     header + 'mode-trigger\t' + MODE + '/SKILL.md#Imported triggers\t' +

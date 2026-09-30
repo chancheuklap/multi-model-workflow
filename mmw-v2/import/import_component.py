@@ -24,12 +24,31 @@ import subprocess
 import sys
 import tempfile
 
-TYPES = ('playbook', 'principle', 'skill', 'mode-trigger', 'mode-section',
-         'mode-reference', 'mode-script', 'agent')
+@dataclass(frozen=True)
+class Layout:
+    source_base: str
+    source_directory: str
+    source_name: str
+    destination_directory: str | None
+    destination_name: str
+    registered_name: str
+    storage: str = 'file'
+
+
+LAYOUTS = {
+    'playbook': Layout('mode', 'playbooks', '{name}.md', 'MODE_PLAYBOOKS_DIRECTORY', '{name}.md', 'stem'),
+    'principle': Layout('subtree', 'skills', '{name}/SKILL.md', 'MODE_PRINCIPLES_DIRECTORY', '{name}.md', 'parent'),
+    'skill': Layout('subtree', 'skills', '{name}/SKILL.md', None, '', 'parent', 'skill'),
+    'mode-trigger': Layout('mode', '', 'SKILL.md', 'MODE_DIRECTORY', 'SKILL.md', 'line', 'fragment'),
+    'mode-section': Layout('mode', '', 'SKILL.md', 'MODE_DIRECTORY', 'SKILL.md', 'anchor', 'fragment'),
+    'mode-reference': Layout('mode', 'references', '{name}', 'PSTACK_REFERENCES_DIRECTORY', '{name}', 'relative'),
+    'mode-script': Layout('mode', 'scripts', '{name}', 'PSTACK_SCRIPTS_DIRECTORY', '{name}', 'relative'),
+    'agent': Layout('subtree', 'agents', '{name}.md', 'PSTACK_AGENTS_DIRECTORY', '{name}.md', 'stem'),
+}
+TYPES = tuple(LAYOUTS)
 IMPORT_HEADER = 'type\tlocal\tsource\tcommit\tmechanical\tjudgement\tbatch'
 REWRITE_HEADER = 'kind\told\tnew\tscope'
-SUBTREE = Path('mmw-v2/upstream-pstack')
-CHECKOUT = Path(__file__).resolve().parents[1]
+CHECKOUT = Path(__file__).resolve().parents[2]
 # Same boundary as skill_text.SENTENCE_END; it does not require loading PyYAML.
 SENTENCE_END = re.compile(r'[.?!。](?=\s*[A-Z`*(\[0-9\u3400-\u9fff])')
 # (R18 section 8.3 first-column literal, keyword, scan pattern).
@@ -113,18 +132,18 @@ def section_span(text, heading, path):
     return start, end
 
 
-class ImportErrorDetail(Exception):
+class ImportRefusal(Exception):
     def __init__(self, code, fact, why, next_step):
-        super().__init__(f'{fact}; {why}. {next_step}')
+        super().__init__(fact, why, next_step)
         self.code = code
 
 
 def unavailable(fact, why, next_step):
-    raise ImportErrorDetail(2, fact, why, next_step)
+    raise ImportRefusal(2, fact, why, next_step)
 
 
 def refused(fact, why, next_step):
-    raise ImportErrorDetail(1, fact, why, next_step)
+    raise ImportRefusal(1, fact, why, next_step)
 
 
 def write_files(root, writes, permissions, dry_run=False):
@@ -191,34 +210,38 @@ def write_files(root, writes, permissions, dry_run=False):
                 directory.rmdir()
 
 
-def load_locations():
-    candidates = (('skills', 'mmw', 'scripts', 'locations.py'),
-                  ('skills', 'dispatch', 'scripts', 'locations.py'))
-    path = next((CHECKOUT.joinpath(*parts) for parts in candidates
-                 if CHECKOUT.joinpath(*parts).is_file()), None)
-    if path is None:
-        unavailable('locations.py is absent from both candidates',
-                    'the importer cannot locate its destinations', 'Restore the checkout registry and rerun.')
-    spec = importlib.util.spec_from_file_location('import_locations', path)
+def load_module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def source_commit(root):
+def load_locations():
+    candidates = (('skills', 'mmw', 'scripts', 'locations.py'),
+                  ('skills', 'dispatch', 'scripts', 'locations.py'))
+    path = next((CHECKOUT.joinpath('mmw-v2', *parts) for parts in candidates
+                 if CHECKOUT.joinpath('mmw-v2', *parts).is_file()), None)
+    if path is None:
+        raise FileNotFoundError('locations.py is absent from both checkout candidates')
+    return load_module('import_locations', path)
+
+
+def source_commit(root, subtree):
+    trailer = 'git-subtree-dir: ' + subtree.as_posix()
     run = subprocess.run(['git', '-C', str(root), 'log', '--format=%B%x00',
-                          '--grep=^git-subtree-dir: mmw-v2/upstream-pstack$'],
+                          '--grep=^' + trailer + '$'],
                          capture_output=True, text=True)
     if run.returncode:
         unavailable(f'{root}: git log failed ({run.stderr.strip()})',
                     'source provenance cannot be checked', 'Restore the git repository and rerun.')
     for message in run.stdout.split('\0'):
-        if re.search(r'^git-subtree-dir: mmw-v2/upstream-pstack\s*$', message, re.M):
+        if re.search('^' + re.escape(trailer) + r'\s*$', message, re.M):
             match = re.search(r'^git-subtree-split: ([0-9a-fA-F]{40})\s*$', message, re.M)
             if match:
                 return match[1]
             break
-    unavailable(f'{root}: no squash commit with a git-subtree-split hash for {SUBTREE}',
+    unavailable(f'{root}: no squash commit with a git-subtree-split hash for {subtree}',
                 'source provenance cannot be checked', 'Add the pstack squash subtree before importing.')
 
 
@@ -268,6 +291,10 @@ class Component:
     kind: str
     name: str
 
+    @property
+    def layout(self):
+        return LAYOUTS[self.kind]
+
 
 @dataclass
 class Entry:
@@ -277,19 +304,21 @@ class Entry:
     data: bytes
     mechanical: str = ''
     rewrites: tuple = ()
+    source_lines: tuple = ()
 
 
 class Importer:
     def __init__(self, root, locations, batch):
         self.root = root
         self.locations = locations
-        skills = root / 'mmw-v2' / 'skills'
+        skills = self.skills_root = root / 'mmw-v2' / 'skills'
         self.mode = skills / locations.MODE_DIRECTORY
+        self.subtree = (skills / locations.PSTACK_DIRECTORY).resolve()
         self.upstream_mode = (skills / locations.PSTACK_MODE_DIRECTORY).resolve()
         self.imports = Table(skills / locations.IMPORTS_TSV, IMPORT_HEADER)
         self.rewrites = Table(skills / locations.PSTACK_REWRITES_TSV, REWRITE_HEADER)
         self.names_path = skills / locations.PSTACK_NAMES_MD
-        self.commit = source_commit(root)
+        self.commit = source_commit(root, self.subtree.relative_to(root))
         self.batch = batch
         self.entries = []
         self.visited = set()
@@ -322,48 +351,25 @@ class Importer:
 
     def source_path(self, component):
         kind, name = component.kind, component.name
+        layout = component.layout
         if not name or any(char in name for char in ('\t', '\n', '\r')) or (
-                kind not in ('mode-section', 'mode-trigger') and
+                layout.storage != 'fragment' and
                 (Path(name).is_absolute() or '..' in Path(name).parts or name in ('.', '/'))):
             unavailable(f'{kind} {name!r}: invalid component name',
                         'component paths must stay inside their source directory', 'Choose a relative component name and rerun.')
-        source = self.root / SUBTREE
-        if kind in ('principle', 'skill'):
-            return source / 'skills' / name / 'SKILL.md'
-        if kind == 'agent':
-            return source / 'agents' / (name + '.md')
-        mode = self.upstream_mode
-        if kind == 'playbook':
-            return mode / 'playbooks' / (name + '.md')
-        if kind == 'mode-reference':
-            return mode / 'references' / name
-        if kind == 'mode-script':
-            return mode / 'scripts' / name
-        if kind in ('mode-trigger', 'mode-section'):
-            return mode / 'SKILL.md'
-        unavailable(f'{kind} {name}: unsupported import planner',
-                    'this type has no planner', 'Implement the component planner and rerun.')
+        base = self.upstream_mode if layout.source_base == 'mode' else self.subtree
+        return base / layout.source_directory / layout.source_name.format(name=name)
 
     def destination(self, component):
-        kind, name = component.kind, component.name
-        if kind == 'skill':
+        layout = component.layout
+        if layout.destination_directory is None:
             return self.source_path(component)
-        if kind == 'principle':
-            return self.mode / 'principles' / (name + '.md')
-        if kind == 'playbook':
-            return self.mode / 'playbooks' / (name + '.md')
-        if kind == 'mode-reference':
-            return self.mode / 'references' / 'pstack' / name
-        if kind == 'mode-script':
-            return self.mode / 'scripts' / 'pstack' / name
-        if kind == 'agent':
-            return self.mode / 'references' / 'pstack' / 'agents' / (name + '.md')
-        if kind in ('mode-trigger', 'mode-section'):
-            return self.mode / 'SKILL.md'
+        return (self.skills_root / getattr(self.locations, layout.destination_directory) /
+                layout.destination_name.format(name=component.name))
 
     def transformed(self, component, require_mode=True):
         source = self.source_path(component)
-        if not source.resolve().is_relative_to(self.root / SUBTREE):
+        if not source.resolve().is_relative_to(self.subtree):
             unavailable(f'{source}: source is outside the pstack subtree',
                         'only subtree components can be imported', 'Restore the named subtree file and rerun.')
         if not source.is_file():
@@ -371,10 +377,10 @@ class Importer:
                         'there is no source component to import', 'Choose an existing subtree component and rerun.')
         data = source.read_bytes()
         local = self.destination(component)
-        if component.kind != 'skill' and not local.resolve().is_relative_to(self.mode):
+        if component.layout.storage != 'skill' and not local.resolve().is_relative_to(self.mode):
             refused(f'{local}: destination is outside the mode directory',
                     'an import must not overwrite another component', 'Resolve the named destination before rerunning.')
-        if component.kind in ('mode-trigger', 'mode-section'):
+        if component.layout.storage == 'fragment':
             if require_mode and not local.is_file():
                 unavailable(f'{component.kind} {component.name}: {local} does not exist',
                             'mode fragments require an existing mode', 'Create the mode file before importing this fragment.')
@@ -391,25 +397,36 @@ class Importer:
                 data = lines[number - 1].encode('utf-8')
                 source_label = self.relative(source) + ':' + component.name
                 heading = self.locations.MODE_IMPORTED_TRIGGERS.removeprefix('### ')
+                source_lines = (number,)
             else:
                 start, end = section_span(text, '## ' + component.name, source)
                 data = text[start:end].encode('utf-8')
                 source_label = self.relative(source)
                 heading = component.name
-            return Entry(component, source_label, self.relative(local) + '#' + heading, data)
+                first = text.count('\n', 0, start) + 1
+                source_lines = tuple(range(first, first + len(data.splitlines())))
+            return Entry(component, source_label, self.relative(local) + '#' + heading, data,
+                         source_lines=source_lines)
         if component.kind in ('skill', 'mode-reference', 'mode-script'):
             return Entry(component, self.relative(source), self.relative(local), data)
         text = data.decode('utf-8')
         changes = []
         rewrites = []
+        removed_lines = set()
         front = frontmatter(text)
         if component.kind == 'agent' and front:
             fields = front_fields(text)
             kept = ''.join(raw for name, raw in fields.items() if name in ('name', 'description'))
+            for name, raw in fields.items():
+                if name not in ('name', 'description'):
+                    first = text.count('\n', 0, front.start(1) + front[1].index(raw)) + 1
+                    removed_lines.update(range(first, first + len(raw.splitlines())))
             if kept != front[1]:
                 text = text[:front.start(1)] + kept + text[front.end(1):]
                 changes.append('remove host frontmatter fields')
         if front and component.kind == 'principle':
+            for match in re.finditer(r'^disable-model-invocation:[^\n]*(?:\n|$)', front[1], re.M):
+                removed_lines.add(text.count('\n', 0, front.start(1) + match.start()) + 1)
             cleaned = re.sub(r'^disable-model-invocation:[^\n]*(?:\n|$)', '', front[1], flags=re.M)
             if cleaned != front[1]:
                 text = text[:front.start(1)] + cleaned + text[front.end(1):]
@@ -419,15 +436,15 @@ class Importer:
             old = match[0]
             if component.kind == 'principle':
                 new = match[1] + '.md'
-                target = self.mode / 'principles' / new
+                target = self.destination(Component('principle', match[1]))
                 resolved = (source.parent / old).resolve()
             elif old.startswith('../references/'):
                 new = '../references/pstack/' + match[1]
-                target = self.mode / 'references' / 'pstack' / match[1]
+                target = self.destination(Component('mode-reference', match[1]))
                 resolved = (source.parent / old).resolve()
             else:
                 new = 'scripts/pstack/' + match[1]
-                target = self.mode / 'scripts' / 'pstack' / match[1]
+                target = self.destination(Component('mode-script', match[1]))
                 resolved = self.upstream_mode / old
             in_reference = any(ref.start() <= match.start() and match.end() <= ref.end()
                                for ref in re.finditer(r'`+[^`]*`+|\[[^\]]*\]\([^\s)]+\)', text))
@@ -445,7 +462,8 @@ class Importer:
             text = re.sub(r'\.\./references/([\w./-]*[\w/-])', link, text)
             text = re.sub(r'(?<![\w/])scripts/([\w./-]*[\w/-])', link, text)
         return Entry(component, self.relative(source), self.relative(local), text.encode('utf-8'),
-                     '; '.join(dict.fromkeys(changes)), tuple(dict.fromkeys(rewrites)))
+                     '; '.join(dict.fromkeys(changes)), tuple(dict.fromkeys(rewrites)),
+                     tuple(n for n in range(1, len(data.splitlines()) + 1) if n not in removed_lines))
 
     def add(self, component):
         if component in self.visited:
@@ -453,7 +471,7 @@ class Importer:
         self.visited.add(component)
         if component.kind == 'mode-script':
             script_root = self.upstream_mode / 'scripts'
-            entries = [self.transformed(Component('mode-script', self.relative(source)[len(self.relative(script_root)) + 1:]))
+            entries = [self.transformed(Component('mode-script', source.relative_to(script_root).as_posix()))
                        for source in self.script_files(self.source_path(component))]
         else:
             entries = [self.transformed(component)]
@@ -464,7 +482,7 @@ class Importer:
             self.add_dependencies(entry)
 
     def add_dependencies(self, entry):
-        source_text = (entry.data.decode('utf-8') if entry.component.kind in ('mode-trigger', 'mode-section') else
+        source_text = (entry.data.decode('utf-8') if entry.component.layout.storage == 'fragment' else
                        (self.root / entry.source).read_bytes().decode('utf-8', errors='replace'))
         for dependency, offset in self.dependencies(source_text):
             if dependency == entry.component or dependency in self.visited:
@@ -475,8 +493,10 @@ class Importer:
                     any(dependency.name in cell for cell in self.mapped)):
                 continue
             if not self.source_path(dependency).exists():
-                line = source_text.count('\n', 0, offset) + 1
-                refused(f'{entry.source}:{line}: dangling dependency {dependency.name}',
+                index = source_text.count('\n', 0, offset)
+                line = entry.source_lines[index] if entry.component.layout.storage == 'fragment' else index + 1
+                source = entry.source.split(':L', 1)[0]
+                refused(f'{source}:{line}: dangling dependency {dependency.name}',
                         'neither MMW, pstack-names.md nor the subtree supplies it',
                         'Resolve the named dependency before rerunning.')
             self.add(dependency)
@@ -495,7 +515,13 @@ class Importer:
             text = file.read_bytes().decode('utf-8', errors='replace')
             siblings = []
             if file.suffix == '.py':
-                for node in ast.walk(ast.parse(text, filename=str(file))):
+                try:
+                    tree = ast.parse(text, filename=str(file))
+                except SyntaxError as exc:
+                    unavailable(f'{self.relative(file)}:{exc.lineno}: {exc.msg}',
+                                'same-directory script imports cannot be read',
+                                'Correct the source script syntax and rerun.')
+                for node in ast.walk(tree):
                     if isinstance(node, ast.Import):
                         siblings += [file.parent / (alias.name.split('.')[0] + '.py') for alias in node.names]
                     elif isinstance(node, ast.ImportFrom):
@@ -557,16 +583,21 @@ class Importer:
         unavailable(f'{source_mode}: {entry.component.name} has no principle group',
                     'the index needs its source group', 'Restore the source principle index and rerun.')
 
-    def skill_lines(self):
+    def skill_lines(self, writes=None):
+        writes = writes or {}
         named = set()
-        files = [self.mode / 'SKILL.md', *(self.mode / 'playbooks').rglob('*')]
-        texts = [p.read_bytes().decode('utf-8') for p in files if p.is_file()]
-        texts += [e.data.decode('utf-8') for e in self.entries if e.component.kind == 'playbook']
+        files = [self.mode / 'SKILL.md', *(self.skills_root / self.locations.MODE_PLAYBOOKS_DIRECTORY).rglob('*')]
+        files += [self.root / e.local for e in self.entries if e.component.kind == 'playbook']
+        texts = [writes[p].decode('utf-8') if p in writes else p.read_bytes().decode('utf-8')
+                 for p in dict.fromkeys(files) if p in writes or p.is_file()]
         for text in texts:
             named.update(c.name for c, _ in self.dependencies(text) if c.kind == 'skill')
-        return {e.component.name: 'pstack/' + e.component.name +
-                (' +model-invoked' if e.component.name in named else '')
-                for e in self.entries if e.component.kind == 'skill'}
+        candidates = {e.component.name for e in self.entries if e.component.kind == 'skill'}
+        candidates.update(line.split()[0].removeprefix('pstack/') for line in self.skills_text.splitlines()
+                          if line.split() and line.split()[0].startswith('pstack/') and
+                          line.split()[0].removeprefix('pstack/') in named)
+        return {name: 'pstack/' + name + (' +model-invoked' if name in named else '')
+                for name in sorted(candidates)}
 
     def same_rows(self, entry):
         return [(i, row) for i, row in enumerate(self.imports.rows)
@@ -579,16 +610,20 @@ class Importer:
         start, end = section_span(text, heading, self.mode / 'SKILL.md')
         if entry.component.kind == 'mode-section':
             return text[start:end].encode('utf-8')
-        records = [row for row in self.imports.rows if row[0] == 'mode-trigger' and row[1] == entry.local]
-        same = next((i for i, row in enumerate(records) if row[2] == entry.source), None)
-        if same is None:
-            return None
         lines = text[start:end].splitlines(keepends=True)
-        index = len(lines) - len(records) - 1 + same
-        if index < 2 or not lines[-1].isspace():
+        index = self.trigger_index(entry, lines)
+        return lines[index].encode('utf-8') if index is not None else None
+
+    def trigger_index(self, entry, lines):
+        records = [row for row in self.imports.rows if row[0] == 'mode-trigger' and row[1] == entry.local]
+        rank = next((i for i, row in enumerate(records) if row[2] == entry.source), None)
+        if rank is None:
+            return None
+        index = len(lines) - len(records) - 1 + rank
+        if index < 2 or not lines or not lines[-1].isspace():
             refused(f'{entry.local}: imported trigger positions cannot be read',
                     'the mode region was changed manually', 'Merge the imported triggers manually and record the judgement change.')
-        return lines[index].encode('utf-8')
+        return index
 
     def merge_mode(self, entry, text):
         data = entry.data.decode('utf-8')
@@ -609,10 +644,8 @@ class Importer:
         if old is not None:
             if old == entry.data:
                 return text
-            records = [row for row in self.imports.rows if row[0] == 'mode-trigger' and row[1] == entry.local]
-            rank = next(i for i, row in enumerate(records) if row[2] == entry.source)
             lines = block.splitlines(keepends=True)
-            lines[len(lines) - len(records) - 1 + rank] = data
+            lines[self.trigger_index(entry, lines)] = data
             block = ''.join(lines)
         else:
             if len(block.splitlines()) < 3:
@@ -627,35 +660,22 @@ class Importer:
     def registered_component(self, row):
         kind, local, source = row[:3]
         path = Path(source.split(':L', 1)[0])
-        if kind in ('principle', 'skill'):
-            name = path.parent.name
-        elif kind in ('playbook', 'agent'):
-            name = path.stem
-        elif kind == 'mode-trigger':
-            name = 'L' + source.rsplit(':L', 1)[1]
-        elif kind == 'mode-section':
-            name = local.split('#', 1)[1]
-        elif kind in ('mode-reference', 'mode-script'):
-            directory = 'references' if kind == 'mode-reference' else 'scripts'
-            base = Path(self.relative(self.upstream_mode)) / directory
-            name = path.relative_to(base).as_posix()
-        else:
-            unavailable(f'{self.imports.path}: unknown registered type {kind}',
-                        'the registry row cannot be refreshed', 'Correct the registered type and rerun.')
-        return Component(kind, name)
+        layout = LAYOUTS[kind]
+        names = {
+            'parent': lambda: path.parent.name,
+            'stem': lambda: path.stem,
+            'line': lambda: 'L' + source.rsplit(':L', 1)[1],
+            'anchor': lambda: local.split('#', 1)[1],
+            'relative': lambda: path.relative_to(Path(self.relative(self.upstream_mode)) /
+                                               layout.source_directory).as_posix(),
+        }
+        return Component(kind, names[layout.registered_name]())
 
     def check_keywords(self):
         missing = []
         for entry in self.entries:
             source = entry.source.split(':L', 1)[0]
             text = entry.data.decode('utf-8', errors='replace')
-            offset = 0
-            if entry.component.kind == 'mode-trigger':
-                offset = int(entry.component.name[1:]) - 1
-            elif entry.component.kind == 'mode-section':
-                full = (self.root / source).read_bytes().decode('utf-8')
-                start, _ = section_span(full, '## ' + entry.component.name, source)
-                offset = full.count('\n', 0, start)
             for _, keyword, pattern in SLOT_KEYWORDS:
                 for match in re.finditer(pattern, text):
                     literal = match[0] if keyword == 'Spawn <Agent>' else keyword
@@ -663,7 +683,8 @@ class Importer:
                               if keyword == 'configured … model' else
                               any(literal in cell for cell in self.mapped))
                     if not mapped:
-                        line = offset + text.count('\n', 0, match.start()) + 1
+                        index = text.count('\n', 0, match.start())
+                        line = entry.source_lines[index] if entry.source_lines else index + 1
                         missing.append(f'{source}:{line}: {literal}')
         if missing:
             refused('\n'.join(missing), 'slot keywords have no pstack-names.md mapping',
@@ -679,13 +700,13 @@ class Importer:
                 continue
             component = self.registered_component(row)
             entry = self.transformed(component, require_mode=False)
-            if component.kind == 'skill':
+            if component.layout.storage == 'skill':
                 self.entries = [entry]
                 expected = self.skill_lines()[component.name]
                 actual = next((line.rstrip('\r\n') for line in self.skills_text.splitlines()
                                if line.split() and line.split()[0] == 'pstack/' + component.name), None)
                 different = actual != expected
-            elif component.kind in ('mode-trigger', 'mode-section'):
+            elif component.layout.storage == 'fragment':
                 mode_file = self.mode / 'SKILL.md'
                 different = not mode_file.is_file() or self.mode_fragment(
                     entry, mode_file.read_bytes().decode('utf-8')) != entry.data
@@ -702,8 +723,13 @@ class Importer:
         self.add(component)
         self.check_keywords()
         writes = {self.root / e.local: e.data for e in self.entries
-                  if e.component.kind not in ('skill', 'mode-trigger', 'mode-section')}
-        skill_lines = self.skill_lines()
+                  if e.component.layout.storage == 'file'}
+        for entry in self.entries:
+            if entry.component.layout.storage == 'fragment':
+                path = self.mode / 'SKILL.md'
+                text = writes.get(path, path.read_bytes()).decode('utf-8')
+                writes[path] = self.merge_mode(entry, text).encode('utf-8')
+        skill_lines = self.skill_lines(writes)
         if skill_lines:
             remaining = dict(skill_lines)
             lines = self.skills_text.splitlines(keepends=True)
@@ -744,11 +770,6 @@ class Importer:
                         'it is not registered from this source', 'Resolve the same-name component manually before rerunning.')
             else:
                 additions.append(row)
-        for entry in self.entries:
-            if entry.component.kind in ('mode-trigger', 'mode-section'):
-                path = self.mode / 'SKILL.md'
-                text = writes.get(path, path.read_bytes()).decode('utf-8')
-                writes[path] = self.merge_mode(entry, text).encode('utf-8')
         rewrite_rows = []
         for entry in self.entries:
             for rewrite in entry.rewrites:
@@ -762,17 +783,20 @@ class Importer:
                        for e in self.entries if e.component.kind == 'mode-script'}
         write_files(self.root, writes, permissions, dry_run=dry_run)
         for entry, row in zip(self.entries, rows):
-            if entry.component.kind == 'skill':
+            if entry.component.layout.storage == 'skill':
                 print('SKILLS\t' + skill_lines[entry.component.name])
-            elif entry.component.kind in ('mode-trigger', 'mode-section'):
+            elif entry.component.layout.storage == 'fragment':
                 print('MODE\t' + entry.local)
             else:
                 print('COPY\t' + entry.source + '\t' + entry.local)
-            for rewrite in entry.rewrites:
-                print('REWRITE\t' + '\t'.join(rewrite))
             print('REGISTER\t' + '\t'.join(row))
             if entry.source in indexes:
                 print('INDEX\t' + '\t'.join(indexes[entry.source]))
+        for rewrite in rewrite_rows:
+            print('REWRITE\t' + '\t'.join(rewrite))
+        for name, line in skill_lines.items():
+            if not any(e.component.kind == 'skill' and e.component.name == name for e in self.entries):
+                print('SKILLS\t' + line)
         print(('DRY-RUN' if dry_run else 'IMPORTED') + '\t' + str(len(self.visited)))
 
 
@@ -785,8 +809,19 @@ def main():
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--refresh', action='store_true')
     args = parser.parse_args()
+    refusal_message = None
     try:
-        root = Path(args.root).resolve() if args.root else CHECKOUT.parent
+        locations = load_locations()
+        required = {'MODE_DIRECTORY', 'IMPORTS_TSV', 'PSTACK_REWRITES_TSV', 'PSTACK_NAMES_MD',
+                    'PSTACK_DIRECTORY', 'PSTACK_MODE_DIRECTORY', 'UI_ACCEPTANCE_REFUSAL_PY',
+                    'MODE_NON_NEGOTIABLES', 'MODE_IMPORTED_TRIGGERS', 'MODE_PLAYBOOKS', 'MODE_PRINCIPLES'}
+        required.update(layout.destination_directory for layout in LAYOUTS.values() if layout.destination_directory)
+        missing = sorted(name for name in required if not isinstance(getattr(locations, name, None), str))
+        if missing:
+            raise ValueError('locations.py has no string value for ' + ', '.join(missing))
+        helper = CHECKOUT / 'mmw-v2' / 'skills' / locations.UI_ACCEPTANCE_REFUSAL_PY
+        refusal_message = load_module('import_refusal', helper).refusal
+        root = Path(args.root).resolve() if args.root else CHECKOUT
         if any(char in args.batch for char in ('\t', '\n', '\r')):
             parser.error('--batch must be one TSV cell')
         if args.refresh and (args.type or args.name or args.dry_run or args.batch != 'on-demand'):
@@ -796,19 +831,26 @@ def main():
                         'Choose a type from ' + ', '.join(TYPES) + ' and rerun.')
         if not args.refresh and not args.name:
             parser.error('type and name are required')
-        if not (root / SUBTREE).is_dir():
-            unavailable(f'{root / SUBTREE}: subtree does not exist', 'there are no source components',
+        subtree = (root / 'mmw-v2' / 'skills' / locations.PSTACK_DIRECTORY).resolve()
+        if not subtree.is_dir():
+            unavailable(f'{subtree}: subtree does not exist', 'there are no source components',
                         'Add the pstack squash subtree before importing.')
-        importer = Importer(root, load_locations(), args.batch)
+        importer = Importer(root, locations, args.batch)
         if args.refresh:
             return importer.refresh()
         importer.run(Component(args.type, args.name), args.dry_run)
         return 0
-    except ImportErrorDetail as exc:
-        print(str(exc), file=sys.stderr)
+    except ImportRefusal as exc:
+        print(refusal_message(*exc.args, limit=sys.maxsize), file=sys.stderr)
         return exc.code
-    except (OSError, UnicodeError, ValueError, AttributeError, SyntaxError) as exc:
-        print(f'Import could not run: {exc}; a required file or registry is unreadable. Restore the named file and rerun.', file=sys.stderr)
+    except (OSError, UnicodeError, ValueError) as exc:
+        if refusal_message is None:
+            print(f'Importer support could not load: {exc}; its registry or refusal helper is unreadable. '
+                  'Restore the checkout support files and rerun.', file=sys.stderr)
+        else:
+            print(refusal_message(f'Import could not run: {exc}',
+                                  'a required file or registry is unreadable.',
+                                  'Restore the named file and rerun.', limit=sys.maxsize), file=sys.stderr)
         return 2
 
 
