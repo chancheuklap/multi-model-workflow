@@ -33,6 +33,7 @@
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
 #                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
 #                         watch，以及锁文件记录的进程仍在运行的 relay.lock、watchdog.lock。
+#                         watches.json 在但读不成时点名该文件，不当成没有夜。
 #                         末行是 SAFE-TO-MOVE-INSTALLED，或 NOT-SAFE-TO-MOVE-INSTALLED。
 #                         这份列表不改退出码。
 #
@@ -1860,39 +1861,33 @@ else
 fi
 
 # 开着的 watch 与仍在跑的 relay、watchdog。列表是状况，不是缺项：写在 stdout，跟
-# HOOKS-INSTALLED 一侧，退出码仍只表示安装齐不齐。锁算不算活着，与 relay、watchdog
-# 自己问 statedir.holder 的办法相同：记录的 pid 现在在跑，且进程身份对得上。
+# HOOKS-INSTALLED 一侧，退出码仍只表示安装齐不齐。开着的 watch 与 relay.read_watches
+# 相同：没有 orchestrator 的项不是 watch。watches.json 在但读不成，与
+# watchdog.night_open 相同，不是没有夜。锁算不算活着，问 statedir.holder。
 report_move_safety() {
-  MMW_STATE_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
-  MMW_STATEDIR="$SELF_SRC/dispatch/scripts" \
+  PYTHONPATH="$SELF_SRC/dispatch/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+  MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
   python3 - <<'PY'
-import json
-import os
-import sys
-from pathlib import Path
-
-sys.path.insert(0, os.environ["MMW_STATEDIR"])
+import relay
 import statedir
 
-root = Path(os.environ["MMW_STATE_HOME"]) / "state"
+root = statedir.home() / "state"
 opens = []
 locks = []
+unreadable = []
 if root.is_dir():
     for repo_dir in sorted(p for p in root.iterdir() if p.is_dir() and "__" in p.name):
         owner, name = repo_dir.name.split("__", 1)
         repo = f"{owner}/{name}"
         try:
-            data = json.loads((repo_dir / "watches.json").read_text(encoding="utf-8") or "null")
-        except (OSError, json.JSONDecodeError):
-            data = None
-        if isinstance(data, dict):
-            for key in sorted(data):
-                opens.append(f"OPEN-WATCH {repo} {key}")
+            watches = relay.read_watches(repo_dir)
+        except (OSError, ValueError):
+            unreadable.append(f"UNREADABLE {repo} watches.json")
+            continue
+        for key in sorted(watches):
+            opens.append(f"OPEN-WATCH {repo} {key}")
         for kind in ("relay", "watchdog"):
-            lock = repo_dir / f"{kind}.lock"
-            if not lock.is_file():
-                continue
-            holder = statedir.holder(lock)
+            holder = statedir.holder(repo_dir / f"{kind}.lock")
             if holder is None:
                 continue
             locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
@@ -1900,8 +1895,13 @@ for line in opens:
     print(line)
 for line in locks:
     print(line)
-watched, held = len(opens), len(locks)
-if watched == 0 and held == 0:
+for line in unreadable:
+    print(line)
+watched, held, bad = len(opens), len(locks), len(unreadable)
+if bad:
+    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks, "
+          f"{bad} unreadable watches.json")
+elif watched == 0 and held == 0:
     print("SAFE-TO-MOVE-INSTALLED")
 else:
     print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks")
