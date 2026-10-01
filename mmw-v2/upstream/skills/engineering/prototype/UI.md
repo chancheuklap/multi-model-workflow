@@ -105,7 +105,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer
 
-Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region (the region name is the later `Component · <region>` page), and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them. A UI has one state list. On a wayfinder map it is written in the design ticket's leaf `README.md`, gathering the winner of every UI prototype ticket on the map, one heading per region; each prototype ticket's own leaf `README.md` keeps its verdict and names the regions it settled.
+Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes.
 
 The winner goes into Claude Design, so leave the scaffolding up until the first pull: the winner running behind it is the reference the pages are drawn against, and a design system built from it reads its styles and components.
 

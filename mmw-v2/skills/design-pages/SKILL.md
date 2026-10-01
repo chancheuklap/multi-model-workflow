@@ -13,7 +13,7 @@ What this skill pulls is copied exactly by implementation and compared element b
 
 | You are | Read |
 | --- | --- |
-| Creating a Claude Design project or taking the user's sign-off | [references/edit-pages.md](references/edit-pages.md) |
+| Creating a Claude Design project or taking the user's sign-off | [references/set-up-and-sign-off.md](references/set-up-and-sign-off.md) |
 | Acting on comments sent to Claude, or drawing pages because the user asked | [references/draw.md](references/draw.md) |
 | The user has signed the design off, or this session is handling a `contract` child whose body names the `design-pages` skill's `references/pull.md` | [references/pull.md](references/pull.md): brings the project into the repository as the design package |
 | Asked to build a design system, deciding whether one is worth building, or bringing an existing product's screens into Claude Design | [references/design-system.md](references/design-system.md): what it holds, when and from what, and how the agent inside Claude Design builds it |
@@ -22,5 +22,5 @@ Only a session whose host has the Claude Design MCP tools can do this skill's wo
 
 ## The state list
 
-The state list names the regions and states to draw: the `## State list` of the leaf `README.md` the `prototype` skill's `UI.md` step 6 names, or of `prototypes/<effort>/README.md`, written for an existing product as [references/design-system.md](references/design-system.md) **An existing product** says.
+The state list names the regions and states to draw: the `## State list`, written as [references/state-list-format.md](references/state-list-format.md) says, of the leaf `README.md` of the `prototype` skill's winning UI variant, or of `prototypes/<effort>/README.md`, written for an existing product as [references/design-system.md](references/design-system.md) **An existing product** says.
 

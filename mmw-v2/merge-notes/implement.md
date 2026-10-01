@@ -230,7 +230,7 @@ The read-yourself-in step listed `a handoff package downloaded from Claude Desig
 among the baselines to read to their conclusion. ADR 0029 makes **pull** the only
 writer of that package. `downloaded from Claude Design` points the worker
 at the MCP tools, or at the "Handoff to Claude Code" export that
-`design-pages/references/edit-pages.md` forbids, instead of at the committed
+`design-pages/references/set-up-and-sign-off.md` forbids, instead of at the committed
 directory its own `## Read first` already names. It now reads `a design package
 pulled into the repository`.
 
