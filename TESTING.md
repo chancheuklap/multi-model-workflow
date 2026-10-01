@@ -9,7 +9,7 @@ A test proves what a script does, never what a piece of text says. Pinning the w
 ## Layout
 
 - A skill's tests live in `mmw-v2/tests/<name>/`, which exists only in a checkout and climbs two levels to `mmw-v2/` and down into `skills/<name>/scripts/` to reach the script under test. The one exception is `mmw-v2/skills/verify-ticket/scripts/gate-check/`: it holds only relative symlinks to `gate-check.mjs`, `gate-lint.mjs` and `lib` in `mmw-v2/upstream-unlazy/scripts/`, and gate-check's tests are unlazy's own, in that subtree.
-- `MMW_V2_HOME` is a test seam for `install.sh` only: it moves the whole install target to a throwaway directory and skips `launchctl` and `paseo reload`. Runtime configuration goes through `MMW_HOME`.
+- `MMW_V2_HOME` is a test seam for `install.sh` only: it moves the whole install target to a throwaway directory and, whenever set, skips `launchctl` and `paseo reload` regardless of `HOME`. Board reloads under `MMW_V2_HOME` only announce and record the commit; tests can set `MMW_V2_LAUNCHCTL` to a substitute program's path to receive the `launchctl` calls, with the commit recorded only after successful bootstrap. Runtime configuration goes through `MMW_HOME`.
 - Every suite's `run.sh` calls `mmw-v2/tests/lib/run_shared_lints.sh` before its own tests. That entry runs the three shared lints, the structure lint and the wiring check, and it is the one place that lists them.
 
 ## Which suites a change needs

@@ -39,7 +39,7 @@
 #
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
-#                         另读 skills/mmw/scripts/runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
+#                         另读 locations.py 的 MODE_SCRIPTS 下 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
 #                         核对复制的 .mmw/bin/hook-launcher 与 mmw-v2/hook-launcher.py 逐字节相同
 #                         且不是软链，并核对各 host 的 hook 都经 hook-launcher；不同报「不一致」，
@@ -125,6 +125,11 @@ stale_links() {
 # MMW_V2_HOME 只给测试用：把安装位置整体搬到一个一次性目录下，不碰真的家目录。
 HOME_DIR="${MMW_V2_HOME:-$HOME}"
 SKILL_COPIES="$HOME_DIR/.mmw/skill-copies"
+# 隔离安装只可调用显式给出的 launchctl 替身；真安装不读这个测试入口。
+LAUNCHCTL=launchctl
+if [ -n "${MMW_V2_HOME+x}" ]; then
+  LAUNCHCTL="${MMW_V2_LAUNCHCTL:-}"
+fi
 
 # 不属于任何一个 host，所以无条件建。
 NEUTRAL_DIR="$HOME_DIR/.agents/skills"
@@ -161,6 +166,95 @@ if [ "$mode" = check ] && [ -f "$INSTALLED_ROOT_FILE" ]; then
     [ -f "$installed_root/install.sh" ] || die "装着的 checkout 里没有 install.sh：$installed_root"
     exec bash "$installed_root/install.sh" --check
   fi
+fi
+
+# 完整安装遇到开放 watch、活锁或读不成的状态就拒绝；--check 列出同一份状况，
+# 不改变安装核对的退出码。watch 问 relay.read_watches，活锁问 statedir.holder。
+report_move_safety() {
+  local safety_home="${MMW_HOME:-$HOME_DIR/.mmw}"
+  if [ "$mode" != check ] && [ -n "${MMW_V2_HOME+x}" ]; then
+    safety_home="$HOME_DIR/.mmw"
+  fi
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SELF_SRC/mmw/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+  MMW_HOME="$safety_home" \
+  python3 - "$mode" <<'PY'
+import sys
+
+import relay
+import statedir
+
+mode = sys.argv[1]
+
+
+def refuse(fact, next_step):
+    print(f'拒绝安装  {fact}：运行中的 MMW 必须保持已安装版本不变；{next_step}',
+          file=sys.stderr)
+    raise SystemExit(2)
+
+
+def close_command(watch):
+    if watch.get('tickets'):
+        return f"dispatch.sh land {watch['tickets'][0]}"
+    return f"dispatch.sh suspend {watch['spec']}"
+
+
+opens = []
+locks = []
+unreadable = []
+try:
+    repo_dirs = statedir.repo_state_dirs()
+except OSError as exc:
+    if mode != 'check':
+        refuse(f'UNREADABLE {statedir.home() / "state"}（{exc}）',
+               '修正该状态目录的类型与读取权限后再跑 install.sh')
+    if not isinstance(exc, NotADirectoryError):
+        raise
+    repo_dirs = []
+for repo_dir in repo_dirs:
+    owner, name = repo_dir.name.split("__", 1)
+    repo = f"{owner}/{name}"
+    try:
+        watches = relay.read_watches(repo_dir)
+    except (OSError, ValueError):
+        if mode != 'check':
+            refuse(f'UNREADABLE {repo} {repo_dir / "watches.json"}',
+                   '修正该 watches.json 的格式与读取权限后再跑 install.sh')
+        unreadable.append(f"UNREADABLE {repo} watches.json")
+        continue
+    for key in sorted(watches):
+        if mode != 'check':
+            refuse(f'OPEN-WATCH {repo} {key}', f'在 {repo} 运行 {close_command(watches[key])}')
+        opens.append(f"OPEN-WATCH {repo} {key}")
+    for kind in ("relay", "watchdog"):
+        holder = statedir.holder(repo_dir / f"{kind}.lock")
+        if holder is None:
+            continue
+        if mode != 'check':
+            refuse(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}",
+                   f'在 {repo} 运行 dispatch.sh suspend <spec> 关闭该锁所属的夜')
+        locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
+if mode != 'check':
+    raise SystemExit(0)
+for line in opens:
+    print(line)
+for line in locks:
+    print(line)
+for line in unreadable:
+    print(line)
+watched, held, bad = len(opens), len(locks), len(unreadable)
+if bad:
+    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks, "
+          f"{bad} unreadable watches.json")
+elif watched == 0 and held == 0:
+    print("SAFE-TO-MOVE-INSTALLED")
+else:
+    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks")
+PY
+}
+
+# 完整安装在首次写入之前检查运行状态；--check 在末尾只报告。
+if [ "$mode" != check ]; then
+  report_move_safety || exit 2
 fi
 
 [ -f "$LIST" ] || die "缺 skills.txt：$LIST"
@@ -1145,29 +1239,29 @@ link_prompt() {
 }
 
 launch_agent() {
-  local label="$1" plist="$2" want="$3" installed="$4" status=0
+  local label="$1" plist="$2" want="$3" installed="$4" reload="${5:-0}" status=0
   if [ "$mode" = check ]; then
     if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
       echo "缺    $plist 不存在或指向别的 checkout，跑一次 install.sh" >&2
       return 1
     fi
-    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
-       && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+    if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ] \
+       && ! "$LAUNCHCTL" print "gui/$(id -u)/$label" >/dev/null 2>&1; then
       echo "缺    launchd 任务 $label 没在跑，跑一次 install.sh" >&2
       return 1
     fi
     return 0
   fi
-  if [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
+  if [ "$reload" -eq 1 ] || [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
     mkdir -p "$(dirname "$plist")"
-    if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
-      launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+    if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ]; then
+      "$LAUNCHCTL" bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
     fi
     printf '%s\n' "$want" > "$plist"
   fi
-  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ] \
-     && ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
-    launchctl bootstrap "gui/$(id -u)" "$plist" \
+  if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ] \
+     && { [ "$reload" -eq 1 ] || ! "$LAUNCHCTL" print "gui/$(id -u)/$label" >/dev/null 2>&1; }; then
+    "$LAUNCHCTL" bootstrap "gui/$(id -u)" "$plist" \
       || { echo "缺    launchd 任务装不上：$plist" >&2; status=1; }
   fi
   echo "$installed"
@@ -1190,9 +1284,9 @@ if [ -f "$PROMPT_SRC/shared.md" ]; then
     }
   fi
 
-  # launchd：只在真家目录装。WatchPaths 里的路径是本 checkout 的源文件，换 checkout 跑一次本脚本就重写。
-  if [ "$HOME_DIR" = "$HOME" ] && [ "$(uname)" = Darwin ]; then
-    PLIST="$HOME/Library/LaunchAgents/com.mmw.prompt-sync.plist"
+  # launchd 或显式指定的测试替身。plist 与日志都属于安装目标家目录。
+  if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ]; then
+    PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.prompt-sync.plist"
     want_plist="$(cat <<XML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -1212,8 +1306,8 @@ if [ -f "$PROMPT_SRC/shared.md" ]; then
     <string>$PROMPT_SRC/hosts/pi.md</string>
     <string>$PROMPT_SRC/hosts/grok.md</string>
   </array>
-  <key>StandardOutPath</key><string>$HOME/Library/Logs/mmw-prompt-sync.log</string>
-  <key>StandardErrorPath</key><string>$HOME/Library/Logs/mmw-prompt-sync.log</string>
+  <key>StandardOutPath</key><string>$HOME_DIR/Library/Logs/mmw-prompt-sync.log</string>
+  <key>StandardErrorPath</key><string>$HOME_DIR/Library/Logs/mmw-prompt-sync.log</string>
 </dict>
 </plist>
 XML
@@ -1229,7 +1323,7 @@ fi
 
 # ---------------- task board LaunchAgent ----------------
 #
-# MMW_V2_HOME 下只写或核 plist，绝不调用 launchctl；这让测试能验证同一份定义而不改变本机服务。
+# MMW_V2_HOME 下只写或核 plist 与提交；MMW_V2_LAUNCHCTL 可接收服务调用而不改变本机服务。
 # 真家目录下由 launchd 守住 supervisor.py，后者再按 MMW_HOME/boards.json 守住各仓库的 board。
 
 BOARD_PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.board.plist"
@@ -1267,8 +1361,33 @@ board_plist="$(cat <<XML
 XML
 )"
 
-launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
-  "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR" || rc=1
+BOARD_COMMIT_FILE="$HOME_DIR/.mmw/board-bootstrapped-commit"
+board_commit=""
+board_reload=0
+if [ "$mode" != check ]; then
+  if ! board_commit="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)"; then
+    board_commit=""
+  fi
+  board_previous=无
+  if [ -f "$BOARD_COMMIT_FILE" ]; then
+    board_previous="$(cat "$BOARD_COMMIT_FILE")"
+  fi
+  if [ -z "$board_commit" ]; then
+    echo "重载  com.mmw.board（${board_previous} → 未知）"
+  elif [ "$board_previous" != "$board_commit" ]; then
+    board_reload=1
+    echo "重载  com.mmw.board（${board_previous} → ${board_commit}）"
+  fi
+fi
+if launch_agent com.mmw.board "$BOARD_PLIST" "$board_plist" \
+   "已装  launchd 任务 com.mmw.board 守住 $BOARD_SUPERVISOR" "$board_reload"; then
+  if [ "$board_reload" -eq 1 ]; then
+    mkdir -p "$(dirname "$BOARD_COMMIT_FILE")"
+    printf '%s\n' "$board_commit" > "$BOARD_COMMIT_FILE"
+  fi
+else
+  rc=1
+fi
 
 # ---------------- Paseo 侧配置 ----------------
 #
@@ -1453,7 +1572,7 @@ PY
 # daemon，否则新工作区还是建到 daemon 启动时的那个根目录去。哪些设置卡在这上面，只有
 # `--json` 的 restartRequiredPaths 按名字说得出来。它比对的是 daemon 启动时的配置，所以
 # 列出来的不限于这一次安装改的。
-if [ "$mode" != check ] && [ "$HOME_DIR" = "$HOME" ]; then
+if [ "$mode" != check ] && [ -z "${MMW_V2_HOME+x}" ]; then
   if reload_out="$(PATH="$HOME_DIR/.local/bin:$PATH" paseo reload --json 2>&1)"; then
     printf '%s' "$reload_out" | python3 -c '
 import json, sys
@@ -1630,6 +1749,7 @@ fi
 # 也不删任何技能。
 
 if [ "$mode" = check ]; then
+  PYTHONPATH="$SELF_SRC/mmw/scripts${PYTHONPATH:+:$PYTHONPATH}" \
   MMW_ROOT="$ROOT" python3 - <<'PY' || rc=1
 import json
 import os
@@ -1639,8 +1759,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import locations
+
 root = Path(os.environ["MMW_ROOT"])
-runners = root / "skills" / "mmw" / "scripts" / "runners"
+runners = root / "skills" / locations.MODE_SCRIPTS / "runners"
 failed = False
 
 
@@ -1816,7 +1938,7 @@ adapters = sorted(runners.glob("*.sh")) if runners.is_dir() else []
 if not adapters:
     not_checked(
         f"{runners} 下没有适配器，MMW_USES 一条都没核："
-        f"从这个 checkout 的 git 历史里恢复 skills/mmw/scripts/runners/"
+        f"从这个 checkout 的 git 历史里恢复 {runners}/"
     )
 for path in adapters:
     binary = path.stem
@@ -1887,7 +2009,7 @@ PY
 fi
 
 # Nowledge Mem 的共享对象。Identity 只写来源角色，default Space 固定为 mmw-toolbox，
-# 避免一次漏传 repository Space 时退回个人 Default。repository Space 由 dispatch.sh open 建立。
+# 避免一次漏传 repository Space 时退回个人 Default。repository Space 由 dispatch.sh open-night 建立。
 MMW_MODE="$mode" python3 - <<'PY' || rc=1
 import json
 import os
@@ -2099,57 +2221,6 @@ PY
 else
   echo "跳过  ${CURSOR_MCP}（本机没有可用的 nmem）"
 fi
-
-# 开着的 watch 与仍在跑的 relay、watchdog。列表是状况，不是缺项：写在 stdout，跟
-# HOOKS-INSTALLED 一侧，退出码仍只表示安装齐不齐。开着的 watch 与 relay.read_watches
-# 相同：没有 orchestrator 的项不是 watch。watches.json 在但读不成，与
-# watchdog.night_open 相同，不是没有夜。锁算不算活着，问 statedir.holder。
-report_move_safety() {
-  PYTHONPATH="$SELF_SRC/mmw/scripts${PYTHONPATH:+:$PYTHONPATH}" \
-  MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
-  python3 - <<'PY'
-import relay
-import statedir
-
-opens = []
-locks = []
-unreadable = []
-try:
-    repo_dirs = statedir.repo_state_dirs()
-except NotADirectoryError:
-    repo_dirs = []
-for repo_dir in repo_dirs:
-    owner, name = repo_dir.name.split("__", 1)
-    repo = f"{owner}/{name}"
-    try:
-        watches = relay.read_watches(repo_dir)
-    except (OSError, ValueError):
-        unreadable.append(f"UNREADABLE {repo} watches.json")
-        continue
-    for key in sorted(watches):
-        opens.append(f"OPEN-WATCH {repo} {key}")
-    for kind in ("relay", "watchdog"):
-        holder = statedir.holder(repo_dir / f"{kind}.lock")
-        if holder is None:
-            continue
-        locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
-for line in opens:
-    print(line)
-for line in locks:
-    print(line)
-for line in unreadable:
-    print(line)
-watched, held, bad = len(opens), len(locks), len(unreadable)
-if bad:
-    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks, "
-          f"{bad} unreadable watches.json")
-elif watched == 0 and held == 0:
-    print("SAFE-TO-MOVE-INSTALLED")
-else:
-    print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks")
-PY
-}
-
 if [ "$mode" = check ]; then
   if [ "$rc" -eq 0 ]; then
     echo "齐了：技能 ${installed_dests} 处 × ${#wanted_names[@]} 个，hook 见上"
