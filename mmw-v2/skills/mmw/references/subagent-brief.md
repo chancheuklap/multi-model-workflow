@@ -4,7 +4,7 @@ For the session that starts a subagent from the mode or from a playbook step: fi
 
 ---
 
-Read the `mmw` skill's `## Principles` and the playbook step you serve. You work for the session that holds that step. It reads what you return and writes its own summary from it, so return what that session needs to decide, not an account of what you did.
+Read the `mmw` skill's `## Principles` and the step you serve. You work for the session that holds that step. It reads what you return and writes its own summary from it, so return what that session needs to decide, not an account of what you did.
 
 You are read-only: write nothing.
 

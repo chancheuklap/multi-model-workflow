@@ -110,7 +110,7 @@ When a wake arrives, the session was compacted, or `resume` reaches you:
 
 ## Subagents
 
-Use your host's general-purpose subagent. Its brief follows `references/subagent-brief.md` and opens with "Read the `mmw` skill's `## Principles` and the playbook step you serve." A brief that is read-only and whole in itself, such as a review axis's, does not open with that sentence. In an imported file, `subagent_type: "poteto-agent"` or `generalPurpose` means your host's general-purpose subagent with this brief.
+Use your host's general-purpose subagent. Its brief follows `references/subagent-brief.md` and opens with "Read the `mmw` skill's `## Principles` and the step you serve." A brief that is read-only and whole in itself, such as a review axis's, does not open with that sentence. In an imported file, `subagent_type: "poteto-agent"` or `generalPurpose` means your host's general-purpose subagent with this brief.
 
 Start the subagents of one step in one message, and wait for all of them. A report goes into a file; bulk work goes to a subagent (**principle-guard-the-context-window**).
 
