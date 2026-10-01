@@ -310,6 +310,15 @@ try {
   } catch {
     no ("别的平台的模块被当成缺失：" + $_.Exception.Message)
   }
+
+  # Windows 的解释器把 mmap、winreg 编在本体里，编译报告不列它们，但每个编译产物都带着。
+  Set-Content -LiteralPath $cmList -Encoding UTF8 -Value @('sqlite3', 'mmap', 'winreg')
+  try {
+    Assert-CompiledModules -Reports @($cmReport) -RequiredFile $cmList -Runner @('python') -RepoRoot $lab
+    ok "解释器内置模块不在报告里也放行"
+  } catch {
+    no ("解释器内置模块被当成缺失：" + $_.Exception.Message)
+  }
 }
 finally {
   Remove-Item -Recurse -Force $lab -ErrorAction SilentlyContinue
