@@ -45,8 +45,8 @@ def _load(name: str, filename: str | Path):
 
 # `events.py`: the event vocabulary and the fold. `issue_tree.py`: the tree of issues
 # under a spec, read with one query.
-locations = _load("verify_locations", HERE.parents[1] / "mmw" / "scripts" / "locations.py")
 skills = HERE.parents[1]
+locations = _load("verify_locations", skills / "mmw" / "scripts" / "locations.py")
 events = _load("mmw_events", skills / locations.EVENTS_PY)
 tree = _load("mmw_tree", "issue_tree.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"

@@ -210,8 +210,7 @@ dupes="$(printf '%s\n' "${wanted_names[@]}" | sort | uniq -d)"
 
 rc=0
 installed_dests=0
-# hook 一段的成败。跑过且齐了才打印 HOOKS-INSTALLED。
-hooks_ran=0
+# hook 一段齐了才打印 HOOKS-INSTALLED。
 hooks_rc=0
 
 # 安装副本的两个普通文件由源字节生成，其他项仍指回源目录。
@@ -509,7 +508,6 @@ done
 HOOK_SRC="$SELF_SRC/mmw/scripts/tool-guard.py"
 
 if [ -f "$HOOK_SRC" ]; then
-  hooks_ran=1
   MMW_MODE="$mode" \
   MMW_LAUNCHER="$HOME_DIR/.mmw/bin/hook-launcher" \
   MMW_LAUNCHER_SRC="$ROOT/hook-launcher.py" \
@@ -1106,11 +1104,10 @@ if mode != "check":
 sys.exit(1 if failed else 0)
 PY
 else
-  echo "缺    ${HOOK_SRC}：找不到 hook 源文件，无法安装或核对 hook；从本 checkout 的 git 历史恢复该文件后重跑 install.sh" >&2
-  exit 1
+  die "缺    ${HOOK_SRC}：找不到 hook 源文件，无法安装或核对 hook；从本 checkout 的 git 历史恢复该文件后重跑 install.sh"
 fi
 
-if [ "$hooks_ran" -eq 1 ] && [ "$hooks_rc" -eq 0 ]; then
+if [ "$hooks_rc" -eq 0 ]; then
   echo "HOOKS-INSTALLED"
 fi
 

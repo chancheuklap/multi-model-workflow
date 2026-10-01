@@ -14,13 +14,19 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-skills = ROOT / "mmw-v2" / "skills"
-registry = skills.joinpath("mmw", "scripts", "locations.py")
-spec = importlib.util.spec_from_file_location("migration_locations", registry)
-locations = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(locations)
-MODE_SCRIPTS = skills / locations.MODE_SCRIPTS
-UI_ACCEPTANCE_SCRIPTS = skills / locations.UI_ACCEPTANCE_SCRIPTS
+
+
+def load_locations():
+    path = ROOT.joinpath("mmw-v2", "skills", "mmw", "scripts", "locations.py")
+    module_spec = importlib.util.spec_from_file_location("migration_locations", path)
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    return module
+
+
+locations = load_locations()
+MODE_SCRIPTS = ROOT / "mmw-v2" / "skills" / locations.MODE_SCRIPTS
+UI_ACCEPTANCE_SCRIPTS = ROOT / "mmw-v2" / "skills" / locations.UI_ACCEPTANCE_SCRIPTS
 sys.path.insert(0, str(MODE_SCRIPTS))
 sys.path.insert(0, str(UI_ACCEPTANCE_SCRIPTS))
 import models  # noqa: E402

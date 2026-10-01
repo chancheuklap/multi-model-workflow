@@ -233,19 +233,19 @@ class SupervisorTests(unittest.TestCase):
         copy = self.copied_supervisor()
         scripts = copy.parents[1] / "skills"
         shutil.copytree(scripts / "mmw" / "scripts",
-                        scripts / "from-mmw" / "dispatch-scripts")
+                        scripts / "from-mmw" / "mode-scripts")
         shutil.copytree(scripts / "verify-ticket" / "scripts",
                         scripts / "from-mmw" / "verify-scripts")
         mmw = scripts / "mmw" / "scripts"
         mmw.mkdir(parents=True, exist_ok=True)
         (mmw / "locations.py").write_text(
-            'MODE_SCRIPTS = "from-mmw/dispatch-scripts"\n'
-            'EVENTS_PY = "from-mmw/dispatch-scripts/events.py"\n'
+            'MODE_SCRIPTS = "from-mmw/mode-scripts"\n'
+            'EVENTS_PY = "from-mmw/mode-scripts/events.py"\n'
             'ISSUE_TREE_PY = "from-mmw/verify-scripts/issue_tree.py"\n',
             encoding="utf-8",
         )
-        self.stamp_statedir(scripts / "from-mmw" / "dispatch-scripts" / "statedir.py", "mmw")
-        self.stamp_statedir(scripts / "mmw" / "scripts" / "statedir.py", "dispatch")
+        self.stamp_statedir(scripts / "from-mmw" / "mode-scripts" / "statedir.py", "registered-mode")
+        self.stamp_statedir(scripts / "mmw" / "scripts" / "statedir.py", "unregistered-mode")
         mark = self.base / "locations-mark"
         repository, fixture = self.repository("repo", "fixture/mmw-locations")
         port = free_port()
@@ -254,7 +254,7 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(self.board(port)["repo"], "fixture/mmw-locations")
         lines = mark.read_text(encoding="utf-8").splitlines()
         self.assertGreaterEqual(len(lines), 2)
-        self.assertEqual(set(lines), {"mmw"})
+        self.assertEqual(set(lines), {"registered-mode"})
 
     def test_refuses_naming_install_check_when_only_legacy_locations_exist(self):
         copy = self.copied_supervisor()

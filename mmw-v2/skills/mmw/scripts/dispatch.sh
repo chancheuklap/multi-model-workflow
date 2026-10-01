@@ -4683,17 +4683,35 @@ tool() {
   return 1
 }
 SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
-registered_path() {
-  python3 - "$SKILL_ROOT/scripts" "$SKILLS_ROOT" "$1" <<'PYTHON'
+LEASE="$(tool lease.py || true)"
+VERIFY="$(tool verify-ticket.py || true)"
+if [ -z "$LEASE" ] || [ -z "$VERIFY" ]; then
+  if ! registered="$(python3 - "$SKILL_ROOT/scripts" "$SKILLS_ROOT" <<'PYTHON'
 import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
-import locations
-print(Path(sys.argv[2]) / getattr(locations, sys.argv[3]))
+try:
+    import locations
+    skills = Path(sys.argv[2])
+    lease = skills / locations.UI_ACCEPTANCE_SCRIPTS / "lease.py"
+    verify = skills / locations.VERIFY_TICKET_PY
+except Exception as exc:
+    print(" ".join(str(exc).splitlines()))
+    raise SystemExit(2)
+print(lease)
+print(verify)
 PYTHON
-}
-LEASE="$(tool lease.py || printf '%s\n' "$(registered_path UI_ACCEPTANCE_SCRIPTS)/lease.py")"
-VERIFY="$(tool verify-ticket.py || registered_path VERIFY_TICKET_PY)"
+)"; then
+    problem="cannot load $SKILL_ROOT/scripts/locations.py ($registered), so dispatch cannot resolve its scripts; run bash mmw-v2/install.sh --check"
+    if [ "${1:-}" = where ]; then
+      printf 'UNKNOWN %s\n' "$problem"
+      exit 2
+    fi
+    refuse "$problem"
+  fi
+  [ -n "$LEASE" ] || LEASE="${registered%%$'\n'*}"
+  [ -n "$VERIFY" ] || VERIFY="${registered#*$'\n'}"
+fi
 EVENTS="$(tool events.py || printf '%s\n' "$SKILL_ROOT/scripts/events.py")"
 if [ ! -f "$EVENTS" ]; then
   if [ "${1:-}" = where ]; then

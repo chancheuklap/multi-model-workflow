@@ -12,7 +12,6 @@ LIB = Path(__file__).resolve().parents[1] / 'lib'
 SCRIPT = LIB / 'check_wiring.py'
 FIXTURES = Path(__file__).resolve().parent / 'fixtures/wiring'
 MODE = 'mmw-v2/skills/mmw'
-DISPATCH = 'mmw-v2/skills/mmw'
 WORK_ROUTE = '\n## Playbooks\n\n- **Work.** Do the work. `playbooks/work-a-ticket.md`.\n'
 
 
@@ -22,8 +21,8 @@ class Wiring(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.write('mmw-v2/skills.txt', 'self/example\nself/dispatch\nself/verify-ticket\n')
-        self.fixture('locations.py', DISPATCH + '/scripts/locations.py')
-        self.fixture('roles.json', DISPATCH + '/roles.json')
+        self.fixture('locations.py', MODE + '/scripts/locations.py')
+        self.fixture('roles.json', MODE + '/roles.json')
 
     def write(self, path, text):
         dest = self.root / path
@@ -294,10 +293,10 @@ class Wiring(unittest.TestCase):
         }
         for name, content in samples.items():
             with self.subTest(name=name):
-                dest = self.write(DISPATCH + '/scripts/' + name, content)
+                dest = self.write(MODE + '/scripts/' + name, content)
                 resume = None
                 if name == 'dispatch.sh':
-                    resume = self.write(DISPATCH + '/references/night.md',
+                    resume = self.write(MODE + '/references/night.md',
                                         '`bash scripts/dispatch.sh resume <n> "first\nsecond"`\n')
                 result = self.check()
                 self.assert_status(result, 1)
@@ -305,7 +304,7 @@ class Wiring(unittest.TestCase):
                 dest.unlink()
                 if resume:
                     resume.unlink()
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'start_one() {\ncase "$kind" in\n'
                    'worker) prompt="Use the implement skill.\npacket" ;;\n'
                    'reviewer) prompt="Use the code-review skill.\npacket" ;;\nesac\n'
@@ -318,7 +317,7 @@ class Wiring(unittest.TestCase):
                                                     result.stdout, re.M)), 3)
 
     def test_wiring_reads_start_prompts_added_later(self):
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'research_one() {\nnew_prompt="Research this.\nMore data."\n'
                    'session="$(start_session "$host" "$model" "$effort" "$cwd" "$new_prompt" "$title")"\n}\n')
         result = self.check()
@@ -329,9 +328,9 @@ class Wiring(unittest.TestCase):
         samples = [
             ('mmw-v2/board/example.py', (FIXTURES / 'class-10.py').read_text(), 'mmw-v2/skills/absent'),
             ('mmw-v2/board/example.py', 'target = "skills/absent/scripts"\n', 'mmw-v2/skills/absent/scripts'),
-            (DISPATCH + '/scripts/example.py', 'target = HERE.parents[1] / "absent"\n', 'mmw-v2/skills/absent'),
-            (DISPATCH + '/scripts/runners/example.sh', 'target="$(dirname "$HERE")/absent.py"\n', DISPATCH + '/scripts/absent.py'),
-            (DISPATCH + '/scripts/example.sh', 'target="$SKILL_ROOT/scripts/absent.py"\n', DISPATCH + '/scripts/absent.py'),
+            (MODE + '/scripts/example.py', 'target = HERE.parents[1] / "absent"\n', 'mmw-v2/skills/absent'),
+            (MODE + '/scripts/runners/example.sh', 'target="$(dirname "$HERE")/absent.py"\n', MODE + '/scripts/absent.py'),
+            (MODE + '/scripts/example.sh', 'target="$SKILL_ROOT/scripts/absent.py"\n', MODE + '/scripts/absent.py'),
         ]
         for path, text, target in samples:
             with self.subTest(text=text):
@@ -355,11 +354,11 @@ class Wiring(unittest.TestCase):
             2: MODE + '/SKILL.md',
             3: 'mmw-v2/skills/example/scripts/example.py',
             5: MODE + '/SKILL.md',
-            6: DISPATCH + '/scripts/relay.py',
+            6: MODE + '/scripts/relay.py',
             7: MODE + '/SKILL.md',
             9: MODE + '/SKILL.md',
-            11: DISPATCH + '/scripts/dispatch.sh',
-            12: DISPATCH + '/scripts/dispatch.sh',
+            11: MODE + '/scripts/dispatch.sh',
+            12: MODE + '/scripts/dispatch.sh',
         }
         target = targets[category]
         suffix = Path(target).suffix
@@ -452,7 +451,7 @@ class Wiring(unittest.TestCase):
         self.assertIn('imported playbook', result.stdout)
         (self.root / (MODE + '/imports.tsv')).unlink()
         (self.root / (MODE + '/playbooks/work-a-ticket.md')).unlink()
-        self.write(DISPATCH + '/roles.json', '{"worker":{"playbook":"work-a-ticket","wakes":{"reviewer.reported":"Wrong"}}}')
+        self.write(MODE + '/roles.json', '{"worker":{"playbook":"work-a-ticket","wakes":{"reviewer.reported":"Wrong"}}}')
         result = self.check()
         self.assert_status(result, 1)
         self.assertRegex(result.stdout, r'roles.json:\d+: class 1 ')
@@ -489,7 +488,7 @@ class Wiring(unittest.TestCase):
         mode = self.root / (MODE + '/SKILL.md')
         mode.write_text(mode.read_text() + '\nUse the absent skill. Use the upstream-example skill.\nRun `dispatch.sh lonely`.\n')
         self.write(MODE + '/playbooks/work-a-ticket.md', '#### Claim\n\n#### Get reviewed\n')
-        self.write(DISPATCH + '/scripts/dispatch.sh', 'new_one() {\nstart_session h m e cwd "Read /checkout/mmw-v2/skills/mmw/SKILL.md" title\n}\ncase "$1" in\n lonely) echo ok ;;\nesac\n')
+        self.write(MODE + '/scripts/dispatch.sh', 'new_one() {\nstart_session h m e cwd "Read /checkout/mmw-v2/skills/mmw/SKILL.md" title\n}\ncase "$1" in\n lonely) echo ok ;;\nesac\n')
         self.write('mmw-v2/board/example.py', 'target = "skills/mmw/scripts"\n')
         self.write('mmw-v2/skills.txt', 'self/example\nengineering/upstream-example +model-invoked\n')
         self.write('mmw-v2/upstream/skills/engineering/upstream-example/SKILL.md', '# Upstream\n')
@@ -498,11 +497,11 @@ class Wiring(unittest.TestCase):
         categories = {int(line.rsplit(' : ', 1)[1]) for line in result.stdout.splitlines()}
         self.assertTrue({1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12} <= categories, result.stdout)
         self.assertIn('mmw-v2/skills/example/SKILL.md -> mmw work-a-ticket#Claim : 1', result.stdout)
-        self.assertIn(MODE + '/SKILL.md -> ' + DISPATCH + '/scripts/dispatch.sh#lonely : 11', result.stdout)
+        self.assertIn(MODE + '/SKILL.md -> ' + MODE + '/scripts/dispatch.sh#lonely : 11', result.stdout)
         self.assertTrue(all(' -> ' in line and ' : ' in line for line in result.stdout.splitlines()), result.stdout)
 
     def test_wiring_unreadable_registry_exits_2(self):
-        registry = self.root / (DISPATCH + '/scripts/locations.py')
+        registry = self.root / (MODE + '/scripts/locations.py')
         registry.unlink()
         result = self.check()
         self.assert_status(result, 2)
@@ -510,7 +509,7 @@ class Wiring(unittest.TestCase):
         self.assertIn('bash mmw-v2/install.sh --check', result.stdout)
         self.fixture('locations.py', MODE + '/scripts/locations.py')
         self.assert_status(self.check(), 0)
-        self.write(DISPATCH + '/roles.json', 'not json')
+        self.write(MODE + '/roles.json', 'not json')
         result = self.check()
         self.assert_status(result, 2)
         self.assertIn('bash mmw-v2/install.sh --check', result.stdout)
@@ -525,7 +524,7 @@ class Wiring(unittest.TestCase):
         self.write('mmw-v2/skills.txt', 'self/example\n')
         self.write('mmw-v2/skills/example/SKILL.md',
                    '---\nname: example\ndescription: Use when needed.\n---\n# Example\n')
-        self.write(DISPATCH + '/scripts/statedir.py',
+        self.write(MODE + '/scripts/statedir.py',
                    (LIB.parents[1] / 'skills/mmw/scripts/statedir.py').read_text())
         environment = {k: v for k, v in os.environ.items() if not k.startswith(('MMW_', 'NMEM_'))}
         environment['MMW_HOME'] = str(self.root / '.mmw')
@@ -542,14 +541,14 @@ class Wiring(unittest.TestCase):
         self.write('mmw-v2/skills/example/SKILL.md', '`mmw work-a-ticket#Claim wrongly`\n')
         self.assert_status(self.check(), 1)
         (self.root / 'mmw-v2/skills/example/SKILL.md').unlink()
-        file = self.root / (DISPATCH + '/scripts/locations.py')
+        file = self.root / (MODE + '/scripts/locations.py')
         file.write_text(file.read_text() + "\nWHERE_ROWS = {'worker': {'fresh': {'step': 'Typo'}}}\n")
         result = self.check()
         self.assert_status(result, 1)
         self.assertIn('locations.py', result.stdout)
 
     def test_wiring_dispatch_nested_case_commands(self):
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'case "${1:-}" in\n first) case "$2" in foo) echo ok ;; esac ;;\n'
                    ' lonely) lonely_one ;;\nesac\n')
         result = self.check()
@@ -558,7 +557,7 @@ class Wiring(unittest.TestCase):
         self.assertNotRegex(result.stdout, r'class 11 foo ')
 
     def test_wiring_added_start_prompt_with_continuation(self):
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'new_one() {\nstart_session "$host" \\\n "$model" "$effort" "$cwd" "first\nsecond" "$title"\n}\n')
         self.assert_status(self.check(), 1)
 
@@ -595,13 +594,13 @@ class Wiring(unittest.TestCase):
 
     def test_wiring_frozen_paths_rejects_other_checkout(self):
         self.write('.mmw/installed-root', str(self.root / 'installed/mmw-v2'))
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'research_one() {\nprompt="Read /other/checkout/mmw-v2/skills/mmw/SKILL.md"\n'
                    'start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$title"\n}\n')
         result = self.check()
         self.assert_status(result, 0)
         self.assertRegex(result.stdout, r'(?m)^report: .*: class 12 ')
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'research_one() {\nprompt="Read ' + str(self.root / 'installed/mmw-v2/skills/mmw/SKILL.md') + '"\n'
                    'start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$title"\n}\n')
         result = self.check()
@@ -621,13 +620,13 @@ class Wiring(unittest.TestCase):
         self.assertEqual(self.findings(self.check(), 2), [])
 
     def test_wiring_event_sources_and_duplicate_handlers(self):
-        self.write(DISPATCH + '/roles.json', '{"night-orchestrator":{"playbook":"work-a-ticket","wakes":{"*":"Claim"}}}')
+        self.write(MODE + '/roles.json', '{"night-orchestrator":{"playbook":"work-a-ticket","wakes":{"*":"Claim"}}}')
         self.write(MODE + '/SKILL.md', '# MMW\n' + WORK_ROUTE)
         self.write(MODE + '/playbooks/work-a-ticket.md', '#### Claim\nHandle the wake.\n')
-        self.write(DISPATCH + '/scripts/watchdog.py',
+        self.write(MODE + '/scripts/watchdog.py',
                    'alerts = [\n' + ''.join('{"text":"watchdog: alert%d"},\n' % i for i in range(8)) + ']\n')
-        self.write(DISPATCH + '/scripts/relay.py', 'RECOVERED = "relay.recovered"\n')
-        self.write(DISPATCH + '/scripts/turn-guard.py', 'text = "MMW turn guard: held"\n')
+        self.write(MODE + '/scripts/relay.py', 'RECOVERED = "relay.recovered"\n')
+        self.write(MODE + '/scripts/turn-guard.py', 'text = "MMW turn guard: held"\n')
         graph = self.check('--graph')
         self.assert_status(graph, 0)
         for event in ['relay.recovered', 'MMW turn guard:'] + [f'watchdog: alert{i}' for i in range(8)]:
@@ -638,25 +637,24 @@ class Wiring(unittest.TestCase):
         self.assertRegex(result.stdout, r'(?m)^report: .*: class 6 .*2 handlers')
 
     def test_wiring_combined_alert_template_and_fourth_start(self):
-        self.write(DISPATCH + '/scripts/watchdog.py',
+        self.write(MODE + '/scripts/watchdog.py',
                    'alerts = [{"text":"watchdog: one"}, {"text":"watchdog: two"}]\n'
                    'text = "\\n".join(alert["text"] for alert in alerts)\n'
                    'send(runner, session, text)\n')
         self.assert_status(self.check(), 1)
-        (self.root / (DISPATCH + '/scripts/watchdog.py')).unlink()
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        (self.root / (MODE + '/scripts/watchdog.py')).unlink()
+        self.write(MODE + '/scripts/dispatch.sh',
                    'start_one() {\nprompt="Use the implement skill.\npacket"\n'
                    'start_session "$host" "$model" "$effort" "$cwd" "$prompt" "$title"\n'
                    'extra_prompt="Use the implement skill.\nnew kind"\n'
                    'start_session "$host" "$model" "$effort" "$cwd" "$extra_prompt" "$title"\n}\n')
         self.assert_status(self.check(), 1)
 
-    def test_wiring_capability_locations_mode_call_is_not_exempt(self):
-        registry = self.fixture('locations.py', 'mmw-v2/skills/example/scripts/locations.py')
-        registry.write_text(registry.read_text() + '\nBAD = "mmw start 1 worker"\n')
+    def test_wiring_reports_a_capability_calling_a_mode_command(self):
+        self.write('mmw-v2/skills/example/scripts/example.py', 'BAD = "mmw start 1 worker"\n')
         result = self.check()
         self.assert_status(result, 0)
-        self.assertRegex(result.stdout, r'(?m)^report: .*locations.py:\d+: class 3 capability script calls a mode command directly$')
+        self.assertRegex(result.stdout, r'(?m)^report: .*example.py:\d+: class 3 capability script calls a mode command directly$')
 
     def test_wiring_product_syntax_error_is_not_installation_failure(self):
         self.write('mmw-v2/board/page.py', 'def broken(:\n')
@@ -668,9 +666,9 @@ class Wiring(unittest.TestCase):
         self.assertNotIn('install.sh --check', result.stdout)
 
     def test_wiring_resume_text_at_call_sites(self):
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'resume_one() {\n local text="$2"\n runner send "$ident" "$text"\n}\n')
-        for path in (DISPATCH + '/references/night.md',
+        for path in (MODE + '/references/night.md',
                      'mmw-v2/skills/design-pages/references/pull.md',
                      'mmw-v2/skills/example/scripts/continue.sh'):
             with self.subTest(path=path):
@@ -693,14 +691,14 @@ class Wiring(unittest.TestCase):
         self.write('mmw-v2/skills.txt', 'engineering/upstream-example +model-invoked\n')
         self.write('isolated-state/skill-copies/upstream-example/SKILL.md',
                    '---\ndisable-model-invocation: true\n---\n# Upstream\n')
-        self.write(DISPATCH + '/scripts/dispatch.sh',
+        self.write(MODE + '/scripts/dispatch.sh',
                    'new_one() {\nstart_session h m e cwd "Read ' + str(installed / 'skills/mmw/SKILL.md') + '" title\n}\n')
         # Run the production path from a disposable checkout, never this machine's state.
         lib = self.root / 'mmw-v2/tests/lib'
         lib.mkdir(parents=True)
         for name in ('check_wiring.py', 'skill_text.py'):
             shutil.copy(LIB / name, lib / name)
-        self.write(DISPATCH + '/scripts/statedir.py',
+        self.write(MODE + '/scripts/statedir.py',
                    (LIB.parents[1] / 'skills/mmw/scripts/statedir.py').read_text())
         env = {k: v for k, v in os.environ.items() if not k.startswith(('MMW_', 'NMEM_'))}
         env['MMW_HOME'] = str(state)

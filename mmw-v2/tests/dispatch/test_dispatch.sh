@@ -5757,9 +5757,35 @@ scenario_whereunknown() {
   rm "$copy/scripts/locations.py"
   code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
   assert_where_unknown "$code"
-  grep -qF 'roles.json or locations.py' "$TMP/out" || fail "missing locations.py reached a different UNKNOWN: $(cat "$TMP/out")"
+  grep -qF 'cannot load' "$TMP/out" || fail "missing locations.py reached a different UNKNOWN: $(cat "$TMP/out")"
   grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing locations.py did not name install --check"
   hasnt "gh :: issue :: comment"
+}
+
+scenario_registryunloadable() {
+  local copy code broken command
+  reset_log; fresh_repo
+  copy="$(skill_copy_for registryunloadable)"
+  for broken in missing invalid; do
+    if [ "$broken" = missing ]; then
+      rm "$copy/scripts/locations.py"
+    else
+      printf 'raise ImportError("broken registry")\n' > "$copy/scripts/locations.py"
+    fi
+    for command in reverify where; do
+      echo "--- $command refuses a $broken locations.py before reading tickets"
+      code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me bash "$copy/scripts/dispatch.sh" "$command" 76)"
+      [ "$code" = 2 ] || fail "unloadable registry must exit 2, got $code"
+      if [ "$command" = where ]; then
+        assert_where_unknown "$code"
+      fi
+      cat "$TMP/out" "$TMP/err" > "$TMP/diagnostic"
+      grep -qF "$copy/scripts/locations.py" "$TMP/diagnostic" || fail "refusal did not name the registry"
+      grep -qF 'bash mmw-v2/install.sh --check' "$TMP/diagnostic" || fail "refusal did not name install --check"
+      grep -q 'Traceback\|no verify-ticket.py\|pass --tools' "$TMP/diagnostic" && fail "registry failure gave a traceback or a false repair: $(cat "$TMP/diagnostic")"
+      hasnt "gh :: issue :: comment"
+    done
+  done
 }
 
 scenario_runnerself() {
@@ -11289,7 +11315,7 @@ ALL="$ALL installmissinghook installchecklauncher installcheckhookbypass install
 ALL="$ALL installcheckstalecopy"
 ALL="$ALL installcopyretired"
 ALL="$ALL installcheckwiringfails installcheckwiringunchecked"
-ALL="$ALL where wherespec whereunknown"
+ALL="$ALL where wherespec whereunknown registryunloadable"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
@@ -11322,6 +11348,7 @@ banner_for() {
     where) echo WHERE-OK ;;
     wherespec) echo WHERE-SPEC-OK ;;
     whereunknown) echo WHERE-UNKNOWN-OK ;;
+    registryunloadable) echo REGISTRY-UNLOADABLE-OK ;;
     memory-install) echo MEMORY-INSTALL-OK ;;
     memory-open-space) echo MEMORY-OPEN-SPACE-OK ;;
     memory-space-unavailable) echo MEMORY-SPACE-UNAVAILABLE-OK ;;

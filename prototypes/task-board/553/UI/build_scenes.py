@@ -3,12 +3,12 @@
 
     python3 build_scenes.py <out.js>
 
-Every event of every example ticket is written with `events.build` from the verify-ticket
+Every event of every example ticket is written with `events.build` from the mmw
 skill, so a payload the vocabulary refuses cannot get in. Each scene is then shaped by the
 board's own backend (`mmw-v2/board/board_data.py`, `BoardStore._shape`) from example
 issue trees and comments, so a board scene is exactly what `GET /api/board` would answer
 for that tracker. The settings scenes are shaped the way `GET /api/settings` answers
-(`mmw-v2/board/settings_api.py`), with the dispatch skill's own `models.py` for hosts,
+(`mmw-v2/board/settings_api.py`), with the mmw skill's own `models.py` for hosts,
 runners and each host's model and effort options.
 
 The data is an example, not the owner's tickets. Times are local wall-clock times of the
@@ -33,7 +33,6 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[3]
 MODE_SCRIPTS = REPO / "mmw-v2" / "skills" / "mmw" / "scripts"
-sys.path.insert(0, str(REPO / "mmw-v2" / "skills" / "verify-ticket" / "scripts"))
 sys.path.insert(0, str(MODE_SCRIPTS))
 import events  # noqa: E402
 import models  # noqa: E402

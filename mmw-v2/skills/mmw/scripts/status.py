@@ -43,19 +43,24 @@ from pathlib import Path
 
 
 def _load(name: str, path: Path):
-    if not path.is_file():
-        problem = (f"roles.json or locations.py is missing or invalid ({path} is missing)"
-                   if path.name == "locations.py" else f"no {path.name} at {path}")
-        sys.stderr.write(f"dispatch: {problem}; run bash mmw-v2/install.sh --check\n")
-        raise SystemExit(2)
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        detail = " ".join(str(exc).splitlines())
+        sys.stderr.write(f"dispatch: cannot load {path} ({detail}), so status cannot read "
+                         "its scripts; run bash mmw-v2/install.sh --check\n")
+        raise SystemExit(2) from None
     return module
 
 
 HERE = Path(__file__).resolve().parent
 locations = _load("status_locations", HERE / "locations.py")
+if not isinstance(getattr(locations, "ISSUE_TREE_PY", None), str):
+    sys.stderr.write(f"dispatch: {HERE / 'locations.py'} does not register ISSUE_TREE_PY, "
+                     "so status cannot read the issue tree; run bash mmw-v2/install.sh --check\n")
+    raise SystemExit(2)
 events = _load("mmw_events", Path(os.environ.get("MMW_EVENTS_PY") or HERE / "events.py"))
 tree = _load("mmw_tree", HERE.parents[1] / locations.ISSUE_TREE_PY)
 
@@ -891,7 +896,6 @@ def load_neighbor(name: str):
 def where_registry():
     """Read the role and position registries only for --where."""
     try:
-        locations = load_neighbor("locations")
         roles = json.loads((Path(__file__).resolve().parents[1] / "roles.json").read_text())
         if not isinstance(roles, dict) or not isinstance(locations.WHERE_ROWS, dict):
             raise ValueError("the registries must be objects")
