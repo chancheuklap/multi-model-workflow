@@ -348,8 +348,13 @@ class TestTheWordingSaysWhatToDoNext(unittest.TestCase):
     def test_it_names_the_ticket(self):
         self.assertIn(f"#{TICKET}", self.reason())
 
-    def test_it_hands_over_the_command_that_does_work(self):
-        self.assertIn(f"verify-ticket.py {TICKET} --closeout", self.reason())
+    def test_close_refusal_names_ticket_state_closeout_and_its_step(self):
+        self.assertIn(f"ticket_state.py {TICKET} --closeout", self.reason())
+        self.assertTrue(self.reason().endswith(" · mmw work-a-ticket#Close out"))
+        for number in (7, 86, 640, 6400, 99999):
+            with self.subTest(ticket=number):
+                self.assertLessEqual(HOST_PREFIX + len(hk.REFUSAL.format(n=number)),
+                                     rf.REASON_LIMIT)
 
     def test_it_names_the_way_out_for_work_that_is_not_finished(self):
         self.assertIn("HANDOFF REQUIRED", self.reason())
@@ -393,7 +398,7 @@ class TestTheQuestionGate(unittest.TestCase):
         out = io.StringIO()
         with named_cwd(cwd_basename):
             merged = {k: v for k, v in os.environ.items()
-                      if not k.startswith(("PASEO_", "CURSOR_"))}
+                      if not k.startswith(("PASEO_", "CURSOR_")) and k != "MMW_ROLE"}
             merged.update(env or {})
             with mock.patch.dict(os.environ, merged, clear=True), \
                  mock.patch.object(hk.sys, "stdin",
@@ -439,13 +444,35 @@ class TestTheQuestionGate(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIsNotNone(answer)
 
-    def test_the_reason_gives_the_worker_and_the_reviewer_a_way_out(self):
+    def test_a_worker_is_refused_a_question_with_the_worker_way_out(self):
+        for host in self.ASKS:
+            with self.subTest(host=host):
+                _, answer = self.ask(host, env={"MMW_ROLE": "worker"})
+                reason = reason_of(answer)
+                self.assertIn("Decisions I made on my own", reason)
+                self.assertIn("ABANDON: AC<n> decision", reason)
+                self.assertNotIn("unverified:", reason)
+                self.assertLessEqual(HOST_PREFIX + len(reason), rf.REASON_LIMIT)
+
+    def test_a_reviewer_is_refused_a_question_with_the_unverified_way_out(self):
+        for host in self.ASKS:
+            with self.subTest(host=host):
+                _, answer = self.ask(host, env={"MMW_ROLE": "reviewer"})
+                reason = reason_of(answer)
+                self.assertIn("unverified:", reason)
+                self.assertNotIn("Decisions I made on my own", reason)
+                self.assertLessEqual(HOST_PREFIX + len(reason), rf.REASON_LIMIT)
+
+    def test_a_question_without_a_readable_role_gets_both_way_outs(self):
         _, answer = self.ask("grok")
         reason = reason_of(answer)
         self.assertIn("Decisions I made on my own", reason)
         self.assertIn("ABANDON: AC<n> decision", reason)
         self.assertIn("unverified:", reason)
-        self.assertLessEqual(HOST_PREFIX + len(hk.NO_QUESTION), rf.REASON_LIMIT)
+        self.assertLessEqual(HOST_PREFIX + len(reason), rf.REASON_LIMIT)
+        _, answer = self.ask("grok", env={"MMW_ROLE": "unknown"})
+        self.assertIn("Decisions I made on my own", reason_of(answer))
+        self.assertIn("unverified:", reason_of(answer))
 
 
 class TestClaudeCopyNoOpsInsideCursor(unittest.TestCase):

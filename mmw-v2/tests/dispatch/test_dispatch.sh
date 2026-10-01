@@ -3618,7 +3618,7 @@ path.write_text(json.dumps([{
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: view :: 61 :: --json :: comments"
-  has "paseo :: send :: --no-wait :: agt_w61 :: continue"
+  has "paseo :: send :: --no-wait :: agt_w61 :: continue · mmw work-a-ticket#When the orchestrator resumes you"
 
   echo "--- no matching worker is a refusal, and nothing is sent"
   reset_log
@@ -5248,7 +5248,7 @@ path.write_text(json.dumps([{
   runner_line 61 paseo agt_w61 worker
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
   [ "$code" = 0 ] || fail "delivered must be exit 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: send :: --no-wait :: agt_w61 :: continue"
+  has "paseo :: send :: --no-wait :: agt_w61 :: continue · mmw work-a-ticket#When the orchestrator resumes you"
 
   echo "--- the adapter itself maps delivered to exit 0"
   reset_log
@@ -5981,7 +5981,7 @@ scenario_open() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 0 ] || fail "open-night expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #76: wake-ups go to paseo session agt_main; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -qx "opened #76: wake-ups go to paseo session agt_main; task board http://127\.0\.0\.1:[0-9]* · mmw run-a-night#Handle each wake" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's orchestrator should be agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
   posted_events 76 runner session | grep -qx "spec.opened runner=paseo session=agt_main" \
@@ -6006,7 +6006,7 @@ scenario_open() {
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-night 77)"
   [ "$code" = 0 ] || fail "open-night 77 expected 0, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #77: wake-ups go to paseo session agt_other; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -qx "opened #77: wake-ups go to paseo session agt_other; task board http://127\.0\.0\.1:[0-9]* · mmw run-a-night#Handle each wake" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the second night should join relay $pid: $(relay_now)"
   [ "$(watch_main spec:77)" = "paseo agt_other" ] || fail "spec 77's orchestrator should be agt_other: $(cat "$STATE_DIR/watches.json")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's orchestrator should still be agt_main: $(cat "$STATE_DIR/watches.json")"
@@ -6149,7 +6149,7 @@ JSON
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" open-ticket-watch 95)"
   [ "$code" = 0 ] || fail "open-ticket-watch 95 beside the night expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "^opened #95: wake-ups go to paseo session agt_other; task board http://127.0.0.1:[0-9]*$" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
+  grep -q "^opened #95: wake-ups go to paseo session agt_other; task board http://127.0.0.1:[0-9]* · mmw land-one-ticket#Handle each wake$" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now)" = "$pid "'{"spec": 76} {"tickets": [95]}' ] || fail "relay $pid should watch the night and #95: $(relay_now)"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "the night's orchestrator should still be agt_main: $(cat "$STATE_DIR/watches.json")"
   [ "$(watch_main tickets:95)" = "paseo agt_other" ] || fail "#95's orchestrator should be agt_other: $(cat "$STATE_DIR/watches.json")"
@@ -6812,7 +6812,7 @@ scenario_openstartsboard() {
   [ "$code" = 0 ] || fail "open-night expected 0, got $code: $(cat "$TMP/err")"
   port="$(board_registry_port)"
   BOARD_TEST_PORTS="$port"
-  [ "$(cat "$TMP/out")" = "opened #76: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port" ] \
+  [ "$(cat "$TMP/out")" = "opened #76: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port · mmw run-a-night#Handle each wake" ] \
     || fail "open-night should name the board it started: $(cat "$TMP/out")"
   MMW_PORT="$port" python3 - <<'PY' || fail "the board open-night started does not answer"
 import os, socket
@@ -6832,7 +6832,7 @@ PY
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 0 ] || fail "a board that will not start must not fail the night, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #76: wake-ups go to paseo session agt_main" "$TMP/out" \
+  grep -qx "opened #76: wake-ups go to paseo session agt_main · mmw run-a-night#Handle each wake" "$TMP/out" \
     || fail "the night still opens, without a board URL: $(cat "$TMP/out")"
   grep -q "no task board supervisor at" "$TMP/err" || fail "the reason should be named: $(cat "$TMP/err")"
   grep -q "the night is open and its task board is not" "$TMP/err" \
@@ -6856,7 +6856,7 @@ JSON
   [ "$code" = 0 ] || fail "open-ticket-watch expected 0, got $code: $(cat "$TMP/err")"
   port="$(board_registry_port)"
   BOARD_TEST_PORTS="$port"
-  [ "$(cat "$TMP/out")" = "opened #90: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port" ] \
+  [ "$(cat "$TMP/out")" = "opened #90: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port · mmw land-one-ticket#Handle each wake" ] \
     || fail "open-ticket-watch should name the board it started: $(cat "$TMP/out")"
   MMW_PORT="$port" python3 - <<'PY' || fail "the board open-ticket-watch started does not answer"
 import os, socket
@@ -6876,7 +6876,7 @@ PY
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open-ticket-watch 90)"
   [ "$code" = 0 ] || fail "a board that will not start must not fail open-ticket-watch, got $code: $(cat "$TMP/err")"
-  grep -qx "opened #90: wake-ups go to paseo session agt_main" "$TMP/out" \
+  grep -qx "opened #90: wake-ups go to paseo session agt_main · mmw land-one-ticket#Handle each wake" "$TMP/out" \
     || fail "the watch still opens, without a board URL: $(cat "$TMP/out")"
   grep -q "no task board supervisor at" "$TMP/err" || fail "the reason should be named: $(cat "$TMP/err")"
   grep -q "the watch on #90 is open and its task board is not" "$TMP/err" \
@@ -11489,11 +11489,76 @@ scenario_oldnames() {
   old_name_refuses resolve-child route 76 77 fixed
 }
 
+scenario_openlinepointer() {
+  scenario_openstartsboard
+}
+
+scenario_openticketlinepointer() {
+  scenario_openticketstartsboard
+}
+
+scenario_resumepointer() {
+  local code
+  reset_log
+  seed_agent 61 worker
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 continue)"
+  [ "$code" = 0 ] || fail "resume expected 0: $(cat "$TMP/err")"
+  grep -qxF "paseo :: send :: --no-wait :: agt_61_worker :: continue · mmw work-a-ticket#When the orchestrator resumes you" "$MMW_TEST_LOG" \
+    || fail "resume did not send the whole single-line text: $(cat "$MMW_TEST_LOG")"
+  [ "$(count_of 'paseo :: send')" = 1 ] || fail "resume should send once"
+  reset_log
+  seed_agent 61 worker
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" resume 61 $'continue\nthen submit')"
+  [ "$code" = 2 ] || fail "a newline must be refused, got $code"
+  hasnt "paseo :: send"
+}
+
+scenario_opennoroles() {
+  local code copy
+  fresh_board_registry
+  fresh_project_night
+  reset_log
+  no_relay
+  write_open_batch
+  seed_main_agent agt_main
+  copy="$(skill_copy_for open-no-roles)"
+  copy="$(cd "$copy" && pwd -P)"
+  rm "$copy/roles.json"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 2 ] || fail "missing roles must exit 2, got $code: $(cat "$TMP/err")"
+  one_line_reason
+  grep -qF "cannot read $copy/roles.json" "$TMP/err" || fail "roles path not named"
+  grep -qF 'run bash mmw-v2/install.sh --check' "$TMP/err" || fail "install check not named"
+  [ ! -s "$TMP/out" ] || fail "missing roles should not print an opened line"
+  python3 - "$STATE_DIR/watches.json" <<'PYTEST' || fail "missing roles opened a watch"
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+assert not path.exists() or not json.loads(path.read_text())
+PYTEST
+  never_ran
+  local command
+  for command in open-ticket-watch adopt resume; do
+    : > "$MMW_TEST_LOG"
+    if [ "$command" = resume ]; then
+      code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" "$command" 61 continue)"
+    else
+      code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" "$command" 61)"
+    fi
+    [ "$code" = 2 ] || fail "$command with missing roles must exit 2, got $code"
+    one_line_reason
+    grep -qF 'install.sh --check' "$TMP/err" || fail "$command must name install check"
+    [ ! -s "$MMW_TEST_LOG" ] || fail "$command reached a tracker or runner before refusing"
+  done
+}
+
 ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart watchkind"
+ALL="$ALL openlinepointer openticketlinepointer resumepointer opennoroles"
 ALL="$ALL installmissinghook installchecklauncher installcheckhookbypass installcheckmodehook"
 ALL="$ALL installcheckstalecopy"
 ALL="$ALL installcopyretired"
@@ -11517,6 +11582,10 @@ if [ "$1" = all ]; then wanted="$ALL"; else wanted="$1"; fi
 
 banner_for() {
   case "$1" in
+    openlinepointer) echo OPEN-LINE-POINTER-OK ;;
+    openticketlinepointer) echo OPEN-TICKET-LINE-POINTER-OK ;;
+    resumepointer) echo RESUME-POINTER-OK ;;
+    opennoroles) echo OPEN-NO-ROLES-OK ;;
     installcheckmodehook) echo INSTALL-CHECK-MODE-HOOK-OK ;;
     installcheckstalecopy) echo INSTALL-CHECK-STALE-COPY-OK ;;
     installcopyretired) echo INSTALL-COPY-RETIRED-OK ;;

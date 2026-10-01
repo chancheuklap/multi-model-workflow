@@ -2,16 +2,17 @@
 """Three things a dispatched session may not do: take its ticket out of the agent queue
 by hand, put a question on the screen, and end a process.
 
-A ticket closes through `verify-ticket.py <n> --closeout <draft>`, which checks the
+A ticket closes through `ticket_state.py <n> --closeout <draft>`, which checks the
 closing comment, posts it, and only then closes the ticket. `gh issue close` skips all
 of that and leaves a closed ticket nobody can read in the morning. So every host asks
 this file before running a shell command, and this file refuses that one command.
 
 A question on the screen has nobody to answer it: nothing in this pipeline reads a
 form. So every host asks this file before calling its question tool, and this file
-refuses the call and gives three ways out: the worker takes and records the default,
+refuses the call with the way out for `MMW_ROLE`: the worker takes and records the default,
 or writes `ABANDON: AC<n> decision` and opens a `decision` child, then continues;
 the reviewer appends `unverified: <what would settle it>` at the end of the finding's line.
+A missing or unknown role receives both ways out.
 
 Ending a process is never this session's to do. Several runs share one machine, and
 another run's application is indistinguishable from a stuck one, so a session that is
@@ -67,18 +68,23 @@ GATES = ("pretool", "question")
 TICKET_DIR = re.compile(r"^issue-(\d+)$")
 
 REFUSAL = (
-    "Close #{n} with `verify-ticket.py {n} --closeout <draft>`, not by hand: it checks the "
-    "closing comment, posts it, then closes the ticket. Write it to a file and run that. "
-    "Unfinished work leaves the same way, first line `HANDOFF REQUIRED`."
+    "Close #{n} via `ticket_state.py {n} --closeout <draft>`: it checks and posts the "
+    "closing comment before closing. Unfinished: draft starts `HANDOFF REQUIRED`."
+    " · mmw work-a-ticket#Close out"
 )
 
 # The same length rule, including the host's prefix: the worker records a default or
 # opens a decision child and continues; the reviewer marks the finding unverified.
-NO_QUESTION = (
-    "No one answers. Worker: pick likely; note `Decisions I made on my own`; if delivery "
-    "changes: ABANDON: AC<n> decision <question,options,default>; open decision child; "
-    "continue. Reviewer: end finding line with unverified: <what would settle it>."
+WORKER_NO_QUESTION = (
+    "Worker: pick likely; note `Decisions I made on my own`; if delivery changes: "
+    "ABANDON: AC<n> decision <question,options,default>; open decision child; continue."
 )
+REVIEWER_NO_QUESTION = (
+    "Reviewer: write `unverified: <what would settle it>` at the end of that finding's "
+    "line in your report."
+)
+NO_QUESTION = ("No one answers. " + WORKER_NO_QUESTION
+               + " Reviewer: end finding line with unverified: <what would settle it>.")
 
 # The tool each host calls to put a question on the screen.
 QUESTION_TOOLS = {
@@ -287,7 +293,10 @@ def run_question(host: str, event: dict) -> int:
         return 0
     if tool_of(event) not in QUESTION_TOOLS.get(host, ()):
         return 0
-    refuse(host, NO_QUESTION)
+    role = os.environ.get("MMW_ROLE")
+    reason = {"worker": "No one answers. " + WORKER_NO_QUESTION,
+              "reviewer": "No one answers. " + REVIEWER_NO_QUESTION}.get(role, NO_QUESTION)
+    refuse(host, reason)
     return 0
 
 
