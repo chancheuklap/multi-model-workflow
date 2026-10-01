@@ -1,16 +1,14 @@
 # Writing Agent Briefs
 
-An agent brief is the structured comment the `triage` skill posts on a GitHub issue or PR at the evaluation stage: what reproducing the claim produced, the root-cause leads the codebase turned up, what would have to be true for the request to be satisfied, and the outcome being recommended. It is the record of the investigation, kept on the issue so it outlives the session that did the work.
+An agent brief is a structured comment posted on a GitHub issue or PR when it moves to `ready-for-agent`. It is the authoritative specification that an AFK agent will work from. The original body and discussion are context: the agent brief is the contract.
 
-An issue judged `ready-for-agent` goes into the ticket pipeline, where the `to-spec` skill reads the agent brief as one of the spec's sources and the `to-tickets` skill cuts the tickets an agent works from.
-
-A brief covers both surfaces: for an issue, the finding is about behaviour that is missing or broken; for a PR, it is about the state of the existing diff: what it already does, what is missing, what review raised. Same principles either way; the PR example below shows the difference.
+The brief states **what the agent should do**, which stretches to both surfaces: for an issue, that's building the change from nothing; for a PR, it's what's left to do *to the existing diff*: finish it, close gaps, address review points. Same principles either way; the PR example below shows the difference.
 
 ## Principles
 
 ### Durability over precision
 
-The issue may sit for days or weeks before a spec is written from it. The codebase will change in the meantime. Write the brief so it stays useful even as files are renamed, moved, or refactored.
+The issue may sit in `ready-for-agent` for days or weeks. The codebase will change in the meantime. Write the brief so it stays useful even as files are renamed, moved, or refactored.
 
 - **Do** describe interfaces, types, and behavioral contracts
 - **Do** name specific types, function signatures, or config shapes that the agent should look for or modify
@@ -20,23 +18,23 @@ The issue may sit for days or weeks before a spec is written from it. The codeba
 
 ### Behavioral, not procedural
 
-Describe **what** the system should do, not **how** to implement it. How is decided later, in the spec and its tickets, against the code as it stands then.
+Describe **what** the system should do, not **how** to implement it. The agent will explore the codebase fresh and make its own implementation decisions.
 
 - **Good:** "The `SkillConfig` type should accept an optional `schedule` field of type `CronExpression`"
 - **Bad:** "Open src/types/skill.ts and add a schedule field on line 42"
-- **Good:** "When a user runs the triage skill with no arguments, they should see a summary of issues needing attention"
+- **Good:** "When a user runs `/triage` with no arguments, they should see a summary of issues needing attention"
 - **Bad:** "Add a switch statement in the main handler function"
 
 ### Complete acceptance criteria
 
-A finding nobody can check is an opinion. Every brief states, concretely and testably, what would have to be true for the request to be satisfied, one thing at a time, each independently verifiable. The `to-tickets` skill is where each of these picks up the command that decides it.
+The agent needs to know when it's done. Every agent brief must have concrete, testable acceptance criteria. Each criterion should be independently verifiable.
 
 - **Good:** "Running `gh issue list --label needs-triage` returns issues that have been through initial classification"
 - **Bad:** "Triage should work correctly"
 
 ### Explicit scope boundaries
 
-State what is out of scope. It keeps the spec written from this agent brief on the request that was actually made, rather than the adjacent features it suggests.
+State what is out of scope. This prevents the agent from gold-plating or making assumptions about adjacent features.
 
 ## Template
 
@@ -149,7 +147,7 @@ checked for matches.
 
 ### Good agent brief (PR)
 
-For a PR, **Current behavior** describes the state of the diff, and **Desired behavior** is what finishing it would mean, not what building it from scratch would.
+For a PR, "Current behavior" describes the state of the diff, and the brief asks the agent to finish or fix it rather than build from scratch.
 
 ```markdown
 ## Agent Brief
