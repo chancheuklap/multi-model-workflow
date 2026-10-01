@@ -4094,16 +4094,39 @@ scenario_summary() {
   local when code copy other
   copy="$(skill_copy_for summary)"
   mkdir -p "$TMP/fake/skills/verify-ticket/scripts"
-  cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
+  cat > "$copy/scripts/ticket_state.py" <<'PY'
 #!/usr/bin/env python3
-import os, sys
+import json, os, subprocess, sys
+from pathlib import Path
 log = os.environ["MMW_TEST_LOG"]
 with open(log, "a", encoding="utf-8") as fh:
-    fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
-print("ALL MET (5 met)")
-sys.exit(0)
+    fh.write("ticket-state" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+number = sys.argv[1]
+if number in os.environ.get("FAKE_VERIFY_WAIT", "").split(","):
+    sys.exit(3)
+if number in os.environ.get("FAKE_VERIFY_UNRECORDED", "").split(","):
+    sys.exit(4)
+failing = {n for n in os.environ.get("FAKE_VERIFY_FAIL", "").split(",") if n}
+failed = ["AC3"] if number in failing else []
+# FAKE_VERIFY_CRASH: red exit with nothing posted, the way a crash after the run is.
+if number in os.environ.get("FAKE_VERIFY_CRASH", "").split(","):
+    sys.exit(1)
+head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+body = subprocess.run(
+    [sys.executable, os.environ["MMW_EVENTS_PY_FOR_TESTS"], "emit", "ticket.checked",
+     "--ticket", number, "--line", "Reverify", "--actor", "main", "--stage", "regress",
+     "--field", "run=reverify", "--field", "commit=" + head,
+     "--field", "result=" + ("unmet" if failed else "met"),
+     "--json-field", "failed=" + json.dumps(failed)],
+    capture_output=True, text=True, check=True).stdout
+store = Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json"
+posted = json.loads(store.read_text()) if store.is_file() else {}
+posted.setdefault(number, []).append(body)
+store.write_text(json.dumps(posted))
+print("UNMET: 1 (met: 4)" if failed else "ALL MET (5 met)")
+sys.exit(1 if failed else 0)
 PY
-  chmod +x "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+  chmod +x "$copy/scripts/ticket_state.py"
 
   when="$(python3 -c 'from datetime import datetime, timezone, timedelta; print((datetime.now(timezone.utc)-timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))')"
   cat > "$TMP/tickets.json" <<JSON
@@ -4132,6 +4155,9 @@ JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "reverify expected exit 0, got $code: $(cat "$TMP/err")"
+  has "ticket-state :: 61 :: --run-and-record-criteria :: --reverify :: --actor :: main"
+  posted_events 61 run actor | grep -qx 'ticket.checked run=reverify actor=main' \
+    || fail "summary's reverify posted no main ticket.checked: $(posted_events 61 run actor)"
   grep -q "reverify #76: 1 green, 0 red" "$TMP/out" \
     || fail "reverify should report 1 green: $(cat "$TMP/out")"
   git -C "$TMP/repo" worktree add -q --detach "$TMP/linked-summary" HEAD

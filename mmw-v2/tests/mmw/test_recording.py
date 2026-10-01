@@ -8,8 +8,6 @@ every later reader decides on.
 
 from __future__ import annotations
 
-import hashlib
-import importlib.util
 import io
 import json
 import subprocess
@@ -19,7 +17,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import SCRIPT, checked, event, load, started
+from _load import SCRIPT, checked, event, load, started, current_evidence, ticket, payload_of, git_repo, lease_in
 
 vt = load()
 
@@ -27,27 +25,7 @@ UI_ACCEPTANCE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
 
 
-def current_evidence(check: str, expect: str) -> str:
-    """A pass line as gate-check writes it for this CHECK and EXPECT with no CWD:
-    `definition-sha256` is `gateDefinitionDigest` in `mmw-v2/upstream-unlazy/scripts/lib/gates.mjs`."""
-    definition = json.dumps(["unlazy.gate-definition", 1, check, expect, None],
-                            separators=(",", ":"), ensure_ascii=False)
-    digest = hashlib.sha256(definition.encode("utf-8")).hexdigest()
-    return (f"automatic-evidence=v1; definition-sha256={digest}; exit=0; EXPECT=matched; "
-            f"output-sha256={'a' * 64}; output-bytes=13; shell=/bin/sh; cwd=.")
-
-
 STARTED = started(ticket=1, into="spec-337")
-
-
-def ticket(*criteria: str, owns: str = "- src/**") -> str:
-    return "## Owns\n\n" + owns + "\n\n## Acceptance criteria\n\n" + "\n".join(criteria) + "\n"
-
-
-def payload_of(comment: str) -> dict:
-    what, payload = vt.engine.events.parse(comment)
-    assert what == "event", (what, payload, comment)
-    return payload
 
 
 class LedgerRun(unittest.TestCase):
@@ -106,7 +84,7 @@ class TestTheRunIsOneTicketCheckedEvent(LedgerRun):
         self.assertEqual(payload["failed"], ["AC2"])
         self.assertEqual(payload["outside_owns"], ["docs/stray.md"])
         self.assertEqual(payload["shape"],
-                         vt.engine.shape_digest(vt.engine.section(self.BODY, "Acceptance criteria")))
+                         "c7372b84151d44b1b68e0bb2bbe172efe09476519cf17309166810a28f654dc0")
         self.assertNotIn("slot", payload)
         self.assertIn("Outside Owns: docs/stray.md", comment)
 
@@ -188,29 +166,6 @@ class TestReverify(LedgerRun):
                 "  EVIDENCE: exit=0; EXPECT=matched"
         _, _, printed = self.run_ticket(body, reverify=True, comments=[typed])
         self.assertIn("previously met reverified: 0", printed)
-
-
-def git_repo(root: Path):
-    """A repository with one commit at `root`; returns a function running git there."""
-    def sh(*args, cwd=root):
-        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
-
-    sh("init", "-q", "-b", "main")
-    sh("config", "user.email", "t@t")
-    sh("config", "user.name", "t")
-    return sh
-
-
-def lease_in(home: Path):
-    """`lease.py` of the ui-acceptance skill, its registry under `home`, not ~/.mmw."""
-    spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
-                                                  UI_ACCEPTANCE / "lease.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    # `lease.py` asks `home()` for the root every time it needs a path, so the test's
-    # own root is given by replacing that one reader, not by writing paths into it.
-    module.home = lambda: home
-    return module
 
 
 PRODUCT = ticket("- [ ] AC1: the journey through the importer runs",
@@ -395,7 +350,7 @@ class TestTheProductSlot(unittest.TestCase):
         for body in (PLAIN, failing):
             with self.subTest(body=body[:40]):
                 code, _, err = self.run_in(root, body, post=tracker_down)
-                self.assertEqual(code, vt.NOT_RECORDED, err)
+                self.assertEqual(code, 4, err)
                 self.assertNotIn(code, (0, 1))
 
     def test_a_full_machine_queues_the_run_the_same_way(self):

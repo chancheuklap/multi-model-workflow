@@ -315,7 +315,7 @@ class TestBaselineRun(unittest.TestCase):
                                        text=True).strip()
         return root, base, head
 
-    def claim(self, root, base, comments=None, body=None):
+    def claim(self, root, base, comments=None, body=None, post=None):
         from _load import started
         history = comments if comments is not None else [
             started(ticket=77, base=base, into="spec-337",
@@ -330,7 +330,7 @@ class TestBaselineRun(unittest.TestCase):
              mock.patch.object(vt.engine, "repo_root", return_value=root), \
              mock.patch.object(vt, "assign_self") as assign, \
              mock.patch.object(vt.engine, "post_comment",
-                               side_effect=lambda n, b: posted.append((n, b))):
+                               side_effect=post or (lambda n, b: posted.append((n, b)))):
             with redirect_stdout(io.StringIO()) as out, \
                     redirect_stderr(io.StringIO()) as err:
                 code = vt.run_claim(77)
@@ -361,6 +361,26 @@ class TestBaselineRun(unittest.TestCase):
         listed = subprocess.check_output(
             ["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
         self.assertEqual(listed.count("worktree "), 1, listed)
+
+    def test_claim_posts_ticket_claimed_and_prints_ready_when_baseline_post_fails(self):
+        root, base, _ = self.repo()
+        errors = [OSError("offline"), subprocess.CalledProcessError(1, ["gh", "issue", "comment"]),
+                  vt.engine.events.EventError("invalid baseline event")]
+        for failure in errors:
+            with self.subTest(error=type(failure).__name__):
+                claimed = []
+                def post(number, body):
+                    if event_of(body)[0] == "ticket.checked":
+                        raise failure
+                    claimed.append(body)
+                code, _, err, out, assign = self.claim(root, base, post=post)
+                self.assertEqual(code, 0, err)
+                self.assertIn("READY: #77", out)
+                self.assertIn("baseline run did not complete", err)
+                self.assertEqual([event_of(b)[0] for b in claimed], ["ticket.claimed"])
+                assign.assert_called_once_with(77)
+                listed = subprocess.check_output(["git", "worktree", "list", "--porcelain"], cwd=root, text=True)
+                self.assertEqual(listed.count("worktree "), 1, listed)
 
     def test_a_red_baseline_does_not_refuse_the_claim(self):
         root, base, _ = self.repo()
@@ -464,7 +484,7 @@ if __name__ == "__main__":
 
 class TestClaimOutput(unittest.TestCase):
     def test_claim_prints_no_resume_line(self):
-        code, posted, err, assign, output = run()
+        code, posted, err, assign, output = run(history={77: [checked("self", SELF_LEDGER, commit=HEAD)]})
         self.assertEqual(code, 0, err)
         self.assertIn("READY:", output)
         self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")

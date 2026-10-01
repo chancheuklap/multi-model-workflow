@@ -47,35 +47,37 @@ class TestPrintOnly(unittest.TestCase):
                 external.assert_not_called()
 
     def test_print_only_run_without_a_free_slot_exits_3(self):
-        from contextlib import nullcontext
+        import json
+        import tempfile
         from pathlib import Path
+        from _load import git_repo, lease_in, SCRIPT
 
-        class Lease:
-            class Full(Exception):
-                reason, limit, holders = "machine-full", 8, ["/other"]
-            class CapUnreadable(Exception):
-                pass
-            class StopUnreadable(Exception):
-                pass
-            def judge_run(self, root, stop):
-                return nullcontext()
-            def worktree_of(self, root):
-                return root
-            def try_claim(self, root):
-                raise self.Full()
-
-        product = BODY.replace("echo result", "echo journey.py")
-        with mock.patch.object(vt, "fetch_body", return_value=product), \
-                mock.patch.object(vt, "fetch_comments", return_value=[]), \
-                mock.patch.object(vt, "load_lease", return_value=Lease()), \
-                mock.patch.object(vt, "post_comment") as post, \
-                mock.patch.object(vt, "require_judges"), \
-                mock.patch.object(vt, "repo_root", return_value=Path.cwd()), \
-                mock.patch.object(vt.subprocess, "run") as external, \
-                mock.patch.object(vt, "git", return_value="0" * 40), \
-                redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
-            code = vt.run_checks(1, False)
-        self.assertEqual(code, 3, err.getvalue())
-        self.assertNotIn("AC:AC1", out.getvalue())
-        post.assert_not_called()
-        external.assert_not_called()
+        with tempfile.TemporaryDirectory() as tmp:
+            main = Path(tmp) / "main"
+            main.mkdir()
+            sh = git_repo(main)
+            (main / ".mmw").mkdir()
+            (main / ".mmw" / "target.json").write_text(json.dumps({"instance": {"max": 1}}))
+            sh("add", ".mmw/target.json")
+            sh("commit", "-qm", "base")
+            root = main / ".worktrees" / "issue-1"
+            other = main / ".worktrees" / "issue-2"
+            sh("worktree", "add", "-q", "-b", "issue-1", str(root))
+            sh("worktree", "add", "-q", "-b", "issue-2", str(other))
+            lease = lease_in(Path(tmp) / "home")
+            lease.try_claim(other.resolve())
+            marker = root / "criterion-ran"
+            product = BODY.replace("echo result", f"touch '{marker}'; echo journey.py")
+            with mock.patch.object(vt, "fetch_body", return_value=product), \
+                    mock.patch.object(vt, "fetch_comments", return_value=[]), \
+                    mock.patch.object(vt, "load_lease", return_value=lease), \
+                    mock.patch.object(vt, "post_comment") as post, \
+                    mock.patch.object(vt, "repo_root", return_value=root), \
+                    mock.patch.object(vt, "TOOLS", [SCRIPT.parents[2] / "ui-acceptance" / "scripts"]), \
+                    redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+                code = vt.run_checks(1, False)
+            self.assertEqual(code, 3, err.getvalue())
+            self.assertFalse(marker.exists(), "the criterion ran without a free product slot")
+            self.assertNotIn("AC:AC1", out.getvalue())
+            self.assertEqual([record["worktree"] for record in lease.claimed()], [str(other.resolve())])
+            post.assert_not_called()

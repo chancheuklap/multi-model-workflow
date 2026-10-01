@@ -34,6 +34,10 @@ FILL = "<fill>"
 
 
 HANDOFF_KINDS = ("failed", "stuck")
+# How long a reverify waits for a product slot before it hands back exit 3, and how often
+# it asks again in between. The bound stays under the time a host lets a command run
+# before it moves it to the background; a reverify given back 3 is run again, and the wait
+# goes on. The worker's own run does not wait here: it is woken when a slot is given back.
 SLOT_WAIT_S = int(os.environ.get("MMW_SLOT_WAIT_S", "90"))
 SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
 
@@ -79,6 +83,8 @@ def own_session(read: SelfRead) -> tuple[str, str] | None:
     return None
 
 
+# `refusal.py` of the ui-acceptance skill. One line is capped here, above a hook's
+# 256-character deny reason: `refusal` trims the cause and keeps the next step whole.
 _REFUSAL_PY = HERE.parents[1] / locations.UI_ACCEPTANCE_REFUSAL_PY
 
 
@@ -819,7 +825,7 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
 
     A red result does not refuse the claim. Failures of the throwaway worktree are written
     as an unmet `ticket.checked` of run `baseline` when the base commit is known, and
-    otherwise named on stderr; they never raise into `--preflight`.
+    otherwise named on stderr; they never raise into `--claim`.
     """
     try:
         comments = engine.fetch_comments(number)
@@ -840,25 +846,22 @@ def run_baseline_if_needed(number: int, root: Path) -> None:
     except engine.TrackerReadError as exc:
         sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
         return
-    result = engine.run_baseline(number, body, base, root)
-    if result is not None:
-        _post_baseline(number, body, base, **result)
+    try:
+        result = engine.run_baseline(number, body, base, root)
+        if result is not None:
+            _post_baseline(number, body, base, result)
+    except (OSError, subprocess.CalledProcessError, engine.events.EventError) as exc:
+        sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
 
 
-def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
-                   skipped: list[str], outcome: str, line: str,
-                   updated: str = "") -> None:
-    results = [{"id": c["id"],
-                "met": bool(c.get("ticked") and c.get("evidence")
-                            and c.get("evidence") != "pending"),
-                "evidence": c.get("evidence") or "pending"} for c in runnable]
-    abandons = engine.parse_abandons(updated) if updated else []
-    engine.post_event(number, "ticket.checked", line, updated,
-               run="baseline", commit=base, result=outcome,
-               counts=engine.tally(runnable, abandons) if runnable else {
-                   "met": 0, "unmet": 0, "abandoned": 0, "total": 0},
+def _post_baseline(number: int, body: str, base: str, result: engine.BaselineRun) -> None:
+    results = engine.criteria_results(result.criteria)
+    abandons = engine.parse_abandons(result.ledger) if result.ledger else []
+    engine.post_event(number, "ticket.checked", result.summary, result.ledger,
+               run="baseline", commit=base, result=result.outcome,
+               counts=engine.tally(result.criteria, abandons),
                criteria=results, failed=[r["id"] for r in results if not r["met"]],
-               abandons=abandons or None, skipped=skipped or None,
+               abandons=abandons or None, skipped=result.skipped or None,
                shape=engine.shape_digest(engine.section(body, "Acceptance criteria")),
                actor="worker", stage=engine.events.checked_stage("baseline", "worker"))
 
@@ -1303,43 +1306,41 @@ def run_and_record_criteria(number: int, reverify: bool, actor: str | None = Non
         sys.stdout.write(result.output)
         if result.returncode != 3:
             break
-        slot = result.slot
+        acquisition = result.acquisition
         if announced is None:
             announced = engine.events.fold(engine.fetch_comments(number))["waiting"] is not None
         if not announced:
-            what = ("this product's instance.max" if slot.reason == "product-full"
+            what = ("this product's instance.max" if acquisition.reason == "product-full"
                     else "every slot of this machine")
             try:
                 engine.post_event(number, "worker.queued",
-                                  f"Waiting for a product slot: {what} ({slot.limit}) is held",
-                                  "\n".join(f"- {h}" for h in slot.holders),
-                                  run=run, reason=slot.reason, limit=slot.limit,
-                                  holders=slot.holders, worktree=slot.worktree, actor=actor)
+                                  f"Waiting for a product slot: {what} ({acquisition.limit}) is held",
+                                  "\n".join(f"- {h}" for h in acquisition.holders),
+                                  run=run, reason=acquisition.reason, limit=acquisition.limit,
+                                  holders=acquisition.holders, worktree=acquisition.worktree, actor=actor)
             except (OSError, subprocess.CalledProcessError) as exc:
                 sys.stderr.write(f"#{number}: no product slot is free and worker.queued "
                                  f"could not be written ({exc}); nothing ran. Run again.\n")
                 return NOT_RECORDED
             announced = True
         if not reverify:
-            sys.stderr.write(f"#{number}: no product slot is free ({slot.reason}); nothing ran. "
+            sys.stderr.write(f"#{number}: no product slot is free ({acquisition.reason}); nothing ran. "
                              f"End your turn: the relay wakes you with `#{number} worker.queued` "
                              "when a slot is given back. Run the same command then.\n")
             return 3
         if spent >= SLOT_WAIT_S:
-            sys.stderr.write(f"#{number}: no product slot came free in {spent}s ({slot.reason}); "
+            sys.stderr.write(f"#{number}: no product slot came free in {spent}s ({acquisition.reason}); "
                              "nothing ran. Run the same command again to keep waiting.\n")
             return 3
         time.sleep(SLOT_BEAT_S)
         spent += SLOT_BEAT_S
     if result.returncode == 2:
         return 2
-    criteria = [{"id": c["id"],
-                 "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
-                 "evidence": c["evidence"] or "pending"} for c in result.criteria]
+    criteria = engine.criteria_results(result.criteria)
     prose = [result.ledger]
     if not reverify:
         prose += ["", engine.outside_owns_text(result.outside_owns)]
-    slot = result.slot.slot if result.slot else None
+    lease_record = result.acquisition.lease_record if result.acquisition else None
     try:
         engine.post_event(number, "ticket.checked",
                           f"{'Reverify' if reverify else 'Own run'} on {result.head[:12]}: "
@@ -1348,8 +1349,8 @@ def run_and_record_criteria(number: int, reverify: bool, actor: str | None = Non
                           counts=engine.tally(result.criteria, result.abandons), criteria=criteria,
                           failed=[c["id"] for c in criteria if not c["met"]],
                           abandons=result.abandons or None, shape=result.shape,
-                          slot=slot.get("slot") if slot else None,
-                          port_base=slot.get("port_base") if slot else None,
+                          slot=lease_record.get("slot") if lease_record else None,
+                          port_base=lease_record.get("port_base") if lease_record else None,
                           actor=actor, stage=engine.events.checked_stage(run, actor),
                           **result.outside_owns)
     except (OSError, subprocess.CalledProcessError) as exc:

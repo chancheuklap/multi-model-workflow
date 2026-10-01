@@ -83,10 +83,6 @@ PRODUCT_JUDGES = ("journey.py", "lease.py")
 # Criteria whose CHECK names one of these are left off the claim-time baseline run:
 # they start the product or the story service. Recorded on the event as `skipped`.
 BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
-# How long a reverify waits for a product slot before it hands back exit 3, and how often
-# it asks again in between. The bound stays under the time a host lets a command run
-# before it moves it to the background; a reverify given back 3 is run again, and the wait
-# goes on. The worker's own run does not wait here: it is woken when a slot is given back.
 
 # A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
@@ -239,8 +235,6 @@ def gh_login() -> str:
     return out.stdout.strip()
 
 
-# `refusal.py` of the ui-acceptance skill. One line is capped here, above a hook's
-# 256-character deny reason: `refusal` trims the cause and keeps the next step whole.
 
 
 def fetch_blocked_by(number: int) -> list[int]:
@@ -713,6 +707,13 @@ def parse_abandons(text: str) -> list[dict]:
     return out
 
 
+def criteria_results(criteria: list[dict]) -> list[dict]:
+    """Results of a parsed ledger: a tick without evidence is not met."""
+    return [{"id": c["id"],
+             "met": bool(c.get("ticked") and c.get("evidence") and c["evidence"] != "pending"),
+             "evidence": c.get("evidence") or "pending"} for c in criteria]
+
+
 def tally(criteria: list[dict], abandons: list[dict]) -> dict:
     """Recount the draft. A tick with `EVIDENCE: pending` is unmet, not met."""
     abandoned_ids = {a["ac"] for a in abandons}
@@ -855,7 +856,7 @@ def compute_levels(entries: list[dict]) -> dict:
 def in_batch(entries: list[dict]) -> list[dict]:
     """The same entries with every dependency outside the batch dropped.
 
-    A blocking edge to another spec's ticket is a real edge, and `--preflight`,
+    A blocking edge to another spec's ticket is a real edge, and `ticket_state.py --claim`,
     `dispatch.sh advance` and `status.py` all honour it — but it is not an edge this graph can
     order, because the other end has no entry here. Left in, it would hold that ticket's
     in-degree above zero forever, which Kahn's algorithm reads as a cycle and
@@ -893,7 +894,7 @@ def blockers_not_tickets(entries: list[dict]) -> list[str]:
 def cross_batch_findings(entries: list[dict]) -> list[str]:
     """Blocking edges to tickets under another spec.
 
-    Not a fault to fix: it is the shape a layered delivery has, and `--preflight`,
+    Not a fault to fix: it is the shape a layered delivery has, and `ticket_state.py --claim`,
     `dispatch.sh advance` and `status.py` all refuse to start a ticket while one of these is
     open. It is reported because the start levels are built without it, so a reader who
     took them for the whole truth would miss that one of these tickets is waiting on a
@@ -929,7 +930,7 @@ def ticket_entries(numbers: list[int]) -> list[dict]:
     """One entry per ticket: the blocking edges the tracker records.
 
     `dependencies` is what the tracker records, and it is the graph every check below
-    runs on — the same edges `--preflight` refuses on and `dispatch.sh advance` dispatches from.
+    runs on — the same edges `ticket_state.py --claim` refuses on and `dispatch.sh advance` dispatches from.
 
     A dependency outside this batch is kept, and `outside` says what was found at the
     other end of it: `{number: {"spec": …, "state": …}}`. One lookup per distinct
@@ -1125,7 +1126,7 @@ def load_lease():
 class SlotAcquisition(NamedTuple):
     """An acquired lease, an unavailable slot, or a refusal before acquiring."""
     returncode: int
-    slot: dict | None = None
+    lease_record: dict | None = None
     reason: str | None = None
     limit: int | None = None
     holders: list[str] | None = None
@@ -1143,7 +1144,7 @@ class CriteriaRun(NamedTuple):
     head: str = ""
     shape: str = ""
     outside_owns: dict | None = None
-    slot: SlotAcquisition | None = None
+    acquisition: SlotAcquisition | None = None
     summary: str = ""
 
 
@@ -1157,7 +1158,7 @@ def hold_slot(root: Path) -> SlotAcquisition:
             "and run again."))
     worktree = lease.worktree_of(root)
     try:
-        return SlotAcquisition(0, slot=lease.try_claim(worktree), worktree=str(worktree))
+        return SlotAcquisition(0, lease_record=lease.try_claim(worktree), worktree=str(worktree))
     except lease.CapUnreadable as exc:
         return SlotAcquisition(refuse(
             f"{exc}; the product's limit is unknown and nothing ran. Fix that file and run again."))
@@ -1171,7 +1172,7 @@ def run_checks(number: int, reverify: bool) -> int:
     result = run_criteria(number, reverify)
     sys.stdout.write(result.output)
     if result.returncode == 3:
-        sys.stderr.write(f"#{number}: no product slot is free ({result.slot.reason}); "
+        sys.stderr.write(f"#{number}: no product slot is free ({result.acquisition.reason}); "
                          "nothing ran. Run the same command when a slot is available.\n")
     return result.returncode
 
@@ -1210,7 +1211,7 @@ def _run_criteria(number: int, reverify: bool, body: str, root: Path) -> Criteri
     if needs_product(body):
         slot = hold_slot(root)
         if slot.returncode:
-            return CriteriaRun(slot.returncode, head=head, slot=slot)
+            return CriteriaRun(slot.returncode, head=head, acquisition=slot)
     carried = carried_ledger(body, comments) if reverify else []
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp), carried or None)
@@ -1228,7 +1229,7 @@ def _run_criteria(number: int, reverify: bool, body: str, root: Path) -> Criteri
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
         if result.returncode == 2:
-            return CriteriaRun(2, output=printed, head=head, slot=slot)
+            return CriteriaRun(2, output=printed, head=head, acquisition=slot)
         summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
 
@@ -1240,7 +1241,7 @@ def _run_criteria(number: int, reverify: bool, body: str, root: Path) -> Criteri
     return CriteriaRun(result.returncode, output=printed, ledger=updated,
                        criteria=criteria, abandons=abandons, outcome=outcome, head=head,
                        shape=shape_digest(section(body, "Acceptance criteria")),
-                       outside_owns=fields, slot=slot, summary=summary)
+                       outside_owns=fields, acquisition=slot, summary=summary)
 
 
 def check_run_outcome(returncode: int, summary: str) -> str | None:
@@ -1259,7 +1260,16 @@ def baseline_skipped(check: str) -> bool:
     return any(name in (check or "") for name in BASELINE_SKIP_JUDGES)
 
 
-def run_baseline(number: int, body: str, base: str, root: Path) -> dict | None:
+class BaselineRun(NamedTuple):
+    """The baseline ledger and skipped criteria, without any tracker effects."""
+    criteria: list[dict]
+    skipped: list[str]
+    outcome: str
+    summary: str
+    ledger: str = ""
+
+
+def run_baseline(number: int, body: str, base: str, root: Path) -> BaselineRun | None:
     """Criteria that need no product slot, at `base`, in a throwaway detached worktree."""
     items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
     skipped = [c["id"] for c in items if baseline_skipped(c.get("check", ""))]
@@ -1273,12 +1283,12 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> dict | None:
         short = base[:12]
         if added.returncode != 0 or not worktree.is_dir():
             why = (added.stderr or added.stdout or "git worktree add failed").strip()
-            return dict(runnable=[], skipped=[c["id"] for c in items],
+            return BaselineRun(criteria=[], skipped=[c["id"] for c in items],
                            outcome="unmet",
-                           line=f"Baseline run on {short}: unmet ({why})")
+                           summary=f"Baseline run on {short}: unmet ({why})")
         if not runnable:
-            return dict(runnable=[], skipped=skipped, outcome="unmet",
-                           line=f"Baseline run on {short}: nothing ran (all skipped)")
+            return BaselineRun(criteria=[], skipped=skipped, outcome="unmet",
+                           summary=f"Baseline run on {short}: nothing ran (all skipped)")
         ledger_dir = tmp / "ledger"
         ledger_dir.mkdir()
         lines = []
@@ -1301,13 +1311,13 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> dict | None:
         updated = ledger.read_text(encoding="utf-8").rstrip("\n") if ledger.is_file() else ""
         outcome = check_run_outcome(result.returncode, summary)
         if outcome is None:
-            return dict(runnable=[], skipped=[c["id"] for c in items],
+            return BaselineRun(criteria=[], skipped=[c["id"] for c in items],
                            outcome="unmet",
-                           line=f"Baseline run on {short}: could not start")
+                           summary=f"Baseline run on {short}: could not start")
         ran = parse_criteria(updated) if updated else runnable
-        return dict(runnable=ran, skipped=skipped, outcome=outcome,
-                       line=f"Baseline run on {short}: {summary or outcome}",
-                       updated=updated)
+        return BaselineRun(criteria=ran, skipped=skipped, outcome=outcome,
+                       summary=f"Baseline run on {short}: {summary or outcome}",
+                       ledger=updated)
     except (OSError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
     finally:

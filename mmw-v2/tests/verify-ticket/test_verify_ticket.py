@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import importlib.util
 import io
 import json
 import subprocess
@@ -13,7 +11,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from _load import SCRIPT, checked, event, load, started
+from _load import SCRIPT, checked, event, load, started, current_evidence, ticket, payload_of, git_repo, lease_in
 
 vt = load()
 
@@ -21,25 +19,7 @@ UI_ACCEPTANCE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
 HEAD_RE = r"^[0-9a-f]{40}$"
 
 
-def current_evidence(check: str, expect: str) -> str:
-    """A pass line as gate-check writes it for this CHECK and EXPECT with no CWD:
-    `definition-sha256` is `gateDefinitionDigest` in `mmw-v2/upstream-unlazy/scripts/lib/gates.mjs`."""
-    definition = json.dumps(["unlazy.gate-definition", 1, check, expect, None],
-                            separators=(",", ":"), ensure_ascii=False)
-    digest = hashlib.sha256(definition.encode("utf-8")).hexdigest()
-    return (f"automatic-evidence=v1; definition-sha256={digest}; exit=0; EXPECT=matched; "
-            f"output-sha256={'a' * 64}; output-bytes=13; shell=/bin/sh; cwd=.")
 STARTED = started(ticket=1, into="spec-337")
-
-
-def ticket(*criteria: str, owns: str = "- src/**") -> str:
-    return "## Owns\n\n" + owns + "\n\n## Acceptance criteria\n\n" + "\n".join(criteria) + "\n"
-
-
-def payload_of(comment: str) -> dict:
-    what, payload = vt.events.parse(comment)
-    assert what == "event", (what, payload, comment)
-    return payload
 
 
 class LedgerRun(unittest.TestCase):
@@ -56,7 +36,6 @@ class LedgerRun(unittest.TestCase):
         posted.assert_not_called()
         self.result = result
         return result.returncode, result.ledger, result.output
-
 
 
 class TestACheckMaySpanLines(LedgerRun):
@@ -155,8 +134,6 @@ class TestDoubleCondition(LedgerRun):
         self.assertNotIn("RUN  AC:AC2", printed)
         self.assertIn("- [ ] AC2:", comment)
         self.assertEqual([c["id"] for c in self.result.criteria if not c["ticked"]], ["AC2"])
-
-
 
 
 class TestMmwTicketInCheckEnv(LedgerRun):
@@ -281,8 +258,6 @@ class TestCheckTimeout(LedgerRun):
                 self.assertEqual(len(findings), 1)
                 self.assertIn("AC1", findings[0])
         self.assertEqual(vt.lint_timeouts(self.body("120")), [])
-
-
 
 
 class TestLedgerWithResults(unittest.TestCase):
@@ -463,17 +438,6 @@ class TestLint(unittest.TestCase):
         self.assertIn("LINT OK", printed)
 
 
-def git_repo(root: Path):
-    """A repository with one commit at `root`; returns a function running git there."""
-    def sh(*args, cwd=root):
-        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
-
-    sh("init", "-q", "-b", "main")
-    sh("config", "user.email", "t@t")
-    sh("config", "user.name", "t")
-    return sh
-
-
 class TestOutsideOwns(unittest.TestCase):
     """`outside_owns` counts this ticket's own commits, not what a merge rides in."""
 
@@ -587,18 +551,6 @@ class TestOutsideOwns(unittest.TestCase):
                              ["spec-start.txt"])
 
 
-def lease_in(home: Path):
-    """`lease.py` of the ui-acceptance skill, its registry under `home`, not ~/.mmw."""
-    spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
-                                                  UI_ACCEPTANCE / "lease.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    # `lease.py` asks `home()` for the root every time it needs a path, so the test's
-    # own root is given by replacing that one reader, not by writing paths into it.
-    module.home = lambda: home
-    return module
-
-
 PRODUCT = ticket("- [ ] AC1: the journey through the importer runs",
                  "  CHECK: echo journey.py import",
                  "  EXPECT: journey.py import",
@@ -619,12 +571,6 @@ class TestTargetConfigCheckNeedsNoProduct(unittest.TestCase):
     def test_target_config_check_needs_no_product(self):
         self.assertFalse(vt.needs_product(TARGET_CHECK))
         self.assertTrue(vt.needs_product(PRODUCT))
-
-
-
-
-
-
 
 
 if __name__ == "__main__":
