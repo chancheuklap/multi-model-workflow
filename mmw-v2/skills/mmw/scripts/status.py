@@ -824,7 +824,7 @@ def batch_children(spec: int, batch: dict | None = None) -> list[dict]:
     under it that no event names; each child's kind and route are its owner's events.
     Where a child sits now decides nothing: a finding that became a ticket has moved
     from under its ticket to under the spec. Each child dict carries its owner ticket
-    number under `"owner"`, the one whose fold lists it and the one `route` posts to.
+    number under `"owner"`, the one whose fold lists it and the one `resolve-child` posts to.
     Pass an already-read `batch` (from `spec_tree`) to avoid a second read of the tree.
     """
     if batch is None:
@@ -863,8 +863,8 @@ def print_summary(spec: int) -> int:
 
 
 def open_findings(spec: int) -> list[tuple[int, int, str]]:
-    """(<ticket>, <child>, title) for every finding under this batch that `route` has
-    not yet closed. `<ticket>` is the one `route` posts to, the one whose fold lists it."""
+    """(<ticket>, <child>, title) for every finding under this batch that `resolve-child` has
+    not yet closed. `<ticket>` is the one `resolve-child` posts to, the one whose fold lists it."""
     return [(child["owner"], child["number"], child.get("title") or "")
             for child in batch_children(spec)
             if is_finding(child) and route_of(child) == "open"]
@@ -880,7 +880,7 @@ def closeout_ready(spec: int) -> int:
     rows, tickets = collect(spec)
     problems = closeout_problems(rows, tickets)
     for problem in problems:
-        print(f"dispatch: summary refused: {problem}", file=sys.stderr)
+        print(f"dispatch: close-night refused: {problem}", file=sys.stderr)
     return 2 if problems else 0
 
 # --------------------------------------------------------------------- where

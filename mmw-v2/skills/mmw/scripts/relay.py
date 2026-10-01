@@ -24,7 +24,7 @@ on this machine (statedir.py). Tickets are written by the scripts that write the
 nothing else (docs/adr/0001-tracker-repo-authority.md).
 
 **Watches.** What the relay reads is the union of its watches. A watch is what one
-`dispatch.sh open`, `open-ticket` or `adopt` opens: `{"spec": N}`, a night — N's
+`dispatch.sh open-night`, `open-ticket-watch` or `adopt` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
 night. Its `kind` records `night`, `ticket` or `adopted-ticket`; older watches without
 `kind` remain readable. Each watch has its own orchestrator, a (runner, session) pair:
@@ -149,12 +149,12 @@ tickets watch names the ticket, or a spec watch is the ticket's spec; with `--sp
 alone, whether that spec is watched.
 
 **An orchestrator that is gone.** A night whose orchestrator's session was closed without
-`summary` or `suspend` would otherwise be polled for ever, a few thousand REST requests an
+`close-night` or `suspend` would otherwise be polled for ever, a few thousand REST requests an
 hour. Every 10 cycles the relay asks each watch's orchestrator's runner `liveness`. An orchestrator
 answered `stopped` at every ask for 3600 seconds or more has its watch closed as
 `stop` would close it, with a line in `relay.log`; `alive` or `unknown` starts the count
 again. The hour lets reviewers still at work bring their results back
-to their workers first, and the next `open` reads everything in full. The relay exits
+to their workers first, and the next `open-night` reads everything in full. The relay exits
 when no watch is left.
 
 **An unattended stretch** is time with no good poll: the relay was down, or its reads kept
@@ -695,7 +695,7 @@ class Relay:
         except ValueError as exc:
             raise Refusal(f"{self.path('watches.json')} is not JSON ({exc}); which watches are "
                           f"open, and whose wake-ups go where, cannot be told. Move that file "
-                          f"aside and open each watch again (dispatch.sh open, open-ticket or "
+                          f"aside and open each watch again (dispatch.sh open-night, open-ticket-watch or "
                           f"adopt).") from None
 
     def _write_watches(self, watches: dict[str, dict]) -> None:
@@ -751,7 +751,7 @@ class Relay:
                     runner: str, session: str) -> list[str]:
         """The ticket watches a spec watch takes over as it opens: every ticket of the watch
         is a sub-issue of the spec, and its orchestrator is the one opening the night or a
-        session its runner shows stopped. Such a watch is left over from `open-ticket` with no
+        session its runner shows stopped. Such a watch is left over from `open-ticket-watch` with no
         `land` after it, and nobody else waits on its wake-ups. A ticket watch whose orchestrator
         is another session that is alive, or whose liveness is unknown, keeps its ticket, and
         the overlap refuses the night."""
@@ -790,7 +790,7 @@ class Relay:
                 if problem:
                     raise Refusal(f"{describe_watch(want)} was not opened: {problem}. A ticket "
                                   f"is watched once, so that its wake-ups have one orchestrator. "
-                                  f"Close that watch first (land for one ticket, summary or "
+                                  f"Close that watch first (land for one ticket, close-night or "
                                   f"suspend for a night), or work the ticket in the watch that "
                                   f"has it. Nothing was recorded.")
                 previous = watches.get(key)
@@ -1538,7 +1538,7 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
         raise Refusal(f"the relay running for {args.repo} (pid {found[0].get('pid')}) serves one "
                       f"watch, {describe_watch(found[1]['watch'])}, and would never read this one. "
                       f"End it with `relay.py stop --repo {args.repo}`, open its night again "
-                      f"(dispatch.sh open or open-ticket), then open this watch. Nothing was "
+                      f"(dispatch.sh open-night or open-ticket-watch), then open this watch. Nothing was "
                       f"recorded.")
     relay = Relay(state, Board(args.repo))
     want = watch_of(args)

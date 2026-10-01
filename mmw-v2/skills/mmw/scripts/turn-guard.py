@@ -22,7 +22,7 @@ their orchestrators, and nobody else. Anything it cannot establish — no `watch
 it cannot read, no adapter for that runner, `self` answering anything but a session id —
 means this is not an orchestrator, and the turn ends: a worker, or a child process that
 inherited a runner's variables, must never be held by an orchestrator's guard. A real
-orchestrator always matches, because `dispatch.sh open` refuses to open a watch for a session
+orchestrator always matches, because `dispatch.sh open-night` refuses to open a watch for a session
 whose `self` cannot be read. A worker's turn end, or any session on a machine with no open
 night, is let through after reading a few files.
 

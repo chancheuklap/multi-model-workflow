@@ -24,7 +24,7 @@ the state directory, relay.py): a night — a spec, whose sub-issues are listed 
 round — or tickets outside a night. Each watch has its own orchestrator. A closed sub-issue
 of a spec is not read: a closed ticket's worker has handed in its work. A ticket a tickets
 watch names is always read. A night is open while `watches.json` names a watch: `relay.py
-stop`, which `summary`, `suspend` and `land` run, closes one, and the relay closes the
+stop`, which `close-night`, `suspend` and `land` run, closes one, and the relay closes the
 watch of an orchestrator that has been gone for an hour. A relay that died leaves its
 watches open, so a dead relay is an open night with no relay, never a closed one. When no
 watch is open this process writes a last heartbeat saying so and exits.
@@ -37,7 +37,7 @@ watch is open this process writes a last heartbeat saying so and exits.
    included) within its grace; otherwise the alert `relay down`. Is it reading: its last
    good poll (`at`) is within its grace too; otherwise the alert `relay not reading` —
    the process is there and cannot see the tracker, which is not the same thing and does not
-   call for another `open`. Both are measured less the time spent delivering, which delays
+   call for another `open-night`. Both are measured less the time spent delivering, which delays
    a cycle without stopping it, and a relay that has not cycled or polled yet is given its
    grace from the moment it started. A beat with no cycle stamp was written by a relay
    older than that field, and its last good poll then answers both questions.
@@ -349,9 +349,9 @@ DOWN = "down"
 NOT_READING = "not reading"
 # What to do next differs between the two, so the alert says it: a relay that is not
 # there has to be started again; one that is there and cannot read recovers by itself on
-# its next successful read, and a second `open` would put nothing new in its place.
+# its next successful read, and a second `open-night` would put nothing new in its place.
 NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the "
-             "recorded orchestrator, or `dispatch.sh open-ticket <n>` for a ticket outside "
+             "recorded orchestrator, or `dispatch.sh open-ticket-watch <n>` for a ticket outside "
              "a night; ",
         NOT_READING: "the process is there and cycling, and it recovers on its own with "
                      "the first read that works, so opening the night again replaces "
