@@ -24,7 +24,7 @@
 
 流程句（这一步之后做什么、交给哪个技能）、原则句和本仓库的配置字面（例如 label 名）不写进上游目录：流程在 `mmw` 技能的 playbook 里，原则在它的 `principles/` 里，label 名在 `docs/agents/` 下由技能读取的文件里。调用开关也不在子树里改，见 `## disable-model-invocation`。`mmw-v2/upstream-pstack/` 里的文字一律不改。
 
-`code-review`、`implement`、`tdd`、`resolving-merge-conflicts` 里还有这两类以外的本仓文字（流水线的步骤与票的说法）；`wizard` 生成的脚本头注释把上游的 `/wizard` 写成了散文（见 [wizard](wizard.md)）。拉 upstream 时照各自的说明处理。`to-spec`、`to-tickets` 的本仓文字不在上游目录里：它们分叉成本仓自有的技能 `mmw-v2/skills/to-spec/`、`mmw-v2/skills/to-tickets/`，上游目录里的同名技能是原文、不安装，两份说明记本仓的文字现在在哪里。
+`code-review`、`implement`、`tdd`、`resolving-merge-conflicts` 里还有这两类以外的本仓文字（流水线的步骤与票的说法）；`wizard` 生成的脚本头注释把上游的 `/wizard` 写成了散文（见 [wizard](wizard.md)）。拉 upstream 时照各自的说明处理。`to-spec`、`to-tickets` 的本仓文字不在上游目录里：它们分叉成本仓自有的技能 `mmw-v2/skills/to-spec/`、`mmw-v2/skills/to-tickets/`，上游目录里的同名技能是原文、不安装（`skills.txt` 装的是 `self/to-spec`、`self/to-tickets`；两者同名，`install.sh` 拒绝重名）。拉 upstream 时这两个上游目录照常取上游；上游的改进要不要进分叉，读上游的 diff 后在分叉里改。分叉的文字归 `mmw` 技能的 `references/skill-set-rules.md` 与结构 lint 管。两份说明记本仓的文字现在在哪里。
 
 ## `disable-model-invocation`
 

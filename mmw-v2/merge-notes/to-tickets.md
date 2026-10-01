@@ -2,7 +2,7 @@
 
 源目录：`mmw-v2/upstream/skills/engineering/to-tickets/`
 
-这个目录里 squash 原文有的文件与 `5b1a4c51` 逐字节相同。它不装进任何 host。`skills.txt` 装的是 `self/to-tickets`，即分叉 `mmw-v2/skills/to-tickets/`。两者同名，`install.sh` 拒绝重名。拉 upstream 时这个目录照常取上游；上游的改进要不要进分叉，读上游的 diff 后在分叉里改。分叉的文字归 `mmw` 技能的 `references/skill-set-rules.md` 与结构 lint 管。
+这个目录里 squash 原文有的文件与 `5b1a4c51` 逐字节相同。装的是分叉 `mmw-v2/skills/to-tickets/`；分叉与拉 upstream 的规则见 [README](README.md) `## 上游目录只允许两类改动`。
 
 ## 本仓的文字在哪里
 
