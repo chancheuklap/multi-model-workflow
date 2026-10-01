@@ -89,9 +89,12 @@ by stubs. It checks every installed skill and marked copy, then copies the skill
 directories into one project-level location per host and set. Internal symlinks
 remain links to their original absolute targets, including cyclic links.
 
-Each host first reports its catalog in an empty temporary repository. A catalog
-already containing a measured skill makes that host's 22 cells
-`NEEDS-USER-CONFIG`; an absent binary or unreadable catalog makes them
+Each host first reports its catalog in an empty temporary repository. A measured
+name outside the version-pinned built-in list makes that host's 22 cells
+`NEEDS-USER-CONFIG`; a different version from the recorded list also blocks the
+group. A catalog containing only measured built-in names at the recorded version
+permits routing sessions, which still check every tool call for user-level paths.
+An absent binary or unreadable catalog makes the cells
 `CANNOT-RUN-UNATTENDED`. Neither outcome starts routing sessions. The unattended
 driver does not change user-level skills or configuration. Its seven before and
 after checksums cover five configuration files and both user-level skill directories.
@@ -109,11 +112,11 @@ copy. `U7 OK 66 cells` confirms complete, consistent records, their commits and
 unchanged user-level checksums, not successful routing in all cells. The next
 line reports how many cells carry routing results and each status count. A
 name-only Claude catalog collision does not establish user-level provenance:
-Claude Code 2.1.286 includes a built-in `code-review`; #702 point 5 needs a
-contract correction for this case before the Claude group is measured. `test_u7.py`
-uses isolated files and synthetic event streams, never hosts or installers;
-host event formats unmeasured because of catalog isolation are identified in
-`run_u7.py`'s measurement header.
+Claude Code 2.1.286 includes a built-in `code-review`. `run_u7.py` records the
+version, same-name user symlink count and observed catalog names that establish
+whether `--setting-sources project` excludes user-level skills. `test_u7.py`
+uses isolated files and event streams, never hosts or installers; captured and
+synthetic host fixtures are identified in `run_u7.py`'s measurement header.
 
 Ticket #703 uses the owner-only command after the unattended run:
 

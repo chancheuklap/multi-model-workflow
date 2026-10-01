@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """Measure U-7 in scratch repositories using existing host logins.
 
-Measured 2026-10-01: Claude Code 2.1.286's stream-json system/init catalog
-with --setting-sources project listed code-review in an empty repository.
-Its installed binary identifies /code-review as a built-in skill. This name
-alone does not establish user-level provenance; ticket #702 point 5's name-only
-gate omits built-in collisions, so Claude's recorded block awaits a contract
-correction before its routing sessions can run.
+Measured built-in list, 2026-10-01: Claude Code 2.1.286: code-review.
+Its installed binary contains adjacent /code-review low and It runs the built-in
+skill at its lightest effort level. strings (#763). The exception is valid only
+for this version; every routing session still checks for user-level skill paths.
+
+Claude Code 2.1.286 catalog, 2026-10-01: --setting-sources project excluded
+~/.claude/skills by ticket #702 point 5's evidence rule: N=35 same-name user-level
+symlinks, catalog measured names=code-review only, none outside the built-in list.
 Codex 0.159.2 debug prompt-input and Grok 1.0.46 (2765805b9442) inspect --json
-also listed measured skills from user level. All three groups were gated before
-routing sessions: their tool-call event shapes have NOT been measured. The
-Claude assistant/tool_use, Codex item.*/command_execution and Grok ACP
-sessionUpdate parser fixtures are synthetic, not captured routing evidence.
+listed measured user-level skills. Their routing sessions did not run and their
+item.*/command_execution and ACP sessionUpdate fixtures remain synthetic.
+Claude Code 2.1.286 S07-after stream-json, 2026-10-01: four assistant messages
+with message.content tool_use blocks: Glob, Skill(input.skill=dispatch),
+Read(input.file_path), Glob. The parser observed dispatch and no user-level
+paths. Those raw tool-call lines are captured verbatim in test_u7.py.
 """
 
 import argparse
@@ -38,6 +42,7 @@ SUFFIX = ("\n\n(This is an isolated routing probe in a scratch repository. Load 
 STUBS = ("claude", "codex", "grok", "cursor-agent", "agent", "pi", "orca", "nmem",
          "paseo", "herdr", "gh", "uv", "launchctl")
 HOST_SKILL_DIRS = {"claude": ".claude/skills", "codex": ".agents/skills", "grok": ".agents/skills"}
+BUILTIN_CATALOGS = {"claude": ("2.1.286_(Claude_Code)", frozenset({"code-review"}))}
 MMW_TARGETS = ("/mmw-v2/upstream/skills/", "/mmw-v2/skills/",
                "/mmw-v2/upstream-diagram-design/skills/", "/mmw-v2/upstream-pstack/skills/",
                "/.mmw/skill-copies/")
@@ -321,7 +326,7 @@ def catalog_names(host, output):
     return found
 
 
-def catalog_gate(host, repo, env, tested_names):
+def catalog_gate(host, repo, env, tested_names, version):
     if not shutil.which(host):
         return "CANNOT-RUN-UNATTENDED", f"{host} binary absent from PATH; no session started"
     argv = {"claude": host_command("claude", "Reply with OK only.", tools=""),
@@ -334,12 +339,21 @@ def catalog_gate(host, repo, env, tested_names):
         names = catalog_names(host, result.stdout)
     except (ValueError, TypeError) as exc:
         return "CANNOT-RUN-UNATTENDED", f"empty-repository catalog unreadable: {exc}; {short(result.stderr)}; no session started"
-    overlap = sorted(names & tested_names)
+    overlap = names & tested_names
+    user_skills = Path("~/.claude/skills" if host == "claude" else "~/.agents/skills").expanduser()
+    link_count = sum((user_skills / name).is_symlink() for name in tested_names)
+    print(f"U7 catalog evidence {host}={version}: same-name-user-symlinks={link_count}; "
+          f"measured-names={','.join(sorted(overlap)) or 'none'}", flush=True)
+    builtin = BUILTIN_CATALOGS.get(host)
+    if builtin:
+        if version != builtin[0]:
+            return "NEEDS-USER-CONFIG", (f"built-in list not measured for this version: {version}; "
+                                        f"measured version={builtin[0]}; no session started")
+        overlap -= builtin[1]
+    overlap = sorted(overlap)
     if overlap:
-        provenance = ("; name-only gate, user-level origin not established" if host == "claude"
-                      else " from user level")
         return "NEEDS-USER-CONFIG", ("catalog of an empty repository already lists " + ",".join(overlap)
-                                     + provenance + "; no session started")
+                                     + " from user level; no session started")
     return None
 
 
@@ -418,7 +432,7 @@ def measure_sets(hosts, rows, commits):
             empty_repo = scratch / (host + "-catalog")
             prepare(empty_repo, host)
             print(f"U7 catalog {host} {versions[host]}", flush=True)
-            gate = catalog_gate(host, empty_repo, env, tested_names)
+            gate = catalog_gate(host, empty_repo, env, tested_names, versions[host])
             if gate:
                 print(f"U7 {host}: {gate[0]}: {gate[1]}", flush=True)
                 lines.extend(cell(row, host, phase, gate, versions, commits) for row in rows for phase in PHASES)

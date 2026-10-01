@@ -15,6 +15,14 @@ import os
 import subprocess
 import sys
 
+# Captured verbatim: Claude Code 2.1.286, 2026-10-01, S07 after.
+CLAUDE_S07_EVENTS = (
+    '{"type":"assistant","message":{"model":"claude-opus-5-5","id":"msg_011CfbKBvEuPqnqNFnLuBtYE","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_017ZVU7S4AUr3JDPSsRh38vg","name":"Glob","input":{"pattern":"{.mmw/**,docs/agents/**,AGENTS.md,CLAUDE.md,.claude/**}"},"caller":{"type":"direct"}}],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":6921,"cache_read_input_tokens":3624,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":6921},"output_tokens":8,"service_tier":"standard","inference_geo":"not_available"},"input_transformations":[],"diagnostics":null,"context_management":null},"parent_tool_use_id":null,"session_id":"bc9866da-c9e5-4633-8f92-337a0dab9c5e","uuid":"3286b059-2bad-4dfb-b089-3441f3eeb4c8","timestamp":"2026-10-01T09:54:10.554Z","request_id":"req_011CfbKBur6T3SdM5Jq2yWML","wire_tool_inputs":{"toolu_017ZVU7S4AUr3JDPSsRh38vg":{"pattern":"{.mmw/**,docs/agents/**,AGENTS.md,CLAUDE.md,.claude/**}"}}}',
+    '{"type":"assistant","message":{"model":"claude-opus-5-5","id":"msg_011CfbKC7KAHp79t98w9wjxC","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01LRN32LzzC19VEUQ6czxto1","name":"Skill","input":{"skill":"dispatch","args":"night spec #12"},"caller":{"type":"direct"}}],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":2790,"cache_read_input_tokens":10545,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":2790},"output_tokens":17,"service_tier":"standard","inference_geo":"not_available"},"input_transformations":[],"diagnostics":null,"context_management":null},"parent_tool_use_id":null,"session_id":"bc9866da-c9e5-4633-8f92-337a0dab9c5e","uuid":"282f99e2-e57f-4abf-8485-ae1c12357086","timestamp":"2026-10-01T09:54:12.705Z","request_id":"req_011CfbKC6q8vg1FBrm6KNqjP","wire_tool_inputs":{"toolu_01LRN32LzzC19VEUQ6czxto1":{"skill":"dispatch","args":"night spec #12"}}}',
+    '{"type":"assistant","message":{"model":"claude-opus-5-5","id":"msg_011CfbKCGJQsSaYwQcc6Z44M","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01NYqCfJ4ijpJtx7QsP5GEnW","name":"Read","input":{"file_path":"/private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.T4Hx3X6iDE/claude-after/.claude/skills/dispatch/references/night.md"},"caller":{"type":"direct"}}],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":991,"cache_read_input_tokens":13335,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":991},"output_tokens":16,"service_tier":"standard","inference_geo":"not_available"},"input_transformations":[],"diagnostics":null,"context_management":null},"parent_tool_use_id":null,"session_id":"bc9866da-c9e5-4633-8f92-337a0dab9c5e","uuid":"f8d6fd92-af5c-481e-aa1a-b944cca3cbf0","timestamp":"2026-10-01T09:54:14.934Z","request_id":"req_011CfbKCFtMf811iWW72Gjee","wire_tool_inputs":{"toolu_01NYqCfJ4ijpJtx7QsP5GEnW":{"file_path":"/private/var/folders/z5/k4mmh1596q96pv5fkgpsq4yr0000gn/T/tmp.T4Hx3X6iDE/claude-after/.claude/skills/dispatch/references/night.md"}}}',
+    '{"type":"assistant","message":{"model":"claude-opus-5-5","id":"msg_011CfbKCRqPMAmoLrjvUCS9u","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01BGnXgJVfMQVa8ifS5kAZcf","name":"Glob","input":{"pattern":"{.mmw/*,docs/agents/*,CLAUDE.md,AGENTS.md}"},"caller":{"type":"direct"}}],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":8998,"cache_read_input_tokens":14326,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":8998},"output_tokens":10,"service_tier":"standard","inference_geo":"not_available"},"input_transformations":[],"diagnostics":null,"context_management":null},"parent_tool_use_id":null,"session_id":"bc9866da-c9e5-4633-8f92-337a0dab9c5e","uuid":"832f2c94-e4e1-4795-acc7-772fa0870e42","timestamp":"2026-10-01T09:54:17.720Z","request_id":"req_011CfbKCRVJsjStNrmz2NxTx","wire_tool_inputs":{"toolu_01BGnXgJVfMQVa8ifS5kAZcf":{"pattern":"{.mmw/*,docs/agents/*,CLAUDE.md,AGENTS.md}"}}}',
+)
+
 
 class ResultsTests(unittest.TestCase):
     def setUp(self):
@@ -95,16 +103,19 @@ class EventTests(unittest.TestCase):
         return run_u7.parse_events(host, "\n".join(json.dumps(r) for r in records),
                                    Path("/scratch/u7"), {"mmw", "dispatch", "advisor"})
 
-    def test_claude_tools_not_reply(self):
-        records = [{"type": "assistant", "message": {"content": [
-            {"type": "text", "text": "LOADED: dispatch"},
-            {"type": "tool_use", "id": "1", "name": "Skill", "input": {"skill": "mmw"}},
-            {"type": "tool_use", "id": "2", "name": "Read", "input": {
-                "file_path": ".claude/skills/mmw/playbooks/prototype.md"}}]}}]
-        parsed = self.parse("claude", records)
-        self.assertEqual(parsed["skills"], ["mmw"])
-        self.assertEqual(parsed["playbooks"], ["prototype"])
-        self.assertEqual(parsed["tool_calls"], 2)
+    def test_claude_captured_s07_tools_not_reply(self):
+        records = [json.loads(line) for line in CLAUDE_S07_EVENTS]
+        filename = next(block["input"]["file_path"] for record in records
+                        for block in record["message"]["content"] if block.get("name") == "Read")
+        # A synthetic assistant claim is a negative control, not a captured event.
+        claim = json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "text", "text": "LOADED: mmw playbooks/prototype.md"}]}})
+        parsed = run_u7.parse_events("claude", "\n".join((*CLAUDE_S07_EVENTS, claim)),
+                                    Path(filename).parents[5], {"mmw", "dispatch"})
+        self.assertEqual(parsed["skills"], ["dispatch"])
+        self.assertEqual(parsed["playbooks"], [])
+        self.assertEqual(parsed["tool_calls"], 4)
+        self.assertEqual(parsed["leaks"], [])
 
     def test_codex_tools_not_output(self):
         item = {"id": "1", "type": "command_execution",
@@ -157,12 +168,51 @@ class EventTests(unittest.TestCase):
         for host, output in outputs.items():
             with self.subTest(host=host):
                 response = subprocess.CompletedProcess([], 0, output, "")
-                with patch.object(run_u7.shutil, "which", return_value="/bin/host"), patch.object(
+                with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HOME": directory}), \
+                     patch.object(run_u7.shutil, "which", return_value="host"), patch.object(
                         run_u7, "run", return_value=response) as invoke:
-                    gate = run_u7.catalog_gate(host, Path("/scratch"), {}, {"dispatch"})
+                    gate = run_u7.catalog_gate(host, Path("/scratch"), {}, {"dispatch"},
+                                               "2.1.286_(Claude_Code)" if host == "claude" else "test")
                 self.assertEqual(gate[0], "NEEDS-USER-CONFIG")
                 self.assertEqual(invoke.call_count, 1)
                 self.assertIn("no session started", gate[1])
+
+
+class CatalogTests(unittest.TestCase):
+    def run_catalog(self, version, catalog):
+        rows = check_u7.read_sentences()
+        stdout = json.dumps({"type": "system", "subtype": "init", "skills": catalog})
+        def response(argv, *args, **kwargs):
+            return subprocess.CompletedProcess(argv, 0, version if "--version" in argv else stdout, "")
+        parsed = {"skills": ["dispatch"], "playbooks": [], "leaks": [], "tool_calls": 1}
+        raw = subprocess.CompletedProcess([], 0, "", "")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"HOME": directory}), \
+                 patch.object(run_u7, "install_set", return_value=(Path(directory), {"code-review", "dispatch"})), \
+                 patch.object(run_u7, "prepare"), patch.object(run_u7.shutil, "which", return_value="host"), \
+                 patch.object(run_u7, "run", side_effect=response), \
+                 patch.object(run_u7, "measure", return_value=(("PASS", "fixture"), raw, parsed)) as session, \
+                 contextlib.redirect_stdout(io.StringIO()):
+                lines = run_u7.measure_sets(["claude"], rows, {"before": check_u7.BEFORE, "after": "a" * 40})
+        return lines, session.call_count
+
+    def test_measured_builtin_same_version_starts_all_22_sessions(self):
+        lines, sessions = self.run_catalog("2.1.286 (Claude Code)", ["code-review"])
+        self.assertEqual(sessions, 22)
+        self.assertEqual(len(lines), 22)
+        self.assertTrue(all(" PASS " in line for line in lines))
+
+    def test_unmeasured_version_blocks_all_22_cells(self):
+        lines, sessions = self.run_catalog("2.1.287 (Claude Code)", ["code-review"])
+        self.assertEqual(sessions, 0)
+        self.assertTrue(all(" NEEDS-USER-CONFIG " in line for line in lines))
+        self.assertTrue(all("built-in list not measured for this version" in line for line in lines))
+
+    def test_nonbuiltin_measured_name_blocks_all_22_cells(self):
+        lines, sessions = self.run_catalog("2.1.286 (Claude Code)", ["code-review", "dispatch"])
+        self.assertEqual(sessions, 0)
+        self.assertEqual(len(lines), 22)
+        self.assertTrue(all(" NEEDS-USER-CONFIG " in line and "dispatch from user level" in line for line in lines))
 
 
 class IsolationTests(unittest.TestCase):
