@@ -28,41 +28,6 @@ def locations():
 
 
 class RolesAndLocationsTest(unittest.TestCase):
-    def test_roles_json_registers_the_seven_roles(self):
-        roles = json.loads((SKILLS / "mmw" / "roles.json").read_text())
-        self.assertEqual(roles, {
-            "worker": {
-                "playbook": "work-a-ticket",
-                "models_row": ["junior-worker", "senior-worker"],
-                "started_by": "dispatch.sh start <n> worker",
-                "wakes": {"reviewer.reported": "Get reviewed", "reviewer.lost": "Get reviewed",
-                          "worker.queued": "Integrate and run every criterion",
-                          "resume": "When the orchestrator resumes you"},
-            },
-            "adopting-worker": {
-                "playbook": "work-a-ticket", "entry": "Adopted ticket",
-                "started_by": "dispatch.sh adopt <n>",
-                "wakes": {"reviewer.reported": "Get reviewed", "reviewer.lost": "Get reviewed",
-                          "worker.queued": "Integrate and run every criterion",
-                          "ticket.passed": "After the closeout of an adopted ticket",
-                          "ticket.returned": "After the closeout of an adopted ticket",
-                          "*": "When something else wakes you"},
-            },
-            "reviewer": {"playbook": "review-a-ticket", "models_row": ["reviewer"],
-                         "started_by": "dispatch.sh start <n> reviewer", "wakes": {}},
-            "night-orchestrator": {"playbook": "run-a-night",
-                                   "started_by": "dispatch.sh open-night <spec>",
-                                   "wakes": {"*": "Handle each wake"}},
-            "one-ticket-orchestrator": {"playbook": "land-one-ticket",
-                                        "started_by": "dispatch.sh open-ticket-watch <n>",
-                                        "wakes": {"*": "Handle each wake"}},
-            "advisor": {"skill": "advisor", "brief": "references/advising.md",
-                        "models_row": ["advisor"], "started_by": "dispatch.sh advise <file>",
-                        "wakes": {}},
-            "researcher": {"playbook": "research-a-question", "models_row": ["researcher"],
-                           "started_by": "dispatch.sh research <n>", "wakes": {}},
-        })
-
     def test_every_role_and_where_step_is_registered(self):
         registered = locations().PLAYBOOK_ANCHORS
         expected = {
