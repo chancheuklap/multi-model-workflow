@@ -481,6 +481,67 @@ function Assert-DistinctExeTails {
   } finally { $sha.Dispose() }
 }
 
+# Every module the product loads in a source run is in the compiled program.
+#
+# Nuitka follows import statements it can read. A module that a library imports while a function
+# runs (sqlite3 loads sqlite3.dump inside iterdump) is invisible to it and missing from the
+# standalone payload; the customer meets it as "No module named ...". The release manifest's
+# required_modules_file lists what the product's source run loaded; each target compiled with
+# --report, and the report lists every module that went in.
+#
+# A listed name the compile interpreter cannot find on this machine is a module of another
+# platform (the list is recorded on a Mac), so it is skipped, not demanded.
+function Assert-CompiledModules {
+  param([string[]]$Reports, [string]$RequiredFile, [string[]]$Runner, [string]$RepoRoot)
+  if (-not (Test-Path -LiteralPath $RequiredFile)) {
+    throw "The required modules list is missing: $RequiredFile"
+  }
+  $required = @(
+    Get-Content -LiteralPath $RequiredFile |
+      ForEach-Object { $_.Trim() } |
+      Where-Object { $_ -and -not $_.StartsWith('#') }
+  )
+  $included = New-Object 'System.Collections.Generic.HashSet[string]'
+  foreach ($report in $Reports) {
+    if (-not (Test-Path -LiteralPath $report)) { throw "The compiler wrote no report: $report" }
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.Load($report)
+    foreach ($node in $doc.SelectNodes('//module')) { [void]$included.Add($node.GetAttribute('name')) }
+  }
+  if ($included.Count -eq 0) { throw "The compiler reports list no modules: $($Reports -join '; ')" }
+  $absent = @($required | Where-Object { -not $included.Contains($_) })
+  if ($absent.Count -eq 0) {
+    Write-Host "  compiled modules verified: $($required.Count) required, all included"
+    return
+  }
+  # Ask the compile interpreter which of the absent names exist here. Same invocation shape as
+  # Copy-RuntimeAsset: run from the repository root, no double quote in the probe, splat once.
+  $probe = 'import importlib.util,sys
+for n in sys.argv[1:]:
+  try:
+    s=importlib.util.find_spec(n)
+  except Exception:
+    s=None
+  if s is not None:
+    print(n)'
+  $runnerExe = $Runner[0]
+  $arguments = @()
+  if ($Runner.Count -gt 1) { $arguments += @($Runner[1..($Runner.Count - 1)]) }
+  $arguments += @('-c', $probe)
+  $arguments += $absent
+  Push-Location $RepoRoot
+  try {
+    $present = @(& $runnerExe @arguments | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    if ($LASTEXITCODE -ne 0) { throw "The compile interpreter could not check the required modules ($LASTEXITCODE)" }
+  }
+  finally { Pop-Location }
+  $skipped = $absent.Count - $present.Count
+  if ($present.Count -gt 0) {
+    throw ("Compiled backend lacks modules the source run loads: " + ($present -join ', '))
+  }
+  Write-Host "  compiled modules verified: $($required.Count) required, $skipped absent on this platform"
+}
+
 function Assert-OnefilePayloads {
   param([string]$OutputDir, [string[]]$Exes)
   if (-not (Test-Path -LiteralPath $OutputDir)) {

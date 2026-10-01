@@ -402,6 +402,12 @@ class PythonBackend(BaseModel):
     extra_flags: list[str] = Field(default_factory=list)
     targets: list[NuitkaTarget] = Field(min_length=1)
     smoke: BuiltExeSmoke | None = None
+    # 仓库里一份模块清单（一行一个模块名，`#` 起头是注释），通常由产品从源码运行里记下
+    # 实际加载过的模块生成。设了它，每个 target 编译时带 `--report`，编完在构建机上对照：
+    # 清单里的模块，构建机的编译解释器找得到、编译产物里却没有，出包就停。
+    # 它兜的是 Nuitka 看不见的加载：标准库或第三方库在函数调用时才 import 的子模块
+    # （sqlite3 在 iterdump() 里加载 sqlite3.dump）。构建机上找不到的名字按平台差异跳过。
+    required_modules_file: str | None = None
     # 编译时才要设的环境变量。值里可以用 ${REPO_ROOT}——构建机上的仓库路径每一轮都不同
     # （目录名带 commit），所以像 CCACHE_BASEDIR 这种「把源码路径归一化好让缓存能复用」的
     # 变量，只能在构建机上现算。

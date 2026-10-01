@@ -34,6 +34,7 @@ function Get-TemplateFunction([string]$name) {
 . ([scriptblock]::Create((Get-TemplateFunction 'Remove-CompilerIntermediates')))
 . ([scriptblock]::Create((Get-TemplateFunction 'Assert-LicensesShipped')))
 . ([scriptblock]::Create((Get-TemplateFunction 'Copy-RuntimeAsset')))
+. ([scriptblock]::Create((Get-TemplateFunction 'Assert-CompiledModules')))
 
 $lab = Join-Path $env:TEMP ("mmw-template-behaviour-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $lab | Out-Null
@@ -271,6 +272,39 @@ try {
     } else {
       no ("拦下了但说的不是这件事：" + $_.Exception.Message)
     }
+  }
+
+  # 编译报告对照模块清单。清单在 Mac 上记，构建机上找不到的名字是别的平台的模块，跳过不要。
+  $cmReport = Join-Path $lab 'compile-report.xml'
+  Set-Content -LiteralPath $cmReport -Encoding UTF8 -Value '<nuitka-compilation-report><module name="sqlite3" kind="UncompiledPythonPackage"/><module name="json" kind="UncompiledPythonPackage"/></nuitka-compilation-report>'
+  $cmList = Join-Path $lab 'required-modules.txt'
+
+  Set-Content -LiteralPath $cmList -Encoding UTF8 -Value @('# recorded', 'sqlite3', 'json')
+  try {
+    Assert-CompiledModules -Reports @($cmReport) -RequiredFile $cmList -Runner @('python') -RepoRoot $lab
+    ok "清单里的模块都在编译产物里，放行"
+  } catch {
+    no ("模块都在却被拦下：" + $_.Exception.Message)
+  }
+
+  Set-Content -LiteralPath $cmList -Encoding UTF8 -Value @('sqlite3', 'sqlite3.dump', 'json')
+  try {
+    Assert-CompiledModules -Reports @($cmReport) -RequiredFile $cmList -Runner @('python') -RepoRoot $lab
+    no "编译产物缺 sqlite3.dump 却没被拦下"
+  } catch {
+    if ($_.Exception.Message -like '*lacks modules the source run loads: sqlite3.dump*') {
+      ok "编译产物缺一个构建机上有的模块，出包停下并点名"
+    } else {
+      no ("拦下了但说的不是这件事：" + $_.Exception.Message)
+    }
+  }
+
+  Set-Content -LiteralPath $cmList -Encoding UTF8 -Value @('sqlite3', 'posix', '_scproxy')
+  try {
+    Assert-CompiledModules -Reports @($cmReport) -RequiredFile $cmList -Runner @('python') -RepoRoot $lab
+    ok "只在别的平台存在的模块跳过，不拦"
+  } catch {
+    no ("别的平台的模块被当成缺失：" + $_.Exception.Message)
   }
 }
 finally {
