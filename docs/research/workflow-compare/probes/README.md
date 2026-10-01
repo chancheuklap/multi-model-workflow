@@ -1,4 +1,4 @@
-# Host probes for #611
+# Host probes
 
 ## Readers
 
@@ -68,6 +68,71 @@ read-only ephemeral threads without editing user configuration. An empty
 `CODEX_HOME` separately verified hook-trust discovery before authentication
 failed; no authentication file was copied. Neither proves the unrun owner-only
 three-event probe.
+
+## U-7: which entry a typed sentence reaches
+
+Ticket #702 measures which skills and playbooks a fresh Claude Code, Codex or
+Grok session actually loads for eleven requests a person would type. It compares
+the installed skill set of `6d9cf01c` with the clean `mmw-v2/` tree at the measured
+`HEAD`. `u7-sentences.md` fixes the requests and expected entries from N10 section
+3.2; `mmw:<slug>` requires both the `mmw` skill and that playbook.
+
+```sh
+bash docs/research/workflow-compare/probes/run_probes.sh --u7
+python3 docs/research/workflow-compare/probes/check_u7.py
+python3 docs/research/workflow-compare/probes/test_u7.py
+```
+
+The driver exports each commit and runs that export's installer in distinct
+temporary `HOME` and `MMW_V2_HOME` directories, with external programs replaced
+by stubs. It checks every installed skill and marked copy, then copies the skill
+directories into one project-level location per host and set. Internal symlinks
+remain links to their original absolute targets, including cyclic links.
+
+Each host first reports its catalog in an empty temporary repository. A measured
+name outside the version-pinned built-in list makes that host's 22 cells
+`NEEDS-USER-CONFIG`; a different version from the recorded list also blocks the
+group. A catalog containing only measured built-in names at the recorded version
+permits routing sessions, which still check every tool call for user-level paths.
+An absent binary or unreadable catalog makes the cells
+`CANNOT-RUN-UNATTENDED`. Neither outcome starts routing sessions. The unattended
+driver does not change user-level skills or configuration. Its seven before and
+after checksums cover five configuration files and both user-level skill directories.
+
+`results-u7.md` contains 66 versioned cells. `PASS` means the expected entry was
+observed in tool calls; `FAIL` means it was not. The evidence starts with
+`skills` and `playbooks` in first-observed order, followed by `tool-calls`,
+`expected` and `exit`. `tool-calls=0` on a `FAIL` is not a routing conclusion:
+no tool event was parsed. User-level paths read by a session are recorded as
+`NEEDS-USER-CONFIG`. A nonzero session exit without the entry, or a timeout, is
+`CANNOT-RUN-UNATTENDED`. Assistant claims such as `LOADED:` do not establish a pass.
+
+`check_u7.py` is read-only and never starts a host. `--results <path>` checks a
+copy. `U7 OK 66 cells` confirms complete, consistent records, their commits and
+unchanged user-level checksums, not successful routing in all cells. The next
+line reports how many cells carry routing results and each status count. A
+name-only Claude catalog collision does not establish user-level provenance:
+Claude Code 2.1.286 includes a built-in `code-review`. `run_u7.py` records the
+version, same-name user symlink count and observed catalog names that establish
+whether `--setting-sources project` excludes user-level skills. `test_u7.py`
+uses isolated files and event streams, never hosts or installers; captured and
+synthetic host fixtures are identified in `run_u7.py`'s measurement header.
+
+Ticket #703 uses the owner-only command after the unattended run:
+
+```sh
+bash docs/research/workflow-compare/probes/run_probes.sh --u7 --owner --ticket <reach-ticket-number>
+```
+
+It selects hosts with unverified cells, temporarily moves MMW symlinks out of
+`~/.agents/skills` and `~/.claude/skills`, measures their two sets, restores the
+links and posts the cells plus checksums to that ticket. It does not change
+`results-u7.md`. If no host needs remeasurement it creates nothing and posts
+nothing. While the links are moved, other local agent sessions cannot discover
+the user-level MMW skills. Normal completion, exceptions and SIGINT/SIGTERM
+restore the links. SIGKILL or power loss cannot: move the entries from the printed
+staging directory's `.agents/skills` and `.claude/skills` subdirectories back into
+the corresponding user-level directories before starting more sessions.
 
 ## Sources and evidence
 
