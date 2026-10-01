@@ -504,8 +504,11 @@ function Assert-CompiledModules {
   $included = New-Object 'System.Collections.Generic.HashSet[string]'
   foreach ($report in $Reports) {
     if (-not (Test-Path -LiteralPath $report)) { throw "The compiler wrote no report: $report" }
+    # Nuitka declares encoding='utf8', a name .NET does not know; XmlDocument.Load refuses the
+    # file. Read it as UTF-8 text and drop the declaration before parsing.
+    $text = [IO.File]::ReadAllText($report, [Text.Encoding]::UTF8) -replace '^\s*<\?xml[^>]*\?>', ''
     $doc = New-Object System.Xml.XmlDocument
-    $doc.Load($report)
+    $doc.LoadXml($text)
     foreach ($node in $doc.SelectNodes('//module')) { [void]$included.Add($node.GetAttribute('name')) }
   }
   if ($included.Count -eq 0) { throw "The compiler reports list no modules: $($Reports -join '; ')" }

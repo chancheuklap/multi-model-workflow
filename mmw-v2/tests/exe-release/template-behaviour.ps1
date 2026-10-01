@@ -276,7 +276,11 @@ try {
 
   # 编译报告对照模块清单。清单在 Mac 上记，构建机上找不到的名字是别的平台的模块，跳过不要。
   $cmReport = Join-Path $lab 'compile-report.xml'
-  Set-Content -LiteralPath $cmReport -Encoding UTF8 -Value '<nuitka-compilation-report><module name="sqlite3" kind="UncompiledPythonPackage"/><module name="json" kind="UncompiledPythonPackage"/></nuitka-compilation-report>'
+  # Nuitka's own declaration names the encoding 'utf8', which .NET does not know.
+  Set-Content -LiteralPath $cmReport -Encoding UTF8 -Value @(
+    "<?xml version='1.0' encoding='utf8'?>",
+    '<nuitka-compilation-report completion="yes"><module name="sqlite3" kind="UncompiledPythonPackage"><module_usages><module_usage name="sqlite3.dump" finding="not-found"/></module_usages></module><module name="json" kind="UncompiledPythonPackage"/></nuitka-compilation-report>'
+  )
   $cmList = Join-Path $lab 'required-modules.txt'
 
   Set-Content -LiteralPath $cmList -Encoding UTF8 -Value @('# recorded', 'sqlite3', 'json')
