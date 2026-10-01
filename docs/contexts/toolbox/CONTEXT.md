@@ -192,7 +192,7 @@ _Home_: `AGENTS.md`
 **the four promotion steps**:
 The fixed order that finishes a change to this toolbox itself, taking it from `dev` to every host: commit on `dev`; fast-forward `main` to it; move the installed checkout to `main` and confirm with `install.sh --check`; push both. The third step waits while any watch is open.
 _Avoid_: release (bare; risks reading as `exe-release`'s shipping of a product, a different act defined in `docs/contexts/release/CONTEXT.md`)
-_Home_: `AGENTS.md`
+_Home_: `.mmw/playbooks/promote-a-change.md`
 
 **`HOOKS-INSTALLED`**:
 The line both install modes print once every host hook is in place.

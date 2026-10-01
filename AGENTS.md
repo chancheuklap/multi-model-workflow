@@ -49,8 +49,8 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | Where the tests live, how they are isolated, which suites a change needs; the reviewer's Tests axis applies it | `TESTING.md` |
 | Every rule for the text of a skill (`SKILL.md`, references, descriptions, prompts a script builds for an agent): what skill text is for, load and disclosure, redundancy, descriptions, vocabulary, hand-offs, upstream skills, paths, host and runner neutrality; read before writing, editing or reviewing one. This file states none of those rules | `mmw-v2/skills/mmw/references/skill-set-rules.md` |
 | The mode every session of this toolbox works under: its non-negotiables, its principle index, its autonomy rules and the playbook each kind of task runs | `mmw-v2/skills/mmw/SKILL.md` |
-| This repository's private playbooks (promoting a change, pulling an upstream subtree, importing a pstack component, cutting tickets that move skill text), used only in a session with the user present | `.mmw/playbooks/INDEX.md` |
-| Pulling an upstream subtree, resolving conflicts, the `disable-model-invocation` pairing rule | `mmw-v2/merge-notes/README.md` |
+| This repository's private playbooks (promoting a change, pulling an upstream subtree, importing a pstack component, cutting tickets that move skill text) | `.mmw/playbooks/INDEX.md` |
+| Editing an upstream skill outside a pull: the two kinds of change an upstream subtree allows, the merge-note each change needs, the `disable-model-invocation` pairing rule | `mmw-v2/merge-notes/README.md` |
 | When a downstream-note is due and its three fixed headings | `mmw-v2/downstream-notes/README.md` |
 | What this repository changed in unlazy's gate-check and why, which tests it runs, the subtree pull command | `mmw-v2/merge-notes/unlazy.md` |
 

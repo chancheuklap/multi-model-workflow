@@ -17,10 +17,10 @@ This playbook settles a question only something built and run can answer: a stat
    Done when the prototype starts from one command or opens as one file in its leaf directory, the leaf `README.md` states the question, and you have seen every variant or case run.
 4. **Present the alternatives.** Present alternatives, tradeoffs, and a recommendation. The output is the decision plus the prototype in its leaf directory, not shippable code. Show each alternative running, the way that branch's file of the `prototype` skill hands it over; a request for another variant or case goes back to **Build and observe it**.
    Done when the user has chosen one direction from the alternatives.
-5. **Hand the answer on.** Record the verdict and the question it settled in the leaf `README.md`, as the `prototype` skill's **Record the answer, keep the prototype** says. Hand the chosen direction on for the real build:
+5. **Hand the answer on.** Record the verdict and the question it settled in the leaf `README.md`, as the `prototype` skill's **Record the answer, keep the prototype** says. For a UI winner, also write its `## State list` as the `design-pages` skill's `references/state-list-format.md` says: without it, a pull of the design cannot report a state no page draws. Hand the chosen direction on for the real build:
    - On a wayfinder map, a `prototype` ticket's verdict goes back to **Resolve one decision ticket at a time** in **Map a large effort**, which records the resolution.
    - A UI prototype's winner goes into Claude Design through **Design a UI**.
    - A LOGIC or EXP verdict goes to **Write the spec** in **Write a spec and tickets**, or to **Make a small change** when the user will check the change directly.
-   Done when the leaf `README.md` states the verdict with its exact names and values, and the session has gone on to the step or playbook its case names.
+   Done when the leaf `README.md` states the verdict with its exact names and values, a UI winner's `## State list` stands where that format puts it, and the session has gone on to the step or playbook its case names.
 
 **Reply:** the variants explored, the evidence (screenshots for a visual decision, the observed output or timing for a behavioral one), tradeoffs, your recommendation, the leaf directory, and the step or playbook the answer went to.

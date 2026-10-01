@@ -16,7 +16,7 @@
 
 通用约束，任何一段都不让步：全英文；不写测试（测试是正式代码落地时的事）；改动只落在必要的句子上，不重写段落。
 
-原型做完之后交给谁、结论怎样进正式代码，不写在这个技能里：写在 `mmw` 技能的 playbook **Prototype**（`mmw-v2/skills/mmw/playbooks/prototype.md` 的 **Hand the answer on**）与 **Design a UI**。所以 `UI.md` 不设 `## Next`，第 3 步也不点名 `design-pages` 技能；`SKILL.md` 规则 6 只写结论记在哪、原型留在哪，原型会话不改正式代码。
+原型做完之后交给哪个技能或 playbook、结论怎样进正式代码，不写在这个技能里：写在 `mmw` 技能的 playbook **Prototype**（`mmw-v2/skills/mmw/playbooks/prototype.md` 的 **Hand the answer on**）与 **Design a UI**。所以 `UI.md` 不设 `## Next`，第 3 步也不点名 `design-pages` 技能；`SKILL.md` 规则 6 只写结论记在哪、原型留在哪，原型会话不改正式代码。
 
 ## 逐段意图
 

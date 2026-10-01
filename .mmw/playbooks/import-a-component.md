@@ -20,7 +20,7 @@ Import a pstack component only when the user names it: MMW takes pstack's compon
    Done when the mode names every imported playbook and principle where its type is reached from, and a skill that the mode or a playbook names has `+model-invoked` on its `skills.txt` line.
 6. **Prove the wiring.** Run `bash mmw-v2/tests/lib/run_shared_lints.sh`, which runs `check_wiring.py`, and `bash mmw-v2/install.sh --check`. Read the lines that name an imported file: a run that exits 0 still prints `report:` lines for the classes that only report, and one of them may be this import's broken connection (**principle-silence-is-never-a-pass**).
    Done when both exit 0 and no line either printed names a file this import wrote.
-7. **Deliver.** Run **Deliver a change**. A change to `mmw-v2/skills.txt` reaches a host only after the full `install.sh`, which the user authorises, and a new session.
+7. **Deliver.** Run **Deliver a change**. A skill the import added to `mmw-v2/skills.txt` reaches a host only in a new session.
    Done when the import is committed on `dev` and the user has heard how far **Deliver a change** took it.
 
 **Reply:** the component's type and name; each file it wrote; each pstack name rewritten, with its `J<n>`; what still waits for the user.

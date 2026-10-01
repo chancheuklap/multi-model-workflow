@@ -12,7 +12,7 @@
 
 `docs/agents/triage-labels.md` 与 `docs/agents/domain.md` 带着本仓自己写的内容：前者表格的 Meaning 一列是本仓改写的（`ready-for-human` 写成 `reaction` / `reach` 两类，「the user」代替 maintainer 与 reporter），种子也有这张表；哪个 label 代表哪个 queue、spec 不带 label、本仓自建 ticket 不带 category，这些不写在这份文件里，由用到它的技能自己说（`triage` 的 `## Roles`、`to-spec` 第 4 步、`to-tickets` 第 7 步）；后者已经按本仓真实布局重写，并且带着本仓自己的几条规则，写在种子也有的那几节里。2026-09-28 lightweight review 之前，重跑这个技能会把这些节按种子重写；现在 `SKILL.md` 第 4 步已改为「落地件是本仓自己的记录，只改这次答案会改的、补种子有而文件缺的，其余每一行原样留着」，所以不必再手工备份这两份文件（原先这一段的警告随之删掉）。`docs/agents/issue-tracker.md` 与种子差得最少：种子本身的改动逐条记在下面，`## Three label sets` 一节与带 `mmw:map`、`mmw:spec` 的 **Map**、**Frontier query** 两行来自 `mmw` 技能的 `references/issue-tracker-pipeline-sections.md`；它另有种子没有的 `## Morning queries` 一节，两条命令同样带 `--limit 500`。根 `AGENTS.md` 里这个技能只写 `## External References` 表的行，见下面 SKILL.md 一节。
 
-这个技能只留下面逐条记的能力改动。流水线对 tracker 的要求不写进这个技能：tracker 选 GitHub Issues、label 保留默认，以及「这里写的文件在每次发布、分诊时被照做」那一段，在 `mmw` 技能 **Onboard a repository** 的开头段与 **Set up the tracker** 一步；`## Three label sets` 一节与带 `mmw:map`、`mmw:spec` 的 **Map**、**Frontier query** 两行，在 `mmw` 技能的 `references/issue-tracker-pipeline-sections.md`，由那一步写进仓库的 `docs/agents/issue-tracker.md`。上游改到这几处附近 → 取上游，流水线的文字不接回这个技能。
+这个技能只留下面逐条记的能力改动。流水线对 tracker 的要求不写进这个技能：tracker 选 GitHub Issues、label 保留默认，以及「这里写的文件在每次发布、分诊时被照做」那一段，在 `mmw` 技能 **Onboard a repository** 的开头段与 **Set up the tracker** 一步；`## Three label sets` 一节与带 `mmw:map`、`mmw:spec` 的 **Map**、**Frontier query** 两行，在 `mmw` 技能的 `references/issue-tracker-pipeline-sections.md`，由那一步写进仓库的 `docs/agents/issue-tracker.md`。上游改到这几处附近 → 取上游，流水线的文字不接回这个技能。上游改种子的 **Map** 或 **Frontier query** 一行 → 取上游之后，把 `mmw` 技能 `references/issue-tracker-pipeline-sections.md` 里同名的一行换成上游的新行，再加回 `mmw:map` 的两处或 `mmw:spec` 那半句。
 
 ## 逐段意图
 
