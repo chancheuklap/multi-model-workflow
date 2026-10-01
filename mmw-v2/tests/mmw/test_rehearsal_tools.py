@@ -1,6 +1,5 @@
 """Rehearsal boundaries against disposable tracker, runner and install state."""
 
-import importlib.util
 import json
 import os
 import subprocess
@@ -11,6 +10,8 @@ import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+
+import stand_in_agent
 
 HERE = Path(__file__).resolve().parent
 
@@ -35,9 +36,12 @@ class RehearsalTools(unittest.TestCase):
                               env=self.env, capture_output=True, text=True, timeout=20)
 
     def start_stand_in(self):
-        prompt = "Use the mmw skill. Role worker, ticket #61, unattended: mmw work-a-ticket#While the product runs."
+        prompt = ("Use the mmw skill. Role worker, ticket #61, unattended: "
+                  f"mmw work-a-ticket#While the product runs. Data: {self.root}/61-worker.md.")
+        command = shlex.join(["exec", "env", "MMW_ROLE=worker", "MMW_TICKET=61",
+                              "NMEM_SPACE=sample__rehearsal", "claude", "--dangerously-skip-permissions", prompt])
         result = self.orca("terminal", "create", "--worktree", f"path:{self.root}",
-                           "--command", f"exec claude '{prompt}'", "--title", "t", "--json")
+                           "--command", command, "--title", "t", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         handle = json.loads(result.stdout)["result"]["handle"]
         self.addCleanup(lambda: self.orca("terminal", "close", "--terminal", handle, "--json"))
@@ -54,7 +58,22 @@ class RehearsalTools(unittest.TestCase):
         while not received.exists() and time.monotonic() < deadline:
             time.sleep(0.02)
         self.assertTrue(received.exists(), "stand-in never consumed its first input")
-        self.assertEqual(received.read_text().splitlines()[0], prompt)
+        self.assertEqual(received.read_text().splitlines(), [prompt])
+        output = self.orca_state / f"{handle}.stdout"
+        while "ACTION worker While the product runs" not in output.read_text() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertIn("ACTION worker While the product runs", output.read_text())
+        self.assertEqual((self.orca_state / f"{handle}.stderr").read_text(), "")
+        os.kill(row["pid"], 0)
+        # Start prompts have a Data suffix; relay wakes do not. Both select the same action path.
+        agent = stand_in_agent.Agent("worker", 61)
+        for line, expected in (("Use the mmw skill. Role worker, ticket #61, unattended: "
+                                f"mmw work-a-ticket#Claim. Data: {self.root}/61-worker.md.", "Claim"),
+                               ("#61 reviewer.reported · mmw work-a-ticket#Get reviewed", "Get reviewed")):
+            selected = []
+            agent.step = lambda title, **kwargs: selected.append(title)
+            agent.receive(line, wake=False)
+            self.assertEqual(selected, [expected])
 
     def test_fake_orca_appends_a_delivered_line_to_the_inbox(self):
         _, handle, row = self.start_stand_in()
@@ -75,22 +94,13 @@ class RehearsalTools(unittest.TestCase):
         self.assertIn("NO ACTION worker No Such Step", result.stderr)
 
     def test_every_registered_anchor_has_an_action(self):
-        import stand_in_agent
         scripts = HERE.parents[1] / "skills" / "mmw" / "scripts"
-        spec = importlib.util.spec_from_file_location("rehearsal_locations", scripts / "locations.py")
-        locations = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(locations)
+        locations = stand_in_agent.load("rehearsal_locations", scripts / "locations.py")
         for playbook in ("work-a-ticket", "review-a-ticket", "run-a-night", "land-one-ticket"):
             registered = set(locations.PLAYBOOK_ANCHORS[playbook])
             actions = set(stand_in_agent.ACTIONS.get(playbook, {}))
             self.assertEqual(actions, registered,
                              f"{playbook}: missing {sorted(registered - actions)}; extra {sorted(actions - registered)}")
-        result = subprocess.run([sys.executable, str(HERE / "stand_in_agent.py"), "--check-actions",
-                                 "--root", str(HERE.parents[1])], env=self.env,
-                                capture_output=True, text=True, timeout=20)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        count = sum(len(locations.PLAYBOOK_ANCHORS[playbook]) for playbook in stand_in_agent.ACTIONS)
-        self.assertIn(f"ACTIONS OK {count} anchors", result.stdout)
 
     def test_rehearsal_builds_the_installed_clone_and_the_consuming_repository(self):
         import rehearsal
@@ -98,7 +108,6 @@ class RehearsalTools(unittest.TestCase):
         self.addCleanup(fixture.close)
         result = fixture.build()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("REHEARSAL BUILT", result.stdout)
         marker = fixture.home / ".mmw" / "installed-root"
         recorded = Path(marker.read_text().strip()).resolve()
         self.assertEqual(recorded, (fixture.clone / "mmw-v2").resolve())
@@ -117,7 +126,17 @@ class RehearsalTools(unittest.TestCase):
         committed = fixture.run(["git", "--git-dir", str(fixture.origin), "show", "project:docs/specs/rehearsal.md"])
         self.assertEqual(committed.returncode, 0, committed.stderr)
         self.assertIn(f"#{fixture.spec}", committed.stdout)
-        prompt = "Use the mmw skill. Role worker, ticket #61, unattended: mmw work-a-ticket#While the product runs."
+        boundary_log = fixture.root / "boundary.log"
+        for program in ("nmem", "paseo", "herdr"):
+            with self.subTest(program=program):
+                before = boundary_log.read_text().splitlines()
+                unknown = fixture.run([program, "unsupported"])
+                self.assertEqual(unknown.returncode, 2, unknown.stderr)
+                after = boundary_log.read_text().splitlines()
+                self.assertEqual(len(after), len(before) + 1)
+                self.assertEqual(after[-1], f"UNHANDLED {program} unsupported")
+        prompt = ("Use the mmw skill. Role worker, ticket #61, unattended: "
+                  f"mmw work-a-ticket#While the product runs. Data: {fixture.root}/61-worker.md.")
         agent = fixture.orca("terminal", "create", "--worktree", f"path:{fixture.consumer}",
                              "--command", f"exec claude '{prompt}'", "--title", "cleanup probe", "--json")
         self.assertEqual(agent.returncode, 0, agent.stderr)
@@ -135,12 +154,17 @@ class RehearsalTools(unittest.TestCase):
                               env=self.env, input=input, capture_output=True, text=True, timeout=20)
 
     def test_fake_gh_refuses_an_unhandled_call_and_logs_it(self):
-        before = self.log.read_text().splitlines() if self.log.exists() else []
-        result = self.gh("pr", "list")
-        self.assertEqual(result.returncode, 2, result.stderr)
-        after = self.log.read_text().splitlines()
-        self.assertEqual(len(after), len(before) + 1)
-        self.assertTrue(after[-1].startswith("UNHANDLED pr list"), after[-1])
+        for args in (("pr", "list"),
+                     ("api", "-X", "PATCH", "repos/sample/rehearsal/issues/comments/5000"),
+                     ("api", "-X", "PATCH", "repos/sample/rehearsal/issues/123"),
+                     ("api", "repos/sample/rehearsal/issues/123/unknown")):
+            with self.subTest(args=args):
+                before = self.log.read_text().splitlines() if self.log.exists() else []
+                result = self.gh(*args)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                after = self.log.read_text().splitlines()
+                self.assertEqual(len(after), len(before) + 1)
+                self.assertEqual(after[-1], "UNHANDLED " + " ".join(args))
 
     def ok_gh(self, *args, input=None):
         result = self.gh(*args, input=input)
@@ -157,6 +181,12 @@ class RehearsalTools(unittest.TestCase):
         ident = self.ok_gh("api", f"repos/{{owner}}/{{repo}}/issues/{ticket}", "--jq", ".id").strip()
         self.ok_gh("api", "--method", "POST", f"repos/sample/rehearsal/issues/{spec}/sub_issues",
                    "-F", f"sub_issue_id={ident}")
+        # Move via the actual pipeline's issue-edit call, then link back to the spec.
+        other = self.ok_gh("issue", "create", "--title", "Other spec", "--body-file", "-", input="Other").strip()
+        self.ok_gh("issue", "edit", ticket, "--parent", other)
+        old = json.loads(self.ok_gh("api", f"repos/sample/rehearsal/issues/{spec}/sub_issues"))
+        self.assertEqual(old, [])
+        self.ok_gh("issue", "edit", ticket, "--parent", str(spec))
         self.ok_gh("issue", "comment", ticket, "--body", "first comment")
         first = json.loads(self.ok_gh("issue", "view", ticket, "--json", "comments"))["comments"][0]
         since = (datetime.fromisoformat(first["createdAt"].replace("Z", "+00:00"))
@@ -177,9 +207,7 @@ class RehearsalTools(unittest.TestCase):
         self.assertEqual(row, {"state": "CLOSED", "labels": [{"name": "ready"}]})
         # Exercise the production tree query, not a separate fixture projection.
         scripts = HERE.parents[1] / "skills" / "mmw" / "scripts"
-        registry = importlib.util.spec_from_file_location("tracker_tree_locations", scripts / "locations.py")
-        locations = importlib.util.module_from_spec(registry)
-        registry.loader.exec_module(locations)
+        locations = stand_in_agent.load("tracker_tree_locations", scripts / "locations.py")
         tree_script = scripts.parents[1] / locations.ISSUE_TREE_PY
         bin_dir = self.root / "bin"
         bin_dir.mkdir()

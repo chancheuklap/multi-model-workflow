@@ -18,22 +18,32 @@ import time
 import uuid
 from pathlib import Path
 
-from fake_gh import Unhandled, atomic_write
+from fake_gh import Unhandled, atomic_write, log_call
+from stand_in_agent import load
 
 HERE = Path(__file__).resolve().parent
-COMMAND_FLAGS = {
-    'terminal create': ('worktree', 'command', 'title', 'json'),
-    'terminal send': ('terminal', 'text', 'enter', 'wait-submit', 'json'),
-    'terminal wait': ('terminal', 'for', 'timeout-ms', 'json'),
-    'terminal read': ('terminal', 'json'),
-    'terminal list': ('json',),
-    'terminal close': ('terminal', 'json'),
-    'worktree set': ('worktree', 'issue', 'parent-worktree', 'json'),
-    'tab create': ('url', 'worktree', 'json'),
+
+
+def runner_commands(adapter):
+    rows = {}
+    for line in adapter.read_text().splitlines():
+        if line.startswith('# MMW_USES:'):
+            words = line.split(':', 1)[1].split()
+            command = ' '.join(word for word in words if not word.startswith('-'))
+            rows[command] = tuple(word for word in words if word.startswith('-'))
+    return rows
+
+
+root = Path(os.environ.get('MMW_FAKE_ADAPTER_ROOT', HERE.parents[1]))
+locations = load('fake_orca_locations', root / 'skills' / 'mmw' / 'scripts' / 'locations.py')
+COMMAND_FLAGS = {command: tuple(flag.removeprefix('--') for flag in flags)
+                 for command, flags in runner_commands(
+                     root / 'skills' / locations.MODE_SCRIPTS / 'runners' / 'orca.sh').items()}
+COMMAND_FLAGS.update({
     'project setups': ('json',),
     'repo list': ('json',),
     'agent-context': ('json',),
-}
+})
 
 
 def clean_env(env):
@@ -56,21 +66,27 @@ def alive(row):
     return str(HERE / 'stand_in_agent.py') in command and row['handle'] in command
 
 
-def stop(row):
-    if not alive(row):
+def terminate(is_alive, send_signal, description):
+    """Bounded shutdown after the caller verifies process ownership."""
+    if not is_alive():
         return
-    os.killpg(row['pid'], signal.SIGTERM)
-    deadline = time.monotonic() + 5
-    while alive(row) and time.monotonic() < deadline:
-        time.sleep(0.02)
-    if alive(row):
-        # This is a child owned by this fake, not a machine-wide process match.
-        os.killpg(row['pid'], signal.SIGKILL)
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            send_signal(sig)
+        except ProcessLookupError:
+            return
         deadline = time.monotonic() + 5
-        while alive(row) and time.monotonic() < deadline:
+        while is_alive() and time.monotonic() < deadline:
             time.sleep(0.02)
-    if alive(row):
-        raise RuntimeError(f'stand-in {row["handle"]} did not stop')
+        if not is_alive():
+            return
+    raise RuntimeError(f'{description} did not stop')
+
+
+def stop(row):
+    # The liveness predicate requires this fake's stand-in path and unique handle.
+    terminate(lambda: alive(row), lambda sig: os.killpg(row['pid'], sig),
+              f'stand-in {row["handle"]}')
 
 
 def options(args, allowed):
@@ -107,7 +123,7 @@ def line_prompt(command):
     return prompt, assignments
 
 
-def dispatch(state, rows, command, opts):
+def answer(state, rows, command, opts):
     if command == 'agent-context':
         return {'schemaVersion': 1, 'commandCount': len(COMMAND_FLAGS),
                 'commands': [{'command': key, 'flags': list(flags)}
@@ -217,14 +233,12 @@ def main():
             opts = options(args[count:], COMMAND_FLAGS[command])
             path = state / 'terminals.json'
             rows = json.loads(path.read_text()) if path.exists() else []
-            result, code = dispatch(state, rows, command, opts)
+            result, code = answer(state, rows, command, opts)
         except Unhandled:
-            with log.open('a') as stream:
-                stream.write('UNHANDLED ' + ' '.join(args) + '\n')
+            log_call(log, args, True, program='orca')
             print('UNHANDLED ' + ' '.join(args), file=sys.stderr)
             return 2
-        with log.open('a') as stream:
-            stream.write('orca :: ' + ' :: '.join(arg.replace('\n', '\\n') for arg in args) + '\n')
+        log_call(log, args, program='orca')
     if 'error' in result:
         print(json.dumps({'ok': False, **result}))
     else:

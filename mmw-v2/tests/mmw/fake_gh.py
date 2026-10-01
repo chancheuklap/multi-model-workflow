@@ -81,9 +81,9 @@ def atomic_write(path, value):
             os.unlink(name)
 
 
-def log_call(path, args, unhandled=False):
+def log_call(path, args, unhandled=False, *, program='gh'):
     clean = [arg.replace('\n', '\\n').replace('\r', '\\r') for arg in args]
-    line = ('UNHANDLED ' + ' '.join(clean) if unhandled else 'gh :: ' + ' :: '.join(clean))
+    line = ('UNHANDLED ' + ' '.join(clean) if unhandled else program + ' :: ' + ' :: '.join(clean))
     with path.open('a', encoding='utf-8') as stream:
         stream.write(line + '\n')
 
@@ -198,7 +198,15 @@ def tree(state, row, sizes, depth=0):
     return result
 
 
-def dispatch(state, command, pos, opts):
+def matching(state, desired, labels):
+    if desired not in ('OPEN', 'CLOSED', 'ALL'):
+        raise Unhandled()
+    return [row for row in state['issues'].values()
+            if (desired == 'ALL' or row['state'] == desired)
+            and labels <= {item['name'] for item in row['labels']}]
+
+
+def answer(state, command, pos, opts):
     """Return (JSON-or-text, output-is-text, exit-code). Mutations stay under the lock."""
     repo = state['repository']
     explicit_repo = one(opts, '--repo', '-R')
@@ -242,13 +250,9 @@ def dispatch(state, command, pos, opts):
         fields = one(opts, '--json')
         if not fields or set(fields.split(',')) - FIELDS:
             raise Unhandled()
-        rows = list(state['issues'].values())
         desired = one(opts, '--state', default='open').upper()
-        if desired not in ('OPEN', 'CLOSED', 'ALL'):
-            raise Unhandled()
         labels = {label for value in opts.get('--label', []) for label in value.split(',')}
-        rows = [row for row in rows if (desired == 'ALL' or row['state'] == desired)
-                and labels <= {item['name'] for item in row['labels']}]
+        rows = matching(state, desired, labels)
         rows = rows[:int(one(opts, '--limit', default='30'))]
         return [selected(row, one(opts, '--json')) for row in rows], False, 0
     if command[0] == 'issue':
@@ -346,12 +350,19 @@ def dispatch(state, command, pos, opts):
     if suffix == ['issues'] and method == 'GET':
         labels = set(params.get('labels', [''])[0].split(',')) - {''}
         desired = params.get('state', ['open'])[0].upper()
-        rows = [rest_issue(row) for row in state['issues'].values()
-                if (desired == 'ALL' or row['state'] == desired)
-                and labels <= {label['name'] for label in row['labels']}]
+        rows = [rest_issue(row) for row in matching(state, desired, labels)]
     elif suffix[:1] == ['issues'] and len(suffix) >= 2:
-        row = issue(state, suffix[1])
         kind = suffix[2:]
+        # Route validation precedes lookup: an unknown route is not a missing issue.
+        supported = (suffix[1].isdigit() and
+                     ((method == 'GET' and kind in ([], ['sub_issues'],
+                       ['dependencies', 'blocked_by'], ['comments'])) or
+                      (method == 'POST' and
+                       ((kind == ['sub_issues'] and set(fields) == {'sub_issue_id'}) or
+                        (kind == ['dependencies', 'blocked_by'] and set(fields) == {'issue_id'})))))
+        if not supported:
+            raise Unhandled()
+        row = issue(state, suffix[1])
         if not kind and method == 'GET':
             return rest_issue(row), False, 0
         if kind == ['sub_issues']:
@@ -412,7 +423,7 @@ def main(args=None):
         try:
             command, pos, opts = parse(args.copy())
             state = json.loads(state_path.read_text(encoding='utf-8'))
-            value, plain, code = dispatch(state, command, pos, opts)
+            value, plain, code = answer(state, command, pos, opts)
             jq = one(opts, '--jq', '-q')
             if jq:
                 if plain:

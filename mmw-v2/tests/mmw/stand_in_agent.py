@@ -63,8 +63,11 @@ ACTIONS = {
 ROLE_PLAYBOOK = {'worker': 'work-a-ticket', 'adopting-worker': 'work-a-ticket',
                  'reviewer': 'review-a-ticket', 'night-orchestrator': 'run-a-night',
                  'one-ticket-orchestrator': 'land-one-ticket'}
-WORKER_STEPS = tuple(list(ACTIONS['work-a-ticket'])[1:12])
-POINTER = re.compile(r'(?: · |: )?mmw ([\w-]+)#(.+?)\.?$')
+WORKER_STEPS = ('Claim', 'Read yourself in', 'Write the code',
+                'Integrate and run every criterion', 'Post the decisions', 'Get reviewed',
+                'Run every criterion one final time', 'Audit against the ticket',
+                'Tell the touched tickets', 'Draft the closing comment', 'Close out')
+POINTER = re.compile(r'(?: · |: )?mmw ([\w-]+)#(.+?)(?:\. Data: [^\r\n]+)?\.?$')
 
 
 class NoAction(RuntimeError):
@@ -84,17 +87,6 @@ def installed_root():
     if not root.is_dir():
         raise RuntimeError(f'no installed checkout at {root}')
     return root
-
-
-def check_actions(root):
-    locations = load('stand_in_locations', root / 'skills' / 'mmw' / 'scripts' / 'locations.py')
-    for playbook, actions in ACTIONS.items():
-        registered = set(locations.PLAYBOOK_ANCHORS[playbook])
-        missing = registered - actions.keys()
-        extra = actions.keys() - registered
-        if missing or extra:
-            raise RuntimeError(f'{playbook}: missing {sorted(missing)}; extra {sorted(extra)}')
-    print(f'ACTIONS OK {sum(len(actions) for actions in ACTIONS.values())} anchors')
 
 
 class Agent:
@@ -319,13 +311,8 @@ def main():
     parser.add_argument('--role')
     parser.add_argument('--step')
     parser.add_argument('--ticket', type=int, default=0)
-    parser.add_argument('--check-actions', action='store_true')
-    parser.add_argument('--root', type=Path)
     args = parser.parse_args()
     try:
-        if args.check_actions:
-            check_actions(args.root or installed_root())
-            return 0
         if args.step:
             Agent(args.role, args.ticket).step(args.step)
             return 0
@@ -344,14 +331,10 @@ def main():
             # A concurrent append not ending in a newline is not a complete delivery.
             lines = data.splitlines() if data.endswith('\n') else data.splitlines()[:-1]
             for line in lines[consumed:]:
-                if consumed == 0:
-                    with args.inbox.with_suffix('.received').open('a') as stream:
-                        stream.write(line + '\n')
                 while os.environ.get('MMW_FAKE_AGENT_PAUSED') == '1' and not args.inbox.with_suffix('.go').exists():
-                        time.sleep(0.02)
-                else:
-                    with args.inbox.with_suffix('.received').open('a') as stream:
-                        stream.write(line + '\n')
+                    time.sleep(0.02)
+                with args.inbox.with_suffix('.received').open('a') as stream:
+                    stream.write(line + '\n')
                 agent.receive(line, wake=consumed > 0)
                 consumed += 1
                 if agent.root is not None:

@@ -14,18 +14,24 @@ import json
 import os
 import shlex
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
-from fake_gh import atomic_write
-from fake_orca import clean_env, process_command, stop
+from fake_gh import atomic_write, log_call
+from fake_orca import clean_env, process_command, runner_commands, stop, terminate
 from stand_in_agent import load
 
 HERE = Path(__file__).resolve().parent
+
+
+def _processes():
+    for line in subprocess.check_output(['ps', '-axo', 'pid=,command='], text=True).splitlines():
+        fields = line.strip().split(None, 1)
+        if len(fields) == 2:
+            yield int(fields[0]), fields[1]
 
 
 class Rehearsal:
@@ -127,9 +133,12 @@ class Rehearsal:
             self.checked(['git', 'clone', '--local', '--no-checkout', self.source, self.clone], cwd=self.root)
             self.checked(['git', '-C', self.clone, 'checkout', '--detach', head], cwd=self.root)
             self.installed = self.clone / 'mmw-v2'
+            locations = load('rehearsal_locations', self.installed / 'skills' / 'mmw' / 'scripts' / 'locations.py')
+            self.scripts = self.installed / 'skills' / locations.MODE_SCRIPTS
+            self.env['MMW_FAKE_ADAPTER_ROOT'] = str(self.installed)
             self.env['MMW_FAKE_RETRO_NMEM'] = str(self.installed / 'tests' / 'retro' / 'fake_nmem.py')
             catalog = {}
-            defaults = json.loads((self.installed / 'skills' / 'mmw' / 'hosts.json').read_text())['defaults']
+            defaults = json.loads((self.scripts.parent / 'hosts.json').read_text())['defaults']
             for row in defaults:
                 model = row['model'].split('[', 1)[0]
                 offering = {'id': model.replace(' ', '-'), 'name': model,
@@ -142,14 +151,7 @@ class Rehearsal:
             # These are the documented help probes, not permissive command substitutes.
             help_rows = {}
             for name in ('paseo', 'herdr'):
-                rows = {}
-                adapter = self.installed / 'skills' / 'mmw' / 'scripts' / 'runners' / f'{name}.sh'
-                for line in adapter.read_text().splitlines():
-                    if line.startswith('# MMW_USES:'):
-                        words = line.split(':', 1)[1].split()
-                        command = ' '.join(word for word in words if not word.startswith('-'))
-                        rows[command] = [word for word in words if word.startswith('-')]
-                help_rows[name] = rows
+                help_rows[name] = runner_commands(self.scripts / 'runners' / f'{name}.sh')
             atomic_write(self.root / 'help.json', help_rows)
             install = self.run(['bash', self.installed / 'install.sh'], cwd=self.clone, timeout=600)
             (self.root / 'install.stdout').write_text(install.stdout)
@@ -159,8 +161,6 @@ class Rehearsal:
             marker = self.home / '.mmw' / 'installed-root'
             if Path(marker.read_text().strip()).resolve() != self.installed.resolve():
                 raise RuntimeError('installed-root does not name the disposable clone')
-            locations = load('rehearsal_locations', self.installed / 'skills' / 'mmw' / 'scripts' / 'locations.py')
-            self.scripts = self.installed / 'skills' / locations.MODE_SCRIPTS
             self.dispatch = self.scripts / 'dispatch.sh'
             self.statedir = load('rehearsal_statedir', self.scripts / 'statedir.py')
             if self.checked([sys.executable, self.scripts / 'models.py', 'runner'], cwd=self.clone) != 'orca':
@@ -269,17 +269,7 @@ class Rehearsal:
             raise RuntimeError(f'pid {pid} is not owned by this rehearsal')
         if pid not in self.pids:
             self.pids.append(pid)
-        os.kill(pid, signal.SIGTERM)
-        deadline = time.monotonic() + 5
-        while process_command(pid) and time.monotonic() < deadline:
-            time.sleep(0.02)
-        if process_command(pid):
-            os.kill(pid, signal.SIGKILL)
-            deadline = time.monotonic() + 5
-            while process_command(pid) and time.monotonic() < deadline:
-                time.sleep(0.02)
-        if process_command(pid):
-            raise RuntimeError(f'owned pid {pid} did not stop')
+        terminate(lambda: bool(process_command(pid)), lambda sig: os.kill(pid, sig), f'owned pid {pid}')
 
     def stop_background_relay(self):
         state = self.home / '.mmw' / 'state' / self.repository.replace('/', '__')
@@ -290,13 +280,8 @@ class Rehearsal:
                 self._stop_pid(holder['pid'])
 
     def remaining_processes(self):
-        rows = subprocess.check_output(['ps', '-axo', 'pid=,command='], text=True).splitlines()
-        found = []
-        for line in rows:
-            fields = line.strip().split(None, 1)
-            if len(fields) == 2 and str(self.root) in fields[1] and int(fields[0]) != os.getpid():
-                found.append(int(fields[0]))
-        return found
+        return [pid for pid, command in _processes()
+                if str(self.root) in command and pid != os.getpid()]
 
     def close(self):
         if self.closed:
@@ -319,10 +304,9 @@ class Rehearsal:
             ports = json.loads(boards.read_text()).values()
             # Both the disposable checkout's server path and its registered port must match.
             server = str(self.installed / 'board' / 'server.py')
-            for line in subprocess.check_output(['ps', '-axo', 'pid=,command='], text=True).splitlines():
-                fields = line.strip().split(None, 1)
-                if len(fields) == 2 and server in fields[1] and any('--port ' + str(port) in fields[1] for port in ports):
-                    self._stop_pid(int(fields[0]))
+            for pid, command in _processes():
+                if server in command and any('--port ' + str(port) in command for port in ports):
+                    self._stop_pid(pid)
         for pid in self.remaining_processes():
             self._stop_pid(pid)
         if self.remaining_processes():
@@ -396,8 +380,13 @@ def _nmem(args):
 
 
 def boundary(name, args):
-    with Path(os.environ['MMW_FAKE_LOG']).open('a') as stream:
-        stream.write(name + ' :: ' + ' :: '.join(arg.replace('\n', '\\n') for arg in args) + '\n')
+    code = _answer_boundary(name, args)
+    log_call(Path(os.environ['MMW_FAKE_LOG']), args if code != 2 else [name, *args],
+             code == 2, program=name)
+    return code
+
+
+def _answer_boundary(name, args):
     if name == 'nmem':
         return _nmem(args)
     if name == 'launchctl':
