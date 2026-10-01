@@ -80,7 +80,7 @@ For sub-shape A (existing page): keep all the existing data fetching above the s
 
 For sub-shape B (new page): the prototype route you created above mounts the same switcher.
 
-In both sub-shapes the variant components live in the leaf directory `prototypes/<effort>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app, and it comes down after the first pull of the design (the `design-pages` skill). Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
+In both sub-shapes the variant components live in the leaf directory `prototypes/<effort>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
 ### 4. Build the floating switcher
 
@@ -115,7 +115,3 @@ The winner goes into Claude Design, so leave the scaffolding up until the first 
 - **Sharing too much code between variants.** A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
 - **Wiring variants to real mutations.** Read-only prototypes are fine. If a variant needs to mutate, point it at a stub: the question is "what should this look like", not "does the backend work".
 - **Promoting the prototype directly to production.** The variant code was written under prototype constraints (no tests, minimal error handling). Rewrite it properly when you fold it in.
-
-## Next
-
-A UI prototype hands off here, at step 6: its winner goes into Claude Design through the `design-pages` skill.
