@@ -3,8 +3,8 @@
 # Start an agent on a ticket, move a spec's batch forward, or report on one.
 #
 #   dispatch.sh check <spec>
-#   dispatch.sh open <spec>
-#   dispatch.sh open-ticket <n>
+#   dispatch.sh open-night <spec>
+#   dispatch.sh open-ticket-watch <n>
 #   dispatch.sh board
 #   dispatch.sh adopt <n>
 #   dispatch.sh self
@@ -16,17 +16,17 @@
 #   dispatch.sh advise <brief file>
 #   dispatch.sh research <n>
 #   dispatch.sh retract <n>
-#   dispatch.sh wait <n> worker|reviewer
+#   dispatch.sh result <n> worker|reviewer
 #   dispatch.sh ack <n> <event> | relay.recovered
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
-#   dispatch.sh summary <spec> --memory-decisions <file>
+#   dispatch.sh close-night <spec> --memory-decisions <file>
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
-#   dispatch.sh route <ticket> <child> fixed
-#   dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
-#   dispatch.sh route <ticket> <child> became-ticket <new ticket>
+#   dispatch.sh resolve-child <ticket> <child> fixed
+#   dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>
+#   dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>
 #
 # Every script this one calls is found by resolution, from this file's own path:
 # `lease.py` of the ui-acceptance skill and `verify-ticket.py` are resolved through
@@ -60,18 +60,18 @@
 # that an earlier worker of the ticket left with uncommitted edits first commits them on
 # the ticket branch (`keep_unfinished_work`). `resume`, `retract`, `land` and `suspend`
 # find the session in those events and ask the runner the event names — `resume` only a
-# worker whose hold no event has ended; `wait` only reads the ticket.
+# worker whose hold no event has ended; `result` only reads the ticket.
 #
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
 # the tracker and wakes the session waiting on each result event through that session's
-# runner's `send`. `open` (a night) and `open-ticket` (one ticket outside a night) open a
+# runner's `send`. `open-night` (a night) and `open-ticket-watch` (one ticket outside a night) open a
 # watch on the relay whose orchestrator is the calling session — the runner and session its
-# adapter's `self` reads — and start the relay when none runs; `summary` and `suspend`, or
+# adapter's `self` reads — and start the relay when none runs; `close-night` and `suspend`, or
 # `land` for one ticket, close that watch, and the relay ends with its last. `start` and `advance`
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
 # how a woken session says it handled the wake it read. `adopt` makes a session that
 # picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
-# runner and session this process runs in. `open` and `open-ticket` also make sure this
+# runner and session this process runs in. `open-night` and `open-ticket-watch` also make sure this
 # repository's task board is registered and answering and name its URL on the line they
 # print: everything else a watch starts is read by the orchestrator, and the board is what a
 # person reads.
@@ -120,6 +120,11 @@ gh_() {
 refuse() {
   echo "dispatch: $1" >&2
   exit 2
+}
+
+# renamed <old> <new> <args>: the one line an old subcommand prints for one release.
+renamed() {
+  refuse "$1 is now $2; the old name is refused for one release. Run dispatch.sh $2 $3"
 }
 
 runner() {
@@ -325,7 +330,7 @@ resolve_into() {
     case "$rc" in
       0) printf '%s\n' "$into"; return 0 ;;
       2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
-      4) echo "dispatch: the open night on #$spec carries no spec.opened.into; open it again so the base branch is recorded" >&2; return 2 ;;
+      4) echo "dispatch: the open night on #$spec carries no spec.opened.into; run open-night again so the base branch is recorded" >&2; return 2 ;;
       3) ;;
       *) echo "dispatch: could not resolve #$number's base branch from the night on #$spec" >&2; return 2 ;;
     esac
@@ -371,33 +376,33 @@ post_event() {
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh check <spec>
-       dispatch.sh open <spec>
-       dispatch.sh open-ticket <n>
+       dispatch.sh open-night <spec>
+       dispatch.sh open-ticket-watch <n>
        dispatch.sh board
        dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
        dispatch.sh where [<spec>|<n>]
        dispatch.sh advance <spec>
        dispatch.sh integrate <n>
-       dispatch.sh integrated <n>
+       dispatch.sh landed-since <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer
        dispatch.sh advise <brief file>
        dispatch.sh research <n>
        dispatch.sh retract <n>
-       dispatch.sh wait <n> worker|reviewer
+       dispatch.sh result <n> worker|reviewer
        dispatch.sh ack <n> <event> | relay.recovered
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh findings <spec>
-       dispatch.sh memory-list <spec>
+       dispatch.sh prepare-memory-decisions <spec>
        dispatch.sh reverify <spec>
-       dispatch.sh summary <spec> --memory-decisions <file>
+       dispatch.sh close-night <spec> --memory-decisions <file>
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
-       dispatch.sh route <ticket> <child> fixed
-       dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
-       dispatch.sh route <ticket> <child> became-ticket <new ticket>
+       dispatch.sh resolve-child <ticket> <child> fixed
+       dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>
+       dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>
 USAGE
   exit 2
 }
@@ -835,7 +840,7 @@ check_open_pushes() {
 }
 
 # Commits of the project branch the base branch does not hold yet, counted on the tips
-# `open` will have on origin once its pushes are done.
+# `open-night` will have on origin once its pushes are done.
 project_commits_missing_from_base() {
   local root="$1" rows="$2" project into tip base_tip project_tip branch ahead presence
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
@@ -871,13 +876,13 @@ sync_base_with_project() {
         git -C "$MERGE_ROOT" merge --abort >/dev/null 2>&1 || true
         git -C "$MERGE_ROOT" reset --hard "origin/$into" >/dev/null
         release_merge_lock
-        echo "dispatch: origin/$into lacks $missing commit(s) of origin/$project and merging them conflicts in ${files:-unknown files}; nothing was pushed. Merge origin/$project into $into by hand, push it, then run open again" >&2
+        echo "dispatch: origin/$into lacks $missing commit(s) of origin/$project and merging them conflicts in ${files:-unknown files}; nothing was pushed. Merge origin/$project into $into by hand, push it, then run open-night again" >&2
         return 2
       fi
       out="$(git -C "$MERGE_ROOT" push origin "HEAD:refs/heads/$into" 2>&1)"; rc=$?
       release_merge_lock
       [ "$rc" -eq 0 ] \
-        || { echo "dispatch: could not push the merge of origin/$project into origin/$into: $(printf '%s' "$out" | tail -2 | tr '\n' ' '); run open again" >&2; return 2; }
+        || { echo "dispatch: could not push the merge of origin/$project into origin/$into: $(printf '%s' "$out" | tail -2 | tr '\n' ' '); run open-night again" >&2; return 2; }
     fi
     git -C "$root" fetch -q origin 2>/dev/null || true
     echo "dispatch: $into took $missing commit(s) from origin/$project before the night opened" >&2
@@ -889,7 +894,7 @@ sync_base_with_project() {
   return 0
 }
 
-# `open <spec>`: the night begins. The relay watches the spec's tickets with this session
+# `open-night <spec>`: the night begins. The relay watches the spec's tickets with this session
 # as the night's orchestrator, and `spec.opened` on the spec records who is woken. A
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
@@ -913,12 +918,12 @@ open_night() {
        --field "runner=$runner" --field "session=$session" --field "into=$into" \
        --field "project=$project"; then
     [ "$how" = started ] && stop_relay --spec "$spec"
-    refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
+    refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open-night again once the tracker takes comments"
   fi
   git_dir="$(git -C "$root" rev-parse --git-common-dir)"
   case "$git_dir" in /*) ;; *) git_dir="$root/$git_dir" ;; esac
   rm -f "$git_dir/mmw-reverify-$spec"
-  # Every other process a night needs starts itself: `open` starts the relay, and the
+  # Every other process a night needs starts itself: `open-night` starts the relay, and the
   # turn guard arms the watchdog. The task board was the one thing somebody had to
   # remember, and it is the only one of the three whose output is for a person — the
   # relay's and the watchdog's are for the orchestrator. A board that will not start is
@@ -931,9 +936,9 @@ open_night() {
   fi
 }
 
-# `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
+# `open-ticket-watch <n>`: one ticket outside a night. The relay watches that ticket with this
 # session as its orchestrator; `land <n>` closes the watch. The task board is made sure of
-# the way `open` makes sure of it, for the same reason: the relay and the watchdog start
+# the way `open-night` makes sure of it, for the same reason: the relay and the watchdog start
 # themselves, and the board is the one view of the ticket for a person. A board that will
 # not start is said on stderr and leaves the watch open.
 open_ticket() {
@@ -1911,7 +1916,7 @@ start_one() {
   local watched
   watched="$(relay_watches "$number" "$spec" 2>&1)" \
     || revive_night_watch "$spec" \
-    || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The orchestrator opens the night with open <spec>, or open-ticket <n> for a ticket outside a night; nothing was started"
+    || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The orchestrator opens the night with open-night <spec>, or open-ticket-watch <n> for a ticket outside a night; nothing was started"
 
   local profile
   case "$kind" in
@@ -1945,7 +1950,7 @@ start_one() {
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 
-  # `open-ticket` has no spec-level open step, and a previously valid Space may become
+  # `open-ticket-watch` has no spec-level open step, and a previously valid Space may become
   # unavailable before a later start. Verify the connector's routing target immediately
   # before either role starts, before a worktree or session is created.
   local repository_slug repository_space
@@ -2340,7 +2345,7 @@ elif by == "ticket.landed":
     step = (f"Its work is on the base branch: read {look}; a landed ticket that needs more "
             "work is reopened and started again, not resumed.")
 elif by == "spec.suspended":
-    step = (f"The night was suspended: once what suspended it is fixed, dispatch.sh open {spec} "
+    step = (f"The night was suspended: once what suspended it is fixed, dispatch.sh open-night {spec} "
             f"and then dispatch.sh advance {spec} take it up again." if spec else
             "The night was suspended: once what suspended it is fixed, open that night again "
             "and advance it.")
@@ -2351,7 +2356,7 @@ PY
 )" || printf '#%s has no worker holding it, and which event ended the hold could not be read, so nothing was sent. Sending into a session no event shows holding the ticket would make its hold live again. Read events.py fold %s before starting a worker with dispatch.sh start %s worker.\n' "$number" "$number" "$number"
 }
 
-# ------------------------------------------------------------------ wait
+# ------------------------------------------------------------------ result
 
 # The newest result event of this kind — worker `ticket.passed` / `ticket.returned`,
 # reviewer `reviewer.reported` as its name and key fields. Nothing when there is
@@ -2412,7 +2417,7 @@ check_machine() {
         [ "$branch" = "$into" ] && base_push="$ahead"
       done <<<"$rows"
       check_open_pushes "$root" "$rows" || failed=1
-      echo "project branch: $project (source: $source); open would push $project: $project_push commit(s), $into: $base_push commit(s); $into would take $(project_commits_missing_from_base "$root" "$rows") commit(s) from $project"
+      echo "project branch: $project (source: $source); open-night would push $project: $project_push commit(s), $into: $base_push commit(s); $into would take $(project_commits_missing_from_base "$root" "$rows") commit(s) from $project"
     else
       failed=1
     fi
@@ -2421,7 +2426,7 @@ check_machine() {
   # What install.sh checks is this machine's whole toolbox, most of it nothing the night
   # uses, and what the night does use is checked below by what reads it. An incomplete
   # install does not stop the night, and check does not install: it reports what is still
-  # missing. The orchestrator shows that report and asks the user; open runs only after
+  # missing. The orchestrator shows that report and asks the user; open-night runs only after
   # they answer, with the install or without it.
   local install_out
   if [ ! -f "$INSTALLER" ]; then
@@ -2429,7 +2434,7 @@ check_machine() {
   elif ! install_out="$(bash "$INSTALLER" --check 2>&1)"; then
     echo "dispatch: warning: install.sh --check still finds this, which the night does not wait on:" >&2
     printf '%s\n' "$install_out" | grep -E '缺|残留|不齐|不一致|没查|不是|没在跑' | sed 's/^/  /' >&2
-    echo "dispatch: install.sh runs only after the user authorises it; do not run open before the user answers" >&2
+    echo "dispatch: install.sh runs only after the user authorises it; do not run open-night before the user answers" >&2
   fi
 
   # The selected runner has to be one this skill has an adapter for, and every row `start`
@@ -2793,7 +2798,7 @@ prepare_merge_worktree() {
 }
 
 # The merge worktree is filed under the worktree of the session running this command —
-# the orchestrator, for `open`, `advance`, `land`, `reverify` and `finish` — by the selected
+# the orchestrator, for `open-night`, `advance`, `land`, `reverify` and `finish` — by the selected
 # runner's `attach`, once per command however many landings it makes. A runner with no
 # such view does nothing; one that fails is reported on stderr and the landing goes on.
 FILED_MERGE_WORKTREES=""
@@ -3203,7 +3208,7 @@ advance() {
   local watched
   watched="$(relay_watches "" "$spec" 2>&1)" \
     || revive_night_watch "$spec" \
-    || refuse "the night on #$spec is not open: ${watched#relay: }. Nothing would wake you when a ticket lands, so nothing was merged or started; run open $spec first"
+    || refuse "the night on #$spec is not open: ${watched#relay: }. Nothing would wake you when a ticket lands, so nothing was merged or started; run open-night $spec first"
 
   # A reviewer can return a ticket while its worker session is still present. The
   # returned event gives the ticket back to triage; the next advance ends every
@@ -3431,7 +3436,7 @@ land_tickets() {
 
   echo "land: merged $merged, already in $already, bounced $bounced, still working $kept, already landed $nothing, failed $failed" >&2
 
-  # `land <n>` is the whole ending of a ticket outside a night, so the watch `open-ticket`
+  # `land <n>` is the whole ending of a ticket outside a night, so the watch `open-ticket-watch`
   # opened for it closes here, and the relay with it when it watched nothing else. A
   # night's watch is not this one and is left alone.
   local relay_left=0
@@ -3628,7 +3633,7 @@ suspend_night() {
   [ "$left" -eq 0 ] || exit 1
 }
 
-# ------------------------------------------------------------------ reverify / summary
+# ------------------------------------------------------------------ reverify / close-night
 
 # The red reverify of ticket <n> on commit <c>: prints the criteria it left unmet, space
 # separated — the `failed` field of the newest reverify `ticket.checked` — and returns 0
@@ -3780,7 +3785,7 @@ print((rows[0].get("login") or "") if rows else "")
 # ready-made `unchecked` object when the list could not be read or was truncated, so a
 # orchestrator never has to infer an empty set from a bad answer. The orchestrator fills in
 # `decision`, `reason` and `evidence` (and `replacement_id` for `supersede`) per entry;
-# `close_spec_memories` still enforces every rule this stops short of, at `summary` time.
+# `close_spec_memories` still enforces every rule this stops short of, at `close-night` time.
 memory_list_spec() {
   local spec="$1" slug space
   slug="$(repo_slug)" || return 2
@@ -3879,7 +3884,7 @@ label = f"mmw-spec-{spec}"
 
 def fail(fact):
     why = f"Memory closing for #{spec} cannot safely close because its exact decision set and lifecycle result are not established"
-    action = f"correct the named condition in {manifest_path or 'the --memory-decisions file'}, then run dispatch.sh summary {spec} --memory-decisions {manifest_path or '<file>'} again"
+    action = f"correct the named condition in {manifest_path or 'the --memory-decisions file'}, then run dispatch.sh close-night {spec} --memory-decisions {manifest_path or '<file>'} again"
     print(f"dispatch: {fact}; {why}; {action}", file=sys.stderr)
     raise SystemExit(2)
 
@@ -4135,21 +4140,21 @@ summary_spec() {
   local body extra git_dir memory_result memory_manifest memory_summary
   local caller_root into expected marker green red checked extra_field
   python3 "$STATUS" --closeout-ready "$spec" \
-    || refuse "#${spec} is not ready for summary; resolve every condition named above, then run summary again"
+    || refuse "#${spec} is not ready for close-night; resolve every condition named above, then run close-night again"
 
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$caller_root" ] || refuse "not inside a git repository"
   into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" \
-    || refuse "#${spec} carries no active spec.opened.into, so summary cannot verify the base branch"
+    || refuse "#${spec} carries no active spec.opened.into, so close-night cannot verify the base branch"
   fetch_origin "$caller_root" \
-    || refuse "origin could not be refreshed, so summary cannot prove the base branch is still the one reverified"
+    || refuse "origin could not be refreshed, so close-night cannot prove the base branch is still the one reverified"
   expected="$(git -C "$caller_root" rev-parse "origin/$into" 2>/dev/null)" \
     || refuse "origin/$into does not resolve to a commit"
   git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
   case "$git_dir" in /*) ;; *) git_dir="$caller_root/$git_dir" ;; esac
   marker="$git_dir/mmw-reverify-$spec"
   [ -f "$marker" ] \
-    || refuse "#${spec} has no completed reverify; run reverify $spec, then summary again"
+    || refuse "#${spec} has no completed reverify; run reverify $spec, then close-night again"
   read -r green red checked extra_field < "$marker"
   case "$green $red $checked $extra_field" in
     *[!0-9a-f\ ]* | "" | *"  "*)
@@ -4184,7 +4189,7 @@ summary_spec() {
          "" | *[!0-9]*)
            echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
          0) ;;
-         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed\`, \`dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh route <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no resolve-child reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh resolve-child <ticket> <child> fixed\`, \`dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run close-night again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
        esac ;;
   esac
 
@@ -4236,7 +4241,7 @@ spec_children() {
 finish_preflight() {
   local spec="$1" into="$2" specs children other active seen child state open="" rc retro
   newest_field "$spec" at spec.closed spec.opened >/dev/null 2>&1 \
-    || { echo "dispatch: #$spec carries no spec.closed; run summary before finish" >&2; return 2; }
+    || { echo "dispatch: #$spec carries no spec.closed; run close-night before finish" >&2; return 2; }
   retro="$(newest_field "$spec" result spec.retroed spec.closed)"; rc=$?
   case "$rc" in
     0) ;;
@@ -4395,8 +4400,8 @@ finish_spec() {
   [ -n "$root" ] || refuse "not inside a git repository"
   into="$(newest_field "$spec" into spec.opened 2>/dev/null)" || into=""
   project="$(newest_field "$spec" project spec.opened 2>/dev/null)" || project=""
-  [ -n "$project" ] || refuse "#${spec}'s spec.opened carries no project branch; run open $spec again before finish"
-  [ -n "$into" ] || refuse "#${spec}'s spec.opened carries no base branch; run open $spec again before finish"
+  [ -n "$project" ] || refuse "#${spec}'s spec.opened carries no project branch; run open-night $spec again before finish"
+  [ -n "$into" ] || refuse "#${spec}'s spec.opened carries no base branch; run open-night $spec again before finish"
   finish_preflight "$spec" "$into" || exit 2
   load_repo_url
 
@@ -4476,7 +4481,7 @@ finish_spec() {
   done
 }
 
-# ------------------------------------------------------------------ route
+# ------------------------------------------------------------------ resolve-child
 
 # Make sure the repository has the layer label `$1`. A label the repository lacks makes
 # every `gh issue edit --add-label` naming it fail, so the first issue of each layer
@@ -4574,7 +4579,7 @@ route_child() {
     if [ "$done_resolution" = "$resolution" ] \
        && { [ -z "$became" ] || [ "$done_became" = "$became" ]; } \
        && { [ -z "$reason" ] || [ "$done_reason" = "$reason" ]; }; then
-      echo "route #$child: already routed $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
+      echo "resolve-child #$child: already routed $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
       return 0
     fi
     refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
@@ -4634,7 +4639,7 @@ route_child() {
     echo "dispatch: #$child is routed ($resolution) but the child.closed event on #$ticket was not written, so the night summary counts it unread; run this again" >&2
     exit 1
   fi
-  echo "route #$child: $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
+  echo "resolve-child #$child: $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
 }
 
 # ------------------------------------------------------------------ entry
@@ -4670,6 +4675,20 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 set -- ${positional[@]+"${positional[@]}"}
+
+# The seven renamed subcommands answer their old names, for one release, with
+# one line that names the new command. This stands before models.json is read,
+# so a machine that is not installed still prints only that line.
+case "${1:-}" in
+  open) renamed open open-night "<spec>" ;;
+  open-ticket) renamed open-ticket open-ticket-watch "<n>" ;;
+  summary) renamed summary close-night "<spec> --memory-decisions <file>" ;;
+  wait) renamed wait result "<n> worker|reviewer" ;;
+  integrated) renamed integrated landed-since "<n>" ;;
+  memory-list) renamed memory-list prepare-memory-decisions "<spec>" ;;
+  route)
+    renamed route resolve-child "<ticket> <child> fixed, or stale <invalid|fixed-elsewhere>, or became-ticket <new ticket>" ;;
+esac
 
 [ "${1:-}" = where ] || [ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
 
@@ -4743,12 +4762,12 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     check_machine "$2"
     ;;
-  open)
+  open-night)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     open_night "$2"
     ;;
-  open-ticket)
+  open-ticket-watch)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     open_ticket "$2"
@@ -4786,7 +4805,7 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     integrate_ticket "$2"
     ;;
-  integrated)
+  landed-since)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     integrated_since_start "$2"
@@ -4815,7 +4834,7 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     retract_one "$2"
     ;;
-  wait)
+  result)
     [ "$#" -eq 3 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     wait_one "$2" "$3"
@@ -4837,7 +4856,7 @@ case "${1:-}" in
     python3 "$STATUS" --findings "$2"
     exit $?
     ;;
-  memory-list)
+  prepare-memory-decisions)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     memory_list_spec "$2"
@@ -4846,7 +4865,7 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     reverify_spec "$2"
     ;;
-  summary)
+  close-night)
     if [ "$#" -eq 4 ] && [ "$3" = "--memory-decisions" ]; then
       summary_spec "$2" "$4"
     else
@@ -4861,7 +4880,7 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     suspend_night "$2"
     ;;
-  route)
+  resolve-child)
     [ "$#" -eq 4 ] || [ "$#" -eq 5 ] || usage
     route_child "$2" "$3" "$4" "${5:-}"
     ;;

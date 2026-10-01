@@ -24,6 +24,7 @@
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh open|openrefused|openticket|watchkind|ack|unopened|runnerself|orcaunobserved|adopt
+#   bash mmw-v2/tests/dispatch/test_dispatch.sh newnames|oldnames
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh startunlandedblocker
 #   bash mmw-v2/tests/dispatch/test_dispatch.sh all
@@ -38,7 +39,7 @@
 # Every scenario runs with the night on spec 76 open: a live stand-in process holds the
 # relay's lock in this run's state directory and records that it watches spec 76, so
 # `start` and `advance` find the relay they refuse to work without. A scenario about
-# opening, acking or refusing clears it first (`no_relay`), and the real relay `open`
+# opening, acking or refusing clears it first (`no_relay`), and the real relay `open-night`
 # starts is stopped before the scenario ends.
 
 set -uo pipefail
@@ -1752,6 +1753,40 @@ reset_log() {
 }
 has() { grep -qF -- "$1" "$MMW_TEST_LOG" || fail "no call matching: $1"; }
 hasnt() { grep -qF -- "$1" "$MMW_TEST_LOG" && fail "should not have called: $1"; return 0; }
+
+# A new subcommand, refused inside its own branch: non-zero, and the first
+# stderr line is that refusal rather than usage.
+new_name_enters() {
+  local code first
+  fresh_repo
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" "$@")"
+  [ "$code" != 0 ] || fail "$* expected a non-zero exit, got 0: $(cat "$TMP/err")"
+  first="$(head -n 1 "$TMP/err")"
+  case "$first" in
+    "dispatch: "*) ;;
+    *) fail "$* stderr should start with 'dispatch: ', got: ${first:-<empty>}" ;;
+  esac
+}
+
+# An old subcommand: one stderr line naming the new command, exit 2, empty
+# stdout, and no call to gh or a runner.
+old_name_refuses() {
+  local new="$1"
+  local code
+  shift
+  fresh_repo
+  reset_log
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" "$@")"
+  [ "$code" = 2 ] || fail "$* expected exit 2, got $code: $(cat "$TMP/err")"
+  [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] \
+    || fail "$* expected one stderr line: $(cat "$TMP/err")"
+  [ ! -s "$TMP/out" ] || fail "$* wrote stdout: $(cat "$TMP/out")"
+  grep -qF -- "$new" "$TMP/err" || fail "$* did not name $new: $(cat "$TMP/err")"
+  if grep -E '^(gh|paseo|orca|herdr) ::' "$MMW_TEST_LOG" >/dev/null; then
+    fail "$* called gh or a runner: $(cat "$MMW_TEST_LOG")"
+  fi
+}
 count_of() { grep -cF -- "$1" "$MMW_TEST_LOG" | tr -d ' '; }
 line_of() { grep -n -- "$1" "$MMW_TEST_LOG" | head -1 | cut -d: -f1 | grep . || echo 0; }
 
@@ -1809,7 +1844,7 @@ PY
 }
 
 # Every board server this run started: the ports a scenario recorded, plus every port in
-# the registry, since `dispatch.sh open` makes sure this repository's board answers and a
+# the registry, since `dispatch.sh open-night` makes sure this repository's board answers and a
 # scenario that only meant to open a night has one too.
 stop_test_boards() {
   local registered
@@ -2416,8 +2451,8 @@ JSON
     || fail "the next step should be one line: $(cat "$TMP/err")"
   printf '%s\n' "$next" | grep -q 'install.sh' \
     || fail "the next step should name install.sh: $(cat "$TMP/err")"
-  printf '%s\n' "$next" | grep -q 'open' \
-    || fail "the next step should name open: $(cat "$TMP/err")"
+  printf '%s\n' "$next" | grep -q 'open-night' \
+    || fail "the next step should name open-night: $(cat "$TMP/err")"
 }
 
 # A row resolves against the catalog of the runner that starts the session: Orca runs the
@@ -2803,7 +2838,7 @@ scenario_integratenamestickets() {
 
 scenario_integratedsincestart() {
   local code
-  echo "--- integrated lists every ticket the base branch took in since this ticket's worker started, not one landed before it"
+  echo "--- landed-since lists every ticket the base branch took in since this ticket's worker started, not one landed before it"
   fresh_repo
   echo '[]' > "$TMP/tickets.json"
   merge_sibling_to_origin 60 earlier.txt earlier "earlier ticket"
@@ -2812,14 +2847,14 @@ scenario_integratedsincestart() {
   merge_sibling_to_origin 62 first.txt first "first sibling"
   merge_sibling_to_origin 63 second.txt second "second sibling"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" integrated 61)"
-  [ "$code" = 0 ] || fail "integrated expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" landed-since 61)"
+  [ "$code" = 0 ] || fail "landed-since expected 0, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = "$(printf '62\n63\n')" ] \
-    || fail "integrated should list #62 and #63, not #60 (landed before #61's worker started): $(cat "$TMP/out")"
+    || fail "landed-since should list #62 and #63, not #60 (landed before #61's worker started): $(cat "$TMP/out")"
 
   echo "--- a ticket with no recorded worker.started.base is refused, nothing printed"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" integrated 99)"
+          bash "$DISPATCH" "${TOOLS[@]}" landed-since 99)"
   [ "$code" = 2 ] || fail "a ticket with no worker.started.base should refuse, got $code: $(cat "$TMP/err")"
   [ ! -s "$TMP/out" ] || fail "nothing should be printed on refusal: $(cat "$TMP/out")"
 }
@@ -3608,9 +3643,9 @@ scenario_resumeendedhold() {
   code="$(resume_after ticket.landed)"
   refused_resume_names ticket.landed "dispatch.sh status 76" "$code"
 
-  echo "--- spec.suspended ended every hold: the night is taken up again with open, then advance"
+  echo "--- spec.suspended ended every hold: the night is taken up again with open-night, then advance"
   code="$(resume_after spec.suspended)"
-  refused_resume_names spec.suspended "dispatch.sh open 76" "$code"
+  refused_resume_names spec.suspended "dispatch.sh open-night 76" "$code"
 
   echo "--- a worker replaced by a live one: the text goes to the live one"
   reset_log
@@ -3634,12 +3669,12 @@ scenario_resumeendedhold() {
 scenario_wait() {
   local code
 
-  echo "--- usage lists wait"
+  echo "--- usage lists result"
   reset_log
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}")"
   [ "$code" = 2 ] || fail "expected exit 2 for usage, got $code: $(cat "$TMP/err")"
-  grep -qF 'wait <n> worker|reviewer' "$TMP/err" \
-    || fail "usage should list wait: $(cat "$TMP/err")"
+  grep -qF 'result <n> worker|reviewer' "$TMP/err" \
+    || fail "usage should list result: $(cat "$TMP/err")"
 
   echo "--- a result already on the ticket is printed and wait is not called"
   reset_log
@@ -3651,7 +3686,7 @@ scenario_wait() {
 JSON
   seed_agent 61 reviewer
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
+          bash "$DISPATCH" "${TOOLS[@]}" result 61 reviewer)"
   [ "$code" = 0 ] || fail "expected exit 0 when the result is already there, got $code: $(cat "$TMP/err")"
   [ "$(cat "$TMP/out")" = "reviewer.reported base=abcdef0123456789abcdef0123456789abcdef01" ] \
     || fail "stdout should be the event and its key fields: $(cat "$TMP/out")"
@@ -3671,7 +3706,7 @@ JSON
   local began ended
   began="$(date +%s)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
+          bash "$DISPATCH" "${TOOLS[@]}" result 61 reviewer)"
   ended="$(date +%s)"
   [ "$code" = 3 ] || fail "no result yet is exit 3, got $code: $(cat "$TMP/err")"
   grep -q "no result of its reviewer yet" "$TMP/err" \
@@ -3679,9 +3714,9 @@ JSON
   grep -q "end your turn" "$TMP/err" \
     || fail "stderr should send the caller to end its turn, not to wait again: $(cat "$TMP/err")"
   [ "$((ended - began))" -lt 5 ] \
-    || fail "wait took $((ended - began))s: it waits for nothing and answers at once"
+    || fail "result took $((ended - began))s: it waits for nothing and answers at once"
   [ "$(count_of 'gh :: issue :: view :: 61 :: --json :: comments')" -le 2 ] \
-    || fail "wait reads the ticket and does not poll it: $(count_of 'gh :: issue :: view :: 61 :: --json :: comments') reads"
+    || fail "result reads the ticket and does not poll it: $(count_of 'gh :: issue :: view :: 61 :: --json :: comments') reads"
   hasnt "paseo :: wait"
   hasnt "paseo :: ls"
   [ ! -s "$TMP/out" ] || fail "stdout should be empty with no result: $(cat "$TMP/out")"
@@ -3694,7 +3729,7 @@ JSON
 ]
 JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" wait 61 reviewer)"
+          bash "$DISPATCH" "${TOOLS[@]}" result 61 reviewer)"
   [ "$code" = 2 ] || fail "expected exit 2 with no agent, got $code: $(cat "$TMP/err")"
   hasnt "paseo :: wait"
   grep -q "no reviewer.started event" "$TMP/err" \
@@ -3895,14 +3930,14 @@ PY
 scenario_memory_closing() {
   local file="$TMP/memory-closing.json" code expected
   reset_log; fresh_repo; summary_ready_fixture
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "zero-record Memory closing expected 0, got $code: $(cat "$TMP/err")"
   [ "$(memory_closing_payload)" = '{"status":"complete","total":0,"returned":0,"decisions":[]}' ] \
     || fail "zero-record closing was not recorded as complete: $(memory_closing_payload)"
 
   reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories; write_complete_closing "$file"
   expected="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])),ensure_ascii=False,separators=(",",":")))' "$file")"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$file")"
   [ "$code" = 0 ] || fail "complete Memory closing expected 0, got $code: $(cat "$TMP/err")"
   [ "$(memory_closing_payload)" = "$expected" ] \
     || fail "spec.closed did not carry the exact manifest: $(memory_closing_payload)"
@@ -3931,10 +3966,10 @@ scenario_memory_closing() {
 
 scenario_memorylist() {
   local code
-  echo "--- memory-list computes the same Space id and writes a blank decision per record"
+  echo "--- prepare-memory-decisions computes the same Space id and writes a blank decision per record"
   reset_log; fresh_repo; seed_closing_memories
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" memory-list 76)"
-  [ "$code" = 0 ] || fail "memory-list expected 0: $(cat "$TMP/err")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" prepare-memory-decisions 76)"
+  [ "$code" = 0 ] || fail "prepare-memory-decisions expected 0: $(cat "$TMP/err")"
   has "nmem :: --json :: memories :: list :: --space :: o__r :: --label :: mmw-spec-76 :: --limit :: 1000"
   python3 - "$TMP/out" <<'PY' || fail "the skeleton was not the expected shape"
 import json, sys
@@ -3948,8 +3983,8 @@ PY
 
   echo "--- an unreadable list writes an unchecked object with null totals, not an inferred empty set"
   reset_log; fresh_repo
-  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable bash "$DISPATCH" "${TOOLS[@]}" memory-list 76)"
-  [ "$code" = 0 ] || fail "unreadable memory-list still expected 0, got $code: $(cat "$TMP/err")"
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable bash "$DISPATCH" "${TOOLS[@]}" prepare-memory-decisions 76)"
+  [ "$code" = 0 ] || fail "unreadable prepare-memory-decisions still expected 0, got $code: $(cat "$TMP/err")"
   python3 - "$TMP/out" <<'PY' || fail "the unreadable skeleton was not the expected shape"
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -3967,8 +4002,8 @@ data = json.load(open(path))
 data["memory_list"] = {"memories": [{"id": "mem-a"}], "total": 5, "returned": 1}
 json.dump(data, open(path, "w"))
 PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" memory-list 76)"
-  [ "$code" = 0 ] || fail "truncated memory-list expected 0, got $code: $(cat "$TMP/err")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" prepare-memory-decisions 76)"
+  [ "$code" = 0 ] || fail "truncated prepare-memory-decisions expected 0, got $code: $(cat "$TMP/err")"
   python3 - "$TMP/out" <<'PY' || fail "the truncated skeleton did not carry the reported counts"
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -3985,10 +4020,10 @@ scenario_summary_retro() {
   [ "$code" = 0 ] || fail "empty-batch reverify failed: $(cat "$TMP/err")"
   grep -q 'reverify #76: 0 green, 0 red' "$TMP/out" \
     || fail "empty-batch reverify did not record a green receipt: $(cat "$TMP/out")"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 0 ] || fail "summary did not record a completed spec: $(cat "$TMP/err")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 0 ] || fail "close-night did not record a completed spec: $(cat "$TMP/err")"
   posted_events 76 | grep -q '^spec.closed' \
-    || fail "summary never produced the prerequisite spec.closed event"
+    || fail "close-night never produced the prerequisite spec.closed event"
   hasnt "runner :: start :: retro"
 }
 
@@ -4005,14 +4040,14 @@ scenario_memory_closing_refuses() {
   do
     reset_log; fresh_repo; summary_ready_fixture; seed_closing_memories
     printf '%s\n' "$body" > "$file"
-    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$file")"
     [ "$code" = 2 ] || fail "invalid manifest expected 2, got $code for $body"
     hasnt "nmem :: --json :: memories :: deprecate"
     hasnt "nmem :: --json :: memories :: supersede"
     hasnt "gh :: issue :: comment :: 76"
     grep -q 'cannot safely close because' "$TMP/err" \
       || fail "refusal omitted why closing stops: $(cat "$TMP/err")"
-    grep -q 'then run dispatch.sh summary 76 --memory-decisions' "$TMP/err" \
+    grep -q 'then run dispatch.sh close-night 76 --memory-decisions' "$TMP/err" \
       || fail "refusal omitted the unique next action: $(cat "$TMP/err")"
   done
 
@@ -4021,7 +4056,7 @@ scenario_memory_closing_refuses() {
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["fail_show_id"]="mem-retain"; json.dump(d,open(p,"w"))
 PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$file")"
   [ "$code" = 2 ] || fail "unavailable replacement lookup expected 2, got $code"
   grep -q 'show mem-retain failed without confirming absence' "$TMP/err" \
     || fail "replacement outage was misreported as absence: $(cat "$TMP/err")"
@@ -4037,7 +4072,7 @@ scenario_memory_closing_retry() {
   echo '{"status":"unchecked","reason":"Nowledge Mem unavailable","total":null,"returned":null,"decisions":[]}' > "$file"
   reset_log; fresh_repo; summary_ready_fixture
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+          bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$file")"
   [ "$code" = 0 ] || fail "unavailable list expected unchecked close, got $code: $(cat "$TMP/err")"
   grep -q '^Memory closing: unchecked (Nowledge Mem unavailable)$' "$MMW_GH_LAST_BODY" \
     || fail "unavailable list was not disclosed: $(cat "$MMW_GH_LAST_BODY")"
@@ -4050,7 +4085,7 @@ import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["memory_list"]["total"]=5; json.dump(d,open(p,"w"))
 PY
   echo '{"status":"unchecked","reason":"truncated: 4/5","total":5,"returned":4,"decisions":[]}' > "$file"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$file")"
   [ "$code" = 0 ] || fail "truncated list expected unchecked close, got $code: $(cat "$TMP/err")"
   grep -q '^Memory closing: unchecked (truncated: 4/5)$' "$MMW_GH_LAST_BODY" \
     || fail "truncation was not disclosed: $(cat "$MMW_GH_LAST_BODY")"
@@ -4062,7 +4097,7 @@ PY
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["fail_lifecycle_id"]="mem-old"; json.dump(d,open(p,"w"))
 PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$file")"
   [ "$code" = 2 ] || fail "partial lifecycle failure expected 2, got $code: $(cat "$TMP/err")"
   grep -q 'completed Memory ids: mem-deprecate' "$TMP/err" \
     || fail "partial failure did not report completed ids: $(cat "$TMP/err")"
@@ -4073,7 +4108,7 @@ PY
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d.pop("fail_lifecycle_id",None); json.dump(d,open(p,"w"))
 PY
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$file")"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$file")"
   [ "$code" = 0 ] || fail "retry expected 0, got $code: $(cat "$TMP/err")"
   grep -q '^Memory closing: complete (4)$' "$MMW_GH_LAST_BODY" \
     || fail "retry summary count differs from its four-item manifest: $(cat "$MMW_GH_LAST_BODY")"
@@ -4141,9 +4176,9 @@ JSON
   fresh_repo
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
-  echo "--- without a reverify receipt, summary refuses before it posts or closes the watch"
+  echo "--- without a reverify receipt, close-night refuses before it posts or closes the watch"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 2 ] || fail "missing reverify expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q "has no completed reverify" "$TMP/err" \
     || fail "missing reverify refusal was not explicit: $(cat "$TMP/err")"
@@ -4157,7 +4192,7 @@ JSON
   [ "$code" = 0 ] || fail "reverify expected exit 0, got $code: $(cat "$TMP/err")"
   has "ticket-state :: 61 :: --run-and-record-criteria :: --reverify :: --actor :: main"
   posted_events 61 run actor | grep -qx 'ticket.checked run=reverify actor=main' \
-    || fail "summary's reverify posted no main ticket.checked: $(posted_events 61 run actor)"
+    || fail "close-night's reverify posted no main ticket.checked: $(posted_events 61 run actor)"
   grep -q "reverify #76: 1 green, 0 red" "$TMP/out" \
     || fail "reverify should report 1 green: $(cat "$TMP/out")"
   git -C "$TMP/repo" worktree add -q --detach "$TMP/linked-summary" HEAD
@@ -4166,7 +4201,7 @@ JSON
   commit_file "$other" after-reverify.txt changed after-reverify
   git -C "$other" push -q origin main
   code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 2 ] || fail "an origin advance after reverify expected exit 2, got $code"
   grep -q "origin/main advanced from reverified commit" "$TMP/err" \
@@ -4179,7 +4214,7 @@ JSON
   [ "$code" = 0 ] || fail "second reverify expected exit 0: $(cat "$TMP/err")"
   : > "$MMW_TEST_LOG"; : > "$MMW_GH_LAST_BODY"
   code="$( (cd "$TMP/linked-summary" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS") \
           > "$TMP/out" 2> "$TMP/err"; echo "$?")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   grep -q "^NIGHT SUMMARY " "$MMW_GH_LAST_BODY" \
@@ -4191,25 +4226,25 @@ JSON
   posted_events 76 date | grep -q "^spec.closed date=" \
     || fail "the summary should be the spec.closed event on #76: $(posted_events 76 date)"
 
-  echo "--- summary stops the relay watching the spec, and leaves one watching another alone"
+  echo "--- close-night stops the relay watching the spec, and leaves one watching another alone"
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
   no_relay
   fake_relay
-  [ -n "$(relay_now)" ] || fail "the stand-in relay should be running before summary"
+  [ -n "$(relay_now)" ] || fail "the stand-in relay should be running before close-night"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
-  grep -q "stopped the relay for o/r" "$TMP/err" || fail "summary should say it stopped the relay: $(cat "$TMP/err")"
+  [ -z "$(relay_now)" ] || fail "close-night should have stopped the relay: $(relay_now)"
+  grep -q "stopped the relay for o/r" "$TMP/err" || fail "close-night should say it stopped the relay: $(cat "$TMP/err")"
   post_ev 76 spec.opened --ticket '' --spec 76 --line "NIGHT OPENED" \
     --field runner=paseo --field session=agt_main --field into=main --field project=proj
   fake_relay '{"spec": 80}'
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 0 ] || fail "a relay watching another spec is not this summary's failure, got $code: $(cat "$TMP/err")"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 0 ] || fail "a relay watching another spec is not this close-night's failure, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"spec": 80}'*) ;; *) fail "a relay watching spec 80 should be left running: $(relay_now)" ;; esac
-  grep -q "does not watch #76, so it was left running" "$TMP/err" || fail "summary should say why it left it: $(cat "$TMP/err")"
+  grep -q "does not watch #76, so it was left running" "$TMP/err" || fail "close-night should say why it left it: $(cat "$TMP/err")"
   no_relay
 }
 
@@ -4221,8 +4256,8 @@ scenario_summarycloseout() {
   "comments":[$(ev ticket.passed 61 "ALL MET" --field branch=issue-61 --field into=main)]}]
 JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 2 ] || fail "passed-unlanded summary expected 2, got $code"
+          bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 2 ] || fail "passed-unlanded close-night expected 2, got $code"
   grep -q '#61 passed but has not landed' "$TMP/err" \
     || fail "passed-unlanded refusal was not explicit: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: memories"
@@ -4235,8 +4270,8 @@ JSON
     --field session=term_7 --field runner=orca $(start_facts "$(wt 61)" 61 worker))]}]
 JSON
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 2 ] || fail "live-worker summary expected 2, got $code"
+          bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 2 ] || fail "live-worker close-night expected 2, got $code"
   grep -q '#61 still has a live worker term_7' "$TMP/err" \
     || fail "live-worker refusal was not explicit: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: memories"
@@ -4262,11 +4297,11 @@ JSON
   reset_log
   fresh_repo
   summary_ready_fixture
-  echo "--- a finding no route reached refuses the summary: nothing posted, the watch still open"
+  echo "--- a finding no resolve-child reached refuses the summary: nothing posted, the watch still open"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+          bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 2 ] || fail "expected exit 2, got $code: $(cat "$TMP/err")"
-  grep -q "#76 still holds 1 finding(s) that no route reached" "$TMP/err" \
+  grep -q "#76 still holds 1 finding(s) that no resolve-child reached" "$TMP/err" \
     || fail "the refusal should count them: $(cat "$TMP/err")"
   grep -q "Findings routed: 2/1/0/0/0/1" "$TMP/err" \
     || fail "the refusal should quote the line it read: $(cat "$TMP/err")"
@@ -4284,12 +4319,12 @@ PY
   reset_log
   summary_ready_fixture
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+          bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: comment :: 76 :: --body"
   grep -q "Findings routed: 2/1/0/1/0/0" "$MMW_GH_LAST_BODY" \
     || fail "every finding should be routed now: $(cat "$MMW_GH_LAST_BODY")"
-  [ -z "$(relay_now)" ] || fail "summary should have closed the watch: $(relay_now)"
+  [ -z "$(relay_now)" ] || fail "close-night should have closed the watch: $(relay_now)"
   no_relay
 }
 
@@ -4573,25 +4608,25 @@ scenario_route() {
   fresh_repo
   write_route_batch
   echo "--- fixed: the child is closed as completed and child.closed goes on its ticket"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 fixed)"
-  [ "$code" = 0 ] || fail "route fixed expected exit 0, got $code: $(cat "$TMP/err")"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 90 fixed)"
+  [ "$code" = 0 ] || fail "resolve-child fixed expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: close :: 90 :: --reason :: completed"
 
   echo "--- stale: closed as not planned"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale invalid)"
-  [ "$code" = 0 ] || fail "route stale expected exit 0, got $code: $(cat "$TMP/err")"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 91 stale invalid)"
+  [ "$code" = 0 ] || fail "resolve-child stale expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: close :: 91 :: --reason :: not planned"
 
   echo "--- became-ticket as itself: relabelled mmw:ticket, left open, under the spec its child.opened names — never the map the tree would give"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
-  [ "$code" = 0 ] || fail "route became-ticket expected exit 0, got $code: $(cat "$TMP/err")"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 92 became-ticket 92)"
+  [ "$code" = 0 ] || fail "resolve-child became-ticket expected exit 0, got $code: $(cat "$TMP/err")"
   has "gh :: label :: create :: mmw:ticket"
   has "gh :: issue :: edit :: 92 :: --add-label :: mmw:ticket :: --remove-label :: mmw:child"
   hasnt ":: --parent :: 18"
   hasnt "gh :: issue :: close :: 92"
 
   echo "--- became-ticket as another ticket already under the spec: no move, and the child closes as its duplicate"
-  code="$(route_in env FAKE_GH_LABEL_EXISTS=1 bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
+  code="$(route_in env FAKE_GH_LABEL_EXISTS=1 bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 93 became-ticket 80)"
   [ "$code" = 0 ] || fail "a label that already exists should not stop the route, got $code: $(cat "$TMP/err")"
   has "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket"
   hasnt "gh :: issue :: edit :: 80 :: --add-label :: mmw:ticket :: --parent"
@@ -4606,24 +4641,24 @@ scenario_route() {
 
   echo "--- run again, a route already recorded does nothing and says so"
   : > "$MMW_TEST_LOG"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 92 became-ticket 92)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 92 became-ticket 92)"
   [ "$code" = 0 ] || fail "a route already recorded should exit 0, got $code: $(cat "$TMP/err")"
   grep -q "already routed" "$TMP/err" || fail "it should say so: $(cat "$TMP/err")"
   hasnt "gh :: issue :: edit"
   [ "$(posted_events 61 | grep -c child.closed)" = 4 ] || fail "a second child.closed was posted"
 
   echo "--- routed another way already: refused, nothing done"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 stale invalid)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 90 stale invalid)"
   [ "$code" = 2 ] || fail "a child already routed fixed should refuse stale, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: close"
 
   echo "--- cut short after its tracker steps began, the same command finishes it"
   reset_log
   write_route_batch
-  code="$(route_in env FAKE_GH_CLOSE_FAILS=1 bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
+  code="$(route_in env FAKE_GH_CLOSE_FAILS=1 bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 93 became-ticket 80)"
   [ "$code" = 1 ] || fail "a close the tracker refused should exit 1, got $code: $(cat "$TMP/err")"
   [ -z "$(posted_events 61)" ] || fail "no child.closed before the close: $(posted_events 61)"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 93 became-ticket 80)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 93 became-ticket 80)"
   [ "$code" = 0 ] || fail "the re-run should finish it, got $code: $(cat "$TMP/err")"
   hasnt ":: --parent :: 18"
   posted_events 61 child spec | grep -qx "child.closed child=93 spec=76" \
@@ -4632,12 +4667,12 @@ scenario_route() {
   echo "--- a child the ticket did not open, and a resolution that is none of the three, change nothing"
   reset_log
   write_route_batch
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 95 fixed)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 95 fixed)"
   [ "$code" = 2 ] || fail "a child with no child.opened should exit 2, got $code: $(cat "$TMP/err")"
   grep -q "#61 carries no child.opened for #95" "$TMP/err" || fail "the refusal should say why: $(cat "$TMP/err")"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 done)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 90 done)"
   [ "$code" = 2 ] || fail "an unknown resolution should exit 2, got $code: $(cat "$TMP/err")"
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 90 became-ticket)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 90 became-ticket)"
   [ "$code" = 2 ] || fail "became-ticket with no ticket should exit 2, got $code: $(cat "$TMP/err")"
   hasnt "gh :: issue :: close"
   hasnt "gh :: issue :: edit"
@@ -4695,7 +4730,7 @@ scenario_retro_review_evidence() {
 
   echo "--- invalid records that the finding never held"
   reset_log; fresh_repo; write_route_batch
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale invalid)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 91 stale invalid)"
   [ "$code" = 0 ] || fail "stale invalid expected 0, got $code: $(cat "$TMP/err")"
   posted_events 61 resolution reason | grep -qx 'child.closed resolution=stale reason=invalid' \
     || fail "stale invalid reason was not recorded: $(posted_events 61 resolution reason)"
@@ -4704,7 +4739,7 @@ scenario_retro_review_evidence() {
 
   echo "--- fixed-elsewhere records that the finding once held and was resolved elsewhere"
   reset_log; fresh_repo; write_route_batch
-  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route 61 91 stale fixed-elsewhere)"
+  code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child 61 91 stale fixed-elsewhere)"
   [ "$code" = 0 ] || fail "stale fixed-elsewhere expected 0, got $code: $(cat "$TMP/err")"
   posted_events 61 resolution reason | grep -qx 'child.closed resolution=stale reason=fixed-elsewhere' \
     || fail "fixed-elsewhere reason was not recorded: $(posted_events 61 resolution reason)"
@@ -4715,11 +4750,11 @@ scenario_retro_review_evidence() {
   for args in '61 91 stale' '61 91 stale obsolete' '61 90 fixed invalid' \
               '61 92 became-ticket 92 fixed-elsewhere'; do
     reset_log; write_route_batch
-    code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" route $args)"
-    [ "$code" = 2 ] || fail "route $args expected 2, got $code: $(cat "$TMP/err")"
+    code="$(route_in bash "$DISPATCH" "${TOOLS[@]}" resolve-child $args)"
+    [ "$code" = 2 ] || fail "resolve-child $args expected 2, got $code: $(cat "$TMP/err")"
     hasnt "gh :: issue :: close"
     hasnt "gh :: issue :: edit"
-    [ -z "$(posted_events 61)" ] || fail "route $args posted an event: $(posted_events 61)"
+    [ -z "$(posted_events 61)" ] || fail "resolve-child $args posted an event: $(posted_events 61)"
   done
 }
 
@@ -5867,17 +5902,17 @@ scenario_open() {
   no_relay
   write_open_batch
   seed_main_agent agt_main
-  echo "--- open opens the spec's watch with this session as its orchestrator, starts the relay, and writes spec.opened"
+  echo "--- open-night opens the spec's watch with this session as its orchestrator, starts the relay, and writes spec.opened"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night expected 0, got $code: $(cat "$TMP/err")"
   grep -qx "opened #76: wake-ups go to paseo session agt_main; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "spec 76's orchestrator should be agt_main: $(cat "$STATE_DIR/watches.json" 2>&1)"
   case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "a relay should be watching spec 76: $(relay_now)" ;; esac
   posted_events 76 runner session | grep -qx "spec.opened runner=paseo session=agt_main" \
     || fail "#76 should carry spec.opened naming the orchestrator: $(posted_events 76 runner session)"
 
-  echo "--- the relay open started reads the board on its own"
+  echo "--- the relay open-night started reads the board on its own"
   for _ in $(seq 1 100); do
     grep -qF "repos/o/r/issues/76/sub_issues" "$MMW_TEST_LOG" && break
     sleep 0.1
@@ -5887,15 +5922,15 @@ scenario_open() {
   echo "--- opening the same night again keeps the one relay"
   pid="$(relay_now | cut -d' ' -f1)"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "a second open of #76 expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "a second open-night of #76 expected 0, got $code: $(cat "$TMP/err")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the relay should be the same process: $pid, now $(relay_now)"
 
   echo "--- another night in this repository, opened by another session, joins the one relay with its own orchestrator"
   seed_main_agent agt_other
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 77)"
-  [ "$code" = 0 ] || fail "open 77 expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 77)"
+  [ "$code" = 0 ] || fail "open-night 77 expected 0, got $code: $(cat "$TMP/err")"
   grep -qx "opened #77: wake-ups go to paseo session agt_other; task board http://127\.0\.0\.1:[0-9]*" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now | cut -d' ' -f1)" = "$pid" ] || fail "the second night should join relay $pid: $(relay_now)"
   [ "$(watch_main spec:77)" = "paseo agt_other" ] || fail "spec 77's orchestrator should be agt_other: $(cat "$STATE_DIR/watches.json")"
@@ -5905,30 +5940,30 @@ scenario_open() {
 
   echo "--- a ticket of an open night is refused a watch of its own, and the night keeps its orchestrator"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 61)"
-  [ "$code" = 2 ] || fail "open-ticket 61 expected 2, got $code"
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket-watch 61)"
+  [ "$code" = 2 ] || fail "open-ticket-watch 61 expected 2, got $code"
   grep -q "#61 is a sub-issue of spec #76, which is watched with paseo session agt_main as its orchestrator" "$TMP/err" \
     || fail "the refusal should name the watch it overlaps: $(cat "$TMP/err")"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "a refused open must not touch spec 76's orchestrator: $(cat "$STATE_DIR/watches.json")"
   [ -z "$(watch_main tickets:61)" ] || fail "no watch on #61 should be open: $(cat "$STATE_DIR/watches.json")"
 
-  echo "--- summary closes its night's watch, and the relay goes on for the other night"
+  echo "--- close-night closes its night's watch, and the relay goes on for the other night"
   cat > "$TMP/tickets.json" <<'JSON'
 [{"number":61,"state":"CLOSED","labels":[],"comments":[]},
  {"number":63,"state":"CLOSED","labels":[],"comments":[]}]
 JSON
   summary_ready_fixture 76 night
   summary_ready_fixture 77 night
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 0 ] || fail "summary expected 0, got $code: $(cat "$TMP/err")"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 0 ] || fail "close-night expected 0, got $code: $(cat "$TMP/err")"
   grep -q "stopped watching spec #76 for o/r: the relay (pid $pid) goes on watching spec #77" "$TMP/err" \
-    || fail "summary should say the relay goes on for #77: $(cat "$TMP/err")"
+    || fail "close-night should say the relay goes on for #77: $(cat "$TMP/err")"
   case "$(relay_now)" in "$pid "'{"spec": 77}') ;; *) fail "relay $pid should watch spec 77 alone: $(relay_now)" ;; esac
 
-  echo "--- the last night's summary ends the relay"
-  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" summary 77 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 0 ] || fail "summary 77 expected 0, got $code: $(cat "$TMP/err")"
-  [ -z "$(relay_now)" ] || fail "summary should have stopped the relay: $(relay_now)"
+  echo "--- close-night on the last night ends the relay"
+  code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" close-night 77 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 0 ] || fail "close-night 77 expected 0, got $code: $(cat "$TMP/err")"
+  [ -z "$(relay_now)" ] || fail "close-night should have stopped the relay: $(relay_now)"
   kill -0 "$pid" 2>/dev/null && fail "relay pid $pid should be gone"
   no_relay
 }
@@ -5942,7 +5977,7 @@ scenario_openrefused() {
   reset_log
   no_relay
   code="$(run_dispatch env -u TERM_PROGRAM -u HERDR_ENV FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code: $(cat "$TMP/err")"
   grep -q "runs in no runner whose adapter can name it (asked: paseo herdr orca)" "$TMP/err" \
     || fail "the refusal should name the runners asked: $(cat "$TMP/err")"
@@ -5954,7 +5989,7 @@ scenario_openrefused() {
   reset_log
   no_relay
   code="$(run_dispatch env -u HERDR_ENV TERM_PROGRAM=Orca FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code"
   grep -q "ORCA_TERMINAL_HANDLE is not set" "$TMP/err" || fail "the refusal should carry the adapter's reason: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "no relay should run: $(relay_now)"
@@ -5964,7 +5999,7 @@ scenario_openrefused() {
   no_relay
   echo '[{"name": "", "agent_status": "idle", "pane_id": "w1:p3"}]' > "$MMW_FAKE_HERDR_STATE/agents.json"
   code="$(run_dispatch env HERDR_ENV=1 HERDR_PANE_ID=w1:p3 ORCA_TERMINAL_HANDLE=term_outer TERM_PROGRAM=Orca \
-          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+          FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "an unnamed Herdr agent expected 2, got $code"
   grep -q "has no name" "$TMP/err" || fail "the refusal should be Herdr's, not an Orca registration: $(cat "$TMP/err")"
   [ ! -f "$STATE_DIR/watches.json" ] || fail "the outer Orca terminal must not be made an orchestrator: $(cat "$STATE_DIR/watches.json")"
@@ -5973,17 +6008,17 @@ scenario_openrefused() {
   reset_log
   no_relay
   code="$(run_dispatch env PASEO_AGENT_ID=agt_gone FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code"
   grep -q "session agt_gone is stopped" "$TMP/err" || fail "the refusal should say the session is stopped: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "no relay should run: $(relay_now)"
 
-  echo "--- spec.opened that cannot be written closes the watch open opened, and the relay with it"
+  echo "--- spec.opened that cannot be written closes the watch open-night opened, and the relay with it"
   reset_log
   no_relay
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_COMMENT_FAILS=1 FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "expected 2, got $code"
   grep -q "spec.opened" "$TMP/err" \
     || fail "the refusal should name the event that could not be written: $(cat "$TMP/err")"
@@ -6006,10 +6041,10 @@ scenario_openticket() {
   {"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}
 ]
 JSON
-  echo "--- open-ticket opens a watch of that ticket alone with this session as its orchestrator, and starts the relay"
+  echo "--- open-ticket-watch opens a watch of that ticket alone with this session as its orchestrator, and starts the relay"
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
-  [ "$code" = 0 ] || fail "open-ticket expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket-watch 90)"
+  [ "$code" = 0 ] || fail "open-ticket-watch expected 0, got $code: $(cat "$TMP/err")"
   case "$(relay_now)" in *'{"tickets": [90]}'*) ;; *) fail "a relay should watch #90: $(relay_now)" ;; esac
   [ "$(watch_main tickets:90)" = "paseo agt_main" ] || fail "#90's orchestrator should be agt_main: $(cat "$STATE_DIR/watches.json")"
   hasnt "gh :: issue :: comment"
@@ -6021,7 +6056,7 @@ JSON
     || fail "the refusal should say what the relay watches: $(cat "$TMP/err")"
   never_ran
 
-  echo "--- land ends the relay open-ticket started for it"
+  echo "--- land ends the relay open-ticket-watch started for it"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" land 90)"
   [ "$code" = 0 ] || fail "land expected 0, got $code: $(cat "$TMP/err")"
   [ -z "$(relay_now)" ] || fail "land should have stopped the relay on #90: $(relay_now)"
@@ -6037,8 +6072,8 @@ JSON
   pid="$(relay_now | cut -d' ' -f1)"
   seed_main_agent agt_other
   code="$(run_dispatch env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 95)"
-  [ "$code" = 0 ] || fail "open-ticket 95 beside the night expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket-watch 95)"
+  [ "$code" = 0 ] || fail "open-ticket-watch 95 beside the night expected 0, got $code: $(cat "$TMP/err")"
   grep -q "^opened #95: wake-ups go to paseo session agt_other; task board http://127.0.0.1:[0-9]*$" "$TMP/out" || fail "stdout: $(cat "$TMP/out")"
   [ "$(relay_now)" = "$pid "'{"spec": 76} {"tickets": [95]}' ] || fail "relay $pid should watch the night and #95: $(relay_now)"
   [ "$(watch_main spec:76)" = "paseo agt_main" ] || fail "the night's orchestrator should still be agt_main: $(cat "$STATE_DIR/watches.json")"
@@ -6281,9 +6316,9 @@ scenario_watchkind() {
   write_open_batch
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0: $(cat "$TMP/err")"
-  [ "$(watch_field spec:76 kind)" = night ] || fail "open should record night: $(cat "$STATE_DIR/watches.json")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night expected 0: $(cat "$TMP/err")"
+  [ "$(watch_field spec:76 kind)" = night ] || fail "open-night should record night: $(cat "$STATE_DIR/watches.json")"
 
   seed_main_agent agt_self
   self_picked_worktree
@@ -6305,9 +6340,9 @@ scenario_watchkind() {
 [{"number": 90, "state": "OPEN", "labels": []}]
 JSON
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
-  [ "$code" = 0 ] || fail "open-ticket expected 0: $(cat "$TMP/err")"
-  [ "$(watch_field tickets:90 kind)" = ticket ] || fail "open-ticket should record ticket: $(cat "$STATE_DIR/watches.json")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket-watch 90)"
+  [ "$code" = 0 ] || fail "open-ticket-watch expected 0: $(cat "$TMP/err")"
+  [ "$(watch_field tickets:90 kind)" = ticket ] || fail "open-ticket-watch should record ticket: $(cat "$STATE_DIR/watches.json")"
 
   no_relay
   fresh_repo
@@ -6664,7 +6699,7 @@ scenario_boardprintsurl() {
 
 scenario_openstartsboard() {
   local code port copy
-  echo "--- open registers this repository's board, starts it, and names its URL on the line that opens the night"
+  echo "--- open-night registers this repository's board, starts it, and names its URL on the line that opens the night"
   fresh_board_registry
   fresh_project_night
   git -C "$TMP/repo" push -q -u origin night
@@ -6673,18 +6708,18 @@ scenario_openstartsboard() {
   write_open_batch
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night expected 0, got $code: $(cat "$TMP/err")"
   port="$(board_registry_port)"
   BOARD_TEST_PORTS="$port"
   [ "$(cat "$TMP/out")" = "opened #76: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port" ] \
-    || fail "open should name the board it started: $(cat "$TMP/out")"
-  MMW_PORT="$port" python3 - <<'PY' || fail "the board open started does not answer"
+    || fail "open-night should name the board it started: $(cat "$TMP/out")"
+  MMW_PORT="$port" python3 - <<'PY' || fail "the board open-night started does not answer"
 import os, socket
 socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=2).close()
 PY
   python3 - "$MMW_HOME/boards.json" "$(cd "$TMP/repo" && pwd -P)" <<'PY' \
-    || fail "open should register the main worktree: $(cat "$MMW_HOME/boards.json")"
+    || fail "open-night should register the main worktree: $(cat "$MMW_HOME/boards.json")"
 import json, sys
 registry = json.load(open(sys.argv[1]))
 assert list(registry) == [sys.argv[2]], registry
@@ -6695,7 +6730,7 @@ PY
   copy="$(skill_copy_for open-no-board)"
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open 76)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 0 ] || fail "a board that will not start must not fail the night, got $code: $(cat "$TMP/err")"
   grep -qx "opened #76: wake-ups go to paseo session agt_main" "$TMP/out" \
     || fail "the night still opens, without a board URL: $(cat "$TMP/out")"
@@ -6709,7 +6744,7 @@ PY
 
 scenario_openticketstartsboard() {
   local code port copy
-  echo "--- open-ticket registers this repository's board, starts it, and names its URL on the line that opens the watch"
+  echo "--- open-ticket-watch registers this repository's board, starts it, and names its URL on the line that opens the watch"
   fresh_board_registry
   no_relay
   seed_main_agent agt_main
@@ -6717,18 +6752,18 @@ scenario_openticketstartsboard() {
 [{"number": 90, "state": "OPEN", "labels": ["ready-for-agent"], "parent": null}]
 JSON
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open-ticket 90)"
-  [ "$code" = 0 ] || fail "open-ticket expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-ticket-watch 90)"
+  [ "$code" = 0 ] || fail "open-ticket-watch expected 0, got $code: $(cat "$TMP/err")"
   port="$(board_registry_port)"
   BOARD_TEST_PORTS="$port"
   [ "$(cat "$TMP/out")" = "opened #90: wake-ups go to paseo session agt_main; task board http://127.0.0.1:$port" ] \
-    || fail "open-ticket should name the board it started: $(cat "$TMP/out")"
-  MMW_PORT="$port" python3 - <<'PY' || fail "the board open-ticket started does not answer"
+    || fail "open-ticket-watch should name the board it started: $(cat "$TMP/out")"
+  MMW_PORT="$port" python3 - <<'PY' || fail "the board open-ticket-watch started does not answer"
 import os, socket
 socket.create_connection(("127.0.0.1", int(os.environ["MMW_PORT"])), timeout=2).close()
 PY
   python3 - "$MMW_HOME/boards.json" "$(cd "$TMP/repo" && pwd -P)" <<'PY' \
-    || fail "open-ticket should register the main worktree: $(cat "$MMW_HOME/boards.json")"
+    || fail "open-ticket-watch should register the main worktree: $(cat "$MMW_HOME/boards.json")"
 import json, sys
 registry = json.load(open(sys.argv[1]))
 assert list(registry) == [sys.argv[2]], registry
@@ -6739,8 +6774,8 @@ PY
   copy="$(skill_copy_for open-ticket-no-board)"
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open-ticket 90)"
-  [ "$code" = 0 ] || fail "a board that will not start must not fail open-ticket, got $code: $(cat "$TMP/err")"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" open-ticket-watch 90)"
+  [ "$code" = 0 ] || fail "a board that will not start must not fail open-ticket-watch, got $code: $(cat "$TMP/err")"
   grep -qx "opened #90: wake-ups go to paseo session agt_main" "$TMP/out" \
     || fail "the watch still opens, without a board URL: $(cat "$TMP/out")"
   grep -q "no task board supervisor at" "$TMP/err" || fail "the reason should be named: $(cat "$TMP/err")"
@@ -7758,7 +7793,7 @@ PY
 
 scenario_memory_open_space() {
   local code
-  echo "--- open creates this repository's shared Space with only mmw-toolbox shared"
+  echo "--- open-night creates this repository's shared Space with only mmw-toolbox shared"
   reset_log
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
@@ -7774,8 +7809,8 @@ PY
   git -C "$TMP/repo" push -q -u origin night
   write_open_batch
   seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night expected 0: $(cat "$TMP/err")"
   has "nmem :: --json :: spaces :: create :: o/r :: --id :: o__r :: --retrieval-mode :: shared :: --share-with :: mmw-toolbox"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repository Space was not created exactly"
 import json, sys
@@ -7791,14 +7826,14 @@ PY
   hasnt ":: --id :: else__where"
   no_relay
 
-  echo "--- open repairs a wrong repository Space"
+  echo "--- open-night repairs a wrong repository Space"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY'
 import json, sys
 p=sys.argv[1]; d=json.load(open(p)); d["spaces"]["o__r"]={"id":"o__r","name":"wrong","defaultRetrievalMode":"strict","sharedSpaceIds":["default","mmw-toolbox"]}; json.dump(d,open(p,"w"))
 PY
   : > "$MMW_TEST_LOG"; seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "repairing open expected 0: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "repairing open-night expected 0: $(cat "$TMP/err")"
   has "nmem :: --json :: spaces :: update :: o__r :: --name :: o/r :: --retrieval-mode :: shared :: --clear-shared :: --share-with :: mmw-toolbox"
   python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "repair changed an unrelated Space"
 import json, sys
@@ -7812,14 +7847,14 @@ PY
   hasnt ":: --id :: else__where"
   no_relay
 
-  echo "--- open performs no Space write when its shape is already exact"
+  echo "--- open-night performs no Space write when its shape is already exact"
   : > "$MMW_TEST_LOG"; seed_main_agent agt_main
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "idempotent open expected 0: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "idempotent open-night expected 0: $(cat "$TMP/err")"
   has "nmem :: --json :: spaces :: show :: o__r"
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: spaces :: update"
-  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "idempotent open changed an unrelated Space"
+  python3 - "$MMW_FAKE_NMEM_STATE" <<'PY' || fail "idempotent open-night changed an unrelated Space"
 import json, sys
 spaces = json.load(open(sys.argv[1]))["spaces"]
 assert spaces["default"] == {"id":"default", "name":"Default", "defaultRetrievalMode":"strict", "sharedSpaceIds":[]}, spaces
@@ -7840,16 +7875,16 @@ scenario_memory_space_unavailable() {
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: agents :: enroll"
 
-  echo "--- open refuses before starting the night when the repository Space is unavailable"
+  echo "--- open-night refuses before starting the night when the repository Space is unavailable"
   reset_log
   fresh_project_night
   git -C "$TMP/repo" push -q -u origin night
   write_open_batch
   seed_main_agent agt_main
-  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 2 ] || fail "Nowledge failure must refuse open with exit 2, got $code: $(cat "$TMP/err")"
+  code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=unavailable PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 2 ] || fail "Nowledge failure must refuse open-night with exit 2, got $code: $(cat "$TMP/err")"
   grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
-    || fail "open did not report repository Memory as unavailable: $(cat "$TMP/err")"
+    || fail "open-night did not report repository Memory as unavailable: $(cat "$TMP/err")"
   hasnt "nmem :: --json :: spaces :: create"
   hasnt "nmem :: --json :: spaces :: update"
   hasnt "spec.opened"
@@ -7881,16 +7916,16 @@ scenario_memory_space_unavailable() {
     hasnt "nmem :: --json :: spaces :: update"
     hasnt "nmem :: --json :: agents :: enroll"
 
-    echo "--- exit-0 $bad makes open refuse without a fallback write"
+    echo "--- exit-0 $bad makes open-night refuse without a fallback write"
     reset_log
     fresh_project_night
     git -C "$TMP/repo" push -q -u origin night
     write_open_batch
     seed_main_agent agt_main
-    code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO="$bad" PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-    [ "$code" = 2 ] || fail "$bad Memory response must refuse open with exit 2, got $code: $(cat "$TMP/err")"
+    code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO="$bad" PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+    [ "$code" = 2 ] || fail "$bad Memory response must refuse open-night with exit 2, got $code: $(cat "$TMP/err")"
     grep -q '^dispatch: repository Memory unavailable:' "$TMP/err" \
-      || fail "$bad open did not report repository Memory as unavailable: $(cat "$TMP/err")"
+      || fail "$bad open-night did not report repository Memory as unavailable: $(cat "$TMP/err")"
     hasnt "nmem :: --json :: spaces :: create"
     hasnt "nmem :: --json :: spaces :: update"
     hasnt "spec.opened"
@@ -8796,14 +8831,14 @@ scenario_noadapterretract() {
 
 scenario_noadapterwait() {
   local code copy
-  echo "--- wait asks no runner: with the adapter gone it still reads the ticket and answers"
+  echo "--- result asks no runner: with the adapter gone it still reads the ticket and answers"
   reset_log
   printf '%s\n' '[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"], "comments": []}]' > "$TMP/tickets.json"
   seed_agent 61 worker
   copy="$(skill_copy_for wait)"
   rm -f "$copy/scripts/runners/paseo.sh"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" wait 61 worker)"
+          bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" result 61 worker)"
   [ "$code" = 3 ] || fail "no result yet is exit 3 whatever the adapter, got $code: $(cat "$TMP/err")"
   grep -q "no result of its worker yet" "$TMP/err" || fail "stderr should say no result yet: $(cat "$TMP/err")"
   hasnt "paseo ::"
@@ -9124,7 +9159,7 @@ scenario_checkbasemissing() {
   fresh_project_night
   code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "check with a local-only base expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "open would push proj: 0 commit(s), night: 1 commit(s)" "$TMP/out" \
+  grep -q "open-night would push proj: 0 commit(s), night: 1 commit(s)" "$TMP/out" \
     || fail "the missing remote base was not reported as a pending push: $(cat "$TMP/out")"
 }
 
@@ -9137,7 +9172,7 @@ scenario_checklocalahead() {
   commit_file "$TMP/repo" ahead-2.txt two ahead-two
   code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" check 76)"
   [ "$code" = 0 ] || fail "check on an ahead base expected 0, got $code: $(cat "$TMP/err")"
-  grep -q "open would push proj: 0 commit(s), night: 2 commit(s)" "$TMP/out" \
+  grep -q "open-night would push proj: 0 commit(s), night: 2 commit(s)" "$TMP/out" \
     || fail "the pending push count was not reported: $(cat "$TMP/out")"
 
   copy="$(skill_copy_for check-behind)"
@@ -9165,8 +9200,8 @@ scenario_openinto() {
   write_open_batch
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night expected 0, got $code: $(cat "$TMP/err")"
   posted_events 76 into | grep -qx "spec.opened into=night-base" \
     || fail "spec.opened should record night-base: $(posted_events 76 into)"
   no_relay
@@ -9181,10 +9216,10 @@ scenario_openpushesahead() {
   write_open_batch
   seed_main_agent agt_main
   code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open on an ahead base expected 0, got $code: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night on an ahead base expected 0, got $code: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$local_head" ] \
-    || fail "open did not push the local base branch"
+    || fail "open-night did not push the local base branch"
   no_relay
 }
 
@@ -9199,8 +9234,8 @@ scenario_openprojectreflog() {
   local code
   fresh_project_night
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "reflog open failed: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "reflog open-night failed: $(cat "$TMP/err")"
   posted_events 76 project | grep -qx 'spec.opened project=proj' \
     || fail "spec.opened did not record reflog project: $(posted_events 76 project)"
   no_relay
@@ -9212,8 +9247,8 @@ scenario_openprojectconfig() {
   git -C "$TMP/repo" reflog expire --expire=now --all
   git -C "$TMP/repo" config branch.night.vscode-merge-base origin/proj
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "config open failed: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "config open-night failed: $(cat "$TMP/err")"
   posted_events 76 project | grep -qx 'spec.opened project=proj' \
     || fail "spec.opened did not record config project: $(posted_events 76 project)"
   no_relay
@@ -9227,8 +9262,8 @@ scenario_openprojecthistory() {
   git -C "$TMP/repo" push -q origin issue-61
   git -C "$TMP/repo" reflog expire --expire=now --all
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "history open failed: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "history open-night failed: $(cat "$TMP/err")"
   posted_events 76 project | grep -qx 'spec.opened project=proj' \
     || fail "spec.opened did not record history project: $(posted_events 76 project)"
   no_relay
@@ -9242,7 +9277,7 @@ scenario_openprojectskipsresearch() {
   git -C "$TMP/repo" push -q origin research/61
   git -C "$TMP/repo" reflog expire --expire=now --all
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 0 ] || fail "research branch exclusion expected 0, got $code: $(cat "$TMP/err")"
   posted_events 76 project | grep -qx 'spec.opened project=proj' \
     || fail "spec.opened did not skip research/61: $(posted_events 76 project)"
@@ -9260,7 +9295,7 @@ scenario_openprojecttie() {
   commit_file "$TMP/repo" night.txt night night
   git -C "$TMP/repo" reflog expire --expire=now --all
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "history tie expected 2, got $code"
   grep -qw 'alt' "$TMP/err" && grep -qw 'proj' "$TMP/err" && grep -q 'vscode-merge-base' "$TMP/err" \
     || fail "tie refusal omitted branches or remedy: $(cat "$TMP/err")"
@@ -9272,10 +9307,10 @@ scenario_openrefusesdefault() {
   local code
   fresh_repo
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 2 ] || fail "default branch open expected 2, got $code"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 2 ] || fail "default branch open-night expected 2, got $code"
   grep -q 'default branch' "$TMP/err" || fail "default refusal missing: $(cat "$TMP/err")"
-  [ -z "$(posted_events 76)" ] || fail "default open wrote spec.opened"
+  [ -z "$(posted_events 76)" ] || fail "default open-night wrote spec.opened"
 }
 
 scenario_openrefusesfromdefault() {
@@ -9285,10 +9320,10 @@ scenario_openrefusesfromdefault() {
   commit_file "$TMP/repo" night.txt night night
   git -C "$TMP/repo" reflog expire --expire=now --all
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "base from default expected 2, got $code"
   grep -q 'project branch for night could not be inferred' "$TMP/err" || fail "from-default refusal missing: $(cat "$TMP/err")"
-  [ -z "$(posted_events 76)" ] || fail "from-default open wrote spec.opened"
+  [ -z "$(posted_events 76)" ] || fail "from-default open-night wrote spec.opened"
 }
 
 # A base cut from origin/main records main in its reflog. main is never the project branch:
@@ -9302,7 +9337,7 @@ scenario_openprojectpastdefault() {
   git -C "$TMP/repo" checkout -q -b night main
   commit_file "$TMP/repo" night.txt night night
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 0 ] || fail "a base cut from main with proj on origin expected 0, got $code: $(cat "$TMP/err")"
   [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] \
     || fail "history should pick proj past main: $(posted_events 76 project)"
@@ -9319,7 +9354,7 @@ scenario_openprojectpastdefault() {
   git -C "$TMP/repo" merge -q proj
   git -C "$TMP/repo" config branch.night.vscode-merge-base origin/proj
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 0 ] || fail "config over a main reflog expected 0, got $code: $(cat "$TMP/err")"
   [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] \
     || fail "config should win over the reflog: $(posted_events 76 project)"
@@ -9337,8 +9372,8 @@ scenario_openpushes() {
   commit_file "$TMP/repo" two.txt two two
   proj_tip="$(git -C "$TMP/repo" rev-parse proj)"; night_tip="$(git -C "$TMP/repo" rev-parse night)"
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "push open failed: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "push open-night failed: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$proj_tip" ] || fail "project was not pushed"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_tip" ] || fail "base was not pushed"
   no_relay
@@ -9356,12 +9391,12 @@ scenario_openrefusesdiverged() {
   git -C "$TMP/repo" fetch -q origin
   project_remote="$(git -C "$TMP/origin.git" rev-parse proj)"; night_remote="$(git -C "$TMP/origin.git" rev-parse night)"
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 2 ] || fail "diverged open expected 2, got $code"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 2 ] || fail "diverged open-night expected 2, got $code"
   grep -q 'local has 1 commit(s), origin has 1 commit(s)' "$TMP/err" || fail "divergence counts missing: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$project_remote" ] || fail "project changed on refusal"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_remote" ] || fail "base changed on refusal"
-  [ -z "$(posted_events 76)" ] || fail "diverged open wrote spec.opened"
+  [ -z "$(posted_events 76)" ] || fail "diverged open-night wrote spec.opened"
 }
 
 # The project branch moved on after the base branch was cut from it.
@@ -9381,8 +9416,8 @@ scenario_openbasefollowsproject() {
   git -C "$other" push -q origin proj
   proj_tip="$(git -C "$other" rev-parse proj)"
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night expected 0, got $code: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$proj_tip" ] || fail "origin/night was not fast-forwarded to proj"
   [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$proj_tip" ] || fail "the checkout was not fast-forwarded: $(cat "$TMP/err"); $(git -C "$TMP/repo" status --short)"
   grep -q "night took 1 commit(s) from origin/proj" "$TMP/err" || fail "stderr did not say what the base took: $(cat "$TMP/err")"
@@ -9398,13 +9433,13 @@ scenario_openbasefollowsproject() {
   git -C "$other" push -q origin proj
   proj_tip="$(git -C "$other" rev-parse proj)"
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "open expected 0, got $code: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "open-night expected 0, got $code: $(cat "$TMP/err")"
   merge="$(git -C "$TMP/origin.git" rev-parse night)"
   git -C "$TMP/origin.git" merge-base --is-ancestor "$proj_tip" "$merge" || fail "origin/night does not contain proj"
   [ "$(git -C "$TMP/origin.git" show -s --format=%s "$merge")" = "Merge branch 'proj' into night" ] || fail "wrong merge subject"
   [ "$(git -C "$TMP/repo" rev-parse HEAD)" = "$merge" ] || fail "the checkout was not fast-forwarded to the merge"
-  posted_events 76 | grep -q '^spec.opened' || fail "open did not write spec.opened"
+  posted_events 76 | grep -q '^spec.opened' || fail "open-night did not write spec.opened"
   no_relay
 
   echo "--- check reports what the base would take and changes nothing"
@@ -9431,11 +9466,11 @@ scenario_openbaseprojectconflict() {
   git -C "$other" push -q origin proj
   night_remote="$(git -C "$TMP/origin.git" rev-parse night)"
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 2 ] || fail "a conflicting project branch expected 2, got $code: $(cat "$TMP/err")"
   grep -q "conflicts in night.txt; nothing was pushed" "$TMP/err" || fail "the conflict was not named: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse night)" = "$night_remote" ] || fail "origin/night changed on conflict"
-  [ -z "$(posted_events 76)" ] || fail "a conflicted open wrote spec.opened"
+  [ -z "$(posted_events 76)" ] || fail "a conflicted open-night wrote spec.opened"
   no_relay
 }
 
@@ -9447,11 +9482,11 @@ scenario_openkeepsproject() {
   git -C "$TMP/repo" push -q origin alt
   open_project_fixture
   post_ev 76 spec.opened --ticket '' --spec 76 --line opened --field into=night --field project=proj
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
-  [ "$code" = 0 ] || fail "repeat open failed: $(cat "$TMP/err")"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
+  [ "$code" = 0 ] || fail "repeat open-night failed: $(cat "$TMP/err")"
   [ "$(posted_events 76 project | grep -c '^spec.opened ' | tr -d ' ')" = 2 ] \
-    || fail "repeat open did not write a second spec.opened: $(posted_events 76 project)"
-  [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] || fail "repeat open changed project"
+    || fail "repeat open-night did not write a second spec.opened: $(posted_events 76 project)"
+  [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] || fail "repeat open-night changed project"
   no_relay
 }
 
@@ -9464,7 +9499,7 @@ scenario_openprojecthead() {
   git -C "$TMP/repo" checkout -q -b night
   commit_file "$TMP/repo" night.txt night night
   open_project_fixture
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open 76)"
+  code="$(run_dispatch env PASEO_AGENT_ID=agt_main FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" open-night 76)"
   [ "$code" = 0 ] || fail "plain checkout project inference failed: $(cat "$TMP/err")"
   [ "$(posted_events 76 project | tail -1)" = 'spec.opened project=proj' ] \
     || fail "HEAD was recorded instead of the current project branch: $(posted_events 76 project)"
@@ -9642,7 +9677,7 @@ scenario_finishrefusesnoproject() {
   before="$(git -C "$TMP/origin.git" rev-parse proj)"
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" finish 76)"
   [ "$code" = 2 ] || fail "no-project finish expected 2, got $code"
-  grep -q 'open 76 again' "$TMP/err" || fail "no-project remedy missing: $(cat "$TMP/err")"
+  grep -q 'open-night 76 again' "$TMP/err" || fail "no-project remedy missing: $(cat "$TMP/err")"
   [ "$(git -C "$TMP/origin.git" rev-parse proj)" = "$before" ] || fail "no-project finish changed project"
 }
 
@@ -11324,12 +11359,38 @@ scenario_summarybounced() {
 JSON
   local code
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" summary 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
-  [ "$code" = 0 ] || fail "summary expected 0: $(cat "$TMP/err")"
+          bash "$DISPATCH" "${TOOLS[@]}" close-night 76 --memory-decisions "$MMW_EMPTY_MEMORY_DECISIONS")"
+  [ "$code" = 0 ] || fail "close-night expected 0: $(cat "$TMP/err")"
   grep -q '^Bounced: #61 (conflict)$' "$MMW_GH_LAST_BODY" \
     || fail "NIGHT SUMMARY omits the bounced ticket: $(cat "$MMW_GH_LAST_BODY")"
   grep -q '^Handed back to needs-triage: None$' "$MMW_GH_LAST_BODY" \
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
+}
+
+# Seven new subcommands, each refused inside its own branch rather than by usage.
+# A non-digit is refused where that branch requires digits. close-night passes the
+# branch's argument check and is refused inside summary_spec; resolve-child passes
+# its argument check and is refused inside route_child.
+scenario_newnames() {
+  new_name_enters open-night x
+  new_name_enters open-ticket-watch x
+  new_name_enters landed-since x
+  new_name_enters prepare-memory-decisions x
+  new_name_enters result x worker
+  new_name_enters close-night x --memory-decisions "$TMP/not-digits-decisions"
+  new_name_enters resolve-child x y fixed
+}
+
+# Seven old subcommands: one refusal line that names the new command, exit 2,
+# and no call to gh or a runner.
+scenario_oldnames() {
+  old_name_refuses open-night open 76
+  old_name_refuses open-ticket-watch open-ticket 76
+  old_name_refuses close-night summary 76
+  old_name_refuses result wait 76 worker
+  old_name_refuses landed-since integrated 76
+  old_name_refuses prepare-memory-decisions memory-list 76
+  old_name_refuses resolve-child route 76 77 fixed
 }
 
 ALL="memory-install memory-open-space memory-space-unavailable boardregisters boardsameport boardopenstab boardprintsurl openstartsboard openticketstartsboard installboardagent installcheckboardagent installtoolguard startreadsmodelsjson startnomodelsjson installimportsmodelsmd installinitialvalues installkeepsmodelsjson installcheckmodelsjson installmodelsjsonhome installkeepsnewestbackup orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove installorca usesagree usesmismatch usesunreadable paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts installorcashape usesnorunners usesorcaunreadable startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
@@ -11342,6 +11403,7 @@ ALL="$ALL installcheckstalecopy"
 ALL="$ALL installcopyretired"
 ALL="$ALL installcheckwiringfails installcheckwiringunchecked"
 ALL="$ALL where wherespec whereunknown registryunloadable"
+ALL="$ALL newnames oldnames"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
@@ -11605,6 +11667,8 @@ banner_for() {
     findings) echo FINDINGS-OK ;;
     memorylist) echo MEMORY-LIST-OK ;;
     integratedsincestart) echo INTEGRATED-SINCE-START-OK ;;
+    newnames) echo NEW-NAMES-OK ;;
+    oldnames) echo OLD-NAMES-OK ;;
   esac
 }
 

@@ -169,7 +169,7 @@ def nodes(root: dict):
 
 
 def valid_closing(value: object) -> bool:
-    """A loose shape check; `summary` (dispatch.sh) fully validated a `complete` closing
+    """A loose shape check; `close-night` (dispatch.sh) fully validated a `complete` closing
     before it ever reached the tracker, so retro only needs to read `propose` ids back out."""
     if not isinstance(value, dict) or not isinstance(value.get("decisions"), list):
         return False
@@ -236,7 +236,7 @@ def gather(number: int) -> dict:
     opened = events.newest(comments, "spec.opened")
     closed = events.newest(comments, "spec.closed")
     if not closed:
-        raise RetroError(f"{spec_url} has no spec.closed; retro runs after summary")
+        raise RetroError(f"{spec_url} has no spec.closed; retro runs after close-night")
     checked.append(inventory(f"{spec_url} spec.closed", "present", "event comment"))
     if not opened:
         checked.append(inventory(f"{spec_url} spec.opened", "missing", "base unknown"))
