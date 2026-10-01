@@ -11,8 +11,8 @@
 | 开头一段、第 2–8 步、票模板、路径规则 | `mmw-v2/skills/to-tickets/SKILL.md` |
 | `ambiguity-scan.md`、`person-ticket.md` | 分叉同名文件 `mmw-v2/skills/to-tickets/references/ambiguity-scan.md`、`mmw-v2/skills/to-tickets/references/person-ticket.md` |
 | `cutting-interface-tickets.md` | `mmw-v2/skills/to-tickets/references/screen-contract-tickets.md` |
-| 第 20 行 | P1 **Write a spec and tickets** 的步骤顺序与 **Where you are.** |
-| 第 160 行第 2 句 | P1 **Write a spec and tickets** 的 **Hand to the night** |
+| `1dc33ec5` 的 `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md` 第 20 行，句首「A plan or a conversation with no published spec」 | P1 **Write a spec and tickets** 的步骤顺序与 **Where you are.** |
+| `1dc33ec5` 的 `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md` 第 160 行第 2 句，句首「When the batch is a spec's night run」 | P1 **Write a spec and tickets** 的 **Hand to the night** |
 | 派子代理的通用做法 | `mmw` 技能的 `## Subagents` |
 | 开关 | 同 `to-spec`：分叉不带 `agents/openai.yaml`，frontmatter 只有 `name` 与 `description` |
 
