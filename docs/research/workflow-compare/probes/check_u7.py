@@ -10,21 +10,21 @@ import re
 import subprocess
 import sys
 
+from check_results import CONFIG_PATHS as BASE_CONFIG_PATHS, HASH_LINE
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
+SENTENCES_PATH = HERE / "u7-sentences.md"
 BEFORE = "6d9cf01ceeeed89013d66db24eca9684712c5ccc"
 HOSTS = ("claude", "codex", "grok")
 PHASES = ("before", "after")
-CONFIG_PATHS = ("~/.claude/settings.json", "~/.codex/config.toml",
-                "~/.grok/config.toml", "~/.mmw/models.json", "~/.mmw/installed-root",
-                "~/.agents/skills", "~/.claude/skills")
+CONFIG_PATHS = (*BASE_CONFIG_PATHS, "~/.agents/skills", "~/.claude/skills")
 NAME = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 ENTRY = re.compile(rf"(?:mmw:)?{NAME}")
 CELL_LINE = re.compile(
     r"^U-7 (S\d{2}) (claude|codex|grok) (before|after) "
     r"(PASS|FAIL|NEEDS-USER-CONFIG|CANNOT-RUN-UNATTENDED) "
     r"(claude|codex|grok)=(\S+) ([0-9a-f]{40}) (\d{4}-\d{2}-\d{2}) : (\S.*)$")
-HASH_LINE = re.compile(r"^CHECKSUM (before|after) (\S+) (absent|[0-9a-f]{64})$")
 LIST = rf"(?:none|{NAME}(?:,{NAME})*)"
 SUBITEMS = re.compile(
     rf"^skills=({LIST}) playbooks=({LIST}); tool-calls=(\d+); "
@@ -43,7 +43,7 @@ class Sentence:
         return self.before if phase == "before" else self.after
 
 
-def read_sentences(path=HERE / "u7-sentences.md"):
+def read_sentences(path=SENTENCES_PATH):
     rows = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not re.match(r"\|\s*S", line):
@@ -78,7 +78,7 @@ def names(value):
     return [] if value == "none" else value.split(",")
 
 
-def check(path, sentences_path=HERE / "u7-sentences.md"):
+def check(path, sentences_path=SENTENCES_PATH):
     try:
         rows = read_sentences(sentences_path)
         lines = Path(path).read_text(encoding="utf-8").splitlines()
@@ -170,6 +170,12 @@ def report(path):
         print("\n".join(errors))
         return 1
     print("U7 OK 66 cells")
+    statuses = Counter(match[4] for line in Path(path).read_text(encoding="utf-8").splitlines()
+                       if (match := CELL_LINE.fullmatch(line)))
+    print(f"routed {statuses['PASS'] + statuses['FAIL']}/66; "
+          f"NEEDS-USER-CONFIG {statuses['NEEDS-USER-CONFIG']}; "
+          f"CANNOT-RUN-UNATTENDED {statuses['CANNOT-RUN-UNATTENDED']}; "
+          f"PASS {statuses['PASS']}; FAIL {statuses['FAIL']}")
     return 0
 
 

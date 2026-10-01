@@ -2,7 +2,11 @@
 """Measure U-7 in scratch repositories using existing host logins.
 
 Measured 2026-10-01: Claude Code 2.1.286's stream-json system/init catalog
-with --setting-sources project still listed code-review in an empty repository.
+with --setting-sources project listed code-review in an empty repository.
+Its installed binary identifies /code-review as a built-in skill. This name
+alone does not establish user-level provenance; ticket #702 point 5's name-only
+gate omits built-in collisions, so Claude's recorded block awaits a contract
+correction before its routing sessions can run.
 Codex 0.159.2 debug prompt-input and Grok 1.0.46 (2765805b9442) inspect --json
 also listed measured skills from user level. All three groups were gated before
 routing sessions: their tool-call event shapes have NOT been measured. The
@@ -33,6 +37,7 @@ SUFFIX = ("\n\n(This is an isolated routing probe in a scratch repository. Load 
           "End your reply with one line: LOADED: <the skills and files you read>.)")
 STUBS = ("claude", "codex", "grok", "cursor-agent", "agent", "pi", "orca", "nmem",
          "paseo", "herdr", "gh", "uv", "launchctl")
+HOST_SKILL_DIRS = {"claude": ".claude/skills", "codex": ".agents/skills", "grok": ".agents/skills"}
 MMW_TARGETS = ("/mmw-v2/upstream/skills/", "/mmw-v2/skills/",
                "/mmw-v2/upstream-diagram-design/skills/", "/mmw-v2/upstream-pstack/skills/",
                "/.mmw/skill-copies/")
@@ -48,10 +53,9 @@ def short(value):
     return " ".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", value).split())[:1000]
 
 
-def run(argv, cwd=None, env=None, timeout=600, input=None):
+def run(argv, cwd=None, env=None, timeout=600):
     try:
-        return subprocess.run(argv, cwd=cwd, env=env, input=input,
-                              stdin=subprocess.DEVNULL if input is None else None,
+        return subprocess.run(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                               capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout or b""
@@ -136,7 +140,7 @@ def install_set(commit, stack):
     subprocess.run(["tar", "-x", "-C", str(source)], input=archived.stdout, check=True)
     env = install_env(home, target, stubs)
     installed = run(["env", "-i", *(f"{key}={value}" for key, value in env.items()),
-                     "/bin/bash", str(source / "mmw-v2/install.sh")], source)
+                     "bash", str(source / "mmw-v2/install.sh")], source)
     skills = skill_list(source)
     missing = []
     for name, marked in skills:
@@ -147,7 +151,9 @@ def install_set(commit, stack):
             missing.append(f".mmw/skill-copies/{name}/SKILL.md")
     if not skills or missing:
         raise RuntimeError("skill sets not laid out: " + ", ".join(missing)
-                           + f"; install exit={installed.returncode}; {short(installed.stderr)}")
+                           + f"; install exit={installed.returncode}; {short(installed.stderr)}; "
+                           "the comparison requires every installed skill and marked copy; "
+                           "inspect this commit's isolated installer output before rerunning --u7")
     print(f"U7 installed {commit[:8]}: {len(skills)} skills, "
           f"{sum(marked for _, marked in skills)} copies; install exit={installed.returncode}", flush=True)
     return target, {name for name, _ in skills}
@@ -174,7 +180,7 @@ def prepare(repo, host, installed=None):
         raise RuntimeError("git init failed: " + short(made.stderr))
     (repo / ".mmw").mkdir()
     if installed:
-        relative = ".claude/skills" if host == "claude" else ".agents/skills"
+        relative = HOST_SKILL_DIRS[host]
         copy_skills(installed / relative, repo / relative)
 
 
@@ -318,9 +324,9 @@ def catalog_names(host, output):
 def catalog_gate(host, repo, env, tested_names):
     if not shutil.which(host):
         return "CANNOT-RUN-UNATTENDED", f"{host} binary absent from PATH; no session started"
-    argv = (host_command(host, "Reply with OK only.", tools="") if host == "claude"
-            else ["codex", "debug", "prompt-input"] if host == "codex"
-            else ["grok", "inspect", "--json"])
+    argv = {"claude": host_command("claude", "Reply with OK only.", tools=""),
+            "codex": ["codex", "debug", "prompt-input"],
+            "grok": ["grok", "inspect", "--json"]}[host]
     result = run(argv, repo, env)
     if result.returncode != 0 and host != "claude":
         return "CANNOT-RUN-UNATTENDED", f"empty-repository catalog exit={result.returncode}; {short(result.stderr)}; no session started"
@@ -330,8 +336,10 @@ def catalog_gate(host, repo, env, tested_names):
         return "CANNOT-RUN-UNATTENDED", f"empty-repository catalog unreadable: {exc}; {short(result.stderr)}; no session started"
     overlap = sorted(names & tested_names)
     if overlap:
+        provenance = ("; name-only gate, user-level origin not established" if host == "claude"
+                      else " from user level")
         return "NEEDS-USER-CONFIG", ("catalog of an empty repository already lists " + ",".join(overlap)
-                                     + " from user level; no session started")
+                                     + provenance + "; no session started")
     return None
 
 
@@ -339,15 +347,15 @@ def measure(host, row, phase, repo, env, scratch, tested_names):
     result = run(host_command(host, row.text + SUFFIX), repo, env)
     parsed = parse_events(host, result.stdout, scratch, tested_names)
     if parsed["leaks"]:
-        return ("NEEDS-USER-CONFIG", "user-level skill path read: " + ",".join(parsed["leaks"])), result
+        return ("NEEDS-USER-CONFIG", "user-level skill path read: " + ",".join(parsed["leaks"])), result, parsed
     expected = row.expected(phase)
     loaded = reached(expected, parsed["skills"], parsed["playbooks"])
     if result.returncode == 124 or (result.returncode != 0 and not loaded):
-        return ("CANNOT-RUN-UNATTENDED", f"exit={result.returncode}; {short(result.stderr)}; expected={expected}"), result
+        return ("CANNOT-RUN-UNATTENDED", f"exit={result.returncode}; {short(result.stderr)}; expected={expected}"), result, parsed
     evidence = (f"skills={','.join(parsed['skills']) or 'none'} "
                 f"playbooks={','.join(parsed['playbooks']) or 'none'}; "
                 f"tool-calls={parsed['tool_calls']}; expected={expected}; exit={result.returncode}")
-    return ("PASS" if loaded else "FAIL", evidence), result
+    return ("PASS" if loaded else "FAIL", evidence), result, parsed
 
 
 def cell(row, host, phase, result, versions, commits):
@@ -421,8 +429,7 @@ def measure_sets(hosts, rows, commits):
                 prepare(repos[phase], host, sets[phase][0])
             # S07 after is also its actual measurement, not a 67th paid session.
             first = next(row for row in rows if row.id == "S07")
-            first_result, raw = measure(host, first, "after", repos["after"], env, scratch, tested_names)
-            parsed = parse_events(host, raw.stdout, scratch, tested_names)
+            first_result, raw, parsed = measure(host, first, "after", repos["after"], env, scratch, tested_names)
             print(f"U7 event sample {host} S07 after: {first_result[0]}; "
                   f"tool-calls={parsed['tool_calls']}", flush=True)
             print(raw.stdout, flush=True)
@@ -458,7 +465,9 @@ def main(argv=None):
             return 0
     clean = run(["git", "status", "--porcelain", "--", "mmw-v2"], ROOT)
     if clean.returncode or clean.stdout:
-        print("U7 FAIL: mmw-v2 has uncommitted changes; commit the measured skill set first")
+        print("U7 FAIL: mmw-v2 is uncommitted or its status is unreadable; "
+              "git archive measures HEAD, not the working tree; "
+              "inspect git status --porcelain -- mmw-v2 and commit the measured skill set first")
         return 1
     commits = {"before": BEFORE, "after": subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()}
@@ -466,7 +475,9 @@ def main(argv=None):
     previous = {}
 
     def interrupted(signum, frame):
-        raise RuntimeError(f"interrupted by signal {signum}; no measurement written")
+        raise RuntimeError(f"interrupted by signal {signum}; the comparison did not finish, "
+                           "so no measurement is written; "
+                           "rerun the same U-7 command after checking the printed restoration/checksum diagnostics")
 
     try:
         for signum in (signal.SIGINT, signal.SIGTERM):

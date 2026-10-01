@@ -56,20 +56,32 @@ class ResultsTests(unittest.TestCase):
         self.assertTrue(any("contradicts" in error for error in self.checked(lines)))
 
     def test_unknown_status(self):
-        self.assertTrue(self.checked([line.replace(" PASS ", " UNKNOWN ", 1) for line in self.lines]))
+        self.assertTrue(any("malformed cell" in error for error in
+                            self.checked([line.replace(" PASS ", " UNKNOWN ", 1) for line in self.lines])))
 
     def test_wrong_before_commit(self):
-        self.assertTrue(self.checked([line.replace(check_u7.BEFORE, "c" * 40) for line in self.lines]))
+        self.assertTrue(any("before commit is not" in error for error in
+                            self.checked([line.replace(check_u7.BEFORE, "c" * 40) for line in self.lines])))
 
     def test_changed_checksum(self):
-        self.assertTrue(self.checked([line.replace("b" * 64, "c" * 64)
-                                      if line.startswith("CHECKSUM after ~/.agents/skills ") else line
-                                      for line in self.lines]))
+        self.assertTrue(any("~/.agents/skills: before/after checksums differ" in error for error in
+                            self.checked([line.replace("b" * 64, "c" * 64)
+                                          if line.startswith("CHECKSUM after ~/.agents/skills ") else line
+                                          for line in self.lines])))
 
     def test_missing_after_playbook(self):
         self.path.write_text("\n".join(self.lines) + "\n")
         with patch.object(check_u7, "has_playbook", return_value=False):
             self.assertTrue(any("lacks playbooks/" in error for error in check_u7.check(self.path)))
+
+    def test_report_distinguishes_complete_records_from_unverified_routing(self):
+        lines = [line.replace(" PASS ", " NEEDS-USER-CONFIG ").split(" : ")[0] + " : catalog blocked"
+                 if line.startswith("U-7 ") else line for line in self.lines]
+        self.path.write_text("\n".join(lines) + "\n")
+        output = io.StringIO()
+        with patch.object(check_u7, "has_playbook", return_value=True), contextlib.redirect_stdout(output):
+            self.assertEqual(check_u7.report(self.path), 0)
+        self.assertIn("routed 0/66; NEEDS-USER-CONFIG 66", output.getvalue())
 
     def test_empty_results_are_not_a_measurement(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -217,14 +229,24 @@ class IsolationTests(unittest.TestCase):
     def test_invalid_owner_arguments_exit_before_creating_directories(self):
         for args in (["--owner"], ["--owner", "--ticket", "0"], ["--ticket", "703"]):
             with self.subTest(args=args):
-                with patch.object(run_u7, "temporary_directory", side_effect=AssertionError("created directory")):
-                    with contextlib.redirect_stderr(io.StringIO()):
-                        with self.assertRaises(SystemExit) as exit:
-                            run_u7.args_parse(args)
-                    self.assertEqual(exit.exception.code, 2)
-                result = subprocess.run([sys.executable, "-B", str(check_u7.HERE / "run_u7.py"), *args],
-                                        capture_output=True, text=True)
-                self.assertEqual(result.returncode, 2)
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    home, temporary, stubs = [root / name for name in ("home", "tmp", "bin")]
+                    for path in (home, temporary, stubs):
+                        path.mkdir()
+                    log = root / "external-programs"
+                    for name in (*run_u7.STUBS, "git", "mktemp", "tar", "env", "bash"):
+                        binary = stubs / name
+                        binary.write_text(f"#!/bin/sh\nprintf '%s\\n' invoked >> '{log}'\nexit 91\n")
+                        binary.chmod(0o755)
+                    result = subprocess.run([sys.executable, "-B", str(check_u7.HERE / "run_u7.py"), *args],
+                                            capture_output=True, text=True, env={
+                                                "HOME": str(home), "TMPDIR": str(temporary),
+                                                "PATH": str(stubs), "LANG": "en_US.UTF-8"})
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    self.assertEqual(list(home.iterdir()), [])
+                    self.assertEqual(list(temporary.iterdir()), [])
+                    self.assertFalse(log.exists(), "argument rejection called an external program")
 
 
 if __name__ == "__main__":

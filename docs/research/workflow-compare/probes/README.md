@@ -106,7 +106,11 @@ no tool event was parsed. User-level paths read by a session are recorded as
 
 `check_u7.py` is read-only and never starts a host. `--results <path>` checks a
 copy. `U7 OK 66 cells` confirms complete, consistent records, their commits and
-unchanged user-level checksums, not successful routing in all cells. `test_u7.py`
+unchanged user-level checksums, not successful routing in all cells. The next
+line reports how many cells carry routing results and each status count. A
+name-only Claude catalog collision does not establish user-level provenance:
+Claude Code 2.1.286 includes a built-in `code-review`; #702 point 5 needs a
+contract correction for this case before the Claude group is measured. `test_u7.py`
 uses isolated files and synthetic event streams, never hosts or installers;
 host event formats unmeasured because of catalog isolation are identified in
 `run_u7.py`'s measurement header.
