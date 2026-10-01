@@ -1,5 +1,6 @@
 """Installation copies keep source bytes except the invocation controls."""
 
+import difflib
 import os
 import re
 import tempfile
@@ -22,12 +23,16 @@ def skill_entries(mmw=MMW):
         yield source, "+model-invoked" in tokens
 
 
-def skill_without_switch(source):
-    data = source.read_bytes()
-    lines = data.splitlines(keepends=True)
-    end = next(i for i in range(1, len(lines)) if lines[i].strip() == b"---")
-    return b"".join(line for i, line in enumerate(lines)
-                    if not (0 < i < end and line.startswith(b"disable-model-invocation:")))
+def removed_lines(test, original, installed):
+    """The lines of original that installed leaves out, once installed is shown to add nothing."""
+    old = original.splitlines(keepends=True)
+    new = installed.splitlines(keepends=True)
+    removed = []
+    for tag, i1, i2, _, _ in difflib.SequenceMatcher(a=old, b=new, autojunk=False).get_opcodes():
+        test.assertIn(tag, ("equal", "delete"), "the copy adds or changes a line")
+        if tag == "delete":
+            removed += old[i1:i2]
+    return removed
 
 
 class InstallSkillCopiesTests(unittest.TestCase):
@@ -57,12 +62,13 @@ class InstallSkillCopiesTests(unittest.TestCase):
                 continue
             marked += 1
             original = source / "SKILL.md"
-            expected = skill_without_switch(original)
-            switched += expected != original.read_bytes()
             installed = self.copy(source) / "SKILL.md"
             self.assertTrue(installed.is_file(), str(installed))
             self.assertFalse(installed.is_symlink(), str(installed))
-            self.assertEqual(expected, installed.read_bytes(), source.name)
+            removed = removed_lines(self, original.read_bytes(), installed.read_bytes())
+            self.assertEqual([], [l for l in removed if not re.match(rb"disable-model-invocation\s*:", l)],
+                             source.name)
+            switched += bool(removed)
             frontmatter = installed.read_bytes().split(b"---", 2)[1]
             self.assertNotRegex(frontmatter, rb"(?m)^disable-model-invocation\s*:")
         self.assertGreater(marked, 0)
@@ -81,11 +87,11 @@ class InstallSkillCopiesTests(unittest.TestCase):
                 continue
             data = original.read_bytes()
             policies += bool(re.search(rb"^policy:", data, re.M))
-            expected = re.sub(rb"^policy:[^\r\n]*(?:\r?\n|$)(?:[ \t]+[^\r\n]*(?:\r?\n|$))*", b"", data, flags=re.M)
             self.assertTrue(installed.is_file(), str(installed))
             self.assertFalse(installed.is_symlink(), str(installed))
             self.assertFalse(installed.parent.is_symlink(), str(installed.parent))
-            self.assertEqual(expected, installed.read_bytes(), source.name)
+            removed = removed_lines(self, data, installed.read_bytes())
+            self.assertEqual([], [l for l in removed if not re.match(rb"policy\s*:|[ \t]|\r?\n", l)], source.name)
             self.assertNotRegex(installed.read_bytes(), rb"(?m)^policy\s*:")
             if b"interface:" in data:
                 self.assertIn(b"interface:", installed.read_bytes())
@@ -127,16 +133,28 @@ class InstallSkillCopiesTests(unittest.TestCase):
         second = self.install()
         self.assertNotIn("冲突", second.stderr)
 
+    def test_triage_is_installed_as_a_copy_without_its_switches(self):
+        self.install()
+        marked = {source.name: source for source, invoked in skill_entries() if invoked}
+        self.assertIn("triage", marked)
+        source = marked["triage"]
+        copy = self.copy(source)
+        self.assertRegex((source / "SKILL.md").read_bytes().split(b"---", 2)[1],
+                         rb"(?m)^disable-model-invocation\s*:")
+        self.assertRegex((source / "agents/openai.yaml").read_bytes(), rb"(?m)^policy\s*:")
+        self.assertNotRegex((copy / "SKILL.md").read_bytes().split(b"---", 2)[1],
+                            rb"(?m)^disable-model-invocation\s*:")
+        self.assertNotRegex((copy / "agents/openai.yaml").read_bytes(), rb"(?m)^policy\s*:")
+
     def test_a_second_install_restores_a_changed_copy(self):
         self.install()
-        for source, invoked in skill_entries():
-            if invoked:
-                (self.copy(source) / "SKILL.md").write_bytes(b"changed\n")
+        first = {source: (self.copy(source) / "SKILL.md").read_bytes()
+                 for source, invoked in skill_entries() if invoked}
+        for source in first:
+            (self.copy(source) / "SKILL.md").write_bytes(b"changed\n")
         self.install()
-        for source, invoked in skill_entries():
-            if invoked:
-                self.assertEqual(skill_without_switch(source / "SKILL.md"),
-                                 (self.copy(source) / "SKILL.md").read_bytes())
+        for source, data in first.items():
+            self.assertEqual(data, (self.copy(source) / "SKILL.md").read_bytes())
 
         mmw = copy_mmw(self.root)
         source = next(source for source, invoked in skill_entries(mmw) if invoked)
