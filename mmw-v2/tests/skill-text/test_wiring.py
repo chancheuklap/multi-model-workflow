@@ -70,6 +70,13 @@ class Wiring(unittest.TestCase):
                    "Start an `example` session. Read that skill's `references/present.md`.\n")
         self.write(MODE + '/SKILL.md', content)
         self.assertEqual(self.findings(self.check(), 2), [])
+        forms = (
+            "1. **Claim.** The `example` skill's `references/present.md`.",
+            "- The `example` skill's `references/present.md`.",
+            "(The `example` skill's `references/present.md`)",
+        )
+        self.write(MODE + '/playbooks/named-paths.md', '\n'.join(forms) + '\n')
+        self.assertEqual(self.findings(self.check(), 2), [])
         self.write(MODE + '/SKILL.md', content.replace('dispatch.sh run', 'dispatch.sh walk'))
         self.assertEqual(self.findings(self.check(), 2), [
             MODE + '/SKILL.md:2: class 2 scripts/dispatch.sh has no subcommand walk',
@@ -78,7 +85,8 @@ class Wiring(unittest.TestCase):
     def test_wiring_class2_skips_placeholders_and_prose(self):
         self.write(MODE + '/references/examples.md',
                    '`principles/principle-<slug>.md`\n`references/x.md`\n`scripts/y.py`\n'
-                   'Read the scoped skills, the other skill and the whole skill.\n'
+                   'Read the scoped skills, the other skill and the whole skill. '
+                   'Ignore the `example` skills and the example skills.\n'
                    '`references/absent.md`\n')
         self.assertEqual(self.findings(self.check(), 2), [
             MODE + '/references/examples.md:5: class 2 references/absent.md does not exist',
@@ -103,7 +111,10 @@ class Wiring(unittest.TestCase):
             path + ':2: class 5 principle-absent has no principle file',
         ])
         self.write(MODE + '/SKILL.md', '- **Absent** (**principle-absent**). Use evidence.\n')
-        self.assertEqual(len(self.findings(self.check(), 5)), 2)
+        self.assertEqual(self.findings(self.check(), 5), [
+            MODE + '/SKILL.md:1: class 5 principle-absent has no principle file',
+            path + ':2: class 5 principle-absent has no principle file',
+        ])
 
     def test_wiring_class5_reports_a_citation_in_another_form(self):
         self.write(MODE + '/principles/principle-evidence.md', '# Evidence\n')
@@ -143,6 +154,13 @@ class Wiring(unittest.TestCase):
         ])
         self.write('mmw-v2/skills.txt', 'engineering/upstream-example +model-invoked\n')
         self.assertEqual(self.findings(self.check(), 9), [])
+        self.write('mmw-v2/skills.txt', 'engineering/upstream-example\n')
+        self.write(MODE + '/SKILL.md', '# MMW\n')
+        self.write(MODE + '/references/named-skill.md', '- The `upstream-example` skill owns this method.\n')
+        self.assertEqual(self.findings(self.check(), 9), [
+            MODE + '/references/named-skill.md:1: class 9 upstream-example is named for the model '
+            'and has disable-model-invocation; it needs +model-invoked in skills.txt',
+        ])
 
     def test_wiring_class9_route_and_step_forms_need_the_marker(self):
         self.reported_fixture(9)
@@ -191,6 +209,7 @@ class Wiring(unittest.TestCase):
                 '\nRead `example` outside a step.\n'
                 'Tell the user to run `/upstream-example` or `/loop`.\n'
                 'the scoped skills, the other skill, the whole skill, the example skill-set.\n'
+                'Ignore the `example` skills and the example skills.\n'
                 'the `example skill is unpaired.\nthe example` skill is unpaired.\n'
                 'prototype, research, teach, `example`.\n'
                 '<!-- the `hidden` skill\n`/hidden` -->\n'
@@ -223,6 +242,9 @@ class Wiring(unittest.TestCase):
         paths = [
             ("the `example` skill's `references/present.md`", 'example'),
             ("The `example` skill's `references/present.md`", 'example'),
+            ("1. **Claim.** The `example` skill's `references/present.md`.", 'example'),
+            ("- The `example` skill's `references/present.md`.", 'example'),
+            ("(The `example` skill's `references/present.md`)", 'example'),
             ("the `example` skill's\n`references/present.md`", 'example'),
             ("the example skill's `references/present.md`", 'example'),
             ("the `absent` skill's `references/present.md`", 'absent'),
@@ -238,6 +260,14 @@ class Wiring(unittest.TestCase):
                 offset = source.index('`references/present.md`')
                 self.assertEqual(skill_text.skill_of_path(source, offset, names), expected)
                 self.assertEqual(skill_text.skill_of_path(source, offset + 1, names), expected)
+        for source in (
+            "1. **Claim.** The `example` skill owns this method.",
+            "- The `example` skill owns this method.",
+            "(The `example` skill owns this method)",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual([(m.name, m.form) for m in skill_text.skill_mentions(source, names, False)],
+                                 [('example', 'qualified')])
         source = ('```html\n<!-- an unfinished code example\n```\n'
                   'Use the `example` skill. <!-- the `hidden` skill -->\n')
         self.assertEqual([(m.name, m.line) for m in skill_text.skill_mentions(source, names)],

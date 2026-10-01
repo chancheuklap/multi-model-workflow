@@ -197,9 +197,20 @@ class SkillMention:
 
 
 QUALIFIED_SKILL = re.compile(
-    r"(?<![\w-])(?:the|(?<![^\n])The|(?<=[.!?] )The)\s+"
+    r"(?<![\w-])(?:the|The)\s+"
     r"(?:`([^`\n]+)`|([a-z][\w-]*))\s+skill(?![\w-])")
-SKILL_CODE = re.compile(r'(?<!`)(`+)(?!`)([^\n]*?)(?<!`)\1(?!`)')
+CODE_SPAN = re.compile(r'(?<!`)(`+)(?!`)([^\n]*?)(?<!`)\1(?!`)')
+
+
+def _qualified_skills(masked: str, names):
+    """Yield prose matches and their skill names, excluding inline examples."""
+    code_spans = [(match.start(), match.end()) for match in CODE_SPAN.finditer(masked)]
+    for match in QUALIFIED_SKILL.finditer(masked):
+        if any(start <= match.start() < end for start, end in code_spans):
+            continue
+        name = match[1] or match[2]
+        if match[1] or name in names:
+            yield match, name
 
 
 def skill_mentions(text: str, names, steps: bool = True) -> list[SkillMention]:
@@ -207,15 +218,10 @@ def skill_mentions(text: str, names, steps: bool = True) -> list[SkillMention]:
     masked = prose_mask(text)
     result = []
     qualified = []
-    code_spans = [(match.start(), match.end()) for match in SKILL_CODE.finditer(masked)]
-    for match in QUALIFIED_SKILL.finditer(masked):
-        if any(start <= match.start() < end for start, end in code_spans):
-            continue
-        name = match[1] or match[2]
-        if match[1] or name in names:
-            qualified.append((match.start(), match.end()))
-            result.append(SkillMention(name, masked.count('\n', 0, match.start()) + 1,
-                                       match.start(), 'qualified'))
+    for match, name in _qualified_skills(masked, names):
+        qualified.append((match.start(), match.end()))
+        result.append(SkillMention(name, masked.count('\n', 0, match.start()) + 1,
+                                   match.start(), 'qualified'))
     offset = 0
     step_indent = None
     for line_number, line in enumerate(masked.splitlines(keepends=True), 1):
@@ -226,7 +232,7 @@ def skill_mentions(text: str, names, steps: bool = True) -> list[SkillMention]:
             if len(line) - len(line.lstrip()) <= step_indent:
                 step_indent = None
         route = re.match(r'^\s*-\s+.*?→', line)
-        for match in SKILL_CODE.finditer(line):
+        for match in CODE_SPAN.finditer(line):
             position = offset + match.start()
             if any(start <= position < end for start, end in qualified):
                 continue
@@ -244,17 +250,15 @@ def skill_mentions(text: str, names, steps: bool = True) -> list[SkillMention]:
     return sorted(result, key=lambda mention: mention.offset)
 
 
-def skill_of_path(text: str, offset: int, names) -> str | None:
+def skill_of_path(text: str, offset: int, names, *, already_masked: bool = False) -> str | None:
     """Resolve a path's explicit skill owner or its same-line skill antecedent."""
-    masked = prose_mask(text)
+    masked = text if already_masked else prose_mask(text)
     prefix = masked[:offset]
-    for match in QUALIFIED_SKILL.finditer(prefix):
-        if any(code.start() <= match.start() < code.end() for code in SKILL_CODE.finditer(masked)):
-            continue
+    for match, name in _qualified_skills(masked, names):
+        if match.end() > offset:
+            break
         if re.fullmatch(r"'s\s*`?", prefix[match.end():]):
-            name = match[1] or match[2]
-            if match[1] or name in names:
-                return name
+            return name
     prefix = prefix[prefix.rfind('\n') + 1:]
     reference = re.search(r"\bthat skill's\s*`?$", prefix)
     if reference is None:
@@ -262,7 +266,7 @@ def skill_of_path(text: str, offset: int, names) -> str | None:
     antecedent = prefix[:reference.start()]
     candidates = [(mention.offset, mention.name)
                   for mention in skill_mentions(antecedent, names) if mention.by_model]
-    candidates.extend((match.start(), match[2]) for match in SKILL_CODE.finditer(antecedent)
+    candidates.extend((match.start(), match[2]) for match in CODE_SPAN.finditer(antecedent)
                       if match[2] in names)
     return max(candidates)[1] if candidates else None
 

@@ -479,6 +479,10 @@ class Wiring:
         return {p: t for p, t in self.files.items() if p.endswith('.md') and
                 classify(p, self.imports).kind in ('mode', 'playbook', 'mode-reference')}
 
+    def model_mentions(self, path, text):
+        steps = classify(path, self.imports).kind in ('mode', 'playbook')
+        return [mention for mention in skill_mentions(text, self.skills, steps) if mention.by_model]
+
     def resolve_components(self):
         for path, text in self.component_files().items():
             masked = prose_mask(text)
@@ -486,7 +490,7 @@ class Wiring:
                 literal = match[1].rstrip('.')
                 if '<' in literal or re.fullmatch(r'[A-Za-z]', Path(literal).stem):
                     continue
-                name = skill_of_path(text, match.start(), self.skills)
+                name = skill_of_path(masked, match.start(), self.skills, already_masked=True)
                 if name is not None and name not in self.skills:
                     continue
                 base = (self.root / self.skills[name] if name is not None else
@@ -502,9 +506,7 @@ class Wiring:
                     if re.fullmatch(r'[a-z][\w-]*', command) and command not in names:
                         self.add(path, source_line(text, match.start()), 2,
                                  f'{literal} has no subcommand {command}')
-            steps = classify(path, self.imports).kind in ('mode', 'playbook')
-            mentions = [(mention.name, mention.line) for mention in skill_mentions(text, self.skills, steps)
-                        if mention.by_model]
+            mentions = [(mention.name, mention.line) for mention in self.model_mentions(path, text)]
             mentions.extend((match[1], source_line(text, match.start())) for match in
                             re.finditer(r'\b(?:use|Use) /([a-z][\w-]*)', masked))
             for name, line in mentions:
@@ -559,19 +561,22 @@ class Wiring:
             if not h1 or display != h1[1] or applies != first:
                 self.add(path, line, 5, f'{slug} display or applicability does not match H1 and description')
         for path, text in self.files.items():
-            if not path.endswith('.md') or classify(path, self.imports).kind not in (
+            if not path.endswith('.md'):
+                continue
+            component = classify(path, self.imports)
+            if component.kind not in (
                     'mode', 'playbook', 'mode-reference', 'principle'):
                 continue
             masked = prose_mask(text)
             citations = list(re.finditer(r'\*\*(principle-[\w-]+)\*\*', masked))
-            if classify(path, self.imports).imported:
+            if component.imported:
                 citations.extend(re.finditer(r'\((principle-[\w-]+)\)', masked))
             for match in citations:
                 slug = match[1]
                 self.edge(path, slug, 5)
                 if not (self.mode / 'principles' / (slug + '.md')).is_file():
                     self.add(path, source_line(text, match.start()), 5, f'{slug} has no principle file')
-            if classify(path, self.imports).imported:
+            if component.imported:
                 continue
             other_forms = []
             for match in re.finditer(r'(?<![\w/-])principle-[\w-]+', masked):
@@ -607,10 +612,9 @@ class Wiring:
         entries = (self.root / 'mmw-v2/skills.txt').read_text(encoding='utf-8') if (self.root / 'mmw-v2/skills.txt').exists() else ''
         for source, text in self.component_files().items():
             seen = set()
-            steps = classify(source, self.imports).kind in ('mode', 'playbook')
-            for mention in skill_mentions(text, self.skills, steps):
+            for mention in self.model_mentions(source, text):
                 name = mention.name
-                if not mention.by_model or name not in self.skills or name in seen:
+                if name not in self.skills or name in seen:
                     continue
                 seen.add(name)
                 skill_path = self.skills[name]
