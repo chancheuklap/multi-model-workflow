@@ -602,16 +602,36 @@ class Importer:
         return [(i, row) for i, row in enumerate(self.imports.rows)
                 if row[0] == entry.component.kind and row[1] == entry.local and row[2] == entry.source]
 
-    def mode_fragment(self, entry, text):
-        heading = self.locations.MODE_IMPORTED_TRIGGERS if entry.component.kind == 'mode-trigger' else '## ' + entry.component.name
+    def fragment_span(self, entry, text, match_unregistered=False):
+        """Span of this fragment in the merged mode, or None when it is not placed.
+
+        A trigger with no registration row stays None unless `match_unregistered`:
+        merge must still append that trigger, while a NAME line needs the copy
+        just appended. The match ignores a missing trailing newline.
+        """
+        heading = (self.locations.MODE_IMPORTED_TRIGGERS if entry.component.kind == 'mode-trigger'
+                   else '## ' + entry.component.name)
         if heading not in dict(heading_offsets(text)):
             return None
         start, end = section_span(text, heading, self.mode / 'SKILL.md')
         if entry.component.kind == 'mode-section':
-            return text[start:end].encode('utf-8')
+            return start, end
         lines = text[start:end].splitlines(keepends=True)
         index = self.trigger_index(entry, lines)
-        return lines[index].encode('utf-8') if index is not None else None
+        if index is None and match_unregistered:
+            wanted = entry.data.decode('utf-8').rstrip('\r\n')
+            matches = [i for i, line in enumerate(lines) if line.rstrip('\r\n') == wanted]
+            index = matches[-1] if matches else None
+        if index is None:
+            return None
+        offset = start + sum(len(line) for line in lines[:index])
+        return offset, offset + len(lines[index])
+
+    def mode_fragment(self, entry, text):
+        span = self.fragment_span(entry, text)
+        if span is None:
+            return None
+        return text[span[0]:span[1]].encode('utf-8')
 
     def trigger_index(self, entry, lines):
         records = [row for row in self.imports.rows if row[0] == 'mode-trigger' and row[1] == entry.local]
@@ -673,19 +693,14 @@ class Importer:
     def content_span(self, entry, text):
         if entry.component.layout.storage != 'fragment':
             return 0, len(text)
-        if entry.component.kind == 'mode-section':
-            return section_span(text, '## ' + entry.component.name, self.mode / 'SKILL.md')
-        start, end = section_span(text, self.locations.MODE_IMPORTED_TRIGGERS, self.mode / 'SKILL.md')
-        lines = text[start:end].splitlines(keepends=True)
-        index = self.trigger_index(entry, lines)
-        if index is None:
-            wanted = entry.data.decode('utf-8')
-            matches = [i for i, line in enumerate(lines) if line == wanted]
-            index = matches[-1] if matches else None
-        if index is None:
-            return start, start
-        offset = start + sum(len(line) for line in lines[:index])
-        return offset, offset + len(lines[index])
+        span = self.fragment_span(entry, text, match_unregistered=entry.component.kind == 'mode-trigger')
+        if span is not None:
+            return span
+        if entry.component.kind == 'mode-trigger':
+            refused(f'{entry.local}: the imported trigger line is not in the merged mode',
+                    'names in that line cannot be listed, and no NAME line would read as there being none',
+                    'Restore the trigger line in the mode and rerun.')
+        return section_span(text, '## ' + entry.component.name, self.mode / 'SKILL.md')
 
     def name_lines(self, writes):
         """NAME rows for copied files, in import order, using post-import line numbers."""
@@ -693,24 +708,23 @@ class Importer:
         for entry in self.entries:
             if entry.component.kind == 'skill':
                 continue
-            path = self.mode / 'SKILL.md' if entry.component.layout.storage == 'fragment' else self.root / entry.local
-            raw = writes.get(path, entry.data)
-            text = raw.decode('utf-8', errors='replace')
+            path = (self.mode / 'SKILL.md' if entry.component.layout.storage == 'fragment'
+                    else self.root / entry.local)
+            text = writes[path].decode('utf-8', errors='replace')
             start, end = self.content_span(entry, text)
             region = text[start:end]
-            label = self.relative(self.mode / 'SKILL.md') if entry.component.layout.storage == 'fragment' else entry.local
+            label = self.relative(path)
             hits = []
             for keyword, pattern in PSTACK_NAME_KEYWORDS:
                 for match in re.finditer(pattern, region):
                     name = match[0] if keyword == 'Spawn <Agent>' else keyword
-                    absolute = start + match.start()
-                    hits.append((absolute, text.count('\n', 0, absolute) + 1, name))
+                    hits.append((start + match.start(), name))
             for dependency, offset in self.dependencies(region):
                 if dependency.kind == 'skill' and dependency.name not in self.skills:
-                    absolute = start + offset
-                    hits.append((absolute, text.count('\n', 0, absolute) + 1, dependency.name))
+                    hits.append((start + offset, dependency.name))
             hits.sort(key=lambda item: item[0])
-            listed += [f'NAME\t{label}\t{line}\t{name}' for _, line, name in hits]
+            listed += [f'NAME\t{label}\t{text.count("\n", 0, absolute) + 1}\t{name}'
+                       for absolute, name in hits]
         return listed
 
     def refresh(self):

@@ -570,6 +570,17 @@ class ImportComponent(unittest.TestCase):
         ask_line = mode.index('- Ask with AskQuestion.') + 1
         self.assertEqual(self.names(result), [f'NAME\t{MODE}/SKILL.md\t{ask_line}\tAskQuestion'])
 
+    def test_a_trigger_whose_source_line_has_no_trailing_newline_lists_its_name(self):
+        source = ('---\nname: Poteto Mode\n---\n# Poteto mode\n\n'
+                  '## Non-negotiables\n\n- Ask with AskQuestion.')
+        self.assertFalse(source.endswith('\n'))
+        self.write(SUBTREE + '/skills/poteto-mode/SKILL.md', source)
+        self.write(MODE + '/SKILL.md', LOCAL_MODE)
+        result = self.run_import('mode-trigger', f'L{len(source.splitlines())}')
+        mode = (self.root / MODE / 'SKILL.md').read_text().splitlines()
+        ask_line = mode.index('- Ask with AskQuestion.') + 1
+        self.assertEqual(self.names(result), [f'NAME\t{MODE}/SKILL.md\t{ask_line}\tAskQuestion'])
+
     def test_refresh_compares_skills_mode_fragments_and_other_file_types(self):
         self.write(MODE + '/SKILL.md', LOCAL_MODE)
         self.write(SUBTREE + '/skills/helper/SKILL.md', '# Helper\n')
