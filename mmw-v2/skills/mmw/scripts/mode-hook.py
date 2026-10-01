@@ -11,9 +11,7 @@ def load_locations():
     from pathlib import Path
 
     here = Path(__file__).resolve().parent
-    candidates = (here / "locations.py",
-                  here.parents[2].joinpath("skills", "dispatch", "scripts", "locations.py"))
-    path = next(path for path in candidates if path.is_file())
+    path = here / "locations.py"
     spec = importlib.util.spec_from_file_location("mode_hook_locations", path)
     locations = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(locations)
@@ -25,7 +23,7 @@ def dispatch_context(cwd):
     import sys
 
     path, locations = load_locations()
-    scripts = path.parents[2] / locations.DISPATCH_SCRIPTS
+    scripts = path.parents[2] / locations.MODE_SCRIPTS
     dispatch = scripts / "dispatch.sh"
     if not dispatch.is_file():
         raise FileNotFoundError(dispatch)

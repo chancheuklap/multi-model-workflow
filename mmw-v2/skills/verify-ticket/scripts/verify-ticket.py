@@ -45,7 +45,9 @@ def _load(name: str, filename: str | Path):
 
 # `events.py`: the event vocabulary and the fold. `issue_tree.py`: the tree of issues
 # under a spec, read with one query.
-events = _load("mmw_events", "events.py")
+locations = _load("verify_locations", HERE.parents[1] / "mmw" / "scripts" / "locations.py")
+skills = HERE.parents[1]
+events = _load("mmw_events", skills / locations.EVENTS_PY)
 tree = _load("mmw_tree", "issue_tree.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
@@ -145,7 +147,8 @@ ECHOED_EXIT_RE = re.compile(r"^(?:echo|printf)\b.*\$\?")
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into --json
 # output under it, which json.loads cannot read. Every gh call here runs without it.
-# `events.py`, loaded above, computes the same filter; this file shares its value rather
+# The mode's `events.py`, loaded above through locations.py, computes the same filter;
+# this file shares its value rather
 # than filtering `os.environ` a second time.
 GH_ENV = events.GH_ENV
 
@@ -252,7 +255,7 @@ def gh_login() -> str:
 
 
 class SelfRead(NamedTuple):
-    """One answer from `dispatch.sh self` of the dispatch skill beside this one.
+    """One answer from `dispatch.sh self` of the mode, resolved through locations.py.
 
     `returncode` is None when `path` is not a file. `error` is set when the script could
     not be run. `stdout` and `stderr` are whatever it printed.
@@ -267,7 +270,7 @@ class SelfRead(NamedTuple):
 
 def read_self() -> SelfRead:
     """Ask `dispatch.sh self` who this process is. Patched out in tests."""
-    script = HERE.parents[1] / "dispatch" / "scripts" / "dispatch.sh"
+    script = skills / locations.MODE_SCRIPTS / "dispatch.sh"
     path = str(script)
     if not script.is_file():
         return SelfRead(path, None, "", "", None)

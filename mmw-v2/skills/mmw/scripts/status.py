@@ -15,9 +15,9 @@ children, read in one query by `issue_tree.py`, and each ticket's state, labels,
 blocking edges and comments. Where a ticket stands — which agent sessions were started
 on it and on which runner, whether its worker is still live or waiting for a product
 slot, how its criteria last ran, whether it passed, landed or came back — is the fold of
-its comments' events, computed by `events.py`. Both files are the verify-ticket skill's
-(`MMW_EVENTS_PY` names `events.py` when `dispatch.sh` resolved it somewhere else, and
-`issue_tree.py` is read from beside it). `--where` also reads relay `watches.json` to
+its comments' events, computed by `events.py` beside this script (`MMW_EVENTS_PY`
+can override it). `issue_tree.py` is loaded from the verify-ticket skill through
+`locations.py`. `--where` also reads relay `watches.json` to
 identify this session's orchestrator role and default issue, `roles.json` and
 `locations.py` to resolve its playbook pointer, and `git rev-parse HEAD` to compare the
 final reverify's commit. Its runner/session pair is supplied by `dispatch.sh self`.
@@ -42,13 +42,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
-def _load(name: str, filename: str):
-    default = Path(__file__).resolve().parents[2] / "verify-ticket" / "scripts" / "events.py"
-    path = Path(os.environ.get("MMW_EVENTS_PY") or default).parent / filename
+def _load(name: str, path: Path):
     if not path.is_file():
-        sys.stderr.write(f"dispatch: no {filename} at {path}; the verify-ticket skill has "
-                         f"to sit beside this one, or MMW_EVENTS_PY has to name its "
-                         f"events.py\n")
+        problem = (f"roles.json or locations.py is missing or invalid ({path} is missing)"
+                   if path.name == "locations.py" else f"no {path.name} at {path}")
+        sys.stderr.write(f"dispatch: {problem}; run bash mmw-v2/install.sh --check\n")
         raise SystemExit(2)
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
@@ -56,8 +54,10 @@ def _load(name: str, filename: str):
     return module
 
 
-events = _load("mmw_events", "events.py")
-tree = _load("mmw_tree", "issue_tree.py")
+HERE = Path(__file__).resolve().parent
+locations = _load("status_locations", HERE / "locations.py")
+events = _load("mmw_events", Path(os.environ.get("MMW_EVENTS_PY") or HERE / "events.py"))
+tree = _load("mmw_tree", HERE.parents[1] / locations.ISSUE_TREE_PY)
 
 # --------------------------------------------------------------------- reading
 

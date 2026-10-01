@@ -92,11 +92,9 @@ class Wiring:
         self.files = self.scan_files()
 
     def read_registries(self):
-        candidates = [self.mode / 'scripts/locations.py',
-                      self.root / 'mmw-v2/skills/dispatch/scripts/locations.py']
-        registry = next((p for p in candidates if p.is_file()), None)
-        if registry is None:
-            raise TextError('locations.py not found in either candidate')
+        registry = self.mode / 'scripts/locations.py'
+        if not registry.is_file():
+            raise TextError(f'locations.py not found at {registry}')
         self.registry = registry
         tree = ast.parse(registry.read_text(encoding='utf-8'))
         self.registry_lines = {n.value: n.lineno for n in ast.walk(tree)
@@ -124,7 +122,7 @@ class Wiring:
                                                for row in rows.values())
                 for rows in positions.values()):
             raise TextError('locations.py WHERE_ROWS is not a role/position mapping')
-        roles_path = self.root / 'mmw-v2/skills/dispatch/roles.json'
+        roles_path = self.root / 'mmw-v2/skills/mmw/roles.json'
         self.roles_text = roles_path.read_text(encoding='utf-8')
         self.roles = json.loads(self.roles_text)
         if not isinstance(self.roles, dict) or not self.roles or any(
@@ -149,7 +147,7 @@ class Wiring:
                 result[rel] = path.read_text(encoding='utf-8')
         for path in sorted((self.root / '.mmw/playbooks').rglob('*.md')):
             result[path.relative_to(self.root).as_posix()] = path.read_text(encoding='utf-8')
-        result['mmw-v2/skills/dispatch/roles.json'] = self.roles_text
+        result['mmw-v2/skills/mmw/roles.json'] = self.roles_text
         return result
 
     def add(self, path, line, category, message, report_only=False, registry_path=False):
@@ -195,7 +193,7 @@ class Wiring:
                 # A literal may be followed by BETWEEN's range or a note.
                 raw = re.split(r' \.\. #| · |[.;]', raw)[0].strip()
                 self.pointer(path, source_line(text, match.start()), slug, raw)
-        path = 'mmw-v2/skills/dispatch/roles.json'
+        path = 'mmw-v2/skills/mmw/roles.json'
         for role, row in self.roles.items():
             slug = row.get('playbook')
             if not slug:
@@ -228,7 +226,7 @@ class Wiring:
     def state_home(self):
         if self.test_root:
             return self.root / '.mmw'
-        scripts = self.root / 'mmw-v2/skills' / self.data['DISPATCH_SCRIPTS']
+        scripts = self.root / 'mmw-v2/skills' / self.data['MODE_SCRIPTS']
         spec = importlib.util.spec_from_file_location('wiring_statedir', scripts / 'statedir.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -680,7 +678,7 @@ class Wiring:
                 emitted.extend((r, 'resume', path, source_line(content, content.index('resume_one()')))
                                for r in ('worker', 'adopting-worker') if r in self.roles)
         for role, row in self.roles.items():
-            emitted.extend((role, event, 'mmw-v2/skills/dispatch/roles.json', 1)
+            emitted.extend((role, event, 'mmw-v2/skills/mmw/roles.json', 1)
                            for event in row.get('wakes', {}) if event != '*')
         for role, event, source, line in sorted(set(emitted)):
             row = self.roles[role]
@@ -743,7 +741,7 @@ class Wiring:
     def frozen_paths(self):
         marker = self.state_home / 'installed-root'
         installed = Path(marker.read_text(encoding='utf-8').strip()).expanduser().resolve() if marker.is_file() else None
-        inputs = self.session_templates + [('mmw-v2/skills/dispatch/roles.json', 1, self.roles_text)]
+        inputs = self.session_templates + [('mmw-v2/skills/mmw/roles.json', 1, self.roles_text)]
         for path, line, text in inputs:
             for match in re.finditer(r'(?:/|~/)[^\s"\'`<>]*mmw-v2/[^\s"\'`<>]+', text):
                 literal = match[0].rstrip('.,;')

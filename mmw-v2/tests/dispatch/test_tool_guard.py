@@ -19,7 +19,7 @@ from pathlib import Path
 from unittest import mock
 
 SKILLS = Path(__file__).resolve().parents[2] / "skills"
-DISPATCH_SCRIPTS = SKILLS / "dispatch" / "scripts"
+MODE_SCRIPTS = SKILLS / "mmw" / "scripts"
 UI_ACCEPTANCE_SCRIPTS = SKILLS / "ui-acceptance" / "scripts"
 
 
@@ -30,7 +30,7 @@ def load(path: Path, name: str):
     return module
 
 
-hk = load(DISPATCH_SCRIPTS / "tool-guard.py", "tool_guard")
+hk = load(MODE_SCRIPTS / "tool-guard.py", "tool_guard")
 rf = load(UI_ACCEPTANCE_SCRIPTS / "refusal.py", "refusal")
 HOST_PREFIX = len("Hook denied: ")
 
@@ -214,7 +214,7 @@ class TestSelfScope(unittest.TestCase):
         opened.assert_not_called()
 
     def test_the_source_imports_no_socket_urllib_tempfile_shutil_or_pathlib(self):
-        source = (DISPATCH_SCRIPTS / "tool-guard.py").read_text(encoding="utf-8")
+        source = (MODE_SCRIPTS / "tool-guard.py").read_text(encoding="utf-8")
         for name in ("socket", "urllib", "tempfile", "shutil", "pathlib"):
             self.assertNotIn(f"import {name}", source)
 

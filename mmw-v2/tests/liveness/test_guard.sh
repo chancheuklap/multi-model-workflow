@@ -17,7 +17,7 @@
 set -uo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-SCRIPTS="$(dirname "$(dirname "$HERE")")/skills/dispatch/scripts"
+SCRIPTS="$(dirname "$(dirname "$HERE")")/skills/mmw/scripts"
 GUARD="$SCRIPTS/turn-guard.py"
 
 TMP="$(mktemp -d)"

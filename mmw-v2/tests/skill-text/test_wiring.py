@@ -12,7 +12,7 @@ LIB = Path(__file__).resolve().parents[1] / 'lib'
 SCRIPT = LIB / 'check_wiring.py'
 FIXTURES = Path(__file__).resolve().parent / 'fixtures/wiring'
 MODE = 'mmw-v2/skills/mmw'
-DISPATCH = 'mmw-v2/skills/dispatch'
+DISPATCH = 'mmw-v2/skills/mmw'
 WORK_ROUTE = '\n## Playbooks\n\n- **Work.** Do the work. `playbooks/work-a-ticket.md`.\n'
 
 
@@ -490,7 +490,7 @@ class Wiring(unittest.TestCase):
         mode.write_text(mode.read_text() + '\nUse the absent skill. Use the upstream-example skill.\nRun `dispatch.sh lonely`.\n')
         self.write(MODE + '/playbooks/work-a-ticket.md', '#### Claim\n\n#### Get reviewed\n')
         self.write(DISPATCH + '/scripts/dispatch.sh', 'new_one() {\nstart_session h m e cwd "Read /checkout/mmw-v2/skills/mmw/SKILL.md" title\n}\ncase "$1" in\n lonely) echo ok ;;\nesac\n')
-        self.write('mmw-v2/board/example.py', 'target = "skills/dispatch/scripts"\n')
+        self.write('mmw-v2/board/example.py', 'target = "skills/mmw/scripts"\n')
         self.write('mmw-v2/skills.txt', 'self/example\nengineering/upstream-example +model-invoked\n')
         self.write('mmw-v2/upstream/skills/engineering/upstream-example/SKILL.md', '# Upstream\n')
         result = self.check('--graph')
@@ -526,7 +526,7 @@ class Wiring(unittest.TestCase):
         self.write('mmw-v2/skills/example/SKILL.md',
                    '---\nname: example\ndescription: Use when needed.\n---\n# Example\n')
         self.write(DISPATCH + '/scripts/statedir.py',
-                   (LIB.parents[1] / 'skills/dispatch/scripts/statedir.py').read_text())
+                   (LIB.parents[1] / 'skills/mmw/scripts/statedir.py').read_text())
         environment = {k: v for k, v in os.environ.items() if not k.startswith(('MMW_', 'NMEM_'))}
         environment['MMW_HOME'] = str(self.root / '.mmw')
         result = subprocess.run(['bash', str(lib / 'run_shared_lints.sh')],
@@ -651,8 +651,8 @@ class Wiring(unittest.TestCase):
                    'start_session "$host" "$model" "$effort" "$cwd" "$extra_prompt" "$title"\n}\n')
         self.assert_status(self.check(), 1)
 
-    def test_wiring_registry_mode_call_is_not_exempt(self):
-        registry = self.root / (DISPATCH + '/scripts/locations.py')
+    def test_wiring_capability_locations_mode_call_is_not_exempt(self):
+        registry = self.fixture('locations.py', 'mmw-v2/skills/example/scripts/locations.py')
         registry.write_text(registry.read_text() + '\nBAD = "mmw start 1 worker"\n')
         result = self.check()
         self.assert_status(result, 0)
@@ -701,7 +701,7 @@ class Wiring(unittest.TestCase):
         for name in ('check_wiring.py', 'skill_text.py'):
             shutil.copy(LIB / name, lib / name)
         self.write(DISPATCH + '/scripts/statedir.py',
-                   (LIB.parents[1] / 'skills/dispatch/scripts/statedir.py').read_text())
+                   (LIB.parents[1] / 'skills/mmw/scripts/statedir.py').read_text())
         env = {k: v for k, v in os.environ.items() if not k.startswith(('MMW_', 'NMEM_'))}
         env['MMW_HOME'] = str(state)
         result = subprocess.run([sys.executable, str(lib / 'check_wiring.py')],

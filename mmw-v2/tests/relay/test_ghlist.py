@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts" / "ghlist.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "mmw" / "scripts" / "ghlist.py"
 spec = importlib.util.spec_from_file_location("ghlist_under_test", SCRIPT)
 ghlist = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ghlist)

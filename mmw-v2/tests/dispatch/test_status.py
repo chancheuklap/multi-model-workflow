@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-STATUS_PATH = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts" / "status.py"
+STATUS_PATH = Path(__file__).resolve().parents[2] / "skills" / "mmw" / "scripts" / "status.py"
 # The module under test finds events.py through `MMW_EVENTS_PY` when a caller set it, and
 # `dispatch.sh` exports it to every command it runs — pointing at its own checkout's
 # events.py, not this one's. Tested under it, this suite would read another version's

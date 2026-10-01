@@ -29,8 +29,8 @@
 #   dispatch.sh route <ticket> <child> became-ticket <new ticket>
 #
 # Every script this one calls is found by resolution, from this file's own path:
-# `lease.py` of the ui-acceptance skill, and `verify-ticket.py` and `events.py` of the
-# verify-ticket skill, are in the `scripts/` of their own skills one directory over. One
+# `lease.py` of the ui-acceptance skill and `verify-ticket.py` are resolved through
+# locations.py; `events.py` sits beside this script. One
 # file belongs to the toolbox itself, not to any skill, and is taken from the toolbox
 # root (this skill directory two levels up): `install.sh`. `--tools <directory>` is an
 # override, repeatable: a directory given that way is searched before the resolved
@@ -4683,15 +4683,24 @@ tool() {
   return 1
 }
 SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
-LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/ui-acceptance/scripts/lease.py")"
-VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
-EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
+registered_path() {
+  python3 - "$SKILL_ROOT/scripts" "$SKILLS_ROOT" "$1" <<'PYTHON'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import locations
+print(Path(sys.argv[2]) / getattr(locations, sys.argv[3]))
+PYTHON
+}
+LEASE="$(tool lease.py || printf '%s\n' "$(registered_path UI_ACCEPTANCE_SCRIPTS)/lease.py")"
+VERIFY="$(tool verify-ticket.py || registered_path VERIFY_TICKET_PY)"
+EVENTS="$(tool events.py || printf '%s\n' "$SKILL_ROOT/scripts/events.py")"
 if [ ! -f "$EVENTS" ]; then
   if [ "${1:-}" = where ]; then
     printf 'UNKNOWN no events.py at %s; run bash mmw-v2/install.sh --check\n' "$EVENTS"
     exit 2
   fi
-  refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
+  refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; restore this skill's scripts/events.py or pass --tools <the events.py directory>"
 fi
 # `status.py` folds the same events, and reads them through the same file.
 export MMW_EVENTS_PY="$EVENTS"

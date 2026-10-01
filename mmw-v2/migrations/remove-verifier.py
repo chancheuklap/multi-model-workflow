@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -13,9 +14,14 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DISPATCH_SCRIPTS = ROOT / "mmw-v2" / "skills" / "dispatch" / "scripts"
-UI_ACCEPTANCE_SCRIPTS = ROOT / "mmw-v2" / "skills" / "ui-acceptance" / "scripts"
-sys.path.insert(0, str(DISPATCH_SCRIPTS))
+skills = ROOT / "mmw-v2" / "skills"
+registry = skills.joinpath("mmw", "scripts", "locations.py")
+spec = importlib.util.spec_from_file_location("migration_locations", registry)
+locations = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(locations)
+MODE_SCRIPTS = skills / locations.MODE_SCRIPTS
+UI_ACCEPTANCE_SCRIPTS = skills / locations.UI_ACCEPTANCE_SCRIPTS
+sys.path.insert(0, str(MODE_SCRIPTS))
 sys.path.insert(0, str(UI_ACCEPTANCE_SCRIPTS))
 import models  # noqa: E402
 import statedir  # noqa: E402

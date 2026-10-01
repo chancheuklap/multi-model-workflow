@@ -138,7 +138,7 @@ class SettingsApiTest(unittest.TestCase):
         self.assertEqual((self.home / "models.json").read_bytes(), before)
 
     def test_put_while_locked_is_423(self):
-        scripts = ROOT / "mmw-v2" / "skills" / "dispatch" / "scripts"
+        scripts = ROOT / "mmw-v2" / "skills" / "mmw" / "scripts"
         code = "import sys,time;sys.path.insert(0,sys.argv[1]);import statedir;from pathlib import Path\nwith statedir.locked(Path(sys.argv[2]),purpose='other process'): print('ready',flush=True);time.sleep(10)"
         holder = subprocess.Popen(["python3", "-c", code, str(scripts), str(self.home / "models.lock")], stdout=subprocess.PIPE, text=True)
         self.assertEqual(holder.stdout.readline().strip(), "ready")

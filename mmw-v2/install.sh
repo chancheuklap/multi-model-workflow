@@ -39,7 +39,7 @@
 #
 #   install.sh            装
 #   install.sh --check    只看装没装，不动磁盘。齐了回 0，缺东西或有 stale link 回 1。
-#                         另读 runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
+#                         另读 skills/mmw/scripts/runners/*.sh 的 MMW_USES，问 PATH 上的二进制还认不认；
 #                         读不到帮助页报「没查」，flag 对不上报「不一致」，两句话分开。
 #                         核对复制的 .mmw/bin/hook-launcher 与 mmw-v2/hook-launcher.py 逐字节相同
 #                         且不是软链，并核对各 host 的 hook 都经 hook-launcher；不同报「不一致」，
@@ -489,7 +489,7 @@ done
 # ---------------- hook ----------------
 
 # 技能和 subagent 是 host 去读的，hook 是 host 来调的，所以它要在每个 host 的配置里各有一条。
-# 三样东西：dispatch 的 tool-guard.py 的 pretool gate（五个 host）与 question gate（起 session
+# 三样东西：mmw 的 tool-guard.py 的 pretool gate（五个 host）与 question gate（起 session
 # 的三个 host），同一技能的 turn-guard.py 挂在五个 host 的回合结束事件上（claude、codex、grok
 # 的 Stop，cursor 的 stop，pi 的 agent_settled）。四家写 JSON，pi 写扩展文件；每一处都指向
 # 安装目标家目录下复制的 ~/.mmw/bin/hook-launcher。启动器按 installed-root 找到脚本，
@@ -506,7 +506,7 @@ done
 # 合并而不是覆盖：这几处别人也各装了自己的东西。只认 command 里带本脚本名与 gate 名的
 # 那一条，认得出就换成新的，认不出就在后面添一条，别人的条目一个字不动。
 
-HOOK_SRC="$SELF_SRC/dispatch/scripts/tool-guard.py"
+HOOK_SRC="$SELF_SRC/mmw/scripts/tool-guard.py"
 
 if [ -f "$HOOK_SRC" ]; then
   hooks_ran=1
@@ -1105,6 +1105,9 @@ if mode != "check":
     print(f"已装  {count} 条 hook")
 sys.exit(1 if failed else 0)
 PY
+else
+  echo "缺    ${HOOK_SRC}：找不到 hook 源文件，无法安装或核对 hook；从本 checkout 的 git 历史恢复该文件后重跑 install.sh" >&2
+  exit 1
 fi
 
 if [ "$hooks_ran" -eq 1 ] && [ "$hooks_rc" -eq 0 ]; then
@@ -1300,7 +1303,7 @@ fi
 
 MMW_MODE="$mode" \
 MMW_PASEO_CONFIG="$PASEO_CONFIG" \
-MMW_MODELS_PY="$SELF_SRC/dispatch/scripts/models.py" \
+MMW_MODELS_PY="$SELF_SRC/mmw/scripts/models.py" \
 MMW_PASEO_WORKTREES="$PASEO_WORKTREES_ROOT" \
 MMW_HOME_DIR="$HOME_DIR" \
 MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
@@ -1640,7 +1643,7 @@ import sys
 from pathlib import Path
 
 root = Path(os.environ["MMW_ROOT"])
-runners = root / "skills" / "dispatch" / "scripts" / "runners"
+runners = root / "skills" / "mmw" / "scripts" / "runners"
 failed = False
 
 
@@ -1816,7 +1819,7 @@ adapters = sorted(runners.glob("*.sh")) if runners.is_dir() else []
 if not adapters:
     not_checked(
         f"{runners} 下没有适配器，MMW_USES 一条都没核："
-        f"从这个 checkout 的 git 历史里恢复 skills/dispatch/scripts/runners/"
+        f"从这个 checkout 的 git 历史里恢复 skills/mmw/scripts/runners/"
     )
 for path in adapters:
     binary = path.stem
@@ -2105,7 +2108,7 @@ fi
 # 相同：没有 orchestrator 的项不是 watch。watches.json 在但读不成，与
 # watchdog.night_open 相同，不是没有夜。锁算不算活着，问 statedir.holder。
 report_move_safety() {
-  PYTHONPATH="$SELF_SRC/dispatch/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+  PYTHONPATH="$SELF_SRC/mmw/scripts${PYTHONPATH:+:$PYTHONPATH}" \
   MMW_HOME="${MMW_HOME:-$HOME_DIR/.mmw}" \
   python3 - <<'PY'
 import relay

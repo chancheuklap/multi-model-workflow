@@ -59,9 +59,8 @@ import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-_UI_ACCEPTANCE_SCRIPTS = _HERE.parents[1] / "ui-acceptance" / "scripts"
-if str(_UI_ACCEPTANCE_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_UI_ACCEPTANCE_SCRIPTS))
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
 
 HOSTS = ("claude", "codex", "grok", "cursor", "pi")
 GATES = ("pretool", "question")
@@ -159,6 +158,11 @@ def governed_ticket() -> int | None:
 
 
 try:
+    from locations import UI_ACCEPTANCE_SCRIPTS  # noqa: E402
+
+    _UI_ACCEPTANCE_SCRIPTS = _HERE.parents[1] / UI_ACCEPTANCE_SCRIPTS
+    if str(_UI_ACCEPTANCE_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(_UI_ACCEPTANCE_SCRIPTS))
     from refusal import refusal  # noqa: E402
 except Exception as exc:
     if governed_ticket() is not None:

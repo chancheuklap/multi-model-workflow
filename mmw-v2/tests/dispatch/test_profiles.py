@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent
-MODELS_PY = HERE.parents[1] / "skills" / "dispatch" / "scripts" / "models.py"
+MODELS_PY = HERE.parents[1] / "skills" / "mmw" / "scripts" / "models.py"
 CATALOG = HERE / "catalog.json"
 _spec = importlib.util.spec_from_file_location("mmw_models", MODELS_PY)
 models = importlib.util.module_from_spec(_spec)

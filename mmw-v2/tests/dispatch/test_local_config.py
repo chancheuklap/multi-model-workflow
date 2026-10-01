@@ -11,7 +11,7 @@ from io import StringIO
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-MODELS_PY = HERE.parents[1] / "skills" / "dispatch" / "scripts" / "models.py"
+MODELS_PY = HERE.parents[1] / "skills" / "mmw" / "scripts" / "models.py"
 ALL_CATALOG = HERE / "catalogs" / "all.json"
 STATE_CATALOG = HERE / "catalogs" / "cli.json"
 _spec = importlib.util.spec_from_file_location("local_config_models", MODELS_PY)

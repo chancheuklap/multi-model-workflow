@@ -44,8 +44,10 @@ def load(name: str, directory: Path = VERIFY):
     return module
 
 
-tree = load("issue_tree")
-events = load("events")
+locations = load("locations", MMW.joinpath("skills", "mmw", "scripts"))
+skills = MMW / "skills"
+tree = load("issue_tree", (skills / locations.ISSUE_TREE_PY).parent)
+events = load("events", (skills / locations.EVENTS_PY).parent)
 refusal = load("refusal", UI_ACCEPTANCE)
 
 

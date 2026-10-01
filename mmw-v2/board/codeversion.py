@@ -18,17 +18,14 @@ from pathlib import Path
 BOARD = Path(__file__).resolve().parent
 ROOT = BOARD.parent
 # locations.py lives at skills/<component>/scripts/. The strings it registers are
-# relative to skills/, and the first candidate is absent until that directory exists.
-_CANDIDATES = (
-    ("skills", "mmw", "scripts", "locations.py"),
-    ("skills", "dispatch", "scripts", "locations.py"),
-)
-_DISPATCH_SCRIPTS = ("ghlist.py", "models.py", "statedir.py")
-_REGISTERED = ("DISPATCH_SCRIPTS", "EVENTS_PY", "ISSUE_TREE_PY")
+# relative to skills/.
+_CANDIDATES = (("skills", "mmw", "scripts", "locations.py"),)
+_MODE_SCRIPTS = ("ghlist.py", "models.py", "statedir.py")
+_REGISTERED = ("MODE_SCRIPTS", "EVENTS_PY", "ISSUE_TREE_PY")
 
 
 class LocationsMissing(RuntimeError):
-    """Neither candidate `locations.py` is on disk, or the one found cannot be loaded."""
+    """The registered `locations.py` is absent or cannot be loaded."""
 
 
 def locations_path() -> Path:
@@ -36,9 +33,8 @@ def locations_path() -> Path:
     found = [path for path in candidates if path.is_file()]
     if found:
         return found[0]
-    first, second = candidates
     raise LocationsMissing(
-        f"neither {first} nor {second} exists; the task board cannot load its scripts: "
+        f"{candidates[0]} does not exist; the task board cannot load its scripts: "
         "run bash mmw-v2/install.sh --check"
     )
 
@@ -62,14 +58,14 @@ def resolved_scripts() -> dict[str, Path]:
             "its scripts: run bash mmw-v2/install.sh --check"
         )
     skills = path.parents[2]
-    dispatch = skills / module.DISPATCH_SCRIPTS
+    dispatch = skills / module.MODE_SCRIPTS
     resolved = {
         "locations": path,
         "events": skills / module.EVENTS_PY,
         "issue_tree": skills / module.ISSUE_TREE_PY,
-        "dispatch_scripts": dispatch,
+        "mode_scripts": dispatch,
     }
-    for name in _DISPATCH_SCRIPTS:
+    for name in _MODE_SCRIPTS:
         resolved[name.removesuffix(".py")] = dispatch / name
     return resolved
 
