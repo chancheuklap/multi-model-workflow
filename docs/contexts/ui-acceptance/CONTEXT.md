@@ -8,19 +8,19 @@ How a UI is proved correct by machine: the design package a Claude Design projec
 
 **Claude Design**:
 The design tool whose project is the only source of the design: pages are drawn and signed off there, and the repository's **design package** is written only by **pull**.
-_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
+_Home_: `mmw-v2/skills/design-pages/references/set-up-and-sign-off.md`
 
 **Claude Design agent**:
 The agent inside one Claude Design project, separate from the `design-pages` session: it sees only its own project and reads the repository only through Claude Design's GitHub connection, reads the project-root `CLAUDE.md` on every conversation, and does the work `task.md` lists when the user says to start or continue.
-_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`, `mmw-v2/skills/design-pages/references/design-system.md`
+_Home_: `mmw-v2/skills/design-pages/references/set-up-and-sign-off.md`, `mmw-v2/skills/design-pages/references/design-system.md`
 
 **design system**:
 A Claude Design project holding a product's look — variables, fonts, icons and reusable parts — from which the pages of a bound **page project** are drawn; that project holds a copy of it under `_ds/<folder>/`, which the `design-pages` session writes when it creates the project and refreshes after the design system changes. It holds no page regions, **example data** or product logic.
-_Home_: `mmw-v2/skills/design-pages/references/template-design-system-claude-md.md`, `mmw-v2/skills/design-pages/references/edit-pages.md`
+_Home_: `mmw-v2/skills/design-pages/references/template-design-system-claude-md.md`, `mmw-v2/skills/design-pages/references/set-up-and-sign-off.md`
 
 **page project**:
 A Claude Design project holding a product's pages, as opposed to a **design system** project; bound to a design system when the product has one.
-_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`, `mmw-v2/skills/design-pages/references/design-system.md`
+_Home_: `mmw-v2/skills/design-pages/references/set-up-and-sign-off.md`, `mmw-v2/skills/design-pages/references/design-system.md`
 
 **part** (design system):
 One reusable element of a **design system** (a button kind, a status mark, a list row, a card shell): one class name with its variants, shown on its own card, which renders every state of the part. Distinct from the `<element>` half of a **`data-ui` id**, and from the **Reusable parts** section of an experiment's `README.md`.
@@ -30,9 +30,9 @@ _Home_: `mmw-v2/skills/design-pages/references/template-design-system-claude-md.
 The table at the end of a design system's `readme.md` recording each value it unified, the code values it joined, and its class name; the product follows it once pages drawn from the design system are pulled.
 _Home_: `mmw-v2/skills/design-pages/references/design-system.md`
 
-**edit pages**:
+**set up and sign off**:
 The `design-pages` skill's moment around the editing of pages in Claude Design: creating the project, writing `task.md` for the **Claude Design agent**, refreshing `_ds/` after a design-system change, and taking the sign-off. The pages themselves are edited inside Claude Design, by the user and that agent; comments sent to Claude and this session's own drawing are in `references/draw.md`, bringing an existing product in is in `references/design-system.md`.
-_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`
+_Home_: `mmw-v2/skills/design-pages/references/set-up-and-sign-off.md`
 
 **pull**:
 The `design-pages` skill's moment, and its command, that writes the **design package** from a signed-off Claude Design project.
@@ -40,7 +40,7 @@ _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
 **pull report**:
 `pull-report.md` in the **design package**, written at every **pull** under the headings `设计检查`, `覆盖`, `改动分类` and `本地改过的说明`; `改动分类` (`增删控件或改流转` or `只改外观或文案`) decides which skill the pull hands to. Its design problems do not fail the command.
-_Home_: `mmw-v2/skills/design-pages/references/pull.md`
+_Home_: `mmw-v2/skills/design-pages/references/pull.md`, `mmw-v2/skills/mmw/playbooks/design-a-ui.md`
 
 **`MMW_DESIGN_PREVIEW_URL`**:
 The environment variable pull sets to the MCP `render_preview` result's `serve_url`, the short-lived address `pull_design.py` reads to render a page offline; never printed or written to a file.
@@ -48,7 +48,7 @@ _Home_: `mmw-v2/skills/design-pages/references/pull.md`
 
 **`task.md`**:
 The Claude Design project-root file this session writes, listing the work its own agent does now, one checkbox item per piece of work; it never overrides `CLAUDE.md`.
-_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`, `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+_Home_: `mmw-v2/skills/design-pages/references/set-up-and-sign-off.md`, `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **`state-list.md`**:
 The Claude Design project-root file, when present, listing the regions and states to draw, one `### <region>` heading per `Component ·` page; a page and the list disagreeing is put to the user, never silently edited.
@@ -56,7 +56,7 @@ _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **`ui-ids.md`**:
 The Claude Design project-root file, when present, listing the `data-ui` ids a product already carries, collected by reading every `[data-ui]` its story pages render; a page drawn for such a product reuses those ids.
-_Home_: `mmw-v2/skills/design-pages/references/edit-pages.md`, `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
+_Home_: `mmw-v2/skills/design-pages/references/set-up-and-sign-off.md`, `mmw-v2/skills/design-pages/references/template-project-claude-md.md`
 
 **`CLAUDE.md`** (Claude Design project):
 The instruction file at a Claude Design project's root — a page project's page conventions, or a design system's sources and unification rules — that only that project's **Claude Design agent** reads, on every conversation. Distinct from a repository's own `CLAUDE.md` (`docs/contexts/toolbox/CONTEXT.md`), which holds only `@AGENTS.md`.
@@ -64,11 +64,11 @@ _Home_: `mmw-v2/skills/design-pages/references/template-project-claude-md.md`, `
 
 **state list**:
 The fixed heading `## State list` in a UI prototype's leaf `README.md`: every state of the winning variant, one heading per **region**. On a wayfinder map it is in the **design ticket**'s leaf `README.md`; for an existing product brought into Claude Design, in `prototypes/<effort>/README.md`.
-_Home_: `mmw-v2/upstream/skills/engineering/prototype/UI.md`, `mmw-v2/skills/design-pages/SKILL.md`
+_Home_: `mmw-v2/skills/design-pages/references/state-list-format.md`, `mmw-v2/skills/design-pages/SKILL.md`
 
 **design ticket**:
 The wayfinder ticket that produces the **design package** for a destination with a UI, worked with the `design-pages` skill. It blocks the **alignment ticket**.
-_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-remake.md`
+_Home_: `mmw-v2/skills/mmw/references/ui-and-remake-tickets.md`
 
 **design page**:
 A `.dc.html` page of a Claude Design project, or of the **design package** pull writes from it. **Component page** and **App page** are the two kinds acceptance reads; a page under any other name (notes, overviews, explorations) is not pulled into acceptance.
@@ -128,8 +128,8 @@ A DESIGN.md-format file a consuming repository may keep. It is not the design so
 _Home_: `docs/adr/0029-claude-design-is-the-design-source.md`
 
 **prototype**:
-Code that answers one design question, kept under `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`. A UI prototype is several structurally different variants on one real route, of which the user picks the winner, handed to Claude Design rather than folded into the real code directly.
-_Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`
+Code that answers one design question, kept under `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/` with its question and verdict in the leaf `README.md`; the real code is written with it as reference, not promoted from it. A UI prototype is several structurally different variants on one real route, of which the user picks the winner; **Prototype** hands that winner to Claude Design through **Design a UI**, and a logic or experiment verdict to a spec or a small change.
+_Home_: `mmw-v2/upstream/skills/engineering/prototype/SKILL.md`, `mmw-v2/skills/mmw/playbooks/prototype.md`
 
 **leaf directory**:
 `prototypes/<effort>/<issue>/<UI|LOGIC|EXP>/`, one per prototype kind, `<issue>` the ticket number or a short feature name when there is no ticket. Its `README.md` is read to its verdict as a `## Read first` item.
@@ -191,7 +191,7 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/story-parity.md`
 **user story**:
 One line of a spec's `## User Stories`.
 _Avoid_: story (for this; a story is the product page the story oracle opens)
-_Home_: `mmw-v2/upstream/skills/engineering/to-spec/SKILL.md`
+_Home_: `mmw-v2/skills/to-spec/SKILL.md`
 
 **story oracle**:
 `story-parity.py` of the ui-acceptance skill, which decides **element parity** between a product story and the design page it was built from.
@@ -289,7 +289,7 @@ _Home_: `mmw-v2/skills/write-screen-contract/references/screen-contract-format.m
 
 **alignment ticket**:
 The last ticket of a wayfinder map whose destination has a UI, blocked by every decision ticket and by the **design ticket**, and resolved by running `write-screen-contract` until every row's `gap` is `aligned`.
-_Home_: `mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-remake.md`, `mmw-v2/upstream/skills/engineering/wayfinder/SKILL.md`, `mmw-v2/skills/write-screen-contract/SKILL.md`
+_Home_: `mmw-v2/skills/mmw/references/ui-and-remake-tickets.md`, `mmw-v2/skills/mmw/playbooks/design-a-ui.md`
 
 **gap list**:
 The rows of a screen contract whose `gap` is `design-only` or `backend-only`, which `write-screen-contract` puts to the user to settle.
@@ -378,6 +378,10 @@ _Home_: `mmw-v2/skills/ui-acceptance/references/journey.md`
 
 **`checks`**:
 The optional `.mmw/target.json` key listing the repository's own commands, which `--closeout` runs after an `ALL MET` draft is accepted and before the ticket closes, posting them as a `ticket.checked` of run `repo-checks`.
+_Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
+
+**`delivery`**:
+The optional `.mmw/target.json` key saying how the repository takes a finished change made outside a ticket. No script delivers the change by it; the agent delivering the change reads it.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`stop`**:
