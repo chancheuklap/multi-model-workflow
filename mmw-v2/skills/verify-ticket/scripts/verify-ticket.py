@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
-"""Run a ticket's acceptance criteria and post the result back to the ticket.
-
-The ticket is the only state. Every run reads the `## Acceptance criteria` and
-`## Owns` sections fresh from the issue, writes them to a ledger, hands
-that ledger to unlazy's `gate-check`, and posts the result back as one
-`ticket.checked` event. Nothing is cached and no file is left behind.
-"""
+"""Run and print ticket criteria, lint tickets, and publish specs or ticket drafts."""
 
 from __future__ import annotations
 
 import argparse
-import fcntl
 import fnmatch
 import hashlib
 import importlib.util
@@ -22,10 +15,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
-from collections import Counter, defaultdict, deque
+from collections import defaultdict, deque
 from collections.abc import Callable
-from contextlib import contextmanager
 from pathlib import Path
 from typing import NamedTuple
 
@@ -55,11 +46,8 @@ LEDGER_NAME = "AC.md"
 # The summary line gate-check prints on its own stdout.
 SUMMARY_RE = re.compile(r"^(ALL MET|UNMET:|HANDOFF REQUIRED:)")
 GATE_LINE_RE = re.compile(r"^- \[( |x|X)\] ([A-Za-z0-9][A-Za-z0-9._-]*):")
-CAT_IN_TICKET_ITEM_RE = re.compile(
-    r"^- (Standards|Spec|Tests|UI) \[([^\]]+)\] (\S+):(\d+) — (.+?) — source: (.+)$")
 IMPLEMENTATION_DECISION_HEADING_RE = re.compile(r"^###\s+(\d+)\.")
 SUB_ISSUE_KINDS = events.CHILD_KINDS
-FILL = "<fill>"
 # The layer label every issue this pipeline opens carries beside its queue label: which
 # layer of the tree it is, so a reader of the board never counts nesting to find out.
 CLASS_LABELS = {
@@ -95,12 +83,6 @@ PRODUCT_JUDGES = ("journey.py", "lease.py")
 # Criteria whose CHECK names one of these are left off the claim-time baseline run:
 # they start the product or the story service. Recorded on the event as `skipped`.
 BASELINE_SKIP_JUDGES = (*PRODUCT_JUDGES, "story-parity.py")
-# How long a reverify waits for a product slot before it hands back exit 3, and how often
-# it asks again in between. The bound stays under the time a host lets a command run
-# before it moves it to the background; a reverify given back 3 is run again, and the wait
-# goes on. The worker's own run does not wait here: it is woken when a slot is given back.
-SLOT_WAIT_S = int(os.environ.get("MMW_SLOT_WAIT_S", "90"))
-SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
 
 # A criterion is abandoned for one of three reasons. `failed` ran and did not pass;
 # `stuck` never ran or cannot be done; the two are told apart for whoever reads the
@@ -108,7 +90,6 @@ SLOT_BEAT_S = int(os.environ.get("MMW_SLOT_BEAT_S", "10"))
 # choose, and is the only one that still closes. How many rounds a criterion gets is
 # the worker's own judgement, said on the `ABANDON:` line.
 ABANDON_KINDS = events.ABANDON_KINDS
-HANDOFF_KINDS = ("failed", "stuck")
 # Seconds one `CHECK:` may run. A ticket raises it per criterion with `TIMEOUT:`; the
 # worker's own run and final `--reverify` read the same lines, so the two
 # never disagree about it.
@@ -254,149 +235,6 @@ def gh_login() -> str:
     return out.stdout.strip()
 
 
-class SelfRead(NamedTuple):
-    """One answer from `dispatch.sh self` of the mode, resolved through locations.py.
-
-    `returncode` is None when `path` is not a file. `error` is set when the script could
-    not be run. `stdout` and `stderr` are whatever it printed.
-    """
-
-    path: str
-    returncode: int | None
-    stdout: str
-    stderr: str
-    error: str | None
-
-
-def read_self() -> SelfRead:
-    """Ask `dispatch.sh self` who this process is. Patched out in tests."""
-    script = skills / locations.MODE_SCRIPTS / "dispatch.sh"
-    path = str(script)
-    if not script.is_file():
-        return SelfRead(path, None, "", "", None)
-    try:
-        out = subprocess.run(["bash", path, "self"], capture_output=True, text=True,
-                             timeout=60, env=GH_ENV)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return SelfRead(path, None, "", "", str(exc))
-    return SelfRead(path, out.returncode, out.stdout, out.stderr, None)
-
-
-def own_session(read: SelfRead) -> tuple[str, str] | None:
-    """(runner, session) as `read` reports it, or None when it names neither.
-
-    Patched out in tests. `run_preflight` passes the `read_self` answer it just took.
-    """
-    if read.error is not None or read.returncode != 0:
-        return None
-    runner, _, session = read.stdout.strip().partition("\t")
-    if runner and session:
-        return (runner, session)
-    return None
-
-
-# `refusal.py` of the ui-acceptance skill. One line is capped here, above a hook's
-# 256-character deny reason: `refusal` trims the cause and keeps the next step whole.
-_REFUSAL_PY = HERE.parents[1] / "ui-acceptance" / "scripts" / "refusal.py"
-_LINE_LIMIT = 2000
-
-
-def _format_refusal(what: str, why: str, next_step: str) -> str:
-    """The three parts on one line. With no `refusal.py`, the parts joined as they stand."""
-    if not _REFUSAL_PY.is_file():
-        return f"{what} {why} {next_step}"
-    return _load("mmw_refusal", _REFUSAL_PY).refusal(what, why, next_step, limit=_LINE_LIMIT)
-
-
-def unnamed_session_line(number: int, read: SelfRead) -> str:
-    """Why this refusal could not name its session, and what to do next.
-
-    The event is already posted without `runner` and `session`, so the hold does not end.
-    """
-    quoted = " ".join(f"{read.stdout} {read.stderr}".split()) or "no output"
-    if read.error:
-        what = f"dispatch.sh self at {read.path} could not be run ({read.error})."
-    elif read.returncode is None:
-        what = f"no dispatch.sh at {read.path}."
-    else:
-        what = f"dispatch.sh self exit {read.returncode}: {quoted}."
-    why = f"This refusal does not end this session's hold on #{number}."
-    next_step = f"dispatch.sh retract {number}, or during a night tell the orchestrator."
-    return _format_refusal(what, why, next_step)
-
-
-def assign_self(number: int) -> None:
-    """Claim the ticket. Patched out in tests."""
-    subprocess.run(["gh", "issue", "edit", str(number), "--add-assignee", "@me"], check=True, env=GH_ENV)
-
-
-def close_ticket(number: int) -> None:
-    """Close the ticket, then take it out of the agent queue and take its claim off.
-
-    The close comes first because it is the change `ticket.passed` announces: when it
-    fails nothing has changed, and the closeout can simply be run again. The assignee
-    comes off in the same edit as the label, for the same reason it does on the hand back
-    to triage: a claim outlives the session that made it, and only that session knows it
-    is done. `advance`'s give-a-claim-back reads open tickets alone, so a claim left on a
-    closed one is one nothing else ever takes off — an edit that fails after the close is
-    said on stderr, and the close stands. Patched out in tests.
-    """
-    subprocess.run(["gh", "issue", "close", str(number), "--reason", "completed"], check=True, env=GH_ENV)
-    edit = subprocess.run(
-        ["gh", "issue", "edit", str(number),
-         "--remove-label", "ready-for-agent", "--remove-assignee", "@me"],
-        capture_output=True, text=True, env=GH_ENV,
-    )
-    if edit.returncode != 0:
-        sys.stderr.write(f"#{number} is closed, and its ready-for-agent label or your claim could "
-                         f"not be taken off: {' '.join((edit.stderr or edit.stdout).split())[:200]}\n")
-
-
-def unannounced_change(ticket: dict, comments: list[str], me: str, first: str) -> str | None:
-    """The state change a closeout of this worker's round made without posting its event:
-    "closed" or "handed", or None.
-
-    A closeout makes the change first and posts the event after it, so a post that fails
-    leaves a ticket closed (or handed back) with no `ticket.passed` (or `ticket.returned`)
-    — which the ordinary checks then refuse, since the ticket is no longer open and yours.
-    It is this round's when the newest `ticket.claimed` is yours and no closing event
-    follows it; a ticket closed as anything but completed is somebody else's decision.
-    """
-    state = events.fold(comments)
-    names = [e["event"] for e in state["events"]]
-    if "ticket.claimed" not in names or state.get("claimant") != me:
-        return None
-    last = len(names) - 1 - names[::-1].index("ticket.claimed")
-    if any(name in ("ticket.passed", "ticket.returned") for name in names[last + 1:]):
-        return None
-    labels = {label.get("name") for label in ticket.get("labels") or []}
-    assigned = any(a.get("login") == me for a in ticket.get("assignees") or [])
-    if first == "ALL MET" and ticket.get("state") == "CLOSED" \
-            and str(ticket.get("stateReason") or "").upper() == "COMPLETED":
-        return "closed"
-    if first.startswith("HANDOFF REQUIRED") and ticket.get("state") == "OPEN" and not assigned \
-            and "needs-triage" in labels and "ready-for-agent" not in labels:
-        return "handed"
-    return None
-
-
-def hand_back_for_triage(number: int) -> None:
-    """Put the ticket back in the queue nobody has judged yet. Patched out in tests.
-
-    A worker that could not finish has not established what the ticket needs next — a
-    person, more information, another agent, or nothing at all. `needs-triage` is that
-    state, and it is the one queue a skill picks up on its own.
-
-    A ticket still assigned to the worker that gave up is a ticket `status.py`'s
-    frontier will not dispatch again — it takes only unassigned tickets — so the
-    assignee comes off in the same edit as the label.
-    """
-    subprocess.run(
-        ["gh", "issue", "edit", str(number),
-         "--remove-label", "ready-for-agent", "--add-label", "needs-triage",
-         "--remove-assignee", "@me"],
-        check=True, env=GH_ENV,
-    )
 
 
 def fetch_blocked_by(number: int) -> list[int]:
@@ -781,7 +619,7 @@ def check_timeout(body: str) -> int:
     return max(values)
 
 
-# ------------------------------------------------------------- closing comment
+# ------------------------------------------------------------ criterion ledger
 
 def parse_criteria(text: str) -> list[dict]:
     """Every criterion in `text`, with the attributes written under it.
@@ -869,6 +707,13 @@ def parse_abandons(text: str) -> list[dict]:
     return out
 
 
+def criteria_results(criteria: list[dict]) -> list[dict]:
+    """Results of a parsed ledger: a tick without evidence is not met."""
+    return [{"id": c["id"],
+             "met": bool(c.get("ticked") and c.get("evidence") and c["evidence"] != "pending"),
+             "evidence": c.get("evidence") or "pending"} for c in criteria]
+
+
 def tally(criteria: list[dict], abandons: list[dict]) -> dict:
     """Recount the draft. A tick with `EVIDENCE: pending` is unmet, not met."""
     abandoned_ids = {a["ac"] for a in abandons}
@@ -882,165 +727,6 @@ def tally(criteria: list[dict], abandons: list[dict]) -> dict:
         else:
             counts["unmet"] += 1
     return counts
-
-
-def newest_worker_started(number: int, comments: list) -> tuple[dict | None, str | None]:
-    """The newest readable `worker.started` payload, or the fact that none exists."""
-    record = events.newest(comments, "worker.started")
-    if record:
-        return record["payload"], None
-    return None, (f"#{number} carries no readable worker.started event; run "
-                  f"`dispatch.sh start {number} worker` so the ticket records one")
-
-
-def worker_started_field(number: int, comments: list,
-                         field: str) -> tuple[str | None, str | None]:
-    """One required field of the newest readable `worker.started`."""
-    started, problem = newest_worker_started(number, comments)
-    if problem:
-        return None, problem
-    value = started.get(field)
-    if isinstance(value, str) and value:
-        return value, None
-    return None, (f"#{number}'s newest worker.started carries no `{field}`; run "
-                  f"`dispatch.sh start {number} worker` again so it records one")
-
-
-def draft_summary(draft: str) -> tuple[str, dict]:
-    """The first line and the `Counts:` line's numbers `--closeout` writes for this
-    draft: whichever of `ALL MET` or `HANDOFF REQUIRED: …` its `ABANDON:` lines and
-    unmet criteria make true, and the ledger's own count. A worker need not get this
-    arithmetic right by hand; the closeout computes it from the draft every time.
-    """
-    criteria = parse_criteria(draft)
-    abandons = parse_abandons(draft)
-    counts = tally(criteria, abandons)
-    blocking = sorted({a["kind"] for a in abandons if a["kind"] in HANDOFF_KINDS})
-    if counts["unmet"] or blocking:
-        kinds = ", ".join(k for k in HANDOFF_KINDS if k in blocking)
-        first = (f"HANDOFF REQUIRED: {counts['abandoned']} abandoned ({kinds}), "
-                 f"{counts['unmet']} unmet, {counts['met']} met of {counts['total']}")
-    else:
-        first = "ALL MET"
-    return first, counts
-
-
-def rewrite_summary(draft: str, first: str, counts: dict) -> str:
-    """`draft` with its first line and `Counts:` line replaced by what `draft_summary`
-    computed, so the comment that posts states only what the draft's own `ABANDON:`
-    lines and criteria make true. A `Counts:` line the draft lacks is added."""
-    lines = draft.split("\n")
-    if lines:
-        lines[0] = first
-    counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
-                   f"{counts['abandoned']} abandoned of {counts['total']}")
-    for i, line in enumerate(lines):
-        if line.startswith("Counts:"):
-            lines[i] = counts_line
-            break
-    else:
-        lines.append(counts_line)
-    return "\n".join(lines)
-
-
-def draft_problems(draft: str, comments: list[str]) -> list[str]:
-    """Everything wrong with the draft that its own `ABANDON:` lines cannot settle, in
-    the order a reader would hit it. The first line and `Counts:` are computed by
-    `draft_summary`, not checked here."""
-    if not draft.strip():
-        return ["the draft is empty"]
-    problems = []
-    if FILL in draft:
-        problems.append("the draft still contains `<fill>`; replace the placeholders "
-                        "in `skipped:`, `Review findings:`, `Green before work:` and "
-                        "`Decisions I made on my own`")
-
-    criteria = parse_criteria(draft)
-    ids = [c["id"] for c in criteria]
-    abandons = parse_abandons(draft)
-    for a in abandons:
-        if a["kind"] not in ABANDON_KINDS:
-            problems.append(f"ABANDON: {a['ac']} has kind `{a['kind']}`; "
-                            f"it must be one of {', '.join(ABANDON_KINDS)}")
-        if a["ac"] not in ids:
-            problems.append(f"ABANDON: {a['ac']} points at a criterion the draft does not list")
-
-    for c in criteria:
-        if c.get("stray"):
-            problems.append(f"{c['id']} continues its CHECK onto another line; wrap the "
-                            f"command in a fenced block under `CHECK:` instead")
-        if c["ticked"] and (not c["evidence"] or c["evidence"] == "pending"):
-            problems.append(f"{c['id']} is ticked but its EVIDENCE is pending; "
-                            f"either fill in what proved it or untick it")
-
-    return problems
-
-
-def verified_problems(draft: str, body: str, comments: list[str], first: str) -> list[str]:
-    """What an `ALL MET` draft lacks in the worker's final run. `first` is the one
-    `draft_summary` computed, not necessarily the draft's own literal first line."""
-    problems = []
-    if first != "ALL MET":
-        return problems
-
-    record = newest_run(comments, "reverify", actor="worker")
-    reverify = record["payload"] if record else None
-    if reverify is None:
-        problems.append("the ticket carries no worker reverify `ticket.checked` event. Run "
-                        "`verify-ticket.py <n> --reverify --actor worker` after the final "
-                        "commit, or close out as `HANDOFF REQUIRED`")
-    else:
-        # A run is generated from the ticket body, which carries no `ABANDON:` line, so a
-        # criterion the draft abandons as `decision` still runs and still reports unmet.
-        # That unmet is the one this draft is allowed to carry: the sub-issue is open and
-        # the ticket closes on it. Any other unmet is a claim the draft cannot make.
-        decided = {a["ac"] for a in parse_abandons(draft) if a["kind"] == "decision"}
-        result = reverify.get("result")
-        unmet = list(reverify.get("failed") or [])
-        covered = result == "unmet" and unmet and set(unmet) <= decided
-        if result != "met" and not covered:
-            problems.append("the worker's final reverify still reports unmet or abandoned "
-                            "criteria. Add the required `ABANDON:` lines and close out as "
-                            "`HANDOFF REQUIRED`")
-        if reverify.get("commit") != git("rev-parse", "HEAD"):
-            problems.append(f"the worker's final reverify is on {reverify.get('commit')} and "
-                            "HEAD has moved on. Run `--reverify --actor worker` on HEAD")
-        # The criteria the worker ran must be the criteria the ticket now states. A
-        # ticket may legitimately rewrite one — a decision changed what it must do — but
-        # then what stands is a verification of something else, and the final run runs again.
-        if reverify.get("shape") != shape_digest(section(body, "Acceptance criteria")):
-            problems.append("the acceptance criteria have changed since the worker's final "
-                            "run: run `--reverify --actor worker` again so the run and the "
-                            "ticket agree")
-    return problems
-
-
-def event_problems(comments: list) -> list[str]:
-    """Comments on the ticket whose event cannot be read.
-
-    The closeout decides from the ticket's events, so a comment that carries one
-    this pipeline cannot read is a question left unanswered, not a comment to skip.
-    """
-    return [f"comment {item['comment']} (`{item['line'][:50]}`) carries an event this "
-            f"pipeline cannot read: {item['reason']}"
-            for item in events.fold(comments)["unreadable"]]
-
-
-def git_problems(base: str, root: Path | None = None) -> list[str]:
-    """The repository conditions a ticket must be in to close, plus one warning."""
-    problems = []
-    dirty = dirty_tracked(root)
-    if dirty:
-        problems.append(f"{len(dirty)} tracked files have uncommitted changes; "
-                        f"commit them so the closing comment names a real commit")
-    if not is_ancestor(base, "HEAD", root):
-        problems.append(f"this branch does not contain its base {base}; run `git merge {base}`. "
-                        f"Do not rebase because the ticket's recorded runs name commits")
-        return problems
-    fork = git("merge-base", base, "HEAD", cwd=root)
-    if fork and not git("diff", "--name-only", f"{fork}..HEAD", cwd=root):
-        sys.stderr.write("warning: this branch changes no files since it left its base branch\n")
-    return problems
 
 
 # ---------------------------------------------------------------- ticket graph
@@ -1170,7 +856,7 @@ def compute_levels(entries: list[dict]) -> dict:
 def in_batch(entries: list[dict]) -> list[dict]:
     """The same entries with every dependency outside the batch dropped.
 
-    A blocking edge to another spec's ticket is a real edge, and `--preflight`,
+    A blocking edge to another spec's ticket is a real edge, and `ticket_state.py --claim`,
     `dispatch.sh advance` and `status.py` all honour it — but it is not an edge this graph can
     order, because the other end has no entry here. Left in, it would hold that ticket's
     in-degree above zero forever, which Kahn's algorithm reads as a cycle and
@@ -1208,7 +894,7 @@ def blockers_not_tickets(entries: list[dict]) -> list[str]:
 def cross_batch_findings(entries: list[dict]) -> list[str]:
     """Blocking edges to tickets under another spec.
 
-    Not a fault to fix: it is the shape a layered delivery has, and `--preflight`,
+    Not a fault to fix: it is the shape a layered delivery has, and `ticket_state.py --claim`,
     `dispatch.sh advance` and `status.py` all refuse to start a ticket while one of these is
     open. It is reported because the start levels are built without it, so a reader who
     took them for the whole truth would miss that one of these tickets is waiting on a
@@ -1244,7 +930,7 @@ def ticket_entries(numbers: list[int]) -> list[dict]:
     """One entry per ticket: the blocking edges the tracker records.
 
     `dependencies` is what the tracker records, and it is the graph every check below
-    runs on — the same edges `--preflight` refuses on and `dispatch.sh advance` dispatches from.
+    runs on — the same edges `ticket_state.py --claim` refuses on and `dispatch.sh advance` dispatches from.
 
     A dependency outside this batch is kept, and `outside` says what was found at the
     other end of it: `{number: {"spec": …, "state": …}}`. One lookup per distinct
@@ -1271,19 +957,6 @@ def refuse(message: str) -> int:
     return 2
 
 
-def outside_owns_from(text: str) -> str | None:
-    """The `Outside Owns:` line in `text`, stripped, or `None` when absent."""
-    for line in text.splitlines():
-        if line.startswith("Outside Owns:"):
-            return line.strip()
-    return None
-
-
-def markdown_h2(text: str) -> list[str]:
-    """The `## ` heading titles in document order."""
-    return [line[3:].strip() for line in text.splitlines() if line.startswith("## ")]
-
-
 def glob_covers(pattern: str, path: str) -> bool:
     """Whether an `## Owns` glob covers `path`."""
     pattern = pattern.rstrip("/")
@@ -1291,94 +964,6 @@ def glob_covers(pattern: str, path: str) -> bool:
         root = pattern[:-3]
         return path == root or path.startswith(root + "/")
     return fnmatch.fnmatch(path, pattern) or path == pattern
-
-
-def spec_judgement(review: str, path: str) -> str | None:
-    """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment.
-
-    `None` when that axis names no line for the file — the run does not invent a
-    judgement the reviewer did not write.
-    """
-    spec_axis = re.split(r"^## Tests", review, maxsplit=1, flags=re.M)[0]
-    spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
-    for line in spec_axis.splitlines():
-        if path in line:
-            if "should not" in line:
-                return "should not"
-            if "reasonable" in line:
-                return "reasonable"
-    return None
-
-
-def decisions_line_for(decisions: str | None, path: str, number: int) -> str:
-    """The sentence in the `DECISIONS` comment that names `path`."""
-    if not decisions:
-        return f"no DECISIONS comment on #{number} yet"
-    for line in decisions.splitlines():
-        stripped = line.strip()
-        if path in stripped and not stripped.startswith("Outside Owns:"):
-            return stripped.lstrip("- ").strip()
-    return path
-
-
-def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
-    """Criteria from the ticket body, ticks and evidence from one run's `criteria`."""
-    base = parse_criteria("\n".join(section(body, "Acceptance criteria")))
-    ran = {c.get("id"): c for c in (run or {}).get("criteria") or [] if isinstance(c, dict)}
-    for item in base:
-        if item["id"] in ran:
-            item["ticked"] = bool(ran[item["id"]].get("met"))
-            if ran[item["id"]].get("evidence"):
-                item["evidence"] = str(ran[item["id"]]["evidence"])
-    return base
-
-
-def in_ticket_findings(review: str, comment: int | str | None = None,
-                       next_step: str = "correct the review report before writing a "
-                                        "closeout draft") -> list[str]:
-    """Each finding verbatim from `## In-ticket`; refuse a nonempty unknown row.
-
-    A row carries its category and source, and its source and any unverified note remain
-    in the one line handed to the worker. `next_step` ends the refusal: the reviewer
-    posting the report and the worker drafting its closeout each have a different thing
-    to do about the row.
-    """
-    rows = [row.strip() for row in section(review, "In-ticket")
-            if row.strip() and not re.fullmatch(r"<!-- mmw \{.*\} -->", row.strip())]
-    if rows in (["None"], ["None."]) or not rows:
-        return []
-    found = []
-    for row in rows:
-        if CAT_IN_TICKET_ITEM_RE.fullmatch(row):
-            found.append(row)
-        else:
-            label = f"comment {comment}" if comment is not None else "review report"
-            raise ValueError(f"{label} (`{review.splitlines()[0] if review else '(empty)'}`) "
-                             f"has an unrecognized ## In-ticket row: {row}; {next_step}")
-    return found
-
-
-def review_findings_block(review: str, comment: int | str | None = None) -> str:
-    items = in_ticket_findings(review, comment)
-    if not items:
-        return "Review findings:\nNone"
-    lines = ["Review findings:"]
-    for row in items:
-        lines.append(f"{row} — {FILL}")
-    return "\n".join(lines)
-
-
-def green_before_work_block(comments: list) -> str:
-    record = newest_run(comments, "baseline")
-    if record is None:
-        return "Green before work:\nnot run: no baseline `ticket.checked`"
-    ids = []
-    for item in record["payload"].get("criteria") or []:
-        if isinstance(item, dict) and item.get("met") and item.get("id"):
-            ids.append(str(item["id"]))
-    if not ids:
-        return "Green before work:\nNone"
-    return "Green before work:\n" + "\n".join(f"- {i}: {FILL}" for i in ids)
 
 
 def criterion_block(item: dict) -> str:
@@ -1397,228 +982,6 @@ def criterion_block(item: dict) -> str:
     evidence = item["evidence"] or "pending"
     lines.append(f"  EVIDENCE: {evidence}")
     return "\n".join(lines)
-
-
-def run_decisions(number: int, path: Path) -> int:
-    """Post the two-section file as a `DECISIONS` comment, or refuse."""
-    comments = fetch_comments(number)
-    if events.newest(comments, "worker.decided") is not None:
-        return refuse(f"#{number} already carries a DECISIONS comment")
-    text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    headings = markdown_h2(text)
-    expected_headings = ["Decisions I made on my own", "Outside Owns"]
-    if headings != expected_headings:
-        missing = [h for h in expected_headings if h not in headings]
-        if missing:
-            return refuse("the file is missing section"
-                          + ("s " if len(missing) > 1 else " ")
-                          + " and ".join(f"`{h}`" for h in missing))
-        extra = [h for h in headings if h not in expected_headings]
-        if extra:
-            return refuse("the file has extra section"
-                          + ("s " if len(extra) > 1 else " ")
-                          + " and ".join(f"`{h}`" for h in extra)
-                          + "; it must have exactly two sections, "
-                          "`Decisions I made on my own` then `Outside Owns`")
-        return refuse("the file must have exactly two sections, "
-                      "`Decisions I made on my own` then `Outside Owns`")
-    run = newest_run(comments, "self")
-    if run is None:
-        return refuse(f"#{number} carries no ticket.checked of your own run to check "
-                      f"Outside Owns against")
-    want = outside_owns_text(run["payload"])
-    got = outside_owns_from("\n".join(section(text, "Outside Owns")))
-    if want != got:
-        return refuse(f"the file's `Outside Owns` line does not match your newest run, "
-                      f"which says `{want}`")
-    post_event(number, "worker.decided", "DECISIONS", text.lstrip("\n"))
-    print(f"DECISIONS: posted on #{number}")
-    return 0
-
-
-def open_children_owns(number: int) -> list[tuple[int, list[str]]]:
-    """OPEN children of spec `number` and each child's `## Owns` globs, loaded once."""
-    found = []
-    for child in tree.children(fetch_tree(number, "spec")):
-        if child.get("state") != "OPEN":
-            continue
-        found.append((child["number"], owns_globs(fetch_body(child["number"]))))
-    return found
-
-
-REVIEW_HEAD_RE = re.compile(r"^REVIEW (\S+?)\.\.(\S+)")
-
-
-def run_review(number: int, path: Path) -> int:
-    """Post the review report on the ticket, as the `reviewer.reported` event.
-
-    Nothing here tells the worker: the event on the ticket is what the relay of the
-    dispatch skill turns into the worker's wake-up, so a report that lands is a report
-    its worker hears about, however the reviewer's turns fell.
-
-    The file opens `REVIEW <base-commit>..<HEAD commit>`: that line becomes the
-    comment's first line, and the two commits become the `reviewer.reported` event's
-    `base` and `head`. A file that does not open with it is refused rather than posted,
-    since a report that names no commits does not say which diff it read.
-    """
-    text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    stripped = text.strip()
-    head = stripped.splitlines()[0].strip() if stripped else ""
-    found = REVIEW_HEAD_RE.match(head)
-    if not found:
-        return refuse(
-            "a review report opens `REVIEW <base-commit>..<HEAD commit>`, and this file "
-            + (f"opens `{head[:60]}`" if head else "is empty"))
-    try:
-        in_ticket_findings(stripped, next_step=(
-            "rewrite that row as `- <Axis> [<category>] <path>:<line> — <claim> — "
-            "source: <…>`, or write `None`, then run --review again"))
-    except ValueError as exc:
-        return refuse(str(exc))
-    rest = "\n".join(stripped.splitlines()[1:]).strip("\n")
-    post_event(number, "reviewer.reported", head, rest,
-               base=found.group(1), head=found.group(2))
-    print(f"REVIEW: posted on #{number}")
-    return 0
-
-
-def run_touched(number: int) -> int:
-    """Post `worker.touched` on each open sibling whose `## Owns` covers a file this
-    ticket changed outside its own, naming the files and why they were changed."""
-    comments = fetch_comments(number)
-    review = (events.newest(comments, "reviewer.reported") or {}).get("body")
-    if review is None:
-        return refuse(f"#{number} carries no reviewer.reported event")
-    run = newest_run(comments, "self")
-    if run is None:
-        return refuse(f"#{number} carries no ticket.checked of your own run")
-    files = list(run["payload"].get("outside_owns") or [])
-    if not files:
-        return 0
-    decisions = (events.newest(comments, "worker.decided") or {}).get("body")
-    try:
-        spec = spec_of(number)
-    except ParentUnreadable as exc:
-        return refuse(f"#{number}: the tracker could not say which spec it sits under ({exc})")
-    if spec is None:
-        return refuse(f"#{number} has no parent link and no spec in `## Parent`")
-    try:
-        siblings = open_children_owns(spec)
-    except SubIssuesUnreadable as exc:
-        return refuse(f"#{number}: the tracker could not list the children of #{spec} ({exc})")
-    details = []
-    for path in files:
-        sentence = decisions_line_for(decisions, path, number)
-        found = re.search(r"\bAC\d+\b", sentence)
-        details.append({"path": path, "sentence": sentence,
-                        "ac": found.group(0) if found else None,
-                        "judgement": spec_judgement(review, path)})
-    posted_to: list[int] = []
-    for child, globs in siblings:
-        if child == number:
-            continue
-        mine = [d for d in details if any(glob_covers(g, d["path"]) for g in globs)]
-        if not mine:
-            continue
-        prose = []
-        for d in mine:
-            prose += ["", d["path"], d["sentence"]]
-            prose += [x for x in (d["ac"], d["judgement"]) if x]
-        post_event(child, "worker.touched",
-                   f"#{number} changed {len(mine)} file(s) this ticket owns",
-                   "\n".join(prose).strip("\n"), spec=spec, by=number,
-                   files=[d["path"] for d in mine],
-                   details=[{k: v for k, v in d.items() if v} for d in mine])
-        posted_to.append(child)
-    if posted_to:
-        print("TOUCHED: " + ", ".join(f"#{n}" for n in posted_to))
-    return 0
-
-
-def default_draft_path(number: int) -> Path:
-    """A file of this run's own making, in a fresh directory outside every repository.
-
-    The closing-comment draft recounts the ticket, so it carries every path and file name the ticket
-    names — that is what a closing comment says. `--closeout` then runs the repository's
-    own `checks` over the working tree, and a draft written into that tree is one more
-    file those checks read. A prior ticket with every criterion met stayed open because a
-    repository guard found two reference file names in the closeout draft written inside
-    its working tree. Every consuming repository with a guard over its own Markdown could
-    meet the same wall, so the default landing place is outside all of them.
-    """
-    return Path(tempfile.mkdtemp(prefix=f"mmw-closeout-{number}-")) / f"closeout-{number}.md"
-
-
-def run_draft(number: int, out_file: Path | None) -> int:
-    """Write the closing-comment draft to `out_file`, or to a path of this run's own
-    when it is None, printing the path either way."""
-    body = fetch_body(number)
-    comments = fetch_comments(number)
-    into, problem = worker_started_field(number, comments, "into")
-    if problem:
-        return refuse(problem)
-    record = newest_run(comments, "self")
-    run = record["payload"] if record else None
-    criteria = overlay_run_evidence(body, run)
-    abandons = list((run or {}).get("abandons") or [])
-    counts = tally(criteria, abandons)
-    blocking = [a for a in abandons if a["kind"] in HANDOFF_KINDS]
-    if blocking:
-        kinds = ", ".join(k for k in HANDOFF_KINDS if any(a["kind"] == k for a in blocking))
-        first = (f"HANDOFF REQUIRED: {counts['abandoned']} abandoned ({kinds}), "
-                 f"{counts['unmet']} unmet, {counts['met']} met of {counts['total']}")
-    else:
-        first = "ALL MET"
-    head = git("rev-parse", "HEAD")
-    branch_line = (f"Branch: issue-{number} Commit: {head} PR: none — will be merged into "
-                   f"{into} by dispatch.sh advance")
-    review_event = events.newest(comments, "reviewer.reported") or {}
-    review = review_event.get("body") or ""
-    try:
-        review_block = review_findings_block(review, review_event.get("comment"))
-    except ValueError as exc:
-        return refuse(str(exc))
-    files = list((run or {}).get("outside_owns") or [])
-    if files:
-        judged = []
-        for path in files:
-            judgement = spec_judgement(review, path)
-            judged.append(f"{path} ({judgement})" if judgement else path)
-        outside = "Outside Owns: " + ", ".join(judged)
-    else:
-        outside = "Outside Owns: None"
-    try:
-        opened = [f"#{child}" for child in fetch_sub_issues(number, "ticket")]
-        sub = "Sub-issues opened: " + (", ".join(opened) if opened else "none")
-    except SubIssuesUnreadable:
-        sub = "Sub-issues opened: unknown (the tracker could not be asked)"
-    counts_line = (f"Counts: {counts['met']} met, {counts['unmet']} unmet, "
-                   f"{counts['abandoned']} abandoned of {counts['total']}")
-    parts = [first, "", branch_line, ""]
-    for item in criteria:
-        parts.append(criterion_block(item))
-        for abandon in abandons:
-            if abandon["ac"] == item["id"]:
-                reason = abandon["reason"]
-                parts.append(f"ABANDON: {abandon['ac']} {abandon['kind']}"
-                             + (f" {reason}" if reason else ""))
-        parts.append("")
-    parts += [
-        outside, "",
-        review_block, "",
-        f"skipped: {FILL}", "",
-        green_before_work_block(comments), "",
-        sub, "",
-        counts_line, "",
-        "Decisions I made on my own", "",
-        FILL, "",
-    ]
-    # After every refusal, so a run that writes nothing leaves no directory behind either.
-    out_file = out_file or default_draft_path(number)
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    out_file.write_text("\n".join(parts) + "\n", encoding="utf-8")
-    print(f"DRAFT: wrote {out_file}")
-    return 0
 
 
 def ensure_label(name: str) -> str | None:
@@ -1656,53 +1019,6 @@ def gh_issue_create(args: list[str], body: str) -> tuple[subprocess.CompletedPro
     printed = (result.stdout or "").strip()
     found = re.search(r"/issues/(\d+)", printed)
     return result, (int(found.group(1)) if found else None)
-
-
-def run_sub_issue(number: int, kind: str, path: Path) -> int:
-    """Open a `needs-triage` child under this ticket, and record it on this ticket.
-
-    The child carries the layer label `mmw:child` beside its queue label. Its body opens
-    with a line a person reads; which kind it is and where it came from is the
-    `child.opened` event posted on this ticket, which is where the ticket's own fold finds
-    its children. A child opened whose event could not be written exits 1 and says so:
-    the child exists, and opening it again would make two.
-    """
-    if kind not in SUB_ISSUE_KINDS:
-        return refuse(f"kind `{kind}` is not one of {', '.join(SUB_ISSUE_KINDS)}")
-    text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    if not text.strip():
-        return refuse(f"{path} is empty")
-    title = text.strip().splitlines()[0].strip()
-    missing = ensure_label("mmw:child")
-    if missing:
-        return refuse(f"the repository has no `mmw:child` label and it could not be "
-                      f"created ({missing}); nothing was opened")
-    posted = f"A `{kind}` child of #{number}.\n\n" + text
-    if not posted.endswith("\n"):
-        posted += "\n"
-    result, child = gh_issue_create(
-        ["--parent", str(number), "--label", "needs-triage", "--label", "mmw:child",
-         "--title", title], posted)
-    if result.returncode != 0:
-        sys.stderr.write((result.stderr or result.stdout or "gh issue create failed").rstrip() + "\n")
-        return 2
-    printed = (result.stdout or "").strip()
-    recorded = 0
-    if child is None:
-        sys.stderr.write(f"opened a sub-issue of #{number} but `gh issue create` printed no "
-                         f"issue number ({printed[:80] or 'nothing'}), so no child.opened "
-                         f"event was written on #{number}; do not open it again\n")
-        recorded = 1
-    else:
-        try:
-            post_event(number, "child.opened", f"Opened #{child} ({kind}): {title}",
-                       child=child, kind=kind, title=title)
-        except (OSError, subprocess.CalledProcessError) as exc:
-            sys.stderr.write(f"opened #{child} under #{number}, but the child.opened event "
-                             f"on #{number} was not written ({exc}); do not open it again\n")
-            recorded = 1
-    print(str(child) if child is not None else printed)
-    return recorded
 
 
 def issue_db_id(number: int) -> int:
@@ -1807,110 +1123,85 @@ def load_lease():
     return module
 
 
-def hold_slot(number: int, root: Path, run: str, comments: list,
-              actor: str | None = None) -> dict | int:
-    """This worktree's product slot, acquired now when it holds none; an exit code when
-    the run cannot go on.
+class SlotAcquisition(NamedTuple):
+    """An acquired lease, an unavailable slot, or a refusal before acquiring."""
+    returncode: int
+    lease_record: dict | None = None
+    reason: str | None = None
+    limit: int | None = None
+    holders: list[str] | None = None
+    worktree: str | None = None
 
-    Writing code takes no slot. The first run of the criteria that needs the product
-    acquires one, and the worktree holds it until its ticket's work ends — landed, handed
-    back, released, suspended or retracted — so every later run, including the final
-    reverify and closeout checks, finds it already there.
 
-    When no slot is free, a `worker.queued` event goes on the ticket, once for this wait,
-    so a ticket quiet for twenty minutes reads as queued and not as dead. The worker's
-    own run then exits 3 at once with nothing judged. A slot comes back only when another
-    ticket's work ends, and the event that ends it is what the relay of the dispatch skill
-    wakes every queued worker on, with `#<n> worker.queued`; the worker runs the same
-    command again then. Waiting here instead would cost the worker a turn every
-    `SLOT_WAIT_S` for as long as the slots stay held. A reverify by the worker or the
-    orchestrator normally finds its worktree's slot already held; when it does not, it
-    asks again every `SLOT_BEAT_S` seconds and exits 3 after `SLOT_WAIT_S`, to be run again.
-    """
+class CriteriaRun(NamedTuple):
+    """One engine run; callers print output and decide whether to record it."""
+    returncode: int
+    output: str = ""
+    ledger: str = ""
+    criteria: list[dict] | None = None
+    abandons: list[dict] | None = None
+    outcome: str | None = None
+    head: str = ""
+    shape: str = ""
+    outside_owns: dict | None = None
+    acquisition: SlotAcquisition | None = None
+    summary: str = ""
+
+
+def hold_slot(root: Path) -> SlotAcquisition:
+    """Try acquiring this worktree's product slot without writing ticket state."""
     lease = load_lease()
     if lease is None:
-        return refuse("a criterion runs the product and no directory in force holds "
-                      "lease.py, so no slot can be acquired for it. Nothing was run and "
-                      "nothing was written. Pass --tools <the ui-acceptance skill's scripts "
-                      "directory> and run again.")
+        return SlotAcquisition(refuse(
+            "a criterion runs the product and no directory in force holds lease.py; "
+            "nothing ran. Pass --tools <the ui-acceptance skill's scripts directory> "
+            "and run again."))
     worktree = lease.worktree_of(root)
-    announced = events.fold(comments)["waiting"] is not None
-    spent = 0
-    while True:
-        try:
-            return lease.try_claim(worktree)
-        except lease.CapUnreadable as exc:
-            return refuse(f"{exc}; the product's limit is unknown, so no slot was acquired "
-                          f"and nothing was run. Fix that file and run again.")
-        except lease.Full as full:
-            if not announced:
-                what = ("this product's instance.max" if full.reason == "product-full"
-                        else "every slot of this machine")
-                try:
-                    post_event(number, "worker.queued",
-                               f"Waiting for a product slot: {what} ({full.limit}) is held",
-                               "\n".join(f"- {h}" for h in full.holders),
-                               run=run, reason=full.reason, limit=full.limit,
-                               holders=full.holders, worktree=str(worktree), actor=actor)
-                except (OSError, subprocess.CalledProcessError) as exc:
-                    # A wait the ticket does not show reads as a dead worker.
-                    sys.stderr.write(f"#{number}: no product slot is free and the "
-                                     f"worker.queued event could not be written ({exc}); "
-                                     f"nothing was run. Run it again.\n")
-                    return NOT_RECORDED
-                announced = True
-            if run == "self":
-                sys.stderr.write(
-                    f"#{number}: no product slot is free — {full.reason}, "
-                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
-                    f"says it is waiting. End your turn: the relay wakes you with "
-                    f"`#{number} worker.queued` when a slot is given back. Run the same "
-                    f"command again then.\n")
-                return 3
-            if spent >= SLOT_WAIT_S:
-                sys.stderr.write(
-                    f"#{number}: no product slot came free in {spent}s — {full.reason}, "
-                    f"{len(full.holders)} of {full.limit} held. Nothing was run; the ticket "
-                    f"says it is waiting. Run the same command again to keep waiting.\n")
-                return 3
-            time.sleep(SLOT_BEAT_S)
-            spent += SLOT_BEAT_S
+    try:
+        return SlotAcquisition(0, lease_record=lease.try_claim(worktree), worktree=str(worktree))
+    except lease.CapUnreadable as exc:
+        return SlotAcquisition(refuse(
+            f"{exc}; the product's limit is unknown and nothing ran. Fix that file and run again."))
+    except lease.Full as full:
+        return SlotAcquisition(3, reason=full.reason, limit=full.limit,
+                               holders=full.holders, worktree=str(worktree))
 
 
-def run_checks(number: int, reverify: bool, actor: str | None = None) -> int:
-    """Run criteria under the lifetime of a non-ticket oracle lease."""
+def run_checks(number: int, reverify: bool) -> int:
+    """Print criteria results without writing any ticket event."""
+    result = run_criteria(number, reverify)
+    sys.stdout.write(result.output)
+    if result.returncode == 3:
+        sys.stderr.write(f"#{number}: no product slot is free ({result.acquisition.reason}); "
+                         "nothing ran. Run the same command when a slot is available.\n")
+    return result.returncode
+
+
+def run_criteria(number: int, reverify: bool) -> CriteriaRun:
+    """Run criteria under the lifetime of a non-ticket oracle lease; never post."""
     body = fetch_body(number)
     require_judges(body)
     root = repo_root()
     lease = load_lease() if needs_product(body) else None
     if lease is None:
-        return _run_checks(number, reverify, actor, body, root)
+        return _run_criteria(number, reverify, body, root)
     try:
         with lease.judge_run(root, stop=True):
-            return _run_checks(number, reverify, actor, body, root)
+            return _run_criteria(number, reverify, body, root)
     except lease.StopUnreadable as exc:
         sys.stderr.write(f"#{number}: {exc}; the oracle's product slot was kept\n")
-        return 2
+        return CriteriaRun(2)
     except SystemExit as exc:
         sys.stderr.write(f"#{number}: the oracle's product slot was not given back: {exc}\n")
-        return 2
+        return CriteriaRun(2)
 
 
-def _run_checks(number: int, reverify: bool,
-                actor: str | None, body: str, root: Path) -> int:
-    """Run the ticket's criteria and post the run as one `ticket.checked` event.
-
-    Exit 0 every criterion met, 1 not, 2 the run could not start (nothing was judged and
-    nothing was written), 3 no product slot was free — at once for the worker's own run,
-    after `SLOT_WAIT_S` for a reverify — 4 the criteria ran and the ticket.checked
-    recording them could not be written.
-    """
-    run = "reverify" if reverify else "self"
-    actor = actor or "worker"
+def _run_criteria(number: int, reverify: bool, body: str, root: Path) -> CriteriaRun:
+    """Return the gate-check result, ledger and lease facts without posting."""
     head = git("rev-parse", "HEAD", cwd=root)
     if not re.fullmatch(r"[0-9a-f]{40}", head or ""):
-        return refuse("could not read HEAD, so this run would name no commit. Nothing was "
-                      "run and nothing was written.")
+        return CriteriaRun(refuse("could not read HEAD, so this run would name no commit. Nothing was "
+                      "run and nothing was written."))
     comments = fetch_comments(number)
     started = events.newest(comments, "worker.started")
     started_payload = (started or {}).get("payload", {})
@@ -1918,9 +1209,9 @@ def _run_checks(number: int, reverify: bool,
     into = started_payload.get("into")
     slot = None
     if needs_product(body):
-        slot = hold_slot(number, root, run, comments, actor)
-        if isinstance(slot, int):
-            return slot
+        slot = hold_slot(root)
+        if slot.returncode:
+            return CriteriaRun(slot.returncode, head=head, acquisition=slot)
     carried = carried_ledger(body, comments) if reverify else []
     with tempfile.TemporaryDirectory(prefix="verify-ticket-") as tmp:
         ledger = write_ledger(body, Path(tmp), carried or None)
@@ -1937,151 +1228,20 @@ def _run_checks(number: int, reverify: bool,
             env["PATH"] = os.pathsep.join([str(d) for d in TOOLS] + [env.get("PATH", "")])
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=root, env=env)
         printed = (result.stdout or "") + (result.stderr or "")
-        sys.stdout.write(printed)
         if result.returncode == 2:
-            return 2
+            return CriteriaRun(2, output=printed, head=head, acquisition=slot)
         summary = next((line for line in printed.splitlines() if SUMMARY_RE.match(line)), "")
         updated = ledger.read_text(encoding="utf-8").rstrip("\n")
 
     criteria = parse_criteria(updated)
     abandons = parse_abandons(updated)
-    results = [{"id": c["id"],
-                "met": bool(c["ticked"] and c["evidence"] and c["evidence"] != "pending"),
-                "evidence": c["evidence"] or "pending"} for c in criteria]
     outcome = check_run_outcome(result.returncode, summary)
     fields = ({} if reverify else
               outside_owns_fields(number, owns_globs(body), root, base))
-    prose = [updated]
-    if not reverify:
-        prose += ["", outside_owns_text(fields)]
-    try:
-        post_event(number, "ticket.checked",
-                   f"{'Reverify' if reverify else 'Own run'} on {head[:12]}: "
-                   f"{summary or outcome}",
-                   "\n".join(prose), run=run, commit=head, result=outcome,
-                   counts=tally(criteria, abandons),
-                   criteria=results,
-                   failed=[r["id"] for r in results if not r["met"]],
-                   abandons=abandons or None,
-                   shape=shape_digest(section(body, "Acceptance criteria")),
-                   slot=slot.get("slot") if slot else None,
-                   port_base=slot.get("port_base") if slot else None,
-                   actor=actor, stage=events.checked_stage(run, actor),
-                   **fields)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        # The criteria ran, but nothing on the ticket says how. Every reader decides from
-        # that event, so this run counts as one that did not happen — never as red.
-        sys.stderr.write(f"#{number}: the run finished {outcome} on {head[:12]}, but its "
-                         f"ticket.checked event could not be written ({exc}), so the ticket "
-                         f"records no run. Run it again once the tracker takes comments.\n")
-        recorded = False
-    else:
-        recorded = True
-    return result.returncode if recorded else NOT_RECORDED
-
-
-# The exit of a run whose criteria ran and whose result could not be written on the
-# ticket. It is not 1: a caller reads 1 as "the criteria are red", and nothing says so.
-NOT_RECORDED = 4
-
-
-def give_slot_back(root: Path) -> str | None:
-    """Take this worktree's product down and give its slot back; the reason when that
-    could not be done, None when it was or there was no slot to give.
-
-    `lease.py` does both, as `release` with `stop`: the product's `stop` in
-    `.mmw/target.json` runs first, from the worktree, because a slot is free only once
-    nothing listens on its ports and `lease.py` rightly refuses one held by a live process.
-    """
-    lease = load_lease()
-    if lease is None:
-        return "no directory in force holds lease.py"
-    try:
-        lease.release(lease.worktree_of(root), stop=True)
-    except lease.StopUnreadable as exc:
-        return f"{exc}, so the product's stop is unknown and the slot was kept"
-    except SystemExit as exc:
-        return str(exc)
-    return None
-
-
-def blocker_fold(number: int) -> dict | None:
-    """The events of blocker `number` folded, or None when the tracker did not answer."""
-    try:
-        return events.fold(fetch_comments(number), issue=number)
-    except (OSError, ValueError, subprocess.CalledProcessError, TrackerReadError):
-        return None
-
-
-def refusals(number: int, ticket: dict, me: str, branch: str,
-             dirty: list[str]) -> list[tuple[str, str]]:
-    """Why this ticket is not ready to be worked on, in the order a worker would hit it.
-
-    Each refusal is `(reason, sentence)`: the reason is the `ticket.refused` event's
-    `reason` field, one of `events.REFUSALS`, and the sentence is its first line.
-
-    A blocker holds until its work has landed, as `events.blocker_hold` reads it off the
-    blocker's own events — the same answer the dispatch skill's frontier gives, so a
-    ticket that skill starts is never refused here for a blocker it had let go.
-
-    Every one of these ends in `stop`. Five of the six conditions are set up before a
-    worker exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state,
-    the labels and the blockers before it starts anyone — so a worker that sees one of
-    them has found a fault upstream of itself, not a task. Working around it (switching
-    branches, taking someone else's ticket) does more damage than stopping.
-
-    The sixth, the tree, is the one whose answer depends on who holds the ticket, because
-    a worker comes through this run every time it enters the ticket — the turn it is
-    prompted back into after a review included (the `implement` skill's claim and resume). On that turn
-    the uncommitted tracked changes are its own work from an earlier turn, so the tree
-    refuses only while the claim is not this account's: read as an upstream fault they
-    end a live worker's hold, and the ticket then says `live: false` of a session that
-    goes on posting events. What keeps them from reaching the base branch uncommitted is
-    the closeout, which refuses a draft while a tracked file is uncommitted.
-
-    The comment this posts on the ticket is what the user reads in the morning.
-    """
-    out = []
-    if branch != f"issue-{number}":
-        out.append(("wrong-branch",
-                    f"NOT_READY: branch is {branch or '(detached)'}, not issue-{number}; "
-                    f"dispatch opens this worktree on issue-{number}, so you were started "
-                    f"somewhere else — stop, do not switch branches yourself"))
-    holders = [a.get("login", "") for a in ticket.get("assignees", []) if a.get("login")]
-    if dirty and me not in holders:
-        out.append(("dirty-tree",
-                    f"NOT_READY: {len(dirty)} tracked files have uncommitted changes and "
-                    f"#{number} is claimed by {', '.join(holders) or 'nobody'}, not by you "
-                    f"({me}); they were left here before your claim, and are not yours to "
-                    f"commit or discard — stop and leave the tree as you found it"))
-    state = ticket.get("state", "")
-    if state != "OPEN":
-        out.append(("not-open",
-                    f"NOT_READY: #{number} is {state or 'unreadable'}, not OPEN; "
-                    f"nothing for you to do here — stop, this comment is the record"))
-    labels = [label.get("name", "") for label in ticket.get("labels", [])]
-    if "ready-for-agent" not in labels:
-        out.append(("not-ready",
-                    f"NOT_READY: #{number} has no ready-for-agent label, so it has not been "
-                    f"cleared for an agent yet; stop and leave it to whoever triages it"))
-    holding = []
-    for node in ticket.get("blockedBy", {}).get("nodes", []):
-        state = node.get("state") or ""
-        why = events.blocker_hold(state, blocker_fold(node["number"]) if state == "CLOSED"
-                                  else None)
-        if why:
-            holding.append(f"#{node['number']}" + ("" if why == "open" else f" ({why})"))
-    if holding:
-        out.append(("blocked",
-                    f"NOT_READY: #{number} is blocked by {', '.join(holding)}; stop — "
-                    f"`dispatch.sh` starts this ticket again once those land, so do not "
-                    f"wait or retry"))
-    others = [h for h in holders if h != me]
-    if others:
-        out.append(("claimed-by-other",
-                    f"NOT_READY: #{number} is assigned to {', '.join(others)}, not you ({me}); "
-                    f"stop rather than work on someone else's ticket"))
-    return out
+    return CriteriaRun(result.returncode, output=printed, ledger=updated,
+                       criteria=criteria, abandons=abandons, outcome=outcome, head=head,
+                       shape=shape_digest(section(body, "Acceptance criteria")),
+                       outside_owns=fields, acquisition=slot, summary=summary)
 
 
 def check_run_outcome(returncode: int, summary: str) -> str | None:
@@ -2100,36 +1260,16 @@ def baseline_skipped(check: str) -> bool:
     return any(name in (check or "") for name in BASELINE_SKIP_JUDGES)
 
 
-def run_baseline_if_needed(number: int, root: Path) -> None:
-    """Run the baseline once for the newest `worker.started.base`, if that run is missing.
-
-    A red result does not refuse the claim. Failures of the throwaway worktree are written
-    as an unmet `ticket.checked` of run `baseline` when the base commit is known, and
-    otherwise named on stderr; they never raise into `--preflight`.
-    """
-    try:
-        comments = fetch_comments(number)
-    except TrackerReadError as exc:
-        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
-        return
-    started = events.newest(comments, "worker.started")
-    base = (started or {}).get("payload", {}).get("base")
-    if not isinstance(base, str) or not re.fullmatch(r"[0-9a-f]{40}", base):
-        sys.stderr.write(f"#{number}: baseline run did not start "
-                         f"(no worker.started.base commit)\n")
-        return
-    existing = newest_run(comments, "baseline")
-    if existing and existing["payload"].get("commit") == base:
-        return
-    try:
-        body = fetch_body(number)
-    except TrackerReadError as exc:
-        sys.stderr.write(f"#{number}: baseline run did not start ({exc})\n")
-        return
-    run_baseline(number, body, base, root)
+class BaselineRun(NamedTuple):
+    """The baseline ledger and skipped criteria, without any tracker effects."""
+    criteria: list[dict]
+    skipped: list[str]
+    outcome: str
+    summary: str
+    ledger: str = ""
 
 
-def run_baseline(number: int, body: str, base: str, root: Path) -> None:
+def run_baseline(number: int, body: str, base: str, root: Path) -> BaselineRun | None:
     """Criteria that need no product slot, at `base`, in a throwaway detached worktree."""
     items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
     skipped = [c["id"] for c in items if baseline_skipped(c.get("check", ""))]
@@ -2143,14 +1283,12 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
         short = base[:12]
         if added.returncode != 0 or not worktree.is_dir():
             why = (added.stderr or added.stdout or "git worktree add failed").strip()
-            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+            return BaselineRun(criteria=[], skipped=[c["id"] for c in items],
                            outcome="unmet",
-                           line=f"Baseline run on {short}: unmet ({why})")
-            return
+                           summary=f"Baseline run on {short}: unmet ({why})")
         if not runnable:
-            _post_baseline(number, body, base, runnable=[], skipped=skipped, outcome="unmet",
-                           line=f"Baseline run on {short}: nothing ran (all skipped)")
-            return
+            return BaselineRun(criteria=[], skipped=skipped, outcome="unmet",
+                           summary=f"Baseline run on {short}: nothing ran (all skipped)")
         ledger_dir = tmp / "ledger"
         ledger_dir.mkdir()
         lines = []
@@ -2173,15 +1311,14 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
         updated = ledger.read_text(encoding="utf-8").rstrip("\n") if ledger.is_file() else ""
         outcome = check_run_outcome(result.returncode, summary)
         if outcome is None:
-            _post_baseline(number, body, base, runnable=[], skipped=[c["id"] for c in items],
+            return BaselineRun(criteria=[], skipped=[c["id"] for c in items],
                            outcome="unmet",
-                           line=f"Baseline run on {short}: could not start")
-            return
+                           summary=f"Baseline run on {short}: could not start")
         ran = parse_criteria(updated) if updated else runnable
-        _post_baseline(number, body, base, runnable=ran, skipped=skipped, outcome=outcome,
-                       line=f"Baseline run on {short}: {summary or outcome}",
-                       updated=updated)
-    except (OSError, subprocess.CalledProcessError, events.EventError) as exc:
+        return BaselineRun(criteria=ran, skipped=skipped, outcome=outcome,
+                       summary=f"Baseline run on {short}: {summary or outcome}",
+                       ledger=updated)
+    except (OSError, subprocess.CalledProcessError) as exc:
         sys.stderr.write(f"#{number}: baseline run did not complete ({exc})\n")
     finally:
         subprocess.run(["git", "worktree", "remove", "--force", str(worktree)],
@@ -2189,496 +1326,7 @@ def run_baseline(number: int, body: str, base: str, root: Path) -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def _post_baseline(number: int, body: str, base: str, runnable: list[dict],
-                   skipped: list[str], outcome: str, line: str,
-                   updated: str = "") -> None:
-    results = [{"id": c["id"],
-                "met": bool(c.get("ticked") and c.get("evidence")
-                            and c.get("evidence") != "pending"),
-                "evidence": c.get("evidence") or "pending"} for c in runnable]
-    abandons = parse_abandons(updated) if updated else []
-    post_event(number, "ticket.checked", line, updated,
-               run="baseline", commit=base, result=outcome,
-               counts=tally(runnable, abandons) if runnable else {
-                   "met": 0, "unmet": 0, "abandoned": 0, "total": 0},
-               criteria=results, failed=[r["id"] for r in results if not r["met"]],
-               abandons=abandons or None, skipped=skipped or None,
-               shape=shape_digest(section(body, "Acceptance criteria")),
-               actor="worker", stage=events.checked_stage("baseline", "worker"))
-
-
-def resume_at(comments: list[str], head: str) -> str | None:
-    """Where a worker re-entering this ticket picks up: the resume table in the
-    `implement` skill's `## Closing steps`, the paragraph starting "A ticket that
-    already carries a run of your own". None for a ticket that carries none of that
-    paragraph's markers — a fresh claim, not a resume.
-    """
-    self_run = newest_run(comments, "self")
-    reviewed = events.newest(comments, "reviewer.reported")
-    reverify = newest_run(comments, "reverify", actor="worker")
-    state = events.fold(comments)
-    if not (self_run or reviewed or state["decided"] or reverify):
-        return None
-    ordered = state["events"]
-    terminal = next((e["event"] for e in reversed(ordered)
-                     if e["event"] in ("ticket.passed", "ticket.returned", "ticket.bounced")),
-                    None)
-    if terminal in ("ticket.returned", "ticket.bounced"):
-        return f"step 1, then step 4 onward ({terminal})"
-    if self_run is None:
-        return "step 1 (no run of your own)"
-    if not state["decided"]:
-        return "step 2 (no worker.decided)"
-    if reviewed is None:
-        if events.live_of(state, "reviewer"):
-            return "step 3 (reviewer.started, no reviewer.reported yet)"
-        return "step 3 (worker.decided, no reviewer.reported)"
-    if self_run["comment"] <= reviewed["comment"]:
-        return "step 3 (reviewer.reported, no run of your own since)"
-    if reverify is None or reverify["comment"] < self_run["comment"]:
-        return "step 4 (a run of your own since reviewer.reported, no worker reverify)"
-    if reverify["payload"].get("commit") == head and (
-            not ordered or reverify["comment"] == ordered[-1]["comment"]):
-        return "step 5 (worker reverify on HEAD)"
-    return None
-
-
-def run_preflight(number: int) -> int:
-    """Claim the ticket, or say on the ticket itself why it cannot be claimed.
-
-    Either way one event lands on the ticket: `ticket.refused` with the first refusal's
-    reason, or `ticket.claimed` once the claim is made. A claim whose event could not be
-    written still holds — the tracker's assignee is the claim — and says so on stderr.
-    After a successful claim, criteria that need no product slot are run once at the
-    newest `worker.started.base` (a `ticket.checked` of run `baseline`) unless that run
-    is already on the ticket; a red result does not refuse.
-    """
-    root = repo_root()
-    ticket = fetch_ticket(number)
-    me = gh_login()
-    branch = current_branch(root)
-    dirty = dirty_tracked(root)
-    problems = refusals(number, ticket, me, branch, dirty)
-    if problems:
-        reason, sentence = problems[0]
-        # The refusing session is named so its own hold ends with this event and the
-        # ticket is free for the next start. A session that cannot name itself ends
-        # none, and stderr says why and what to do next.
-        read = read_self()
-        named = own_session(read)
-        runner, session = named or (None, None)
-        post_event(number, "ticket.refused", sentence, spec=spec_field(ticket),
-                   reason=reason, branch=branch or None, runner=runner, session=session)
-        sys.stderr.write(sentence + "\n")
-        if named is None:
-            sys.stderr.write(unnamed_session_line(number, read) + "\n")
-        return 2
-    assign_self(number)
-    try:
-        post_event(number, "ticket.claimed", f"Claimed #{number} on {branch} as {me}",
-                   spec=spec_field(ticket), login=me, branch=branch,
-                   commit=git("rev-parse", "HEAD", cwd=root) or None)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        sys.stderr.write(f"#{number} is claimed, but its ticket.claimed event was not "
-                         f"written ({exc})\n")
-    run_baseline_if_needed(number, root)
-    print(f"READY: #{number} claimed on issue-{number}")
-    try:
-        resume = resume_at(fetch_comments(number), git("rev-parse", "HEAD", cwd=root))
-    except TrackerReadError as exc:
-        resume = None
-        sys.stderr.write(f"#{number}: could not read where to resume ({exc}); read the "
-                         f"ticket's comments by hand\n")
-    if resume:
-        print(f"RESUME: {resume}")
-    # Getting here with a dirty tree means the claim was already this account's, so the
-    # changes came in under it: this is a worker back on its own work, and the only thing
-    # left to say is where they have to be by the closing steps.
-    if dirty:
-        print(f"CARRIED: {len(dirty)} tracked files have uncommitted changes, made under "
-              f"the claim you already held on #{number}; commit them on issue-{number} "
-              f"before the closing steps — --closeout refuses a draft while a tracked "
-              f"file is uncommitted.")
-    return 0
-
-
 ROW_ID_RE = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+\b")
-
-
-def review_finding_problems(draft: str, comments: list[str]) -> list[str]:
-    """The newest review's In-ticket rows must each have a handled draft row.
-
-    Compare the whole source-bearing row, not just its path or claim. Counting rows
-    prevents one response from silently standing in for duplicate findings.
-    """
-    review_event = events.newest(comments, "reviewer.reported") or {}
-    try:
-        required = in_ticket_findings(review_event.get("body") or "",
-                                      review_event.get("comment"))
-    except ValueError as exc:
-        return [str(exc)]
-    if not required:
-        return []
-    lines = draft.splitlines()
-    start = next((i + 1 for i, line in enumerate(lines)
-                  if line.strip() == "Review findings:"), None)
-    shown = []
-    if start is not None:
-        for line in lines[start:]:
-            if not line.strip():
-                break
-            shown.append(line.strip())
-    matched = Counter()
-    for line in shown:
-        for row in required:
-            prefix = row + " — "
-            if not line.startswith(prefix):
-                continue
-            response = line[len(prefix):]
-            if re.fullmatch(r"fixed \S+|refuted: .+", response):
-                matched[row] += 1
-            break
-    needed = Counter(required)
-    problems = []
-    for row, count in needed.items():
-        if matched[row] < count:
-            problems.append(f"the newest review's ## In-ticket finding is missing or "
-                            f"has no `fixed <commit>` / `refuted: <evidence>` response "
-                            f"in `Review findings:`: {row}; copy the review row and "
-                            "record its disposition in the closeout draft")
-    return problems
-
-
-CHECKS_TAIL = 20
-
-
-class TargetJsonChecksError(Exception):
-    """`.mmw/target.json` is present and names `checks`, but the file cannot be read
-    as the list of commands the gate expects."""
-
-
-def target_json_checks(root: Path | None) -> list[tuple[str, int]] | None:
-    """The `checks` of `.mmw/target.json` as `(command, timeout)` pairs — an entry is a
-    string, held to `DEFAULT_TIMEOUT`, or `{"run": …, "timeout": …}` naming its own
-    bound in seconds — or None when the key is absent —
-    the closeout then behaves as it did before the key existed. `--reverify` and
-    `--lint` never read this. A file that names `checks` but is not a JSON object
-    with a list raises `TargetJsonChecksError` rather than looking like absence."""
-    if root is None:
-        return None
-    path = Path(root) / ".mmw" / "target.json"
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise TargetJsonChecksError(f"{path} is not JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise TargetJsonChecksError(f"{path} is not an object")
-    if "checks" not in data:
-        return None
-    raw = data["checks"]
-    if not isinstance(raw, list):
-        raise TargetJsonChecksError(f"{path} `checks` is not a list")
-    commands: list[tuple[str, int]] = []
-    for entry in raw:
-        if isinstance(entry, str):
-            commands.append((entry, DEFAULT_TIMEOUT))
-            continue
-        if isinstance(entry, dict) and isinstance(entry.get("run"), str):
-            timeout = entry.get("timeout", DEFAULT_TIMEOUT)
-            if not isinstance(timeout, int) or timeout <= 0:
-                raise TargetJsonChecksError(
-                    f"{path} `checks` entry {entry['run']!r}: `timeout` must be a positive integer")
-            commands.append((entry["run"], timeout))
-            continue
-        raise TargetJsonChecksError(
-            f"{path} `checks` entry {entry!r} is neither a string nor {{\"run\": …, \"timeout\": …}}")
-    return commands
-
-
-def run_target_json_checks(root: Path | None, into: str) -> dict | None:
-    """Run each `checks` command at the repository root, in order.
-
-    None when the key is absent: nothing ran. Otherwise `{"total", "failed",
-    "problem"}`: `failed` is `{"command", "tail"}` for each command that did not exit 0,
-    with its last `CHECKS_TAIL` lines of output, and `problem` says why the file itself
-    could not be read — a malformed file is a failure, not absence. A string entry is
-    held to `DEFAULT_TIMEOUT`, the same bound as a `CHECK:`; an entry written as
-    `{"run": …, "timeout": …}` is held to its own.
-    """
-    try:
-        commands = target_json_checks(root)
-    except TargetJsonChecksError as exc:
-        return {"total": 0, "failed": [], "problem": str(exc)}
-    if commands is None:
-        return None
-    failed: list[tuple[str, str]] = []
-    env = os.environ.copy()
-    env["MMW_BASE_REF"] = f"origin/{into}"
-    for command, bound in commands:
-        try:
-            proc = subprocess.run(command, shell=True, cwd=root, capture_output=True,
-                                  text=True, timeout=bound, env=env)
-        except subprocess.TimeoutExpired as exc:
-            combined = (exc.stdout or "") + (exc.stderr or "")
-            if isinstance(combined, bytes):
-                combined = combined.decode("utf-8", "replace")
-            tail = "\n".join(str(combined).splitlines()[-CHECKS_TAIL:])
-            note = f"timed out after {bound}s"
-            failed.append((command, f"{note}\n{tail}".strip() if tail else note))
-            continue
-        except OSError as exc:
-            failed.append((command, str(exc)))
-            continue
-        if proc.returncode != 0:
-            combined = (proc.stdout or "") + (proc.stderr or "")
-            tail = "\n".join(combined.splitlines()[-CHECKS_TAIL:])
-            failed.append((command, tail))
-    return {"total": len(commands),
-            "failed": [{"command": c, "tail": t} for c, t in failed], "problem": None}
-
-
-def post_repo_checks(number: int, checks: dict, spec: int | None) -> bool:
-    """Post the repository checks' run as a `ticket.checked` event; True when all passed."""
-    ok = not checks["failed"] and not checks["problem"]
-    total = checks["total"]
-    lines = []
-    if checks["problem"]:
-        lines.append(checks["problem"])
-    for failure in checks["failed"]:
-        lines += ["", failure["command"]]
-        if failure["tail"]:
-            lines.append(failure["tail"])
-    head = git("rev-parse", "HEAD")
-    post_event(number, "ticket.checked",
-               (f"Repository checks on {head[:12]}: {total - len(checks['failed'])}/{total} "
-                f"passed" if not checks["problem"] else
-                f"Repository checks on {head[:12]}: .mmw/target.json `checks` unreadable"),
-               "\n".join(lines).strip("\n"), spec=spec, run="repo-checks", commit=head,
-               result="met" if ok else "unmet", stage="close",
-               counts={"passed": total - len(checks["failed"]), "total": total},
-               commands=checks["failed"] or None, problem=checks["problem"])
-    return ok
-
-
-def push_ticket_branch(number: int, root: Path, commit: str) -> str | None:
-    """Push the final-run commit to `origin/issue-<n>` without rewriting history."""
-    ref = f"refs/heads/issue-{number}"
-    try:
-        pushed = subprocess.run(
-            ["git", "push", "origin", f"{commit}:{ref}"], cwd=root,
-            capture_output=True, text=True,
-        )
-        if pushed.returncode != 0:
-            detail = " ".join((pushed.stderr or pushed.stdout).strip().splitlines())
-            return (f"origin rejected {commit} for issue-{number}: "
-                    f"{detail[:500] or f'git push exited {pushed.returncode}'}. The ticket "
-                    f"remains open; resolve the rejection and run --closeout again. "
-                    f"No force-push was used")
-        remote = subprocess.run(
-            ["git", "ls-remote", "--heads", "origin", ref], cwd=root,
-            capture_output=True, text=True,
-        )
-    except OSError as exc:
-        return (f"git could not reach origin for issue-{number} at final-run commit {commit}: "
-                f"{exc}. The ticket remains open; fix Git access and run --closeout again")
-    remote_commit = (remote.stdout.strip().split() or [""])[0]
-    if remote.returncode != 0 or remote_commit != commit:
-        detail = " ".join((remote.stderr or remote.stdout).strip().splitlines())
-        resolved = remote_commit or "nothing"
-        return (f"origin/issue-{number} could not be confirmed at final-run commit {commit}: "
-                f"{detail[:500] or f'it resolved to {resolved}'}. The ticket "
-                f"remains open; confirm the remote and run --closeout again")
-    return None
-
-
-class CloseoutBusy(RuntimeError):
-    """Another closeout still owns this ticket's local critical section."""
-
-
-@contextmanager
-def closeout_lock(root: Path, number: int):
-    """Exclude overlapping closeouts of one ticket in this repository."""
-    common = git("rev-parse", "--git-common-dir", cwd=root)
-    if not common:
-        raise OSError("git could not locate this repository's common directory")
-    directory = Path(common)
-    if not directory.is_absolute():
-        directory = root / directory
-    path = directory / f"mmw-closeout-{number}.lock"
-    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
-    try:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise CloseoutBusy(f"another --closeout for #{number} is still running") from None
-        try:
-            yield
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-    finally:
-        os.close(fd)
-
-
-def completed_closeout(ticket: dict, comments: list[str], first: str,
-                       head: str) -> str | None:
-    """The matching closeout result already recorded for this commit, if any."""
-    state = events.fold(comments)
-    outcome = state.get("outcome") or {}
-    payload = outcome.get("payload") or {}
-    if payload.get("commit") != head:
-        return None
-    if first == "ALL MET" and state.get("passed") \
-            and ticket.get("state") == "CLOSED" \
-            and str(ticket.get("stateReason") or "").upper() == "COMPLETED":
-        return "closed"
-    labels = {label.get("name") for label in ticket.get("labels") or []}
-    assigned = bool(ticket.get("assignees"))
-    if first.startswith("HANDOFF REQUIRED") and state.get("returned") \
-            and ticket.get("state") == "OPEN" and not assigned \
-            and "needs-triage" in labels and "ready-for-agent" not in labels:
-        return "handed"
-    return None
-
-
-def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
-    """Serialize one ticket's closeout, then check and apply it."""
-    try:
-        with closeout_lock(repo_root(), number):
-            return _run_closeout(number, draft_path, check_only)
-    except (CloseoutBusy, OSError) as exc:
-        return refuse(f"closeout refused: {exc}. Nothing was run or written; retry the "
-                      "same command after the active closeout finishes")
-
-
-def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
-    """Check the closing comment against the ticket and the repository, then post it."""
-    raw = draft_path.read_text(encoding="utf-8")
-    comments = fetch_comments(number)
-    # The first line and `Counts:` are computed here, from the draft's own `ABANDON:`
-    # lines and criteria, and written into what posts — never taken as the worker wrote
-    # them.
-    first, counts = draft_summary(raw)
-    draft = rewrite_summary(raw, first, counts)
-    passed = first == "ALL MET"
-    ticket = fetch_ticket(number)
-    head = git("rev-parse", "HEAD")
-    completed = completed_closeout(ticket, comments, first, head)
-    if completed:
-        action = "CLOSED" if completed == "closed" else "HANDED BACK"
-        print(f"{action}: #{number} was already recorded at {head}")
-        return 0
-    body = fetch_body(number)
-    started, started_problem = newest_worker_started(number, comments)
-    base = (started or {}).get("base")
-    into = (started or {}).get("into") if passed else None
-    problems = draft_problems(draft, comments)
-    problems += verified_problems(draft, body, comments, first)
-    problems += review_finding_problems(draft, comments)
-    problems += event_problems(comments)
-    if started_problem:
-        problems.append(started_problem)
-    elif passed and not into:
-        problems.append(f"#{number}'s newest worker.started carries no `into`; run "
-                        f"`dispatch.sh start {number} worker` again so it records one")
-    if base:
-        problems += git_problems(base, repo_root())
-    me = gh_login()
-    # A previous run of this closeout that closed (or handed back) the ticket and could not
-    # post the event: this run posts it, and does nothing else.
-    pending = unannounced_change(ticket, comments, me, first)
-    if ticket.get("state") != "OPEN" and pending != "closed":
-        problems.append(f"#{number} is already {ticket.get('state', 'unreadable')}")
-    if pending is None and not any(a.get("login") == me for a in ticket.get("assignees", [])):
-        problems.append(f"#{number} is not assigned to you ({me}); run --preflight first")
-
-    if problems:
-        # The first line carries the total and the command that prints the rest, so a
-        # worker sees the whole set at once. A refusal that named only the problem it hit
-        # first would put it in a loop nobody has a cap on: fix one, run again, meet the
-        # next.
-        rest = (f" Run `verify-ticket.py {number} --closeout {draft_path} --check-only` "
-                f"to see the other {len(problems) - 1}." if len(problems) > 1 else "")
-        sys.stderr.write(f"closeout rejected, {len(problems)} problem"
-                         f"{'s' if len(problems) > 1 else ''}: {problems[0]}{rest}\n")
-        for problem in problems[1:]:
-            sys.stderr.write("also: " + problem + "\n")
-        return 1
-    if check_only:
-        print(f"CLOSEOUT OK: #{number} draft passes every check")
-        return 0
-
-    if passed and pending is None:
-        checks = run_target_json_checks(repo_root(), into)
-        if checks is not None and not post_repo_checks(number, checks, spec_field(ticket)):
-            named = ", ".join(f["command"] for f in checks["failed"]) or checks["problem"]
-            sys.stderr.write(f"closeout stopped: the repository's checks did not pass "
-                             f"({named}); the ticket.checked event on #{number} carries "
-                             f"each failed command and its last lines. Fix the code, run "
-                             f"that suite yourself, commit, run --reverify --actor worker "
-                             f"again, and run --closeout again\n")
-            return 1
-        problem = push_ticket_branch(number, repo_root(), head)
-        if problem:
-            sys.stderr.write(f"closeout refused: {problem}\n")
-            return 1
-
-    # The draft is the comment: its first line for a person, the rest as written, and the
-    # event block after it. `abandoned` carries every `ABANDON:` line — on a pass only
-    # `decision` ones can be there, on a hand back they are the reason it came back.
-    abandons = parse_abandons(draft)
-    event = "ticket.passed" if passed else "ticket.returned"
-    fields = dict(spec=spec_field(ticket), commit=head or None,
-                  branch=current_branch(repo_root()) or None,
-                  counts=counts,
-                  abandoned=[{"ac": a["ac"], "kind": a["kind"], "reason": a["reason"]}
-                             for a in abandons] or None)
-    if passed:
-        fields["into"] = into
-    # The state change first, then the event that announces it: the event is what wakes
-    # the orchestrator and what `advance` merges on, so it must never stand on a ticket the
-    # tracker did not close or hand back.
-    if pending is None:
-        try:
-            if passed:
-                close_ticket(number)
-            else:
-                hand_back_for_triage(number)
-        except (OSError, subprocess.CalledProcessError) as exc:
-            act = "close" if passed else "hand back to needs-triage"
-            sys.stderr.write(f"closeout refused: the tracker did not {act} #{number} ({exc}), so "
-                             f"no {event} event was posted and nothing reads the ticket as "
-                             f"{'passed' if passed else 'returned'}. Read #{number} on the "
-                             f"tracker for what the edit left done, then run --closeout again\n")
-            return 1
-    # A handed-back ticket's work is over for the night, and `ticket.returned` says so —
-    # its product slot free included: the relay wakes the workers queued for a slot on
-    # that event. So the slot goes back before the event, on the run that hands back and
-    # on one posting the event a previous run could not; a slot that will not come back
-    # is said on stderr, and the ticket is still announced as returned.
-    if not passed:
-        problem = give_slot_back(repo_root())
-        if problem:
-            sys.stderr.write(f"#{number} is handed back, but its product slot was not given "
-                             f"back: {problem}\n")
-    try:
-        post_event(number, event, first,
-                   "\n".join(draft.strip("\n").splitlines()[1:]).strip("\n"), **fields)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        done = "closed" if passed else "handed back to needs-triage"
-        sys.stderr.write(f"closeout incomplete: #{number} is {done}, and its {event} event could "
-                         f"not be posted ({exc}), so nothing wakes the orchestrator and nothing "
-                         f"reads the ticket as {'passed' if passed else 'returned'} yet. Run "
-                         f"--closeout again with the same draft: it sees the {done} ticket and "
-                         f"posts the missing event\n")
-        return 1
-    note = f" (posted the {event} event a previous run could not)" if pending else ""
-    if passed:
-        print(f"CLOSED: #{number}{note}")
-    else:
-        print(f"HANDED BACK: #{number} is now needs-triage and stays open{note}")
-    return 0
 
 
 def lint_ticket_graph(number: int, body: str) -> int:
@@ -4136,50 +2784,40 @@ def run_publish_drafts(spec: int, directory: Path) -> int:
     return 1 if problems else lint_result
 
 
-EXIT_CODES = """\
-exit codes:
-  a criteria run (no flag, or --reverify --actor worker|main)
-    0 every criterion met; 1 something unmet or abandoned; 2 the ticket could not be
-    read or the run could not start, reason on stderr, nothing posted; 3 no product
-    slot was free, nothing run (the worker's own run at once, a --reverify after
-    MMW_SLOT_WAIT_S seconds, asking every MMW_SLOT_BEAT_S); 4 the criteria ran and
-    the ticket.checked recording them could not be written: run it again
-  --preflight
-    0 the ticket is now yours; 2 refused, reason on stderr: a NOT_READY refusal is
-    on the ticket as ticket.refused, any other posted nothing
-  --lint
-    0 nothing reported an ERROR; 1 a ticket or the graph has one (on a spec, any of
-    its open sub-issues having one; a closed one's ERROR is printed and counts for
-    nothing); 2 a criterion names an oracle this run cannot reach, refused before
-    anything is read. No CHECK: runs and no comment is posted on any exit
-  --decisions, --touched
-    0 posted (for --touched, or nothing to post); 2 refused, nothing posted
-  --draft
-    0 the file was written and its path printed; 2 refused, no file written
-  --sub-issue
-    0 the sub-issue is open and recorded; 1 the sub-issue is open and its
-    child.opened event could not be written, named on stderr — do not open it
-    again; 2 a refusal, reason on stderr
-  --review
-    0 posted; 2 refused (the file does not open REVIEW <base>..<head>, or an
-    ## In-ticket row is not recognized), reason on stderr
-  --publish
-    --spec-body: 0 published, printed as the issue number (with --map, its native
-    parent was confirmed too); 1 published but the native parent could not be
-    confirmed as --map, printed then said on stderr; 2 refused, nothing published
-    --drafts: 0 every draft published, every blocking edge recorded, and --lint on
-    the published spec reported no ERROR; 1 published with a blocking edge that
-    could not be recorded, or --lint on the published spec found one; 2 refused
-    before anything was created, or gh failed partway (stderr names what published)
-  --closeout
-    0 the ticket is closed (or handed back) and its event posted, or with
-    --check-only the draft passes; 1 refused by a draft condition, the repository's
-    checks, the push, or the tracker, stderr saying what to resolve; 2 nothing was
-    run or written
+EXIT_CODES = """exit codes:
+  criteria run: 0 every criterion met; 1 unmet or abandoned; 2 could not start;
+    3 no product slot was free, nothing ran. No criteria run writes an event.
+  --lint: 0 no ERROR; 1 a ticket or graph has an ERROR; 2 could not start.
+  --publish --spec-body: 0 published; 1 parent unconfirmed; 2 refused or failed.
+  --publish --drafts: 0 published and linted; 1 links or lint failed;
+    2 refused or failed (stderr names any drafts already published).
+  retired state flags: 2, one line naming ticket_state.py; nothing ran or written.
 """
 
 
+def retired_state_command(argv: list[str]) -> str | None:
+    """A retired flag redirects before parsing or any tracker access."""
+    replacements = {
+        "--preflight": "--claim", "--draft": "--closing-draft [OUT]",
+        "--sub-issue": "--open-child KIND FILE", "--closeout": "--closeout DRAFT",
+        "--check-only": "--closeout DRAFT --check-only", "--decisions": "--decisions FILE",
+        "--review": "--review FILE", "--touched": "--touched",
+        "--actor": "--run-and-record-criteria --reverify --actor worker|main",
+    }
+    number = next((word for word in argv if word.isdigit()), "<n>")
+    for word in argv:
+        flag = word.partition("=")[0]
+        if flag in replacements:
+            return (f"{flag} belongs to ticket_state.py, not this criteria printer; "
+                    f"run ticket_state.py {number} {replacements[flag]}")
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    retired = retired_state_command(argv)
+    if retired is not None:
+        return refuse(retired)
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0], epilog=EXIT_CODES,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     # Optional only for `--publish --spec-body`, which creates an issue that has no
@@ -4207,30 +2845,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--map", type=int, metavar="N",
                         help="with --publish --spec-body: publish as a native sub-issue "
                              "of map N")
-    parser.add_argument("--preflight", action="store_true",
-                        help="claim the ticket, or refuse and say why on the ticket")
-    parser.add_argument("--closeout", type=Path, metavar="DRAFT",
-                        help="check this closing comment, then post it and close the ticket")
-    parser.add_argument("--check-only", action="store_true",
-                        help="with --closeout: check the closing-comment draft and change nothing")
-    parser.add_argument("--decisions", type=Path, metavar="FILE",
-                        help="post the two-section file as a DECISIONS comment")
-    parser.add_argument("--touched", action="store_true",
-                        help="post worker.touched on open siblings whose Owns covers a file")
-    # The path is optional, and an empty string is what argparse leaves when the flag came
-    # without one — a file of the run's own, outside the repository the checks read.
-    parser.add_argument("--draft", nargs="?", const="", metavar="OUT",
-                        help="write the closing-comment draft to this file; with no "
-                             "path, to one of its own outside the repository, printed as "
-                             "`DRAFT: wrote <path>`")
-    parser.add_argument("--sub-issue", nargs=2, metavar=("KIND", "FILE"),
-                        help="open a needs-triage child under this ticket; KIND is one of "
-                             + ", ".join(SUB_ISSUE_KINDS))
-    parser.add_argument("--actor", choices=events.REVERIFY_ACTORS,
-                        help="required with --reverify: the worker's final run or the main "
-                             "agent re-running a landed ticket on the base branch")
-    parser.add_argument("--review", type=Path, metavar="FILE",
-                        help="post the review report on the ticket")
     parser.add_argument("--tools", action="append", type=Path, default=[], metavar="DIR",
                         help="a directory holding scripts of other skills (the ui-acceptance "
                              "skill's scripts/); put on the PATH of every CHECK; repeatable")
@@ -4239,26 +2853,15 @@ def main(argv: list[str] | None = None) -> int:
     # file's own location answers where they are and no caller has to know. `--tools`
     # overrides that for a run against a copy somewhere else.
     TOOLS[:] = ([d.resolve() for d in args.tools]
-                or [HERE.parents[1] / "ui-acceptance" / "scripts"])
-    chosen = [name for name, on in
-              (("--lint", args.lint), ("--reverify", args.reverify),
-               ("--preflight", args.preflight), ("--closeout", args.closeout is not None),
-               ("--decisions", args.decisions is not None), ("--touched", args.touched),
-               ("--draft", args.draft is not None),
-               ("--sub-issue", args.sub_issue is not None),
-               ("--review", args.review is not None), ("--publish", args.publish)) if on]
+                or [skills / locations.UI_ACCEPTANCE_SCRIPTS])
+    chosen = [name for name, on in (("--lint", args.lint),
+              ("--reverify", args.reverify), ("--publish", args.publish)) if on]
     if len(chosen) > 1:
         parser.error(f"{' and '.join(chosen)} are different jobs; pick one")
     if args.drafts is not None and not (args.lint or args.publish):
         parser.error("--drafts belongs to --lint or --publish")
     if args.drafts is not None and not args.drafts.is_dir():
         parser.error(f"no directory at {args.drafts}")
-    if args.check_only and args.closeout is None:
-        parser.error("--check-only belongs to --closeout")
-    if args.actor is not None and not args.reverify:
-        parser.error("--actor belongs to --reverify")
-    if args.reverify and args.actor is None:
-        parser.error("--reverify requires --actor worker|main")
     if args.spec_body is not None and not args.publish:
         parser.error("--spec-body belongs to --publish")
     if args.title is not None and args.spec_body is None:
@@ -4281,34 +2884,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.publish and args.spec_body is not None:
             return run_publish_spec(args.spec_body, args.title, args.map)
-        if args.preflight:
-            return run_preflight(args.ticket)
-        if args.closeout is not None:
-            if not args.closeout.is_file():
-                parser.error(f"no draft at {args.closeout}")
-            return run_closeout(args.ticket, args.closeout, args.check_only)
-        if args.decisions is not None:
-            if not args.decisions.is_file():
-                parser.error(f"no file at {args.decisions}")
-            return run_decisions(args.ticket, args.decisions)
-        if args.touched:
-            return run_touched(args.ticket)
-        if args.draft is not None:
-            return run_draft(args.ticket, Path(args.draft) if args.draft else None)
-        if args.sub_issue is not None:
-            kind, file = args.sub_issue
-            return run_sub_issue(args.ticket, kind, Path(file))
-        if args.review is not None:
-            if not args.review.is_file():
-                parser.error(f"no file at {args.review}")
-            return run_review(args.ticket, args.review)
         if args.publish:
             return run_publish_drafts(args.ticket, args.drafts)
         if args.lint and args.drafts is not None:
             return lint_drafts(args.ticket, args.drafts)
         if args.lint:
             return run_lint(args.ticket)
-        return run_checks(args.ticket, args.reverify, args.actor)
+        return run_checks(args.ticket, args.reverify)
     except TrackerReadError as exc:
         return refuse(f"verify-ticket: {exc}. Nothing was run or written; retry the same command")
     except JudgeUnreachable as exc:

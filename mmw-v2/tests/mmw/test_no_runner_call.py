@@ -1,4 +1,4 @@
-"""No run of `verify-ticket.py` tells anybody anything through a runner.
+"""No run of `ticket_state.py` tells anybody anything through a runner.
 
 What a run posts on the ticket is the whole of its news: the relay of the dispatch skill
 reads the event there and wakes the session waiting on it. So a run that lands a ticket,
@@ -82,7 +82,7 @@ class TestNoRunnerIsCalled(unittest.TestCase):
         source = SCRIPT.read_text(encoding="utf-8")
         for name in RUNNERS:
             self.assertIsNone(re.search(r"[\[(,]\s*[\"']" + name + r"[\"']", source),
-                              f"verify-ticket.py runs {name}")
+                              f"ticket_state.py runs {name}")
         for variable in ("PASEO_AGENT_ID", "ORCA_TERMINAL_HANDLE", "HERDR_PANE_ID"):
             self.assertNotIn(variable, source)
 

@@ -100,6 +100,7 @@ BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
 # `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
+TICKET_STATE="$SKILL_ROOT/scripts/ticket_state.py"
 LEASE=""
 
 # The row a ticket with no `*-worker` label starts from.
@@ -1126,7 +1127,7 @@ events = importlib.util.module_from_spec(where)
 where.loader.exec_module(events)
 
 # A blocker holds until its work has landed (`events.blocker_hold`), the rule the frontier
-# and the worker`s --preflight both apply; a closed one is read for its events.
+# and the worker`s --claim both apply; a closed one is read for its events.
 def blocker_fold(n):
     env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
     run = subprocess.run(["gh", "issue", "view", str(n), "--json", "comments"],
@@ -1458,7 +1459,7 @@ remove_worktree() {
 # Commit the uncommitted edits a ticket's worker left in its worktree, on the ticket
 # branch, naming who left them (`left_by`). A worker whose session ended mid-turn — lost,
 # stopped by a suspension, replaced, retracted — leaves its unfinished work that way, and
-# it is the ticket's: the next worker's `--preflight` refuses a worktree with uncommitted
+# it is the ticket's: the next worker's `--claim` refuses a worktree with uncommitted
 # changes to tracked files, and `git worktree remove --force` deletes them. Only tracked
 # files are taken, the same set the preflight checks; the screenshots and caches a
 # criteria run writes are untracked and stay out. The repository's own commit hooks are
@@ -2017,7 +2018,7 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
   # replaced a moment ago — can hold its uncommitted edits. They are this ticket's work,
-  # and the new worker continues from them; left uncommitted, its `--preflight` would
+  # and the new worker continues from them; left uncommitted, its `--claim` would
   # refuse the worktree. A worktree no worker of this ticket has had is not touched: its
   # changes are somebody else's, and the preflight refuses them rather than take them.
   local publish=0
@@ -2865,13 +2866,13 @@ repo_checks_met() {
 MERGE_CHECKS_JSON=""
 run_merge_checks() {
   local root="$1" into="$2"
-  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" <<'PY'
+  MERGE_CHECKS_JSON="$(python3 - "$TICKET_STATE" "$root" "$into" <<'PY'
 import importlib.util, json, sys
 from pathlib import Path
 
 script, root, into = sys.argv[1:]
 sys.path.insert(0, str(Path(script).resolve().parent))
-spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+spec = importlib.util.spec_from_file_location("mmw_ticket_state", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
@@ -3672,7 +3673,7 @@ recover_ticket() {
 reverify_spec() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-  [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
+  [ -f "$TICKET_STATE" ] || refuse "no ticket_state.py beside dispatch.sh; this runtime cannot record a criteria run, so nothing ran. Restore the complete installed checkout before running reverify again"
 
   local caller_root root git_dir commit plan number rc printed ids login into first
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -3709,7 +3710,7 @@ reverify_spec() {
     # The run writes its own `ticket.checked` (run `reverify`, actor `main`), which is the
     # whole record of a green one.
     printed="$(cd "$root" && env MMW_BASE_REF="origin/$into" \
-      python3 "$VERIFY" "$number" --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
+      python3 "$TICKET_STATE" "$number" --run-and-record-criteria --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
     # Red is exit 1 and a reverify ticket.checked of this HEAD that is not met; every
@@ -4639,7 +4640,7 @@ route_child() {
 # ------------------------------------------------------------------ entry
 
 # `self` reads nothing but this process and its runner, so it answers without models.json:
-# `verify-ticket.py` asks it for the session a refusal is written by.
+# `ticket_state.py` asks it for the session a refusal is written by.
 if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
   own_session
   exit $?

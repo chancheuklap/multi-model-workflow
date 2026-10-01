@@ -113,7 +113,7 @@ class NothingIsWritten(unittest.TestCase):
              mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
             err = io.StringIO()
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
-                code = vt.main(["1"])
+                code = vt.main(["1", "--tools", self.empty.name])
         self.assertEqual(code, 2)
         self.assertEqual(posted, [])
         self.assertIn("story-parity.py", err.getvalue())
@@ -124,7 +124,7 @@ class NothingIsWritten(unittest.TestCase):
                                                                   "junior-worker"]):
             err = io.StringIO()
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
-                code = vt.main(["1", "--lint"])
+                code = vt.main(["1", "--lint", "--tools", self.empty.name])
         self.assertEqual(code, 2)
         self.assertIn("story-parity.py", err.getvalue())
 
