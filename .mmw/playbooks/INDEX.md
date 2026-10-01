@@ -1,0 +1,6 @@
+# Private playbooks
+
+- **Promote a change.** A change committed on `dev` has to reach this machine's hosts and `origin` ("promote it", "release it to this machine"); **Deliver a change** runs it in this repository. Distinct from `finish` in the `dispatch` skill's `references/night.md`, which merges a night's batch into the project branch and promotes nothing. `promote-a-change.md`.
+- **Pull an upstream.** One of the subtrees under `mmw-v2/upstream*/` takes its upstream's newer commits ("pull upstream", "update the subtree"). Distinct from **Import a component**, which copies one pstack component into the `mmw` skill. `pull-an-upstream.md`.
+- **Import a component.** The user names one pstack component to bring into MMW ("import X from pstack"). Distinct from **Pull an upstream**, which updates the subtree the component is copied from. `import-a-component.md`.
+- **Cut text-moving tickets.** The tickets of a spec in this repository write or move skill text, so each needs a `## Moves` manifest and the two text checks ("cut the tickets" when they move text). Distinct from **Write a spec and tickets**, the playbook it adds to: this one covers only what this repository's text checks need. `cut-text-moving-tickets.md`.

@@ -9,5 +9,6 @@
   ],
   "harness_markers": [
     "MMW_BREAK"
-  ]
+  ],
+  "delivery": "playbook:promote-a-change"
 }

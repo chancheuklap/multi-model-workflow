@@ -30,6 +30,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | `bash mmw-v2/tests/dispatch/test_dispatch.sh <scenario>` | One dispatch scenario (about seventy; `all` runs them all); `mmw-v2/tests/relay/test_relay.sh` takes the same argument |
 | `cd mmw-v2/upstream-unlazy/tests && node run-tests.mjs && node lint-tests.mjs` | gate-check's own tests, the two of unlazy's suites that cover what verify-ticket uses (the vendored layer); `verify-ticket`'s `run.sh` runs them too. unlazy's other suites there cover what this repository removed or does not use and are not run |
 | `python3 mmw-v2/skills/dispatch/scripts/models.py config show\|set\|runner …` | The only way to change `~/.mmw/models.json` (which host, model and reasoning effort each agent runs on; the selected runner). Takes effect at the next start, no restart or reinstall. Usage in `mmw-v2/skills/dispatch/references/editing-models.md` |
+| `python3 mmw-v2/import/import_component.py <type> <name>` | Imports one pstack component the user named, of one of eight types, from `mmw-v2/upstream-pstack/`: copies its file into the `mmw` skill, or gives a skill its `pstack/<name>` line in `mmw-v2/skills.txt`, and registers it in `mmw-v2/skills/mmw/imports.tsv`. Each name in the copy that only pstack has is printed as a `NAME` line for the hand rewrite that **Import a component** describes. With `--dry-run` it writes nothing, and with `--refresh` it lists the imported files that a pstack pull made `STALE` or put up for `REVIEW` |
 
 ## External References
 
@@ -47,6 +48,8 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 | How code in this repository is written: scripts, state, refusals, configuration; the reviewer's Standards axis applies it | `CODING_STANDARDS.md` |
 | Where the tests live, how they are isolated, which suites a change needs; the reviewer's Tests axis applies it | `TESTING.md` |
 | Every rule for the text of a skill (`SKILL.md`, references, descriptions, prompts a script builds for an agent): what skill text is for, load and disclosure, redundancy, descriptions, vocabulary, hand-offs, upstream skills, paths, host and runner neutrality; read before writing, editing or reviewing one. This file states none of those rules | `mmw-v2/skills/mmw/references/skill-set-rules.md` |
+| The mode every session of this toolbox works under: its non-negotiables, its principle index, its autonomy rules and the playbook each kind of task runs | `mmw-v2/skills/mmw/SKILL.md` |
+| This repository's private playbooks (promoting a change, pulling an upstream subtree, importing a pstack component, cutting tickets that move skill text), used only in a session with the user present | `.mmw/playbooks/INDEX.md` |
 | Pulling an upstream subtree, resolving conflicts, the `disable-model-invocation` pairing rule | `mmw-v2/merge-notes/README.md` |
 | When a downstream-note is due and its three fixed headings | `mmw-v2/downstream-notes/README.md` |
 | What this repository changed in unlazy's gate-check and why, which tests it runs, the subtree pull command | `mmw-v2/merge-notes/unlazy.md` |
@@ -61,7 +64,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 
 ## Gotchas
 
-- This machine's install is served from the installed checkout `.worktrees/mmw-installed` (recorded in `~/.mmw/installed-root`), and every host symlink points there: an edit to a `SKILL.md` or script in the main worktree reaches no host until it is released. A change is finished only when all four promotion steps have run, in this order: commit on `dev`; fast-forward `main` to it (`git push . dev:main`); move the installed checkout to `main` (`git -C .worktrees/mmw-installed checkout --detach main`) and confirm with `bash mmw-v2/install.sh --check`; push both (`git push origin dev main`). The third step waits while any watch is open (Self-hosting boundary). `install.sh` runs only when the user explicitly authorises it; its read-only `--check` is the exception.
+- This machine's install is served from the installed checkout `.worktrees/mmw-installed` (recorded in `~/.mmw/installed-root`), and every host symlink points there: an edit to a `SKILL.md` or script in the main worktree reaches no host until it is released. A change is finished only when the four steps of the private playbook **Promote a change** (`.mmw/playbooks/promote-a-change.md`) have run, in order. The third step waits while any watch is open (Self-hosting boundary). `install.sh` runs only when the user explicitly authorises it; its read-only `--check` is the exception.
 - Whether Claude Code's Bash sandbox lets the PreToolUse hook `~/.mmw/bin/hook-launcher` run is not verified. Leave the install alone.
 - Each Codex hook needs a `trusted_hash` line in `~/.codex/config.toml`; `install.sh` computes it with Codex's own algorithm. When Codex changes the algorithm it prompts "hooks need review" again and `--check` cannot tell.
 - `tool-guard.py` and `turn-guard.py` decide whether to stand down from the host's own payload fields, never from the environment: Cursor and Grok export their variables into every child process, and an environment test would also switch off the hooks of a Claude session started from one of their panes. `mode-hook.py` is the third. It takes the host as the argument `install.sh` writes on the registered command (`claude` or `codex`), not from a payload field and not from an environment variable; any other host, and any failure, prints nothing and exits 0. The Claude Code registration carries the same `GROK_AGENT` / `GROK_HOOK_EVENT` shell prefix as the other Claude hooks. That prefix exits before `mode-hook.py` starts when `GROK_AGENT` or `GROK_HOOK_EVENT` is set.
@@ -75,7 +78,7 @@ No package manager, no build step. Runtime is bash and the `python3` standard li
 
 
 <important if="you are pulling an upstream subtree or editing an upstream skill">
-- Read `mmw-v2/merge-notes/README.md` first; resolve each conflict by the skill's merge-note entry, take upstream for passages no note covers, and finish with `bash mmw-v2/install.sh --check`. For unlazy, also read upstream's diff of every passage its merge-note lists, conflicting or not, and run `bash mmw-v2/tests/verify-ticket/run.sh`.
+- A pull runs the private playbook **Pull an upstream** (`.mmw/playbooks/pull-an-upstream.md`); an edit to an upstream skill without a pull starts by reading `mmw-v2/merge-notes/README.md`.
 </important>
 
 Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
