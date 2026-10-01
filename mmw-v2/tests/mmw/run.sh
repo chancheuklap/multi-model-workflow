@@ -6,7 +6,7 @@
 set -euo pipefail
 bash "$(dirname -- "${BASH_SOURCE[0]}")/../lib/run_shared_lints.sh" || exit 1
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-unset MMW_JUDGE_LEASE_OWNER MMW_TICKET MMW_BASE_REF MMW_CATALOG_MODE MMW_SPEC MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY
+unset MMW_JUDGE_LEASE_OWNER MMW_TICKET MMW_BASE_REF MMW_CATALOG_MODE MMW_SPEC MMW_TASK_SCOPE MMW_KIND MMW_EVENTS_PY MMW_ROLE
 unset PASEO_AGENT_ID ORCA_TERMINAL_HANDLE HERDR_PANE_ID
 while IFS='=' read -r name _; do
   case "$name" in NMEM_*) unset "$name" ;; esac

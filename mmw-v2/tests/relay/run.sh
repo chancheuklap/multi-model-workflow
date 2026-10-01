@@ -20,7 +20,7 @@ HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 # `dispatch.sh` exports `MMW_EVENTS_PY` to every command it runs, pointing at its own
 # checkout's events.py; `relay.py` would load that one instead of this checkout's.
-unset MMW_EVENTS_PY
+unset MMW_EVENTS_PY MMW_ROLE
 
 rc=0
 
