@@ -7,8 +7,6 @@ description: Shared vocabulary for designing deep modules. Use when the user wan
 
 Design **deep modules**: a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface. Use this language and these principles wherever code is being designed or restructured. The aim is leverage for callers, locality for maintainers, and testability for everyone.
 
-This skill is a reference, not a process: it has no steps and no end of its own, so the task that brought you here decides what you do next. When nothing else is driving, answer the design question you were asked in these terms and stop.
-
 ## Glossary
 
 Use these terms exactly in design prose: don't substitute "component," "service," "API," or "boundary" for them there. Consistent language is the whole point. The rule governs prose, not names that already exist: a command name, an acceptance-criterion category, or a literal a program prints keeps the name it has.
