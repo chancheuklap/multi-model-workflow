@@ -407,6 +407,7 @@ class WhoseTurn(StateCase):
         self.write("watchdog.json", beat)
         out, err = io.StringIO(), io.StringIO()
         with statedir.locked(self.state / "watchdog.lock", wait=0, purpose="test watchdog"), \
+             mock.patch.object(dog.relay_mod, "HERE", Path(self.tmp.name) / "scripts"), \
              mock.patch.object(dog.relay_mod, "wake_pointer", side_effect=AssertionError("healthy turn read roles")), \
              mock.patch.object(guard.sys, "stdin", io.StringIO("{}")), \
              mock.patch.object(guard.sys, "stdout", out), \
