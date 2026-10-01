@@ -26,8 +26,9 @@ nothing else (docs/adr/0001-tracker-repo-authority.md).
 **Watches.** What the relay reads is the union of its watches. A watch is what one
 `dispatch.sh open-night`, `open-ticket-watch` or `adopt` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
-night. Its `kind` records `night`, `ticket` or `adopted-ticket`; older watches without
-`kind` remain readable. Each watch has its own orchestrator, a (runner, session) pair:
+night. Its `kind` records `night`, `ticket` or `adopted-ticket`; a watch without
+`kind` is read but receives no wakes until it is reopened with its kind. Each watch has
+its own orchestrator, a (runner, session) pair:
 the session that opened it. The watch is the only registration of that orchestrator.
 A repository has one relay process and one state directory however many
 watches are open, so nights run from several branches or worktrees, one-ticket runs and
@@ -175,7 +176,7 @@ Files in the state directory:
     queue.seq       the last sequence number issued
     queue.lock      taken for every read-and-write of the files below it
     seen.json       per ticket: (comment, event) pairs translated, newest updated_at,
-                    every worker.started as [comment id, runner, session], the pending
+                    every worker.started as [comment id, runner, session, adopted], the pending
                     worker.queued (`waiting`: its comment id, or null) and the newest
                     comment id applied to that flag (`waiting_read`)
     watches.json    every open watch, keyed `spec:<n>` or `tickets:<n>[,<n>...]`: the
@@ -242,7 +243,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, NamedTuple
 
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -287,7 +288,13 @@ MAIN_GONE_AFTER = 3600
 
 MAIN = "main"
 WORKER = "worker"
-WATCH_KINDS = ("night", "ticket", "adopted-ticket")
+WATCH_KINDS = {"night": "night-orchestrator", "ticket": "one-ticket-orchestrator",
+               "adopted-ticket": "adopting-worker"}
+
+
+class WorkerRecipient(NamedTuple):
+    address: tuple[str, str]
+    role: str
 
 # Which events wake whom. `to` is the role of the session woken; `when`, where present,
 # lists the payload values the event must carry for it to wake anyone.
@@ -405,17 +412,29 @@ def wake_pointer(role: str, event: str) -> str:
 
 def main_role(watch: dict) -> str:
     """A watch's kind names its orchestrator role; absent kinds are not inferred."""
-    roles = {"night": "night-orchestrator", "ticket": "one-ticket-orchestrator",
-             "adopted-ticket": "adopting-worker"}
-    if watch.get("kind") not in roles:
+    if watch.get("kind") not in WATCH_KINDS:
         command = f"dispatch.sh open-night {watch['spec']}" if watch.get("spec") else \
             f"dispatch.sh open-ticket-watch {(watch.get('tickets') or ['<n>'])[0]} or dispatch.sh adopt <n>"
-        raise Refusal(f"watch on {describe_watch(watch)} has no valid kind; reopen it with {command}")
-    return roles[watch["kind"]]
+        raise Refusal(f"watch on {describe_watch(watch)} has no valid kind, so its recipient role "
+                      f"is unknown and no wake is delivered; reopen it with {command}")
+    return WATCH_KINDS[watch["kind"]]
+
+
+def watches_for(watches: dict[str, dict], address: tuple[str, str]) -> list[dict]:
+    """Open watches orchestrated by this runner/session, in watch-key order."""
+    return [entry for _, entry in sorted(watches.items()) if main_of(entry) == address]
+
+
+def watch_pointer(watch: dict, event: str) -> str:
+    """A host warning's pointer or diagnostic, without changing its delivery verdict."""
+    try:
+        return wake_pointer(main_role(watch), event)
+    except Refusal as exc:
+        return str(exc)
 
 
 def wake_text(row: dict, pointer: str | None = None) -> str:
-    """What is sent: the ticket number and the event name, nothing the tracker already says."""
+    """The event or recovery stretch, with the recipient's step pointer for delivery."""
     if row.get("event") == RECOVERED:
         text = f"{RECOVERED} since {row.get('since')}"
     else:
@@ -915,15 +934,17 @@ class Relay:
         self.out.flush()
 
     @staticmethod
-    def _worker_before(per_ticket: dict, ticket, cid: int | None) -> tuple[str, str] | None:
-        """The (runner, session) of the ticket's latest worker.started before comment `cid`;
+    def _worker_before(per_ticket: dict, ticket, cid: int | None) -> WorkerRecipient | None:
+        """The address and role of the ticket's latest worker.started before comment `cid`;
         with `cid` None, its latest worker.started of all."""
         entries = (per_ticket.get(str(ticket)) or {}).get("workers") or []
         earlier = [e for e in entries if cid is None or e[0] < cid]
         if not earlier:
             return None
-        _, runner, session = max(earlier, key=lambda e: e[0])[:3]
-        return runner, session
+        latest = max(earlier, key=lambda entry: entry[0])
+        _, runner, session, *adopted = latest
+        role = "adopting-worker" if adopted and adopted[0] is True else "worker"
+        return WorkerRecipient((runner, session), role)
 
     # ------------------------------------------------------------- reading the queue
 
@@ -1111,7 +1132,8 @@ class Relay:
                     entry = watches.get(item["watch"])
                     address = main_of(entry) if entry else None
                 else:
-                    address = self._worker_before(per_ticket, item["ticket"], item["cid"])
+                    worker = self._worker_before(per_ticket, item["ticket"], item["cid"])
+                    address = worker.address if worker else None
                 if address is None:
                     unaddressed.append(item)
                     continue
@@ -1232,10 +1254,11 @@ class Relay:
             key = f"slot:{cid}:{number}"
             if key in already or key in queued:
                 continue
-            address = self._worker_before(per_ticket, number, cid)
-            if address is None:
+            worker = self._worker_before(per_ticket, number, cid)
+            if worker is None:
                 unaddressed.append({"slot": True, "cid": cid, "woken": number})
                 continue
+            address = worker.address
             queued.add(key)
             added.append({"key": key, "cid": cid, "home": number, "ticket": number,
                           "event": QUEUED, "to": WORKER, "watch": tickets[number],
@@ -1338,38 +1361,39 @@ class Relay:
         finally:
             self._note_delivery(begun, self.clock())
 
-    def _recipient_now(self, row: dict, watches: dict[str, dict], per_ticket: dict) -> tuple[str, str | None]:
-        """Whether `row` is still its recipient's: ("send", None); ("drop", why); or
-        ("keep", why) when there is nobody to compare it with."""
+    def _recipient_now(self, row: dict, watches: dict[str, dict], per_ticket: dict) -> tuple[str, str | None, str | None]:
+        """Delivery verdict, explanation, and the current worker's role if addressed to one."""
         address = (row.get("runner"), row.get("session"))
         watch = row.get("watch")
+        role = None
         if watch is not None and watch not in watches:
             return "drop", (f"it belongs to the watch on {describe_watch(watch_from_key(watch))}, "
-                            f"which was closed")
+                            f"which was closed"), None
         if row.get("to") == WORKER:
             # A slot wake is for a wait. One that has ended since — the worker got a slot
             # on an earlier wake, and its run is on the ticket — would only have it run its
             # criteria again for nothing.
             if row.get("event") == QUEUED \
                     and not (per_ticket.get(str(row.get("ticket"))) or {}).get("waiting"):
-                return "drop", f"#{row.get('ticket')} no longer waits for a product slot"
-            current = self._worker_before(per_ticket, row.get("ticket"), None)
-            if current is None:
-                return "keep", f"there is no #{row.get('ticket')}'s worker to compare it with"
+                return "drop", f"#{row.get('ticket')} no longer waits for a product slot", None
+            worker = self._worker_before(per_ticket, row.get("ticket"), None)
+            if worker is None:
+                return "keep", f"there is no #{row.get('ticket')}'s worker to compare it with", None
+            current, role = worker
             whose = f"#{row.get('ticket')}'s worker"
         elif watch is not None:
             current = main_of(watches[watch])
             whose = f"the orchestrator of {describe_watch(watches[watch])}"
         elif address in {main_of(e) for e in watches.values()}:
-            return "send", None
+            return "send", None, role
         else:
             return "drop", (f"it is addressed to {address[0]} session {address[1]}, the main "
-                            f"agent of no open watch: a late message for a retired session")
+                            f"agent of no open watch: a late message for a retired session"), None
         if address != current:
             return "drop", (f"it is addressed to {address[0]} session {address[1]}, and {whose} "
                             f"is now {current[0]} session {current[1]}: a late message for a "
-                            f"retired session")
-        return "send", None
+                            f"retired session"), None
+        return "send", None, role
 
     def _deliver(self, pending: list[dict]) -> None:
         watches = self.watches()
@@ -1378,28 +1402,29 @@ class Relay:
         # Resolve the entire pass before sending anything: an incomplete role registry
         # must not deliver half a round and fail on a later recipient.
         texts: dict[int, str] = {}
+        verdicts = {}
         for row in pending:
-            if self._recipient_now(row, watches, per_ticket)[0] != "send":
+            verdict, why, worker_role = self._recipient_now(row, watches, per_ticket)
+            verdicts[row["seq"]] = verdict, why
+            if verdict != "send":
                 continue
             watch = watches.get(row.get("watch"))
             if watch is None:
                 address = (row.get("runner"), row.get("session"))
-                watch = next((entry for _, entry in sorted(watches.items())
-                              if main_of(entry) == address), None)
+                matches = watches_for(watches, address)
+                watch = matches[0] if matches else None
             try:
                 role = main_role(watch or {})
             except Refusal as exc:
                 self.err.write(f"relay: {exc}\n")
                 continue
-            if row.get("to") == WORKER:
-                workers = (per_ticket.get(str(row.get("ticket"))) or {}).get("workers") or []
-                latest = max(workers, key=lambda entry: entry[0])
-                role = "adopting-worker" if len(latest) > 3 and latest[3] is True else "worker"
+            if worker_role is not None:
+                role = worker_role
             texts[row["seq"]] = wake_text(row, wake_pointer(role, row["event"]))
         held: set[tuple[str, str]] = set()
         for row in pending:
             address = (row.get("runner"), row.get("session"))
-            verdict, why = self._recipient_now(row, watches, per_ticket)
+            verdict, why = verdicts[row["seq"]]
             if verdict == "keep":
                 self.err.write(f"relay: kept row {row['seq']} ({wake_text(row)}): {why}\n")
                 continue
@@ -1781,7 +1806,7 @@ def cmd_ack(args) -> int:
     wake = RECOVERED if ticket is None else f"#{ticket} {args.event}"
     done = relay.ack_wake(address, ticket, args.event)
     if done is None:
-        mine = [wake_text(r).split(" · ")[0].split(" since ")[0] for r in relay.rows(address)]
+        mine = [wake_text(r).split(" since ")[0] for r in relay.rows(address)]
         held = ", ".join(f"`{w}`" for w in mine) if mine else "nothing"
         raise Refusal(f"no wake `{wake}` is queued for {args.runner} session {args.session}, "
                       f"so nothing was acked: it was acked already, it went to another "

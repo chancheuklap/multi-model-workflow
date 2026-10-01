@@ -91,7 +91,7 @@ alert of its own: the key carries which of the two it is. What `send` answered d
     3, 5+  nothing was sent: kept, and sent again next round
     2      that orchestrator's session is gone: recorded, kept, nobody to tell
 
-The alerts exactly:
+The alert bodies, before their next command and step pointer:
 
     watchdog: relay down (<what is wrong>); details: python3 <this file> status --repo <repo>
     watchdog: relay not reading (<what is wrong>); the process is there and cycling, and it
@@ -109,10 +109,14 @@ The alerts exactly:
     watchdog: cannot read the tracker since <time>: <what failed>
 
 The two `liveness unknown` alerts and the `silent since ... with nothing to wait on`
-alert append `dispatch.sh resume <n> ...` for a `night` or `ticket` watch, or a watch
-with no `kind`. A watch whose `kind` is `adopted-ticket` sends those three alerts to
+alert append `dispatch.sh resume <n> ...` for a `night` or `ticket` watch. A watch whose
+`kind` is `adopted-ticket` sends those three alerts to
 the worker itself, so their next step is to tell the user, not to resume that session.
-The other five alerts do not branch on the watch's `kind`.
+The other five alert bodies do not branch on the watch's `kind`.
+
+Alerts for one orchestrator are joined with ` | ` on one line, ending once with
+` · mmw <playbook>#<step>` from roles.json and the watch's kind. A missing kind or
+unreadable roles.json produces a diagnostic in place of the pointer; the alert still sends.
 
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
 repository has one watchdog, serving every watch; the lock's record names its pid and
@@ -827,12 +831,8 @@ class Watchdog:
         for (runner, session), items in by_main.items():
             # One line: a runner types what it is handed into a terminal, where a newline submits.
             text = " | ".join(p["text"] for p in items)
-            watch = next(entry for _, entry in sorted(self.beat["watches"].items())
-                         if relay_mod.main_of(entry) == (runner, session))
-            try:
-                pointer = relay_mod.wake_pointer(relay_mod.main_role(watch), "watchdog:")
-            except relay_mod.Refusal as exc:
-                pointer = str(exc)
+            watch = relay_mod.watches_for(self.beat["watches"], (runner, session))[0]
+            pointer = relay_mod.watch_pointer(watch, "watchdog:")
             text += f" · {pointer}"
             code = self.send(runner, session, text)
             if code in (0, 4):

@@ -267,14 +267,8 @@ def main_watches(state: Path, dog) -> list[dict]:
             continue
         if run.returncode == 0:
             address = (runner, (run.stdout or "").strip())
-            matches.extend(entry for _, entry in sorted(watches.items())
-                           if dog.relay_mod.main_of(entry) == address)
+            matches.extend(dog.relay_mod.watches_for(watches, address))
     return matches
-
-
-def is_main(state: Path, dog) -> bool:
-    """Whether this session is the orchestrator of any watch in this state directory."""
-    return bool(main_watches(state, dog))
 
 
 def now_iso() -> str:
@@ -327,11 +321,10 @@ def guard(host: str, forced: bool = False) -> list[str]:
                 f"your turn."
             )
             for watch in watches:
-                try:
-                    pointer = dog.relay_mod.wake_pointer(dog.relay_mod.main_role(watch), "MMW turn guard:")
-                except dog.relay_mod.Refusal as exc:
-                    pointer = str(exc)
-                blocks.append(f"{text} · {pointer}")
+                pointer = dog.relay_mod.watch_pointer(watch, "MMW turn guard:")
+                line = f"{text} · {pointer}"
+                if line not in blocks:
+                    blocks.append(line)
     return blocks
 
 
@@ -353,10 +346,6 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"turn-guard: could not judge this turn end: {exc!r}\n")
         return 0 if host == "cursor" else 1
     code, out, err = answer(host, bool(blocks), " | ".join(blocks))
-    if any(" · cannot read " in block for block in blocks):
-        # An incomplete registry is an installation warning, never a host-blocking
-        # verdict. Cursor can receive its follow-up; every host exits successfully.
-        code = 0
     sys.stdout.write(out)
     sys.stderr.write(err)
     return code

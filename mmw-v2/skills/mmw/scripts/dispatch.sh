@@ -891,10 +891,6 @@ sync_base_with_project() {
   return 0
 }
 
-# `open-night <spec>`: the night begins. The relay watches the spec's tickets with this session
-# as the night's orchestrator, and `spec.opened` on the spec records who is woken. A
-# spec.opened that could not be written closes the watch this call opened: a night that
-# says nowhere that it is open is not opened.
 step_pointer() {
   python3 - "$SKILL_ROOT/scripts" "$@" <<'PY'
 import sys
@@ -908,6 +904,10 @@ except relay.Refusal as exc:
 PY
 }
 
+# `open-night <spec>`: the night begins. The relay watches the spec's tickets with this session
+# as the night's orchestrator, and `spec.opened` on the spec records who is woken. A
+# spec.opened that could not be written closes the watch this call opened: a night that
+# says nowhere that it is open is not opened.
 open_night() {
   local pointer
   pointer="$(step_pointer night-orchestrator '*')" || exit 2
@@ -2397,7 +2397,7 @@ resume_one() {
   pointer="$(step_pointer worker resume)" || exit 2
   local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
-  case "$text" in *$'\n'* | *$'\r'*) refuse "resume text must be one line" ;; esac
+  case "$text" in *$'\n'* | *$'\r'*) refuse "resume text contains a newline, which a runner types as terminal submission; send one line with dispatch.sh resume $number '<text>' and inspect its exit" ;; esac
   text="$text · $pointer"
   local live line
   live="$(live_workers_on_ticket "$number")" \

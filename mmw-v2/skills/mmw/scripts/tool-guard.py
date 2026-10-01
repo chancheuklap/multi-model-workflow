@@ -75,13 +75,15 @@ REFUSAL = (
 # The same length rule, including the host's prefix: the worker records a default or
 # opens a decision child and continues; the reviewer marks the finding unverified.
 WORKER_NO_QUESTION = (
-    "Worker: pick likely; note `Decisions I made on my own`; delivery changes: "
+    "Worker: pick likely; note `Decisions I made on my own`; if delivery changes: "
     "ABANDON: AC<n> decision <question,options,default>; open decision child; continue."
 )
 REVIEWER_NO_QUESTION = (
-    "Reviewer: end finding line with `unverified: <what would settle it>`."
+    "Reviewer: write `unverified: <what would settle it>` at the end of that finding's "
+    "line in your report."
 )
-NO_QUESTION = "No one answers. " + WORKER_NO_QUESTION + " " + REVIEWER_NO_QUESTION
+NO_QUESTION = ("No one answers. " + WORKER_NO_QUESTION
+               + " Reviewer: end finding line with unverified: <what would settle it>.")
 
 # The tool each host calls to put a question on the screen.
 QUESTION_TOOLS = {
