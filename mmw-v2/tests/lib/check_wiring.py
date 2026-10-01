@@ -36,13 +36,13 @@ class Policy:
 # class: failure policy and the batch in which it must fail.
 CLASS_POLICY = {
     1: Policy(True, 'B0'),
-    2: Policy(False, 'B1'),
+    2: Policy(True, 'B1'),
     3: Policy(False, 'B2 end'),
-    5: Policy(False, 'B1'),
+    5: Policy(True, 'B1'),
     6: Policy(False, 'B2 end'),
-    7: Policy(False, 'B1'),
+    7: Policy(True, 'B1'),
     8: Policy(True, 'B0'),
-    9: Policy(False, 'B1'),
+    9: Policy(True, 'B1'),
     10: Policy(True, 'B0', registry=Policy(False, 'B2 end')),
     11: Policy(False, 'B2 end'),
     12: Policy(False, 'B2'),

@@ -13,6 +13,7 @@ SCRIPT = LIB / 'check_wiring.py'
 FIXTURES = Path(__file__).resolve().parent / 'fixtures/wiring'
 MODE = 'mmw-v2/skills/mmw'
 DISPATCH = 'mmw-v2/skills/dispatch'
+WORK_ROUTE = '\n## Playbooks\n\n- **Work.** Do the work. `playbooks/work-a-ticket.md`.\n'
 
 
 class Wiring(unittest.TestCase):
@@ -367,6 +368,7 @@ class Wiring(unittest.TestCase):
             self.write(MODE + '/principles/principle-evidence.md',
                        '---\nname: principle-evidence\ndescription: Apply when evidence is required.\n---\n# Evidence\n')
         if category == 7:
+            self.write('mmw-v2/skills/example/SKILL.md', '# Example\n')
             self.write(MODE + '/playbooks/work-a-ticket.md',
                        '### Work\n\n1. **Claim.** Use the `example` skill.\n'
                        '2. **Get reviewed.** Use the `example` skill.\n')
@@ -377,8 +379,7 @@ class Wiring(unittest.TestCase):
                        'disable-model-invocation: true\n---\n# Upstream\n')
 
     def test_wiring_reported_classes(self):
-        batches = {2: 'B1', 3: 'B2 end', 5: 'B1', 6: 'B2 end',
-                   7: 'B1', 9: 'B1', 11: 'B2 end', 12: 'B2'}
+        batches = {3: 'B2 end', 6: 'B2 end', 11: 'B2 end', 12: 'B2'}
         for category, batch in batches.items():
             with self.subTest(category=category):
                 self.setUp()
@@ -399,6 +400,28 @@ class Wiring(unittest.TestCase):
                 if category == 6:
                     self.assertRegex(result.stdout, r'(?m)^(?!report:).*: class 6 worker/unhandled.event has no registered handler$')
 
+    def test_wiring_b1_classes_fail(self):
+        repairs = {
+            2: (MODE + '/playbooks/missing.md', '### Missing\n'),
+            5: (MODE + '/principles/principle-evidence.md',
+                '---\nname: principle-evidence\ndescription: Apply when evidence is required.\n'
+                '---\n# Wrong display name\n'),
+            7: (MODE + '/SKILL.md', '# MMW\n' + WORK_ROUTE),
+            9: ('mmw-v2/skills.txt', 'self/example\nengineering/upstream-example +model-invoked\n'),
+        }
+        for category, (path, text) in repairs.items():
+            with self.subTest(category=category):
+                self.setUp()
+                self.reported_fixture(category)
+                result = self.check()
+                self.assert_status(result, 1)
+                self.assertIn('connections do not resolve', result.stdout)
+                self.assertRegex(result.stdout, rf'(?m)^(?!report:).*:\d+: class {category} ')
+                self.write(path, text)
+                result = self.check()
+                self.assert_status(result, 0)
+                self.assertNotRegex(result.stdout, rf'(?m)^(?:report: )?.*:\d+: class {category} ')
+
     def test_wiring_pointer_class_targets(self):
         path = 'mmw-v2/skills/example/SKILL.md'
         self.write(path, '`mmw work-a-ticket#Claim`\n`mmw#Re-entry`\n')
@@ -406,17 +429,23 @@ class Wiring(unittest.TestCase):
         self.assert_status(result, 0)
         self.assertIn('pending work-a-ticket (not built yet)', result.stdout)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Work\n\n#### Claim\n\n#### Get reviewed\n')
-        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n')
+        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n' + WORK_ROUTE)
         self.assert_status(self.check(), 0)
-        self.write(MODE + '/SKILL.md', '# MMW\n\n## Autonomy\n')
-        self.assert_status(self.check(), 1)
-        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n')
+        self.write(MODE + '/SKILL.md', '# MMW\n\n## Autonomy\n' + WORK_ROUTE)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw#Re-entry ')
+        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n' + WORK_ROUTE)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Claim\n\n#### Get reviewed\n')
-        self.assert_status(self.check(), 1)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Claim ')
         self.write(MODE + '/playbooks/work-a-ticket.md', '1. **Claim.** Do the work.\n\n2. **Get reviewed.** Read the report.\n')
         self.assert_status(self.check(), 0)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Work\n\n#### Get reviewed\n')
-        self.assert_status(self.check(), 1)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Claim ')
         self.write(MODE + '/imports.tsv', 'type\tpath\nplaybook\t' + MODE + '/playbooks/work-a-ticket.md\n')
         result = self.check()
         self.assert_status(result, 1)
@@ -465,7 +494,7 @@ class Wiring(unittest.TestCase):
         self.write('mmw-v2/skills.txt', 'self/example\nengineering/upstream-example +model-invoked\n')
         self.write('mmw-v2/upstream/skills/engineering/upstream-example/SKILL.md', '# Upstream\n')
         result = self.check('--graph')
-        self.assert_status(result, 0)
+        self.assert_status(result, 1)
         categories = {int(line.rsplit(' : ', 1)[1]) for line in result.stdout.splitlines()}
         self.assertTrue({1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12} <= categories, result.stdout)
         self.assertIn('mmw-v2/skills/example/SKILL.md -> mmw work-a-ticket#Claim : 1', result.stdout)
@@ -593,6 +622,7 @@ class Wiring(unittest.TestCase):
 
     def test_wiring_event_sources_and_duplicate_handlers(self):
         self.write(DISPATCH + '/roles.json', '{"night-orchestrator":{"playbook":"work-a-ticket","wakes":{"*":"Claim"}}}')
+        self.write(MODE + '/SKILL.md', '# MMW\n' + WORK_ROUTE)
         self.write(MODE + '/playbooks/work-a-ticket.md', '#### Claim\nHandle the wake.\n')
         self.write(DISPATCH + '/scripts/watchdog.py',
                    'alerts = [\n' + ''.join('{"text":"watchdog: alert%d"},\n' % i for i in range(8)) + ']\n')
@@ -676,8 +706,8 @@ class Wiring(unittest.TestCase):
         env['MMW_HOME'] = str(state)
         result = subprocess.run([sys.executable, str(lib / 'check_wiring.py')],
                                 env=env, capture_output=True, text=True)
-        self.assert_status(result, 0)
-        self.assertRegex(result.stdout, r'(?m)^report: .*: class 9 .*installation copy still has invocation switch$')
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report:).*: class 9 .*installation copy still has invocation switch$')
         self.assertNotRegex(result.stdout, r'(?m)^report: .*: class 12 ')
         isolated = self.check()
         self.assertNotIn('installation copy still has invocation switch', isolated.stdout)
