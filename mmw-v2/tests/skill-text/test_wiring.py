@@ -245,6 +245,7 @@ class Wiring(unittest.TestCase):
         self.assertEqual([(m.name, m.form) for m in skill_text.skill_mentions(
             'the `Missing-Skill` skill. `/Missing-Skill`', names)],
                          [('Missing-Skill', 'qualified'), ('Missing-Skill', 'slash')])
+        self.assertEqual(skill_text.skill_mentions('An example: `` the `X` skill ``.', names), [])
 
     def test_wiring_pointer_class(self):
         path = 'mmw-v2/skills/example/SKILL.md'

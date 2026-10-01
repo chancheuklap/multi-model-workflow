@@ -199,7 +199,7 @@ class SkillMention:
 QUALIFIED_SKILL = re.compile(
     r"(?<![\w-])(?:the|(?<![^\n])The|(?<=[.!?] )The)\s+"
     r"(?:`([^`\n]+)`|([a-z][\w-]*))\s+skill(?![\w-])")
-SKILL_CODE = re.compile(r'(?<!`)(`+)([^`\n]+)\1(?!`)')
+SKILL_CODE = re.compile(r'(?<!`)(`+)(?!`)([^\n]*?)(?<!`)\1(?!`)')
 
 
 def skill_mentions(text: str, names, steps: bool = True) -> list[SkillMention]:
@@ -207,7 +207,10 @@ def skill_mentions(text: str, names, steps: bool = True) -> list[SkillMention]:
     masked = prose_mask(text)
     result = []
     qualified = []
+    code_spans = [(match.start(), match.end()) for match in SKILL_CODE.finditer(masked)]
     for match in QUALIFIED_SKILL.finditer(masked):
+        if any(start <= match.start() < end for start, end in code_spans):
+            continue
         name = match[1] or match[2]
         if match[1] or name in names:
             qualified.append((match.start(), match.end()))
@@ -246,6 +249,8 @@ def skill_of_path(text: str, offset: int, names) -> str | None:
     masked = prose_mask(text)
     prefix = masked[:offset]
     for match in QUALIFIED_SKILL.finditer(prefix):
+        if any(code.start() <= match.start() < code.end() for code in SKILL_CODE.finditer(masked)):
+            continue
         if re.fullmatch(r"'s\s*`?", prefix[match.end():]):
             name = match[1] or match[2]
             if match[1] or name in names:
