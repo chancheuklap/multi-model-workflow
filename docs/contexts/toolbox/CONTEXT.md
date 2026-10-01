@@ -36,7 +36,7 @@ _Home_: `AGENTS.md`
 
 **repository root**:
 `git rev-parse --show-toplevel`: the working directory of every `CHECK:` unless a `CWD:` line moves it.
-_Home_: `mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md`
+_Home_: `mmw-v2/skills/to-tickets/SKILL.md`
 
 **main worktree**:
 The working tree of the repository's own clone, as against the linked worktrees `git worktree add` makes (git-worktree(1): "A repository has one main worktree … and zero or more linked worktrees"). Every worktree the pipeline makes, and this repository's **installed checkout**, sits under its `.worktrees/`. Distinct from the **repository root**, which inside a ticket worktree is that worktree's top level.
@@ -109,11 +109,6 @@ _Home_: `mmw-v2/skills/mmw/SKILL.md`
 A judgement that holds across tasks and can change a concrete decision. One file `mmw-v2/skills/mmw/principles/principle-<slug>.md`, named from elsewhere as `**principle-<slug>**`. Distinct from a rule in `shared.md`, and not a skill: `skills.txt` does not list it, and a host does not load it on its own.
 _Home_: `mmw-v2/skills/mmw/SKILL.md`
 
-**pstack names**:
-The table that says how a name only pstack or Cursor has — a tool, a control, a delivery or forge position, an alias — reads in MMW.
-_Avoid_: slot (in this repository, the product slot a lease hands a worktree; `docs/contexts/ui-acceptance/CONTEXT.md` **slot**)
-_Home_: `mmw-v2/skills/mmw/references/pstack-names.md`
-
 **model-invoked marker**:
 The `+model-invoked` at the end of a `skills.txt` line: that upstream skill is named by the mode or a playbook and is to be callable by the model. Install serves the host a **skill copy** and leaves the subtree file unchanged.
 _Home_: `mmw-v2/install.sh`
@@ -139,7 +134,7 @@ The hand-run test entry point of one skill or subsystem, one directory each unde
 _Home_: `mmw-v2/tests/AGENTS.md`
 
 **merge-note**:
-One note per changed upstream skill, and one for unlazy's scripts, in `mmw-v2/merge-notes/`: which passages this repository changed, why, and how to choose when upstream changes them again.
+One note per changed upstream skill, and one for unlazy's scripts, in `mmw-v2/merge-notes/`: which passages this repository changed, why, and how to choose when upstream changes them again. An upstream skill may be changed in only two ways, a host-neutral rewrite or a capability change its note records; `mmw-v2/merge-notes/README.md` names the skills that still carry text of other kinds. The note of a skill forked into `mmw-v2/skills/` records where this repository's text went.
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **downstream-note**:
@@ -372,7 +367,7 @@ _Home_: `mmw-v2/skills/code-checkers/SKILL.md`
 
 **checker command**:
 The single command a repository's `AGENTS.md` names that runs every installed checker, reporting only, with a flag for the fixes safe to apply automatically; in a consuming repository this is what `.mmw/target.json`'s `checks` runs.
-_Home_: `mmw-v2/skills/code-checkers/SKILL.md`
+_Home_: `mmw-v2/skills/code-checkers/SKILL.md`, `mmw-v2/skills/mmw/playbooks/onboard-a-repository.md`
 
 **prek**:
 The single-binary `pre-commit` reimplementation `code-checkers` wires as the commit-time git hook, reading the repository's own `.pre-commit-config.yaml`.
@@ -473,7 +468,3 @@ _Home_: `mmw-v2/merge-notes/teach.md`
 **`repo-root` symlink**:
 `diagram-design`'s own symlink, `skills/diagram-design/repo-root -> ../..`, so a script resolves to the subtree root even when the skill is installed as a linked directory and `../../` would resolve into the host's own directory instead.
 _Home_: `mmw-v2/merge-notes/diagram-design.md`
-
-**"Hand the decision on"**:
-`improve-codebase-architecture`'s own added final step: a confirmed grilling decision goes to the `to-spec` skill instead of being acted on in the same session, so the deepened module or seam still passes through the ticket and acceptance pipeline.
-_Home_: `mmw-v2/merge-notes/improve-codebase-architecture.md`
