@@ -43,7 +43,7 @@ extend-immutable-calls = [
 ]
 ```
 
-**ruff has no checker baseline**, and third-party diff wrappers break on its releases: use the changed-lines filter in `SKILL.md` step 4. `ruff check --output-format json` gives `filename` and `location.row`.
+**ruff has no checker baseline**, and third-party diff wrappers break on its releases: use the changed-lines filter in `SKILL.md`, **Filter to the changed lines**. `ruff check --output-format json` gives `filename` and `location.row`.
 
 Rules worth reading rather than fixing in bulk, because each one names a place the code can lose an error or a fact: `BLE001` blind `except Exception`, `S110`/`S112` `except: pass` and `except: continue`, `B023` a closure capturing a loop variable, `DTZ` a naive `datetime` in a system that spans machines or handles money.
 

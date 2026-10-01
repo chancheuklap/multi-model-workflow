@@ -7,6 +7,11 @@ path	mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-
 path	mmw-v2/upstream/skills/engineering/to-spec/references/several-specs.md	mmw-v2/skills/to-spec/references/spec-division.md
 path	mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-remake.md	mmw-v2/skills/mmw/references/ui-and-remake-tickets.md
 path	mmw-v2/upstream/skills/engineering/implement/references/writing-interface-code.md	mmw-v2/skills/ui-acceptance/references/writing-ui-code.md
+path	mmw-v2/upstream/skills/engineering/to-spec/SKILL.md	mmw-v2/skills/to-spec/SKILL.md
+path	mmw-v2/upstream/skills/engineering/to-spec/references/revising-a-spec.md	mmw-v2/skills/to-spec/references/revising-a-spec.md
+path	mmw-v2/upstream/skills/engineering/to-tickets/SKILL.md	mmw-v2/skills/to-tickets/SKILL.md
+path	mmw-v2/upstream/skills/engineering/to-tickets/references/person-ticket.md	mmw-v2/skills/to-tickets/references/person-ticket.md
+path	mmw-v2/upstream/skills/engineering/to-tickets/references/ambiguity-scan.md	mmw-v2/skills/to-tickets/references/ambiguity-scan.md
 token	edit-pages.md	set-up-and-sign-off.md
 token	driving.md	release-loop.md
 token	key.md	release-manifest.md	mmw-v2/skills/exe-release/**

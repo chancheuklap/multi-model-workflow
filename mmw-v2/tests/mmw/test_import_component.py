@@ -84,6 +84,11 @@ class ImportComponent(unittest.TestCase):
         return {p.relative_to(self.root).as_posix(): (p.read_bytes(), p.stat().st_mode)
                 for p in self.root.rglob('*') if p.is_file() and '.git' not in p.relative_to(self.root).parts}
 
+    def names(self, result):
+        lines = result.stdout.splitlines()
+        self.assertRegex(lines[-1], r'^(IMPORTED|DRY-RUN)\t\d+$')
+        return [line for line in lines if line.startswith('NAME\t')]
+
     def test_a_principle_lands_with_its_switch_line_removed_and_its_links_rewritten(self):
         self.run_import('principle', 'principle-one')
         self.assertEqual((self.root / MODE / 'principles/principle-one.md').read_bytes(),
@@ -124,55 +129,67 @@ class ImportComponent(unittest.TestCase):
         self.assertEqual(len(self.rows()), 2)
         self.assertEqual(len(self.rows(REWRITES)), 1)
 
-    def test_an_unmapped_slot_keyword_stops_the_import(self):
+    def test_a_pstack_name_in_a_copied_file_is_listed_and_the_import_goes_on(self):
         self.write(SUBTREE + '/skills/principle-two/SKILL.md',
                    OTHER + '\nUse AskQuestion and `gh`; Spawn Comment Sicko.\n')
-        before = self.snapshot()
-        result = self.run_import('principle', 'principle-one', code=1)
-        for keyword in ('AskQuestion', 'gh', 'Spawn Comment Sicko'):
-            self.assertIn(SUBTREE + '/skills/principle-two/SKILL.md:10: ' + keyword, result.stderr)
-        self.assertEqual(self.snapshot(), before)
-        self.write(MODE + '/references/pstack-names.md',
-                   '| pstack | MMW |\n|---|---|\n| `AskQuestion` | autonomy |\n'
-                   '| `gh` | tracker |\n| Spawn Comment Sicko | a brief |\n')
-        self.run_import('principle', 'principle-one')
-        (self.root / MODE / 'references/pstack-names.md').unlink()
+        result = self.run_import('principle', 'principle-one')
+        copied = MODE + '/principles/principle-two.md'
+        self.assertEqual(self.names(result), [
+            f'NAME\t{copied}\t9\tAskQuestion',
+            f'NAME\t{copied}\t9\tgh',
+            f'NAME\t{copied}\t9\tSpawn Comment Sicko',
+        ])
+        self.assertIn('IMPORTED\t2\n', result.stdout)
+        self.assertEqual((self.root / copied).read_text().splitlines()[8],
+                         'Use AskQuestion and `gh`; Spawn Comment Sicko.')
         self.write(SUBTREE + '/agents/helper.md',
                    '---\nname: helper\ndescription: Help.\nis_background: true\nmodel: special\n'
                    '---\n# Helper\n\nAskQuestion\n')
         before = self.snapshot()
-        result = self.run_import('agent', 'helper', code=1)
-        self.assertIn(SUBTREE + '/agents/helper.md:9: AskQuestion', result.stderr)
+        listed = f'NAME\t{MODE}/references/pstack/agents/helper.md\t7\tAskQuestion'
+        result = self.run_import('agent', 'helper', '--dry-run')
+        self.assertEqual(self.names(result), [listed])
         self.assertEqual(self.snapshot(), before)
+        result = self.run_import('agent', 'helper')
+        self.assertEqual(self.names(result), [listed])
+        self.write(SUBTREE + '/skills/asked/SKILL.md', '# Asked\n\nAskQuestion\n')
+        result = self.run_import('skill', 'asked')
+        self.assertEqual(self.names(result), [])
 
-    def test_components_an_imported_file_names_are_imported_with_it(self):
-        self.write(SUBTREE + '/skills/principle-two/SKILL.md',
-                   OTHER + '\nApply the **one** principle, and the **show-me-your-work** skill.\n')
+    def test_a_skill_an_imported_file_names_is_listed_not_imported(self):
+        sentence = ('Apply the **one** principle, the **show-me-your-work** skill and the '
+                    '`absent-helper` skill.')
+        self.write(SUBTREE + '/skills/principle-two/SKILL.md', OTHER + '\n' + sentence + '\n')
         self.write(SUBTREE + '/skills/show-me-your-work/SKILL.md', '# Show work\n\nKeep a record.\n')
         result = self.run_import('principle', 'principle-one')
+        copied = MODE + '/principles/principle-two.md'
         self.assertEqual({row[0] + ':' + row[2] for row in self.rows()}, {
             'principle:' + SUBTREE + '/skills/principle-one/SKILL.md',
-            'principle:' + SUBTREE + '/skills/principle-two/SKILL.md',
-            'skill:' + SUBTREE + '/skills/show-me-your-work/SKILL.md'})
-        self.assertIn('IMPORTED\t3\n', result.stdout)
-        self.assertIn('pstack/show-me-your-work\n', (self.root / 'mmw-v2/skills.txt').read_text())
-        self.assertEqual((self.root / MODE / 'principles/principle-two.md').read_bytes(),
+            'principle:' + SUBTREE + '/skills/principle-two/SKILL.md'})
+        self.assertEqual(self.names(result), [
+            f'NAME\t{copied}\t9\tshow-me-your-work',
+            f'NAME\t{copied}\t9\tabsent-helper',
+        ])
+        self.assertIn('IMPORTED\t2\n', result.stdout)
+        self.assertEqual((self.root / 'mmw-v2/skills.txt').read_text(), '# Fixture skills\n')
+        self.assertEqual((self.root / copied).read_bytes(),
                          b'---\nname: principle-two\ndescription: Second principle.\n---\n# Two\n\n'
-                         b'Keep this too.\n\nApply the **one** principle, and the **show-me-your-work** skill.\n')
+                         b'Keep this too.\n\n' + sentence.encode() + b'\n')
 
-    def test_a_name_the_set_already_has_or_pstack_names_maps_is_not_imported(self):
+    def test_a_name_the_set_already_has_is_neither_imported_nor_listed(self):
         self.write(MODE + '/principles/principle-two.md', '# MMW Two\n')
         self.write('mmw-v2/skills.txt', 'self/teach\n')
         self.write(SUBTREE + '/skills/principle-one/SKILL.md',
                    PRINCIPLE + '\nUse the **teach** skill and the **show-me-your-work** skill.\n')
         self.write(SUBTREE + '/skills/show-me-your-work/SKILL.md', '# Record\n')
-        self.write(MODE + '/references/pstack-names.md',
-                   '| pstack name | MMW |\n|---|---|\n| the **show-me-your-work** skill | ticket events |\n')
         result = self.run_import('principle', 'principle-one')
         self.assertEqual(len(self.rows()), 1)
         self.assertIn('IMPORTED\t1\n', result.stdout)
         self.assertEqual((self.root / MODE / 'principles/principle-two.md').read_bytes(), b'# MMW Two\n')
         self.assertEqual((self.root / 'mmw-v2/skills.txt').read_text(), 'self/teach\n')
+        self.assertEqual(self.names(result), [
+            f'NAME\t{MODE}/principles/principle-one.md\t9\tshow-me-your-work',
+        ])
 
     def test_a_dangling_dependency_is_refused_by_name(self):
         self.write(SUBTREE + '/skills/principle-one/SKILL.md',
@@ -218,8 +235,11 @@ class ImportComponent(unittest.TestCase):
                          b'### Sample\n\nRead [Notes](../references/pstack/notes.md).\n'
                          b'Run `scripts/pstack/task.sh`. Use the **helper** skill.\n')
         self.assertEqual({r[0] for r in self.rows()},
-                         {'playbook', 'mode-reference', 'mode-script', 'skill'})
-        self.assertIn('IMPORTED\t4\n', result.stdout)
+                         {'playbook', 'mode-reference', 'mode-script'})
+        self.assertIn('IMPORTED\t3\n', result.stdout)
+        self.assertEqual(self.names(result), [
+            f'NAME\t{MODE}/playbooks/sample.md\t4\thelper',
+        ])
 
     def test_a_skill_becomes_a_skills_txt_line_marked_when_named(self):
         self.write(SUBTREE + '/skills/helper/SKILL.md', '# Helper\n')
@@ -242,6 +262,8 @@ class ImportComponent(unittest.TestCase):
         self.assertIn('pstack/helper +model-invoked\n', (self.root / 'mmw-v2/skills.txt').read_text())
         self.write(SUBTREE + '/skills/new-helper/SKILL.md', '# New helper\n')
         self.write(SUBTREE + '/skills/poteto-mode/playbooks/new.md', 'Use the **new-helper** skill.\n')
+        self.run_import('skill', 'new-helper')
+        self.assertIn('pstack/new-helper', (self.root / 'mmw-v2/skills.txt').read_text().splitlines())
         self.run_import('playbook', 'new')
         self.assertIn('pstack/new-helper +model-invoked\n', (self.root / 'mmw-v2/skills.txt').read_text())
         (self.root / MODE / 'playbooks/local.md').unlink()
@@ -501,23 +523,63 @@ class ImportComponent(unittest.TestCase):
                       (self.root / MODE / 'SKILL.md').read_text())
 
 
-    def test_each_slot_keyword_requires_a_first_column_mapping(self):
-        keywords = ('control skill', 'Opening a PR', 'gh', 'origin', 'gt', 'subagent_type',
-                    'your configured code model', 'pstack-models.mdc', 'AskQuestion', '/loop',
-                    '/goal', 'cloud', 'agent-transcripts', 'git show origin/main:', 'Spawn Comment Sicko')
-        path = SUBTREE + '/skills/poteto-mode/references/slots.md'
-        self.write(path, '\n'.join(keywords) + '\n')
-        self.write(MODE + '/references/pstack-names.md',
-                   '| source | destination |\n|---|---|\n| no match | ' + ' '.join(keywords) + ' |\n')
-        before = self.snapshot()
-        result = self.run_import('mode-reference', 'slots.md', code=1)
-        for line, word in enumerate(keywords, 1):
-            key = 'configured … model' if 'configured' in word else word
-            self.assertIn(f'{path}:{line}: {key}', result.stderr)
-        self.assertEqual(self.snapshot(), before)
-        self.write(MODE + '/references/pstack-names.md', '| source | destination |\n|---|---|\n' +
-                   ''.join('| ' + word + ' | mapped |\n' for word in keywords))
-        self.run_import('mode-reference', 'slots.md')
+    def test_each_pstack_name_keyword_is_listed_at_its_line(self):
+        rows = (
+            ('control skill', 'control skill'),
+            ('Opening a PR', 'Opening a PR'),
+            ('gh', 'gh'),
+            ('origin', 'origin'),
+            ('gt', 'gt'),
+            ('subagent_type', 'subagent_type'),
+            ('generalPurpose', 'generalPurpose'),
+            ('run_in_background', 'run_in_background'),
+            ('your configured code model', 'configured … model'),
+            ('pstack-models.mdc', 'pstack-models.mdc'),
+            ('poteto-mode', 'poteto-mode'),
+            ('AskQuestion', 'AskQuestion'),
+            ('/loop', '/loop'),
+            ('/goal', '/goal'),
+            ('/deslop', '/deslop'),
+            ('cloud', 'cloud'),
+            ('agent-transcripts', 'agent-transcripts'),
+            ('mcps/', 'mcps/'),
+            ('brain note', 'brain note'),
+            ('Rebase', 'rebase'),
+            ('Binary-search', 'Binary-search'),
+            ('git show origin/main:', 'git show origin/main:'),
+            ('Spawn Comment Sicko', 'Spawn Comment Sicko'),
+        )
+        self.write(SUBTREE + '/skills/poteto-mode/references/names.md',
+                   '\n'.join(text for text, _ in rows) + '\n')
+        result = self.run_import('mode-reference', 'names.md')
+        local = MODE + '/references/pstack/names.md'
+        listed = self.names(result)
+        for line, (_, name) in enumerate(rows, 1):
+            self.assertIn(f'NAME\t{local}\t{line}\t{name}', listed)
+        self.assertTrue((self.root / local).is_file())
+        source = UPSTREAM_MODE.replace('- Trigger unchanged.', '- Ask with AskQuestion.')
+        source = source.replace('Keep comments useful.', 'Keep comments useful.\nThen rebase.')
+        self.write(SUBTREE + '/skills/poteto-mode/SKILL.md', source)
+        self.write(MODE + '/SKILL.md', LOCAL_MODE)
+        result = self.run_import('mode-section', 'Comments')
+        mode = (self.root / MODE / 'SKILL.md').read_text().splitlines()
+        rebase_line = mode.index('Then rebase.') + 1
+        self.assertEqual(self.names(result), [f'NAME\t{MODE}/SKILL.md\t{rebase_line}\trebase'])
+        result = self.run_import('mode-trigger', 'L8')
+        mode = (self.root / MODE / 'SKILL.md').read_text().splitlines()
+        ask_line = mode.index('- Ask with AskQuestion.') + 1
+        self.assertEqual(self.names(result), [f'NAME\t{MODE}/SKILL.md\t{ask_line}\tAskQuestion'])
+
+    def test_a_trigger_whose_source_line_has_no_trailing_newline_lists_its_name(self):
+        source = ('---\nname: Poteto Mode\n---\n# Poteto mode\n\n'
+                  '## Non-negotiables\n\n- Ask with AskQuestion.')
+        self.assertFalse(source.endswith('\n'))
+        self.write(SUBTREE + '/skills/poteto-mode/SKILL.md', source)
+        self.write(MODE + '/SKILL.md', LOCAL_MODE)
+        result = self.run_import('mode-trigger', f'L{len(source.splitlines())}')
+        mode = (self.root / MODE / 'SKILL.md').read_text().splitlines()
+        ask_line = mode.index('- Ask with AskQuestion.') + 1
+        self.assertEqual(self.names(result), [f'NAME\t{MODE}/SKILL.md\t{ask_line}\tAskQuestion'])
 
     def test_refresh_compares_skills_mode_fragments_and_other_file_types(self):
         self.write(MODE + '/SKILL.md', LOCAL_MODE)

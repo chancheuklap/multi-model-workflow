@@ -64,7 +64,19 @@ subtree 另多快照没有收的 7 个图片：`assets/logo.png`，以及 `docs/
 
 这个 subtree 里的文字不改。`LICENSE`（MIT）留在 subtree 里，技能的 `disable-model-invocation` 行也留着。
 
-用到的组件由 `mmw-v2/import/import_component.py` 复制进 `mmw-v2/skills/mmw/`，登记在 `mmw-v2/skills/mmw/imports.tsv`。需要判断的改动记在本文件。
+用到的组件由 `mmw-v2/import/import_component.py` 复制进 `mmw-v2/skills/mmw/`，登记在 `mmw-v2/skills/mmw/imports.tsv`。需要判断的改动记在本文件的 `## 判断改动`。
+
+## 判断改动
+
+复制进 `mmw-v2/skills/mmw/` 的 pstack 文字里，凡不是 `import_component.py` 机械改写的改动，每处一行：`imports.tsv` 那一行的「判断改动」列以同一个编号开头。编号沿用 `docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md` `### 13.2 需要判断的改动（全部）` 的 J1–J10，那张表以外的改动从 J11 起接着编。子树换了钉定的提交之后，`import_component.py --refresh` 对「判断改动」列不空的每一行打印 `REVIEW`：照这里的「为什么」核对上游的新文字，决定改写是否保留。
+
+| 编号 | 导入的文件 | 改了什么 | 为什么 |
+| --- | --- | --- | --- |
+| J7 | `mmw-v2/skills/mmw/SKILL.md#Non-negotiables` ← `mmw-v2/upstream-pstack/skills/poteto-mode/SKILL.md` 第 15 行 | 「leaf SKILL.md」改为「file」；第 1 句「The Principles section below grounds every trigger.」不采用 | MMW 的原则是 `principles/` 下的文件，不是技能；MMW 的触发行取自技能的 description，不从原则推出 |
+| J8 | `mmw-v2/skills/mmw/SKILL.md#Principles` ← `mmw-v2/upstream-pstack/skills/poteto-mode/SKILL.md` 第 39 行 | 「leaf skill」改为「principle file」 | MMW 的原则是文件，不是技能 |
+| J9 | `mmw-v2/skills/mmw/SKILL.md#Writing the reply` ← `mmw-v2/upstream-pstack/skills/poteto-mode/SKILL.md` 第 109 行 | 删去「, PR link as `https://github.com/<owner>/<repo>/pull/<number>`」；「The per-playbook lines below name」改为「Each playbook's `**Reply:**` line names」 | MMW 默认的交付不是 PR；MMW 的回复行写在各 playbook 自己的 `**Reply:**` 里，mode 里没有「below」所指的那些行 |
+| J11 | `mmw-v2/skills/mmw/principles/principle-prove-it-works.md` ← `mmw-v2/upstream-pstack/skills/principle-prove-it-works/SKILL.md` | 删去句末的括注「(the **show-me-your-work** skill)」 | `show-me-your-work` 没有导入，MMW 里没有这个技能；去掉括注，句子仍然完整 |
+| J12 | `mmw-v2/skills/mmw/principles/principle-encode-lessons-in-structure.md` ← `mmw-v2/upstream-pstack/skills/principle-encode-lessons-in-structure/SKILL.md` | 两处「brain note」改为「Memory record」 | 「brain note」是 pstack 的说法；MMW 里记下来留给以后的经验是 Memory record（`docs/contexts/toolbox/CONTEXT.md` 的 **Memory record**） |
 
 ## 以后拉更新
 
