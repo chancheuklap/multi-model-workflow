@@ -131,6 +131,11 @@ class Document:
                 self.fail(rule, row, m.group())
 
 
+# A skill name or `references/` touching one of these is inside a path.
+# The hyphen stays last so it is a literal character, not a range.
+PATH_EDGE = r'\w./-'
+
+
 @dataclass
 class Inventory:
     skills: dict[str, str]
@@ -138,9 +143,8 @@ class Inventory:
     scripts: set[str]
 
     def skill_pattern(self, exclude: str = '', *, path_segment: bool = False):
-        # path_segment is description-content: a name touching "." or "/" is a
-        # path or file segment, not a mention of the skill.
-        edge = r'\w./-' if path_segment else r'\w-'
+        # path_segment treats a name touching "." or "/" as a path segment, not a skill mention.
+        edge = PATH_EDGE if path_segment else r'\w-'
         names = [re.escape(n) for n in self.skills if n != exclude]
         return r'(?<![' + edge + r'])(?:' + '|'.join(names or [r'(?!)']) + r')(?![' + edge + r'])'
 
@@ -247,8 +251,8 @@ def check_playbook(doc: Document, imported: bool, inv: Inventory):
         if not any(s.lstrip().startswith('Done when') for _, s in rows):
             doc.fail('step-done-when', row)
         body = '\n'.join(s for _, s in rows)
-        names_component = (re.search(inv.skill_pattern(), body) or
-                           re.search(r'\*\*principle-[\w-]+\*\*|references/\S+', body) or
+        names_component = (re.search(inv.skill_pattern(path_segment=True), body) or
+                           re.search(r'\*\*principle-[\w-]+\*\*|(?<![' + PATH_EDGE + r'])references/\S+', body) or
                            any('**' + n + '**' in body for n in inv.playbooks.values()) or
                            any(re.search(r'(?<![\w.-])' + re.escape(n) + r'(?![\w.-])', body) for n in inv.scripts))
         if not names_component and not (title and title[2].startswith('(judgement)')):
