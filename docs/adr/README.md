@@ -53,7 +53,7 @@
 | [0032](0032-the-set-is-layered.md) | MMW 分成 mode、playbook、原则、能力技能、reference、脚本、角色与配置七种组件，按类型各住一层，每段内容默认搬到它该在的层，留在原处必须写明是 H1–H6 或 S 的哪一条 | 2026-09-30 | 无 | 无 |
 | [0034](0034-pstack-enters-as-a-subtree.md) | pstack 以 squash subtree 进入 mmw-v2/upstream-pstack/，原文不改，钉在切票时上游最新的提交，研究快照停在 0.15.4 | 2026-10-01 | 0006 | 无 |
 
-0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/edit-pages.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
+0002 与 0004 讲的界面 QA 已挂起：技能在 `deprecated/ui-qa`。设计系统是否被遵守、页面是否画对，由 pull report（design-pages `references/pull.md` 的 `## Design problems in the report`）与用户的 sign-off（`references/set-up-and-sign-off.md` 的 `## Sign-off`）承担，由 0029 定。0011 推翻的是 #115「真状态加真容器」，不是 0002 / 0004。
 
 ## 编号在本仓库以外仍会出现
 

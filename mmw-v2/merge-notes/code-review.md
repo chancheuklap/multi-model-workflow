@@ -196,7 +196,7 @@ If upstream rewrites the story-adapter paragraph → take its wording and keep
 `references/ui-reviewer.md` **What is not yours** gains one sentence: how the
 UI feels in use on the running product belongs to the batch's *reaction*
 ticket, because this axis looks at a story render and the person looks at the
-product. The `to-tickets` skill's `references/cutting-interface-tickets.md`
+product. The `to-tickets` skill's `references/screen-contract-tickets.md`
 narrowed its reaction ticket the same way in #539. Before that, both files named
 decoration with no `data-ui` id and the overall look, so the owner could be asked
 the morning after to look at what this axis had already reported. The five
