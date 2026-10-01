@@ -16,6 +16,7 @@ INSTALLER = MMW / "install.sh"
 
 _STRIP = (
     "MMW_TICKET",
+    "MMW_ROLE",
     "MMW_BASE_REF",
     "MMW_CATALOG_MODE",
     "MMW_SPEC",

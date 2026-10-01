@@ -30,7 +30,7 @@ GATE_TESTS="$(dirname -- "$(dirname -- "$HERE")")/upstream-unlazy/tests"
 # exercise a made-up ticket would act on the real one that session is working. Measured
 # 2026-09-10 on #320. The suite also tests oracle ownership itself, so an outer acceptance
 # run's ownership marker must not make those inner oracles skip their release.
-unset MMW_TICKET MMW_JUDGE_LEASE_OWNER
+unset MMW_TICKET MMW_JUDGE_LEASE_OWNER MMW_ROLE
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/parse_k.sh
 . "$HERE/../lib/parse_k.sh"  # mmw-v2/tests/lib/parse_k.sh

@@ -108,9 +108,6 @@ DEFAULT_WORKER=junior-worker
 
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
 
-AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."
-
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
 gh_() {
@@ -978,7 +975,8 @@ ack_wake() {
 # watch already covering it, or a watch of this ticket alone with this session as its
 # orchestrator. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
 adopt_ticket() {
-  local number="$1" explicit_into="${2:-}" line runner session
+  local number="$1" explicit_into="${2:-}" line runner session installed
+  installed="$(installed_prompt_root)" || exit 2
   line="$(own_session)" || exit 2
   runner="${line%%$'\t'*}"
   session="${line#*$'\t'}"
@@ -1041,6 +1039,16 @@ for r in state.get("sessions") or []:
     refuse "#$number is held by worker ${who#*$'\t'} on ${who%%$'\t'*}; retract that start once its session is gone, then adopt again"
   done <<<"$holders"
 
+  local repository_slug repository_space memory_packet data
+  repository_slug="$(repo_slug)" || exit 2
+  ensure_repository_memory "$repository_slug" \
+    || refuse "the repository Space could not be verified, so #$number was not adopted; restore its repository Space and adopt again"
+  repository_space="$(printf '%s' "$repository_slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  memory_packet="$(worker_memory_packet "$number" "$spec" "$repository_space")" \
+    || refuse "could not build the adopted worker's Memory indexes for #$number; restore Memory and adopt again"
+  data="$(launch_prompt adopting-worker "$number" "$installed" "$repository_slug" "$memory_packet")" \
+    || refuse "could not write the adopted worker data for #$number; check this repository's state directory and adopt again"
+
   # A relay has to see this ticket, or the reviewer's report lands and wakes nobody.
   local started=""
   if ! relay_watches "$number" "$spec" 2>/dev/null; then
@@ -1052,7 +1060,7 @@ for r in state.get("sessions") or []:
 
   if [ -n "$already" ]; then
     echo "dispatch: #$number's worker.started already names $runner session $session" >&2
-    printf '%s\n' "$session"
+    printf '%s · Data: %s\n' "$session" "$data"
     return 0
   fi
   if ! post_event "$number" worker.started --ticket "$number" --spec "$spec" \
@@ -1065,7 +1073,7 @@ for r in state.get("sessions") or []:
     [ -n "$started" ] && stop_relay --tickets "$number"
     refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the watch this opened was closed again"); adopt again once the tracker takes comments"
   fi
-  printf '%s\n' "$session"
+  printf '%s · Data: %s\n' "$session" "$data"
 }
 
 # ------------------------------------------------------------------ local model configuration
@@ -1777,9 +1785,7 @@ else:
         notes.append(f"partial: {len(failures)} of {len(queries)} searches failed ({failures[0]})")
     related = "\n".join(notes + [entry(seen["row"]) for seen in ranked]) or "none"
 
-prompt = f"""Shared experience for ticket #{ticket}.
-
-MMW repository Space: {space}
+prompt = f"""MMW repository Space: {space}
 MMW task root: {task_root}
 MMW task scope: {task_scope}
 
@@ -1787,19 +1793,15 @@ Current task shared experience:
 {current}
 
 Related experience:
-{related}
-
-These are indexes, not the records; the implement skill's `## Shared experience while implementing` says how to use them."""
+{related}"""
 print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
                  ensure_ascii=False))
 PY
 }
 
-# Build the reviewer Rules appended after the existing code-review dispatch line. Only
-# the compiled active rule_stack is read; ordinary Memory list/search is never attempted.
-# A failed or unreadable Context Bundle is named in the reviewer Rules and the reviewer still starts.
-# The reviewer Rules carry the Rule rows only; how the reviewer applies them is stated once, in the
-# code-review skill's `references/session.md` under `## Active Rules`.
+# Build the reviewer Rules for the data file. Only the compiled active rule_stack
+# is read; ordinary Memory list/search is never attempted. A failed or unreadable
+# Context Bundle is named in the Rules, and the reviewer still starts.
 reviewer_rules_packet() {
   local repository_space="$1"
   MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
@@ -1887,6 +1889,88 @@ print(json.dumps({"prompt": prompt}, ensure_ascii=False))
 PY
 }
 
+# Resolve the frozen install before any session or worktree is changed.
+installed_prompt_root() {
+  python3 - "$SKILL_ROOT/scripts" <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from statedir import home
+marker = home() / "installed-root"
+try:
+    value = marker.read_text(encoding="utf-8").strip()
+    root = Path(value)
+    if not value or not root.is_absolute() or not root.is_dir() or "\n" in value or "\r" in value:
+        raise ValueError("not an absolute install directory")
+except (OSError, UnicodeError, ValueError):
+    sys.stderr.write(f"dispatch: installed-root {marker} is missing or unreadable; run bash mmw-v2/install.sh --check\n")
+    raise SystemExit(2)
+print(root.resolve())
+PY
+}
+
+# The receiving session gets one line; its data belongs to this repository's state.
+launch_prompt() {
+  local role="$1" number="$2" installed="$3" repository="$4" packet="${5:-}" base="${6:-}" brief="${7:-}"
+  MMW_PROMPT_PACKET="$packet" python3 - "$SKILL_ROOT" "$role" "$number" "$installed" "$repository" "$base" "$brief" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+skill, role, number, installed, repository, base, brief = sys.argv[1:]
+sys.path.insert(0, str(Path(skill) / "scripts"))
+import locations
+from statedir import state_dir, write_atomic
+roles = json.loads((Path(skill) / "roles.json").read_text(encoding="utf-8"))
+if role == "advisor":
+    print(f"Use the advisor skill. Role advisor, unattended: the mmw skill's {locations.MODE_AUTONOMY}. Brief: {brief}.")
+    raise SystemExit(0)
+slug = roles[role]["playbook"]
+step = roles[role].get("entry")
+if not step:
+    excluded = {row["entry"] for row in roles.values() if row.get("playbook") == slug and row.get("entry")}
+    step = next(anchor for anchor in locations.PLAYBOOK_ANCHORS[slug] if anchor not in excluded)
+pointer = f"mmw {slug}#{step}"
+skills = Path(installed) / "skills"
+lines = [f"- Playbook: {skills / locations.MODE_PLAYBOOKS_DIRECTORY / (slug + '.md')}",
+         f"- dispatch.sh: {skills / locations.MODE_SCRIPTS / 'dispatch.sh'}"]
+if role != "researcher":
+    lines.append(f"- ticket_state.py: {skills / locations.TICKET_STATE_PY}")
+packet = json.loads(os.environ["MMW_PROMPT_PACKET"] or "{}").get("prompt", "")
+if role in ("worker", "adopting-worker"):
+    lines.append(f"- Memory records guide: {skills / locations.MEMORY_RECORDS_SKILL}")
+    names = ("MMW repository Space", "MMW task root", "MMW task scope",
+             "Current task shared experience", "Related experience")
+    section = None
+    for line in packet.splitlines():
+        if not line:
+            continue
+        name, colon, value = line.partition(":")
+        if name in names and colon:
+            section = name
+            if value.strip():
+                lines.append(f"- {section}: {value.strip()}")
+        elif section in names[3:]:
+            lines.append(f"- {section}: {line}")
+elif role == "reviewer":
+    name = "Active reviewer Rules approved for this review"
+    for line in packet.splitlines()[1:]:
+        lines.append(f"- {name}: {line}")
+    lines.append(f"- Rules pointer: mmw {locations.REVIEW_RULES_POINTER}")
+    lines.extend(f"- Review brief: {skills / path}" for path in locations.REVIEW_BRIEFS)
+directory = state_dir(repository) / "prompts/"
+directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+filename = f"{number}-adopting-worker.md" if role == "adopting-worker" else f"{number}-{role}.md"
+data = (directory / filename).resolve()
+write_atomic(data, "\n".join(lines) + "\n")
+if role == "adopting-worker":
+    print(data)
+else:
+    review_base = f", base {base}" if role == "reviewer" else ""
+    print(f"Use the mmw skill. Role {role}, ticket #{number}{review_base}, unattended: {pointer}. Data: {data}.")
+PY
+}
+
 start_one() {
   local number="$1" kind="$2"
   use_runner "$(tonight_runner)"
@@ -1894,6 +1978,9 @@ start_one() {
     worker|reviewer) ;;
     *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
+
+  local installed
+  installed="$(installed_prompt_root)" || exit 2
 
   local answer grades title spec native_spec
   answer="$(read_ticket "$number")"
@@ -1997,15 +2084,14 @@ start_one() {
         refuse "could not build the worker's Memory indexes for #$number"
       task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
         refuse "the worker's Memory indexes for #$number could not be read"
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES
-
-$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
+      prompt="$(launch_prompt worker "$number" "$installed" "$repository_slug" "$memory_packet")" \
+        || refuse "could not write the worker data for #$number; check this repository's state directory and start again"
       session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-worker")
       # Always replace an inherited scope. An empty value is the disabled route for a
       # malformed native parent graph; inheriting the caller's scope would permit writes
       # into an unrelated task.
       session_environment+=("MMW_TASK_SCOPE=$task_scope")
-      session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number") ;;
+      session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number" "MMW_ROLE=worker") ;;
     reviewer)
       base="$(base_commit "$root" "$into" "issue-$number")"
       if [ -z "$base" ]; then
@@ -2015,10 +2101,9 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
       memory_packet="$(reviewer_rules_packet "$repository_space")" || \
         refuse "could not build the reviewer Rules for #$number"
-      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS
-
-$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
-      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer") ;;
+      prompt="$(launch_prompt reviewer "$number" "$installed" "$repository_slug" "$memory_packet" "$base")" \
+        || refuse "could not write the reviewer data for #$number; check this repository's state directory and start again"
+      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer" "MMW_ROLE=reviewer") ;;
   esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
@@ -2098,7 +2183,7 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
 }
 
 # `advise <brief file>`: resolve the advisor row against the selected runner, start a
-# session in the current worktree with `Use the advisor skill.` followed by the file,
+# session in the current worktree with a one-line pointer to the brief file,
 # and print the session id. An advisor is not a ticket's agent, so this writes no
 # event. A start the runner refuses is refused once: no retry, no other runner.
 advise_one() {
@@ -2114,13 +2199,16 @@ advise_one() {
   row="$(row_for_role advisor)" || exit 2
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local cwd body prompt session
+  local cwd prompt session installed
+  installed="$(installed_prompt_root)" || exit 2
   cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$cwd" ] \
     || refuse "not inside a git repository, so there is no worktree to start the advisor in; run advise from a worktree"
-  body="$(cat -- "$packet")" \
+  cat -- "$packet" >/dev/null \
     || refuse "could not read the brief file $packet; make it readable, then advise again"
-  prompt="Use the advisor skill."$'\n'"$body"
+  packet="$(realpath "$packet")"
+  prompt="$(launch_prompt advisor "" "$installed" "" "" "" "$packet")" \
+    || refuse "could not build the advisor prompt; check the role registry and advise again"
 
   # Herdr's session id is basename(cwd) plus the title's last word; a constant
   # last word would collide on a second consultation in the same worktree.
@@ -2144,7 +2232,11 @@ research_one() {
   [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 '$models_path' config set researcher codex \"gpt 6 sol\" high, then research $number again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local root cwd branch prompt session
+  local root cwd branch prompt session installed repository_slug
+  installed="$(installed_prompt_root)" || exit 2
+  repository_slug="$(repo_slug)" || exit 2
+  prompt="$(launch_prompt researcher "$number" "$installed" "$repository_slug")" \
+    || refuse "could not write the researcher data for #$number; check this repository's state directory and research again"
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so there is no HEAD to start research/$number from; run research $number from a worktree"
   cwd="$(worktrees_root)/research-$number"
@@ -2154,7 +2246,6 @@ research_one() {
   if [ ! -d "$cwd" ]; then
     add_branch_worktree "$root" "$cwd" "$branch" HEAD "research $number again" || exit 2
   fi
-  prompt="Use the mmw skill. Role researcher, ticket #$number, unattended: mmw research-a-question#Name the decision it feeds."
   if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number researcher $$")"; then
     refuse "$RUNNER_NAME did not start $host as researcher for #$number (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then research $number again"
   fi

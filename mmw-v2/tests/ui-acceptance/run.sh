@@ -14,6 +14,7 @@
 # run count of 0, exits non-zero and does not print `all passed`.
 
 set -euo pipefail
+unset MMW_ROLE
 bash "$(dirname -- "${BASH_SOURCE[0]}")/../lib/run_shared_lints.sh" || exit 1
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
