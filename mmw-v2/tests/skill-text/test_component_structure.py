@@ -185,6 +185,44 @@ class ComponentStructure(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
             self.assertIn(' step-names-component ', result.stdout)
 
+    def _playbook_naming_only(self, step):
+        # `.mmw` matches the skill name only when skills.txt lists mmw.
+        self.write('mmw-v2/skills.txt', 'self/mmw\n')
+        path = 'mmw-v2/skills/mmw/playbooks/plan-a-change.md'
+        self.write(path, (
+            '### Record the answer\n'
+            '\n'
+            f'1. **Do the step.** {step}\n'
+            '   Done when the step is recorded.\n'
+            '\n'
+            '**Reply:** the recorded step.\n'
+        ))
+        return path
+
+    def test_step_naming_only_a_dot_mmw_path_names_no_component(self):
+        path = self._playbook_naming_only('Write the answer to `.mmw/stories/a.md`.')
+        result = self.run_check(path)
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1, output)
+        self.assertIn(' step-names-component ', result.stdout)
+
+    def test_step_naming_only_a_path_through_references_names_no_component(self):
+        path = self._playbook_naming_only('Open docs/foo/references/x.md and decide.')
+        result = self.run_check(path)
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1, output)
+        self.assertIn(' step-names-component ', result.stdout)
+
+    def test_step_naming_the_skill_by_name_still_names_a_component(self):
+        path = self._playbook_naming_only("Run the `mmw` skill's check.")
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_step_opening_a_references_path_still_names_a_component(self):
+        path = self._playbook_naming_only('Read `references/notes.md` first.')
+        result = self.run_check(path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_structure_exceptions(self):
         path = 'mmw-v2/skills/example/references/notes.md'
         bad = 'Use Codex for the task.\n'
