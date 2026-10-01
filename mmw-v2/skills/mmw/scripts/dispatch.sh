@@ -122,6 +122,11 @@ refuse() {
   exit 2
 }
 
+# renamed <old> <new> <args>: the one line an old subcommand prints for one release.
+renamed() {
+  refuse "$1 is now $2; the old name is refused for one release. Run dispatch.sh $2 $3"
+}
+
 runner() {
   bash "$RUNNER" "$@"
 }
@@ -4675,20 +4680,14 @@ set -- ${positional[@]+"${positional[@]}"}
 # one line that names the new command. This stands before models.json is read,
 # so a machine that is not installed still prints only that line.
 case "${1:-}" in
-  open)
-    refuse "open is now open-night; the old name is refused for one release. Run dispatch.sh open-night <spec>" ;;
-  open-ticket)
-    refuse "open-ticket is now open-ticket-watch; the old name is refused for one release. Run dispatch.sh open-ticket-watch <n>" ;;
-  summary)
-    refuse "summary is now close-night; the old name is refused for one release. Run dispatch.sh close-night <spec> --memory-decisions <file>" ;;
-  wait)
-    refuse "wait is now result; the old name is refused for one release. Run dispatch.sh result <n> worker|reviewer" ;;
-  integrated)
-    refuse "integrated is now landed-since; the old name is refused for one release. Run dispatch.sh landed-since <n>" ;;
-  memory-list)
-    refuse "memory-list is now prepare-memory-decisions; the old name is refused for one release. Run dispatch.sh prepare-memory-decisions <spec>" ;;
+  open) renamed open open-night "<spec>" ;;
+  open-ticket) renamed open-ticket open-ticket-watch "<n>" ;;
+  summary) renamed summary close-night "<spec> --memory-decisions <file>" ;;
+  wait) renamed wait result "<n> worker|reviewer" ;;
+  integrated) renamed integrated landed-since "<n>" ;;
+  memory-list) renamed memory-list prepare-memory-decisions "<spec>" ;;
   route)
-    refuse "route is now resolve-child; the old name is refused for one release. Run dispatch.sh resolve-child <ticket> <child> fixed, or stale <invalid|fixed-elsewhere>, or became-ticket <new ticket>" ;;
+    renamed route resolve-child "<ticket> <child> fixed, or stale <invalid|fixed-elsewhere>, or became-ticket <new ticket>" ;;
 esac
 
 [ "${1:-}" = where ] || [ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
