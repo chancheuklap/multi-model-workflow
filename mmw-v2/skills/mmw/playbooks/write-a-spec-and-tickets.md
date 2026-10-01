@@ -36,7 +36,7 @@ This playbook turns what the user has in mind into a batch a night can build wit
    Done when what you have read is one spec, or the division is written where that section says and the user has confirmed it.
 6. **Write the spec.** Run the `to-spec` skill; with a division, it writes the one spec the division names next. When the source is a triaged issue, write a spec, or extend a published one through the `to-spec` skill's `references/revising-a-spec.md`, citing the issue as a source; close the issue with a comment linking that spec.
    Done when `--publish` has exited 0 for a new spec, or, for an extended one, the completion criterion of the `to-spec` skill's `references/revising-a-spec.md` holds; and, for a triaged issue, the issue is closed with a comment linking the spec.
-7. **Cut the tickets.** Run the `to-tickets` skill on the spec's issue number. The `to-tickets` skill hands its ambiguity scan to a read-only subagent that did not draft the batch (**principle-a-second-reader-judges**). The session that drafted the tickets reads its own assumptions back as settled.
+7. **Cut the tickets.** Run the `to-tickets` skill on the spec's issue number.
    Done when every ticket the user approved is published under the spec, with its labels and its blocking edges.
 8. **Lint the batch.** Run the `verify-ticket` skill's `python3 scripts/verify-ticket.py <spec> --lint`, and fix what it reports (**principle-silence-is-never-a-pass**). Count its `LINT` lines against the batch: a lint that read the wrong batch prints nothing about this one, and reads exactly like a clean one.
    Done when `--lint` on the spec exits 0, it printed a `LINT` line for every ticket of the batch, and every `WARN` has been looked at and either fixed or kept on purpose.
