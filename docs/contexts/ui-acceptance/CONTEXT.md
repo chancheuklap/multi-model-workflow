@@ -381,7 +381,7 @@ The optional `.mmw/target.json` key listing the repository's own commands, which
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`delivery`**:
-The optional `.mmw/target.json` key saying how the repository takes a finished change made outside a ticket: `commit`, the default, commits it to the current branch, and `playbook:<slug>` hands it to the repository's own playbook `.mmw/playbooks/<slug>.md`. No script delivers the change by it; the agent delivering the change reads it, and `target_config.py --check` reports a value that is neither, or a playbook file that is missing.
+The optional `.mmw/target.json` key saying how the repository takes a finished change made outside a ticket. No script delivers the change by it; the agent delivering the change reads it.
 _Home_: `mmw-v2/skills/ui-acceptance/references/product-answers.md`
 
 **`stop`**:
