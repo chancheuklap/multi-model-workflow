@@ -4,7 +4,6 @@ path	mmw-v2/skills/exe-release/references/driving.md	mmw-v2/skills/exe-release/r
 path	mmw-v2/skills/exe-release/references/key.md	mmw-v2/skills/exe-release/references/release-manifest.md
 path	mmw-v2/skills/verify-ticket/references/sub-issues.md	mmw-v2/skills/verify-ticket/references/child-issues.md
 path	mmw-v2/upstream/skills/engineering/to-tickets/references/cutting-interface-tickets.md	mmw-v2/skills/to-tickets/references/screen-contract-tickets.md
-path	mmw-v2/upstream/skills/engineering/to-spec/references/several-specs.md	mmw-v2/skills/to-spec/references/spec-division.md
 path	mmw-v2/upstream/skills/engineering/wayfinder/references/interface-and-remake.md	mmw-v2/skills/mmw/references/ui-and-remake-tickets.md
 path	mmw-v2/upstream/skills/engineering/implement/references/writing-interface-code.md	mmw-v2/skills/ui-acceptance/references/writing-ui-code.md
 path	mmw-v2/upstream/skills/engineering/to-spec/SKILL.md	mmw-v2/skills/to-spec/SKILL.md
@@ -17,7 +16,6 @@ token	driving.md	release-loop.md
 token	key.md	release-manifest.md	mmw-v2/skills/exe-release/**
 token	sub-issues.md	child-issues.md
 token	cutting-interface-tickets.md	screen-contract-tickets.md
-token	several-specs.md	spec-division.md
 token	interface-and-remake.md	ui-and-remake-tickets.md
 token	writing-interface-code.md	writing-ui-code.md
 token	--preflight	--claim
