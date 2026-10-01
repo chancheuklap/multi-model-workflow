@@ -31,7 +31,13 @@ PLAYBOOK_ANCHORS = {
     ),
     "accept-the-night": ("Read the night out",),
     "land-one-ticket": ("Start the worker", "Handle each wake", "Land"),
-    "research-a-question": (),
+    "research-a-question": (
+        "Name the decision it feeds",
+        "Run the research",
+        "Commit the report",
+        "Answer on the ticket",
+        "Leave the map alone",
+    ),
 }
 
 # Event-derived positions. A missing playbook uses the role's roles.json entry.
@@ -107,7 +113,6 @@ PSTACK_SCRIPTS_DIRECTORY = MODE_DIRECTORY + "/scripts/pstack"
 PSTACK_AGENTS_DIRECTORY = PSTACK_REFERENCES_DIRECTORY + "/agents"
 IMPORTS_TSV = "mmw/imports.tsv"
 PSTACK_REWRITES_TSV = "../import/pstack-rewrites.tsv"
-PSTACK_NAMES_MD = "mmw/references/pstack-names.md"
 PSTACK_DIRECTORY = "../upstream-pstack"
 PSTACK_MODE_DIRECTORY = PSTACK_DIRECTORY + "/skills/poteto-mode"
 UI_ACCEPTANCE_REFUSAL_PY = UI_ACCEPTANCE_SCRIPTS + "/refusal.py"

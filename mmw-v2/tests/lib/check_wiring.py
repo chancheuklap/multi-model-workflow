@@ -23,7 +23,7 @@ import re
 
 from skill_text import (MODE_DIR, MODE_ROOT, TextError, anchors, classify, frontmatter,
                         installed_skills, normalize_title, read_imports, markdown_units,
-                        component_root, sentences)
+                        component_root, sentences, prose_mask, skill_mentions, skill_of_path)
 
 
 @dataclass(frozen=True)
@@ -36,13 +36,13 @@ class Policy:
 # class: failure policy and the batch in which it must fail.
 CLASS_POLICY = {
     1: Policy(True, 'B0'),
-    2: Policy(False, 'B1'),
+    2: Policy(True, 'B1'),
     3: Policy(False, 'B2 end'),
-    5: Policy(False, 'B1'),
+    5: Policy(True, 'B1'),
     6: Policy(False, 'B2 end'),
-    7: Policy(False, 'B1'),
+    7: Policy(True, 'B1'),
     8: Policy(True, 'B0'),
-    9: Policy(False, 'B1'),
+    9: Policy(True, 'B1'),
     10: Policy(True, 'B0', registry=Policy(False, 'B2 end')),
     11: Policy(False, 'B2 end'),
     12: Policy(False, 'B2'),
@@ -479,35 +479,42 @@ class Wiring:
         return {p: t for p, t in self.files.items() if p.endswith('.md') and
                 classify(p, self.imports).kind in ('mode', 'playbook', 'mode-reference')}
 
+    def model_mentions(self, path, text):
+        steps = classify(path, self.imports).kind in ('mode', 'playbook')
+        return [mention for mention in skill_mentions(text, self.skills, steps) if mention.by_model]
+
     def resolve_components(self):
         for path, text in self.component_files().items():
-            for match in re.finditer(r'`((?:playbooks|principles|references|scripts)/[^`\s]+)(?:\s+([^`]+))?`', text):
+            masked = prose_mask(text)
+            for match in re.finditer(r'`((?:playbooks|principles|references|scripts)/[^`\s]+)(?:\s+([^`]+))?`', masked):
                 literal = match[1].rstrip('.')
-                target = (self.mode if path.startswith(MODE_ROOT) else (self.root / path).parent) / literal
+                if '<' in literal or re.fullmatch(r'[A-Za-z]', Path(literal).stem):
+                    continue
+                name = skill_of_path(masked, match.start(), self.skills, already_masked=True)
+                if name is not None and name not in self.skills:
+                    continue
+                base = (self.root / self.skills[name] if name is not None else
+                        self.mode if path.startswith(MODE_ROOT) else (self.root / path).parent)
+                target = base / literal
+                label = target.relative_to(self.root).as_posix() if name is not None else literal
                 self.edge(path, target.relative_to(self.root).as_posix(), 2)
                 if not target.is_file():
-                    self.add(path, source_line(text, match.start()), 2, f'{literal} does not exist')
+                    self.add(path, source_line(text, match.start()), 2, f'{label} does not exist')
                 elif match[2] and literal.startswith('scripts/'):
                     command = match[2].split()[0]
                     names = {name for _, name in self.public_commands(str(target), target.read_text(encoding='utf-8'))}
                     if re.fullmatch(r'[a-z][\w-]*', command) and command not in names:
                         self.add(path, source_line(text, match.start()), 2,
                                  f'{literal} has no subcommand {command}')
-            for match in re.finditer(r'(?:the\s+`?([a-z][\w-]*)`?\s+skill|(?:use|Use) /([a-z][\w-]*))', text):
-                name = match[1] or match[2]
+            mentions = [(mention.name, mention.line) for mention in self.model_mentions(path, text)]
+            mentions.extend((match[1], source_line(text, match.start())) for match in
+                            re.finditer(r'\b(?:use|Use) /([a-z][\w-]*)', masked))
+            for name, line in mentions:
                 self.edge(path, name, 2)
                 if name not in self.skills:
-                    names_file = self.mode / 'references/pstack-names.md'
-                    mapped = False
-                    if classify(path, self.imports).imported and names_file.is_file():
-                        for row in names_file.read_text(encoding='utf-8').splitlines():
-                            cells = [c.strip().strip('`') for c in row.strip('|').split('|')]
-                            if cells and cells[0] == name and any(c in self.skills for c in cells[1:]):
-                                mapped = True
-                    if not mapped:
-                        self.add(path, source_line(text, match.start()), 2, f'{name} is not in skills.txt or pstack-names.md')
+                    self.add(path, line, 2, f'{name} is not in skills.txt')
                 elif not (self.root / self.skills[name] / 'SKILL.md').is_file():
-                    self.add(path, source_line(text, match.start()), 2, f'{name}/SKILL.md does not exist')
+                    self.add(path, line, 2, f'{name}/SKILL.md does not exist')
 
     def directions(self):
         constants = [v for k, v in self.data.items() if isinstance(v, (str, tuple)) and
@@ -553,12 +560,34 @@ class Wiring:
             h1 = re.search(r'^# (.+)$', content, re.M)
             if not h1 or display != h1[1] or applies != first:
                 self.add(path, line, 5, f'{slug} display or applicability does not match H1 and description')
-        for path, text in self.component_files().items():
-            for match in re.finditer(r'\((principle-[\w-]+)\)', text):
+        for path, text in self.files.items():
+            if not path.endswith('.md'):
+                continue
+            component = classify(path, self.imports)
+            if component.kind not in (
+                    'mode', 'playbook', 'mode-reference', 'principle'):
+                continue
+            masked = prose_mask(text)
+            citations = list(re.finditer(r'\*\*(principle-[\w-]+)\*\*', masked))
+            if component.imported:
+                citations.extend(re.finditer(r'\((principle-[\w-]+)\)', masked))
+            for match in citations:
                 slug = match[1]
                 self.edge(path, slug, 5)
                 if not (self.mode / 'principles' / (slug + '.md')).is_file():
                     self.add(path, source_line(text, match.start()), 5, f'{slug} has no principle file')
+            if component.imported:
+                continue
+            other_forms = []
+            for match in re.finditer(r'(?<![\w/-])principle-[\w-]+', masked):
+                if not any(citation.start() <= match.start() < citation.end()
+                           for citation in citations):
+                    other_forms.append(match)
+            other_forms.extend(re.finditer(r'\bthe \*\*[^*<>\n]+\*\* principle(?![\w-])', masked))
+            other_forms.extend(re.finditer(r'\]\([^\s)<>]*?/principle-[\w-]+\.md\)', masked))
+            for match in sorted(other_forms, key=lambda match: match.start()):
+                self.add(path, source_line(text, match.start()), 5,
+                         f'{match[0]} is not the citation form **principle-<slug>**')
 
     def routes(self):
         collections = [(self.mode / 'playbooks', self.mode / 'SKILL.md'),
@@ -582,25 +611,34 @@ class Wiring:
     def invocation(self):
         entries = (self.root / 'mmw-v2/skills.txt').read_text(encoding='utf-8') if (self.root / 'mmw-v2/skills.txt').exists() else ''
         for source, text in self.component_files().items():
-            for name, skill_path in self.skills.items():
-                if not re.search(r'(?<![\w-])' + re.escape(name) + r'(?![\w-])', text):
+            seen = set()
+            for mention in self.model_mentions(source, text):
+                name = mention.name
+                if name not in self.skills or name in seen:
                     continue
+                seen.add(name)
+                skill_path = self.skills[name]
                 if '/upstream' not in skill_path:
                     continue
                 self.edge(source, skill_path, 9)
                 entry = next((s for s in entries.splitlines() if s.split() and
                               s.split()[0].rsplit('/', 1)[-1] == name), '')
-                if '+model-invoked' not in entry:
-                    self.add(source, 1, 9, f'{name} needs +model-invoked in skills.txt')
+                original = self.root / skill_path / 'SKILL.md'
+                switched = original.is_file() and 'disable-model-invocation' in frontmatter(
+                    original.read_text(encoding='utf-8'))[0]
+                if switched and '+model-invoked' not in entry:
+                    self.add(source, mention.line, 9,
+                             f'{name} is named for the model and has disable-model-invocation; '
+                             'it needs +model-invoked in skills.txt')
                 copy = self.state_home / 'skill-copies' / name
                 if not copy.is_dir():
                     continue
                 skill = copy / 'SKILL.md'
                 if skill.is_file() and 'disable-model-invocation' in frontmatter(skill.read_text())[0]:
-                    self.add(source, 1, 9, f'{copy.name} installation copy still has invocation switch')
+                    self.add(source, mention.line, 9, f'{copy.name} installation copy still has invocation switch')
                 policy = copy / 'agents/openai.yaml'
                 if policy.is_file() and re.search(r'^policy:', policy.read_text(), re.M):
-                    self.add(source, 1, 9, f'{copy.name} installation copy still has policy')
+                    self.add(source, mention.line, 9, f'{copy.name} installation copy still has policy')
         for name, skill_path in self.skills.items():
             if not skill_path.startswith('mmw-v2/skills/'):
                 continue

@@ -1,4 +1,4 @@
-# edit pages — set up the project, record sign-off
+# set up and sign off — set up the project, record sign-off
 
 ## Create the project
 
@@ -27,7 +27,3 @@ A change the user thinks of while looking at a page, they say to that agent dire
 After the user says the design is signed off, every design change is made in Claude Design. The design package in the repository is written only by [pull](pull.md), never by Claude Design's "Handoff to Claude Code" export; a local edit is overwritten by the next pull. A design ticket, when there is one, closes as [pull](pull.md) **Design problems in the report** says.
 
 Done when the user has said the design is signed off.
-
-## Next
-
-[pull](pull.md). A pull is two tool calls and one command, and its report is the convention check: when you doubt the pages hold the conventions, pull and read the report rather than reading pages by hand.

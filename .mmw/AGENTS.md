@@ -2,6 +2,8 @@
 
 This repository's own product answers: `target.json` names the local task board as the product, `harness/` starts and stops it behind a fake `gh`, `stories/` serves its component stories, `journeys/` holds the whole-product journeys. The design package is `prototypes/task-board/claude-design/`; `docs/specs/task-board/screen-contract.yaml` maps each complete scene name to the input value that drew it.
 
+The `playbooks/` directory holds this repository's private playbooks, listed in `playbooks/INDEX.md`; only a session with the user present reads them, and a night's roles never do.
+
 ## Key Conventions
 
 - `harness/target.py` runs only under a lease: without `MMW_DATA_DIR` and `MMW_PORT_BASE` it refuses and points at `lease.py run --`. `start` is idempotent (0 when the recorded pid still runs the same `server.py` at the same origin with the same token, otherwise it stops the old one first) and names the holder through `lsof` when something else has the port.
@@ -15,4 +17,4 @@ This repository's own product answers: `target.json` names the local task board 
 
 - An unregistered call makes the fake `gh` exit 2 with `no gh response …; add that exact call before rerunning`: one changed argument order, flag or GraphQL string in how the board calls `gh` breaks every journey until `responses.json` is updated. It also refuses without `MMW_DATA_DIR`, since every call is appended to `$MMW_DATA_DIR/gh-calls` first.
 - `stories/serve.py` listens on a port the machine hands out and prints it as `origin`; it takes no lease, so a story criterion costs no instance slot. A `?page=` with no `stories/adapters/<page>.mjs` is a 404: the adapters are `board`, `topbar`, `tasks`, `canvas`, `detail`, and `settings`.
-- `target.json` has no `checks` key, and its `leaves_machine` declares the one thing that leaves the machine: the board reading GitHub through `gh`. Its `harness_markers` declares `MMW_BREAK`.
+- `target.json` has no `checks` key, and its `leaves_machine` declares the one thing that leaves the machine: the board reading GitHub through `gh`. Its `harness_markers` declares `MMW_BREAK`. Its `delivery` is `playbook:promote-a-change`, and `mmw-v2/skills/ui-acceptance/scripts/target_config.py --check` reports the key as wrong while `playbooks/promote-a-change.md` is missing.

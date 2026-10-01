@@ -127,7 +127,7 @@ The command that makes sure the repository's task board is registered and answer
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 **start prompt**:
-The text a session is given when started: which skill to use on which ticket, the standing sentences for working with nobody watching, and the Memory indexes or reviewer Rules for its role. An advisor's is `Use the advisor skill.` followed by the brief.
+The text a session is given when started: which skill to use on which ticket, the standing sentences for working with nobody watching, and the Memory indexes or reviewer Rules for its role. An advisor's is `Use the advisor skill.` followed by the brief. A researcher's is one line naming the `mmw` skill, its role, its ticket and the **step pointer** it starts at.
 _Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
 
 ### Models and runners

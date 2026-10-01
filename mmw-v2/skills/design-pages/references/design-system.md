@@ -32,15 +32,15 @@ The agent inside Claude Design builds it; this session prepares what it reads an
 
 ## After the design system changes
 
-After a change, refresh each bound page project as [edit pages](edit-pages.md) **After the design system changes** says.
+After a change, refresh each bound page project as [set up and sign off](set-up-and-sign-off.md) **After the design system changes** says.
 
 ## An existing product
 
 An existing product's screens are brought into Claude Design once, redrawn with its design system, and from then on they are designed there.
 
 1. **Design system**: built from the production code as **Who builds it** above says, unifying what the code does inconsistently.
-2. **Project**: [edit pages](edit-pages.md) **Create the project**, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows). Write the state list first under `## State list` in `prototypes/<effort>/README.md`, with `<effort>` as the `prototype` skill's rule 1 defines it; that file is the `--state-list` of [pull](pull.md). The agent inside Claude Design derives each region's data file from the product's real data for those states, which it reads from the repository through Claude Design's GitHub connection; `task.md` names that directory. The real data lives in its own directory beside the design package (`prototypes/<effort>/example-data/`), never inside it: each pull rewrites the design package to exactly the files the pages load.
-3. **Redraw**: `task.md` asks the agent inside Claude Design to draw one `Component · ` page per region from the design system, and an `App · ` page when regions' states are checked together, first one region for the user to look at; see [edit pages](edit-pages.md) **Talking to the agent inside Claude Design**.
+2. **Project**: [set up and sign off](set-up-and-sign-off.md) **Create the project**, bound to that design system, with `state-list.md` (one `### <region>` per region, one item per state the product shows). Write the state list first under `## State list` in `prototypes/<effort>/README.md`, with `<effort>` as the `prototype` skill's rule 1 defines it; that file is the `--state-list` of [pull](pull.md). The agent inside Claude Design derives each region's data file from the product's real data for those states, which it reads from the repository through Claude Design's GitHub connection; `task.md` names that directory. The real data lives in its own directory beside the design package (`prototypes/<effort>/example-data/`), never inside it: each pull rewrites the design package to exactly the files the pages load.
+3. **Redraw**: `task.md` asks the agent inside Claude Design to draw one `Component · ` page per region from the design system, and an `App · ` page when regions' states are checked together, first one region for the user to look at; see [set up and sign off](set-up-and-sign-off.md) **Talking to the agent inside Claude Design**.
 4. **Sign-off and pull**: as for any design. On the first pull the pages differ from the product wherever the design system unified a value; element parity names each of those elements, and the tickets cut from the screen contract bring the product to the design.
 
 Done when the user has signed off the redrawn pages and [pull](pull.md) has run.

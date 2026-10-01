@@ -1,0 +1,18 @@
+### Authoring or modifying a skill
+
+This playbook puts text an agent reads into the component that answers its question, writes it, and proves it on a real run. Every agent that loads that text acts on it in cases its writer did not foresee, with no one to ask: a rule written in a second place drifts from the first, and a rule without its reason fails in the case nobody listed. The temptation is to answer each slip with one more sentence; every sentence costs attention on every run that loads the file, so **Write it** deletes before it adds.
+
+1. **Place it.** Decide by `references/skill-set-rules.md` `## Layers of the set` which component each passage belongs to, and so which file it goes in.
+   Done when every passage you will write has one component and one file, chosen by the question it answers.
+2. **Write it.** Write it as the `writing-for-agents` skill says, and hold every passage you add or change to `references/skill-set-rules.md` `## Checks` and `## Editing`. When in doubt, delete. A rule, a term or a fact that already lives elsewhere gets a pointer to that place, not a second copy that will drift from it (**principle-one-home-per-meaning**). A mistake agents keep making gets a check or a script where one can catch it, not another sentence they can miss (**principle-encode-lessons-in-structure**).
+   Done when the text is in the file **Place it** chose, and every passage you added or changed meets those two sections.
+3. **Validate it.** Validate what you wrote: a skill's or a principle's frontmatter has `name` and `description`, referenced files exist, cross-skill links resolve. Check with a script whatever a script can check, writing the smallest one when the repository has none, and rerun it after each fix: a check made by eye cannot be rerun by the reader who has to trust it (**principle-build-the-lever**).
+   Done when every check of this step passes on the final text, and each check a script made has its command and result ready for the Reply.
+4. **Run the smallest suites.** Run only the tests the repository names for the files you changed; a full suite runs only when `shared.md` rule 15 allows it. Read what each run ran: a run that collected no test, or none that reach the changed files, has checked nothing (**principle-silence-is-never-a-pass**).
+   Done when, on the final text, the tests the repository names for the changed files pass and each run's output shows it reached them, or the repository names none and the Reply says so.
+5. **Walk a real task.** Walk each task the change touches with a fresh agent, as `references/skill-set-rules.md` `## Verifying` says, and note where it guessed or stopped. Where it guessed, or stopped short of the completion criterion, go back to **Write it**. On a host that cannot start a subagent, give the user the trigger and the job to run in a new session, and list the walk in the Reply as not done until that session's result comes back.
+   Done when every task the change touches reaches its completion criterion in a walk with nothing guessed and its load before and after is known, or the Reply lists the walk as not done.
+6. **Deliver.** Run **Deliver a change**.
+   Done when the change is committed, or every step of the repository's own playbook that this session can take has run, and the user has heard each step that remains.
+
+**Reply:** what you wrote and the component each part went to; what you deleted; each validation check with its command and result; the tests that ran, on a line of their own; the walk, with where the agent guessed or stopped and the load before and after, or that it is not done; and what remains of the delivery.

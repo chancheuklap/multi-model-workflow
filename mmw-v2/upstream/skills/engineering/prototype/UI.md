@@ -80,7 +80,7 @@ For sub-shape A (existing page): keep all the existing data fetching above the s
 
 For sub-shape B (new page): the prototype route you created above mounts the same switcher.
 
-In both sub-shapes the variant components live in the leaf directory `prototypes/<effort>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app, and it comes down after the first pull of the design (the `design-pages` skill). Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
+In both sub-shapes the variant components live in the leaf directory `prototypes/<effort>/<issue>/UI/`; the route holds only the mount point above, importing the variants from there (a path alias or a relative import; if the project can't import across that boundary, symlink the leaf directory beside the route). The mount point (and the symlink, if you needed one) is **scaffolding**: it exists so the variants render inside the real app. Iterating means editing or adding variants in the leaf directory; the mount point doesn't change.
 
 ### 4. Build the floating switcher
 
@@ -105,7 +105,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer
 
-Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes. Under the fixed heading `## State list`, list every state of the winning variant: one third-level heading per region (the region name is the later `Component · <region>` page), and one list item per state, starting with the state name. `scene` prop values reuse these names; the pull report and any decision ticket that will change a page's states match against them. A UI has one state list. On a wayfinder map it is written in the design ticket's leaf `README.md`, gathering the winner of every UI prototype ticket on the map, one heading per region; each prototype ticket's own leaf `README.md` keeps its verdict and names the regions it settled.
+Once a variant has won, record the answer (which variant and why) in the leaf `README.md`, the way the [SKILL](SKILL.md) describes.
 
 The winner goes into Claude Design, so leave the scaffolding up until the first pull: the winner running behind it is the reference the pages are drawn against, and a design system built from it reads its styles and components.
 
@@ -115,7 +115,3 @@ The winner goes into Claude Design, so leave the scaffolding up until the first 
 - **Sharing too much code between variants.** A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
 - **Wiring variants to real mutations.** Read-only prototypes are fine. If a variant needs to mutate, point it at a stub: the question is "what should this look like", not "does the backend work".
 - **Promoting the prototype directly to production.** The variant code was written under prototype constraints (no tests, minimal error handling). Rewrite it properly when you fold it in.
-
-## Next
-
-A UI prototype hands off here, at step 6: its winner goes into Claude Design through the `design-pages` skill.

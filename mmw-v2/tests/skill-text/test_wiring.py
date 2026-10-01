@@ -13,6 +13,7 @@ SCRIPT = LIB / 'check_wiring.py'
 FIXTURES = Path(__file__).resolve().parent / 'fixtures/wiring'
 MODE = 'mmw-v2/skills/mmw'
 DISPATCH = 'mmw-v2/skills/dispatch'
+WORK_ROUTE = '\n## Playbooks\n\n- **Work.** Do the work. `playbooks/work-a-ticket.md`.\n'
 
 
 class Wiring(unittest.TestCase):
@@ -40,6 +41,242 @@ class Wiring(unittest.TestCase):
     def assert_status(self, result, status):
         self.assertEqual(result.returncode, status, result.stdout + result.stderr)
         self.assertNotIn('Traceback', result.stdout + result.stderr)
+
+    def findings(self, result, category):
+        output = result.stdout + result.stderr
+        self.assertIn(result.returncode, (0, 1), output)
+        self.assertNotIn('Traceback', output)
+        if result.returncode == 1:
+            self.assertIn('connections do not resolve', result.stdout)
+        return re.findall(rf'(?m)^(?:report: )?(\S+:\d+: class {category} .+)$',
+                          result.stdout)
+
+    def test_wiring_class2_reports_a_missing_file_of_a_named_skill(self):
+        self.write('mmw-v2/skills/example/SKILL.md', '# Example\n')
+        self.write(MODE + '/SKILL.md',
+                   "Read the `example` skill's `references/absent.md`.\n"
+                   'Use the `absent` skill.\n')
+        self.assertEqual(self.findings(self.check(), 2), [
+            MODE + '/SKILL.md:1: class 2 mmw-v2/skills/example/references/absent.md does not exist',
+            MODE + '/SKILL.md:2: class 2 absent is not in skills.txt',
+        ])
+
+    def test_wiring_class2_resolves_a_named_skill_file_in_that_skill(self):
+        self.write('mmw-v2/skills/example/SKILL.md', '# Example\n')
+        self.write('mmw-v2/skills/example/references/present.md', '# Present\n')
+        self.write('mmw-v2/skills/example/scripts/dispatch.sh',
+                   'case "$1" in\n run) echo ok ;;\nesac\n')
+        content = ("Read the `example` skill's `references/present.md`.\n"
+                   "Run the `example` skill's `scripts/dispatch.sh run`.\n"
+                   "Start an `example` session. Read that skill's `references/present.md`.\n")
+        self.write(MODE + '/SKILL.md', content)
+        self.assertEqual(self.findings(self.check(), 2), [])
+        forms = (
+            "1. **Claim.** The `example` skill's `references/present.md`.",
+            "- The `example` skill's `references/present.md`.",
+            "(The `example` skill's `references/present.md`)",
+        )
+        self.write(MODE + '/playbooks/named-paths.md', '\n'.join(forms) + '\n')
+        self.assertEqual(self.findings(self.check(), 2), [])
+        self.write(MODE + '/SKILL.md', content.replace('dispatch.sh run', 'dispatch.sh walk'))
+        self.assertEqual(self.findings(self.check(), 2), [
+            MODE + '/SKILL.md:2: class 2 scripts/dispatch.sh has no subcommand walk',
+        ])
+
+    def test_wiring_class2_skips_placeholders_and_prose(self):
+        self.write(MODE + '/references/examples.md',
+                   '`principles/principle-<slug>.md`\n`references/x.md`\n`scripts/y.py`\n'
+                   'Read the scoped skills, the other skill and the whole skill. '
+                   'Ignore the `example` skills and the example skills.\n'
+                   '`references/absent.md`\n')
+        self.assertEqual(self.findings(self.check(), 2), [
+            MODE + '/references/examples.md:5: class 2 references/absent.md does not exist',
+        ])
+
+    def test_wiring_class2_imported_file_has_no_pstack_names_allowance(self):
+        path = MODE + '/playbooks/imported.md'
+        self.write(path, 'Use the `old-skill` skill.\n')
+        self.write(MODE + '/imports.tsv', 'type\tpath\nplaybook\t' + path + '\n')
+        self.write(MODE + '/references/pstack-names.md', '| old-skill | example |\n')
+        self.write('mmw-v2/skills/example/SKILL.md', '# Example\n')
+        self.assertEqual(self.findings(self.check(), 2), [
+            path + ':1: class 2 old-skill is not in skills.txt',
+        ])
+
+    def test_wiring_class5_reports_a_bold_citation_of_a_missing_principle(self):
+        self.write(MODE + '/principles/principle-evidence.md',
+                   '---\nname: principle-evidence\ndescription: Use evidence.\n---\n# Evidence\n')
+        path = MODE + '/playbooks/citations.md'
+        self.write(path, 'Read (**principle-evidence**).\nRead (**principle-absent**).\n')
+        self.assertEqual(self.findings(self.check(), 5), [
+            path + ':2: class 5 principle-absent has no principle file',
+        ])
+        self.write(MODE + '/SKILL.md', '- **Absent** (**principle-absent**). Use evidence.\n')
+        self.assertEqual(self.findings(self.check(), 5), [
+            MODE + '/SKILL.md:1: class 5 principle-absent has no principle file',
+            path + ':2: class 5 principle-absent has no principle file',
+        ])
+
+    def test_wiring_class5_reports_a_citation_in_another_form(self):
+        self.write(MODE + '/principles/principle-evidence.md', '# Evidence\n')
+        path = MODE + '/playbooks/citations.md'
+        valid = ('(**principle-evidence**)\n`principles/principle-evidence.md`\n'
+                 '`principle-<slug>`, `(principle-<slug>)`, the **<display>** principle.\n')
+        self.write(path, valid)
+        self.assertEqual(self.findings(self.check(), 5), [])
+        self.write(path, valid + '(principle-evidence)\n'
+                   'the **evidence** principle\n'
+                   '[Evidence](../principles/principle-evidence.md)\n')
+        findings = self.findings(self.check(), 5)
+        self.assertEqual(len(findings), 3, findings)
+        for line, finding in zip((4, 5, 6), findings):
+            self.assertRegex(finding, '^' + re.escape(path) +
+                             rf':{line}: class 5 .+ is not the citation form \*\*principle-<slug>\*\*$')
+        self.write(MODE + '/imports.tsv', 'type\tpath\nplaybook\t' + path + '\n')
+        self.assertEqual(self.findings(self.check(), 5), [])
+        self.write(path, valid + '(principle-absent)\n')
+        self.assertEqual(self.findings(self.check(), 5), [
+            path + ':4: class 5 principle-absent has no principle file',
+        ])
+
+    def test_wiring_class9_slash_form_of_a_switched_skill_needs_no_marker(self):
+        self.reported_fixture(9)
+        self.write(MODE + '/SKILL.md', 'Tell the user to run `/upstream-example`.\n')
+        self.assertEqual(self.findings(self.check(), 9), [])
+
+    def test_wiring_class9_named_form_of_a_switched_skill_needs_the_marker(self):
+        self.reported_fixture(9)
+        self.write(MODE + '/SKILL.md',
+                   '# MMW\n\n- A survey → the `upstream-example` skill.\n'
+                   'Use the `upstream-example` skill again.\n')
+        self.assertEqual(self.findings(self.check(), 9), [
+            MODE + '/SKILL.md:3: class 9 upstream-example is named for the model '
+            'and has disable-model-invocation; it needs +model-invoked in skills.txt',
+        ])
+        self.write('mmw-v2/skills.txt', 'engineering/upstream-example +model-invoked\n')
+        self.assertEqual(self.findings(self.check(), 9), [])
+        self.write('mmw-v2/skills.txt', 'engineering/upstream-example\n')
+        self.write(MODE + '/SKILL.md', '# MMW\n')
+        self.write(MODE + '/references/named-skill.md', '- The `upstream-example` skill owns this method.\n')
+        self.assertEqual(self.findings(self.check(), 9), [
+            MODE + '/references/named-skill.md:1: class 9 upstream-example is named for the model '
+            'and has disable-model-invocation; it needs +model-invoked in skills.txt',
+        ])
+
+    def test_wiring_class9_route_and_step_forms_need_the_marker(self):
+        self.reported_fixture(9)
+        self.write(MODE + '/SKILL.md', '# MMW\n\n- A survey → `upstream-example`.\n')
+        path = MODE + '/playbooks/survey.md'
+        self.write(path, '1. **Claim.** Run `upstream-example` first.\n'
+                   '   Use `upstream-example` again.\n')
+        self.write(MODE + '/references/rules.md',
+                   "1. **Peers.** Upstream's `upstream-example` names its peers.\n")
+        self.assertEqual(self.findings(self.check(), 9), [
+            MODE + '/SKILL.md:3: class 9 upstream-example is named for the model '
+            'and has disable-model-invocation; it needs +model-invoked in skills.txt',
+            path + ':1: class 9 upstream-example is named for the model '
+            'and has disable-model-invocation; it needs +model-invoked in skills.txt',
+        ])
+
+    def test_wiring_class9_skill_without_switch_needs_no_marker(self):
+        self.reported_fixture(9)
+        path = 'mmw-v2/upstream/skills/engineering/plain-example'
+        self.write(path + '/SKILL.md', '---\nname: plain-example\n---\n# Plain\n')
+        self.write('mmw-v2/skills.txt',
+                   'engineering/upstream-example\nengineering/plain-example\n')
+        self.write(MODE + '/SKILL.md',
+                   'Use the `plain-example` skill.\nThe upstream-example is a bare name.\n')
+        self.assertEqual(self.findings(self.check(), 9), [])
+        graph = self.check('--graph')
+        self.assertIn(graph.returncode, (0, 1), graph.stdout + graph.stderr)
+        self.assertNotIn('Traceback', graph.stdout + graph.stderr)
+        self.assertIn(MODE + '/SKILL.md -> ' + path + ' : 9', graph.stdout.splitlines())
+        self.assertNotIn(MODE + '/SKILL.md -> mmw-v2/upstream/skills/engineering/upstream-example : 9',
+                         graph.stdout.splitlines())
+
+    def test_skill_mentions_tells_model_forms_from_the_slash_form(self):
+        sys.path.insert(0, str(LIB))
+        try:
+            import skill_text
+        finally:
+            sys.path.remove(str(LIB))
+        names = {'example', 'other-example', 'upstream-example'}
+        text = ('---\nname: sample\ndescription: the `hidden` skill\n---\n'
+                'The `example` skill owns a method.\n'
+                'Use the example skill and the `absent` skill.\n'
+                '- Survey → `upstream-example`.\n'
+                '1. **Claim.** Run `example`.\n'
+                '   Continue with `other-example`.\n'
+                '\nRead `example` outside a step.\n'
+                'Tell the user to run `/upstream-example` or `/loop`.\n'
+                'the scoped skills, the other skill, the whole skill, the example skill-set.\n'
+                'Ignore the `example` skills and the example skills.\n'
+                'the `example skill is unpaired.\nthe example` skill is unpaired.\n'
+                'prototype, research, teach, `example`.\n'
+                '<!-- the `hidden` skill\n`/hidden` -->\n'
+                '```text\nthe `hidden` skill\n```\n'
+                '~~~~text\n`/hidden`\n~~~\n~~~~\n')
+        mentions = skill_text.skill_mentions(text, names)
+        self.assertEqual([(m.name, m.line, m.form, m.by_model) for m in mentions], [
+            ('example', 5, 'qualified', True),
+            ('example', 6, 'qualified', True),
+            ('absent', 6, 'qualified', True),
+            ('upstream-example', 7, 'route', True),
+            ('example', 8, 'step', True),
+            ('other-example', 9, 'step', True),
+            ('upstream-example', 12, 'slash', False),
+            ('loop', 12, 'slash', False),
+        ])
+        self.assertEqual([m.offset for m in mentions], [
+            text.index('The `example`'), text.index('the example skill and'),
+            text.index('the `absent`'), text.index('`upstream-example`'),
+            text.index('`example`.', text.index('1. **Claim.**')),
+            text.index('`other-example`'), text.index('`/upstream-example`'),
+            text.index('`/loop`'),
+        ])
+        self.assertEqual([m.form for m in skill_text.skill_mentions(text, names, steps=False)],
+                         ['qualified', 'qualified', 'qualified', 'route', 'slash', 'slash'])
+        masked = skill_text.prose_mask(text)
+        self.assertEqual(len(masked), len(text))
+        self.assertEqual([i for i, c in enumerate(masked) if c == '\n'],
+                         [i for i, c in enumerate(text) if c == '\n'])
+        paths = [
+            ("the `example` skill's `references/present.md`", 'example'),
+            ("The `example` skill's `references/present.md`", 'example'),
+            ("1. **Claim.** The `example` skill's `references/present.md`.", 'example'),
+            ("- The `example` skill's `references/present.md`.", 'example'),
+            ("(The `example` skill's `references/present.md`)", 'example'),
+            ("the `example` skill's\n`references/present.md`", 'example'),
+            ("the example skill's `references/present.md`", 'example'),
+            ("the `absent` skill's `references/present.md`", 'absent'),
+            ("an `example` session. Read that skill's `references/present.md`", 'example'),
+            ("the `example` skill. Then `other-example`; that skill's `references/present.md`",
+             'other-example'),
+            ("`example`\nthat skill's `references/present.md`", None),
+            ("`/example`; that skill's `references/present.md`", None),
+            ('Read `references/present.md`.', None),
+        ]
+        for source, expected in paths:
+            with self.subTest(source=source):
+                offset = source.index('`references/present.md`')
+                self.assertEqual(skill_text.skill_of_path(source, offset, names), expected)
+                self.assertEqual(skill_text.skill_of_path(source, offset + 1, names), expected)
+        for source in (
+            "1. **Claim.** The `example` skill owns this method.",
+            "- The `example` skill owns this method.",
+            "(The `example` skill owns this method)",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual([(m.name, m.form) for m in skill_text.skill_mentions(source, names, False)],
+                                 [('example', 'qualified')])
+        source = ('```html\n<!-- an unfinished code example\n```\n'
+                  'Use the `example` skill. <!-- the `hidden` skill -->\n')
+        self.assertEqual([(m.name, m.line) for m in skill_text.skill_mentions(source, names)],
+                         [('example', 4)])
+        self.assertEqual([(m.name, m.form) for m in skill_text.skill_mentions(
+            'the `Missing-Skill` skill. `/Missing-Skill`', names)],
+                         [('Missing-Skill', 'qualified'), ('Missing-Skill', 'slash')])
+        self.assertEqual(skill_text.skill_mentions('An example: `` the `X` skill ``.', names), [])
 
     def test_wiring_pointer_class(self):
         path = 'mmw-v2/skills/example/SKILL.md'
@@ -131,6 +368,7 @@ class Wiring(unittest.TestCase):
             self.write(MODE + '/principles/principle-evidence.md',
                        '---\nname: principle-evidence\ndescription: Apply when evidence is required.\n---\n# Evidence\n')
         if category == 7:
+            self.write('mmw-v2/skills/example/SKILL.md', '# Example\n')
             self.write(MODE + '/playbooks/work-a-ticket.md',
                        '### Work\n\n1. **Claim.** Use the `example` skill.\n'
                        '2. **Get reviewed.** Use the `example` skill.\n')
@@ -141,8 +379,7 @@ class Wiring(unittest.TestCase):
                        'disable-model-invocation: true\n---\n# Upstream\n')
 
     def test_wiring_reported_classes(self):
-        batches = {2: 'B1', 3: 'B2 end', 5: 'B1', 6: 'B2 end',
-                   7: 'B1', 9: 'B1', 11: 'B2 end', 12: 'B2'}
+        batches = {3: 'B2 end', 6: 'B2 end', 11: 'B2 end', 12: 'B2'}
         for category, batch in batches.items():
             with self.subTest(category=category):
                 self.setUp()
@@ -163,6 +400,28 @@ class Wiring(unittest.TestCase):
                 if category == 6:
                     self.assertRegex(result.stdout, r'(?m)^(?!report:).*: class 6 worker/unhandled.event has no registered handler$')
 
+    def test_wiring_b1_classes_fail(self):
+        repairs = {
+            2: (MODE + '/playbooks/missing.md', '### Missing\n'),
+            5: (MODE + '/principles/principle-evidence.md',
+                '---\nname: principle-evidence\ndescription: Apply when evidence is required.\n'
+                '---\n# Wrong display name\n'),
+            7: (MODE + '/SKILL.md', '# MMW\n' + WORK_ROUTE),
+            9: ('mmw-v2/skills.txt', 'self/example\nengineering/upstream-example +model-invoked\n'),
+        }
+        for category, (path, text) in repairs.items():
+            with self.subTest(category=category):
+                self.setUp()
+                self.reported_fixture(category)
+                result = self.check()
+                self.assert_status(result, 1)
+                self.assertIn('connections do not resolve', result.stdout)
+                self.assertRegex(result.stdout, rf'(?m)^(?!report:).*:\d+: class {category} ')
+                self.write(path, text)
+                result = self.check()
+                self.assert_status(result, 0)
+                self.assertNotRegex(result.stdout, rf'(?m)^(?:report: )?.*:\d+: class {category} ')
+
     def test_wiring_pointer_class_targets(self):
         path = 'mmw-v2/skills/example/SKILL.md'
         self.write(path, '`mmw work-a-ticket#Claim`\n`mmw#Re-entry`\n')
@@ -170,17 +429,23 @@ class Wiring(unittest.TestCase):
         self.assert_status(result, 0)
         self.assertIn('pending work-a-ticket (not built yet)', result.stdout)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Work\n\n#### Claim\n\n#### Get reviewed\n')
-        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n')
+        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n' + WORK_ROUTE)
         self.assert_status(self.check(), 0)
-        self.write(MODE + '/SKILL.md', '# MMW\n\n## Autonomy\n')
-        self.assert_status(self.check(), 1)
-        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n')
+        self.write(MODE + '/SKILL.md', '# MMW\n\n## Autonomy\n' + WORK_ROUTE)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw#Re-entry ')
+        self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n' + WORK_ROUTE)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Claim\n\n#### Get reviewed\n')
-        self.assert_status(self.check(), 1)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Claim ')
         self.write(MODE + '/playbooks/work-a-ticket.md', '1. **Claim.** Do the work.\n\n2. **Get reviewed.** Read the report.\n')
         self.assert_status(self.check(), 0)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Work\n\n#### Get reviewed\n')
-        self.assert_status(self.check(), 1)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Claim ')
         self.write(MODE + '/imports.tsv', 'type\tpath\nplaybook\t' + MODE + '/playbooks/work-a-ticket.md\n')
         result = self.check()
         self.assert_status(result, 1)
@@ -229,7 +494,7 @@ class Wiring(unittest.TestCase):
         self.write('mmw-v2/skills.txt', 'self/example\nengineering/upstream-example +model-invoked\n')
         self.write('mmw-v2/upstream/skills/engineering/upstream-example/SKILL.md', '# Upstream\n')
         result = self.check('--graph')
-        self.assert_status(result, 0)
+        self.assert_status(result, 1)
         categories = {int(line.rsplit(' : ', 1)[1]) for line in result.stdout.splitlines()}
         self.assertTrue({1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12} <= categories, result.stdout)
         self.assertIn('mmw-v2/skills/example/SKILL.md -> mmw work-a-ticket#Claim : 1', result.stdout)
@@ -343,25 +608,21 @@ class Wiring(unittest.TestCase):
         self.assert_status(result, 0)
         self.assertNotRegex(result.stdout, r'(?m)^report: .*: class 12 ')
 
-    def test_wiring_reference_commands_and_import_names(self):
+    def test_wiring_reference_commands(self):
         self.write(MODE + '/scripts/dispatch.sh', 'case "$1" in\n known) echo ok ;;\nesac\n')
         self.write(MODE + '/playbooks/work-a-ticket.md',
                    '#### Claim\n\nRun `scripts/dispatch.sh missing`.\n\n#### Get reviewed\n')
         result = self.check()
-        self.assert_status(result, 0)
-        self.assertRegex(result.stdout, r'(?m)^report: .*: class 2 .*missing')
+        self.assertEqual(self.findings(result, 2), [
+            MODE + '/playbooks/work-a-ticket.md:3: class 2 scripts/dispatch.sh has no subcommand missing',
+        ])
         self.write(MODE + '/playbooks/work-a-ticket.md',
                    '#### Claim\n\nRun `scripts/dispatch.sh known`.\n\n#### Get reviewed\n')
-        self.assertNotRegex(self.check().stdout, r'(?m)^report: .*: class 2 ')
-        self.write(MODE + '/imports.tsv', 'type\tpath\nplaybook\t' + MODE + '/playbooks/imported.md\n')
-        self.write(MODE + '/playbooks/imported.md', 'Use the old-skill skill.\n')
-        self.assertRegex(self.check().stdout, r'(?m)^report: .*: class 2 .*old-skill')
-        self.write('mmw-v2/skills/example/SKILL.md', '# Example\n')
-        self.write(MODE + '/references/pstack-names.md', '| old-skill | example |\n')
-        self.assertNotRegex(self.check().stdout, r'(?m)^report: .*: class 2 .*old-skill')
+        self.assertEqual(self.findings(self.check(), 2), [])
 
     def test_wiring_event_sources_and_duplicate_handlers(self):
         self.write(DISPATCH + '/roles.json', '{"night-orchestrator":{"playbook":"work-a-ticket","wakes":{"*":"Claim"}}}')
+        self.write(MODE + '/SKILL.md', '# MMW\n' + WORK_ROUTE)
         self.write(MODE + '/playbooks/work-a-ticket.md', '#### Claim\nHandle the wake.\n')
         self.write(DISPATCH + '/scripts/watchdog.py',
                    'alerts = [\n' + ''.join('{"text":"watchdog: alert%d"},\n' % i for i in range(8)) + ']\n')
@@ -445,8 +706,8 @@ class Wiring(unittest.TestCase):
         env['MMW_HOME'] = str(state)
         result = subprocess.run([sys.executable, str(lib / 'check_wiring.py')],
                                 env=env, capture_output=True, text=True)
-        self.assert_status(result, 0)
-        self.assertRegex(result.stdout, r'(?m)^report: .*: class 9 .*installation copy still has invocation switch$')
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report:).*: class 9 .*installation copy still has invocation switch$')
         self.assertNotRegex(result.stdout, r'(?m)^report: .*: class 12 ')
         isolated = self.check()
         self.assertNotIn('installation copy still has invocation switch', isolated.stdout)

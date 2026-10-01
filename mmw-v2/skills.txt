@@ -23,8 +23,6 @@ engineering/research
 engineering/resolving-merge-conflicts
 engineering/setup-matt-pocock-skills +model-invoked
 engineering/tdd
-engineering/to-spec
-engineering/to-tickets
 engineering/triage +model-invoked
 engineering/wayfinder +model-invoked
 engineering/wizard
@@ -43,6 +41,8 @@ self/ui-acceptance
 self/manage-agents-md
 self/dispatch
 self/code-checkers
+self/to-spec
+self/to-tickets
 
 dd/diagram-design
 

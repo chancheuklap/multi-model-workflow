@@ -64,7 +64,21 @@ subtree 另多快照没有收的 7 个图片：`assets/logo.png`，以及 `docs/
 
 这个 subtree 里的文字不改。`LICENSE`（MIT）留在 subtree 里，技能的 `disable-model-invocation` 行也留着。
 
-用到的组件由 `mmw-v2/import/import_component.py` 复制进 `mmw-v2/skills/mmw/`，登记在 `mmw-v2/skills/mmw/imports.tsv`。需要判断的改动记在本文件。
+用到的组件由 `mmw-v2/import/import_component.py` 复制进 `mmw-v2/skills/mmw/`，登记在 `mmw-v2/skills/mmw/imports.tsv`。需要判断的改动记在本文件的 `## 判断改动`。
+
+## 判断改动
+
+复制进 `mmw-v2/skills/mmw/` 的 pstack 文字里，凡不是 `import_component.py` 机械改写的改动，每处一行：`imports.tsv` 那一行的「判断改动」列以同一个编号开头。编号沿用 `docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md` `### 13.2 需要判断的改动（全部）` 的 J1–J10，那张表以外的改动从 J11 起接着编。子树换了钉定的提交之后，`import_component.py --refresh` 对「判断改动」列不空的每一行打印 `REVIEW`：照这里的「为什么」核对上游的新文字，决定改写是否保留。
+
+| 编号 | 导入的文件 | 改了什么 | 为什么 |
+| --- | --- | --- | --- |
+| J1 | `mmw-v2/skills/mmw/playbooks/prototype.md` ← `mmw-v2/upstream-pstack/skills/poteto-mode/playbooks/prototype.md` 第 3、7、12、14 行 | 合并：MMW 自写的 playbook，只取 pstack 所有权行第 1 句、第 1 步、第 6 步与 `**Reply:**`；「Scope the decision the prototype exists to make」改为「(judgement) Name the decision the prototype exists to make」；「Route to Feature.」改为「Route to **Write a spec and tickets**.」；「the throwaway artifact」改为「the prototype in its leaf directory」；「to **Feature** (or `architect` for the shape) for the real build.」改为「on for the real build:」，其后按来处与分支列出去处；「and the scratch path.」改为「the leaf directory, and the step or playbook the answer went to.」；删去「Say plainly that the prototype is throwaway.」；pstack 第 2–5 步不取 | MMW 的原型留在仓库的 `prototypes/<effort>/<issue>/<UI\|LOGIC\|EXP>/` 里迭代，正式代码以它为参考（`prototype` 技能 `SKILL.md` 的首段与 **Record the answer, keep the prototype**），所以没有 throwaway 与 scratch 目录；**Feature** 与 `architect` 没有导入，MMW 的正式实现走 **Write a spec and tickets** 或 **Make a small change**；怎样做原型由 `prototype` 技能的三个分支文件给出，pstack 第 3 步「Build throwaway in an isolated scratch dir」与它的叶目录规则冲突，以能力技能为准（R18 第 3.3 节 P4） |
+| J5 | `mmw-v2/skills/mmw/playbooks/authoring-a-skill.md` ← `mmw-v2/upstream-pstack/skills/poteto-mode/playbooks/authoring-a-skill.md` 第 6、10 行 | 合并：MMW 自写的 playbook，只取 pstack 第 2 步（第 6 行）与末段第 1 句「When in doubt, delete.」；「Validate the skill: frontmatter has」改为「Validate what you wrote: a skill's or a principle's frontmatter has」；所有权行、第 1、3、4 步、末段其余八句与 `**Reply:**` 不取 | 末段「Tell it to do the thing and skip the reason.」与「Explain only when the rule is confusing without one.」同 `mmw` 技能 `references/skill-set-rules.md` `## What skill text is for` 第 1 条（规则旁边写它的理由）冲突，以 MMW 的规则为准；末段其余各句的意思在 `skill-set-rules.md` 与 **principle-encode-lessons-in-structure** 里已有家，P11 点名它们而不复述；第 1 步的 **create-skill** 是 Cursor 自带的技能，MMW 写技能文字用 `writing-for-agents` 技能；第 4 步的 **Opening a PR** 没有导入，MMW 的交付走 **Deliver a change**；P11 不写所有权行，它没有出处（#595 Implementation Decisions 4）；MMW 的 playbook 也写给技能以外的文字，所以第 2 步的「the skill」改成「what you wrote」，并写明哪几类文件有 frontmatter（playbook 没有）（R18 第 3.3 节 P11、第 13.2 节 J5） |
+| J7 | `mmw-v2/skills/mmw/SKILL.md#Non-negotiables` ← `mmw-v2/upstream-pstack/skills/poteto-mode/SKILL.md` 第 15 行 | 「leaf SKILL.md」改为「file」；第 1 句「The Principles section below grounds every trigger.」不采用 | MMW 的原则是 `principles/` 下的文件，不是技能；MMW 的触发行取自技能的 description，不从原则推出 |
+| J8 | `mmw-v2/skills/mmw/SKILL.md#Principles` ← `mmw-v2/upstream-pstack/skills/poteto-mode/SKILL.md` 第 39 行 | 「leaf skill」改为「principle file」 | MMW 的原则是文件，不是技能 |
+| J9 | `mmw-v2/skills/mmw/SKILL.md#Writing the reply` ← `mmw-v2/upstream-pstack/skills/poteto-mode/SKILL.md` 第 109 行 | 删去「, PR link as `https://github.com/<owner>/<repo>/pull/<number>`」；「The per-playbook lines below name」改为「Each playbook's `**Reply:**` line names」 | MMW 默认的交付不是 PR；MMW 的回复行写在各 playbook 自己的 `**Reply:**` 里，mode 里没有「below」所指的那些行 |
+| J11 | `mmw-v2/skills/mmw/principles/principle-prove-it-works.md` ← `mmw-v2/upstream-pstack/skills/principle-prove-it-works/SKILL.md` | 删去句末的括注「(the **show-me-your-work** skill)」 | `show-me-your-work` 没有导入，MMW 里没有这个技能；去掉括注，句子仍然完整 |
+| J12 | `mmw-v2/skills/mmw/principles/principle-encode-lessons-in-structure.md` ← `mmw-v2/upstream-pstack/skills/principle-encode-lessons-in-structure/SKILL.md` | 两处「brain note」改为「Memory record」 | 「brain note」是 pstack 的说法；MMW 里记下来留给以后的经验是 Memory record（`docs/contexts/toolbox/CONTEXT.md` 的 **Memory record**） |
 
 ## 以后拉更新
 

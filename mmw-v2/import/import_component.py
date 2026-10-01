@@ -8,6 +8,8 @@ Skills register pstack/<name>, with +model-invoked when mode or playbooks name
 them. Triggers and sections copy verbatim; references and scripts copy verbatim
 (scripts include same-directory imports/source files); agent frontmatter keeps
 only name and description. Principle indexes come from H1 and description.
+
+Names only pstack has are not rewritten here: each one in a copied file is printed as NAME<TAB><file><TAB><line><TAB><name> before the last line, for the person importing to rewrite in MMW's words. A skill a copied file names that skills.txt lacks is such a name; it is never imported with its namer.
 """
 
 from __future__ import annotations
@@ -51,26 +53,31 @@ REWRITE_HEADER = 'kind\told\tnew\tscope'
 CHECKOUT = Path(__file__).resolve().parents[2]
 # Same boundary as skill_text.SENTENCE_END; it does not require loading PyYAML.
 SENTENCE_END = re.compile(r'[.?!。](?=\s*[A-Z`*(\[0-9\u3400-\u9fff])')
-# (R18 section 8.3 first-column literal, keyword, scan pattern).
-SLOT_KEYWORDS = (
-    ('control 槽位（「the matching control skill」、`control-ui`、`control-cli`）', 'control skill', r'\bcontrol skill\b'),
-    ('delivery 槽位（「Run **Opening a PR**」）', 'Opening a PR', r'\bOpening a PR\b'),
-    ('forge 槽位（`gh`、`command -v origin`、`gt`）', 'gh', r'\bgh\b'),
-    ('forge 槽位（`gh`、`command -v origin`、`gt`）', 'origin', r'\borigin\b'),
-    ('forge 槽位（`gh`、`command -v origin`、`gt`）', 'gt', r'\bgt\b'),
-    ('`subagent_type: "poteto-agent"` / `generalPurpose`', 'subagent_type', r'\bsubagent_type\b'),
-    ('「your configured <label> model (default …)」；`~/.cursor/rules/pstack-models.mdc` 的 `<label>` 行',
-     'configured … model', r'\bconfigured\b[^\n.!?]*?\bmodel\b'),
-    ('「your configured <label> model (default …)」；`~/.cursor/rules/pstack-models.mdc` 的 `<label>` 行',
-     'pstack-models.mdc', r'\bpstack-models\.mdc\b'),
-    ('`AskQuestion`', 'AskQuestion', r'\bAskQuestion\b'),
-    ("Cursor's `/loop`、`/goal`", '/loop', r'/loop\b'),
-    ("Cursor's `/loop`、`/goal`", '/goal', r'/goal\b'),
-    ('cloud agent', 'cloud', r'\bcloud\b'),
-    ('`agent-transcripts/`、`~/.cursor/projects/`', 'agent-transcripts', r'\bagent-transcripts\b'),
-    ('运行中从 trunk 重读 playbook（`autopilot-full.md` 第 6 步、`multi-phase-plan.md` 模板）',
-     'git show origin/main:', r'git show origin/main:'),
-    ('「Spawn Comment Sicko」', 'Spawn <Agent>', r'\bSpawn[ \t]+(?:<Agent>|[A-Z][\w-]*(?:[ \t]+[A-Z][\w-]*)*)'),
+# (printed name, scan pattern). The printed name of 'Spawn <Agent>' is the matched text.
+PSTACK_NAME_KEYWORDS = (
+    ('control skill', r'\bcontrol skill\b'),
+    ('Opening a PR', r'\bOpening a PR\b'),
+    ('gh', r'\bgh\b'),
+    ('origin', r'\borigin\b'),
+    ('gt', r'\bgt\b'),
+    ('subagent_type', r'\bsubagent_type\b'),
+    ('generalPurpose', r'\bgeneralPurpose\b'),
+    ('run_in_background', r'\brun_in_background\b'),
+    ('configured … model', r'\bconfigured\b[^\n.!?]*?\bmodel\b'),
+    ('pstack-models.mdc', r'\bpstack-models\.mdc\b'),
+    ('poteto-mode', r'\bpoteto-mode\b'),
+    ('AskQuestion', r'\bAskQuestion\b'),
+    ('/loop', r'/loop\b'),
+    ('/goal', r'/goal\b'),
+    ('/deslop', r'/deslop\b'),
+    ('cloud', r'\bcloud\b'),
+    ('agent-transcripts', r'\bagent-transcripts\b'),
+    ('mcps/', r'\bmcps/'),
+    ('brain note', r'\bbrain notes?\b'),
+    ('rebase', r'\b[Rr]ebas(?:e|ed|es|ing)\b'),
+    ('Binary-search', r'\b[Bb]inary-search\b'),
+    ('git show origin/main:', r'git show origin/main:'),
+    ('Spawn <Agent>', r'\bSpawn[ \t]+(?:<Agent>|[A-Z][\w-]*(?:[ \t]+[A-Z][\w-]*)*)'),
 )
 
 
@@ -317,7 +324,6 @@ class Importer:
         self.upstream_mode = (skills / locations.PSTACK_MODE_DIRECTORY).resolve()
         self.imports = Table(skills / locations.IMPORTS_TSV, IMPORT_HEADER)
         self.rewrites = Table(skills / locations.PSTACK_REWRITES_TSV, REWRITE_HEADER)
-        self.names_path = skills / locations.PSTACK_NAMES_MD
         self.commit = source_commit(root, self.subtree.relative_to(root))
         self.batch = batch
         self.entries = []
@@ -340,11 +346,6 @@ class Importer:
             identities.add(identity)
         self.skills = {line.split()[0].split('/')[-1] for line in self.skills_text.splitlines()
                        if line.strip() and not line.lstrip().startswith('#')}
-        self.mapped = []
-        if self.names_path.is_file():
-            for line in self.names_path.read_text(encoding='utf-8').splitlines():
-                if line.lstrip().startswith('|'):
-                    self.mapped.append(line.strip().strip('|').split('|')[0].strip())
 
     def relative(self, path):
         return path.relative_to(self.root).as_posix()
@@ -485,19 +486,17 @@ class Importer:
         source_text = (entry.data.decode('utf-8') if entry.component.layout.storage == 'fragment' else
                        (self.root / entry.source).read_bytes().decode('utf-8', errors='replace'))
         for dependency, offset in self.dependencies(source_text):
-            if dependency == entry.component or dependency in self.visited:
+            if dependency == entry.component or dependency in self.visited or dependency.kind == 'skill':
                 continue
             local = self.destination(dependency)
-            if ((dependency.kind != 'skill' and local.exists()) or
-                    (dependency.kind == 'skill' and dependency.name in self.skills) or
-                    any(dependency.name in cell for cell in self.mapped)):
+            if local.exists():
                 continue
             if not self.source_path(dependency).exists():
                 index = source_text.count('\n', 0, offset)
                 line = entry.source_lines[index] if entry.component.layout.storage == 'fragment' else index + 1
                 source = entry.source.split(':L', 1)[0]
                 refused(f'{source}:{line}: dangling dependency {dependency.name}',
-                        'neither MMW, pstack-names.md nor the subtree supplies it',
+                        'neither MMW nor the subtree supplies it',
                         'Resolve the named dependency before rerunning.')
             self.add(dependency)
 
@@ -603,16 +602,36 @@ class Importer:
         return [(i, row) for i, row in enumerate(self.imports.rows)
                 if row[0] == entry.component.kind and row[1] == entry.local and row[2] == entry.source]
 
-    def mode_fragment(self, entry, text):
-        heading = self.locations.MODE_IMPORTED_TRIGGERS if entry.component.kind == 'mode-trigger' else '## ' + entry.component.name
+    def fragment_span(self, entry, text, match_unregistered=False):
+        """Span of this fragment in the merged mode, or None when it is not placed.
+
+        A trigger with no registration row stays None unless `match_unregistered`:
+        merge must still append that trigger, while a NAME line needs the copy
+        just appended. The match ignores a missing trailing newline.
+        """
+        heading = (self.locations.MODE_IMPORTED_TRIGGERS if entry.component.kind == 'mode-trigger'
+                   else '## ' + entry.component.name)
         if heading not in dict(heading_offsets(text)):
             return None
         start, end = section_span(text, heading, self.mode / 'SKILL.md')
         if entry.component.kind == 'mode-section':
-            return text[start:end].encode('utf-8')
+            return start, end
         lines = text[start:end].splitlines(keepends=True)
         index = self.trigger_index(entry, lines)
-        return lines[index].encode('utf-8') if index is not None else None
+        if index is None and match_unregistered:
+            wanted = entry.data.decode('utf-8').rstrip('\r\n')
+            matches = [i for i, line in enumerate(lines) if line.rstrip('\r\n') == wanted]
+            index = matches[-1] if matches else None
+        if index is None:
+            return None
+        offset = start + sum(len(line) for line in lines[:index])
+        return offset, offset + len(lines[index])
+
+    def mode_fragment(self, entry, text):
+        span = self.fragment_span(entry, text)
+        if span is None:
+            return None
+        return text[span[0]:span[1]].encode('utf-8')
 
     def trigger_index(self, entry, lines):
         records = [row for row in self.imports.rows if row[0] == 'mode-trigger' and row[1] == entry.local]
@@ -671,24 +690,42 @@ class Importer:
         }
         return Component(kind, names[layout.registered_name]())
 
-    def check_keywords(self):
-        missing = []
+    def content_span(self, entry, text):
+        if entry.component.layout.storage != 'fragment':
+            return 0, len(text)
+        span = self.fragment_span(entry, text, match_unregistered=entry.component.kind == 'mode-trigger')
+        if span is not None:
+            return span
+        if entry.component.kind == 'mode-trigger':
+            refused(f'{entry.local}: the imported trigger line is not in the merged mode',
+                    'names in that line cannot be listed, and no NAME line would read as there being none',
+                    'Restore the trigger line in the mode and rerun.')
+        return section_span(text, '## ' + entry.component.name, self.mode / 'SKILL.md')
+
+    def name_lines(self, writes):
+        """NAME rows for copied files, in import order, using post-import line numbers."""
+        listed = []
         for entry in self.entries:
-            source = entry.source.split(':L', 1)[0]
-            text = entry.data.decode('utf-8', errors='replace')
-            for _, keyword, pattern in SLOT_KEYWORDS:
-                for match in re.finditer(pattern, text):
-                    literal = match[0] if keyword == 'Spawn <Agent>' else keyword
-                    mapped = (any(re.search(pattern, cell) for cell in self.mapped)
-                              if keyword == 'configured … model' else
-                              any(literal in cell for cell in self.mapped))
-                    if not mapped:
-                        index = text.count('\n', 0, match.start())
-                        line = entry.source_lines[index] if entry.source_lines else index + 1
-                        missing.append(f'{source}:{line}: {literal}')
-        if missing:
-            refused('\n'.join(missing), 'slot keywords have no pstack-names.md mapping',
-                    f'Add the named mappings to {self.names_path} before rerunning.')
+            if entry.component.kind == 'skill':
+                continue
+            path = (self.mode / 'SKILL.md' if entry.component.layout.storage == 'fragment'
+                    else self.root / entry.local)
+            text = writes[path].decode('utf-8', errors='replace')
+            start, end = self.content_span(entry, text)
+            region = text[start:end]
+            label = self.relative(path)
+            hits = []
+            for keyword, pattern in PSTACK_NAME_KEYWORDS:
+                for match in re.finditer(pattern, region):
+                    name = match[0] if keyword == 'Spawn <Agent>' else keyword
+                    hits.append((start + match.start(), name))
+            for dependency, offset in self.dependencies(region):
+                if dependency.kind == 'skill' and dependency.name not in self.skills:
+                    hits.append((start + offset, dependency.name))
+            hits.sort(key=lambda item: item[0])
+            listed += [f'NAME\t{label}\t{text.count("\n", 0, absolute) + 1}\t{name}'
+                       for absolute, name in hits]
+        return listed
 
     def refresh(self):
         stale = review = 0
@@ -721,7 +758,6 @@ class Importer:
 
     def run(self, component, dry_run):
         self.add(component)
-        self.check_keywords()
         writes = {self.root / e.local: e.data for e in self.entries
                   if e.component.layout.storage == 'file'}
         for entry in self.entries:
@@ -781,6 +817,7 @@ class Importer:
         writes[self.rewrites.path] = self.rewrites.contents(additions=rewrite_rows)
         permissions = {self.root / e.local: (self.root / e.source).stat().st_mode & 0o777
                        for e in self.entries if e.component.kind == 'mode-script'}
+        listed = self.name_lines(writes)
         write_files(self.root, writes, permissions, dry_run=dry_run)
         for entry, row in zip(self.entries, rows):
             if entry.component.layout.storage == 'skill':
@@ -797,6 +834,8 @@ class Importer:
         for name, line in skill_lines.items():
             if not any(e.component.kind == 'skill' and e.component.name == name for e in self.entries):
                 print('SKILLS\t' + line)
+        for line in listed:
+            print(line)
         print(('DRY-RUN' if dry_run else 'IMPORTED') + '\t' + str(len(self.visited)))
 
 
@@ -812,7 +851,7 @@ def main():
     refusal_message = None
     try:
         locations = load_locations()
-        required = {'MODE_DIRECTORY', 'IMPORTS_TSV', 'PSTACK_REWRITES_TSV', 'PSTACK_NAMES_MD',
+        required = {'MODE_DIRECTORY', 'IMPORTS_TSV', 'PSTACK_REWRITES_TSV',
                     'PSTACK_DIRECTORY', 'PSTACK_MODE_DIRECTORY', 'UI_ACCEPTANCE_REFUSAL_PY',
                     'MODE_NON_NEGOTIABLES', 'MODE_IMPORTED_TRIGGERS', 'MODE_PLAYBOOKS', 'MODE_PRINCIPLES'}
         required.update(layout.destination_directory for layout in LAYOUTS.values() if layout.destination_directory)
