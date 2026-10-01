@@ -2148,7 +2148,7 @@ research_one() {
   if [ ! -d "$cwd" ]; then
     add_branch_worktree "$root" "$cwd" "$branch" HEAD "research $number again" || exit 2
   fi
-  prompt="Use the research skill to resolve research ticket #$number in this session and start no other agent. Commit the report to the current branch research/$number and push it, post a resolution comment on #$number that links the report file on that branch and gives the answer in three sentences, then close #$number. $AUTONOMOUS"
+  prompt="Use the mmw skill. Role researcher, ticket #$number, unattended: mmw research-a-question#Name the decision it feeds."
   if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number researcher $$")"; then
     refuse "$RUNNER_NAME did not start $host as researcher for #$number (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then research $number again"
   fi

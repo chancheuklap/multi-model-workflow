@@ -3339,15 +3339,14 @@ scenario_researchprompt() {
   mv "$saved" "$MMW_HOME/models.json"
   [ "$code" = 0 ] || fail "research prompt expected 0, got $code: $(cat "$TMP/err")"
   if [ "$code" = 0 ]; then
-    python3 - "$DISPATCH" "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY'
-import json, re, shlex, sys
+    python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY'
+import json, sys
 from pathlib import Path
-prompt = json.loads(Path(sys.argv[2]).read_text().splitlines()[-1])["initialPrompt"]
-autonomous = shlex.split(re.search(r'^AUTONOMOUS=(.*)$', Path(sys.argv[1]).read_text(), re.M)[1])[0]
+prompt = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])["initialPrompt"]
 assert "\n" not in prompt and "\r" not in prompt, repr(prompt)
-assert prompt.startswith("Use the research skill"), prompt
-assert "#61" in prompt and "research/61" in prompt, prompt
-assert prompt.endswith(" " + autonomous), prompt
+assert prompt.startswith("Use the mmw skill."), prompt
+assert "mmw research-a-question#Name the decision it feeds" in prompt, prompt
+assert "#61" in prompt, prompt
 PY
     [ "$?" = 0 ] || fail "research prompt shape or ticket data is wrong"
   fi

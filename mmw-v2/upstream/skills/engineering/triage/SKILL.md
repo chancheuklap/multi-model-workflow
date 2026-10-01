@@ -1,6 +1,7 @@
 ---
 name: triage
-description: Move issues and external PRs through a state machine of triage roles. Use when issues or external PRs you did not create are waiting to be judged, or a ticket this repository's pipeline handed back to `needs-triage`.
+description: Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and write agent-ready briefs.
+disable-model-invocation: true
 ---
 
 # Triage
@@ -17,7 +18,7 @@ Every comment or issue posted to the issue tracker during triage **must** end wi
 
 ## Reference docs
 
-- [AGENT-BRIEF.md](AGENT-BRIEF.md): how to write a durable record of what an evaluation established
+- [AGENT-BRIEF.md](AGENT-BRIEF.md): how to write durable agent briefs
 - [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md): how the `.out-of-scope/` knowledge base works
 - [references/pipeline-issues.md](references/pipeline-issues.md): an issue this repository's own pipeline produced
 
@@ -33,20 +34,20 @@ Five **state** roles:
 - `needs-triage`: maintainer needs to evaluate
 - `needs-info`: waiting on reporter for more information
 - `ready-for-agent`: fully specified, ready for an AFK agent
-- `ready-for-human`: one thing only a person can do, of kind `reaction` or `reach`
+- `ready-for-human`: needs human implementation
 - `wontfix`: will not be actioned
 
-For a PR, the same states read against the attached code: `ready-for-agent` means the next step on the diff belongs to an agent and goes through the ticket pipeline below; `ready-for-human` means it's ready for a human to merge.
+For a PR, the same states read against the attached code: `ready-for-agent` means a brief is attached and an agent should take the next step on the diff; `ready-for-human` means it's ready for a human to merge.
 
-Every triaged issue should carry exactly one category role and one state role. Work this repo plans for itself carries no category role: a spec's tickets carry a state role; a map, a spec and a decision ticket carry none and are not triaged. If state roles conflict, flag it and ask the maintainer before doing anything else.
+Every triaged issue should carry exactly one category role and one state role. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
-These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping should have been provided to you. If not, tell the user to run the `setup-matt-pocock-skills` skill.
+These are canonical role names. The actual label strings used in the issue tracker may differ. The mapping should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
 State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
 
 ## Invocation
 
-The maintainer invokes this skill and describes what they want in natural language. Interpret the request and act. Examples:
+The maintainer invokes `/triage` and describes what they want in natural language. Interpret the request and act. Examples:
 
 - "Show me anything that needs my attention"
 - "Let's look at #42" (issue or PR)
@@ -79,8 +80,8 @@ An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro
 
 5. **Apply the outcome:** the four outcomes are `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. Staying at `needs-triage` is not an outcome.
 
-   - `ready-for-agent`: when the issue is work from outside, post an agent brief comment on it ([AGENT-BRIEF.md](AGENT-BRIEF.md)), then route it into the ticket pipeline: write a spec with the `to-spec` skill, or extend a published one through that skill's `references/revising-a-spec.md`, citing this issue as a source; close this issue with a comment linking that spec; then cut tickets from the spec with the `to-tickets` skill. The label goes on those tickets, not on this issue.
-   - `ready-for-human`: written here rather than routed. Write what `to-tickets` writes for this label: **the five things** in the `to-tickets` skill's `references/person-ticket.md`, nothing more.
+   - `ready-for-agent`: post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
+   - `ready-for-human`: same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
    - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
@@ -91,7 +92,7 @@ An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro
 
 ## Quick state override
 
-If the maintainer says "move #42 to ready-for-agent", trust them and apply the role directly. Confirm what you're about to do (role changes, comment, close), then act. Skip grilling. If moving to `ready-for-agent` without a grilling session, ask whether they want to route it into the ticket pipeline now: the `to-spec` skill, then the `to-tickets` skill.
+If the maintainer says "move #42 to ready-for-agent", trust them and apply the role directly. Confirm what you're about to do (role changes, comment, close), then act. Skip grilling. If moving to `ready-for-agent` without a grilling session, ask whether they want to write an agent brief.
 
 ## Needs-info template
 
