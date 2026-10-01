@@ -1231,21 +1231,42 @@ def glob_covers(pattern: str, path: str) -> bool:
     return fnmatch.fnmatch(path, pattern) or path == pattern
 
 
+JUDGEMENT_WORDS = {"reasonable": re.compile(r"(?<![\w-])reasonable\b", re.I),
+                   "should not": re.compile(r"\bshould not\b", re.I)}
+NEGATED_JUDGEMENT_RE = re.compile(
+    r"\b(?:no|not)\s+[`'\"*_]*(?:should not|reasonable)\b[`'\"*_]*", re.I)
+
+
+def line_judgement(line: str) -> str | None:
+    """The one judgement word `line` carries, or `None` when it carries neither or both.
+
+    A negated word (`No should not.`, `not reasonable`) is no judgement: a reviewer
+    who closes a line of `reasonable` decisions with `No should not.` has judged
+    none of them `should not`.
+    """
+    text = NEGATED_JUDGEMENT_RE.sub(" ", line)
+    found = {word for word, pattern in JUDGEMENT_WORDS.items() if pattern.search(text)}
+    return found.pop() if len(found) == 1 else None
+
+
 def spec_judgement(review: str, path: str) -> str | None:
     """`reasonable` or `should not` for `path` from the Spec axis of a `REVIEW` comment.
 
-    `None` when that axis names no line for the file — the run does not invent a
-    judgement the reviewer did not write.
+    The code-review Spec axis gives each `Outside Owns` file one line that starts with
+    its path and carries exactly one judgement word; that line decides. Without one,
+    the lines that name the path anywhere decide only when they all carry the same
+    single word. `None` when that axis names no line for the file, or its lines carry
+    both words or neither — the run does not invent a judgement the reviewer did not
+    write.
     """
     spec_axis = re.split(r"^## Tests", review, maxsplit=1, flags=re.M)[0]
     spec_axis = re.split(r"^## Spec", spec_axis, maxsplit=1, flags=re.M)[-1]
-    for line in spec_axis.splitlines():
-        if path in line:
-            if "should not" in line:
-                return "should not"
-            if "reasonable" in line:
-                return "reasonable"
-    return None
+    naming = [line for line in spec_axis.splitlines() if path in line]
+    leads = re.compile(r"^\s*(?:[-*+]|\d+[.)])?\s*[`*_\"']*" + re.escape(path)
+                       + r"(?![\w./-])")
+    leading = [line for line in naming if leads.match(line)]
+    judgements = {line_judgement(line) for line in (leading or naming)}
+    return judgements.pop() if len(judgements) == 1 else None
 
 
 def decisions_line_for(decisions: str | None, path: str, number: int) -> str:
