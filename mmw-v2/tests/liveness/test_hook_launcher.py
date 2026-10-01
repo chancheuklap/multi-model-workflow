@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
@@ -205,6 +206,60 @@ class HookLauncher(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("MMW turn guard:", result.stderr)
         self.assertNotIn("could not import", result.stderr)
+        self.assertTrue((state / "guard.log").is_file())
+
+    def companions(self, filename):
+        """Local modules this hook imports or loads by path, and the ones those load."""
+        scripts = self.scripts
+        pending = [scripts / filename]
+        seen = set()
+        while pending:
+            path = pending.pop()
+            if path in seen or not path.is_file():
+                continue
+            seen.add(path)
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                names = []
+                if isinstance(node, ast.Import):
+                    names.extend(alias.name.split(".")[0] for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    names.append(node.module.split(".")[0])
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    if "/" not in node.value and node.value.endswith(".py"):
+                        pending.append(scripts / node.value)
+                for name in names:
+                    pending.append(scripts / f"{name}.py")
+        return {path.stem for path in seen if path.name != filename}
+
+    def test_both_hooks_import_every_companion_from_mmw_scripts(self):
+        self.assertFalse((self.checkout / "skills" / "dispatch").exists())
+        self.assertEqual(self.scripts, self.checkout / "skills" / "mmw" / "scripts")
+        tool = self.companions("tool-guard.py")
+        turn = self.companions("turn-guard.py")
+        self.assertIn("locations", tool)
+        self.assertTrue({"statedir", "relay", "events"}.issubset(turn))
+        for name in tool | turn:
+            self.assertTrue((self.scripts / f"{name}.py").is_file(), name)
+        self.denied(self.launch("tool-guard", "pretool", "claude",
+                                payload=self.commands()["claude"]), "claude")
+        state = self.home / "state" / "o__r"
+        state.mkdir(parents=True)
+        (state / "watches.json").write_text(json.dumps({"tickets:608": {
+            "tickets": [608], "runner": "fake", "session": "main-1"}}))
+        runners = self.root / "runners"
+        runners.mkdir()
+        (runners / "fake.sh").write_text("#!/bin/sh\n[ \"$1\" = self ] && echo main-1\n")
+        nodog = self.root / "nodog.py"
+        nodog.write_text("import sys\nsys.exit(1)\n")
+        result = self.launch("turn-guard", "stop", "claude", env={
+            "MMW_RUNNERS_DIR": str(runners), "MMW_WATCHDOG_PY": str(nodog)},
+            payload={"hook_event_name": "Stop", "stop_hook_active": False})
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("MMW turn guard:", result.stderr)
+        self.assertNotIn("could not import", result.stderr)
+        self.assertNotIn("ModuleNotFoundError", result.stderr)
         self.assertTrue((state / "guard.log").is_file())
 
     def test_the_managed_session_pattern_is_the_same_in_three_places(self):
