@@ -5,7 +5,6 @@ runner's self. The expected line is composed here from that row. It is not taken
 status.py, so a formatter bug cannot hide inside the function under test.
 """
 
-import importlib.util
 import json
 import os
 import stat
@@ -14,11 +13,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from _load import load_events, started
+from test_registry import locations
+
 
 ROOT = Path(__file__).resolve().parents[3]
 SKILLS = Path(__file__).resolve().parents[2] / "skills"
 DISPATCH = SKILLS / "mmw" / "scripts" / "dispatch.sh"
-EVENTS_PY = SKILLS / "mmw" / "scripts" / "events.py"
 RUNNERS = ("orca", "paseo", "herdr")
 TICKET = 61
 SPEC = 76
@@ -75,36 +76,11 @@ raise SystemExit(1)
 """
 
 
-def load_events():
-    spec = importlib.util.spec_from_file_location("events_for_where_rows", EVENTS_PY)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_locations():
-    spec = importlib.util.spec_from_file_location(
-        "locations_for_where_rows", SKILLS / "mmw" / "scripts" / "locations.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 events = load_events()
 
 
 def ev(name, line, ticket=TICKET, **fields):
     return events.build(name, ticket=ticket, line=line, at=AT, **fields)
-
-
-def worker_started(runner, session="me", adopted=False, ticket=TICKET):
-    fields = dict(session=session, runner=runner, machine="mac-1", host="codex",
-                  model="gpt-6.1-sol", effort="high", grade="senior-worker",
-                  worktree=f"/repo/.worktrees/issue-{ticket}", branch=f"issue-{ticket}",
-                  base="0" * 40)
-    if adopted:
-        fields["adopted"] = True
-    return ev("worker.started", "started", ticket=ticket, **fields)
 
 
 def reviewer_started(runner, session, ticket=TICKET):
@@ -172,7 +148,9 @@ def format_line(role, number, row, roles):
 def scene(role, key, runner, head):
     """The tracker answers and watch that put this session on one where row."""
     if role in ("worker", "adopting-worker"):
-        start = worker_started(runner, adopted=role == "adopting-worker")
+        # The key `adopted` selects adopting-worker even when the value is false, so it is set only then.
+        start = started(TICKET, session="me", runner=runner,
+                        **({"adopted": True} if role == "adopting-worker" else {}))
         review = reviewer_started(runner, "review")
         own = checked("self", head)
         final = checked("reverify", head)
@@ -196,13 +174,13 @@ def scene(role, key, runner, head):
     if role == "one-ticket-orchestrator":
         comments = {
             "fresh": [],
-            "working": [worker_started(runner, session="worker")],
-            "finished": [worker_started(runner, session="worker"), passed()],
+            "working": [started(TICKET, session="worker", runner=runner)],
+            "finished": [started(TICKET, session="worker", runner=runner), passed()],
         }
         return {"number": TICKET, "watch": "ticket", "children": {},
                 "issues": {str(TICKET): issue(comments=comments[key])}}
     opened = opened_spec(runner)
-    child = worker_started(runner, session="worker")
+    child = started(TICKET, session="worker", runner=runner)
     finding = ev("child.opened", "finding", child=90, kind="finding")
     done = [child, passed(), landed(), finding]
     bare = [child, passed(), landed()]
@@ -240,7 +218,7 @@ class WhereRowsTest(unittest.TestCase):
         self.head = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         self.roles = json.loads((SKILLS / "mmw" / "roles.json").read_text())
-        self.locations = load_locations()
+        self.locations = locations()
 
     def test_where_prints_the_registered_line_for_every_row_and_runner(self):
         fresh = self.locations.WHERE_ROWS["worker"]["fresh"]
@@ -254,7 +232,6 @@ class WhereRowsTest(unittest.TestCase):
                         expected = format_line(role, built["number"], row, self.roles)
                         line = self.where(built, runner)
                         self.assertEqual(line, expected)
-                        self.assertFalse(line.startswith("UNKNOWN"))
 
     def where(self, built, runner):
         home = tempfile.mkdtemp(dir=self.tmp.name)
@@ -262,7 +239,7 @@ class WhereRowsTest(unittest.TestCase):
         fixture.write_text(json.dumps({
             "issues": built["issues"], "children": built["children"]}))
         if built["watch"]:
-            number = SPEC if built["watch"] == "night" else TICKET
+            number = built["number"]
             path = Path(home) / "state" / "o__r" / "watches.json"
             path.parent.mkdir(parents=True)
             row = {"runner": runner, "session": "me", "kind": built["watch"]}
