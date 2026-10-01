@@ -17,7 +17,57 @@ MMW = Path(__file__).resolve().parents[2]
 LAUNCHER = MMW / "hook-launcher.py"
 
 
-class HookLauncher(unittest.TestCase):
+def load_script(path, name):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class HookPayload:
+    """Host payloads and the deny or allow answer. The ticket number comes from the cwd."""
+
+    def _close_command(self):
+        directory = self.ticket if hasattr(self, "ticket") else self.issue
+        return f"gh issue close {directory.name.removeprefix('issue-')}"
+
+    def commands(self):
+        command = self._close_command()
+        return {
+            "claude": {"tool_name": "Bash", "tool_input": {"command": command}},
+            "codex": {"tool_name": "Bash", "tool_input": {"command": command}},
+            "grok": {"toolName": "run_terminal_command", "toolInput": {"command": command}},
+            "cursor": {"command": command, "cursor_version": "2026.09.08"},
+            "pi": {"tool_name": "bash", "tool_input": {"command": command}},
+        }
+
+    def questions(self):
+        return {
+            "claude": {"tool_name": "AskUserQuestion", "tool_input": {}},
+            "codex": {"tool_name": "request_user_input", "tool_input": {}},
+            "grok": {"toolName": "ask_user_question", "toolInput": {}},
+        }
+
+    def denied(self, result, host):
+        self.assertEqual(result.returncode, 0, result.stderr)
+        answer = json.loads(result.stdout)
+        if host in ("claude", "codex"):
+            self.assertEqual(answer["hookSpecificOutput"]["permissionDecision"], "deny")
+        elif host == "grok":
+            self.assertEqual(answer["decision"], "deny")
+        elif host == "cursor":
+            self.assertEqual(answer["permission"], "deny")
+        else:
+            self.assertIs(answer["block"], True)
+        self.assertEqual(result.stderr, "")
+
+    def silent(self, result):
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "")
+
+
+class HookLauncher(HookPayload, unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -91,41 +141,6 @@ class HookLauncher(unittest.TestCase):
         (self.scripts / "statedir.py").unlink()
         result = self.launch("turn-guard", "stop", "claude")
         self.diagnostic(result, "statedir", 0)
-
-    def commands(self):
-        command = "gh issue close 608"
-        return {
-            "claude": {"tool_name": "Bash", "tool_input": {"command": command}},
-            "codex": {"tool_name": "Bash", "tool_input": {"command": command}},
-            "grok": {"toolName": "run_terminal_command", "toolInput": {"command": command}},
-            "cursor": {"command": command, "cursor_version": "2026.09.08"},
-            "pi": {"tool_name": "bash", "tool_input": {"command": command}},
-        }
-
-    def questions(self):
-        return {
-            "claude": {"tool_name": "AskUserQuestion", "tool_input": {}},
-            "codex": {"tool_name": "request_user_input", "tool_input": {}},
-            "grok": {"toolName": "ask_user_question", "toolInput": {}},
-        }
-
-    def denied(self, result, host):
-        self.assertEqual(result.returncode, 0, result.stderr)
-        answer = json.loads(result.stdout)
-        if host in ("claude", "codex"):
-            self.assertEqual(answer["hookSpecificOutput"]["permissionDecision"], "deny")
-        elif host == "grok":
-            self.assertEqual(answer["decision"], "deny")
-        elif host == "cursor":
-            self.assertEqual(answer["permission"], "deny")
-        else:
-            self.assertIs(answer["block"], True)
-        self.assertEqual(result.stderr, "")
-
-    def silent(self, result):
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "")
-        self.assertEqual(result.stderr, "")
 
     def test_via_the_launcher_gh_issue_close_passes_outside_a_ticket_worktree(self):
         for host, payload in self.commands().items():
@@ -206,6 +221,7 @@ class HookLauncher(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("MMW turn guard:", result.stderr)
         self.assertNotIn("could not import", result.stderr)
+        self.assertNotIn("ModuleNotFoundError", result.stderr)
         self.assertTrue((state / "guard.log").is_file())
 
     def companions(self, filename):
@@ -233,47 +249,18 @@ class HookLauncher(unittest.TestCase):
         return {path.stem for path in seen if path.name != filename}
 
     def test_both_hooks_import_every_companion_from_mmw_scripts(self):
-        self.assertFalse((self.checkout / "skills" / "dispatch").exists())
-        self.assertEqual(self.scripts, self.checkout / "skills" / "mmw" / "scripts")
         tool = self.companions("tool-guard.py")
         turn = self.companions("turn-guard.py")
         self.assertIn("locations", tool)
         self.assertTrue({"statedir", "relay", "events"}.issubset(turn))
-        for name in tool | turn:
-            self.assertTrue((self.scripts / f"{name}.py").is_file(), name)
-        self.denied(self.launch("tool-guard", "pretool", "claude",
-                                payload=self.commands()["claude"]), "claude")
-        state = self.home / "state" / "o__r"
-        state.mkdir(parents=True)
-        (state / "watches.json").write_text(json.dumps({"tickets:608": {
-            "tickets": [608], "runner": "fake", "session": "main-1"}}))
-        runners = self.root / "runners"
-        runners.mkdir()
-        (runners / "fake.sh").write_text("#!/bin/sh\n[ \"$1\" = self ] && echo main-1\n")
-        nodog = self.root / "nodog.py"
-        nodog.write_text("import sys\nsys.exit(1)\n")
-        result = self.launch("turn-guard", "stop", "claude", env={
-            "MMW_RUNNERS_DIR": str(runners), "MMW_WATCHDOG_PY": str(nodog)},
-            payload={"hook_event_name": "Stop", "stop_hook_active": False})
-        self.assertEqual(result.returncode, 2, result.stderr)
-        self.assertEqual(result.stdout, "")
-        self.assertIn("MMW turn guard:", result.stderr)
-        self.assertNotIn("could not import", result.stderr)
-        self.assertNotIn("ModuleNotFoundError", result.stderr)
-        self.assertTrue((state / "guard.log").is_file())
+        self.test_both_hooks_import_every_companion_from_the_installed_layout()
 
     def test_the_managed_session_pattern_is_the_same_in_three_places(self):
-        def load(path, name):
-            spec = importlib.util.spec_from_file_location(name, path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            return module
-
-        launcher = load(LAUNCHER, "mmw_launcher_pattern")
-        guard = load(MMW / "skills" / "mmw" / "scripts" / "tool-guard.py",
-                     "mmw_guard_pattern")
-        locations = load(MMW / "skills" / "mmw" / "scripts" / "locations.py",
-                         "mmw_locations_pattern")
+        launcher = load_script(LAUNCHER, "mmw_launcher_pattern")
+        guard = load_script(MMW / "skills" / "mmw" / "scripts" / "tool-guard.py",
+                            "mmw_guard_pattern")
+        locations = load_script(MMW / "skills" / "mmw" / "scripts" / "locations.py",
+                                "mmw_locations_pattern")
         self.assertEqual(launcher.TICKET_DIR.pattern, guard.TICKET_DIR.pattern)
         self.assertEqual(launcher.TICKET_DIR.pattern, locations.GOVERNED_TICKET_DIR_PATTERN)
 
