@@ -342,6 +342,15 @@ class WhoseTurn(StateCase):
         self.addCleanup(lambda: os.environ.pop(name) if old is None
                         else os.environ.__setitem__(name, old))
 
+    def end_turn(self, host="codex"):
+        payload = {"cursor_version": "2026.09.08-6caf4ff", "loop_count": 0} if host == "cursor" else {}
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(guard.sys, "stdin", io.StringIO(json.dumps(payload))), \
+             mock.patch.object(guard.sys, "stdout", out), \
+             mock.patch.object(guard.sys, "stderr", err):
+            code = guard.main(["stop", host])
+        return code, out.getvalue(), err.getvalue()
+
     def test_the_main_agent_of_every_open_watch_is_guarded_and_nobody_else(self):
         for session, guarded in (("main-1", True), ("main-2", True), ("main-3", False)):
             with self.subTest(session=session):
@@ -363,10 +372,29 @@ class WhoseTurn(StateCase):
                                    "runner": "fake", "session": "main-2"})
                 self.env("FAKE_SELF", "main-2")
                 self.write("watchdog.json", {"held": [70]})
-                lines = guard.guard("codex")
-                self.assertEqual(len(lines), 1)
-                self.assertTrue(lines[0].endswith(" · " + pointer), lines[0])
-                self.assertNotIn("\n", lines[0])
+                code, out, err = self.end_turn()
+                self.assertEqual(code, 2)
+                self.assertEqual(out, "")
+                line = err.rstrip("\n")
+                self.assertTrue(line.endswith(" · " + pointer), line)
+                self.assertNotIn("\n", line)
+
+        self.open_watches({"spec": 7, "runner": "fake", "session": "main-2"})
+        self.write("watchdog.json", {"held": [70]})
+        second = statedir.state_dir("o/second")
+        (second / "watches.json").write_text(json.dumps({
+            "tickets:71": {"tickets": [71], "kind": "ticket", "runner": "fake", "session": "main-2"}}))
+        (second / "watchdog.json").write_text(json.dumps({"held": [71]}))
+        code, out, err = self.end_turn()
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        line = err.rstrip("\n")
+        self.assertNotIn("\n", line)
+        self.assertEqual(line.count("MMW turn guard:"), 2)
+        blocks = line.split(" | MMW turn guard:")
+        self.assertEqual(len(blocks), 2)
+        self.assertTrue(blocks[0].endswith(" · mmw run-a-night#Handle each wake"), blocks[0])
+        self.assertTrue(blocks[1].endswith(" · mmw land-one-ticket#Handle each wake"), blocks[1])
 
     def test_two_watches_on_one_repository_do_not_repeat_the_same_guard_block(self):
         self.open_watches({"tickets": [70], "runner": "fake", "session": "main-2"},
@@ -382,21 +410,16 @@ class WhoseTurn(StateCase):
         for host in ("codex", "cursor"):
             with self.subTest(host=host):
                 self.write("watchdog.json", {"held": [70]})
-                out, err = io.StringIO(), io.StringIO()
-                payload = {"cursor_version": "2026.09.08-6caf4ff", "loop_count": 0} if host == "cursor" else {}
-                with mock.patch.object(dog.relay_mod, "HERE", Path(self.tmp.name) / "scripts"), \
-                     mock.patch.object(guard.sys, "stdin", io.StringIO(json.dumps(payload))), \
-                     mock.patch.object(guard.sys, "stdout", out), \
-                     mock.patch.object(guard.sys, "stderr", err):
-                    code = guard.main(["stop", host])
+                with mock.patch.object(dog.relay_mod, "HERE", Path(self.tmp.name) / "scripts"):
+                    code, out, err = self.end_turn(host)
                 if host == "codex":
                     self.assertEqual(code, 2)
-                    self.assertEqual(out.getvalue(), "")
-                    text = err.getvalue().rstrip("\n")
+                    self.assertEqual(out, "")
+                    text = err.rstrip("\n")
                 else:
                     self.assertEqual(code, 0)
-                    self.assertEqual(err.getvalue(), "")
-                    text = json.loads(out.getvalue())["followup_message"]
+                    self.assertEqual(err, "")
+                    text = json.loads(out)["followup_message"]
                 self.assertIn("roles.json", text)
                 self.assertTrue(text.endswith("install.sh --check"), text)
                 self.assertNotIn("\n", text)
@@ -405,17 +428,13 @@ class WhoseTurn(StateCase):
                 "at": dog.iso(dog.now_utc()), "read_at": dog.iso(dog.now_utc()),
                 "poll": 60, "held": [70]}
         self.write("watchdog.json", beat)
-        out, err = io.StringIO(), io.StringIO()
         with statedir.locked(self.state / "watchdog.lock", wait=0, purpose="test watchdog"), \
              mock.patch.object(dog.relay_mod, "HERE", Path(self.tmp.name) / "scripts"), \
-             mock.patch.object(dog.relay_mod, "wake_pointer", side_effect=AssertionError("healthy turn read roles")), \
-             mock.patch.object(guard.sys, "stdin", io.StringIO("{}")), \
-             mock.patch.object(guard.sys, "stdout", out), \
-             mock.patch.object(guard.sys, "stderr", err):
-            code = guard.main(["stop", "codex"])
+             mock.patch.object(dog.relay_mod, "wake_pointer", side_effect=AssertionError("healthy turn read roles")):
+            code, out, err = self.end_turn()
         self.assertEqual(code, 0)
-        self.assertEqual(out.getvalue(), "")
-        self.assertEqual(err.getvalue(), "")
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
 
 
 # ----------------------------------------------------------------- the night

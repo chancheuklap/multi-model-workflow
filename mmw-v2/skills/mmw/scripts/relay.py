@@ -90,9 +90,11 @@ so a second one asks for a second ack for one reading of one ticket. The event i
 as translated all the same — what handles it is the wake it coalesced into, which is still to
 be sent and which has its recipient read that ticket — and `coalesced ...` says so in the log.
 Once a wake has been sent its recipient may have acted on it already, so an event that
-lands after it queues a wake of its own. Delivered: the relay ran `runners/<runner>.sh send <session> "#<ticket>
-<event>"` — the text carries the ticket number and the event name and nothing else; what
-happened is read on the tracker. What `send` answered decides what happens to the row:
+lands after it queues a wake of its own. Delivered: the relay ran
+`runners/<runner>.sh send <session> "#<ticket> <event> · mmw <playbook>#<step>"`.
+The event names the ticket to read, and the pointer from roles.json names the recipient's
+next step; what happened is read on the tracker. What `send` answered decides what happens
+to the row:
 
     0                 delivered; the row stays until it is acked
     4                 handed over and not confirmed: the text reached the session and
@@ -288,8 +290,9 @@ MAIN_GONE_AFTER = 3600
 
 MAIN = "main"
 WORKER = "worker"
-WATCH_KINDS = {"night": "night-orchestrator", "ticket": "one-ticket-orchestrator",
-               "adopted-ticket": "adopting-worker"}
+KIND_ROLES = {"night": "night-orchestrator", "ticket": "one-ticket-orchestrator",
+              "adopted-ticket": "adopting-worker"}
+WATCH_KINDS = tuple(KIND_ROLES)
 
 
 class WorkerRecipient(NamedTuple):
@@ -417,7 +420,7 @@ def main_role(watch: dict) -> str:
             f"dispatch.sh open-ticket-watch {(watch.get('tickets') or ['<n>'])[0]} or dispatch.sh adopt <n>"
         raise Refusal(f"watch on {describe_watch(watch)} has no valid kind, so its recipient role "
                       f"is unknown and no wake is delivered; reopen it with {command}")
-    return WATCH_KINDS[watch["kind"]]
+    return KIND_ROLES[watch["kind"]]
 
 
 def watches_for(watches: dict[str, dict], address: tuple[str, str]) -> list[dict]:

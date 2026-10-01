@@ -947,14 +947,28 @@ class WatchesTest(RelayCase):
     def test_a_watch_without_a_kind_is_refused_delivery(self):
         self.relay.open_watch({"spec": 76}, "paseo", "main-a")
         self.assertNotIn("kind", self.relay.watches()["spec:76"])
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
+        self.board[5].append(comment(102, "ticket.passed", 5))
         self.board[61].append(comment(101, "ticket.passed", 61))
         self.poll()
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [])
+        self.assertEqual(self.send.sent, [("paseo", "main-b",
+                                         "#5 ticket.passed · mmw land-one-ticket#Handle each wake")])
         self.assertIn("dispatch.sh open-night 76", self.err.getvalue())
         closed, left = self.relay.close_watch("spec:76")
         self.assertIn("spec:76", closed)
         self.assertNotIn("spec:76", left)
+
+    def test_a_kindless_ticket_watch_does_not_prevent_a_valid_night_delivery(self):
+        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.board[5].append(comment(101, "ticket.passed", 5))
+        self.board[61].append(comment(102, "ticket.passed", 61))
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-a",
+                                         "#61 ticket.passed · mmw run-a-night#Handle each wake")])
+        self.assertIn("dispatch.sh open-ticket-watch 5", self.err.getvalue())
+        self.assertIn("dispatch.sh adopt", self.err.getvalue())
 
     def test_a_ticket_outside_the_night_gets_its_own_watch_and_the_nights_main_is_untouched(self):
         # Opening a watch from a second session used to re-point the running night's

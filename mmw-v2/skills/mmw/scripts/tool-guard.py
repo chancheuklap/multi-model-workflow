@@ -9,9 +9,10 @@ this file before running a shell command, and this file refuses that one command
 
 A question on the screen has nobody to answer it: nothing in this pipeline reads a
 form. So every host asks this file before calling its question tool, and this file
-refuses the call and gives three ways out: the worker takes and records the default,
+refuses the call with the way out for `MMW_ROLE`: the worker takes and records the default,
 or writes `ABANDON: AC<n> decision` and opens a `decision` child, then continues;
 the reviewer appends `unverified: <what would settle it>` at the end of the finding's line.
+A missing or unknown role receives both ways out.
 
 Ending a process is never this session's to do. Several runs share one machine, and
 another run's application is indistinguishable from a stuck one, so a session that is

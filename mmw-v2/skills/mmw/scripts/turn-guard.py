@@ -321,7 +321,7 @@ def guard(host: str, forced: bool = False) -> list[str]:
                 f"your turn."
             )
             for watch in watches:
-                pointer = dog.relay_mod.watch_pointer(watch, "MMW turn guard:")
+                pointer = dog.relay_mod.watch_pointer(watch, "*")
                 line = f"{text} · {pointer}"
                 if line not in blocks:
                     blocks.append(line)

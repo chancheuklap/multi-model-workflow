@@ -832,7 +832,7 @@ class Watchdog:
             # One line: a runner types what it is handed into a terminal, where a newline submits.
             text = " | ".join(p["text"] for p in items)
             watch = relay_mod.watches_for(self.beat["watches"], (runner, session))[0]
-            pointer = relay_mod.watch_pointer(watch, "watchdog:")
+            pointer = relay_mod.watch_pointer(watch, "*")
             text += f" · {pointer}"
             code = self.send(runner, session, text)
             if code in (0, 4):
