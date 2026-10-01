@@ -1253,7 +1253,7 @@ class WhereForAOneTicketOrchestrator(WhereFixtures, unittest.TestCase):
         self.watch("ticket")
         self.issue(61)
         self.assertEqual(self.where(),
-                         (0, "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker"))
+                         (0, "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker, then end your turn"))
         self.issue(61, started(61, "worker"))
         self.assertEqual(self.where(),
                          (0, "AT one-ticket-orchestrator #61 · mmw land-one-ticket#Handle each wake"))

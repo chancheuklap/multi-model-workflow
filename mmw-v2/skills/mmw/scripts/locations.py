@@ -9,16 +9,21 @@ PLAYBOOK_ANCHORS = {
         "Adopted ticket",
         "Claim",
         "Read yourself in",
+        "Write the code",
         "Integrate and run every criterion",
         "Post the decisions",
         "Get reviewed",
         "Run every criterion one final time",
         "Audit against the ticket",
+        "Tell the touched tickets",
+        "Draft the closing comment",
         "Close out",
         "When the orchestrator resumes you",
         "After the closeout of an adopted ticket",
+        "When something else wakes you",
+        "While the product runs",
     ),
-    "review-a-ticket": ("Pin the diff",),
+    "review-a-ticket": ("Pin the diff", "Active Rules"),
     "run-a-night": (
         "Check and open",
         "Lint the batch",
@@ -30,7 +35,7 @@ PLAYBOOK_ANCHORS = {
         "Retro",
     ),
     "accept-the-night": ("Read the night out",),
-    "land-one-ticket": ("Start the worker", "Handle each wake", "Land"),
+    "land-one-ticket": ("Start the worker, then end your turn", "Handle each wake", "Land"),
     "research-a-question": (
         "Name the decision it feeds",
         "Run the research",
@@ -39,6 +44,25 @@ PLAYBOOK_ANCHORS = {
         "Leave the map alone",
     ),
 }
+
+# Work a ticket, in playbook order. Close out is the identifier "None":
+# that step is not checked, because the check runs inside it.
+STEP_TRACES = {
+    "Claim": "claimed-after-started",
+    "Read yourself in": "own-checked",
+    "Write the code": "commit-after-claim",
+    "Integrate and run every criterion": "own-checked",
+    "Post the decisions": "worker-decided",
+    "Get reviewed": "reviewer-reported",
+    "Run every criterion one final time": "worker-reverify-checked",
+    "Audit against the ticket": "audited-line",
+    "Tell the touched tickets": "outside-owns-none-or-touched",
+    "Draft the closing comment": "draft-check",
+    "Close out": "None",
+}
+
+STEPS_WITHOUT_TRACE_HEADER = "Steps without a trace:"
+AUDITED_LINE = "Audited against the ticket:"
 
 # Event-derived positions. A missing playbook uses the role's roles.json entry.
 WHERE_ROWS = {
@@ -72,7 +96,7 @@ WHERE_ROWS["night-orchestrator"] = {
     "retroed": {"kind": "AT", "playbook": "accept-the-night", "step": "Read the night out"},
 }
 WHERE_ROWS["one-ticket-orchestrator"] = {
-    "fresh": {"kind": "FRESH", "step": "Start the worker"},
+    "fresh": {"kind": "FRESH", "step": "Start the worker, then end your turn"},
     "working": {"kind": "AT", "step": "Handle each wake"},
     "finished": {"kind": "AT", "step": "Land"},
 }
@@ -98,8 +122,19 @@ SUCCESS_MARKERS = (
 )
 
 PRODUCT_RUNNING_RULES = "## Five rules while the product is running"
+MODE_RE_ENTRY = "## Re-entry"
+MODE_AUTONOMY = "## Autonomy"
 
 MODE_SCRIPTS = "mmw/scripts"
+TICKET_STATE_PY = MODE_SCRIPTS + "/ticket_state.py"
+MEMORY_RECORDS_SKILL = "memory-records/SKILL.md"
+REVIEW_RULES_POINTER = "review-a-ticket#Active Rules"
+REVIEW_BRIEFS = (
+    "mmw/references/standards-reviewer.md",
+    "mmw/references/spec-reviewer.md",
+    "mmw/references/tests-reviewer.md",
+    "mmw/references/ui-reviewer.md",
+)
 EVENTS_PY = "mmw/scripts/events.py"
 VERIFY_TICKET_PY = "verify-ticket/scripts/verify-ticket.py"
 ISSUE_TREE_PY = "verify-ticket/scripts/issue_tree.py"

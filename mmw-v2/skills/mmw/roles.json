@@ -6,6 +6,7 @@
     "wakes": {
       "reviewer.reported": "Get reviewed",
       "reviewer.lost": "Get reviewed",
+      "worker.queued": "Integrate and run every criterion",
       "resume": "When the orchestrator resumes you"
     }
   },
@@ -16,8 +17,10 @@
     "wakes": {
       "reviewer.reported": "Get reviewed",
       "reviewer.lost": "Get reviewed",
+      "worker.queued": "Integrate and run every criterion",
       "ticket.passed": "After the closeout of an adopted ticket",
-      "ticket.returned": "After the closeout of an adopted ticket"
+      "ticket.returned": "After the closeout of an adopted ticket",
+      "*": "When something else wakes you"
     }
   },
   "reviewer": {
@@ -28,12 +31,12 @@
   },
   "night-orchestrator": {
     "playbook": "run-a-night",
-    "started_by": "dispatch.sh open <spec>",
+    "started_by": "dispatch.sh open-night <spec>",
     "wakes": {"*": "Handle each wake"}
   },
   "one-ticket-orchestrator": {
     "playbook": "land-one-ticket",
-    "started_by": "dispatch.sh open-ticket <n>",
+    "started_by": "dispatch.sh open-ticket-watch <n>",
     "wakes": {"*": "Handle each wake"}
   },
   "advisor": {

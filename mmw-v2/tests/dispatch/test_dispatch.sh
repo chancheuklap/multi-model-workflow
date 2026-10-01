@@ -5760,7 +5760,7 @@ scenario_where() {
         one-ticket-orchestrator)
           code="$(run_dispatch env -u HERDR_ENV -u TERM_PROGRAM "${identity[@]}" \
               FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where)"
-          assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker" ;;
+          assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker, then end your turn" ;;
       esac
       hasnt "gh :: issue :: comment"
     done
@@ -5800,7 +5800,7 @@ scenario_whereunknown() {
   assert_where_unknown "$code"
   seed_where_watch ticket 61 paseo
   code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
-  assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker"
+  assert_where_line "$code" "FRESH one-ticket-orchestrator #61 · mmw land-one-ticket#Start the worker, then end your turn"
   seed_where_watch missing 61 paseo
   code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
   assert_where_unknown "$code"
