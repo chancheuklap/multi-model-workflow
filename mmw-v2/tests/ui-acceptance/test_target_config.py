@@ -124,7 +124,8 @@ class TestTargetCheck(unittest.TestCase):
     def test_a_wrong_instance_shape_is_named(self):
         cfg = dict(self.COMPLETE)
         cfg["instance"] = {"max": 0}
-        problems = tc.target_problems(cfg)
+        with tempfile.TemporaryDirectory() as d:
+            problems = tc.target_problems(cfg, Path(d))
         self.assertEqual([k for k, _ in problems], ["instance"])
 
     def test_a_file_that_is_not_json_is_a_fault_not_absence(self):
@@ -167,13 +168,74 @@ class TestTargetCheck(unittest.TestCase):
             (Path(d) / ".mmw").mkdir()
             (Path(d) / ".mmw" / "target.json").write_text("{}")
             code, out, _ = self.run_target("--check", "--repo", d)
+            self.assertEqual(code, 1)
+            self.assertIn("  missing  harness_markers (list of strings)", out)
+            problems = tc.target_problems(
+                {**self.COMPLETE, "harness_markers": "nope"}, Path(d))
+            self.assertEqual([k for k, _ in problems], ["harness_markers"])
+            leaves = tc.target_problems(
+                {**self.COMPLETE, "leaves_machine": "nope"}, Path(d))
+            self.assertEqual([k for k, _ in leaves], ["leaves_machine"])
+            self.assertIn("[] when nothing leaves", leaves[0][1])
+
+    def check_with_delivery(self, delivery=None, playbooks=()):
+        """Write a complete `.mmw/target.json`, optionally with `delivery`, and
+        one `.mmw/playbooks/<slug>.md` per slug, then run `--check`."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            books = root / ".mmw" / "playbooks"
+            books.mkdir(parents=True)
+            for slug in playbooks:
+                (books / f"{slug}.md").write_text("# " + slug + "\n")
+            cfg = dict(self.COMPLETE)
+            if delivery is not None:
+                cfg["delivery"] = delivery
+            (root / ".mmw" / "target.json").write_text(json.dumps(cfg))
+            return self.run_target("--check", "--repo", d)
+
+    def test_delivery_absent_is_fine(self):
+        code, out, _ = self.check_with_delivery()
+        self.assertEqual(code, 0, out)
+        self.assertIn("  absent   delivery (string, optional)", out)
+
+    def test_delivery_commit_is_fine(self):
+        code, out, _ = self.check_with_delivery(delivery="commit")
+        self.assertEqual(code, 0, out)
+        self.assertIn("  ok       delivery\n", out)
+
+    def test_delivery_naming_an_existing_playbook_is_fine(self):
+        code, out, _ = self.check_with_delivery(
+            delivery="playbook:promote-a-change", playbooks=("promote-a-change",))
+        self.assertEqual(code, 0, out)
+        self.assertIn("  ok       delivery\n", out)
+
+    def test_delivery_naming_a_missing_playbook_is_wrong(self):
+        code, out, _ = self.check_with_delivery(
+            delivery="playbook:promote-a-change", playbooks=("pull-an-upstream",))
         self.assertEqual(code, 1)
-        self.assertIn("  missing  harness_markers (list of strings)", out)
-        problems = tc.target_problems({**self.COMPLETE, "harness_markers": "nope"})
-        self.assertEqual([k for k, _ in problems], ["harness_markers"])
-        leaves = tc.target_problems({**self.COMPLETE, "leaves_machine": "nope"})
-        self.assertEqual([k for k, _ in leaves], ["leaves_machine"])
-        self.assertIn("[] when nothing leaves", leaves[0][1])
+        self.assertIn(
+            "  wrong    delivery (string) names .mmw/playbooks/promote-a-change.md", out)
+        self.assertNotIn("  ok       delivery", out)
+
+    def test_delivery_with_any_other_value_is_wrong(self):
+        values = ("pr", "Commit", "playbook:", "playbook:../promote-a-change",
+                  1, None, ["commit"])
+        # These two would name a file outside `.mmw/playbooks/` if the slug
+        # check were skipped. An empty directory still yields a `delivery`
+        # problem from the missing-file branch, so the key alone cannot go red.
+        escapes = ("playbook:", "playbook:../promote-a-change")
+        with tempfile.TemporaryDirectory() as d:
+            for value in values:
+                with self.subTest(value=value):
+                    problems = tc.target_problems(
+                        {**self.COMPLETE, "delivery": value}, Path(d))
+                    self.assertEqual([k for k, _ in problems], ["delivery"])
+                    if value in escapes:
+                        self.assertIn("lowercase words joined by hyphens", problems[0][1])
+        code, out, _ = self.check_with_delivery(delivery="pr")
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "  wrong    delivery (string) must be `commit` or `playbook:<slug>`", out)
 
 
 if __name__ == "__main__":
