@@ -1,6 +1,6 @@
 """Text anchors and paths shared by MMW's scripts.
 
-Paths are relative to mmw-v2/skills/ so this module moves with dispatch/scripts/.
+Paths are relative to mmw-v2/skills/ so this module moves with mmw/scripts/.
 Readers resolve the strings; this registry imports no other module.
 """
 
@@ -99,8 +99,8 @@ SUCCESS_MARKERS = (
 
 PRODUCT_RUNNING_RULES = "## Five rules while the product is running"
 
-DISPATCH_SCRIPTS = "dispatch/scripts"
-EVENTS_PY = "verify-ticket/scripts/events.py"
+MODE_SCRIPTS = "mmw/scripts"
+EVENTS_PY = "mmw/scripts/events.py"
 VERIFY_TICKET_PY = "verify-ticket/scripts/verify-ticket.py"
 ISSUE_TREE_PY = "verify-ticket/scripts/issue_tree.py"
 UI_ACCEPTANCE_SCRIPTS = "ui-acceptance/scripts"

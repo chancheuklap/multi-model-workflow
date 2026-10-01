@@ -15,6 +15,8 @@ import io
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -22,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-STATUS_PATH = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts" / "status.py"
+STATUS_PATH = Path(__file__).resolve().parents[2] / "skills" / "mmw" / "scripts" / "status.py"
 # The module under test finds events.py through `MMW_EVENTS_PY` when a caller set it, and
 # `dispatch.sh` exports it to every command it runs — pointing at its own checkout's
 # events.py, not this one's. Tested under it, this suite would read another version's
@@ -1327,12 +1329,25 @@ class WhereCannotTell(WhereFixtures, unittest.TestCase):
                 self.assert_unknown(self.where(76))
 
     def test_missing_and_invalid_registries_name_install_check(self):
-        root = Path(self.home.name) / "skills" / "dispatch"
+        root = Path(self.home.name) / "skills" / "mmw"
         scripts = root / "scripts"
         scripts.mkdir(parents=True)
         original = STATUS_PATH.parent
+        shutil.copy(original / "status.py", scripts)
+        shutil.copy(original / "events.py", scripts)
         (scripts / "relay.py").symlink_to(original / "relay.py")
+        (root.parent / "verify-ticket").symlink_to(original.parents[1] / "verify-ticket",
+                                                  target_is_directory=True)
         self.issue(61, started(61, "me"))
+        fixture = Path(self.home.name) / "issue.json"
+        fixture.write_text(json.dumps(self.raws[61]))
+        bin_dir = Path(self.home.name) / "bin"
+        bin_dir.mkdir()
+        gh = bin_dir / "gh"
+        gh.write_text(f"#!{sys.executable}\nfrom pathlib import Path\n"
+                      f"print(Path({str(fixture)!r}).read_text())\n")
+        gh.chmod(0o755)
+        env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'])
         shutil.copy(original / "locations.py", scripts)
         roles = original.parent / "roles.json"
         for broken in ("roles-missing", "roles-json", "roles-shape", "locations-missing",
@@ -1358,8 +1373,14 @@ class WhereCannotTell(WhereFixtures, unittest.TestCase):
                 else:
                     with (scripts / "locations.py").open("a") as handle:
                         handle.write('\ndel WHERE_ROWS["worker"]["fresh"]\n')
-                with patch.object(status, "__file__", str(scripts / "status.py")):
-                    self.assert_unknown(self.where(), "bash mmw-v2/install.sh --check")
+                run = subprocess.run([sys.executable, '-B', str(scripts / 'status.py'),
+                                      '--where', '--runner', 'orca', '--session', 'me',
+                                      '--repo', 'o/r', '--head', 'a' * 40, '61'],
+                                     env=env, capture_output=True, text=True)
+                output = run.stdout + run.stderr
+                self.assertEqual(run.returncode, 2, output)
+                self.assertIn('bash mmw-v2/install.sh --check', output)
+                self.assertNotIn('Traceback', output)
 
 
 if __name__ == "__main__":

@@ -18,27 +18,22 @@ from pathlib import Path
 BOARD = Path(__file__).resolve().parent
 ROOT = BOARD.parent
 # locations.py lives at skills/<component>/scripts/. The strings it registers are
-# relative to skills/, and the first candidate is absent until that directory exists.
-_CANDIDATES = (
-    ("skills", "mmw", "scripts", "locations.py"),
-    ("skills", "dispatch", "scripts", "locations.py"),
-)
-_DISPATCH_SCRIPTS = ("ghlist.py", "models.py", "statedir.py")
-_REGISTERED = ("DISPATCH_SCRIPTS", "EVENTS_PY", "ISSUE_TREE_PY")
+# relative to skills/.
+_LOCATIONS = ("skills", "mmw", "scripts", "locations.py")
+_MODE_SCRIPTS = ("ghlist.py", "models.py", "statedir.py")
+_REGISTERED = ("MODE_SCRIPTS", "EVENTS_PY", "ISSUE_TREE_PY")
 
 
 class LocationsMissing(RuntimeError):
-    """Neither candidate `locations.py` is on disk, or the one found cannot be loaded."""
+    """The registered `locations.py` is absent or cannot be loaded."""
 
 
 def locations_path() -> Path:
-    candidates = tuple(ROOT.joinpath(*parts) for parts in _CANDIDATES)
-    found = [path for path in candidates if path.is_file()]
-    if found:
-        return found[0]
-    first, second = candidates
+    path = ROOT.joinpath(*_LOCATIONS)
+    if path.is_file():
+        return path
     raise LocationsMissing(
-        f"neither {first} nor {second} exists; the task board cannot load its scripts: "
+        f"{path} does not exist; the task board cannot load its scripts: "
         "run bash mmw-v2/install.sh --check"
     )
 
@@ -62,15 +57,15 @@ def resolved_scripts() -> dict[str, Path]:
             "its scripts: run bash mmw-v2/install.sh --check"
         )
     skills = path.parents[2]
-    dispatch = skills / module.DISPATCH_SCRIPTS
+    mode_scripts = skills / module.MODE_SCRIPTS
     resolved = {
         "locations": path,
         "events": skills / module.EVENTS_PY,
         "issue_tree": skills / module.ISSUE_TREE_PY,
-        "dispatch_scripts": dispatch,
+        "mode_scripts": mode_scripts,
     }
-    for name in _DISPATCH_SCRIPTS:
-        resolved[name.removesuffix(".py")] = dispatch / name
+    for name in _MODE_SCRIPTS:
+        resolved[name.removesuffix(".py")] = mode_scripts / name
     return resolved
 
 
@@ -97,10 +92,9 @@ def fingerprint() -> str:
     try:
         resolved = resolved_scripts()
     except LocationsMissing:
-        # Candidate bytes, so two reads agree only once the file has settled.
+        # Registry bytes, so two reads agree only once the file has settled.
         digest.update(b"<locations-missing>\0")
-        for parts in _CANDIDATES:
-            _hash_path(digest, ROOT.joinpath(*parts))
+        _hash_path(digest, ROOT.joinpath(*_LOCATIONS))
         watched = list(BOARD.glob("*.py"))
     else:
         watched = [

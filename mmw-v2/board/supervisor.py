@@ -18,8 +18,8 @@ SERVER = Path(__file__).resolve().with_name("server.py")
 import codeversion  # noqa: E402
 
 _scripts = codeversion.require_scripts()
-if str(_scripts["dispatch_scripts"]) not in sys.path:
-    sys.path.insert(0, str(_scripts["dispatch_scripts"]))
+if str(_scripts["mode_scripts"]) not in sys.path:
+    sys.path.insert(0, str(_scripts["mode_scripts"]))
 import statedir  # noqa: E402
 
 FIRST_PORT = 47100

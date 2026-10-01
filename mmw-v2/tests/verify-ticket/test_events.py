@@ -17,7 +17,7 @@ import unittest
 from _load import EVENTS, load_events
 
 events = load_events()
-RELAY = EVENTS.parents[2] / "dispatch" / "scripts" / "relay.py"
+RELAY = EVENTS.parents[2] / "mmw" / "scripts" / "relay.py"
 
 
 def load_relay():

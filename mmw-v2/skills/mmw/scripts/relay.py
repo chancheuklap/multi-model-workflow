@@ -255,13 +255,13 @@ from ghlist import GH_TIMEOUT, quiet_env  # noqa: E402
 
 
 def _load_events():
-    """`events.py` of the verify-ticket skill, beside this one: the one reader of the
+    """`events.py` beside this script: the one reader of the
     comment format. `MMW_EVENTS_PY` names it when `dispatch.sh` resolved it elsewhere."""
-    default = HERE.parents[1] / "verify-ticket" / "scripts" / "events.py"
+    default = HERE / "events.py"
     path = Path(os.environ.get("MMW_EVENTS_PY") or default)
     if not path.is_file():
-        sys.stderr.write(f"relay: no events.py at {path}; the verify-ticket skill has to sit "
-                         f"beside this one, or MMW_EVENTS_PY has to name its events.py\n")
+        sys.stderr.write(f"relay: no events.py at {path}; restore this script's events.py "
+                         f"or set MMW_EVENTS_PY to its location\n")
         raise SystemExit(2)
     spec = importlib.util.spec_from_file_location("mmw_events", path)
     module = importlib.util.module_from_spec(spec)

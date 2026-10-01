@@ -27,7 +27,7 @@ from unittest import mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "mmw" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 # The module under test finds events.py through `MMW_EVENTS_PY` when a caller set it, and

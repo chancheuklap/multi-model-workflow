@@ -225,12 +225,9 @@ def load_module(name, path):
 
 
 def load_locations():
-    candidates = (('skills', 'mmw', 'scripts', 'locations.py'),
-                  ('skills', 'dispatch', 'scripts', 'locations.py'))
-    path = next((CHECKOUT.joinpath('mmw-v2', *parts) for parts in candidates
-                 if CHECKOUT.joinpath('mmw-v2', *parts).is_file()), None)
-    if path is None:
-        raise FileNotFoundError('locations.py is absent from both checkout candidates')
+    path = CHECKOUT.joinpath('mmw-v2', 'skills', 'mmw', 'scripts', 'locations.py')
+    if not path.is_file():
+        raise FileNotFoundError(f'locations.py is absent at {path}')
     return load_module('import_locations', path)
 
 

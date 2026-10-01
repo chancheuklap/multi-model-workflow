@@ -9,7 +9,7 @@ description: "How work runs in a repository that uses the MMW landing pipeline: 
 
 In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose file you read this session. An unattended session writes them into its deliverable, as `## Writing the reply` says.
 
-- About to close a ticket, change its queue label or write an event → only through the `verify-ticket` skill's `python3 scripts/verify-ticket.py` or the `dispatch` skill's `bash scripts/dispatch.sh`. In a ticket's worktree a hook refuses closing the ticket or changing its queue label by hand, and a ticket closed around these scripts carries no event the pipeline can read.
+- About to close a ticket, change its queue label or write an event → only through the `verify-ticket` skill's `python3 scripts/verify-ticket.py` or this skill's `bash scripts/dispatch.sh`. In a ticket's worktree a hook refuses closing the ticket or changing its queue label by hand, and a ticket closed around these scripts carries no event the pipeline can read.
 - A script or a hook refused you → do the one next step it names (**principle-refusals-name-one-next-step**).
 - About to start, reach or stop the running product, or to touch a process or a port → the `ui-acceptance` skill's `## Five rules while the product is running`. Several tickets run on this machine at once.
 - Reading a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line, or the repository has no `.mmw/target.json` → the `ui-acceptance` skill.
@@ -99,12 +99,12 @@ When a wake arrives, the session was compacted, or `resume` reaches you:
    Done when the command the wake cut short has run to its exit, or nothing was running.
 2. **Read the ticket.** Read what the wake names on the ticket; the wake carries nothing the tracker does not.
    Done when you have read the event the wake names and the comment that carries it.
-3. **Ack the wake.** The `dispatch` skill's `bash scripts/dispatch.sh ack <n> <event>` with the ticket and the event the wake named (`dispatch.sh ack relay.recovered` for that one), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts. A `watchdog:` or `MMW turn guard:` line is not acked.
+3. **Ack the wake.** This skill's `bash scripts/dispatch.sh ack <n> <event>` with the ticket and the event the wake named (`dispatch.sh ack relay.recovered` for that one), once you have read it and before any long work it starts. Until you ack it, the relay sends the same wake again each time it restarts. A `watchdog:` or `MMW turn guard:` line is not acked.
    Done when `ack` has exited 0, or the wake was a `watchdog:` or `MMW turn guard:` line.
 4. **Go to the named step.** Go to the step the wake's pointer names. With no pointer (the session was compacted, or what reached you is not a wake), run `dispatch.sh where` and do what its line says (**principle-resume-from-durable-state**).
    Done when you are working the step a pointer, or an `AT`, `BETWEEN` or `FRESH` line of `where`, names, or doing what an `UNKNOWN` line's reason says.
 
-`dispatch.sh` here is the `dispatch` skill's `scripts/dispatch.sh`, in the installed checkout your host loaded this skill from. `dispatch.sh` finds the scripts of the skills it calls into by itself, so no path is ever passed to it. Never run a file of the same name in the worktree you are in: that copy is the product being changed, not the pipeline running you.
+`dispatch.sh` here is this skill's `scripts/dispatch.sh`, in the installed checkout your host loaded this skill from. `dispatch.sh` finds the scripts of the skills it calls into by itself, so no path is ever passed to it. Never run a file of the same name in the worktree you are in: that copy is the product being changed, not the pipeline running you.
 
 ## Subagents
 

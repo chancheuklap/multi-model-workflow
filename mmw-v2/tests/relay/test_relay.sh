@@ -19,7 +19,7 @@
 set -uo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-RELAY="$(dirname "$(dirname "$HERE")")/skills/dispatch/scripts/relay.py"
+RELAY="$(dirname "$(dirname "$HERE")")/skills/mmw/scripts/relay.py"
 REPO=o/r
 
 rc=0

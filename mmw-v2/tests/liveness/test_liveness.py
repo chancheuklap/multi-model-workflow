@@ -27,7 +27,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "mmw" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 

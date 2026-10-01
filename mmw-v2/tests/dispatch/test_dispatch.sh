@@ -51,7 +51,7 @@ while IFS='=' read -r name _; do
 done < <(env)
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-SKILL="$(dirname "$(dirname "$HERE")")/skills/dispatch"
+SKILL="$(dirname "$(dirname "$HERE")")/skills/mmw"
 DISPATCH="$SKILL/scripts/dispatch.sh"
 INSTALLER="$(dirname "$(dirname "$HERE")")/install.sh"
 
@@ -1869,7 +1869,7 @@ fresh_board_registry() {
 
 # One comment the way the pipeline's scripts write it, JSON-quoted for a tickets.json
 # fixture: `ev <event> <ticket> <first line> [events.py emit options...]`.
-EVENTS_PY="$(dirname "$SKILL")/verify-ticket/scripts/events.py"
+EVENTS_PY="$(dirname "$SKILL")/mmw/scripts/events.py"
 ev() {
   local name="$1" ticket="$2" line="$3"
   shift 3
@@ -1932,7 +1932,7 @@ except BrokenPipeError:
     os.dup2(devnull, sys.stdout.fileno())
 '
 }
-export MMW_EVENTS_PY_FOR_TESTS="$(dirname "$SKILL")/verify-ticket/scripts/events.py"
+export MMW_EVENTS_PY_FOR_TESTS="$(dirname "$SKILL")/mmw/scripts/events.py"
 
 # The comments posted on ticket <n> during this run, as `gh issue view --json comments`
 # answers them, for handing to `events.py … --comments-file -`.
@@ -2278,8 +2278,7 @@ skill_copy_for() {
   cp "$(dirname "$SKILL")/ui-acceptance/scripts/lease.py" \
      "$(dirname "$SKILL")/ui-acceptance/scripts/refusal.py" \
      "$TMP/fake/skills/ui-acceptance/scripts/"
-  cp "$(dirname "$SKILL")/verify-ticket/scripts/events.py" \
-     "$(dirname "$SKILL")/verify-ticket/scripts/issue_tree.py" \
+  cp "$(dirname "$SKILL")/verify-ticket/scripts/issue_tree.py" \
      "$TMP/fake/skills/verify-ticket/scripts/"
   printf '#!/usr/bin/env bash\nexit %s\n' "${2:-0}" > "$TMP/fake/install.sh"
   chmod +x "$TMP/fake/install.sh"
@@ -5745,7 +5744,7 @@ scenario_whereunknown() {
   code="$(run_dispatch env PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" where 61)"
   assert_where_unknown "$code"
   grep -qF 'watch has no valid kind' "$TMP/out" || fail "missing watch kind reached a different UNKNOWN: $(cat "$TMP/out")"
-  copy="$TMP/where-copy/skills/dispatch"
+  copy="$TMP/where-copy/skills/mmw"
   mkdir -p "$(dirname "$copy")"
   cp -R "$SKILL" "$copy"
   ln -s "$(dirname "$SKILL")/verify-ticket" "$(dirname "$copy")/verify-ticket"
@@ -5758,9 +5757,35 @@ scenario_whereunknown() {
   rm "$copy/scripts/locations.py"
   code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$copy/scripts/dispatch.sh" where 61)"
   assert_where_unknown "$code"
-  grep -qF 'roles.json or locations.py' "$TMP/out" || fail "missing locations.py reached a different UNKNOWN: $(cat "$TMP/out")"
+  grep -qF 'cannot load' "$TMP/out" || fail "missing locations.py reached a different UNKNOWN: $(cat "$TMP/out")"
   grep -qF 'bash mmw-v2/install.sh --check' "$TMP/out" || fail "missing locations.py did not name install --check"
   hasnt "gh :: issue :: comment"
+}
+
+scenario_registryunloadable() {
+  local copy code broken command
+  reset_log; fresh_repo
+  copy="$(skill_copy_for registryunloadable)"
+  for broken in missing invalid; do
+    if [ "$broken" = missing ]; then
+      rm "$copy/scripts/locations.py"
+    else
+      printf 'raise ImportError("broken registry")\n' > "$copy/scripts/locations.py"
+    fi
+    for command in reverify where; do
+      echo "--- $command refuses a $broken locations.py before reading tickets"
+      code="$(run_dispatch env -u MMW_EVENTS_PY PASEO_AGENT_ID=me bash "$copy/scripts/dispatch.sh" "$command" 76)"
+      [ "$code" = 2 ] || fail "unloadable registry must exit 2, got $code"
+      if [ "$command" = where ]; then
+        assert_where_unknown "$code"
+      fi
+      cat "$TMP/out" "$TMP/err" > "$TMP/diagnostic"
+      grep -qF "$copy/scripts/locations.py" "$TMP/diagnostic" || fail "refusal did not name the registry"
+      grep -qF 'bash mmw-v2/install.sh --check' "$TMP/diagnostic" || fail "refusal did not name install --check"
+      grep -q 'Traceback\|no verify-ticket.py\|pass --tools' "$TMP/diagnostic" && fail "registry failure gave a traceback or a false repair: $(cat "$TMP/diagnostic")"
+      hasnt "gh :: issue :: comment"
+    done
+  done
 }
 
 scenario_runnerself() {
@@ -6746,6 +6771,22 @@ scenario_installcheckboardagent() {
   hasnt "launchctl"
 }
 
+scenario_installmissinghook() {
+  echo "--- missing tool-guard.py fails install and --check, naming the missing source"
+  local copy
+  copy="$(install_checkout_copy)"
+  rm "$copy/skills/mmw/scripts/tool-guard.py"
+  MMW_TEST_INSTALLER="$copy/install.sh" run_installer
+  [ "$(cat "$TMP/code")" = 1 ] || fail "missing hook install must exit 1, got $(cat "$TMP/code")"
+  grep -qF "$copy/skills/mmw/scripts/tool-guard.py" "$TMP/err" \
+    || fail "install did not name missing tool-guard.py: $(cat "$TMP/err")"
+  grep -qx 'HOOKS-INSTALLED' "$TMP/out" && fail "missing hook was reported installed"
+  MMW_TEST_INSTALLER="$copy/install.sh" MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "missing hook --check must exit 1"
+  grep -qF "$copy/skills/mmw/scripts/tool-guard.py" "$TMP/err" \
+    || fail "--check did not name missing tool-guard.py: $(cat "$TMP/err")"
+}
+
 scenario_installtoolguard() {
   local home="$TMP/install-home" retired_skill retired_script retired_path config
   echo "--- install copies the launcher, registers both hooks for every host, and sweeps retired registrations"
@@ -6764,7 +6805,7 @@ JSON
 import json, sys
 from pathlib import Path
 home = Path(sys.argv[1])
-scripts = home / '.agents/skills/dispatch/scripts'
+scripts = home / '.agents/skills/mmw/scripts'
 prefix = '[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; '
 for host, path in [('claude', home / '.claude/settings.json'),
                    ('codex', home / '.codex/hooks.json')]:
@@ -7068,7 +7109,7 @@ scenario_installcheckwiringunchecked() {
   grep -q '^没查.*连线检查.*uv' "$TMP/err" \
     || fail "missing uv must be named: $(cat "$TMP/err")"
   echo "--- an unreadable registry (checker exit 2) is explicitly unchecked"
-  printf 'invalid registry\n' > "$copy/skills/dispatch/scripts/locations.py"
+  printf 'invalid registry\n' > "$copy/skills/mmw/scripts/locations.py"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "unreadable wiring registry must exit 1"
   grep -q '^没查.*连线检查.*退出 2' "$TMP/err" \
@@ -7133,7 +7174,7 @@ path, home = Path(sys.argv[1]), Path(sys.argv[2])
 launcher = str(home / '.mmw/bin/hook-launcher')
 if path.suffix == '.ts':
     selector = 'tool-guard' if path.name == 'mmw-verify-ticket.ts' else 'turn-guard'
-    direct = str(home / '.agents/skills/dispatch/scripts' / (selector + '.py'))
+    direct = str(home / '.agents/skills/mmw/scripts' / (selector + '.py'))
     text = path.read_text().replace(launcher, direct)
     text = text.replace(f', "{selector}",', ',')
     path.write_text(text)
@@ -7147,7 +7188,7 @@ else:
                 if launcher not in command or changed:
                     continue
                 selector = 'tool-guard' if 'tool-guard' in command else 'turn-guard'
-                direct = str(home / '.agents/skills/dispatch/scripts' / (selector + '.py'))
+                direct = str(home / '.agents/skills/mmw/scripts' / (selector + '.py'))
                 handler['command'] = command.replace(f"'{launcher}' {selector}", f"'{direct}'")
                 changed = True
     assert changed, path
@@ -7339,21 +7380,21 @@ scenario_usesnorunners() {
   reset_log
   seed_orca_projects 1 .worktrees show
   copy="$(root_copy)"
-  rm -rf "$copy/skills/dispatch/scripts/runners"
+  rm -rf "$copy/skills/mmw/scripts/runners"
   MMW_TEST_ROOT_COPY="$copy" run_installer --check
   grep -q "^没查    .*runners 下没有适配器，MMW_USES 一条都没核" "$TMP/err" \
     || fail "a missing runners/ must say 没查: $(cat "$TMP/err")"
   [ "$(cat "$TMP/code")" = 1 ] || fail "没查 must exit 1"
   echo "--- a runner with no MMW_USES: 没查 naming that file"
   copy="$(root_copy)"
-  sed -i.bak '/^# MMW_USES:/d' "$copy/skills/dispatch/scripts/runners/paseo.sh"
-  rm -f "$copy/skills/dispatch/scripts/runners/paseo.sh.bak"
+  sed -i.bak '/^# MMW_USES:/d' "$copy/skills/mmw/scripts/runners/paseo.sh"
+  rm -f "$copy/skills/mmw/scripts/runners/paseo.sh.bak"
   MMW_TEST_ROOT_COPY="$copy" run_installer --check
   grep -q "^没查    paseo.sh 一条 MMW_USES 声明都没有" "$TMP/err" \
     || fail "an undeclared runner must say 没查: $(cat "$TMP/err")"
   echo "--- a declaration line with no command: 没查"
   copy="$(root_copy)"
-  printf '# MMW_USES: --json\n' >> "$copy/skills/dispatch/scripts/runners/paseo.sh"
+  printf '# MMW_USES: --json\n' >> "$copy/skills/mmw/scripts/runners/paseo.sh"
   MMW_TEST_ROOT_COPY="$copy" run_installer --check
   grep -q "^没查    paseo.sh 有一行 MMW_USES 没有命令名（--json）" "$TMP/err" \
     || fail "a row without a command must say 没查: $(cat "$TMP/err")"
@@ -7680,6 +7721,7 @@ PY
   echo "--- a machine without nmem says the objects were not checked, without changing check's exit"
   rm -rf "$no_nmem"; mkdir -p "$no_nmem"
   for name in python3 paseo herdr orca gh launchctl; do ln -s "$TMP/bin/$name" "$no_nmem/$name"; done
+  ln -s "$(command -v uv)" "$no_nmem/uv"
   rm -rf "$no_nmem_home"; mkdir -p "$no_nmem_home"
   PATH="$no_nmem:/usr/bin:/bin:/usr/sbin:/sbin" MMW_V2_HOME="$no_nmem_home" bash "$INSTALLER" > "$TMP/out" 2> "$TMP/err"
   PATH="$no_nmem:/usr/bin:/bin:/usr/sbin:/sbin" MMW_V2_HOME="$no_nmem_home" bash "$INSTALLER" --check > "$TMP/out" 2> "$TMP/err"; code=$?
@@ -11269,11 +11311,11 @@ ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-e
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
 ALL="$ALL findings integratedsincestart watchkind"
-ALL="$ALL installchecklauncher installcheckhookbypass installcheckmodehook"
+ALL="$ALL installmissinghook installchecklauncher installcheckhookbypass installcheckmodehook"
 ALL="$ALL installcheckstalecopy"
 ALL="$ALL installcopyretired"
 ALL="$ALL installcheckwiringfails installcheckwiringunchecked"
-ALL="$ALL where wherespec whereunknown"
+ALL="$ALL where wherespec whereunknown registryunloadable"
 ALL="$ALL retro-review-evidence"
 ALL="$ALL summary-retro"
 ALL="$ALL summarycloseout summaryholdsfindings openprojecthead finishmerges finishcleans finishkeepssession finishrefusesunclosed finishrefusesretro finishrefusesopenticket finishrefusesothernight finishrefusesnoproject finishconflict finishred finishkeepsdirty finishrerun finishcontained finishrefusesunreadablespec finishcleanupindependent"
@@ -11306,6 +11348,7 @@ banner_for() {
     where) echo WHERE-OK ;;
     wherespec) echo WHERE-SPEC-OK ;;
     whereunknown) echo WHERE-UNKNOWN-OK ;;
+    registryunloadable) echo REGISTRY-UNLOADABLE-OK ;;
     memory-install) echo MEMORY-INSTALL-OK ;;
     memory-open-space) echo MEMORY-OPEN-SPACE-OK ;;
     memory-space-unavailable) echo MEMORY-SPACE-UNAVAILABLE-OK ;;
@@ -11328,6 +11371,7 @@ banner_for() {
     installboardagent) echo INSTALL-BOARD-AGENT-OK ;;
     installcheckboardagent) echo INSTALL-CHECK-BOARD-AGENT-OK ;;
     installtoolguard) echo INSTALL-TOOL-GUARD-OK ;;
+    installmissinghook) echo INSTALL-MISSING-HOOK-OK ;;
     installchecklauncher) echo INSTALL-CHECK-LAUNCHER-OK ;;
     installcheckhookbypass) echo INSTALL-CHECK-HOOK-BYPASS-OK ;;
     startreadsmodelsjson) echo START-READS-MODELS-JSON-OK ;;

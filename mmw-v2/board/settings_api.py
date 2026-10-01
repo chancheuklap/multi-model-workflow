@@ -9,8 +9,8 @@ import threading
 import codeversion
 
 _resolved = codeversion.require_scripts()
-if str(_resolved["dispatch_scripts"]) not in sys.path:
-    sys.path.insert(0, str(_resolved["dispatch_scripts"]))
+if str(_resolved["mode_scripts"]) not in sys.path:
+    sys.path.insert(0, str(_resolved["mode_scripts"]))
 import models  # noqa: E402
 
 _state_lock = threading.Lock()

@@ -13,7 +13,7 @@ import importlib.util
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "verify-ticket" / "scripts" / "verify-ticket.py"
-EVENTS = SCRIPT.parent / "events.py"
+EVENTS = SCRIPT.parents[2] / "mmw" / "scripts" / "events.py"
 AT = "2026-09-10T00:00:00Z"
 
 

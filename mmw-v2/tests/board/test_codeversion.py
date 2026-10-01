@@ -28,11 +28,11 @@ class CodeversionTests(unittest.TestCase):
         (picked / "issue_tree.py").write_text("tree = 1\n", encoding="utf-8")
         (picked / "scripts" / "ghlist.py").write_text("gh = 1\n", encoding="utf-8")
         (picked / "scripts" / "statedir.py").write_text("state = 1\n", encoding="utf-8")
-        scripts = self.root / "skills" / "dispatch" / "scripts"
+        scripts = self.root / "skills" / "mmw" / "scripts"
         scripts.mkdir(parents=True)
         self.locations = scripts / "locations.py"
         self.locations.write_text(
-            'DISPATCH_SCRIPTS = "picked/scripts"\n'
+            'MODE_SCRIPTS = "picked/scripts"\n'
             'EVENTS_PY = "picked/events.py"\n'
             'ISSUE_TREE_PY = "picked/issue_tree.py"\n',
             encoding="utf-8",
@@ -45,6 +45,14 @@ class CodeversionTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
+
+    def test_every_resolved_script_exists_in_this_checkout(self):
+        spec = importlib.util.spec_from_file_location("codeversion_checkout", SOURCE)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for name, path in module.resolved_scripts().items():
+            with self.subTest(name=name, path=str(path)):
+                self.assertTrue(path.exists(), f"{name}: {path} does not exist")
 
     def test_fingerprint_changes_when_locations_changes(self):
         before = self.module.fingerprint()
@@ -61,7 +69,7 @@ class CodeversionTests(unittest.TestCase):
 
     def test_a_locations_file_that_cannot_be_loaded_settles_instead_of_raising(self):
         watch = self.module.Watch()
-        self.locations.write_text("DISPATCH_SCRIPTS = {\n", encoding="utf-8")
+        self.locations.write_text("MODE_SCRIPTS = {\n", encoding="utf-8")
         self.assertFalse(watch.changed())
         self.assertTrue(watch.changed())
         broken = self.module.fingerprint()

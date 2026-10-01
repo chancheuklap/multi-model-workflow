@@ -12,15 +12,12 @@ SKILLS = Path(__file__).resolve().parents[2] / "skills"
 
 
 def locations_file():
-    candidates = ("mmw/scripts/locations.py", "dispatch/scripts/locations.py")
-    for relative in candidates:
-        candidate = SKILLS / relative
-        if candidate.is_file():
-            return candidate
+    candidate = SKILLS / "mmw/scripts/locations.py"
+    if candidate.is_file():
+        return candidate
     raise AssertionError(
-        "neither mmw-v2/skills/mmw/scripts/locations.py nor "
-        "mmw-v2/skills/dispatch/scripts/locations.py exists; shared text anchors "
-        "and cross-skill paths cannot be resolved: run bash mmw-v2/install.sh --check")
+        f"{candidate} does not exist; shared text anchors and cross-skill paths "
+        "cannot be resolved: run bash mmw-v2/install.sh --check")
 
 
 def locations():
@@ -32,7 +29,7 @@ def locations():
 
 class RolesAndLocationsTest(unittest.TestCase):
     def test_roles_json_registers_the_seven_roles(self):
-        roles = json.loads((SKILLS / "dispatch" / "roles.json").read_text())
+        roles = json.loads((SKILLS / "mmw" / "roles.json").read_text())
         self.assertEqual(roles, {
             "worker": {
                 "playbook": "work-a-ticket",
@@ -83,7 +80,7 @@ class RolesAndLocationsTest(unittest.TestCase):
                                     "Leave the map alone"},
         }
         self.assertEqual({slug: set(steps) for slug, steps in registered.items()}, expected)
-        roles = json.loads((SKILLS / "dispatch" / "roles.json").read_text())
+        roles = json.loads((SKILLS / "mmw" / "roles.json").read_text())
         for role in roles.values():
             if "playbook" not in role:
                 continue
@@ -107,7 +104,7 @@ class RolesAndLocationsTest(unittest.TestCase):
 
     def test_where_rows_only_use_registered_roles_playbooks_and_steps(self):
         module = locations()
-        roles = json.loads((SKILLS / "dispatch" / "roles.json").read_text())
+        roles = json.loads((SKILLS / "mmw" / "roles.json").read_text())
         self.assertEqual(set(module.WHERE_ROWS), {
             "worker", "adopting-worker", "reviewer", "night-orchestrator",
             "one-ticket-orchestrator",
@@ -124,7 +121,7 @@ class RolesAndLocationsTest(unittest.TestCase):
 
     def test_locations_cross_skill_paths_exist(self):
         module = locations()
-        for name in ("DISPATCH_SCRIPTS", "EVENTS_PY", "VERIFY_TICKET_PY",
+        for name in ("MODE_SCRIPTS", "EVENTS_PY", "VERIFY_TICKET_PY",
                      "ISSUE_TREE_PY", "UI_ACCEPTANCE_SCRIPTS"):
             with self.subTest(name=name):
                 self.assertTrue((SKILLS / getattr(module, name)).exists())
@@ -136,7 +133,7 @@ class RolesAndLocationsTest(unittest.TestCase):
 
     def test_locations_governed_session_pattern_matches_tool_guard(self):
         module = locations()
-        path = SKILLS / "dispatch" / "scripts" / "tool-guard.py"
+        path = SKILLS / "mmw" / "scripts" / "tool-guard.py"
         spec = importlib.util.spec_from_file_location("tool_guard", path)
         guard = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(guard)

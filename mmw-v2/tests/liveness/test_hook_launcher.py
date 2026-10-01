@@ -22,15 +22,12 @@ class HookLauncher(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.checkout = self.root / "checkout" / "mmw-v2"
-        self.scripts = self.checkout / "skills" / "dispatch" / "scripts"
-        shutil.copytree(MMW / "skills" / "dispatch" / "scripts", self.scripts,
+        self.scripts = self.checkout / "skills" / "mmw" / "scripts"
+        shutil.copytree(MMW / "skills" / "mmw" / "scripts", self.scripts,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         self.refusal = self.checkout / "skills" / "ui-acceptance" / "scripts" / "refusal.py"
         self.refusal.parent.mkdir(parents=True)
         shutil.copy2(MMW / "skills" / "ui-acceptance" / "scripts" / "refusal.py", self.refusal)
-        events = self.checkout / "skills" / "verify-ticket" / "scripts" / "events.py"
-        events.parent.mkdir(parents=True)
-        shutil.copy2(MMW / "skills" / "verify-ticket" / "scripts" / "events.py", events)
         self.home = self.root / "home"
         self.home.mkdir()
         (self.home / "installed-root").write_text(str(self.checkout) + "\n")
@@ -69,14 +66,20 @@ class HookLauncher(unittest.TestCase):
 
     def test_the_launcher_prefers_the_mmw_scripts_candidate(self):
         preferred = self.checkout / "skills" / "mmw" / "scripts"
-        preferred.mkdir(parents=True)
         (preferred / "tool-guard.py").write_text(
             "import sys\nprint('preferred')\nsys.exit(17)\n")
-        (self.scripts / "tool-guard.py").write_text("print('legacy')\n")
+        legacy = self.checkout / "skills" / "dispatch" / "scripts"
+        legacy.mkdir(parents=True)
+        (legacy / "tool-guard.py").write_text("print('legacy')\n")
         result = self.launch("tool-guard", "pretool", "claude")
         self.assertEqual(result.returncode, 17, result.stderr)
         self.assertEqual(result.stdout, "preferred\n")
         self.assertEqual(result.stderr, "")
+        (preferred / "tool-guard.py").unlink()
+        fallback = self.launch("tool-guard", "pretool", "claude")
+        self.assertEqual(fallback.returncode, 0, fallback.stderr)
+        self.assertEqual(fallback.stdout, "legacy\n")
+        self.assertEqual(fallback.stderr, "")
 
     def test_tool_guard_without_refusal_refuses_in_a_ticket_worktree(self):
         self.refusal.unlink()
@@ -151,6 +154,7 @@ class HookLauncher(unittest.TestCase):
         self.assertIn(str(self.checkout), result.stderr)
 
     def test_a_missing_mode_hook_prints_nothing_and_exits_0(self):
+        (self.scripts / "mode-hook.py").unlink()
         self.silent(self.launch("mode-hook"))
 
     def marker_diagnostic(self, status):
@@ -211,9 +215,9 @@ class HookLauncher(unittest.TestCase):
             return module
 
         launcher = load(LAUNCHER, "mmw_launcher_pattern")
-        guard = load(MMW / "skills" / "dispatch" / "scripts" / "tool-guard.py",
+        guard = load(MMW / "skills" / "mmw" / "scripts" / "tool-guard.py",
                      "mmw_guard_pattern")
-        locations = load(MMW / "skills" / "dispatch" / "scripts" / "locations.py",
+        locations = load(MMW / "skills" / "mmw" / "scripts" / "locations.py",
                          "mmw_locations_pattern")
         self.assertEqual(launcher.TICKET_DIR.pattern, guard.TICKET_DIR.pattern)
         self.assertEqual(launcher.TICKET_DIR.pattern, locations.GOVERNED_TICKET_DIR_PATTERN)
