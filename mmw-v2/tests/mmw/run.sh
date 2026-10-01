@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Tests the pstack importer, mode scripts and ticket state against disposable fixtures.
+# Tests the pstack importer, mode scripts, ticket state, the hook launcher an isolated
+# install.sh writes, and the night-rehearsal tools, against disposable fixtures.
 # Usage: bash mmw-v2/tests/mmw/run.sh [-k <pattern>]
 # Needs uv (supplies pyyaml), python3, node and git. Empty or skipped selections fail.
 
