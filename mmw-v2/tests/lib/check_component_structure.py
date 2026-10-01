@@ -468,7 +468,7 @@ def debt_assignment(finding: Finding):
     r18 = 'docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md'
     r21 = 'docs/research/workflow-compare/reports/R21-text-integrity-checks.md'
     path, rule = finding.path.removeprefix('mmw-v2/skills/'), finding.rule
-    if path == 'design-pages/references/edit-pages.md' and rule == 'host-name':
+    if path == 'design-pages/references/set-up-and-sign-off.md' and rule == 'host-name':
         return 'permanent', r21 + ' §4.3: Claude Design 按钮上的字，照录。'
     if rule == 'capability-next-step' and path.startswith(('write-screen-contract/', 'design-pages/')):
         return 'B1', r21 + ' §4.3; ' + r18 + ' §4.1: 下一步进 P3/P1，§10 B1 搬白天 playbook。'
