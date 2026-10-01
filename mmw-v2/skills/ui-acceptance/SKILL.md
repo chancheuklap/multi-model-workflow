@@ -17,7 +17,7 @@ A criterion names an oracle bare; run one by hand as `scripts/<name>`.
 | --- | --- |
 | Writing a page ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
 | Building the product's story service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
-| Writing a story, boundary, journey or harness guard criterion onto a ticket | the `to-tickets` skill's `references/cutting-interface-tickets.md` **Criterion shapes** |
+| Writing a story, boundary, journey or harness guard criterion onto a ticket | the `to-tickets` skill's `references/screen-contract-tickets.md` **Criterion shapes** |
 | Reading the `DIFF` line the story oracle printed, or how it compares a product story with its design page by element parity | [references/story-parity.md](references/story-parity.md) |
 | Writing the four-column boundary test for one screen-contract row, or reading `MISS` / `GREEN WITHOUT INTERACTION` | [references/boundary-check.md](references/boundary-check.md) |
 | Writing a journey script or the product's fault-injection switch, or reading `JOURNEY FAILED`, `JOURNEY GREEN WITH BREAK` or `JOURNEY GREEN WITHOUT PRODUCT` | [references/journey.md](references/journey.md) |
