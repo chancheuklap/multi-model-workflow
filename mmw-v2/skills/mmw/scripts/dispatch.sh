@@ -1039,15 +1039,11 @@ for r in state.get("sessions") or []:
     refuse "#$number is held by worker ${who#*$'\t'} on ${who%%$'\t'*}; retract that start once its session is gone, then adopt again"
   done <<<"$holders"
 
-  local repository_slug repository_space memory_packet data
+  local repository_slug data_row data
   repository_slug="$(repo_slug)" || exit 2
-  ensure_repository_memory "$repository_slug" \
-    || refuse "the repository Space could not be verified, so #$number was not adopted; restore its repository Space and adopt again"
-  repository_space="$(printf '%s' "$repository_slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
-  memory_packet="$(worker_memory_packet "$number" "$spec" "$repository_space")" \
-    || refuse "could not build the adopted worker's Memory indexes for #$number; restore Memory and adopt again"
-  data="$(launch_prompt adopting-worker "$number" "$installed" "$repository_slug" "$memory_packet")" \
-    || refuse "could not write the adopted worker data for #$number; check this repository's state directory and adopt again"
+  data_row="$(worker_prompt_data adopting-worker "$number" "$spec" "$installed" "$repository_slug")" \
+    || refuse "could not prepare the adopted worker data for #$number; adoption would have no readable Memory data; check this repository's state directory and adopt again"
+  data="${data_row%%$'\t'*}"
 
   # A relay has to see this ticket, or the reviewer's report lands and wakes nobody.
   local started=""
@@ -1785,16 +1781,11 @@ else:
         notes.append(f"partial: {len(failures)} of {len(queries)} searches failed ({failures[0]})")
     related = "\n".join(notes + [entry(seen["row"]) for seen in ranked]) or "none"
 
-prompt = f"""MMW repository Space: {space}
-MMW task root: {task_root}
-MMW task scope: {task_scope}
-
-Current task shared experience:
-{current}
-
-Related experience:
-{related}"""
-print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
+fields = [["MMW repository Space", space], ["MMW task root", task_root],
+          ["MMW task scope", task_scope]]
+fields.extend(["Current task shared experience", line] for line in current.splitlines())
+fields.extend(["Related experience", line] for line in related.splitlines())
+print(json.dumps({"fields": fields, "task_scope": task_scope if not routing_error else ""},
                  ensure_ascii=False))
 PY
 }
@@ -1883,9 +1874,8 @@ else:
     else:
         rules = render_rules(value)
 
-prompt = f"""Active reviewer Rules approved for this review:
-{rules}"""
-print(json.dumps({"prompt": prompt}, ensure_ascii=False))
+print(json.dumps({"fields": [["Active reviewer Rules approved for this review", line]
+                             for line in rules.splitlines()]}, ensure_ascii=False))
 PY
 }
 
@@ -1899,75 +1889,96 @@ from statedir import home
 marker = home() / "installed-root"
 try:
     value = marker.read_text(encoding="utf-8").strip()
+except FileNotFoundError:
+    fact = "is missing"
+except (OSError, UnicodeError):
+    fact = "is unreadable"
+else:
     root = Path(value)
-    if not value or not root.is_absolute() or not root.is_dir() or "\n" in value or "\r" in value:
-        raise ValueError("not an absolute install directory")
-except (OSError, UnicodeError, ValueError):
-    sys.stderr.write(f"dispatch: installed-root {marker} is missing or unreadable; run bash mmw-v2/install.sh --check\n")
+    fact = "does not name an absolute install directory" if (
+        not value or not root.is_absolute() or not root.is_dir() or "\n" in value or "\r" in value
+    ) else ""
+if fact:
+    sys.stderr.write(f"dispatch: installed-root {marker} {fact}; frozen MMW paths cannot be supplied, so startup or adoption was refused; run bash mmw-v2/install.sh --check\n")
     raise SystemExit(2)
 print(root.resolve())
 PY
 }
 
-# The receiving session gets one line; its data belongs to this repository's state.
-launch_prompt() {
-  local role="$1" number="$2" installed="$3" repository="$4" packet="${5:-}" base="${6:-}" brief="${7:-}"
-  MMW_PROMPT_PACKET="$packet" python3 - "$SKILL_ROOT" "$role" "$number" "$installed" "$repository" "$base" "$brief" <<'PY'
+repository_memory_space() {
+  python3 - "$SKILL_ROOT/scripts" "$1" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+from statedir import slug
+print(slug(sys.argv[2]))
+PY
+}
+
+# Write role data and return its absolute path; packets supply named JSON fields.
+write_prompt_data() {
+  local role="$1" number="$2" installed="$3" repository="$4" packet="${5:-}"
+  MMW_PROMPT_PACKET="$packet" python3 - "$SKILL_ROOT" "$role" "$number" "$installed" "$repository" <<'PY'
 import json
 import os
 import sys
 from pathlib import Path
-skill, role, number, installed, repository, base, brief = sys.argv[1:]
+skill, role, number, installed, repository = sys.argv[1:]
 sys.path.insert(0, str(Path(skill) / "scripts"))
 import locations
 from statedir import state_dir, write_atomic
 roles = json.loads((Path(skill) / "roles.json").read_text(encoding="utf-8"))
-if role == "advisor":
-    print(f"Use the advisor skill. Role advisor, unattended: the mmw skill's {locations.MODE_AUTONOMY}. Brief: {brief}.")
-    raise SystemExit(0)
 slug = roles[role]["playbook"]
-step = roles[role].get("entry")
-if not step:
-    excluded = {row["entry"] for row in roles.values() if row.get("playbook") == slug and row.get("entry")}
-    step = next(anchor for anchor in locations.PLAYBOOK_ANCHORS[slug] if anchor not in excluded)
-pointer = f"mmw {slug}#{step}"
 skills = Path(installed) / "skills"
-lines = [f"- Playbook: {skills / locations.MODE_PLAYBOOKS_DIRECTORY / (slug + '.md')}",
-         f"- dispatch.sh: {skills / locations.MODE_SCRIPTS / 'dispatch.sh'}"]
+fields = [["Playbook", skills / locations.MODE_PLAYBOOKS_DIRECTORY / (slug + ".md")],
+          ["dispatch.sh", skills / locations.MODE_SCRIPTS / "dispatch.sh"]]
 if role != "researcher":
-    lines.append(f"- ticket_state.py: {skills / locations.TICKET_STATE_PY}")
-packet = json.loads(os.environ["MMW_PROMPT_PACKET"] or "{}").get("prompt", "")
+    fields.append(["ticket_state.py", skills / locations.TICKET_STATE_PY])
 if role in ("worker", "adopting-worker"):
-    lines.append(f"- Memory records guide: {skills / locations.MEMORY_RECORDS_SKILL}")
-    names = ("MMW repository Space", "MMW task root", "MMW task scope",
-             "Current task shared experience", "Related experience")
-    section = None
-    for line in packet.splitlines():
-        if not line:
-            continue
-        name, colon, value = line.partition(":")
-        if name in names and colon:
-            section = name
-            if value.strip():
-                lines.append(f"- {section}: {value.strip()}")
-        elif section in names[3:]:
-            lines.append(f"- {section}: {line}")
-elif role == "reviewer":
-    name = "Active reviewer Rules approved for this review"
-    for line in packet.splitlines()[1:]:
-        lines.append(f"- {name}: {line}")
-    lines.append(f"- Rules pointer: mmw {locations.REVIEW_RULES_POINTER}")
-    lines.extend(f"- Review brief: {skills / path}" for path in locations.REVIEW_BRIEFS)
+    fields.append(["Memory records guide", skills / locations.MEMORY_RECORDS_SKILL])
+fields.extend(json.loads(os.environ["MMW_PROMPT_PACKET"] or "{}").get("fields", []))
+if role == "reviewer":
+    fields.append(["Rules pointer", f"mmw {locations.REVIEW_RULES_POINTER}"])
+    fields.extend(["Review brief", skills / path] for path in locations.REVIEW_BRIEFS)
 directory = state_dir(repository) / "prompts/"
 directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-filename = f"{number}-adopting-worker.md" if role == "adopting-worker" else f"{number}-{role}.md"
-data = (directory / filename).resolve()
-write_atomic(data, "\n".join(lines) + "\n")
-if role == "adopting-worker":
-    print(data)
+data = (directory / f"{number}-{role}.md").resolve()
+write_atomic(data, "".join(f"- {name}: {value}\n" for name, value in fields))
+print(data)
+PY
+}
+
+# An adopted worker's data is prompts/<n>-adopting-worker.md.
+# Return the same Memory data and task scope for dispatched and adopting workers.
+worker_prompt_data() {
+  local role="$1" number="$2" spec="$3" installed="$4" repository="$5" space packet data scope
+  space="$(repository_memory_space "$repository")" || return 2
+  packet="$(worker_memory_packet "$number" "$spec" "$space")" || return 2
+  data="$(write_prompt_data "$role" "$number" "$installed" "$repository" "$packet")" || return 2
+  scope="$(printf '%s' "$packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || return 2
+  printf '%s\t%s\n' "$data" "$scope"
+}
+
+# Return a single-line entry pointing at an existing data or advisor brief file.
+session_prompt() {
+  python3 - "$SKILL_ROOT" "$1" "$2" "$3" "${4:-}" <<'PY'
+import json
+import sys
+from pathlib import Path
+skill, role, number, data, base = sys.argv[1:]
+sys.path.insert(0, str(Path(skill) / "scripts"))
+import locations
+if role == "advisor":
+    prompt = f"Use the advisor skill. Role advisor, unattended: the mmw skill's {locations.MODE_AUTONOMY}. Brief: {data}."
 else:
+    roles = json.loads((Path(skill) / "roles.json").read_text(encoding="utf-8"))
+    slug = roles[role]["playbook"]
+    excluded = {row["entry"] for row in roles.values() if row.get("playbook") == slug and row.get("entry")}
+    step = next(anchor for anchor in locations.PLAYBOOK_ANCHORS[slug] if anchor not in excluded)
     review_base = f", base {base}" if role == "reviewer" else ""
-    print(f"Use the mmw skill. Role {role}, ticket #{number}{review_base}, unattended: {pointer}. Data: {data}.")
+    prompt = f"Use the mmw skill. Role {role}, ticket #{number}{review_base}, unattended: mmw {slug}#{step}. Data: {data}."
+if "\n" in prompt or "\r" in prompt:
+    raise SystemExit("dispatch: an entry path contains a line break; the runner would submit more than one message; use a single-line path")
+print(prompt)
 PY
 }
 
@@ -2044,7 +2055,7 @@ start_one() {
   repository_slug="$(repo_slug)" || exit 2
   ensure_repository_memory "$repository_slug" \
     || refuse "the repository Space could not be verified, so #$number's $kind was not started; the specific Nowledge failure is above. Restore Nowledge Mem or its repository Space, then run start again"
-  repository_space="$(printf '%s' "$repository_slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  repository_space="$(repository_memory_space "$repository_slug")" || exit 2
 
   workspace_origin_ready "$number" "$root" "$into" \
     || refuse "could not use origin to prepare issue-$number; an existing worker was not stopped"
@@ -2073,19 +2084,18 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  local base="" prompt memory_packet task_scope
+  local base="" prompt memory_packet task_scope data data_row
   local -a session_environment=()
   case "$kind" in
     worker)
       base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
-      memory_packet="$(worker_memory_packet "$number" "$native_spec" "$repository_space")" || \
-        refuse "could not build the worker's Memory indexes for #$number"
-      task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
-        refuse "the worker's Memory indexes for #$number could not be read"
-      prompt="$(launch_prompt worker "$number" "$installed" "$repository_slug" "$memory_packet")" \
-        || refuse "could not write the worker data for #$number; check this repository's state directory and start again"
+      data_row="$(worker_prompt_data worker "$number" "$native_spec" "$installed" "$repository_slug")" \
+        || refuse "could not prepare the worker data for #$number; the session would have no readable Memory data; check this repository's state directory and start again"
+      IFS=$'\t' read -r data task_scope <<<"$data_row"
+      prompt="$(session_prompt worker "$number" "$data")" \
+        || refuse "could not build the worker entry for #$number; the session would have no single-line instruction; check the role registry and start again"
       session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-worker")
       # Always replace an inherited scope. An empty value is the disabled route for a
       # malformed native parent graph; inheriting the caller's scope would permit writes
@@ -2101,8 +2111,10 @@ start_one() {
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
       memory_packet="$(reviewer_rules_packet "$repository_space")" || \
         refuse "could not build the reviewer Rules for #$number"
-      prompt="$(launch_prompt reviewer "$number" "$installed" "$repository_slug" "$memory_packet" "$base")" \
-        || refuse "could not write the reviewer data for #$number; check this repository's state directory and start again"
+      data="$(write_prompt_data reviewer "$number" "$installed" "$repository_slug" "$memory_packet")" \
+        || refuse "could not write the reviewer data for #$number; the session would have no readable Rules data; check this repository's state directory and start again"
+      prompt="$(session_prompt reviewer "$number" "$data" "$base")" \
+        || refuse "could not build the reviewer entry for #$number; the session would have no single-line instruction; check the role registry and start again"
       session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer" "MMW_ROLE=reviewer") ;;
   esac
 
@@ -2207,8 +2219,8 @@ advise_one() {
   cat -- "$packet" >/dev/null \
     || refuse "could not read the brief file $packet; make it readable, then advise again"
   packet="$(realpath "$packet")"
-  prompt="$(launch_prompt advisor "" "$installed" "" "" "" "$packet")" \
-    || refuse "could not build the advisor prompt; check the role registry and advise again"
+  prompt="$(session_prompt advisor "" "$packet")" \
+    || refuse "could not build the advisor prompt; the session would have no single-line brief pointer; check the role registry and advise again"
 
   # Herdr's session id is basename(cwd) plus the title's last word; a constant
   # last word would collide on a second consultation in the same worktree.
@@ -2232,11 +2244,13 @@ research_one() {
   [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 '$models_path' config set researcher codex \"gpt 6 sol\" high, then research $number again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local root cwd branch prompt session installed repository_slug
+  local root cwd branch prompt session installed repository_slug data
   installed="$(installed_prompt_root)" || exit 2
   repository_slug="$(repo_slug)" || exit 2
-  prompt="$(launch_prompt researcher "$number" "$installed" "$repository_slug")" \
-    || refuse "could not write the researcher data for #$number; check this repository's state directory and research again"
+  data="$(write_prompt_data researcher "$number" "$installed" "$repository_slug")" \
+    || refuse "could not write the researcher data for #$number; the session would have no readable task data; check this repository's state directory and research again"
+  prompt="$(session_prompt researcher "$number" "$data")" \
+    || refuse "could not build the researcher entry for #$number; the session would have no single-line instruction; check the role registry and research again"
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so there is no HEAD to start research/$number from; run research $number from a worktree"
   cwd="$(worktrees_root)/research-$number"
@@ -3880,7 +3894,7 @@ print((rows[0].get("login") or "") if rows else "")
 memory_list_spec() {
   local spec="$1" slug space
   slug="$(repo_slug)" || return 2
-  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  space="$(repository_memory_space "$slug")" || return 2
 
   MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" python3 - <<'PY'
 import json
@@ -3957,7 +3971,7 @@ PY
 close_spec_memories() {
   local spec="$1" decisions_file="$2" slug space result
   slug="$(repo_slug)" || return 2
-  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  space="$(repository_memory_space "$slug")" || return 2
 
   result="$(MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" \
       MMW_MEMORY_DECISIONS="$decisions_file" python3 - <<'PY'

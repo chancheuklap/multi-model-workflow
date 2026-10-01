@@ -2931,7 +2931,7 @@ slug = pointers[role].split("#")[0]
 expected = [f"- Playbook: {skills}/mmw/playbooks/{slug}.md", f"- dispatch.sh: {skills}/mmw/scripts/dispatch.sh"]
 if role != "researcher":
     expected += [f"- ticket_state.py: {skills}/mmw/scripts/ticket_state.py"]
-assert lines[:len(expected)] == expected, lines
+assert all(lines.count(line) == 1 for line in expected), lines
 if role == "worker":
     assert f"- Memory records guide: {skills}/memory-records/SKILL.md" in lines, lines
 elif role == "reviewer":
@@ -2943,43 +2943,48 @@ else:
 PY
 }
 
-# Read the delivered data, grouping repeated bullet values into their packet sections.
-out_packet() {
+# Read the file delivered to the session, without translating its Markdown format.
+out_data() {
   python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" <<'PY'
 import json, sys
 from pathlib import Path
 prompt = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])["initialPrompt"]
-data = Path(prompt.rsplit("Data: ", 1)[1][:-1]).read_text()
-sections = ("MMW repository Space", "MMW task root", "MMW task scope", "Current task shared experience",
-            "Related experience", "Active reviewer Rules approved for this review")
-previous = None
-for line in data.splitlines():
-    name, _, value = line.removeprefix("- ").partition(": ")
-    if name not in sections:
-        continue
-    if name in sections[:3]:
-        print(f"{name}: {value}")
-    else:
-        if name != previous:
-            if previous is not None:
-                print()
-            print(name + ":")
-        print(value)
-    previous = name
+print(Path(prompt.rsplit("Data: ", 1)[1][:-1]).read_text(), end="")
 PY
 }
 
+data_field() {
+  out_data | python3 -c '
+import sys
+prefix = "- " + sys.argv[1] + ": "
+for line in sys.stdin.read().splitlines():
+    if line.startswith(prefix):
+        print(line[len(prefix):])
+' "$1"
+}
+
 scenario_startnoinstalledroot() {
-  local code
-  reset_log; fresh_repo
-  rm "$MMW_HOME/installed-root"
-  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
-  [ "$code" = 2 ] || fail "missing installed-root must exit 2, got $code"
-  grep -q 'bash mmw-v2/install.sh --check' "$TMP/err" || fail "refusal omitted installation check"
-  [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] || fail "missing root refusal must be one line: $(cat "$TMP/err")"
-  never_ran
-  [ ! -e "$(wt 61)" ] || fail "missing root created a worktree"
-  nothing_printed
+  local code state
+  for state in missing empty relative stale unreadable; do
+    reset_log; fresh_repo
+    case "$state" in
+      missing) rm "$MMW_HOME/installed-root" ;;
+      empty) : > "$MMW_HOME/installed-root" ;;
+      relative) printf '%s\n' relative/install > "$MMW_HOME/installed-root" ;;
+      stale) printf '%s\n' "$TMP/gone-install/mmw-v2" > "$MMW_HOME/installed-root" ;;
+      unreadable) printf '\377' > "$MMW_HOME/installed-root" ;;
+    esac
+    code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
+    [ "$code" = 2 ] || fail "$state installed-root must exit 2, got $code"
+    grep -q 'bash mmw-v2/install.sh --check' "$TMP/err" || fail "refusal omitted installation check"
+    [ "$(wc -l < "$TMP/err" | tr -d ' ')" = 1 ] || fail "root refusal must be one line: $(cat "$TMP/err")"
+    case "$state" in
+      empty|relative|stale) grep -q 'does not name an absolute install directory' "$TMP/err" || fail "invalid root was misreported: $(cat "$TMP/err")" ;;
+    esac
+    never_ran
+    [ ! -e "$(wt 61)" ] || fail "$state root created a worktree"
+    nothing_printed
+  done
 }
 
 scenario_start_worker() {
@@ -3513,6 +3518,20 @@ PY
   [ "$(out_json cwd)" = "$dest" ] || fail "cwd: $(out_json cwd), want $dest"
   hasnt "gh :: issue :: comment"
   hasnt_runner_worktree
+
+  echo "--- a relative brief path is delivered as an absolute pointer"
+  reset_log; fresh_repo
+  cp "$packet" "$TMP/repo/brief.txt"
+  code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" advise brief.txt)"
+  [ "$code" = 0 ] || fail "relative brief expected 0: $(cat "$TMP/err")"
+  python3 - "$MMW_FAKE_PASEO_STATE/runs.jsonl" "$TMP/repo/brief.txt" <<'PY' || fail "relative brief did not become an absolute pointer"
+import json, sys
+from pathlib import Path
+prompt = json.loads(Path(sys.argv[1]).read_text().splitlines()[-1])["initialPrompt"]
+brief = Path(sys.argv[2]).resolve()
+assert prompt == f"Use the advisor skill. Role advisor, unattended: the mmw skill's ## Autonomy. Brief: {brief}.", repr(prompt)
+assert brief.read_text() == "the brief body\n"
+PY
 
   echo "--- advise does not need a relay"
   reset_log
@@ -6222,6 +6241,16 @@ assert w.get("slot") is None, w
   grep -q '^- MMW repository Space: o__r$' "$MMW_HOME/state/o__r/prompts/61-adopting-worker.md" || fail "repeat adopt did not overwrite stale data"
   [ "$(posted_events 61 | grep -c '^worker.started')" = 1 ] || fail "one worker.started: $(posted_events 61)"
 
+  echo "--- unavailable Memory remains data and does not prevent repeat adopt or create a Space"
+  : > "$MMW_TEST_LOG"
+  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self MMW_FAKE_NMEM_SCENARIO=unavailable FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
+          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 0 ] || fail "Memory availability must not gate adopt: $(cat "$TMP/err")"
+  grep -q '^- Current task shared experience: unavailable:' "$MMW_HOME/state/o__r/prompts/61-adopting-worker.md" || fail "adopt lost unavailable current index"
+  grep -q '^- Related experience: unavailable:' "$MMW_HOME/state/o__r/prompts/61-adopting-worker.md" || fail "adopt lost unavailable related index"
+  hasnt "nmem :: --json :: spaces"
+  [ "$(posted_events 61 | grep -c '^worker.started')" = 1 ] || fail "Memory-unavailable repeat adopt duplicated worker.started"
+
   echo "--- another session cannot adopt a ticket a live worker holds"
   code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
           bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
@@ -8071,7 +8100,9 @@ expected = ["- MMW repository Space: o__r", f"- MMW task root: {os.environ['MMW_
             f"- MMW task scope: {os.environ['MMW_EXPECT_SCOPE']}"]
 for name, key in (("Current task shared experience", "MMW_EXPECT_CURRENT"), ("Related experience", "MMW_EXPECT_RELATED")):
     expected.extend(f"- {name}: {line}" for line in os.environ[key].splitlines())
-assert lines[4:] == expected, lines
+names = {line.partition(": ")[0] for line in expected}
+actual = [line for line in lines if line.partition(": ")[0] in names]
+assert actual == expected, lines
 PY
 }
 
@@ -8106,7 +8137,7 @@ scenario_memory_worker_start() {
   reset_log; fresh_repo; write_memory_graph map; seed_memory_records
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "map worker start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
+  prompt="$(out_data)"
   case "$prompt" in *"MMW task root: map #18"*"MMW task scope: mmw-map-18"*) ;; *) fail "map routing missing: $prompt" ;; esac
   case "$prompt" in *"Current duplicate"*|*"Must lose"*|*"Never queried"*) fail "a current-task duplicate or task prose reached the prompt: $prompt" ;; esac
   assert_complete_worker_prompt "map #18" "mmw-map-18" "$MMW_CURRENT_ENTRY" "$MMW_RELATED_ENTRIES"
@@ -8117,7 +8148,7 @@ scenario_memory_worker_start() {
   reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "standalone worker start expected 0: $(cat "$TMP/err")"
-  case "$(out_packet)" in *"MMW task root: standalone spec #76"*"MMW task scope: mmw-spec-76"*) ;; *) fail "standalone routing missing" ;; esac
+  case "$(out_data)" in *"MMW task root: standalone spec #76"*"MMW task scope: mmw-spec-76"*) ;; *) fail "standalone routing missing" ;; esac
   assert_memory_calls standalone
   hasnt "Never queried"
 
@@ -8129,7 +8160,7 @@ scenario_memory_worker_start() {
 JSON
   code="$(run_dispatch env MMW_SPEC=76 FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "native parent with inherited spec expected 0: $(cat "$TMP/err")"
-  case "$(out_packet)" in *"MMW task root: standalone spec #77"*"MMW task scope: mmw-spec-77"*) ;; *) fail "ambient MMW_SPEC replaced native routing" ;; esac
+  case "$(out_data)" in *"MMW task root: standalone spec #77"*"MMW task scope: mmw-spec-77"*) ;; *) fail "ambient MMW_SPEC replaced native routing" ;; esac
   has "MMW_SPEC=77"
   hasnt "MMW_SPEC=76"
 
@@ -8141,9 +8172,9 @@ JSON
   assert_memory_calls wrong-parent
   has "MMW_TASK_SCOPE="
   hasnt "MMW_TASK_SCOPE=leaked-scope"
-  prompt="$(out_packet)"
-  case "$prompt" in *"MMW task root: unavailable:"*"Current task shared experience:"$'\n'"unavailable:"*) ;; *) fail "malformed prompt was guessed or silent: $prompt" ;; esac
-  case "$prompt" in *"Related experience:"$'\n''{"id":"mem-path"'*) ;; *) fail "Related experience was withheld on a routing failure: $prompt" ;; esac
+  prompt="$(out_data)"
+  case "$prompt" in *"MMW task root: unavailable:"*"Current task shared experience: unavailable:"*) ;; *) fail "malformed prompt was guessed or silent: $prompt" ;; esac
+  case "$(data_field "Related experience")" in '{"id":"mem-path"'*) ;; *) fail "Related experience was withheld on a routing failure: $prompt" ;; esac
 
   echo "--- an unreadable native parent is malformed and never falls back to standalone"
   reset_log; fresh_repo; write_memory_graph map; seed_memory_records
@@ -8178,11 +8209,11 @@ json.dump(d,open(p,"w"))
 PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "capped start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
-  case "$prompt" in *"Current task shared experience:"$'\n'"truncated: 1/45"$'\n'"$MMW_CURRENT_ENTRY"*) ;; *) fail "task truncation was not visible: $prompt" ;; esac
-  [ "$(printf '%s' "$prompt" | sed -n '/^Related experience:$/,/^$/p' | grep -c '^{"id"')" = 15 ] \
+  prompt="$(out_data)"
+  case "$(data_field "Current task shared experience")" in "truncated: 1/45"$'\n'"$MMW_CURRENT_ENTRY") ;; *) fail "task truncation was not visible: $prompt" ;; esac
+  [ "$(data_field "Related experience" | grep -c '^{"id"')" = 15 ] \
     || fail "Related experience was not capped at 15: $prompt"
-  case "$prompt" in *"Related experience:"$'\n''{"id":"mem-path"'*) ;; *) fail "the record naming an owned path did not rank first: $prompt" ;; esac
+  case "$(data_field "Related experience")" in '{"id":"mem-path"'*) ;; *) fail "the record naming an owned path did not rank first: $prompt" ;; esac
 
   echo "--- one failed search is disclosed and the others still count"
   reset_log; fresh_repo; write_memory_graph standalone; seed_memory_records
@@ -8207,8 +8238,8 @@ $(printf '%s\n' "$MMW_RELATED_ENTRIES" | grep -v mem-b)"
   reset_log; fresh_repo; write_memory_graph standalone
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable MMW_FAKE_NMEM_ERROR="$(printf 'x%.0s' $(seq 1 5000))" FAKE_GH_TICKETS_FILE="$TMP/tickets.json" bash "$DISPATCH" "${TOOLS[@]}" start 61 worker)"
   [ "$code" = 0 ] || fail "long failure should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
-  [ "$(printf '%s' "$prompt" | grep -c "^unavailable: $(printf 'x%.0s' $(seq 1 300))…$")" = 2 ] \
+  prompt="$(out_data)"
+  [ "$(printf '%s' "$prompt" | grep -c "^- .*: unavailable: $(printf 'x%.0s' $(seq 1 300))…$")" = 2 ] \
     || fail "long failure text was not cut to 300 characters: $(printf '%s' "$prompt" | head -c 600)"
 }
 
@@ -8277,7 +8308,8 @@ import os, sys
 from pathlib import Path
 lines = Path(sys.argv[1]).read_text().splitlines()
 expected = [f"- Active reviewer Rules approved for this review: {line}" for line in os.environ["MMW_EXPECT_RULES"].splitlines()]
-assert lines[3:-5] == expected, lines
+actual = [line for line in lines if line.startswith("- Active reviewer Rules approved for this review: ")]
+assert actual == expected, lines
 PY
 }
 
@@ -8302,7 +8334,7 @@ scenario_memory_reviewer_rules() {
   reset_log; fresh_repo; seed_reviewer_rules
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "reviewer rules start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
+  prompt="$(out_data)"
   has "NMEM_SPACE=o__r"
   has "NMEM_AGENT_ID=mmw-reviewer"
   has "MMW_ROLE=reviewer"
@@ -8312,11 +8344,11 @@ scenario_memory_reviewer_rules() {
   hasnt "MMW_TICKET="
   hasnt "nmem :: --json :: memories :: list"
   hasnt "nmem :: --json :: memories :: search"
-  hasnt "MUST NOT APPEAR IN PROMPT"
-  hasnt "must-not-appear"
-  hasnt "drop-me"
-  hasnt "Shadowed title"
-  hasnt "Must lose"
+  for excluded in "MUST NOT APPEAR IN PROMPT" "must-not-appear" "drop-me" "Shadowed title" "Must lose"; do
+    if printf '%s' "$prompt" | grep -qF "$excluded"; then
+      fail "reviewer data contains excluded context: $excluded"
+    fi
+  done
   python3 -c '
 import sys
 prompt = sys.argv[1]
@@ -8346,7 +8378,7 @@ scenario_memory_reviewer_prompt_states() {
   reset_log; fresh_repo
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "none reviewer start expected 0: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
+  prompt="$(data_field "Active reviewer Rules approved for this review")"
   [ "$(printf '%s' "$prompt" | grep -c '^none$')" = 1 ] || fail "none state is missing or duplicated: $prompt"
   assert_complete_reviewer_prompt "none"
   assert_reviewer_context_call
@@ -8355,10 +8387,10 @@ scenario_memory_reviewer_prompt_states() {
   reset_log; fresh_repo
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-unavailable bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "unavailable Context Bundle should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
+  prompt="$(data_field "Active reviewer Rules approved for this review")"
   [ "$(printf '%s' "$prompt" | grep -c '^unavailable: Nowledge Mem unavailable$')" = 1 ] \
     || fail "unavailable state is missing or duplicated: $prompt"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "unavailable prompt also rendered none: $prompt" ;; esac
+  case "$prompt" in "none") fail "unavailable prompt also rendered none: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: Nowledge Mem unavailable"
   assert_reviewer_context_call
 
@@ -8366,8 +8398,8 @@ scenario_memory_reviewer_prompt_states() {
   reset_log; fresh_repo
   code="$(run_dispatch env MMW_FAKE_NMEM_SCENARIO=content-invalid-json bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "unreadable Context Bundle should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "unreadable prompt rendered none: $prompt" ;; esac
+  prompt="$(data_field "Active reviewer Rules approved for this review")"
+  case "$prompt" in "none") fail "unreadable prompt rendered none: $prompt" ;; esac
   case "$prompt" in *"unavailable: nmem did not return readable JSON"*) ;; *) fail "unreadable JSON was silent: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: nmem did not return readable JSON"
   assert_reviewer_context_call
@@ -8387,8 +8419,8 @@ json.dump(data, open(path, "w"), sort_keys=True)
 PY
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "unknown Space should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "unknown Space rendered none: $prompt" ;; esac
+  prompt="$(data_field "Active reviewer Rules approved for this review")"
+  case "$prompt" in "none") fail "unknown Space rendered none: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: Unknown space: o__r"
   assert_reviewer_context_call
 
@@ -8407,8 +8439,8 @@ json.dump(data, open(path, "w"), sort_keys=True)
 PY
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "mismatched Space should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "mismatched Space rendered none: $prompt" ;; esac
+  prompt="$(data_field "Active reviewer Rules approved for this review")"
+  case "$prompt" in "none") fail "mismatched Space rendered none: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: active space is default, not o__r"
   assert_reviewer_context_call
 
@@ -8427,8 +8459,8 @@ json.dump(data, open(path, "w"), sort_keys=True)
 PY
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "missing scope should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "missing scope rendered none: $prompt" ;; esac
+  prompt="$(data_field "Active reviewer Rules approved for this review")"
+  case "$prompt" in "none") fail "missing scope rendered none: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: nmem did not return rule_stack.global"
   assert_reviewer_context_call
 
@@ -8450,9 +8482,9 @@ json.dump(data, open(path, "w"), sort_keys=True)
 PY
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "malformed Rule should not prevent start: $(cat "$TMP/err")"
-  prompt="$(out_packet)"
+  prompt="$(data_field "Active reviewer Rules approved for this review")"
   case "$prompt" in *'"id":null'*) fail "malformed Rule invented a null id: $prompt" ;; esac
-  case "$prompt" in *$'\n'"none"$'\n'*) fail "malformed Rule rendered none: $prompt" ;; esac
+  case "$prompt" in "none") fail "malformed Rule rendered none: $prompt" ;; esac
   assert_complete_reviewer_prompt "unavailable: nmem returned a rule_stack.global entry without id"
   assert_reviewer_context_call
 }
