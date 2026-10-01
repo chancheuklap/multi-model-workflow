@@ -1,6 +1,7 @@
 ---
 name: to-questionnaire
-description: Turn a decision the user can't settle alone into a questionnaire for the one person who holds what is missing. Use when a decision or a grilling round is blocked on knowledge that lives in someone else's head (a client, a domain expert, a colleague), not in the user's or the codebase.
+description: Turn a decision you can't fully answer into a questionnaire for someone else to fill in.
+disable-model-invocation: true
 ---
 
 Turn something the user can't answer alone into a **questionnaire**: a Markdown document they hand to one person to fill in async, or fill out together over a meeting. The recipient holds knowledge the user lacks; the questionnaire pulls it out of them.
