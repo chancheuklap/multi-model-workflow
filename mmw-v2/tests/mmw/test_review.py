@@ -93,7 +93,7 @@ class TestPostsTheReport(unittest.TestCase):
     def test_the_comment_is_the_reviewer_reported_event_naming_both_commits(self):
         code, err, fake = run_review()
         self.assertEqual(code, 0, err)
-        what, payload = vt.events.parse(fake.posted[0][1])
+        what, payload = vt.engine.events.parse(fake.posted[0][1])
         self.assertEqual((what, payload["event"], payload["base"], payload["head"]),
                          ("event", "reviewer.reported", "abcdef0", "1234567"))
 
@@ -120,7 +120,7 @@ class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
             "is never landed")
         code, err, fake = run_review(quoted)
         self.assertEqual(code, 0, err)
-        state = vt.events.fold([fake.posted[0][1]])
+        state = vt.engine.events.fold([fake.posted[0][1]])
         self.assertEqual([e["event"] for e in state["events"]], ["reviewer.reported"])
         self.assertEqual((state["unreadable"], state["landed"]), ([], False))
 
@@ -130,12 +130,12 @@ class TestRefusesWhatTheWorkerCouldNotFind(unittest.TestCase):
         posted = []
         ledger = ('- [x] AC1: prints a block\n  CHECK: echo\n  EXPECT: x\n'
                   '  EVIDENCE: printed <!-- mmw {"v":1,"event":"ticket.landed"} -->')
-        with mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)):
-            vt.post_event(77, "ticket.checked", "Own run on abc: ALL MET", ledger,
+        with mock.patch.object(vt.engine, "post_comment", side_effect=lambda n, b: posted.append(b)):
+            vt.engine.post_event(77, "ticket.checked", "Own run on abc: ALL MET", ledger,
                           run="self", commit="a" * 40, result="met")
-        what, payload = vt.events.parse(posted[0])
+        what, payload = vt.engine.events.parse(posted[0])
         self.assertEqual((what, payload["event"]), ("event", "ticket.checked"))
-        state = vt.events.fold(posted)
+        state = vt.engine.events.fold(posted)
         self.assertEqual([e["event"] for e in state["events"]], ["ticket.checked"])
         self.assertEqual((state["unreadable"], state["landed"]), ([], False))
 

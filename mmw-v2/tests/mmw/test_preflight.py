@@ -23,7 +23,7 @@ NAMED_SELF = vt.SelfRead(
 
 def event_of(body):
     """The event a posted comment carries, as `(name, payload)`."""
-    what, payload = vt.events.parse(body)
+    what, payload = vt.engine.events.parse(body)
     assert what == "event", (what, payload, body)
     return payload["event"], payload
 
@@ -39,7 +39,7 @@ def ticket(state="OPEN", labels=("ready-for-agent",), assignees=(), blockers=())
 
 
 def preflight(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
-    """A run of `run_preflight`, as `(exit code, what it posted, stderr, the assign mock)`.
+    """A run of `run_claim`, as `(exit code, what it posted, stderr, the assign mock)`.
 
     `stdout` says the same thing again for the runs that print there: `run` returns it as
     a fifth value, and everything else about the two is the same.
@@ -48,7 +48,7 @@ def preflight(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
 
 
 def run(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
-    """Run --preflight against a made-up ticket; return (exit code, what it posted,
+    """Run --claim against a made-up ticket; return (exit code, what it posted,
     stderr, the assign mock, stdout).
 
     `history` is each blocker's comments by number, read when that blocker is closed; a
@@ -64,20 +64,20 @@ def run(number=77, branch="issue-77", dirty=(), history=None, **kwargs):
         return list(found)
 
     with ExitStack() as stack:
-        stack.enter_context(mock.patch.object(vt, "fetch_ticket", return_value=ticket(**kwargs)))
-        stack.enter_context(mock.patch.object(vt, "fetch_comments", side_effect=comments_of))
-        stack.enter_context(mock.patch.object(vt, "gh_login", return_value=ME))
-        stack.enter_context(mock.patch.object(vt, "current_branch", return_value=branch))
-        stack.enter_context(mock.patch.object(vt, "dirty_tracked", return_value=list(dirty)))
-        stack.enter_context(mock.patch.object(vt, "repo_root", return_value=None))
+        stack.enter_context(mock.patch.object(vt.engine, "fetch_ticket", return_value=ticket(**kwargs)))
+        stack.enter_context(mock.patch.object(vt.engine, "fetch_comments", side_effect=comments_of))
+        stack.enter_context(mock.patch.object(vt.engine, "gh_login", return_value=ME))
+        stack.enter_context(mock.patch.object(vt.engine, "current_branch", return_value=branch))
+        stack.enter_context(mock.patch.object(vt.engine, "dirty_tracked", return_value=list(dirty)))
+        stack.enter_context(mock.patch.object(vt.engine, "repo_root", return_value=None))
         assign = stack.enter_context(mock.patch.object(vt, "assign_self"))
         stack.enter_context(mock.patch.object(
-            vt, "post_comment", side_effect=lambda n, b: posted.append((n, b))))
+            vt.engine, "post_comment", side_effect=lambda n, b: posted.append((n, b))))
         if not isinstance(vt.read_self, mock.Mock):
             stack.enter_context(mock.patch.object(vt, "read_self", return_value=NAMED_SELF))
         out = stack.enter_context(redirect_stdout(io.StringIO()))
         err = stack.enter_context(redirect_stderr(io.StringIO()))
-        code = vt.run_preflight(number)
+        code = vt.run_claim(number)
     return code, posted, err.getvalue(), assign, out.getvalue()
 
 
@@ -92,12 +92,14 @@ class TestBranch(unittest.TestCase):
         code, posted, err, _ = preflight(branch="main")
         self.assertEqual([n for n, _ in posted], [77])
         self.assertTrue(posted[0][1].startswith("NOT_READY: branch is main, not issue-77"))
-        self.assertEqual(vt.events.first_line(posted[0][1]), err.strip())
+        self.assertEqual(vt.engine.events.first_line(posted[0][1]), err.strip())
         name, payload = event_of(posted[0][1])
         self.assertEqual((name, payload["reason"]), ("ticket.refused", "wrong-branch"))
 
-    def test_the_right_branch_passes(self):
-        code, _, _, assign = preflight(branch="issue-77")
+    def test_claim_posts_ticket_claimed_and_prints_ready(self):
+        code, posted, err, assign, output = run(branch="issue-77")
+        self.assertIn("READY:", output)
+        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
         self.assertEqual(code, 0)
         assign.assert_called_once_with(77)
 
@@ -212,17 +214,17 @@ class TestEveryRefusalSaysStop(unittest.TestCase):
                 code, posted, err, assign = preflight(**case)
                 self.assertEqual(code, 2)
                 self.assertEqual(len(posted), 1)
-                self.assertEqual(vt.events.first_line(posted[0][1]), err.strip())
+                self.assertEqual(vt.engine.events.first_line(posted[0][1]), err.strip())
                 self.assertEqual(event_of(posted[0][1])[0], "ticket.refused")
                 assign.assert_not_called()
 
     def test_each_refusal_names_its_own_reason_on_the_event(self):
         reasons = [event_of(preflight(**case)[1][0][1])[1]["reason"] for case in self.ALL_SIX]
-        self.assertEqual(reasons, list(vt.events.REFUSALS))
+        self.assertEqual(reasons, list(vt.engine.events.REFUSALS))
 
 
 class TestTheTreeOnATicketThisAccountAlreadyHolds(unittest.TestCase):
-    """A worker enters the ticket through `--preflight` every time, the turn it is
+    """A worker enters the ticket through `--claim` every time, the turn it is
     prompted back into after a review included (the `implement` skill's claim and resume). On that turn
     the uncommitted tracked changes are its own work from an earlier turn, so refusing
     them as `dirty-tree` ends a live worker's hold: the ticket then reads `live: false`
@@ -263,7 +265,7 @@ class TestIdempotence(unittest.TestCase):
 
 
 class TestBaselineRun(unittest.TestCase):
-    """After a successful claim, `--preflight` runs non-slot criteria at the base commit."""
+    """After a successful claim, `--claim` runs non-slot criteria at the base commit."""
 
     BODY = """## Parent
 
@@ -319,19 +321,19 @@ class TestBaselineRun(unittest.TestCase):
             started(ticket=77, base=base, into="spec-337",
                     worktree=str(root), branch="issue-77")]
         posted = []
-        with mock.patch.object(vt, "fetch_ticket", return_value=ticket()), \
-             mock.patch.object(vt, "fetch_comments", return_value=history), \
-             mock.patch.object(vt, "fetch_body", return_value=body or self.BODY), \
-             mock.patch.object(vt, "gh_login", return_value=ME), \
-             mock.patch.object(vt, "current_branch", return_value="issue-77"), \
-             mock.patch.object(vt, "dirty_tracked", return_value=[]), \
-             mock.patch.object(vt, "repo_root", return_value=root), \
+        with mock.patch.object(vt.engine, "fetch_ticket", return_value=ticket()), \
+             mock.patch.object(vt.engine, "fetch_comments", return_value=history), \
+             mock.patch.object(vt.engine, "fetch_body", return_value=body or self.BODY), \
+             mock.patch.object(vt.engine, "gh_login", return_value=ME), \
+             mock.patch.object(vt.engine, "current_branch", return_value="issue-77"), \
+             mock.patch.object(vt.engine, "dirty_tracked", return_value=[]), \
+             mock.patch.object(vt.engine, "repo_root", return_value=root), \
              mock.patch.object(vt, "assign_self") as assign, \
-             mock.patch.object(vt, "post_comment",
+             mock.patch.object(vt.engine, "post_comment",
                                side_effect=lambda n, b: posted.append((n, b))):
             with redirect_stdout(io.StringIO()) as out, \
                     redirect_stderr(io.StringIO()) as err:
-                code = vt.run_preflight(77)
+                code = vt.run_claim(77)
         return code, posted, err.getvalue(), out.getvalue(), assign
 
     def test_a_criterion_already_true_on_the_base_is_met_and_the_new_one_is_not(self):
@@ -426,9 +428,9 @@ class TestBaselineRun(unittest.TestCase):
         self.assertEqual(listed.count("worktree "), 1, listed)
 
     def test_gate_check_exit_2_is_not_a_criteria_result(self):
-        self.assertIsNone(vt.check_run_outcome(2, "ALL MET (1 met)"))
-        self.assertEqual(vt.check_run_outcome(0, "ALL MET (1 met)"), "met")
-        self.assertEqual(vt.check_run_outcome(1, "UNMET: 1 (met: 0)"), "unmet")
+        self.assertIsNone(vt.engine.check_run_outcome(2, "ALL MET (1 met)"))
+        self.assertEqual(vt.engine.check_run_outcome(0, "ALL MET (1 met)"), "met")
+        self.assertEqual(vt.engine.check_run_outcome(1, "UNMET: 1 (met: 0)"), "unmet")
 
     def test_every_criterion_skipped_is_not_a_pass(self):
         body = """## Acceptance criteria
@@ -454,78 +456,16 @@ SELF_LEDGER = "- [x] AC1: it works\n  CHECK: true\n  EXPECT: ok\n  EVIDENCE: exi
 HEAD = "a" * 40
 
 
-class TestResume(unittest.TestCase):
-    """`--preflight` prints `RESUME:` after `READY:` for a ticket that already carries a
-    run of the worker's own, a `reviewer.reported`, a `worker.decided`, or a worker
-    reverify — the resume table in the `implement` skill's `## Closing steps`."""
-
-    def resume(self, comments):
-        with mock.patch.object(vt, "git", return_value=HEAD):
-            code, posted, err, _, out = run(number=77, history={77: comments})
-        self.assertEqual(code, 0, err)
-        return out
-
-    def test_a_fresh_ticket_prints_no_resume_line(self):
-        self.assertNotIn("RESUME", self.resume([]))
-
-    def test_a_run_of_your_own_with_no_decision_resumes_at_step_2(self):
-        out = self.resume([checked("self", SELF_LEDGER, ticket=77)])
-        self.assertIn("RESUME: step 2 (no worker.decided)", out)
-
-    def test_a_decision_with_no_reviewer_resumes_at_step_3(self):
-        out = self.resume([checked("self", SELF_LEDGER, ticket=77),
-                           event("worker.decided", "DECISIONS", ticket=77)])
-        self.assertIn("RESUME: step 3 (worker.decided, no reviewer.reported)", out)
-
-    def test_a_live_reviewer_resumes_asleep_at_step_3(self):
-        out = self.resume([
-            checked("self", SELF_LEDGER, ticket=77),
-            event("worker.decided", "DECISIONS", ticket=77),
-            event("reviewer.started", "Reviewer started", ticket=77,
-                  session="rv-1", runner="paseo", machine="mac-1"),
-        ])
-        self.assertIn("RESUME: step 3 (reviewer.started, no reviewer.reported yet)", out)
-
-    def test_a_report_older_than_your_own_run_resumes_at_step_4(self):
-        out = self.resume([
-            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
-                  ticket=77, base="a" * 7, head="b" * 7),
-            checked("self", SELF_LEDGER, ticket=77),
-            event("worker.decided", "DECISIONS", ticket=77),
-        ])
-        self.assertIn("RESUME: step 4 "
-                      "(a run of your own since reviewer.reported, no worker reverify)", out)
-
-    def test_a_report_newer_than_your_own_run_resumes_at_its_fix_round(self):
-        out = self.resume([
-            checked("self", SELF_LEDGER, ticket=77),
-            event("worker.decided", "DECISIONS", ticket=77),
-            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
-                  ticket=77, base="a" * 7, head="b" * 7),
-        ])
-        self.assertIn("RESUME: step 3 (reviewer.reported, no run of your own since)", out)
-
-    def test_a_worker_reverify_on_head_with_nothing_newer_resumes_at_step_5(self):
-        out = self.resume([
-            event("worker.decided", "DECISIONS", ticket=77),
-            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
-                  ticket=77, base="a" * 7, head="b" * 7),
-            checked("self", SELF_LEDGER, ticket=77),
-            checked("reverify", SELF_LEDGER, ticket=77, actor="worker", commit=HEAD),
-        ])
-        self.assertIn("RESUME: step 5 (worker reverify on HEAD)", out)
-
-    def test_a_returned_ticket_resumes_at_step_1_then_4(self):
-        out = self.resume([
-            checked("self", SELF_LEDGER, ticket=77),
-            event("worker.decided", "DECISIONS", ticket=77),
-            event("reviewer.reported", "REVIEW aaa..bbb\n\n## In-ticket\n\nNone\n",
-                  ticket=77, base="a" * 7, head="b" * 7),
-            checked("reverify", SELF_LEDGER, ticket=77, actor="worker", commit=HEAD),
-            event("ticket.returned", "HANDOFF REQUIRED", ticket=77),
-        ])
-        self.assertIn("RESUME: step 1, then step 4 onward (ticket.returned)", out)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestClaimOutput(unittest.TestCase):
+    def test_claim_prints_no_resume_line(self):
+        code, posted, err, assign, output = run()
+        self.assertEqual(code, 0, err)
+        self.assertIn("READY:", output)
+        self.assertEqual(event_of(posted[0][1])[0], "ticket.claimed")
+        self.assertNotIn("RESUME:", output + err)

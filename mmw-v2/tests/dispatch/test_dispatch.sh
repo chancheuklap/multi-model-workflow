@@ -3708,13 +3708,13 @@ scenario_reverify() {
   # The real run posts its own `ticket.checked` on the ticket; this one posts the same
   # event straight into the fake tracker. FAKE_VERIFY_WAIT: it waited for a product slot
   # and none came free (exit 3), and posted nothing.
-  cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
+  cat > "$copy/scripts/ticket_state.py" <<'PY'
 #!/usr/bin/env python3
 import json, os, subprocess, sys
 from pathlib import Path
 log = os.environ["MMW_TEST_LOG"]
 with open(log, "a", encoding="utf-8") as fh:
-    fh.write("verify-ticket" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
+    fh.write("ticket-state" + "".join(" :: " + a for a in sys.argv[1:]) + "\n")
 number = sys.argv[1]
 if number in os.environ.get("FAKE_VERIFY_WAIT", "").split(","):
     sys.exit(3)
@@ -3740,7 +3740,7 @@ store.write_text(json.dumps(posted))
 print("UNMET: 1 (met: 4)" if failed else "ALL MET (5 met)")
 sys.exit(1 if failed else 0)
 PY
-  chmod +x "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+  chmod +x "$copy/scripts/ticket_state.py"
 
   fresh_repo
   write_batch
@@ -3751,8 +3751,8 @@ PY
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 1 ] || fail "expected exit 1, got $code: $(cat "$TMP/err")"
   echo "--- each run is the orchestrator's reverify, and a green one writes nothing but its own run"
-  has "verify-ticket :: 61 :: --reverify :: --actor :: main"
-  has "verify-ticket :: 62 :: --reverify :: --actor :: main"
+  has "ticket-state :: 61 :: --run-and-record-criteria :: --reverify :: --actor :: main"
+  has "ticket-state :: 62 :: --run-and-record-criteria :: --reverify :: --actor :: main"
   hasnt "gh :: issue :: comment :: 61"
   [ "$(posted_events 61 run actor | tr '\n' '|')" = "ticket.landed run=None actor=main|ticket.checked run=reverify actor=main|" ] \
     || fail "#61 should carry its landing and the reverify's ticket.checked only: $(posted_events 61 run actor)"
@@ -3798,8 +3798,8 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  has "verify-ticket :: 61 :: --reverify"
-  hasnt "verify-ticket :: 62 :: --reverify"
+  has "ticket-state :: 61 :: --run-and-record-criteria :: --reverify"
+  hasnt "ticket-state :: 62 :: --run-and-record-criteria :: --reverify"
   grep -q "#62 passed and has not landed" "$TMP/err" \
     || fail "the skipped ticket should be named: $(cat "$TMP/err")"
 
@@ -3823,7 +3823,7 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "expected exit 0 once the reopened ticket is green, got $code: $(cat "$TMP/err")"
-  has "verify-ticket :: 62 :: --reverify :: --actor :: main"
+  has "ticket-state :: 62 :: --run-and-record-criteria :: --reverify :: --actor :: main"
   has "gh :: issue :: edit :: 62 :: --remove-label :: needs-triage"
   has "gh :: issue :: close :: 62 :: --reason :: completed"
   posted_events 62 commit | grep -q "^ticket.recovered commit=" \
@@ -3858,7 +3858,7 @@ PY
   code="$(run_dispatch env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" FAKE_VERIFY_FAIL= \
           bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" reverify 76)"
   [ "$code" = 0 ] || fail "expected exit 0, got $code: $(cat "$TMP/err")"
-  hasnt "verify-ticket :: 62 :: --reverify"
+  hasnt "ticket-state :: 62 :: --run-and-record-criteria :: --reverify"
   hasnt "gh :: issue :: close :: 62"
 }
 
@@ -11246,7 +11246,7 @@ scenario_landviaorigin() {
 scenario_reverifyorigin() {
   local copy other remote_head passed code
   copy="$(skill_copy_for reverifyorigin)"
-  cat > "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py" <<'PY'
+  cat > "$copy/scripts/ticket_state.py" <<'PY'
 #!/usr/bin/env python3
 import json, os, subprocess, sys
 from pathlib import Path
@@ -11263,7 +11263,7 @@ rows.setdefault(number, []).append(body)
 store.write_text(json.dumps(rows))
 print("ALL MET (1 met)")
 PY
-  chmod +x "$TMP/fake/skills/verify-ticket/scripts/verify-ticket.py"
+  chmod +x "$copy/scripts/ticket_state.py"
   fresh_repo
   passed="$(git -C "$TMP/repo" rev-parse HEAD)"
   other="$(other_clone)"

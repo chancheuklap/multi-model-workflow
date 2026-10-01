@@ -1,4 +1,4 @@
-"""`--draft`: write the closing-comment draft, with two `<fill>` placeholders."""
+"""`--closing-draft`: write the closing-comment draft, with two `<fill>` placeholders."""
 
 import io
 import json
@@ -43,7 +43,7 @@ LEDGER = """- [x] AC1: the importer writes six rows
 
 def self_run(ledger, summary, outside_owns=()):
     """The worker's own run of `ledger` as its `ticket.checked` event."""
-    abandons = vt.parse_abandons(ledger)
+    abandons = vt.engine.parse_abandons(ledger)
     return checked("self", ledger, summary, outside_owns=list(outside_owns),
                    abandons=abandons or None)
 
@@ -105,7 +105,7 @@ DECISIONS = event("worker.decided", DECISIONS)
 
 
 class FakeGh:
-    """`gh` by argv, plus the `git` calls `--draft` and `draft_problems` make."""
+    """`gh` by argv, plus the `git` calls `--closing-draft` and `draft_problems` make."""
 
     def __init__(self, comments, body=BODY, sub_issues=()):
         self.comments = list(comments)
@@ -165,7 +165,7 @@ class FakeGh:
         return result
 
 
-def run_draft(comments, body=BODY, sub_issues=(), started_event=STARTED):
+def run_closing_draft(comments, body=BODY, sub_issues=(), started_event=STARTED):
     """Write a closing-comment draft for ticket 77 to a named file; return (exit, stderr, text, fake)."""
     with TemporaryDirectory() as tmp:
         code, _, err, text, _, fake = draft_run(
@@ -175,13 +175,13 @@ def run_draft(comments, body=BODY, sub_issues=(), started_event=STARTED):
 
 
 def draft_run(comments, out_file, body=BODY, sub_issues=(), started_event=STARTED):
-    """One `--draft` run for ticket 77, with `out_file` as its path argument (None asks
+    """One `--closing-draft` run for ticket 77, with `out_file` as its path argument (None asks
     the run to pick one); return (exit, stdout, stderr, text, path written, fake)."""
     starts = started_event if isinstance(started_event, tuple) else (started_event,)
     fake = FakeGh((*starts, *comments), body=body, sub_issues=sub_issues)
     with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
         with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
-            code = vt.run_draft(77, out_file)
+            code = vt.run_closing_draft(77, out_file)
     printed = out.getvalue()
     found = re.search(r"^DRAFT: wrote (.+)$", printed, flags=re.M)
     path = Path(found.group(1)) if found else out_file
@@ -197,7 +197,7 @@ class TestWhereTheDraftLands(unittest.TestCase):
     names in `.mmw/closeout-831.md`, the draft it had just written. So a run given no path
     picks one outside every repository and prints it."""
 
-    def test_no_path_writes_outside_the_repository_and_prints_where(self):
+    def test_closing_draft_prints_the_path_it_wrote(self):
         code, out, err, text, path, _ = draft_run((MET_RUN,), None)
         self.addCleanup(shutil.rmtree, path.parent, ignore_errors=True)
         self.assertEqual(code, 0, err)
@@ -225,12 +225,12 @@ class TestWhereTheDraftLands(unittest.TestCase):
 
 class TestFirstLine(unittest.TestCase):
     def test_all_met_when_the_self_run_has_no_failed_or_stuck_abandon(self):
-        code, err, text, _ = run_draft((MET_RUN,))
+        code, err, text, _ = run_closing_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
         self.assertEqual(text.splitlines()[0], "ALL MET")
 
     def test_handoff_when_the_self_run_abandons_as_failed(self):
-        code, err, text, _ = run_draft((FAILED_RUN,))
+        code, err, text, _ = run_closing_draft((FAILED_RUN,))
         self.assertEqual(code, 0, err)
         first = text.splitlines()[0]
         self.assertTrue(first.startswith("HANDOFF REQUIRED:"), first)
@@ -239,14 +239,14 @@ class TestFirstLine(unittest.TestCase):
         self.assertIn("0 met of 1", first)
 
     def test_handoff_when_the_self_run_abandons_as_stuck(self):
-        code, err, text, _ = run_draft((STUCK_RUN,))
+        code, err, text, _ = run_closing_draft((STUCK_RUN,))
         self.assertEqual(code, 0, err)
         first = text.splitlines()[0]
         self.assertTrue(first.startswith("HANDOFF REQUIRED:"), first)
         self.assertIn("abandoned (stuck)", first)
 
     def test_all_met_when_the_self_run_abandons_as_decision(self):
-        code, err, text, _ = run_draft((DECISION_RUN,))
+        code, err, text, _ = run_closing_draft((DECISION_RUN,))
         self.assertEqual(code, 0, err)
         self.assertEqual(text.splitlines()[0], "ALL MET")
         self.assertIn("ABANDON: AC1 decision", text)
@@ -256,21 +256,21 @@ class TestOnlyTheRunsEventIsRead(unittest.TestCase):
     def test_a_typed_self_run_comment_is_not_a_run(self):
         """A comment whose first line is `self-run` and that carries no event is prose:
         the closing-comment draft takes its ticks and its Outside Owns from nothing."""
-        code, err, text, _ = run_draft((TYPED_SELF_RUN,))
+        code, err, text, _ = run_closing_draft((TYPED_SELF_RUN,))
         self.assertEqual(code, 0, err)
         self.assertIn("- [ ] AC1: the importer writes six rows", text)
         self.assertIn("EVIDENCE: pending", text)
         self.assertIn("Outside Owns: None", text)
 
     def test_the_newest_self_run_is_the_one_read(self):
-        code, err, text, _ = run_draft((FILES_RUN, MET_RUN))
+        code, err, text, _ = run_closing_draft((FILES_RUN, MET_RUN))
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: None", text)
 
 
 class TestFixedLines(unittest.TestCase):
     def test_draft_names_into_from_worker_started(self):
-        code, err, text, _ = run_draft(
+        code, err, text, _ = run_closing_draft(
             (MET_RUN,), started_event=(started(into="main"), STARTED))
         self.assertEqual(code, 0, err)
         self.assertIn(
@@ -280,7 +280,7 @@ class TestFixedLines(unittest.TestCase):
         )
 
     def test_draft_refuses_a_ticket_started_without_into(self):
-        code, err, text, _ = run_draft(
+        code, err, text, _ = run_closing_draft(
             (MET_RUN,),
             started_event=(started(into="main"), STARTED_BEFORE_SWITCH))
         self.assertNotEqual(code, 0)
@@ -291,12 +291,12 @@ class TestFixedLines(unittest.TestCase):
     def test_the_draft_carries_no_line_about_commits_after_the_final_run(self):
         """A worker's account of its own commits settled nothing, so the closing-comment draft
         stopped asking for one."""
-        code, err, text, _ = run_draft((MET_RUN,))
+        code, err, text, _ = run_closing_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
         self.assertNotIn("Post-verdict:", text)
 
     def test_each_criterion_carries_four_lines_and_the_self_run_evidence(self):
-        code, err, text, _ = run_draft((MET_RUN,))
+        code, err, text, _ = run_closing_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
         self.assertIn("- [x] AC1: the importer writes six rows", text)
         self.assertIn("CHECK: pytest -q tests/test_import.py", text)
@@ -304,18 +304,18 @@ class TestFixedLines(unittest.TestCase):
         self.assertIn("EVIDENCE: exit=0; EXPECT=matched; output-bytes=9", text)
 
     def test_outside_owns_none_is_copied(self):
-        code, err, text, _ = run_draft((MET_RUN, REVIEW))
+        code, err, text, _ = run_closing_draft((MET_RUN, REVIEW))
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: None", text)
 
     def test_outside_owns_files_carry_the_spec_axis_judgement(self):
-        code, err, text, _ = run_draft((FILES_RUN, REVIEW, DECISIONS))
+        code, err, text, _ = run_closing_draft((FILES_RUN, REVIEW, DECISIONS))
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: src/helper.py (reasonable)", text)
 
     def test_a_should_not_judgement_is_copied(self):
         review = REVIEW.replace("reasonable", "should not")
-        code, err, text, _ = run_draft((FILES_RUN, review, DECISIONS))
+        code, err, text, _ = run_closing_draft((FILES_RUN, review, DECISIONS))
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: src/helper.py (should not)", text)
         self.assertNotIn("(reasonable)", text)
@@ -331,7 +331,7 @@ None
 
 None
 """, base="abcdef0", head="1234567")
-        code, err, text, _ = run_draft((FILES_RUN, silent, DECISIONS))
+        code, err, text, _ = run_closing_draft((FILES_RUN, silent, DECISIONS))
         self.assertEqual(code, 0, err)
         self.assertIn("Outside Owns: src/helper.py", text)
         self.assertNotIn("(reasonable)", text)
@@ -339,7 +339,7 @@ None
 
     def test_sub_issues_from_the_ticket(self):
         """The line lists every child of this ticket, queried on this ticket's number."""
-        code, err, text, fake = run_draft(
+        code, err, text, fake = run_closing_draft(
             (MET_RUN,),
             sub_issues=(90, 91),
         )
@@ -351,12 +351,12 @@ None
         self.assertEqual(line, "Sub-issues opened: #90, #91")
 
     def test_counts_agrees_with_the_body(self):
-        code, err, text, _ = run_draft((MET_RUN,))
+        code, err, text, _ = run_closing_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
         self.assertIn("Counts: 1 met, 0 unmet, 0 abandoned of 1", text)
 
     def test_skipped_and_decisions_are_left_as_fill(self):
-        code, err, text, _ = run_draft((MET_RUN,))
+        code, err, text, _ = run_closing_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
         self.assertIn("skipped: <fill>", text)
         self.assertIn("Decisions I made on my own", text)
@@ -366,7 +366,7 @@ None
 class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
     def test_filling_both_placeholders_leaves_draft_problems_empty(self):
         comments = (MET_RUN,)
-        code, err, text, fake = run_draft(comments)
+        code, err, text, fake = run_closing_draft(comments)
         self.assertEqual(code, 0, err)
         filled = text.replace(vt.FILL, "none")
         self.assertNotIn(vt.FILL, filled)
@@ -377,7 +377,7 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
         """A closing-comment draft is well formed on its face while the closeout still requires
         the worker's final run."""
         comments = (MET_RUN,)
-        code, err, text, fake = run_draft(comments)
+        code, err, text, fake = run_closing_draft(comments)
         self.assertEqual(code, 0, err)
         self.assertEqual(text.splitlines()[0], "ALL MET")
         filled = text.replace(vt.FILL, "none")
@@ -391,7 +391,7 @@ class TestFilledDraftPassesCloseoutChecks(unittest.TestCase):
 class TestCloseoutRefusesTheUnfilledSkeleton(unittest.TestCase):
     def test_closeout_refuses_a_draft_that_still_has_fill(self):
         comments = (MET_RUN,)
-        code, err, text, fake = run_draft(comments)
+        code, err, text, fake = run_closing_draft(comments)
         self.assertEqual(code, 0, err)
         self.assertIn("<fill>", text)
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
@@ -436,10 +436,10 @@ BASELINE_GREEN = checked(
 
 
 class TestReviewFindingsInTheDraft(unittest.TestCase):
-    """`--draft` prefills `Review findings:` from the newest `## In-ticket` list."""
+    """`--closing-draft` prefills `Review findings:` from the newest `## In-ticket` list."""
 
     def test_each_in_ticket_finding_is_prefilled_with_fill(self):
-        code, err, text, _ = run_draft((MET_RUN, IN_TICKET_REVIEW))
+        code, err, text, _ = run_closing_draft((MET_RUN, IN_TICKET_REVIEW))
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:", text)
         self.assertIn(
@@ -450,31 +450,31 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
             "source: #77 AC1 CHECK — <fill>", text)
 
     def test_out_of_ticket_and_withdrawn_findings_are_not_prefilled(self):
-        code, err, text, _ = run_draft((MET_RUN, IN_TICKET_REVIEW))
+        code, err, text, _ = run_closing_draft((MET_RUN, IN_TICKET_REVIEW))
         self.assertEqual(code, 0, err)
         self.assertNotIn("src/other.py:9", text)
         self.assertNotIn("src/app.py:40", text)
 
     def test_none_when_the_review_lists_no_in_ticket_finding(self):
-        code, err, text, _ = run_draft((MET_RUN, REVIEW))
+        code, err, text, _ = run_closing_draft((MET_RUN, REVIEW))
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
 
     def test_none_with_a_period_is_an_empty_review_not_a_worker_blocker(self):
         review = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n"
                        "## In-ticket\n\nNone.\n", base="abcdef0", head="1234567")
-        code, err, text, _ = run_draft((MET_RUN, review))
+        code, err, text, _ = run_closing_draft((MET_RUN, review))
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
 
     def test_none_when_the_ticket_carries_no_review(self):
-        code, err, text, _ = run_draft((MET_RUN,))
+        code, err, text, _ = run_closing_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
 
     def test_closeout_refuses_the_prefilled_skeleton(self):
         comments = (MET_RUN, IN_TICKET_REVIEW)
-        code, err, text, fake = run_draft(comments)
+        code, err, text, fake = run_closing_draft(comments)
         self.assertEqual(code, 0, err)
         filled = (text
                   .replace(f"skipped: {vt.FILL}", "skipped: none")
@@ -487,7 +487,7 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
 
     def test_replacing_review_finding_fills_clears_the_draft(self):
         comments = (MET_RUN, IN_TICKET_REVIEW)
-        code, err, text, fake = run_draft(comments)
+        code, err, text, fake = run_closing_draft(comments)
         self.assertEqual(code, 0, err)
         filled = (text
                   .replace("- Spec [wrong-behavior] src/app.py:12 — the importer skips a "
@@ -518,7 +518,7 @@ None
 
 None
 """, base="abcdef0", head="1234567")
-        code, err, text, _ = run_draft((MET_RUN, older, newer))
+        code, err, text, _ = run_closing_draft((MET_RUN, older, newer))
         self.assertEqual(code, 0, err)
         self.assertIn("Review findings:\nNone", text)
         self.assertNotIn("src/app.py:12", text)
@@ -537,7 +537,7 @@ CAT_REVIEW = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket
 
 class TestCategorizedReviewFindings(unittest.TestCase):
     def test_category_source_and_all_four_rows_survive(self):
-        code, err, text, _ = run_draft((MET_RUN, CAT_REVIEW))
+        code, err, text, _ = run_closing_draft((MET_RUN, CAT_REVIEW))
         self.assertEqual(code, 0, err)
         block = text.split("Review findings:\n", 1)[1].split("\n\n", 1)[0]
         self.assertNotEqual(block, "None")
@@ -560,17 +560,17 @@ class TestCategorizedReviewFindings(unittest.TestCase):
 
 
 class TestGreenBeforeWork(unittest.TestCase):
-    """`--draft` prefills `Green before work:` from a `baseline` run's met criteria."""
+    """`--closing-draft` prefills `Green before work:` from a `baseline` run's met criteria."""
 
     def test_each_criterion_already_green_on_the_base_is_prefilled(self):
-        code, err, text, _ = run_draft((BASELINE_GREEN, MET_RUN))
+        code, err, text, _ = run_closing_draft((BASELINE_GREEN, MET_RUN))
         self.assertEqual(code, 0, err)
         self.assertIn("Green before work:", text)
         self.assertIn("- AC1: <fill>", text)
         self.assertNotIn("- AC2: <fill>", text)
 
     def test_none_when_no_baseline_run_is_on_the_ticket(self):
-        code, err, text, _ = run_draft((MET_RUN,))
+        code, err, text, _ = run_closing_draft((MET_RUN,))
         self.assertEqual(code, 0, err)
         self.assertIn("Green before work:\nnot run: no baseline `ticket.checked`", text)
         self.assertNotIn("Green before work:\nNone", text)
@@ -585,21 +585,21 @@ class TestGreenBeforeWork(unittest.TestCase):
             "UNMET: 1 (met: 0)",
             commit="0" * 40,
         )
-        code, err, text, _ = run_draft((red, MET_RUN))
+        code, err, text, _ = run_closing_draft((red, MET_RUN))
         self.assertEqual(code, 0, err)
         self.assertIn("Green before work:\nNone", text)
         self.assertNotIn("not run:", text)
 
     def test_a_baseline_tick_does_not_count_as_a_run_of_your_own(self):
         """`newest_run` for the closing-comment draft's ticks still reads only `self`."""
-        code, err, text, _ = run_draft((BASELINE_GREEN,))
+        code, err, text, _ = run_closing_draft((BASELINE_GREEN,))
         self.assertEqual(code, 0, err)
         self.assertIn("- [ ] AC1: the importer writes six rows", text)
         self.assertIn("EVIDENCE: pending", text)
 
     def test_closeout_refuses_an_unfilled_green_before_work_line(self):
         comments = (BASELINE_GREEN, MET_RUN)
-        code, err, text, fake = run_draft(comments)
+        code, err, text, fake = run_closing_draft(comments)
         self.assertEqual(code, 0, err)
         filled = (text
                   .replace(f"skipped: {vt.FILL}", "skipped: none")

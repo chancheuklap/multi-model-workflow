@@ -100,6 +100,7 @@ BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
 # `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
+TICKET_STATE="$SKILL_ROOT/scripts/ticket_state.py"
 LEASE=""
 
 # The row a ticket with no `*-worker` label starts from.
@@ -2865,13 +2866,13 @@ repo_checks_met() {
 MERGE_CHECKS_JSON=""
 run_merge_checks() {
   local root="$1" into="$2"
-  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" <<'PY'
+  MERGE_CHECKS_JSON="$(python3 - "$TICKET_STATE" "$root" "$into" <<'PY'
 import importlib.util, json, sys
 from pathlib import Path
 
 script, root, into = sys.argv[1:]
 sys.path.insert(0, str(Path(script).resolve().parent))
-spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+spec = importlib.util.spec_from_file_location("mmw_ticket_state", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
@@ -3672,7 +3673,7 @@ recover_ticket() {
 reverify_spec() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-  [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
+  [ -f "$TICKET_STATE" ] || refuse "no ticket_state.py beside dispatch.sh"
 
   local caller_root root git_dir commit plan number rc printed ids login into first
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -3709,7 +3710,7 @@ reverify_spec() {
     # The run writes its own `ticket.checked` (run `reverify`, actor `main`), which is the
     # whole record of a green one.
     printed="$(cd "$root" && env MMW_BASE_REF="origin/$into" \
-      python3 "$VERIFY" "$number" --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
+      python3 "$TICKET_STATE" "$number" --run-and-record-criteria --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
     # Red is exit 1 and a reverify ticket.checked of this HEAD that is not met; every

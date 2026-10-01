@@ -37,7 +37,7 @@ STALE_FINAL_RUN = checked("reverify", [MET], "ALL MET (1 met)",
 
 def posted_as(body):
     """A posted closing comment as `(prose, event name)`: the draft, then its event."""
-    what, payload = vt.events.parse(body)
+    what, payload = vt.engine.events.parse(body)
     assert what == "event", (what, payload, body)
     return body[:body.index("\n\n<!-- mmw")] + "\n", payload["event"]
 
@@ -50,7 +50,7 @@ def ledger_of(text):
     a ledger that had one would not describe the same criteria as the body.
     """
     lines = text.splitlines()
-    start = next((i for i, line in enumerate(lines) if vt.GATE_LINE_RE.match(line)), None)
+    start = next((i for i, line in enumerate(lines) if vt.engine.GATE_LINE_RE.match(line)), None)
     if start is None:
         return []
     end = next((i for i, line in enumerate(lines[start:], start)
@@ -78,7 +78,7 @@ def self_runs(block, rounds):
 
 
 def is_reverify(comment):
-    what, payload = vt.events.parse(comment)
+    what, payload = vt.engine.events.parse(comment)
     return (what == "event" and payload["event"] == "ticket.checked"
             and payload["run"] == "reverify")
 
@@ -89,7 +89,7 @@ def draft(first="ALL MET", criteria=(MET,), abandons=(), counts=None):
     for i, block in enumerate(criteria):
         body.append(block)
         for line in abandons:
-            if line.split()[1] == vt.parse_criteria(block)[0]["id"]:
+            if line.split()[1] == vt.engine.parse_criteria(block)[0]["id"]:
                 body.append(line)
     body += ["", "Outside Owns: None"]
     if counts is not None:
@@ -157,18 +157,18 @@ def check(text, comments=(),
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "closeout.md"
         path.write_text(text, encoding="utf-8")
-        with mock.patch.object(vt, "fetch_comments", return_value=list(comments)), \
-             mock.patch.object(vt, "fetch_ticket", return_value=ticket), \
-             mock.patch.object(vt, "fetch_body", return_value=body), \
-             mock.patch.object(vt, "gh_login", return_value=ME), \
-             mock.patch.object(vt, "repo_root", return_value=repo), \
-             mock.patch.object(vt, "git", side_effect=fake_git), \
-             mock.patch.object(vt, "is_ancestor", side_effect=fake_is_ancestor), \
-             mock.patch.object(vt, "dirty_tracked", side_effect=lambda root=None: list(dirty)), \
+        with mock.patch.object(vt.engine, "fetch_comments", return_value=list(comments)), \
+             mock.patch.object(vt.engine, "fetch_ticket", return_value=ticket), \
+             mock.patch.object(vt.engine, "fetch_body", return_value=body), \
+             mock.patch.object(vt.engine, "gh_login", return_value=ME), \
+             mock.patch.object(vt.engine, "repo_root", return_value=repo), \
+             mock.patch.object(vt.engine, "git", side_effect=fake_git), \
+             mock.patch.object(vt.engine, "is_ancestor", side_effect=fake_is_ancestor), \
+             mock.patch.object(vt.engine, "dirty_tracked", side_effect=lambda root=None: list(dirty)), \
              mock.patch.object(vt, "push_ticket_branch",
                                side_effect=lambda *args: pushed.append(args)
                                if pushed is not None else None), \
-             mock.patch.object(vt, "post_comment", side_effect=post), \
+             mock.patch.object(vt.engine, "post_comment", side_effect=post), \
              mock.patch.object(vt, "close_ticket", side_effect=change("closed")), \
              mock.patch.object(vt, "hand_back_for_triage", side_effect=change("handed")), \
              mock.patch.object(vt, "closeout_lock", return_value=nullcontext()):
@@ -406,7 +406,7 @@ class TestACheckThatNeededAFence(unittest.TestCase):
     """
 
     def test_a_fenced_command_does_not_hide_its_evidence(self):
-        criteria = vt.parse_criteria(FENCED)
+        criteria = vt.engine.parse_criteria(FENCED)
         self.assertEqual(len(criteria), 1)
         self.assertIn("EXPECT=matched", criteria[0]["evidence"])
         self.assertFalse(criteria[0]["stray"])
@@ -421,7 +421,7 @@ class TestACheckThatNeededAFence(unittest.TestCase):
         self.assertIn("fenced block", err)
 
     def test_one_criterion_does_not_swallow_the_next(self):
-        criteria = vt.parse_criteria(FENCED + "\n" + UNMET)
+        criteria = vt.engine.parse_criteria(FENCED + "\n" + UNMET)
         self.assertEqual([c["id"] for c in criteria], ["AC4", "AC2"])
         self.assertEqual(criteria[1]["evidence"], "pending")
 
@@ -689,7 +689,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                          [(77, (text, "ticket.passed"))])
         self.assertEqual(seen["closed"], [77])
         self.assertEqual(seen["handed"], [])
-        payload = vt.events.parse(seen["posted"][0][1])[1]
+        payload = vt.engine.events.parse(seen["posted"][0][1])[1]
         self.assertEqual(payload["into"], "spec-337")
 
     def test_handoff_posts_the_draft_and_swaps_the_label(self):
@@ -701,7 +701,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual([(n, posted_as(b)) for n, b in seen["posted"]],
                          [(77, (text, "ticket.returned"))])
-        payload = vt.events.parse(seen["posted"][0][1])[1]
+        payload = vt.engine.events.parse(seen["posted"][0][1])[1]
         self.assertEqual(payload["abandoned"], [
             {"ac": "AC2", "kind": "stuck",
              "reason": "chromium will not start here; tried the bundled build too"}])
@@ -717,7 +717,7 @@ class TestNoSideEffectOnFail(unittest.TestCase):
                      counts=counts_line(met=1, abandoned=1, total=2))
         code, err, seen = check(text, check_only=False, started_event=started(base="main"))
         self.assertEqual(code, 0, err)
-        payload = vt.events.parse(seen["posted"][0][1])[1]
+        payload = vt.engine.events.parse(seen["posted"][0][1])[1]
         self.assertEqual(payload["event"], "ticket.returned")
         self.assertNotIn("into", payload)
 
@@ -770,7 +770,7 @@ def write_checks(root: Path, commands):
 
 def repo_checks(posted):
     """The payload of the one `ticket.checked` (run `repo-checks`) among posted bodies."""
-    found = [vt.events.parse(b)[1] for _, b in posted]
+    found = [vt.engine.events.parse(b)[1] for _, b in posted]
     found = [p for p in found if p["event"] == "ticket.checked" and p["run"] == "repo-checks"]
     assert len(found) == 1, found
     return found[0]
@@ -884,21 +884,21 @@ class TestTargetJsonChecks(unittest.TestCase):
             marker = root / "ran.marker"
             write_checks(root, [f"touch '{marker}'"])
             posted = []
-            with mock.patch.object(vt, "repo_root", return_value=root), \
-                 mock.patch.object(vt, "fetch_body", return_value=body), \
-                 mock.patch.object(vt, "fetch_ticket",
+            with mock.patch.object(vt.engine, "repo_root", return_value=root), \
+                 mock.patch.object(vt.engine, "fetch_body", return_value=body), \
+                 mock.patch.object(vt.engine, "fetch_ticket",
                                    return_value={"labels": [{"name": "ready-for-agent"},
                                                             {"name": "junior-worker"}],
                                                  "state": "OPEN"}), \
-                 mock.patch.object(vt, "fetch_comments", return_value=[]), \
-                 mock.patch.object(vt, "fetch_parent", return_value=None), \
-                 mock.patch.object(vt, "post_comment",
+                 mock.patch.object(vt.engine, "fetch_comments", return_value=[]), \
+                 mock.patch.object(vt.engine, "fetch_parent", return_value=None), \
+                 mock.patch.object(vt.engine, "post_comment",
                                    side_effect=lambda n, b: posted.append(b)):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                    vt.run_lint(77)
-                    code = vt.run_checks(77, True)
+                    vt.engine.run_lint(77)
+                    code = vt.run_and_record_criteria(77, True)
             self.assertEqual(code, 0)
-            self.assertEqual([vt.events.parse(b)[1]["run"] for b in posted], ["reverify"])
+            self.assertEqual([vt.engine.events.parse(b)[1]["run"] for b in posted], ["reverify"])
             self.assertFalse(marker.exists())
 
     def test_malformed_checks_do_not_close(self):
@@ -913,7 +913,7 @@ class TestTargetJsonChecks(unittest.TestCase):
         self.assertEqual(seen["closed"], [])
         self.assertIn("not a list", repo_checks(seen["posted"])["problem"])
 
-    def test_handoff_does_not_run_checks(self):
+    def test_handoff_does_not_run_and_record_criteria(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_checks(root, ["false"])
@@ -964,7 +964,7 @@ class TestCloseoutPush(unittest.TestCase):
         comments = [started(base=base, into="spec-337"),
                     reverify_of(ledger).replace(HEAD, head)]
         posted, closed = [], []
-        real_git = vt.git
+        real_git = vt.engine.git
 
         def git_in_worktree(*args, cwd=None):
             return real_git(*args, cwd=cwd or work)
@@ -972,15 +972,15 @@ class TestCloseoutPush(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "closeout.md"
             path.write_text(text, encoding="utf-8")
-            with mock.patch.object(vt, "repo_root", return_value=work), \
-                 mock.patch.object(vt, "fetch_comments", return_value=comments), \
-                 mock.patch.object(vt, "fetch_body", return_value=acceptance_body(ledger)), \
-                 mock.patch.object(vt, "fetch_ticket", return_value={
+            with mock.patch.object(vt.engine, "repo_root", return_value=work), \
+                 mock.patch.object(vt.engine, "fetch_comments", return_value=comments), \
+                 mock.patch.object(vt.engine, "fetch_body", return_value=acceptance_body(ledger)), \
+                 mock.patch.object(vt.engine, "fetch_ticket", return_value={
                      "state": "OPEN", "labels": [{"name": "ready-for-agent"}],
                      "assignees": [{"login": ME}], "blockedBy": {"nodes": []}}), \
-                 mock.patch.object(vt, "gh_login", return_value=ME), \
-                 mock.patch.object(vt, "git", side_effect=git_in_worktree), \
-                 mock.patch.object(vt, "post_comment", side_effect=lambda n, b: posted.append(b)), \
+                 mock.patch.object(vt.engine, "gh_login", return_value=ME), \
+                 mock.patch.object(vt.engine, "git", side_effect=git_in_worktree), \
+                 mock.patch.object(vt.engine, "post_comment", side_effect=lambda n, b: posted.append(b)), \
                  mock.patch.object(vt, "close_ticket", side_effect=lambda n: closed.append(n)):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                     code = vt.run_closeout(77, path, False)
@@ -995,7 +995,7 @@ class TestCloseoutPush(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(remote_head, head)
         self.assertEqual(closed, [77])
-        self.assertEqual(vt.events.parse(posted[-1])[1]["into"], "spec-337")
+        self.assertEqual(vt.engine.events.parse(posted[-1])[1]["into"], "spec-337")
 
     def test_closeout_refuses_when_the_push_is_rejected(self):
         with TemporaryDirectory() as tmp:
