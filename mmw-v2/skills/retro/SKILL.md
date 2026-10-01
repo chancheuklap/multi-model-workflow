@@ -129,7 +129,8 @@ The script writes outputs; the agent judges causes and dispositions.
      `repository-skill` destination, only when no existing skill is a real home,
      the pattern recurs, and the topic deserves its own skill.
    - Decision-changing: a future agent does something different because of the
-     edit, not just reads more text.
+     change, not just reads more text. A Prevention that fails this is rewritten
+     until it passes, or gets the destination `none`.
    - Structural-mechanism check: route to the `check` or `script` destination
      when a lint rule, script, metadata flag, or runtime check already enforces
      the rule or could enforce it cheaply. Skill prose is for things mechanisms
@@ -137,8 +138,8 @@ The script writes outputs; the agent judges causes and dispositions.
      **principle-build-the-lever**).
    - Already-covered: read the file a Prevention would change before you record
      it. If the Prevention duplicates clear, well-placed existing guidance, give
-     it the destination `none` and name that guidance in its `text`. The issue
-     is execution, not the skill. If the existing guidance is buried, weak, or
+     it the destination `none` and name that guidance in its `text`: what failed
+     is following that guidance, not the guidance. If the existing guidance is buried, weak, or
      easy to skip past, write the Prevention as a wording / placement
      improvement to make it fire (not a duplicate addition).
 10. Every prevention has a standing cost: a check runs on every commit, and an

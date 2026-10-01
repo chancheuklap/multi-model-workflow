@@ -7,7 +7,7 @@ For a session reading an imported pstack file that names a tool, a setting, a sk
 | --- | --- |
 | `mode: true`, `reminder` | No host here keeps a mode loaded for a whole session. The `mmw` skill takes its place, loaded by its description or by a prompt that names it. |
 | **poteto-mode**, `/poteto-mode` | The `mmw` skill. |
-| "your configured <label> model", a `<label>` row of `~/.cursor/rules/pstack-models.mdc` | A subagent started inside this session names no model and runs on this session's. For a role that needs a session of its own, the `dispatch` skill's `references/editing-models.md` says how to read which model it runs on. |
+| "your configured `<label>` model", a `<label>` row of `~/.cursor/rules/pstack-models.mdc` | A subagent started inside this session names no model and runs on this session's. For a role that needs a session of its own, the `dispatch` skill's `references/editing-models.md` says how to read which model it runs on. |
 | The panel roles: `arena runners`, `architect runners`, `interrogate reviewers`, `arena cross-judge pool`, the judgment and tooling models | No counterpart yet. **Import a component** settles one when the first component that needs it is imported. |
 | `Task` with `model`, `run_in_background` or `readonly` | Name no model. Whether a subagent can run in the background is your host's to offer. Read-only is one sentence of the brief, the one `references/subagent-brief.md` carries. |
 | `subagent_type: "poteto-agent"`, `generalPurpose` | Your host's general-purpose subagent, briefed from `references/subagent-brief.md`. |

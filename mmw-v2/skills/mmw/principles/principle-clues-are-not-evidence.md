@@ -9,6 +9,6 @@ A Memory record, an advisor's answer, another agent's report and a review findin
 
 **Pattern:**
 - **Let the clue say what to verify.** Use Memory, Thread, Working Memory, agent reports, and issue status to discover what to verify; use primary tracker, git, repository, and check evidence to establish what happened or landed.
-- **Follow each claim to its source.** Follow every claim back to the source that owns it.
+- **Follow every claim back to the source that owns it.**
 
 Distinct from **principle-prove-it-works**, which checks your own finished work against the real thing; this checks what you were told before you act on it.

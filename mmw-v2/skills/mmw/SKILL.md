@@ -20,7 +20,7 @@ In your reply, name each principle that shaped a decision and the specific choic
 - Making a git worktree of your own → put it under the main worktree's `.worktrees/`, with a name other than `issue-<n>`, `merge-<branch>` or `research-<n>`: those names belong to the pipeline.
 - Credentials and personal data → into no artifact: no ticket, Memory record, handoff, log or spec (**principle-no-secrets-or-personal-data-in-artifacts**).
 - A step names a control, delivery or forge position, or a tool, setting or skill that only an imported pstack file uses → its row in `references/pstack-names.md`.
-- The pipeline itself fails (one of its scripts, a hook, `.mmw/target.json`) → in a ticket, a `fault` child, then stop; with the user present, tell them and open a ticket for the fault. It is not yours to route around (**principle-report-faults-through-the-pipeline**).
+- The pipeline itself fails (one of its scripts, a hook, `.mmw/target.json`) → in a ticket, a `fault` child, then stop; with the user present, tell them and open a ticket for the fault (**principle-report-faults-through-the-pipeline**).
 - In a ticket's worktree, imported text says "rebase" → read it as `dispatch.sh integrate <n>`: one merge, never a rebase.
 
 ## Principles

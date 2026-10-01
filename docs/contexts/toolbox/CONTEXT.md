@@ -20,6 +20,10 @@ _Home_: `docs/agents/triage-labels.md`
 An agent started inside another agent's session, holding its own context and answering back into that session; a skill that needs one asks for the host's own general-purpose subagent, which runs on the model of the session that starts it and has no `models.json` row. Distinct from a session a runner starts with `dispatch.sh start`, which writes its result to the ticket; a code-review axis runs as a subagent of the reviewer where the host can run one.
 _Home_: `docs/adr/0015-no-custom-subagents.md`
 
+**subagent brief**:
+The prompt a session gives a **subagent** it starts from the mode or from a playbook step, filled in from the mode's template; it opens by sending the subagent to the `mmw` skill's principles. A prompt that is whole in itself, such as a review axis's, is not written from the template. One member of the same family as the advisor's **brief** (`docs/contexts/ticket-run/CONTEXT.md`), the **fix brief** and the **agent brief**.
+_Home_: `mmw-v2/skills/mmw/references/subagent-brief.md`
+
 ### Places
 
 **MMW**:

@@ -19,7 +19,7 @@ The second-opinion session on a stronger model, started with `dispatch.sh advise
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
 **brief**:
-What a caller hands the advisor, and the only thing the advisor sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude.
+What a caller hands the advisor, and the only thing the advisor sees: the recent exchange, the caller's understanding, the constraints, the options and its leaning, and the relevant paths. It carries the decision and the evidence, never what to conclude. Distinct from a **subagent brief** (`docs/contexts/toolbox/CONTEXT.md`), the prompt a session gives a subagent it starts.
 _Avoid_: question packet, the packet
 _Home_: `mmw-v2/skills/advisor/references/consulting.md`
 
