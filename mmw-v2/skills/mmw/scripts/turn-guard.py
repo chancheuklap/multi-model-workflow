@@ -247,14 +247,15 @@ def open_states(dog) -> list[Path]:
     return [p for p in candidates if dog.night_open(p)]
 
 
-def is_main(state: Path, dog) -> bool:
-    """True only when this process's own (runner, session), read by that runner's `self`,
-    is the orchestrator of a watch open on `state`. Whatever cannot be established is False."""
+def main_watches(state: Path, dog) -> list[dict]:
+    """Watches whose orchestrator is this process's own (runner, session), read by
+    that runner's `self`. Whatever cannot be established matches no watch."""
     try:
         watches = dog.relay_mod.read_watches(state)
     except ValueError:
-        return False
+        return []
     mains = {dog.relay_mod.main_of(entry) for entry in watches.values()}
+    matches = []
     for runner in sorted({runner for runner, _ in mains}):
         adapter = runners_dir() / f"{runner}.sh"
         if not adapter.is_file():
@@ -264,9 +265,16 @@ def is_main(state: Path, dog) -> bool:
                                  timeout=SELF_TIMEOUT)
         except (OSError, subprocess.SubprocessError):
             continue
-        if run.returncode == 0 and (runner, (run.stdout or "").strip()) in mains:
-            return True
-    return False
+        if run.returncode == 0:
+            address = (runner, (run.stdout or "").strip())
+            matches.extend(entry for _, entry in sorted(watches.items())
+                           if dog.relay_mod.main_of(entry) == address)
+    return matches
+
+
+def is_main(state: Path, dog) -> bool:
+    """Whether this session is the orchestrator of any watch in this state directory."""
+    return bool(main_watches(state, dog))
 
 
 def now_iso() -> str:
@@ -291,7 +299,8 @@ def guard(host: str, forced: bool = False) -> list[str]:
 
     blocks: list[str] = []
     for state in open_states(dog):
-        if not is_main(state, dog):
+        watches = main_watches(state, dog)
+        if not watches:
             continue
         repo = dog.repo_of(state)
         healthy, why, beat = dog.read_health(state)
@@ -309,7 +318,7 @@ def guard(host: str, forced: bool = False) -> list[str]:
         if block:
             which = ", ".join(f"#{n}" for n in held) if isinstance(held, list) else \
                 "which ones is not known: no watchdog round has read them all"
-            blocks.append(
+            text = (
                 f"MMW turn guard: the night on {repo} has held tickets ({which}) and its "
                 f"watchdog is not healthy: {reason}. Until it is, nothing notices a worker "
                 f"that dies or a relay that stops. Run `python3 {Path(dog.__file__).resolve()} "
@@ -317,6 +326,12 @@ def guard(host: str, forced: bool = False) -> list[str]:
                 f"`fault` child on any held ticket with that command and its output. Then end "
                 f"your turn."
             )
+            for watch in watches:
+                try:
+                    pointer = dog.relay_mod.wake_pointer(dog.relay_mod.main_role(watch), "MMW turn guard:")
+                except dog.relay_mod.Refusal as exc:
+                    pointer = str(exc)
+                blocks.append(f"{text} · {pointer}")
     return blocks
 
 
@@ -337,7 +352,11 @@ def main(argv: list[str] | None = None) -> int:
     except BaseException as exc:  # noqa: BLE001 — an import's SystemExit(2) must not block
         sys.stderr.write(f"turn-guard: could not judge this turn end: {exc!r}\n")
         return 0 if host == "cursor" else 1
-    code, out, err = answer(host, bool(blocks), "\n\n".join(blocks))
+    code, out, err = answer(host, bool(blocks), " | ".join(blocks))
+    if any(" · cannot read " in block for block in blocks):
+        # An incomplete registry is an installation warning, never a host-blocking
+        # verdict. Cursor can receive its follow-up; every host exits successfully.
+        code = 0
     sys.stdout.write(out)
     sys.stderr.write(err)
     return code

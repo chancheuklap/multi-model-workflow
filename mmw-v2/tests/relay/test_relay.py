@@ -172,7 +172,7 @@ class RelayCase(unittest.TestCase):
         self.ask = FakeAsk()
         self.clock = Clock()
         self.relay = self.fresh()
-        self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-a")
+        self.relay.open_watch({"tickets": [61, 62], "kind": "ticket"}, "paseo", "main-a")
 
     def restore_home(self):
         if self.old_home is None:
@@ -298,7 +298,7 @@ class QueueTest(RelayCase):
 
     def test_only_the_events_in_wakes_are_queued_each_for_its_role(self):
         self.board.update({63: [], 64: [], 65: []})
-        self.relay.open_watch({"tickets": [63, 64, 65]}, "paseo", "main-a")
+        self.relay.open_watch({"tickets": [63, 64, 65], "kind": "ticket"}, "paseo", "main-a")
         self.board[61] += [
             comment(100, None),
             started(101, 61, "wk-61"),
@@ -357,12 +357,12 @@ class QueueTest(RelayCase):
 
     def test_a_main_agent_replaced_while_the_board_is_read_addresses_the_new_rows(self):
         self.board[61].append(comment(101, "ticket.passed", 61))
-        self.gh.during_read = lambda: self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-b")
+        self.gh.during_read = lambda: self.relay.open_watch({"tickets": [61, 62], "kind": "ticket"}, "paseo", "main-b")
         self.poll()
         self.gh.during_read = None
         self.assertEqual(self.addressed(), [(1, "ticket.passed", "main", "main-b")])
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.passed")])
+        self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.passed · mmw land-one-ticket#Handle each wake")])
 
     def test_a_poll_with_nothing_watched_reads_nothing(self):
         self.relay.close_watch(None)
@@ -372,6 +372,34 @@ class QueueTest(RelayCase):
 
 
 class WorkerRecipientTest(RelayCase):
+    def test_a_wake_to_a_worker_ends_with_its_step_pointer(self):
+        self.relay.open_watch({"tickets": [61, 62], "kind": "ticket"}, "paseo", "main-a")
+        self.board[61] += [started(101, 61, "wk-61"), comment(102, "reviewer.reported", 61)]
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "wk-61",
+                                          "#61 reviewer.reported · mmw work-a-ticket#Get reviewed")])
+
+    def test_the_latest_worker_start_selects_the_adopted_role_only_for_true(self):
+        with tempfile.TemporaryDirectory() as checkout:
+            scripts = Path(checkout) / "scripts"
+            scripts.mkdir()
+            roles = json.loads((relay.HERE.parent / "roles.json").read_text())
+            roles["adopting-worker"]["playbook"] = "adopted-flow"
+            (scripts.parent / "roles.json").write_text(json.dumps(roles))
+            for cid, adopted, playbook in ((101, True, "adopted-flow"),
+                                           (103, "true", "work-a-ticket"),
+                                           (105, False, "work-a-ticket")):
+                with self.subTest(adopted=adopted):
+                    self.board[61] += [comment(cid, "worker.started", 61,
+                                               runner="paseo", session="wk-61", adopted=adopted),
+                                       comment(cid + 1, "reviewer.reported", 61)]
+                    self.poll()
+                    with mock.patch.object(relay, "HERE", scripts):
+                        self.relay.deliver()
+                    self.assertEqual(self.send.sent[-1][2],
+                                     f"#61 reviewer.reported · mmw {playbook}#Get reviewed")
+
     def test_a_worker_wake_goes_to_the_worker_on_the_ticket_when_the_event_landed(self):
         self.board[61] += [started(101, 61, "wk-a", runner="orca"),
                            comment(102, "reviewer.lost", 61, session="rv-1", runner="paseo"),
@@ -433,13 +461,13 @@ class WorkerRecipientTest(RelayCase):
         self.relay.send = lambda runner, session, text: (self.send.sent.append((runner, session, text))
                                                          or codes[session])
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.refused"),
-                                          ("paseo", "wk-61", "#61 reviewer.reported")])
+        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.refused · mmw land-one-ticket#Handle each wake"),
+                                          ("paseo", "wk-61", "#61 reviewer.reported · mmw work-a-ticket#Get reviewed")])
         self.assertEqual([(r["seq"], bool(r["delivered"])) for r in self.rows()],
                          [(1, False), (2, False), (3, True)])
 
     def test_a_recipient_is_its_runner_and_session_together(self):
-        self.relay.open_watch({"tickets": [61, 62]}, "paseo", "s-1")
+        self.relay.open_watch({"tickets": [61, 62], "kind": "ticket"}, "paseo", "s-1")
         self.board[61] += [started(101, 61, "s-1", runner="orca"), comment(102, "ticket.passed", 61),
                            comment(103, "reviewer.reported", 61)]
         self.poll()
@@ -534,16 +562,59 @@ class ReadEventTest(unittest.TestCase):
 
 
 class DeliveryTest(RelayCase):
+    def test_relay_refuses_to_deliver_when_roles_json_is_missing(self):
+        self.queue_two()
+        with tempfile.TemporaryDirectory() as checkout:
+            scripts = Path(checkout) / "scripts"
+            scripts.mkdir()
+            send = self.send
+            class CommandRelay(relay.Relay):
+                def __init__(self, state, board):
+                    super().__init__(state, board, send=send, clock=Clock())
+            # Run the command boundary with the fixture's board and isolated state.
+            with mock.patch.object(relay, "HERE", scripts), \
+                 mock.patch.object(relay, "Relay", CommandRelay), \
+                 mock.patch.object(relay, "Board", return_value=self.relay.board), \
+                 mock.patch.object(relay.sys, "stderr", self.err):
+                code = relay.main(["run", "--repo", "o/r", "--once"])
+        self.assertNotEqual(code, 0)
+        self.assertEqual(self.send.sent, [])
+        self.assertIn("roles.json", self.err.getvalue())
+        self.assertIn("install.sh --check", self.err.getvalue())
+
+    def test_an_invalid_registry_refuses_the_whole_round_before_any_send(self):
+        self.board[61] += [comment(101, "ticket.passed", 61)]
+        self.board[62] += [started(102, 62, "wk-62"),
+                           comment(103, "reviewer.reported", 62)]
+        self.poll()
+        with tempfile.TemporaryDirectory() as checkout:
+            scripts = Path(checkout) / "scripts"
+            scripts.mkdir()
+            original = json.loads((relay.HERE.parent / "roles.json").read_text())
+            no_role = json.loads(json.dumps(original))
+            del no_role["worker"]
+            no_event = json.loads(json.dumps(original))
+            no_event["worker"]["wakes"] = {}
+            for content in ("not JSON", json.dumps(no_role), json.dumps(no_event)):
+                with self.subTest(content=content):
+                    (scripts.parent / "roles.json").write_text(content)
+                    with mock.patch.object(relay, "HERE", scripts):
+                        with self.assertRaises(relay.Refusal) as caught:
+                            self.relay.deliver()
+                    self.assertIn("install.sh --check", str(caught.exception))
+                    self.assertEqual(self.send.sent, [])
+                    self.assertTrue(all(not row.get("delivered") for row in self.rows()))
+
     def queue_two(self):
         self.board[61].append(comment(101, "ticket.passed", 61))
         self.board[62].append(comment(102, "ticket.returned", 62))
         self.poll()
 
-    def test_send_carries_the_ticket_and_the_event_name_only(self):
+    def test_send_carries_the_ticket_event_and_step_pointer(self):
         self.queue_two()
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.passed"),
-                                          ("paseo", "main-a", "#62 ticket.returned")])
+        self.assertEqual(self.send.sent, [("paseo", "main-a", "#61 ticket.passed · mmw land-one-ticket#Handle each wake"),
+                                          ("paseo", "main-a", "#62 ticket.returned · mmw land-one-ticket#Handle each wake")])
 
     def test_a_delivered_row_stays_until_acked_and_is_sent_again_only_after_a_restart(self):
         self.queue_two()
@@ -555,7 +626,7 @@ class DeliveryTest(RelayCase):
         self.relay = self.fresh()
         self.relay.forget_deliveries()
         self.relay.deliver()
-        self.assertEqual([t for _, _, t in self.send.sent[2:]], ["#61 ticket.passed", "#62 ticket.returned"])
+        self.assertEqual([t for _, _, t in self.send.sent[2:]], ["#61 ticket.passed · mmw land-one-ticket#Handle each wake", "#62 ticket.returned · mmw land-one-ticket#Handle each wake"])
         self.relay.ack(MAIN_A, 2)
         self.assertEqual(self.rows(), [])
 
@@ -567,7 +638,7 @@ class DeliveryTest(RelayCase):
         self.assertEqual([(r["seq"], r["delivered"]) for r in self.rows()], [(1, None), (2, None)])
         self.send.code = 0
         self.relay.deliver()
-        self.assertEqual([t for _, _, t in self.send.sent[1:]], ["#61 ticket.passed", "#62 ticket.returned"])
+        self.assertEqual([t for _, _, t in self.send.sent[1:]], ["#61 ticket.passed · mmw land-one-ticket#Handle each wake", "#62 ticket.returned · mmw land-one-ticket#Handle each wake"])
 
     def test_a_row_stays_when_the_send_was_not_made(self):
         self.queue_two()
@@ -588,12 +659,12 @@ class DeliveryTest(RelayCase):
         self.assertEqual(len(self.send.sent), 1, "one recipient: nothing more to it this pass")
         self.relay.deliver()
         self.relay.deliver()
-        self.assertEqual([s[2] for s in self.send.sent].count(relay.wake_text(rows[0])), 1)
+        self.assertEqual([s[2] for s in self.send.sent].count("#61 ticket.passed · mmw land-one-ticket#Handle each wake"), 1)
         self.assertEqual(len(self.rows()), 2, "delivered is not acked: the rows stay")
         self.relay.forget_deliveries()
         self.send.code = 0
         self.relay.deliver()
-        self.assertEqual([s[2] for s in self.send.sent].count(relay.wake_text(rows[0])), 2,
+        self.assertEqual([s[2] for s in self.send.sent].count("#61 ticket.passed · mmw land-one-ticket#Handle each wake"), 2,
                          "a restart sends an unconfirmed row once more, like every unacked row")
 
     def test_a_row_is_dropped_when_the_runner_has_no_such_session(self):
@@ -604,21 +675,21 @@ class DeliveryTest(RelayCase):
 
     def test_a_row_for_a_retired_main_session_is_dropped_without_a_send(self):
         self.queue_two()
-        self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [61, 62], "kind": "ticket"}, "paseo", "main-b")
         self.board[61].append(comment(103, "ticket.refused", 61))
         self.poll()
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.refused")])
+        self.assertEqual(self.send.sent, [("paseo", "main-b", "#61 ticket.refused · mmw land-one-ticket#Handle each wake")])
         self.assertEqual([(r["seq"], r["session"]) for r in self.rows()], [(3, "main-b")])
         self.assertIn("main-b", self.err.getvalue())
 
     def test_a_row_of_a_closed_watch_is_dropped_without_a_send(self):
-        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [70], "kind": "ticket"}, "paseo", "main-b")
         self.board[70] = [comment(103, "ticket.passed", 70)]
         self.queue_two()
         self.relay.close_watch("tickets:61,62")
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "main-b", "#70 ticket.passed")])
+        self.assertEqual(self.send.sent, [("paseo", "main-b", "#70 ticket.passed · mmw land-one-ticket#Handle each wake")])
         self.assertIn("#61", self.err.getvalue())
         self.assertIn("#62", self.err.getvalue())
 
@@ -662,7 +733,7 @@ class PollingTest(RelayCase):
 
     def test_beat_records_read_counts(self):
         self.relay.close_watch(None)
-        self.relay.open_watch({"tickets": [61]}, "paseo", "main-a")
+        self.relay.open_watch({"tickets": [61], "kind": "ticket"}, "paseo", "main-a")
         self.poll()
         self.poll()
         beat = json.loads((self.state / "beat.json").read_text())
@@ -731,7 +802,7 @@ class PollingTest(RelayCase):
 
     def test_spec_mode_watches_the_sub_issues_read_each_cycle(self):
         self.relay.close_watch(None)
-        self.relay.open_watch({"spec": 50}, "paseo", "main-a")
+        self.relay.open_watch({"spec": 50, "kind": "night"}, "paseo", "main-a")
         self.gh.spec_children[50] = [61]
         self.board[62].append(comment(102, "ticket.passed", 62))
         self.poll()
@@ -741,7 +812,7 @@ class PollingTest(RelayCase):
         self.assertEqual(self.summary(), [(1, 62, "ticket.passed")])
 
     def test_a_spec_whose_tickets_cannot_be_listed_is_no_good_poll_and_others_are_read(self):
-        self.relay.open_watch({"spec": 50}, "paseo", "main-b")
+        self.relay.open_watch({"spec": 50, "kind": "night"}, "paseo", "main-b")
         self.gh.spec_children[50] = [63]
         self.gh.failing.add(50)
         self.board[61].append(comment(101, "ticket.passed", 61))
@@ -767,7 +838,7 @@ class RecoveryTest(RelayCase):
         gap = json.loads((self.state / "gap.json").read_text())
         self.assertEqual((gap["generation"], gap["since"], gap["seq"]), (1, stamp(T0), 1))
         self.relay.deliver()
-        self.assertEqual(self.send.sent[0][2], f"relay.recovered since {stamp(T0)}")
+        self.assertEqual(self.send.sent[0][2], f"relay.recovered since {stamp(T0)} · mmw land-one-ticket#Handle each wake")
 
     def test_a_stretch_already_announced_is_not_announced_again(self):
         self.poll()
@@ -858,7 +929,7 @@ class WatchesTest(RelayCase):
         super().setUp()
         self.relay.close_watch(None)
         self.gh.spec_children[76] = [61, 62]
-        self.relay.open_watch({"spec": 76}, "paseo", "main-a")
+        self.relay.open_watch({"spec": 76, "kind": "night"}, "paseo", "main-a")
         self.board[5] = []
 
     def written(self) -> bytes:
@@ -873,12 +944,14 @@ class WatchesTest(RelayCase):
             ]), 0)
         self.assertEqual(self.fresh().watches()["tickets:5"]["kind"], "adopted-ticket")
 
-    def test_a_watch_without_a_kind_works_as_before(self):
+    def test_a_watch_without_a_kind_is_refused_delivery(self):
+        self.relay.open_watch({"spec": 76}, "paseo", "main-a")
         self.assertNotIn("kind", self.relay.watches()["spec:76"])
         self.board[61].append(comment(101, "ticket.passed", 61))
         self.poll()
         self.relay.deliver()
-        self.assertIn(("paseo", "main-a", "#61 ticket.passed"), self.send.sent)
+        self.assertEqual(self.send.sent, [])
+        self.assertIn("dispatch.sh open-night 76", self.err.getvalue())
         closed, left = self.relay.close_watch("spec:76")
         self.assertIn("spec:76", closed)
         self.assertNotIn("spec:76", left)
@@ -886,7 +959,7 @@ class WatchesTest(RelayCase):
     def test_a_ticket_outside_the_night_gets_its_own_watch_and_the_nights_main_is_untouched(self):
         # Opening a watch from a second session used to re-point the running night's
         # wake-ups, alerts and turn guard to that session.
-        previous, _ = self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        previous, _ = self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
         self.assertIsNone(previous)
         self.assertEqual(self.watches(), {"spec:76": MAIN_A, "tickets:5": ("paseo", "main-b")})
         self.board[5].append(comment(101, "ticket.passed", 5))
@@ -895,63 +968,86 @@ class WatchesTest(RelayCase):
         self.assertEqual(self.addressed(), [(1, "ticket.passed", "main", "main-b"),
                                             (2, "ticket.passed", "main", "main-a")])
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "main-b", "#5 ticket.passed"),
-                                          ("paseo", "main-a", "#61 ticket.passed")])
+        self.assertEqual(self.send.sent, [("paseo", "main-b", "#5 ticket.passed · mmw land-one-ticket#Handle each wake"),
+                                          ("paseo", "main-a", "#61 ticket.passed · mmw run-a-night#Handle each wake")])
+
+    def test_a_wake_to_a_night_orchestrator_ends_with_handle_each_wake(self):
+        self.board[61].append(comment(101, "ticket.passed", 61))
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "main-a",
+                         "#61 ticket.passed · mmw run-a-night#Handle each wake")])
+
+    def test_a_wake_to_a_one_ticket_orchestrator_ends_with_its_handle_each_wake(self):
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "orca", "one-ticket")
+        self.board[5].append(comment(101, "ticket.passed", 5))
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("orca", "one-ticket",
+                         "#5 ticket.passed · mmw land-one-ticket#Handle each wake")])
+
+    def test_a_decision_child_on_an_adopted_ticket_wakes_the_adopt_session(self):
+        self.relay.open_watch({"tickets": [5], "kind": "adopted-ticket"}, "orca", "adopt")
+        self.board[5].append(comment(101, "child.opened", 5, kind="decision"))
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("orca", "adopt",
+                         "#5 child.opened · mmw work-a-ticket#When something else wakes you")])
 
     def test_a_ticket_of_a_watched_spec_is_refused_and_nothing_is_written(self):
         before = self.written()
         with self.assertRaises(relay.Refusal) as caught:
-            self.relay.open_watch({"tickets": [61]}, "paseo", "main-b")
+            self.relay.open_watch({"tickets": [61], "kind": "ticket"}, "paseo", "main-b")
         for fact in ("#61", "#76", "main-a"):
             self.assertIn(fact, str(caught.exception))
         self.assertEqual(self.written(), before)
 
     def test_a_spec_one_of_whose_tickets_is_watched_alone_is_refused(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
         before = self.written()
         self.gh.spec_children[80] = [4, 5]
         with self.assertRaises(relay.Refusal) as caught:
-            self.relay.open_watch({"spec": 80}, "paseo", "main-c")
+            self.relay.open_watch({"spec": 80, "kind": "night"}, "paseo", "main-c")
         for fact in ("#80", "#5", "main-b"):
             self.assertIn(fact, str(caught.exception))
         self.assertEqual(self.written(), before)
 
     def test_a_spec_takes_over_a_ticket_watch_its_own_main_agent_left(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-c")
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-c")
         self.gh.spec_children[80] = [4, 5]
-        self.relay.open_watch({"spec": 80}, "paseo", "main-c")
+        self.relay.open_watch({"spec": 80, "kind": "night"}, "paseo", "main-c")
         self.assertEqual(self.watches(), {"spec:76": MAIN_A, "spec:80": ("paseo", "main-c")})
         self.assertEqual([relay.main_of(w) for w in self.relay.absorbed], [("paseo", "main-c")])
 
     def test_a_spec_takes_over_a_ticket_watch_whose_main_agent_is_stopped(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
         self.gh.spec_children[80] = [4, 5]
         with mock.patch.object(relay, "ask_liveness", return_value="stopped"):
-            self.relay.open_watch({"spec": 80}, "paseo", "main-c")
+            self.relay.open_watch({"spec": 80, "kind": "night"}, "paseo", "main-c")
         self.assertEqual(self.watches(), {"spec:76": MAIN_A, "spec:80": ("paseo", "main-c")})
 
     def test_a_ticket_is_in_one_watch_only(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
         with self.assertRaises(relay.Refusal) as caught:
-            self.relay.open_watch({"tickets": [5, 6]}, "paseo", "main-c")
+            self.relay.open_watch({"tickets": [5, 6], "kind": "ticket"}, "paseo", "main-c")
         self.assertIn("#5", str(caught.exception))
 
     def test_an_overlap_that_cannot_be_checked_is_refused(self):
         self.gh.failing.add(76)
         with self.assertRaises(relay.Refusal) as caught:
-            self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+            self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
         self.assertIn("#76", str(caught.exception))
         self.assertEqual(self.watches(), {"spec:76": MAIN_A})
 
     def test_opening_a_watch_again_replaces_its_main_agent_and_no_other(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
-        previous, _ = self.relay.open_watch({"spec": 76}, "orca", "term-a2")
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
+        previous, _ = self.relay.open_watch({"spec": 76, "kind": "night"}, "orca", "term-a2")
         self.assertEqual(relay.main_of(previous), MAIN_A)
         self.assertEqual(self.watches(), {"spec:76": ("orca", "term-a2"),
                                           "tickets:5": ("paseo", "main-b")})
 
     def test_closing_one_watch_leaves_the_others_and_the_last_good_poll(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
         self.poll()
         (self.state / "relay.json").write_text(json.dumps({"pid": 1, "identity": "x"}))
         closed, left = self.relay.close_watch("spec:76")
@@ -966,8 +1062,8 @@ class WatchesTest(RelayCase):
         self.assertTrue(json.loads((self.state / "relay.json").read_text())["ending"])
 
     def test_the_recovered_stretch_goes_once_to_each_main_agent(self):
-        self.relay.open_watch({"tickets": [5]}, "paseo", "main-b")
-        self.relay.open_watch({"tickets": [7]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [5], "kind": "ticket"}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [7], "kind": "ticket"}, "paseo", "main-b")
         self.poll()
         self.clock.moment = T0 + timedelta(hours=1)
         self.poll()
@@ -1000,13 +1096,21 @@ class SlotWakeTest(RelayCase):
         self.poll()
         self.assertEqual(self.addressed(), [(1, "worker.queued", "worker", "wk-62")])
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
+        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued · mmw work-a-ticket#Integrate and run every criterion")])
         # Read again, and read in full by a restarted relay: queued no second time.
         self.poll()
         self.relay = self.fresh()
         self.poll()
         self.assertEqual(len(self.rows()), 1)
         self.assertEqual(self.relay.ack_wake(("paseo", "wk-62"), 62, "worker.queued"), (1, 1, 0))
+
+    def test_a_returned_slot_wakes_the_queued_worker_at_integrate(self):
+        self.board[62].append(self.queued(110))
+        self.board[61].append(comment(120, "ticket.landed", 61))
+        self.poll()
+        self.relay.deliver()
+        self.assertEqual(self.send.sent, [("paseo", "wk-62",
+                         "#62 worker.queued · mmw work-a-ticket#Integrate and run every criterion")])
 
     def test_bounced_wakes_the_worker_waiting_for_a_slot(self):
         self.board[62].append(self.queued(110))
@@ -1069,7 +1173,7 @@ class SlotWakeTest(RelayCase):
         self.assertEqual(self.woken(), [(62, "wk-62")])
         self.send.code = 4
         self.relay.deliver()
-        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued")])
+        self.assertEqual(self.send.sent, [("paseo", "wk-62", "#62 worker.queued · mmw work-a-ticket#Integrate and run every criterion")])
         second = T0 + timedelta(seconds=30)
         self.clock.moment = second
         self.board[61].append(comment(121, "ticket.released", 61, updated=second))
@@ -1095,7 +1199,7 @@ class SlotWakeTest(RelayCase):
                                             (2, "worker.queued", "worker", "wk-62")])
 
     def test_a_waiting_ticket_of_another_watch_is_woken(self):
-        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [70], "kind": "ticket"}, "paseo", "main-b")
         self.board[70] = [started(102, 70, "wk-70"), self.queued(110, 70)]
         self.board[61].append(comment(120, "ticket.landed", 61))
         self.poll()
@@ -1115,7 +1219,7 @@ class MainGoneTest(RelayCase):
 
     def setUp(self):
         super().setUp()
-        self.relay.open_watch({"tickets": [70]}, "paseo", "main-b")
+        self.relay.open_watch({"tickets": [70], "kind": "ticket"}, "paseo", "main-b")
         self.ask.answers[MAIN_A] = "stopped"
 
     def test_the_main_agents_are_asked_every_ten_cycles(self):
@@ -1141,7 +1245,7 @@ class MainGoneTest(RelayCase):
             with self.subTest(answer=answer):
                 self.clock.moment = T0
                 self.ask.answers[MAIN_A] = "stopped"
-                self.relay.open_watch({"tickets": [61, 62]}, "paseo", "main-a")
+                self.relay.open_watch({"tickets": [61, 62], "kind": "ticket"}, "paseo", "main-a")
                 self.relay.check_mains()
                 self.clock.moment = T0 + timedelta(seconds=1800)
                 self.ask.answers[MAIN_A] = answer

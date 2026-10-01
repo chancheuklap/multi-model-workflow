@@ -722,7 +722,7 @@ class Watchdog:
         )
         unknown_next = tell_user or (
             f"dispatch.sh resume {number} \"Say in one line where you are, then continue\", "
-            "and act on its exit as night.md's Exit codes of resume says"
+            "and act on its exit as the step at the end of this line says"
         )
         if not verdict["sessions"]:
             unknown[str(number)] = {"why": "held by no session to ask", "since": since}
@@ -827,6 +827,13 @@ class Watchdog:
         for (runner, session), items in by_main.items():
             # One line: a runner types what it is handed into a terminal, where a newline submits.
             text = " | ".join(p["text"] for p in items)
+            watch = next(entry for _, entry in sorted(self.beat["watches"].items())
+                         if relay_mod.main_of(entry) == (runner, session))
+            try:
+                pointer = relay_mod.wake_pointer(relay_mod.main_role(watch), "watchdog:")
+            except relay_mod.Refusal as exc:
+                pointer = str(exc)
+            text += f" · {pointer}"
             code = self.send(runner, session, text)
             if code in (0, 4):
                 reported.extend([runner, session, p["key"]] for p in items)

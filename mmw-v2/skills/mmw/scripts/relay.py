@@ -385,11 +385,42 @@ def gives_slot_back(name: str) -> bool:
     return name in events.SLOT_ENDS and name != "spec.suspended"
 
 
-def wake_text(row: dict) -> str:
+def wake_pointer(role: str, event: str) -> str:
+    """Resolve one recipient's next step from this checkout's role registry."""
+    path = HERE.parent / "roles.json"
+    try:
+        roles = json.loads(path.read_text(encoding="utf-8"))
+        definition = roles[role]
+        playbook = definition["playbook"]
+        wakes = definition["wakes"]
+        step = wakes.get(event, wakes.get("*"))
+        if not all(isinstance(value, str) and value.strip() and not any(
+                char in value for char in "\r\n") for value in (playbook, step)):
+            raise ValueError(f"no valid playbook or wake step for {role}/{event}")
+        return f"mmw {playbook}#{step}"
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        reason = " ".join(str(exc).splitlines())
+        raise Refusal(f"cannot read {path} ({reason}); run bash mmw-v2/install.sh --check") from None
+
+
+def main_role(watch: dict) -> str:
+    """A watch's kind names its orchestrator role; absent kinds are not inferred."""
+    roles = {"night": "night-orchestrator", "ticket": "one-ticket-orchestrator",
+             "adopted-ticket": "adopting-worker"}
+    if watch.get("kind") not in roles:
+        command = f"dispatch.sh open-night {watch['spec']}" if watch.get("spec") else \
+            f"dispatch.sh open-ticket-watch {(watch.get('tickets') or ['<n>'])[0]} or dispatch.sh adopt <n>"
+        raise Refusal(f"watch on {describe_watch(watch)} has no valid kind; reopen it with {command}")
+    return roles[watch["kind"]]
+
+
+def wake_text(row: dict, pointer: str | None = None) -> str:
     """What is sent: the ticket number and the event name, nothing the tracker already says."""
     if row.get("event") == RECOVERED:
-        return f"{RECOVERED} since {row.get('since')}"
-    return f"#{row.get('ticket')} {row.get('event')}"
+        text = f"{RECOVERED} since {row.get('since')}"
+    else:
+        text = f"#{row.get('ticket')} {row.get('event')}"
+    return text + (f" · {pointer}" if pointer else "")
 
 
 # ----------------------------------------------------------------- watches
@@ -891,7 +922,7 @@ class Relay:
         earlier = [e for e in entries if cid is None or e[0] < cid]
         if not earlier:
             return None
-        _, runner, session = max(earlier, key=lambda e: e[0])
+        _, runner, session = max(earlier, key=lambda e: e[0])[:3]
         return runner, session
 
     # ------------------------------------------------------------- reading the queue
@@ -987,7 +1018,7 @@ class Relay:
         # Everything that happened, to be taken in the order it landed: the wakes, and what
         # makes a ticket wait for a product slot, stop waiting, or give a slot back.
         timeline: list[dict] = []
-        workers: list[tuple[int, int, str, str]] = []
+        workers: list[tuple[int, int, str, str, bool]] = []
         unreadable: list[tuple[int, object, str]] = []
         read: dict[int, str | None] = {}
         for number, key in tickets.items():
@@ -1016,7 +1047,7 @@ class Relay:
                 if name == WORKER_STARTED:
                     runner, session = event.get("runner"), event.get("session")
                     if isinstance(runner, str) and runner and isinstance(session, str) and session:
-                        workers.append((ticket, cid, runner, session))
+                        workers.append((ticket, cid, runner, session, event.get("adopted") is True))
                     else:
                         unreadable.append((number, cid, "its worker.started names no runner and session"))
                     continue
@@ -1040,10 +1071,10 @@ class Relay:
             watches = self.watches()
             seen = self._read_state("seen.json", {})
             per_ticket = seen.setdefault("tickets", {})
-            for ticket, cid, runner, session in workers:
+            for ticket, cid, runner, session, adopted in workers:
                 slot = _slot(per_ticket, ticket)
                 if all(entry[0] != cid for entry in slot["workers"]):
-                    slot["workers"].append([cid, runner, session])
+                    slot["workers"].append([cid, runner, session, adopted])
                     slot["workers"].sort()
             # A ticket read in full has its wait for a slot recomputed from its whole history.
             for number in read:
@@ -1344,6 +1375,27 @@ class Relay:
         watches = self.watches()
         with self.queue_lock():
             per_ticket = self._read_state("seen.json", {}).get("tickets", {})
+        # Resolve the entire pass before sending anything: an incomplete role registry
+        # must not deliver half a round and fail on a later recipient.
+        texts: dict[int, str] = {}
+        for row in pending:
+            if self._recipient_now(row, watches, per_ticket)[0] != "send":
+                continue
+            watch = watches.get(row.get("watch"))
+            if watch is None:
+                address = (row.get("runner"), row.get("session"))
+                watch = next((entry for _, entry in sorted(watches.items())
+                              if main_of(entry) == address), None)
+            try:
+                role = main_role(watch or {})
+            except Refusal as exc:
+                self.err.write(f"relay: {exc}\n")
+                continue
+            if row.get("to") == WORKER:
+                workers = (per_ticket.get(str(row.get("ticket"))) or {}).get("workers") or []
+                latest = max(workers, key=lambda entry: entry[0])
+                role = "adopting-worker" if len(latest) > 3 and latest[3] is True else "worker"
+            texts[row["seq"]] = wake_text(row, wake_pointer(role, row["event"]))
         held: set[tuple[str, str]] = set()
         for row in pending:
             address = (row.get("runner"), row.get("session"))
@@ -1356,7 +1408,9 @@ class Relay:
                 continue
             if address in held:
                 continue
-            code = self.send(address[0], address[1], wake_text(row))
+            if row["seq"] not in texts:
+                continue
+            code = self.send(address[0], address[1], texts[row["seq"]])
             if code == 0:
                 if self._settle(row["seq"], delivered=iso(self.clock())):
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}\n")
@@ -1727,7 +1781,7 @@ def cmd_ack(args) -> int:
     wake = RECOVERED if ticket is None else f"#{ticket} {args.event}"
     done = relay.ack_wake(address, ticket, args.event)
     if done is None:
-        mine = [wake_text(r).split(" since ")[0] for r in relay.rows(address)]
+        mine = [wake_text(r).split(" · ")[0].split(" since ")[0] for r in relay.rows(address)]
         held = ", ".join(f"`{w}`" for w in mine) if mine else "nothing"
         raise Refusal(f"no wake `{wake}` is queued for {args.runner} session {args.session}, "
                       f"so nothing was acked: it was acked already, it went to another "

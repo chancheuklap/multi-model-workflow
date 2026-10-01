@@ -895,7 +895,22 @@ sync_base_with_project() {
 # as the night's orchestrator, and `spec.opened` on the spec records who is woken. A
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
+step_pointer() {
+  python3 - "$SKILL_ROOT/scripts" "$@" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import relay
+try:
+    print(relay.wake_pointer(sys.argv[2], sys.argv[3]))
+except relay.Refusal as exc:
+    print(f"dispatch: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+PY
+}
+
 open_night() {
+  local pointer
+  pointer="$(step_pointer night-orchestrator '*')" || exit 2
   local spec="$1" root into opened runner session how rows project board repository git_dir
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
@@ -926,9 +941,9 @@ open_night() {
   # relay's and the watchdog's are for the orchestrator. A board that will not start is
   # said so on stderr and takes nothing else with it: the night is open either way.
   if board="$(ensure_board)"; then
-    echo "opened #$spec: wake-ups go to $runner session $session; task board $board"
+    echo "opened #$spec: wake-ups go to $runner session $session; task board $board · $pointer"
   else
-    echo "opened #$spec: wake-ups go to $runner session $session"
+    echo "opened #$spec: wake-ups go to $runner session $session · $pointer"
     echo "dispatch: the night is open and its task board is not, so the night's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
   fi
 }
@@ -939,13 +954,15 @@ open_night() {
 # themselves, and the board is the one view of the ticket for a person. A board that will
 # not start is said on stderr and leaves the watch open.
 open_ticket() {
+  local pointer
+  pointer="$(step_pointer one-ticket-orchestrator '*')" || exit 2
   local number="$1" opened runner session how board
   opened="$(open_relay --tickets "$number" --kind ticket)" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if board="$(ensure_board)"; then
-    echo "opened #$number: wake-ups go to $runner session $session; task board $board"
+    echo "opened #$number: wake-ups go to $runner session $session; task board $board · $pointer"
   else
-    echo "opened #$number: wake-ups go to $runner session $session"
+    echo "opened #$number: wake-ups go to $runner session $session · $pointer"
     echo "dispatch: the watch on #$number is open and its task board is not, so the ticket's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
   fi
 }
@@ -975,6 +992,7 @@ ack_wake() {
 # watch already covering it, or a watch of this ticket alone with this session as its
 # orchestrator. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
 adopt_ticket() {
+  step_pointer adopting-worker '*' >/dev/null || exit 2
   local number="$1" explicit_into="${2:-}" line runner session installed
   installed="$(installed_prompt_root)" || exit 2
   line="$(own_session)" || exit 2
@@ -2375,8 +2393,12 @@ retract_one() {
 # starts next. On agentflow #754 the watchdog found no session to ask and `resume` found
 # one and typed into it.
 resume_one() {
+  local pointer
+  pointer="$(step_pointer worker resume)" || exit 2
   local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
+  case "$text" in *$'\n'* | *$'\r'*) refuse "resume text must be one line" ;; esac
+  text="$text · $pointer"
   local live line
   live="$(live_workers_on_ticket "$number")" \
     || refuse "could not read #$number's events, so whether a worker still holds it is unknown and nothing was sent; run resume again once the tracker answers, or fix the comment named above"
