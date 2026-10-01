@@ -401,7 +401,15 @@ class Wiring(unittest.TestCase):
                     self.assertRegex(result.stdout, r'(?m)^(?!report:).*: class 6 worker/unhandled.event has no registered handler$')
 
     def test_wiring_b1_classes_fail(self):
-        for category in (2, 5, 7, 9):
+        repairs = {
+            2: (MODE + '/playbooks/missing.md', '### Missing\n'),
+            5: (MODE + '/principles/principle-evidence.md',
+                '---\nname: principle-evidence\ndescription: Apply when evidence is required.\n'
+                '---\n# Wrong display name\n'),
+            7: (MODE + '/SKILL.md', '# MMW\n' + WORK_ROUTE),
+            9: ('mmw-v2/skills.txt', 'self/example\nengineering/upstream-example +model-invoked\n'),
+        }
+        for category, (path, text) in repairs.items():
             with self.subTest(category=category):
                 self.setUp()
                 self.reported_fixture(category)
@@ -409,19 +417,7 @@ class Wiring(unittest.TestCase):
                 self.assert_status(result, 1)
                 self.assertIn('connections do not resolve', result.stdout)
                 self.assertRegex(result.stdout, rf'(?m)^(?!report:).*:\d+: class {category} ')
-                if category == 2:
-                    self.write(MODE + '/playbooks/missing.md', '### Missing\n')
-                elif category == 5:
-                    self.write(MODE + '/principles/principle-evidence.md',
-                               '---\nname: principle-evidence\ndescription: Apply when evidence is required.\n'
-                               '---\n# Wrong display name\n')
-                elif category == 7:
-                    self.write(MODE + '/SKILL.md',
-                               '# MMW\n\n## Playbooks\n\n'
-                               '- **Work.** Do the work. `playbooks/work-a-ticket.md`.\n')
-                elif category == 9:
-                    self.write('mmw-v2/skills.txt',
-                               'self/example\nengineering/upstream-example +model-invoked\n')
+                self.write(path, text)
                 result = self.check()
                 self.assert_status(result, 0)
                 self.assertNotRegex(result.stdout, rf'(?m)^(?:report: )?.*:\d+: class {category} ')
@@ -436,14 +432,20 @@ class Wiring(unittest.TestCase):
         self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n' + WORK_ROUTE)
         self.assert_status(self.check(), 0)
         self.write(MODE + '/SKILL.md', '# MMW\n\n## Autonomy\n' + WORK_ROUTE)
-        self.assert_status(self.check(), 1)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw#Re-entry ')
         self.write(MODE + '/SKILL.md', '# MMW\n\n## Re-entry\n' + WORK_ROUTE)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Claim\n\n#### Get reviewed\n')
-        self.assert_status(self.check(), 1)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Claim ')
         self.write(MODE + '/playbooks/work-a-ticket.md', '1. **Claim.** Do the work.\n\n2. **Get reviewed.** Read the report.\n')
         self.assert_status(self.check(), 0)
         self.write(MODE + '/playbooks/work-a-ticket.md', '### Work\n\n#### Get reviewed\n')
-        self.assert_status(self.check(), 1)
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(result.stdout, r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Claim ')
         self.write(MODE + '/imports.tsv', 'type\tpath\nplaybook\t' + MODE + '/playbooks/work-a-ticket.md\n')
         result = self.check()
         self.assert_status(result, 1)
