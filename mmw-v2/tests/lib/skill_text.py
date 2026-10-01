@@ -149,6 +149,119 @@ def frontmatter(text: str) -> tuple[dict, int, dict[str, int]]:
     return data, end + 1, marks
 
 
+def prose_mask(text: str) -> str:
+    """Hide metadata, fenced code and comments without moving source addresses."""
+    masked = list(text)
+
+    def hide(start, end):
+        masked[start:end] = [' ' if c not in '\r\n' else c for c in text[start:end]]
+
+    _, end, _ = frontmatter(text)
+    hide(0, sum(len(line) for line in text.splitlines(keepends=True)[:end]))
+    marker = None
+    in_comment = False
+    offset = 0
+    for line in ''.join(masked).splitlines(keepends=True):
+        fence = FENCE.match(line)
+        if marker:
+            hide(offset, offset + len(line))
+            if closes_fence(line, marker):
+                marker = None
+        elif fence and not in_comment:
+            marker = fence.group(1)
+            hide(offset, offset + len(line))
+        else:
+            position = 0
+            while position < len(line):
+                start = position if in_comment else line.find('<!--', position)
+                if start == -1:
+                    break
+                end = line.find('-->', start if in_comment else start + 4)
+                in_comment = end == -1
+                position = len(line) if in_comment else end + 3
+                hide(offset + start, offset + position)
+        offset += len(line)
+    return ''.join(masked)
+
+
+@dataclass(frozen=True)
+class SkillMention:
+    name: str
+    line: int
+    offset: int
+    form: str
+
+    @property
+    def by_model(self) -> bool:
+        return self.form != 'slash'
+
+
+QUALIFIED_SKILL = re.compile(
+    r"(?<![\w-])(?:the|(?<![^\n])The|(?<=[.!?] )The)\s+"
+    r"(?:`([^`\n]+)`|([a-z][\w-]*))\s+skill(?![\w-])")
+SKILL_CODE = re.compile(r'(?<!`)(`+)([^`\n]+)\1(?!`)')
+
+
+def skill_mentions(text: str, names, steps: bool = True) -> list[SkillMention]:
+    """Recognize skill names in invocation prose, retaining the written form."""
+    masked = prose_mask(text)
+    result = []
+    qualified = []
+    for match in QUALIFIED_SKILL.finditer(masked):
+        name = match[1] or match[2]
+        if match[1] or name in names:
+            qualified.append((match.start(), match.end()))
+            result.append(SkillMention(name, masked.count('\n', 0, match.start()) + 1,
+                                       match.start(), 'qualified'))
+    offset = 0
+    step_indent = None
+    for line_number, line in enumerate(masked.splitlines(keepends=True), 1):
+        step = re.match(r'^(\s*)\d+\.\s+\*\*[^*\n]+\.\*\*(?:\s|$)', line)
+        if steps and step:
+            step_indent = len(step[1])
+        elif line.strip() and step_indent is not None:
+            if len(line) - len(line.lstrip()) <= step_indent:
+                step_indent = None
+        route = re.match(r'^\s*-\s+.*?→', line)
+        for match in SKILL_CODE.finditer(line):
+            position = offset + match.start()
+            if any(start <= position < end for start, end in qualified):
+                continue
+            value = match[2]
+            if re.fullmatch(r'/[^\s/]+', value):
+                name, form = value[1:], 'slash'
+            elif value in names and route and match.start() >= route.end():
+                name, form = value, 'route'
+            elif value in names and steps and step_indent is not None:
+                name, form = value, 'step'
+            else:
+                continue
+            result.append(SkillMention(name, line_number, position, form))
+        offset += len(line)
+    return sorted(result, key=lambda mention: mention.offset)
+
+
+def skill_of_path(text: str, offset: int, names) -> str | None:
+    """Resolve a path's explicit skill owner or its same-line skill antecedent."""
+    masked = prose_mask(text)
+    prefix = masked[:offset]
+    for match in QUALIFIED_SKILL.finditer(prefix):
+        if re.fullmatch(r"'s\s*`?", prefix[match.end():]):
+            name = match[1] or match[2]
+            if match[1] or name in names:
+                return name
+    prefix = prefix[prefix.rfind('\n') + 1:]
+    reference = re.search(r"\bthat skill's\s*`?$", prefix)
+    if reference is None:
+        return None
+    antecedent = prefix[:reference.start()]
+    candidates = [(mention.offset, mention.name)
+                  for mention in skill_mentions(antecedent, names) if mention.by_model]
+    candidates.extend((match.start(), match[2]) for match in SKILL_CODE.finditer(antecedent)
+                      if match[2] in names)
+    return max(candidates)[1] if candidates else None
+
+
 def markdown_units(text: str, first_line: int = 1) -> list[Unit]:
     lines = text.splitlines(keepends=True)
     result = []
