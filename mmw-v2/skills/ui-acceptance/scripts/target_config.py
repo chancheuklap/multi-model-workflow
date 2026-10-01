@@ -200,7 +200,7 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
 
 # ---------------------------------------------------------------- --check
 
-# slug 是 `.mmw/playbooks/` 里的文件名，小写词用连字符连起来
+# A slug is a file name under .mmw/playbooks/: lowercase words joined by hyphens.
 PLAYBOOK_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
@@ -210,13 +210,14 @@ def delivery_problem(value, root: Path) -> str | None:
     if value == "commit":
         return None
     if isinstance(value, str) and value.startswith("playbook:"):
-        slug = value[len("playbook:"):]
+        slug = value.removeprefix("playbook:")
         if PLAYBOOK_SLUG.fullmatch(slug) is None:
             return (f"must be `commit` or `playbook:<slug>` with <slug> in lowercase "
                     f"words joined by hyphens, not {value!r} — e.g. {example}")
         playbook = Path(".mmw") / "playbooks" / f"{slug}.md"
         if not (root / playbook).is_file():
-            return f"names {playbook}, which this repository does not have — e.g. {example}"
+            return (f"names {playbook}, which this repository does not have — "
+                    f"add that file or name one it has")
         return None
     return f"must be `commit` or `playbook:<slug>`, not {value!r} — e.g. {example}"
 

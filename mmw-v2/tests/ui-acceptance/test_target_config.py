@@ -220,12 +220,18 @@ class TestTargetCheck(unittest.TestCase):
     def test_delivery_with_any_other_value_is_wrong(self):
         values = ("pr", "Commit", "playbook:", "playbook:../promote-a-change",
                   1, None, ["commit"])
+        # These two would name a file outside `.mmw/playbooks/` if the slug
+        # check were skipped. An empty directory still yields a `delivery`
+        # problem from the missing-file branch, so the key alone cannot go red.
+        escapes = ("playbook:", "playbook:../promote-a-change")
         with tempfile.TemporaryDirectory() as d:
             for value in values:
                 with self.subTest(value=value):
                     problems = tc.target_problems(
                         {**self.COMPLETE, "delivery": value}, Path(d))
                     self.assertEqual([k for k, _ in problems], ["delivery"])
+                    if value in escapes:
+                        self.assertIn("lowercase words joined by hyphens", problems[0][1])
         code, out, _ = self.check_with_delivery(delivery="pr")
         self.assertEqual(code, 1)
         self.assertIn(
