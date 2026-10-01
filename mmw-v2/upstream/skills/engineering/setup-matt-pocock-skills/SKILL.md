@@ -14,8 +14,6 @@ Scaffold the per-repo configuration that the engineering skills assume:
 
 This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
 
-What you write here is read at the moment of acting by every skill that publishes or triages an issue, and by every agent that explores this codebase; a wrong command or label is repeated by each spec, ticket and night after it, without an error. So make these files true of this repository rather than filling in the templates: check a command against the repository before you write it down.
-
 ## Process
 
 ### 1. Explore
@@ -48,8 +46,6 @@ Default posture: these skills were designed for GitHub. If a `git remote` points
 - **Local markdown**: issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
 - **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
 
-In this toolbox the tracker is also the landing pipeline's store: the skills that publish specs and tickets, the night's scripts and the task board talk to GitHub Issues through `gh` and to nothing else. Any other choice leaves the planning skills usable by hand, but no night can run on this repository; say that when you propose it.
-
 Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
 
 **Section B: Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no labels.
@@ -59,8 +55,6 @@ If it is installed, ask exactly one question:
 > Do you want to keep the default triage labels? (recommended: **yes**)
 
 The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no, usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`), collect the overrides so `triage` applies existing labels instead of creating duplicates.
-
-The night's scripts and the ticket skills write the default label strings verbatim; an override changes what `triage` applies and nothing else. In a repository the pipeline runs on, keep the defaults.
 
 **Section C: Domain docs.** Default to **single-context** (one `CONTEXT.md` + `docs/adr/` at the repo root). This fits almost every repo; write it without asking.
 
