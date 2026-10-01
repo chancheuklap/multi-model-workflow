@@ -17,7 +17,7 @@ bash "$(dirname -- "${BASH_SOURCE[0]}")/../lib/run_shared_lints.sh" || exit 1
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
-unset MMW_CATALOG_MODE
+unset MMW_CATALOG_MODE MMW_ROLE
 
 # The suite runs its own fixtures, so the session's own identity has to be off the
 # environment first. `dispatch.sh` reads `MMW_SPEC`, `MMW_TICKET` and `MMW_KIND` to know

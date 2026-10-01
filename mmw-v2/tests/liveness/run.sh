@@ -21,6 +21,7 @@
 # against each host, and recorded in turn-guard.py's header.
 
 set -euo pipefail
+unset MMW_ROLE
 bash "$(dirname -- "${BASH_SOURCE[0]}")/../lib/run_shared_lints.sh" || exit 1
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
