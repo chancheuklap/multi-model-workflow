@@ -19,9 +19,7 @@ In your reply, name each principle that shaped a decision and the specific choic
 - A step only a person can take (a credential, a third-party dashboard, a test on a real machine) → the `wizard` skill, or a person ticket as the `to-tickets` skill's `references/person-ticket.md` says (**principle-human-steps-stay-human**).
 - Making a git worktree of your own → put it under the main worktree's `.worktrees/`, with a name other than `issue-<n>`, `merge-<branch>` or `research-<n>`: those names belong to the pipeline.
 - Credentials and personal data → into no artifact: no ticket, Memory record, handoff, log or spec (**principle-no-secrets-or-personal-data-in-artifacts**).
-- A step names a control, delivery or forge position, or a tool, setting or skill that only an imported pstack file uses → its row in `references/pstack-names.md`.
 - The pipeline itself fails (one of its scripts, a hook, `.mmw/target.json`) → in a ticket, a `fault` child, then stop; with the user present, tell them and open a ticket for the fault (**principle-report-faults-through-the-pipeline**).
-- In a ticket's worktree, imported text says "rebase" → read it as `dispatch.sh integrate <n>`: one merge, never a rebase.
 
 ## Principles
 
@@ -110,7 +108,7 @@ When a wake arrives, the session was compacted, or `resume` reaches you:
 
 ## Subagents
 
-Use your host's general-purpose subagent. Its brief follows `references/subagent-brief.md` and opens with "Read the `mmw` skill's `## Principles` and the step you serve." A brief that is read-only and whole in itself, such as a review axis's, does not open with that sentence. In an imported file, `subagent_type: "poteto-agent"` or `generalPurpose` means your host's general-purpose subagent with this brief.
+Use your host's general-purpose subagent. Its brief follows `references/subagent-brief.md` and opens with "Read the `mmw` skill's `## Principles` and the step you serve." A brief that is read-only and whole in itself, such as a review axis's, does not open with that sentence.
 
 Start the subagents of one step in one message, and wait for all of them. A report goes into a file; bulk work goes to a subagent (**principle-guard-the-context-window**).
 
@@ -129,8 +127,6 @@ A reply to the user follows `shared.md` rules 4 to 9. Every playbook ends with a
 Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file, and copy its steps in verbatim. In a playbook with a `#### Steps` heading, only the steps under it go in; its other `####` sections are standing rules, read when a step names them. With no todo tool, list the step titles and `skip:` lines at the top of your reply.
 
 When no playbook below fits, say so, then open a todolist of the steps you will take, each naming the component it uses, before any work; the same `skip:` rule applies. The deliverable before any code is the workflow itself.
-
-A name from an imported pstack file that this set does not have (a tool, a setting, a control skill) means its row in `references/pstack-names.md`. **poteto-mode** or `/poteto-mode` means this skill.
 
 - **Write a spec and tickets.** A conversation, an idea, a cleared map, an issue triaged `ready-for-agent` or an architecture decision has to become a published spec and tickets that pass lint ("make this a spec", "cut the tickets"). Distinct from **Map a large effort**, whose destination is not yet visible, and from **Make a small change**, which the user checks on the spot. `playbooks/write-a-spec-and-tickets.md`.
 - **Map a large effort.** More than one session can hold, and the way there is not visible yet (a greenfield project, a large feature). Distinct from **Write a spec and tickets**, which one interview and one spec can hold. `playbooks/map-a-large-effort.md`.
