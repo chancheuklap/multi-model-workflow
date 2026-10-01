@@ -31,7 +31,13 @@ PLAYBOOK_ANCHORS = {
     ),
     "accept-the-night": ("Read the night out",),
     "land-one-ticket": ("Start the worker", "Handle each wake", "Land"),
-    "research-a-question": (),
+    "research-a-question": (
+        "Name the decision it feeds",
+        "Run the research",
+        "Commit the report",
+        "Answer on the ticket",
+        "Leave the map alone",
+    ),
 }
 
 # Event-derived positions. A missing playbook uses the role's roles.json entry.
