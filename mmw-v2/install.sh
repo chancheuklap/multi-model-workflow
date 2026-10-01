@@ -130,6 +130,7 @@ LAUNCHCTL=launchctl
 if [ -n "${MMW_V2_HOME+x}" ]; then
   LAUNCHCTL="${MMW_V2_LAUNCHCTL:-}"
 fi
+[ "$(uname)" = Darwin ] || LAUNCHCTL=""
 
 # 不属于任何一个 host，所以无条件建。
 NEUTRAL_DIR="$HOME_DIR/.agents/skills"
@@ -198,49 +199,51 @@ def close_command(watch):
     return f"dispatch.sh suspend {watch['spec']}"
 
 
-opens = []
-locks = []
-unreadable = []
-try:
-    repo_dirs = statedir.repo_state_dirs()
-except OSError as exc:
-    if mode != 'check':
-        refuse(f'UNREADABLE {statedir.home() / "state"}（{exc}）',
-               '修正该状态目录的类型与读取权限后再跑 install.sh')
-    if not isinstance(exc, NotADirectoryError):
-        raise
-    repo_dirs = []
-for repo_dir in repo_dirs:
-    owner, name = repo_dir.name.split("__", 1)
-    repo = f"{owner}/{name}"
+def findings():
     try:
-        watches = relay.read_watches(repo_dir)
-    except (OSError, ValueError):
-        if mode != 'check':
-            refuse(f'UNREADABLE {repo} {repo_dir / "watches.json"}',
-                   '修正该 watches.json 的格式与读取权限后再跑 install.sh')
-        unreadable.append(f"UNREADABLE {repo} watches.json")
-        continue
-    for key in sorted(watches):
-        if mode != 'check':
-            refuse(f'OPEN-WATCH {repo} {key}', f'在 {repo} 运行 {close_command(watches[key])}')
-        opens.append(f"OPEN-WATCH {repo} {key}")
-    for kind in ("relay", "watchdog"):
-        holder = statedir.holder(repo_dir / f"{kind}.lock")
-        if holder is None:
+        repo_dirs = statedir.repo_state_dirs()
+    except OSError as exc:
+        if mode == 'check':
+            if isinstance(exc, NotADirectoryError):
+                return
+            raise
+        yield ('unreadable', f'UNREADABLE {statedir.home() / "state"}（{exc}）',
+               '修正该状态目录的类型与读取权限后再跑 install.sh')
+        return
+    for repo_dir in repo_dirs:
+        owner, name = repo_dir.name.split("__", 1)
+        repo = f"{owner}/{name}"
+        try:
+            watches = relay.read_watches(repo_dir)
+        except (OSError, ValueError):
+            yield ('unreadable', f'UNREADABLE {repo} watches.json',
+                   f'修正 {repo_dir / "watches.json"} 的格式与读取权限后再跑 install.sh')
             continue
-        if mode != 'check':
-            refuse(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}",
-                   f'在 {repo} 运行 dispatch.sh suspend <spec> 关闭该锁所属的夜')
-        locks.append(f"LIVE-LOCK {repo} {kind} pid {holder.get('pid')}")
+        for key in sorted(watches):
+            yield ('open', f'OPEN-WATCH {repo} {key}',
+                   f'在 {repo} 运行 {close_command(watches[key])}')
+        for kind in ("relay", "watchdog"):
+            holder = statedir.holder(repo_dir / f"{kind}.lock")
+            if holder is None:
+                continue
+            pid = holder['pid']
+            yield ('lock', f'LIVE-LOCK {repo} {kind} pid {pid}',
+                   f'该仓库已无 open watch；运行 ps -p {pid} -o pid=,lstart=,command= '
+                   '核对持锁进程，由启动者停止后再跑 install.sh')
+
+
 if mode != 'check':
+    first = next(findings(), None)
+    if first is not None:
+        refuse(first[1], first[2])
     raise SystemExit(0)
-for line in opens:
-    print(line)
-for line in locks:
-    print(line)
-for line in unreadable:
-    print(line)
+listing = {'open': [], 'lock': [], 'unreadable': []}
+for kind, line, next_step in findings():
+    listing[kind].append(line)
+opens, locks, unreadable = (listing[kind] for kind in ('open', 'lock', 'unreadable'))
+for lines in (opens, locks, unreadable):
+    for line in lines:
+        print(line)
 watched, held, bad = len(opens), len(locks), len(unreadable)
 if bad:
     print(f"NOT-SAFE-TO-MOVE-INSTALLED {watched} open watches, {held} live locks, "
@@ -254,7 +257,7 @@ PY
 
 # 完整安装在首次写入之前检查运行状态；--check 在末尾只报告。
 if [ "$mode" != check ]; then
-  report_move_safety || exit 2
+  report_move_safety || exit $?
 fi
 
 [ -f "$LIST" ] || die "缺 skills.txt：$LIST"
@@ -1245,7 +1248,7 @@ launch_agent() {
       echo "缺    $plist 不存在或指向别的 checkout，跑一次 install.sh" >&2
       return 1
     fi
-    if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ] \
+    if [ -n "$LAUNCHCTL" ] \
        && ! "$LAUNCHCTL" print "gui/$(id -u)/$label" >/dev/null 2>&1; then
       echo "缺    launchd 任务 $label 没在跑，跑一次 install.sh" >&2
       return 1
@@ -1254,12 +1257,12 @@ launch_agent() {
   fi
   if [ "$reload" -eq 1 ] || [ ! -f "$plist" ] || [ "$(cat "$plist")" != "$want" ]; then
     mkdir -p "$(dirname "$plist")"
-    if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ]; then
+    if [ -n "$LAUNCHCTL" ]; then
       "$LAUNCHCTL" bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
     fi
     printf '%s\n' "$want" > "$plist"
   fi
-  if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ] \
+  if [ -n "$LAUNCHCTL" ] \
      && { [ "$reload" -eq 1 ] || ! "$LAUNCHCTL" print "gui/$(id -u)/$label" >/dev/null 2>&1; }; then
     "$LAUNCHCTL" bootstrap "gui/$(id -u)" "$plist" \
       || { echo "缺    launchd 任务装不上：$plist" >&2; status=1; }
@@ -1285,7 +1288,7 @@ if [ -f "$PROMPT_SRC/shared.md" ]; then
   fi
 
   # launchd 或显式指定的测试替身。plist 与日志都属于安装目标家目录。
-  if [ -n "$LAUNCHCTL" ] && [ "$(uname)" = Darwin ]; then
+  if [ -n "$LAUNCHCTL" ]; then
     PLIST="$HOME_DIR/Library/LaunchAgents/com.mmw.prompt-sync.plist"
     want_plist="$(cat <<XML
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1365,9 +1368,7 @@ BOARD_COMMIT_FILE="$HOME_DIR/.mmw/board-bootstrapped-commit"
 board_commit=""
 board_reload=0
 if [ "$mode" != check ]; then
-  if ! board_commit="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)"; then
-    board_commit=""
-  fi
+  board_commit="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" || board_commit=""
   board_previous=无
   if [ -f "$BOARD_COMMIT_FILE" ]; then
     board_previous="$(cat "$BOARD_COMMIT_FILE")"

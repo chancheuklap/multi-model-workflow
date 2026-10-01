@@ -149,13 +149,18 @@ raise SystemExit(subprocess.call([%r, *args]))
                 result = self.install()
                 self.assertEqual(2, result.returncode, result.stderr)
                 self.assertIn(f"o/r {kind} pid {child.pid}", result.stdout + result.stderr)
+                self.assertIn(f"ps -p {child.pid} -o pid=,lstart=,command=",
+                              result.stdout + result.stderr)
                 self.assertFalse((self.home / ".mmw/installed-root").exists())
                 lock.unlink()
 
     def test_isolated_install_ignores_the_testers_own_watches(self):
         other = self.scratch / "other-mmw"
         self.watch(other)
-        result = self.install(MMW_HOME=str(other))
+        other_home = self.scratch / "other-home"
+        other_home.mkdir()
+        self.watch(other_home / ".mmw")
+        result = self.install(MMW_HOME=str(other), HOME=str(other_home))
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertTrue((self.home / ".mmw/installed-root").is_file())
 
