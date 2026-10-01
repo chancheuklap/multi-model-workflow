@@ -12,4 +12,4 @@
 
 ### 别处按标题引用这里
 
-`mmw` 技能的 `references/skill-set-rules.md` 按节名引用这个目录的 `SKILL.md`（`## Pruning`、`## Context pointers`），并在 `## Upstream examples` 里按标题引用若干上游技能；`references/reviewing-a-skill-set.md` 按技能名引用这个目录的 `SKILL.md`。上游改这些标题 → 收上游，再改这两份文件里对应的引用。
+`mmw` 技能的 `references/skill-set-rules.md` 按节名引用这个目录的 `SKILL.md` 与 `SKILL-MECHANICS.md`，并在 `## Upstream examples` 里按标题引用若干上游技能；`references/reviewing-a-skill-set.md` 按技能名引用这个目录的 `SKILL.md`。上游改这些标题 → 收上游，再改这两份文件里对应的引用。
