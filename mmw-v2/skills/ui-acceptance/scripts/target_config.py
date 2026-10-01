@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -44,7 +45,9 @@ class Field:
 # The keys every repository answers, whatever kind of product it has. `discover`
 # prints an origin-class address plus `instance`. `checks` is read by
 # `verify-ticket.py --closeout`, not by this file, and is listed so the file has one
-# account.
+# account. `delivery` is read by no script: the agent delivering a change made
+# outside a ticket reads it, and this file checks only that a `playbook:<slug>`
+# value names a playbook the repository has.
 DISCOVER_PRINTS: tuple[tuple[str, str], ...] = (
     ("origin", "where the product is served, e.g. http://127.0.0.1:8000"),
     ("instance", "a readable name for this run"),
@@ -91,6 +94,12 @@ FIELDS: tuple[Field, ...] = (
           "ALL MET ticket closes; the ui-acceptance skill's references/product-answers.md says the "
           "shape",
           '["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]',
+          required=False),
+    Field("delivery", "string",
+          "how a finished change made outside a ticket is handed over: `commit` (the "
+          "default) commits it to the current branch, `playbook:<slug>` runs this "
+          "repository's own playbook .mmw/playbooks/<slug>.md",
+          '"playbook:promote-a-change"',
           required=False),
 )
 
@@ -191,9 +200,32 @@ def discover(cfg: dict, root: Path, env: dict[str, str] | None = None) -> dict:
 
 # ---------------------------------------------------------------- --check
 
-def target_problems(cfg: dict) -> list[tuple[str, str]]:
+# slug 是 `.mmw/playbooks/` 里的文件名，小写词用连字符连起来
+PLAYBOOK_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def delivery_problem(value, root: Path) -> str | None:
+    """What is wrong with one `delivery` value, or None when `--check` may accept it."""
+    example = next(f.example for f in FIELDS if f.key == "delivery")
+    if value == "commit":
+        return None
+    if isinstance(value, str) and value.startswith("playbook:"):
+        slug = value[len("playbook:"):]
+        if PLAYBOOK_SLUG.fullmatch(slug) is None:
+            return (f"must be `commit` or `playbook:<slug>` with <slug> in lowercase "
+                    f"words joined by hyphens, not {value!r} — e.g. {example}")
+        playbook = Path(".mmw") / "playbooks" / f"{slug}.md"
+        if not (root / playbook).is_file():
+            return f"names {playbook}, which this repository does not have — e.g. {example}"
+        return None
+    return f"must be `commit` or `playbook:<slug>`, not {value!r} — e.g. {example}"
+
+
+def target_problems(cfg: dict, root: Path) -> list[tuple[str, str]]:
     """What `.mmw/target.json` still has to answer: `(key, problem)` pairs, in the
-    order `FIELDS` lists them. Empty when the file is complete."""
+    order `FIELDS` lists them. Empty when the file is complete. `root` is the
+    repository root that holds the file, which a `playbook:<slug>` value is checked
+    against."""
     problems: list[tuple[str, str]] = []
     for f in FIELDS:
         if f.key not in cfg:
@@ -217,6 +249,10 @@ def target_problems(cfg: dict) -> list[tuple[str, str]]:
             if not ok:
                 problems.append((f.key, f"must be {{\"max\": <n>, \"why\": \"<text>\"}} "
                                         f"— e.g. {f.example}"))
+        elif f.key == "delivery":
+            why = delivery_problem(value, root)
+            if why is not None:
+                problems.append((f.key, why))
     return problems
 
 
@@ -246,7 +282,7 @@ def target_main(argv: list[str]) -> int:
     except TargetJSONError as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    problems = target_problems(cfg)
+    problems = target_problems(cfg, repo)
     if args.validate:
         if problems:
             key, why = problems[0]

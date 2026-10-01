@@ -77,6 +77,8 @@ These hold for every product. How a given repository meets them is its own.
 - **`checks`.** The repository's own checks, which the `verify-ticket` skill's
   `--closeout` runs. `checks` is optional: a list run in order at the repository root, each entry a command string held to the same bound as a `CHECK:` (`DEFAULT_TIMEOUT`, 600 s) or `{"run": "<command>", "timeout": <seconds>}` for a suite that needs longer. Every command receives `MMW_BASE_REF=origin/<into>`, where `into` is from the newest `worker.started`. A command that fails keeps the ticket open, so every entry must pass on the base branch as it stands.
 
+- **`delivery`.** How this repository takes a finished change made outside a ticket; a ticket's change is delivered by its closeout. The key is optional: `commit`, the default, commits the change to the current branch, and `playbook:<slug>` hands it to this repository's own playbook `<slug>`. The `--check` run reports any other value as wrong, and reports `playbook:<slug>` as wrong while that playbook's file is missing, naming the file it looked for.
+
 ## `.mmw/` directory
 
 Product answers live here, not scattered through the repository:
