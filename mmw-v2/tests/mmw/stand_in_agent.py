@@ -223,10 +223,11 @@ class Agent:
             raise RuntimeError('rehearsal draft needs an explicit finding or baseline answer')
         text = text.replace('skipped: <fill>', 'skipped: None')
         text = text.replace('\n<fill>\n', '\nNone\n')
+        self.paths()
+        text = text.replace(self.locations.AUDITED_LINE + ' <fill>',
+                            self.locations.AUDITED_LINE + ' yes')
         if '<fill>' in text:
             raise RuntimeError('unanswered rehearsal draft field')
-        self.paths()
-        text += '\n' + self.locations.AUDITED_LINE + ' yes\n'
         path.write_text(text)
 
     def where(self):
