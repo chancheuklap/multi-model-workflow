@@ -76,7 +76,7 @@ class SupervisorTests(unittest.TestCase):
         ignore = shutil.ignore_patterns("__pycache__", "node_modules")
         copy = self.base / "installed" / "mmw-v2"
         shutil.copytree(ROOT / "mmw-v2" / "board", copy / "board", ignore=ignore)
-        for skill in ("dispatch", "verify-ticket"):
+        for skill in ("mmw", "verify-ticket"):
             shutil.copytree(ROOT / "mmw-v2" / "skills" / skill / "scripts",
                             copy / "skills" / skill / "scripts", ignore=ignore)
         return copy / "board" / "supervisor.py"
@@ -174,7 +174,7 @@ class SupervisorTests(unittest.TestCase):
         self.board(port)
         old_pid = self.child_pid(supervisor.pid, port)
         self.assertIsNotNone(old_pid)
-        events = copy.parents[1] / "skills" / "verify-ticket" / "scripts" / "events.py"
+        events = copy.parents[1] / "skills" / "mmw" / "scripts" / "events.py"
         events.write_text(events.read_text(encoding="utf-8") + "\n# changed\n", encoding="utf-8")
         new_pid = self.wait_for_new_child(supervisor.pid, port, old_pid)
         self.assertEqual(self.board(port)["repo"], "fixture/updated")
@@ -229,23 +229,23 @@ class SupervisorTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def test_finds_locations_under_mmw_scripts_first(self):
+    def test_finds_locations_under_mmw_scripts(self):
         copy = self.copied_supervisor()
         scripts = copy.parents[1] / "skills"
-        shutil.copytree(scripts / "dispatch" / "scripts",
-                        scripts / "from-mmw" / "dispatch-scripts")
+        shutil.copytree(scripts / "mmw" / "scripts",
+                        scripts / "from-mmw" / "mode-scripts")
         shutil.copytree(scripts / "verify-ticket" / "scripts",
                         scripts / "from-mmw" / "verify-scripts")
         mmw = scripts / "mmw" / "scripts"
-        mmw.mkdir(parents=True)
+        mmw.mkdir(parents=True, exist_ok=True)
         (mmw / "locations.py").write_text(
-            'DISPATCH_SCRIPTS = "from-mmw/dispatch-scripts"\n'
-            'EVENTS_PY = "from-mmw/verify-scripts/events.py"\n'
+            'MODE_SCRIPTS = "from-mmw/mode-scripts"\n'
+            'EVENTS_PY = "from-mmw/mode-scripts/events.py"\n'
             'ISSUE_TREE_PY = "from-mmw/verify-scripts/issue_tree.py"\n',
             encoding="utf-8",
         )
-        self.stamp_statedir(scripts / "from-mmw" / "dispatch-scripts" / "statedir.py", "mmw")
-        self.stamp_statedir(scripts / "dispatch" / "scripts" / "statedir.py", "dispatch")
+        self.stamp_statedir(scripts / "from-mmw" / "mode-scripts" / "statedir.py", "registered-mode")
+        self.stamp_statedir(scripts / "mmw" / "scripts" / "statedir.py", "unregistered-mode")
         mark = self.base / "locations-mark"
         repository, fixture = self.repository("repo", "fixture/mmw-locations")
         port = free_port()
@@ -254,43 +254,15 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(self.board(port)["repo"], "fixture/mmw-locations")
         lines = mark.read_text(encoding="utf-8").splitlines()
         self.assertGreaterEqual(len(lines), 2)
-        self.assertEqual(set(lines), {"mmw"})
+        self.assertEqual(set(lines), {"registered-mode"})
 
-    def test_finds_locations_under_dispatch_scripts_second(self):
-        copy = self.copied_supervisor()
-        scripts = copy.parents[1] / "skills"
-        self.assertFalse((scripts / "mmw" / "scripts" / "locations.py").exists())
-        locations = scripts / "dispatch" / "scripts" / "locations.py"
-        self.assertTrue(locations.is_file())
-        shutil.copytree(scripts / "dispatch" / "scripts",
-                        scripts / "picked-dispatch" / "scripts")
-        registered = 'DISPATCH_SCRIPTS = "dispatch/scripts"'
-        text = locations.read_text(encoding="utf-8")
-        self.assertIn(registered, text)
-        locations.write_text(
-            text.replace(registered, 'DISPATCH_SCRIPTS = "picked-dispatch/scripts"', 1),
-            encoding="utf-8",
-        )
-        self.stamp_statedir(scripts / "picked-dispatch" / "scripts" / "statedir.py", "picked")
-        self.stamp_statedir(scripts / "dispatch" / "scripts" / "statedir.py", "dispatch")
-        mark = self.base / "locations-mark"
-        repository, fixture = self.repository("repo", "fixture/dispatch-locations")
-        port = free_port()
-        self.start({repository: port}, {repository: fixture}, copy,
-                   {"MMW_BOARD_LOCATIONS_MARK": str(mark)})
-        self.assertEqual(self.board(port)["repo"], "fixture/dispatch-locations")
-        lines = mark.read_text(encoding="utf-8").splitlines()
-        self.assertGreaterEqual(len(lines), 2)
-        self.assertEqual(set(lines), {"picked"})
-
-    def test_refuses_naming_install_check_without_locations(self):
+    def test_refuses_naming_install_check_when_only_legacy_locations_exist(self):
         copy = self.copied_supervisor()
         root = copy.parents[1]
-        for relative in ("skills/mmw/scripts/locations.py",
-                         "skills/dispatch/scripts/locations.py"):
-            path = root / relative
-            if path.exists():
-                path.unlink()
+        (root / "skills/mmw/scripts/locations.py").unlink()
+        legacy = root / "skills" / "dispatch" / "scripts" / "locations.py"
+        legacy.parent.mkdir(parents=True)
+        shutil.copy(ROOT / "mmw-v2/skills/mmw/scripts/locations.py", legacy)
         stdout = (self.base / "refuse.out").open("w+", encoding="utf-8")
         stderr = (self.base / "refuse.err").open("w+", encoding="utf-8")
         env = os.environ.copy()

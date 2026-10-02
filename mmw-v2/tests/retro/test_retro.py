@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 MMW = HERE.parents[1]
 SCRIPT = MMW / "skills" / "retro" / "scripts" / "retro.py"
-EVENTS = MMW / "skills" / "verify-ticket" / "scripts" / "events.py"
+EVENTS = MMW / "skills" / "mmw" / "scripts" / "events.py"
 spec = importlib.util.spec_from_file_location("retro_events", EVENTS)
 events = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(events)

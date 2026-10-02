@@ -202,7 +202,7 @@ def sub_issues_target(recorded):
 
 def touched(body):
     """A posted body as `(prose, payload)`: it must be one `worker.touched` event."""
-    what, payload = vt.events.parse(body)
+    what, payload = vt.engine.events.parse(body)
     assert what == "event" and payload["event"] == "worker.touched", (what, payload)
     return body[:body.index("\n\n<!-- mmw")], payload
 

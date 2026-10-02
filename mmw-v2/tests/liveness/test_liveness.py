@@ -26,8 +26,9 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
-SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "dispatch" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "mmw" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 
@@ -129,7 +130,8 @@ class StateCase(unittest.TestCase):
         """watches.json holding each entry: a watch (`spec` or `tickets`) with its orchestrator."""
         self.write("watches.json", {
             (f"spec:{e['spec']}" if e.get("spec") else
-             "tickets:" + ",".join(str(n) for n in e["tickets"])): e for e in entries})
+             "tickets:" + ",".join(str(n) for n in e["tickets"])):
+            {"kind": "night" if e.get("spec") else "ticket", **e} for e in entries})
 
 
 class RepositoryStateDirectories(StateCase):
@@ -319,7 +321,7 @@ class HostSide(unittest.TestCase):
 
 
 class WhoseTurn(StateCase):
-    """`is_main` against a runner adapter whose `self` answers $FAKE_SELF, with two watches
+    """Orchestrator matching against a runner adapter whose `self` answers $FAKE_SELF, with two watches
     open: spec 7 opened by main-1 and ticket #70 opened by main-2."""
 
     def setUp(self):
@@ -328,6 +330,9 @@ class WhoseTurn(StateCase):
         runners.mkdir()
         (runners / "fake.sh").write_text('case "$1" in self) printf "%s\\n" "$FAKE_SELF" ;; *) exit 3 ;; esac\n')
         self.env("MMW_RUNNERS_DIR", str(runners))
+        no_watchdog = Path(self.tmp.name) / "nodog.py"
+        no_watchdog.write_text("raise SystemExit(1)\n")
+        self.env("MMW_WATCHDOG_PY", str(no_watchdog))
         self.open_watches({"spec": 7, "runner": "fake", "session": "main-1"},
                           {"tickets": [70], "runner": "fake", "session": "main-2"})
 
@@ -337,16 +342,99 @@ class WhoseTurn(StateCase):
         self.addCleanup(lambda: os.environ.pop(name) if old is None
                         else os.environ.__setitem__(name, old))
 
+    def end_turn(self, host="codex"):
+        payload = {"cursor_version": "2026.09.08-6caf4ff", "loop_count": 0} if host == "cursor" else {}
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(guard.sys, "stdin", io.StringIO(json.dumps(payload))), \
+             mock.patch.object(guard.sys, "stdout", out), \
+             mock.patch.object(guard.sys, "stderr", err):
+            code = guard.main(["stop", host])
+        return code, out.getvalue(), err.getvalue()
+
     def test_the_main_agent_of_every_open_watch_is_guarded_and_nobody_else(self):
         for session, guarded in (("main-1", True), ("main-2", True), ("main-3", False)):
             with self.subTest(session=session):
                 self.env("FAKE_SELF", session)
-                self.assertEqual(guard.is_main(self.state, dog), guarded)
+                self.assertEqual(bool(guard.main_watches(self.state, dog)), guarded)
 
     def test_a_main_agent_on_a_runner_with_no_adapter_is_nobody(self):
         self.open_watches({"spec": 7, "runner": "nosuch", "session": "main-1"})
         self.env("FAKE_SELF", "main-1")
-        self.assertFalse(guard.is_main(self.state, dog))
+        self.assertFalse(guard.main_watches(self.state, dog))
+
+    def test_turn_guard_line_ends_with_a_step_pointer(self):
+        for kind, pointer in (("night", "mmw run-a-night#Handle each wake"),
+                              ("ticket", "mmw land-one-ticket#Handle each wake"),
+                              ("adopted-ticket", "mmw work-a-ticket#When something else wakes you")):
+            with self.subTest(kind=kind):
+                home = {"spec": 7} if kind == "night" else {"tickets": [70]}
+                self.open_watches({**home, "kind": kind,
+                                   "runner": "fake", "session": "main-2"})
+                self.env("FAKE_SELF", "main-2")
+                self.write("watchdog.json", {"held": [70]})
+                code, out, err = self.end_turn()
+                self.assertEqual(code, 2)
+                self.assertEqual(out, "")
+                line = err.rstrip("\n")
+                self.assertTrue(line.endswith(" · " + pointer), line)
+                self.assertNotIn("\n", line)
+
+        self.open_watches({"spec": 7, "runner": "fake", "session": "main-2"})
+        self.write("watchdog.json", {"held": [70]})
+        second = statedir.state_dir("o/second")
+        (second / "watches.json").write_text(json.dumps({
+            "tickets:71": {"tickets": [71], "kind": "ticket", "runner": "fake", "session": "main-2"}}))
+        (second / "watchdog.json").write_text(json.dumps({"held": [71]}))
+        code, out, err = self.end_turn()
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        line = err.rstrip("\n")
+        self.assertNotIn("\n", line)
+        self.assertEqual(line.count("MMW turn guard:"), 2)
+        blocks = line.split(" | MMW turn guard:")
+        self.assertEqual(len(blocks), 2)
+        self.assertTrue(blocks[0].endswith(" · mmw run-a-night#Handle each wake"), blocks[0])
+        self.assertTrue(blocks[1].endswith(" · mmw land-one-ticket#Handle each wake"), blocks[1])
+
+    def test_two_watches_on_one_repository_do_not_repeat_the_same_guard_block(self):
+        self.open_watches({"tickets": [70], "runner": "fake", "session": "main-2"},
+                          {"tickets": [71], "runner": "fake", "session": "main-2"})
+        self.env("FAKE_SELF", "main-2")
+        self.write("watchdog.json", {"held": [70, 71]})
+        lines = guard.guard("codex")
+        self.assertEqual(len(lines), 1)
+
+    def test_turn_guard_without_roles_json_keeps_its_verdict_and_names_install_check(self):
+        self.open_watches({"tickets": [70], "runner": "fake", "session": "main-2"})
+        self.env("FAKE_SELF", "main-2")
+        for host in ("codex", "cursor"):
+            with self.subTest(host=host):
+                self.write("watchdog.json", {"held": [70]})
+                with mock.patch.object(dog.relay_mod, "HERE", Path(self.tmp.name) / "scripts"):
+                    code, out, err = self.end_turn(host)
+                if host == "codex":
+                    self.assertEqual(code, 2)
+                    self.assertEqual(out, "")
+                    text = err.rstrip("\n")
+                else:
+                    self.assertEqual(code, 0)
+                    self.assertEqual(err, "")
+                    text = json.loads(out)["followup_message"]
+                self.assertIn("roles.json", text)
+                self.assertTrue(text.endswith("install.sh --check"), text)
+                self.assertNotIn("\n", text)
+
+        beat = {"pid": os.getpid(), "identity": statedir.own_identity(),
+                "at": dog.iso(dog.now_utc()), "read_at": dog.iso(dog.now_utc()),
+                "poll": 60, "held": [70]}
+        self.write("watchdog.json", beat)
+        with statedir.locked(self.state / "watchdog.lock", wait=0, purpose="test watchdog"), \
+             mock.patch.object(dog.relay_mod, "HERE", Path(self.tmp.name) / "scripts"), \
+             mock.patch.object(dog.relay_mod, "wake_pointer", side_effect=AssertionError("healthy turn read roles")):
+            code, out, err = self.end_turn()
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
 
 
 # ----------------------------------------------------------------- the night
@@ -463,6 +551,46 @@ class Rounds(StateCase):
 
     def heartbeat(self) -> dict:
         return json.loads((self.state / "watchdog.json").read_text())
+
+    def test_every_alert_ends_with_the_orchestrators_step_pointer(self):
+        for kind, pointer in (
+                ("night", "mmw run-a-night#Handle each wake"),
+                ("ticket", "mmw land-one-ticket#Handle each wake"),
+                ("adopted-ticket", "mmw work-a-ticket#When something else wakes you")):
+            with self.subTest(kind=kind):
+                self.write("watchdog.json", {})
+                self.send.calls.clear()
+                home = {"spec": 7} if kind == "night" else {"tickets": [61]}
+                self.open_watches({**home, "kind": kind, **MAIN})
+                self.silent_worker()
+                self.board.tickets[61].append(comment(2, "reviewer.started", 61, self.SILENT,
+                                                       runner="orca", session="rv-61"))
+                self.ask.default = "unknown"
+                self.watchdog().round()
+                self.assertEqual(len(self.send.calls), 1)
+                text = self.send.calls[0][2]
+                self.assertTrue(text.endswith(" · " + pointer), text)
+                self.assertNotIn("\n", text)
+                self.assertNotIn("\r", text)
+                self.assertEqual(text.count("watchdog:"), 2)
+                self.assertIn(" | ", text)
+                self.assertEqual(text.count(" · mmw "), 1)
+
+    def test_watchdog_alert_without_roles_json_names_install_check(self):
+        self.open_watches({"tickets": [61], "kind": "ticket", **MAIN})
+        self.silent_worker()
+        self.ask.default = "unknown"
+        wd = self.watchdog()
+        with mock.patch.object(dog.relay_mod, "HERE", Path(self.tmp.name) / "scripts"), \
+             mock.patch.object(dog, "Watchdog", return_value=wd):
+            code = dog.main(["run", "--repo", "o/r", "--once"])
+        self.assertEqual(code, 0)
+        self.assertEqual(len(self.send.calls), 1)
+        text = self.send.calls[0][2]
+        self.assertIn("watchdog: #61", text)
+        self.assertIn("roles.json", text)
+        self.assertTrue(text.endswith("run bash mmw-v2/install.sh --check"), text)
+        self.assertNotIn("\n", text)
 
     def test_stopped_posts_worker_lost_for_that_pair_and_nothing_else(self):
         self.silent_worker()

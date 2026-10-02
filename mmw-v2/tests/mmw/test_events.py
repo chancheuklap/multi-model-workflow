@@ -17,7 +17,7 @@ import unittest
 from _load import EVENTS, load_events
 
 events = load_events()
-RELAY = EVENTS.parents[2] / "dispatch" / "scripts" / "relay.py"
+RELAY = EVENTS.parents[2] / "mmw" / "scripts" / "relay.py"
 
 
 def load_relay():
@@ -683,7 +683,7 @@ class Unreadable(unittest.TestCase):
 class Blockers(unittest.TestCase):
     """A blocker lets go of the ticket it blocks once its work has landed on the base
     branch, or once it closed with nothing that will ever land. `blocker_hold` is the one
-    answer `--preflight` and the dispatch skill's frontier both give."""
+    answer `--claim` and the dispatch skill's frontier both give."""
 
     PASSED = ev("ticket.passed", "ALL MET", commit="a" * 40)
     LANDED = ev("ticket.landed", "Landed #61 on main")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
@@ -16,21 +17,68 @@ MMW = Path(__file__).resolve().parents[2]
 LAUNCHER = MMW / "hook-launcher.py"
 
 
-class HookLauncher(unittest.TestCase):
+def load_script(path, name):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class HookPayload:
+    """Host payloads and the deny or allow answer. The ticket number comes from the cwd."""
+
+    def _close_command(self):
+        directory = self.ticket if hasattr(self, "ticket") else self.issue
+        return f"gh issue close {directory.name.removeprefix('issue-')}"
+
+    def commands(self):
+        command = self._close_command()
+        return {
+            "claude": {"tool_name": "Bash", "tool_input": {"command": command}},
+            "codex": {"tool_name": "Bash", "tool_input": {"command": command}},
+            "grok": {"toolName": "run_terminal_command", "toolInput": {"command": command}},
+            "cursor": {"command": command, "cursor_version": "2026.09.08"},
+            "pi": {"tool_name": "bash", "tool_input": {"command": command}},
+        }
+
+    def questions(self):
+        return {
+            "claude": {"tool_name": "AskUserQuestion", "tool_input": {}},
+            "codex": {"tool_name": "request_user_input", "tool_input": {}},
+            "grok": {"toolName": "ask_user_question", "toolInput": {}},
+        }
+
+    def denied(self, result, host):
+        self.assertEqual(result.returncode, 0, result.stderr)
+        answer = json.loads(result.stdout)
+        if host in ("claude", "codex"):
+            self.assertEqual(answer["hookSpecificOutput"]["permissionDecision"], "deny")
+        elif host == "grok":
+            self.assertEqual(answer["decision"], "deny")
+        elif host == "cursor":
+            self.assertEqual(answer["permission"], "deny")
+        else:
+            self.assertIs(answer["block"], True)
+        self.assertEqual(result.stderr, "")
+
+    def silent(self, result):
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.stderr, "")
+
+
+class HookLauncher(HookPayload, unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.checkout = self.root / "checkout" / "mmw-v2"
-        self.scripts = self.checkout / "skills" / "dispatch" / "scripts"
-        shutil.copytree(MMW / "skills" / "dispatch" / "scripts", self.scripts,
+        self.scripts = self.checkout / "skills" / "mmw" / "scripts"
+        shutil.copytree(MMW / "skills" / "mmw" / "scripts", self.scripts,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         self.refusal = self.checkout / "skills" / "ui-acceptance" / "scripts" / "refusal.py"
         self.refusal.parent.mkdir(parents=True)
         shutil.copy2(MMW / "skills" / "ui-acceptance" / "scripts" / "refusal.py", self.refusal)
-        events = self.checkout / "skills" / "verify-ticket" / "scripts" / "events.py"
-        events.parent.mkdir(parents=True)
-        shutil.copy2(MMW / "skills" / "verify-ticket" / "scripts" / "events.py", events)
         self.home = self.root / "home"
         self.home.mkdir()
         (self.home / "installed-root").write_text(str(self.checkout) + "\n")
@@ -69,14 +117,20 @@ class HookLauncher(unittest.TestCase):
 
     def test_the_launcher_prefers_the_mmw_scripts_candidate(self):
         preferred = self.checkout / "skills" / "mmw" / "scripts"
-        preferred.mkdir(parents=True)
         (preferred / "tool-guard.py").write_text(
             "import sys\nprint('preferred')\nsys.exit(17)\n")
-        (self.scripts / "tool-guard.py").write_text("print('legacy')\n")
+        legacy = self.checkout / "skills" / "dispatch" / "scripts"
+        legacy.mkdir(parents=True)
+        (legacy / "tool-guard.py").write_text("print('legacy')\n")
         result = self.launch("tool-guard", "pretool", "claude")
         self.assertEqual(result.returncode, 17, result.stderr)
         self.assertEqual(result.stdout, "preferred\n")
         self.assertEqual(result.stderr, "")
+        (preferred / "tool-guard.py").unlink()
+        fallback = self.launch("tool-guard", "pretool", "claude")
+        self.assertEqual(fallback.returncode, 0, fallback.stderr)
+        self.assertEqual(fallback.stdout, "legacy\n")
+        self.assertEqual(fallback.stderr, "")
 
     def test_tool_guard_without_refusal_refuses_in_a_ticket_worktree(self):
         self.refusal.unlink()
@@ -87,41 +141,6 @@ class HookLauncher(unittest.TestCase):
         (self.scripts / "statedir.py").unlink()
         result = self.launch("turn-guard", "stop", "claude")
         self.diagnostic(result, "statedir", 0)
-
-    def commands(self):
-        command = "gh issue close 608"
-        return {
-            "claude": {"tool_name": "Bash", "tool_input": {"command": command}},
-            "codex": {"tool_name": "Bash", "tool_input": {"command": command}},
-            "grok": {"toolName": "run_terminal_command", "toolInput": {"command": command}},
-            "cursor": {"command": command, "cursor_version": "2026.09.08"},
-            "pi": {"tool_name": "bash", "tool_input": {"command": command}},
-        }
-
-    def questions(self):
-        return {
-            "claude": {"tool_name": "AskUserQuestion", "tool_input": {}},
-            "codex": {"tool_name": "request_user_input", "tool_input": {}},
-            "grok": {"toolName": "ask_user_question", "toolInput": {}},
-        }
-
-    def denied(self, result, host):
-        self.assertEqual(result.returncode, 0, result.stderr)
-        answer = json.loads(result.stdout)
-        if host in ("claude", "codex"):
-            self.assertEqual(answer["hookSpecificOutput"]["permissionDecision"], "deny")
-        elif host == "grok":
-            self.assertEqual(answer["decision"], "deny")
-        elif host == "cursor":
-            self.assertEqual(answer["permission"], "deny")
-        else:
-            self.assertIs(answer["block"], True)
-        self.assertEqual(result.stderr, "")
-
-    def silent(self, result):
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "")
-        self.assertEqual(result.stderr, "")
 
     def test_via_the_launcher_gh_issue_close_passes_outside_a_ticket_worktree(self):
         for host, payload in self.commands().items():
@@ -151,6 +170,7 @@ class HookLauncher(unittest.TestCase):
         self.assertIn(str(self.checkout), result.stderr)
 
     def test_a_missing_mode_hook_prints_nothing_and_exits_0(self):
+        (self.scripts / "mode-hook.py").unlink()
         self.silent(self.launch("mode-hook"))
 
     def marker_diagnostic(self, status):
@@ -201,20 +221,46 @@ class HookLauncher(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("MMW turn guard:", result.stderr)
         self.assertNotIn("could not import", result.stderr)
+        self.assertNotIn("ModuleNotFoundError", result.stderr)
         self.assertTrue((state / "guard.log").is_file())
 
-    def test_the_managed_session_pattern_is_the_same_in_three_places(self):
-        def load(path, name):
-            spec = importlib.util.spec_from_file_location(name, path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            return module
+    def companions(self, filename):
+        """Local modules this hook imports or loads by path, and the ones those load."""
+        scripts = self.scripts
+        pending = [scripts / filename]
+        seen = set()
+        while pending:
+            path = pending.pop()
+            if path in seen or not path.is_file():
+                continue
+            seen.add(path)
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                names = []
+                if isinstance(node, ast.Import):
+                    names.extend(alias.name.split(".")[0] for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    names.append(node.module.split(".")[0])
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    if "/" not in node.value and node.value.endswith(".py"):
+                        pending.append(scripts / node.value)
+                for name in names:
+                    pending.append(scripts / f"{name}.py")
+        return {path.stem for path in seen if path.name != filename}
 
-        launcher = load(LAUNCHER, "mmw_launcher_pattern")
-        guard = load(MMW / "skills" / "dispatch" / "scripts" / "tool-guard.py",
-                     "mmw_guard_pattern")
-        locations = load(MMW / "skills" / "dispatch" / "scripts" / "locations.py",
-                         "mmw_locations_pattern")
+    def test_both_hooks_import_every_companion_from_mmw_scripts(self):
+        tool = self.companions("tool-guard.py")
+        turn = self.companions("turn-guard.py")
+        self.assertIn("locations", tool)
+        self.assertTrue({"statedir", "relay", "events"}.issubset(turn))
+        self.test_both_hooks_import_every_companion_from_the_installed_layout()
+
+    def test_the_managed_session_pattern_is_the_same_in_three_places(self):
+        launcher = load_script(LAUNCHER, "mmw_launcher_pattern")
+        guard = load_script(MMW / "skills" / "mmw" / "scripts" / "tool-guard.py",
+                            "mmw_guard_pattern")
+        locations = load_script(MMW / "skills" / "mmw" / "scripts" / "locations.py",
+                                "mmw_locations_pattern")
         self.assertEqual(launcher.TICKET_DIR.pattern, guard.TICKET_DIR.pattern)
         self.assertEqual(launcher.TICKET_DIR.pattern, locations.GOVERNED_TICKET_DIR_PATTERN)
 

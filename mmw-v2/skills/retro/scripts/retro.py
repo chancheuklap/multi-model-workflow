@@ -24,7 +24,6 @@ MMW = Path(__file__).resolve().parents[3]
 REPO = Path.cwd().resolve()
 REPOSITORY_OVERRIDE = ""
 SPACE_CACHE = ""
-VERIFY = MMW / "skills" / "verify-ticket" / "scripts"
 UI_ACCEPTANCE = MMW / "skills" / "ui-acceptance" / "scripts"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards",
               "Global AGENTS.md", "Tool economy", "No-ops", "Information access")
@@ -35,8 +34,7 @@ SHA = re.compile(r"^[0-9a-f]{40}$")
 GH_ENV = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR", "CLICOLOR_FORCE")}
 
 
-def load(name: str, directory: Path = VERIFY):
-    path = directory / f"{name}.py"
+def load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(f"retro_{name}", path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
@@ -44,9 +42,11 @@ def load(name: str, directory: Path = VERIFY):
     return module
 
 
-tree = load("issue_tree")
-events = load("events")
-refusal = load("refusal", UI_ACCEPTANCE)
+skills = MMW / "skills"
+locations = load("locations", skills / "mmw" / "scripts" / "locations.py")
+tree = load("issue_tree", skills / locations.ISSUE_TREE_PY)
+events = load("events", skills / locations.EVENTS_PY)
+refusal = load("refusal", UI_ACCEPTANCE / "refusal.py")
 
 
 class RetroError(RuntimeError):
@@ -169,7 +169,7 @@ def nodes(root: dict):
 
 
 def valid_closing(value: object) -> bool:
-    """A loose shape check; `summary` (dispatch.sh) fully validated a `complete` closing
+    """A loose shape check; `close-night` (dispatch.sh) fully validated a `complete` closing
     before it ever reached the tracker, so retro only needs to read `propose` ids back out."""
     if not isinstance(value, dict) or not isinstance(value.get("decisions"), list):
         return False
@@ -236,7 +236,7 @@ def gather(number: int) -> dict:
     opened = events.newest(comments, "spec.opened")
     closed = events.newest(comments, "spec.closed")
     if not closed:
-        raise RetroError(f"{spec_url} has no spec.closed; retro runs after summary")
+        raise RetroError(f"{spec_url} has no spec.closed; retro runs after close-night")
     checked.append(inventory(f"{spec_url} spec.closed", "present", "event comment"))
     if not opened:
         checked.append(inventory(f"{spec_url} spec.opened", "missing", "base unknown"))

@@ -161,7 +161,7 @@ def seed_mmw_home() -> Path:
     config_path = home / "models.json"
     if not config_path.exists():
         hosts = json.loads(
-            (ROOT / "mmw-v2" / "skills" / "dispatch" / "hosts.json").read_text(
+            (ROOT / "mmw-v2" / "skills" / "mmw" / "hosts.json").read_text(
                 encoding="utf-8"
             )
         )

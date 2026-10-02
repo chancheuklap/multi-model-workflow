@@ -1,10 +1,10 @@
-"""A dirty tree `--preflight` lets through is still stopped at `--closeout`.
+"""A dirty tree `--claim` lets through is still stopped at `--closeout`.
 
-`--preflight` claims a ticket this account already holds even when tracked files are
+`--claim` claims a ticket this account already holds even when tracked files are
 uncommitted, and prints `CARRIED:` instead of refusing `dirty-tree`. That is safe only because `--closeout` refuses a draft while a
 tracked file is uncommitted, so the carried edits cannot reach the base branch without a
 commit. `test_preflight.py` and `test_closeout.py` each prove one half against a faked tree;
-this file runs both halves, and the `--draft` between them, in one real git working tree
+this file runs both halves, and the `--closing-draft` between them, in one real git working tree
 against one tracker whose comments grow as the runs post to it.
 """
 
@@ -52,7 +52,7 @@ class Tracker:
                 "assignees": [{"login": ME}], "blockedBy": {"nodes": []}}
 
     def events(self):
-        return [vt.events.parse(body)[1]["event"] for body in self.comments]
+        return [vt.engine.events.parse(body)[1]["event"] for body in self.comments]
 
     def verified_at(self, commit):
         """The worker's own run and final run of the criteria on `commit`."""
@@ -62,13 +62,13 @@ class Tracker:
 
     def run(self, call, *args):
         """One run of `verify-ticket.py`, as `(exit code, stdout, stderr)`."""
-        with mock.patch.object(vt, "fetch_comments", side_effect=lambda n: list(self.comments)), \
-             mock.patch.object(vt, "fetch_body", return_value=BODY), \
-             mock.patch.object(vt, "fetch_ticket", side_effect=self.ticket), \
-             mock.patch.object(vt, "fetch_sub_issues", return_value=[]), \
-             mock.patch.object(vt, "gh_login", return_value=ME), \
+        with mock.patch.object(vt.engine, "fetch_comments", side_effect=lambda n: list(self.comments)), \
+             mock.patch.object(vt.engine, "fetch_body", return_value=BODY), \
+             mock.patch.object(vt.engine, "fetch_ticket", side_effect=self.ticket), \
+             mock.patch.object(vt.engine, "fetch_sub_issues", return_value=[]), \
+             mock.patch.object(vt.engine, "gh_login", return_value=ME), \
              mock.patch.object(vt, "assign_self"), \
-             mock.patch.object(vt, "post_comment", side_effect=self.post), \
+             mock.patch.object(vt.engine, "post_comment", side_effect=self.post), \
              mock.patch.object(vt, "close_ticket", side_effect=self.closed.append), \
              mock.patch.object(vt, "push_ticket_branch",
                                side_effect=lambda *a: self.pushed.append(a)), \
@@ -104,7 +104,7 @@ class TestCarriedEditsAreStoppedAtTheCloseout(unittest.TestCase):
         self.tracker = Tracker(self.base)
 
     def write_draft(self):
-        code, out, err = self.tracker.run(vt.run_draft, 77, self.draft)
+        code, out, err = self.tracker.run(vt.run_closing_draft, 77, self.draft)
         self.assertEqual(code, 0, err)
         self.assertIn("DRAFT: wrote", out)
         text = self.draft.read_text(encoding="utf-8")
@@ -116,14 +116,14 @@ class TestCarriedEditsAreStoppedAtTheCloseout(unittest.TestCase):
         tracker = self.tracker
         head = git(self.root, "rev-parse", "HEAD")
 
-        code, out, err = tracker.run(vt.run_preflight, 77)
+        code, out, err = tracker.run(vt.run_claim, 77)
         self.assertEqual(code, 0, err)
         self.assertIn("READY:", out)
         self.assertIn("#77", out)
         self.assertIn("CARRIED:", out)
         self.assertIn("1 tracked files", out)
         self.assertEqual(tracker.events()[-2:], ["ticket.claimed", "ticket.checked"])
-        self.assertEqual(vt.events.parse(tracker.comments[-1])[1]["run"], "baseline")
+        self.assertEqual(vt.engine.events.parse(tracker.comments[-1])[1]["run"], "baseline")
 
         # Everything else the closeout asks for is in place on HEAD, so the tree is the
         # one condition left for it to refuse.
@@ -154,7 +154,7 @@ class TestCarriedEditsAreStoppedAtTheCloseout(unittest.TestCase):
         self.assertEqual(tracker.closed, [77])
         self.assertEqual(tracker.pushed, [(77, self.root.resolve(), committed)])
         self.assertEqual(tracker.events()[-1], "ticket.passed")
-        self.assertEqual(vt.events.parse(tracker.comments[-1])[1]["commit"], committed)
+        self.assertEqual(vt.engine.events.parse(tracker.comments[-1])[1]["commit"], committed)
 
 
 if __name__ == "__main__":

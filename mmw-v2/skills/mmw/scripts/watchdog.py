@@ -24,7 +24,7 @@ the state directory, relay.py): a night — a spec, whose sub-issues are listed 
 round — or tickets outside a night. Each watch has its own orchestrator. A closed sub-issue
 of a spec is not read: a closed ticket's worker has handed in its work. A ticket a tickets
 watch names is always read. A night is open while `watches.json` names a watch: `relay.py
-stop`, which `summary`, `suspend` and `land` run, closes one, and the relay closes the
+stop`, which `close-night`, `suspend` and `land` run, closes one, and the relay closes the
 watch of an orchestrator that has been gone for an hour. A relay that died leaves its
 watches open, so a dead relay is an open night with no relay, never a closed one. When no
 watch is open this process writes a last heartbeat saying so and exits.
@@ -37,7 +37,7 @@ watch is open this process writes a last heartbeat saying so and exits.
    included) within its grace; otherwise the alert `relay down`. Is it reading: its last
    good poll (`at`) is within its grace too; otherwise the alert `relay not reading` —
    the process is there and cannot see the tracker, which is not the same thing and does not
-   call for another `open`. Both are measured less the time spent delivering, which delays
+   call for another `open-night`. Both are measured less the time spent delivering, which delays
    a cycle without stopping it, and a relay that has not cycled or polled yet is given its
    grace from the moment it started. A beat with no cycle stamp was written by a relay
    older than that field, and its last good poll then answers both questions.
@@ -91,7 +91,7 @@ alert of its own: the key carries which of the two it is. What `send` answered d
     3, 5+  nothing was sent: kept, and sent again next round
     2      that orchestrator's session is gone: recorded, kept, nobody to tell
 
-The alerts exactly:
+The alert bodies, before their next command and step pointer:
 
     watchdog: relay down (<what is wrong>); details: python3 <this file> status --repo <repo>
     watchdog: relay not reading (<what is wrong>); the process is there and cycling, and it
@@ -109,10 +109,14 @@ The alerts exactly:
     watchdog: cannot read the tracker since <time>: <what failed>
 
 The two `liveness unknown` alerts and the `silent since ... with nothing to wait on`
-alert append `dispatch.sh resume <n> ...` for a `night` or `ticket` watch, or a watch
-with no `kind`. A watch whose `kind` is `adopted-ticket` sends those three alerts to
+alert append `dispatch.sh resume <n> ...` for a `night` or `ticket` watch. A watch whose
+`kind` is `adopted-ticket` sends those three alerts to
 the worker itself, so their next step is to tell the user, not to resume that session.
-The other five alerts do not branch on the watch's `kind`.
+The other five alert bodies do not branch on the watch's `kind`.
+
+Alerts for one orchestrator are joined with ` | ` on one line, ending once with
+` · mmw <playbook>#<step>` from roles.json and the watch's kind. A missing kind or
+unreadable roles.json produces a diagnostic in place of the pointer; the alert still sends.
 
 **The heartbeat and the lock.** `run` holds `watchdog.lock` for as long as it runs, so a
 repository has one watchdog, serving every watch; the lock's record names its pid and
@@ -349,9 +353,9 @@ DOWN = "down"
 NOT_READING = "not reading"
 # What to do next differs between the two, so the alert says it: a relay that is not
 # there has to be started again; one that is there and cannot read recovers by itself on
-# its next successful read, and a second `open` would put nothing new in its place.
+# its next successful read, and a second `open-night` would put nothing new in its place.
 NEXT = {DOWN: "nothing is relaying: `dispatch.sh advance <spec>` starts it again for the "
-             "recorded orchestrator, or `dispatch.sh open-ticket <n>` for a ticket outside "
+             "recorded orchestrator, or `dispatch.sh open-ticket-watch <n>` for a ticket outside "
              "a night; ",
         NOT_READING: "the process is there and cycling, and it recovers on its own with "
                      "the first read that works, so opening the night again replaces "
@@ -722,7 +726,7 @@ class Watchdog:
         )
         unknown_next = tell_user or (
             f"dispatch.sh resume {number} \"Say in one line where you are, then continue\", "
-            "and act on its exit as night.md's Exit codes of resume says"
+            "and act on its exit as the step at the end of this line says"
         )
         if not verdict["sessions"]:
             unknown[str(number)] = {"why": "held by no session to ask", "since": since}
@@ -827,6 +831,9 @@ class Watchdog:
         for (runner, session), items in by_main.items():
             # One line: a runner types what it is handed into a terminal, where a newline submits.
             text = " | ".join(p["text"] for p in items)
+            watch = relay_mod.watches_for(self.beat["watches"], (runner, session))[0]
+            pointer = relay_mod.watch_pointer(watch, "*")
+            text += f" · {pointer}"
             code = self.send(runner, session, text)
             if code in (0, 4):
                 reported.extend([runner, session, p["key"]] for p in items)

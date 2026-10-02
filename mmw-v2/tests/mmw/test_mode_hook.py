@@ -14,7 +14,7 @@ from pathlib import Path
 
 MMW = Path(__file__).resolve().parents[2]
 HOOK = MMW.joinpath("skills", "mmw", "scripts", "mode-hook.py")
-DISPATCH = MMW.joinpath("skills", "dispatch", "scripts", "dispatch.sh")
+DISPATCH = MMW.joinpath("skills", "mmw", "scripts", "dispatch.sh")
 EVENTS = {"session-start": "SessionStart", "subagent-start": "SubagentStart",
           "prompt-submit": "UserPromptSubmit"}
 
@@ -58,7 +58,7 @@ class ModeHookTests(unittest.TestCase):
 
     def tracker(self):
         spec = importlib.util.spec_from_file_location(
-            "mode_hook_events", MMW.joinpath("skills", "verify-ticket", "scripts", "events.py"))
+            "mode_hook_events", MMW.joinpath("skills", "mmw", "scripts", "events.py"))
         events = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(events)
         comment = events.build(
@@ -266,8 +266,8 @@ else:
     def test_a_stalled_where_times_out_silently_before_the_host_deadline(self):
         copied = self.copied_hook()
         shutil.copy2(DISPATCH.with_name("locations.py"), copied.with_name("locations.py"))
-        scripts = copied.parents[2] / "dispatch/scripts"
-        scripts.mkdir(parents=True)
+        scripts = copied.parents[2] / "mmw/scripts"
+        scripts.mkdir(parents=True, exist_ok=True)
         dispatch = scripts / "dispatch.sh"
         dispatch.write_text("echo 'AT worker #61'\n")
         cwd = self.repo / "issue-61"

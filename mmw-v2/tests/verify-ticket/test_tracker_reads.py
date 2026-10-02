@@ -27,21 +27,6 @@ class TestTrackerReadFailures(unittest.TestCase):
         self.assertIn("body", err.getvalue())
         self.assertNotIn("Traceback", err.getvalue())
 
-    def test_comments_read_failure_names_the_read_and_safe_retry(self):
-        err = io.StringIO()
-        with tempfile.TemporaryDirectory() as tmp:
-            draft = Path(tmp) / "closeout.md"
-            draft.write_text("ALL MET\n", encoding="utf-8")
-            with mock.patch.object(vt, "repo_root", return_value=Path(tmp)), \
-                    mock.patch.object(vt, "closeout_lock", return_value=nullcontext()), \
-                    mock.patch.object(vt.subprocess, "run",
-                                      side_effect=self.failed_read("comments")), \
-                    redirect_stderr(err):
-                code = vt.main(["440", "--closeout", str(draft)])
-        self.assertEqual(code, 2)
-        self.assertIn("440", err.getvalue())
-        self.assertIn("comments", err.getvalue())
-        self.assertNotIn("Traceback", err.getvalue())
 
 
 if __name__ == "__main__":

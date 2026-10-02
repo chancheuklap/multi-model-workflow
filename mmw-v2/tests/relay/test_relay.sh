@@ -19,7 +19,7 @@
 set -uo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-RELAY="$(dirname "$(dirname "$HERE")")/skills/dispatch/scripts/relay.py"
+RELAY="$(dirname "$(dirname "$HERE")")/skills/mmw/scripts/relay.py"
 REPO=o/r
 
 rc=0
@@ -219,7 +219,9 @@ $got"
 # unless another session is named.
 watch() {
   local code
-  code="$(relay_ add --repo "$REPO" "$1" "$2" --runner paseo --session "${3:-main-a}")"
+  local kind=ticket
+  [ "$1" != --spec ] || kind=night
+  code="$(relay_ add --repo "$REPO" "$1" "$2" --kind "$kind" --runner paseo --session "${3:-main-a}")"
   [ "$code" = 0 ] || fail "add $1 $2 for ${3:-main-a} expected 0, got $code: $(cat "$TMP/err")"
 }
 
@@ -244,8 +246,10 @@ scenario_wake() {
   event 62 103 ticket.returned
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
-  has "paseo :: send :: --no-wait :: main-a :: #62 ticket.returned"
+  grep -qxF "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed · mmw land-one-ticket#Handle each wake" "$MMW_TEST_LOG" \
+    || fail "the delivered wake must be one complete line with its step"
+  grep -qxF "paseo :: send :: --no-wait :: main-a :: #62 ticket.returned · mmw land-one-ticket#Handle each wake" "$MMW_TEST_LOG" \
+    || fail "the delivered wake must be one complete line with its step"
   hasnt "ticket.claimed"
   expect_rows "1 61 ticket.passed main-a delivered
 2 62 ticket.returned main-a delivered"
@@ -269,8 +273,10 @@ scenario_worker() {
   event 61 102 ticket.passed
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: send :: --no-wait :: wk-61 :: #61 reviewer.reported"
-  has "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
+  grep -qxF "paseo :: send :: --no-wait :: wk-61 :: #61 reviewer.reported · mmw work-a-ticket#Get reviewed" "$MMW_TEST_LOG" \
+    || fail "the delivered wake must be one complete line with its step"
+  grep -qxF "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed · mmw land-one-ticket#Handle each wake" "$MMW_TEST_LOG" \
+    || fail "the delivered wake must be one complete line with its step"
   hasnt "main-a :: #61 reviewer.reported"
   expect_rows "1 61 reviewer.reported wk-61 delivered
 2 61 ticket.passed main-a delivered"
@@ -453,14 +459,14 @@ scenario_openstopped() {
   echo "--- a watch whose orchestrator the runner says is stopped is refused, and nothing is recorded"
   reset
   agents main-a
-  code="$(relay_ add --repo "$REPO" --tickets 61 --runner paseo --session main-z)"
+  code="$(relay_ add --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-z)"
   [ "$code" = 1 ] || fail "add expected refusal 1, got $code"
   grep -q "session main-z is stopped" "$TMP/err" || fail "the refusal should name the session: $(cat "$TMP/err")"
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-z)"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-z)"
   [ "$code" = 1 ] || fail "start expected refusal 1, got $code"
   [ ! -f "$STATE/watches.json" ] || fail "nothing should have been recorded: $(cat "$STATE/watches.json")"
   [ ! -f "$STATE/relay.json" ] || fail "no relay should have been started: $(cat "$STATE/relay.json")"
-  code="$(relay_ add --repo "$REPO" --tickets 61 --runner nosuch --session main-a)"
+  code="$(relay_ add --repo "$REPO" --tickets 61 --kind ticket --runner nosuch --session main-a)"
   [ "$code" = 1 ] || fail "an unknown runner expected refusal 1, got $code"
   grep -q "the adapters here are: .*paseo" "$TMP/err" || fail "the refusal should list the adapters: $(cat "$TMP/err")"
 }
@@ -492,7 +498,7 @@ scenario_startstop() {
   echo "--- start runs a relay of its own that polls and delivers, and stop ends it"
   reset
   event 61 101 ticket.passed
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 60)"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a --interval 60)"
   [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
   grep -q "^opened the watch on ticket #61 for o/r: wake-ups go to paseo session main-a$" "$TMP/out" \
     || fail "start should say it opened the watch: $(cat "$TMP/out")"
@@ -500,12 +506,13 @@ scenario_startstop() {
     || fail "start should name the pid, the watch and the log: $(cat "$TMP/out")"
   pid="$(sed -n 's/^relay started for o\/r: pid \([0-9]*\),.*/\1/p' "$TMP/out")"
   wait_for "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
-  has "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed"
+  grep -qxF "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed · mmw land-one-ticket#Handle each wake" "$MMW_TEST_LOG" \
+    || fail "the delivered wake must be one complete line with its step"
   python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r["pid"] == int(sys.argv[2]) else 1)' \
     "$STATE/relay.json" "$pid" || fail "relay.json should name pid $pid: $(cat "$STATE/relay.json")"
 
   echo "--- a second start of the same watch finds the relay running"
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 60)"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a --interval 60)"
   [ "$code" = 0 ] || fail "a second start expected 0, got $code: $(cat "$TMP/err")"
   grep -q "^reopened the watch on ticket #61 for o/r: wake-ups go to paseo session main-a$" "$TMP/out" \
     || fail "it should say the watch was open: $(cat "$TMP/out")"
@@ -565,7 +572,7 @@ scenario_startstop() {
 
   echo "--- start refuses, and runs nothing, when the watches cannot be read"
   echo "not json" > "$STATE/watches.json"
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 60)"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a --interval 60)"
   [ "$code" = 1 ] || fail "a start over unreadable watches expected 1, got $code"
   grep -q "watches.json is not JSON" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
   code="$(relay_ watching --repo "$REPO" --ticket 61)"
@@ -579,11 +586,11 @@ scenario_watches() {
   agents main-a main-b main-c
   sub_issues 76 62 63
   event 61 101 ticket.passed
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 1)"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a --interval 1)"
   [ "$code" = 0 ] || fail "start expected 0, got $code: $(cat "$TMP/err")"
   pid="$(sed -n 's/^relay started for o\/r: pid \([0-9]*\),.*/\1/p' "$TMP/out")"
   wait_for "paseo :: send :: --no-wait :: main-a :: #61 ticket.passed" || fail "#61 should wake main-a"
-  code="$(relay_ start --repo "$REPO" --spec 76 --runner paseo --session main-b --interval 1)"
+  code="$(relay_ start --repo "$REPO" --spec 76 --kind night --runner paseo --session main-b --interval 1)"
   [ "$code" = 0 ] || fail "a night beside the ticket expected 0, got $code: $(cat "$TMP/err")"
   grep -q "relay already running for o/r: pid $pid, watching spec #76 and ticket #61" "$TMP/out" \
     || fail "the running relay should take the night: $(cat "$TMP/out")"
@@ -594,12 +601,12 @@ tickets:61 paseo main-a"
   hasnt "main-a :: #62"
 
   echo "--- a watch that shares a ticket with an open one is refused, and nothing is recorded"
-  code="$(relay_ start --repo "$REPO" --tickets 62 --runner paseo --session main-c)"
+  code="$(relay_ start --repo "$REPO" --tickets 62 --kind ticket --runner paseo --session main-c)"
   [ "$code" = 1 ] || fail "a ticket of the watched spec expected 1, got $code"
   grep -q "ticket #62 was not opened: #62 is a sub-issue of spec #76, which is watched with paseo session main-b as its orchestrator" "$TMP/err" \
     || fail "the refusal should name the overlap: $(cat "$TMP/err")"
   sub_issues 77 61
-  code="$(relay_ start --repo "$REPO" --spec 77 --runner paseo --session main-c)"
+  code="$(relay_ start --repo "$REPO" --spec 77 --kind night --runner paseo --session main-c)"
   [ "$code" = 1 ] || fail "a spec with a watched ticket expected 1, got $code"
   grep -q "spec #77 was not opened: its sub-issue #61 is already watched as ticket #61, whose orchestrator is paseo session main-a" "$TMP/err" \
     || fail "the refusal should name the overlap: $(cat "$TMP/err")"
@@ -607,7 +614,7 @@ tickets:61 paseo main-a"
 tickets:61 paseo main-a"
 
   echo "--- a night opened by the orchestrator of a leftover ticket watch takes that ticket over"
-  code="$(relay_ add --repo "$REPO" --spec 77 --runner paseo --session main-a)"
+  code="$(relay_ add --repo "$REPO" --spec 77 --kind night --runner paseo --session main-a)"
   [ "$code" = 0 ] || fail "spec #77 from main-a expected 0, got $code: $(cat "$TMP/err")"
   grep -q "closed the watch on ticket #61 for o/r: spec #77 watches it now, and its orchestrator was paseo session main-a" "$TMP/out" \
     || fail "stdout should say the ticket watch was taken over: $(cat "$TMP/out")"
@@ -616,15 +623,15 @@ spec:77 paseo main-a"
 
   echo "--- and so does a night beside a ticket watch whose orchestrator is stopped"
   relay_ stop --repo "$REPO" --spec 77 >/dev/null
-  relay_ add --repo "$REPO" --tickets 61 --runner paseo --session main-a >/dev/null
+  relay_ add --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a >/dev/null
   agents main-b main-c
-  code="$(relay_ add --repo "$REPO" --spec 77 --runner paseo --session main-c)"
+  code="$(relay_ add --repo "$REPO" --spec 77 --kind night --runner paseo --session main-c)"
   [ "$code" = 0 ] || fail "spec #77 beside a stopped ticket watch expected 0, got $code: $(cat "$TMP/err")"
   expect_watches "spec:76 paseo main-b
 spec:77 paseo main-c"
   relay_ stop --repo "$REPO" --spec 77 >/dev/null
   agents main-a main-b main-c
-  relay_ add --repo "$REPO" --tickets 61 --runner paseo --session main-a >/dev/null
+  relay_ add --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a >/dev/null
   code="$(relay_ watching --repo "$REPO" --ticket 63 --spec 76)"
   [ "$code" = 0 ] || fail "watching #63 of spec #76 expected 0, got $code: $(cat "$TMP/err")"
 
@@ -666,7 +673,7 @@ PY
     grep -q held "$TMP/holder.out" 2>/dev/null && break
     sleep 0.1
   done
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a)"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a)"
   [ "$code" = 1 ] || fail "start beside a relay that serves one watch expected 1, got $code"
   grep -q "serves one watch, spec #76, and would never read this one" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
   [ ! -f "$STATE/watches.json" ] || fail "nothing should have been recorded: $(cat "$STATE/watches.json")"
@@ -675,7 +682,7 @@ PY
   pid="$BG_PID"
   wait "$pid" 2>/dev/null
   BG_PID=""
-  code="$(relay_ start --repo "$REPO" --tickets 61 --runner paseo --session main-a --interval 60)"
+  code="$(relay_ start --repo "$REPO" --tickets 61 --kind ticket --runner paseo --session main-a --interval 60)"
   [ "$code" = 0 ] || fail "start once it has ended expected 0, got $code: $(cat "$TMP/err")"
 }
 
@@ -691,7 +698,8 @@ scenario_slotwake() {
   event 61 120 ticket.landed
   code="$(relay_ run --repo "$REPO" --once)"
   [ "$code" = 0 ] || fail "run --once expected 0, got $code: $(cat "$TMP/err")"
-  has "paseo :: send :: --no-wait :: wk-62 :: #62 worker.queued"
+  grep -qxF "paseo :: send :: --no-wait :: wk-62 :: #62 worker.queued · mmw work-a-ticket#Integrate and run every criterion" "$MMW_TEST_LOG" \
+    || fail "the delivered wake must be one complete line with its step"
   expect_rows "1 62 worker.queued wk-62 delivered"
   code="$(relay_ ack --repo "$REPO" --runner paseo --session wk-62 --ticket 62 --event worker.queued)"
   [ "$code" = 0 ] || fail "the worker's ack expected 0, got $code: $(cat "$TMP/err")"

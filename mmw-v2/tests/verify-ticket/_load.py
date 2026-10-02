@@ -1,19 +1,18 @@
-"""Load verify-ticket.py as a module; its filename is not a Python identifier.
+"""Load the shared criteria engine and build independent tracker-history fixtures.
 
-`event` writes a comment the way the pipeline's scripts post one, for fixtures that stand
-for a ticket's history; `checked` writes one run of a ticket's criteria as the
-`ticket.checked` event `verify-ticket.py` posts for it.
-
-Every module `load` returns asks nobody which spec a ticket sits under: `ticket_spec` —
-the lookup `post_event` makes for an event's `spec` field — answers None, so no test
-reaches the tracker through it. A test about that field patches `ticket_spec` itself.
+Every loaded engine stubs ticket_spec to return None, so event fixtures never reach
+GitHub. The mmw suite reuses these fixtures while directly importing ticket_state.
 """
 
+import hashlib
 import importlib.util
+import json
+import subprocess
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "skills" / "verify-ticket" / "scripts" / "verify-ticket.py"
-EVENTS = SCRIPT.parent / "events.py"
+EVENTS = SCRIPT.parents[2] / "mmw" / "scripts" / "events.py"
+UI_ACCEPTANCE = SCRIPT.parents[2] / "ui-acceptance" / "scripts"
 AT = "2026-09-10T00:00:00Z"
 
 
@@ -94,3 +93,42 @@ def checked(run, ledger, summary=None, ticket=77, commit="0" * 40, **fields):
     return _events.build("ticket.checked", ticket=ticket,
                          line=f"{run} on {commit[:12]}: {summary or result}", text=text,
                          at=AT, **payload)
+
+
+def current_evidence(check: str, expect: str) -> str:
+    """A pass line as gate-check writes it for this CHECK and EXPECT with no CWD:
+    `definition-sha256` is `gateDefinitionDigest` in `mmw-v2/upstream-unlazy/scripts/lib/gates.mjs`."""
+    definition = json.dumps(["unlazy.gate-definition", 1, check, expect, None],
+                            separators=(",", ":"), ensure_ascii=False)
+    digest = hashlib.sha256(definition.encode("utf-8")).hexdigest()
+    return (f"automatic-evidence=v1; definition-sha256={digest}; exit=0; EXPECT=matched; "
+            f"output-sha256={'a' * 64}; output-bytes=13; shell=/bin/sh; cwd=.")
+
+def ticket(*criteria: str, owns: str = "- src/**") -> str:
+    return "## Owns\n\n" + owns + "\n\n## Acceptance criteria\n\n" + "\n".join(criteria) + "\n"
+
+def payload_of(comment: str) -> dict:
+    what, payload = _events.parse(comment)
+    assert what == "event", (what, payload, comment)
+    return payload
+
+def git_repo(root: Path):
+    """A repository with one commit at `root`; returns a function running git there."""
+    def sh(*args, cwd=root):
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+    sh("init", "-q", "-b", "main")
+    sh("config", "user.email", "t@t")
+    sh("config", "user.name", "t")
+    return sh
+
+def lease_in(home: Path):
+    """`lease.py` of the ui-acceptance skill, its registry under `home`, not ~/.mmw."""
+    spec = importlib.util.spec_from_file_location(f"lease_for_tests_{id(home)}",
+                                                  UI_ACCEPTANCE / "lease.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    # `lease.py` asks `home()` for the root every time it needs a path, so the test's
+    # own root is given by replacing that one reader, not by writing paths into it.
+    module.home = lambda: home
+    return module

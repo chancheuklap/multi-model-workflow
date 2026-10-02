@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -13,9 +14,20 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DISPATCH_SCRIPTS = ROOT / "mmw-v2" / "skills" / "dispatch" / "scripts"
-UI_ACCEPTANCE_SCRIPTS = ROOT / "mmw-v2" / "skills" / "ui-acceptance" / "scripts"
-sys.path.insert(0, str(DISPATCH_SCRIPTS))
+
+
+def load_locations():
+    path = ROOT.joinpath("mmw-v2", "skills", "mmw", "scripts", "locations.py")
+    module_spec = importlib.util.spec_from_file_location("migration_locations", path)
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    return module
+
+
+locations = load_locations()
+MODE_SCRIPTS = ROOT / "mmw-v2" / "skills" / locations.MODE_SCRIPTS
+UI_ACCEPTANCE_SCRIPTS = ROOT / "mmw-v2" / "skills" / locations.UI_ACCEPTANCE_SCRIPTS
+sys.path.insert(0, str(MODE_SCRIPTS))
 sys.path.insert(0, str(UI_ACCEPTANCE_SCRIPTS))
 import models  # noqa: E402
 import statedir  # noqa: E402

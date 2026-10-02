@@ -3,8 +3,8 @@
 # Start an agent on a ticket, move a spec's batch forward, or report on one.
 #
 #   dispatch.sh check <spec>
-#   dispatch.sh open <spec>
-#   dispatch.sh open-ticket <n>
+#   dispatch.sh open-night <spec>
+#   dispatch.sh open-ticket-watch <n>
 #   dispatch.sh board
 #   dispatch.sh adopt <n>
 #   dispatch.sh self
@@ -16,21 +16,21 @@
 #   dispatch.sh advise <brief file>
 #   dispatch.sh research <n>
 #   dispatch.sh retract <n>
-#   dispatch.sh wait <n> worker|reviewer
+#   dispatch.sh result <n> worker|reviewer
 #   dispatch.sh ack <n> <event> | relay.recovered
 #   dispatch.sh resume <n> "<text>"
 #   dispatch.sh status <spec>
 #   dispatch.sh reverify <spec>
-#   dispatch.sh summary <spec> --memory-decisions <file>
+#   dispatch.sh close-night <spec> --memory-decisions <file>
 #   dispatch.sh finish <spec>
 #   dispatch.sh suspend <spec>
-#   dispatch.sh route <ticket> <child> fixed
-#   dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
-#   dispatch.sh route <ticket> <child> became-ticket <new ticket>
+#   dispatch.sh resolve-child <ticket> <child> fixed
+#   dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>
+#   dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>
 #
 # Every script this one calls is found by resolution, from this file's own path:
-# `lease.py` of the ui-acceptance skill, and `verify-ticket.py` and `events.py` of the
-# verify-ticket skill, are in the `scripts/` of their own skills one directory over. One
+# `lease.py` of the ui-acceptance skill and `verify-ticket.py` are resolved through
+# locations.py; `events.py` sits beside this script. One
 # file belongs to the toolbox itself, not to any skill, and is taken from the toolbox
 # root (this skill directory two levels up): `install.sh`. `--tools <directory>` is an
 # override, repeatable: a directory given that way is searched before the resolved
@@ -60,18 +60,18 @@
 # that an earlier worker of the ticket left with uncommitted edits first commits them on
 # the ticket branch (`keep_unfinished_work`). `resume`, `retract`, `land` and `suspend`
 # find the session in those events and ask the runner the event names — `resume` only a
-# worker whose hold no event has ended; `wait` only reads the ticket.
+# worker whose hold no event has ended; `result` only reads the ticket.
 #
 # Nothing here tells anyone that a result landed. `relay.py`, beside this script, watches
 # the tracker and wakes the session waiting on each result event through that session's
-# runner's `send`. `open` (a night) and `open-ticket` (one ticket outside a night) open a
+# runner's `send`. `open-night` (a night) and `open-ticket-watch` (one ticket outside a night) open a
 # watch on the relay whose orchestrator is the calling session — the runner and session its
-# adapter's `self` reads — and start the relay when none runs; `summary` and `suspend`, or
+# adapter's `self` reads — and start the relay when none runs; `close-night` and `suspend`, or
 # `land` for one ticket, close that watch, and the relay ends with its last. `start` and `advance`
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
 # how a woken session says it handled the wake it read. `adopt` makes a session that
 # picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
-# runner and session this process runs in. `open` and `open-ticket` also make sure this
+# runner and session this process runs in. `open-night` and `open-ticket-watch` also make sure this
 # repository's task board is registered and answering and name its URL on the line they
 # print: everything else a watch starts is read by the orchestrator, and the board is what a
 # person reads.
@@ -100,15 +100,13 @@ BOARD_SUPERVISOR="$(dirname "$(dirname "$SKILL_ROOT")")/board/supervisor.py"
 # `models.py` reads models.json, so it belongs to this skill and travels with it.
 MODELS_PY="$SKILL_ROOT/scripts/models.py"
 VERIFY=""
+TICKET_STATE="$SKILL_ROOT/scripts/ticket_state.py"
 LEASE=""
 
 # The row a ticket with no `*-worker` label starts from.
 DEFAULT_WORKER=junior-worker
 
 MERGE_TRIES=3                # a worker's commit in its worktree can hold the .git lock while advance merges
-
-AUTONOMOUS="You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work."
-PRODUCT_RULES="Several tickets run on this machine at once. Before you start, reach or stop the product, read 'Five rules while the product is running' in the ui-acceptance skill."
 
 # Grok Build hands its agents CLICOLOR_FORCE=1, and `gh` writes ANSI escapes into
 # --json output under it, which no JSON reader can parse.
@@ -119,6 +117,11 @@ gh_() {
 refuse() {
   echo "dispatch: $1" >&2
   exit 2
+}
+
+# renamed <old> <new> <args>: the one line an old subcommand prints for one release.
+renamed() {
+  refuse "$1 is now $2; the old name is refused for one release. Run dispatch.sh $2 $3"
 }
 
 runner() {
@@ -324,7 +327,7 @@ resolve_into() {
     case "$rc" in
       0) printf '%s\n' "$into"; return 0 ;;
       2) echo "dispatch: could not read whether the night on #$spec is open, so #$number's base branch is unknown" >&2; return 2 ;;
-      4) echo "dispatch: the open night on #$spec carries no spec.opened.into; open it again so the base branch is recorded" >&2; return 2 ;;
+      4) echo "dispatch: the open night on #$spec carries no spec.opened.into; run open-night again so the base branch is recorded" >&2; return 2 ;;
       3) ;;
       *) echo "dispatch: could not resolve #$number's base branch from the night on #$spec" >&2; return 2 ;;
     esac
@@ -370,33 +373,33 @@ post_event() {
 usage() {
   cat >&2 <<'USAGE'
 usage: dispatch.sh check <spec>
-       dispatch.sh open <spec>
-       dispatch.sh open-ticket <n>
+       dispatch.sh open-night <spec>
+       dispatch.sh open-ticket-watch <n>
        dispatch.sh board
        dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
        dispatch.sh where [<spec>|<n>]
        dispatch.sh advance <spec>
        dispatch.sh integrate <n>
-       dispatch.sh integrated <n>
+       dispatch.sh landed-since <n>
        dispatch.sh land <n>
        dispatch.sh start <n> worker|reviewer
        dispatch.sh advise <brief file>
        dispatch.sh research <n>
        dispatch.sh retract <n>
-       dispatch.sh wait <n> worker|reviewer
+       dispatch.sh result <n> worker|reviewer
        dispatch.sh ack <n> <event> | relay.recovered
        dispatch.sh resume <n> "<text>"
        dispatch.sh status <spec>
        dispatch.sh findings <spec>
-       dispatch.sh memory-list <spec>
+       dispatch.sh prepare-memory-decisions <spec>
        dispatch.sh reverify <spec>
-       dispatch.sh summary <spec> --memory-decisions <file>
+       dispatch.sh close-night <spec> --memory-decisions <file>
        dispatch.sh finish <spec>
        dispatch.sh suspend <spec>
-       dispatch.sh route <ticket> <child> fixed
-       dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>
-       dispatch.sh route <ticket> <child> became-ticket <new ticket>
+       dispatch.sh resolve-child <ticket> <child> fixed
+       dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>
+       dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>
 USAGE
   exit 2
 }
@@ -834,7 +837,7 @@ check_open_pushes() {
 }
 
 # Commits of the project branch the base branch does not hold yet, counted on the tips
-# `open` will have on origin once its pushes are done.
+# `open-night` will have on origin once its pushes are done.
 project_commits_missing_from_base() {
   local root="$1" rows="$2" project into tip base_tip project_tip branch ahead presence
   project="$(printf '%s\n' "$rows" | head -1 | cut -f1)"
@@ -870,13 +873,13 @@ sync_base_with_project() {
         git -C "$MERGE_ROOT" merge --abort >/dev/null 2>&1 || true
         git -C "$MERGE_ROOT" reset --hard "origin/$into" >/dev/null
         release_merge_lock
-        echo "dispatch: origin/$into lacks $missing commit(s) of origin/$project and merging them conflicts in ${files:-unknown files}; nothing was pushed. Merge origin/$project into $into by hand, push it, then run open again" >&2
+        echo "dispatch: origin/$into lacks $missing commit(s) of origin/$project and merging them conflicts in ${files:-unknown files}; nothing was pushed. Merge origin/$project into $into by hand, push it, then run open-night again" >&2
         return 2
       fi
       out="$(git -C "$MERGE_ROOT" push origin "HEAD:refs/heads/$into" 2>&1)"; rc=$?
       release_merge_lock
       [ "$rc" -eq 0 ] \
-        || { echo "dispatch: could not push the merge of origin/$project into origin/$into: $(printf '%s' "$out" | tail -2 | tr '\n' ' '); run open again" >&2; return 2; }
+        || { echo "dispatch: could not push the merge of origin/$project into origin/$into: $(printf '%s' "$out" | tail -2 | tr '\n' ' '); run open-night again" >&2; return 2; }
     fi
     git -C "$root" fetch -q origin 2>/dev/null || true
     echo "dispatch: $into took $missing commit(s) from origin/$project before the night opened" >&2
@@ -888,11 +891,26 @@ sync_base_with_project() {
   return 0
 }
 
-# `open <spec>`: the night begins. The relay watches the spec's tickets with this session
+step_pointer() {
+  python3 - "$SKILL_ROOT/scripts" "$@" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import relay
+try:
+    print(relay.wake_pointer(sys.argv[2], sys.argv[3]))
+except relay.Refusal as exc:
+    print(f"dispatch: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+PY
+}
+
+# `open-night <spec>`: the night begins. The relay watches the spec's tickets with this session
 # as the night's orchestrator, and `spec.opened` on the spec records who is woken. A
 # spec.opened that could not be written closes the watch this call opened: a night that
 # says nowhere that it is open is not opened.
 open_night() {
+  local pointer
+  pointer="$(step_pointer night-orchestrator '*')" || exit 2
   local spec="$1" root into opened runner session how rows project board repository git_dir
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so the night has no base branch"
@@ -912,37 +930,39 @@ open_night() {
        --field "runner=$runner" --field "session=$session" --field "into=$into" \
        --field "project=$project"; then
     [ "$how" = started ] && stop_relay --spec "$spec"
-    refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open again once the tracker takes comments"
+    refuse "could not write the spec.opened event on #$spec, so the night is not open$([ "$how" = started ] && echo " and the watch this opened was closed again"); run open-night again once the tracker takes comments"
   fi
   git_dir="$(git -C "$root" rev-parse --git-common-dir)"
   case "$git_dir" in /*) ;; *) git_dir="$root/$git_dir" ;; esac
   rm -f "$git_dir/mmw-reverify-$spec"
-  # Every other process a night needs starts itself: `open` starts the relay, and the
+  # Every other process a night needs starts itself: `open-night` starts the relay, and the
   # turn guard arms the watchdog. The task board was the one thing somebody had to
   # remember, and it is the only one of the three whose output is for a person — the
   # relay's and the watchdog's are for the orchestrator. A board that will not start is
   # said so on stderr and takes nothing else with it: the night is open either way.
   if board="$(ensure_board)"; then
-    echo "opened #$spec: wake-ups go to $runner session $session; task board $board"
+    echo "opened #$spec: wake-ups go to $runner session $session; task board $board · $pointer"
   else
-    echo "opened #$spec: wake-ups go to $runner session $session"
+    echo "opened #$spec: wake-ups go to $runner session $session · $pointer"
     echo "dispatch: the night is open and its task board is not, so the night's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
   fi
 }
 
-# `open-ticket <n>`: one ticket outside a night. The relay watches that ticket with this
+# `open-ticket-watch <n>`: one ticket outside a night. The relay watches that ticket with this
 # session as its orchestrator; `land <n>` closes the watch. The task board is made sure of
-# the way `open` makes sure of it, for the same reason: the relay and the watchdog start
+# the way `open-night` makes sure of it, for the same reason: the relay and the watchdog start
 # themselves, and the board is the one view of the ticket for a person. A board that will
 # not start is said on stderr and leaves the watch open.
 open_ticket() {
+  local pointer
+  pointer="$(step_pointer one-ticket-orchestrator '*')" || exit 2
   local number="$1" opened runner session how board
   opened="$(open_relay --tickets "$number" --kind ticket)" || exit 2
   IFS=$'\t' read -r runner session how <<<"$opened"
   if board="$(ensure_board)"; then
-    echo "opened #$number: wake-ups go to $runner session $session; task board $board"
+    echo "opened #$number: wake-ups go to $runner session $session; task board $board · $pointer"
   else
-    echo "opened #$number: wake-ups go to $runner session $session"
+    echo "opened #$number: wake-ups go to $runner session $session · $pointer"
     echo "dispatch: the watch on #$number is open and its task board is not, so the ticket's progress can be read nowhere but from this session; start it with \`dispatch.sh board\` once the reason above is fixed" >&2
   fi
 }
@@ -972,7 +992,9 @@ ack_wake() {
 # watch already covering it, or a watch of this ticket alone with this session as its
 # orchestrator. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
 adopt_ticket() {
-  local number="$1" explicit_into="${2:-}" line runner session
+  step_pointer adopting-worker '*' >/dev/null || exit 2
+  local number="$1" explicit_into="${2:-}" line runner session installed
+  installed="$(installed_prompt_root)" || exit 2
   line="$(own_session)" || exit 2
   runner="${line%%$'\t'*}"
   session="${line#*$'\t'}"
@@ -1035,6 +1057,12 @@ for r in state.get("sessions") or []:
     refuse "#$number is held by worker ${who#*$'\t'} on ${who%%$'\t'*}; retract that start once its session is gone, then adopt again"
   done <<<"$holders"
 
+  local repository_slug data_row data
+  repository_slug="$(repo_slug)" || exit 2
+  data_row="$(worker_prompt_data adopting-worker "$number" "$spec" "$installed" "$repository_slug")" \
+    || refuse "could not prepare the adopted worker data for #$number; adoption would have no readable Memory data; check this repository's state directory and adopt again"
+  data="${data_row%%$'\t'*}"
+
   # A relay has to see this ticket, or the reviewer's report lands and wakes nobody.
   local started=""
   if ! relay_watches "$number" "$spec" 2>/dev/null; then
@@ -1046,7 +1074,7 @@ for r in state.get("sessions") or []:
 
   if [ -n "$already" ]; then
     echo "dispatch: #$number's worker.started already names $runner session $session" >&2
-    printf '%s\n' "$session"
+    printf '%s · Data: %s\n' "$session" "$data"
     return 0
   fi
   if ! post_event "$number" worker.started --ticket "$number" --spec "$spec" \
@@ -1059,7 +1087,7 @@ for r in state.get("sessions") or []:
     [ -n "$started" ] && stop_relay --tickets "$number"
     refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the watch this opened was closed again"); adopt again once the tracker takes comments"
   fi
-  printf '%s\n' "$session"
+  printf '%s · Data: %s\n' "$session" "$data"
 }
 
 # ------------------------------------------------------------------ local model configuration
@@ -1126,7 +1154,7 @@ events = importlib.util.module_from_spec(where)
 where.loader.exec_module(events)
 
 # A blocker holds until its work has landed (`events.blocker_hold`), the rule the frontier
-# and the worker`s --preflight both apply; a closed one is read for its events.
+# and the worker`s --claim both apply; a closed one is read for its events.
 def blocker_fold(n):
     env = {k: v for k, v in os.environ.items() if k not in ("CLICOLOR_FORCE", "CLICOLOR")}
     run = subprocess.run(["gh", "issue", "view", str(n), "--json", "comments"],
@@ -1458,7 +1486,7 @@ remove_worktree() {
 # Commit the uncommitted edits a ticket's worker left in its worktree, on the ticket
 # branch, naming who left them (`left_by`). A worker whose session ended mid-turn — lost,
 # stopped by a suspension, replaced, retracted — leaves its unfinished work that way, and
-# it is the ticket's: the next worker's `--preflight` refuses a worktree with uncommitted
+# it is the ticket's: the next worker's `--claim` refuses a worktree with uncommitted
 # changes to tracked files, and `git worktree remove --force` deletes them. Only tracked
 # files are taken, the same set the preflight checks; the screenshots and caches a
 # criteria run writes are untracked and stay out. The repository's own commit hooks are
@@ -1771,29 +1799,18 @@ else:
         notes.append(f"partial: {len(failures)} of {len(queries)} searches failed ({failures[0]})")
     related = "\n".join(notes + [entry(seen["row"]) for seen in ranked]) or "none"
 
-prompt = f"""Shared experience for ticket #{ticket}.
-
-MMW repository Space: {space}
-MMW task root: {task_root}
-MMW task scope: {task_scope}
-
-Current task shared experience:
-{current}
-
-Related experience:
-{related}
-
-These are indexes, not the records; the implement skill's `## Shared experience while implementing` says how to use them."""
-print(json.dumps({"prompt": prompt, "task_scope": task_scope if not routing_error else ""},
+fields = [["MMW repository Space", space], ["MMW task root", task_root],
+          ["MMW task scope", task_scope]]
+fields.extend(["Current task shared experience", line] for line in current.splitlines())
+fields.extend(["Related experience", line] for line in related.splitlines())
+print(json.dumps({"fields": fields, "task_scope": task_scope if not routing_error else ""},
                  ensure_ascii=False))
 PY
 }
 
-# Build the reviewer Rules appended after the existing code-review dispatch line. Only
-# the compiled active rule_stack is read; ordinary Memory list/search is never attempted.
-# A failed or unreadable Context Bundle is named in the reviewer Rules and the reviewer still starts.
-# The reviewer Rules carry the Rule rows only; how the reviewer applies them is stated once, in the
-# code-review skill's `references/session.md` under `## Active Rules`.
+# Build the reviewer Rules for the data file. Only the compiled active rule_stack
+# is read; ordinary Memory list/search is never attempted. A failed or unreadable
+# Context Bundle is named in the Rules, and the reviewer still starts.
 reviewer_rules_packet() {
   local repository_space="$1"
   MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
@@ -1875,9 +1892,111 @@ else:
     else:
         rules = render_rules(value)
 
-prompt = f"""Active reviewer Rules approved for this review:
-{rules}"""
-print(json.dumps({"prompt": prompt}, ensure_ascii=False))
+print(json.dumps({"fields": [["Active reviewer Rules approved for this review", line]
+                             for line in rules.splitlines()]}, ensure_ascii=False))
+PY
+}
+
+# Resolve the frozen install before any session or worktree is changed.
+installed_prompt_root() {
+  python3 - "$SKILL_ROOT/scripts" <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from statedir import home
+marker = home() / "installed-root"
+try:
+    value = marker.read_text(encoding="utf-8").strip()
+except FileNotFoundError:
+    fact = "is missing"
+except (OSError, UnicodeError):
+    fact = "is unreadable"
+else:
+    root = Path(value)
+    fact = "does not name an absolute install directory" if (
+        not value or not root.is_absolute() or not root.is_dir() or "\n" in value or "\r" in value
+    ) else ""
+if fact:
+    sys.stderr.write(f"dispatch: installed-root {marker} {fact}; frozen MMW paths cannot be supplied, so startup or adoption was refused; run bash mmw-v2/install.sh --check\n")
+    raise SystemExit(2)
+print(root.resolve())
+PY
+}
+
+repository_memory_space() {
+  python3 - "$SKILL_ROOT/scripts" "$1" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+from statedir import slug
+print(slug(sys.argv[2]))
+PY
+}
+
+# Write role data and return its absolute path; packets supply named JSON fields.
+write_prompt_data() {
+  local role="$1" number="$2" installed="$3" repository="$4" packet="${5:-}"
+  MMW_PROMPT_PACKET="$packet" python3 - "$SKILL_ROOT" "$role" "$number" "$installed" "$repository" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+skill, role, number, installed, repository = sys.argv[1:]
+sys.path.insert(0, str(Path(skill) / "scripts"))
+import locations
+from statedir import state_dir, write_atomic
+roles = json.loads((Path(skill) / "roles.json").read_text(encoding="utf-8"))
+slug = roles[role]["playbook"]
+skills = Path(installed) / "skills"
+fields = [["Playbook", skills / locations.MODE_PLAYBOOKS_DIRECTORY / (slug + ".md")],
+          ["dispatch.sh", skills / locations.MODE_SCRIPTS / "dispatch.sh"]]
+if role != "researcher":
+    fields.append(["ticket_state.py", skills / locations.TICKET_STATE_PY])
+if role in ("worker", "adopting-worker"):
+    fields.append(["Memory records guide", skills / locations.MEMORY_RECORDS_SKILL])
+fields.extend(json.loads(os.environ["MMW_PROMPT_PACKET"] or "{}").get("fields", []))
+if role == "reviewer":
+    fields.append(["Rules pointer", f"mmw {locations.REVIEW_RULES_POINTER}"])
+    fields.extend(["Review brief", skills / path] for path in locations.REVIEW_BRIEFS)
+directory = state_dir(repository) / "prompts/"
+directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+data = (directory / f"{number}-{role}.md").resolve()
+write_atomic(data, "".join(f"- {name}: {value}\n" for name, value in fields))
+print(data)
+PY
+}
+
+# An adopted worker's data is prompts/<n>-adopting-worker.md.
+# Return the same Memory data and task scope for dispatched and adopting workers.
+worker_prompt_data() {
+  local role="$1" number="$2" spec="$3" installed="$4" repository="$5" space packet data scope
+  space="$(repository_memory_space "$repository")" || return 2
+  packet="$(worker_memory_packet "$number" "$spec" "$space")" || return 2
+  data="$(write_prompt_data "$role" "$number" "$installed" "$repository" "$packet")" || return 2
+  scope="$(printf '%s' "$packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || return 2
+  printf '%s\t%s\n' "$data" "$scope"
+}
+
+# Return a single-line entry pointing at an existing data or advisor brief file.
+session_prompt() {
+  python3 - "$SKILL_ROOT" "$1" "$2" "$3" "${4:-}" <<'PY'
+import json
+import sys
+from pathlib import Path
+skill, role, number, data, base = sys.argv[1:]
+sys.path.insert(0, str(Path(skill) / "scripts"))
+import locations
+if role == "advisor":
+    prompt = f"Use the advisor skill. Role advisor, unattended: the mmw skill's {locations.MODE_AUTONOMY}. Brief: {data}."
+else:
+    roles = json.loads((Path(skill) / "roles.json").read_text(encoding="utf-8"))
+    slug = roles[role]["playbook"]
+    excluded = {row["entry"] for row in roles.values() if row.get("playbook") == slug and row.get("entry")}
+    step = next(anchor for anchor in locations.PLAYBOOK_ANCHORS[slug] if anchor not in excluded)
+    review_base = f", base {base}" if role == "reviewer" else ""
+    prompt = f"Use the mmw skill. Role {role}, ticket #{number}{review_base}, unattended: mmw {slug}#{step}. Data: {data}."
+if "\n" in prompt or "\r" in prompt:
+    raise SystemExit("dispatch: an entry path contains a line break; the runner would submit more than one message; use a single-line path")
+print(prompt)
 PY
 }
 
@@ -1888,6 +2007,9 @@ start_one() {
     worker|reviewer) ;;
     *) refuse "the second argument is worker or reviewer, got $kind" ;;
   esac
+
+  local installed
+  installed="$(installed_prompt_root)" || exit 2
 
   local answer grades title spec native_spec
   answer="$(read_ticket "$number")"
@@ -1910,7 +2032,7 @@ start_one() {
   local watched
   watched="$(relay_watches "$number" "$spec" 2>&1)" \
     || revive_night_watch "$spec" \
-    || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The orchestrator opens the night with open <spec>, or open-ticket <n> for a ticket outside a night; nothing was started"
+    || refuse "nothing would wake anyone when #$number's $kind reports: ${watched#relay: }. The orchestrator opens the night with open-night <spec>, or open-ticket-watch <n> for a ticket outside a night; nothing was started"
 
   local profile
   case "$kind" in
@@ -1944,14 +2066,14 @@ start_one() {
   [ -n "$root" ] \
     || refuse "not inside a git repository, so there is no working directory to give the session"
 
-  # `open-ticket` has no spec-level open step, and a previously valid Space may become
+  # `open-ticket-watch` has no spec-level open step, and a previously valid Space may become
   # unavailable before a later start. Verify the connector's routing target immediately
   # before either role starts, before a worktree or session is created.
   local repository_slug repository_space
   repository_slug="$(repo_slug)" || exit 2
   ensure_repository_memory "$repository_slug" \
     || refuse "the repository Space could not be verified, so #$number's $kind was not started; the specific Nowledge failure is above. Restore Nowledge Mem or its repository Space, then run start again"
-  repository_space="$(printf '%s' "$repository_slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  repository_space="$(repository_memory_space "$repository_slug")" || exit 2
 
   workspace_origin_ready "$number" "$root" "$into" \
     || refuse "could not use origin to prepare issue-$number; an existing worker was not stopped"
@@ -1980,26 +2102,24 @@ start_one() {
   cwd="$(printf '%s\n' "$ws_row" | cut -f2)"
   created="$(printf '%s\n' "$ws_row" | cut -f3)"
 
-  local base="" prompt memory_packet task_scope
+  local base="" prompt memory_packet task_scope data data_row
   local -a session_environment=()
   case "$kind" in
     worker)
       base="$(worker_base "$number" "$root" "$into" "issue-$number")" || exit 2
       [ -n "$base" ] \
         || refuse "issue-$number and origin/$into share no commit, so the worker has no base to record"
-      memory_packet="$(worker_memory_packet "$number" "$native_spec" "$repository_space")" || \
-        refuse "could not build the worker's Memory indexes for #$number"
-      task_scope="$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["task_scope"])')" || \
-        refuse "the worker's Memory indexes for #$number could not be read"
-      prompt="Use the implement skill to work ticket #$number. $AUTONOMOUS $PRODUCT_RULES
-
-$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
+      data_row="$(worker_prompt_data worker "$number" "$native_spec" "$installed" "$repository_slug")" \
+        || refuse "could not prepare the worker data for #$number; the session would have no readable Memory data; check this repository's state directory and start again"
+      IFS=$'\t' read -r data task_scope <<<"$data_row"
+      prompt="$(session_prompt worker "$number" "$data")" \
+        || refuse "could not build the worker entry for #$number; the session would have no single-line instruction; check the role registry and start again"
       session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-worker")
       # Always replace an inherited scope. An empty value is the disabled route for a
       # malformed native parent graph; inheriting the caller's scope would permit writes
       # into an unrelated task.
       session_environment+=("MMW_TASK_SCOPE=$task_scope")
-      session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number") ;;
+      session_environment+=("MMW_SPEC=$native_spec" "MMW_TICKET=$number" "MMW_ROLE=worker") ;;
     reviewer)
       base="$(base_commit "$root" "$into" "issue-$number")"
       if [ -z "$base" ]; then
@@ -2009,15 +2129,16 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
         || refuse "#${number}'s branch has no merge-base with origin/$into and worker.started carries no base, so the reviewer has no commit to start from"
       memory_packet="$(reviewer_rules_packet "$repository_space")" || \
         refuse "could not build the reviewer Rules for #$number"
-      prompt="Use the code-review skill to review ticket #$number from base commit $base. $AUTONOMOUS
-
-$(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')"
-      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer") ;;
+      data="$(write_prompt_data reviewer "$number" "$installed" "$repository_slug" "$memory_packet")" \
+        || refuse "could not write the reviewer data for #$number; the session would have no readable Rules data; check this repository's state directory and start again"
+      prompt="$(session_prompt reviewer "$number" "$data" "$base")" \
+        || refuse "could not build the reviewer entry for #$number; the session would have no single-line instruction; check the role registry and start again"
+      session_environment+=("NMEM_SPACE=$repository_space" "NMEM_AGENT_ID=mmw-reviewer" "MMW_ROLE=reviewer") ;;
   esac
 
   # A standing worktree a worker of this ticket left — lost, stopped by a suspension, or
   # replaced a moment ago — can hold its uncommitted edits. They are this ticket's work,
-  # and the new worker continues from them; left uncommitted, its `--preflight` would
+  # and the new worker continues from them; left uncommitted, its `--claim` would
   # refuse the worktree. A worktree no worker of this ticket has had is not touched: its
   # changes are somebody else's, and the preflight refuses them rather than take them.
   local publish=0
@@ -2092,7 +2213,7 @@ $(printf '%s' "$memory_packet" | python3 -c 'import json,sys; print(json.load(sy
 }
 
 # `advise <brief file>`: resolve the advisor row against the selected runner, start a
-# session in the current worktree with `Use the advisor skill.` followed by the file,
+# session in the current worktree with a one-line pointer to the brief file,
 # and print the session id. An advisor is not a ticket's agent, so this writes no
 # event. A start the runner refuses is refused once: no retry, no other runner.
 advise_one() {
@@ -2108,13 +2229,16 @@ advise_one() {
   row="$(row_for_role advisor)" || exit 2
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local cwd body prompt session
+  local cwd prompt session installed
+  installed="$(installed_prompt_root)" || exit 2
   cwd="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$cwd" ] \
     || refuse "not inside a git repository, so there is no worktree to start the advisor in; run advise from a worktree"
-  body="$(cat -- "$packet")" \
+  cat -- "$packet" >/dev/null \
     || refuse "could not read the brief file $packet; make it readable, then advise again"
-  prompt="Use the advisor skill."$'\n'"$body"
+  packet="$(realpath "$packet")"
+  prompt="$(session_prompt advisor "" "$packet")" \
+    || refuse "could not build the advisor prompt; the session would have no single-line brief pointer; check the role registry and advise again"
 
   # Herdr's session id is basename(cwd) plus the title's last word; a constant
   # last word would collide on a second consultation in the same worktree.
@@ -2138,7 +2262,13 @@ research_one() {
   [ -n "$row" ] || refuse "no researcher row in $MODELS_JSON, so no research session can be selected; run python3 '$models_path' config set researcher codex \"gpt 6 sol\" high, then research $number again"
   IFS=$'\t' read -r host model effort <<<"$row"
 
-  local root cwd branch prompt session
+  local root cwd branch prompt session installed repository_slug data
+  installed="$(installed_prompt_root)" || exit 2
+  repository_slug="$(repo_slug)" || exit 2
+  data="$(write_prompt_data researcher "$number" "$installed" "$repository_slug")" \
+    || refuse "could not write the researcher data for #$number; the session would have no readable task data; check this repository's state directory and research again"
+  prompt="$(session_prompt researcher "$number" "$data")" \
+    || refuse "could not build the researcher entry for #$number; the session would have no single-line instruction; check the role registry and research again"
   root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$root" ] || refuse "not inside a git repository, so there is no HEAD to start research/$number from; run research $number from a worktree"
   cwd="$(worktrees_root)/research-$number"
@@ -2148,7 +2278,6 @@ research_one() {
   if [ ! -d "$cwd" ]; then
     add_branch_worktree "$root" "$cwd" "$branch" HEAD "research $number again" || exit 2
   fi
-  prompt="Use the mmw skill. Role researcher, ticket #$number, unattended: mmw research-a-question#Name the decision it feeds."
   if ! session="$(start_session "$host" "$model" "$effort" "$cwd" "$prompt" "#$number researcher $$")"; then
     refuse "$RUNNER_NAME did not start $host as researcher for #$number (its reason is above); nothing was retried. Fix what it names, or change this agent's row in $MODELS_JSON, then research $number again"
   fi
@@ -2264,8 +2393,12 @@ retract_one() {
 # starts next. On agentflow #754 the watchdog found no session to ask and `resume` found
 # one and typed into it.
 resume_one() {
+  local pointer
+  pointer="$(step_pointer worker resume)" || exit 2
   local number="$1" text="$2" ident out
   [ -n "$text" ] || refuse "resume needs the text to send"
+  case "$text" in *$'\n'* | *$'\r'*) refuse "resume text contains a newline, which a runner types as terminal submission; send one line with dispatch.sh resume $number '<text>' and inspect its exit" ;; esac
+  text="$text · $pointer"
   local live line
   live="$(live_workers_on_ticket "$number")" \
     || refuse "could not read #$number's events, so whether a worker still holds it is unknown and nothing was sent; run resume again once the tracker answers, or fix the comment named above"
@@ -2339,7 +2472,7 @@ elif by == "ticket.landed":
     step = (f"Its work is on the base branch: read {look}; a landed ticket that needs more "
             "work is reopened and started again, not resumed.")
 elif by == "spec.suspended":
-    step = (f"The night was suspended: once what suspended it is fixed, dispatch.sh open {spec} "
+    step = (f"The night was suspended: once what suspended it is fixed, dispatch.sh open-night {spec} "
             f"and then dispatch.sh advance {spec} take it up again." if spec else
             "The night was suspended: once what suspended it is fixed, open that night again "
             "and advance it.")
@@ -2350,7 +2483,7 @@ PY
 )" || printf '#%s has no worker holding it, and which event ended the hold could not be read, so nothing was sent. Sending into a session no event shows holding the ticket would make its hold live again. Read events.py fold %s before starting a worker with dispatch.sh start %s worker.\n' "$number" "$number" "$number"
 }
 
-# ------------------------------------------------------------------ wait
+# ------------------------------------------------------------------ result
 
 # The newest result event of this kind — worker `ticket.passed` / `ticket.returned`,
 # reviewer `reviewer.reported` as its name and key fields. Nothing when there is
@@ -2411,7 +2544,7 @@ check_machine() {
         [ "$branch" = "$into" ] && base_push="$ahead"
       done <<<"$rows"
       check_open_pushes "$root" "$rows" || failed=1
-      echo "project branch: $project (source: $source); open would push $project: $project_push commit(s), $into: $base_push commit(s); $into would take $(project_commits_missing_from_base "$root" "$rows") commit(s) from $project"
+      echo "project branch: $project (source: $source); open-night would push $project: $project_push commit(s), $into: $base_push commit(s); $into would take $(project_commits_missing_from_base "$root" "$rows") commit(s) from $project"
     else
       failed=1
     fi
@@ -2420,7 +2553,7 @@ check_machine() {
   # What install.sh checks is this machine's whole toolbox, most of it nothing the night
   # uses, and what the night does use is checked below by what reads it. An incomplete
   # install does not stop the night, and check does not install: it reports what is still
-  # missing. The orchestrator shows that report and asks the user; open runs only after
+  # missing. The orchestrator shows that report and asks the user; open-night runs only after
   # they answer, with the install or without it.
   local install_out
   if [ ! -f "$INSTALLER" ]; then
@@ -2428,7 +2561,7 @@ check_machine() {
   elif ! install_out="$(bash "$INSTALLER" --check 2>&1)"; then
     echo "dispatch: warning: install.sh --check still finds this, which the night does not wait on:" >&2
     printf '%s\n' "$install_out" | grep -E '缺|残留|不齐|不一致|没查|不是|没在跑' | sed 's/^/  /' >&2
-    echo "dispatch: install.sh runs only after the user authorises it; do not run open before the user answers" >&2
+    echo "dispatch: install.sh runs only after the user authorises it; do not run open-night before the user answers" >&2
   fi
 
   # The selected runner has to be one this skill has an adapter for, and every row `start`
@@ -2792,7 +2925,7 @@ prepare_merge_worktree() {
 }
 
 # The merge worktree is filed under the worktree of the session running this command —
-# the orchestrator, for `open`, `advance`, `land`, `reverify` and `finish` — by the selected
+# the orchestrator, for `open-night`, `advance`, `land`, `reverify` and `finish` — by the selected
 # runner's `attach`, once per command however many landings it makes. A runner with no
 # such view does nothing; one that fails is reported on stderr and the landing goes on.
 FILED_MERGE_WORKTREES=""
@@ -2865,13 +2998,13 @@ repo_checks_met() {
 MERGE_CHECKS_JSON=""
 run_merge_checks() {
   local root="$1" into="$2"
-  MERGE_CHECKS_JSON="$(python3 - "$VERIFY" "$root" "$into" <<'PY'
+  MERGE_CHECKS_JSON="$(python3 - "$TICKET_STATE" "$root" "$into" <<'PY'
 import importlib.util, json, sys
 from pathlib import Path
 
 script, root, into = sys.argv[1:]
 sys.path.insert(0, str(Path(script).resolve().parent))
-spec = importlib.util.spec_from_file_location("mmw_verify_ticket", script)
+spec = importlib.util.spec_from_file_location("mmw_ticket_state", script)
 mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
@@ -3202,7 +3335,7 @@ advance() {
   local watched
   watched="$(relay_watches "" "$spec" 2>&1)" \
     || revive_night_watch "$spec" \
-    || refuse "the night on #$spec is not open: ${watched#relay: }. Nothing would wake you when a ticket lands, so nothing was merged or started; run open $spec first"
+    || refuse "the night on #$spec is not open: ${watched#relay: }. Nothing would wake you when a ticket lands, so nothing was merged or started; run open-night $spec first"
 
   # A reviewer can return a ticket while its worker session is still present. The
   # returned event gives the ticket back to triage; the next advance ends every
@@ -3430,7 +3563,7 @@ land_tickets() {
 
   echo "land: merged $merged, already in $already, bounced $bounced, still working $kept, already landed $nothing, failed $failed" >&2
 
-  # `land <n>` is the whole ending of a ticket outside a night, so the watch `open-ticket`
+  # `land <n>` is the whole ending of a ticket outside a night, so the watch `open-ticket-watch`
   # opened for it closes here, and the relay with it when it watched nothing else. A
   # night's watch is not this one and is left alone.
   local relay_left=0
@@ -3627,7 +3760,7 @@ suspend_night() {
   [ "$left" -eq 0 ] || exit 1
 }
 
-# ------------------------------------------------------------------ reverify / summary
+# ------------------------------------------------------------------ reverify / close-night
 
 # The red reverify of ticket <n> on commit <c>: prints the criteria it left unmet, space
 # separated — the `failed` field of the newest reverify `ticket.checked` — and returns 0
@@ -3672,7 +3805,7 @@ recover_ticket() {
 reverify_spec() {
   local spec="$1"
   case "$spec" in *[!0-9]* | "") refuse "the spec number must be digits only, got $spec" ;; esac
-  [ -f "$VERIFY" ] || refuse "no verify-ticket.py in any --tools directory; pass --tools <the verify-ticket skill's scripts directory>"
+  [ -f "$TICKET_STATE" ] || refuse "no ticket_state.py beside dispatch.sh; this runtime cannot record a criteria run, so nothing ran. Restore the complete installed checkout before running reverify again"
 
   local caller_root root git_dir commit plan number rc printed ids login into first
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -3709,7 +3842,7 @@ reverify_spec() {
     # The run writes its own `ticket.checked` (run `reverify`, actor `main`), which is the
     # whole record of a green one.
     printed="$(cd "$root" && env MMW_BASE_REF="origin/$into" \
-      python3 "$VERIFY" "$number" --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
+      python3 "$TICKET_STATE" "$number" --run-and-record-criteria --reverify --actor main ${TOOLS_ARGS[@]+"${TOOLS_ARGS[@]}"} 2>&1)"
     rc=$?
     printf '%s\n' "$printed"
     # Red is exit 1 and a reverify ticket.checked of this HEAD that is not met; every
@@ -3779,11 +3912,11 @@ print((rows[0].get("login") or "") if rows else "")
 # ready-made `unchecked` object when the list could not be read or was truncated, so a
 # orchestrator never has to infer an empty set from a bad answer. The orchestrator fills in
 # `decision`, `reason` and `evidence` (and `replacement_id` for `supersede`) per entry;
-# `close_spec_memories` still enforces every rule this stops short of, at `summary` time.
+# `close_spec_memories` still enforces every rule this stops short of, at `close-night` time.
 memory_list_spec() {
   local spec="$1" slug space
   slug="$(repo_slug)" || return 2
-  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  space="$(repository_memory_space "$slug")" || return 2
 
   MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" python3 - <<'PY'
 import json
@@ -3860,7 +3993,7 @@ PY
 close_spec_memories() {
   local spec="$1" decisions_file="$2" slug space result
   slug="$(repo_slug)" || return 2
-  space="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's|/|__|')"
+  space="$(repository_memory_space "$slug")" || return 2
 
   result="$(MMW_MEMORY_SPEC="$spec" MMW_MEMORY_SPACE="$space" \
       MMW_MEMORY_DECISIONS="$decisions_file" python3 - <<'PY'
@@ -3878,7 +4011,7 @@ label = f"mmw-spec-{spec}"
 
 def fail(fact):
     why = f"Memory closing for #{spec} cannot safely close because its exact decision set and lifecycle result are not established"
-    action = f"correct the named condition in {manifest_path or 'the --memory-decisions file'}, then run dispatch.sh summary {spec} --memory-decisions {manifest_path or '<file>'} again"
+    action = f"correct the named condition in {manifest_path or 'the --memory-decisions file'}, then run dispatch.sh close-night {spec} --memory-decisions {manifest_path or '<file>'} again"
     print(f"dispatch: {fact}; {why}; {action}", file=sys.stderr)
     raise SystemExit(2)
 
@@ -4134,21 +4267,21 @@ summary_spec() {
   local body extra git_dir memory_result memory_manifest memory_summary
   local caller_root into expected marker green red checked extra_field
   python3 "$STATUS" --closeout-ready "$spec" \
-    || refuse "#${spec} is not ready for summary; resolve every condition named above, then run summary again"
+    || refuse "#${spec} is not ready for close-night; resolve every condition named above, then run close-night again"
 
   caller_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   [ -n "$caller_root" ] || refuse "not inside a git repository"
   into="$(newest_field "$spec" into spec.opened spec.suspended spec.closed)" \
-    || refuse "#${spec} carries no active spec.opened.into, so summary cannot verify the base branch"
+    || refuse "#${spec} carries no active spec.opened.into, so close-night cannot verify the base branch"
   fetch_origin "$caller_root" \
-    || refuse "origin could not be refreshed, so summary cannot prove the base branch is still the one reverified"
+    || refuse "origin could not be refreshed, so close-night cannot prove the base branch is still the one reverified"
   expected="$(git -C "$caller_root" rev-parse "origin/$into" 2>/dev/null)" \
     || refuse "origin/$into does not resolve to a commit"
   git_dir="$(git -C "$caller_root" rev-parse --git-common-dir)"
   case "$git_dir" in /*) ;; *) git_dir="$caller_root/$git_dir" ;; esac
   marker="$git_dir/mmw-reverify-$spec"
   [ -f "$marker" ] \
-    || refuse "#${spec} has no completed reverify; run reverify $spec, then summary again"
+    || refuse "#${spec} has no completed reverify; run reverify $spec, then close-night again"
   read -r green red checked extra_field < "$marker"
   case "$green $red $checked $extra_field" in
     *[!0-9a-f\ ]* | "" | *"  "*)
@@ -4183,7 +4316,7 @@ summary_spec() {
          "" | *[!0-9]*)
            echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
          0) ;;
-         *) refuse "#$spec still holds $open_findings finding(s) that no route reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh route <ticket> <child> fixed\`, \`dispatch.sh route <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh route <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run summary again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no resolve-child reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh resolve-child <ticket> <child> fixed\`, \`dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run close-night again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
        esac ;;
   esac
 
@@ -4235,7 +4368,7 @@ spec_children() {
 finish_preflight() {
   local spec="$1" into="$2" specs children other active seen child state open="" rc retro
   newest_field "$spec" at spec.closed spec.opened >/dev/null 2>&1 \
-    || { echo "dispatch: #$spec carries no spec.closed; run summary before finish" >&2; return 2; }
+    || { echo "dispatch: #$spec carries no spec.closed; run close-night before finish" >&2; return 2; }
   retro="$(newest_field "$spec" result spec.retroed spec.closed)"; rc=$?
   case "$rc" in
     0) ;;
@@ -4394,8 +4527,8 @@ finish_spec() {
   [ -n "$root" ] || refuse "not inside a git repository"
   into="$(newest_field "$spec" into spec.opened 2>/dev/null)" || into=""
   project="$(newest_field "$spec" project spec.opened 2>/dev/null)" || project=""
-  [ -n "$project" ] || refuse "#${spec}'s spec.opened carries no project branch; run open $spec again before finish"
-  [ -n "$into" ] || refuse "#${spec}'s spec.opened carries no base branch; run open $spec again before finish"
+  [ -n "$project" ] || refuse "#${spec}'s spec.opened carries no project branch; run open-night $spec again before finish"
+  [ -n "$into" ] || refuse "#${spec}'s spec.opened carries no base branch; run open-night $spec again before finish"
   finish_preflight "$spec" "$into" || exit 2
   load_repo_url
 
@@ -4475,7 +4608,7 @@ finish_spec() {
   done
 }
 
-# ------------------------------------------------------------------ route
+# ------------------------------------------------------------------ resolve-child
 
 # Make sure the repository has the layer label `$1`. A label the repository lacks makes
 # every `gh issue edit --add-label` naming it fail, so the first issue of each layer
@@ -4573,7 +4706,7 @@ route_child() {
     if [ "$done_resolution" = "$resolution" ] \
        && { [ -z "$became" ] || [ "$done_became" = "$became" ]; } \
        && { [ -z "$reason" ] || [ "$done_reason" = "$reason" ]; }; then
-      echo "route #$child: already routed $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
+      echo "resolve-child #$child: already routed $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
       return 0
     fi
     refuse "#$child is already routed $done_resolution on #$ticket; nothing was done"
@@ -4633,13 +4766,13 @@ route_child() {
     echo "dispatch: #$child is routed ($resolution) but the child.closed event on #$ticket was not written, so the night summary counts it unread; run this again" >&2
     exit 1
   fi
-  echo "route #$child: $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
+  echo "resolve-child #$child: $resolution${reason:+ $reason}${became:+ #$became}, recorded on #$ticket" >&2
 }
 
 # ------------------------------------------------------------------ entry
 
 # `self` reads nothing but this process and its runner, so it answers without models.json:
-# `verify-ticket.py` asks it for the session a refusal is written by.
+# `ticket_state.py` asks it for the session a refusal is written by.
 if [ "${1:-}" = self ] && [ "$#" -eq 1 ]; then
   own_session
   exit $?
@@ -4670,6 +4803,20 @@ while [ "$#" -gt 0 ]; do
 done
 set -- ${positional[@]+"${positional[@]}"}
 
+# The seven renamed subcommands answer their old names, for one release, with
+# one line that names the new command. This stands before models.json is read,
+# so a machine that is not installed still prints only that line.
+case "${1:-}" in
+  open) renamed open open-night "<spec>" ;;
+  open-ticket) renamed open-ticket open-ticket-watch "<n>" ;;
+  summary) renamed summary close-night "<spec> --memory-decisions <file>" ;;
+  wait) renamed wait result "<n> worker|reviewer" ;;
+  integrated) renamed integrated landed-since "<n>" ;;
+  memory-list) renamed memory-list prepare-memory-decisions "<spec>" ;;
+  route)
+    renamed route resolve-child "<ticket> <child> fixed, or stale <invalid|fixed-elsewhere>, or became-ticket <new ticket>" ;;
+esac
+
 [ "${1:-}" = where ] || [ -f "$MODELS_JSON" ] || refuse "no models.json at $MODELS_JSON; run install.sh"
 
 tool() {
@@ -4683,15 +4830,42 @@ tool() {
   return 1
 }
 SKILLS_ROOT="$(dirname "$SKILL_ROOT")"
-LEASE="$(tool lease.py || printf '%s\n' "$SKILLS_ROOT/ui-acceptance/scripts/lease.py")"
-VERIFY="$(tool verify-ticket.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/verify-ticket.py")"
-EVENTS="$(tool events.py || printf '%s\n' "$SKILLS_ROOT/verify-ticket/scripts/events.py")"
+LEASE="$(tool lease.py || true)"
+VERIFY="$(tool verify-ticket.py || true)"
+if [ -z "$LEASE" ] || [ -z "$VERIFY" ]; then
+  if ! registered="$(python3 - "$SKILL_ROOT/scripts" "$SKILLS_ROOT" <<'PYTHON'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+try:
+    import locations
+    skills = Path(sys.argv[2])
+    lease = skills / locations.UI_ACCEPTANCE_SCRIPTS / "lease.py"
+    verify = skills / locations.VERIFY_TICKET_PY
+except Exception as exc:
+    print(" ".join(str(exc).splitlines()))
+    raise SystemExit(2)
+print(lease)
+print(verify)
+PYTHON
+)"; then
+    problem="cannot load $SKILL_ROOT/scripts/locations.py ($registered), so dispatch cannot resolve its scripts; run bash mmw-v2/install.sh --check"
+    if [ "${1:-}" = where ]; then
+      printf 'UNKNOWN %s\n' "$problem"
+      exit 2
+    fi
+    refuse "$problem"
+  fi
+  [ -n "$LEASE" ] || LEASE="${registered%%$'\n'*}"
+  [ -n "$VERIFY" ] || VERIFY="${registered#*$'\n'}"
+fi
+EVENTS="$(tool events.py || printf '%s\n' "$SKILL_ROOT/scripts/events.py")"
 if [ ! -f "$EVENTS" ]; then
   if [ "${1:-}" = where ]; then
     printf 'UNKNOWN no events.py at %s; run bash mmw-v2/install.sh --check\n' "$EVENTS"
     exit 2
   fi
-  refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; pass --tools <the verify-ticket skill's scripts directory>"
+  refuse "no events.py at $EVENTS, so nothing on a ticket can be read or written; restore this skill's scripts/events.py or pass --tools <the events.py directory>"
 fi
 # `status.py` folds the same events, and reads them through the same file.
 export MMW_EVENTS_PY="$EVENTS"
@@ -4715,12 +4889,12 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     check_machine "$2"
     ;;
-  open)
+  open-night)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     open_night "$2"
     ;;
-  open-ticket)
+  open-ticket-watch)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     open_ticket "$2"
@@ -4758,7 +4932,7 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     integrate_ticket "$2"
     ;;
-  integrated)
+  landed-since)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     integrated_since_start "$2"
@@ -4787,7 +4961,7 @@ case "${1:-}" in
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     retract_one "$2"
     ;;
-  wait)
+  result)
     [ "$#" -eq 3 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     wait_one "$2" "$3"
@@ -4809,7 +4983,7 @@ case "${1:-}" in
     python3 "$STATUS" --findings "$2"
     exit $?
     ;;
-  memory-list)
+  prepare-memory-decisions)
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "the spec number must be digits only, got $2" ;; esac
     memory_list_spec "$2"
@@ -4818,7 +4992,7 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     reverify_spec "$2"
     ;;
-  summary)
+  close-night)
     if [ "$#" -eq 4 ] && [ "$3" = "--memory-decisions" ]; then
       summary_spec "$2" "$4"
     else
@@ -4833,7 +5007,7 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     suspend_night "$2"
     ;;
-  route)
+  resolve-child)
     [ "$#" -eq 4 ] || [ "$#" -eq 5 ] || usage
     route_child "$2" "$3" "$4" "${5:-}"
     ;;

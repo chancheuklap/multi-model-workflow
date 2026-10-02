@@ -16,12 +16,14 @@ INSTALLER = MMW / "install.sh"
 
 _STRIP = (
     "MMW_TICKET",
+    "MMW_ROLE",
     "MMW_BASE_REF",
     "MMW_CATALOG_MODE",
     "MMW_SPEC",
     "MMW_TASK_SCOPE",
     "MMW_KIND",
     "MMW_EVENTS_PY",
+    "MMW_V2_LAUNCHCTL",
     "PASEO_AGENT_ID",
     "ORCA_TERMINAL_HANDLE",
     "HERDR_PANE_ID",
@@ -81,7 +83,8 @@ print(json.dumps(result))
     nmem.chmod(0o755)
 
 
-def run_install(installer: Path, home: Path, bin_dir: Path, *args: str) -> subprocess.CompletedProcess:
+def run_install(installer: Path, home: Path, bin_dir: Path, *args: str,
+                env_overrides: dict[str, str | None] | None = None) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     for name in list(env):
         if name in _STRIP or name.startswith("NMEM_"):
@@ -89,6 +92,11 @@ def run_install(installer: Path, home: Path, bin_dir: Path, *args: str) -> subpr
     env["MMW_V2_HOME"] = str(home)
     env["MMW_HOME"] = str(home / ".mmw")
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+    for name, value in (env_overrides or {}).items():
+        if value is None:
+            env.pop(name, None)
+        else:
+            env[name] = value
     return subprocess.run(
         ["bash", str(installer), *args],
         env=env,

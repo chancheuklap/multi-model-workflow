@@ -3,12 +3,12 @@
 
     python3 build_scenes.py <out.js>
 
-Every event of every example ticket is written with `events.build` from the verify-ticket
+Every event of every example ticket is written with `events.build` from the mmw
 skill, so a payload the vocabulary refuses cannot get in. Each scene is then shaped by the
 board's own backend (`mmw-v2/board/board_data.py`, `BoardStore._shape`) from example
 issue trees and comments, so a board scene is exactly what `GET /api/board` would answer
 for that tracker. The settings scenes are shaped the way `GET /api/settings` answers
-(`mmw-v2/board/settings_api.py`), with the dispatch skill's own `models.py` for hosts,
+(`mmw-v2/board/settings_api.py`), with the mmw skill's own `models.py` for hosts,
 runners and each host's model and effort options.
 
 The data is an example, not the owner's tickets. Times are local wall-clock times of the
@@ -32,9 +32,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[3]
-DISPATCH_SCRIPTS = REPO / "mmw-v2" / "skills" / "dispatch" / "scripts"
-sys.path.insert(0, str(REPO / "mmw-v2" / "skills" / "verify-ticket" / "scripts"))
-sys.path.insert(0, str(DISPATCH_SCRIPTS))
+MODE_SCRIPTS = REPO / "mmw-v2" / "skills" / "mmw" / "scripts"
+sys.path.insert(0, str(MODE_SCRIPTS))
 import events  # noqa: E402
 import models  # noqa: E402
 
@@ -288,7 +287,7 @@ def morning():
     t139.checked("07:27", run="repo-checks")
     t139.passed("07:28")
     t139.bounced("07:29", sha(R, "after-142"),
-                 files=["mmw-v2/skills/dispatch/scripts/relay.py", "mmw-v2/tests/relay/test_relay.py"])
+                 files=["mmw-v2/skills/mmw/scripts/relay.py", "mmw-v2/tests/relay/test_relay.py"])
 
     t138 = Ticket(138, "离线时唤醒去向", 131, [132], into=R).handing_back("stuck", "离线投递要一个真的 main 会话来收，夜里起不来")
     t138.start("06:38", "grok", "grok 4.6", "high")
@@ -513,7 +512,7 @@ def settings() -> dict:
         # Which runners can start each host at all: one that runs the host's CLI in a terminal
         # (orca, herdr) starts it from its `cli` block, Paseo from its `paseo` block.
         "launch": {h: {"cli": "cli" in spec, "paseo": "paseo" in spec} for h, spec in hosts["hosts"].items()},
-        "runners": sorted(p.stem for p in (DISPATCH_SCRIPTS / "runners").glob("*.sh")),
+        "runners": sorted(p.stem for p in (MODE_SCRIPTS / "runners").glob("*.sh")),
         "scenes": scenes,
     }
 

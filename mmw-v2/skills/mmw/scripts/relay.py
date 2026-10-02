@@ -24,10 +24,11 @@ on this machine (statedir.py). Tickets are written by the scripts that write the
 nothing else (docs/adr/0001-tracker-repo-authority.md).
 
 **Watches.** What the relay reads is the union of its watches. A watch is what one
-`dispatch.sh open`, `open-ticket` or `adopt` opens: `{"spec": N}`, a night — N's
+`dispatch.sh open-night`, `open-ticket-watch` or `adopt` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
-night. Its `kind` records `night`, `ticket` or `adopted-ticket`; older watches without
-`kind` remain readable. Each watch has its own orchestrator, a (runner, session) pair:
+night. Its `kind` records `night`, `ticket` or `adopted-ticket`; a watch without
+`kind` is read but receives no wakes until it is reopened with its kind. Each watch has
+its own orchestrator, a (runner, session) pair:
 the session that opened it. The watch is the only registration of that orchestrator.
 A repository has one relay process and one state directory however many
 watches are open, so nights run from several branches or worktrees, one-ticket runs and
@@ -89,9 +90,11 @@ so a second one asks for a second ack for one reading of one ticket. The event i
 as translated all the same — what handles it is the wake it coalesced into, which is still to
 be sent and which has its recipient read that ticket — and `coalesced ...` says so in the log.
 Once a wake has been sent its recipient may have acted on it already, so an event that
-lands after it queues a wake of its own. Delivered: the relay ran `runners/<runner>.sh send <session> "#<ticket>
-<event>"` — the text carries the ticket number and the event name and nothing else; what
-happened is read on the tracker. What `send` answered decides what happens to the row:
+lands after it queues a wake of its own. Delivered: the relay ran
+`runners/<runner>.sh send <session> "#<ticket> <event> · mmw <playbook>#<step>"`.
+The event names the ticket to read, and the pointer from roles.json names the recipient's
+next step; what happened is read on the tracker. What `send` answered decides what happens
+to the row:
 
     0                 delivered; the row stays until it is acked
     4                 handed over and not confirmed: the text reached the session and
@@ -149,12 +152,12 @@ tickets watch names the ticket, or a spec watch is the ticket's spec; with `--sp
 alone, whether that spec is watched.
 
 **An orchestrator that is gone.** A night whose orchestrator's session was closed without
-`summary` or `suspend` would otherwise be polled for ever, a few thousand REST requests an
+`close-night` or `suspend` would otherwise be polled for ever, a few thousand REST requests an
 hour. Every 10 cycles the relay asks each watch's orchestrator's runner `liveness`. An orchestrator
 answered `stopped` at every ask for 3600 seconds or more has its watch closed as
 `stop` would close it, with a line in `relay.log`; `alive` or `unknown` starts the count
 again. The hour lets reviewers still at work bring their results back
-to their workers first, and the next `open` reads everything in full. The relay exits
+to their workers first, and the next `open-night` reads everything in full. The relay exits
 when no watch is left.
 
 **An unattended stretch** is time with no good poll: the relay was down, or its reads kept
@@ -175,7 +178,7 @@ Files in the state directory:
     queue.seq       the last sequence number issued
     queue.lock      taken for every read-and-write of the files below it
     seen.json       per ticket: (comment, event) pairs translated, newest updated_at,
-                    every worker.started as [comment id, runner, session], the pending
+                    every worker.started as [comment id, runner, session, adopted], the pending
                     worker.queued (`waiting`: its comment id, or null) and the newest
                     comment id applied to that flag (`waiting_read`)
     watches.json    every open watch, keyed `spec:<n>` or `tickets:<n>[,<n>...]`: the
@@ -242,7 +245,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, NamedTuple
 
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -255,13 +258,13 @@ from ghlist import GH_TIMEOUT, quiet_env  # noqa: E402
 
 
 def _load_events():
-    """`events.py` of the verify-ticket skill, beside this one: the one reader of the
+    """`events.py` beside this script: the one reader of the
     comment format. `MMW_EVENTS_PY` names it when `dispatch.sh` resolved it elsewhere."""
-    default = HERE.parents[1] / "verify-ticket" / "scripts" / "events.py"
+    default = HERE / "events.py"
     path = Path(os.environ.get("MMW_EVENTS_PY") or default)
     if not path.is_file():
-        sys.stderr.write(f"relay: no events.py at {path}; the verify-ticket skill has to sit "
-                         f"beside this one, or MMW_EVENTS_PY has to name its events.py\n")
+        sys.stderr.write(f"relay: no events.py at {path}; restore this script's events.py "
+                         f"or set MMW_EVENTS_PY to its location\n")
         raise SystemExit(2)
     spec = importlib.util.spec_from_file_location("mmw_events", path)
     module = importlib.util.module_from_spec(spec)
@@ -287,7 +290,14 @@ MAIN_GONE_AFTER = 3600
 
 MAIN = "main"
 WORKER = "worker"
-WATCH_KINDS = ("night", "ticket", "adopted-ticket")
+KIND_ROLES = {"night": "night-orchestrator", "ticket": "one-ticket-orchestrator",
+              "adopted-ticket": "adopting-worker"}
+WATCH_KINDS = tuple(KIND_ROLES)
+
+
+class WorkerRecipient(NamedTuple):
+    address: tuple[str, str]
+    role: str
 
 # Which events wake whom. `to` is the role of the session woken; `when`, where present,
 # lists the payload values the event must carry for it to wake anyone.
@@ -385,11 +395,54 @@ def gives_slot_back(name: str) -> bool:
     return name in events.SLOT_ENDS and name != "spec.suspended"
 
 
-def wake_text(row: dict) -> str:
-    """What is sent: the ticket number and the event name, nothing the tracker already says."""
+def wake_pointer(role: str, event: str) -> str:
+    """Resolve one recipient's next step from this checkout's role registry."""
+    path = HERE.parent / "roles.json"
+    try:
+        roles = json.loads(path.read_text(encoding="utf-8"))
+        definition = roles[role]
+        playbook = definition["playbook"]
+        wakes = definition["wakes"]
+        step = wakes.get(event, wakes.get("*"))
+        if not all(isinstance(value, str) and value.strip() and not any(
+                char in value for char in "\r\n") for value in (playbook, step)):
+            raise ValueError(f"no valid playbook or wake step for {role}/{event}")
+        return f"mmw {playbook}#{step}"
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        reason = " ".join(str(exc).splitlines())
+        raise Refusal(f"cannot read {path} ({reason}); run bash mmw-v2/install.sh --check") from None
+
+
+def main_role(watch: dict) -> str:
+    """A watch's kind names its orchestrator role; absent kinds are not inferred."""
+    if watch.get("kind") not in WATCH_KINDS:
+        command = f"dispatch.sh open-night {watch['spec']}" if watch.get("spec") else \
+            f"dispatch.sh open-ticket-watch {(watch.get('tickets') or ['<n>'])[0]} or dispatch.sh adopt <n>"
+        raise Refusal(f"watch on {describe_watch(watch)} has no valid kind, so its recipient role "
+                      f"is unknown and no wake is delivered; reopen it with {command}")
+    return KIND_ROLES[watch["kind"]]
+
+
+def watches_for(watches: dict[str, dict], address: tuple[str, str]) -> list[dict]:
+    """Open watches orchestrated by this runner/session, in watch-key order."""
+    return [entry for _, entry in sorted(watches.items()) if main_of(entry) == address]
+
+
+def watch_pointer(watch: dict, event: str) -> str:
+    """A host warning's pointer or diagnostic, without changing its delivery verdict."""
+    try:
+        return wake_pointer(main_role(watch), event)
+    except Refusal as exc:
+        return str(exc)
+
+
+def wake_text(row: dict, pointer: str | None = None) -> str:
+    """The event or recovery stretch, with the recipient's step pointer for delivery."""
     if row.get("event") == RECOVERED:
-        return f"{RECOVERED} since {row.get('since')}"
-    return f"#{row.get('ticket')} {row.get('event')}"
+        text = f"{RECOVERED} since {row.get('since')}"
+    else:
+        text = f"#{row.get('ticket')} {row.get('event')}"
+    return text + (f" · {pointer}" if pointer else "")
 
 
 # ----------------------------------------------------------------- watches
@@ -695,7 +748,7 @@ class Relay:
         except ValueError as exc:
             raise Refusal(f"{self.path('watches.json')} is not JSON ({exc}); which watches are "
                           f"open, and whose wake-ups go where, cannot be told. Move that file "
-                          f"aside and open each watch again (dispatch.sh open, open-ticket or "
+                          f"aside and open each watch again (dispatch.sh open-night, open-ticket-watch or "
                           f"adopt).") from None
 
     def _write_watches(self, watches: dict[str, dict]) -> None:
@@ -751,7 +804,7 @@ class Relay:
                     runner: str, session: str) -> list[str]:
         """The ticket watches a spec watch takes over as it opens: every ticket of the watch
         is a sub-issue of the spec, and its orchestrator is the one opening the night or a
-        session its runner shows stopped. Such a watch is left over from `open-ticket` with no
+        session its runner shows stopped. Such a watch is left over from `open-ticket-watch` with no
         `land` after it, and nobody else waits on its wake-ups. A ticket watch whose orchestrator
         is another session that is alive, or whose liveness is unknown, keeps its ticket, and
         the overlap refuses the night."""
@@ -790,7 +843,7 @@ class Relay:
                 if problem:
                     raise Refusal(f"{describe_watch(want)} was not opened: {problem}. A ticket "
                                   f"is watched once, so that its wake-ups have one orchestrator. "
-                                  f"Close that watch first (land for one ticket, summary or "
+                                  f"Close that watch first (land for one ticket, close-night or "
                                   f"suspend for a night), or work the ticket in the watch that "
                                   f"has it. Nothing was recorded.")
                 previous = watches.get(key)
@@ -884,15 +937,17 @@ class Relay:
         self.out.flush()
 
     @staticmethod
-    def _worker_before(per_ticket: dict, ticket, cid: int | None) -> tuple[str, str] | None:
-        """The (runner, session) of the ticket's latest worker.started before comment `cid`;
+    def _worker_before(per_ticket: dict, ticket, cid: int | None) -> WorkerRecipient | None:
+        """The address and role of the ticket's latest worker.started before comment `cid`;
         with `cid` None, its latest worker.started of all."""
         entries = (per_ticket.get(str(ticket)) or {}).get("workers") or []
         earlier = [e for e in entries if cid is None or e[0] < cid]
         if not earlier:
             return None
-        _, runner, session = max(earlier, key=lambda e: e[0])
-        return runner, session
+        latest = max(earlier, key=lambda entry: entry[0])
+        _, runner, session, *adopted = latest
+        role = "adopting-worker" if adopted and adopted[0] is True else "worker"
+        return WorkerRecipient((runner, session), role)
 
     # ------------------------------------------------------------- reading the queue
 
@@ -987,7 +1042,7 @@ class Relay:
         # Everything that happened, to be taken in the order it landed: the wakes, and what
         # makes a ticket wait for a product slot, stop waiting, or give a slot back.
         timeline: list[dict] = []
-        workers: list[tuple[int, int, str, str]] = []
+        workers: list[tuple[int, int, str, str, bool]] = []
         unreadable: list[tuple[int, object, str]] = []
         read: dict[int, str | None] = {}
         for number, key in tickets.items():
@@ -1016,7 +1071,7 @@ class Relay:
                 if name == WORKER_STARTED:
                     runner, session = event.get("runner"), event.get("session")
                     if isinstance(runner, str) and runner and isinstance(session, str) and session:
-                        workers.append((ticket, cid, runner, session))
+                        workers.append((ticket, cid, runner, session, event.get("adopted") is True))
                     else:
                         unreadable.append((number, cid, "its worker.started names no runner and session"))
                     continue
@@ -1040,10 +1095,10 @@ class Relay:
             watches = self.watches()
             seen = self._read_state("seen.json", {})
             per_ticket = seen.setdefault("tickets", {})
-            for ticket, cid, runner, session in workers:
+            for ticket, cid, runner, session, adopted in workers:
                 slot = _slot(per_ticket, ticket)
                 if all(entry[0] != cid for entry in slot["workers"]):
-                    slot["workers"].append([cid, runner, session])
+                    slot["workers"].append([cid, runner, session, adopted])
                     slot["workers"].sort()
             # A ticket read in full has its wait for a slot recomputed from its whole history.
             for number in read:
@@ -1080,7 +1135,8 @@ class Relay:
                     entry = watches.get(item["watch"])
                     address = main_of(entry) if entry else None
                 else:
-                    address = self._worker_before(per_ticket, item["ticket"], item["cid"])
+                    worker = self._worker_before(per_ticket, item["ticket"], item["cid"])
+                    address = worker.address if worker else None
                 if address is None:
                     unaddressed.append(item)
                     continue
@@ -1201,10 +1257,11 @@ class Relay:
             key = f"slot:{cid}:{number}"
             if key in already or key in queued:
                 continue
-            address = self._worker_before(per_ticket, number, cid)
-            if address is None:
+            worker = self._worker_before(per_ticket, number, cid)
+            if worker is None:
                 unaddressed.append({"slot": True, "cid": cid, "woken": number})
                 continue
+            address = worker.address
             queued.add(key)
             added.append({"key": key, "cid": cid, "home": number, "ticket": number,
                           "event": QUEUED, "to": WORKER, "watch": tickets[number],
@@ -1307,47 +1364,70 @@ class Relay:
         finally:
             self._note_delivery(begun, self.clock())
 
-    def _recipient_now(self, row: dict, watches: dict[str, dict], per_ticket: dict) -> tuple[str, str | None]:
-        """Whether `row` is still its recipient's: ("send", None); ("drop", why); or
-        ("keep", why) when there is nobody to compare it with."""
+    def _recipient_now(self, row: dict, watches: dict[str, dict], per_ticket: dict) -> tuple[str, str | None, str | None]:
+        """Delivery verdict, explanation, and the current worker's role if addressed to one."""
         address = (row.get("runner"), row.get("session"))
         watch = row.get("watch")
+        role = None
         if watch is not None and watch not in watches:
             return "drop", (f"it belongs to the watch on {describe_watch(watch_from_key(watch))}, "
-                            f"which was closed")
+                            f"which was closed"), None
         if row.get("to") == WORKER:
             # A slot wake is for a wait. One that has ended since — the worker got a slot
             # on an earlier wake, and its run is on the ticket — would only have it run its
             # criteria again for nothing.
             if row.get("event") == QUEUED \
                     and not (per_ticket.get(str(row.get("ticket"))) or {}).get("waiting"):
-                return "drop", f"#{row.get('ticket')} no longer waits for a product slot"
-            current = self._worker_before(per_ticket, row.get("ticket"), None)
-            if current is None:
-                return "keep", f"there is no #{row.get('ticket')}'s worker to compare it with"
+                return "drop", f"#{row.get('ticket')} no longer waits for a product slot", None
+            worker = self._worker_before(per_ticket, row.get("ticket"), None)
+            if worker is None:
+                return "keep", f"there is no #{row.get('ticket')}'s worker to compare it with", None
+            current, role = worker
             whose = f"#{row.get('ticket')}'s worker"
         elif watch is not None:
             current = main_of(watches[watch])
             whose = f"the orchestrator of {describe_watch(watches[watch])}"
         elif address in {main_of(e) for e in watches.values()}:
-            return "send", None
+            return "send", None, role
         else:
             return "drop", (f"it is addressed to {address[0]} session {address[1]}, the main "
-                            f"agent of no open watch: a late message for a retired session")
+                            f"agent of no open watch: a late message for a retired session"), None
         if address != current:
             return "drop", (f"it is addressed to {address[0]} session {address[1]}, and {whose} "
                             f"is now {current[0]} session {current[1]}: a late message for a "
-                            f"retired session")
-        return "send", None
+                            f"retired session"), None
+        return "send", None, role
 
     def _deliver(self, pending: list[dict]) -> None:
         watches = self.watches()
         with self.queue_lock():
             per_ticket = self._read_state("seen.json", {}).get("tickets", {})
+        # Resolve the entire pass before sending anything: an incomplete role registry
+        # must not deliver half a round and fail on a later recipient.
+        texts: dict[int, str] = {}
+        verdicts = {}
+        for row in pending:
+            verdict, why, worker_role = self._recipient_now(row, watches, per_ticket)
+            verdicts[row["seq"]] = verdict, why
+            if verdict != "send":
+                continue
+            watch = watches.get(row.get("watch"))
+            if watch is None:
+                address = (row.get("runner"), row.get("session"))
+                matches = watches_for(watches, address)
+                watch = matches[0] if matches else None
+            try:
+                role = main_role(watch or {})
+            except Refusal as exc:
+                self.err.write(f"relay: {exc}\n")
+                continue
+            if worker_role is not None:
+                role = worker_role
+            texts[row["seq"]] = wake_text(row, wake_pointer(role, row["event"]))
         held: set[tuple[str, str]] = set()
         for row in pending:
             address = (row.get("runner"), row.get("session"))
-            verdict, why = self._recipient_now(row, watches, per_ticket)
+            verdict, why = verdicts[row["seq"]]
             if verdict == "keep":
                 self.err.write(f"relay: kept row {row['seq']} ({wake_text(row)}): {why}\n")
                 continue
@@ -1356,7 +1436,9 @@ class Relay:
                 continue
             if address in held:
                 continue
-            code = self.send(address[0], address[1], wake_text(row))
+            if row["seq"] not in texts:
+                continue
+            code = self.send(address[0], address[1], texts[row["seq"]])
             if code == 0:
                 if self._settle(row["seq"], delivered=iso(self.clock())):
                     self.out.write(f"delivered {row['seq']} {wake_text(row)} to {address[1]}\n")
@@ -1538,7 +1620,7 @@ def open_checked(args) -> tuple[Relay, dict, dict | None, dict]:
         raise Refusal(f"the relay running for {args.repo} (pid {found[0].get('pid')}) serves one "
                       f"watch, {describe_watch(found[1]['watch'])}, and would never read this one. "
                       f"End it with `relay.py stop --repo {args.repo}`, open its night again "
-                      f"(dispatch.sh open or open-ticket), then open this watch. Nothing was "
+                      f"(dispatch.sh open-night or open-ticket-watch), then open this watch. Nothing was "
                       f"recorded.")
     relay = Relay(state, Board(args.repo))
     want = watch_of(args)

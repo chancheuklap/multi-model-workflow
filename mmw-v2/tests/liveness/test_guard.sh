@@ -17,7 +17,7 @@
 set -uo pipefail
 
 HERE="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-SCRIPTS="$(dirname "$(dirname "$HERE")")/skills/dispatch/scripts"
+SCRIPTS="$(dirname "$(dirname "$HERE")")/skills/mmw/scripts"
 GUARD="$SCRIPTS/turn-guard.py"
 
 TMP="$(mktemp -d)"
@@ -64,7 +64,7 @@ fi
 FAKE
 chmod +x "$TMP/bin/gh"
 
-ONE_WATCH='{"tickets:61": {"tickets": [61], "runner": "fake", "session": "main-1"}}'
+ONE_WATCH='{"tickets:61": {"tickets": [61], "kind": "ticket", "runner": "fake", "session": "main-1"}}'
 printf '%s\n' "$ONE_WATCH" > "$STATE/watches.json"
 
 # Run the hook: `hook <host> <payload> [VAR=value ...]`. Sets RC, OUT, ERR.
@@ -128,6 +128,12 @@ fi
 hook claude "$CLAUDE"
 check "the block tells the agent how the arm failed and the one command to run" 2 "this watchdog does not start"
 check "the block names the arm command" 2 "arm --repo o/r"
+if [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" = 1 ] \
+  && [[ "$ERR" == *" · mmw land-one-ticket#Handle each wake" ]]; then
+  pass=$((pass + 1)); echo "ok   the block is one line ending with the single-ticket step"
+else
+  failed=$((failed + 1)); echo "FAIL the block does not end with its step on one line" >&2
+fi
 
 echo "### a stop that is already the forced continuation is let through"
 hook claude "${CLAUDE/\"stop_hook_active\":false/\"stop_hook_active\":true}";  check_silent "claude stop_hook_active"
@@ -164,12 +170,12 @@ echo "### whose turn, and which night"
 hook claude "$CLAUDE" FAKE_SELF=worker-9;  check_silent "a session that is the orchestrator of no watch is let through"
 hook claude "$CLAUDE" FAKE_SELF=;          check_silent "a process in no session of the orchestrator's runner is let through"
 hook claude "$CLAUDE" FAKE_SELF_RC=1;      check_silent "a session whose runner cannot name it is not taken for the orchestrator"
-printf '%s\n' '{"tickets:61": {"tickets": [61], "runner": "fake", "session": "main-1"},
-                "spec:76": {"spec": 76, "runner": "fake", "session": "main-2"}}' > "$STATE/watches.json"
+printf '%s\n' '{"tickets:61": {"tickets": [61], "kind": "ticket", "runner": "fake", "session": "main-1"},
+                "spec:76": {"spec": 76, "kind": "night", "runner": "fake", "session": "main-2"}}' > "$STATE/watches.json"
 hook claude "$CLAUDE" FAKE_SELF=main-2;    check "the orchestrator of a second watch on the repository is guarded too" 2 "MMW turn guard"
 hook claude "$CLAUDE" FAKE_SELF=main-1;    check "and so is the first one's" 2 "MMW turn guard"
 hook claude "$CLAUDE" FAKE_SELF=main-3;    check_silent "a third session, the orchestrator of neither, is let through"
-printf '{"tickets:61": {"tickets": [61], "runner": "nosuch", "session": "main-1"}}\n' > "$STATE/watches.json"
+printf '{"tickets:61": {"tickets": [61], "kind": "ticket", "runner": "nosuch", "session": "main-1"}}\n' > "$STATE/watches.json"
 hook claude "$CLAUDE";                     check_silent "an orchestrator on a runner with no adapter: nobody's turn is held"
 printf 'not json\n' > "$STATE/watches.json"
 hook claude "$CLAUDE";                     check_silent "unreadable watches: nobody's turn is held"

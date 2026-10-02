@@ -101,7 +101,7 @@ class TestPostsTheComment(unittest.TestCase):
         self.assertEqual(len(posted), 1)
         self.assertEqual(posted[0][0], 77)
         self.assertEqual(posted[0][1].splitlines()[0], "DECISIONS")
-        what, payload = vt.events.parse(posted[0][1])
+        what, payload = vt.engine.events.parse(posted[0][1])
         self.assertEqual((what, payload["event"], payload["ticket"]),
                          ("event", "worker.decided", 77))
 

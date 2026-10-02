@@ -108,15 +108,15 @@ class TestTheRefusalNamesItsSession(unittest.TestCase):
         self.assertEqual((payload["event"], payload["runner"], payload["session"]),
                          ("ticket.refused", "orca", "term_w77"))
         self.assertNotIn("dispatch.sh retract", err)
-        self.assertEqual(tp.vt.events.first_line(posted[0][1]), err.strip())
+        self.assertEqual(tp.vt.engine.events.first_line(posted[0][1]), err.strip())
 
     def test_own_session_is_what_the_dispatch_skill_reads_from_this_process(self):
         env = {k: v for k, v in os.environ.items()
                if k not in ("ORCA_TERMINAL_HANDLE", "HERDR_ENV", "HERDR_PANE_ID", "TERM_PROGRAM")}
         inside = dict(env, PASEO_AGENT_ID="agt_self_test")
-        with mock.patch.object(vt, "GH_ENV", inside):
+        with mock.patch.object(vt.engine, "GH_ENV", inside):
             self.assertEqual(vt.own_session(vt.read_self()), ("paseo", "agt_self_test"))
-        with mock.patch.object(vt, "GH_ENV", env):
+        with mock.patch.object(vt.engine, "GH_ENV", env):
             self.assertIsNone(vt.own_session(vt.read_self()))
 
 

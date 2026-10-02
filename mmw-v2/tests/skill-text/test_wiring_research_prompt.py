@@ -10,7 +10,7 @@ import unittest
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 LIB = HERE.parent / 'lib'
-DISPATCH = 'mmw-v2/skills/dispatch'
+DISPATCH = 'mmw-v2/skills/mmw'
 SOURCE = ROOT / DISPATCH / 'scripts/dispatch.sh'
 
 
@@ -24,7 +24,8 @@ class ResearchPromptTest(unittest.TestCase):
                 target = scripts / name if name.endswith('.py') else root / DISPATCH / name
                 shutil.copy(HERE / 'fixtures/wiring' / name, target)
             # These paths are referenced by dispatch.sh; only that script is inspected.
-            for name in ('models.py', 'status.py', 'relay.py', 'statedir.py'):
+            for name in ('models.py', 'status.py', 'relay.py', 'statedir.py', 'events.py',
+                         'ticket_state.py'):
                 (scripts / name).touch()
             (scripts / 'runners').mkdir()
             target = scripts / 'dispatch.sh'
