@@ -257,8 +257,8 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     problems = []
     if FILL in draft:
         problems.append("the draft still contains `<fill>`; replace the placeholders "
-                        "in `skipped:`, `Review findings:`, `Green before work:` and "
-                        "`Decisions I made on my own`")
+                        "in `skipped:`, `Review findings:`, `Green before work:`, "
+                        f"`Decisions I made on my own`, and `{locations.AUDITED_LINE}`")
 
     criteria = engine.parse_criteria(draft)
     ids = [c["id"] for c in criteria]
@@ -655,6 +655,7 @@ def run_closing_draft(number: int, out_file: Path | None) -> int:
         parts.append("")
     parts += [
         outside, "",
+        f"{locations.AUDITED_LINE} {FILL}", "",
         review_block, "",
         f"skipped: {FILL}", "",
         green_before_work_block(comments), "",
@@ -1164,6 +1165,94 @@ def run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
                       "same command after the active closeout finishes")
 
 
+def touched_trace(number: int, own_run: dict | None) -> bool:
+    """The latest own run needs no notice, or a covered sibling received one."""
+    if own_run is None:
+        return False
+    payload = own_run["payload"]
+    files = payload.get("outside_owns")
+    if files == []:
+        return True
+    if not files:
+        return False
+    reading = f"parent of #{number}"
+    try:
+        spec = engine.spec_of(number)
+        if spec is None:
+            return False
+        reading = f"children and ownership of #{spec}"
+        siblings = open_children_owns(spec)
+        for child, globs in siblings:
+            if child == number or not any(engine.glob_covers(g, path)
+                                         for g in globs for path in files):
+                continue
+            reading = f"comments on #{child}"
+            for comment in engine.events.normalise(engine.fetch_comments(child)):
+                what, notice = engine.events.parse(comment["body"])
+                if (what == "event" and notice["event"] == "worker.touched"
+                        and notice.get("by") == number
+                        and notice.get("at", "") >= payload.get("at", "")):
+                    return True
+    except (engine.TrackerReadError, engine.SubIssuesUnreadable,
+            engine.ParentUnreadable) as exc:
+        sys.stderr.write(f"#{number}: step trace could not read {reading} ({exc})\n")
+    return False
+
+
+def steps_without_trace(number: int, draft: str, comments: list) -> list[str]:
+    """Untraced registered steps, in playbook order, for an accepted closing draft."""
+    payloads = []
+    claim = None
+    for comment in engine.events.normalise(comments):
+        what, payload = engine.events.parse(comment["body"])
+        if what != "event":
+            continue
+        payloads.append(payload)
+        if payload["event"] == "worker.started":
+            claim = None
+        elif payload["event"] == "ticket.claimed" and claim is None:
+            claim = payload
+    committed = False
+    if claim and claim.get("commit"):
+        try:
+            count = engine.git("rev-list", "--count", "--first-parent", "--no-merges",
+                               f"{claim['commit']}..HEAD", cwd=engine.repo_root())
+            committed = bool(re.fullmatch(r"\d+", count) and int(count) > 0)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    own_run = engine.newest_run(comments, "self")
+    names = {payload["event"] for payload in payloads}
+    traces = {
+        "claimed-after-started": claim is not None,
+        "own-checked": own_run is not None,
+        "commit-after-claim": committed,
+        "worker-decided": "worker.decided" in names,
+        "reviewer-reported": "reviewer.reported" in names,
+        "worker-reverify-checked": engine.newest_run(comments, "reverify", actor="worker") is not None,
+        "audited-line": any(line.startswith(locations.AUDITED_LINE)
+                            and line[len(locations.AUDITED_LINE):].strip()
+                            for line in draft.splitlines()),
+        "outside-owns-none-or-touched": touched_trace(number, own_run),
+        "draft-check": True,
+        "None": True,
+    }
+    skipped = set()
+    decisions = False
+    for line in draft.splitlines():
+        line = line.strip()
+        if not decisions:
+            decisions = line == "Decisions I made on my own"
+            continue
+        if line.startswith("- "):
+            line = line[2:]
+        if line.startswith("skip: "):
+            step, separator, reason = line[len("skip: "):].partition(":")
+            if separator and step in locations.STEP_TRACES and reason.strip():
+                skipped.add(step)
+    return [step for step, trace in locations.STEP_TRACES.items()
+            if not traces.get(trace, False) and step not in skipped]
+
+
 def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     """Check the closing comment against the ticket and the repository, then post it."""
     raw = draft_path.read_text(encoding="utf-8")
@@ -1220,6 +1309,11 @@ def _run_closeout(number: int, draft_path: Path, check_only: bool) -> int:
     if check_only:
         print(f"CLOSEOUT OK: #{number} draft passes every check")
         return 0
+
+    missing = steps_without_trace(number, draft, comments)
+    if missing:
+        draft = (draft.rstrip("\n") + "\n\n" + locations.STEPS_WITHOUT_TRACE_HEADER
+                 + "\n" + "\n".join(f"- {step}" for step in missing) + "\n")
 
     if passed and pending is None:
         checks = run_target_json_checks(engine.repo_root(), into)
