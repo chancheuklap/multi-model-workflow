@@ -180,6 +180,45 @@ class LocalConfigTest(unittest.TestCase):
             "researcher": {"host": "codex", "model": "gpt 5.6 sol", "effort": "high"},
         })
 
+    def test_config_get_prints_the_saved_row_and_writes_nothing(self):
+        saved = self.seed()
+        row = saved["rows"]["reviewer"]
+        before = models.models_json_path().read_bytes()
+        out, err = StringIO(), StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = models.main(["config", "get", "reviewer"])
+        self.assertEqual((code, err.getvalue()), (0, ""))
+        self.assertEqual(
+            out.getvalue(),
+            f"reviewer {row['host']} {row['model']} {row['effort']}\n")
+        self.assertEqual(models.models_json_path().read_bytes(), before)
+
+    def test_config_get_refuses_a_name_that_is_not_a_row(self):
+        out, err = StringIO(), StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = models.main(["config", "get", "worker"])
+        self.assertEqual(code, 2)
+        self.assertEqual(out.getvalue(), "")
+        text = err.getvalue()
+        self.assertEqual(text.count("\n"), 1)
+        for name in models.ALLOWED_AGENTS:
+            self.assertIn(name, text)
+        self.assertIn("run models.py config get <row> with one of them", text)
+
+    def test_config_get_refuses_a_row_the_file_lacks(self):
+        self.seed()
+        before = models.models_json_path().read_bytes()
+        out, err = StringIO(), StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = models.main(["config", "get", "researcher"])
+        self.assertEqual(code, 2)
+        self.assertEqual(out.getvalue(), "")
+        text = err.getvalue()
+        self.assertEqual(text.count("\n"), 1)
+        self.assertIn("config set researcher", text)
+        self.assertIn(str(models.models_json_path()), text)
+        self.assertEqual(models.models_json_path().read_bytes(), before)
+
     def test_cli_sets_the_runner(self):
         self.seed()
         with redirect_stdout(StringIO()) as out:
