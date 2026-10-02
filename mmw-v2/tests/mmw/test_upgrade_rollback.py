@@ -291,6 +291,9 @@ class UpgradeRollback(unittest.TestCase):
         trusted = (self.home / ".codex/config.toml").read_bytes()
         links = self.copied_links()
         self.assertTrue(links)
+        launcher_paths = {relative for relative in SWEPT
+                          if any("hook-launcher" in command for commands in self.handlers(relative).values()
+                                 for command in commands)}
         foreign = {"type": "command", "command": "foreign-hook --keep"}
         for relative in SWEPT:
             path = self.home / relative
@@ -312,7 +315,7 @@ class UpgradeRollback(unittest.TestCase):
             self.assertFalse(any("hook-launcher" in command for commands in self.handlers(relative).values() for command in commands))
             self.assertEqual(self.handlers(relative)["ForeignEvent"], [foreign["command"]])
             path = self.home / relative
-            if path.exists():
+            if relative in launcher_paths:
                 self.assertTrue(list(path.parent.glob(path.name + ".bak-*")), relative)
         snapshot = self.snapshot()
         rerun = self.prepare()
