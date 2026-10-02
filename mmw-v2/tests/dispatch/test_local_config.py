@@ -203,6 +203,7 @@ class LocalConfigTest(unittest.TestCase):
         self.assertEqual(text.count("\n"), 1)
         for name in models.ALLOWED_AGENTS:
             self.assertIn(name, text)
+        self.assertIn("run models.py config get <row> with one of them", text)
 
     def test_config_get_refuses_a_row_the_file_lacks(self):
         self.seed()
