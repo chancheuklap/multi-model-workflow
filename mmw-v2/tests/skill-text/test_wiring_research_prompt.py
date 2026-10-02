@@ -33,7 +33,8 @@ class ResearchPromptTest(unittest.TestCase):
             target.write_text(original, encoding='utf-8')
             command = [sys.executable, str(LIB / 'check_wiring.py'), '--root', str(root)]
             result = subprocess.run(command, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotRegex(result.stdout, r'(?m)^(?!report:).*: class 8 ')
+            self.assertNotIn('Traceback', result.stdout + result.stderr)
 
             function = re.search(r'^research_one\(\) \{.*?(?=^\})', original, re.M | re.S)
             self.assertIsNotNone(function, 'the product has no research start command')

@@ -46,7 +46,7 @@
 #                         这一项改退出码。
 #                         比对带标记技能的安装副本，缺失、内容或软链不符报「副本过期」，
 #                         取消标记或删除技能后留下的副本报「残留」；两项都回 1。
-#                         用本 checkout 的 check_wiring.py 核对连线，只打印第 2、7 类，
+#                         用本 checkout 的 check_wiring.py 核对连线，只打印第 2、6、7 类，
 #                         report 行不改退出码，其他选中类别的行回 1。跑不起来报「没查」并回 1。
 #                         并在 stdout 列出 ${MMW_HOME:-<安装目标家目录>/.mmw}/state 里开着的
 #                         watch（行首 OPEN-WATCH），以及锁文件记录的进程仍在运行的 relay.lock、
@@ -1959,7 +1959,7 @@ sys.exit(1 if failed else 0)
 PY
 fi
 
-# ---------------- 连线检查第 2、7 类 ----------------
+# ---------------- 连线检查第 2、6、7 类 ----------------
 # CLASS_POLICY 由检查器自己管：report 行只报告，其他选中类别的行让 --check 失败。
 if [ "$mode" = check ]; then
   MMW_WIRING="$ROOT/tests/lib/check_wiring.py" \
@@ -1993,14 +1993,17 @@ if result.returncode not in (0, 1):
     unchecked(f'退出 {result.returncode}：{result.stdout.strip()} {result.stderr.strip()}')
 
 finding = re.compile(r'^(?:report: )?.+:\d+: class (\d+)\b')
-empty = re.compile(r'^report: class (2|7):')
+empty = re.compile(r'^report: class (\d+):')
+selected = ('2', '6', '7')
 failed = False
 has_findings = False
 for line in result.stdout.splitlines():
     match = finding.match(line)
+    empty_match = empty.match(line)
     if match:
         has_findings = True
-    if (match and match[1] in ('2', '7')) or empty.match(line):
+    if ((match and match[1] in selected) or
+            (empty_match and empty_match[1] in selected)):
         print(line, file=sys.stderr)
         failed |= not line.startswith('report: ')
 if result.returncode == 1 and not has_findings:
