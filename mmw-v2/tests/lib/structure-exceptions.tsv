@@ -1,12 +1,2 @@
 path	rule	excerpt	until	reason
-mmw-v2/skills/design-pages/references/design-system.md	numbered-cross-reference	rule 1 defines it; that file is the `--state-list` of [pull](pull.md). The agent	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: design-pages 剥离。
 mmw-v2/skills/design-pages/references/edit-pages.md	host-name	"Claude Code"" export; a local edit is overwritten by the next pull. A design tick"	permanent	docs/research/workflow-compare/reports/R21-text-integrity-checks.md §4.3: Claude Design 按钮上的字，照录。
-mmw-v2/skills/design-pages/references/pull.md	numbered-cross-reference	rule 1 **Lives in `prototypes/`** defines it. Every pull of the project writes t	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: design-pages 剥离。
-mmw-v2/skills/dispatch/SKILL.md	description-trigger	description: Start a reviewer from inside a ticket, run a night as its orchestra	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
-mmw-v2/skills/retro/SKILL.md	description-content	dispatch skill's `summary` records `spec.closed`.	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
-mmw-v2/skills/retro/SKILL.md	capability-next-step	return to the dispatch skill's `references/night.md` `## 5. The night is over`, 	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
-mmw-v2/skills/retro/SKILL.md	numbered-cross-reference	## 5. The night is over`, which tells the user.	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
-mmw-v2/skills/verify-ticket/SKILL.md	capability-next-step	## Reached from here	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
-mmw-v2/skills/verify-ticket/SKILL.md	capability-next-step	A worker's claim, criteria runs and closeout are steps of the `implement` skill.	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
-mmw-v2/skills/verify-ticket/references/sub-issues.md	numbered-cross-reference	rules 3 and 4 of the `ui-acceptance` skill's **Five rules while the product is r	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
-mmw-v2/skills/dispatch/SKILL.md	description-content	run a night as its orchestrator, run one ticket outside a night, change the host	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
