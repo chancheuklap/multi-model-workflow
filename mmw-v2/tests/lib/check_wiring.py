@@ -23,7 +23,8 @@ import re
 
 from skill_text import (MODE_DIR, MODE_ROOT, TextError, anchors, classify, frontmatter,
                         installed_skills, normalize_title, read_imports, markdown_units,
-                        component_root, sentences, prose_mask, skill_mentions, skill_of_path)
+                        component_root, sentences, prose_mask, skill_mentions, skill_of_path,
+                        pointer_titles)
 
 
 @dataclass(frozen=True)
@@ -176,10 +177,7 @@ class Wiring:
         elif not file.is_file():
             self.add(path, line, 1, f'pending {slug or MODE_DIR} (not built yet)', True)
         else:
-            text = file.read_text(encoding='utf-8')
-            valid = {a.title for a in anchors(text) if
-                     (not slug or re.match(r'\s*(?:#### |(?:(?:\d+[.)]|[-*+]) )?\*\*)',
-                                          text.splitlines()[a.start-1]))}
+            valid = pointer_titles(file.read_text(encoding='utf-8'), bool(slug))
             if normalize_title(title) not in valid:
                 self.add(path, line, 1, f'{target} has no step or section in {rel}')
 

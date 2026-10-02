@@ -14,7 +14,7 @@ import stand_in_agent
 
 SOURCE = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SOURCE / 'mmw-v2' / 'tests' / 'lib'))
-from skill_text import anchors, normalize_title
+from skill_text import normalize_title, pointer_titles
 
 FAILURE_MARKERS = (r'NO ACTION|NO POINTER|NO IDENTITY|MULTILINE INPUT|COMMAND FAILED|'
                    r'STOP HOOK FAILED|Traceback')
@@ -41,11 +41,7 @@ def resolve_pointer(root, line):
     file = mode / 'playbooks' / (slug + '.md') if slug else mode / 'SKILL.md'
     if not file.is_file():
         raise ValueError(f'{pointer}: no playbook at {file}')
-    text = file.read_text()
-    valid = {anchor.title for anchor in anchors(text) if
-             not slug or re.match(r'\s*(?:#### |(?:(?:\d+[.)]|[-*+]) )?\*\*)',
-                                  text.splitlines()[anchor.start - 1])}
-    if normalize_title(title) not in valid:
+    if normalize_title(title) not in pointer_titles(file.read_text(), bool(slug)):
         raise ValueError(f'{pointer}: no step or section at {file}')
     return slug, title
 
