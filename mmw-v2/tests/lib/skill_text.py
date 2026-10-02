@@ -644,7 +644,10 @@ def canonical_text(unit: Unit, tree: GitTree, path: str, target: str,
     def resolve(value: str, base: str, literal: str):
         value = value.split('#', 1)[0]
         resolved = posixpath.normpath(posixpath.join(base, value))
-        if resolved.startswith('../') or not tree.exists(resolved):
+        # Source text may name a file the same diff creates or moves in, such as a
+        # replace's new wording; it resolves as the target text naming it does.
+        found = tree.exists(resolved) or (source and head is not None and head.exists(resolved))
+        if resolved.startswith('../') or not found:
             return literal
         for rule in renames if source else []:
             if rule.kind == 'path' and resolved == rule.old:

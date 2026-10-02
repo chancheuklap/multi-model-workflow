@@ -426,6 +426,21 @@ class VerbatimCompare(unittest.TestCase):
                    'rename path mmw-v2/skills/demo/references/sub-issues.md -> mmw-v2/skills/demo/references/child-issues.md\n'
                    f'copy {src} -> {dst}')
 
+    def test_a_replacement_naming_a_script_moved_in_the_same_diff_is_verbatim(self):
+        self.write('mmw-v2/old/run.sh', 'echo\n')
+        self.source('Run `mmw-v2/old/run.sh` now.\n')
+        (self.root / 'mmw-v2/old/run.sh').unlink()
+        self.write('mmw-v2/new/run.sh', 'echo\n')
+        manifest = ('copy source.md -> target.md\n'
+                    'replace "`mmw-v2/old/run.sh`" -> "`mmw-v2/new/run.sh`" : Spec')
+        self.write('target.md', 'Run `mmw-v2/new/run.sh` now.\n')
+        self.check(manifest)
+        self.write('mmw-v2/other/run.sh', 'echo\n')
+        self.write('target.md', 'Run `mmw-v2/other/run.sh` now.\n')
+        self.check(manifest, 1, 'CHANGED')
+        self.write('target.md', 'Run `mmw-v2/new/run.sh` later.\n')
+        self.check(manifest, 1, 'CHANGED')
+
     def test_scoped_targets_share_instances_and_keep_existing_counts(self):
         self.source('## Claim\n\nKeep the rule.\n\n## Finish\n\nRead the reason.\n')
         self.write('target.md', '## Claim\n\nKeep the rule.\n\n## Finish\n\nRead the reason.\n')
