@@ -762,8 +762,9 @@ class Wiring:
     def upstream_differences(self):
         """Compare skill units with the last squash's upstream tree.
 
-        A merge-note registers a file/section, not a blanket permission granted
-        merely by the presence of a note. Invocation-switch pairing is registered
+        Registration forms are defined in mmw-v2/merge-notes/README.md under
+        上游目录只允许两类改动; a note's presence is not blanket permission.
+        Invocation-switch pairing is registered
         by merge-notes/README.md. Content-owning skills are registered there too.
         """
         for subtree in sorted((self.root / 'mmw-v2').glob('upstream*')):
@@ -822,13 +823,16 @@ class Wiring:
                     switches = all(u.key == 'disable-model-invocation' for u in changed)
                     scopes = section_titles if new[c:d] else old_sections
                     title = next((s.title for s in reversed(scopes) if s.start <= changed[0].line), '')
-                    section_registered = bool(title and title in file_notes)
-                    location = f'{file_name}#{title}'
-                    if not title and changed[0].key:
-                        key = changed[0].key
-                        section_registered = f'`{key}`' in file_notes
-                        location = f'{file_name}@{key}'
-                    elif not title:
+                    if title:
+                        section_registered = title in file_notes
+                        location = f'{file_name}#{title}'
+                    elif changed[0].key:
+                        missing = next((u for u in changed if u.key and f'`{u.key}`' not in file_notes), None)
+                        section_registered = missing is None
+                        unit = missing or changed[0]
+                        location = f'{file_name}@{unit.key}'
+                        line = unit.line
+                    else:
                         opening = ' '.join(changed[0].text.split()[:3])
                         section_registered = bool(opening and opening in file_notes)
                         location = f'{file_name}#"{opening}"'
