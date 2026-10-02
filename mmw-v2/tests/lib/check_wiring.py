@@ -762,8 +762,9 @@ class Wiring:
     def upstream_differences(self):
         """Compare skill units with the last squash's upstream tree.
 
-        A merge-note registers a file/section, not a blanket permission granted
-        merely by the presence of a note. Invocation-switch pairing is registered
+        Registration forms are defined in mmw-v2/merge-notes/README.md under
+        上游目录只允许两类改动; a note's presence is not blanket permission.
+        Invocation-switch pairing is registered
         by merge-notes/README.md. Content-owning skills are registered there too.
         """
         for subtree in sorted((self.root / 'mmw-v2').glob('upstream*')):
@@ -781,29 +782,30 @@ class Wiring:
             revision = result.stdout.strip()
             for path, content in paths:
                 upstream_path = path.removeprefix(relative + '/')
+                root = component_root(path)
+                name = Path(root).name
+                note = self.root / 'mmw-v2/merge-notes' / (name + '.md')
+                notes = note.read_text(encoding='utf-8') if note.is_file() else ''
+                file_name = str(Path(path).relative_to(root))
+                headings = list(re.finditer(r'^(#{2,4}) (.+)$', notes, re.M))
+                file_heading = next((h for h in headings if file_name in h[2] or Path(path).name in h[2]), None)
                 original = subprocess.run(['git', '-C', str(self.root), 'show',
                                            f'{revision}:{upstream_path}'], capture_output=True, text=True)
                 if original.returncode:
-                    self.add(path, 1, 3, f'{upstream_path} has no squash original')
+                    if not file_heading:
+                        self.add(path, 1, 3, f'{upstream_path} has no squash original')
                     continue
                 old = markdown_units(original.stdout)
                 new = markdown_units(content)
                 if [u.identity for u in old] == [u.identity for u in new]:
                     continue
-                root = component_root(path)
-                name = Path(root).name
-                note = self.root / 'mmw-v2/merge-notes' / (name + '.md')
-                notes = note.read_text(encoding='utf-8') if note.is_file() else ''
                 general = self.root / 'mmw-v2/merge-notes/README.md'
                 registry = general.read_text(encoding='utf-8') if general.is_file() else ''
-                file_name = str(Path(path).relative_to(root))
                 owners = next((a for a in anchors(registry) if a.title == '本仓自有正文的技能'), None)
                 owner_text = '\n'.join(registry.splitlines()[owners.start:owners.end]) if owners else ''
                 owns_content = name in re.findall(r'`([^`]+)`', owner_text)
                 registered_file = file_name in notes or Path(path).name in notes
                 file_notes = notes
-                headings = list(re.finditer(r'^(#{2,4}) (.+)$', notes, re.M))
-                file_heading = next((h for h in headings if file_name in h[2] or Path(path).name in h[2]), None)
                 if file_heading:
                     end = next((h.start() for h in headings if h.start() > file_heading.start() and
                                 len(h[1]) <= len(file_heading[1])), len(notes))
@@ -821,11 +823,23 @@ class Wiring:
                     switches = all(u.key == 'disable-model-invocation' for u in changed)
                     scopes = section_titles if new[c:d] else old_sections
                     title = next((s.title for s in reversed(scopes) if s.start <= changed[0].line), '')
-                    section_registered = bool(title and title in file_notes)
+                    if title:
+                        section_registered = title in file_notes
+                        location = f'{file_name}#{title}'
+                    elif changed[0].key:
+                        missing = next((u for u in changed if u.key and f'`{u.key}`' not in file_notes), None)
+                        section_registered = missing is None
+                        unit = missing or changed[0]
+                        location = f'{file_name}@{unit.key}'
+                        line = unit.line
+                    else:
+                        opening = ' '.join(changed[0].text.split()[:3])
+                        section_registered = bool(opening and opening in file_notes)
+                        location = f'{file_name}#"{opening}"'
                     whole_file = bool(re.search(r'(全文|所有段落|whole file|entire file)', file_notes))
                     if not (owns_content or (switches and 'disable-model-invocation' in registry) or
                             (registered_file and (section_registered or whole_file))):
-                        self.add(path, line, 3, f'upstream difference at {file_name}#{title} is not registered in its merge-note')
+                        self.add(path, line, 3, f'upstream difference at {location} is not registered in its merge-note')
 
     def run(self):
         self.pointers()

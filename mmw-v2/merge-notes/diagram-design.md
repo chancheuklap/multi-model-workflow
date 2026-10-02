@@ -33,17 +33,17 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| §0 标题、粗体首句、「Name the one you used…」一句 | 上游把这一节写成每个新项目必过的 gate；本仓写成 settle which style guide。交付物旁写明用了哪套，理由写在正文：这样默认配色的图不会不声不响地进到有品牌的场合 |
+| §0 标题（`## 0. First-time setup — which style guide`）、粗体首句（**Before your first diagram in a new project, settle which style guide it draws in.**）、「Name the one you used…」一句 | 上游把这一节写成每个新项目必过的 gate；本仓写成 settle which style guide。交付物旁写明用了哪套，理由写在正文：这样默认配色的图不会不声不响地进到有品牌的场合 |
 | §0「For a markerless project…」一段 | 上游写 pause and present the choices from `onboarding.md`；本仓写成不停下来问品牌，直接用自带配色画，在交付物旁边一行说明用了哪套、四种改法是什么，理由写在段末：多数图读一次、不出门，每张都停下来问品牌得不偿失 |
 | §0「When the artifact is going to a client…」一段 | 本仓加的：送客户、送外部的场合仍然先问，问法照上游，指向 `onboarding.md` 与 `profiles.md`；段末加一句品牌结果的去处：存成 profile、用 `.diagram-design` marker 绑定项目（`references/profiles.md`），不要写进安装副本 `style-guide.md`——那一份被本机所有仓库共用，写进去会把这次的客户品牌串到别的项目 |
 | §0 末段句尾「all-default tokens with no marker or header take the default path above」 | 本仓加的半句，跟着上两条走默认路径。`profiles.md` 里「all those values unchanged, run the first-time setup gate in `SKILL.md`」回指这一节，不必改 |
-| §1 末句「Above 9 nodes, it's probably two diagrams」 | 改成超过 9 个节点先找能嵌套的图型，再考虑第二张 |
-| §3 rules of thumb 第三条 | 同上：超预算改成重选一个有容器的图型（Nested、Layer stack、Tree，或 Architecture 的 zone），整个主题留在一张画布。不再列 `high-level`：那是一个带参数的 Kubernetes 数据栈图型，选到它的 agent 会去读约 13k 词无关材料，还会向用户要参数 |
-| §7 复杂度预算末句 | 三处拆图规则里最要紧的一处。改写成：重画成有容器的图型（Nested、Layer stack、Tree，或 Architecture 的 zone；不再列 `high-level`，理由同 §3），预算改为**按层**计——每条带、每个容器各自不超，整张画布可以超；图型是为它自己的典型题材写的，需要弯折（Layers 的范例不画带间连线，不代表你的连线要拿掉）。确实是两个独立问题时才拆，并说明每张图回答哪个问题；理由（读者要在脑子里拼两张画布才看见一个系统，就丢了来看图的目的）写在正文这一句之后。各图型自己的上限（泳道数、实体数、轴数、系列数）是它们语法的物理极限，仍然绝对生效 |
-| §6 `### Mandatory connector rules` rule 3 括号「split into overview + detail」 | 改成「see §7」：上一轮改 §7 为「先嵌套」时漏改了这一处，原括号仍写着拆图，与 §7 直接矛盾 |
+| §1 末句（**Target density: 4/10.** 那段）「Above 9 nodes, it's probably two diagrams」 | 改成超过 9 个节点先找能嵌套的图型，再考虑第二张 |
+| §3 `### Visual-type guide (40)` 下 rules of thumb 第三条 | 同上：超预算改成重选一个有容器的图型（Nested、Layer stack、Tree，或 Architecture 的 zone），整个主题留在一张画布。不再列 `high-level`：那是一个带参数的 Kubernetes 数据栈图型，选到它的 agent 会去读约 13k 词无关材料，还会向用户要参数 |
+| §7 复杂度预算（`### Complexity budget (per diagram)`）末句 | 三处拆图规则里最要紧的一处。改写成：重画成有容器的图型（Nested、Layer stack、Tree，或 Architecture 的 zone；不再列 `high-level`，理由同 §3），预算改为**按层**计——每条带、每个容器各自不超，整张画布可以超；图型是为它自己的典型题材写的，需要弯折（Layers 的范例不画带间连线，不代表你的连线要拿掉）。确实是两个独立问题时才拆，并说明每张图回答哪个问题；理由（读者要在脑子里拼两张画布才看见一个系统，就丢了来看图的目的）写在正文这一句之后。各图型自己的上限（泳道数、实体数、轴数、系列数）是它们语法的物理极限，仍然绝对生效 |
+| §6 `### Mandatory connector rules` rule 3（**No overlapping connectors.**）括号「split into overview + detail」 | 改成「see §7」：上一轮改 §7 为「先嵌套」时漏改了这一处，原括号仍写着拆图，与 §7 直接矛盾 |
 | §9 `## 9. Pre-Output Checklist` `**Technical:**` 末尾 | 加一条：打开渲染出来的文件，把每张图都看一遍。现有检查都只读源码，标签被裁切、连线交叉、图没答到它要答的问题，这些只有看渲染结果才发现得了 |
-| §6「Arrow markers」代码块之后「When one page carries several diagrams…」一句 | 我们加的：三个箭头 marker 的 `id` 写死为 `arrow`、`arrow-accent`、`arrow-link`，一页放几张图（`improve-codebase-architecture` 的报告每张卡两张图）就出现重复 `id`，HTML 不合法，`self_check.py` 也不查。按 §12 给 `<title>` / `<desc>` 定的同一套 slug 前缀办。上游自己给出多图页的写法 → 用上游的，删这一句 |
-| §6 rule 6、§9 检查清单两条 | `<repo-root>` 占位符改成 `repo-root/`，指 skill 目录里的那条 symlink，并写明从这份技能自己的目录运行。host 装的是 skill 目录的 symlink，`../../` 会算到 host 目录去，占位符没法解析。上游的「From a repository checkout」前提与动效那一条的「from an installed skill, manually check print and static-query states on top of the self-check」退路一并删掉：`repo-root` 在装好的技能里也解析到 subtree 根，`verify-geometry.py`、`verify-motion.py` 和 skin linter（`lint-skin.py`，写成 `python3 repo-root/scripts/lint-skin.py <file>`）在哪都能跑。上游改这几句的检查项 → 收上游，路径仍写成 `repo-root/` |
+| §6「Arrow markers」（`### Arrow markers (define all three, always)`）代码块之后「When one page carries several diagrams…」一句 | 我们加的：三个箭头 marker 的 `id` 写死为 `arrow`、`arrow-accent`、`arrow-link`，一页放几张图（`improve-codebase-architecture` 的报告每张卡两张图）就出现重复 `id`，HTML 不合法，`self_check.py` 也不查。按 §12 给 `<title>` / `<desc>` 定的同一套 slug 前缀办。上游自己给出多图页的写法 → 用上游的，删这一句 |
+| §6 rule 6（**A label mask must not overlap a node drawn after it.**）、§9 检查清单两条 | `<repo-root>` 占位符改成 `repo-root/`，指 skill 目录里的那条 symlink，并写明从这份技能自己的目录运行。host 装的是 skill 目录的 symlink，`../../` 会算到 host 目录去，占位符没法解析。上游的「From a repository checkout」前提与动效那一条的「from an installed skill, manually check print and static-query states on top of the self-check」退路一并删掉：`repo-root` 在装好的技能里也解析到 subtree 根，`verify-geometry.py`、`verify-motion.py` 和 skin linter（`lint-skin.py`，写成 `python3 repo-root/scripts/lint-skin.py <file>`）在哪都能跑。上游改这几句的检查项 → 收上游，路径仍写成 `repo-root/` |
 
 上游若把复杂度预算重写，认它的新数字，只把「超了就拆」重新替换成上面这套「先嵌套、按层计、独立问题才拆」。
 
@@ -52,7 +52,7 @@ git subtree pull --prefix mmw-v2/upstream-diagram-design https://github.com/cath
 | 段落 | 我们的意图 |
 | --- | --- |
 | 导入降复杂度第 6 步「Still over? Split into overview + detail. Splitting beats shrinking.」 | 同 §7：先嵌套、按层计，两个独立问题才拆；清单同样不再列 `high-level`（理由同 §3） |
-| §3 `faithful` 条件 3「Above 24 nodes, split.」 | 上一轮改 §7 为「先嵌套」时漏改了这一处：24 节点以上先重画成有容器的图型、按层计预算，只在确实是两个独立问题时才拆成 overview 加 detail，与 §7、Degrade ladder 第 6 步一致 |
+| §3 `faithful` 条件 3（条件 2 **Connector rules don't relax.** 之后那一条）「Above 24 nodes, split.」 | 上一轮改 §7 为「先嵌套」时漏改了这一处：24 节点以上先重画成有容器的图型、按层计预算，只在确实是两个独立问题时才拆成 overview 加 detail，与 §7、Degrade ladder 第 6 步一致 |
 
 其余 55 个 reference 未改。里面还有多处拆图建议（`type-radar.md` 超过 5 条系列、`type-sequence.md` 的 alt 套 alt、`type-dp-security-matrix.md` 超过 6 个角色等），那些是各图型语法的物理极限，不是全局性问题，**照收上游**。
 
