@@ -35,7 +35,7 @@ For a pull not made for a wayfinder map's design ticket, whether the effort's sc
 
 - **No screen contract yet**, whatever `改动分类` says: the `write-screen-contract` skill, for the whole screen contract.
 - **增删控件或改流转**: the `write-screen-contract` skill at its **Re-runs** section, which edits only the rows those controls belong to.
-- **只改外观或文案**: the screen contract does not change, because no `data-ui` id did. An open ticket picks up the new package on its next run. Landed tickets are re-run by the `dispatch` skill's `reverify <spec>` on `origin/<base branch>`, which reopens a red one into triage with `ticket.regressed`; that reopened ticket is the correction. Until the night's `finish`, push the commit to `origin/<base branch>`: while the night is open, its closing pass runs `reverify`; after its `summary`, run `reverify <spec>` from this session. After `finish` the base branch is gone: push to the project branch the night merged into, and tell the user that the spec's landed tickets were not re-run against the new package.
+- **只改外观或文案**: the screen contract does not change, because no `data-ui` id did. An open ticket picks up the new package on its next run. Landed tickets are re-run by this skill's `bash scripts/dispatch.sh reverify <spec>` on `origin/<base branch>`, which reopens a red one into triage with `ticket.regressed`; that reopened ticket is the correction. Until the night's `finish`, push the commit to `origin/<base branch>`: while the night is open, its closing pass runs `reverify`; after its `close-night`, run `reverify <spec>` from this session. After `finish` the base branch is gone: push to the project branch the night merged into, and tell the user that the spec's landed tickets were not re-run against the new package.
 
 #### A pull made for a wayfinder design ticket
 
@@ -45,6 +45,6 @@ A screen contract written for a wayfinder map's alignment ticket resolves that t
 
 #### A contract child answered by a pull
 
-When the pull answered a `contract` child, finish it after the package is committed and pushed to `origin/<base branch>` and **Write the screen contract** has run, with the `dispatch` skill's `dispatch.sh`: comment on the child with the commit; `dispatch.sh route <n> <child> fixed`; move the not-yet-started tickets the night moved to `needs-triage` back to `ready-for-agent`; `dispatch.sh resume <n> "<the commit to integrate from>, then: continue"`. The worker then runs its criteria on the new package.
+When the pull answered a `contract` child, finish it after the package is committed and pushed to `origin/<base branch>` and **Write the screen contract** has run, with this skill's `dispatch.sh`: comment on the child with the commit; `dispatch.sh resolve-child <n> <child> fixed`; move the not-yet-started tickets the night moved to `needs-triage` back to `ready-for-agent`; `dispatch.sh resume <n> "<the commit to integrate from>, then: continue"`. The worker then runs its criteria on the new package.
 
 **Reply:** the design package's directory and the commit that holds it; the screen contract's row count and the rows whose `gap` is not `aligned`; the step, reference or map ticket the work went to next.
