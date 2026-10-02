@@ -271,10 +271,10 @@ class VerbatimTicket(unittest.TestCase):
         self.write(SKILL, '## Allowed\n\n## Other\n')
         self.commit()
         first_drop = f'drop {SKILL}:L3 "Repeat this." : Spec\n'
-        self.manifest = (f'from {self.base}\ncopy source.md -> target.md\n' +
-                         first_drop + f'drop {SKILL}:L7 "Repeat this." : Spec\n')
+        one_drop = f'from {self.base}\ncopy source.md -> target.md\n' + first_drop
+        self.manifest = one_drop + f'drop {SKILL}:L7 "Repeat this." : Spec\n'
         self.check('--manifest', 'manifest')
-        self.manifest = f'from {self.base}\ncopy source.md -> target.md\n' + first_drop
+        self.manifest = one_drop
         self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
 
     def test_source_line_scopes_stay_pinned_when_base_advances(self):
