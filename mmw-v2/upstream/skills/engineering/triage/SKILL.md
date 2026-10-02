@@ -20,7 +20,6 @@ Every comment or issue posted to the issue tracker during triage **must** end wi
 
 - [AGENT-BRIEF.md](AGENT-BRIEF.md): how to write durable agent briefs
 - [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md): how the `.out-of-scope/` knowledge base works
-- [references/pipeline-issues.md](references/pipeline-issues.md): an issue this repository's own pipeline produced
 
 ## Roles
 
@@ -68,8 +67,6 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 ## Triage a specific issue or PR
 
-An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro #<spec>: …`), came from this repository's own pipeline: read [references/pipeline-issues.md](references/pipeline-issues.md) first; it replaces step 1's reproduction and adds step 5's destinations.
-
 1. **Gather context.** Read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse any prior triage notes so you don't re-ask resolved questions. Explore the codebase using the project's domain glossary, respecting ADRs in the area. Run two checks against the codebase: (a) **redundancy**: search for an existing implementation of the requested behavior by domain concept (not just the request's wording), and report where you looked. If found, it's an already-implemented `wontfix` (step 5). (b) **prior rejection**: read `.out-of-scope/*.md` and surface any that resembles this request.
 
 2. **Recommend.** Tell the maintainer your category and state recommendation with reasoning, plus a brief codebase summary relevant to the request (including whether it's already implemented). Wait for direction.
@@ -87,8 +84,6 @@ An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
-
-   A child whose default was right, or whose fix is already on the base branch, is closed through the `dispatch` skill's `dispatch.sh route <ticket> <child> fixed` or `stale <invalid|fixed-elsewhere>` so its ticket records the route; `wontfix` means nobody will do it, not that it is done.
 
 ## Quick state override
 
