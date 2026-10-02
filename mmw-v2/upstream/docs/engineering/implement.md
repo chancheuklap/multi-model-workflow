@@ -35,9 +35,8 @@ A run is five beats, in order:
 1. Read the ticket or spec and work out the seams.
 2. Drive [tdd](https://aihero.dev/skills-tdd) at the pre-agreed seams, one red-green slice at a time.
 3. Typecheck often, run single test files as it goes.
-4. Commit the ticket work, integrate `origin/<base branch>` into it, and run once the tests the repository's own instructions name for what the ticket changed. A conflict, or a clean merge that makes repository checks red, is resolved by the worker that knows the ticket's intent.
-5. Run an independent [code-review](https://aihero.dev/skills-code-review), apply its in-ticket findings once, then run every criterion again as the worker's final run.
-6. Write the closeout, which pushes `issue-<n>` without force, and let the orchestrator merge the ticket branch. No pull request is created.
+4. Run the full test suite once, at the end.
+5. Run [code-review](https://aihero.dev/skills-code-review), then commit to the current branch.
 
 One run covers one ticket. The tickets [to-tickets](https://aihero.dev/skills-to-tickets) produces are tracer-bullet vertical slices sized to fit a single fresh [context window](https://www.aihero.dev/ai-coding-dictionary/context-window), so the intended rhythm is: clear context, implement one ticket, commit, clear again. Each ticket is self-contained, which is what makes the previous ticket's context disposable.
 
@@ -47,23 +46,11 @@ The idea the skill runs on is the **seam**: the public boundary you observe beha
 
 The word "pre-agreed" is doing real work, and it is also the skill's weakest joint. Nothing inside `implement` agrees the seams. `tdd` is the skill that asks, and it refuses to write a test at an unconfirmed seam. So in practice the agreement happens either upstream in the spec, or in the first exchange of the run. If it happens nowhere, the precondition never fires and the run quietly becomes "just write the code". Naming the seams in the spec is what stops that.
 
-## Shared experience
-
-An MMW worker starts with exact experience from the current task and a small search of
-relevant historical experience. This reduces repeated investigation across tickets, but
-Memory is never an authority: current artifacts, verified evidence, repository
-instructions, the ticket, and its parent spec take precedence.
-
-The worker records a finding only when another ticket may reuse it, current evidence
-verifies it, and the ticket or code does not already make it obvious. This keeps shared
-experience focused on non-obvious engineering facts and fixed procedures rather than
-turning every implementation detail into a second documentation system.
-
 ## Common questions
 
 **It finished, but my ticket is still open and the acceptance criteria are still unchecked.**
 
-That is not a completed `implement` run in this pipeline. The worker runs each criterion through the `verify-ticket` skill, records review evidence and the worker's final run, and uses `--closeout`; that command pushes the ticket branch, then closes an all-met ticket or returns an unmet one to triage. The tracker, not the worker's transcript, is the completion record.
+Correct, and expected. `implement` has no completion step. It ends at the commit and never touches the work item, confirmed on GitHub Issues and on the local markdown tracker, so it is not a tracker integration problem. It also does not act on the findings `code-review` produced, and does not tick the `- [ ]` boxes on the originating issue. Close the ticket and reconcile the criteria yourself. This bites hardest on a dependency chain, because `to-tickets` defines the frontier as tickets whose blockers are all closed. If nothing gets closed, nothing ever becomes visibly unblocked.
 
 **Can I point it at all my tickets at once, or run several in parallel?**
 
@@ -71,11 +58,11 @@ No. One invocation, one ticket. Batch dispatch across a ticket queue and [subage
 
 **Can it open a pull request instead of committing?**
 
-No. It commits to `issue-<n>`, integrates `origin/<base branch>`, completes review and verification, then lets `--closeout` push `origin/issue-<n>`. The orchestrator merges that branch through `dispatch.sh`; no step reads a pull request.
+Not built in. It commits straight to the current branch, which several people find too eager: the code lands before they have had a chance to verify it works. There is no configuration flag and no PR mode. People override it in the invocation ("commit to a branch and open a PR") or by editing their local copy of the skill.
 
 **`code-review` says it cannot see my changes.**
 
-`code-review` reviews `git diff <base-commit>...HEAD`, which excludes staged and working-tree changes. `implement` commits before it starts the reviewer. The base commit is the merge-base of the ticket branch and `origin/<base branch>`, so the reviewer sees the ticket's committed work without treating work already landed on the base branch as this ticket's diff.
+`code-review` reviews `git diff <fixed-point>...HEAD`, which excludes staged and working-tree changes. `implement` runs it before committing, so unless an interim commit already exists there is nothing in that diff to review. Multiple people have reported this and it is unfixed on both sides. Commit first, then review against the point you branched from.
 
 Separately, some people deliberately do not want the review inside the run at all, because an agent reviewing the code it just wrote is biased toward its own solution. Running [code-review](https://aihero.dev/skills-code-review) in a fresh session against a fixed point is a legitimate alternative, and is the same reason that skill runs its two axes in separate sub-agents.
 
@@ -90,7 +77,6 @@ Probably the ticket is too big rather than the skill being misused. A run does c
 ## It's working if
 
 - The session opens by reading the ticket or spec and restating what it will build, rather than asking you what to build.
-- In an MMW run, the opening trace separates current-task experience from historical experience and names unavailable or truncated retrieval explicitly.
 - You can see an actual `/tdd` invocation in the trace, not just tests appearing in the diff.
 - Typechecks and single test files run repeatedly during the run, and the full suite runs once near the end.
 - The run reaches a commit on your current branch without you prompting it to carry on.
