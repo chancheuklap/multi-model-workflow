@@ -430,7 +430,7 @@ class TestExitCodesHelp(unittest.TestCase):
     `ticket_state.py --help` together with the rest of `EXIT_CODES`. No reference
     file keeps a second copy."""
 
-    def test_lint_sub_issue_and_review_are_documented(self):
+    def test_claim_open_child_and_review_are_documented(self):
         for flag in ("--claim", "--open-child", "--review"):
             with self.subTest(flag=flag):
                 self.assertIn(flag, vt.EXIT_CODES)
@@ -439,5 +439,4 @@ class TestExitCodesHelp(unittest.TestCase):
         with redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit) as caught:
             vt.main(["--help"])
         self.assertEqual(caught.exception.code, 0)
-        self.assertIn("--open-child", out.getvalue())
-        self.assertIn("--review", out.getvalue())
+        self.assertIn(vt.EXIT_CODES.strip(), out.getvalue())
