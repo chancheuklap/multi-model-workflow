@@ -19,7 +19,7 @@ When the ticket has no `## Parent`, the ticket itself is the whole spec. When it
 
 ### Read tickets already integrated into the base branch
 
-Run the `dispatch` skill's `dispatch.sh integrated <ticket>`, read every ticket it lists and its closing comment; do not trust its verdict as proof that the combined result is correct.
+Run `dispatch.sh landed-since <ticket>` at the path your prompt gives after `dispatch.sh:`, read every ticket it lists and its closing comment; do not trust its verdict as proof that the combined result is correct.
 
 Review the current ticket together with those tickets for semantic conflicts, from four angles:
 
