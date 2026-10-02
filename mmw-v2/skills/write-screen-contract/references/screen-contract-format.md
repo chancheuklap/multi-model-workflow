@@ -1,6 +1,6 @@
 # The screen contract file
 
-`docs/specs/<effort>/screen-contract.yaml`. One file per effort, read by `to-spec`, `to-tickets`, `implement`, `code-review`, the story oracle, the boundary check and the lint.
+`docs/specs/<effort>/screen-contract.yaml`. One file per effort, read by `to-spec`, `to-tickets`, the worker and the reviewer of a page ticket, the story oracle, the boundary check and the lint.
 
 `rows` is one row per user-visible behaviour, keyed by the control's `data-ui` id. `pages` names each design page's story id (`mount`) and the component that owns it; `scenes` names which design page each scene of `scenes.json` belongs to. `rows` and these declarations cannot be derived from each other — a page holds many rows, a row is visible on many scenes — so both are written, and the lint holds them to each other.
 

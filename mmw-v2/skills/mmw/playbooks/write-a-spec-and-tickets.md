@@ -40,8 +40,8 @@ This playbook turns what the user has in mind into a batch a night can build wit
    Done when every ticket the user approved is published under the spec, with its labels and its blocking edges.
 8. **Lint the batch.** Run the `verify-ticket` skill's `python3 scripts/verify-ticket.py <spec> --lint`, and fix what it reports (**principle-silence-is-never-a-pass**). Count its `LINT` lines against the batch: a lint that read the wrong batch prints nothing about this one, and reads exactly like a clean one.
    Done when `--lint` on the spec exits 0, it printed a `LINT` line for every ticket of the batch, and every `WARN` has been looked at and either fixed or kept on purpose.
-9. **Hand to the night.** When the batch is a spec's night run, hand over to the `dispatch` skill's `references/night.md`; one ticket outside a night goes to the `dispatch` skill's `references/one-ticket.md`. When the night opens is the user's call: tell them which of the two runs the batch, and open nothing yourself.
-   Done when the user has the spec's number and the `dispatch` reference that runs its batch, and this session has written no `spec.opened`.
+9. **Hand to the night.** When the batch is a spec's night run, hand over to **Run a night**; one ticket outside a night goes to **Land one ticket**. When the night opens is the user's call: tell them which playbook runs the batch, and open nothing yourself.
+   Done when the user has the spec's number and the playbook that runs its batch, and this session has written no `spec.opened`.
 
 #### Session boundaries
 

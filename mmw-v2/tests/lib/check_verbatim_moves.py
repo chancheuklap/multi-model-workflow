@@ -652,6 +652,7 @@ def check_untouched(comparison: Comparison, base: str | None,
         if not tree.exists(path):
             return []
         excluded = set()
+        available = comparison.items(tree, Location(path))
         for allowance, prefix in scopes:
             location = allowance.location
             if location.path != path:
@@ -665,7 +666,6 @@ def check_untouched(comparison: Comparison, base: str | None,
                               if location.revision else comparison.before)
                     selected = [item for item in comparison.items(pinned, location)
                                 if allowance.selects(item.unit, prefix)]
-                    available = comparison.items(tree, Location(path))
                     items = []
                     for prior in selected:
                         value = untouched_text(comparison, pinned, prior, True)

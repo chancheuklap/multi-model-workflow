@@ -20,7 +20,7 @@ from pathlib import Path
 
 ACTIONS = {
     'work-a-ticket': {
-        'Adopted ticket': (('dispatch', 'adopt', '{n}'),),
+        'Adopted ticket': (('dispatch', 'adopt', '{n}', '--into', '{into}'),),
         'Claim': (('ticket', '--claim'),),
         'Read yourself in': (('gh', 'issue', 'view', '{n}', '--json', 'title,body,parent'),),
         'Write the code': (('@write_code',),),
@@ -28,7 +28,8 @@ ACTIONS = {
                                               ('ticket', '--run-and-record-criteria')),
         'Post the decisions': (('@decisions',),),
         'Get reviewed': (('@review_round',),),
-        'Run every criterion one final time': (('ticket', '--reverify', '--actor', 'worker'),),
+        'Run every criterion one final time': (('ticket', '--run-and-record-criteria',
+                                               '--reverify', '--actor', 'worker'),),
         'Audit against the ticket': (('gh', 'issue', 'view', '{n}', '--json', 'body'),
                                      ('git', 'diff', '--exit-code', 'HEAD')),
         'Tell the touched tickets': (('ticket', '--touched'),),
@@ -48,7 +49,7 @@ ACTIONS = {
         'Lint the batch': (('verify', '{n}', '--lint'),),
         'Advance, then end your turn': (('dispatch', 'advance', '{n}'),),
         'Handle each wake': (('dispatch', 'status', '{n}'), ('dispatch', 'advance', '{n}')),
-        'Closing pass': (('dispatch', 'findings', '{n}'), ('@resolve_findings',)),
+        'Closing pass': (('@resolve_findings',),),
         'Close the Memory records': (('@memory_decisions',),),
         'Reverify and summarize': (('dispatch', 'reverify', '{n}'),
                                    ('dispatch', 'close-night', '{n}', '--memory-decisions', '{memory}')),
@@ -67,7 +68,7 @@ WORKER_STEPS = ('Claim', 'Read yourself in', 'Write the code',
                 'Integrate and run every criterion', 'Post the decisions', 'Get reviewed',
                 'Run every criterion one final time', 'Audit against the ticket',
                 'Tell the touched tickets', 'Draft the closing comment', 'Close out')
-POINTER = re.compile(r'(?: · |: )?mmw ([\w-]+)#(.+?)(?:\. Data: [^\r\n]+)?\.?$')
+POINTER = re.compile(r'\bmmw(?: ([\w-]+))?#(.+?)(?:\. Data: [^\r\n]+)?\.?$')
 
 
 class NoAction(RuntimeError):
@@ -79,6 +80,14 @@ def load(name, path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def identity(first_line):
+    role = re.search(r'Role ([\w-]+)', first_line)
+    number = re.search(r'(?:ticket|spec) #(\d+)', first_line)
+    if not role or not number:
+        raise RuntimeError(f'NO IDENTITY {first_line}')
+    return role[1], int(number[1])
 
 
 def installed_root():
@@ -150,7 +159,8 @@ class Agent:
                 if method() == 'wait':
                     return
             else:
-                values = {'n': str(self.number), 'draft': self.draft_path, 'memory': self.memory}
+                values = {'n': str(self.number), 'draft': self.draft_path, 'memory': self.memory,
+                          'into': os.environ.get('MMW_FAKE_ADOPT_INTO', '')}
                 result = self.command(op, *(value.format(**values) for value in args),
                                       acceptable=(0, 3) if '--run-and-record-criteria' in args else (0,))
                 if result.returncode == 3:
@@ -223,10 +233,13 @@ class Agent:
             raise RuntimeError('rehearsal draft needs an explicit finding or baseline answer')
         text = text.replace('skipped: <fill>', 'skipped: None')
         text = text.replace('\n<fill>\n', '\nNone\n')
+        self.paths()
+        text = text.replace(self.locations.AUDITED_LINE + ' <fill>',
+                            self.locations.AUDITED_LINE + ' yes')
+        if not any(line.startswith(self.locations.AUDITED_LINE) for line in text.splitlines()):
+            text += '\n' + self.locations.AUDITED_LINE + ' yes\n'
         if '<fill>' in text:
             raise RuntimeError('unanswered rehearsal draft field')
-        self.paths()
-        text += '\n' + self.locations.AUDITED_LINE + ' yes\n'
         path.write_text(text)
 
     def where(self):
@@ -248,16 +261,11 @@ class Agent:
         return 'wait'
 
     def resolve_findings(self):
-        # Only children marked finding are settled; contract/fault/decision stay visible.
-        result = self.command('gh', 'api', '--paginate',
-                              f'repos/{{owner}}/{{repo}}/issues/{self.number}/sub_issues?per_page=100')
-        for ticket in json.loads(result.stdout):
-            kids = json.loads(self.command('gh', 'api', '--paginate',
-                             f'repos/{{owner}}/{{repo}}/issues/{ticket["number"]}/sub_issues?per_page=100').stdout)
-            for child in kids:
-                if child['state'] == 'open' and any(label['name'] == 'mmw:finding' for label in child['labels']):
-                    self.command('dispatch', 'resolve-child', str(ticket['number']),
-                                 str(child['number']), 'stale', 'invalid')
+        # The status reader resolves child kinds from events.
+        result = self.command('dispatch', 'findings', str(self.number))
+        for line in result.stdout.splitlines():
+            ticket, child, _ = line.split(' ', 2)
+            self.command('dispatch', 'resolve-child', ticket, child, 'stale', 'invalid')
 
     def memory_decisions(self):
         result = self.command('dispatch', 'prepare-memory-decisions', str(self.number))
@@ -319,11 +327,8 @@ def main():
         if not args.inbox or not args.handle:
             parser.error('--inbox and --handle are required for a terminal')
         first = args.inbox.read_text().splitlines()[0]
-        role = re.search(r'Role ([\w-]+)', first)
-        number = re.search(r'(?:ticket|spec) #(\d+)', first)
-        if not role or not number:
-            raise RuntimeError(f'NO IDENTITY {first}')
-        agent = Agent(role[1], int(number[1]), args.inbox)
+        role, number = identity(first)
+        agent = Agent(role, number, args.inbox)
         consumed = 0
         while True:
             with args.inbox.open() as stream:
@@ -347,6 +352,8 @@ def main():
                     print(result.stderr, end='', file=sys.stderr, flush=True)
                     if result.returncode not in (0, 2):
                         raise RuntimeError(f'STOP HOOK FAILED {result.returncode}')
+                with args.inbox.with_suffix('.completed').open('a') as stream:
+                    stream.write(line + '\n')
             time.sleep(0.05)
     except (NoAction, RuntimeError, OSError, ValueError) as exc:
         print(str(exc), file=sys.stderr)

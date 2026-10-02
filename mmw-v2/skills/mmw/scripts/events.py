@@ -76,13 +76,13 @@ SUBJECTS = ("spec", "ticket", "worker", "reviewer", "child")
 
 AGENT_KINDS = ("worker", "reviewer")
 
-# The six refusals of `verify-ticket.py --preflight`, in the order it checks them.
+# The six refusals of `ticket_state.py --claim`, in the order it checks them.
 REFUSALS = ("wrong-branch", "dirty-tree", "not-open", "not-ready", "blocked", "claimed-by-other")
 RELEASE_REASONS = ("landed", "suspended", "worker-lost")
 CHILD_RESOLUTIONS = ("fixed", "stale", "became-ticket")
 # The five kinds of child, named for who can answer each: `finding`, a reviewer's defect
 # outside the ticket's scope; `contract`, a baseline the ticket was told to follow that
-# does not hold; `deferred`, work outside `## Owns` left for a later ticket; `decision`, a
+# does not hold; `deferred`, work outside the ticket's Owns left for a later ticket; `decision`, a
 # choice only a person can make; `fault`, the pipeline itself broken.
 CHILD_KINDS = ("finding", "contract", "deferred", "decision", "fault")
 ABANDON_KINDS = ("decision", "failed", "stuck")
@@ -160,13 +160,13 @@ EVENTS: dict[str, dict] = {
     "worker.queued":     {"stage": "work",     "actor": "worker",
                           "required": ("reason", "run"),
                           "closed": {"reason": QUEUE_REASONS, "run": CHECK_RUNS}},
-    # Files ticket `by` changed that this ticket's `## Owns` covers, posted on this ticket
+    # Files ticket `by` changed that this ticket's Owns covers, posted on this ticket
     # so the worker that owns them reads what another ticket did to them.
     "worker.touched":    {"stage": "work",     "actor": "worker",
                           "required": ("by", "files")},
     # The three `*.lost` events are the only ones not written by the agent they are about:
     # a dead agent cannot write its own obituary. The watchdog writes them, once the
-    # session's own runner says it has stopped (the dispatch skill's watchdog.py).
+    # session's own runner says it has stopped (the mmw skill's watchdog.py).
     "worker.lost":       {"stage": "work",     "actor": "judge",
                           "required": ("session", "runner")},
 
@@ -180,7 +180,7 @@ EVENTS: dict[str, dict] = {
 
     # One run of the criteria or of the repository's checks, on one commit: its result,
     # its counts, each criterion's outcome, and — for the worker's own run on its own
-    # branch — the files it changed outside `## Owns`. `repo-checks` carries each failed
+    # branch — the files it changed outside the ticket's Owns. `repo-checks` carries each failed
     # command with its last lines. `baseline` is the claim-time run at
     # `worker.started.base` and carries `skipped`. `slot` is the product slot the run
     # held, when it needed the product.

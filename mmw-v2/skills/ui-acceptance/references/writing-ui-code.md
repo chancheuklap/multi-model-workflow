@@ -12,13 +12,13 @@ Then take the design side's values (the design package's pages as the story orac
 uv run story-parity.py --contract … --pages … --render-only --out <mktemp directory>
 ```
 
-`--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id (text, size, position, style) to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is the ui-acceptance skill's `references/story-parity.md` under **The two sides**.
+`--render-only` needs no product. It writes screenshots under `--out/media` and, for each scene and viewport, the facts of every `data-ui` id (text, size, position, style) to `--out/values/<mount>/<scene>-<WxH>.json`. Write the product to those values. What the JSON holds is `references/story-parity.md` under **The two sides**.
 
 **Done when** every owned scene has a screenshot and a values file in that directory.
 
 ## Write the product
 
-Build the component and its story page as the ui-acceptance skill's `references/story-parity.md` **The story page the product serves** says: where `[data-story-root]` and the `data-ui` ids go, and what the story adapter takes.
+Build the component and its story page as `references/story-parity.md` **The story page the product serves** says: where `[data-story-root]` and the `data-ui` ids go, and what the story adapter takes.
 
 In the same pass write that page's story adapter and a four-column boundary test for each owned row. The four-column boundary test asserts `calls`, `shows`, `next` and `on_failure` of one row. Name it, and run the criterion's `--run` once it is written, as the `ui-acceptance` skill's `references/boundary-check.md` `## Selecting one row's test` says.
 
@@ -32,19 +32,15 @@ When the design system was built from code that already runs, the design page al
 
 Run the ticket's story criterion. A `DIFF` line names one `data-ui` id and one property, with its design and product values. Before changing the product to the design value, check that the design value itself is plausible: against the same-role elements beside it and the design system's scale. A value that is clearly wrong is not copied; it goes to **When the design side is the defect** below. Otherwise that id and property are the complete repair. Fix them, run again. The loop stays on this machine.
 
-The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are closing step 1's.
+The pixel difference image is evidence, not a verdict: change the named id and property. Fonts, line heights and renderer flags stay as they are. How many rounds a criterion gets, and the `ABANDON:` line when none is in sight, are decided by whoever runs the ticket's criteria.
 
-**Done when** the story criterion prints no `DIFF` line, or closing step 1 has recorded that it is abandoned.
+**Done when** the story criterion prints no `DIFF` line, or an `ABANDON:` line has recorded that it is abandoned.
 
 ## When the design side is the defect
 
-A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: closing step 1 records it with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Keep working the rest of this ticket, with the `verify-ticket` skill's `verify-ticket.py`:
+A design value that is clearly wrong (a metric number and the label beside it both 13px), a fix that must break another place on the design page, a design page missing a control this ticket must build, or a flow that does not match the screen contract, is a `contract` child. The criterion it blocks stays red: it is recorded with the `ABANDON:` line, `stuck` pointing at that child, and the ticket ends as `HANDOFF REQUIRED`. Open it, and keep working the rest of this ticket.
 
-```
-verify-ticket.py <n> --sub-issue contract <file>
-```
-
-The file's first line is the child issue's title: the Claude Design page and the value that does not hold. The next line is:
+The child's title is the Claude Design page and the value that does not hold. The first line of its body is:
 
 由 design-pages 技能的 references/pull.md 处理：在能调用 Claude Design MCP 工具的会话里，在 Claude Design 里改，再 pull
 

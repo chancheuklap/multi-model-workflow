@@ -6,10 +6,12 @@
 
 ### SKILL.md
 
+下表登记 `SKILL.md` 与上游原文不同的所有段落；表外的段落是上游原文。
+
 | 段落 | 我们的意图 |
 | --- | --- |
 | frontmatter 的 `description` 与第 1 步 | #340 扩大 trigger：除了有 conflict markers 的 merge/rebase，还包括一次 clean merge 让 repository checks 由绿转红。上游改 trigger → 收上游措辞，这个 clean-merge case 保留 |
-| 第 2、3 步 | `origin/<base branch>` 的 clean merge 没有 hunk 可读：从 first-parent merge commits 找这次合进来的 tickets，读 ticket、closeout 与 commit，再沿失败路径找交互；不要把任一边孤立处理。上游改 primary-source 或 resolve 步骤 → 收上游措辞，这条无 markers 的路径保留；原有的 `check the PRs` 保留 |
+| 第 2、3 步 | 保留的是第 2 步的「or failing interaction」、第 3 步的标题「Resolve each hunk or interaction」与「With no conflict markers, trace the failing path across the merged tickets rather than treating either side in isolation.」一句。第 2 步原来的末句「After a clean merge of `origin/<base branch>`, identify each ticket …」→ `mmw-v2/skills/mmw/playbooks/work-a-ticket.md` `#### Integrating`（spec #597 第 6 节）。上游改 primary-source 或 resolve 步骤 → 收上游措辞，这三处保留 |
 
 ### docs page
 

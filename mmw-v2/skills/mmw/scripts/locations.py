@@ -101,21 +101,34 @@ WHERE_ROWS["one-ticket-orchestrator"] = {
     "finished": {"kind": "AT", "step": "Land"},
 }
 
+PARENT_HEADING = "## Parent"
+OWNS_HEADING = "## Owns"
+READ_FIRST_HEADING = "## Read first"
+SEAM_HEADING = "## Seam"
+MOVES_HEADING = "## Moves"
+ACCEPTANCE_CRITERIA_HEADING = "## Acceptance criteria"
+STATE_LIST_HEADING = "## State list"
+
 TICKET_HEADINGS = (
-    "## Parent",
-    "## Owns",
-    "## Read first",
-    "## Seam",
-    "## Moves",
-    "## Acceptance criteria",
-    "## State list",
+    PARENT_HEADING,
+    OWNS_HEADING,
+    READ_FIRST_HEADING,
+    SEAM_HEADING,
+    MOVES_HEADING,
+    ACCEPTANCE_CRITERIA_HEADING,
+    STATE_LIST_HEADING,
 )
 
+STORY_OK = "STORY OK"
+BOUNDARY_OK = "BOUNDARY OK"
+JOURNEY_OK = "JOURNEY OK"
+HARNESS_OK = "HARNESS OK"
+
 SUCCESS_MARKERS = (
-    "STORY OK",
-    "BOUNDARY OK",
-    "JOURNEY OK",
-    "HARNESS OK",
+    STORY_OK,
+    BOUNDARY_OK,
+    JOURNEY_OK,
+    HARNESS_OK,
     "VERBATIM OK",
     "STRUCTURE OK",
     "DRAFTS OK",

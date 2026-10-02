@@ -23,7 +23,8 @@ import re
 
 from skill_text import (MODE_DIR, MODE_ROOT, TextError, anchors, classify, frontmatter,
                         installed_skills, normalize_title, read_imports, markdown_units,
-                        component_root, sentences, prose_mask, skill_mentions, skill_of_path)
+                        component_root, sentences, prose_mask, skill_mentions, skill_of_path,
+                        pointer_titles)
 
 
 @dataclass(frozen=True)
@@ -31,21 +32,22 @@ class Policy:
     fails: bool
     batch: str
     registry: Policy | None = None
+    pending: Policy | None = None
 
 
 # class: failure policy and the batch in which it must fail.
 CLASS_POLICY = {
     1: Policy(True, 'B0'),
     2: Policy(True, 'B1'),
-    3: Policy(False, 'B2 end'),
+    3: Policy(True, 'B2 end'),
     5: Policy(True, 'B1'),
-    6: Policy(False, 'B2 end'),
-    7: Policy(True, 'B1'),
+    6: Policy(True, 'B2 end'),
+    7: Policy(True, 'B1', pending=Policy(True, 'B2 end')),
     8: Policy(True, 'B0'),
     9: Policy(True, 'B1'),
-    10: Policy(True, 'B0', registry=Policy(False, 'B2 end')),
-    11: Policy(False, 'B2 end'),
-    12: Policy(False, 'B2'),
+    10: Policy(True, 'B0', registry=Policy(True, 'B2 end')),
+    11: Policy(True, 'B2 end'),
+    12: Policy(True, 'B2'),
 }
 
 
@@ -70,6 +72,7 @@ class Finding:
     message: str
     report_only: bool = False
     registry_path: bool = False
+    pending: bool = False
 
 
 class Wiring:
@@ -150,9 +153,9 @@ class Wiring:
         result['mmw-v2/skills/mmw/roles.json'] = self.roles_text
         return result
 
-    def add(self, path, line, category, message, report_only=False, registry_path=False):
+    def add(self, path, line, category, message, report_only=False, registry_path=False, pending=False):
         self.objects.add(category)
-        finding = Finding(path, line, category, message, report_only, registry_path)
+        finding = Finding(path, line, category, message, report_only, registry_path, pending)
         if finding not in self.findings:
             self.findings.append(finding)
 
@@ -174,10 +177,7 @@ class Wiring:
         elif not file.is_file():
             self.add(path, line, 1, f'pending {slug or MODE_DIR} (not built yet)', True)
         else:
-            text = file.read_text(encoding='utf-8')
-            valid = {a.title for a in anchors(text) if
-                     (not slug or re.match(r'\s*(?:#### |(?:\d+[.)] )?\*\*)',
-                                          text.splitlines()[a.start-1]))}
+            valid = pointer_titles(file.read_text(encoding='utf-8'), bool(slug))
             if normalize_title(title) not in valid:
                 self.add(path, line, 1, f'{target} has no step or section in {rel}')
 
@@ -432,10 +432,12 @@ class Wiring:
         if not target.exists():
             self.add(source, line, 10, f'{label} does not exist')
         elif (self.root / source).resolve() != self.registry:
+            if (component_root(source) == component_root(label) or
+                    (subtree_root(source) != 'mmw-v2' and
+                     subtree_root(source) == subtree_root(label))):
+                return
             self.add(source, line, 10, f'{label} is not obtained through locations.py', registry_path=True)
-            origin = component_root(source)
-            if origin != component_root(label):
-                self.add(source, line, 3, f'{label} is a cross-directory path not obtained through locations.py')
+            self.add(source, line, 3, f'{label} is a cross-directory path not obtained through locations.py')
 
     def paths(self):
         quoted_chain = r'(?:\s*/\s*["\'][a-zA-Z0-9_./-]+["\'])+'
@@ -603,8 +605,15 @@ class Wiring:
                 rows = [i for i, row in enumerate(content.splitlines(), 1)
                         if re.search(r'(?<![\w-])' + re.escape(book.name) + r'(?![\w.-])', row)]
                 if len(rows) != 1:
-                    self.add(source, rows[0] if rows else 1, 7,
-                             f'{book.name} has {len(rows)} routing rows; expected 1')
+                    # Registered and unrouted is pending. Failure is the sub-policy,
+                    # not a fixed report, so the same finding can start failing later.
+                    if (not rows and directory == self.mode / 'playbooks'
+                            and book.stem in self.playbooks):
+                        self.add(source, 1, 7,
+                                 f'pending route for {book.name} (not routed yet)', pending=True)
+                    else:
+                        self.add(source, rows[0] if rows else 1, 7,
+                                 f'{book.name} has {len(rows)} routing rows; expected 1')
 
     def invocation(self):
         entries = (self.root / 'mmw-v2/skills.txt').read_text(encoding='utf-8') if (self.root / 'mmw-v2/skills.txt').exists() else ''
@@ -732,7 +741,9 @@ class Wiring:
                 self.objects.add(11)
                 pattern = re.compile(re.escape(Path(path).name) + r'["\'`\s]+(?:<[^>]+>\s+)?' + re.escape(name) + r'\b')
                 consumers = [p for p, t in self.files.items() if p != path and
-                             (p.endswith(('.py', '.sh')) or p in components) and pattern.search(t)]
+                             (p.endswith(('.py', '.sh')) or p in components or
+                              (p.startswith('mmw-v2/skills/') and p.endswith('.md'))) and
+                             pattern.search(t)]
                 for consumer in consumers:
                     self.edge(consumer, path + '#' + name, 11)
                 if not consumers:
@@ -753,8 +764,9 @@ class Wiring:
     def upstream_differences(self):
         """Compare skill units with the last squash's upstream tree.
 
-        A merge-note registers a file/section, not a blanket permission granted
-        merely by the presence of a note. Invocation-switch pairing is registered
+        Registration forms are defined in mmw-v2/merge-notes/README.md under
+        上游目录只允许两类改动; a note's presence is not blanket permission.
+        Invocation-switch pairing is registered
         by merge-notes/README.md. Content-owning skills are registered there too.
         """
         for subtree in sorted((self.root / 'mmw-v2').glob('upstream*')):
@@ -772,29 +784,30 @@ class Wiring:
             revision = result.stdout.strip()
             for path, content in paths:
                 upstream_path = path.removeprefix(relative + '/')
+                root = component_root(path)
+                name = Path(root).name
+                note = self.root / 'mmw-v2/merge-notes' / (name + '.md')
+                notes = note.read_text(encoding='utf-8') if note.is_file() else ''
+                file_name = str(Path(path).relative_to(root))
+                headings = list(re.finditer(r'^(#{2,4}) (.+)$', notes, re.M))
+                file_heading = next((h for h in headings if file_name in h[2] or Path(path).name in h[2]), None)
                 original = subprocess.run(['git', '-C', str(self.root), 'show',
                                            f'{revision}:{upstream_path}'], capture_output=True, text=True)
                 if original.returncode:
-                    self.add(path, 1, 3, f'{upstream_path} has no squash original')
+                    if not file_heading:
+                        self.add(path, 1, 3, f'{upstream_path} has no squash original')
                     continue
                 old = markdown_units(original.stdout)
                 new = markdown_units(content)
                 if [u.identity for u in old] == [u.identity for u in new]:
                     continue
-                root = component_root(path)
-                name = Path(root).name
-                note = self.root / 'mmw-v2/merge-notes' / (name + '.md')
-                notes = note.read_text(encoding='utf-8') if note.is_file() else ''
                 general = self.root / 'mmw-v2/merge-notes/README.md'
                 registry = general.read_text(encoding='utf-8') if general.is_file() else ''
-                file_name = str(Path(path).relative_to(root))
                 owners = next((a for a in anchors(registry) if a.title == '本仓自有正文的技能'), None)
                 owner_text = '\n'.join(registry.splitlines()[owners.start:owners.end]) if owners else ''
                 owns_content = name in re.findall(r'`([^`]+)`', owner_text)
                 registered_file = file_name in notes or Path(path).name in notes
                 file_notes = notes
-                headings = list(re.finditer(r'^(#{2,4}) (.+)$', notes, re.M))
-                file_heading = next((h for h in headings if file_name in h[2] or Path(path).name in h[2]), None)
                 if file_heading:
                     end = next((h.start() for h in headings if h.start() > file_heading.start() and
                                 len(h[1]) <= len(file_heading[1])), len(notes))
@@ -812,11 +825,23 @@ class Wiring:
                     switches = all(u.key == 'disable-model-invocation' for u in changed)
                     scopes = section_titles if new[c:d] else old_sections
                     title = next((s.title for s in reversed(scopes) if s.start <= changed[0].line), '')
-                    section_registered = bool(title and title in file_notes)
+                    if title:
+                        section_registered = title in file_notes
+                        location = f'{file_name}#{title}'
+                    elif changed[0].key:
+                        missing = next((u for u in changed if u.key and f'`{u.key}`' not in file_notes), None)
+                        section_registered = missing is None
+                        unit = missing or changed[0]
+                        location = f'{file_name}@{unit.key}'
+                        line = unit.line
+                    else:
+                        opening = ' '.join(changed[0].text.split()[:3])
+                        section_registered = bool(opening and opening in file_notes)
+                        location = f'{file_name}#"{opening}"'
                     whole_file = bool(re.search(r'(全文|所有段落|whole file|entire file)', file_notes))
                     if not (owns_content or (switches and 'disable-model-invocation' in registry) or
                             (registered_file and (section_registered or whole_file))):
-                        self.add(path, line, 3, f'upstream difference at {file_name}#{title} is not registered in its merge-note')
+                        self.add(path, line, 3, f'upstream difference at {location} is not registered in its merge-note')
 
     def run(self):
         self.pointers()
@@ -853,7 +878,9 @@ def main():
         print(str(exc))
         return 1
     failures = [f for f in findings if not f.report_only and
-                (CLASS_POLICY[f.category].registry if f.registry_path else CLASS_POLICY[f.category]).fails]
+                (CLASS_POLICY[f.category].pending if f.pending else
+                 CLASS_POLICY[f.category].registry if f.registry_path else
+                 CLASS_POLICY[f.category]).fails]
     if args.graph:
         for source, target, category in sorted(check.edges):
             print(f'{source} -> {target} : {category}')
@@ -868,6 +895,8 @@ def main():
     for category in CLASS_POLICY:
         if category not in check.objects:
             print(f'report: class {category}: no objects yet')
+    if not failures:
+        print(f'WIRING OK {len(check.edges)} checks')
     return 1 if failures else 0
 
 

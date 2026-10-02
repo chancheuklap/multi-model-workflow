@@ -7102,7 +7102,7 @@ scenario_installcheckstalecopy() {
   [ "$(cat "$TMP/code")" = 0 ] || { fail "install failed: $(cat "$TMP/err")"; return; }
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 0 ] || { fail "clean --check failed: $(cat "$TMP/err")"; return; }
-  local copy="$TMP/install-home/.mmw/skill-copies/handoff"
+  local copy="$TMP/install-home/.mmw/skill-copies/wait-what"
   printf 'changed\n' >> "$copy/SKILL.md"
   cp "$copy/SKILL.md" "$TMP/changed-copy"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
@@ -7193,12 +7193,12 @@ from pathlib import Path
 import sys
 path = Path(sys.argv[1])
 rows = path.read_text().splitlines(keepends=True)
-path.write_text(''.join(row.replace(' +model-invoked', '') if row.startswith('productivity/handoff ') else row
-                        for row in rows if not row.startswith('productivity/teach ')))
+path.write_text(''.join(row.replace(' +model-invoked', '') if row.startswith('productivity/wait-what ') else row
+                        for row in rows if not row.startswith('productivity/to-questionnaire ')))
 RETIRE
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "retired copies must exit 1"
-  for name in handoff teach; do
+  for name in wait-what to-questionnaire; do
     grep -F "$home/.mmw/skill-copies/$name" "$TMP/err" | grep -q '^残留' \
       || fail "--check did not name retired copy $name: $(cat "$TMP/err")"
     [ -d "$home/.mmw/skill-copies/$name" ] || fail "--check removed retired copy $name"
@@ -7211,11 +7211,11 @@ RETIRE
 from pathlib import Path
 import sys
 home, root = map(Path, sys.argv[1:])
-for name in ('handoff', 'teach'):
+for name in ('wait-what', 'to-questionnaire'):
     assert not (home / '.mmw/skill-copies' / name).exists(), name
 for host in ('.agents', '.claude'):
-    assert (home / host / 'skills/handoff').resolve() == (root / 'upstream/skills/productivity/handoff').resolve()
-    assert not (home / host / 'skills/teach').is_symlink()
+    assert (home / host / 'skills/wait-what').resolve() == (root / 'upstream/skills/productivity/wait-what').resolve()
+    assert not (home / host / 'skills/to-questionnaire').is_symlink()
 assert (home / '.mmw/skill-copies/triage').is_dir()
 assert (home / '.mmw/skill-copies/unrelated-file').read_text() == 'not a directory\n'
 assert (home / '.mmw/unrelated-dir').is_dir()
@@ -7223,7 +7223,7 @@ LINKS
 }
 
 scenario_installcheckwiringfails() {
-  echo "--- --check prints class 2/7 reports and follows the checker's class policy"
+  echo "--- --check prints class 2/6/7 reports and follows the checker's class policy"
   local copy books="$TMP/install-checkout/.mmw/playbooks"
   copy="$(install_checkout_copy)"
   MMW_TEST_INSTALLER="$copy/install.sh" run_installer
@@ -7232,21 +7232,30 @@ scenario_installcheckwiringfails() {
   [ "$(cat "$TMP/code")" = 0 ] || { fail "clean check failed: $(cat "$TMP/err")"; return; }
   mkdir -p "$books"
   printf '### Unrouted\n\n1. **Read.** `references/absent.md`.\n\n**Reply:** result.\n' > "$books/unrouted.md"
-  # A failing class 10 must not affect this installer-only class 2/7 check.
+  printf '\n#### Get reviewed\n' >> "$copy/skills/mmw/playbooks/work-a-ticket.md"
+  # A failing class 10 must not affect this installer-only class 2/6/7 check.
   printf '\n# skills/absent-component/scripts/missing.py\n' >> "$copy/install.sh"
-  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" False 2 7
+  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" False 2 6 7
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
-  [ "$(cat "$TMP/code")" = 0 ] || fail "report-only class 2/7 must not fail: $(cat "$TMP/err")"
+  [ "$(cat "$TMP/code")" = 0 ] || fail "report-only class 2/6/7 must not fail: $(cat "$TMP/err")"
   grep -q '^report: .*class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \
     || fail "routing report was not forwarded unchanged: $(cat "$TMP/err")"
   grep -q '^report: .*class 2 references/absent.md does not exist' "$TMP/err" \
     || fail "class 2 report was not forwarded unchanged: $(cat "$TMP/err")"
+  grep -qxF 'report: mmw-v2/skills/mmw/playbooks/work-a-ticket.md:1: class 6 worker/reviewer.reported has 2 handlers; expected 1' "$TMP/err" \
+    || fail "class 6 report was not forwarded unchanged: $(cat "$TMP/err")"
   grep -q 'class 10\|class 3' "$TMP/err" && fail "unselected classes leaked"
   set_wiring_class_policy "$copy/tests/lib/check_wiring.py" True 7
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "failing class 7 must exit 1"
   grep -q '^.mmw/playbooks/INDEX.md:1: class 7 unrouted.md has 0 routing rows; expected 1' "$TMP/err" \
     || fail "failing routing line was not forwarded unchanged: $(cat "$TMP/err")"
+  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" False 7
+  set_wiring_class_policy "$copy/tests/lib/check_wiring.py" True 6
+  MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
+  [ "$(cat "$TMP/code")" = 1 ] || fail "failing class 6 alone must exit 1"
+  grep -qxF 'mmw-v2/skills/mmw/playbooks/work-a-ticket.md:1: class 6 worker/reviewer.reported has 2 handlers; expected 1' "$TMP/err" \
+    || fail "failing handler line was not forwarded unchanged: $(cat "$TMP/err")"
 }
 
 scenario_installcheckwiringunchecked() {

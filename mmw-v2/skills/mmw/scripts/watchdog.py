@@ -764,9 +764,9 @@ class Watchdog:
                         f"dispatch.sh resume {number} \"You ended your turn with no result on the "
                         "ticket. Carry on from where its events say you are. If "
                         "something outside your code stops you, open a fault "
-                        "sub-issue saying what you ran and what you saw, then "
+                        "child saying what you ran and what you saw, then "
                         "stop; if only a person can settle it, open a decision "
-                        "sub-issue, take the default and carry on.\""
+                        "child, take the default and carry on.\""
                     )
                     findings.append({
                         "key": f"idle:{number}:{verdict.get('comment')}",

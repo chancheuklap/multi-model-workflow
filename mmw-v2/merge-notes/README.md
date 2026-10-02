@@ -24,7 +24,9 @@
 
 流程句（这一步之后做什么、交给哪个技能）、原则句和本仓库的配置字面（例如 label 名）不写进上游目录：流程在 `mmw` 技能的 playbook 里，原则在它的 `principles/` 里，label 名在 `docs/agents/` 下由技能读取的文件里。调用开关也不在子树里改，见 `## disable-model-invocation`。`mmw-v2/upstream-pstack/` 里的文字一律不改。
 
-`code-review`、`implement`、`tdd`、`resolving-merge-conflicts` 里还有这两类以外的本仓文字（流水线的步骤与票的说法）；`wizard` 生成的脚本头注释把上游的 `/wizard` 写成了散文（见 [wizard](wizard.md)）。拉 upstream 时照各自的说明处理。`to-spec`、`to-tickets` 的本仓文字不在上游目录里：它们分叉成本仓自有的技能 `mmw-v2/skills/to-spec/`、`mmw-v2/skills/to-tickets/`，上游目录里的同名技能是原文、不安装（`skills.txt` 装的是 `self/to-spec`、`self/to-tickets`；两者同名，`install.sh` 拒绝重名）。拉 upstream 时这两个上游目录照常取上游；上游的改进要不要进分叉，读上游的 diff 后在分叉里改。分叉的文字归 `mmw` 技能的 `references/skill-set-rules.md` 与结构 lint 管。两份说明记本仓的文字现在在哪里。
+连线检查第 3 类（`mmw-v2/tests/lib/check_wiring.py`）把子树 `skills/` 下每份 `.md` 与上一个 squash 提交逐句比对，每处差异都要在它所属技能的说明里登记：说明里以这份文件相对技能目录的路径为标题的那一节，写出差异所在的标题、步骤或粗体段落的原文；frontmatter 里的差异用反引号写出它的键，例如 `description`；第一个标题之前的正文写出那一句开头的三个词；一份文件整个是本仓的改动时，那一节写「全文」。上游没有的文件是新增一份文件的能力改动，在说明里以它的文件名为标题单列一节。
+
+`to-spec`、`to-tickets` 的本仓文字不在上游目录里：它们分叉成本仓自有的技能 `mmw-v2/skills/to-spec/`、`mmw-v2/skills/to-tickets/`，上游目录里的同名技能是原文、不安装（`skills.txt` 装的是 `self/to-spec`、`self/to-tickets`；两者同名，`install.sh` 拒绝重名）。拉 upstream 时这两个上游目录照常取上游；上游的改进要不要进分叉，读上游的 diff 后在分叉里改。分叉的文字归 `mmw` 技能的 `references/skill-set-rules.md` 与结构 lint 管。两份说明记本仓的文字现在在哪里。
 
 ## `disable-model-invocation`
 
@@ -32,7 +34,7 @@
 
 被 mode 或 playbook 点名、要模型调用的上游技能不改子树，只在 `skills.txt` 那一行加 `+model-invoked`，由 `install.sh` 在安装副本里去掉这两处。
 
-本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`mmw` 技能的 `references/skill-set-rules.md` `### Descriptions`）。`skills.txt` 装的上游技能里，两行都留着的十个是 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire`。其中 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`teach`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire` 在 `skills.txt` 带 `+model-invoked`；`grill-with-docs`、`improve-codebase-architecture` 不带标记，只由用户点名。不装的 `ask-matt` 与上游目录里的 `to-spec`、`to-tickets` 是原文，也留着两行。上游改这两行 → 子树里两处一起跟；带标记的，由安装副本去掉。
+本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`mmw` 技能的 `references/skill-set-rules.md` `### Descriptions`）。`skills.txt` 装的上游技能里，两行都留着的十个是 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire`。其中 `setup-matt-pocock-skills`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire` 在 `skills.txt` 带 `+model-invoked`；`grill-me`、`grill-with-docs`、`handoff`、`improve-codebase-architecture`、`teach` 不带标记，只由用户点名。不装的 `ask-matt`、`implement` 与上游目录里的 `to-spec`、`to-tickets` 是原文，也留着两行。上游改这两行 → 子树里两处一起跟；带标记的，由安装副本去掉。
 
 下面每份说明只写它那个 skill 站在哪一边，不复述这条规则。
 
@@ -45,8 +47,6 @@ host 中立的改动只改两样只在某一家 host 上成立的写法：工具
 一处已知偏差，记录，不修，不加守卫：`mmw-v2/upstream/CONTEXT.md` 举的 label 例子是 `ready-for-afk`，而本仓库的 label 是 `ready-for-agent`。约定明写 `mmw-v2/upstream/` 自己的 `AGENTS.md`、`CLAUDE.md`、`CONTEXT.md` 原样不动，所以这处偏差留着。不加守卫的理由是两样现有的东西已经拦住一个 agent 真去打这个 label：`docs/agents/triage-labels.md` 是 `triage` 与 `to-tickets` 唯一的 label 来源，表里没有 `ready-for-afk`；`verify-ticket.py --closeout` 是 worker 改 label 的唯一一步，而 `tool-guard.py pretool` 拦下把票挪出 agent 队列的那两条命令。一个打错的 label 不会让票进队列，也不会让它关掉，靠的是它不等于 `ready-for-agent`。这一条写在这里，是为了让下一次拉 upstream 的人不要把它当成本仓库的疏漏去「修」。
 
 ## 本仓自有正文的技能
-
-`code-review`、`implement` 放在 `mmw-v2/upstream/skills/engineering/` 下，正文却几乎全是本仓写的。拉 upstream 时不合并上游对这两个技能的改动：冲突取本仓的，自动合进来的上游段落也改回本仓的。它们的说明记的是本仓各段的意图，不是与上游的差异。
 
 `mmw-v2/skills/retro/` 是本仓自己的技能，不在任何 subtree 里。它 `## Decide` 第 9 步从 pstack 的 synthesizer 抄来的四条分拣规则，说明在 [pstack](pstack.md) 的 `## retro 的四条分拣规则`。上游的 `in-progress/retro` 是另一个技能，不合进来。
 

@@ -3,8 +3,9 @@
 
 Use ``with Rehearsal(source, ref) as night``. ``build()`` alone only installs and
 seeds the repositories: it never opens a watch or starts the product. The later
-night test controls agent turns with release_agent(), relay_once(), watchdog_once()
-and turn_guard(). All commands resolve from the disposable installed-root.
+night test releases recorded agent starts and injects watchdog rounds, leaving
+the background relay on its production interval. relay_once() is only for times
+without a live relay lock holder. Commands resolve from the disposable installed-root.
 """
 
 from __future__ import annotations
@@ -40,10 +41,10 @@ class Rehearsal:
     def __init__(self, source=None, ref='HEAD'):
         self.source = Path(source or HERE.parents[2]).resolve()
         self.ref = ref
-        self.root = Path(tempfile.mkdtemp(prefix='mmw-night-rehearsal-'))
+        self.root = Path(tempfile.mkdtemp(prefix='mmw-night-rehearsal-')).resolve()
         self.home = self.root / 'home'
         self.clone = self.root / 'installed-clone'
-        self.origin = self.root / 'consumer.git'
+        self.origin = self.root / (self.repository + '.git')
         self.consumer = self.root / 'consumer'
         self.bin = self.root / 'bin'
         self.gh_state = self.root / 'gh.json'
@@ -108,6 +109,11 @@ class Rehearsal:
         (self.root / 'tmp').mkdir()
         self.orca_state.mkdir()
         (self.bin / 'python3').symlink_to(sys.executable)
+        for name in ('node', 'uv'):
+            executable = shutil.which(name)
+            if executable is None:
+                raise RuntimeError(f'rehearsal needs {name} on the test process PATH')
+            (self.bin / name).symlink_to(executable)
         for name, source in (('gh', 'fake_gh.py'), ('orca', 'fake_orca.py')):
             self._wrapper(name, HERE / source)
         for name in ('nmem', 'paseo', 'herdr', 'launchctl'):
@@ -115,7 +121,10 @@ class Rehearsal:
         atomic_write(self.gh_state, {'repository': self.repository, 'issues': {}, 'next_comment': 5000})
         atomic_write(self.root / 'nmem.json', {'spaces': {
             'mmw-toolbox': {'id': 'mmw-toolbox', 'name': 'MMW Toolbox',
-                            'defaultRetrievalMode': 'strict', 'sharedSpaceIds': []}},
+                            'defaultRetrievalMode': 'strict', 'sharedSpaceIds': []},
+            'sample__rehearsal': {'id': 'sample__rehearsal', 'name': self.repository,
+                                  'defaultRetrievalMode': 'shared',
+                                  'sharedSpaceIds': ['mmw-toolbox']}},
             'agents': {f'mmw-{role}': {'id': f'mmw-{role}', 'displayName': 'MMW ' + role.title(),
                                       'role': role, 'defaultSpaceId': 'mmw-toolbox'}
                        for role in ('worker', 'reviewer')}})
@@ -163,6 +172,7 @@ class Rehearsal:
                 raise RuntimeError('installed-root does not name the disposable clone')
             self.dispatch = self.scripts / 'dispatch.sh'
             self.statedir = load('rehearsal_statedir', self.scripts / 'statedir.py')
+            self.events_module = load('rehearsal_events', self.scripts / 'events.py')
             if self.checked([sys.executable, self.scripts / 'models.py', 'runner'], cwd=self.clone) != 'orca':
                 raise RuntimeError('disposable models.json did not select orca')
             self._consumer()
@@ -226,7 +236,10 @@ class Rehearsal:
         self.checked(['git', 'add', 'README.md', '.mmw/target.json', 'docs'])
         self.checked(['git', 'commit', '-m', 'Seed consuming repository and rehearsal spec'])
         self.checked(['git', 'push', 'origin', 'project'])
-        self.checked(['git', '--git-dir', self.origin, 'symbolic-ref', 'HEAD', 'refs/heads/project'])
+        self.checked(['git', 'branch', 'main'])
+        self.checked(['git', 'push', 'origin', 'main'])
+        self.checked(['git', '--git-dir', self.origin, 'symbolic-ref', 'HEAD', 'refs/heads/main'])
+        self.checked(['git', 'remote', 'set-head', 'origin', 'main'])
         self.checked(['git', 'checkout', '-b', 'night'])
         self.checked(['git', 'config', 'branch.night.vscode-merge-base', 'project'])
         self.checked(['git', 'push', 'origin', 'night'])
@@ -236,7 +249,7 @@ class Rehearsal:
         return (f'## Parent\n#{spec}\n\n## What to build\n'
                 f'Write ticket-{number}.txt with the ticket implementation.\n\n'
                 '## Read first\nREADME.md\n\n## Seam\nThe consuming repository artifact.\n\n'
-                f'## Owns\nticket-{number}.txt\n\n## Acceptance criteria\n'
+                f'## Owns\n- ticket-{number}.txt\n\n## Acceptance criteria\n'
                 f'- [ ] AC1: The implementation artifact exists\n'
                 f'  CHECK: test -f ticket-{number}.txt && printf "TICKET {number} OK\\n"\n'
                 f'  EXPECT: /^TICKET {number} OK$/m\n  EVIDENCE: pending\n')
@@ -247,6 +260,31 @@ class Rehearsal:
         if not inbox.is_file():
             raise RuntimeError(f'unknown rehearsal terminal {handle}')
         inbox.with_suffix('.go').touch()
+
+    def terminals(self):
+        path = self.orca_state / 'terminals.json'
+        return json.loads(path.read_text()) if path.exists() else []
+
+    def events(self, number, name=None):
+        state = json.loads(self.gh_state.read_text())
+        result = []
+        for comment in state['issues'][str(number)]['comments']:
+            kind, event = self.events_module.parse(comment['body'])
+            if kind == 'unreadable':
+                raise RuntimeError(f'#{number}: {event}')
+            if kind == 'event' and (name is None or event['event'] == name):
+                result.append(event)
+        return result
+
+    def release_started_agents(self, *, hold=()):
+        """Release only sessions whose real started event is visible in the tracker."""
+        state = json.loads(self.gh_state.read_text())
+        started = {event['session'] for number in state['issues']
+                   for event in self.events(number)
+                   if event['event'] in ('worker.started', 'reviewer.started')}
+        for row in self.terminals():
+            if row['handle'] in started and row['handle'] not in hold:
+                self.release_agent(row['handle'])
 
     def relay_once(self):
         return self.run([sys.executable, self.scripts / 'relay.py', 'run', '--repo', self.repository, '--once'])
@@ -286,12 +324,10 @@ class Rehearsal:
     def close(self):
         if self.closed:
             return
-        terminals = self.orca_state / 'terminals.json'
-        if terminals.exists():
-            for row in json.loads(terminals.read_text()):
-                if row['pid'] not in self.pids:
-                    self.pids.append(row['pid'])
-                stop(row)
+        for row in self.terminals():
+            if row['pid'] not in self.pids:
+                self.pids.append(row['pid'])
+            stop(row)
         state = self.home / '.mmw' / 'state'
         if state.exists() and hasattr(self, 'statedir'):
             for lock in state.glob('*/*.lock'):

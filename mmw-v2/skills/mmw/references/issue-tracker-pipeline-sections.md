@@ -18,10 +18,10 @@ The layer labels, put on by:
 | --- | --- |
 | `mmw:map` | the wayfinder skill, creating the map |
 | `mmw:spec` | the to-spec skill, publishing the spec |
-| `mmw:ticket` | the to-tickets skill, publishing each ticket; `dispatch.sh route … became-ticket` |
-| `mmw:child` | `verify-ticket.py --sub-issue` |
+| `mmw:ticket` | the to-tickets skill, publishing each ticket; `dispatch.sh resolve-child … became-ticket` |
+| `mmw:child` | `ticket_state.py --open-child` |
 
-A repository missing one of the labels above, or a queue or grade label, has it created the first time the `verify-ticket` skill's `--publish` or `--sub-issue` needs it; the colour and description for all three sets are defined once, in `verify-ticket.py`.
+A repository missing one of the labels above, or a queue or grade label, has it created the first time the `verify-ticket` skill's `--publish` or `ticket_state.py --open-child` needs it; the colour and description for all three sets are defined once, in `verify-ticket.py`.
 
 A layer label puts an issue in no queue.
 

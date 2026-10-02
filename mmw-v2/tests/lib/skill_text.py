@@ -422,6 +422,16 @@ def anchors(text: str) -> list[Anchor]:
     return result
 
 
+STEP_LINE = re.compile(r'\s*(?:#### |(?:(?:\d+[.)]|[-*+]) )?\*\*)')
+
+
+def pointer_titles(text: str, playbook: bool) -> set[str]:
+    """Titles a step pointer may name: any anchor of the mode file, only a step of a playbook."""
+    lines = text.splitlines()
+    return {a.title for a in anchors(text)
+            if not playbook or STEP_LINE.match(lines[a.start - 1])}
+
+
 def parse_location(raw: str, source: bool = False) -> Location:
     revision = None
     # A revision prefix is distinct from :L<n> line selectors.

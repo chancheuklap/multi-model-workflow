@@ -21,10 +21,10 @@
 | 段落 | 我们的意图 |
 | --- | --- |
 | frontmatter 的 `disable-model-invocation: true` | 保留。这是 [README.md](README.md#disable-model-invocation) 列出的例外之一：它一个仓库只跑一次、会覆盖 `docs/agents/` 下三份文件，不该由模型自己认出来触发。上游改这一行 → 收上游，跟 `agents/openai.yaml` 的 `policy` 块一起处理 |
-| Section C「Offer multi-context…Then confirm which layout they want.」那句之后（不改上游原文） | 我们加的一句：已经有 `CONTEXT-MAP.md` 的仓库就按 multi-context 处理，不论是不是 monorepo，照它现有的布局描述。理由：上游只在看到 monorepo 信号时才给多 context 布局；本仓和 `agentflow` 都有 `CONTEXT-MAP.md`，却都没有 `pnpm-workspace.yaml`、`package.json` 的 `workspaces` 字段或 `packages/*`（`ls` 核实过），照字面重跑会写出与实际布局相反的 `domain.md`。上游改这一段 → 收上游措辞，这一句仍接在后面 |
+| Section C（**Section C: Domain docs.**）「Offer multi-context…Then confirm which layout they want.」那句之后（不改上游原文） | 我们加的一句：已经有 `CONTEXT-MAP.md` 的仓库就按 multi-context 处理，不论是不是 monorepo，照它现有的布局描述。理由：上游只在看到 monorepo 信号时才给多 context 布局；本仓和 `agentflow` 都有 `CONTEXT-MAP.md`，却都没有 `pnpm-workspace.yaml`、`package.json` 的 `workspaces` 字段或 `packages/*`（`ls` 核实过），照字面重跑会写出与实际布局相反的 `domain.md`。上游改这一段 → 收上游措辞，这一句仍接在后面 |
 | 第 4 步「Add one row per written `docs/agents/` file…」那句中段 | 我们加的：另一种形状的指针（`## Agent skills` 块、`## Issue tracker` 一节）算作那份文件的那一行，替换它而不是再加一个指针。理由：`agentflow`、`xiaohuangya`、`mmw-e2e-lab` 用的都是旧格式的指针块，重跑时字面读会把旧块当成「user edits to the surrounding sections」原样留着，再加一组新行，同一份文件被指了两次（推断，还没有重跑的记录）。上游改这一句 → 收上游措辞，这一句接回去 |
 | 第 4 步 Pick the file to edit（`CLAUDE.md` 在就改它、两个都没有就问用户、绝不在另一个已存在时新建） | 改成：要写只写 `AGENTS.md`，没有就建；`CLAUDE.md` 只放 `@AGENTS.md` 一行加它原有的其他 `@` 行，别的内容搬进 `AGENTS.md`。理由是本仓另一个技能 `manage-agents-md` 就是这个形态（它的 `SKILL.md` `## Write` 里 `CLAUDE.md` 只放「the line `@AGENTS.md` … Nothing else.」那一条），它的 `scripts/check.sh` 会把 `CLAUDE.md` 里每一行非 `@import` 判成错——照上游的规则跑完 setup，再跑 `manage-agents-md` 就是两个技能互相拆台。上游改这一步 → 不收，除非它自己也变成只写 `AGENTS.md` |
-| 第 1 步探查 `AGENTS.md` 的那一条、第 3 步的第一条草稿项、第 4 步开头一段（上游的 `## Agent skills` 块） | 弃上游的块。根 `AGENTS.md` 的形状归 `manage-agents-md` 管（它的 `SKILL.md` `## Write`：根文件只有那几节），那份格式里没有 `## Agent skills` 这一节，文档一律是 `## External References` 表（`Need`、`File` 两列）的一行。所以三处都改成这张表：第 1 步看 `AGENTS.md` 是否已有指向 `docs/agents/` 的行；第 3 步给 user 看的草稿是要加的行，每份写出的 `docs/agents/` 文件一行；第 4 步每份写出的文件加一行，文件或这一节不存在就建，已有指向同一文件的行就更新、不重复加；`docs/agents/triage-labels.md` 与它那一行只在 `triage` 已安装且 Section B 跑过时写。上游那句「Don't overwrite user edits to the surrounding sections」原样留着。上游改这个块的内容 → 不收，仍写 `## External References` 的行 |
+| 第 1 步（`### 1. Explore`）探查 `AGENTS.md` 的那一条、第 3 步（`### 3. Confirm and edit`）的第一条草稿项、第 4 步开头一段（上游的 `## Agent skills` 块） | 弃上游的块。根 `AGENTS.md` 的形状归 `manage-agents-md` 管（它的 `SKILL.md` `## Write`：根文件只有那几节），那份格式里没有 `## Agent skills` 这一节，文档一律是 `## External References` 表（`Need`、`File` 两列）的一行。所以三处都改成这张表：第 1 步看 `AGENTS.md` 是否已有指向 `docs/agents/` 的行；第 3 步给 user 看的草稿是要加的行，每份写出的 `docs/agents/` 文件一行；第 4 步每份写出的文件加一行，文件或这一节不存在就建，已有指向同一文件的行就更新、不重复加；`docs/agents/triage-labels.md` 与它那一行只在 `triage` 已安装且 Section B 跑过时写。上游那句「Don't overwrite user edits to the surrounding sections」原样留着。上游改这个块的内容 → 不收，仍写 `## External References` 的行 |
 | 第 4 步「Then write the docs files using the seed templates」那一句的后半句 | 2026-09-28 lightweight review 改写：原来只说「就地更新，保留种子没有的节」，字面读下来种子也有的那几节会被种子重写——落地件恰恰在这些节里写了本仓自己的规则（`triage-labels.md` 的 Meaning 列，`domain.md` 的 `## Before exploring, read these`、`## File structure`、`## Use the vocabulary in CONTEXT.md`）。现在写成：落地件是本仓自己的记录，种子只是它的起点；这次答案改的就改，种子有而文件缺的就补，其余每一行原样留着；种子的其它差异报给用户，不自己去消。理由：Nowledge Mem 一条记忆（`610dbea8`，2026-09-01）记着重跑这个技能之前要先备份，因为字面读旧文字会把落地件按种子重写；补上这句之后备份不再必要。落地件会长出种子没有的节（本仓 `docs/agents/issue-tracker.md` 的 `## Reading a tree` 与 `## Morning queries`）也在「补种子有而文件缺的」这条规则内被保留。上游改这一句 → 收上游措辞，这一段接回去 |
 
 ### issue-tracker-github.md（种子）
@@ -40,7 +40,7 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| 表格下面那句举例「apply the AFK-ready triage label」 | 例子换成 `ready-for-agent`。这句教读者「技能提到 triage role → 来这张表取本仓真实的 label」，而 `AFK-ready` 在表里没有对应行，全仓也没有一个技能这么写——`triage/SKILL.md` 从头到尾直接写 `ready-for-agent`。上游改这句 → 收上游措辞，例子必须用表里真有的 label |
+| `# Triage Labels` 表格下面那句举例「apply the AFK-ready triage label」 | 例子换成 `ready-for-agent`。这句教读者「技能提到 triage role → 来这张表取本仓真实的 label」，而 `AFK-ready` 在表里没有对应行，全仓也没有一个技能这么写——`triage/SKILL.md` 从头到尾直接写 `ready-for-agent`。上游改这句 → 收上游措辞，例子必须用表里真有的 label |
 
 ### domain.md（种子）
 
