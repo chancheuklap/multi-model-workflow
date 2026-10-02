@@ -200,6 +200,69 @@ class UpgradeRollback(unittest.TestCase):
     def prepare(self, expected=0):
         return self.command("python3", self.installed / "migrations/prepare-rollback.py", expected=expected)
 
+    def snapshot(self):
+        return {str(path.relative_to(self.home)):
+                (("link", str(path.readlink())) if path.is_symlink()
+                 else ("file", path.read_bytes(), path.stat().st_mtime_ns))
+                for path in self.home.rglob("*") if path.is_symlink() or path.is_file()}
+
+    def test_prepare_rollback_refuses_while_a_watch_is_open(self):
+        self.upgraded()
+        state = self.home / ".mmw/state/example__product"
+        state.mkdir(parents=True)
+        watches = state / "watches.json"
+        for key, watch, command in (
+            ("spec:597", {"spec": 597}, "dispatch.sh suspend 597"),
+            ("tickets:809", {"tickets": [809]}, "dispatch.sh land 809"),
+        ):
+            with self.subTest(watch=key):
+                watches.write_text(json.dumps({key: {**watch, "runner": "orca", "session": "test-main"}}))
+                before = self.snapshot()
+                result = self.prepare(expected=2)
+                self.assertEqual(len(result.stderr.splitlines()), 1, result.stderr)
+                self.assertIn(key, result.stderr)
+                self.assertIn(command, result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(self.snapshot(), before)
+                print(f"ROLLBACK REFUSED {key}: {watches}")
+
+    def test_rollback_without_preparation_records_leftovers(self):
+        self.upgraded()
+        links = self.copied_links()
+        marker = self.home / ".mmw/board-bootstrapped-commit"
+        marker_before = marker.read_bytes()
+        result = self.install(OLD, expected=1)
+        conflicts = {line.split()[1] for line in result.stderr.splitlines() if line.startswith("冲突")}
+        self.assertEqual(conflicts, links)
+        self.assertTrue(any(line.startswith("缺") and "researcher" in line
+                            for line in result.stderr.splitlines()), result.stderr)
+        checked = self.install(OLD, check=True, expected=1)
+        missing = {line.split()[1] for line in checked.stderr.splitlines() if line.startswith("缺")}
+        self.assertEqual(missing, links | {str(self.home / ".mmw/models.json")})
+        row = self.command("python3", self.installed / "skills/dispatch/scripts/models.py",
+                           "row", "junior-worker", expected=2)
+        self.assertIn("researcher", row.stderr)
+        for relative in SWEPT:
+            for event, commands in self.handlers(relative).items():
+                if any("hook-launcher" in command and "tool-guard" in command for command in commands):
+                    self.assertTrue(any(".agents/skills/dispatch/scripts/tool-guard.py" in command
+                                        for command in commands), (relative, event, commands))
+        claude = self.handlers(".claude/settings.json")
+        self.assertTrue(any("hook-launcher" in command and "mode-hook" in command
+                            for commands in claude.values() for command in commands))
+        self.assertTrue(any("hook-launcher" in command and "tool-guard" in command
+                            for commands in claude.values() for command in commands))
+        self.assertEqual(marker.read_bytes(), marker_before)
+        for link in sorted(links):
+            print(f"LEFTOVER skill-copy link: {link}")
+        for relative in SWEPT:
+            if any("hook-launcher" in command for commands in self.handlers(relative).values() for command in commands):
+                print(f"LEFTOVER launcher hooks: {self.home / relative}")
+        print(f"LEFTOVER mode-hook registration: {self.home / '.claude/settings.json'}")
+        print(f"LEFTOVER skill-copies: {self.home / '.mmw/skill-copies'}")
+        print(f"LEFTOVER researcher: {self.home / '.mmw/models.json'} rows.researcher")
+        print(f"LEFTOVER board commit: {marker}")
+
     def test_upgrade_rollback_full_path(self):
         self.upgraded()
         plist = (self.home / "Library/LaunchAgents/com.mmw.board.plist").read_bytes()
@@ -222,12 +285,10 @@ class UpgradeRollback(unittest.TestCase):
             path = self.home / relative
             if path.exists():
                 self.assertTrue(list(path.parent.glob(path.name + ".bak-*")), relative)
-        snapshot = {str(path.relative_to(self.home)): (path.read_bytes(), path.stat().st_mtime_ns)
-                    for path in self.home.rglob("*") if path.is_file() and not path.is_symlink()}
+        snapshot = self.snapshot()
         rerun = self.prepare()
         self.assertEqual(rerun.stdout, "")
-        self.assertEqual(snapshot, {str(path.relative_to(self.home)): (path.read_bytes(), path.stat().st_mtime_ns)
-                                    for path in self.home.rglob("*") if path.is_file() and not path.is_symlink()})
+        self.assertEqual(snapshot, self.snapshot())
         self.install(OLD)
         self.assertEqual((self.home / "Library/LaunchAgents/com.mmw.board.plist").read_bytes(), plist)
         self.install(OLD, check=True)
