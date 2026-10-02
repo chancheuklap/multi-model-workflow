@@ -245,7 +245,7 @@ _Home_: `mmw-v2/skills/mmw/scripts/status.py`
 
 **sub-issue**:
 The tracker's native parent–child relation. A map's children are its decision tickets and specs, a spec's direct children are its tickets, and a ticket's direct children are the issues a worker opens under it with `ticket_state.py <n> --open-child <kind>`.
-_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/verify-ticket/references/child-issues.md`
+_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/mmw/playbooks/work-a-ticket.md` `#### Opening a child`
 
 ### Labels and queues
 

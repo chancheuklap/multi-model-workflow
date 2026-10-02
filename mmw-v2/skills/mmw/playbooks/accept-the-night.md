@@ -13,7 +13,7 @@ This playbook takes a night that has run to the user's decision. The user accept
    Tell the user that after they accept the result **Merge the accepted night** runs `finish` to merge it into the project branch.
    Done when the user has heard, for each ticket of the batch that did not close, its number and the reason recorded on it.
 2. **Work the needs-triage queue.** List the open issues labelled `needs-triage`, oldest first, and run the `triage` skill on each.
-   An issue labelled `mmw:child` or `mmw:ticket`, or a retro proposal (title `Retro #<spec>: …`), came from this repository's own pipeline: read `references/pipeline-issues.md` first; it replaces the reproduction in the `triage` skill's **Verify the claim** and adds destinations to its **Apply the outcome**.
+   An issue labelled `mmw:child` or `mmw:ticket` came from this repository's own pipeline: read `references/pipeline-issues.md` first; it replaces the reproduction in the `triage` skill's **Verify the claim** and adds destinations to its **Apply the outcome**. A retro proposal (title `Retro #<spec>: …`) is not triaged here: **Put the retro proposals to the user** takes it.
    A child whose default was right, or whose fix is already on the base branch, is closed through `dispatch.sh resolve-child <ticket> <child> fixed` or `stale <invalid|fixed-elsewhere>` so its ticket records the route; `wontfix` means nobody will do it, not that it is done.
    Done when each issue the list returned has an outcome the user agreed to, or the user has said it waits.
 3. **Put the retro proposals to the user.** Put each proposal `NIGHT RETRO` records to the user with the problem and the evidence it cites, and take the user's answer.
@@ -23,8 +23,7 @@ This playbook takes a night that has run to the user's decision. The user accept
    Done when the user has that list, one line per issue, or has heard that none is open.
 5. **Merge the accepted night.** Only after the user has accepted the result, run `dispatch.sh finish <spec>`.
    A worktree that has the base branch checked out, usually the one this session runs in, is kept: stderr gives the commands that remove it, for the user to run once this session is done, and `finish` needs no second run.
-   Exit 0: the merge is recorded. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted. Exit 2: fix what stderr names and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
-   On exit 1, give the user the files or the checks stderr names: the night stays unmerged until they are fixed and `finish` runs again.
+   Exit 0: the merge is recorded. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted; give the user the files or checks stderr names, since the night stays unmerged until they are fixed and `finish` runs again. Exit 2: fix what stderr names and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
    Done when `finish` has exited 0 and the user has every command its stderr gave.
 
 **Reply:** each `needs-triage` issue with the outcome the user agreed to; the `ready-for-human` list; the line `finish` printed, and the commands its stderr left for the user to run.

@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Retrospect one completed MMW spec night. Use when a spec night has closed and its retrospective has to be run, or run again.
+description: Retrospect one completed MMW spec night. Use when its retrospective has to be run, or run again.
 ---
 
 # Retro
@@ -21,11 +21,11 @@ repository, and check evidence to establish what happened or landed
 (**principle-clues-are-not-evidence**).
 
 Three readers act on this record: the user, who reads `NIGHT RETRO` before
-accepting the night; whoever triages each proposal, which becomes a
+accepting the night; whoever decides each proposal, which becomes a
 `needs-triage` issue in its `repository` read by someone who did not watch the
 night, so its title and body stand on their own; and the next retro, which
 searches these problems for repeats. A problem the evidence does not carry
-costs twice: a triage decision now, and a false match later that makes one
+costs twice: a decision now, and a false match later that makes one
 incident look like a pattern.
 
 Look for what in the environment let the mistake through, the discipline of a

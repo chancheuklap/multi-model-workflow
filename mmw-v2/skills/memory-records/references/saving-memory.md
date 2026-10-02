@@ -37,7 +37,7 @@ nmem --json memories add --stdin \
 MEMORY
 ```
 
-A failed Memory write does not block the ticket: continue the ticket work.
+A failed Memory write blocks nothing: carry on with the work at hand.
 
 Correct only a record whose `space` (in an index line) or `space_id` (in a search or
 show result) equals `NMEM_SPACE`; a toolbox record is context, not a record for this

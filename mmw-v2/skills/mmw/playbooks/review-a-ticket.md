@@ -33,8 +33,6 @@ Commands of this skill's `bash scripts/dispatch.sh` and `python3 scripts/ticket_
 
    **Hold this turn until every axis you started has reported.** The worker that started you is asleep on your report, and what wakes it is the call in **Write the report**, which cannot be made until the report exists.
 
-   The briefs are this skill's `references/standards-reviewer.md`, `references/spec-reviewer.md`, `references/tests-reviewer.md` and `references/ui-reviewer.md`, each whole in itself.
-
    Done when every axis you started has reported and each report is in a file.
 3. **Verify every finding.** The axes read the code in slices, and some of what they report is wrong. The worker treats every in-ticket line as work to do before the ticket closes: a false finding you pass on costs a fix round and can break code that was right; a real one you withdraw ships.
 
@@ -67,8 +65,6 @@ Commands of this skill's `bash scripts/dispatch.sh` and `python3 scripts/ticket_
 
    Done when every finding that holds or that you could not tell is under `## In-ticket`, `## Out-of-ticket` or `## Manifest notes`.
 5. **Write the report.** Write the report to a file in the shape `#### Report format` gives, then hand that file to `ticket_state.py <n> --review <file>`.
-
-   It posts the report on the ticket as the `reviewer.reported` event, and that event wakes the worker.
 
    Done when `--review` exits 0.
 
@@ -108,4 +104,4 @@ End with one line per axis: how many review findings it raised and the worst one
 - Builds exactly what was asked, breaks the repository's conventions → **Spec pass, Standards fail.**
 - Does the right thing, proved by a test that would pass either way → **Standards and Spec pass, Tests fail.**
 
-**Reply:** the `REVIEW <base-commit>..<HEAD commit>` comment `--review` posted as the `reviewer.reported` event, with this session's `skip:` lines and the principles that changed a decision at its end.
+**Reply:** the `REVIEW <base-commit>..<HEAD commit>` comment `--review` posted.

@@ -18,15 +18,15 @@ The row is one of `models.json`, not a role a session reports: a worker runs on 
 - **Exit 0.** One line, `<row> <host> <model> <effort>`.
 - **Exit 2.** No row was printed: `<row>` is not a row, the file has no complete row of that name, or the file cannot be read; the stderr line says which and what to run next.
 
-## Change one role
+## Change one row
 
-The `models.py config set` command changes one role. Run:
+The `models.py config set` command changes one row. Run:
 
 ```bash
-models.py config set <role> <host> <model> <level>
+models.py config set <row> <host> <model> <level>
 ```
 
-Allowed roles are `junior-worker`, `senior-worker`, `reviewer`, `advisor`, and `researcher`. `<level>` is the reasoning effort, saved as the row's `effort`.
+Allowed rows are `junior-worker`, `senior-worker`, `reviewer`, `advisor`, and `researcher`. `<level>` is the reasoning effort, saved as the row's `effort`.
 
 The `researcher` row is optional: a `models.json` written before the role existed lacks it, and `install.sh` never adds a row to a file that already exists. A `models.json` without that row stays valid and every other role still starts from it; only `dispatch.sh research <n>` refuses, and its refusal names the `config set` command that adds the row.
 
@@ -48,7 +48,7 @@ One difference between runners outlives the command; tell the user of it when th
 
 `bash "$(cat ~/.mmw/installed-root)/install.sh" --check` reads what this machine has installed and changes nothing.
 
-Exit 0: every item is in place. Exit 1: an item is missing or stale, and a line names it.
+Exit 0: every item is in place. Exit 1: an item is missing or stale, and a line names it. It also prints one `OPEN-WATCH` line per open watch and one `LIVE-LOCK` line per live lock, and ends with `SAFE-TO-MOVE-INSTALLED` or `NOT-SAFE-TO-MOVE-INSTALLED`; none of these changes the exit code.
 
 A full `install.sh` changes the skills and hooks of every host on this machine, so it runs only when the user has said so; with nobody there to say so, report the `--check` lines and stop.
 
@@ -61,5 +61,5 @@ Run `dispatch.sh board` from any checkout of the repository. Exit 0 opened the b
 - **`config get`.** One line, `<row> <host> <model> <effort>`.
 - **`config set` and `config runner`.** The saved object as one line of JSON, its `version` one higher than before.
 - **`config show`.** The saved object.
-- **`install.sh --check`.** A line for each item that is missing or stale, and the exit code.
+- **`install.sh --check`.** A line for each item that is missing or stale, the `OPEN-WATCH` and `LIVE-LOCK` lines, the `SAFE-TO-MOVE-INSTALLED` or `NOT-SAFE-TO-MOVE-INSTALLED` line, and the exit code.
 - **`board`.** The board open, or its URL for the user.

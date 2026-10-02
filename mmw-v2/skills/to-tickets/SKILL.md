@@ -78,7 +78,7 @@ Every criterion is four lines, and carries a number you assign as you write it a
 
 Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
-- `CHECK:` comes from Testing Decisions: its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds.
+- `CHECK:` comes from Testing Decisions: its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds. Run the `CHECK:` once on the base branch, where it must fail. When it passes there, its selector also matches cases that already exist: make the `CHECK:` run the new case by its own name first, before any wider selector, and run it on the base branch again to see it fail.
 - `EXPECT:` is a **success-only marker**: the line the precedent prints only when it passed. Run the precedent once and copy that line. `ok`, `passed` or `done` on their own also appear in failing output; take the whole counted line (**principle-silence-is-never-a-pass**).
 - A criterion that states what a script does (its exit code, a line it prints, the directory it runs from) or what a data file holds is written after that script or file has been opened on the base branch, and names the function or the rows it relies on.
 
@@ -88,7 +88,7 @@ Derive `CHECK:` and `EXPECT:` from the spec; do not invent either:
 
 **A criterion is also exposed to the rest of its own batch.** Every ticket lands on the same base branch, and the closing pass re-runs every criterion of the batch there, so a criterion that names something a later ticket may change is decided by that ticket's work rather than by its own. Two shapes do it: a sweep of the whole repository (a `grep` for a name that must now be gone, a count over the tree), which any later ticket can put back in a note, a doc or a comment; and a criterion that names a test case, a function or a symbol by a name a later ticket may rename. Put such a criterion on the batch's last ticket, or give the name one owner: the file that holds it is under exactly one ticket's **Owns** in the whole batch, not merely among the tickets that can run at the same time, so no other ticket of the batch may write it.
 
-Done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
+Done when every criterion on every ticket carries a number, a `CHECK:` and an `EXPECT:`, each `CHECK:` aimed at a case its ticket adds has failed on the base branch, and everything that stopped at question 2, 3, 4 or 5 has landed where that question sends it.
 
 ### 5. Give each ticket its blocking edges
 

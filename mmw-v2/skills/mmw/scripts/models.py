@@ -1228,7 +1228,7 @@ def config_get(row: str) -> str:
 USAGE = ("usage: models.py config show\n"
          "       models.py config get <row>\n"
          "       models.py config runner <runner>\n"
-         "       models.py config set <role> <host> <model> <level>\n"
+         "       models.py config set <row> <host> <model> <level>\n"
          "       models.py runner\n"
          "       models.py paseo-args <host> <model> <level>\n"
          "       models.py row <role>\n"

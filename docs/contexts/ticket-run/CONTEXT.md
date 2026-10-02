@@ -160,12 +160,12 @@ _Home_: `mmw-v2/skills/mmw/scripts/ticket_state.py`, `mmw-v2/skills/mmw/scripts/
 
 **child kind**:
 What a ticket's child records, named for who can answer it: `finding` (a review finding outside the ticket), `contract` (a baseline, spec section or criterion the ticket was told to follow that lacks a needed case or contradicts another authority), `deferred` (a convenient change outside `## Owns`), `decision` (a choice only a person can make), `fault` (the pipeline itself is broken: `verify-ticket.py`, `dispatch.sh`, an oracle script, `lease.py`, a hook or `.mmw/target.json`; or the product is unreachable, or the work is waiting on a human step, the `ui-acceptance` skill's `## Five rules while the product is running`). `fault` and `contract` wake the orchestrator that night; `decision` and `deferred` reach the user in the morning; a `finding` waits for the closing pass.
-_Home_: `mmw-v2/skills/verify-ticket/references/child-issues.md`
+_Home_: `mmw-v2/skills/mmw/playbooks/work-a-ticket.md` `#### Opening a child`
 
 **the kind questions**:
 The ordered yes/no ladder that picks a cut-out child's kind, the first `yes` deciding it: is the pipeline itself broken, or the product unreachable, or the work waiting on a human step (`fault`); does a baseline, named spec section or acceptance criterion fail to hold (`contract`); do the sources say nothing while defensible readings would produce observably different outcomes (`decision`); is it a review defect outside `## Owns` (`finding`); is it a merely convenient change outside `## Owns` (`deferred`).
 _Avoid_: the five questions (`to-tickets`' own name for a different five-step ladder, which decides how something becomes an acceptance criterion, a review judgement, a `reaction`/`reach` ticket, or a user choice)
-_Home_: `mmw-v2/skills/verify-ticket/references/child-issues.md`
+_Home_: `mmw-v2/skills/mmw/playbooks/work-a-ticket.md` `#### Opening a child`
 
 **`ticket.checked`**:
 One run of a ticket's criteria, or of the repository's `checks`, on one commit. Its `run` says whose: `self`, `reverify`, `repo-checks` or `baseline`; its `stage` (`CHECK_STAGES`) groups those into `claim`, `work`, `verify` or `close`, and a `reverify` by the orchestrator (`actor` `main`) is `regress`.

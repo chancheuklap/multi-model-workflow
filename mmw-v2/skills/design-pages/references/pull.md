@@ -7,7 +7,7 @@ Pull when the user has signed the design off, and again whenever the user has ch
 ## Steps
 
 1. Two MCP calls. `list_files` on the project root: note the names of the `.dc.html` pages there. `render_preview`; set `MMW_DESIGN_PREVIEW_URL` to its `serve_url`. That address carries a project token and lasts about one hour; do not print it or write it to a file.
-2. `scripts/pull_design.py <package dir> --pages <page.dc.html>... [--state-list <README.md>] [--contract <screen-contract.yaml>]`, the package directory first and each page name quoted (names hold spaces and `·`). `<package dir>` is `prototypes/<effort>/claude-design/`, where `prototypes/<effort>/` is the directory that holds this effort's prototype leaves, or its `README.md` with the state list for an existing product; when neither exists, `<effort>` is as the `prototype` skill's **Lives in `prototypes/`** defines it. Every pull of the project writes the same directory. File bytes do not pass through the model.
+2. `scripts/pull_design.py <package dir> --pages <page.dc.html>... [--state-list <README.md>] [--contract <screen-contract.yaml>]`, the package directory first and each page name quoted (names hold spaces and `·`). `<package dir>` is `prototypes/<effort>/claude-design/`, where `prototypes/<effort>/` is the directory that holds this effort's prototype leaves, or its `README.md` with the state list for an existing product; when neither exists, `<effort>` is as the `prototype` skill's rule **Lives in `prototypes/`, so a casual reader can see it's a prototype, not production.** defines it. Every pull of the project writes the same directory. File bytes do not pass through the model.
 
    Pass `--state-list` pointing at the `README.md` that holds the state list, when there is one.
 

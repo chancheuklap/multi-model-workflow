@@ -7,7 +7,7 @@ description: >-
 
 # Memory records
 
-This skill opens, searches, saves, corrects and closes Memory records in Nowledge Mem. Memory records are what a spec's workers left for the workers after them: each carries the `mmw-experience` label, so later workers in this repository see it in their Memory index and act on it before reading any code. A record saved without evidence, or left standing after what it describes has changed, sends each of those workers the wrong way.
+Memory records are what a spec's workers left for the workers after them: each carries the `mmw-experience` label, so later workers in this repository see it in their Memory index and act on it before reading any code. A record saved without evidence, or left standing after what it describes has changed, sends each of those workers the wrong way.
 
 Current artifacts, verified evidence, the user's instructions, repository instructions, the ticket, and its parent spec override Memory. Verify every Memory against current repository evidence before acting on it (**principle-clues-are-not-evidence**).
 
@@ -38,11 +38,13 @@ Save a Memory as soon as all three conditions hold: another ticket or later agen
 
 ## Close a spec's records
 
-A record that was true mid-night can be wrong once the batch has landed. Judge each against what landed: keep what still holds, deprecate or supersede what the batch made untrue, and propose to the retro what should change how the pipeline works.
+A record that was true while the night ran can be wrong once the batch has landed. Judge each against what landed: keep what still holds, deprecate or supersede what the batch made untrue, and propose what should change how the pipeline works.
 
-For each record in the `--memory-decisions` file decide exactly one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is; `propose` is a candidate for the later retro and does not change the Memory here; `deprecate` is no longer valid; `supersede` names the existing `replacement_id` that replaces it. A `propose` decision's `evidence` is exactly one event comment URL (`https://github.com/<owner>/<name>/issues/<n>#issuecomment-<id>`) or commit URL (`https://github.com/<owner>/<name>/commit/<40-hex sha>`): the retro counts the proposal only when that string is one of its problem's sources, and the file is refused with any other value.
+For each record in the `--memory-decisions` file decide exactly one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is; `propose` is a candidate for a change to the pipeline and does not change the Memory here; `deprecate` is no longer valid; `supersede` names the existing `replacement_id` that replaces it. A `propose` decision's `evidence` is exactly one event comment URL (`https://github.com/<owner>/<name>/issues/<n>#issuecomment-<id>`) or commit URL (`https://github.com/<owner>/<name>/commit/<40-hex sha>`): the URL of the event or commit the proposal rests on, and the file is refused with any other value.
 
 Each entry carries non-empty `memory_id`, `decision`, `reason` and `evidence` strings, and a `supersede` entry also carries `replacement_id`; an entry with any other field is refused. Leave `status`, `total` and `returned` as the file came, and keep one entry per record: a file that leaves a record out is refused. A file that holds the `unchecked` object has no entries to decide: the record list could not be read whole, and the file goes on as it was written.
+
+Done when every record in the `--memory-decisions` file has exactly one decision, or the file is the `unchecked` object as it was written.
 
 ## Output
 

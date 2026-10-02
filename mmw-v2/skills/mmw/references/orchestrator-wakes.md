@@ -4,7 +4,7 @@
 
 `Same` means: do what the Night orchestrator cell says, reading `events.py fold <n>` where it says `status`.
 
-`n/a` marks a row that only `advance` produces, and no `advance` collects a ticket outside a night.
+`n/a` marks a row that cannot arise outside a night.
 
 Commands of this skill's `bash scripts/dispatch.sh` and `python3 scripts/events.py` are named bare below.
 
@@ -34,7 +34,7 @@ Commands of this skill's `bash scripts/dispatch.sh` and `python3 scripts/events.
 | `watchdog: cannot read the tracker since <time>: …` | Run `gh issue view` on the ticket the alert names; wait for the tracker or the network to recover, and leave credential repair to the user | Same |
 | An `MMW turn guard:` line | Do what the line says: run the `watchdog.py arm` command it names, act on what that prints, and when it exits non-zero open a `fault` child on a held ticket with that command and its output; the line is not acked | Same |
 | Any other live worker | Nothing; its result wakes you or its worker | n/a |
-| The ticket needs the other worker grade | Give it exactly one of the `junior-worker` / `senior-worker` labels; the next `start` reads it | n/a |
+| The ticket needs the other worker grade | Give it exactly one of the `junior-worker` / `senior-worker` labels; the next `start` reads it | Same |
 
 ## Exit codes of `resume`
 

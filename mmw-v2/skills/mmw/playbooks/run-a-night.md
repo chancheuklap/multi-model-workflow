@@ -53,7 +53,7 @@ Commands of this skill's `bash scripts/dispatch.sh` are named bare below.
 6. **Close the Memory records.** Once every finding has a route, close this spec's Memory records.
    Run `bash scripts/dispatch.sh prepare-memory-decisions <spec>` and save its output to a file: it computes the repository's Space id, pulls the spec's full `mmw-spec-<spec>` record set, and writes a `--memory-decisions` file skeleton with `total` and `returned` already filled in, one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated.
    Write the closing decision for each id in the file as the `memory-records` skill says. Keep the file for **Reverify and summarize**.
-   Done when every id in it has a decision, or it is the `unchecked` object `prepare-memory-decisions` wrote.
+   Done when the file is finished as the `memory-records` skill's `## Close a spec's records` says.
 
 7. **Reverify and summarize.** **Closing pass** left no open finding. From any checkout in this repository, run `dispatch.sh reverify <spec>`, then `dispatch.sh close-night <spec> --memory-decisions <file>`.
 
@@ -88,7 +88,7 @@ When no authority settles a `contract` child's correction, or the proposed corre
 
 The frontier is empty and `status` shows no live agent. If this spec's tickets still hold open findings (the children whose `child.opened` event on their ticket has `kind` `finding`, listed per ticket under `children` by `events.py fold <n>`, open until a `child.closed` on the ticket gives their `resolution`), route **exactly those**.
 
-List the open findings with `bash scripts/dispatch.sh findings <spec>` and route exactly those. A finding wakes nobody, so the ones you were woken about are no measure of what exists.
+List the open findings with `dispatch.sh findings <spec>`. A finding wakes nobody, so the ones you were woken about are no measure of what exists.
 
 Every route is carried out by one command, run once per finding, and it is the only way a finding leaves this pass:
 
@@ -115,8 +115,6 @@ The ones you fix: use a checkout that tracks `origin/<into>`. Fetch before each 
 2. It touches only what the finding's cause requires, and the tests that prove it; anything more is a ticket after all.
 3. It runs the affected test suites, and the commit message quotes the line it saw (`ran 188 skipped 0`, not "the tests pass").
 
-A fix that exceeds those three is a ticket after all.
-
 The ones that become tickets: open as few tickets as possible. A ticket whose files sit in another live ticket's `## Owns` is `Blocked by` that live ticket. A finding that is a ticket on its own becomes one in place: rewrite its body into a ticket, label it for the agent queue, then `bash scripts/dispatch.sh resolve-child <n> <child> became-ticket <child>`; findings folded into one new ticket each get `bash scripts/dispatch.sh resolve-child <n> <child> became-ticket <that ticket>`.
 
 A ticket you write here is dispatched in this night, and it has had none of the reading the published batch had. Write it to the `<issue-template>` of the `to-tickets` skill's `SKILL.md`, with every criterion in the four-line shape that file's **4. Write each acceptance criterion** gives, and only what its five questions admit as a criterion. Two shapes come back from a night's findings and neither is a criterion: prose that states a rule with no command under it, and the repository's own whole-tree checker (a `lint.sh`, a full type-check) put in a `CHECK:`, which fails on files this ticket never touched and blocks it on somebody else's work.
@@ -135,9 +133,7 @@ Gather every `## Manifest notes` line of the night's `REVIEW` reports into one c
 
 A night is worth suspending when the fault is in the pipeline rather than in a ticket: workers left running against it spend their time producing failures that say nothing about the work. `bash scripts/dispatch.sh suspend <spec>` is that decision carried out.
 
-A suspended night wakes nobody: its watch is closed, and its workspaces, branches and pushed commits stay for `open-night` and `advance` to take up.
-
-Workspaces and branches stay, with the interrupted tickets' commits present on origin. The same batch is taken up again with `bash scripts/dispatch.sh open-night <spec>` and then `bash scripts/dispatch.sh advance <spec>` once whatever stopped the night is fixed: `start` fetches origin and reuses or fast-forwards each standing ticket workspace.
+A suspended night wakes nobody: its watch is closed. Its workspaces and branches stay, with the interrupted tickets' commits on origin; once whatever stopped the night is fixed, `open-night <spec>` and then `advance <spec>` take the batch up again, and `start` fetches origin and reuses or fast-forwards each standing ticket workspace.
 
 Exit 0: the night is stopped. Exit 1: stderr names, one line each, what was left. For a slot a process still listens on (`lease.py` names the port and the pid), stop that process where it was started and run `lease.py release <its worktree>`; tell the user every other line. Exit 2: nothing was touched; fix what stderr names and run `suspend` again. Done when `suspend` exits 0, or exits 1 and you have told the user each line stderr left.
 
