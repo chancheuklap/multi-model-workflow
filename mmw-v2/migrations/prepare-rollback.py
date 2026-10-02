@@ -150,6 +150,10 @@ def remove_researcher():
             raise ValueError(f"{path} has no rows object")
         if "researcher" not in rows:
             return
+        version = config.get("version")
+        if not isinstance(version, int):
+            raise ValueError(f"{path} has no integer version")
+        config["version"] = version + 1
         saved = statedir.home() / "models-researcher-before-rollback.json"
         statedir.write_atomic(saved, json.dumps(rows["researcher"], ensure_ascii=False, indent=2) + "\n")
         del rows["researcher"]
