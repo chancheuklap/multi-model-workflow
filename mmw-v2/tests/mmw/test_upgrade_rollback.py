@@ -42,6 +42,9 @@ if name == 'nmem':
         role = plain[2].removeprefix('mmw-')
         result = {'id': plain[2], 'displayName': 'MMW ' + role.title(),
                   'role': role, 'defaultSpaceId': 'mmw-toolbox'}
+    elif plain == ['config', 'mcp', 'show', '--host', 'cursor']:
+        result = {'config': {'mcpServers': {'nowledge-mem': {
+            'url': 'http://nowledge.invalid/mcp', 'headers': {}}}}}
 elif name == 'orca':
     if plain[:2] == ['project', 'setups']:
         result = {'ok': True, 'result': {'setups': []}}
