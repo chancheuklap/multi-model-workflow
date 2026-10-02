@@ -1,1 +1,1 @@
-{"worker": {"playbook": "work-a-ticket", "wakes": {"reviewer.reported": "Get reviewed"}}}
+{"worker": {"playbook": "work-a-ticket", "wakes": {}}}

@@ -38,15 +38,15 @@ class Policy:
 CLASS_POLICY = {
     1: Policy(True, 'B0'),
     2: Policy(True, 'B1'),
-    3: Policy(False, 'B2 end'),
+    3: Policy(True, 'B2 end'),
     5: Policy(True, 'B1'),
-    6: Policy(False, 'B2 end'),
-    7: Policy(True, 'B1', pending=Policy(False, 'B2 end')),
+    6: Policy(True, 'B2 end'),
+    7: Policy(True, 'B1', pending=Policy(True, 'B2 end')),
     8: Policy(True, 'B0'),
     9: Policy(True, 'B1'),
-    10: Policy(True, 'B0', registry=Policy(False, 'B2 end')),
-    11: Policy(False, 'B2 end'),
-    12: Policy(False, 'B2'),
+    10: Policy(True, 'B0', registry=Policy(True, 'B2 end')),
+    11: Policy(True, 'B2 end'),
+    12: Policy(True, 'B2'),
 }
 
 
@@ -434,10 +434,12 @@ class Wiring:
         if not target.exists():
             self.add(source, line, 10, f'{label} does not exist')
         elif (self.root / source).resolve() != self.registry:
+            if (component_root(source) == component_root(label) or
+                    (subtree_root(source) != 'mmw-v2' and
+                     subtree_root(source) == subtree_root(label))):
+                return
             self.add(source, line, 10, f'{label} is not obtained through locations.py', registry_path=True)
-            origin = component_root(source)
-            if origin != component_root(label):
-                self.add(source, line, 3, f'{label} is a cross-directory path not obtained through locations.py')
+            self.add(source, line, 3, f'{label} is a cross-directory path not obtained through locations.py')
 
     def paths(self):
         quoted_chain = r'(?:\s*/\s*["\'][a-zA-Z0-9_./-]+["\'])+'
@@ -741,7 +743,9 @@ class Wiring:
                 self.objects.add(11)
                 pattern = re.compile(re.escape(Path(path).name) + r'["\'`\s]+(?:<[^>]+>\s+)?' + re.escape(name) + r'\b')
                 consumers = [p for p, t in self.files.items() if p != path and
-                             (p.endswith(('.py', '.sh')) or p in components) and pattern.search(t)]
+                             (p.endswith(('.py', '.sh')) or p in components or
+                              (p.startswith('mmw-v2/skills/') and p.endswith('.md'))) and
+                             pattern.search(t)]
                 for consumer in consumers:
                     self.edge(consumer, path + '#' + name, 11)
                 if not consumers:
@@ -893,6 +897,8 @@ def main():
     for category in CLASS_POLICY:
         if category not in check.objects:
             print(f'report: class {category}: no objects yet')
+    if not failures:
+        print(f'WIRING OK {len(check.edges)} checks')
     return 1 if failures else 0
 
 
