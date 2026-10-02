@@ -34,7 +34,7 @@
 
 被 mode 或 playbook 点名、要模型调用的上游技能不改子树，只在 `skills.txt` 那一行加 `+model-invoked`，由 `install.sh` 在安装副本里去掉这两处。
 
-本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`mmw` 技能的 `references/skill-set-rules.md` `### Descriptions`）。`skills.txt` 装的上游技能里，两行都留着的十一个是 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire`、`implement`。其中 `setup-matt-pocock-skills`、`grill-me`、`handoff`、`teach`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire`、`implement` 在 `skills.txt` 带 `+model-invoked`；`grill-with-docs`、`improve-codebase-architecture` 不带标记，只由用户点名。不装的 `ask-matt` 与上游目录里的 `to-spec`、`to-tickets` 是原文，也留着两行。上游改这两行 → 子树里两处一起跟；带标记的，由安装副本去掉。
+本仓自研的技能不归这里管：它们的 frontmatter 只有 `name` 和 `description` 两个键（`mmw` 技能的 `references/skill-set-rules.md` `### Descriptions`）。`skills.txt` 装的上游技能里，两行都留着的十个是 `setup-matt-pocock-skills`、`grill-me`、`grill-with-docs`、`handoff`、`teach`、`improve-codebase-architecture`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire`。其中 `setup-matt-pocock-skills`、`wait-what`、`triage`、`wayfinder`、`to-questionnaire` 在 `skills.txt` 带 `+model-invoked`；`grill-me`、`grill-with-docs`、`handoff`、`improve-codebase-architecture`、`teach` 不带标记，只由用户点名。不装的 `ask-matt`、`implement` 与上游目录里的 `to-spec`、`to-tickets` 是原文，也留着两行。上游改这两行 → 子树里两处一起跟；带标记的，由安装副本去掉。
 
 下面每份说明只写它那个 skill 站在哪一边，不复述这条规则。
 

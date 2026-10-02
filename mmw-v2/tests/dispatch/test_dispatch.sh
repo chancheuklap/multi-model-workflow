@@ -7102,7 +7102,7 @@ scenario_installcheckstalecopy() {
   [ "$(cat "$TMP/code")" = 0 ] || { fail "install failed: $(cat "$TMP/err")"; return; }
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 0 ] || { fail "clean --check failed: $(cat "$TMP/err")"; return; }
-  local copy="$TMP/install-home/.mmw/skill-copies/handoff"
+  local copy="$TMP/install-home/.mmw/skill-copies/wait-what"
   printf 'changed\n' >> "$copy/SKILL.md"
   cp "$copy/SKILL.md" "$TMP/changed-copy"
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
@@ -7193,12 +7193,12 @@ from pathlib import Path
 import sys
 path = Path(sys.argv[1])
 rows = path.read_text().splitlines(keepends=True)
-path.write_text(''.join(row.replace(' +model-invoked', '') if row.startswith('productivity/handoff ') else row
-                        for row in rows if not row.startswith('productivity/teach ')))
+path.write_text(''.join(row.replace(' +model-invoked', '') if row.startswith('productivity/wait-what ') else row
+                        for row in rows if not row.startswith('productivity/to-questionnaire ')))
 RETIRE
   MMW_TEST_REUSE_INSTALL_HOME=1 run_installer --check
   [ "$(cat "$TMP/code")" = 1 ] || fail "retired copies must exit 1"
-  for name in handoff teach; do
+  for name in wait-what to-questionnaire; do
     grep -F "$home/.mmw/skill-copies/$name" "$TMP/err" | grep -q '^残留' \
       || fail "--check did not name retired copy $name: $(cat "$TMP/err")"
     [ -d "$home/.mmw/skill-copies/$name" ] || fail "--check removed retired copy $name"
@@ -7211,11 +7211,11 @@ RETIRE
 from pathlib import Path
 import sys
 home, root = map(Path, sys.argv[1:])
-for name in ('handoff', 'teach'):
+for name in ('wait-what', 'to-questionnaire'):
     assert not (home / '.mmw/skill-copies' / name).exists(), name
 for host in ('.agents', '.claude'):
-    assert (home / host / 'skills/handoff').resolve() == (root / 'upstream/skills/productivity/handoff').resolve()
-    assert not (home / host / 'skills/teach').is_symlink()
+    assert (home / host / 'skills/wait-what').resolve() == (root / 'upstream/skills/productivity/wait-what').resolve()
+    assert not (home / host / 'skills/to-questionnaire').is_symlink()
 assert (home / '.mmw/skill-copies/triage').is_dir()
 assert (home / '.mmw/skill-copies/unrelated-file').read_text() == 'not a directory\n'
 assert (home / '.mmw/unrelated-dir').is_dir()
