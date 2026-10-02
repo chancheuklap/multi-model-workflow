@@ -182,7 +182,7 @@ class UpgradeRollback(unittest.TestCase):
         self.steps += 1
 
     def copied_links(self):
-        copies = self.home / ".mmw/skill-copies"
+        copies = (self.home / ".mmw/skill-copies").resolve()
         return {str(path) for folder in (".agents/skills", ".claude/skills")
                 for path in (self.home / folder).iterdir()
                 if path.is_symlink() and path.resolve().is_relative_to(copies)}
