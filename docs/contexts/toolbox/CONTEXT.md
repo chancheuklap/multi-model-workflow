@@ -10,7 +10,7 @@ Vocabulary that belongs to one skill alone — `design-pages`'s `pull_design.py`
 
 **host**:
 The command-line agent program a session runs on, one of `claude`, `codex`, `grok`, `cursor`, `pi`: the `host` field of a `models.json` row. Distinct from the **runner**, which starts the session and keeps it running.
-_Home_: `mmw-v2/skills/dispatch/hosts.json`
+_Home_: `mmw-v2/skills/mmw/hosts.json`
 
 **user**:
 The person who owns the products and works with the orchestrator on specs and tickets. The user is the only reader of a `ready-for-human` ticket, and `needs-triage` and `needs-info` wait on the user.
@@ -77,7 +77,7 @@ _Home_: `docs/agents/issue-tracker.md`
 
 **Memory record**:
 One memory in Nowledge Mem, kept in the **repository Space** and found by its labels: a worker's saved fact carries `mmw-experience`, `mmw-spec-<n>`, `mmw-ticket-<n>` and, for a map task, `mmw-map-<n>`; the night's **Retro Memory** carries `mmw-retro`.
-_Home_: `mmw-v2/upstream/skills/engineering/implement/references/saving-memory.md`
+_Home_: `mmw-v2/skills/memory-records/references/saving-memory.md`
 
 **`docs/agents/`**:
 The three files the `setup-matt-pocock-skills` skill seeds once — `issue-tracker.md`, `triage-labels.md`, `domain.md` — from which the upstream skills read this repository's tracker commands, labels and domain docs.
@@ -146,28 +146,28 @@ The rule that a skill's frontmatter `disable-model-invocation: true` (read by Cl
 _Home_: `mmw-v2/merge-notes/README.md`
 
 **`models.json`**:
-The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per role, the dispatched agent it configures (`junior-worker`, `senior-worker`, `reviewer`, `advisor`), with its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
-_Home_: `mmw-v2/skills/dispatch/references/editing-models.md`
+The machine-level configuration at `MMW_HOME/models.json` (default `~/.mmw/models.json`) holding the selected `runner` and one row per role, the dispatched agent it configures (`junior-worker`, `senior-worker`, `reviewer`, `advisor`), plus an optional `researcher` row: a file without that row stays valid. Each row has its host, model and `effort`. Distinct from `hosts.json`, which records how each host starts and the first-install defaults.
+_Home_: `mmw-v2/skills/setup-mmw/SKILL.md`
 
 **`effort`**:
 The `effort` field of a `models.json` row: the reasoning effort the host is started with (`high`, `xhigh`, `medium`, …). How each host takes it is in `hosts.json`. Distinct from ui-acceptance's **effort** (`<effort>`), a development effort's directory name.
-_Home_: `mmw-v2/skills/dispatch/hosts.json`
+_Home_: `mmw-v2/skills/mmw/hosts.json`
 
 **permission mode**:
 How a dispatched session is started: with every tool granted, spelled per host in `hosts.json`. There is no read-only value, so an agent that must not write is a subagent told to read only.
-_Home_: `mmw-v2/skills/dispatch/hosts.json`
+_Home_: `mmw-v2/skills/mmw/hosts.json`
 
 **`models.py`**:
-`mmw-v2/skills/dispatch/scripts/models.py`, the one reader and writer of `models.json` and reader of `hosts.json`: it resolves a row's model name against the selected runner's catalog and answers which runner is selected. It runs no runner command itself.
-_Home_: `mmw-v2/skills/dispatch/scripts/models.py`
+`mmw-v2/skills/mmw/scripts/models.py`, the one reader and writer of `models.json` and reader of `hosts.json`: `config show`, `config set` and `config runner` change the file, and `config get <row>` prints one saved row and changes nothing. It resolves a row's model name against the selected runner's catalog and answers which runner is selected. It runs no runner command itself.
+_Home_: `mmw-v2/skills/mmw/scripts/models.py`
 
 **`MMW_CATALOG_MODE`**:
 The variable naming the catalog `models.py` resolves a row's model name against: `paseo` for Paseo's provider catalog, `cli` (the default) for the host's own CLI. `dispatch.sh` sets it from the selected runner.
-_Home_: `mmw-v2/skills/dispatch/scripts/models.py`
+_Home_: `mmw-v2/skills/mmw/scripts/models.py`
 
 **catalog**:
 The models one host offers, each with the reasoning efforts it takes, read from the source the selected runner starts sessions through: Paseo's provider catalog for `paseo`, the host's own CLI otherwise (`MMW_CATALOG_MODE`). Reading every host's catalog is the scan (`models.py` `scan_host_catalogs`), and `models.json` accepts a row only with a model and `effort` the scan offered.
-_Home_: `mmw-v2/skills/dispatch/scripts/models.py`
+_Home_: `mmw-v2/skills/mmw/scripts/models.py`
 
 **`install.sh`**:
 `mmw-v2/install.sh`, the one install entry: it installs the nine items its header comment lists and records its checkout in `~/.mmw/installed-root`. `install.sh --check` changes nothing and exits 1 when something is missing or stale.
@@ -207,20 +207,32 @@ A test-only variable, `TESTING.md`'s own **test seam**, that moves every path `i
 _Home_: `mmw-v2/install.sh`
 
 **`--tools`**:
-The repeatable flag of `verify-ticket.py`, `dispatch.sh` and `pull_design.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own. `verify-ticket.py` puts the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names an oracle bare.
+The repeatable flag of `verify-ticket.py`, `ticket_state.py`, `dispatch.sh` and `pull_design.py` naming a directory of another skill's scripts, searched before the location each script resolves from its own. `verify-ticket.py` and `ticket_state.py` put the directories in force on the `PATH` of every `CHECK:`, which is why a criterion names an oracle bare.
 _Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
 
 **host hook**:
-A program a host runs at one of its own events. `install.sh` registers `tool-guard.py` and `turn-guard.py` of the dispatch skill in each host's own configuration, and `mode-hook.py` of the `mmw` skill on Claude Code and Codex only, for `SessionStart`, `SubagentStart` and `UserPromptSubmit`. `mode-hook.py` is an auxiliary path: on any failure it prints nothing and blocks nothing. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): the three share the bare word "hook" but run at different events for different reasons.
+A program a host runs at one of its own events. `install.sh` registers the `mmw` skill's `tool-guard.py` and `turn-guard.py` in each host's own configuration, and its `mode-hook.py` on Claude Code and Codex only, for `SessionStart`, `SubagentStart` and `UserPromptSubmit`. `mode-hook.py` is an auxiliary path: on any failure it prints nothing and blocks nothing. Distinct from a **git hook** (below) and a build hook (`docs/contexts/release/CONTEXT.md`): the three share the bare word "hook" but run at different events for different reasons.
 _Home_: `mmw-v2/install.sh`
 
 **`tool-guard.py`**:
-The dispatch skill's hook that, in a session whose working directory is a ticket worktree (`issue-<n>`), refuses a command that would end a process or take the ticket out of the agent queue (`pretool`) and a call to the host's question tool (`question`).
-_Home_: `mmw-v2/skills/dispatch/scripts/tool-guard.py`
+The `mmw` skill's hook that, in a session whose working directory is a ticket worktree (`issue-<n>`), refuses a command that would end a process or take the ticket out of the agent queue (`pretool`) and a call to the host's question tool (`question`).
+_Home_: `mmw-v2/skills/mmw/scripts/tool-guard.py`
 
 **`verify-ticket.py`**:
-The verify-ticket skill's one script for a ticket's criteria and closing: the lint, the worker's runs, reverify, preflight, closeout, and the events around them.
-_Home_: `mmw-v2/skills/verify-ticket/SKILL.md`
+The verify-ticket skill's script that runs one ticket's criteria and prints the result, lints tickets, and publishes specs or ticket drafts. It writes no events.
+_Home_: `mmw-v2/skills/verify-ticket/scripts/verify-ticket.py`
+
+**`ticket_state.py`**:
+The script that writes a ticket's state: claim, recording a criteria run, decisions, review, `touched`, the closing draft, closeout and opening a child.
+_Home_: `mmw-v2/skills/mmw/scripts/ticket_state.py`
+
+**`setup-mmw`**:
+The capability skill that shows and changes one role's host, model and reasoning effort, and the selected runner.
+_Home_: `mmw-v2/skills/setup-mmw/SKILL.md`
+
+**`memory-records`**:
+The capability skill that opens, searches, saves and corrects Memory records, and writes the four closing decisions on a spec's records.
+_Home_: `mmw-v2/skills/memory-records/SKILL.md`
 
 **`issue_tree.py`**:
 The verify-ticket skill's script that reads the tree under a map, a spec or a ticket in GraphQL and refuses rather than return a list shorter than GitHub's count. `status.py` and `--lint` read a spec's batch through it.

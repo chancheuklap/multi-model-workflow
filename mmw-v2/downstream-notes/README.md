@@ -41,6 +41,7 @@
 - [514-interface-tickets.md](514-interface-tickets.md) — mmw #514
 - [release-self-heal-removed.md](release-self-heal-removed.md) — no mmw ticket (2026-09-28 lightweight review of exe-release)
 - [644-checker-command-fix-scope.md](644-checker-command-fix-scope.md) — mmw #644
+- [807-night-moves-into-mode.md](807-night-moves-into-mode.md) — mmw #807
 
 ## 已被取代
 

@@ -71,7 +71,7 @@ One curve the canvas draws between two cards: a trunk line from a map to its spe
 _Home_: `mmw-v2/board/page/canvas.mjs`, `mmw-v2/board/page/board-logic.mjs`
 
 **closeout bar**:
-The stripe the canvas draws on a ticket card whose `closeout` field is set: the ticket was itself opened by a closing pass's `route`, out of a finding on the ticket its `closeout.from` names. Distinct from **closeout**, `verify-ticket.py --closeout`.
+The stripe the canvas draws on a ticket card whose `closeout` field is set: the ticket was itself opened by a closing pass's `resolve-child`, out of a finding on the ticket its `closeout.from` names. Distinct from **closeout**, `ticket_state.py --closeout`.
 _Home_: `mmw-v2/board/page/canvas.mjs`, `mmw-v2/board/board_data.py`
 
 ### Reading and refreshing
