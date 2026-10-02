@@ -191,20 +191,6 @@ Tickets left for human acceptance, handed back to triage by their worker, or beh
 
 Immediately after `summary` records `spec.closed` (exit 0, or exit 1 with the comment confirmed), invoke the `retro` skill in this same orchestrator session for this spec; `finish` needs its `spec.retroed` event, recorded.
 
-Then tell the user the night finished, point them at `NIGHT SUMMARY` and `NIGHT RETRO`, and say that after they accept the result the orchestrator will run `finish` to merge it into the project branch.
-
-## 6. Merge the accepted night
-
-Only after the user has accepted the result, the orchestrator runs:
-
-```bash
-bash scripts/dispatch.sh finish <spec>
-```
-
-A worktree that has the base branch checked out, usually the one this session runs in, is kept: stderr gives the commands that remove it, for the user to run once this session is done, and `finish` needs no second run.
-
-Exit 0: the merge is recorded. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted. Exit 2: fix what stderr names and run `finish` again. Do not merge the project branch into the repository default branch here; that remains the user's release decision.
-
 ## Suspending the night
 
 A night is worth suspending when the fault is in the pipeline rather than in a ticket: workers left running against it spend their time producing failures that say nothing about the work. `bash scripts/dispatch.sh suspend <spec>` is that decision carried out.
