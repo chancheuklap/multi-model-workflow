@@ -33,10 +33,12 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import cache
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
 
+SKILLS = Path(__file__).resolve().parents[2]
 VENDOR_CONSTANTS = ("REACT_URL", "REACT_DOM_URL", "BABEL_URL")
 # The two page names acceptance pulls scenes from; every other `.dc.html` is a note
 # or exploration.
@@ -164,23 +166,16 @@ def _load_module(name: str, path: Path):
     return module
 
 
-_locations = None
-
-
+@cache
 def load_locations():
-    global _locations
-    if _locations is None:
-        skills = Path(__file__).resolve().parents[2]
-        _locations = _load_module(
-            "_pull_design_locations", skills / "mmw" / "scripts" / "locations.py")
-    return _locations
+    return _load_module(
+        "_pull_design_locations", SKILLS / "mmw" / "scripts" / "locations.py")
 
 
 def tool_scripts(tools: Path | None) -> Path:
     if tools is not None:
         return tools
-    skills = Path(__file__).resolve().parents[2]
-    return skills / load_locations().UI_ACCEPTANCE_SCRIPTS
+    return SKILLS / load_locations().UI_ACCEPTANCE_SCRIPTS
 
 
 def refusal_text(

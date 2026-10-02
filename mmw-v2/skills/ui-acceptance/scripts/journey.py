@@ -20,7 +20,7 @@ Then `stop` runs once more and this run's slot must be quiet: a journey ends lea
 machine as it found it, and anything still listening on the slot outlives the run and
 blocks whichever run is given the slot next.
 
-    <locations.JOURNEY_OK> <name>                                 exit 0
+    <locations.JOURNEY_OK> <name>                     exit 0
     JOURNEY FAILED <name> at <last line>              exit 1
     JOURNEY GREEN WITH BREAK <name> — <line>          exit 1
     JOURNEY GREEN WITHOUT PRODUCT <name> — <line>     exit 1

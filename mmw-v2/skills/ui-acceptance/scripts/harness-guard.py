@@ -18,7 +18,7 @@ What is read is what the repository tracks, or would track — `git ls-files --c
 
     HARNESS LEAK <file>:<line>          exit 1
     HARNESS DESIGN PAGE <file>:<line>   exit 1
-    <locations.HARNESS_OK>                          exit 0
+    <locations.HARNESS_OK>              exit 0
 """
 
 from __future__ import annotations
