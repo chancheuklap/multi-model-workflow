@@ -592,6 +592,64 @@ class Wiring(unittest.TestCase):
         self.write('mmw-v2/merge-notes/README.md', '## Other\n\n`example` is mentioned here.\n')
         self.assertRegex(self.check().stdout, r'(?m)^report: .*example/SKILL.md:\d+: class 3 ')
 
+    def test_wiring_upstream_added_file_registered_by_a_note_heading(self):
+        subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'config', 'user.email', 'fixture@example.test'], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'config', 'user.name', 'Fixture'], check=True)
+        self.write('skills/engineering/example/SKILL.md', '# Example\n')
+        subprocess.run(['git', '-C', str(self.root), 'add', 'skills'], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'commit', '-qm', "Squashed 'mmw-v2/upstream/' changes"], check=True)
+        path = 'mmw-v2/upstream/skills/engineering/example/EXTRA.md'
+        self.write(path, '# Extra\nAdded instructions.\n')
+        finding = (r'(?m)^(?:report: )?' + re.escape(path) +
+                   r':1: class 3 skills/engineering/example/EXTRA\.md has no squash original$')
+        self.assertRegex(self.check().stdout, finding)
+        self.write('mmw-v2/merge-notes/example.md',
+                   '# example\n\n### SKILL.md\n\n| EXTRA.md | Added capability |\n')
+        self.assertRegex(self.check().stdout, finding)
+        self.write('mmw-v2/merge-notes/example.md',
+                   '# example\n\n### EXTRA.md\n\nAdded capability.\n')
+        self.assertNotRegex(self.check().stdout, finding)
+
+    def test_wiring_upstream_frontmatter_difference_registered_by_key(self):
+        subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'config', 'user.email', 'fixture@example.test'], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'config', 'user.name', 'Fixture'], check=True)
+        original = '---\nname: example\ndescription: Original trigger.\n---\n# Example\n'
+        self.write('skills/engineering/example/SKILL.md', original)
+        subprocess.run(['git', '-C', str(self.root), 'add', 'skills'], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'commit', '-qm', "Squashed 'mmw-v2/upstream/' changes"], check=True)
+        path = 'mmw-v2/upstream/skills/engineering/example/SKILL.md'
+        self.write(path, original.replace('Original trigger.', 'Changed trigger.'))
+        finding = (r'(?m)^(?:report: )?' + re.escape(path) +
+                   r':3: class 3 upstream difference at SKILL\.md@description is not registered in its merge-note$')
+        self.assertRegex(self.check().stdout, finding)
+        self.write('mmw-v2/merge-notes/example.md',
+                   '# example\n\n### SKILL.md\n\n| `name` | Changed trigger |\n')
+        self.assertRegex(self.check().stdout, finding)
+        self.write('mmw-v2/merge-notes/example.md',
+                   '# example\n\n### SKILL.md\n\n| `description` | Changed trigger |\n')
+        self.assertNotRegex(self.check().stdout, finding)
+
+    def test_wiring_upstream_prose_before_any_heading_registered_by_its_opening_words(self):
+        subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'config', 'user.email', 'fixture@example.test'], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'config', 'user.name', 'Fixture'], check=True)
+        self.write('skills/engineering/example/SKILL.md', 'Original body sentence here.\n')
+        subprocess.run(['git', '-C', str(self.root), 'add', 'skills'], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'commit', '-qm', "Squashed 'mmw-v2/upstream/' changes"], check=True)
+        path = 'mmw-v2/upstream/skills/engineering/example/SKILL.md'
+        self.write(path, 'Changed body sentence here.\n')
+        finding = (r'(?m)^(?:report: )?' + re.escape(path) +
+                   r':1: class 3 upstream difference at SKILL\.md#"Changed body sentence" is not registered in its merge-note$')
+        self.assertRegex(self.check().stdout, finding)
+        self.write('mmw-v2/merge-notes/example.md',
+                   '# example\n\n### SKILL.md\n\n| Original body sentence | host neutrality |\n')
+        self.assertRegex(self.check().stdout, finding)
+        self.write('mmw-v2/merge-notes/example.md',
+                   '# example\n\n### SKILL.md\n\n| Changed body sentence | host neutrality |\n')
+        self.assertNotRegex(self.check().stdout, finding)
+
     def test_wiring_frozen_paths_rejects_other_checkout(self):
         self.write('.mmw/installed-root', str(self.root / 'installed/mmw-v2'))
         self.write(MODE + '/scripts/dispatch.sh',
