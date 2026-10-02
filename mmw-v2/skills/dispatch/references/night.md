@@ -158,11 +158,7 @@ verify-ticket.py <n> --lint
 
 Read its exit as in 1b; fix every `ERROR` and lint again.
 
-Once every finding has a route, close this spec's Memory records before leaving the pass. These records are what this spec's workers left for the workers after them: each carries the `mmw-experience` label, so later workers in this repository see it in their start prompt and act on it before reading any code. A record that was true mid-night can be wrong once the batch has landed. Judge each against what landed: keep what still holds, deprecate or supersede what the batch made untrue, and propose to the retro what should change how the pipeline works.
-
 Run `bash scripts/dispatch.sh memory-list <spec>` and save its output to a file: it computes the repository's Space id, pulls the spec's full `mmw-spec-<spec>` record set, and writes a `--memory-decisions` file skeleton with `total` and `returned` already filled in, one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated.
-
-For each id in the file decide exactly one of `retain`, `propose`, `deprecate` or `supersede`: `retain` remains useful as it is; `propose` is a candidate for the later retro and does not change the Memory here; `deprecate` is no longer valid; `supersede` names the existing `replacement_id` that replaces it. A `propose` decision's `evidence` is exactly one event comment URL (`https://github.com/<owner>/<name>/issues/<n>#issuecomment-<id>`) or commit URL (`https://github.com/<owner>/<name>/commit/<40-hex sha>`): the retro counts the proposal only when that string is one of its problem's sources, and `summary` refuses any other value.
 
 Keep the file for step 5. Done when every id in it has a decision, or it is the `unchecked` object `memory-list` wrote.
 
