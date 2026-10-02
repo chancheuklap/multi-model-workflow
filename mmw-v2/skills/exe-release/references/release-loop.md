@@ -2,7 +2,7 @@
 
 `SKILL.md` reads this file under **One product per loop, driven by release-loop.md**. By then this product's loop is started, or a previous loop is still there to resume.
 
-**The release engine owns the loop.** Progress, next action, repair count, and success come from release engine state. Do not resume from session memory. Do not pick the next stage yourself. Do not keep a second log of what you already tried. You do not assign the tier (P0, P1 or P2).
+**The release engine owns the loop.** Progress, next action, repair count, and success come from release engine state. Resume from the release engine's state, not from session memory (**principle-resume-from-durable-state**). Do not pick the next stage yourself. Do not keep a second log of what you already tried. You do not assign the tier (P0, P1 or P2).
 
 ## State table: do what `where` says
 
