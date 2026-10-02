@@ -40,7 +40,7 @@ Commands of this skill's `bash scripts/dispatch.sh` and `python3 scripts/ticket_
 
    At the cited file and line, does the bad outcome the axis describes actually occur? Read beyond the changed lines (follow callers, guards upstream, etc.) until you can answer yes or no. A different finding about nearby code does not settle this one. Judge whether the problem is real, not whether the proposed fix is plausible. Code that loudly fails on a situation you never showed the program can reach is correct behavior, not a defect.
 
-   Render exactly one conclusion: (**principle-clues-are-not-evidence**)
+   Render exactly one conclusion (**principle-clues-are-not-evidence**):
 
    - Holds: the bad outcome does occur at the cited location.
    - `refuted`: you checked, and the bad outcome does not happen at the cited location. Write what disproves this specific claim. A true fact about nearby code that does not disprove the claim does not count.
