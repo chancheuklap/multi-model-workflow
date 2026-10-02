@@ -155,9 +155,14 @@ def _validate_config_shape(config: dict) -> list[dict[str, str]]:
             errors.append({"cell": role, "reason": "host, model, and effort are required"})
             continue
         for key in ("host", "model", "effort"):
-            if not isinstance(row.get(key), str) or not row[key].strip():
+            if not _nonempty_text(row.get(key)):
                 errors.append({"cell": f"{role}.{key}", "reason": "is required"})
     return errors
+
+
+def _nonempty_text(value: object) -> bool:
+    """True when a saved host, model or effort is a string other than whitespace."""
+    return isinstance(value, str) and bool(value.strip())
 
 
 def parse_legacy_rows(source: Path) -> list[tuple[str, str, str, str]]:
@@ -257,7 +262,7 @@ def _spoken_runner(value: str | None) -> str | None:
 
 
 def has_adapter(name: str) -> bool:
-    """True when the dispatch skill has an adapter for this runner, `runners/<name>.sh`."""
+    """True when the mmw skill has an adapter for this runner, `runners/<name>.sh`."""
     return (RUNNERS_DIR / f"{name}.sh").is_file()
 
 
@@ -1192,7 +1197,36 @@ def launch_line(host: str, model: str, effort: str, name: str,
     return argv
 
 
+def config_get(row: str) -> str:
+    """One saved row, `<row> <host> <model> <effort>`. Writes nothing.
+
+    A name outside `ALLOWED_AGENTS` is refused before the file is opened: it is
+    not a row, and a role such as worker spans more than one. The refusal names
+    the command that reads one of the rows. A missing row, or a row whose host,
+    model or effort is not a non-empty string, is refused with the path and the
+    command that fills it. A whitespace-only value is empty for this line:
+    printing it would leave a token out of `<row> <host> <model> <effort>`.
+    """
+    if row not in ALLOWED_AGENTS:
+        names = ", ".join(ALLOWED_AGENTS)
+        raise ValueError(
+            f"{row} is not a row of models.json; a role such as worker spans more than one row; "
+            f"the rows are {names}; run models.py config get <row> with one of them")
+    config = read_local_config()
+    path = models_json_path()
+    rows = config.get("rows")
+    saved = rows.get(row) if isinstance(rows, dict) else None
+    repair = f"models.py config set {row} <host> <model> <level>"
+    if not isinstance(saved, dict) or not all(
+            _nonempty_text(saved.get(key)) for key in ("host", "model", "effort")):
+        raise ValueError(
+            f"{path} has no complete {row} row, so nothing saved can be printed; run {repair}")
+    host, model, effort = saved["host"], saved["model"], saved["effort"]
+    return f"{row} {host} {model} {effort}"
+
+
 USAGE = ("usage: models.py config show\n"
+         "       models.py config get <row>\n"
          "       models.py config runner <runner>\n"
          "       models.py config set <role> <host> <model> <level>\n"
          "       models.py runner\n"
@@ -1208,6 +1242,9 @@ def main(argv: list[str] | None = None) -> int:
         try:
             if args == ["config", "show"]:
                 print(json.dumps(read_local_config(), ensure_ascii=False, indent=2))
+                return 0
+            if len(args) == 3 and args[1] == "get":
+                print(config_get(args[2]))
                 return 0
             if len(args) == 3 and args[1] == "runner":
                 current = read_local_config()

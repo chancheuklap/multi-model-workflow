@@ -52,3 +52,4 @@ self/advisor
 self/retro
 self/mmw
 self/memory-records
+self/setup-mmw
