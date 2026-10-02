@@ -9,3 +9,4 @@ mmw-v2/skills/retro/SKILL.md	numbered-cross-reference	## 5. The night is over`, 
 mmw-v2/skills/verify-ticket/SKILL.md	capability-next-step	## Reached from here	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
 mmw-v2/skills/verify-ticket/SKILL.md	capability-next-step	A worker's claim, criteria runs and closeout are steps of the `implement` skill.	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
 mmw-v2/skills/verify-ticket/references/sub-issues.md	numbered-cross-reference	rules 3 and 4 of the `ui-acceptance` skill's **Five rules while the product is r	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
+mmw-v2/skills/dispatch/SKILL.md	description-content	run a night as its orchestrator, run one ticket outside a night, change the host	B2	docs/research/workflow-compare/reports/R18-mmw-architecture-v2.md §10 B2 票 a: 夜间流程与能力技能剥离。
