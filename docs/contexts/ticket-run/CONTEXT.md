@@ -45,6 +45,10 @@ _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 The index of `mmw-experience` Memory records a worker's start finds by searching the ticket's `## Owns` paths and the ticket, spec and map titles, written into the data file `state/<owner>__<name>/prompts/<n>-<role>.md`.
 _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
+**Memory index**:
+A list of Memory records, one per line: its `id`, its `title`, its first line as `applies`, and its `space`; a `truncated:` line means more records exist than are listed. **Current task shared experience** and **Related experience** are the two Memory indexes a worker's data file carries.
+_Home_: `mmw-v2/skills/memory-records/SKILL.md`
+
 **save conditions**:
 The three conditions that must all hold before a Memory is saved: another ticket or later agent may reuse the fact, a current command result or authority verifies it, and the ticket and code do not already make it obvious.
 _Home_: `mmw-v2/skills/memory-records/SKILL.md`
