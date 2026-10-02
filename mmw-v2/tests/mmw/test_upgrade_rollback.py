@@ -288,6 +288,8 @@ class UpgradeRollback(unittest.TestCase):
         self.upgraded()
         plist = (self.home / "Library/LaunchAgents/com.mmw.board.plist").read_bytes()
         config = json.loads((self.home / ".mmw/models.json").read_text())
+        stale_config = self.root / "stale-board-config.json"
+        stale_config.write_text(json.dumps(config))
         trusted = (codex_home / "config.toml").read_bytes()
         links = self.copied_links()
         self.assertTrue(links)
@@ -305,7 +307,8 @@ class UpgradeRollback(unittest.TestCase):
         self.steps += 1
         self.assertEqual(self.copied_links(), set())
         after = json.loads((self.home / ".mmw/models.json").read_text())
-        self.assertEqual(after, {**config, "rows": {key: value for key, value in config["rows"].items() if key != "researcher"}})
+        self.assertEqual(after, {**config, "version": config["version"] + 1,
+                                "rows": {key: value for key, value in config["rows"].items() if key != "researcher"}})
         self.assertEqual(json.loads((self.home / ".mmw/models-researcher-before-rollback.json").read_text()), config["rows"]["researcher"])
         self.assertEqual((codex_home / "config.toml").read_bytes(), trusted)
         self.assertFalse((self.home / ".mmw/board-bootstrapped-commit").exists())
@@ -320,6 +323,27 @@ class UpgradeRollback(unittest.TestCase):
             path = self.hook_path(relative)
             if relative in launcher_paths:
                 self.assertTrue(list(path.parent.glob(path.name + ".bak-*")), relative)
+        prepared_text = (self.home / ".mmw/models.json").read_bytes()
+        refused = self.command("python3", "-c", """
+import json
+import sys
+sys.path.insert(0, sys.argv[1])
+import models
+config = json.load(open(sys.argv[2]))
+_, scan, errors = models.check_local_config(config)
+assert not errors, errors
+try:
+    models.write_local_config(config, config['version'], scan)
+except models.VersionConflict as exc:
+    assert exc.expected == config['version']
+    assert exc.found == config['version'] + 1
+    print('STALE BOARD SAVE REFUSED')
+else:
+    raise AssertionError('stale board configuration was saved')
+""", self.installed / "skills/mmw/scripts", stale_config)
+        self.assertEqual(refused.stdout.strip(), "STALE BOARD SAVE REFUSED")
+        self.assertEqual((self.home / ".mmw/models.json").read_bytes(), prepared_text)
+        print(refused.stdout.strip())
         snapshot = self.snapshot()
         rerun = self.prepare()
         self.assertEqual(rerun.stdout, "")
