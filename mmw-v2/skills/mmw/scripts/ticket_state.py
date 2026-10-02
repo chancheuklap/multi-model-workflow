@@ -31,6 +31,7 @@ CAT_IN_TICKET_ITEM_RE = re.compile(
 
 
 FILL = "<fill>"
+DECISIONS_TITLE = "Decisions I made on my own"
 
 
 HANDOFF_KINDS = ("failed", "stuck")
@@ -258,7 +259,7 @@ def draft_problems(draft: str, comments: list[str]) -> list[str]:
     if FILL in draft:
         problems.append("the draft still contains `<fill>`; replace the placeholders "
                         "in `skipped:`, `Review findings:`, `Green before work:`, "
-                        f"`Decisions I made on my own`, and `{locations.AUDITED_LINE}`")
+                        f"`{DECISIONS_TITLE}`, and `{locations.AUDITED_LINE}`")
 
     criteria = engine.parse_criteria(draft)
     ids = [c["id"] for c in criteria]
@@ -456,7 +457,7 @@ def run_decisions(number: int, path: Path) -> int:
         return engine.refuse(f"#{number} already carries a DECISIONS comment")
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
     headings = markdown_h2(text)
-    expected_headings = ["Decisions I made on my own", "Outside Owns"]
+    expected_headings = [DECISIONS_TITLE, "Outside Owns"]
     if headings != expected_headings:
         missing = [h for h in expected_headings if h not in headings]
         if missing:
@@ -469,9 +470,9 @@ def run_decisions(number: int, path: Path) -> int:
                           + ("s " if len(extra) > 1 else " ")
                           + " and ".join(f"`{h}`" for h in extra)
                           + "; it must have exactly two sections, "
-                          "`Decisions I made on my own` then `Outside Owns`")
+                          f"`{DECISIONS_TITLE}` then `Outside Owns`")
         return engine.refuse("the file must have exactly two sections, "
-                      "`Decisions I made on my own` then `Outside Owns`")
+                      f"`{DECISIONS_TITLE}` then `Outside Owns`")
     run = engine.newest_run(comments, "self")
     if run is None:
         return engine.refuse(f"#{number} carries no ticket.checked of your own run to check "
@@ -494,6 +495,13 @@ def open_children_owns(number: int) -> list[tuple[int, list[str]]]:
             continue
         found.append((child["number"], engine.owns_globs(engine.fetch_body(child["number"]))))
     return found
+
+
+def covered_siblings(number: int, spec: int, files: list[str]) -> list[tuple[int, list[str]]]:
+    """Open siblings whose ownership covers at least one of the supplied files."""
+    return [(child, globs) for child, globs in open_children_owns(spec)
+            if child != number and any(engine.glob_covers(g, path)
+                                       for g in globs for path in files)]
 
 
 REVIEW_HEAD_RE = re.compile(r"^REVIEW (\S+?)\.\.(\S+)")
@@ -553,7 +561,7 @@ def run_touched(number: int) -> int:
     if spec is None:
         return engine.refuse(f"#{number} has no parent link and no spec in `{locations.PARENT_HEADING}`")
     try:
-        siblings = open_children_owns(spec)
+        siblings = covered_siblings(number, spec, files)
     except engine.SubIssuesUnreadable as exc:
         return engine.refuse(f"#{number}: the tracker could not list the children of #{spec} ({exc})")
     details = []
@@ -565,11 +573,7 @@ def run_touched(number: int) -> int:
                         "judgement": spec_judgement(review, path)})
     posted_to: list[int] = []
     for child, globs in siblings:
-        if child == number:
-            continue
         mine = [d for d in details if any(engine.glob_covers(g, d["path"]) for g in globs)]
-        if not mine:
-            continue
         prose = []
         for d in mine:
             prose += ["", d["path"], d["sentence"]]
@@ -661,7 +665,7 @@ def run_closing_draft(number: int, out_file: Path | None) -> int:
         green_before_work_block(comments), "",
         sub, "",
         counts_line, "",
-        "Decisions I made on my own", "",
+        DECISIONS_TITLE, "",
         FILL, "",
     ]
     # After every refusal, so a run that writes nothing leaves no directory behind either.
@@ -1181,11 +1185,7 @@ def touched_trace(number: int, own_run: dict | None) -> bool:
         if spec is None:
             return False
         reading = f"children and ownership of #{spec}"
-        siblings = open_children_owns(spec)
-        for child, globs in siblings:
-            if child == number or not any(engine.glob_covers(g, path)
-                                         for g in globs for path in files):
-                continue
+        for child, _ in covered_siblings(number, spec, files):
             reading = f"comments on #{child}"
             for comment in engine.events.normalise(engine.fetch_comments(child)):
                 what, notice = engine.events.parse(comment["body"])
@@ -1201,13 +1201,13 @@ def touched_trace(number: int, own_run: dict | None) -> bool:
 
 def steps_without_trace(number: int, draft: str, comments: list) -> list[str]:
     """Untraced registered steps, in playbook order, for an accepted closing draft."""
-    payloads = []
+    names = set()
     claim = None
     for comment in engine.events.normalise(comments):
         what, payload = engine.events.parse(comment["body"])
         if what != "event":
             continue
-        payloads.append(payload)
+        names.add(payload["event"])
         if payload["event"] == "worker.started":
             claim = None
         elif payload["event"] == "ticket.claimed" and claim is None:
@@ -1218,10 +1218,9 @@ def steps_without_trace(number: int, draft: str, comments: list) -> list[str]:
             count = engine.git("rev-list", "--count", "--first-parent", "--no-merges",
                                f"{claim['commit']}..HEAD", cwd=engine.repo_root())
             committed = bool(re.fullmatch(r"\d+", count) and int(count) > 0)
-        except (OSError, subprocess.SubprocessError):
+        except OSError:
             pass
     own_run = engine.newest_run(comments, "self")
-    names = {payload["event"] for payload in payloads}
     traces = {
         "claimed-after-started": claim is not None,
         "own-checked": own_run is not None,
@@ -1241,7 +1240,7 @@ def steps_without_trace(number: int, draft: str, comments: list) -> list[str]:
     for line in draft.splitlines():
         line = line.strip()
         if not decisions:
-            decisions = line == "Decisions I made on my own"
+            decisions = line == DECISIONS_TITLE
             continue
         if line.startswith("- "):
             line = line[2:]

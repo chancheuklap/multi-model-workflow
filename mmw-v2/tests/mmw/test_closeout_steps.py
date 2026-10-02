@@ -4,11 +4,11 @@ import unittest
 from unittest import mock
 
 from _load import AT, checked, event, started
-from test_closeout import MET, ME, UNMET, check, counts_line, draft, vt
+from test_closeout import MET, ME, STEP_REPORT_MARKER, UNMET, check, counts_line, draft, posted_body, vt
 from test_review import REPORT, run_review
 
 
-CLAIM = event("ticket.claimed", "Claimed", login=ME, commit="0" * 40)
+CLAIM = event("ticket.claimed", "Claimed", login=ME, commit="1" * 40)
 OWN_RUN = checked("self", [MET], outside_owns=[])
 DECISIONS = event("worker.decided", "DECISIONS")
 REVIEW = event("reviewer.reported", "REVIEW abcdef0..1234567\n\n## In-ticket\nNone",
@@ -23,10 +23,9 @@ def traced_draft():
 
 
 def missing_steps(seen):
-    body = seen["posted"][-1][1].split("\n\n<!-- mmw", 1)[0]
-    if "\n\nSteps without a trace:\n" not in body:
-        return []
-    return body.split("\n\nSteps without a trace:\n", 1)[1].splitlines()
+    body, _ = posted_body(seen["posted"][-1][1])
+    _, marker, steps = body.partition(STEP_REPORT_MARKER)
+    return steps.lstrip("\n").splitlines() if marker else []
 
 
 class TestCloseoutSteps(unittest.TestCase):
@@ -38,17 +37,21 @@ class TestCloseoutSteps(unittest.TestCase):
         self.assertEqual(missing_steps(seen), ["- Post the decisions"])
 
     def test_a_skip_line_stands_in_for_a_missing_trace(self):
-        text = traced_draft() + "- skip: Post the decisions: no independent choices were needed\n"
-        code, err, seen = check(text, comments=(CLAIM, OWN_RUN, REVIEW),
-                                check_only=False, commits_since_claim="1")
-        self.assertEqual(code, 0, err)
-        self.assertNotIn("Steps without a trace:", seen["posted"][-1][1])
+        skip = "- skip: Post the decisions: no independent choices were needed\n"
+        for suffix, expected in (("", ["- Post the decisions"]), (skip, [])):
+            with self.subTest(skip=bool(suffix)):
+                code, err, seen = check(traced_draft() + suffix, comments=(CLAIM, OWN_RUN, REVIEW),
+                                        check_only=False, commits_since_claim="1")
+                self.assertEqual(code, 0, err)
+                self.assertEqual(missing_steps(seen), expected)
 
     def test_every_trace_present_adds_no_section(self):
-        code, err, seen = check(traced_draft(), comments=TRACES,
-                                check_only=False, commits_since_claim="1")
-        self.assertEqual(code, 0, err)
-        self.assertNotIn("Steps without a trace:", seen["posted"][-1][1])
+        for comments, expected in ((TRACES, []), ((CLAIM, OWN_RUN, REVIEW), ["- Post the decisions"])):
+            with self.subTest(comments=comments):
+                code, err, seen = check(traced_draft(), comments=comments,
+                                        check_only=False, commits_since_claim="1")
+                self.assertEqual(code, 0, err)
+                self.assertEqual(missing_steps(seen), expected)
 
     def test_outside_owns_none_is_the_touched_trace(self):
         for files, expected in (([], []), (["README.md"], ["- Tell the touched tickets"])):
@@ -66,10 +69,12 @@ class TestCloseoutSteps(unittest.TestCase):
         touched = event("worker.touched", "Touched", ticket=78, by=77, files=["README.md"])
         with mock.patch.object(vt.engine, "spec_of", return_value=118), \
              mock.patch.object(vt, "open_children_owns", return_value=[(78, ["README.md"])]):
-            code, err, seen = check(traced_draft(), comments=(CLAIM, own, DECISIONS, REVIEW, touched),
-                                    check_only=False, commits_since_claim="1")
-        self.assertEqual(code, 0, err)
-        self.assertNotIn("Steps without a trace:", seen["posted"][-1][1])
+            for notices, expected in (((), ["- Tell the touched tickets"]), ((touched,), [])):
+                with self.subTest(notices=notices):
+                    code, err, seen = check(traced_draft(), comments=(CLAIM, own, DECISIONS, REVIEW, *notices),
+                                            check_only=False, commits_since_claim="1")
+                    self.assertEqual(code, 0, err)
+                    self.assertEqual(missing_steps(seen), expected)
 
     def test_manifest_notes_need_no_answer_in_the_closeout(self):
         report = REPORT.replace("Standards: 0 findings.",
@@ -80,6 +85,8 @@ class TestCloseoutSteps(unittest.TestCase):
         code, err, fake = run_review(report)
         self.assertEqual(code, 0, err)
         review = fake.posted[0][1]
+        self.assertIn("## Manifest notes", review)
+        self.assertIn("- Spec [wording] docs/contract.md:1", review)
         code, err, seen = check(traced_draft(), comments=(CLAIM, OWN_RUN, DECISIONS, review),
                                 check_only=True)
         self.assertEqual(code, 0, err)
@@ -118,6 +125,13 @@ class TestCloseoutSteps(unittest.TestCase):
                                         check_only=False, commits_since_claim=count)
                 self.assertEqual(code, 0, err)
                 self.assertEqual(missing_steps(seen), ["- Write the code"])
+
+    def test_code_is_counted_from_the_first_claim_after_the_latest_start(self):
+        later_claim = event("ticket.claimed", "Claimed again", login=ME, commit="2" * 40)
+        code, err, seen = check(traced_draft(), comments=(CLAIM, later_claim, OWN_RUN, DECISIONS, REVIEW),
+                                check_only=False, commits_since_claim="1")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(missing_steps(seen), [])
 
     def test_unchecked_ownership_does_not_read_siblings_or_supply_a_touched_trace(self):
         for own in (checked("self", [MET], outside_owns_unchecked="main"), None):
