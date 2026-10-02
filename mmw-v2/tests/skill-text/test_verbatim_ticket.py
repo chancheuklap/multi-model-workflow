@@ -264,6 +264,19 @@ class VerbatimTicket(unittest.TestCase):
         self.commit()
         self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
 
+    def test_identical_units_in_two_line_scopes_are_two_instances(self):
+        self.write(SKILL, '## Allowed\n\nRepeat this.\n\n## Other\n\nRepeat this.\n')
+        self.base = self.commit()
+        self.git('branch', '-f', 'base', 'HEAD')
+        self.write(SKILL, '## Allowed\n\n## Other\n')
+        self.commit()
+        first_drop = f'drop {SKILL}:L3 "Repeat this." : Spec\n'
+        self.manifest = (f'from {self.base}\ncopy source.md -> target.md\n' +
+                         first_drop + f'drop {SKILL}:L7 "Repeat this." : Spec\n')
+        self.check('--manifest', 'manifest')
+        self.manifest = f'from {self.base}\ncopy source.md -> target.md\n' + first_drop
+        self.check('--manifest', 'manifest', code=1, token='UNTOUCHED-CHANGED')
+
     def test_source_line_scopes_stay_pinned_when_base_advances(self):
         self.git('checkout', '-q', 'base')
         self.write(SKILL, '## Allowed\n\nMove this sentence.\n\n## Other\n\nKeep this reason.\n')
