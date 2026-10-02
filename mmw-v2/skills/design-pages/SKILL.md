@@ -18,7 +18,7 @@ What this skill pulls is copied exactly by implementation and compared element b
 | The user has signed the design off, or this session is handling a `contract` child whose body names the `design-pages` skill's `references/pull.md` | [references/pull.md](references/pull.md): brings the project into the repository as the design package |
 | Asked to build a design system, deciding whether one is worth building, or bringing an existing product's screens into Claude Design | [references/design-system.md](references/design-system.md): what it holds, when and from what, and how the agent inside Claude Design builds it |
 
-Only a session whose host has the Claude Design MCP tools can do this skill's work, and a dispatched worker never runs it. In a session without them, tell the user the work needs a session whose host has those tools, and stop before writing anything.
+Only a session whose host has the Claude Design MCP tools can do this skill's work. In a session without them, tell the user the work needs a session whose host has those tools, and stop before writing anything.
 
 ## The state list
 

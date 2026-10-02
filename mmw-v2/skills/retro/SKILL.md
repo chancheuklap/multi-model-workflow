@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Retrospect one completed MMW spec night. Use right after the dispatch skill's `summary` records `spec.closed`.
+description: Retrospect one completed MMW spec night. Use when a spec night has closed and its retrospective has to be run, or run again.
 ---
 
 # Retro
@@ -205,7 +205,7 @@ The script writes outputs; the agent judges causes and dispositions.
     saved. It checks that file against a fresh `gather`, and a refusal names
     what to correct.
 
-Done when `finalize` has posted `spec.retroed` with `result=recorded`; then return to the dispatch skill's `references/night.md` `## 5. The night is over`, which tells the user.
+Done when `finalize` has posted `spec.retroed` with `result=recorded`.
 
 ## Prevention destinations
 

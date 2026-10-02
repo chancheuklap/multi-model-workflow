@@ -10,7 +10,7 @@ Do not ask again to get a different answer. A second consultation is for a new d
 
 ## Start it
 
-Write the brief to a file. Run the `dispatch` skill's `dispatch.sh advise <file>`. Read the answer where the selected runner shows the session. It prints the advisor's session id; a refusal says what to fix.
+Write the brief to a file. Start the advisor session your environment provides, with that file as its brief. Read the answer where the selected runner shows the session. Starting it gives you the advisor's session id; a refusal says what to fix.
 
 Done when you have the answer and have acted on it as **The answer** says, and the user has the session id.
 
