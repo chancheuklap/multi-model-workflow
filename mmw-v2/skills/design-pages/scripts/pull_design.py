@@ -33,10 +33,12 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import cache
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
 
+SKILLS = Path(__file__).resolve().parents[2]
 VENDOR_CONSTANTS = ("REACT_URL", "REACT_DOM_URL", "BABEL_URL")
 # The two page names acceptance pulls scenes from; every other `.dc.html` is a note
 # or exploration.
@@ -164,10 +166,16 @@ def _load_module(name: str, path: Path):
     return module
 
 
+@cache
+def load_locations():
+    return _load_module(
+        "_pull_design_locations", SKILLS / "mmw" / "scripts" / "locations.py")
+
+
 def tool_scripts(tools: Path | None) -> Path:
-    return tools or (
-        Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts"
-    )
+    if tools is not None:
+        return tools
+    return SKILLS / load_locations().UI_ACCEPTANCE_SCRIPTS
 
 
 def refusal_text(
@@ -980,9 +988,15 @@ def read_state_list_input(path: Path | None) -> StateListInput:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeError):
         return StateListInput(provided=True, issue="state list 无法读取，未核对。")
-    match = re.search(r"(?ms)^## State list\s*\n.*?(?=^## |\Z)", text)
+    try:
+        locations = load_locations()
+    except (OSError, ImportError) as exc:
+        return StateListInput(
+            provided=True, issue=f"state list 的 locations.py 无法读取，未核对：{exc}。")
+    match = re.search(
+        rf"(?ms)^{re.escape(locations.STATE_LIST_HEADING)}\s*\n.*?(?=^## |\Z)", text)
     if not match:
-        return StateListInput(provided=True, issue="state list 没有 `## State list`，未核对。")
+        return StateListInput(provided=True, issue=f"state list 没有 `{locations.STATE_LIST_HEADING}`，未核对。")
     return StateListInput(provided=True, section=match.group(0).rstrip())
 
 
@@ -1346,7 +1360,7 @@ def coverage_lines(
                 if state not in components[region]:
                     lines.append(f"- state list 状态缺失：`{region}` 的 `{state}` 不在该页 `scene` prop。")
         if not regions:
-            lines.append("- state list 的 `## State list` 下没有可核对的区域。")
+            lines.append(f"- state list 的 `{load_locations().STATE_LIST_HEADING}` 下没有可核对的区域。")
     for page, labels in sorted(_by_page(audit.text_without_id).items()):
         lines.append(f"- 带文字但没有 `data-ui` id：`{page}`（{len(labels)} 处）：" + "；".join(labels))
     for page, labels in sorted(_by_page(audit.controls_without_id).items()):

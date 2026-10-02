@@ -113,7 +113,7 @@ PROBE_TIMEOUT_S = 0.5
 # Where the registry and the instance directories live. Read at the moment one is
 # needed, never bound once at import: a process that sets `MMW_HOME` after this module
 # is in memory means it, and an empty value is no value — the same reading as `home()`
-# in the `dispatch` skill's `statedir.py`, which is the canonical reader.
+# in the `mmw` skill's `statedir.py`, which is the canonical reader.
 def home() -> Path:
     """The machine's MMW root: `MMW_HOME`, else `~/.mmw`."""
     return Path(os.environ.get("MMW_HOME") or (Path.home() / ".mmw"))

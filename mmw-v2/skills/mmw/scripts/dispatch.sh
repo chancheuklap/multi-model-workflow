@@ -1132,7 +1132,7 @@ except ValueError as exc:
 # ------------------------------------------------------------------ the ticket
 
 # Prints three lines when the ticket is ready to be worked on — its worker labels,
-# its title, then the spec number from `## Parent` — and one line prefixed with
+# its title, then the spec number from its parent link — and one line prefixed with
 # REFUSE when it is not. The worker labels are the ticket's own labels ending in
 # `-worker`, space separated, and the first line is empty when it carries none.
 read_ticket() {
@@ -1174,7 +1174,7 @@ for b in nodes:
     if why:
         blockers.append("#" + str(b.get("number")) + ("" if why == "open" else " (" + why + ")"))
 grades = sorted(name for name in labels if name and name.endswith("-worker"))
-# The batch is the parent link the tracker records, and nothing else. `## Parent` is
+# The batch is the parent link the tracker records, and nothing else. The Parent section is
 # prose written for a person: #193 opens that section with 「无 spec；本仓自建票。收口
 # #188 的评审票外」, so any reader taking the first `#N` in it comes back with 188. A
 # ticket with no parent link belongs to no batch, and its events carry an empty `spec`.
@@ -1622,7 +1622,7 @@ start_session() {
 # with no task scope and no task-scoped list. Both blocks are indexes (id, title, the
 # record's first line) with fixed caps, so the prompt does not grow with the store: the
 # worker opens the records it judges relevant. Related experience comes from several
-# short searches — each path under the ticket's `## Owns`, the ticket title, the spec
+# short searches — each path in the ticket's Owns section, the ticket title, the spec
 # title and the map title — because Nowledge suppresses every result for a query that
 # names an anchor no record holds, which long task prose always does. A record whose
 # body names one of those paths ranks first; then how many searches returned it; then
@@ -1631,12 +1631,15 @@ start_session() {
 worker_memory_packet() {
   local number="$1" spec="$2" repository_space="$3"
   MMW_MEMORY_TICKET="$number" MMW_MEMORY_SPEC="$spec" \
-  MMW_MEMORY_SPACE="$repository_space" python3 - <<'PY'
+  MMW_MEMORY_SPACE="$repository_space" python3 - "$SKILL_ROOT/scripts" <<'PY'
 import json
 import os
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, sys.argv[1])
+import locations
 
 ticket = os.environ["MMW_MEMORY_TICKET"]
 spec_number = os.environ["MMW_MEMORY_SPEC"]
@@ -1691,7 +1694,7 @@ def memories(args):
 
 def owned_paths(body):
     lines = str(body or "").splitlines()
-    start = next((i for i, line in enumerate(lines) if line.strip() == "## Owns"), None)
+    start = next((i for i, line in enumerate(lines) if line.strip() == locations.OWNS_HEADING), None)
     if start is None:
         return []
     paths = []
@@ -2681,8 +2684,8 @@ integrated_ticket_numbers() {
     | awk '!seen[$0]++'
 }
 
-# Print one ticket number per line for every sibling ticket the code-review skill's Spec
-# axis has to cross-check: every `Merge branch 'issue-<n>'` on the base branch's own
+# Print one ticket number per line for every sibling ticket the Spec axis brief of the review,
+# `spec-reviewer.md`, has to cross-check: every `Merge branch 'issue-<n>'` on the base branch's own
 # first-parent history, between this ticket's newest recorded `worker.started.base` and
 # the freshly fetched `origin/<into>`. Read-only; run from any checkout of the repository.
 integrated_since_start() {
@@ -4316,7 +4319,7 @@ summary_spec() {
          "" | *[!0-9]*)
            echo "dispatch: the 'Findings routed:' line of #$spec reads '$routed', whose last count is not a number, so whether the closing pass left findings unrouted was not checked" >&2 ;;
          0) ;;
-         *) refuse "#$spec still holds $open_findings finding(s) that no resolve-child reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh resolve-child <ticket> <child> fixed\`, \`dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>\` as the closing pass of the dispatch skill's references/night.md says, then run close-night again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
+         *) refuse "#$spec still holds $open_findings finding(s) that no resolve-child reached (Findings routed: $routed, counted opened/fixed/became/skipped/unread/open), so nothing was posted and the night's watch is still open. Posting the summary closes that watch, and this count sits inside the comment it posts, so an unfinished closing pass would come to light only once nothing could act on it. Route each one with \`dispatch.sh resolve-child <ticket> <child> fixed\`, \`dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>\`, or \`dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>\`, then run close-night again; \`dispatch.sh status $spec\` names every ticket of the batch, and the fold of one ticket's events lists its children with their kind and route" ;;
        esac ;;
   esac
 
