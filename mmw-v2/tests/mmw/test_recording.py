@@ -426,9 +426,9 @@ class TestReverifyActorIsExplicit(unittest.TestCase):
 
 
 class TestExitCodesHelp(unittest.TestCase):
-    """`--lint`, `--open-child` and `--review` each have their own exit codes documented
-    beside the rest, so `references/linting.md` and `references/sub-issues.md` no
-    longer have to carry a second copy."""
+    """The exit codes of `--claim`, `--open-child` and `--review` are printed by
+    `ticket_state.py --help` together with the rest of `EXIT_CODES`. No reference
+    file keeps a second copy."""
 
     def test_lint_sub_issue_and_review_are_documented(self):
         for flag in ("--claim", "--open-child", "--review"):

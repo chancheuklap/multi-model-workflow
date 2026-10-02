@@ -8,11 +8,11 @@ The written half of the landing pipeline: what a spec and a ticket are, the sect
 
 **worker grade**:
 Which of the two workers a ticket goes to: at once a ticket label and a `models.json` row. `dispatch.sh` reads the label afresh each time the ticket is started.
-_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
 **`junior-worker`**:
 The default worker grade (`DEFAULT_WORKER` in `dispatch.sh`).
-_Home_: `mmw-v2/skills/dispatch/scripts/dispatch.sh`
+_Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
 **`senior-worker`**:
 The worker grade for a ticket where a mistake would not show on the day it is written: money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default.
@@ -241,11 +241,11 @@ _Home_: `docs/agents/issue-tracker.md`
 
 **frontier**:
 The tickets `advance` may start now, as `status.py` computes them from the tracker. Distinct from wayfinder's frontier, a map's open, unblocked, unclaimed children.
-_Home_: `mmw-v2/skills/dispatch/scripts/status.py`
+_Home_: `mmw-v2/skills/mmw/scripts/status.py`
 
 **sub-issue**:
-The tracker's native parent–child relation. A map's children are its decision tickets and specs, a spec's direct children are its tickets, and a ticket's direct children are the issues a worker opens under it with `--sub-issue <kind>`.
-_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/verify-ticket/references/sub-issues.md`
+The tracker's native parent–child relation. A map's children are its decision tickets and specs, a spec's direct children are its tickets, and a ticket's direct children are the issues a worker opens under it with `ticket_state.py <n> --open-child <kind>`.
+_Home_: `docs/agents/issue-tracker.md`, `mmw-v2/skills/verify-ticket/references/child-issues.md`
 
 ### Labels and queues
 
@@ -267,7 +267,7 @@ _Home_: `docs/agents/triage-labels.md`, `mmw-v2/upstream/skills/engineering/tria
 
 **`needs-triage`**:
 The label of an issue nobody has judged yet: an issue from outside, a ticket its worker handed back or that bounced twice, a landed ticket `reverify` reopened, or a child a worker opened. The triage skill reads this queue.
-_Home_: `mmw-v2/upstream/skills/engineering/triage/SKILL.md`, `mmw-v2/upstream/skills/engineering/triage/references/pipeline-issues.md`
+_Home_: `mmw-v2/upstream/skills/engineering/triage/SKILL.md`, `mmw-v2/skills/mmw/references/pipeline-issues.md`
 
 **`needs-info`**:
 Waiting on the user for more information; one of triage's four outcomes.
