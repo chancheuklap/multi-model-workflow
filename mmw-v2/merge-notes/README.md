@@ -24,6 +24,8 @@
 
 流程句（这一步之后做什么、交给哪个技能）、原则句和本仓库的配置字面（例如 label 名）不写进上游目录：流程在 `mmw` 技能的 playbook 里，原则在它的 `principles/` 里，label 名在 `docs/agents/` 下由技能读取的文件里。调用开关也不在子树里改，见 `## disable-model-invocation`。`mmw-v2/upstream-pstack/` 里的文字一律不改。
 
+连线检查第 3 类（`mmw-v2/tests/lib/check_wiring.py`）把子树 `skills/` 下每份 `.md` 与上一个 squash 提交逐句比对，每处差异都要在它所属技能的说明里登记：说明里以这份文件相对技能目录的路径为标题的那一节，写出差异所在的标题、步骤或粗体段落的原文；frontmatter 里的差异用反引号写出它的键，例如 `description`；第一个标题之前的正文写出那一句开头的三个词；一份文件整个是本仓的改动时，那一节写「全文」。上游没有的文件是新增一份文件的能力改动，在说明里以它的文件名为标题单列一节。
+
 `to-spec`、`to-tickets` 的本仓文字不在上游目录里：它们分叉成本仓自有的技能 `mmw-v2/skills/to-spec/`、`mmw-v2/skills/to-tickets/`，上游目录里的同名技能是原文、不安装（`skills.txt` 装的是 `self/to-spec`、`self/to-tickets`；两者同名，`install.sh` 拒绝重名）。拉 upstream 时这两个上游目录照常取上游；上游的改进要不要进分叉，读上游的 diff 后在分叉里改。分叉的文字归 `mmw` 技能的 `references/skill-set-rules.md` 与结构 lint 管。两份说明记本仓的文字现在在哪里。
 
 ## `disable-model-invocation`

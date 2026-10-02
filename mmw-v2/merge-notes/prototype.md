@@ -27,20 +27,20 @@
 | frontmatter `description` | 三类触发：逻辑、UI、实现方式。上游改措辞可跟，但第三类不能丢。改它要重开会话 |
 | 首句「A prototype is …」 | 不用 throwaway 的说法；写明它留在仓库、持续迭代，正式代码以它为参考 |
 | Pick a branch | 三枝，第三枝指向 `EXP.md`；兜底规则里库/算法/集成 → experiment |
-| 标题「Rules that apply to …」、规则 2、规则 5 | 覆盖三枝（every branch；experiment 也一条命令起；experiment 每次跑写 evidence page） |
+| 标题「Rules that apply to …」、规则 2（**Trivial to run.**）、规则 5（**Surface the state.**） | 覆盖三枝（every branch；experiment 也一条命令起；experiment 每次跑写 evidence page） |
 | 规则 2「A logic demo is …」 | host 能发布就是在线页，否则双击 |
 | 规则 1 | 存放约定：leaf directory `prototypes/<effort>/<issue>/<UI\|LOGIC\|EXP>/` + leaf `README.md`，`<issue>` 是 ticket number；`<effort>` 是这次工作的目录名，`prototypes/` 与 `docs/specs/` 下同名（小写 ASCII 单词用 `-` 连；`design-pages` 的 existing product 一步指回这一条，`write-screen-contract` 与 `design-pages` 的 pull 从已存在的 `prototypes/<effort>/` 目录读出它，都不另写推导），来源分级按「有没有 wayfinder map」判，不按「有没有 ticket」（map 的 `## Notes` 写的那个 → 问 user → 分支名，`/` 换 `-`）；UI 自建路由仍守项目路由约定 |
-| 规则 4 | 保留「无测试」并写明测试归正式代码；「不抽象」放宽为「复用部分要有清楚边界」 |
+| 规则 4（**Skip the polish.**） | 保留「无测试」并写明测试归正式代码；「不抽象」放宽为「复用部分要有清楚边界」 |
 | 规则 6（**Record the answer, keep the prototype**） | 结论进 leaf `README.md`；leaf directory 是 prototype 的家，下一轮同一个问题在它上面迭代；有 ticket 就把 leaf directory 链为 asset。**没有** throwaway branch。上游这一条的「Fold any validated decision into the real code」不收：原型会话不改正式代码，LOGIC、EXP 的结论进 spec 或小改动、UI 的 winner 进 Claude Design，都由 playbook **Prototype** 的 **Hand the answer on** 交出。leaf `README.md` 的下游读者句（`to-spec` 引用它、`to-tickets` 从它复制精确值、worker 夜里照它的结论施工）也加在这里：技能只说"write the verdict"，没说给谁看、按什么用，实际用例（`prototypes/task-board/546` 到 `551` 那几份）只写了指向 tracker 评论的指针，读不到决定本身 |
 
 ### LOGIC.md
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| 第 1 步 | 问题同时写进 leaf `README.md` |
-| 第 3 步第二段（新增）、第 4 步首句 | 文件写进 leaf directory 是源头；host 能把文件发布成在线交互页就发布交链接，否则交文件。按能力措辞，不写 host 名 |
-| 第 2 步「The page around it is …」 | 页面是壳，纯模块是正式代码的来源；不用 throwaway 措辞 |
-| 第 5 步 | 纯模块是正式模块的写作来源；HTML 壳留在 leaf directory，下一轮还能跑 |
+| 第 1 步（`### 1. State the question`） | 问题同时写进 leaf `README.md` |
+| 第 3 步（`### 3. Build the shareable HTML file`）第二段（新增）、第 4 步（`### 4. Hand it over`）首句 | 文件写进 leaf directory 是源头；host 能把文件发布成在线交互页就发布交链接，否则交文件。按能力措辞，不写 host 名 |
+| 第 2 步（`### 2. Isolate the logic in a portable module`）「The page around it is …」 | 页面是壳，纯模块是正式代码的来源；不用 throwaway 措辞 |
+| 第 5 步（`### 5. Capture the answer and the prototype`） | 纯模块是正式模块的写作来源；HTML 壳留在 leaf directory，下一轮还能跑 |
 | 第 2–4 步其余内容、反模式 | 上游的，照收 |
 
 ### UI.md
