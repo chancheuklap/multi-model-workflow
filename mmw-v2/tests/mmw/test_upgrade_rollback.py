@@ -225,6 +225,27 @@ class UpgradeRollback(unittest.TestCase):
                 self.assertEqual(result.stdout, "")
                 self.assertEqual(self.snapshot(), before)
                 print(f"ROLLBACK REFUSED {key}: {watches}")
+        watches.write_text("{}")
+        identity = self.command(
+            "python3", "-c",
+            "import json, sys; sys.path.insert(0, sys.argv[1]); import statedir; "
+            "print(json.dumps(statedir.process_identity(int(sys.argv[2]))))",
+            self.installed / "skills/mmw/scripts", os.getpid())
+        record = {"pid": os.getpid(), "identity": json.loads(identity.stdout)}
+        self.assertIsNotNone(record["identity"])
+        for kind in ("relay", "watchdog"):
+            with self.subTest(lock=kind):
+                lock = state / f"{kind}.lock"
+                lock.write_text(json.dumps(record))
+                before = self.snapshot()
+                result = self.prepare(expected=2)
+                self.assertEqual(len(result.stderr.splitlines()), 1, result.stderr)
+                self.assertIn("LIVE-LOCK", result.stderr)
+                self.assertIn(kind, result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(self.snapshot(), before)
+                lock.unlink()
+                print(f"ROLLBACK REFUSED {kind} lock: {lock}")
 
     def test_rollback_without_preparation_records_leftovers(self):
         self.upgraded()
@@ -270,6 +291,13 @@ class UpgradeRollback(unittest.TestCase):
         trusted = (self.home / ".codex/config.toml").read_bytes()
         links = self.copied_links()
         self.assertTrue(links)
+        foreign = {"type": "command", "command": "foreign-hook --keep"}
+        for relative in SWEPT:
+            path = self.home / relative
+            data = json.loads(path.read_text()) if path.exists() else {}
+            entries = data.setdefault("hooks", {}).setdefault("ForeignEvent", [])
+            entries.append(foreign if relative == ".cursor/hooks.json" else {"hooks": [foreign]})
+            path.write_text(json.dumps(data))
         self.prepare()
         self.steps += 1
         self.assertEqual(self.copied_links(), set())
@@ -282,6 +310,7 @@ class UpgradeRollback(unittest.TestCase):
         self.assertTrue((self.home / ".mmw/skill-copies").is_dir())
         for relative in SWEPT:
             self.assertFalse(any("hook-launcher" in command for commands in self.handlers(relative).values() for command in commands))
+            self.assertEqual(self.handlers(relative)["ForeignEvent"], [foreign["command"]])
             path = self.home / relative
             if path.exists():
                 self.assertTrue(list(path.parent.glob(path.name + ".bak-*")), relative)
