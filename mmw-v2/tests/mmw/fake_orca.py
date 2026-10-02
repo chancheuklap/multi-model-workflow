@@ -184,9 +184,11 @@ def answer(state, rows, command, opts):
     if row is None:
         return {'error': {'code': 'terminal_handle_stale', 'message': 'terminal_handle_stale'}}, 1
     if command == 'terminal close':
-        stop(row)
+        exit_file = state / f'{handle}.exit'
+        row['healthyBeforeClose'] = alive(row) or (exit_file.exists() and exit_file.read_text() == '0')
         row['closed'] = True
         atomic_write(state / 'terminals.json', rows)
+        stop(row)
         return {'closed': handle}, 0
     if command == 'terminal read':
         tail = []
@@ -239,7 +241,9 @@ def main():
             print('UNHANDLED ' + ' '.join(args), file=sys.stderr)
             return 2
         log_call(log, args, program='orca')
-    if 'error' in result:
+    if command == 'agent-context':
+        print(json.dumps(result))
+    elif 'error' in result:
         print(json.dumps({'ok': False, **result}))
     else:
         print(json.dumps({'ok': True, 'result': result}))

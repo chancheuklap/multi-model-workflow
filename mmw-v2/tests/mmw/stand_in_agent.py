@@ -20,7 +20,7 @@ from pathlib import Path
 
 ACTIONS = {
     'work-a-ticket': {
-        'Adopted ticket': (('dispatch', 'adopt', '{n}'),),
+        'Adopted ticket': (('dispatch', 'adopt', '{n}', '--into', '{into}'),),
         'Claim': (('ticket', '--claim'),),
         'Read yourself in': (('gh', 'issue', 'view', '{n}', '--json', 'title,body,parent'),),
         'Write the code': (('@write_code',),),
@@ -28,7 +28,8 @@ ACTIONS = {
                                               ('ticket', '--run-and-record-criteria')),
         'Post the decisions': (('@decisions',),),
         'Get reviewed': (('@review_round',),),
-        'Run every criterion one final time': (('ticket', '--reverify', '--actor', 'worker'),),
+        'Run every criterion one final time': (('ticket', '--run-and-record-criteria',
+                                               '--reverify', '--actor', 'worker'),),
         'Audit against the ticket': (('gh', 'issue', 'view', '{n}', '--json', 'body'),
                                      ('git', 'diff', '--exit-code', 'HEAD')),
         'Tell the touched tickets': (('ticket', '--touched'),),
@@ -48,7 +49,7 @@ ACTIONS = {
         'Lint the batch': (('verify', '{n}', '--lint'),),
         'Advance, then end your turn': (('dispatch', 'advance', '{n}'),),
         'Handle each wake': (('dispatch', 'status', '{n}'), ('dispatch', 'advance', '{n}')),
-        'Closing pass': (('dispatch', 'findings', '{n}'), ('@resolve_findings',)),
+        'Closing pass': (('@resolve_findings',),),
         'Close the Memory records': (('@memory_decisions',),),
         'Reverify and summarize': (('dispatch', 'reverify', '{n}'),
                                    ('dispatch', 'close-night', '{n}', '--memory-decisions', '{memory}')),
@@ -150,7 +151,8 @@ class Agent:
                 if method() == 'wait':
                     return
             else:
-                values = {'n': str(self.number), 'draft': self.draft_path, 'memory': self.memory}
+                values = {'n': str(self.number), 'draft': self.draft_path, 'memory': self.memory,
+                          'into': os.environ.get('MMW_FAKE_ADOPT_INTO', '')}
                 result = self.command(op, *(value.format(**values) for value in args),
                                       acceptable=(0, 3) if '--run-and-record-criteria' in args else (0,))
                 if result.returncode == 3:
@@ -226,6 +228,8 @@ class Agent:
         self.paths()
         text = text.replace(self.locations.AUDITED_LINE + ' <fill>',
                             self.locations.AUDITED_LINE + ' yes')
+        if not any(line.startswith(self.locations.AUDITED_LINE) for line in text.splitlines()):
+            text += '\n' + self.locations.AUDITED_LINE + ' yes\n'
         if '<fill>' in text:
             raise RuntimeError('unanswered rehearsal draft field')
         path.write_text(text)
@@ -249,16 +253,11 @@ class Agent:
         return 'wait'
 
     def resolve_findings(self):
-        # Only children marked finding are settled; contract/fault/decision stay visible.
-        result = self.command('gh', 'api', '--paginate',
-                              f'repos/{{owner}}/{{repo}}/issues/{self.number}/sub_issues?per_page=100')
-        for ticket in json.loads(result.stdout):
-            kids = json.loads(self.command('gh', 'api', '--paginate',
-                             f'repos/{{owner}}/{{repo}}/issues/{ticket["number"]}/sub_issues?per_page=100').stdout)
-            for child in kids:
-                if child['state'] == 'open' and any(label['name'] == 'mmw:finding' for label in child['labels']):
-                    self.command('dispatch', 'resolve-child', str(ticket['number']),
-                                 str(child['number']), 'stale', 'invalid')
+        # The real status reader resolves child kinds from events, not invented labels.
+        result = self.command('dispatch', 'findings', str(self.number))
+        for line in result.stdout.splitlines():
+            ticket, child, _ = line.split(' ', 2)
+            self.command('dispatch', 'resolve-child', ticket, child, 'stale', 'invalid')
 
     def memory_decisions(self):
         result = self.command('dispatch', 'prepare-memory-decisions', str(self.number))
@@ -348,6 +347,8 @@ def main():
                     print(result.stderr, end='', file=sys.stderr, flush=True)
                     if result.returncode not in (0, 2):
                         raise RuntimeError(f'STOP HOOK FAILED {result.returncode}')
+                with args.inbox.with_suffix('.completed').open('a') as stream:
+                    stream.write(line + '\n')
             time.sleep(0.05)
     except (NoAction, RuntimeError, OSError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
@@ -355,4 +356,7 @@ def main():
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    code = main()
+    if '--inbox' in sys.argv:
+        Path(sys.argv[sys.argv.index('--inbox') + 1]).with_suffix('.exit').write_text(str(code))
+    raise SystemExit(code)
