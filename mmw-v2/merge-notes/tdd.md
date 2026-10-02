@@ -8,7 +8,7 @@
 
 | 段落 | 我们的意图 |
 | --- | --- |
-| `## Seams: where tests go` 的 `**Test only at pre-agreed seams.**` 一段，与 `## Rules of the loop` 的 `**Refactoring is not part of the loop.**` 一条 | 第 22 行的「Working from a ticket, the seams under test are the ones its `## Seam` section names.」→ `mmw-v2/skills/mmw/playbooks/work-a-ticket.md` 第 3 步 **Write the code**（spec #597 第 6 节）；第 38 行带票的那半句 → 同一份 playbook 的 `#### The review round`（spec #597 第 6 节）；其余加句随回原文撤回（R18 §4.2 `tdd` 行）。上游改这两段 → 收上游 |
+| `## Seams: where tests go` 的 `**Test only at pre-agreed seams.**` 一段 | 第 22 行的「Working from a ticket, the seams under test are the ones its `## Seam` section names.」→ `mmw-v2/skills/mmw/playbooks/work-a-ticket.md` 第 3 步 **Write the code**（spec #597 第 6 节）；第 38 行带票的那半句 → 同一份 playbook 的 `#### The review round`（spec #597 第 6 节）；其余加句随回原文撤回（R18 §4.2 `tdd` 行）。 |
 | `## Seams: where tests go` 末句 `When the shape of that interface is itself in question …` | host 中立：改成读 `codebase-design` 技能的 `SKILL.md` 取词汇。判据是这一句自己给的——`it is a reference to consult, not a session to run`。共同理由见 [README.md](README.md#host-中立)，写法见 `mmw` 技能的 `references/skill-set-rules.md` `### Paths and host neutrality` 与 `### Hand-offs` |
 
 ### tests.md 与 mocking.md

@@ -2,13 +2,11 @@
 
 源目录：`mmw-v2/upstream/skills/engineering/implement/`
 
-`SKILL.md` 回到 `5b1a4c51` 的上游原文：15 行，`disable-model-invocation` 与 `agents/openai.yaml` 的 `policy` 两处开关都在。`skills.txt` 的 `engineering/implement` 暂带 `+model-invoked`，安装副本里去掉这两处；`s6-mode-b2` 删掉那一行后不再安装。没有保留任何改动。拉 upstream 时 `SKILL.md`、`agents/openai.yaml` 取上游。
+`SKILL.md` 回到 `5b1a4c51` 的上游原文：15 行，`disable-model-invocation` 与 `agents/openai.yaml` 的 `policy` 两处开关都在。`skills.txt` 的 `engineering/implement` 暂带 `+model-invoked`；`s6-mode-b2` 删掉那一行后不再安装。没有保留任何改动。
 
-## 逐段意图
+## 原来的内容去了哪里
 
-### SKILL.md
-
-原来的内容去了哪里（spec #597）：
+spec #597：
 
 - 认领、读入、写码、收尾各步 → `mmw-v2/skills/mmw/playbooks/work-a-ticket.md`（第 6 节）
 - 两条写码规则 → `mmw-v2/skills/mmw/references/code-writing-rules.md`（第 6 节）
@@ -19,3 +17,7 @@
 文档页 `mmw-v2/upstream/docs/engineering/implement.md` 回到上游原文。
 
 旧的逐段意图见 `git show 3155bf4f:mmw-v2/merge-notes/implement.md`。
+
+### SKILL.md
+
+没有与上游原文不同的段落。
