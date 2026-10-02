@@ -2,7 +2,7 @@
 
 源目录：`mmw-v2/upstream/skills/engineering/implement/`
 
-`SKILL.md` 回到 `5b1a4c51` 的上游原文：15 行，`disable-model-invocation` 与 `agents/openai.yaml` 的 `policy` 两处开关都在。`skills.txt` 的 `engineering/implement` 暂带 `+model-invoked`；`s6-mode-b2` 删掉那一行后不再安装。没有保留任何改动。
+`SKILL.md` 回到 `5b1a4c51` 的上游原文：15 行，`disable-model-invocation` 与 `agents/openai.yaml` 的 `policy` 两处开关都在。没有保留任何改动。
 
 ## 原来的内容去了哪里
 
