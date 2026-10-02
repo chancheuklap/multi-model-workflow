@@ -84,7 +84,8 @@ def remove_copy_links(home):
 def remove_launcher_hooks(home):
     mark = f"'{home / '.mmw/bin/hook-launcher'}' "
     for relative, fmt, exclusive in SWEPT:
-        path = home / relative
+        path = (Path(os.environ.get("CODEX_HOME") or home / ".codex") / "hooks.json"
+                if relative == ".codex/hooks.json" else home / relative)
         if not path.is_file():
             continue
         data = json.loads(path.read_text(encoding="utf-8"))
