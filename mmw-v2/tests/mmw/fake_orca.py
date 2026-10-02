@@ -184,8 +184,7 @@ def answer(state, rows, command, opts):
     if row is None:
         return {'error': {'code': 'terminal_handle_stale', 'message': 'terminal_handle_stale'}}, 1
     if command == 'terminal close':
-        exit_file = state / f'{handle}.exit'
-        row['healthyBeforeClose'] = alive(row) or (exit_file.exists() and exit_file.read_text() == '0')
+        row['healthyBeforeClose'] = alive(row)
         row['closed'] = True
         atomic_write(state / 'terminals.json', rows)
         stop(row)

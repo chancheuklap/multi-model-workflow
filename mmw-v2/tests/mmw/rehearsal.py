@@ -172,6 +172,7 @@ class Rehearsal:
                 raise RuntimeError('installed-root does not name the disposable clone')
             self.dispatch = self.scripts / 'dispatch.sh'
             self.statedir = load('rehearsal_statedir', self.scripts / 'statedir.py')
+            self.events_module = load('rehearsal_events', self.scripts / 'events.py')
             if self.checked([sys.executable, self.scripts / 'models.py', 'runner'], cwd=self.clone) != 'orca':
                 raise RuntimeError('disposable models.json did not select orca')
             self._consumer()
@@ -260,21 +261,31 @@ class Rehearsal:
             raise RuntimeError(f'unknown rehearsal terminal {handle}')
         inbox.with_suffix('.go').touch()
 
+    def terminals(self):
+        path = self.orca_state / 'terminals.json'
+        return json.loads(path.read_text()) if path.exists() else []
+
+    def events(self, number, name=None):
+        state = json.loads(self.gh_state.read_text())
+        result = []
+        for comment in state['issues'][str(number)]['comments']:
+            kind, event = self.events_module.parse(comment['body'])
+            if kind == 'unreadable':
+                raise RuntimeError(f'#{number}: {event}')
+            if kind == 'event' and (name is None or event['event'] == name):
+                result.append(event)
+        return result
+
     def release_started_agents(self, *, hold=()):
         """Release only sessions whose real started event is visible in the tracker."""
         state = json.loads(self.gh_state.read_text())
-        events = load('rehearsal_events', self.scripts / 'events.py')
-        started = set()
-        for issue in state['issues'].values():
-            for comment in issue['comments']:
-                kind, event = events.parse(comment['body'])
-                if kind == 'event' and event['event'] in ('worker.started', 'reviewer.started'):
-                    started.add(event['session'])
-        path = self.orca_state / 'terminals.json'
-        rows = json.loads(path.read_text()) if path.exists() else []
-        for row in rows:
+        started = {event['session'] for number in state['issues']
+                   for event in self.events(number)
+                   if event['event'] in ('worker.started', 'reviewer.started')}
+        for row in self.terminals():
             if row['handle'] in started and row['handle'] not in hold:
                 self.release_agent(row['handle'])
+
     def relay_once(self):
         return self.run([sys.executable, self.scripts / 'relay.py', 'run', '--repo', self.repository, '--once'])
 
@@ -313,12 +324,10 @@ class Rehearsal:
     def close(self):
         if self.closed:
             return
-        terminals = self.orca_state / 'terminals.json'
-        if terminals.exists():
-            for row in json.loads(terminals.read_text()):
-                if row['pid'] not in self.pids:
-                    self.pids.append(row['pid'])
-                stop(row)
+        for row in self.terminals():
+            if row['pid'] not in self.pids:
+                self.pids.append(row['pid'])
+            stop(row)
         state = self.home / '.mmw' / 'state'
         if state.exists() and hasattr(self, 'statedir'):
             for lock in state.glob('*/*.lock'):

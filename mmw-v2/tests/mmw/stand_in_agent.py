@@ -68,7 +68,7 @@ WORKER_STEPS = ('Claim', 'Read yourself in', 'Write the code',
                 'Integrate and run every criterion', 'Post the decisions', 'Get reviewed',
                 'Run every criterion one final time', 'Audit against the ticket',
                 'Tell the touched tickets', 'Draft the closing comment', 'Close out')
-POINTER = re.compile(r'(?: · |: )?mmw ([\w-]+)#(.+?)(?:\. Data: [^\r\n]+)?\.?$')
+POINTER = re.compile(r'\bmmw(?: ([\w-]+))?#(.+?)(?:\. Data: [^\r\n]+)?\.?$')
 
 
 class NoAction(RuntimeError):
@@ -80,6 +80,14 @@ def load(name, path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def identity(first_line):
+    role = re.search(r'Role ([\w-]+)', first_line)
+    number = re.search(r'(?:ticket|spec) #(\d+)', first_line)
+    if not role or not number:
+        raise RuntimeError(f'NO IDENTITY {first_line}')
+    return role[1], int(number[1])
 
 
 def installed_root():
@@ -253,7 +261,7 @@ class Agent:
         return 'wait'
 
     def resolve_findings(self):
-        # The real status reader resolves child kinds from events, not invented labels.
+        # The status reader resolves child kinds from events.
         result = self.command('dispatch', 'findings', str(self.number))
         for line in result.stdout.splitlines():
             ticket, child, _ = line.split(' ', 2)
@@ -319,11 +327,8 @@ def main():
         if not args.inbox or not args.handle:
             parser.error('--inbox and --handle are required for a terminal')
         first = args.inbox.read_text().splitlines()[0]
-        role = re.search(r'Role ([\w-]+)', first)
-        number = re.search(r'(?:ticket|spec) #(\d+)', first)
-        if not role or not number:
-            raise RuntimeError(f'NO IDENTITY {first}')
-        agent = Agent(role[1], int(number[1]), args.inbox)
+        role, number = identity(first)
+        agent = Agent(role, number, args.inbox)
         consumed = 0
         while True:
             with args.inbox.open() as stream:
@@ -356,7 +361,4 @@ def main():
 
 
 if __name__ == '__main__':
-    code = main()
-    if '--inbox' in sys.argv:
-        Path(sys.argv[sys.argv.index('--inbox') + 1]).with_suffix('.exit').write_text(str(code))
-    raise SystemExit(code)
+    raise SystemExit(main())
