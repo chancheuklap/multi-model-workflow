@@ -34,5 +34,5 @@
 - 子票变成票：`dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>`。
 - grade 每次开工时重读：`dispatch.sh start`。
 - 一夜的 frontier：`mmw` 技能的 `scripts/status.py`。
-- triage-labels 里读写真两个队列标签的，是 `mmw` 技能的脚本和 `verify-ticket`。`drive-target` 不是已安装的技能。
+- triage-labels 里读写这两个队列标签的，是 `mmw` 技能的脚本和 `verify-ticket`。`drive-target` 不是已安装的技能。
 - ADR 索引里那条 `` `implement` ``：工人按 **Work a ticket** 做。一个只有人能定的 ADR 缺口，仍是开一张 `decision` 子票，按默认继续，而不是自己发明边界。

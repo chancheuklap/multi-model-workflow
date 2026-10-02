@@ -30,7 +30,7 @@ _Home_: `mmw-v2/skills/advisor/references/advising.md`
 ### Worker shared experience
 
 **task root**:
-The map or standalone spec that bounds one worker's shared experience, derived from the ticket's native parent graph and printed in the worker's start prompt as `MMW task root:`.
+The map or standalone spec that bounds one worker's shared experience, derived from the ticket's native parent graph and written in the worker's data file `state/<owner>__<name>/prompts/<n>-<role>.md` as `MMW task root:`.
 _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
 **`MMW_TASK_SCOPE`**:
@@ -38,11 +38,11 @@ The one task-scope Memory label a worker retrieves and writes under: `mmw-map-<n
 _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
 **Current task shared experience**:
-The index of the newest Memory records carrying `MMW_TASK_SCOPE` in the repository Space, put into a worker's start prompt. Distinct from **Related experience**, which is found by search.
+The index of the newest Memory records carrying `MMW_TASK_SCOPE` in the repository Space, written into the worker's data file `state/<owner>__<name>/prompts/<n>-<role>.md`. Distinct from **Related experience**, which is found by search.
 _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
 **Related experience**:
-The index of `mmw-experience` Memory records a worker's start finds by searching the ticket's `## Owns` paths and the ticket, spec and map titles, put into the start prompt.
+The index of `mmw-experience` Memory records a worker's start finds by searching the ticket's `## Owns` paths and the ticket, spec and map titles, written into the data file `state/<owner>__<name>/prompts/<n>-<role>.md`.
 _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
 **save conditions**:
@@ -56,7 +56,7 @@ _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 ### Reviewer Rules
 
 **reviewer Rules**:
-The Nowledge Mem Rules the user approved that `dispatch.sh start <n> reviewer` copies into the reviewer's start prompt. They decide what the reviewer inspects; every finding still needs a current source.
+The Nowledge Mem Rules the user approved that `dispatch.sh start <n> reviewer` writes into the reviewer's data file `state/<owner>__<name>/prompts/<n>-reviewer.md` under `Active reviewer Rules approved for this review`. They decide what the reviewer inspects; every finding needs a current source.
 _Home_: `mmw-v2/skills/mmw/playbooks/review-a-ticket.md` (`#### Active Rules`)
 
 ### Comments on the ticket

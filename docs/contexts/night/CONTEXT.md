@@ -47,7 +47,7 @@ The per-ticket unit `dispatch.sh` opens and archives: the worktree `.worktrees/i
 _Home_: `mmw-v2/skills/mmw/scripts/dispatch.sh`
 
 **wake**:
-What the relay sends a session when an event it waits on lands on a ticket: one line, `#<n> <event> · mmw <playbook>#<step>`. The recipient's role comes from the watch's `kind`, and the step comes from that role's `wakes` in `roles.json`. A watch with no `kind` is not guessed: the relay refuses the delivery and names the command that reopens it (`open-night`, `open-ticket-watch` or `adopt`). An **ack** still matches the recipient, the ticket and the event name. Distinct from a `watchdog:` line, which the watchdog sends itself and which is not acked.
+What the relay sends a session when an event it waits on lands on a ticket: one line, `#<n> <event> · mmw <playbook>#<step>`. The recipient's role comes from the watch's `kind`, and the step comes from that role's `wakes` in `roles.json`. An **ack** matches the recipient, the ticket and the event name, not the pointer. Distinct from a `watchdog:` line, which the watchdog sends itself and which is not acked.
 _Home_: `mmw-v2/skills/mmw/scripts/relay.py`, `mmw-v2/skills/mmw/roles.json`
 
 **worktree**:

@@ -32,7 +32,7 @@ The relay watches a night's spec from `open-night` to `close-night` or `suspend`
 
 A wake is `#<n> <event> · mmw <playbook>#<step>`. The recipient's role comes from the watch's `kind`; a watch with no `kind` is not guessed, and the relay refuses the delivery and names the command that reopens it. The step pointer comes from that role's `wakes` in `mmw-v2/skills/mmw/roles.json`, keyed by the role and the event. Which events wake which role is that file's. `relay.recovered since <time>` is the relay-wide form and carries the same kind of pointer. A recovered relay reads every ticket again and queues the events it found after the recovery wake.
 
-Those three kinds are the whole of what a `child.opened` wakes anyone for. A `finding` or `deferred` child is written on its ticket and wakes nobody, so the closing pass reads every ticket of the batch and never its own wakes.
+A `child.opened` wakes the orchestrator only for the kinds `contract`, `fault` and `decision`. A `finding` or `deferred` child is written on its ticket and wakes nobody, so the closing pass reads every ticket of the batch and never its own wakes.
 
 ## The watchdog and turn guard
 
