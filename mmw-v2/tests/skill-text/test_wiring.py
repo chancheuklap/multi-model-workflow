@@ -13,6 +13,8 @@ SCRIPT = LIB / 'check_wiring.py'
 FIXTURES = Path(__file__).resolve().parent / 'fixtures/wiring'
 MODE = 'mmw-v2/skills/mmw'
 WORK_ROUTE = '\n## Playbooks\n\n- **Work.** Do the work. `playbooks/work-a-ticket.md`.\n'
+# Template-only fixtures have no worker/resume recipient to trigger class 6.
+TEMPLATE_ROLES = '{"reviewer":{"playbook":"work-a-ticket","wakes":{}}}'
 
 
 class Wiring(unittest.TestCase):
@@ -296,7 +298,7 @@ class Wiring(unittest.TestCase):
         self.assertRegex(result.stdout, r'(?m)^mmw-v2/skills/example/SKILL.md:1: class 1 ')
 
     def test_wiring_one_line_class(self):
-        self.write(MODE + '/roles.json', '{"reviewer":{"playbook":"work-a-ticket","wakes":{}}}')
+        self.write(MODE + '/roles.json', TEMPLATE_ROLES)
         samples = {
             'relay.py': (FIXTURES / 'class-8.py').read_text(),
             'watchdog.py': 'alert = {"text": "watchdog: first\\nsecond"}\n',
@@ -375,12 +377,21 @@ class Wiring(unittest.TestCase):
         result = self.check()
         for category in (3, 10):
             self.assertEqual(self.findings(result, category), [])
+        graph = self.check('--graph')
+        self.assert_status(graph, 0)
+        self.assertEqual(graph.stdout.splitlines(), [
+            own + ' -> ' + MODE + '/scripts/present.py : 10',
+            upstream + ' -> mmw-v2/upstream-example/skills/drawing/scripts/tool.py : 10',
+        ])
         self.fixture('class-10.py', 'mmw-v2/board/example.py')
         self.write('mmw-v2/skills/absent', '')
         result = self.check()
         self.assert_status(result, 1)
         self.assertIn('mmw-v2/board/example.py:1: class 10 mmw-v2/skills/absent '
                       'is not obtained through locations.py', result.stdout.splitlines())
+        self.assertIn('mmw-v2/board/example.py:1: class 3 mmw-v2/skills/absent '
+                      'is a cross-directory path not obtained through locations.py',
+                      result.stdout.splitlines())
 
     def test_wiring_class11_counts_an_own_skill_naming_the_command(self):
         self.fixture('class-11.sh', MODE + '/scripts/dispatch.sh')
@@ -779,7 +790,7 @@ class Wiring(unittest.TestCase):
         self.assertNotIn('install.sh --check', result.stdout)
 
     def test_wiring_resume_text_at_call_sites(self):
-        self.write(MODE + '/roles.json', '{"reviewer":{"playbook":"work-a-ticket","wakes":{}}}')
+        self.write(MODE + '/roles.json', TEMPLATE_ROLES)
         self.write(MODE + '/scripts/dispatch.sh',
                    'resume_one() {\n local text="$2"\n runner send "$ident" "$text"\n}\n')
         for path in (MODE + '/references/night.md',

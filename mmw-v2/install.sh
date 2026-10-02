@@ -1993,14 +1993,17 @@ if result.returncode not in (0, 1):
     unchecked(f'退出 {result.returncode}：{result.stdout.strip()} {result.stderr.strip()}')
 
 finding = re.compile(r'^(?:report: )?.+:\d+: class (\d+)\b')
-empty = re.compile(r'^report: class (2|6|7):')
+empty = re.compile(r'^report: class (\d+):')
+selected = ('2', '6', '7')
 failed = False
 has_findings = False
 for line in result.stdout.splitlines():
     match = finding.match(line)
+    empty_match = empty.match(line)
     if match:
         has_findings = True
-    if (match and match[1] in ('2', '6', '7')) or empty.match(line):
+    if ((match and match[1] in selected) or
+            (empty_match and empty_match[1] in selected)):
         print(line, file=sys.stderr)
         failed |= not line.startswith('report: ')
 if result.returncode == 1 and not has_findings:

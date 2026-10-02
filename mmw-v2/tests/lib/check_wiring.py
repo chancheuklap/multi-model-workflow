@@ -439,9 +439,7 @@ class Wiring:
                      subtree_root(source) == subtree_root(label))):
                 return
             self.add(source, line, 10, f'{label} is not obtained through locations.py', registry_path=True)
-            origin = component_root(source)
-            if origin != component_root(label):
-                self.add(source, line, 3, f'{label} is a cross-directory path not obtained through locations.py')
+            self.add(source, line, 3, f'{label} is a cross-directory path not obtained through locations.py')
 
     def paths(self):
         quoted_chain = r'(?:\s*/\s*["\'][a-zA-Z0-9_./-]+["\'])+'
