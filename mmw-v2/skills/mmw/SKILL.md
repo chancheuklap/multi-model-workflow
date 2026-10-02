@@ -9,11 +9,11 @@ description: "How work runs in a repository that uses the MMW landing pipeline: 
 
 In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose file you read this session. An unattended session writes them into its deliverable, as `## Writing the reply` says.
 
-- About to close a ticket, change its queue label or write an event → only through the `verify-ticket` skill's `python3 scripts/verify-ticket.py` or this skill's `bash scripts/dispatch.sh`. In a ticket's worktree a hook refuses closing the ticket or changing its queue label by hand, and a ticket closed around these scripts carries no event the pipeline can read.
+- About to close a ticket, change its queue label or write an event → only through `python3 scripts/ticket_state.py` or `bash scripts/dispatch.sh`. In a ticket's worktree a hook refuses closing the ticket or changing its queue label by hand, and a ticket closed around these scripts carries no event the pipeline can read.
 - A script or a hook refused you → do the one next step it names (**principle-refusals-name-one-next-step**).
 - About to start, reach or stop the running product, or to touch a process or a port → the `ui-acceptance` skill's `## Five rules while the product is running`. Several tickets run on this machine at once.
 - Reading a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line, or the repository has no `.mmw/target.json` → the `ui-acceptance` skill.
-- Code you are about to write is covered by a screen-contract row → the `implement` skill's `references/writing-interface-code.md`.
+- Code you are about to write is covered by a screen-contract row → the `ui-acceptance` skill's `references/writing-ui-code.md`.
 - A decision that is expensive to undo (an architecture choice, a data migration, a big refactor, an API shape) is about to be committed, one problem has resisted two attempts, or a disputed reading of the task is about to be treated as settled → `dispatch.sh advise <file>` starts an `advisor` session. Whether the decision is worth one is that skill's `references/consulting.md` `## When it is worth a session`.
 - A merge conflicts, or a clean merge turns the repository checks red → the `resolving-merge-conflicts` skill.
 - A step only a person can take (a credential, a third-party dashboard, a test on a real machine) → the `wizard` skill, or a person ticket as the `to-tickets` skill's `references/person-ticket.md` says (**principle-human-steps-stay-human**).
@@ -75,16 +75,16 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 **Precedence.** The user's `shared.md` rules come first, then this mode, then the playbook you serve (its local qualification of a principle included), then a principle. A human gate a capability skill carries is not in this order. With the user present, stop at it. Unattended, this mode does not lift it: the gate becomes your role's outlet below, so a worker that meets a product gate opens a `decision` child.
 
-**With the user present.** `shared.md` rules 1 to 3 say who decides what. A pipeline action you can undo (`advance`, `route`, `resume`) you take without asking. Three you always put to the user first: merging a project branch into the repository's default branch, which remains the user's release decision; running the full `install.sh`; and `finish`, which runs only after the user has accepted the night.
+**With the user present.** `shared.md` rules 1 to 3 say who decides what. A pipeline action you can undo (`advance`, `resolve-child`, `resume`) you take without asking. Three you always put to the user first: merging a project branch into the repository's default branch, which remains the user's release decision; running the full `install.sh`; and `finish`, which runs only after the user has accepted the night.
 
-**Unattended.** The start prompt marks the session unattended, or a hook refused a question. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Put no question on the screen. Take the option the ticket, its baselines and the spec make most likely, write one line for it where your role records a decision, and keep going.
+**Unattended.** The start prompt carries `unattended:`, or a hook refused a question. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. Put no question on the screen. Take the option the ticket, its baselines and the spec make most likely, write one line for it where your role records a decision, and keep going.
 
 **Where each role records a decision.**
 
-- **Worker.** Under `Decisions I made on my own` in the closing comment, as the `implement` skill's `## Claim, read in, write the code` says.
-- **Reviewer.** At the end of the finding's line in the `REVIEW` report, as the `code-review` skill's `references/session.md` says.
+- **Worker.** Under `Decisions I made on my own` in the closing comment, as `#### Unattended outlets` in **Work a ticket** says.
+- **Reviewer.** At the end of the finding's line in the `REVIEW` report, as `#### Unattended outlets` in **Review a ticket** says.
 - **Advisor.** In your answer, beside the recommendation and the deciding risk, as **Missing information gets named precisely.** in the `advisor` skill's `references/advising.md` says.
-- **Orchestrator.** In a comment on the child, the ticket or the spec, as the opening of the `dispatch` skill's `references/night.md` says.
+- **Orchestrator.** In a comment on the child, the ticket or the spec, as `#### Unattended outlets` in **Run a night** says; for one ticket outside a night, in a comment on that ticket, as `#### Unattended outlets` in **Land one ticket** says.
 - **Researcher.** In the resolution comment on the research ticket, as `#### Unattended outlets` in **Research a question** says.
 
 **Redo or report.** A step of yours that failed, you redo yourself (`shared.md` rule 11). A fault outside your own code (the pipeline, the environment, a product you cannot reach) is not yours to route around: opening its `fault` child is the redo of that step (**principle-report-faults-through-the-pipeline**).
@@ -104,7 +104,7 @@ When a wake arrives, the session was compacted, or `resume` reaches you:
 4. **Go to the named step.** Go to the step the wake's pointer names. With no pointer (the session was compacted, or what reached you is not a wake), run `dispatch.sh where` and do what its line says (**principle-resume-from-durable-state**).
    Done when you are working the step a pointer, or an `AT`, `BETWEEN` or `FRESH` line of `where`, names, or doing what an `UNKNOWN` line's reason says.
 
-`dispatch.sh` here is this skill's `scripts/dispatch.sh`, in the installed checkout your host loaded this skill from. `dispatch.sh` finds the scripts of the skills it calls into by itself, so no path is ever passed to it. Never run a file of the same name in the worktree you are in: that copy is the product being changed, not the pipeline running you.
+`dispatch.sh` here is this skill's `scripts/dispatch.sh`, in the installed checkout your host loaded this skill from. `dispatch.sh` finds the scripts of the skills it calls into by itself, so no path is ever passed to it. When a data file or a wake line gives its absolute path, use that path. Never run a file of the same name in the worktree you are in: that copy is the product being changed, not the pipeline running you.
 
 ## Subagents
 
@@ -114,7 +114,7 @@ Start the subagents of one step in one message, and wait for all of them. A repo
 
 A subagent that must write nothing is told so in its brief: "You are read-only: write nothing." There is no read-only setting to rely on instead.
 
-A subagent in this session names no model: it runs on this session's. A role that needs a session and a model of its own is started by its `dispatch.sh` command; the `dispatch` skill's `references/editing-models.md` says how to read which model a role runs on.
+A subagent in this session names no model: it runs on this session's. A role that needs a session and a model of its own is started by its `dispatch.sh` command; the `setup-mmw` skill says how to read which model a role runs on.
 
 You own every subagent's work. Read its output and write your own summary, don't pass through what it said.
 
@@ -134,28 +134,30 @@ When no playbook below fits, say so, then open a todolist of the steps you will 
 - **Prototype.** A question only something built and run can settle: a state model, what a UI looks like, whether a library or an approach works ("prototype", "mock it up", "sketch it to decide"). Distinct from **Write a spec and tickets**, where the conversation answers the question, and from **Research a question**, where documents do. `playbooks/prototype.md`.
 - **Make a small change.** A change small enough that the user will check it directly: no tickets, no night. Distinct from **Write a spec and tickets**, which needs several sessions, criteria a script runs, and a reviewer of its own. `playbooks/make-a-small-change.md`.
 - **Bug fix.** Something is broken or throws ("debug", "diagnose"). Distinct from **Triage an issue**, which judges an issue from outside that nobody has judged yet. `playbooks/bug-fix.md`.
-- **Triage an issue.** An issue or an external PR you did not create waits to be judged. Distinct from a ticket the pipeline handed back, which goes to the `dispatch` skill's `references/night.md`. `playbooks/triage-an-issue.md`.
+- **Triage an issue.** An issue or an external PR you did not create waits to be judged. Distinct from **Accept the night**, which takes back the tickets the pipeline handed back. `playbooks/triage-an-issue.md`.
 - **Research a question.** A question primary sources answer, with the answer kept as a file in the repository ("look it up", "research this"); also the `researcher` role that `dispatch.sh research <n>` starts. Distinct from **Prototype**, which runs something to answer. `playbooks/research-a-question.md`.
-- **Onboard a repository.** Connecting a repository to MMW. Distinct from the `dispatch` skill, which changes the host, model, reasoning effort or runner a role runs on. `playbooks/onboard-a-repository.md`.
-- **Deliver a change.** Handing over a finished change the way this repository takes changes; the last step of **Make a small change**, **Bug fix** and **Authoring or modifying a skill**. Distinct from `finish` in the `dispatch` skill's `references/night.md`, which merges a night's batch into the project branch. `playbooks/deliver-a-change.md`.
+- **Onboard a repository.** Connecting a repository to MMW. Distinct from the `setup-mmw` skill, which changes the host, model, reasoning effort or runner a role runs on. `playbooks/onboard-a-repository.md`.
+- **Deliver a change.** Handing over a finished change the way this repository takes changes; the last step of **Make a small change**, **Bug fix** and **Authoring or modifying a skill**. Distinct from **Accept the night**, whose `finish` merges a night's batch into the project branch. `playbooks/deliver-a-change.md`.
 - **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, this mode, or any text an agent reads. Distinct from **Make a small change**, which changes the product's code, not text an agent reads. `playbooks/authoring-a-skill.md`.
-- A spec's whole batch to run ("run spec #N tonight"), or a night that has run (the morning queue, acceptance, `finish`) → the `dispatch` skill's `references/night.md`.
-- One worker on one ticket, outside any night → the `dispatch` skill's `references/one-ticket.md`.
-- Started on a ticket by `start`, or picking one up yourself → the `implement` skill; when you picked it up yourself, read the `dispatch` skill's `references/inside-a-ticket.md` first.
-- Started as a ticket's reviewer → the `code-review` skill.
-- Changing the model, host, reasoning effort or runner, or opening the task board → the `dispatch` skill.
-- Shipping, building an installer ("ship", "package") → the `exe-release` skill. Distinct from `finish` in the `dispatch` skill's `references/night.md`, which merges into the project branch and builds nothing.
+- **Run a night.** "Run spec #N tonight": a spec's whole batch. Distinct from **Land one ticket**, which runs one ticket. `playbooks/run-a-night.md`.
+- **Accept the night.** A night has run: the morning queue, acceptance, `finish`. Distinct from **Triage an issue**, which judges one issue from outside. `playbooks/accept-the-night.md`.
+- **Land one ticket.** One worker on one ticket, outside any night. Distinct from **Work a ticket**, where you are the worker. `playbooks/land-one-ticket.md`.
+- **Work a ticket.** Started on a ticket by `start`, or picking one up yourself. Distinct from **Land one ticket**, which starts the worker and lands its ticket. `playbooks/work-a-ticket.md`.
+- **Review a ticket.** Started as a ticket's reviewer. Distinct from the `code-review` skill, a review bound to no ticket. `playbooks/review-a-ticket.md`.
+- Changing the model, host, reasoning effort or runner, or opening the task board → the `setup-mmw` skill.
+- Shipping, building an installer ("ship", "package") → the `exe-release` skill. Distinct from **Accept the night**'s `finish`, which merges into the project branch and builds nothing.
 - A design system ("build a design system", "do we need a design system") → the `design-pages` skill's `references/design-system.md`. Distinct from **Design a UI**, which draws pages and writes a screen contract.
 - A survey of the code's architecture → tell the user to run `/improve-codebase-architecture`; the decision it settles goes to **Write a spec and tickets**.
-- The session has to pass to another agent or another host → the `handoff` skill.
+- A review bound to no ticket → the `code-review` skill.
+- The session has to pass to another agent or another host → tell the user to run `/handoff`.
 - The words, not the process, are the problem → the `domain-modeling` skill for the domain's words, the `codebase-design` skill for a module's.
 - What you just said did not land, or it has to be said plainly → the `wait-what` skill.
 - A diagram → the `diagram-design` skill.
 - An AGENTS.md → the `manage-agents-md` skill.
 - Linters and type checkers → the `code-checkers` skill.
-- Learning a concept → the `teach` skill.
+- Learning a concept → tell the user to run `/teach`.
 - A questionnaire → the `to-questionnaire` skill.
-- An interview with no repository → the `grill-me` skill.
+- An interview with no repository → tell the user to run `/grill-me`.
 - A night's retrospective run again → the `retro` skill.
 
 A repository's own playbooks are listed in its `.mmw/playbooks/INDEX.md`, in the same form as the list above, and come after it. Use them only in a session with the user present.
