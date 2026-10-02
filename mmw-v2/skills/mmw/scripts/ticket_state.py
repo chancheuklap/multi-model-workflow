@@ -297,7 +297,7 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
     else:
         # A run is generated from the ticket body, which carries no `ABANDON:` line, so a
         # criterion the draft abandons as `decision` still runs and still reports unmet.
-        # That unmet is the one this draft is allowed to carry: the sub-issue is open and
+        # That unmet is the one this draft is allowed to carry: the decision child is open and
         # the ticket closes on it. Any other unmet is a claim the draft cannot make.
         decided = {a["ac"] for a in engine.parse_abandons(draft) if a["kind"] == "decision"}
         result = reverify.get("result")
@@ -313,7 +313,7 @@ def verified_problems(draft: str, body: str, comments: list[str], first: str) ->
         # The criteria the worker ran must be the criteria the ticket now states. A
         # ticket may legitimately rewrite one — a decision changed what it must do — but
         # then what stands is a verification of something else, and the final run runs again.
-        if reverify.get("shape") != engine.shape_digest(engine.section(body, "Acceptance criteria")):
+        if reverify.get("shape") != engine.shape_digest(engine.section(body, locations.ACCEPTANCE_CRITERIA_HEADING)):
             problems.append("the acceptance criteria have changed since the worker's final "
                             "run: run `ticket_state.py <n> --run-and-record-criteria --reverify --actor worker` again so the run and the "
                             "ticket agree")
@@ -391,7 +391,7 @@ def decisions_line_for(decisions: str | None, path: str, number: int) -> str:
 
 def overlay_run_evidence(body: str, run: dict | None) -> list[dict]:
     """Criteria from the ticket body, ticks and evidence from one run's `criteria`."""
-    base = engine.parse_criteria("\n".join(engine.section(body, "Acceptance criteria")))
+    base = engine.parse_criteria("\n".join(engine.section(body, locations.ACCEPTANCE_CRITERIA_HEADING)))
     ran = {c.get("id"): c for c in (run or {}).get("criteria") or [] if isinstance(c, dict)}
     for item in base:
         if item["id"] in ran:
@@ -411,7 +411,7 @@ def in_ticket_findings(review: str, comment: int | str | None = None,
     posting the report and the worker drafting its closeout each have a different thing
     to do about the row.
     """
-    rows = [row.strip() for row in engine.section(review, "In-ticket")
+    rows = [row.strip() for row in engine.section(review, "## In-ticket")
             if row.strip() and not re.fullmatch(r"<!-- mmw \{.*\} -->", row.strip())]
     if rows in (["None"], ["None."]) or not rows:
         return []
@@ -477,7 +477,7 @@ def run_decisions(number: int, path: Path) -> int:
         return engine.refuse(f"#{number} carries no ticket.checked of your own run to check "
                       f"Outside Owns against")
     want = engine.outside_owns_text(run["payload"])
-    got = outside_owns_from("\n".join(engine.section(text, "Outside Owns")))
+    got = outside_owns_from("\n".join(engine.section(text, "## Outside Owns")))
     if want != got:
         return engine.refuse(f"the file's `Outside Owns` line does not match your newest run, "
                       f"which says `{want}`")
@@ -487,7 +487,7 @@ def run_decisions(number: int, path: Path) -> int:
 
 
 def open_children_owns(number: int) -> list[tuple[int, list[str]]]:
-    """OPEN children of spec `number` and each child's `## Owns` globs, loaded once."""
+    """OPEN children of spec `number` and each child's Owns globs, loaded once."""
     found = []
     for child in engine.tree.children(engine.fetch_tree(number, "spec")):
         if child.get("state") != "OPEN":
@@ -503,7 +503,7 @@ def run_review(number: int, path: Path) -> int:
     """Post the review report on the ticket, as the `reviewer.reported` event.
 
     Nothing here tells the worker: the event on the ticket is what the relay of the
-    dispatch skill turns into the worker's wake-up, so a report that lands is a report
+    mmw skill turns into the worker's wake-up, so a report that lands is a report
     its worker hears about, however the reviewer's turns fell.
 
     The file opens `REVIEW <base-commit>..<HEAD commit>`: that line becomes the
@@ -533,7 +533,7 @@ def run_review(number: int, path: Path) -> int:
 
 
 def run_touched(number: int) -> int:
-    """Post `worker.touched` on each open sibling whose `## Owns` covers a file this
+    """Post `worker.touched` on each open sibling whose Owns covers a file this
     ticket changed outside its own, naming the files and why they were changed."""
     comments = engine.fetch_comments(number)
     review = (engine.events.newest(comments, "reviewer.reported") or {}).get("body")
@@ -551,7 +551,7 @@ def run_touched(number: int) -> int:
     except engine.ParentUnreadable as exc:
         return engine.refuse(f"#{number}: the tracker could not say which spec it sits under ({exc})")
     if spec is None:
-        return engine.refuse(f"#{number} has no parent link and no spec in `## Parent`")
+        return engine.refuse(f"#{number} has no parent link and no spec in `{locations.PARENT_HEADING}`")
     try:
         siblings = open_children_owns(spec)
     except engine.SubIssuesUnreadable as exc:
@@ -702,7 +702,7 @@ def run_open_child(number: int, kind: str, path: Path) -> int:
     printed = (result.stdout or "").strip()
     recorded = 0
     if child is None:
-        sys.stderr.write(f"opened a sub-issue of #{number} but `gh issue create` printed no "
+        sys.stderr.write(f"opened a child of #{number} but `gh issue create` printed no "
                          f"issue number ({printed[:80] or 'nothing'}), so no child.opened "
                          f"event was written on #{number}; do not open it again\n")
         recorded = 1
@@ -757,8 +757,8 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
     `reason` field, one of `events.REFUSALS`, and the sentence is its first line.
 
     A blocker holds until its work has landed, as `events.blocker_hold` reads it off the
-    blocker's own events — the same answer the dispatch skill's frontier gives, so a
-    ticket that skill starts is never refused here for a blocker it had let go.
+    blocker's own events — the same answer `dispatch.sh`'s frontier gives, so a
+    ticket it starts is never refused here for a blocker it had let go.
 
     Every one of these ends in `stop`. Five of the six conditions are set up before a
     worker exists — `dispatch.sh` opens the worktree on `issue-<n>` and checks the state,
@@ -768,7 +768,7 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
 
     The sixth, the tree, is the one whose answer depends on who holds the ticket, because
     a worker comes through this run every time it enters the ticket — the turn it is
-    prompted back into after a review included (the `implement` skill's claim and resume). On that turn
+    prompted back into after a review included (the worker's claim, run on every entry). On that turn
     the uncommitted tracked changes are its own work from an earlier turn, so the tree
     refuses only while the claim is not this account's: read as an upstream fault they
     end a live worker's hold, and the ticket then says `live: false` of a session that
@@ -862,7 +862,7 @@ def _post_baseline(number: int, body: str, base: str, result: engine.BaselineRun
                counts=engine.tally(result.criteria, abandons),
                criteria=results, failed=[r["id"] for r in results if not r["met"]],
                abandons=abandons or None, skipped=result.skipped or None,
-               shape=engine.shape_digest(engine.section(body, "Acceptance criteria")),
+               shape=engine.shape_digest(engine.section(body, locations.ACCEPTANCE_CRITERIA_HEADING)),
                actor="worker", stage=engine.events.checked_stage("baseline", "worker"))
 
 

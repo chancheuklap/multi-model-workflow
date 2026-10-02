@@ -266,6 +266,13 @@ class TestLedgerWithResults(unittest.TestCase):
     LINES = ["- [ ] AC1: a", "  CHECK: true", "  EXPECT: a", "  EVIDENCE: pending",
              "- [ ] AC2: b", "  CHECK: false", "  EXPECT: b", "  EVIDENCE: pending"]
 
+    def test_section_takes_the_whole_heading_line(self):
+        body = "## Owns\n\n- src/import/**\n\n## Acceptance criteria\n- [ ] AC1: import\n"
+        self.assertEqual(vt.section(body, "## Owns"), ["- src/import/**"])
+        with self.assertRaises(ValueError) as caught:
+            vt.section(body, "Owns")
+        self.assertIn("Owns", str(caught.exception))
+
     def test_ticks_and_evidence_come_from_the_run(self):
         out = vt.ledger_with_results(self.LINES, [
             {"id": "AC1", "met": True, "evidence": "exit=0; EXPECT=matched"},

@@ -44,7 +44,7 @@ class Field:
 
 # The keys every repository answers, whatever kind of product it has. `discover`
 # prints an origin-class address plus `instance`. `checks` is read by
-# `verify-ticket.py --closeout`, not by this file, and is listed so the file has one
+# the ticket's closeout, not by this file, and is listed so the file has one
 # account. `delivery` is read by no script: the agent delivering a change made
 # outside a ticket reads it, and this file checks only that a `playbook:<slug>`
 # value names a playbook the repository has.
@@ -90,7 +90,7 @@ FIELDS: tuple[Field, ...] = (
           '{"max": 1, "why": "the callback URL is registered at port 8000"}',
           required=False),
     Field("checks", "list",
-          "the repository's own checks, run by `verify-ticket.py --closeout` before an "
+          "the repository's own checks, run by the ticket's closeout before an "
           "ALL MET ticket closes; the ui-acceptance skill's references/product-answers.md says the "
           "shape",
           '["uv run ruff check .", {"run": "uv run pytest -q", "timeout": 1800}]',

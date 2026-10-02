@@ -21,7 +21,7 @@ not compared.
 
 Exit codes
 ----------
-Exit 0 and one line `STORY OK <passed>/<total>` when every pair matches. Exit 1
+Exit 0 and one line `<locations.STORY_OK> <passed>/<total>` when every pair matches. Exit 1
 with one `DIFF` line per differing element fact. Exit 2 when a negative control
 fails, the story service does not start, a story page is unreachable or 404, the
 requested mount or scene is outside the screen contract, `--pages` is empty, there is no
@@ -58,6 +58,12 @@ def _load(name: str, modname: str):
     spec.loader.exec_module(mod)
     return mod
 
+
+skills = Path(__file__).resolve().parents[2]
+_locations_spec = importlib.util.spec_from_file_location(
+    "_story_parity_locations", skills / "mmw" / "scripts" / "locations.py")
+locations = importlib.util.module_from_spec(_locations_spec)
+_locations_spec.loader.exec_module(locations)
 
 dr = _load("design_render.py", "design_render")
 lease_mod = _load("lease.py", "lease")
@@ -677,7 +683,7 @@ def compare(*, plan, viewports, media, design_origin, route_baseline,
     elif element_lines:
         code, lines = 1, element_lines
     else:
-        code, lines = 0, [f"STORY OK {pair_count}/{pair_count}"]
+        code, lines = 0, [f"{locations.STORY_OK} {pair_count}/{pair_count}"]
     for line in lines:
         print(line)
     if code:

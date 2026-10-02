@@ -28,8 +28,13 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-# The ui-acceptance skill sits beside this one under `skills/`; `--tools` overrides that.
-SIBLING_UA = HERE.parents[1] / "ui-acceptance" / "scripts"
+skills = HERE.parents[1]
+_locations_spec = importlib.util.spec_from_file_location(
+    "_extract_skeleton_locations", skills / "mmw" / "scripts" / "locations.py")
+locations = importlib.util.module_from_spec(_locations_spec)
+_locations_spec.loader.exec_module(locations)
+# The registry supplies the sibling scripts directory; `--tools` overrides that.
+SIBLING_UA = skills / locations.UI_ACCEPTANCE_SCRIPTS
 TOOLS: list[Path] = []
 
 

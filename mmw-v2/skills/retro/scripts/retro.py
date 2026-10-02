@@ -24,7 +24,6 @@ MMW = Path(__file__).resolve().parents[3]
 REPO = Path.cwd().resolve()
 REPOSITORY_OVERRIDE = ""
 SPACE_CACHE = ""
-UI_ACCEPTANCE = MMW / "skills" / "ui-acceptance" / "scripts"
 CATEGORIES = ("Navigation", "Automated checks", "Coding standards",
               "Global AGENTS.md", "Tool economy", "No-ops", "Information access")
 DESTINATIONS = ("check", "script", "repository-agents", "repository-skill",
@@ -44,6 +43,7 @@ def load(name: str, path: Path):
 
 skills = MMW / "skills"
 locations = load("locations", skills / "mmw" / "scripts" / "locations.py")
+UI_ACCEPTANCE = skills / locations.UI_ACCEPTANCE_SCRIPTS
 tree = load("issue_tree", skills / locations.ISSUE_TREE_PY)
 events = load("events", skills / locations.EVENTS_PY)
 refusal = load("refusal", UI_ACCEPTANCE / "refusal.py")

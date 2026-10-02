@@ -18,11 +18,12 @@ What is read is what the repository tracks, or would track — `git ls-files --c
 
     HARNESS LEAK <file>:<line>          exit 1
     HARNESS DESIGN PAGE <file>:<line>   exit 1
-    HARNESS OK                          exit 0
+    <locations.HARNESS_OK>                          exit 0
 """
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import shlex
@@ -31,6 +32,12 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+skills = HERE.parents[1]
+_locations_spec = importlib.util.spec_from_file_location(
+    "_harness_guard_locations", skills / "mmw" / "scripts" / "locations.py")
+locations = importlib.util.module_from_spec(_locations_spec)
+_locations_spec.loader.exec_module(locations)
+
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
@@ -274,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
     if lines:
         print("\n".join(lines))
         return 1
-    print("HARNESS OK")
+    print(locations.HARNESS_OK)
     return 0
 
 

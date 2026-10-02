@@ -4,7 +4,7 @@
     boundary-check.py --run "<command>" [--run …]
 
 For each command: first pass as-is must exit 0; second pass with `MMW_NEGATIVE=1`
-must exit non-zero. Every command meeting both prints `BOUNDARY OK <n>/<n>`
+must exit non-zero. Every command meeting both prints `<locations.BOUNDARY_OK> <n>/<n>`
 (exit 0). A first pass that is red prints `MISS <command> — <last 20 lines>`
 (exit 1). A second pass that is still green prints
 `GREEN WITHOUT INTERACTION <command>` (exit 1). A command that cannot be
@@ -18,6 +18,7 @@ lines are the reference beside this script, `references/boundary-check.md`.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import shlex
 import subprocess
@@ -25,6 +26,12 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+skills = HERE.parents[1]
+_locations_spec = importlib.util.spec_from_file_location(
+    "_boundary_check_locations", skills / "mmw" / "scripts" / "locations.py")
+locations = importlib.util.module_from_spec(_locations_spec)
+_locations_spec.loader.exec_module(locations)
+
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
@@ -135,7 +142,7 @@ def _main(argv: list[str] | None = None) -> int:
         code = check_one(command)
         if code != 0:
             return code
-    print(f"BOUNDARY OK {n}/{n}")
+    print(f"{locations.BOUNDARY_OK} {n}/{n}")
     return 0
 
 

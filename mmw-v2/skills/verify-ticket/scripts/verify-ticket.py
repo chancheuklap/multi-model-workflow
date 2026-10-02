@@ -39,6 +39,10 @@ def _load(name: str, filename: str | Path):
 skills = HERE.parents[1]
 locations = _load("verify_locations", skills / "mmw" / "scripts" / "locations.py")
 events = _load("mmw_events", skills / locations.EVENTS_PY)
+PARENT_HEADING = locations.PARENT_HEADING
+OWNS_HEADING = locations.OWNS_HEADING
+READ_FIRST_HEADING = locations.READ_FIRST_HEADING
+ACCEPTANCE_CRITERIA_HEADING = locations.ACCEPTANCE_CRITERIA_HEADING
 tree = _load("mmw_tree", "issue_tree.py")
 GATE_CHECK = HERE / "gate-check" / "gate-check.mjs"
 GATE_LINT = HERE / "gate-check" / "gate-lint.mjs"
@@ -320,7 +324,7 @@ def fetch_outsider(number: int) -> dict:
     """Where a blocker outside this batch belongs, and whether it is closed.
 
     A blocking edge always points at an issue that exists, so the question is not
-    whether it is there but whether it is a ticket: an issue whose `## Parent` names a
+    whether it is there but whether it is a ticket: an issue whose Parent section names a
     spec. `spec` is that number, or `None` for an issue that is something else.
     Patched out in tests.
     """
@@ -339,11 +343,13 @@ def fetch_outsider(number: int) -> dict:
 
 
 def section(body: str, heading: str) -> list[str]:
-    """The lines under `## <heading>`, up to the next `## ` heading."""
+    """The lines under the whole heading line, up to the next `## ` heading."""
+    if not heading.startswith("## "):
+        raise ValueError(f"section heading must start with '## ': {heading!r}")
     lines = body.splitlines()
     start = None
     for i, line in enumerate(lines):
-        if line.strip() == f"## {heading}":
+        if line.strip() == heading:
             start = i + 1
             break
     if start is None:
@@ -361,14 +367,14 @@ def section(body: str, heading: str) -> list[str]:
 
 
 def parent_spec(body: str) -> int | None:
-    """The first spec number in `## Parent`, e.g. `#76, Implementation Decisions section 1`.
+    """The first spec number in the Parent section, e.g. `#76, Implementation Decisions section 1`.
 
     This section is the copy the user reads, and one ticket may be written against
     sections of more than one spec, in whatever order suits the reader. Which batch the
     ticket belongs to is `spec_of`: the tracker's parent link, falling back to this.
     `repo#n` and `owner/repo#n` are another repository's issue and are not a spec here.
     """
-    for line in section(body, "Parent"):
+    for line in section(body, PARENT_HEADING):
         m = ISSUE_REF_RE.search(line)
         if m:
             return int(m.group(1))
@@ -376,9 +382,9 @@ def parent_spec(body: str) -> int | None:
 
 
 def spec_of(number: int) -> int | None:
-    """The spec this ticket sits under: the tracker's parent link, else `## Parent`.
+    """The spec this ticket sits under: the tracker's parent link, else the Parent section.
 
-    A ticket written against sections of more than one spec names them all in `## Parent`,
+    A ticket written against sections of more than one spec names them all in the Parent section,
     in reader order. The batch is the sub-issue link `fetch_parent` reads; only when the
     tracker records none does this fall back to `parent_spec`.
     """
@@ -389,11 +395,11 @@ def spec_of(number: int) -> int | None:
 
 
 def owns_globs(body: str) -> list[str]:
-    """The paths this ticket is allowed to write, from `## Owns`. `(new)` is a note.
+    """The paths this ticket is allowed to write, from the Owns section. `(new)` is a note.
     Wrapping backticks are stripped so a `:(glob,exclude)` pathspec matches the path.
     """
     globs = []
-    for line in section(body, "Owns"):
+    for line in section(body, OWNS_HEADING):
         m = re.match(r"^\s*-\s+(\S+)", line)
         if not m:
             continue
@@ -419,7 +425,7 @@ def repo_root() -> Path:
 
 def outside_owns_fields(number: int, globs: list[str], root: Path,
                         base: str | None) -> dict:
-    """What the worker's own run records about files outside `## Owns`: `outside_owns`,
+    """What the worker's own run records about files outside the Owns section: `outside_owns`,
     the list, or `outside_owns_unchecked`, the branch it could not be asked on.
 
     The question — did this ticket write outside what it owns — is asked of this ticket's
@@ -461,7 +467,7 @@ def is_ancestor(commit: str, descendant: str, root: Path | None = None) -> bool:
 
 
 def outside_owns(globs: list[str], root: Path, base: str) -> list[str]:
-    """Files this ticket's own commits changed that no `## Owns` glob covers.
+    """Files this ticket's own commits changed that no Owns section glob covers.
 
     Only the commits made on this branch itself count: the first-parent chain since it
     left its base, merge commits excluded. A later ticket merges an earlier ticket's
@@ -584,7 +590,7 @@ def carried_ledger(body: str, comments: list) -> list[str]:
     record = newest_run(comments, "self", "reverify")
     if record is None:
         return []
-    criteria = section(body, "Acceptance criteria")
+    criteria = section(body, ACCEPTANCE_CRITERIA_HEADING)
     payload = record["payload"]
     if payload.get("shape") != shape_digest(criteria):
         return []
@@ -592,12 +598,12 @@ def carried_ledger(body: str, comments: list) -> list[str]:
 
 
 def write_ledger(body: str, directory: Path, lines: list[str] | None = None) -> Path:
-    """The `## Acceptance criteria` section as a ledger file.
+    """The Acceptance criteria section as a ledger file.
 
     Verbatim but for `TIMEOUT:` lines, which gate-check does not read: they are this
     script's, taken off the ticket body by `check_timeout`.
     """
-    criteria = lines if lines is not None else section(body, "Acceptance criteria")
+    criteria = lines if lines is not None else section(body, ACCEPTANCE_CRITERIA_HEADING)
     path = directory / LEDGER_NAME
     kept = [line for line in criteria if not TIMEOUT_LINE_RE.match(line)]
     path.write_text("\n".join(kept) + "\n", encoding="utf-8")
@@ -607,13 +613,13 @@ def write_ledger(body: str, directory: Path, lines: list[str] | None = None) -> 
 def check_timeout(body: str) -> int:
     """Seconds gate-check gets per `CHECK:` on this ticket.
 
-    The largest of `DEFAULT_TIMEOUT` and every `TIMEOUT:` in `## Acceptance criteria`: a
+    The largest of `DEFAULT_TIMEOUT` and every `TIMEOUT:` in the Acceptance criteria section: a
     ticket can raise the limit and never lower it, and it is read off the ticket body
     whichever run this is, so the final `--reverify` runs under the same number as the
     worker's own run.
     """
     values = [DEFAULT_TIMEOUT]
-    for criterion in parse_criteria("\n".join(section(body, "Acceptance criteria"))):
+    for criterion in parse_criteria("\n".join(section(body, ACCEPTANCE_CRITERIA_HEADING))):
         if criterion["timeout"].isdigit() and int(criterion["timeout"]) > 0:
             values.append(int(criterion["timeout"]))
     return max(values)
@@ -876,7 +882,7 @@ def blockers_not_tickets(entries: list[dict]) -> list[str]:
     """Blocking edges to issues that are not tickets under any spec.
 
     A blocking edge always points at an issue that exists, so what is asked here is
-    whether that issue is a ticket: one whose `## Parent` names a spec. An issue that
+    whether that issue is a ticket: one whose Parent section names a spec. An issue that
     names none — a bug, a note, a discussion — is a blocker no part of this pipeline
     will ever close, and the ticket waiting on it can never start.
     """
@@ -958,7 +964,7 @@ def refuse(message: str) -> int:
 
 
 def glob_covers(pattern: str, path: str) -> bool:
-    """Whether an `## Owns` glob covers `path`."""
+    """Whether an Owns glob covers `path`."""
     pattern = pattern.rstrip("/")
     if pattern.endswith("/**"):
         root = pattern[:-3]
@@ -1240,7 +1246,7 @@ def _run_criteria(number: int, reverify: bool, body: str, root: Path) -> Criteri
               outside_owns_fields(number, owns_globs(body), root, base))
     return CriteriaRun(result.returncode, output=printed, ledger=updated,
                        criteria=criteria, abandons=abandons, outcome=outcome, head=head,
-                       shape=shape_digest(section(body, "Acceptance criteria")),
+                       shape=shape_digest(section(body, ACCEPTANCE_CRITERIA_HEADING)),
                        outside_owns=fields, acquisition=slot, summary=summary)
 
 
@@ -1271,7 +1277,7 @@ class BaselineRun(NamedTuple):
 
 def run_baseline(number: int, body: str, base: str, root: Path) -> BaselineRun | None:
     """Criteria that need no product slot, at `base`, in a throwaway detached worktree."""
-    items = parse_criteria("\n".join(section(body, "Acceptance criteria")))
+    items = parse_criteria("\n".join(section(body, ACCEPTANCE_CRITERIA_HEADING)))
     skipped = [c["id"] for c in items if baseline_skipped(c.get("check", ""))]
     runnable = [c for c in items if c["id"] not in skipped]
     tmp = Path(tempfile.mkdtemp(prefix="mmw-baseline-"))
@@ -1338,7 +1344,7 @@ def lint_ticket_graph(number: int, body: str) -> int:
               f"({exc}), so the batch graph was not checked  [parent-unreadable]")
         return 1
     if spec is None:
-        print("ticket graph: no parent link and no spec in `## Parent`, so there is "
+        print(f"ticket graph: no parent link and no spec in `{PARENT_HEADING}`, so there is "
               "no batch to check")
         return 0
     try:
@@ -1390,7 +1396,7 @@ def lint_batch_graph(spec: int, numbers: list[int],
 def criteria_lines(body: str) -> list[tuple[str, str, str]]:
     """`(id, CHECK, EXPECT)` per criterion; a missing attribute reads as an empty string."""
     return [(c["id"], c["check"], c["expect"])
-            for c in parse_criteria("\n".join(section(body, "Acceptance criteria")))]
+            for c in parse_criteria("\n".join(section(body, ACCEPTANCE_CRITERIA_HEADING)))]
 
 
 def lint_worker(labels: list[str]) -> tuple[list[str], list[str]]:
@@ -1442,7 +1448,7 @@ def lint_timeouts(body: str) -> list[str]:
     """A `TIMEOUT:` that is not a positive whole number of seconds is a criterion whose
     limit nobody can read."""
     findings = []
-    for criterion in parse_criteria("\n".join(section(body, "Acceptance criteria"))):
+    for criterion in parse_criteria("\n".join(section(body, ACCEPTANCE_CRITERIA_HEADING))):
         value = criterion["timeout"]
         if value and not (value.isdigit() and int(value) > 0):
             findings.append(f"{criterion['id']}: TIMEOUT is `{value}`; write a whole "
@@ -1898,7 +1904,7 @@ def lint_pipeline_flags(gate_id: str, check: str) -> list[str]:
 
 
 def parent_sections(parent_text: str) -> dict[int, dict]:
-    """Per spec named in `## Parent`: the Implementation Decisions section numbers and
+    """Per spec named in the Parent section: the Implementation Decisions section numbers and
     whether Testing Decisions is named, in either the English or the Chinese shape."""
     out: dict[int, dict] = {}
     for m in re.finditer(r"#(\d+)(.*?)(?=#\d+|$)", parent_text, re.S):
@@ -1915,7 +1921,7 @@ def parent_sections(parent_text: str) -> dict[int, dict]:
 def implementation_decision_numbers(spec_body: str) -> list[int]:
     """`### <n>.` headings under `## Implementation Decisions`, first occurrence of each."""
     numbers = []
-    for line in section(spec_body, "Implementation Decisions"):
+    for line in section(spec_body, "## Implementation Decisions"):
         m = IMPLEMENTATION_DECISION_HEADING_RE.match(line)
         if m:
             numbers.append(int(m.group(1)))
@@ -1931,7 +1937,7 @@ def print_uncovered_sections(spec: int, spec_body: str, named: set[int]) -> None
     for n in numbers:
         if n not in named:
             print(f"  WARN #{spec} Implementation Decisions section {n} is named by no "
-                  f"ticket's ## Parent [uncovered-section]")
+                  f"ticket's {PARENT_HEADING} [uncovered-section]")
     covered = sum(1 for n in numbers if n in named)
     print(f"sections named by a ticket: {covered}/{len(numbers)}")
 
@@ -1970,8 +1976,8 @@ def load_contract_doc(read_first: str) -> tuple[dict | None, str | None]:
 
 def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
                     read_first: str, parent_text: str) -> list[str]:
-    """Every baseline-class source of an owned row must be in `## Read first`; every
-    spec-section source must be named by `## Parent`. A story reaches no worker and is
+    """Every baseline-class source of an owned row must be in the Read first section; every
+    spec-section source must be named by the Parent section. A story reaches no worker and is
     reported as such."""
     findings = []
     parents = parent_sections(parent_text)
@@ -1993,10 +1999,10 @@ def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
                 entry = parents.get(spec)
                 if kind == "Testing Decisions":
                     if not (entry and entry["testing"]):
-                        findings.append(f"row {rid} source `{src}`: `## Parent` does not name "
+                        findings.append(f"row {rid} source `{src}`: `{PARENT_HEADING}` does not name "
                                         f"#{spec} Testing Decisions")
                 elif num and not (entry and int(num) in entry["sections"]):
-                    findings.append(f"row {rid} source `{src}`: `## Parent` does not name "
+                    findings.append(f"row {rid} source `{src}`: `{PARENT_HEADING}` does not name "
                                     f"#{spec} Implementation Decisions section {num}")
                 continue
             if STORY_SOURCE_RE.match(src):
@@ -2010,7 +2016,7 @@ def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
                 seen.add(key)
                 if f"ADR-{num}" not in read_first and f"/{num}-" not in read_first:
                     findings.append(f"row {rid} source `{src}`: ADR-{num} is not under "
-                                    f"`## Read first`")
+                                    f"`{READ_FIRST_HEADING}`")
                 continue
             m = TICKET_SOURCE_RE.match(src)
             if m:
@@ -2020,7 +2026,7 @@ def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
                 seen.add(key)
                 if not re.search(rf"#{m.group(1)}(?!\d)", read_first):
                     findings.append(f"row {rid} source `{src}`: {key} is not under "
-                                    f"`## Read first`")
+                                    f"`{READ_FIRST_HEADING}`")
                 continue
             m = DOC_SOURCE_RE.match(src)
             if m:
@@ -2030,7 +2036,7 @@ def source_findings(row_ids: list[str], rows_by_id: dict[str, dict],
                 seen.add(path)
                 if path not in read_first:
                     findings.append(f"row {rid} source `{src}`: {path} is not under "
-                                    f"`## Read first`")
+                                    f"`{READ_FIRST_HEADING}`")
     return findings
 
 
@@ -2047,7 +2053,7 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
     the item), and the section numbers are the ones after the words
     `Implementation Decisions` (`sections 2 and 3 of Implementation Decisions` reads the
     same). The section is named by its heading in the spec, in English whatever language
-    the rest of the spec is in, because that heading is what `## Parent` names too; a
+    the rest of the spec is in, because that heading is what the Parent section names too; a
     line without those words is returned as unreadable.
 
     A line that says only `none` is the spec saying the product has no such flow.
@@ -2060,7 +2066,7 @@ def critical_flows(spec_body: str) -> tuple[dict[str, set[int]], list[str]]:
     unreadable: list[str] = []
     active = False
     marker_indent: int | None = None
-    for raw in section(spec_body, "Testing Decisions"):
+    for raw in section(spec_body, "## Testing Decisions"):
         line = raw
         marker = None if active else CRITICAL_FLOWS_RE.search(line)
         if marker:
@@ -2134,20 +2140,20 @@ def lint_screen_contract(
     determine the required Component or App story mounts and boundary criteria, and
     each readable boundary test file must contain the row's trigger. A
     `boundary-check.py --run` is a non-empty command; a `journey.py run <name>` exists
-    under `.mmw/journeys/` unless this ticket's `## Owns` covers that directory;
+    under `.mmw/journeys/` unless this ticket's Owns section covers that directory;
     critical-flow journeys require `--break`, while a user-named journey without it is
     a warning;
     no `CHECK:` may stub the application's own network (`vi.stubGlobal('fetch')`, msw,
     nock, fetch-mock) — mocking the product's gateway is not that; the
     pipeline scripts are given what they need and nothing they retired; every
-    baseline-class source of an owned row is under `## Read first` and every
-    spec-section source is named by `## Parent`.
+    baseline-class source of an owned row is under the Read first section and every
+    spec-section source is named by the Parent section.
     """
     findings: list[str] = []
     warning_findings: list[str] = []
     repo = Path(root) if root is not None else repo_root()
-    read_first = "\n".join(section(body, "Read first"))
-    parent_text = "\n".join(section(body, "Parent"))
+    read_first = "\n".join(section(body, READ_FIRST_HEADING))
+    parent_text = "\n".join(section(body, PARENT_HEADING))
     owns = owns_globs(body)
     checks = criteria_lines(body)
     loaded_spec_bodies = dict(spec_bodies or {})
@@ -2180,7 +2186,7 @@ def lint_screen_contract(
                 f"spec #{spec} Critical flows line `{line}` could not be read, so --lint "
                 f"cannot decide whether this journey needs --break; write each flow as "
                 f"`{CRITICAL_FLOW_SHAPE}`, with the words Implementation Decisions in "
-                f"English, as `## Parent` names them")
+                f"English, as `{PARENT_HEADING}` names them")
         return journeys, readable and not unreadable_lines
 
     for gate_id, check, _ in checks:
@@ -2208,7 +2214,7 @@ def lint_screen_contract(
             if (base / ".mmw" / "journeys" / name).exists():
                 exists_or_owned = True
             else:
-                # A ticket whose `## Owns` covers the directory is the ticket that creates
+                # A ticket whose Owns section covers the directory is the ticket that creates
                 # it, so it is absent until this ticket's own work lands. The rule asks
                 # after a journey someone else was to have built.
                 path = "/".join(p for p in (prefix, ".mmw", "journeys", name) if p)
@@ -2237,7 +2243,7 @@ def lint_screen_contract(
     if not m:
         if interface_ticket:
             findings.append("page ticket (a criterion runs story-parity.py) names no "
-                            "`screen-contract.yaml rows: <id, id>` line under `## Read first`")
+                            f"`screen-contract.yaml rows: <id, id>` line under `{READ_FIRST_HEADING}`")
         return findings, warning_findings
     row_ids = ROW_ID_RE.findall(m.group(1))
     doc, contract_path = load_contract_doc(read_first)
@@ -2254,7 +2260,7 @@ def lint_screen_contract(
             findings.append(
                 f"screen-contract.yaml rows names `{row_id}`, but the screen contract has no such "
                 f"row; no page or boundary requirement can be derived; correct the row id "
-                f"under `## Read first`")
+                f"under `{READ_FIRST_HEADING}`")
         rows = [rows_by_id[row_id] for row_id in row_ids if row_id in rows_by_id]
         for gate_id, check, _ in checks:
             if "story-parity.py" not in check:
@@ -2361,7 +2367,7 @@ GATE_LINT_VERDICT_RE = re.compile(
 
 
 def parent_order_findings(body: str, spec: int) -> list[str]:
-    """`## Parent` names the spec this ticket sits under first.
+    """The Parent section names the spec this ticket sits under first.
 
     `parent_spec` reads the first issue number there as the ticket's spec, and it is
     what `spec_of` falls back to, what `fetch_outsider` asks of a blocker in another
@@ -2370,8 +2376,8 @@ def parent_order_findings(body: str, spec: int) -> list[str]:
     first = parent_spec(body)
     if first is None or first == spec:
         return []
-    return [f"`## Parent` names #{first} first, but this ticket sits under spec #{spec}; "
-            f"the first issue in `## Parent` is read as the ticket's spec; write "
+    return [f"`{PARENT_HEADING}` names #{first} first, but this ticket sits under spec #{spec}; "
+            f"the first issue in `{PARENT_HEADING}` is read as the ticket's spec; write "
             f"`#{spec}, Implementation Decisions sections <n>, <n>` first and an earlier "
             f"spec's sections after it (`; #{first} Implementation Decisions section <n>`)"]
 
@@ -2384,7 +2390,7 @@ def lint_criteria(number: int, body: str, labels: list[str],
     criteria are written, and their UI rules. The batch graph is not here;
     `run_lint` checks that once per batch.
 
-    `spec`, when known, is the spec this ticket sits under, and `## Parent` must name it
+    `spec`, when known, is the spec this ticket sits under, and the Parent section must name it
     first. `name` is how the ticket is named in what is printed: `#<number>` unless a
     draft's name stands in for it. The ticket's verdict is the last line printed for it
     and counts every finding above it: gate-lint's own `LINT OK` / `LINT FINDINGS` line
@@ -2420,8 +2426,8 @@ def lint_criteria(number: int, body: str, labels: list[str],
     # A `ready-for-human` ticket carries no criteria at all: what it holds is one thing
     # for the user to look at. gate-lint has nothing to say about it, and
     # saying "zero live gates" would report the ticket's correct shape as a fault.
-    if not section(body, "Acceptance criteria"):
-        print(f"{who} carries no `## Acceptance criteria`, so only its worker label "
+    if not section(body, ACCEPTANCE_CRITERIA_HEADING):
+        print(f"{who} carries no `{ACCEPTANCE_CRITERIA_HEADING}`, so only its worker label "
               f"and its place in the batch are checked")
         if not any(label in CLASS_LABELS for label in labels):
             say("warn", f"{who} carries no layer label, so its layer was read off "
@@ -2503,12 +2509,12 @@ def reads_as_spec(number: int, labels: list[str]) -> bool:
 
 def run_lint(number: int) -> int:
     """`--lint` on a ticket lints that ticket and the graph of the batch it sits under.
-    `--lint` on a spec — an issue with no `## Acceptance criteria` that `reads_as_spec`
+    `--lint` on a spec — an issue with no Acceptance criteria section that `reads_as_spec`
     answers for — lints every one of its sub-issues, then the graph once. The night's
     pre-batch pass names the spec, so a spec number must not come back as a quiet 0."""
     body = fetch_body(number)
     labels = ticket_labels(number)
-    if not section(body, "Acceptance criteria"):
+    if not section(body, ACCEPTANCE_CRITERIA_HEADING):
         try:
             if reads_as_spec(number, labels):
                 return lint_spec(number)
@@ -2542,7 +2548,7 @@ def lint_spec(spec: int) -> int:
         ticket = fetch_ticket(child)
         state = ticket.get('state') or 'state unknown'
         body = fetch_body(child)
-        named |= set(parent_sections("\n".join(section(body, "Parent")))
+        named |= set(parent_sections("\n".join(section(body, PARENT_HEADING)))
                      .get(spec, {}).get("sections") or ())
         print(f"\n## #{child} ({state})")
         if lint_criteria(child, body, labels_of(ticket), {spec: spec_body}, spec=spec):
@@ -2613,7 +2619,7 @@ def lint_drafts(spec: int, directory: Path) -> int:
     `lint_criteria` a published ticket gets, with the labels of its header and `spec` as
     the spec it will sit under; then the graph its `BLOCKED BY:` headers make goes through
     `lint_batch_graph`, and the spec's Implementation Decisions sections are counted
-    against every draft's `## Parent`. The spec itself, and any `#<n>` a draft is
+    against every draft's Parent section. The spec itself, and any `#<n>` a draft is
     blocked by, are read from the tracker. What only a published batch can show is
     listed at the end as not checked."""
     paths = sorted(directory.glob("*.md"))
@@ -2645,7 +2651,7 @@ def lint_drafts(spec: int, directory: Path) -> int:
     for draft in drafts:
         name = draft["name"]
         body = draft["body"]
-        named |= set(parent_sections("\n".join(section(body, "Parent")))
+        named |= set(parent_sections("\n".join(section(body, PARENT_HEADING)))
                      .get(spec, {}).get("sections") or ())
         print(f"\n## {name} (draft)")
         dependencies: list[int | str] = []

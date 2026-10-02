@@ -164,10 +164,23 @@ def _load_module(name: str, path: Path):
     return module
 
 
+_locations = None
+
+
+def load_locations():
+    global _locations
+    if _locations is None:
+        skills = Path(__file__).resolve().parents[2]
+        _locations = _load_module(
+            "_pull_design_locations", skills / "mmw" / "scripts" / "locations.py")
+    return _locations
+
+
 def tool_scripts(tools: Path | None) -> Path:
-    return tools or (
-        Path(__file__).resolve().parents[2] / "ui-acceptance" / "scripts"
-    )
+    if tools is not None:
+        return tools
+    skills = Path(__file__).resolve().parents[2]
+    return skills / load_locations().UI_ACCEPTANCE_SCRIPTS
 
 
 def refusal_text(
@@ -980,9 +993,15 @@ def read_state_list_input(path: Path | None) -> StateListInput:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeError):
         return StateListInput(provided=True, issue="state list 无法读取，未核对。")
-    match = re.search(r"(?ms)^## State list\s*\n.*?(?=^## |\Z)", text)
+    try:
+        locations = load_locations()
+    except (OSError, ImportError) as exc:
+        return StateListInput(
+            provided=True, issue=f"state list 的 locations.py 无法读取，未核对：{exc}。")
+    match = re.search(
+        rf"(?ms)^{re.escape(locations.STATE_LIST_HEADING)}\s*\n.*?(?=^## |\Z)", text)
     if not match:
-        return StateListInput(provided=True, issue="state list 没有 `## State list`，未核对。")
+        return StateListInput(provided=True, issue=f"state list 没有 `{locations.STATE_LIST_HEADING}`，未核对。")
     return StateListInput(provided=True, section=match.group(0).rstrip())
 
 
@@ -1346,7 +1365,7 @@ def coverage_lines(
                 if state not in components[region]:
                     lines.append(f"- state list 状态缺失：`{region}` 的 `{state}` 不在该页 `scene` prop。")
         if not regions:
-            lines.append("- state list 的 `## State list` 下没有可核对的区域。")
+            lines.append(f"- state list 的 `{load_locations().STATE_LIST_HEADING}` 下没有可核对的区域。")
     for page, labels in sorted(_by_page(audit.text_without_id).items()):
         lines.append(f"- 带文字但没有 `data-ui` id：`{page}`（{len(labels)} 处）：" + "；".join(labels))
     for page, labels in sorted(_by_page(audit.controls_without_id).items()):

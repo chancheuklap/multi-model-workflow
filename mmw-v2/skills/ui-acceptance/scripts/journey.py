@@ -20,7 +20,7 @@ Then `stop` runs once more and this run's slot must be quiet: a journey ends lea
 machine as it found it, and anything still listening on the slot outlives the run and
 blocks whichever run is given the slot next.
 
-    JOURNEY OK <name>                                 exit 0
+    <locations.JOURNEY_OK> <name>                                 exit 0
     JOURNEY FAILED <name> at <last line>              exit 1
     JOURNEY GREEN WITH BREAK <name> — <line>          exit 1
     JOURNEY GREEN WITHOUT PRODUCT <name> — <line>     exit 1
@@ -30,6 +30,7 @@ blocks whichever run is given the slot next.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -39,6 +40,12 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+skills = HERE.parents[1]
+_locations_spec = importlib.util.spec_from_file_location(
+    "_journey_locations", skills / "mmw" / "scripts" / "locations.py")
+locations = importlib.util.module_from_spec(_locations_spec)
+_locations_spec.loader.exec_module(locations)
+
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
@@ -272,7 +279,7 @@ def _run_named(name: str, root: Path, break_spec: str | None = None) -> int:
               f"script starts nothing itself in either pass; "
               f"everything it needs is started by `start` and ended by `stop`.")
         return 1
-    print(f"JOURNEY OK {name}")
+    print(f"{locations.JOURNEY_OK} {name}")
     return 0
 
 
