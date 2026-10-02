@@ -18,7 +18,7 @@ Commands of this skill's `bash scripts/dispatch.sh` are named bare below.
 1. **Open the ticket's watch.** `bash scripts/dispatch.sh open-ticket-watch <n>`: this session becomes the ticket's orchestrator, and the line it prints carries the task board's URL; hand it to the user.
    Done when `open-ticket-watch` has exited 0 and the user has the task board URL, or the stderr line saying the board did not start.
 
-2. **Start the worker, then end your turn.** `bash scripts/dispatch.sh start <n> worker`, from a checkout of the branch this ticket will merge into, which must exist on origin. Then end your turn. (**principle-agents-are-woken-not-polled**)
+2. **Start the worker, then end your turn.** `bash scripts/dispatch.sh start <n> worker`, from a checkout of the branch this ticket will merge into, which must exist on origin. Then end your turn (**principle-agents-are-woken-not-polled**).
    Done when `start` has exited 0 and you have ended your turn.
 
 3. **Handle each wake.** You are woken with `#<n> ticket.passed` or `#<n> ticket.returned`, or with another wake. Do mode `## Re-entry` up to and including **Ack the wake**, then do what the One-ticket orchestrator column of `references/orchestrator-wakes.md` says for the wake. On `ticket.passed` or `ticket.returned` go to **Land**; after any other wake, end your turn. A decision nobody is there to make is recorded as `#### Unattended outlets` says.
