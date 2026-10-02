@@ -19,7 +19,7 @@ See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking g
 
 A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 
-**Test only at pre-agreed seams.** The agreement is something written down, never a remark in conversation. Working from a ticket, the seams under test are the ones its `## Seam` section names. With no ticket in hand, write the seams down and confirm them with the user. No test is written at an unconfirmed seam. You can't test everything, so agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
+**Test only at pre-agreed seams.** Before writing any test, write down the seams under test and confirm them with the user. No test is written at an unconfirmed seam. You can't test everything, so agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
 
 Ask: "What's the public interface, and which seams should we test?"
 
@@ -35,4 +35,4 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** Green means the slice is done; restructuring is a separate pass over the finished change, where it is judged with fresh eyes instead of skipped under the next red. Working from a ticket, that pass is the round of fixes that follows its review; with no ticket, it is a deliberate pass once every slice is green. Keeping the change itself correct (a caller of what you changed, a branch your change made dead) is part of the slice, not refactoring.
+- **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red → green implementation cycle.
