@@ -711,21 +711,6 @@ class Wiring(unittest.TestCase):
         self.assertNotIn('installation copy still has invocation switch', isolated.stdout)
         self.assertRegex(isolated.stdout, r'(?m)^report: .*: class 12 ')
 
-    def load_wiring(self):
-        import importlib.util
-        inserted = str(LIB) not in sys.path
-        if inserted:
-            sys.path.insert(0, str(LIB))
-        spec = importlib.util.spec_from_file_location('check_wiring_under_test', SCRIPT)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        try:
-            spec.loader.exec_module(module)
-            return module
-        finally:
-            if inserted:
-                sys.path.remove(str(LIB))
-
     def test_wiring_entry_list_label_is_a_pointer_target(self):
         registry = self.root / (MODE + '/scripts/locations.py')
         registry.write_text(registry.read_text().replace(
@@ -733,6 +718,7 @@ class Wiring(unittest.TestCase):
             "'work-a-ticket': ('Claim', 'Get reviewed', 'Adopted ticket')"))
         self.write(MODE + '/roles.json',
                    '{"worker": {"playbook": "work-a-ticket", "entry": "Adopted ticket"}}\n')
+        self.write(MODE + '/SKILL.md', '# MMW\n' + WORK_ROUTE)
         bold = ('### Work a ticket\n\n'
                 '**Entry.**\n'
                 '- **Adopted ticket.** You picked the ticket up yourself.\n')
@@ -747,13 +733,25 @@ class Wiring(unittest.TestCase):
         self.assertRegex(
             result.stdout,
             r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Adopted ticket has no step or section ')
+        # ### is an anchor the pointer regex must refuse. A plain list item is not an anchor.
+        self.write(MODE + '/playbooks/work-a-ticket.md', '### Adopted ticket\n')
+        result = self.check()
+        self.assert_status(result, 1)
+        self.assertRegex(
+            result.stdout,
+            r'(?m)^(?!report: ).*: class 1 mmw work-a-ticket#Adopted ticket has no step or section ')
 
     def test_wiring_registered_playbook_without_route_is_pending(self):
         name = 'work-a-ticket.md'
         self.write(MODE + '/playbooks/' + name, '#### Get reviewed\n')
         result = self.check()
         self.assertRegex(result.stdout, r'class 7 pending route for ' + re.escape(name))
-        fails = self.load_wiring().CLASS_POLICY[7].pending.fails
+        sys.path.insert(0, str(LIB))
+        try:
+            import check_wiring
+        finally:
+            sys.path.remove(str(LIB))
+        fails = check_wiring.CLASS_POLICY[7].pending.fails
         if fails:
             self.assert_status(result, 1)
             self.assertNotRegex(result.stdout, r'(?m)^report: .*class 7 pending route for ' + re.escape(name))
