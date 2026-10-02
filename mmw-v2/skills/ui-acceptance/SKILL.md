@@ -1,13 +1,13 @@
 ---
 name: ui-acceptance
-description: Use when filling `.mmw/target.json`, reading a DIFF, MISS, JOURNEY or HARNESS line, giving a run its own ports, or before writing a page ticket's code.
+description: Use when filling `.mmw/target.json`, reading a DIFF, MISS, JOURNEY or HARNESS line, giving a run its own ports, or before writing code for a page a screen-contract row covers.
 ---
 
 # UI acceptance
 
 The **product under test** (the product, for short) is the application a consuming repository runs under automation; the repository answers in `.mmw/` what this skill cannot know. Four **oracles**, scripts a `CHECK:` names by bare name, read that answer: the **story oracle** (`story-parity.py`, element parity between a product story and its design page), `boundary-check.py`, `journey.py` and `harness-guard.py`. `lease.py` gives each ticket worktree its own ports and directories.
 
-During a night these oracles are the only eyes on a UI: when every criterion is green, the ticket closes and the code lands with no person looking at the screen. So write the story, the test, the journey and the harness so that green can only mean the product is right; when an oracle is red, change the product, or open a child when the design or the screen contract is wrong, never the check.
+During a night these oracles are the only eyes on a UI: when every criterion is green, the ticket closes and the code lands with no person looking at the screen. So write the story, the test, the journey and the harness so that green can only mean the product is right; when an oracle is red, change the product, or open a child when the design or the screen contract is wrong, never the check (**principle-silence-is-never-a-pass**).
 
 A criterion names an oracle bare; run one by hand as `scripts/<name>`.
 
@@ -15,7 +15,7 @@ A criterion names an oracle bare; run one by hand as `scripts/<name>`.
 
 | You are | Run or read |
 | --- | --- |
-| Writing a page ticket's code, before the first line | the `implement` skill's `references/writing-interface-code.md`, **Before the first line** |
+| Writing code for a page a screen-contract row covers, before the first line | [references/writing-ui-code.md](references/writing-ui-code.md), **Before the first line** |
 | Building the product's story service and its story adapter (the contract ticket's, and every product component after it) | [references/story-parity.md](references/story-parity.md), **The story page the product serves** |
 | Writing a story, boundary, journey or harness guard criterion onto a ticket | the `to-tickets` skill's `references/screen-contract-tickets.md` **Criterion shapes** |
 | Reading the `DIFF` line the story oracle printed, or how it compares a product story with its design page by element parity | [references/story-parity.md](references/story-parity.md) |
@@ -31,8 +31,6 @@ Several runs share one machine, and each gets its own ports and directories from
 
 1. **Never end a process you did not start.** Stop your own product with the `stop` command its repository declares. Everything else on this machine belongs to another run, and another run's product looks exactly like a stuck one. Your shell refuses `kill`, `pkill`, `killall` and `xargs kill`.
 2. **Never start the product outside the lease.** Running the repository's start script yourself, in your own terminal, is how a run ends up on the ports another run is already using. The script refuses without a lease and prints the command that gives it one: `python3 scripts/lease.py run -- <the start command>`.
-3. **Never complete a human step by hand.** If a run cannot get past something without a person — an authorization in a browser, a click — that is a defect in the automation. Report the ticket blocked: satisfying it makes a broken automation look healthy, and the next run has no person in it.
-4. **When the product cannot be reached, report the ticket blocked and stop.** Do not wait, do not build a retry loop, do not change the environment, do not touch another run.
-5. **A fault in the pipeline itself is reported blocked the same way.** `verify-ticket.py`, `dispatch.sh`, an oracle script, `lease.py`, a hook, `.mmw/target.json` — a fault in one of those is not yours to route around and not a reason to keep trying. A workaround built instead hides it from every ticket after yours.
-
-Reporting blocked, in rules 3 to 5, goes through an event, because an event on the ticket is the only thing the relay of the `dispatch` skill wakes anybody for: a plain comment carries none, and a session that ends its turn wakes nobody. A worker opens a `fault` child, as the `implement` skill says, and stops.
+3. **Never complete a human step by hand.** If a run cannot get past something without a person — an authorization in a browser, a click — that is a defect in the automation. Report the ticket blocked: a criterion that goes green past a step you took by hand closes the ticket on an automation the next run cannot get through (**principle-human-steps-stay-human**).
+4. **When the product cannot be reached, report the ticket blocked and stop.** Do not wait, do not build a retry loop, do not change the environment, do not touch another run (**principle-report-faults-through-the-pipeline**).
+5. **A fault in the pipeline itself is reported blocked the same way.** `verify-ticket.py`, `dispatch.sh`, an oracle script, `lease.py`, a hook, `.mmw/target.json` — a fault in one of those is not yours to route around and not a reason to keep trying. The next ticket runs the same scripts and meets the same fault, so a workaround built in yours only hides it (**principle-report-faults-through-the-pipeline**).
