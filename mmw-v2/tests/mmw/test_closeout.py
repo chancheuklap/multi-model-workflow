@@ -33,13 +33,20 @@ UNMET = """- [ ] AC2: the expiry page says the link is stale
 FINAL_RUN = checked("reverify", [MET], "ALL MET (1 met)", commit=HEAD, actor="worker")
 STALE_FINAL_RUN = checked("reverify", [MET], "ALL MET (1 met)",
                           commit=VERIFIED, actor="worker")
+STEP_REPORT_MARKER = "\n\n" + vt.locations.STEPS_WITHOUT_TRACE_HEADER
+
+
+def posted_body(body):
+    """Complete closing prose, paired with its event name."""
+    what, payload = vt.engine.events.parse(body)
+    assert what == "event", (what, payload, body)
+    return body[:body.index("\n\n<!-- mmw")], payload["event"]
 
 
 def posted_as(body):
-    """A posted closing comment as `(prose, event name)`: the draft, then its event."""
-    what, payload = vt.engine.events.parse(body)
-    assert what == "event", (what, payload, body)
-    return body[:body.index("\n\n<!-- mmw")] + "\n", payload["event"]
+    """Draft prose before the step report, paired with the closing event name."""
+    prose, name = posted_body(body)
+    return prose.split(STEP_REPORT_MARKER, 1)[0] + "\n", name
 
 
 def ledger_of(text):
@@ -109,7 +116,7 @@ def check(text, comments=(),
           head=HEAD, dirty=(), main_merged=True, diff="src/app.py",
           state="OPEN", assignees=(ME,), check_only=True, repo=None, body=None,
           reverify=True, tracker_fails=False, post_fails=False, labels=(), reason=None,
-          started_event=STARTED, pushed=None):
+          started_event=STARTED, pushed=None, commits_since_claim="", claim_commit="1" * 40):
     """Run --closeout against a made-up ticket; return (exit code, stderr, side effects).
     With `tracker_fails` the tracker refuses to close the ticket or hand it back; with
     `post_fails` it refuses the comment. `reason` is the ticket's `stateReason`."""
@@ -137,6 +144,10 @@ def check(text, comments=(),
         comments = tuple(comments) + (reverify_of(ledger),)
 
     def fake_git(*args, cwd=None):
+        if args[0] == "rev-list":
+            expected = ("rev-list", "--count", "--first-parent", "--no-merges",
+                        f"{claim_commit}..HEAD")
+            return commits_since_claim if args == expected else ""
         if args[:2] == ("rev-parse", "HEAD"):
             return head
         if args[0] == "merge-base" and "--is-ancestor" not in args:

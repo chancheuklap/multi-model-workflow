@@ -1,4 +1,4 @@
-"""`--closing-draft`: write the closing-comment draft, with two `<fill>` placeholders."""
+"""`--closing-draft`: write the closing-comment draft with fields to fill."""
 
 import io
 import json
@@ -269,6 +269,11 @@ class TestOnlyTheRunsEventIsRead(unittest.TestCase):
 
 
 class TestFixedLines(unittest.TestCase):
+    def test_the_draft_carries_an_audited_line_to_fill(self):
+        code, err, text, _ = run_closing_draft((MET_RUN,))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(text.splitlines().count("Audited against the ticket: <fill>"), 1)
+
     def test_draft_names_into_from_worker_started(self):
         code, err, text, _ = run_closing_draft(
             (MET_RUN,), started_event=(started(into="main"), STARTED))
@@ -478,6 +483,8 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
         self.assertEqual(code, 0, err)
         filled = (text
                   .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"{vt.locations.AUDITED_LINE} {vt.FILL}",
+                           f"{vt.locations.AUDITED_LINE} every requirement holds")
                   .replace(f"\n{vt.FILL}\n", "\nnone\n"))
         self.assertIn("— <fill>", filled)
         self.assertNotIn(f"skipped: {vt.FILL}", filled)
@@ -501,6 +508,8 @@ class TestReviewFindingsInTheDraft(unittest.TestCase):
                            "never fails — source: #77 AC1 CHECK — "
                            "refuted: the case fails when the fixture is empty")
                   .replace(f"skipped: {vt.FILL}", "skipped: none")
+                  .replace(f"{vt.locations.AUDITED_LINE} {vt.FILL}",
+                           f"{vt.locations.AUDITED_LINE} every requirement holds")
                   .replace(f"\n{vt.FILL}\n", "\nnone\n"))
         self.assertNotIn(vt.FILL, filled)
         with mock.patch.object(vt.subprocess, "run", side_effect=fake.run):
