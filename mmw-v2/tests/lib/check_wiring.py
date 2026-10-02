@@ -31,6 +31,7 @@ class Policy:
     fails: bool
     batch: str
     registry: Policy | None = None
+    pending: Policy | None = None
 
 
 # class: failure policy and the batch in which it must fail.
@@ -40,7 +41,7 @@ CLASS_POLICY = {
     3: Policy(False, 'B2 end'),
     5: Policy(True, 'B1'),
     6: Policy(False, 'B2 end'),
-    7: Policy(True, 'B1'),
+    7: Policy(True, 'B1', pending=Policy(False, 'B2 end')),
     8: Policy(True, 'B0'),
     9: Policy(True, 'B1'),
     10: Policy(True, 'B0', registry=Policy(False, 'B2 end')),
@@ -70,6 +71,7 @@ class Finding:
     message: str
     report_only: bool = False
     registry_path: bool = False
+    pending: bool = False
 
 
 class Wiring:
@@ -150,9 +152,9 @@ class Wiring:
         result['mmw-v2/skills/mmw/roles.json'] = self.roles_text
         return result
 
-    def add(self, path, line, category, message, report_only=False, registry_path=False):
+    def add(self, path, line, category, message, report_only=False, registry_path=False, pending=False):
         self.objects.add(category)
-        finding = Finding(path, line, category, message, report_only, registry_path)
+        finding = Finding(path, line, category, message, report_only, registry_path, pending)
         if finding not in self.findings:
             self.findings.append(finding)
 
@@ -176,7 +178,7 @@ class Wiring:
         else:
             text = file.read_text(encoding='utf-8')
             valid = {a.title for a in anchors(text) if
-                     (not slug or re.match(r'\s*(?:#### |(?:\d+[.)] )?\*\*)',
+                     (not slug or re.match(r'\s*(?:#### |(?:(?:\d+[.)]|[-*+]) )?\*\*)',
                                           text.splitlines()[a.start-1]))}
             if normalize_title(title) not in valid:
                 self.add(path, line, 1, f'{target} has no step or section in {rel}')
@@ -603,8 +605,15 @@ class Wiring:
                 rows = [i for i, row in enumerate(content.splitlines(), 1)
                         if re.search(r'(?<![\w-])' + re.escape(book.name) + r'(?![\w.-])', row)]
                 if len(rows) != 1:
-                    self.add(source, rows[0] if rows else 1, 7,
-                             f'{book.name} has {len(rows)} routing rows; expected 1')
+                    # Registered and unrouted is pending. Failure is the sub-policy,
+                    # not a fixed report, so the same finding can start failing later.
+                    if (not rows and directory == self.mode / 'playbooks'
+                            and book.stem in self.playbooks):
+                        self.add(source, 1, 7,
+                                 f'pending route for {book.name} (not routed yet)', pending=True)
+                    else:
+                        self.add(source, rows[0] if rows else 1, 7,
+                                 f'{book.name} has {len(rows)} routing rows; expected 1')
 
     def invocation(self):
         entries = (self.root / 'mmw-v2/skills.txt').read_text(encoding='utf-8') if (self.root / 'mmw-v2/skills.txt').exists() else ''
@@ -853,7 +862,9 @@ def main():
         print(str(exc))
         return 1
     failures = [f for f in findings if not f.report_only and
-                (CLASS_POLICY[f.category].registry if f.registry_path else CLASS_POLICY[f.category]).fails]
+                (CLASS_POLICY[f.category].pending if f.pending else
+                 CLASS_POLICY[f.category].registry if f.registry_path else
+                 CLASS_POLICY[f.category]).fails]
     if args.graph:
         for source, target, category in sorted(check.edges):
             print(f'{source} -> {target} : {category}')
