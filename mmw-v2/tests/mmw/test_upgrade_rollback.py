@@ -8,9 +8,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 from pathlib import Path
+
+from test_hook_launcher_installed import _remove_tree
 
 MMW = Path(__file__).resolve().parents[2]
 REPO = MMW.parent
@@ -63,22 +64,6 @@ if result is not None:
 '''
 
 
-def remove_tree(path):
-    last = None
-    for _ in range(8):
-        if not path.exists():
-            return
-        try:
-            shutil.rmtree(path)
-        except OSError as exc:
-            last = exc
-            time.sleep(0.1)
-            continue
-        if not path.exists():
-            return
-    raise AssertionError(f"could not remove {path}: {last}")
-
-
 class UpgradeRollback(unittest.TestCase):
     def setUp(self):
         found = subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", f"{OLD}^{{commit}}"],
@@ -86,7 +71,7 @@ class UpgradeRollback(unittest.TestCase):
         if found.returncode:
             self.fail(f"required rollback commit is missing: {OLD}")
         self.root = Path(tempfile.mkdtemp())
-        self.addCleanup(remove_tree, self.root)
+        self.addCleanup(_remove_tree, self.root)
         self.home = self.root / "home"
         self.user_home = self.root / "user-home"
         self.user_home.mkdir()
@@ -187,15 +172,24 @@ class UpgradeRollback(unittest.TestCase):
                 for path in (self.home / folder).iterdir()
                 if path.is_symlink() and path.resolve().is_relative_to(copies)}
 
+    def hook_path(self, relative):
+        if relative == ".codex/hooks.json":
+            return Path(self.env.get("CODEX_HOME", self.home / ".codex")) / "hooks.json"
+        return self.home / relative
+
     def handlers(self, relative):
-        path = self.home / relative
+        path = self.hook_path(relative)
         if not path.exists():
             return {}
         hooks = json.loads(path.read_text()).get("hooks", {})
         return {event: [handler.get("command", "")
                         for entry in entries
-                        for handler in ([entry] if relative == ".cursor/hooks.json" else entry.get("hooks", []))]
+                        for handler in entry.get("hooks", [entry])]
                 for event, entries in hooks.items()}
+
+    def launcher_hooked(self, relative):
+        return any("hook-launcher" in command for commands in self.handlers(relative).values()
+                   for command in commands)
 
     def prepare(self, expected=0):
         return self.command("python3", self.installed / "migrations/prepare-rollback.py", expected=expected)
@@ -250,6 +244,7 @@ class UpgradeRollback(unittest.TestCase):
     def test_rollback_without_preparation_records_leftovers(self):
         self.upgraded()
         links = self.copied_links()
+        self.assertTrue(links)
         marker = self.home / ".mmw/board-bootstrapped-commit"
         marker_before = marker.read_bytes()
         result = self.install(OLD, expected=1)
@@ -277,27 +272,32 @@ class UpgradeRollback(unittest.TestCase):
         for link in sorted(links):
             print(f"LEFTOVER skill-copy link: {link}")
         for relative in SWEPT:
-            if any("hook-launcher" in command for commands in self.handlers(relative).values() for command in commands):
-                print(f"LEFTOVER launcher hooks: {self.home / relative}")
+            if self.launcher_hooked(relative):
+                print(f"LEFTOVER launcher hooks: {self.hook_path(relative)}")
         print(f"LEFTOVER mode-hook registration: {self.home / '.claude/settings.json'}")
+        self.assertTrue((self.home / ".mmw/skill-copies").is_dir())
         print(f"LEFTOVER skill-copies: {self.home / '.mmw/skill-copies'}")
         print(f"LEFTOVER researcher: {self.home / '.mmw/models.json'} rows.researcher")
         print(f"LEFTOVER board commit: {marker}")
 
     def test_upgrade_rollback_full_path(self):
+        codex_home = self.home / ".codex-alternate"
+        codex_home.mkdir()
+        (codex_home / "config.toml").write_text("")
+        self.env["CODEX_HOME"] = str(codex_home)
         self.upgraded()
         plist = (self.home / "Library/LaunchAgents/com.mmw.board.plist").read_bytes()
         config = json.loads((self.home / ".mmw/models.json").read_text())
-        trusted = (self.home / ".codex/config.toml").read_bytes()
+        trusted = (codex_home / "config.toml").read_bytes()
         links = self.copied_links()
         self.assertTrue(links)
-        launcher_paths = {relative for relative in SWEPT
-                          if any("hook-launcher" in command for commands in self.handlers(relative).values()
-                                 for command in commands)}
+        launcher_paths = {relative for relative in SWEPT if self.launcher_hooked(relative)}
         foreign = {"type": "command", "command": "foreign-hook --keep"}
-        for relative in SWEPT:
-            path = self.home / relative
-            data = json.loads(path.read_text()) if path.exists() else {}
+        shared = SWEPT[:3]
+        exclusive = SWEPT[3:]
+        for relative in shared:
+            path = self.hook_path(relative)
+            data = json.loads(path.read_text())
             entries = data.setdefault("hooks", {}).setdefault("ForeignEvent", [])
             entries.append(foreign if relative == ".cursor/hooks.json" else {"hooks": [foreign]})
             path.write_text(json.dumps(data))
@@ -307,14 +307,17 @@ class UpgradeRollback(unittest.TestCase):
         after = json.loads((self.home / ".mmw/models.json").read_text())
         self.assertEqual(after, {**config, "rows": {key: value for key, value in config["rows"].items() if key != "researcher"}})
         self.assertEqual(json.loads((self.home / ".mmw/models-researcher-before-rollback.json").read_text()), config["rows"]["researcher"])
-        self.assertEqual((self.home / ".codex/config.toml").read_bytes(), trusted)
+        self.assertEqual((codex_home / "config.toml").read_bytes(), trusted)
         self.assertFalse((self.home / ".mmw/board-bootstrapped-commit").exists())
         self.assertTrue((self.home / ".mmw/bin/hook-launcher").is_file())
         self.assertTrue((self.home / ".mmw/skill-copies").is_dir())
         for relative in SWEPT:
-            self.assertFalse(any("hook-launcher" in command for commands in self.handlers(relative).values() for command in commands))
-            self.assertEqual(self.handlers(relative)["ForeignEvent"], [foreign["command"]])
-            path = self.home / relative
+            self.assertFalse(self.launcher_hooked(relative))
+            if relative in shared:
+                self.assertEqual(self.handlers(relative)["ForeignEvent"], [foreign["command"]])
+            else:
+                self.assertFalse(self.hook_path(relative).exists())
+            path = self.hook_path(relative)
             if relative in launcher_paths:
                 self.assertTrue(list(path.parent.glob(path.name + ".bak-*")), relative)
         snapshot = self.snapshot()
@@ -323,9 +326,12 @@ class UpgradeRollback(unittest.TestCase):
         self.assertEqual(snapshot, self.snapshot())
         self.install(OLD)
         self.assertEqual((self.home / "Library/LaunchAgents/com.mmw.board.plist").read_bytes(), plist)
+        for relative in exclusive:
+            if relative in launcher_paths:
+                self.assertTrue(self.hook_path(relative).is_file())
         self.install(OLD, check=True)
         for relative in SWEPT:
-            self.assertFalse(any("hook-launcher" in command for commands in self.handlers(relative).values() for command in commands))
+            self.assertFalse(self.launcher_hooked(relative))
         for role in ROLES:
             self.command("python3", self.installed / "skills/dispatch/scripts/models.py", "row", role)
         self.steps += 1
