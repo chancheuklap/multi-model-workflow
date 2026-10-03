@@ -1,6 +1,6 @@
 ---
 name: mmw-mode
-description: "How work runs in a repository that uses MMW: routes a task to its playbook, indexes the principles, says what an unattended session may decide and how a woken session picks up. Use in a repository that has a `.mmw/` directory, when a prompt names the mmw-mode skill, or when a message carries an `mmw <playbook>#<step>` pointer."
+description: "How work runs in a repository that uses MMW: routes a task to its playbook, indexes the principles, and says which rule wins when two conflict. Use in a repository that has a `.mmw/` directory, or when a prompt names the mmw-mode skill."
 ---
 
 # MMW mode
@@ -62,7 +62,7 @@ A reply to the user follows user rules 4 to 9. Every playbook ends with a reply 
 
 ## Playbooks
 
-Match the task to a playbook below and open its file. Open a todolist whose first items are that playbook's numbered steps, each copied in verbatim with its title and its `Done when` line, before any task-specific todos; the rest of the file (its opening, any `####` section, its **Reply:** line) is read, not copied. A step you choose not to do stays in the list with a one-line `skip: <reason>`. When a step runs another playbook, that playbook's steps go into the list under the step, the same way. With no todo tool, list the step titles and `skip:` lines at the top of your reply.
+The list below is the route table, and each of its lines a route line. Match the task to a playbook below and open its file. Open a todolist whose first items are that playbook's numbered steps, each copied in verbatim with its title and its `Done when` line, before any task-specific todos; the rest of the file (its opening, any `####` section, its **Reply:** line) is read, not copied. A step you choose not to do stays in the list with a one-line `skip: <reason>`. When a step runs another playbook, that playbook's steps go into the list under the step, the same way. With no todo tool, list the step titles and `skip:` lines at the top of your reply.
 
 When no playbook below fits, say so, then open a todolist of the steps you will take, each naming the component it uses, before any work; the same `skip:` rule applies. The deliverable before any code is the workflow itself.
 

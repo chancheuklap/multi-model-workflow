@@ -15,7 +15,7 @@ One of the seven kinds of text in the skill set, each answering one question: **
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
 
 **mode**:
-The `SKILL.md` of the `mmw-mode` skill: which situation calls for what, which playbook a task takes, what an unattended session may decide, and how a woken session picks up.
+The `SKILL.md` of the `mmw-mode` skill. The question it answers: which situation calls for what, which playbook a task takes, what an unattended session may decide, and how a woken session picks up.
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
 
 **playbook**:
@@ -23,7 +23,7 @@ The steps of one kind of task from start to finish, one file under the `mmw-mode
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
 
 **route line**:
-A line under the mode's `## Playbooks` that names a playbook, the tasks it takes, and its file.
+A line of the route table, the list under the mode's `## Playbooks`: it names a playbook, the tasks it takes, and its file.
 _Home_: `mmw-v3/skills/mmw-mode/SKILL.md` `## Playbooks`
 
 **principle**:
@@ -35,7 +35,7 @@ A skill that does one thing and hands back its result, without knowing who calls
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
 
 **reference**:
-Material read at one step only, in the `references/` of the skill that owns it.
+Material read only at the steps that point to it, or a brief handed to a subagent or to a separately started session, in the `references/` of the skill that owns it.
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
 
 **script**:
