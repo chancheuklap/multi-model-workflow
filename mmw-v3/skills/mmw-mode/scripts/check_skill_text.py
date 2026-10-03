@@ -9,7 +9,8 @@
 - Every relative Markdown link resolves.
 - A principle is cited by its path, never as a bare `**principle-<slug>**`, and every principle file has its index line in `## Principles`.
 - Every playbook routed in `## Playbooks` has its file, and every playbook file is routed.
-- Every playbook or step named after "Run", "through", "in", "to" or "from" exists as a playbook title or a step title.
+- A playbook is cited by its path: its bold title appears only in its own file and its route line. A step named
+  after "Run", "through", "in", "to" or "from" exists as a step title.
 
 Prints one line per problem, one `NOT CHECKED` line per path it could not check, then `OK` or `FAIL` with the counts. Exit 0 when there is no problem, 1 otherwise.
 Usage: python3 scripts/check_skill_text.py
@@ -76,6 +77,12 @@ for f in files:
         for name in sorted(set(re.findall(r"\b(?:Run|through|in|to|from) \*\*([A-Z][^*]*?)\*\*", text))):
             if name not in playbook_titles and name not in step_titles and not name.startswith("principle-"):
                 problems.append(f"{where(f)}: names **{name}**, which is no playbook or step in this skill")
+        for name, home in playbook_titles.items():
+            uses = text.count(f"**{name}**")
+            if f.name == "SKILL.md":
+                uses -= len(re.findall(r"^- \*\*" + re.escape(name) + r"\.\*\* ", text, re.M))
+            if f != home and uses > 0:
+                problems.append(f"{where(f)}: cites **{name}** by title; cite it as {home.relative_to(MODE)}")
 
 for name in sorted(routed - set(playbook_titles)):
     problems.append(f"SKILL.md: routes to **{name}**, which has no playbook file")
