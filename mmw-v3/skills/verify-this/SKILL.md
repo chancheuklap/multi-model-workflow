@@ -26,7 +26,7 @@ Do not use this for vague claims like "the code is cleaner". Ask for a measurabl
 6. Compare raw artifacts: numbers, screenshots, terminal transcripts, HTTP responses, profiles, heap snapshots, or test output.
 7. Return exactly one verdict: `VERIFIED`, `NOT VERIFIED`, or `INCONCLUSIVE`.
 
-When this session has already run the claim on its surface before and after the change (a feedback loop on the original scenario, a fresh agent's walk of changed skill text), those runs are the baseline and treatment: point to them instead of capturing them again.
+When this session has already run the claim on its surface before and after the change (a feedback loop on the original scenario), those runs are the baseline and treatment: point to them instead of capturing them again.
 
 ## Local Surfaces
 
