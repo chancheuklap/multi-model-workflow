@@ -46,7 +46,15 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 ## Subagents
 
-<!-- When to start a subagent, what its brief carries, and who owns its output. -->
+Use your host's general-purpose subagent. Its brief opens with "Read the `mmw-mode` skill's `## Principles` and the step you serve." A brief that is read-only and whole in itself, such as the fresh agent's in `references/skill-set-rules.md` `## Verifying`, does not open with that sentence.
+
+Start the subagents of one step in one message, and wait for all of them.
+
+A subagent that must write nothing is told so in its brief: "You are read-only: write nothing." There is no read-only setting to rely on instead.
+
+A subagent in this session names no model: it runs on this session's.
+
+You own every subagent's work. Read its output and write your own summary, don't pass through what it said.
 
 ## Writing the reply
 

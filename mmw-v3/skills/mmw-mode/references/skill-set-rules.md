@@ -175,7 +175,7 @@ The check is a `grep` of every `SKILL.md`, description and reference (this file 
 
 - Green tests prove the scripts, not that the text reads well; report them on a separate line.
 - The text is proven by a run: a fresh agent given only the trigger and a real job (one the tracker or the repository's history shows was done with this text; for a skill a ticket runs, one real ticket) does the task. Watch which files it opens, where it guesses, and where it stops before the completion criterion. A sentence present in the text is not a behaviour observed; a claim that the text now changes behaviour is unverified until such a run shows it.
-- The fresh agent's brief carries the trigger (the user's words or the start prompt), the job, that it opens only what the text in front of it points to and writes nothing, the record **Walk each task** in the `mmw-mode` skill's `playbooks/review-the-skill-set.md` asks for, and a length limit on its report.
+- The fresh agent's brief carries the trigger (the user's words or the start prompt), the job (the smallest real instance of the task that reaches the changed text), that it opens only what the text in front of it points to and does the job on paper (it writes nothing, and walks a step that would write as far as deciding what it would write), the record **Walk each task** in the `mmw-mode` skill's `playbooks/review-the-skill-set.md` asks for, and a length limit on its report.
 
 
 ## Upstream examples

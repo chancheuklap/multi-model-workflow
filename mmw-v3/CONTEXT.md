@@ -46,6 +46,10 @@ _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the
 Which role reads which playbook, on which model, and which event wakes it.
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
 
+**Memory record**:
+One memory in Nowledge Mem, saved and found through the `memory-records` skill, which is not yet in v3.
+_Home_: `mmw-v2/skills/memory-records/SKILL.md`
+
 **user rule**:
 One of the fifteen numbered rules in the user's own instructions, which the host loads into every session; cited as user rule 1 to user rule 15.
 _Home_: `mmw-v3/skills/mmw-mode/SKILL.md` `## Principles`, **User rules.**
