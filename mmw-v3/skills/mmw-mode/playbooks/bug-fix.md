@@ -8,7 +8,7 @@ Be scientific. Every shipped line traces to runtime evidence. Belt-and-suspender
    Done when every item of the skill's cleanup checklist holds, its commit-message item apart, which **Deliver** meets, with the loop run on the original scenario on the reported surface and its failing and its passing output kept for the reply; or the user has heard that the fix needs several sessions and a spec.
 2. **Verify it.** Follow the `verify-this` skill in this session on the claim that the original scenario no longer fails; the loop's failing and passing runs from **Diagnose and fix** are its baseline and treatment.
    Done when `verify-this` has returned `VERIFIED` on the final code.
-3. **Deliver.** Commit the change to the current branch and tell the user; when the repository's `AGENTS.md` names another way it takes changes (a pull request, a release procedure of its own), take that way instead. The commit message states the hypothesis that turned out correct.
-   Done when the change is committed, or has gone as far along the repository's way as it goes before a step only the user takes (merging a pull request, a release), and the user has heard each step that remains.
+3. **Deliver.** Commit the change and tell the user. The commit message states the hypothesis that turned out correct.
+   Done when the change is committed and the user has heard so.
 
 **Reply:** what was broken, root cause, fix, how you verified. Paste failing-then-passing repro output verbatim. List the same pattern found elsewhere, unfixed.
