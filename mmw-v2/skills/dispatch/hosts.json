@@ -30,7 +30,7 @@
     },
     "claude": {
       "binary": "claude",
-      "efforts": ["low", "medium", "high", "xhigh", "max", "ultracode"],
+      "efforts": ["low", "medium", "high", "xhigh", "max"],
       "cli": {
         "argv": ["--model", "{model}", "--effort", "{effort}", "--permission-mode", "bypassPermissions", "-n", "{name}"]
       },

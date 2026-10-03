@@ -172,6 +172,16 @@ class CatalogMatchTest(unittest.TestCase):
             "claude", "opus[1m]", "high", offerings, "cli")
         self.assertEqual((host, model, effort), ("claude", "opus[1m]", "high"))
 
+    def test_ultracode_is_not_a_claude_effort(self):
+        # Claude Code 2.1.284 made Ultracode a switch of its own beside `/effort`; the
+        # picker's effort levels end at max, and `claude --effort` lists no ultracode.
+        offerings = [{"id": "opus", "name": "opus",
+                      "thinkingOptionIds": ["low", "medium", "high", "xhigh", "max"]}]
+        with self.assertRaisesRegex(ValueError, "effort 'ultracode'"):
+            models._resolve_from_offerings("claude", "opus", "ultracode", offerings, "cli")
+        self.assertNotIn("ultracode", ", ".join(
+            effort for _, effort in models.fillable_rows("claude", [{"id": "opus"}])))
+
 
 class PaseoSettingsTest(unittest.TestCase):
     def test_cursor_on_paseo_turns_everyday_high_into_on(self):
