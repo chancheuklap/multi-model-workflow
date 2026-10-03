@@ -4,22 +4,6 @@ The branch of the `writing-for-agents` skill for a **skill set**: the skills one
 
 Text inside an upstream subtree also follows that subtree's own `AGENTS.md`.
 
-## Layers of the set
-
-A set has seven kinds of component. Each is a layer of its own and answers one question.
-
-| Component | The question it answers | Where it lives |
-| --- | --- | --- |
-| **mode** | Which situation calls for what, which playbook a task takes, what an unattended session may decide, and how a woken session picks up | the `SKILL.md` of the `mmw-mode` skill |
-| **playbook** | The steps of one kind of task from start to finish, who owns what, and what is handed back | the `playbooks/` of the `mmw-mode` skill, one file each, opening with its `###` title, with no frontmatter; a repository's own in its `.mmw/playbooks/` |
-| **principle** | A judgement that holds across tasks and changes a specific decision | the `principles/` of the `mmw-mode` skill, one file each, opening with its `#` title, with no frontmatter: a principle is not a skill, is read by path and never invoked, and its trigger is its index line in the mode's `## Principles` |
-| **capability skill** | How one thing is done and what it hands back; it does not know who calls it | its own skill directory |
-| reference | Material read only at the steps that point to it, or a brief handed to a subagent or to a separately started session | the `references/` of the skill that owns it |
-| script | The state reads and writes, deliveries and checks that come out the same on every run | the `scripts/` of the skill that owns it |
-| role and configuration | Which role reads which playbook, on which model, and which event wakes it at which step | the `roles.json` of the `mmw-mode` skill (none yet: no role runs from v3), and `~/.mmw/models.json` |
-
-**The test.** A passage lives in the layer whose question it answers. A passage found in another layer is a finding, unless a constraint keeps it there and the change that left it names that constraint; in MMW the constraints are H1 to H6 and S in `docs/adr/0032-the-set-is-layered.md`. Staying is not justified by "no benefit", "it works today" or "the change is large".
-
 ## What skill text is for
 
 Every check below serves these seven facts about how an agent uses a set.

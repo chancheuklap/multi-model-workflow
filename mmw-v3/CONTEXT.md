@@ -12,39 +12,39 @@ _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md`, opening paragrap
 
 **component**:
 One of the seven kinds of text in the skill set, each answering one question: **mode**, **playbook**, **principle**, **capability skill**, **reference**, **script**, **role and configuration**. A passage lives in the component whose question it answers.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **mode**:
 The `SKILL.md` of the `mmw-mode` skill. The question it answers: which situation calls for what, which playbook a task takes, what an unattended session may decide, and how a woken session picks up.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **playbook**:
 The steps of one kind of task from start to finish, one file under the `mmw-mode` skill's `playbooks/`, opening with its `###` title.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **route line**:
 A line of the route table, the list under the mode's `## Playbooks`: it names a playbook, the tasks it takes, and its file.
 _Home_: `mmw-v3/skills/mmw-mode/SKILL.md` `## Playbooks`
 
 **principle**:
-A judgement that holds across tasks, one file under the `mmw-mode` skill's `principles/`, cited by its path `principles/principle-<slug>.md` and indexed by a line in the mode's `## Principles`. Not a skill.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+A judgement that holds across tasks and belongs to no single skill, one file under the `mmw-mode` skill's `principles/`, cited by its path `principles/principle-<slug>.md` and indexed by a line in the mode's `## Principles`. Not a skill.
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **capability skill**:
 A skill that does one thing and hands back its result, without knowing who calls it.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **reference**:
-Material read only at the steps that point to it, or a brief handed to a subagent or to a separately started session, in the `references/` of the skill that owns it.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+Material that belongs to one moment of the skill that owns it and means nothing outside that skill (a brief or prompt template, a template or example, a catalogue or checklist, the rules of one branch of that skill's work), in that skill's `references/`.
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **script**:
 A program that does what comes out the same on every run (state reads and writes, deliveries, checks), in the `scripts/` of the skill that owns it.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **role and configuration**:
 Which role reads which playbook, on which model, and which event wakes it.
-_Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
+_Home_: `mmw-v3/skills/mmw-mode/references/components.md` `## The seven components`
 
 **Memory record**:
 One memory in Nowledge Mem, saved and found through the `memory-records` skill, which is not yet in v3.
