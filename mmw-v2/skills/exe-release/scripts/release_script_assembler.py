@@ -451,6 +451,32 @@ def _source_scan_lines(manifest: ReleaseAdapterManifest) -> list[str]:
     ]
 
 
+def _report_dir_lines(backend) -> list[str]:
+    if not backend.required_modules_file:
+        return []
+    return [
+        "  New-Item -ItemType Directory -Force -Path "
+        f"(Join-Path $RepoRoot {_ps(nuitka.REPORT_DIR)}) | Out-Null"
+    ]
+
+
+def _required_modules_lines(backend) -> list[str]:
+    """编完对照模块清单：源码运行加载过的模块，编译产物里必须有。"""
+    if not backend.required_modules_file:
+        return []
+    reports = ", ".join(
+        f"(Join-Path $RepoRoot {_ps(nuitka.report_path(target))})"
+        for target in backend.targets
+    )
+    runner = ", ".join(_ps(token) for token in backend.runner)
+    return [
+        "  Assert-CompiledModules "
+        f"-Reports @({reports}) "
+        f"-RequiredFile (Join-Path $RepoRoot {_ps(backend.required_modules_file)}) "
+        f"-Runner @({runner}) -RepoRoot $RepoRoot"
+    ]
+
+
 def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) -> list[str]:
     """编译后端。原生扩展缺的 DLL 先探再编——探不到当场停，不进几十分钟的编译。"""
     nuitka.validate_import_plan(backend)
@@ -510,6 +536,8 @@ def _compile_lines(backend, build_target: BuildTarget, desktop_dir: str | None) 
     cleanup_line = (
         f"  Remove-CompilerIntermediates -OutputDir (Join-Path $RepoRoot {_ps(out_dir)})"
     )
+
+    compile_lines = [*_report_dir_lines(backend), *compile_lines, *_required_modules_lines(backend)]
 
     if not backend.isolate_dirs:
         return [*lines, *compile_lines, assert_line, cleanup_line]

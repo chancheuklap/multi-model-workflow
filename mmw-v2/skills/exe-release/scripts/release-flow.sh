@@ -572,14 +572,16 @@ _run_remote_build() {
     echo "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path in safe characters (drive letter, then letters/digits/._-/\\): $remote_root" >&2
     return 64
   fi
-  # 远端构建目录按 <短commit>-<product> 命名:
-  # (1) 带 product:同一个 commit 出多个产品时(三产品共用一份源码树),若只按 commit 命名,后一个产品
-  #     构建一开始的 Remove-Item + 重解压会把前一个产品已产出的安装包整片冲掉。product 取自已校验的
-  #     context,收紧为安全字符白名单(字母数字._-)裸拼进路径。
-  # (2) 只取 12 字符短 commit(与 task_name 同):Windows makensis 不开长路径,electron-builder 的 NSIS
-  #     include 埋在极深的 pnpm 依赖哈希目录里,叠加 40 字符全 commit 目录名会让 !include 路径越过 MAX_PATH
-  #     260 而「could not open file」失败。短 commit 省 28 字符把最深路径拉回 260 内。SOURCE_COMMIT.txt
-  #     仍记全 commit 供溯源,只有目录名收短。
+  # 远端构建目录每个产品固定一个:<远端根>/<product>,每一轮在同一个路径上重建源码树。
+  # (1) 路径固定,编译缓存才命中:构建机上 Nuitka 用 zig 编 C,zig 的缓存按源文件与头文件的
+  #     绝对路径认人。目录名随 commit 变,每一轮的生成 C 文件都换了路径,缓存一次都不中,
+  #     每轮从头编约半小时,而缓存只增不用(实测攒到 89 GB)。
+  # (2) 带 product:同一个 commit 出多个产品时各用各的目录,后一个产品的 Remove-Item + 重解压
+  #     不会冲掉前一个产品已产出的安装包。product 取自已校验的 context,收紧为安全字符白名单
+  #     (字母数字._-)裸拼进路径。
+  # (3) 目录名要短:Windows makensis 不开长路径,electron-builder 的 NSIS include 埋在极深的
+  #     pnpm 依赖哈希目录里,目录名再长就会让 !include 越过 MAX_PATH 260 而「could not open file」。
+  # SOURCE_COMMIT.txt 记全 commit,既供溯源,也是「这个目录里正在跑的是哪一轮」的唯一凭据。
   product="$(jq -r '.product // empty' "$context" 2>/dev/null)"
   case "$product" in
     '' | *[!A-Za-z0-9._-]*)
@@ -587,7 +589,7 @@ _run_remote_build() {
       return 64
       ;;
   esac
-  remote_input="${remote_root%/}/${source_commit:0:12}-${product}"
+  remote_input="${remote_root%/}/${product}"
   remote_input_win="$(printf '%s' "$remote_input" | tr '/' '\\')"
   # 成品安装包在源码树里的落点(仓库相对 glob),供出包成功后收拢到统一交付目录;缺省则不收拢。
   installer_glob="$(jq -r '.build_target.installer_glob // empty' "$context" 2>/dev/null)"
@@ -598,22 +600,29 @@ _run_remote_build() {
   # 看的人被杀掉(进程被停、网络断、会话结束),构建照样跑完、照样产出安装包,而这边什么都不知道:
   # 收拢没跑、状态停在「构建中」。真发生过一次,代价是一轮四十分钟的编译要靠人手工收尾。
   #
-  # 所以传源码之前先问一句:这一轮(同 commit、同产品,也就是同一个远端目录)是不是还在跑?
-  # 是就接上去轮询,不重传、不再建一个任务——重传会 Remove-Item 掉正在被读写的源码树,
-  # 把一次快要跑完的编译毁掉,那比白等更贵。
+  # 所以传源码之前先问一句:这个产品的远端目录里是不是还有一轮在跑?
+  # 是同一个 commit 就接上去轮询,不重传、不再建一个任务——重传会 Remove-Item 掉正在被读写的
+  # 源码树,把一次快要跑完的编译毁掉,那比白等更贵。是别的 commit 就停下:目录是同一个,
+  # 开工就会冲掉那一轮正在读写的源码树,而那一轮的结果也不是这一轮要的。
   #
   # 判据是「有日志、没有 exitcode、而且日志刚刚还在长」。跑完的那一轮不在这条判据里:
   # 它留下的 exitcode 可能属于上一次失败,重跑才是重试该有的语义。
-  local attached=0 live_probe
+  local attached=0 live_probe live_commit
   live_probe="$(_ssh_ps "$remote_host" "if ((Test-Path '$remote_input/build-run.log') -and -not (Test-Path '$remote_input/build-run.exitcode') -and (((Get-Date) - (Get-Item '$remote_input/build-run.log').LastWriteTime).TotalMinutes -lt 10)) { 'LIVE' } else { 'NONE' }" 2>/dev/null || true)"
   live_probe="${live_probe%%[$'\r\n']*}"
   if [ "$live_probe" = "LIVE" ]; then
+    live_commit="$(_ssh_ps "$remote_host" "Get-Content -LiteralPath '$remote_input/SOURCE_COMMIT.txt' -ErrorAction SilentlyContinue" 2>/dev/null || true)"
+    live_commit="${live_commit%%[$'\r\n']*}"
+    if [ "$live_commit" != "$source_commit" ]; then
+      echo "ERROR: a build of $product for commit ${live_commit:-unknown} is still running on $remote_host ($remote_input); let it finish or stop it before building $source_commit" >&2
+      return 73
+    fi
     attached=1
     # 任务名是建任务那一步写下的。读不回来也继续接:轮询与收拢都不需要它,
     # 只有尾部的清理需要,那一步自己会说清楚它没清掉什么。
     task_name="$(_ssh_ps "$remote_host" "Get-Content -LiteralPath '$remote_input/build-run.task' -ErrorAction SilentlyContinue" 2>/dev/null || true)"
     task_name="${task_name%%[$'\r\n']*}"
-    echo "NOTE: a build for this commit is still running on $remote_host ($remote_input); attaching to it instead of starting a second one" >&2
+    echo "NOTE: a build of this commit is still running on $remote_host ($remote_input); attaching to it instead of starting a second one" >&2
   fi
   # 接上去的那一轮,源码、脚本、计划任务在远端都已经就位,这一整段跳过。
   if [ "$attached" != "1" ]; then
@@ -644,13 +653,14 @@ _run_remote_build() {
     _write_remote_wrapper "$wrapper"
 
     _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
-    # 失败的构建目录是现场,留着;但只留最近两个。再往前的没有人会读,而一个就是几个 GB。
-    # 只动 <短commit>-<本产品> 这种目录名,交付目录与别的产品都不在范围内。
+    # 按 commit 命名的旧构建目录(<12 位短 commit>-<本产品>)已不再使用,一个就是几个 GB,删掉。
+    # 失败现场的日志在 Mac 这一侧的 attempt 目录里各留一份,不靠构建机上的旧目录。
+    # 交付目录与别的产品都不在范围内。
     # 用 -Property/-Like 而不是 `Where-Object { $_.Name ... }`:这条命令要穿过 bash 双引号、
     # 远端默认 shell(PowerShell)与 powershell.exe 三层,$_ 会在到达 powershell.exe 之前就被
     # 当成变量吃掉,于是筛选条件恒空、什么也不匹配,而且一声不响。
-    if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object -Property Name -Like '*-$product' | Where-Object -Property Name -NE '${source_commit:0:12}-$product' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 2 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
-      echo "WARN: could not prune old remote build dirs (this build is unaffected); take a look by hand: $remote_root" >&2
+    if ! _ssh_ps "$remote_host" "Get-ChildItem -LiteralPath '${remote_root%/}' -Directory -ErrorAction SilentlyContinue | Where-Object -Property Name -Like '????????????-$product' | Where-Object -Property Name -NE '$product' | Sort-Object LastWriteTime -Descending | Select-Object -Skip 0 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"; then
+      echo "WARN: could not remove the old per-commit build dirs (this build is unaffected); take a look by hand: $remote_root" >&2
     fi
     scp "$archive" "$remote_host:$remote_input/source.zip" || return $?
     # 传完即删:这份 zip 是 `git archive $(cat SOURCE_COMMIT.txt)` 一字不差重生得出来的,
@@ -678,8 +688,8 @@ _run_remote_build() {
       return 71
     fi
 
-    # 清掉上一轮遗留的构建产物并验证清干净:remote_input 只按 commit 命名,resume / 重跑同 commit
-    # 时若不清,首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功——
+    # 清掉上一轮遗留的构建产物并验证清干净:remote_input 每个产品固定一个,上一轮(任何 commit)
+    # 若不清,首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功——
     # 清除失败必须 fail-loud,不能静默继续。
     if ! _ssh_ps "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'; if ((Test-Path '$remote_input/build-run.exitcode') -or (Test-Path '$remote_input/build-run.log')) { exit 1 }"; then
       echo "ERROR: could not clear the previous round on the build machine; a stale exitcode would read as this round succeeding: $remote_input" >&2

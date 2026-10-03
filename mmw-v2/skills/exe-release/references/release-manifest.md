@@ -137,7 +137,8 @@ One Nuitka invocation per entry in `targets`. The skill renders the command; the
   "env": {"CCACHE_BASEDIR": "${REPO_ROOT}"},
   "isolate_dirs": ["${DESKTOP_DIR}/node_modules"],
   "targets": [{"name": "…", "exe": "….exe", "entrypoint": "src/…/__main__.py"}],
-  "smoke": {"exe": "….exe", "args": ["--run-module", "…._build_smoke"], "modules": [...]}
+  "smoke": {"exe": "….exe", "args": ["--run-module", "…._build_smoke"], "modules": [...]},
+  "required_modules_file": "scripts/release/derived/…-required-modules.txt"
 }
 ```
 
@@ -145,6 +146,7 @@ What each field prevents:
 
 - **`include_packages` brings the code; the data files inside it do not come with it.** Miss the data and the app raises FileNotFound on a customer machine, not on the build machine. Name the directories you need in `include_data_dirs`. Reach for `include_package_data` only when you cannot name them, because it sweeps the *whole* package: every non-code file that happens to sit there, including the `CLAUDE.md` and `AGENTS.override.md` written for people inside your company, shipped silently inside the customer's exe. When both fields cover the same file, Nuitka prints `Duplicate data file ... ignored` -- that line is telling you `include_package_data` is doing nothing you asked for and something you did not. And when neither field works, the package cannot be embedded at all (the symptom is under `runtime_assets`): ship it beside the exe with `runtime_assets` instead of trying more flags.
 - **`include_modules` for anything imported inside a function body.** The compiler traces imports statically; a C extension imported lazily is invisible to it and simply will not be in the package. The customer finds out when they reach that feature.
+- **`required_modules_file` catches what neither the compiler nor a hand-written list sees.** A library can import a submodule while one of its functions runs: `sqlite3` loads `sqlite3.dump` inside `iterdump()`, and `sentry_sdk` loads its integrations inside `init()`. The compiler cannot see such imports, so the standalone package lacks them; the customer meets `No module named …` the first time that function runs. Point this field at a list of the modules the product loads in a source run, one name per line (`#` starts a comment), recorded by running the product's own tests. Every target is then compiled with `--report` (the report goes under `runtime/.mmw-nuitka-reports/`, outside `output_dir`, which ships whole), and right after the compile the build compares the report with the list. A listed module the compile interpreter can find on the build machine but the package lacks stops the build and is named; a module the build machine cannot find belongs to another platform and is skipped, and a module built into the compile interpreter (on Windows, `mmap` and `winreg` among others) is in every compiled program and counts as present. The list must not name a module `nofollow_imports` keeps out; that is caught before the compile.
 - **`smoke.modules` is also the guard on `nofollow_imports`.** A nofollow pattern can block a module the built exe needs. The skill checks this at assemble time, because finding out after the compile costs tens of minutes.
 - **`console: false` for a GUI app**, or every customer gets a black console window.
 - **`env` values may use `${REPO_ROOT}`.** The build machine's repository path changes every commit (the directory is named after the commit), so anything that has to name that path -- a compile cache's base directory, for one -- can only be computed there.

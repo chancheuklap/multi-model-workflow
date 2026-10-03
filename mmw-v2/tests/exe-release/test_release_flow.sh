@@ -197,11 +197,10 @@ if remote_build >/dev/null; then
   [ -z "$(find "$(dirname "$SF")/release-artifacts" -name source.zip 2>/dev/null)" ] \
     && ok "上传后 Mac 上不留源码 zip" || no "Mac 上留着源码 zip"
 
-  # 守:同一个 commit 出第二个产品时,只按 commit 命名会让后一个产品的重解压把前一个
-  # 已产出的安装包整片冲掉。短 commit 是因为全 commit 会让 NSIS 的 include 路径越过
-  # Windows 路径长度上限。
+  # 守:构建目录每个产品固定一个。名字带 commit,构建机的编译缓存(按绝对路径认人)
+  # 每轮都不中;名字不带产品,同一 commit 的第二个产品会冲掉前一个的安装包。
   case "$(basename "$bd")" in
-    "$(git rev-parse HEAD | cut -c1-12)-test-product") ok "构建目录按短 commit 加产品名命名" ;;
+    "test-product") ok "构建目录按产品名固定" ;;
     *) no "构建目录命名错误($(basename "$bd"))" ;;
   esac
 
@@ -290,8 +289,8 @@ remote_build >/dev/null 2>&1 || true
 bash "$RF" abort >/dev/null
 printf '{"repo_root":"/placeholder","product":"test-product"}\n' > "$LOOP_DIR/release-context.json"
 
-# 守:失败的构建目录只留最近两个。一个几个 GB,不封顶的话构建机迟早被自己的中间产物填满;
-# 而封过头就是把还要查的现场删掉——所以断的是「哪几个还在」,不是「删过东西」。
+# 守:构建目录每个产品固定一个,按 commit 命名的旧目录(一个几个 GB)全部清掉;
+# 别的产品的目录不碰。断的是「哪几个还在」,不是「删过东西」。
 remote_reset
 init_for_remote_build
 input_root="$FAKE_REMOTE_ROOT/release-input"
@@ -306,9 +305,10 @@ touch -t 202601010102 "$input_root/000000000002-test-product"
 touch -t 202601010103 "$input_root/000000000003-test-product"
 export FAKE_BUILD_OUTCOME=fail:3
 remote_build >/dev/null 2>&1 || true
-[ ! -e "$input_root/000000000001-test-product" ] && ok "更老的失败目录被清掉" || no "旧构建目录无上限地堆着"
-[ -e "$input_root/000000000002-test-product" ] && [ -e "$input_root/000000000003-test-product" ] \
-  && ok "最近两个失败目录留着" || no "还要查的现场被删掉了"
+[ ! -e "$input_root/000000000001-test-product" ] && [ ! -e "$input_root/000000000002-test-product" ] \
+  && [ ! -e "$input_root/000000000003-test-product" ] \
+  && ok "按 commit 命名的旧构建目录全部清掉" || no "旧构建目录还堆着"
+[ -d "$input_root/test-product/source" ] && ok "本产品在固定目录里构建" || no "没有在 <根>/<产品> 里构建"
 [ -e "$input_root/000000000004-other-product" ] && ok "不碰别的产品的目录" || no "删到了别的产品"
 bash "$RF" abort >/dev/null
 
@@ -340,7 +340,7 @@ bash "$RF" abort >/dev/null
 # 或已失败的本轮判成成功——错的包会被当成好包发出去。
 remote_reset
 init_for_remote_build
-stale="$FAKE_REMOTE_ROOT/release-input/$(git rev-parse HEAD | cut -c1-12)-test-product"
+stale="$FAKE_REMOTE_ROOT/release-input/test-product"
 mkdir -p "$stale"
 printf '0\n' > "$stale/build-run.exitcode"
 printf '上一轮的日志\n' > "$stale/build-run.log"
@@ -570,7 +570,7 @@ remote_build >/dev/null 2>&1 || true
 bash "$RF" abort >/dev/null
 remote_reset
 init_for_remote_build
-bd_live="$FAKE_REMOTE_ROOT/release-input/$(git rev-parse HEAD | cut -c1-12)-test-product"
+bd_live="$FAKE_REMOTE_ROOT/release-input/test-product"
 mkdir -p "$bd_live/source"
 printf 'building...\n' > "$bd_live/build-run.log"
 printf 'sentinel\n' > "$bd_live/source/DO-NOT-WIPE"
@@ -589,6 +589,28 @@ tasks_created_after="$(wc -l < "$FAKE_REMOTE_TASKS.history" 2>/dev/null || echo 
 [ -f "$bd_live/source/DO-NOT-WIPE" ] \
   && ok "接上去不重传,正在被读写的源码树没被冲掉" || no "接上去时把远端源码树重传了"
 [ "$(task_count)" = "0" ] && ok "接上去的那一轮也把计划任务清干净" || no "残留计划任务($(cat "$FAKE_REMOTE_TASKS"))"
+bash "$RF" abort >/dev/null
+
+# 守:目录是同一个,远端还在跑的若是别的 commit,开工就会冲掉它正在读写的源码树;
+# 这一轮要停下,不重传、不建任务。
+remote_reset
+init_for_remote_build
+bd_other="$FAKE_REMOTE_ROOT/release-input/test-product"
+mkdir -p "$bd_other/source"
+printf 'building...\n' > "$bd_other/build-run.log"
+printf 'sentinel\n' > "$bd_other/source/DO-NOT-WIPE"
+printf '0123456789abcdef0123456789abcdef01234567\n' > "$bd_other/SOURCE_COMMIT.txt"
+tasks_created_before="$(wc -l < "$FAKE_REMOTE_TASKS.history" 2>/dev/null || echo 0)"
+other_out="$(remote_build 2>&1 || true)"
+tasks_created_after="$(wc -l < "$FAKE_REMOTE_TASKS.history" 2>/dev/null || echo 0)"
+other_log="$(find "$(dirname "$SF")/release-artifacts" -path '*-build/build.log' -newer "$bd_other/SOURCE_COMMIT.txt" -exec cat {} + 2>/dev/null)"
+case "$other_out|$other_log" in
+  *"rc=73"*"still running"*) [ "$(build_status)" != "done" ] \
+    && ok "远端还在跑别的 commit 时这一轮停下并说明原因" || no "说了在跑却仍判 done" ;;
+  *) no "远端还在跑别的 commit 时照样开工: $(printf '%s' "$other_out" | tail -c 300)" ;;
+esac
+[ -f "$bd_other/source/DO-NOT-WIPE" ] && [ "$tasks_created_after" -eq "$tasks_created_before" ] \
+  && ok "不冲掉别的 commit 正在用的源码树,也不建计划任务" || no "冲掉了正在跑的那一轮或建了任务"
 bash "$RF" abort >/dev/null
 
 echo "=== $pass PASS / $fail FAIL ==="

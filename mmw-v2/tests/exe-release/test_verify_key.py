@@ -271,3 +271,23 @@ def test_every_finding_satisfies_the_finding_contract(repo):
     assert len(findings) == 2
     for finding in findings:
         rc.ReleaseFinding.model_validate(finding)
+
+
+def test_a_required_modules_list_that_is_not_in_the_repo_is_caught_before_the_build(repo):
+    doc = deepcopy(MINIMAL_KEY)
+    doc["python_backend"]["required_modules_file"] = "scripts/release/required-modules.txt"
+    (finding,) = _verify(doc, repo)
+    assert finding["name"] == "required_modules_file_missing"
+
+
+def test_a_required_module_that_nofollow_blocks_is_caught_before_the_build(repo):
+    """清单要、nofollow 又挡掉的模块，编完对照一定报缺；编译要几十分钟，所以编前就停。"""
+    listed = repo / "scripts" / "release" / "required-modules.txt"
+    listed.parent.mkdir(parents=True)
+    listed.write_text("# recorded\nsqlite3.dump\nnewcomer.tests.fake\n", encoding="utf-8")
+    doc = deepcopy(MINIMAL_KEY)
+    doc["python_backend"]["required_modules_file"] = "scripts/release/required-modules.txt"
+    doc["python_backend"]["nofollow_imports"] = ["newcomer.tests"]
+    (finding,) = _verify(doc, repo)
+    assert finding["name"] == "required_modules_blocked"
+    assert "newcomer.tests.fake" in finding["detail"]
