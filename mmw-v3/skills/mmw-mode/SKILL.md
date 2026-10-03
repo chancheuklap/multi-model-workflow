@@ -25,6 +25,7 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 - **Migrate Callers Then Delete Legacy APIs** (`principles/principle-migrate-callers-then-delete-legacy-apis.md`). Apply when introducing a new internal API while old callers still exist.
 - **Make Operations Idempotent** (`principles/principle-make-operations-idempotent.md`). Apply when designing commands, lifecycle steps, or processing loops that run amid crashes, restarts, and retries.
+- **Separate Before Serializing Shared State** (`principles/principle-separate-before-serializing-shared-state.md`). Apply when concurrent actors might write to the same file, branch, key, or state object.
 
 **Verification**
 
@@ -44,6 +45,8 @@ Read the principle file in full for any principle you apply. Each entry names wh
 - **Human steps stay human** (`principles/principle-human-steps-stay-human.md`). Apply when a step can only be taken by a person.
 - **Resume from durable state** (`principles/principle-resume-from-durable-state.md`). Apply when a session wakes, is compacted, or picks up work already begun.
 - **Decide at phase boundaries** (`principles/principle-decide-at-phase-boundaries.md`). Apply when a phase of the session ends.
+- **Agents are woken, not polled** (`principles/principle-agents-are-woken-not-polled.md`). Apply when you have started another agent, or are waiting on one.
+- **Clues are not evidence** (`principles/principle-clues-are-not-evidence.md`). Apply when you are about to act on a Memory record, another agent's report or a review finding.
 
 **User rules.** The user's own instructions are already in your context: your host loads them at the start of every session. They number their rules 1 to 15 under `## Who decides what`, `## How to report` and `## How to work`, and this skill names them user rule 1 to user rule 15. Read the rule there, in your context, when its moment comes. Rule 1 when a decision may be the user's to make. Rule 6 when you name a concept. Rule 10 before you write anything another reader picks up. Rule 11 when a step of yours fails or is cut short. Rule 13 when you edit a file. Rule 14 before you design or write non-trivial code. Rule 15 before you run tests.
 
@@ -82,6 +85,8 @@ When no playbook below fits, say so, then open a todolist of the steps you will 
 - **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, this mode, or any text an agent reads; a change to the product's code goes to `playbooks/make-a-small-change.md` or `playbooks/bug-fix.md`. `playbooks/authoring-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from the `code-review` skill, which reviews a code diff, and from `playbooks/authoring-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
 - **Make a small change.** A change small enough that the user will check it directly: no tickets, no night. A change that needs several sessions, criteria a script runs and a reviewer of its own goes to `playbooks/write-a-spec-and-tickets.md`. `playbooks/make-a-small-change.md`.
-- **Write a spec and tickets.** A conversation, an idea or a cleared map has to become a published spec and tickets that pass lint ("make this a spec", "cut the tickets"). Distinct from `playbooks/make-a-small-change.md`, which the user checks on the spot. `playbooks/write-a-spec-and-tickets.md`.
+- **Write a spec and tickets.** A conversation, an idea or a cleared map has to become a published spec and tickets that pass lint ("make this a spec", "cut the tickets"). Distinct from `playbooks/map-a-large-effort.md`, whose destination is not yet visible, and from `playbooks/make-a-small-change.md`, which the user checks on the spot. `playbooks/write-a-spec-and-tickets.md`.
+- **Map a large effort.** More than one session can hold, and the way there is not visible yet (a greenfield project, a large feature). Distinct from `playbooks/write-a-spec-and-tickets.md`, which one interview and one spec can hold. `playbooks/map-a-large-effort.md`.
+- **Research a question.** A question primary sources answer, with the answer kept as a file in the repository ("look it up", "research this"); also the session `dispatch.sh research <n>` starts for a research ticket. Distinct from the `prototype` skill, which runs something to answer. `playbooks/research-a-question.md`.
 - **Bug fix.** Something is broken or throws ("debug", "diagnose"). `playbooks/bug-fix.md`.
 - **Deliver a change.** Handing over a finished change the way this repository takes changes; the last step of `playbooks/make-a-small-change.md`, `playbooks/bug-fix.md` and `playbooks/authoring-a-skill.md`. `playbooks/deliver-a-change.md`.
