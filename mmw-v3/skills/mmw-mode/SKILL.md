@@ -56,7 +56,7 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 ## Subagents
 
-Use your host's general-purpose subagent. Its brief opens with "Read the `mmw-mode` skill's `## Principles` and the step you serve." A brief that is read-only and whole in itself, such as the fresh agent's in `references/skill-set-rules.md` `## Verifying`, does not open with that sentence.
+Use your host's general-purpose subagent. Its brief opens with "Read the `mmw-mode` skill's `## Principles` and the step you serve." A brief that is read-only and whole in itself, such as the fresh agent's in the `writing-skill-sets` skill's `references/walkthrough.md`, does not open with that sentence.
 
 Start the subagents of one step in one message, and wait for all of them.
 

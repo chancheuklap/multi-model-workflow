@@ -1,0 +1,2 @@
+type	local	source	commit	mechanical	judgement	batch
+playbook	mmw-v3/skills/writing-skill-sets/references/writing.md	mmw-v2/upstream-pstack/skills/poteto-mode/playbooks/authoring-a-skill.md	dd6ba52b0bf000ee0c8defef96832572944d1e00	principles cited by path; playbook steps 1-3 and 5 moved here as the Writing branch of the writing-skill-sets skill	J5: merged into the MMW version, taking pstack's step 2 Validate (now a run of scripts/check_skill_text.py) and its closing sentence "When in doubt, delete."; pstack's "skip the reason" not taken	B1
