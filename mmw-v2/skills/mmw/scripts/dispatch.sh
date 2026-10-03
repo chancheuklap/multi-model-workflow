@@ -2,31 +2,7 @@
 #
 # Start an agent on a ticket, move a spec's batch forward, or report on one.
 #
-#   dispatch.sh check <spec>
-#   dispatch.sh open-night <spec>
-#   dispatch.sh open-ticket-watch <n>
-#   dispatch.sh board
-#   dispatch.sh adopt <n>
-#   dispatch.sh self
-#   dispatch.sh where [<spec>|<n>]
-#   dispatch.sh advance <spec>
-#   dispatch.sh integrate <n>
-#   dispatch.sh land <n>
-#   dispatch.sh start <n> worker|reviewer
-#   dispatch.sh advise <brief file>
-#   dispatch.sh research <n>
-#   dispatch.sh retract <n>
-#   dispatch.sh result <n> worker|reviewer
-#   dispatch.sh ack <n> <event> | relay.recovered
-#   dispatch.sh resume <n> "<text>"
-#   dispatch.sh status <spec>
-#   dispatch.sh reverify <spec>
-#   dispatch.sh close-night <spec> --memory-decisions <file>
-#   dispatch.sh finish <spec>
-#   dispatch.sh suspend <spec>
-#   dispatch.sh resolve-child <ticket> <child> fixed
-#   dispatch.sh resolve-child <ticket> <child> stale <invalid|fixed-elsewhere>
-#   dispatch.sh resolve-child <ticket> <child> became-ticket <new ticket>
+# The commands and their arguments are listed once, in usage() below: `dispatch.sh --help`.
 #
 # Every script this one calls is found by resolution, from this file's own path:
 # `lease.py` of the ui-acceptance skill and `verify-ticket.py` are resolved through
