@@ -4,7 +4,7 @@
 
 This playbook turns what the user has in mind into a batch a night can build with nobody there to ask: a published spec, and tickets that pass lint. Once the batch is published, a worker reads its ticket and the spec sections the ticket names, and whatever those leave open, the worker settles alone. **Interview** decides the batch: every branch of the design tree you did not put to the user becomes a decision made at night by someone who cannot ask. The temptation is to start writing as soon as the idea sounds clear to you; ask the whole frontier first.
 
-**Entry.** A fix that `playbooks/bug-fix.md` found needs several sessions starts at **Write the spec**, with the cause and the feedback loop as its source. Any other entry starts where **Where you are** says.
+**Entry.** A fix that `playbooks/bug-fix.md` found needs several sessions starts at **Write the spec**, with the cause and the feedback loop as its source. A change that `playbooks/make-a-small-change.md` found needs several sessions starts at **Interview**, with what that session found as its source. Any other entry starts where **Where you are** says.
 
 **Where you are.** Take the first line whose fact holds. Read each fact from the tracker, the repository and the user's message, never from this session's memory.
 - The spec is published and has no tickets → **Cut the tickets**.
