@@ -15,10 +15,10 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 **Core**
 
-- **Laziness Protocol** (`principles/principle-laziness-protocol.md`). Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading.
+- **Laziness Protocol** (`principles/principle-laziness-protocol.md`). Apply when refactoring, evaluating diff size, changing a function other code calls, about to write a helper, or tempted to add abstractions, layers, or signal threading.
 - **Redesign From First Principles** (`principles/principle-redesign-from-first-principles.md`). Apply when integrating a new requirement into an existing design.
 - **Attack the Premise** (`principles/principle-attack-the-premise.md`). Apply when two or more fixes that share one premise have failed the same gate.
-- **Subtract Before You Add** (`principles/principle-subtract-before-you-add.md`). Apply when sequencing an addition, refactor, or rewrite.
+- **Subtract Before You Add** (`principles/principle-subtract-before-you-add.md`). Apply when sequencing an addition, refactor, or rewrite, or when what you add replaces an existing branch, guard or file.
 - **Build the Lever** (`principles/principle-build-the-lever.md`). Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks.
 
 **Architecture**
@@ -46,7 +46,7 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 ## Autonomy
 
-**Precedence.** The user rules come first, then this mode, then the playbook you serve (its local qualification of a principle included), then a principle. A human gate a capability skill carries is not in this order: with the user present, stop at it.
+**Precedence.** The user rules come first, then this mode, then the playbook you serve (its local qualification of a principle included), then a principle. A human gate a capability skill carries is not in this order. With the user present, stop at it when it asks for a decision user rule 1 leaves to the user. A gate that asks the user an engineering question (which seam a test goes at, how to name a module) you answer yourself, and the reply names your choice and the alternative you set aside.
 
 **With the user present.** User rules 1 to 3 say who decides what.
 

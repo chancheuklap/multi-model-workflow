@@ -8,6 +8,7 @@ Make simplification a continual investment. Leave the design slightly simpler an
 
 **The pattern:**
 - Sequence removal before construction
+- When what you add supersedes an existing branch, guard or file, delete it in the same commit
 - Cut before you polish (get to the minimum before investing in quality)
 - Design for observed usage, not speculative edge cases
 - No speculative validators, parsers, or guards beyond what the spec demands
