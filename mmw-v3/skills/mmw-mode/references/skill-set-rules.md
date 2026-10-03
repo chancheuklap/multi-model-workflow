@@ -64,7 +64,7 @@ A **moment** is a point in a task that needs one coherent set of material and th
 
 Each sentence is tested against what the agent would do without it (`writing-for-agents` `SKILL.md` `## Pruning`). These are findings, fixed by deleting or merging:
 
-- **Duplication**: one meaning stated in two places across the set, counting a script's `--help`, its refusal text, a start prompt it builds and a template. Which copy stays is decided by **principle-one-home-per-meaning**.
+- **Duplication**: one meaning stated in two places across the set, counting a script's `--help`, its refusal text, a start prompt it builds and a template. Which copy stays is decided by `principles/principle-one-home-per-meaning.md`.
 - **Cache** (`writing-for-agents` `SKILL.md` `## Pruning`): text restating a script's `--help`, a config file, the tracker, or a skill the agent has loaded.
 - **No-op**: an instruction the model already follows by default, or an attitude where an action would do ("be careful", "make sure"). A stance is not a bare attitude: it names the temptation particular to this work and what to do instead (upstream `wayfinder`: "The pull to just do the work is usually the signal you've reached the edge of the map"), and a model does not hold it by default.
 - **Over-specification**: a numbered procedure for work a capable agent does unprompted; an if-then list that mirrors a script's branches; an enumeration of cases where one criterion covers them; a procedure added to enforce a rule. Replace it with the goal, the criterion and the one or two judgement calls the agent would get wrong.

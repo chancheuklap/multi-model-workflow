@@ -11,27 +11,27 @@ description: "How work runs in a repository that uses MMW: routes a task to its 
 
 ## Principles
 
-Read the principle file in full for any principle you apply. Each entry names when it applies. `principle-<slug>`, `**principle-<slug>**`, "the **<slug>** principle", "the **<slug>** principle skill" and a link to `principle-<slug>.md` all name the file `principles/principle-<slug>.md`.
+Read the principle file in full for any principle you apply. Each entry names when it applies.
 
 **Core**
 
-- **Laziness Protocol** (**principle-laziness-protocol**). Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading.
-- **Build the Lever** (**principle-build-the-lever**). Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks.
+- **Laziness Protocol** (`principles/principle-laziness-protocol.md`). Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading.
+- **Build the Lever** (`principles/principle-build-the-lever.md`). Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks.
 
 **Verification**
 
-- **Prove It Works** (**principle-prove-it-works**). Apply after completing a task, before declaring done.
+- **Prove It Works** (`principles/principle-prove-it-works.md`). Apply after completing a task, before declaring done.
 
 **Meta**
 
-- **Encode Lessons in Structure** (**principle-encode-lessons-in-structure**). Apply when you catch yourself writing the same instruction a second time, or notice a recurring correction.
+- **Encode Lessons in Structure** (`principles/principle-encode-lessons-in-structure.md`). Apply when you catch yourself writing the same instruction a second time, or notice a recurring correction.
 
 **Pipeline**
 
-- **Silence is never a pass** (**principle-silence-is-never-a-pass**). Apply when a check, gate, oracle or test is written, changed, run, or read as a result.
-- **A second reader judges** (**principle-a-second-reader-judges**). Apply when a piece of work needs judging: a diff, a batch of tickets, a decision.
-- **One home per meaning** (**principle-one-home-per-meaning**). Apply when a rule, a term or a fact is about to be written where it already lives elsewhere.
-- **Human steps stay human** (**principle-human-steps-stay-human**). Apply when a step can only be taken by a person.
+- **Silence is never a pass** (`principles/principle-silence-is-never-a-pass.md`). Apply when a check, gate, oracle or test is written, changed, run, or read as a result.
+- **A second reader judges** (`principles/principle-a-second-reader-judges.md`). Apply when a piece of work needs judging: a diff, a batch of tickets, a decision.
+- **One home per meaning** (`principles/principle-one-home-per-meaning.md`). Apply when a rule, a term or a fact is about to be written where it already lives elsewhere.
+- **Human steps stay human** (`principles/principle-human-steps-stay-human.md`). Apply when a step can only be taken by a person.
 
 **User rules.** The user's own instructions are already in your context: your host loads them at the start of every session. They number their rules 1 to 15 under `## Who decides what`, `## How to report` and `## How to work`, and this skill names them user rule 1 to user rule 15. Read the rule there, in your context, when its moment comes. Rule 1 when a decision may be the user's to make. Rule 6 when you name a concept. Rule 10 before you write anything another reader picks up. Rule 11 when a step of yours fails or is cut short. Rule 13 when you edit a file. Rule 14 before you design or write non-trivial code. Rule 15 before you run tests.
 

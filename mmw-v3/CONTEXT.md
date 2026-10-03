@@ -27,7 +27,7 @@ A line of the route table, the list under the mode's `## Playbooks`: it names a 
 _Home_: `mmw-v3/skills/mmw-mode/SKILL.md` `## Playbooks`
 
 **principle**:
-A judgement that holds across tasks, one file under the `mmw-mode` skill's `principles/`, cited as `**principle-<slug>**` and found through its index line in the mode's `## Principles`. Not a skill.
+A judgement that holds across tasks, one file under the `mmw-mode` skill's `principles/`, cited by its path `principles/principle-<slug>.md` and indexed by a line in the mode's `## Principles`. Not a skill.
 _Home_: `mmw-v3/skills/mmw-mode/references/skill-set-rules.md` `## Layers of the set`
 
 **capability skill**:

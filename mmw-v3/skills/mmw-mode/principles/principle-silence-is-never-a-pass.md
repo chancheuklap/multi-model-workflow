@@ -12,4 +12,4 @@ A check that could verify nothing says so instead of reading like a pass. A chec
 
 **The test:** When you add or change a check, the question to ask it is not whether it catches the bad case, but: if it ran and did nothing, would anyone notice?
 
-Distinct from **principle-prove-it-works**, which says how to verify; this says what to report when a check did not run or did nothing.
+Distinct from `principles/principle-prove-it-works.md`, which says how to verify; this says what to report when a check did not run or did nothing.

@@ -7,7 +7,7 @@
   one introduced as "the `X` skill's" exists in skill X when X is in the set beside this one, and is listed
   as not checked when it is not. A path with a `<placeholder>` names no file.
 - Every relative Markdown link resolves.
-- Every `**principle-<slug>**` cited has its file, and every principle file has its index line in `## Principles`.
+- A principle is cited by its path, never as a bare `**principle-<slug>**`, and every principle file has its index line in `## Principles`.
 - Every playbook routed in `## Playbooks` has its file, and every playbook file is routed.
 - Every playbook or step named after "Run", "through", "in", "to" or "from" exists as a playbook title or a step title.
 
@@ -71,8 +71,7 @@ for f in files:
         if not (f.parent / link).exists():
             problems.append(f"{where(f)}: links {link}, which does not exist")
     for slug in sorted(set(re.findall(r"\*\*(principle-[\w-]+)\*\*", text))):
-        if not (MODE / "principles" / f"{slug}.md").exists():
-            problems.append(f"{where(f)}: cites {slug}, which has no file")
+        problems.append(f"{where(f)}: cites **{slug}** by name; cite it as principles/{slug}.md")
     if f.name == "SKILL.md" or f.parent.name == "playbooks":
         for name in sorted(set(re.findall(r"\b(?:Run|through|in|to|from) \*\*([A-Z][^*]*?)\*\*", text))):
             if name not in playbook_titles and name not in step_titles and not name.startswith("principle-"):
@@ -83,7 +82,7 @@ for name in sorted(routed - set(playbook_titles)):
 for name, f in sorted(playbook_titles.items()):
     if name not in routed:
         problems.append(f"{where(f)}: **{name}** has no line in ## Playbooks")
-indexed = set(re.findall(r"\(\*\*(principle-[\w-]+)\*\*\)", mode_text))
+indexed = set(re.findall(r"\(`principles/(principle-[\w-]+)\.md`\)", mode_text))
 for f in sorted((MODE / "principles").glob("*.md")):
     if f.stem not in indexed:
         problems.append(f"{where(f)}: has no index line in SKILL.md ## Principles")
