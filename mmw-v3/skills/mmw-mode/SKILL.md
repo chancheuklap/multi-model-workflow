@@ -16,11 +16,20 @@ Read the principle file in full for any principle you apply. Each entry names wh
 **Core**
 
 - **Laziness Protocol** (`principles/principle-laziness-protocol.md`). Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading.
+- **Redesign From First Principles** (`principles/principle-redesign-from-first-principles.md`). Apply when integrating a new requirement into an existing design.
+- **Attack the Premise** (`principles/principle-attack-the-premise.md`). Apply when two or more fixes that share one premise have failed the same gate.
+- **Subtract Before You Add** (`principles/principle-subtract-before-you-add.md`). Apply when sequencing an addition, refactor, or rewrite.
 - **Build the Lever** (`principles/principle-build-the-lever.md`). Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks.
+
+**Architecture**
+
+- **Migrate Callers Then Delete Legacy APIs** (`principles/principle-migrate-callers-then-delete-legacy-apis.md`). Apply when introducing a new internal API while old callers still exist.
 
 **Verification**
 
 - **Prove It Works** (`principles/principle-prove-it-works.md`). Apply after completing a task, before declaring done.
+- **Fix Root Causes** (`principles/principle-fix-root-causes.md`). Apply when debugging.
+- **Test Behavior, Not Implementation** (`principles/principle-test-behavior-not-implementation.md`). Apply when you write, change, or keep a test.
 
 **Meta**
 
@@ -67,6 +76,8 @@ The list below is the route table, and each of its lines a route line. Match the
 
 When no playbook below fits, say so, then open a todolist of the steps you will take, each naming the component it uses, before any work; the same `skip:` rule applies. The deliverable before any code is the workflow itself.
 
-- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, this mode, or any text an agent reads; a change to the product's code is not this playbook's. `playbooks/authoring-a-skill.md`.
+- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, this mode, or any text an agent reads; a change to the product's code goes to `playbooks/make-a-small-change.md` or `playbooks/bug-fix.md`. `playbooks/authoring-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from the `code-review` skill, which reviews a code diff, and from `playbooks/authoring-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
-- **Deliver a change.** Handing over a finished change the way this repository takes changes; the last step of `playbooks/authoring-a-skill.md`. `playbooks/deliver-a-change.md`.
+- **Make a small change.** A change small enough that the user will check it directly: no tickets, no night. A change that needs several sessions, criteria a script runs and a reviewer of its own needs a spec instead. `playbooks/make-a-small-change.md`.
+- **Bug fix.** Something is broken or throws ("debug", "diagnose"). `playbooks/bug-fix.md`.
+- **Deliver a change.** Handing over a finished change the way this repository takes changes; the last step of `playbooks/make-a-small-change.md`, `playbooks/bug-fix.md` and `playbooks/authoring-a-skill.md`. `playbooks/deliver-a-change.md`.
