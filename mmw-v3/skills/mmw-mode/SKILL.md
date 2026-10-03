@@ -36,7 +36,9 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 ## Autonomy
 
-<!-- Precedence when rules conflict; what a session decides with the user present; what an unattended session decides; where each role records a decision taken with nobody to ask. -->
+**Precedence.** The user rules come first, then this mode, then the playbook you serve (its local qualification of a principle included), then a principle. A human gate a capability skill carries is not in this order: with the user present, stop at it.
+
+**With the user present.** User rules 1 to 3 say who decides what.
 
 ## Re-entry
 
@@ -48,11 +50,11 @@ Read the principle file in full for any principle you apply. Each entry names wh
 
 ## Writing the reply
 
-A reply to the user follows user rules 4 to 9. Every playbook ends with a reply written this way. Each playbook's `**Reply:**` line names only the content unique to that playbook. An unattended session's reply is its playbook's deliverable: the closing comment, the `REVIEW` report, the comment on the spec.
+A reply to the user follows user rules 4 to 9. Every playbook ends with a reply written this way. Each playbook's `**Reply:**` line names only the content unique to that playbook. An unattended session's reply is its playbook's deliverable.
 
 ## Playbooks
 
-Match the task to a playbook below and open its file. Open a todolist whose first items are that playbook's numbered steps, copied in verbatim, before any task-specific todos; the rest of the file (its opening, any `####` section, its **Reply:** line) is read, not copied. A step you choose not to do stays in the list with a one-line `skip: <reason>`. When a step runs another playbook, that playbook's steps go into the list under the step, the same way. With no todo tool, list the step titles and `skip:` lines at the top of your reply.
+Match the task to a playbook below and open its file. Open a todolist whose first items are that playbook's numbered steps, each copied in verbatim with its title and its `Done when` line, before any task-specific todos; the rest of the file (its opening, any `####` section, its **Reply:** line) is read, not copied. A step you choose not to do stays in the list with a one-line `skip: <reason>`. When a step runs another playbook, that playbook's steps go into the list under the step, the same way. With no todo tool, list the step titles and `skip:` lines at the top of your reply.
 
 When no playbook below fits, say so, then open a todolist of the steps you will take, each naming the component it uses, before any work; the same `skip:` rule applies. The deliverable before any code is the workflow itself.
 

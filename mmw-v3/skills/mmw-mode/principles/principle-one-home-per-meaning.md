@@ -1,8 +1,3 @@
----
-name: principle-one-home-per-meaning
-description: "Apply when a rule, a term or a fact is about to be written where it already lives elsewhere. Keep each meaning in one authoritative place, and point to that place by name from everywhere else."
----
-
 # One home per meaning
 
 Keep each meaning in a **single source of truth**, as the `writing-for-agents` skill's `## Pruning` defines it. Everywhere else reaches it by naming that place.

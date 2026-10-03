@@ -1,8 +1,3 @@
----
-name: principle-silence-is-never-a-pass
-description: "Apply when a check, gate, oracle or test is written, changed, run, or read as a result. A check that did nothing, or whose green could come from something other than the product being right, has failed: say it could not check, and change the product, never the check."
----
-
 # Silence is never a pass
 
 A check that could verify nothing says so instead of reading like a pass. A check that ran and did nothing has failed, and so has one whose green could come from something other than the product being right.
