@@ -1,0 +1,2 @@
+type	local	source	commit	mechanical	judgement	batch
+skill	mmw-v3/skills/maintain-verification-skill/SKILL.md	mmw-v2/upstream-pstack/skills/maintain-verification-skill/SKILL.md	dd6ba52b0bf000ee0c8defef96832572944d1e00	none	one PR of corrections -> one commit, delivered the way the repository takes changes (MMW repositories take changes by their own delivery, not by pull request); No branch, no PR -> No commit; target location .cursor/skills/verify-*/ -> .agents/skills/verify-*/, as in create-verification-skill	B2

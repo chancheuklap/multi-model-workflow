@@ -2,7 +2,8 @@
 """Check the text of every skill in the set (each skill directory beside this one): what a script can check
 exactly, so a reader can rerun it.
 
-- Each `SKILL.md` has frontmatter with exactly `name` and `description`, and `name` matches its skill directory.
+- Each `SKILL.md` has frontmatter with exactly `name` and `description`, and `name` matches its skill directory;
+  one its skill's `imports.tsv` lists as copied from upstream may also keep upstream's `disable-model-invocation`.
 - A principle file opens with its `#` title and a playbook file with its `###` title; neither has frontmatter.
 - Every `references/`, `playbooks/`, `principles/` and `scripts/` path a skill's text names exists in that skill;
   one introduced as "the `X` skill's" exists in skill X when X is in the set, and is listed as not checked
@@ -31,13 +32,13 @@ def where(f):
     return f.relative_to(SET)
 
 
-def frontmatter(f, text, want):
+def frontmatter(f, text, want, upstream):
     m = re.match(r"---\n(.*?)\n---\n", text, re.S)
     if not m:
         problems.append(f"{where(f)}: has no frontmatter")
         return
     fields = dict(re.findall(r'^([\w-]+):\s*"?(.*?)"?\s*$', m.group(1), re.M))
-    if set(fields) != {"name", "description"}:
+    if set(fields) - ({"disable-model-invocation"} if upstream else set()) != {"name", "description"}:
         problems.append(f"{where(f)}: frontmatter keys are {sorted(fields)}, not name and description")
     if fields.get("name") != want:
         problems.append(f"{where(f)}: frontmatter name is {fields.get('name')!r}, not {want!r}")
@@ -61,7 +62,9 @@ for skill in skills:
         files.append(f)
         text = f.read_text()
         if f == skill / "SKILL.md":
-            frontmatter(f, text, skill.name)
+            imports = skill / "imports.tsv"
+            listed = imports.exists() and f"\t{f.relative_to(SET.parent.parent)}\t" in imports.read_text()
+            frontmatter(f, text, skill.name, listed)
         opening = {"principles": "# ", "playbooks": "### "}.get(f.parent.name)
         if opening and not (text.startswith(opening) and not text.startswith(opening + "#")):
             problems.append(f"{where(f)}: does not open with its {opening.strip()} title")
