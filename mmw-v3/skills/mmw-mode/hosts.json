@@ -1,0 +1,62 @@
+{
+  "defaults": [
+    {"agent": "junior-worker", "host": "grok", "model": "grok 4.7", "effort": "high"},
+    {"agent": "senior-worker", "host": "codex", "model": "gpt 6 sol", "effort": "high"},
+    {"agent": "reviewer", "host": "claude", "model": "opus[1m]", "effort": "high"},
+    {"agent": "advisor", "host": "claude", "model": "fable[1m]", "effort": "medium"},
+    {"agent": "researcher", "host": "codex", "model": "gpt 6 sol", "effort": "high"}
+  ],
+  "hosts": {
+    "cursor": {
+      "binary": "cursor-agent",
+      "effort_in_model": true,
+      "cli": {
+        "argv": ["--model", "{model}", "--force", "--trust", "--approve-mcps"]
+      },
+      "paseo": {
+        "settings": {"modeId": "agent", "features": {"auto_accept": true}},
+        "thinking": "boolean"
+      }
+    },
+    "grok": {
+      "binary": "grok",
+      "efforts": ["xhigh", "high", "medium", "low"],
+      "cli": {
+        "argv": ["-m", "{model}", "--reasoning-effort", "{effort}", "--permission-mode", "bypassPermissions", "--always-approve"]
+      },
+      "paseo": {
+        "settings": {"features": {"auto_accept": true}},
+        "thinking": "option_id"
+      }
+    },
+    "claude": {
+      "binary": "claude",
+      "efforts": ["low", "medium", "high", "xhigh", "max"],
+      "cli": {
+        "argv": ["--model", "{model}", "--effort", "{effort}", "--permission-mode", "bypassPermissions", "-n", "{name}"]
+      },
+      "paseo": {
+        "settings": {"modeId": "bypassPermissions"},
+        "thinking": "option_id"
+      }
+    },
+    "codex": {
+      "binary": "codex",
+      "efforts": ["low", "medium", "high", "xhigh"],
+      "cli": {
+        "argv": ["-m", "{model}", "-c", "model_reasoning_effort=\"{effort}\"", "--dangerously-bypass-approvals-and-sandbox"]
+      },
+      "paseo": {
+        "settings": {"modeId": "full-access"},
+        "thinking": "option_id"
+      }
+    },
+    "pi": {
+      "binary": "pi",
+      "paseo": {
+        "settings": {"features": {"auto_accept": true}},
+        "thinking": "option_id"
+      }
+    }
+  }
+}

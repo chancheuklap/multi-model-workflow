@@ -1,0 +1,7 @@
+type	local	source	commit	mechanical	judgement	batch
+reference	mmw-v3/skills/prototype/EXP.md	mmw-v2/upstream/skills/engineering/prototype/EXP.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	not in upstream: added in v2 (mmw-v2/merge-notes/prototype.md)	B4
+reference	mmw-v3/skills/prototype/LOGIC.md	mmw-v2/upstream/skills/engineering/prototype/LOGIC.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/prototype.md	B4
+skill	mmw-v3/skills/prototype/SKILL.md	mmw-v2/upstream/skills/engineering/prototype/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/prototype.md	B4
+reference	mmw-v3/skills/prototype/UI.md	mmw-v2/upstream/skills/engineering/prototype/UI.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/prototype.md	B4
+reference	mmw-v3/skills/prototype/agents/openai.yaml	mmw-v2/upstream/skills/engineering/prototype/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+reference	mmw-v3/skills/prototype/evidence-page.md	mmw-v2/upstream/skills/engineering/prototype/evidence-page.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	not in upstream: added in v2 (mmw-v2/merge-notes/prototype.md)	B4

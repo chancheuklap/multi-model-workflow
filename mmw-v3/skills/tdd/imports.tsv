@@ -1,0 +1,5 @@
+type	local	source	commit	mechanical	judgement	batch
+skill	mmw-v3/skills/tdd/SKILL.md	mmw-v2/upstream/skills/engineering/tdd/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/tdd.md	B4
+reference	mmw-v3/skills/tdd/agents/openai.yaml	mmw-v2/upstream/skills/engineering/tdd/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+reference	mmw-v3/skills/tdd/mocking.md	mmw-v2/upstream/skills/engineering/tdd/mocking.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+reference	mmw-v3/skills/tdd/tests.md	mmw-v2/upstream/skills/engineering/tdd/tests.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4

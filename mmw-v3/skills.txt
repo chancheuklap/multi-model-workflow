@@ -1,0 +1,36 @@
+# 装进各 host 的技能。一行一个技能名，即 mmw-v3/skills/<名> 这个目录。加减技能只改这里：
+# install.sh 按它为每个名字装一条 symlink，并摘掉安装目录里指回本仓库、这份名单上却没有的
+# symlink。
+# `#` 开头的注释和空行忽略。一行只写名字：名字后面再有记号、名字里带 `/`、同一个名字
+# 写了两次，或 mmw-v3/skills/<名>/SKILL.md 不存在，install.sh 在动任何 host 目录之前停下。
+
+code-review
+codebase-design
+control-cli
+control-ui
+create-verification-skill
+diagnosing-bugs
+diagram-design
+domain-modeling
+grilling
+handoff
+improve-codebase-architecture
+maintain-verification-skill
+mmw-mode
+prototype
+research
+resolving-merge-conflicts
+setup-matt-pocock-skills
+setup-mmw
+tdd
+teach
+to-questionnaire
+to-spec
+to-tickets
+triage
+verify-this
+wait-what
+wayfinder
+wizard
+writing-for-agents
+writing-skill-sets

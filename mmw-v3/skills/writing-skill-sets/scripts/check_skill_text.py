@@ -3,7 +3,11 @@
 exactly, so a reader can rerun it.
 
 - Each `SKILL.md` has frontmatter with exactly `name` and `description`, and `name` matches its skill directory;
-  one its skill's `imports.tsv` lists as copied from upstream may also keep upstream's `disable-model-invocation`.
+  one its skill's `imports.tsv` lists as copied from upstream may also keep upstream's other frontmatter keys.
+- A skill directory that is a symlink is an upstream subtree's skill, used as upstream keeps it; it is listed as
+  not checked.
+- In a file its skill's `imports.tsv` lists, a path or link that the listed source file already names is the
+  source's to keep, and is not checked.
 - A principle file opens with its `#` title and a playbook file with its `###` title; neither has frontmatter.
 - Every `references/`, `playbooks/`, `principles/` and `scripts/` path a skill's text names exists in that skill;
   one introduced as "the `X` skill's" exists in skill X when X is in the set, and is listed as not checked
@@ -38,7 +42,7 @@ def frontmatter(f, text, want, upstream):
         problems.append(f"{where(f)}: has no frontmatter")
         return
     fields = dict(re.findall(r'^([\w-]+):\s*"?(.*?)"?\s*$', m.group(1), re.M))
-    if set(fields) - ({"disable-model-invocation"} if upstream else set()) != {"name", "description"}:
+    if not (set(fields) >= {"name", "description"} if upstream else set(fields) == {"name", "description"}):
         problems.append(f"{where(f)}: frontmatter keys are {sorted(fields)}, not name and description")
     if fields.get("name") != want:
         problems.append(f"{where(f)}: frontmatter name is {fields.get('name')!r}, not {want!r}")
@@ -55,21 +59,30 @@ for f in sorted((MODE / "playbooks").glob("*.md")):
     playbook_titles[text.splitlines()[0].lstrip("# ").strip()] = f
     step_titles |= set(re.findall(r"^\d+\. \*\*(.+?)\.\*\*", text, re.M))
 
-skills = sorted(d for d in SET.iterdir() if (d / "SKILL.md").exists())
+skills = sorted(d for d in SET.iterdir() if (d / "SKILL.md").exists() and not d.is_symlink())
+unchecked |= {f"NOT CHECKED {d.name}: links to {d.resolve().relative_to(SET.parent.parent.resolve())}, an upstream subtree's skill"
+              for d in SET.iterdir() if d.is_symlink()}
 files = []
 for skill in skills:
+    imports = skill / "imports.tsv"
+    source = {}
+    if imports.exists():
+        for line in imports.read_text().splitlines()[1:]:
+            cells = line.split("\t")
+            source[cells[1]] = cells[2]
     for f in sorted(skill.rglob("*.md")):
         files.append(f)
         text = f.read_text()
+        local = str(f.relative_to(SET.parent.parent))
         if f == skill / "SKILL.md":
-            imports = skill / "imports.tsv"
-            listed = imports.exists() and f"\t{f.relative_to(SET.parent.parent)}\t" in imports.read_text()
-            frontmatter(f, text, skill.name, listed)
+            frontmatter(f, text, skill.name, local in source)
+        origin = SET.parent.parent / source.get(local, "-")
+        kept = origin.read_text() if origin.is_file() else ""
         opening = {"principles": "# ", "playbooks": "### "}.get(f.parent.name)
         if opening and not (text.startswith(opening) and not text.startswith(opening + "#")):
             problems.append(f"{where(f)}: does not open with its {opening.strip()} title")
         for other, ref in re.findall(r"(?:`([\w-]+)` skill's )?`((?:references|playbooks|principles|scripts)/[^`\s]+\.\w+)`", text):
-            if "<" in ref or "*" in ref:
+            if "<" in ref or "*" in ref or ref in kept:
                 continue
             home = SET / other if other else skill
             if other and not home.is_dir():
@@ -77,7 +90,7 @@ for skill in skills:
             elif not (home / ref).exists():
                 problems.append(f"{where(f)}: names {other + chr(39) + 's ' if other else ''}{ref}, which does not exist")
         for link in re.findall(r"\]\(([^)#:\s]+\.md)(?:#[\w-]+)?\)", text):
-            if not (f.parent / link).exists():
+            if link not in kept and not (f.parent / link).exists():
                 problems.append(f"{where(f)}: links {link}, which does not exist")
         for slug in sorted(set(re.findall(r"\*\*(principle-[\w-]+)\*\*", text))):
             problems.append(f"{where(f)}: cites **{slug}** by name; cite it as principles/{slug}.md")

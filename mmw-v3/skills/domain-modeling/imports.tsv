@@ -1,0 +1,5 @@
+type	local	source	commit	mechanical	judgement	batch
+reference	mmw-v3/skills/domain-modeling/ADR-FORMAT.md	mmw-v2/upstream/skills/engineering/domain-modeling/ADR-FORMAT.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+reference	mmw-v3/skills/domain-modeling/CONTEXT-FORMAT.md	mmw-v2/upstream/skills/engineering/domain-modeling/CONTEXT-FORMAT.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+skill	mmw-v3/skills/domain-modeling/SKILL.md	mmw-v2/upstream/skills/engineering/domain-modeling/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+reference	mmw-v3/skills/domain-modeling/agents/openai.yaml	mmw-v2/upstream/skills/engineering/domain-modeling/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4

@@ -1,0 +1,4 @@
+type	local	source	commit	mechanical	judgement	batch
+reference	mmw-v3/skills/improve-codebase-architecture/HTML-REPORT.md	mmw-v2/upstream/skills/engineering/improve-codebase-architecture/HTML-REPORT.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/improve-codebase-architecture.md	B4
+skill	mmw-v3/skills/improve-codebase-architecture/SKILL.md	mmw-v2/upstream/skills/engineering/improve-codebase-architecture/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/improve-codebase-architecture.md	B4
+reference	mmw-v3/skills/improve-codebase-architecture/agents/openai.yaml	mmw-v2/upstream/skills/engineering/improve-codebase-architecture/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4

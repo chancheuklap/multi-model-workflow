@@ -1,0 +1,4 @@
+type	local	source	commit	mechanical	judgement	batch
+reference	mmw-v3/skills/writing-for-agents/SKILL-MECHANICS.md	mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL-MECHANICS.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+skill	mmw-v3/skills/writing-for-agents/SKILL.md	mmw-v2/upstream/skills/productivity/writing-for-agents/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/writing-for-agents.md	B4
+reference	mmw-v3/skills/writing-for-agents/agents/openai.yaml	mmw-v2/upstream/skills/productivity/writing-for-agents/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4

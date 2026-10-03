@@ -1,0 +1,5 @@
+type	local	source	commit	mechanical	judgement	batch
+reference	mmw-v3/skills/codebase-design/DEEPENING.md	mmw-v2/upstream/skills/engineering/codebase-design/DEEPENING.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+reference	mmw-v3/skills/codebase-design/DESIGN-IT-TWICE.md	mmw-v2/upstream/skills/engineering/codebase-design/DESIGN-IT-TWICE.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4
+skill	mmw-v3/skills/codebase-design/SKILL.md	mmw-v2/upstream/skills/engineering/codebase-design/SKILL.md	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	v2's change, recorded in mmw-v2/merge-notes/codebase-design.md	B4
+reference	mmw-v3/skills/codebase-design/agents/openai.yaml	mmw-v2/upstream/skills/engineering/codebase-design/agents/openai.yaml	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	none	none	B4

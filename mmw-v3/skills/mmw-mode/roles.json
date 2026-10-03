@@ -1,0 +1,8 @@
+{
+  "researcher": {
+    "playbook": "research-a-question",
+    "models_row": ["researcher"],
+    "started_by": "dispatch.sh research <n>",
+    "wakes": {}
+  }
+}
