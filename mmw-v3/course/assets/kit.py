@@ -10,6 +10,34 @@ def tw(s, size=13, mono=False):
             w += size * (0.6 if mono else 0.56)
     return w
 
+SIZES = {"s": 11.5, "m": 12.0, "h": 14.0}
+
+
+def fits(text, cls, room):
+    """Refuse a line wider than the room it is drawn in; monospace fallbacks run wider."""
+    need = tw(text, SIZES[cls], cls == "m") * (1.12 if cls == "m" else 1.0)
+    if need > room:
+        raise ValueError(f"{text!r} needs {need:.0f}px and has {room}px")
+
+
+def txt(f, x, y, t, cls="s", anchor="start", room=None):
+    if room is not None:
+        fits(t, cls, room)
+    a = f' text-anchor="{anchor}"' if anchor != "start" else ""
+    f.e(f'<text x="{x}" y="{y:.1f}" class="{cls}"{a}>{html.escape(t)}</text>')
+
+
+def tbox(f, kind, x, y, w, title, lines, mono_title=False, dashed=False):
+    """A box with a title and lines below it; returns its height."""
+    h = 30 + len(lines) * 17
+    dash = ' style="stroke-dasharray:6 3"' if dashed else ""
+    f.e(f'<g class="k-{kind}"><rect class="box" x="{x}" y="{y}" width="{w}" height="{h}" rx="4"{dash}/></g>', False)
+    txt(f, x + 12, y + 20, title, "m" if mono_title else "h", room=w - 20)
+    for i, line in enumerate(lines):
+        txt(f, x + 12, y + 39 + i * 17, line, room=w - 20)
+    return h
+
+
 class Fig:
     def __init__(self, mid, W):
         self.mid, self.W, self.back, self.front = mid, W, [], []

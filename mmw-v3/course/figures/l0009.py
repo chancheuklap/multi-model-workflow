@@ -1,33 +1,6 @@
 """Figures of lesson 0009: one ticket from claim to close; Make a small change and Bug fix, each with its exits."""
 import html
-from kit import Fig, tw
-
-SIZES = {"s": 11.5, "m": 12.0, "h": 14.0}
-
-
-def _fits(text, cls, room):
-    """Refuse a line wider than the room it is drawn in; monospace fallbacks run wider."""
-    need = tw(text, SIZES[cls], cls == "m") * (1.12 if cls == "m" else 1.0)
-    if need > room:
-        raise ValueError(f"{text!r} needs {need:.0f}px and has {room}px")
-
-
-def _t(f, x, y, t, cls="s", anchor="start", room=None):
-    if room is not None:
-        _fits(t, cls, room)
-    a = f' text-anchor="{anchor}"' if anchor != "start" else ""
-    f.e(f'<text x="{x}" y="{y:.1f}" class="{cls}"{a}>{html.escape(t)}</text>')
-
-
-def _box(f, kind, x, y, w, title, lines, mono_title=False, dashed=False):
-    """A box with a title and lines below it; returns its height."""
-    h = 30 + len(lines) * 17
-    dash = ' style="stroke-dasharray:6 3"' if dashed else ""
-    f.e(f'<g class="k-{kind}"><rect class="box" x="{x}" y="{y}" width="{w}" height="{h}" rx="4"{dash}/></g>', False)
-    _t(f, x + 12, y + 20, title, "m" if mono_title else "h", room=w - 20)
-    for i, line in enumerate(lines):
-        _t(f, x + 12, y + 39 + i * 17, line, room=w - 20)
-    return h
+from kit import Fig, txt as _t, tbox as _box
 
 
 LANES = [("Run a night", "playbook", 150), ("Work a ticket（worker）", "playbook", 250),

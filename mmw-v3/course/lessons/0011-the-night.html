@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>夜里的 playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;600;700&family=Noto+Serif+SC:wght@400;600&display=swap">
+<!--CSS--><style>
+/* MMW 重建课 · shared stylesheet. Layout: one reading column (68ch); figures and document cards may widen to 1080px.
+   Each section is a picture first, then the few words the picture cannot say. */
+:root{
+  --bg:#f8f9f6; --surface:#ffffff; --sunk:#eef0eb; --ink:#1f2328; --ink2:#3d434b; --muted:#646b73; --rule:#d8dcd5; --rule2:#b4bab1;
+  --link:#1d5c8a; --ok:#2e7a46; --bad:#b3362c; --warn:#9a6a00;
+  /* one colour per kind of thing an agent reads or runs in pstack, plus everything else */
+  --k-mode:#2563a8; --k-playbook:#c2571a; --k-principle:#a8326e; --k-skill:#2e7d4f; --k-reference:#a67614; --k-script:#5b44b0; --k-agent:#6b7a1f; --k-config:#7a4b28; --k-other:#6b7280;
+  --f-body:"Noto Serif SC","Source Han Serif SC","Songti SC",serif;
+  --f-head:"Noto Sans SC","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171a; --surface:#1b1f23; --sunk:#22272c; --ink:#e4e7ea; --ink2:#c4c9ce; --muted:#99a1a9; --rule:#30363c; --rule2:#4a525a;
+  --link:#7db4e0; --ok:#6cc08a; --bad:#ef7d72; --warn:#e0b04a;
+  --k-mode:#6fa3e6; --k-playbook:#f08a4e; --k-principle:#e278ac; --k-skill:#62bd86; --k-reference:#dcae4a; --k-script:#a493f0; --k-agent:#b6c65a; --k-config:#c8946a; --k-other:#9aa1aa;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#14171a; --surface:#1b1f23; --sunk:#22272c; --ink:#e4e7ea; --ink2:#c4c9ce; --muted:#99a1a9; --rule:#30363c; --rule2:#4a525a;
+  --link:#7db4e0; --ok:#6cc08a; --bad:#ef7d72; --warn:#e0b04a;
+  --k-mode:#6fa3e6; --k-playbook:#f08a4e; --k-principle:#e278ac; --k-skill:#62bd86; --k-reference:#dcae4a; --k-script:#a493f0; --k-agent:#b6c65a; --k-config:#c8946a; --k-other:#9aa1aa;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.8}
+.page{max-width:1080px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:32px 80px}
+.col{max-width:68ch}
+h1,h2,h3,h4{font-family:var(--f-head);line-height:1.35;text-wrap:balance;color:var(--ink)}
+h1{font-size:clamp(28px,4vw,38px);margin:4px 0 10px;font-weight:700}
+h2{font-size:22px;margin:56px 0 10px;font-weight:700;padding-top:18px;border-top:1px solid var(--rule)}
+h3{font-size:17px;margin:30px 0 6px;font-weight:700}
+p{margin:10px 0}
+a{color:var(--link);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+code,.mono{font-family:var(--f-mono);font-size:.84em;font-variant-ligatures:none;overflow-wrap:anywhere}
+p code,li code,td code{background:var(--sunk);padding:1px 4px;border-radius:3px}
+/* A quoted block of text an agent receives: wrapped, so it never widens the page. */
+pre{max-width:68ch;margin:14px 0;padding:12px 14px;background:var(--sunk);border:1px solid var(--rule);border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+/* A component mention: tinted with its kind's colour, the same colour as in the figures. */
+code.c,span.c{background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);border-radius:3px;padding:1px 5px;color:var(--ink);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+span.c{font-family:var(--f-head);font-size:.94em;white-space:nowrap}
+/* A quote's source, given as <q class="k-KIND" data-src="…">, shown before the quote in its kind's colour. */
+q[data-src]::before{content:attr(data-src);display:inline-block;margin:0 6px 2px 0;padding:0 6px;border-radius:3px;font-family:var(--f-head);font-size:11.5px;font-weight:600;font-style:normal;letter-spacing:.01em;color:var(--surface);background:var(--c);vertical-align:1px}
+q[data-src]{quotes:none}
+q[data-src]::after{content:none}
+:where(p,li,.why)>q[data-src]{background:color-mix(in srgb,var(--c) 8%,transparent);border-radius:3px;padding:1px 4px 1px 0}
+.eyebrow{font-family:var(--f-head);font-size:13px;letter-spacing:.06em;color:var(--muted)}
+.lede{font-size:17.5px;color:var(--ink2)}
+nav.crumbs{font-family:var(--f-head);font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px}
+ul.tight{margin:8px 0;padding-left:22px} ul.tight li{margin:3px 0}
+/* goal / source box at the top of a lesson */
+.brief{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px;margin:18px 0 6px}
+.brief>div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;min-width:0;font-family:var(--f-head);font-size:14.5px;line-height:1.7}
+.brief b{font-size:12.5px;letter-spacing:.04em;color:var(--muted);display:block;margin-bottom:2px;font-weight:600}
+.brief ol,.brief ul{margin:2px 0;padding-left:20px}
+/* figures */
+figure{margin:22px 0 8px;min-width:0}
+figure .svgwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--surface);border:1px solid var(--rule);border-radius:6px 6px 0 0;padding:10px}
+figure svg{display:block;width:100%;height:auto;min-width:720px}
+figcaption{font-family:var(--f-head);font-size:14px;line-height:1.65;color:var(--ink2);margin-top:8px;max-width:80ch}
+figcaption b{color:var(--ink)}
+/* legend: built by course.js from data-legend, attached to the bottom of its figure's frame */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-family:var(--f-head);font-size:12.5px;line-height:1.5;color:var(--ink2);margin:0;padding:8px 12px;background:var(--surface);border:1px solid var(--rule);border-top:1px dashed var(--rule2);border-radius:0 0 6px 6px}
+.legend .it{display:inline-flex;align-items:center;gap:7px;min-width:0}
+.legend svg{display:inline-block;flex:none;width:32px;height:16px;min-width:0}
+.legend b{font-weight:600;color:var(--muted);margin-right:-6px}
+.k-mode{--c:var(--k-mode)} .k-playbook{--c:var(--k-playbook)} .k-principle{--c:var(--k-principle)} .k-skill{--c:var(--k-skill)} .k-reference{--c:var(--k-reference)} .k-script{--c:var(--k-script)} .k-agent{--c:var(--k-agent)} .k-config{--c:var(--k-config)} .k-other{--c:var(--k-other)}
+/* svg vocabulary (assets/kit.py writes these classes) */
+svg text{font-family:var(--f-head);fill:var(--ink);font-size:13px}
+svg text.s{font-size:11.5px;fill:var(--muted)}
+svg text.m{font-family:var(--f-mono);font-size:12px;fill:var(--ink);font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0}
+svg text.h{font-weight:700;font-size:14px}
+svg text.lbl{font-size:11.5px;fill:var(--ink2);paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+svg rect.box{fill:color-mix(in srgb,var(--c) 13%,var(--surface));stroke:var(--c);stroke-width:1.4}
+svg rect.zone{fill:var(--sunk);stroke:var(--rule2);stroke-width:1}
+svg rect.zone.open{fill:none;stroke-dasharray:6 4}
+svg .ar{fill:none;stroke:var(--ink2);stroke-width:1.4}
+svg .ar.human{stroke-dasharray:1.5 4;stroke-linecap:round;stroke-width:1.8}
+svg .head{fill:var(--ink2)}
+svg polygon.dia{fill:var(--surface);stroke:var(--ink2);stroke-width:1.4}
+svg rect.pill{fill:var(--sunk);stroke:var(--ink2);stroke-width:1.4}
+svg path.att{fill:none;stroke:var(--rule2);stroke-width:1.2;stroke-dasharray:3 3}
+svg line.rule{stroke:var(--rule);stroke-width:1}
+/* a file or skill name coloured by its kind, anywhere in running text */
+.chip{display:inline-block;border:1.2px solid var(--c);background:color-mix(in srgb,var(--c) 13%,var(--surface));border-radius:4px;padding:0 6px;font-family:var(--f-mono);font-size:12.5px;line-height:1.6;overflow-wrap:anywhere;color:var(--ink);text-decoration:none}
+a.chip:hover{border-width:2px;padding:0 5px}
+/* doc: a picture of one document. .doc-h names the file; each .sec is one part of it, top to bottom:
+   on the left the part's marker exactly as the file writes it (.mk), on the right what that part says (.say).
+   .sec.opt is a part only some files of this kind have. */
+.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(470px,100%),1fr));gap:18px;margin:16px 0}
+.doc{border:1.4px solid var(--c);border-radius:8px;background:var(--surface);overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.6;min-width:0}
+.doc-h{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;padding:9px 12px;background:color-mix(in srgb,var(--c) 13%,var(--surface));border-bottom:1px solid var(--rule)}
+.doc-h .t{font-weight:700;font-size:15px}
+.doc-h .n{color:var(--ink2);font-size:12.5px}
+.doc-h .where{flex-basis:100%;color:var(--ink2);font-size:13px}
+.sec{display:grid;grid-template-columns:minmax(0,13.5em) minmax(0,1fr);gap:4px 14px;padding:8px 12px;border-top:1px dashed var(--rule)}
+.doc-h+.sec{border-top:0}
+.sec .mk{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;font-variant-ligatures:none}
+.sec .mk small{display:block;font-family:var(--f-head);color:var(--muted);font-size:12px;margin-top:2px}
+.sec.opt .mk::after{content:"有的文件有";display:inline-block;margin-left:6px;font-family:var(--f-head);font-size:11px;color:var(--muted);border:1px dashed var(--rule2);border-radius:99px;padding:0 6px;vertical-align:1px}
+.sec .say p{margin:0 0 4px}
+.sec .say .when{display:block;color:var(--ink2);font-size:13px}
+.sec .say .when b{color:var(--muted);font-weight:600;font-size:12px;margin-right:4px}
+.sec q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin-top:5px;overflow-wrap:anywhere;font-variant-ligatures:none}
+.doc .foot{padding:8px 12px;border-top:1px solid var(--rule);background:var(--sunk);font-size:13px;color:var(--ink2)}
+@media (max-width:640px){.sec{grid-template-columns:minmax(0,1fr)}}
+/* source box: which file and where to look, right under a picture */
+.src{font-family:var(--f-head);font-size:14px;line-height:1.7;background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--link);border-radius:6px;padding:10px 14px;margin:14px 0;min-width:0;max-width:80ch}
+.src>b{display:block;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:2px}
+.src ul{margin:4px 0 0;padding-left:20px}
+.takeaway{font-family:var(--f-head);font-size:15px;line-height:1.75;background:color-mix(in srgb,var(--k-mode) 7%,var(--surface));border:1px solid var(--rule);border-radius:6px;padding:12px 16px;margin:16px 0;max-width:80ch}
+.takeaway b.l{display:block;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:2px}
+.takeaway ol{margin:4px 0;padding-left:22px}
+.takeaway li{margin:4px 0}
+/* pair: one rule we wrote (left) against what the pstack source actually does (right). .src-line names the file. */
+.pairs{display:grid;gap:14px;margin:16px 0}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--rule2);border-radius:8px;overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.65;background:var(--surface)}
+.pair>div{padding:10px 14px;min-width:0}
+.pair .ours{background:color-mix(in srgb,var(--bad) 6%,var(--surface));border-right:1px solid var(--rule)}
+.pair .theirs{background:color-mix(in srgb,var(--ok) 6%,var(--surface))}
+.pair h4{margin:0 0 4px;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.pair q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0;overflow-wrap:anywhere;font-variant-ligatures:none}
+.pair .src-line{font-size:12.5px;color:var(--muted);margin-top:4px}
+.pair .cost{grid-column:1/-1;border-top:1px solid var(--rule);background:var(--sunk);font-size:13.5px;color:var(--ink2)}
+.pair.neutral .ours,.pair.neutral .theirs{background:var(--surface)}
+.pair.neutral .cost{background:color-mix(in srgb,var(--ok) 7%,var(--surface));color:var(--ink)}
+@media (max-width:700px){.pair{grid-template-columns:minmax(0,1fr)}.pair .ours{border-right:0;border-bottom:1px solid var(--rule)}}
+/* why-card: why one kind of component exists and when a new one is made. Rows: .q the question it answers,
+   .make when the source says to make one, .not when the source says not to, .ex an instance in the source. */
+.why-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(470px,100%),1fr));gap:16px;margin:16px 0}
+.why-card{border:1.4px solid var(--c);border-radius:8px;background:var(--surface);overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.65;min-width:0}
+.why-card>h3{margin:0;padding:9px 12px;font-size:15.5px;background:color-mix(in srgb,var(--c) 13%,var(--surface));border-bottom:1px solid var(--rule)}
+.why-card>h3 small{font-weight:400;color:var(--ink2);font-size:13px;margin-left:8px}
+.why-card dl{margin:0;display:grid;grid-template-columns:5.2em minmax(0,1fr)}
+.why-card dt,.why-card dd{padding:7px 12px;border-top:1px dashed var(--rule);margin:0;min-width:0}
+.why-card dl>dt:first-child,.why-card dl>dt:first-child+dd{border-top:0}
+.why-card dt{color:var(--muted);font-weight:600;font-size:12.5px;padding-right:0}
+.why-card dd q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0 0;overflow-wrap:anywhere;font-variant-ligatures:none}
+.inf{color:var(--warn);font-size:12px;font-weight:600;margin-left:4px}
+/* role table: one row per role; scrolls inside its own box at narrow widths */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table.roles{border-collapse:collapse;font-family:var(--f-head);font-size:13.5px;line-height:1.55;min-width:1160px}
+table.roles code{white-space:nowrap}
+table.roles th,table.roles td{padding:7px 10px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}
+table.roles thead th{border-top:0;color:var(--muted);font-size:12.5px;font-weight:600;background:var(--sunk)}
+table.roles tbody th{font-weight:600;white-space:nowrap}
+/* a table whose row labels are long (step titles, file paths) lets them wrap; its code may wrap too */
+table.roles.wrap tbody th{white-space:normal;min-width:10em}
+table.roles.wrap code{white-space:normal;overflow-wrap:anywhere}
+/* quiz */
+.quiz{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:var(--f-head);font-size:14.5px;max-width:80ch}
+.quiz .q{font-weight:600;margin:0 0 8px}
+.quiz .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:6px}
+.quiz button{font:inherit;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--rule2);border-radius:5px;padding:7px 10px;cursor:pointer}
+.quiz button:hover{border-color:var(--link)}
+.quiz button.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--bg))}
+.quiz button.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--bg))}
+.quiz .why{margin-top:8px;color:var(--ink2)}
+.ask{margin:40px 0 0;padding:12px 14px;border:1px dashed var(--rule2);border-radius:6px;font-family:var(--f-head);font-size:14.5px;color:var(--ink2);max-width:80ch}
+footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+/* course index: one card per lesson or reference page */
+.toc{display:grid;gap:12px;margin:16px 0;max-width:80ch}
+.toc a{display:block;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;text-decoration:none;color:var(--ink);font-family:var(--f-head)}
+.toc a:hover{border-color:var(--link)}
+.toc .no{font-size:12.5px;color:var(--muted);letter-spacing:.04em}
+.toc .tt{display:block;font-weight:700;font-size:16px}
+.toc .ds{display:block;color:var(--ink2);font-size:14px;margin-top:2px}
+.toc .soon{opacity:.6;pointer-events:none;border-style:dashed}
+@media (max-width:640px){body{font-size:15.5px} h2{margin-top:44px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.legend.textkey{border-top:1px solid var(--rule);border-radius:6px;margin:14px 0 4px;background:var(--sunk)}
+</style><!--/CSS-->
+</head>
+<body>
+<div class="page">
+<nav class="crumbs"><a href="../index.html">MMW 重建课</a><a href="0010-landing-lesson-9.html">← 第 10 课</a><span>第 11 课</span><a href="../reference/pstack-anatomy.html">参考页</a></nav>
+<div class="col">
+<div class="eyebrow">第 11 课 · 设计</div>
+<h1>夜里：Run a night 写满，retro 和 Revise a spec 进 v3</h1>
+<p class="lede">夜里由一个 orchestrator 会话从开夜守到 <code class="c k-script">finish</code>。<span class="c k-playbook">Run a night</span> 现在前六步写好了，开夜前检查整批票、contract 子票、收尾、早上验收这几段还是空壳。这一课定下每一段写什么、从 v2 哪段原文来、改了什么；收尾要用的 <code class="c k-skill">retro</code> 技能、改 spec 用的 <span class="c k-playbook">Revise a spec</span>、两条原则一起进来。新写的文字直接给英文草稿。这一课只是设计，还没有改 v3 的任何文件。</p>
+</div>
+<div class="brief">
+<div><b>这一课回答</b><ol><li>现在缺什么</li><li>一夜的十一步，哪几步是新的</li><li>每一步写什么、从哪来、改了什么</li><li>收尾时一条 finding 怎样分流</li><li>contract 子票怎样定，<span class="c k-playbook">Revise a spec</span> 为什么现在进来</li><li><span class="c k-skill">retro</span>：v2、mattpocock、pstack 三份对读，留哪份</li><li><span class="c k-skill">triage</span> 为什么这一课落不了</li><li>两条原则</li><li>新写和改写的文字：草稿</li><li>回顾：这一课对照了哪些标准，查出什么</li><li>这一课不做的</li><li>落地时改哪些文件</li></ol></div>
+<div><b>依据</b>v2 在 9df1ab67d 的 <code class="c k-reference">dispatch/references/night.md</code>（3,598 词，读全）、<code>retro/SKILL.md</code>（1,762 词）和 <code class="c k-script">retro/scripts/retro.py</code>、<code>triage/</code> 的四份文件和 <code class="c k-reference">merge-notes/triage.md</code>、<code class="c k-reference">to-spec/references/revising-a-spec.md</code>（281 词）、<code class="c k-reference">to-tickets/references/person-ticket.md</code>；mattpocock/skills 在 d81f3a18 的 <code class="c k-skill">retro</code> 和 <code class="c k-skill">triage</code>；pstack 在 8224b490 的 <code class="c k-skill">reflect</code>、<code class="c k-playbook">orchestrate.md</code>、<code class="c k-playbook">session-pickup.md</code> 和 24 条原则；v3 现在的 <code class="c k-script">dispatch.sh</code>、<code class="c k-script">watchdog.py</code>、<code class="c k-script">verify-ticket.py</code>；<a href="0006-reshaping-v2-skills.html">第 6 课</a>第 3、4、6、11 节，<a href="0009-work-review-small-change.html">第 9 课</a>第 4 节。本课自己的判断标了 <span class="inf">归纳</span>。</div>
+<div><b>主要来源，建议先读</b>Google《Site Reliability Engineering》的 <a href="https://sre.google/sre-book/postmortem-culture/">Postmortem Culture: Learning from Failure</a>。<code class="c k-skill">retro</code> 的做法从这里来：只认证据，找的是环境里哪一处让错误漏过去，不找哪个人错了；同一个原因出现两次才值得花长期的代价去防。</div>
+</div>
+
+<div class="legend textkey" data-title="文中颜色" data-legend="mode playbook skill principle reference script config other" data-label-skill="技能" data-label-config="配置和记录" data-label-other="不是组件：一节标题、一行输出、角色名"></div>
+
+<h2>1　现在缺什么</h2>
+<div class="tablewrap"><table class="roles wrap" style="min-width:760px">
+<thead><tr><th>东西</th><th>现在</th><th>这一课之后</th></tr></thead>
+<tbody>
+<tr><th><span class="c k-playbook">Run a night</span></th><td>第 1 到 6 步写好（找步骤、开夜、advance、守住 worker、叫醒、暂停）；开头的立场、开夜前检查整批票、contract 子票、收尾和验收、交回，五处是注释</td><td>十一步加两节写满（第 2、3 节）</td></tr>
+<tr><th><code class="c k-skill">retro</code></th><td>没有。可 <code class="c k-script">dispatch.sh</code> 的 <code class="c k-script">finish</code> 只合 <code>spec.retroed</code> 记为 <code>recorded</code> 的夜，没有它这一夜合不进去</td><td>从 v2 搬来，改三处（第 6 节）</td></tr>
+<tr><th><span class="c k-playbook">Revise a spec</span></th><td>没有。第 6 课规矩 3 定了它单独成一份，排在白天那几课</td><td>新的一份，这一课就进来，因为 contract 子票要用它（第 5 节）</td></tr>
+<tr><th><code class="c k-skill">triage</code></th><td>没有</td><td>还是没有，请你定（第 7 节）</td></tr>
+<tr><th>原则「进度以记录为准」</th><td>第 9 课第 4 节留到这一课：<span class="c k-playbook">Work a ticket</span> 第 1 步已经这么写，<span class="c k-playbook">Run a night</span> 第 1 步用得最多</td><td>新原则 <code class="c k-principle">principle-progress-is-what-the-record-says</code>（第 8 节）</td></tr>
+<tr><th>原则「一个文件同一时刻一个写入者」</th><td><span class="c k-playbook">Work a ticket</span> 第 3 步在句子里写着；pstack 有现成的一条</td><td>照抄 pstack 的 <code class="c k-principle">principle-separate-before-serializing-shared-state</code>（第 8 节）</td></tr>
+<tr><th><code class="c k-script">watchdog.py</code> 的两句提示</th><td>叫 orchestrator 照「night.md's Exit codes of resume」处理，v3 没有这个文件，也没有这一节</td><td>改成指 <span class="c k-playbook">Run a night</span> 第 4 步，第 4 步把 <code>resume</code> 的四种退出写全</td></tr>
+</tbody></table></div>
+
+<h2>2　一夜的十一步</h2>
+<figure>
+<div class="svgwrap"><!--FIG:l11-night--><svg viewBox="0 0 1000 1093" role="img" aria-label="Run a night 的十一步，左列是步骤，中列是每一步用到的脚本、技能、原则和参考，右列是会话停下的地方。1 找到你在哪一步：读 dispatch.sh status 和 spec 自己的事件，走第一行成立的那一步，用 principle-progress-is-what-the-record-says。2 检查、开夜、检查整批票：check 修到 0，open 让这个会话成为 orchestrator，第一次 advance 之前用 verify-ticket.py lint 整批票，照 linting.md。3 advance：合进通过的票，给前沿上的票开 worker，然后结束回合等叫醒。4 让每个 worker 守在自己的票上：你改它依据的东西，用 resume 告诉它，不碰它的工作区和分支。5 每次被叫醒：做 dispatch 的 On waking，读 status，按表处理每一行，contract 子票照 Settling a contract child，丢了会话的 worker 用 retract，然后 advance 一次；前沿空、没有活着的 agent 时转第 6 步，否则结束回合；第 5 步回到第 3 步是一个循环。收尾从第 6 步开始。6 处理每条还开着的 finding：dispatch.sh findings 列出，先查 Step 0，再按四步分流，自己修的守三条提交规矩，写成票的照 ticket-format.md，都用 route 关掉；写了票就 advance 后结束回合，前沿再空时回到这一步。7 关掉这份 spec 的 Memory 记录：dispatch.sh memory-list，每条判 retain、deprecate、supersede 或 propose。8 收夜：reverify 每张落地的票，summary 贴 NIGHT SUMMARY 并关掉这一夜的 watch；还有票是红的就告诉你哪张、为什么，停下。9 跑 retro 技能：只认证据，贴 NIGHT RETRO，记下 spec.retroed；交回你，等你验收。10 你验收之后跑 dispatch.sh finish，合进项目分支；合进默认分支是你的发布决定。11 不在顺序里：流水线本身坏了时，从第 1 或第 5 步来，dispatch.sh suspend 暂停这一夜，工作区、分支、已推的提交都留着，stderr 留下的每一行交回你。"><defs><marker id="m111" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><rect class="zone" x="4" y="34" width="384" height="1051" rx="6"/><text x="16" y="53" class="h">Run a night 的步骤</text><rect class="zone" x="394" y="34" width="336" height="1051" rx="6"/><text x="406" y="53" class="h">用到的</text><rect class="zone" x="736" y="34" width="260" height="1051" rx="6"/><text x="748" y="53" class="h">停下：结束回合，或交回你</text><g class="k-playbook"><rect class="box" x="16" y="66" width="360" height="64" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="66" width="312" height="24" rx="4"/></g><g class="k-principle"><rect class="box" x="406" y="96" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,80.0 L404.0,80.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="148" width="360" height="81" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="148" width="312" height="24" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="178" width="312" height="24" rx="4"/></g><g class="k-reference"><rect class="box" x="406" y="208" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,162.0 L404.0,162.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="256" width="360" height="47" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="256" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,270.0 L404.0,270.0" marker-end="url(#m111)"/><g class="k-other"><rect class="box" x="748" y="256" width="236" height="47" rx="4" style="stroke-dasharray:6 3"/></g><path class="ar" d="M376.0,293.0 L746.0,293.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="321" width="360" height="64" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="321" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,335.0 L404.0,335.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="403" width="360" height="64" rx="4"/></g><g class="k-skill"><rect class="box" x="406" y="403" width="312" height="24" rx="4"/></g><g class="k-other"><rect class="box" x="406" y="433" width="312" height="24" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="463" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,417.0 L404.0,417.0" marker-end="url(#m111)"/><g class="k-other"><rect class="box" x="748" y="403" width="236" height="64" rx="4" style="stroke-dasharray:6 3"/></g><path class="ar" d="M376.0,430.0 L746.0,430.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="537" width="360" height="64" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="537" width="312" height="24" rx="4"/></g><g class="k-other"><rect class="box" x="406" y="567" width="312" height="24" rx="4"/></g><g class="k-reference"><rect class="box" x="406" y="597" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,551.0 L404.0,551.0" marker-end="url(#m111)"/><g class="k-other"><rect class="box" x="748" y="537" width="236" height="64" rx="4" style="stroke-dasharray:6 3"/></g><path class="ar" d="M376.0,564.0 L746.0,564.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="645" width="360" height="64" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="645" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,659.0 L404.0,659.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="727" width="360" height="64" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="727" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,741.0 L404.0,741.0" marker-end="url(#m111)"/><g class="k-other"><rect class="box" x="748" y="727" width="236" height="64" rx="4" style="stroke-dasharray:6 3"/></g><path class="ar" d="M376.0,781.0 L746.0,781.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="809" width="360" height="64" rx="4"/></g><g class="k-skill"><rect class="box" x="406" y="809" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,823.0 L404.0,823.0" marker-end="url(#m111)"/><g class="k-other"><rect class="box" x="748" y="809" width="236" height="64" rx="4" style="stroke-dasharray:6 3"/></g><path class="ar" d="M376.0,863.0 L746.0,863.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="891" width="360" height="64" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="891" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,905.0 L404.0,905.0" marker-end="url(#m111)"/><g class="k-playbook"><rect class="box" x="16" y="999" width="360" height="64" rx="4"/></g><g class="k-script"><rect class="box" x="406" y="999" width="312" height="24" rx="4"/></g><path class="ar" d="M376.0,1013.0 L404.0,1013.0" marker-end="url(#m111)"/><g class="k-other"><rect class="box" x="748" y="999" width="236" height="64" rx="4" style="stroke-dasharray:6 3"/></g><path class="ar" d="M376.0,1053.0 L746.0,1053.0" marker-end="url(#m111)"/><path class="ar" d="M16.0,435.0 L8.0,435.0 L8.0,279.5 L14.0,279.5" marker-end="url(#m111)"/><text x="10" y="20.0" class="h">Run a night：一个会话，从开夜守到 finish，中间每次叫醒都回到它</text><text x="28" y="86.0" class="h">1 找到你在哪一步</text><text x="28" y="105.0" class="s">读 status 和 spec 自己的事件，</text><text x="28" y="122.0" class="s">走第一行成立的那一步</text><text x="416" y="82.0" class="s">dispatch.sh status</text><text x="416" y="112.0" class="s">principle-progress-is-what-the-record-says</text><text x="28" y="168.0" class="h">2 检查、开夜、检查整批票</text><text x="28" y="187.0" class="s">check 修到 0；open 让这个会话成为</text><text x="28" y="204.0" class="s">orchestrator；第一次 advance 之前</text><text x="28" y="221.0" class="s">lint 整批票</text><text x="416" y="164.0" class="s">dispatch.sh check、open</text><text x="416" y="194.0" class="s">verify-ticket.py &lt;spec&gt; --lint</text><text x="416" y="224.0" class="s">verify-ticket 的 linting.md</text><text x="28" y="276.0" class="h">3 advance</text><text x="28" y="295.0" class="s">合进通过的票，给前沿上的票开 worker</text><text x="416" y="272.0" class="s">dispatch.sh advance</text><text x="760" y="276.0" class="h">结束回合</text><text x="760" y="295.0" class="s">等叫醒</text><text x="28" y="341.0" class="h">4 让每个 worker 守在自己的票上</text><text x="28" y="360.0" class="s">你改它依据的东西，用 resume 告诉它，</text><text x="28" y="377.0" class="s">不碰它的工作区和分支</text><text x="416" y="337.0" class="s">dispatch.sh resume</text><text x="28" y="423.0" class="h">5 每次被叫醒</text><text x="28" y="442.0" class="s">On waking，status，按表处理每一行，</text><text x="28" y="459.0" class="s">然后 advance 一次</text><text x="416" y="419.0" class="s">dispatch 的 On waking</text><text x="416" y="449.0" class="s">Settling a contract child</text><text x="416" y="479.0" class="s">dispatch.sh retract</text><text x="760" y="423.0" class="h">结束回合</text><text x="760" y="442.0" class="s">前沿空、没有活着的 agent</text><text x="760" y="459.0" class="s">时转第 6 步</text><text x="28" y="557.0" class="h">6 处理每条还开着的 finding</text><text x="28" y="576.0" class="s">先查 Step 0，再按四步分流，先匹配</text><text x="28" y="593.0" class="s">的算；自己修的守三条提交规矩</text><text x="416" y="553.0" class="s">dispatch.sh findings、route</text><text x="416" y="583.0" class="s">Routing a finding</text><text x="416" y="613.0" class="s">verify-ticket 的 ticket-format.md</text><text x="760" y="557.0" class="h">写了票</text><text x="760" y="576.0" class="s">advance 后结束回合，</text><text x="760" y="593.0" class="s">前沿再空时回到这一步</text><text x="28" y="665.0" class="h">7 关掉这份 spec 的 Memory 记录</text><text x="28" y="684.0" class="s">每条判 retain、deprecate、</text><text x="28" y="701.0" class="s">supersede 或 propose</text><text x="416" y="661.0" class="s">dispatch.sh memory-list</text><text x="28" y="747.0" class="h">8 收夜</text><text x="28" y="766.0" class="s">reverify 每张落地的票；summary 贴</text><text x="28" y="783.0" class="s">NIGHT SUMMARY，关掉这一夜的 watch</text><text x="416" y="743.0" class="s">dispatch.sh reverify、summary</text><text x="760" y="747.0" class="h">还有票是红的</text><text x="760" y="766.0" class="s">告诉你哪张、为什么，</text><text x="760" y="783.0" class="s">停下</text><text x="28" y="829.0" class="h">9 跑 retro</text><text x="28" y="848.0" class="s">只认证据；贴 NIGHT RETRO，</text><text x="28" y="865.0" class="s">记下 spec.retroed</text><text x="416" y="825.0" class="s">retro</text><text x="760" y="829.0" class="h">交回你</text><text x="760" y="848.0" class="s">两份报告在 spec 上，</text><text x="760" y="865.0" class="s">等你验收</text><text x="28" y="911.0" class="h">10 你验收之后 finish</text><text x="28" y="930.0" class="s">合进项目分支；合进默认分支是你的</text><text x="28" y="947.0" class="s">发布决定</text><text x="416" y="907.0" class="s">dispatch.sh finish</text><text x="28" y="1019.0" class="h">11 暂停这一夜（从第 1、5 步来）</text><text x="28" y="1038.0" class="s">毛病在流水线上时；工作区、分支、</text><text x="28" y="1055.0" class="s">已推的提交都留着</text><text x="416" y="1015.0" class="s">dispatch.sh suspend</text><text x="760" y="1019.0" class="h">交回你</text><text x="760" y="1038.0" class="s">stderr 留下的每一行</text><text x="760" y="1055.0" class="s"></text><text x="16" y="527.0" class="s">收尾：前沿空了，没有活着的 agent</text><text x="16" y="989.0" class="s">不在顺序里：流水线本身坏了</text></svg><!--/FIG:l11-night--></div>
+<figcaption><b>图 1</b>　一个会话从上往下走。第 3 到 5 步是夜里的循环：advance 后结束回合，被叫醒后处理完再 advance。第 6 到 10 步是新的。第 11 步不在顺序里，第 1 步或第 5 步发现流水线本身坏了才去。</figcaption>
+</figure>
+<p>空壳里，收尾和验收是一段加粗的标题，下面没有步骤。这一课把它拆成第 6 到 10 步，因为第 1 步的表要把会话分别送到每一处：<span class="c k-skill">retro</span> 还没记下时去第 9 步，记下了而你已验收时去第 10 步。每一处也有自己的「Done when」。<span class="inf">归纳</span></p>
+<p>开夜前检查整批票并进第 2 步，不单列一步。这样第 3 到 5 步的编号不动：<span class="c k-playbook">Run one ticket</span> 写着「照 <span class="c k-playbook">Run a night</span> 第 5 步的表」。暂停从第 6 步挪到第 11 步，第 1 步表里和第 5 步 <code>fault</code> 那一行跟着改。</p>
+
+<h2>3　每一步写什么、从哪来、改了什么</h2>
+<div class="tablewrap"><table class="roles wrap" style="min-width:860px">
+<thead><tr><th>步</th><th>写什么</th><th>v2 出处（night.md）</th><th>改了什么</th></tr></thead>
+<tbody>
+<tr><th>开头</th><td>早上谁读这一夜、理由留在哪；交回一张票是好结果，放宽判据换来的关票是缺陷</td><td>开头第 2、3 段</td><td>点名 <code class="c k-principle">principle-fix-the-product-not-the-check</code></td></tr>
+<tr><th>1 Find your step</th><td>读 <code>status</code> 和 spec 自己的事件，六行表</td><td>「Find where you are」的表</td><td>点名新原则；v2 的最后两行指向第 9、10 步；加一句「没有一行成立时，这一夜在等你验收，结束回合」，v2 没写这种情况</td></tr>
+<tr><th>2 Check, open, and lint</th><td><code>check</code>、<code>open</code>、第一次 advance 前 <code>--lint</code></td><td><code>## 1</code>、<code>## 1b</code></td><td>lint 的退出码挪进 <code class="c k-reference">verify-ticket/references/linting.md</code>，那是管这个输出的技能（第 6 课规矩 4）；<code class="c k-script">target_config.py --check</code> 那句是界面验收的，删掉，留到那一课</td></tr>
+<tr><th>3 Advance</th><td>已写好</td><td><code>## 2</code></td><td>不改</td></tr>
+<tr><th>4 Keep each worker on its ticket</th><td>只经 <code>resume</code> 告诉 worker；<code>resume</code> 的四种退出</td><td><code>## 3</code> 表后第一段、<code>### Exit codes of resume</code></td><td>v2 只写了退出 3。v3 照 <code class="c k-script">dispatch.sh</code> 的 <code>resume_one</code> 写全 0、4、3、2；补回 v2 的「你自己的修复留到收尾，在 <code>origin/&lt;base branch&gt;</code> 上做」</td></tr>
+<tr><th>5 Each time something wakes you</th><td>已写好</td><td><code>## 3</code></td><td><code>fault</code> 一行改指第 11 步。设计包那一行搬进 <b>Settling a contract child</b></td></tr>
+<tr><th>6 Route every open finding</th><td><code>findings</code> 列出，每条用一条 <code>route</code> 关掉；写了票就 advance 一次再回来</td><td><code>## 4</code> 前四段和末段的循环</td><td>怎样判断写成 <b>Routing a finding</b> 一节（第 4 节）</td></tr>
+<tr><th>7 Close the spec's Memory records</th><td><code>memory-list</code>，每条四选一</td><td><code>## 4</code> 末三段</td><td>v2 每轮收尾都关一次；v3 只在没有 finding 之后关一次，对着最后真正落地的结果判 <span class="inf">归纳</span></td></tr>
+<tr><th>8 Close the night</th><td><code class="c k-script">reverify</code>、<code class="c k-script">summary</code> 和各自的退出</td><td><code>## 5</code> 前六段</td><td>不改</td></tr>
+<tr><th>9 Run the <span class="c k-skill">retro</span></th><td><code class="c k-script">summary</code> 之后马上在这个会话跑 <code class="c k-skill">retro</code></td><td><code>## 5</code> 末两段</td><td><span class="c k-skill">retro</span> 技能搬进来（第 6 节）</td></tr>
+<tr><th>10 Finish once the owner accepts</th><td>你验收后 <code class="c k-script">finish</code></td><td><code>## 6</code></td><td>补一句退出 1 之后告诉你哪一样失败了，v2 只说了什么都没推</td></tr>
+<tr><th>11 Suspend the night</th><td>已写好</td><td><code>Suspending the night</code></td><td>编号从 6 改成 11</td></tr>
+<tr><th>Settling a contract child</th><td>权威顺序，能引用就自己改，不能就留给你</td><td><code>## 3</code> 的两行 <code>contract</code> 和表后第 2、3 段</td><td>spec 的改动走 <span class="c k-playbook">Revise a spec</span>；设计包那行不再点名 v3 没有的 <code class="c k-skill">design-pages</code></td></tr>
+<tr><th>Routing a finding</th><td>Step 0、四步、三条提交规矩、写票</td><td><code>## 4</code> 中段</td><td>写票指 <code class="c k-reference">ticket-format.md</code>；「两种不算判据的形状」挪进它；「五个问题」那半句删，留给切票那一课；第 1、2 步点名原则</td></tr>
+<tr><th>Reply</th><td>早上交给你什么；<code class="c k-script">finish</code> 之后交什么</td><td><code>## 5</code> 最后一段</td><td>加 <code class="c k-script">finish</code> 之后那一句</td></tr>
+</tbody></table></div>
+
+<h2>4　收尾时一条 finding 怎样分流</h2>
+<figure>
+<div class="svgwrap"><!--FIG:l11-route--><svg viewBox="0 0 1000 616" role="img" aria-label="一条 finding 的分流，自上而下，第一个答是的就是它的去处。Step 0 先于分类：它正文说的情况在当前 HEAD 上从没成立过，route stale invalid；成立过但已被这一批后面的票或收尾的修复解决了，route stale fixed-elsewhere。1 落在另一张还开着的票的 ## Owns 里：写成票，Blocked by 那张，因为你一修，那张票合进来时就冲突，用 principle-separate-before-serializing-shared-state。2 是判据本身的缺口，CHECK 绿着而它说的东西坏着或根本没走到：写成票，senior-worker，要一个能变红的反向对照，用 principle-a-check-must-be-able-to-fail。3 修它要动两个以上、设计上互相牵连的文件：写成票，senior-worker；同一个名字在几处文字里出现不算牵连。4 都不是：自己修，守三条提交规矩，一个原因一个提交，只碰原因要求的和证明它的测试，提交信息引用测试输出的那一行，超出三条就是一张票；然后 route fixed。写成的票照 verify-ticket 的 ticket-format.md 写，每条判据由一条命令判定，下次 advance 之前 lint，route became-ticket。"><defs><marker id="m112" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><g class="k-playbook"><rect class="box" x="16" y="56" width="430" height="47" rx="4"/></g><g class="k-other"><rect class="box" x="560" y="56" width="424" height="64" rx="4"/></g><path class="ar" d="M446.0,76.0 L558.0,76.0" marker-end="url(#m112)"/><g class="k-playbook"><rect class="box" x="16" y="146" width="430" height="64" rx="4"/></g><g class="k-principle"><rect class="box" x="560" y="146" width="424" height="64" rx="4"/></g><path class="ar" d="M446.0,166.0 L558.0,166.0" marker-end="url(#m112)"/><path class="ar" d="M76.0,103.0 L76.0,144.0" marker-end="url(#m112)"/><g class="k-playbook"><rect class="box" x="16" y="236" width="430" height="64" rx="4"/></g><g class="k-principle"><rect class="box" x="560" y="236" width="424" height="64" rx="4"/></g><path class="ar" d="M446.0,256.0 L558.0,256.0" marker-end="url(#m112)"/><path class="ar" d="M76.0,210.0 L76.0,234.0" marker-end="url(#m112)"/><g class="k-playbook"><rect class="box" x="16" y="326" width="430" height="64" rx="4"/></g><g class="k-other"><rect class="box" x="560" y="326" width="424" height="47" rx="4"/></g><path class="ar" d="M446.0,346.0 L558.0,346.0" marker-end="url(#m112)"/><path class="ar" d="M76.0,300.0 L76.0,324.0" marker-end="url(#m112)"/><g class="k-playbook"><rect class="box" x="16" y="416" width="430" height="47" rx="4"/></g><g class="k-other"><rect class="box" x="560" y="416" width="424" height="81" rx="4"/></g><path class="ar" d="M446.0,436.0 L558.0,436.0" marker-end="url(#m112)"/><path class="ar" d="M76.0,390.0 L76.0,414.0" marker-end="url(#m112)"/><g class="k-reference"><rect class="box" x="560" y="523" width="424" height="81" rx="4"/></g><path class="ar" d="M984.0,166.0 L993.0,166.0"/><path class="ar" d="M984.0,256.0 L993.0,256.0"/><path class="ar" d="M984.0,346.0 L993.0,346.0"/><path class="ar" d="M993.0,166.0 L993.0,543.0 L986.0,543.0" marker-end="url(#m112)"/><text x="10" y="20.0" class="h">一条 finding 怎样分流：自上而下，第一个答「是」的就是它的去处</text><text x="28" y="76.0" class="h">Step 0　它说的情况，在当前 HEAD 上成立过吗？</text><text x="28" y="95.0" class="s">先于分类；只看 finding 正文写的条件</text><text x="572" y="76.0" class="h">从没成立过：route stale invalid</text><text x="572" y="95.0" class="s">成立过、已被别处修好：</text><text x="572" y="112.0" class="s">route stale fixed-elsewhere</text><text x="503.0" y="70.0" class="s" text-anchor="middle">没成立，或已修好</text><text x="28" y="166.0" class="h">1　落在另一张还开着的票的 ## Owns 里？</text><text x="28" y="185.0" class="s">不看大小，看并发：你一修，那张票</text><text x="28" y="202.0" class="s">合进来时就冲突</text><text x="572" y="166.0" class="h">写成票，Blocked by 那张</text><text x="572" y="185.0" class="s">principle-separate-before-serializing-</text><text x="572" y="202.0" class="s">shared-state</text><text x="503.0" y="160.0" class="s" text-anchor="middle">是</text><text x="86" y="118.0" class="s">仍成立</text><text x="28" y="256.0" class="h">2　是判据本身的缺口吗？</text><text x="28" y="275.0" class="s">CHECK: 绿着，它说的东西却坏着</text><text x="28" y="292.0" class="s">或根本没走到</text><text x="572" y="256.0" class="h">写成票，senior-worker</text><text x="572" y="275.0" class="s">要一个能变红的反向对照</text><text x="572" y="292.0" class="s">principle-a-check-must-be-able-to-fail</text><text x="503.0" y="250.0" class="s" text-anchor="middle">是</text><text x="86" y="225.0" class="s">否</text><text x="28" y="346.0" class="h">3　修它要动两个以上、设计上互相牵连的文件？</text><text x="28" y="365.0" class="s">改一个的方式决定另一个怎么改；</text><text x="28" y="382.0" class="s">同一个名字在几处文字里出现不算</text><text x="572" y="346.0" class="h">写成票，senior-worker</text><text x="572" y="365.0" class="s">跨文件的形状要有人看</text><text x="503.0" y="340.0" class="s" text-anchor="middle">是</text><text x="86" y="315.0" class="s">否</text><text x="28" y="436.0" class="h">4　都不是</text><text x="28" y="455.0" class="s">默认是自己修，不是开票</text><text x="572" y="436.0" class="h">自己修，然后 route fixed</text><text x="572" y="455.0" class="s">一个原因一个提交；只碰原因要求的</text><text x="572" y="472.0" class="s">和证明它的测试；提交信息引用测试</text><text x="572" y="489.0" class="s">输出的那一行；超出三条就是一张票</text><text x="86" y="405.0" class="s">否</text><text x="572" y="543.0" class="h">写成的票</text><text x="572" y="562.0" class="s">照 verify-ticket 的 ticket-format.md 写，</text><text x="572" y="579.0" class="s">每条判据由一条命令判定；下次 advance</text><text x="572" y="596.0" class="s">之前 lint；route became-ticket</text></svg><!--/FIG:l11-route--></div>
+<figcaption><b>图 2</b>　finding 是 worker 或 reviewer 开的、留到收尾的子票。它不叫醒任何人，所以收尾时用 <code>findings</code> 列全，不靠记得哪几条叫醒过你。右边写成票的三种，都照下面那一格写、lint。</figcaption>
+</figure>
+<p>默认是自己修。第 1 步排在文件数前面：修它只动一个文件，可那个文件在另一张还开着的票的 <code>## Owns</code> 里，你一修，那张票合进来时就冲突。这正是 pstack 那条原则说的，同一个文件同一时刻只能有一个写入者。</p>
+<p>自己修的守三条提交规矩，第 9 课的 <span class="c k-playbook">Make a small change</span> 第 4 步用的就是这三条：一个原因一个提交，只碰原因要求的和证明它的测试，提交信息引用测试输出的那一行。超出三条就是一张票。</p>
+
+<h2>5　contract 子票和 Revise a spec</h2>
+<figure>
+<div class="svgwrap"><!--FIG:l11-authority--><svg viewBox="0 0 1000 333" role="img" aria-label="contract 子票的权威顺序，从高到低：1 决定票和 ADR；2 spec；3 设计包或 screen contract，各管自己那一块；4 领域文档 CONTEXT.md；5 票的正文。能引用其中一条写下来的权威时自己改：spec 的一节跑 Revise a spec，票的正文和判据直接在 tracker 上改，仓库里的 baseline 用一个推到 origin/&lt;base branch&gt; 的提交；同一句错话派生出的每张还没落地的票都改；子票上评论写明依据、改了什么、提交、查过哪些票；route fixed；resume worker，带上改动和提交。没有一条能定，或改动会推翻你定过的事、扩大 spec 时，把还没开工的、同一个决定派生的票移到 needs-triage，子票上写选项、建议和移走的票号，留给你；正在做的票停在这个问题上，不改它要交付的东西。点名 Claude Design 页面的子票也走这条：设计包只能从 Claude Design 重新拉，这一夜做不到。"><defs><marker id="m113" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><g class="k-config"><rect class="box" x="16" y="56" width="400" height="30" rx="4"/></g><g class="k-config"><rect class="box" x="16" y="102" width="400" height="30" rx="4"/></g><path class="ar" d="M216.0,88.0 L216.0,100.0" marker-end="url(#m113)"/><g class="k-config"><rect class="box" x="16" y="148" width="400" height="30" rx="4"/></g><path class="ar" d="M216.0,134.0 L216.0,146.0" marker-end="url(#m113)"/><g class="k-config"><rect class="box" x="16" y="194" width="400" height="30" rx="4"/></g><path class="ar" d="M216.0,180.0 L216.0,192.0" marker-end="url(#m113)"/><g class="k-config"><rect class="box" x="16" y="240" width="400" height="30" rx="4"/></g><path class="ar" d="M216.0,226.0 L216.0,238.0" marker-end="url(#m113)"/><g class="k-playbook"><rect class="box" x="470" y="56" width="514" height="132" rx="4"/></g><g class="k-other"><rect class="box" x="470" y="208" width="514" height="115" rx="4" style="stroke-dasharray:6 3"/></g><path class="ar" d="M442.0,163.0 L468.0,122.0" marker-end="url(#m113)"/><path class="ar" d="M442.0,163.0 L468.0,265.5" marker-end="url(#m113)"/><text x="10" y="20.0" class="h">contract 子票：照这个顺序找一条写下来的权威</text><text x="28" y="76.0" class="h">1　决定票和 ADR</text><text x="28" y="122.0" class="h">2　spec</text><text x="28" y="168.0" class="h">3　设计包，或 screen contract（各管自己那一块）</text><text x="28" y="214.0" class="h">4　领域文档（CONTEXT.md）</text><text x="28" y="260.0" class="h">5　票的正文</text><text x="424" y="76.0" class="s">高</text><text x="424" y="260.0" class="s">低</text><text x="482" y="76.0" class="h">能引用一条：自己改</text><text x="482" y="95.0" class="s">spec 的一节，跑 Revise a spec；票的正文和判据，</text><text x="482" y="112.0" class="s">直接在 tracker 上改；仓库里的 baseline，一个推到</text><text x="482" y="129.0" class="s">origin/&lt;base branch&gt; 的提交</text><text x="482" y="146.0" class="s">同一句错话派生出的每张还没落地的票都改；子票上</text><text x="482" y="163.0" class="s">评论写明依据、改了什么、提交、查过哪些票；</text><text x="482" y="180.0" class="s">route fixed；resume worker，带上改动和提交</text><text x="482" y="228.0" class="h">没有一条能定，或会推翻你定过的事</text><text x="482" y="247.0" class="s">还没开工的、同一个决定派生的票移到 needs-triage；</text><text x="482" y="264.0" class="s">子票上写选项、建议和移走的票号，留给你；正在做的</text><text x="482" y="281.0" class="s">票停在这个问题上，不改它要交付的东西</text><text x="482" y="298.0" class="s">点名 Claude Design 页面的子票也走这里：设计包只能</text><text x="482" y="315.0" class="s">从 Claude Design 重新拉，这一夜做不到</text></svg><!--/FIG:l11-authority--></div>
+<figcaption><b>图 3</b>　worker 发现它照着做的东西彼此矛盾，开一张 <code>contract</code> 子票，等 orchestrator 定。orchestrator 从上往下找权威，能引用一条就自己改，不能就留给你。</figcaption>
+</figure>
+<p>能引用权威时，要改的常常是 spec 的一节。改已发布的 spec 有一套固定做法：原地改，不另发一份，在 spec 上写一条改了什么、为什么的评论，再把从这一节切出的票逐张对齐。v2 把它写在 <code class="c k-reference">to-spec/references/revising-a-spec.md</code>，夜里的 contract 那段、切票、写 screen contract 都指向它，你也可能直接要求改 spec。第 6 课规矩 3 因此定了它单独成一份 playbook。</p>
+<p>它原本排在白天那几课。可 contract 那一节现在就要点名它，按方法第 9 条，缺的组件要么删掉点名它的那句，要么一起带进来。删掉那句，夜里改 spec 就少了「在 spec 上留理由」和「对齐已切的票」两件事，所以带进来。它的原文只有 281 词，其中讲 screen contract 行的一节是界面验收的，删掉留到那一课。<span class="inf">归纳</span></p>
+
+<h2>6　retro：三份对读，留哪份</h2>
+<p>按方法第 2 条，同一件事 v2 和 pstack 各有一份时，两份都读全，留做得多的那份。这件事有三份：</p>
+<div class="tablewrap"><table class="roles wrap" style="min-width:860px">
+<thead><tr><th></th><th>v2 <code class="c k-skill">retro</code>（1,762 词，加 4,071 词的脚本和测试）</th><th>mattpocock <code class="c k-skill">retro</code>（679 词）</th><th>pstack <code class="c k-skill">reflect</code>（713 词，加四份子代理提示）</th></tr></thead>
+<tbody>
+<tr><th>什么时候跑</th><td><code class="c k-script">summary</code> 记下 <code>spec.closed</code> 之后，在 orchestrator 会话里</td><td>你叫它，针对一次编码会话</td><td>你说 <span class="c k-skill">reflect</span>，针对当前这次对话</td></tr>
+<tr><th>读什么</th><td>tracker 上的事件、提交、仓库文件、能重跑的只读检查；<code>gather</code> 先列出每个来源有没有、读不读得到</td><td>那次会话的日志</td><td>当前对话的记录文件</td></tr>
+<tr><th>怎样判断</th><td>每个问题必须有一条打开就能看到原因的来源；七个类别逐个查；查上一次的提案落没落地；对照 spec 的意图；分清审查意见是错的还是在别处修好了</td><td>同样七个类别，按严重程度列给你</td><td>三个子代理从三个角度读（判断、工具、发散），第四个合并成接受、驳回、待办三列</td></tr>
+<tr><th>多夜的重复</th><td>在 Memory 里搜同一原因；两次独立出现才提案</td><td>无</td><td>无</td></tr>
+<tr><th>产出</th><td>一条 Retro Memory；spec 上的 <code>NIGHT RETRO</code>；<code>spec.retroed</code> 事件；每个提案一张 <code>needs-triage</code> issue</td><td>一份列表</td><td>你批准后改技能，待办进团队的 tracker</td></tr>
+<tr><th>谁把关</th><td><code>finalize</code> 对照重新取的证据，拒收没来源的问题</td><td>无</td><td>你批准每一条</td></tr>
+</tbody></table></div>
+<p>留 v2 的。一夜有许多个会话，没有一份对话记录能代表它，tracker 才是所有会话共用的记录；v2 只认那里的证据，还能跨夜认出同一个原因，另外两份都做不到。<code class="c k-script">finish</code> 要的 <code>spec.retroed</code> 也只有它写。</p>
+<p>另外两份做了而 v2 没做的，各有一处，都不收：</p>
+<ul>
+<li>mattpocock 新加了一句「仓库没有任何护栏（没有 pre-commit 钩子，也没有跑 lint、类型检查或测试的任务）本身就是一条发现」。v2 要求每个问题都有这一夜的证据，一个没有让任何错误漏过去的缺口，不是这一夜的问题。「固定形状的违规做成检查，判断才写成审查规则」这半句，v2 的 <code>## Prevention destinations</code> 已经有。</li>
+<li>pstack 开三个子代理从三个角度读。这是多出三个角色，你说过不能随意加角色；它读的是一份对话，夜里没有这样一份。</li>
+</ul>
+<p>v2 的 <code class="c k-script">retro.py</code> 用到的三个模块（<code class="c k-skill">verify-ticket</code> 的 <code class="c k-script">issue_tree.py</code>、<code class="c k-script">events.py</code>，<code class="c k-skill">ui-acceptance</code> 的 <code class="c k-script">refusal.py</code>）v3 都有，逐字节和 v2 相同，已核对。脚本和测试原样搬，测试用假的 <code>gh</code> 和假的 <code>nmem</code>，在临时目录里跑，不碰真的 tracker 和 Memory。<code>SKILL.md</code> 改三处，草稿在第 9 节。</p>
+
+<h2>7　triage 为什么这一课落不了</h2>
+<p>第 6 课把 <code class="c k-skill">triage</code> 排在夜里这一课，理由是夜里交回的票由你用它处理。按方法第 9 条，搬之前先列它点名的每个组件：</p>
+<div class="tablewrap"><table class="roles wrap" style="min-width:760px">
+<thead><tr><th><code class="c k-skill">triage</code> 点名的</th><th>用在哪</th><th>v3 有没有</th></tr></thead>
+<tbody>
+<tr><th><code class="c k-skill">to-spec</code>、<code class="c k-skill">to-tickets</code></th><td>判成 <code>ready-for-agent</code> 的外来 issue 要先写 spec、再切票；<span class="c k-skill">retro</span> 的提案批准后也走这条</td><td>没有。它们在 v3 是 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 两份 playbook，还没写</td></tr>
+<tr><th><code class="c k-reference">to-tickets/references/person-ticket.md</code></th><td>判成 <code>ready-for-human</code> 时写「五样东西」</td><td>没有。五样里的 <em>reaction</em> 和 <em>reach</em> 两种，是切票的「五个问题」第 3、4 问定义的，第 9 课定了五个问题留给切票那一课</td></tr>
+<tr><th><code class="c k-skill">setup-matt-pocock-skills</code></th><td>没给标签映射时叫你去跑它</td><td>没有，接入仓库那一课的事</td></tr>
+<tr><th><code class="c k-skill">domain-modeling</code></th><td>第 4 步追问时读</td><td>没有</td></tr>
+<tr><th><code class="c k-script">dispatch.sh route</code>、<code class="c k-script">events.py fold</code>、<code class="c k-reference">ticket-format.md</code>、<code class="c k-skill">grilling</code></th><td>流水线交回的票和子票</td><td>有</td></tr>
+</tbody></table></div>
+<p>四种结果里，<code>needs-info</code> 和 <code>wontfix</code> 能用；<code>ready-for-agent</code> 和 <code>ready-for-human</code> 交出去的地方都还不存在。只搬能用的那半，<code class="c k-skill">triage</code> 的两个主要结果就成了空话；把缺的一起带进来，等于提前写切票那一课。</p>
+<p>我的建议：<code class="c k-skill">triage</code> 和 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 同一课落地。这期间没有损失：现在跑夜的是装好的 v2，v3 还没有人用；这一课里 <span class="c k-playbook">Run a night</span> 只把票留在 <code>needs-triage</code>、理由写在票上，不点名 <code class="c k-skill">triage</code>，以后它进来时什么也不用改。这是顺序的改动，由你定（见最后「下一课」）。</p>
+
+<h2>8　两条原则</h2>
+<p><b>进度以记录为准。</b>v2 里有四处各写了一遍：<code class="c k-skill">dispatch</code> 的 <code>SKILL.md</code>「Where you are is what the ticket's events say, not what this session remembers」；<code class="c k-skill">exe-release</code> 的 <code>driving.md</code>「Do not resume from session memory… Do not keep a second log of what you already tried」；<code class="c k-skill">manage-agents-md</code> 规定后面每一步只读 <code>survey-list.md</code>；<code>status</code> 读不全 tracker 时说等它答了再读。方法第 14 条的检索：pstack 的 24 条原则和 mattpocock 的技能里没有这一条；最近的是 pstack 的 <code class="c k-playbook">session-pickup.md</code>「the prior trail is authoritative」和 <code class="c k-playbook">orchestrate.md</code>「重启后重读 <code>units.tsv</code>、重算前沿；对话记录的修改时间不代表还活着」，都写在 playbook 的步骤里，不是原则。所以自己写，草稿在第 9 节。它由 <span class="c k-playbook">Run a night</span> 第 1 步和 <span class="c k-playbook">Work a ticket</span> 第 1 步点名，放进 mode 索引的 Delegation 一组。</p>
+<p><b>先分开，再考虑排队。</b>pstack 的 <code class="c k-principle">principle-separate-before-serializing-shared-state</code>：几个同时干活的人可能写同一个文件、分支或状态时，先问能不能各写各的；真要共用一个，才用结构来排队（锁、先后阶段、独占），不靠约定。MMW 的 <code>## Owns</code> 就是它说的独占。<span class="c k-playbook">Work a ticket</span> 第 3 步（不改能并行的票拥有的文件）和 <b>Routing a finding</b> 第 1 步都用它，正文照抄，只换 description，索引行照抄 <span class="c k-mode">poteto-mode</span> 的，放进 Architecture 一组。</p>
+
+<h2>9　新写和改写的文字：草稿</h2>
+<p>只列新写或改了的段落；照搬的不重复。</p>
+
+<h3>playbooks/run-a-night.md：开头新加的两段（放在加粗那一段后面）</h3>
+<pre><code class="plain">The night is read in the morning by the owner, cold, from `NIGHT SUMMARY`, `NIGHT RETRO` and the tracker, with none of this session's context. So each decision you make leaves its reason where that reader will look: on the child, the ticket or the spec, in a comment that stands on its own. A reason that lives only in this session is lost when it ends.
+
+The night's output is a batch the owner can accept in the morning, not a count of closed tickets. A ticket handed back with its reason on it is a good result. A criterion loosened, or a worker resumed again and again with `continue`, to make one close is a defect that lands under a green mark (**principle-fix-the-product-not-the-check**).</code></pre>
+
+<h3>第 1 步</h3>
+<pre><code class="plain">1. **Find your step.** Run `dispatch.sh status &lt;spec&gt;` and read the spec's own events: where the night stands is what they say, not what this session remembers (**principle-progress-is-what-the-record-says**). Take the first row whose fact holds.
+
+   | The fact | Go to |
+   | --- | --- |
+   | The owner has said the night starts, and the spec carries no `spec.opened` | step 2 |
+   | The spec's newest night event is `spec.suspended`, or the fault is in the pipeline and the night must stop | step 11 |
+   | A wake arrived: `#&lt;n&gt; &lt;event&gt;`, `relay.recovered since &lt;time&gt;`, a line of `watchdog:` alerts, or `MMW turn guard:` | step 5 |
+   | `status` shows an empty frontier and no live agent, and the spec carries no `spec.closed` | step 6 |
+   | The spec carries `spec.closed` and no later `spec.retroed` whose result is `recorded` | step 9 |
+   | That `spec.retroed` is there, and the owner has accepted the night | step 10 |
+
+   When no row holds, the night is waiting for the owner's acceptance: end your turn.
+   Done when you are at the step the first matching row names.</code></pre>
+
+<h3>第 2 步末尾加的一句和新的 Done when</h3>
+<pre><code class="plain">Then, before the first `advance`, run `verify-ticket.py &lt;spec&gt; --lint` and read it as the `verify-ticket` skill's `references/linting.md` says; fix each `ERROR` on its ticket and lint again.
+   Done when `open` exited 0 and the lint reports no `ERROR`.</code></pre>
+
+<h3>第 4 步</h3>
+<pre><code class="plain">4. **Keep each worker on its ticket.** While a worker holds a ticket, its code is the worker's: you change what it works from (the spec, the ticket body, a criterion, a baseline) and tell it through `dispatch.sh resume &lt;n&gt; "&lt;what you settled, then: continue&gt;"`, never its worktree or branch. Your own fixes wait for step 6, on `origin/&lt;base branch&gt;`. Exit 0 or 4: the worker has the message; do not send it again. Exit 3: it is in a turn; send it again at the next wake about that ticket, worded so a worker that receives both reads them as one instruction, and when that exits 3 too with no ticket event in between, `dispatch.sh start &lt;n&gt; worker` replaces the worker. Exit 2: nothing was sent; do what stderr names. A worker that `start &lt;n&gt; worker` puts in place of the old one has none of the instructions given only inside the old session; send them again with `resume`.
+   Done when every instruction you gave a worker went through `resume` and was taken.</code></pre>
+
+<h3>第 6 到 10 步（原来的第 6 步改为第 11 步，正文不变）</h3>
+<pre><code class="plain">6. **Route every open finding.** The frontier is empty and no agent is live. List the open findings with `dispatch.sh findings &lt;spec&gt;` and route exactly those: a finding wakes nobody, so the ones you were woken about are no measure of what exists. Judge each as **Routing a finding** below says. Each leaves this step by one command, run once per finding, where `&lt;n&gt;` is the ticket whose `events.py fold &lt;n&gt;` lists it under `children`: `dispatch.sh route &lt;n&gt; &lt;child&gt; fixed`, `route &lt;n&gt; &lt;child&gt; stale &lt;invalid|fixed-elsewhere&gt;`, or `route &lt;n&gt; &lt;child&gt; became-ticket &lt;issue&gt;`. `became-ticket &lt;child&gt;` makes the finding itself the ticket; `became-ticket &lt;other issue&gt;` closes it as that issue's duplicate. Exit 1: run the same command again; it repeats no step. Exit 2: nothing was done, and stderr says why. When a finding became a ticket, run `advance` once and end your turn: the ticket's result wakes you at step 5, and once the frontier is empty again you are back here.
+   Done when `findings` lists none open.
+7. **Close the spec's Memory records.** These are what this spec's workers left for the workers after them: each carries the `mmw-experience` label, so later workers in this repository see it in their start prompt and act on it before reading any code. A record that was true mid-night can be wrong once the batch has landed. Run `dispatch.sh memory-list &lt;spec&gt;` and save its output to a file: a `--memory-decisions` skeleton with one entry per record, or a ready-made `unchecked` object when the list could not be read or was truncated. Judge each record against what landed and give its id exactly one decision: `retain`, still useful as it is; `deprecate`, no longer valid; `supersede`, naming the existing `replacement_id` that replaces it; or `propose`, a candidate for the retro that changes no Memory here. A `propose` decision's `evidence` is exactly one event comment URL (`https://github.com/&lt;owner&gt;/&lt;name&gt;/issues/&lt;n&gt;#issuecomment-&lt;id&gt;`) or commit URL (`https://github.com/&lt;owner&gt;/&lt;name&gt;/commit/&lt;40-hex sha&gt;`): the retro counts the proposal only when that string is one of its problem's sources, and `summary` refuses any other value.
+   Done when every id in the file has a decision, or the file is the `unchecked` object `memory-list` wrote.
+8. **Close the night.** From any checkout of this repository, run `dispatch.sh reverify &lt;spec&gt;`. Exit 0: every landed ticket is green. Exit 1: each red ticket is already reopened in `needs-triage`; do not close it. To recover one, repair the cause on the base branch, push it, and run `reverify` again; once its criteria are all met, `reverify` closes it itself. Exit 2: fix what stderr names and run it again. Then run `dispatch.sh summary &lt;spec&gt; --memory-decisions &lt;file&gt;` with step 7's file. Exit 0: `NIGHT SUMMARY` is posted and the night's watch is closed. Exit 1: posted and closed, and a relay was left running; end the pid stderr names. Exit 2: nothing was posted. When it refuses the file, list the records again (step 7), rewrite the file and run `summary` again; when it counts findings no route reached, go back to step 6; when a ticket is still red, tell the owner which one and why, and stop. A rerun repeats no completed action. Tickets left for the owner, handed back to triage, or behind an open blocker are valid outcomes; `summary` does not require every ticket to succeed.
+   Done when `summary` exited 0, or exited 1 and that relay is ended.
+9. **Run the retro.** As soon as `summary` has recorded `spec.closed`, run the `retro` skill on this spec, in this session: `finish` merges only a night whose `spec.retroed` result is `recorded`.
+   Done when the spec carries that `spec.retroed`; give the owner this playbook's reply and end your turn.
+10. **Finish once the owner accepts.** Only after the owner has accepted the night, run `dispatch.sh finish &lt;spec&gt;`. Exit 0: the merge into the project branch is recorded. Exit 1: the merge conflicted or the repository checks failed, and nothing was pushed or deleted; tell the owner which. Exit 2: fix what stderr names and run it again. A worktree with the base branch checked out, usually the one this session runs in, is kept: stderr gives the commands that remove it, for the owner to run once this session is done. Merging the project branch into the repository's default branch is the owner's release decision, not this playbook's.
+    Done when `finish` exited 0, or exited 1 and the owner has heard why.</code></pre>
+
+<h3>Settling a contract child</h3>
+<pre><code class="plain">**Settling a contract child.** Read the child and the authority it cites, then apply this authority order exactly: **decision tickets and ADRs, then the spec, then the design package or the screen contract, each in its own domain, then domain documents, then the ticket body**.
+
+Fix it yourself when you can cite a written authority at that order: a higher authority, a more specific file within the same authority, a repository rule, or the artifact a baseline copied. A spec section is changed by running **Revise a spec**; a ticket body or an acceptance criterion is edited on the tracker directly; a baseline the repository holds is changed by a commit on `origin/&lt;base branch&gt;`, made as **Routing a finding** says for your own fixes. Correct every not-yet-landed ticket derived from the same bad statement. Comment on the child with the authority used, every published item corrected, the source commit, and the tickets checked; run `dispatch.sh route &lt;n&gt; &lt;child&gt; fixed`, then resume the worker with the exact correction, the commit it should integrate from, and `continue`.
+
+When no authority settles the correction, or the correction would overturn the owner's decision or expand the spec, leave the choice to the owner. Move every not-yet-started ticket derived from the same decision from `ready-for-agent` to `needs-triage`, comment on the child with the unresolved options, your recommendation, and the ticket numbers moved, and leave the child open. A ticket already being worked stays held at the contract question; do not rewrite its delivery while the authority is unresolved.
+
+A child that names a Claude Design page is left to the owner the same way. A design package changes only by pulling it again from Claude Design, which a night does not do: comment on the child with the pages it names, the ticket numbers moved, and that it needs a session whose host has the Claude Design tools.</code></pre>
+
+<h3>Routing a finding</h3>
+<pre><code class="plain">**Routing a finding.** Before you classify a finding, check the condition its own body states against the current `HEAD`. If it never held, `route &lt;n&gt; &lt;child&gt; stale invalid`, and nothing else. If it held and a later ticket of the batch or a fix of this pass has resolved it, `route &lt;n&gt; &lt;child&gt; stale fixed-elsewhere`, and nothing else; that is not a reviewer false positive.
+
+Then take the first of these that matches:
+
+1. **It falls inside another still-open ticket's `## Owns`** → a ticket, `Blocked by` that one. The constraint is concurrency, not size: a fix of yours makes the next `advance` conflict when that ticket's branch merges (**principle-separate-before-serializing-shared-state**).
+2. **It is a gap in the criteria themselves**, a `CHECK:` already green while the thing it names is broken or never reached → a ticket, `senior-worker`, asking for a negative control (**principle-a-check-must-be-able-to-fail**).
+3. **The fix touches two or more files with a design coupling between them**, where how you fix one decides how you fix the other → a ticket, `senior-worker`. Counting files is not counting effort. A name echoed through prose is not a coupling: renaming a thing along with its restatements is mechanical, `grep` proves you got them all, and it stays with you.
+4. **Nothing matched** → fix it yourself. The default is to fix it, not to open a ticket.
+
+Your own fixes are made in a checkout that tracks `origin/&lt;base branch&gt;`: fetch before each, commit it there, run the affected tests, and push it fast-forward. When the push is rejected, fetch, merge the new `origin/&lt;base branch&gt;` into the commit, run the affected tests again, and push again. A fix that cannot keep these three rules is a ticket after all:
+
+1. One commit per finding, or per group of findings with one cause; the message names them by number.
+2. It touches only what the finding's cause requires, and the tests that prove it.
+3. It runs the affected test suites, and the message quotes the line it saw (`ran 188 skipped 0`, not "the tests pass").
+
+Then `route &lt;n&gt; &lt;child&gt; fixed` for each finding it fixed.
+
+Open as few tickets as possible. A finding that is a ticket on its own becomes one in place: rewrite its body into a ticket, label it for the agent queue, then `route &lt;n&gt; &lt;child&gt; became-ticket &lt;child&gt;`; findings folded into one new ticket each get `route &lt;n&gt; &lt;child&gt; became-ticket &lt;that ticket&gt;`. A ticket written here is dispatched tonight and has had none of the reading the published batch had: write it as the `verify-ticket` skill's `references/ticket-format.md` says, and lint it (`verify-ticket.py &lt;n&gt; --lint`) before the next `advance`.</code></pre>
+
+<h3>Reply</h3>
+<pre><code class="plain">**Reply:** once the retro is recorded: that the night is over, that `NIGHT SUMMARY` and `NIGHT RETRO` are on the spec, and that `finish` merges the night into the project branch once the owner accepts it. After `finish`: what it merged, and the commands stderr gave for removing a worktree.</code></pre>
+
+<h3>playbooks/revise-a-spec.md（新）</h3>
+<pre><code class="plain">### Revise a spec
+
+**You own one change to a spec already on the tracker: its section rewritten in place, the reason left on the spec, and every ticket cut from that section brought into line.** A published spec is edited, never published again: a new issue gets a new number, and every ticket's **Parent** points at the old one. Only the orchestrator of a night on the spec, or a session the owner is working in, edits a published spec, a ticket body or its acceptance criteria. A spec that does not exist yet is written, not revised.
+
+1. **Read the spec and what was cut from it.** Read the issue body in full, comments included, and list its tickets (`gh api --paginate repos/{owner}/{repo}/issues/&lt;spec&gt;/sub_issues?per_page=100`). Name the section that changes and every ticket cut from it.
+   Done when you can name the section and each ticket cut from it, and whether that ticket has landed.
+2. **Rewrite the section.** Rewrite it so the spec reads as if written that way from the start (**principle-files-describe-the-present**), and write the body back: `gh issue edit &lt;spec&gt; --body-file &lt;file&gt;`.
+   Done when the issue body on the tracker reads as if written that way from the start.
+3. **Say what changed and why.** Post one comment on the spec: what changed, why, and the issue, child or decision it came from.
+   Done when the comment is posted.
+4. **Bring the tickets into line.** Check each ticket cut from the section and not yet landed against the new text, correct it where it no longer matches, and lint it (`verify-ticket.py &lt;n&gt; --lint`, read as the `verify-ticket` skill's `references/linting.md` says). A criterion whose premise disappeared is taken out of `## Acceptance criteria` rather than left there without a command; its number is not reused, and a comment on the ticket says what became of it. A landed ticket the change contradicts is followed by a correction ticket, written as the `verify-ticket` skill's `references/ticket-format.md` says.
+   Done when every ticket cut from the section and not yet landed matches the new text and lints with no `ERROR`.
+
+**Reply:** the section that changed and why, and each ticket corrected, cut down, or followed by a correction ticket.</code></pre>
+<p>和原文比，改了三处：写成四步，每步有「Done when」；加了第 4 步的 lint，因为改过的票和收尾写的票一样，没有经过发布前的检查；删了 <code>## When the rows change</code> 一节（screen contract 的行，界面验收那一课）。</p>
+
+<h3>mmw-mode/SKILL.md 新加的三行</h3>
+<pre><code class="plain">- **Revise a spec.** Changing a decision in a spec already on the tracker: the section rewritten in place, the reason left on the spec, the tickets cut from it brought into line. Distinct from Make a small change, which changes the product's code. `playbooks/revise-a-spec.md`.
+
+（## Principles 的 Architecture 一组）
+- **Separate Before Serializing Shared State** (**principle-separate-before-serializing-shared-state**). Concurrent actors might write the same file, branch, key, or object. Eliminate the sharing first.
+
+（## Principles 的 Delegation 一组）
+- **Progress Is What the Record Says** (**principle-progress-is-what-the-record-says**). Starting, waking on, or taking over work a record tracks. Act from the step the record puts you at, not from what this session remembers.</code></pre>
+
+<h3>skills/principle-progress-is-what-the-record-says/SKILL.md（新）</h3>
+<pre><code class="plain">---
+name: principle-progress-is-what-the-record-says
+description: "Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
+---
+
+# Progress Is What the Record Says
+
+Where a piece of work stands is what its record says: the events on its ticket and spec, the commits on its branch, the state its script keeps. It is never what this session remembers. Before acting on work a record tracks, read the record and act from the step it puts you at.
+
+**Why:** A session ends, is compacted, or is replaced by another, and scripts and other sessions move the work while it is not looking. Progress read from memory acts on a state that may no longer hold: a step is done twice, a ticket is landed twice, a stage is skipped. Progress kept only in a session is lost with it.
+
+**Pattern:**
+- On starting, waking, or taking over work, read its record first and take the step it names: a ticket's `RESUME:` line, a night's `status` and the spec's events.
+- When the record and your memory disagree, the record wins. When the record cannot be read, read it again once it answers; do not fill the gap from memory.
+- Keep no second log of what you already did beside the record. What you did goes where the record keeps it: an event, a comment on the ticket, a commit.
+- The record says where the work is, not whether it is right: a result it reports as done is still checked against the product (**principle-prove-it-works**).
+
+Distinct from **principle-prove-it-works**, which asks whether a result is true; this one asks where the work stands.</code></pre>
+
+<h3>其余改动的句子</h3>
+<div class="tablewrap"><table class="roles wrap" style="min-width:760px">
+<thead><tr><th>文件</th><th>原文</th><th>改成</th></tr></thead>
+<tbody>
+<tr><th><code class="c k-reference">verify-ticket/references/linting.md</code> 末尾</th><td>（没有）</td><td><code>Exit 0: no ERROR. Exit 1: fix each ERROR on its ticket, except one saying the tracker could not answer (tagged [parent-unreadable] or [sub-issues-unreadable], or a traceback from a gh call): nothing about the tickets was established, so run the same command again once the tracker answers. Exit 2: a criterion names an oracle this run cannot reach, and nothing was read.</code>（v2 night.md <code>## 1b</code> 第 2 段原文；两个标记在 v3 的 <code class="c k-script">verify-ticket.py</code> 里各出现两次，已查）</td></tr>
+<tr><th><code class="c k-reference">verify-ticket/references/ticket-format.md</code> 的 <code>## Each acceptance criterion</code></th><td>只有「A criterion is decided by a command, or it is not a criterion.」</td><td>后面加一句：<code>The repository's own whole-tree checker (a lint.sh, a full type-check) is not a CHECK: either: it fails on files this ticket never touched and blocks it on somebody else's work.</code>（v2 night.md <code>## 4</code>）</td></tr>
+<tr><th><span class="c k-playbook">Work a ticket</span> 第 1 步</th><td>where you are is what the ticket's events say, not what this session remembers.</td><td>句末加 <code class="c k-principle">(**principle-progress-is-what-the-record-says**)</code></td></tr>
+<tr><th><span class="c k-playbook">Work a ticket</span> 第 3 步</th><td>because one file has one writer at a time and the cut missed an edge.</td><td>句末加 <code class="c k-principle">(**principle-separate-before-serializing-shared-state**)</code></td></tr>
+<tr><th><code class="c k-script">watchdog.py</code> 两句</th><td>act on its exit as night.md's Exit codes of resume says</td><td><code>act on its exit as Run a night's step 4 says</code></td></tr>
+<tr><th><code>retro/SKILL.md</code> 的 description</th><td>Retrospect one completed MMW spec night. Use right after the <span class="c k-skill">dispatch</span> skill's `summary` records `spec.closed`.</td><td><code>Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.</code>（只有 <span class="c k-playbook">Run a night</span> 第 9 步叫它）</td></tr>
+<tr><th><code>retro/SKILL.md</code> 的 Done when</th><td>…; then return to the <span class="c k-skill">dispatch</span> skill's `<span class="c k-reference">references/night.md</span>` `## 5. The night is over`, which tells the user.</td><td>删掉分号后半句。下一步是谁，由叫它的 playbook 写（第 6 课图 1 的④）</td></tr>
+<tr><th><code>retro/SKILL.md</code> 的 <code>mmw-skill</code> 一行</th><td>whose sources are MMW's `mmw-v2/prompt/`</td><td><code>mmw-v3/prompt/</code></td></tr>
+<tr><th><code class="c k-script">tests/retro/run.sh</code></th><td>先跑 <code class="c k-script">check_upstream_em_dashes.py</code> 和 <code class="c k-script">check_own_skill_frontmatter.py</code></td><td>删这两行：v3 的 <code>tests/lib/</code> 没有这两个检查，v3 其它测试的 <code class="c k-script">run.sh</code> 也只跑 <code class="c k-script">check_module_paths.py</code>；用法那行的 <code>mmw-v2</code> 改 <code>mmw-v3</code></td></tr>
+</tbody></table></div>
+
+<h2>10　回顾：这一课对照了哪些标准，查出什么</h2>
+<div class="tablewrap"><table class="roles wrap" style="min-width:760px">
+<thead><tr><th>标准</th><th>这一课怎么做的</th></tr></thead>
+<tbody>
+<tr><th>方法第 9 条：列出点名的每个组件</th><td>night.md 点名的组件逐个查了 v3：<code class="c k-script">dispatch.sh</code> 的 <code>findings</code>、<code>route</code>、<code>memory-list</code>、<code class="c k-script">reverify</code>、<code class="c k-script">summary</code>、<code class="c k-script">finish</code>、<code>board</code>、<code>retract</code> 都在；<code>linting.md</code>、<code>ticket-format.md</code>、<code class="c k-script">events.py</code>、<code class="c k-script">lease.py</code> 都在。缺的四个：<code class="c k-script">target_config.py</code>（删那句）、<code class="c k-skill">design-pages</code>（那行改写理由）、<code>revising-a-spec.md</code>（带进来，成 <span class="c k-playbook">Revise a spec</span>）、<code class="c k-skill">retro</code>（带进来）。<code class="c k-skill">triage</code> 缺得太多，交你定</td></tr>
+<tr><th>方法第 2 条：对读后留做得多的</th><td><span class="c k-skill">retro</span> 三份对读（第 6 节）；<span class="c k-skill">triage</span> 的上游新版和 v2 比，v2 多了流水线交回的那一支</td></tr>
+<tr><th>方法第 6 条：一条规则一处</th><td>lint 的退出码进 <code>linting.md</code>，「不算判据」进 <code>ticket-format.md</code>，<code>resume</code> 的退出写在第 4 步、<code class="c k-script">watchdog.py</code> 指向它</td></tr>
+<tr><th>方法第 7 条：同一次改动登记</th><td>新 playbook 一行路由，两条原则各一行索引</td></tr>
+<tr><th>方法第 14 条（检索）</th><td>新原则前查了 pstack 24 条原则和 mattpocock，没有现成的；另一条直接用 pstack 的</td></tr>
+<tr><th>第 6 课规矩 3、4</th><td><span class="c k-playbook">Revise a spec</span> 单独成一份；格式进管它的技能</td></tr>
+<tr><th>不随意加角色（你的要求）</th><td>不收 pstack <code class="c k-skill">reflect</code> 的三个子代理</td></tr>
+<tr><th>没有 PR</th><td>草稿里没有 PR 步骤；<code class="c k-script">finish</code> 合进项目分支，默认分支是你的发布决定</td></tr>
+<tr><th>文件只写现在</th><td>草稿里没有「原来」「改成」之类的历史</td></tr>
+<tr><th>界面留到界面验收那一课</th><td><code class="c k-script">target_config.py</code> 那句、<code>## When the rows change</code> 一节都不进</td></tr>
+<tr><th>不跑真实测试</th><td><span class="c k-skill">retro</span> 的测试用假的 <code>gh</code> 和 <code>nmem</code>，在临时目录里</td></tr>
+</tbody></table></div>
+<p>核对时查出三处旧东西，都写进了落地：<code class="c k-script">watchdog.py</code> 指向 v3 不存在的 <code>night.md</code>；我在设计前以为 <code>ticket-format.md</code> 已经写了两种「不算判据」的形状，打开看只有一种；mode 的 <code class="c k-mode">## Principles</code> 里 Architecture 一组前少一个空行。</p>
+
+<h2>11　这一课不做的</h2>
+<ul>
+<li><code class="c k-skill">triage</code>：建议和 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 同一课（第 7 节），由你定。</li>
+<li>切票的「五个问题」和 <code>person-ticket.md</code>：切票那一课。</li>
+<li>界面验收：<code class="c k-script">target_config.py --check</code>，<span class="c k-playbook">Revise a spec</span> 里 screen contract 的行。</li>
+<li>设计包：contract 那一节只说这一夜做不到，留给你；怎样从 Claude Design 重新拉，设计那几课。</li>
+</ul>
+
+<h2>12　落地时改哪些文件</h2>
+<div class="tablewrap"><table class="roles wrap" style="min-width:760px">
+<thead><tr><th>文件</th><th>改什么</th></tr></thead>
+<tbody>
+<tr><th><code class="c k-playbook">skills/mmw-mode/playbooks/run-a-night.md</code></th><td>写满，第 9 节的草稿</td></tr>
+<tr><th><code class="c k-playbook">skills/mmw-mode/playbooks/revise-a-spec.md</code></th><td>新</td></tr>
+<tr><th><code class="c k-playbook">skills/mmw-mode/playbooks/work-a-ticket.md</code></th><td>第 1、3 步各点名一条原则</td></tr>
+<tr><th><code class="c k-mode">skills/mmw-mode/SKILL.md</code></th><td>一行路由，两行索引，补一个空行</td></tr>
+<tr><th><code class="c k-principle">skills/principle-progress-is-what-the-record-says/SKILL.md</code></th><td>新</td></tr>
+<tr><th><code class="c k-principle">skills/principle-separate-before-serializing-shared-state/SKILL.md</code></th><td>pstack 原文，换 description</td></tr>
+<tr><th><code>skills/retro/SKILL.md</code>、<code class="c k-script">scripts/retro.py</code></th><td>从 v2 搬；<code>SKILL.md</code> 改三处，脚本不改</td></tr>
+<tr><th><code class="c k-script">tests/retro/run.sh</code>、<code class="c k-script">test_retro.py</code></th><td>从 v2 搬；<code class="c k-script">run.sh</code> 删两行、改一个路径</td></tr>
+<tr><th><code class="c k-reference">skills/verify-ticket/references/linting.md</code>、<code class="c k-reference">ticket-format.md</code></th><td>各加一段、一句</td></tr>
+<tr><th><code class="c k-script">skills/dispatch/scripts/watchdog.py</code></th><td>两句提示</td></tr>
+<tr><th><code>imports.tsv</code></th><td>每个搬来的文件一行，每处改动一条 J 记录</td></tr>
+</tbody></table></div>
+<p>落地后要跑的：<code class="c k-script">check_imports.py</code>（每个搬来的文件和来源逐字节对得上，改了的都有记录）；<code class="c k-script">check-interfaces.py</code>（路由、叫醒事件、步骤标题仍然对得上）；<code class="c k-script">tests/retro/run.sh</code>（<span class="c k-skill">retro</span> 在假的 tracker 和 Memory 上跑通全部八个场景）；<code class="c k-script">tests/liveness/run.sh</code>（它的开头写明改了 <code class="c k-script">watchdog.py</code> 就跑它）。不跑全部测试：改动没有跨过这几组测试管不到的边界。</p>
+
+<h2>13　自测</h2>
+<div class="quiz" data-answer="0">
+<p class="q">1．半夜一个 worker 开了 <code>contract</code> 子票：票上 AC2 写的字段名和 spec 第 3 节不一样，spec 是对的。orchestrator 该怎么做？</p>
+<div class="opts"><button>改票上判据再续上</button><button>票移进待处理队列</button><button>让它照票上的去做</button><button>自己去改它的代码</button></div>
+<div class="why" hidden>spec 在权威顺序里比票的正文高，能引用它就自己改（图 3）：改票上的判据，同一句错话派生的其它没落地的票也改，子票上写依据，<code>route … fixed</code>，再用 <code>resume</code> 告诉 worker。worker 的代码是 worker 的（第 4 步）。</div>
+</div>
+<div class="quiz" data-answer="1">
+<p class="q">2．收尾时一条 finding：一个函数少了空值检查，修它只动一个文件，可这个文件在另一张还开着的票的 <code>## Owns</code> 里。去处？</p>
+<div class="opts"><button>自己修掉这个文件</button><button>写成票等那张落地</button><button>标成无效直接关掉</button><button>留着明天再来处理</button></div>
+<div class="why" hidden>图 2 的第 1 步排在文件数前面。你在 <code>origin/&lt;base branch&gt;</code> 上一修，那张票的分支合进来时就冲突。写成票，<code>Blocked by</code> 那张。</div>
+</div>
+<div class="quiz" data-answer="0">
+<p class="q">3．早上你说验收，可 spec 上只有 <code>spec.closed</code>，没有 <code>spec.retroed</code>。会话该怎么做？</p>
+<div class="opts"><button>先补跑复盘再合并</button><button>直接跑合并的命令</button><button>重新再贴一份总结</button><button>告诉你验收不算数</button></div>
+<div class="why" hidden>第 1 步表里「有 <code>spec.closed</code>、没有记下的 <code>spec.retroed</code>」那一行先成立，去第 9 步跑 <code class="c k-skill">retro</code>，然后第 10 步 <code class="c k-script">finish</code>。直接跑 <code class="c k-script">finish</code> 也会被 <code class="c k-script">dispatch.sh</code> 拒掉。你的验收照样算数。</div>
+</div>
+<div class="quiz" data-answer="0">
+<p class="q">4．<span class="c k-skill">retro</span> 找到一个问题，证据确凿，但只在这一夜的一张票上出现过一次。它会变成提案 issue 吗？</p>
+<div class="opts"><button>只记这次怎么处理</button><button>立刻开一张提案票</button><button>写进仓库的说明里</button><button>证据不够直接丢弃</button></div>
+<div class="why" hidden>防止它再发生是有长期代价的：一条检查每次提交都跑，一句说明以后每个 agent 都读。一次出现记在「Handled here」；同一原因两次独立出现，或者有一条 Memory 的 <code>propose</code> 指着它，才开提案。证据确凿，所以不丢。</div>
+</div>
+
+<h2>下一课</h2>
+<p>你说开始，我就照第 12 节落地，落地的记录写成第 12 课。</p>
+<p class="ask">要你定的只有一件：<code class="c k-skill">triage</code> 不在这一课落地，改到和 <span class="c k-playbook">Write a spec</span>、<span class="c k-playbook">Cut tickets</span> 同一课（第 7 节），你同不同意。<span class="c k-playbook">Revise a spec</span> 提前到这一课，是因为 contract 那一节离不开它，理由在第 5 节；你不同意也可以说。哪一节看不懂、哪份草稿不对，直接说。</p>
+<footer class="next"><a href="0010-landing-lesson-9.html">← 第 10 课</a><a href="../index.html">课程首页</a></footer>
+</div>
+<!--JS--><script>
+/* Quiz widget: <div class="quiz" data-answer="2"> with buttons in .opts and a hidden .why.
+   A click marks the chosen option right or wrong, marks the right one, and shows the explanation. */
+document.querySelectorAll('.quiz').forEach(function (quiz) {
+  var answer = Number(quiz.dataset.answer);
+  var buttons = quiz.querySelectorAll('.opts button');
+  var why = quiz.querySelector('.why');
+  buttons.forEach(function (btn, i) {
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      buttons.forEach(function (b) { b.classList.remove('right', 'wrong'); });
+      buttons[answer].classList.add('right');
+      if (i !== answer) btn.classList.add('wrong');
+      if (why) why.hidden = false;
+    });
+  });
+});
+
+/* Legend: <div class="legend" data-legend="mode playbook arrow …"> becomes one row of swatches;
+   data-label-<key>="…" replaces one key's meaning where a figure uses the mark for something narrower.
+   Each key has one drawing and one meaning for the whole course; the swatches use the same
+   classes as the figures, so a swatch looks exactly like the mark it explains. */
+(function () {
+  var box = function (k) { return '<g class="k-' + k + '"><rect class="box" x="1" y="2" width="30" height="12" rx="2"/></g>'; };
+  var line = function (cls) {
+    return '<line class="ar ' + cls + '" x1="1" y1="8" x2="25" y2="8"/><polygon class="head" points="25,4 31,8 25,12"/>';
+  };
+  var KEYS = {
+    mode: [box('mode'), 'mode 技能'],
+    playbook: [box('playbook'), 'playbook'],
+    principle: [box('principle'), 'principle（原则技能）'],
+    skill: [box('skill'), '其他技能'],
+    reference: [box('reference'), 'references/ 里的文件'],
+    script: [box('script'), 'scripts/ 里的程序'],
+    agent: [box('agent'), 'subagent（子代理定义）'],
+    config: [box('config'), 'rule（配置）'],
+    other: [box('other'), '不是给 agent 读的，或不在 pstack 里'],
+    decision: ['<polygon class="dia" points="16,1 31,8 16,15 1,8"/>', '菱形：一个判断，出口旁写条件'],
+    end: ['<rect class="pill" x="1" y="2" width="30" height="12" rx="6"/>', '圆角条：开始或结束'],
+    arrow: [line(''), '实线箭头：执行、读取或写出，旁边写明是什么'],
+    attach: ['<path class="att" d="M1,8 L31,8"/>', '细灰虚线：这一步会用到它'],
+    human: [line('human'), '点线箭头：你做的'],
+    zone: ['<rect class="zone" x="1" y="1" width="30" height="14" rx="3"/>', '灰底区域：一组，标题写明是什么']
+  };
+  document.querySelectorAll('.legend[data-legend]').forEach(function (el) {
+    var wanted = el.dataset.legend.split(/\s+/);
+    el.innerHTML = '<b>' + (el.dataset.title || '图例') + '</b>' +Object.keys(KEYS).filter(function (k) { return wanted.indexOf(k) >= 0; }).map(function (k) {
+      var d = KEYS[k], label = el.getAttribute('data-label-' + k) || d[1];
+      return '<span class="it"><svg viewBox="0 0 32 16" aria-hidden="true">' + d[0] + '</svg>' + label + '</span>';
+    }).join('');
+  });
+})();
+</script><!--/JS-->
+</body>
+</html>
