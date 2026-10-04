@@ -141,6 +141,13 @@ a.chip:hover{border-width:2px;padding:0 5px}
 .why-card dt{color:var(--muted);font-weight:600;font-size:12.5px;padding-right:0}
 .why-card dd q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0 0;overflow-wrap:anywhere;font-variant-ligatures:none}
 .inf{color:var(--warn);font-size:12px;font-weight:600;margin-left:4px}
+/* role table: one row per role; scrolls inside its own box at narrow widths */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table.roles{border-collapse:collapse;font-family:var(--f-head);font-size:13.5px;line-height:1.55;min-width:1160px}
+table.roles code{white-space:nowrap}
+table.roles th,table.roles td{padding:7px 10px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}
+table.roles thead th{border-top:0;color:var(--muted);font-size:12.5px;font-weight:600;background:var(--sunk)}
+table.roles tbody th{font-weight:600;white-space:nowrap}
 /* quiz */
 .quiz{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:var(--f-head);font-size:14.5px;max-width:80ch}
 .quiz .q{font-weight:600;margin:0 0 8px}
@@ -175,7 +182,8 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <a href="lessons/0001-pstack-components.html"><span class="no">第 1 课</span><span class="tt">pstack 由哪些组件组成，每种文档怎么写</span><span class="ds">八种组件、各自在一次任务里什么时候被读、每种文档的结构、poteto-mode/SKILL.md 逐节</span></a>
 <a href="lessons/0002-when-a-component-is-made.html"><span class="no">第 2 课</span><span class="tt">每种组件在什么情况下才该有一个新的</span><span class="ds">什么情况触发创建、由谁创建；每种组件的意义；两次迁移的放置规则错在哪，造成了什么</span></a>
 <a href="lessons/0003-what-each-part-of-v2-solves.html"><span class="no">第 3 课</span><span class="tt">MMW v2 的每个部分解决什么问题</span><span class="ds">一个需求从白天到早上怎么走；八组部分各自解决的问题和依赖的假设；v2 把任务的顺序放在哪</span></a>
-<a href="lessons/0004-communication-rules.html"><span class="no">第 4 课</span><span class="tt">把 shared.md 和 pstack 的沟通规则合成一套</span><span class="ds">沟通发生的十个时刻；两边各写了什么、哪边更好；合并后每条规则放在哪、什么时候加载</span></a>
+<a href="lessons/0004-communication-rules.html"><span class="no">第 4 课</span><span class="tt">把 shared.md 和 pstack 的沟通规则合成一套</span><span class="ds">沟通发生的十二个时刻；两边各写了什么、哪边更好；合并后每条规则放在哪、什么时候加载</span></a>
+<a href="lessons/0005-how-each-role-gets-its-guidance.html"><span class="no">第 5 课</span><span class="tt">MMW 的 agent 由脚本开、被事件叫醒，它们怎样拿到指引</span><span class="ds">和 pstack 的五处不同；v2 每个角色的指引从哪来；v3 的设计，一张流程图；每个角色的两份东西，派发方那份和 agent 那份；十个决定各自的依据</span></a>
 </div>
 <h2>参考页</h2>
 <div class="toc">

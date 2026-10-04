@@ -136,6 +136,13 @@ a.chip:hover{border-width:2px;padding:0 5px}
 .why-card dt{color:var(--muted);font-weight:600;font-size:12.5px;padding-right:0}
 .why-card dd q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0 0;overflow-wrap:anywhere;font-variant-ligatures:none}
 .inf{color:var(--warn);font-size:12px;font-weight:600;margin-left:4px}
+/* role table: one row per role; scrolls inside its own box at narrow widths */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table.roles{border-collapse:collapse;font-family:var(--f-head);font-size:13.5px;line-height:1.55;min-width:1160px}
+table.roles code{white-space:nowrap}
+table.roles th,table.roles td{padding:7px 10px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}
+table.roles thead th{border-top:0;color:var(--muted);font-size:12.5px;font-weight:600;background:var(--sunk)}
+table.roles tbody th{font-weight:600;white-space:nowrap}
 /* quiz */
 .quiz{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:var(--f-head);font-size:14.5px;max-width:80ch}
 .quiz .q{font-weight:600;margin:0 0 8px}
