@@ -10,13 +10,7 @@ mmw-v2/upstream/skills/engineering/code-review/references/session.md `## 1. Pin 
 diff`. A lesson on how a reviewer works writes it.
 -->
 
-1. **Run the axes.** Read the ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`. When the ticket has one, run four axes: Standards, Spec, Tests and UI; otherwise the first three. Send one subagent per axis, all at once, as the mode's `## Subagents` says, each with a prompt of one sentence naming the `code-review` skill, the ticket, the base commit and one axis word, exactly `Standards`, `Spec`, `Tests` or `UI`:
-
-   ```
-   Use the code-review skill to review ticket #<ticket> from base commit <base-commit>, axis Standards.
-   ```
-
-   Nothing else: the skill is what they read, and the axis word picks their file. Hold your turn until every axis has reported: the worker is asleep on your report, and what wakes it is step 2, which cannot run until the report exists.
+1. **Run the axes.** Read the ticket. A **story criterion** is a `CHECK:` that names `story-parity.py`. When the ticket has one, run four axes: Standards, Spec, Tests and UI; otherwise the first three. Run the `code-review` skill on the ticket and the base commit with those axes. Hold your turn until every axis has reported: the worker is asleep on your report, and what wakes it is step 2, which cannot run until the report exists.
    Done when every axis you started has reported.
 
 <!--

@@ -74,7 +74,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 - **Used:** at the start of a task, to choose its route.
 - **Content, in this order:**
   1. Usage: open a todolist whose first items are the matched playbook's steps copied in verbatim; a step not done stays in the list as `skip: <reason>`.
-  2. The routing exceptions: large, cross-cutting or step-away work, and work no playbook fits, route to `figure-it-out`, which designs a playbook for that one run.
-  3. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
+  2. One route line per playbook: ``**Name.** What task it is, and how it differs from the playbook most easily confused with it. `playbooks/<file>.md`.``
+  3. One sentence for a session a script started: the playbook its start prompt names is its route, chosen by whoever dispatched it (`mmw-v3/course/` lesson 5, decision 3).
 - **When to add a line:** in the same change that adds the playbook file. Whether a playbook is warranted is in `playbooks/README.md`.
 - **Sources in MMW v2:** the `## Find your moment` tables of the `dispatch`, `verify-ticket`, `design-pages`, `ui-acceptance` and `code-review` skills, and the numbered procedures they point to (`implement`'s `## Closing steps`, `dispatch`'s `references/night.md`).

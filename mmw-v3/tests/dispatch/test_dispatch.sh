@@ -17,9 +17,9 @@
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh paseostartdir|landarchivesagents
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh orcadoubledispatch|unreadableevents|startunrecorded
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh mergewithoutbranch|retractunreadable
-#   bash mmw-v3/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved|adopt
+#   bash mmw-v3/tests/dispatch/test_dispatch.sh open|openrefused|openticket|ack|unopened|runnerself|orcaunobserved
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh keepunfinished|advancerefused|catalogbyrunner
-#   bash mmw-v3/tests/dispatch/test_dispatch.sh startunlandedblocker
+#   bash mmw-v3/tests/dispatch/test_dispatch.sh startunlandedblocker|startfromissuebranch
 #   bash mmw-v3/tests/dispatch/test_dispatch.sh all
 #
 # A fake `paseo`, a fake `herdr`, a fake `orca` and a fake `gh` sit in front of the
@@ -3124,18 +3124,6 @@ scenario_nobaseconfig() {
   code="$(run_dispatch bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer)"
   [ "$code" = 0 ] || fail "reviewer without base config expected 0, got $code: $(cat "$TMP/err")"
   started_once
-
-  fresh_repo
-  reset_log
-  no_relay
-  seed_main_agent agt_self
-  self_picked_worktree
-  tree="$(wt 61)"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo $?)"
-  [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
-  assert_no_retired_base_config "$TMP/repo" 61 adopt
-  no_relay
 }
 
 scenario_advise() {
@@ -3155,8 +3143,8 @@ scenario_advise() {
   [ "$(out_json settings.thinkingOptionId)" = medium ] \
     || fail "effort: $(out_json settings.thinkingOptionId)"
   case "$(out_json initialPrompt)" in
-    "Use the advisor skill."*) ;;
-    *) fail "the advisor dispatch line is missing: $(out_json initialPrompt)" ;;
+    "# Advising"*"You are the advisor"*"the brief body"*) ;;
+    *) fail "the advisor's prompt should open with advising.md, then the brief: $(out_json initialPrompt)" ;;
   esac
   case "$(out_json initialPrompt)" in
     *"the brief body"*) ;;
@@ -3208,6 +3196,18 @@ scenario_advise() {
   [ "$code" = 2 ] || fail "empty file expected exit 2, got $code: $(cat "$TMP/err")"
   grep -q "is empty" "$TMP/err" \
     || fail "the refusal should say the brief is empty: $(cat "$TMP/err")"
+  never_ran
+  nothing_printed
+
+  echo "--- a dispatch skill with no advisor skill beside it refuses, and nothing is started"
+  local copy
+  copy="$(skill_copy_for dispatch)"
+  reset_log
+  fresh_repo
+  code="$(run_dispatch bash "$copy/scripts/dispatch.sh" "${TOOLS[@]}" advise "$packet")"
+  [ "$code" = 2 ] || fail "no advising.md expected exit 2, got $code: $(cat "$TMP/err")"
+  grep -q "no advisor's text at" "$TMP/err" \
+    || fail "the refusal should name the missing advising.md: $(cat "$TMP/err")"
   never_ran
   nothing_printed
 
@@ -5664,107 +5664,13 @@ JSON
   no_relay
 }
 
-# A worktree on issue-61 that a session picked up itself, with no `start` behind it.
+# A worktree on issue-61 with a commit of its own, and no `start` behind it.
 self_picked_worktree() {
   mkdir -p "$(trees)"
   git -C "$TMP/repo" worktree add --quiet -b issue-61 "$(wt 61)" main
   printf 'work\n' > "$(wt 61)/work.txt"
   git -C "$(wt 61)" add work.txt
   git -C "$(wt 61)" -c user.email=t@t -c user.name=t commit -q -m work
-}
-
-scenario_adopt() {
-  local code tree
-  fresh_repo
-  reset_log
-  no_relay
-  seed_main_agent agt_self
-  cat > "$TMP/tickets.json" <<'JSON'
-[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent", "senior-worker"], "parent": null}]
-JSON
-  self_picked_worktree
-  tree="$(cd "$(wt 61)" && pwd -P)"
-
-  echo "--- outside a night with no prior worker, adopt asks for --into rather than guessing"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 2 ] || fail "adopt without a base branch expected 2, got $code"
-  grep -q "pass --into <base branch>" "$TMP/err" \
-    || fail "the refusal should ask for --into: $(cat "$TMP/err")"
-
-  echo "--- a session that picked #61 up itself becomes its worker, and a relay watches #61"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into main) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(cat "$TMP/out")" = agt_self ] || fail "adopt should print the session: $(cat "$TMP/out")"
-  MMW_TREE="$tree" MMW_BASE="$(git -C "$TMP/repo" rev-parse main)" python3 -c '
-import importlib.util, json, os, sys
-from pathlib import Path
-spec = importlib.util.spec_from_file_location("ev", os.environ["MMW_EVENTS_PY_FOR_TESTS"])
-ev = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ev)
-posted = json.loads((Path(os.environ["MMW_FAKE_PASEO_STATE"]) / "gh-comments.json").read_text()).get("61", [])
-state = ev.fold(posted)
-w = ev.session_of(state, "worker")
-want = {"runner": "paseo", "session": "agt_self", "grade": "senior-worker",
-        "worktree": os.environ["MMW_TREE"], "branch": "issue-61", "base": os.environ["MMW_BASE"]}
-bad = {k: (w or {}).get(k) for k in want if (w or {}).get(k) != want[k]}
-assert not bad, bad
-assert w["host"] and w["model"] and w["live"], w
-assert w.get("slot") is None, w
-' || fail "worker.started should name this session with the grade row and this worktree, and no slot: $(posted_events 61 session runner grade slot)"
-  posted_events 61 machine | grep -qx "worker.started machine=$(python3 -c 'import socket; print(socket.gethostname())')" \
-    || fail "the adopted worker.started should name this machine: $(posted_events 61 machine)"
-  posted_events 61 into | grep -qx "worker.started into=main" \
-    || fail "the adopted worker.started should name main as into: $(posted_events 61 into)"
-  [ "$(python3 "$LEASE_PY" count "$TMP/repo/.worktrees")" = 0 ] \
-    || fail "adopt took a slot; the first run that needs the product acquires it: $(python3 "$LEASE_PY" list)"
-  case "$(relay_now)" in *'{"tickets": [61]}'*) ;; *) fail "a relay should watch #61: $(relay_now)" ;; esac
-  [ "$(watch_main tickets:61)" = "paseo agt_self" ] \
-    || fail "the adopting session is the orchestrator of #61's watch: $(cat "$STATE_DIR/watches.json")"
-
-  echo "--- and from there its reviewer can be started: the ticket can finish"
-  code="$( (cd "$tree" && env FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" start 61 reviewer) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "start 61 reviewer after adopt expected 0, got $code: $(cat "$TMP/err")"
-
-  echo "--- adopting again from the same session writes no second worker.started"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "a second adopt expected 0, got $code: $(cat "$TMP/err")"
-  [ "$(posted_events 61 | grep -c '^worker.started')" = 1 ] || fail "one worker.started: $(posted_events 61)"
-
-  echo "--- another session cannot adopt a ticket a live worker holds"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_other FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 2 ] || fail "adopt over a live worker expected 2, got $code"
-  grep -q "is held by worker agt_self on paseo" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
-  no_relay
-
-  echo "--- adopt from a checkout not on issue-61 is refused, and nothing is written"
-  reset_log
-  no_relay
-  code="$(run_dispatch env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61)"
-  [ "$code" = 2 ] || fail "adopt on main expected 2, got $code"
-  grep -q "is worked on branch issue-61" "$TMP/err" || fail "stderr: $(cat "$TMP/err")"
-  [ -z "$(posted_events 61)" ] || fail "nothing should be posted: $(posted_events 61)"
-  [ -z "$(relay_now)" ] || fail "no relay should be started: $(relay_now)"
-
-  echo "--- inside a night, adopt keeps the night's relay and starts none"
-  reset_log
-  seed_main_agent agt_self
-  post_ev 76 spec.opened --spec 76 --line "NIGHT OPENED #76" --field into=main
-  cat > "$TMP/tickets.json" <<'JSON'
-[{"number": 61, "state": "OPEN", "labels": ["ready-for-agent"]}]
-JSON
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self FAKE_GH_TICKETS_FILE="$TMP/tickets.json" \
-          bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt in a night expected 0, got $code: $(cat "$TMP/err")"
-  case "$(relay_now)" in *'{"spec": 76}'*) ;; *) fail "the night's relay should be the one: $(relay_now)" ;; esac
-  [ "$(watch_main spec:76)" = "paseo agt_main" ] && [ -z "$(watch_main tickets:61)" ] \
-    || fail "the night's orchestrator is not this session's to take: $(cat "$STATE_DIR/watches.json")"
-  no_relay
 }
 
 # Rows in the queue the way the relay writes them, for `ack` to act on.
@@ -8207,27 +8113,17 @@ scenario_startintooutside() {
   assert_no_wt 61
 }
 
-scenario_adoptinto() {
+scenario_startfromissuebranch() {
   local code tree
+  echo "--- outside a night with no earlier worker, start from an issue branch names the branch to start from"
   fresh_repo
-  git -C "$TMP/repo" checkout -q -b adopted-base
-  git -C "$TMP/repo" push -q -u origin adopted-base
-  git -C "$TMP/repo" checkout -q main
   reset_log
-  no_relay
-  seed_main_agent agt_self
   self_picked_worktree
   tree="$(wt 61)"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 2 ] || fail "adopt without --into expected 2, got $code"
-  grep -q "pass --into <base branch>" "$TMP/err" \
-    || fail "adopt did not ask for --into: $(cat "$TMP/err")"
-  code="$( (cd "$tree" && env PASEO_AGENT_ID=agt_self bash "$DISPATCH" "${TOOLS[@]}" adopt 61 --into adopted-base) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
-  [ "$code" = 0 ] || fail "adopt --into expected 0, got $code: $(cat "$TMP/err")"
-  posted_events 61 into | grep -qx "worker.started into=adopted-base" \
-    || fail "adopt did not record into=adopted-base: $(posted_events 61 into)"
-  assert_no_retired_base_config "$TMP/repo" 61 adopt
-  no_relay
+  code="$( (cd "$tree" && bash "$DISPATCH" "${TOOLS[@]}" start 61 worker) > "$TMP/out" 2> "$TMP/err"; echo "$?")"
+  [ "$code" = 2 ] || fail "start from issue-61 with no base branch expected 2, got $code"
+  grep -q "run start from a checkout of the branch it will merge into" "$TMP/err" \
+    || fail "the refusal should name where to start from: $(cat "$TMP/err")"
 }
 
 scenario_startwithoutinto() {
@@ -9630,7 +9526,7 @@ JSON
     || fail "the bounced ticket was counted again as handed back: $(cat "$MMW_GH_LAST_BODY")"
 }
 
-ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise research startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved adopt adoptinto orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
+ALL="memory-open-space memory-space-unavailable openwithoutboard openticketwithoutboard startreadsmodelsjson startnomodelsjson orcaworktreelink orcaworktreelinkfails orcaworktreeparent orcareviewernoparent orcaparentrefused orcaparentskips orcamergeparent worktreelinknoop check checknoorigin checknopush checkbasemissing checklocalahead advance advanceconflict advancedirty advancemergeworktree advancepassedcommit advanceunreadableinto advancewithoutpassedcommit advancebouncedconflict advancenohalfmerge advancebouncedchecks advanceskipsecondcheck advancebaseref advancenochecks advanceraced advanceoverlap advancelandedfields parallelbases advancealreadyin landedlinks landednourl alreadyinmerge alreadyinfastforward landeddeletesbranch landdeletesbranch bouncedkeepsbranch bouncestopssessions bounceretriesonce returnedstopssessions archiveremovesinstance bouncekeepsinstance sweepsorphanmerge sweepkeepslockedmerge landedkeepsunmerged landedbranchraced landedbranchgone landeddeleterefused landeddeleterefusedsays archiveunlandedkeepsbranch landedworktreekept regressedrestart regressedrestartbase advancesummaryline bouncednotretried landviaorigin reverifyorigin summarybounced integrateuptodate integrateclean integratenamestickets integrateconflict integratedirty reviewerbaseafterintegrate reviewerbasefromstarted nobaseconfig land start-worker start-reviewer advise research startfromorigin startresumesorigin startdiverged startintofromnight startintooutside startwithoutinto replacepushes retract retractpushes resume resumeendedhold wait reverify summary release releaseother releaselive releasestanding frontierwhy slotatclaim route specfield stopproduct suspend suspendpushes suspendbusy handoffpushrejected status runnerstart runnersend runnerliveness runnerparity herdrworkingsend herdrliveness orcasend orcaclosed worktreegit worktreegoverned worktreeremove paseostartdir landarchivesagents noadapterretract noadapterwait unknownnotalive herdrunreadablelist herdrnoeffort herdrstartloud orcatruncated orcanotconnected orcanoorphan orcanohosts startreturnssession startonce runneronticket runnerstop orcadoubledispatch unreadableevents startunrecorded mergewithoutbranch retractunreadable open openinto openpushesahead openprojectreflog openprojectconfig openprojecthistory openprojecttie openrefusesdefault openrefusesfromdefault openpushes openrefusesdiverged openkeepsproject checkproject openrefused openticket ack unopened runnerself orcaunobserved startfromissuebranch orcarefusalreason nightfromtask keepunfinished advancerefused catalogbyrunner startunlandedblocker"
 ALL="$ALL memory-worker-start memory-worker-prompt-states memory-worker-runner-env"
 ALL="$ALL memory-reviewer-rules memory-reviewer-prompt-states memory-reviewer-contract"
 ALL="$ALL memory-closing memory-closing-refuses memory-closing-retry memorylist"
@@ -9847,8 +9743,7 @@ banner_for() {
     unopened) echo UNOPENED-OK ;;
     runnerself) echo RUNNER-SELF-OK ;;
     orcaunobserved) echo ORCA-UNOBSERVED-OK ;;
-    adopt) echo ADOPT-OK ;;
-    adoptinto) echo ADOPT-INTO-OK ;;
+    startfromissuebranch) echo START-FROM-ISSUE-BRANCH-OK ;;
     findings) echo FINDINGS-OK ;;
     memorylist) echo MEMORY-LIST-OK ;;
     integratedsincestart) echo INTEGRATED-SINCE-START-OK ;;

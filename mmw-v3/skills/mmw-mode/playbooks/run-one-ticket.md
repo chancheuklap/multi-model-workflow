@@ -1,15 +1,8 @@
-### Bug fix
+### Run one ticket
 
-**You own one ticket outside a night, as its orchestrator, from `open-ticket` to `land`; its worker is dispatched from here.** A ticket outside a night belongs to no spec, so no `advance` ever collects it: `land` is its whole ending. Distinct from Run a night, which runs a spec's batch from `open` to `NIGHT SUMMARY`.
+**You own one written ticket outside a night, as its orchestrator, from `open-ticket` to `land`; its worker is dispatched from here.** A ticket outside a night belongs to no spec, so no `advance` ever collects it: `land` is its whole ending. Distinct from Run a night, which runs a spec's batch from `open` to `finish`.
 
 Commands of the `dispatch` skill's `dispatch.sh` are named bare below.
-
-<!--
-Shell. Who writes the ticket a bug is fixed under, and where reproducing the defect and
-finding its root cause go, come here: a later lesson on how a bug is fixed decides both.
-Sources: pstack's `playbooks/bug-fix.md` (cursor/plugins e43c7ee) and MMW v2's tickets
-written by the to-tickets skill.
--->
 
 1. **Open the watch.** Run `dispatch.sh open-ticket <n>`. This session becomes the ticket's orchestrator; when the line it prints names a task board, hand its URL to the owner.
    Done when `open-ticket` exited 0.
@@ -27,4 +20,4 @@ written by the to-tickets skill.
 4. **Land the ticket.** Once it passed or came back, run `dispatch.sh land <n>` from any checkout of this repository. It lands the ticket, closes the watch and prints what it did; stderr names anything it left standing. A merge conflict or red repository checks count as `bounced` on its summary line, and without an open night `land` leaves that ticket in `needs-triage`: tell the owner which ticket and what the `ticket.bounced` event names.
    Done when `land` exits 0.
 
-**Reply:** <!-- Shell: what the owner is told about the fix, decided with the lesson on how a bug is fixed. --> What `land` did, and anything its stderr left standing.
+**Reply:** what `land` did, and anything its stderr left standing.

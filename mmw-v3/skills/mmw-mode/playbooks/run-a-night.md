@@ -1,6 +1,6 @@
 ### Run a night
 
-**You own one night: a spec's published tickets, from `open` to `NIGHT SUMMARY`, as their orchestrator; every worker is dispatched from here.** The scripts merge, archive, create worktrees and start the sessions; every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again. Distinct from Bug fix, which runs one ticket outside any night.
+**You own one night: a spec's published tickets, from `open` to `finish`, as their orchestrator; every worker is dispatched from here.** The scripts merge, archive, create worktrees and start the sessions; every decision is yours: whether a worker continues, whether a failure is yours to fix, whether a question becomes a sub-issue, whether to `advance` again. The owner's acceptance in the morning comes back to this session, which runs `finish`. Distinct from Run one ticket, which runs one ticket outside any night.
 
 Commands of the `dispatch` skill's `dispatch.sh` and the `verify-ticket` skill's `verify-ticket.py` are named bare below. Between the steps you end your turn. The relay that `open` starts wakes you when a ticket of the batch gets an event that needs you (step 5), and the watchdog tells you when the tracker has gone silent where it should not; nothing else does, and no agent polls another.
 
@@ -27,9 +27,10 @@ orchestrator works writes it.
    Done when `open` exited 0.
 
 <!--
-Shell. Linting the batch before the first `advance` comes here. Source in MMW v2 at
-9df1ab67d: night.md `## 1b. Before the batch: what the batch cannot be run on`. A lesson
-on how the orchestrator works writes it.
+Shell. Linting the batch before the first `advance` comes here, by the `verify-ticket`
+skill's `references/linting.md`. Source in MMW v2 at 9df1ab67d: night.md `## 1b. Before
+the batch: what the batch cannot be run on`. A lesson on how the orchestrator works
+writes it.
 -->
 
 3. **Advance.** Run `dispatch.sh advance <spec>`. It lands every passed ticket and starts a worker on every ticket the frontier frees; after `open` it may run from any checkout of this repository. Exit 0: end your turn. Exit 4: a runner refused a start; stderr names each refusal and none is retried; fix what each names and run `advance` again, and end your turn only while another worker of the night is live; when none is, tell the owner which tickets were refused and why. Exit 2: fix what stderr names and run `advance` again (a night that is not open: `open <spec>` first); the rest of the batch was landed and started.

@@ -50,13 +50,15 @@ place poteto-mode gives Cursor's create-skill); prose for people → technical-w
 prose → unslop. The comparison and its results are in mmw-v3/course lesson 4, figure 3.
 The PRODUCT_RULES sentence of mmw-v2/skills/dispatch/scripts/dispatch.sh, which every
 worker's start prompt carried → the ui-acceptance skill's five rules (mmw-v3/course
-lesson 5, decision 5).
+lesson 5, decision 5). The how line is poteto-mode's own, brought in with the how skill
+(mmw-v3/course lesson 6, section 5).
 -->
 
 The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
 Remaining triggers:
 
+- Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows the **writing-for-agents** skill.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Starting, reaching or stopping the product, while other runs share this machine → the **ui-acceptance** skill's **Five rules while the product is running**, before the first command.
@@ -231,11 +233,9 @@ Used: at the start of a task, to choose its route.
 Content, in this order:
 1. Usage: open a todolist whose first items are the matched playbook's steps copied in
    verbatim; a step not done stays in the list as `skip: <reason>`.
-2. The routing exceptions: large, cross-cutting or step-away work, and work no playbook
-   fits, route to figure-it-out, which designs a playbook for that one run.
-3. One route line per playbook: `**Name.** What task it is, and how it differs from the
+2. One route line per playbook: `**Name.** What task it is, and how it differs from the
    playbook most easily confused with it. `playbooks/<file>.md`.`
-4. One sentence for a session a script started: the playbook its start prompt names is its
+3. One sentence for a session a script started: the playbook its start prompt names is its
    route, chosen by whoever dispatched it (mmw-v3/course lesson 5, decision 3).
 
 Add a route line in the same change that adds the playbook file. How to judge whether a
@@ -248,10 +248,11 @@ to (implement's `## Closing steps`, dispatch's references/night.md).
 
 When your start prompt names a playbook, run that playbook from the step the ticket's events put you at; the session that dispatched you chose it, so do not route again.
 
+- **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y. Distinct from the **research** skill, which answers a question about the world outside the repository (a library, a standard); a fact you could observe by running something is found by running it (see Autonomy). `playbooks/investigation.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a restart of the host, or imminent context compaction. Full steps: `playbooks/pause-safely.md`.
 - **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode. `playbooks/authoring-or-modifying-a-skill.md`.
 - **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.
-- **Run a night.** Running a spec's published tickets as their orchestrator, from `open` to `NIGHT SUMMARY` ("start the night", "run the batch"). Distinct from Bug fix, which runs one ticket outside any night. `playbooks/run-a-night.md`.
-- **Bug fix.** A reported defect fixed as one ticket outside a night, with this session as its orchestrator, from `open-ticket` to `land`. Distinct from Run a night, which runs a spec's batch. `playbooks/bug-fix.md`.
+- **Run a night.** Running a spec's published tickets as their orchestrator, from `open` to `finish` once the owner has accepted the night ("start the night", "run the batch", "accept the night"). Distinct from Run one ticket, which runs one ticket outside any night. `playbooks/run-a-night.md`.
+- **Run one ticket.** Running one written ticket outside a night, with this session as its orchestrator, from `open-ticket` to `land`. Distinct from Run a night, which runs a spec's batch. `playbooks/run-one-ticket.md`.
 - **Work a ticket.** Working one ticket as its worker, from its claim to its closing comment. Only a start prompt names it. `playbooks/work-a-ticket.md`.
 - **Review a ticket.** Writing one ticket's review report as its reviewer, from a base commit its worker gave. Only a start prompt names it. `playbooks/review-a-ticket.md`.

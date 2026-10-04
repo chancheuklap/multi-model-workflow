@@ -6,7 +6,6 @@
 #   dispatch.sh open <spec>
 #   dispatch.sh open-ticket <n>
 #   dispatch.sh board
-#   dispatch.sh adopt <n>
 #   dispatch.sh self
 #   dispatch.sh advance <spec>
 #   dispatch.sh integrate <n>
@@ -68,8 +67,8 @@
 # adapter's `self` reads — and start the relay when none runs; `summary` and `suspend`, or
 # `land` for one ticket, close that watch, and the relay ends with its last. `start` and `advance`
 # refuse a ticket no running relay watches, since its result would wake nobody. `ack` is
-# how a woken session says it handled the wake it read. `adopt` makes a session that
-# picked a ticket up itself that ticket's worker, as `start` would have. `self` prints the
+# how a woken session says it handled the wake it read. A ticket's worker is always a
+# session `start` opened, so its events name it. `self` prints the
 # runner and session this process runs in. `open` and `open-ticket` also make sure this
 # repository's task board is registered and answering and name its URL on the line they
 # print: everything else a watch starts is read by the orchestrator, and the board is what a
@@ -313,8 +312,8 @@ worker_base() {
 }
 
 # Resolve worker.started.into first, then an open night's spec.opened.into, then the
-# caller's explicit fallback. `start` supplies its current branch as that fallback;
-# `adopt` supplies only --into. A worker.started with no into counts as none.
+# caller's fallback. `start` supplies its current branch as that fallback; `integrate`
+# supplies none. A worker.started with no into counts as none.
 resolve_into() {
   local number="$1" spec="$2" fallback="$3" into rc
   into="$(newest_worker_field "$number" into)"
@@ -336,7 +335,7 @@ resolve_into() {
     esac
   fi
   [ -n "$fallback" ] || {
-    echo "dispatch: #$number has no worker.started.into and is outside an open night; pass --into <base branch>" >&2
+    echo "dispatch: #$number has no worker.started.into and is outside an open night; run start from a checkout of the branch it will merge into" >&2
     return 2
   }
   printf '%s\n' "$fallback"
@@ -403,7 +402,6 @@ usage: dispatch.sh check <spec>
        dispatch.sh open <spec>
        dispatch.sh open-ticket <n>
        dispatch.sh board
-       dispatch.sh adopt <n> [--into <branch>]
        dispatch.sh self
        dispatch.sh advance <spec>
        dispatch.sh integrate <n>
@@ -953,105 +951,6 @@ ack_wake() {
     python3 "$RELAY" ack --repo "$repo" --runner "$runner" --session "$session" \
       --ticket "$1" --event "$2" || exit 2
   fi
-}
-
-# `adopt <n>`: the calling session becomes ticket <n>'s worker. A session that picked the
-# ticket up itself was started by no `start`, so no `worker.started` names it: its
-# reviewer's report would wake nobody, and `start <n> reviewer` would refuse. This writes
-# that event with the session's own runner and session (its adapter's `self`) and the
-# facts `start` writes — the grade's models.json row, this worktree, its branch and base,
-# and no slot, which the first run of its criteria that runs the product acquires — and makes sure a relay watches the ticket: the
-# watch already covering it, or a watch of this ticket alone with this session as its
-# orchestrator. Run it from the ticket's worktree, on branch issue-<n>, before claiming.
-adopt_ticket() {
-  local number="$1" explicit_into="${2:-}" line runner session
-  line="$(own_session)" || exit 2
-  runner="${line%%$'\t'*}"
-  session="${line#*$'\t'}"
-
-  local answer grades title spec
-  answer="$(read_ticket "$number")"
-  case "$answer" in
-    "REFUSE "*) refuse "${answer#REFUSE }" ;;
-    "") refuse "the tracker did not answer with a readable ticket #$number" ;;
-  esac
-  { IFS= read -r grades; IFS= read -r title; IFS= read -r spec; } <<<"$answer"
-
-  local tree branch
-  tree="$(git rev-parse --show-toplevel 2>/dev/null)"
-  [ -n "$tree" ] || refuse "not inside a git repository, so there is no worktree to adopt #$number in"
-  tree="$(CDPATH='' cd -- "$tree" && pwd -P)"
-  branch="$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  [ "$branch" = "issue-$number" ] \
-    || refuse "this worktree is on ${branch:-a detached HEAD}, and #$number is worked on branch issue-$number; adopt it from a worktree on issue-$number, where its preflight will claim it"
-
-  # The event log is authoritative for the base branch. Outside a night, a
-  # self-picked ticket with no prior start has no such event and must name --into.
-  local base into
-  into="$(resolve_into "$number" "$spec" "$explicit_into")" || exit 2
-  fetch_origin "$tree" || exit 2
-  require_origin_branch "$tree" "$into" || exit 2
-  base="$(worker_base "$number" "$tree" "$into" HEAD)" || exit 2
-  [ -n "$base" ] || refuse "issue-$number and origin/$into share no commit, so there is no base to review from"
-
-  local -a marked
-  local profile row host model effort
-  read -r -a marked <<<"$grades"
-  case "${#marked[@]}" in
-    0) profile="$DEFAULT_WORKER" ;;
-    1) profile="${marked[0]}" ;;
-    *) refuse "#$number carries ${#marked[@]} worker labels (${marked[*]}), and it takes one" ;;
-  esac
-  use_catalog_of "$runner"
-  row="$(row_for_role "$profile")" || exit 2
-  [ -n "$row" ] || refuse "#$number needs the $profile row, and $MODELS_JSON has none"
-  IFS=$'\t' read -r host model effort <<<"$row"
-
-  # A worker that is still live on the ticket is somebody else's hold; this is not how a
-  # running worker is replaced. The same session adopting again only refreshes the event.
-  local holders
-  holders="$(ticket_events "$number" fold | python3 -c '
-import json, sys
-state = json.load(sys.stdin)
-for r in state.get("sessions") or []:
-    if r.get("kind") == "worker" and r.get("live"):
-        print(str(r.get("runner")) + "\t" + str(r.get("session")))
-')" || refuse "could not read #$number's events, so whether a worker already holds it is unknown; nothing was adopted"
-  local who already=""
-  while IFS= read -r who; do
-    [ -n "$who" ] || continue
-    if [ "$who" = "$runner"$'\t'"$session" ]; then
-      already=1
-      continue
-    fi
-    refuse "#$number is held by worker ${who#*$'\t'} on ${who%%$'\t'*}; retract that start once its session is gone, then adopt again"
-  done <<<"$holders"
-
-  # A relay has to see this ticket, or the reviewer's report lands and wakes nobody.
-  local started=""
-  if ! relay_watches "$number" "$spec" 2>/dev/null; then
-    local opened
-    opened="$(open_relay --tickets "$number")" \
-      || refuse "no relay watches #$number and no watch could be opened for it (the reason is above), so nothing was adopted"
-    case "$opened" in *$'\t'started) started=1 ;; esac
-  fi
-
-  if [ -n "$already" ]; then
-    echo "dispatch: #$number's worker.started already names $runner session $session" >&2
-    printf '%s\n' "$session"
-    return 0
-  fi
-  if ! post_event "$number" worker.started --ticket "$number" --spec "$spec" \
-       --line "worker adopted on $runner: session $session, $host $model ($effort)" \
-       --field "session=$session" --field "runner=$runner" \
-       --field "machine=$(machine_name)" \
-       --field "host=$host" --field "model=$model" --field "effort=${effort:-—}" \
-       --field "grade=$profile" --field "worktree=$tree" --field "branch=issue-$number" \
-       --field "base=$base" --field "into=$into" --json-field adopted=true; then
-    [ -n "$started" ] && stop_relay --tickets "$number"
-    refuse "could not write the worker.started event on #$number, so this session is not its worker$([ -n "$started" ] && echo " and the watch this opened was closed again"); adopt again once the tracker takes comments"
-  fi
-  printf '%s\n' "$session"
 }
 
 # ------------------------------------------------------------------ local model configuration
@@ -2080,16 +1979,26 @@ start_one() {
 }
 
 # `advise <brief file>` and `research <brief file>`: resolve the role's row against the
-# selected runner, start a session in the current worktree with `Use the <skill> skill.`
-# followed by the file, and print the session id. Neither is a ticket's agent, so this
-# writes no event. A start the runner refuses is refused once: no retry, no other runner.
+# selected runner, start a session in the current worktree and print the session id. The
+# session's prompt is the brief, after a lead: the advisor's lead is the whole of the
+# advisor skill's `references/advising.md`, since the advisor skill's own text is for the
+# agent asking; the researcher's is `Use the research skill.`, whose text is how to
+# research. Neither is a ticket's agent, so this writes no event. A start the runner
+# refuses is refused once: no retry, no other runner.
 #
-#   brief_one <role> <skill> <command> <what the brief holds> <brief file>
+#   brief_one <role> <skill> <command> <what the brief holds> <brief file> [<lead file>]
 brief_one() {
-  local role="$1" skill="$2" command="$3" holds="$4" packet="$5"
+  local role="$1" skill="$2" command="$3" holds="$4" packet="$5" leadfile="${6:-}"
   [ -n "$packet" ] || usage
   [ -f "$packet" ] || refuse "no brief file at $packet; write the brief to a file, then $command again"
   [ -s "$packet" ] || refuse "the brief file $packet is empty, and the $role sees the brief and nothing else; write $holds, then $command again"
+  local lead="Use the $skill skill."
+  if [ -n "$leadfile" ]; then
+    [ -s "$leadfile" ] \
+      || refuse "no $role's text at $leadfile, so the $role would start without knowing its job; nothing was started. Restore that file from the $skill skill, then $command again"
+    lead="$(cat -- "$leadfile")" \
+      || refuse "could not read the $role's text at $leadfile; make it readable, then $command again"
+  fi
 
   use_runner "$(tonight_runner)"
   use_catalog_of "$RUNNER_NAME"
@@ -2104,7 +2013,7 @@ brief_one() {
     || refuse "not inside a git repository, so there is no worktree to start the $role in; run $command from a worktree"
   body="$(cat -- "$packet")" \
     || refuse "could not read the brief file $packet; make it readable, then $command again"
-  prompt="Use the $skill skill."$'\n'"$body"
+  prompt="$lead"$'\n\n'"$body"
 
   # Herdr's session id is basename(cwd) plus the title's last word; a constant
   # last word would collide on a second session in the same worktree.
@@ -2115,7 +2024,8 @@ brief_one() {
 }
 
 advise_one() {
-  brief_one advisor advisor advise "the five parts consulting.md lists" "$1"
+  brief_one advisor advisor advise "the five parts the advisor skill lists" "$1" \
+    "$(dirname "$SKILL_ROOT")/advisor/references/advising.md"
 }
 
 research_one() {
@@ -4687,18 +4597,6 @@ case "${1:-}" in
     [ "$#" -eq 2 ] || usage
     case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
     open_ticket "$2"
-    ;;
-  adopt)
-    if [ "$#" -eq 2 ]; then
-      into=""
-    elif [ "$#" -eq 4 ] && [ "$3" = --into ]; then
-      into="$4"
-      [ -n "$into" ] || usage
-    else
-      usage
-    fi
-    case "$2" in *[!0-9]* | "") refuse "ticket number must be digits only, got $2" ;; esac
-    adopt_ticket "$2" "$into"
     ;;
   ack)
     if [ "$#" -eq 2 ] && [ "$2" = relay.recovered ]; then

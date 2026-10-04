@@ -11,7 +11,7 @@ How one kind of task is done from start to end: who owns what, the steps, what i
 ## When a new playbook is warranted
 
 - **A new kind of task appears whose deliverable differs from every existing playbook's.** The test is the `**You own …**` line and the `**Reply:**` line: if both would read the same as an existing playbook's, it is the same task, and that playbook is edited instead. pstack added Hillclimb beside Perf issue because one is "sustained" improvement of a metric and the other a "one-off fix" (commit `b64f02a`).
-- **Not for a task that happens once.** `figure-it-out` designs the playbook for that one run and keeps it in the run's todolist and decision log; it is not saved here.
+- **Not for a task that happens once.** A playbook is saved here because the same kind of task comes back.
 - **Not for handing one thing to one skill.** Name the skill in a `## Non-negotiables` line or in a step.
 
 In the same change as the new file: add its route line to `../SKILL.md` `## Playbooks`, and add a model role to `~/.mmw/models.json` defaults if the playbook spawns code-writing subagents.

@@ -21,6 +21,12 @@ three places have to agree, and nothing else notices when one of them moves:
 4. **A worker put back on its ticket finds its step.** Each title in `RESUME_STEPS` of
    `verify-ticket.py`, which a `RESUME:` line names, is the bold title of a step in the
    worker's playbook.
+5. **Only mmw-mode routes.** Which playbook a task runs, and which step comes next, is
+   written once: in the route lines of the mmw-mode skill's `## Playbooks` and in the steps
+   of its playbooks. A `SKILL.md` of any other skill with a `## Find your moment`,
+   `## Reached from here` or `## Next` section, or a table whose first header is `You are`,
+   routes a second time, and the second statement drifts from the first (the mmw-mode
+   skill's `references/skill-set-rules.md` rule 7).
 
 It reads the files and parses Python with `ast`; it imports nothing it checks and writes
 nothing. Exit 0 prints `INTERFACES OK`; exit 1 prints one finding per line, each naming
@@ -44,11 +50,12 @@ MODE = SKILLS / "mmw-mode" / "SKILL.md"
 
 # The playbooks of the session `open` or `open-ticket` makes the orchestrator. Nothing
 # starts it with a start prompt: the owner's session routes to one of these itself.
-ORCHESTRATOR_PLAYBOOKS = ("Run a night", "Bug fix")
+ORCHESTRATOR_PLAYBOOKS = ("Run a night", "Run one ticket")
 
 PLAYBOOK_VAR = re.compile(r'^([A-Z]+)_PLAYBOOK="([^"]+)"$', re.M)
 ROUTE_LINE = re.compile(r"^- \*\*(.+?)\.\*\* .*`(playbooks/[a-z0-9-]+\.md)`\.?\s*$", re.M)
 WAITED = re.compile(r"#<n> ([a-z]+\.[a-z]+)")
+ROUTING = re.compile(r"^(## (?:Find your moment|Reached from here|Next)|\|\s*You are\s*\|)", re.M)
 
 
 def section(text: str, heading: str) -> str:
@@ -163,6 +170,15 @@ def main() -> int:
             if event not in sent:
                 findings.append(f"{path.relative_to(SKILLS)}: a step waits for #<n> {event}, and the "
                                 f"relay's WAKES sends no such wake")
+
+    for path in sorted(SKILLS.glob("*/SKILL.md")):
+        if path == MODE:
+            continue
+        for found in ROUTING.findall(path.read_text(encoding="utf-8")):
+            what = "a table headed `You are`" if found.startswith("|") else f"`{found}`"
+            findings.append(f"{path.relative_to(SKILLS)}: {what} routes its reader, and only the mmw-mode "
+                            f"skill's route lines and playbooks route; move it into the playbook step that "
+                            f"uses this skill")
 
     if findings:
         print("\n".join(findings))

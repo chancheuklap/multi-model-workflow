@@ -3,8 +3,8 @@
     python3 -m unittest discover -s mmw-v3/tests/dispatch -p test_check_interfaces.py
 
 The check reads the start prompt's playbook names in dispatch.sh, the relay's WAKES,
-events.py's EVENTS, verify-ticket.py's RESUME_STEPS, and the mode's route lines and
-playbooks. Each case copies those files
+events.py's EVENTS, verify-ticket.py's RESUME_STEPS, the mode's route lines and
+playbooks, and every other skill's SKILL.md. Each case copies those files
 into a temporary skills tree laid out as the real one, makes one change a later edit could
 make, and runs the copied script there.
 """
@@ -53,10 +53,10 @@ class CheckInterfaces(unittest.TestCase):
         self.assertIn("no route line for **Implement a ticket.**", out)
 
     def test_a_wake_the_orchestrator_has_no_step_for_is_found(self):
-        self.edit("mmw-mode/playbooks/bug-fix.md", "`#<n> worker.lost`", "`a lost worker`")
+        self.edit("mmw-mode/playbooks/run-one-ticket.md", "`#<n> worker.lost`", "`a lost worker`")
         code, out = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("bug-fix.md: the relay wakes this playbook's session with #<n> worker.lost", out)
+        self.assertIn("run-one-ticket.md: the relay wakes this playbook's session with #<n> worker.lost", out)
 
     def test_a_step_waiting_for_a_wake_nobody_sends_is_found(self):
         self.edit("mmw-mode/playbooks/work-a-ticket.md", "When `#<n> reviewer.reported` wakes you",
@@ -77,6 +77,16 @@ class CheckInterfaces(unittest.TestCase):
         code, out = self.run_check()
         self.assertEqual(code, 1)
         self.assertIn("worker.vanished wakes a session", out)
+
+    def test_a_skill_that_routes_its_caller_is_found(self):
+        skill = self.tmp / "advisor" / "SKILL.md"
+        skill.parent.mkdir()
+        skill.write_text("# Advisor\n\n## Find your moment\n\n| You are | Read |\n| --- | --- |\n",
+                         encoding="utf-8")
+        code, out = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn("advisor/SKILL.md: `## Find your moment` routes its reader", out)
+        self.assertIn("advisor/SKILL.md: a table headed `You are` routes its reader", out)
 
 
 if __name__ == "__main__":

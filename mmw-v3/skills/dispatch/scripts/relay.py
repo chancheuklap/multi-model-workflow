@@ -24,13 +24,13 @@ on this machine (statedir.py). Tickets are written by the scripts that write the
 nothing else (docs/adr/0001-tracker-repo-authority.md).
 
 **Watches.** What the relay reads is the union of its watches. A watch is what one
-`dispatch.sh open`, `open-ticket` or `adopt` opens: `{"spec": N}`, a night — N's
+`dispatch.sh open` or `open-ticket` opens: `{"spec": N}`, a night — N's
 sub-issues, listed again every cycle — or `{"tickets": [n, ...]}`, tickets outside a
 night. Each watch has its own orchestrator, a (runner, session) pair: the session that
 opened it. Nothing names an orchestrator but the watch it opened; there is no registration
 apart from a watch. A repository has one relay process and one state directory however many
-watches are open, so nights run from several branches or worktrees, one-ticket runs and
-adopted tickets all go through the same process. Two watches never share a ticket: a
+watches are open, so nights run from several branches or worktrees and one-ticket runs all go through the
+same process. Two watches never share a ticket: a
 tickets watch naming a sub-issue of a watched spec, or a spec one of whose sub-issues a
 tickets watch names, is refused, since that ticket's wakes would have two orchestrators. A
 ticket that comes to sit under a watched spec after both were opened stays with its
@@ -688,8 +688,8 @@ class Relay:
         except ValueError as exc:
             raise Refusal(f"{self.path('watches.json')} is not JSON ({exc}); which watches are "
                           f"open, and whose wake-ups go where, cannot be told. Move that file "
-                          f"aside and open each watch again (dispatch.sh open, open-ticket or "
-                          f"adopt).") from None
+                          f"aside and open each watch again (dispatch.sh open or "
+                          f"open-ticket).") from None
 
     def _write_watches(self, watches: dict[str, dict]) -> None:
         statedir.write_atomic(self.path("watches.json"),

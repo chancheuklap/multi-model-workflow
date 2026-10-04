@@ -6,7 +6,7 @@
 # Two engines:
 #
 #   test_status.py      unittest, status.py against a fixed paseo ls/inspect snapshot and ticket set
-#   test_profiles.py    unittest, models.bypass_argv, catalog match, adopt, create_agent settings, CLI scan
+#   test_profiles.py    unittest, models.bypass_argv, catalog match, create_agent settings, CLI scan
 #   test_tool_guard.py  unittest, host payloads against dispatch's command guard
 #   test_check_interfaces.py  unittest, check-interfaces.py on the set as it is and on
 #                       copies of it broken one way each

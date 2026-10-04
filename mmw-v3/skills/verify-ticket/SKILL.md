@@ -11,15 +11,4 @@ The ticket is the only state. Every run reads it fresh, writes its events, and c
 
 A criterion names an oracle by its bare name (`story-parity.py …`); `python3 scripts/verify-ticket.py` puts the `ui-acceptance` skill's `scripts/` on the `PATH` of the shell that runs a `CHECK:`, so an oracle run by hand needs that directory on `PATH`.
 
-## Find your moment
-
-A worker's claim, criteria runs and closeout are steps of mmw-mode's Work a ticket playbook.
-
-| You are here | Read |
-| --- | --- |
-| Cutting something out of the ticket | [references/sub-issues.md](references/sub-issues.md) |
-| About to publish a batch (its drafts), having published one, or opening a night on a spec | [references/linting.md](references/linting.md) |
-
-## Reached from here
-
-- **A criterion has to launch, reach or observe the running product; you are reading a `DIFF`, `MISS`, `JOURNEY` or `HARNESS` line; the repository has no `.mmw/target.json`; you are about to touch a process or a port** → the `ui-acceptance` skill. Its five rules while the product is running bind every run of this skill.
+Cutting a piece of work out of a ticket into a child issue is [references/sub-issues.md](references/sub-issues.md); checking a batch of tickets before it is published or run is [references/linting.md](references/linting.md).
