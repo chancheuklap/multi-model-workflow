@@ -274,7 +274,7 @@ class TestFixedLines(unittest.TestCase):
             (MET_RUN,), started_event=(started(into="main"), STARTED))
         self.assertEqual(code, 0, err)
         self.assertIn(
-            f"Branch: issue-77 Commit: {HEAD} PR: none — will be merged into "
+            f"Branch: issue-77 Commit: {HEAD} — will be merged into "
             "spec-337 by dispatch.sh advance",
             text,
         )

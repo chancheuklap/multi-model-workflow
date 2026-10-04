@@ -85,7 +85,7 @@ def is_reverify(comment):
 
 def draft(first="ALL MET", criteria=(MET,), abandons=(), counts=None):
     """Assemble a closing comment in the shape #60 section 9 step 5 fixes."""
-    body = [first, "", "Branch: issue-77  Commit: 9b1d40c7  PR: none", ""]
+    body = [first, "", "Branch: issue-77  Commit: 9b1d40c7", ""]
     for i, block in enumerate(criteria):
         body.append(block)
         for line in abandons:

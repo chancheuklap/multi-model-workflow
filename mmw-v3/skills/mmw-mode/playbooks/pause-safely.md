@@ -3,7 +3,7 @@
 **You own a clean stop. Leave a checkpoint a cold-start agent can resume from.** This is explicit only. On "keep going", "going to bed, keep going", or "don't stop", do not pause.
 
 1. Stop at a safe boundary. Finish the current atomic step or back out of it. Start nothing new, and cancel any nested subagents.
-2. Take no irreversible action to pause. No PR and no push unless you already had one out.
+2. Take no irreversible action to pause. No push unless the branch was already pushed.
 3. Make the work durable. Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost. If the tree is broken, say so in the commit body in one line.
 4. Write the resume note off-context with the **handoff** skill.
 

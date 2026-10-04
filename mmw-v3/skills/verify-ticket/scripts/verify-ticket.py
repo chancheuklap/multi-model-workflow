@@ -1529,7 +1529,7 @@ def run_draft(number: int, out_file: Path | None) -> int:
     else:
         first = "ALL MET"
     head = git("rev-parse", "HEAD")
-    branch_line = (f"Branch: issue-{number} Commit: {head} PR: none — will be merged into "
+    branch_line = (f"Branch: issue-{number} Commit: {head} — will be merged into "
                    f"{into} by dispatch.sh advance")
     review_event = events.newest(comments, "reviewer.reported") or {}
     review = review_event.get("body") or ""

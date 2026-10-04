@@ -25,7 +25,7 @@ In the same change as the new file: add its route line to `../SKILL.md` `## Play
 5. Optionally one paragraph of rules that hold across all the steps.
 6. `**Reply:**` the content of the reply unique to this playbook. The rules every reply shares are in `../SKILL.md` `## Writing the reply` and are not repeated here.
 
-The two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections. A playbook may name a step of another playbook ("Run Opening a PR").
+The two largest pstack playbooks (Orchestrate, Multi-phase plan) split into `####` subsections. A playbook may name a step of another playbook ("Run **Authoring or modifying a skill** on the findings").
 
 ## Sources in MMW v2
 

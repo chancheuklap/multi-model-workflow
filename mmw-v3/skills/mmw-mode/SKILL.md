@@ -60,7 +60,7 @@ Remaining triggers:
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows the **writing-for-agents** skill.
-- Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
+- Docs, RFCs, readmes, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Starting, reaching or stopping the product, while other runs share this machine → the **ui-acceptance** skill's **Five rules while the product is running**, before the first command.
 
 ## Principles
@@ -211,7 +211,7 @@ Write the reply clean as you draft it. A cleanup pass after drafting does not re
 
 The reply is finished when the owner reads it without asking "so what?" and either decides or puts it down; every term can be looked up; when something broke, the effect comes first, then the cause or the fact that it is not yet known; and every next step handed over is one only the owner can do.
 
-Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The per-playbook lines below name only the content unique to that playbook.
+Every playbook ends with a reply written this way. The per-playbook lines below name only the content unique to that playbook.
 
 ## Comments
 
