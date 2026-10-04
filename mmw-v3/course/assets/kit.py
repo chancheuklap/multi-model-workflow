@@ -1,0 +1,74 @@
+"""SVG helpers in the course's vocabulary (classes from the shared stylesheet)."""
+import html, re
+
+def tw(s, size=13, mono=False):
+    w = 0.0
+    for ch in s:
+        if ord(ch) > 0x2E80:
+            w += size
+        else:
+            w += size * (0.6 if mono else 0.56)
+    return w
+
+class Fig:
+    def __init__(self, mid, W):
+        self.mid, self.W, self.back, self.front = mid, W, [], []
+    def e(self, s, front=True):
+        (self.front if front else self.back).append(s)
+    def zone(self, x, y, w, h, title):
+        self.e(f'<rect class="zone" x="{x}" y="{y}" width="{w}" height="{h}" rx="6"/>', False)
+        self.e(f'<text x="{x+12}" y="{y+19}" class="h">{html.escape(title)}</text>', False)
+    def box(self, kind, x, y, w, h, title, sub=(), mono=False, head=False, cls="box"):
+        out = [f'<g class="k-{kind}"><rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="4"/>']
+        lines = [title] + list(sub)
+        ty = y + (h - (len(lines) - 1) * 16) / 2 + 4.5
+        for i, t in enumerate(lines):
+            c = ("h" if head else ("m" if mono else "")) if i == 0 else "s"
+            out.append(f'<text x="{x+12}" y="{ty + i*16:.1f}" class="{c}">{html.escape(t)}</text>')
+        out.append('</g>')
+        self.e(''.join(out))
+    def frame(self, kind, x, y, w, h, title, sub=(), mono=True):
+        """A box whose lines sit at its top, leaving room below for chips or boxes drawn inside it."""
+        self.e(f'<g class="k-{kind}"><rect class="box" x="{x}" y="{y}" width="{w}" height="{h}" rx="4"/></g>', False)
+        self.e(f'<text x="{x+12}" y="{y+21}" class="{"m" if mono else "h"}">{html.escape(title)}</text>')
+        for i, t in enumerate(sub):
+            self.e(f'<text x="{x+12}" y="{y+39 + i*16}" class="s">{html.escape(t)}</text>')
+    def chip(self, kind, x, y, label, note=None, mono=True, cls="box"):
+        w = tw(label, 11.5, mono) + (18 if mono else 24)
+        tc = "m" if mono else "s"
+        self.e(f'<g class="k-{kind}"><rect class="{cls}" x="{x}" y="{y}" width="{w:.1f}" height="24" rx="4"/>'
+               f'<text x="{x+9}" y="{y+16.5}" class="{tc}">{html.escape(label)}</text></g>')
+        if note:
+            self.e(f'<text x="{x+w+8:.1f}" y="{y+16.5}" class="s">{html.escape(note)}</text>')
+        return x + w
+    def dia(self, cx, cy, hw, hh, lines):
+        self.e(f'<polygon class="dia" points="{cx},{cy-hh} {cx+hw},{cy} {cx},{cy+hh} {cx-hw},{cy}"/>')
+        y0 = cy + 4.5 - (len(lines) - 1) * 8.5
+        for i, t in enumerate(lines):
+            self.e(f'<text x="{cx}" y="{y0 + i*17:.1f}" text-anchor="middle">{html.escape(t)}</text>')
+    def pill(self, cx, y, text, left=None):
+        w = tw(text) + 34
+        if left is not None:
+            cx = left + w / 2
+        self.e(f'<rect class="pill" x="{cx - w/2:.1f}" y="{y}" width="{w:.1f}" height="34" rx="17"/>'
+               f'<text x="{cx:.1f}" y="{y+21.5}" text-anchor="middle">{html.escape(text)}</text>')
+        return cx - w / 2, cx + w / 2
+    def ar(self, pts, label=None, lx=None, ly=None, anchor="start", cls="", head=True):
+        d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        m = f' marker-end="url(#{self.mid})"' if head else ""
+        c = ("ar " + cls).strip()
+        self.e(f'<path class="{c}" d="{d}"{m}/>', False)
+        if label:
+            self.lbl(lx, ly, label, anchor)
+    def att(self, pts):
+        d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        self.e(f'<path class="att" d="{d}"/>', False)
+    def lbl(self, x, y, t, anchor="start"):
+        self.e(f'<text x="{x}" y="{y}" text-anchor="{anchor}" class="lbl">{html.escape(t)}</text>')
+    def note(self, x, y, t, anchor="start"):
+        self.e(f'<text x="{x}" y="{y}" text-anchor="{anchor}" class="s">{html.escape(t)}</text>')
+    def svg(self, H, aria):
+        return (f'<svg viewBox="0 0 {self.W} {H}" role="img" aria-label="{html.escape(aria)}">'
+                f'<defs><marker id="{self.mid}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs>'
+                + ''.join(self.back) + ''.join(self.front) + '</svg>')
+

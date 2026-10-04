@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>v2 每部分解决什么</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;600;700&family=Noto+Serif+SC:wght@400;600&display=swap">
+<!--CSS--><style>
+/* MMW 重建课 · shared stylesheet. Layout: one reading column (68ch); figures and document cards may widen to 1080px.
+   Each section is a picture first, then the few words the picture cannot say. */
+:root{
+  --bg:#f8f9f6; --surface:#ffffff; --sunk:#eef0eb; --ink:#1f2328; --ink2:#3d434b; --muted:#646b73; --rule:#d8dcd5; --rule2:#b4bab1;
+  --link:#1d5c8a; --ok:#2e7a46; --bad:#b3362c; --warn:#9a6a00;
+  /* one colour per kind of thing an agent reads or runs in pstack, plus everything else */
+  --k-mode:#2563a8; --k-playbook:#c2571a; --k-principle:#a8326e; --k-skill:#2e7d4f; --k-reference:#a67614; --k-script:#5b44b0; --k-agent:#6b7a1f; --k-config:#7a4b28; --k-other:#6b7280;
+  --f-body:"Noto Serif SC","Source Han Serif SC","Songti SC",serif;
+  --f-head:"Noto Sans SC","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171a; --surface:#1b1f23; --sunk:#22272c; --ink:#e4e7ea; --ink2:#c4c9ce; --muted:#99a1a9; --rule:#30363c; --rule2:#4a525a;
+  --link:#7db4e0; --ok:#6cc08a; --bad:#ef7d72; --warn:#e0b04a;
+  --k-mode:#6fa3e6; --k-playbook:#f08a4e; --k-principle:#e278ac; --k-skill:#62bd86; --k-reference:#dcae4a; --k-script:#a493f0; --k-agent:#b6c65a; --k-config:#c8946a; --k-other:#9aa1aa;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#14171a; --surface:#1b1f23; --sunk:#22272c; --ink:#e4e7ea; --ink2:#c4c9ce; --muted:#99a1a9; --rule:#30363c; --rule2:#4a525a;
+  --link:#7db4e0; --ok:#6cc08a; --bad:#ef7d72; --warn:#e0b04a;
+  --k-mode:#6fa3e6; --k-playbook:#f08a4e; --k-principle:#e278ac; --k-skill:#62bd86; --k-reference:#dcae4a; --k-script:#a493f0; --k-agent:#b6c65a; --k-config:#c8946a; --k-other:#9aa1aa;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.8}
+.page{max-width:1080px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:32px 80px}
+.col{max-width:68ch}
+h1,h2,h3,h4{font-family:var(--f-head);line-height:1.35;text-wrap:balance;color:var(--ink)}
+h1{font-size:clamp(28px,4vw,38px);margin:4px 0 10px;font-weight:700}
+h2{font-size:22px;margin:56px 0 10px;font-weight:700;padding-top:18px;border-top:1px solid var(--rule)}
+h3{font-size:17px;margin:30px 0 6px;font-weight:700}
+p{margin:10px 0}
+a{color:var(--link);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+code,.mono{font-family:var(--f-mono);font-size:.84em;font-variant-ligatures:none;overflow-wrap:anywhere}
+p code,li code,td code{background:var(--sunk);padding:1px 4px;border-radius:3px}
+/* A component mention: tinted with its kind's colour, the same colour as in the figures. */
+code.c,span.c{background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);border-radius:3px;padding:1px 5px;color:var(--ink);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+span.c{font-family:var(--f-head);font-size:.94em;white-space:nowrap}
+/* A quote's source, given as <q class="k-KIND" data-src="…">, shown before the quote in its kind's colour. */
+q[data-src]::before{content:attr(data-src);display:inline-block;margin:0 6px 2px 0;padding:0 6px;border-radius:3px;font-family:var(--f-head);font-size:11.5px;font-weight:600;font-style:normal;letter-spacing:.01em;color:var(--surface);background:var(--c);vertical-align:1px}
+q[data-src]{quotes:none}
+q[data-src]::after{content:none}
+:where(p,li,.why)>q[data-src]{background:color-mix(in srgb,var(--c) 8%,transparent);border-radius:3px;padding:1px 4px 1px 0}
+.eyebrow{font-family:var(--f-head);font-size:13px;letter-spacing:.06em;color:var(--muted)}
+.lede{font-size:17.5px;color:var(--ink2)}
+nav.crumbs{font-family:var(--f-head);font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px}
+ul.tight{margin:8px 0;padding-left:22px} ul.tight li{margin:3px 0}
+/* goal / source box at the top of a lesson */
+.brief{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px;margin:18px 0 6px}
+.brief>div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;min-width:0;font-family:var(--f-head);font-size:14.5px;line-height:1.7}
+.brief b{font-size:12.5px;letter-spacing:.04em;color:var(--muted);display:block;margin-bottom:2px;font-weight:600}
+.brief ol,.brief ul{margin:2px 0;padding-left:20px}
+/* figures */
+figure{margin:22px 0 8px;min-width:0}
+figure .svgwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--surface);border:1px solid var(--rule);border-radius:6px 6px 0 0;padding:10px}
+figure svg{display:block;width:100%;height:auto;min-width:720px}
+figcaption{font-family:var(--f-head);font-size:14px;line-height:1.65;color:var(--ink2);margin-top:8px;max-width:80ch}
+figcaption b{color:var(--ink)}
+/* legend: built by course.js from data-legend, attached to the bottom of its figure's frame */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-family:var(--f-head);font-size:12.5px;line-height:1.5;color:var(--ink2);margin:0;padding:8px 12px;background:var(--surface);border:1px solid var(--rule);border-top:1px dashed var(--rule2);border-radius:0 0 6px 6px}
+.legend .it{display:inline-flex;align-items:center;gap:7px;min-width:0}
+.legend svg{display:inline-block;flex:none;width:32px;height:16px;min-width:0}
+.legend b{font-weight:600;color:var(--muted);margin-right:-6px}
+.k-mode{--c:var(--k-mode)} .k-playbook{--c:var(--k-playbook)} .k-principle{--c:var(--k-principle)} .k-skill{--c:var(--k-skill)} .k-reference{--c:var(--k-reference)} .k-script{--c:var(--k-script)} .k-agent{--c:var(--k-agent)} .k-config{--c:var(--k-config)} .k-other{--c:var(--k-other)}
+/* svg vocabulary (assets/kit.py writes these classes) */
+svg text{font-family:var(--f-head);fill:var(--ink);font-size:13px}
+svg text.s{font-size:11.5px;fill:var(--muted)}
+svg text.m{font-family:var(--f-mono);font-size:12px;fill:var(--ink);font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0}
+svg text.h{font-weight:700;font-size:14px}
+svg text.lbl{font-size:11.5px;fill:var(--ink2);paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+svg rect.box{fill:color-mix(in srgb,var(--c) 13%,var(--surface));stroke:var(--c);stroke-width:1.4}
+svg rect.zone{fill:var(--sunk);stroke:var(--rule2);stroke-width:1}
+svg rect.zone.open{fill:none;stroke-dasharray:6 4}
+svg .ar{fill:none;stroke:var(--ink2);stroke-width:1.4}
+svg .ar.human{stroke-dasharray:1.5 4;stroke-linecap:round;stroke-width:1.8}
+svg .head{fill:var(--ink2)}
+svg polygon.dia{fill:var(--surface);stroke:var(--ink2);stroke-width:1.4}
+svg rect.pill{fill:var(--sunk);stroke:var(--ink2);stroke-width:1.4}
+svg path.att{fill:none;stroke:var(--rule2);stroke-width:1.2;stroke-dasharray:3 3}
+svg line.rule{stroke:var(--rule);stroke-width:1}
+/* a file or skill name coloured by its kind, anywhere in running text */
+.chip{display:inline-block;border:1.2px solid var(--c);background:color-mix(in srgb,var(--c) 13%,var(--surface));border-radius:4px;padding:0 6px;font-family:var(--f-mono);font-size:12.5px;line-height:1.6;overflow-wrap:anywhere;color:var(--ink);text-decoration:none}
+a.chip:hover{border-width:2px;padding:0 5px}
+/* doc: a picture of one document. .doc-h names the file; each .sec is one part of it, top to bottom:
+   on the left the part's marker exactly as the file writes it (.mk), on the right what that part says (.say).
+   .sec.opt is a part only some files of this kind have. */
+.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(470px,100%),1fr));gap:18px;margin:16px 0}
+.doc{border:1.4px solid var(--c);border-radius:8px;background:var(--surface);overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.6;min-width:0}
+.doc-h{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;padding:9px 12px;background:color-mix(in srgb,var(--c) 13%,var(--surface));border-bottom:1px solid var(--rule)}
+.doc-h .t{font-weight:700;font-size:15px}
+.doc-h .n{color:var(--ink2);font-size:12.5px}
+.doc-h .where{flex-basis:100%;color:var(--ink2);font-size:13px}
+.sec{display:grid;grid-template-columns:minmax(0,13.5em) minmax(0,1fr);gap:4px 14px;padding:8px 12px;border-top:1px dashed var(--rule)}
+.doc-h+.sec{border-top:0}
+.sec .mk{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;font-variant-ligatures:none}
+.sec .mk small{display:block;font-family:var(--f-head);color:var(--muted);font-size:12px;margin-top:2px}
+.sec.opt .mk::after{content:"有的文件有";display:inline-block;margin-left:6px;font-family:var(--f-head);font-size:11px;color:var(--muted);border:1px dashed var(--rule2);border-radius:99px;padding:0 6px;vertical-align:1px}
+.sec .say p{margin:0 0 4px}
+.sec .say .when{display:block;color:var(--ink2);font-size:13px}
+.sec .say .when b{color:var(--muted);font-weight:600;font-size:12px;margin-right:4px}
+.sec q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin-top:5px;overflow-wrap:anywhere;font-variant-ligatures:none}
+.doc .foot{padding:8px 12px;border-top:1px solid var(--rule);background:var(--sunk);font-size:13px;color:var(--ink2)}
+@media (max-width:640px){.sec{grid-template-columns:minmax(0,1fr)}}
+/* source box: which file and where to look, right under a picture */
+.src{font-family:var(--f-head);font-size:14px;line-height:1.7;background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--link);border-radius:6px;padding:10px 14px;margin:14px 0;min-width:0;max-width:80ch}
+.src>b{display:block;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:2px}
+.src ul{margin:4px 0 0;padding-left:20px}
+.takeaway{font-family:var(--f-head);font-size:15px;line-height:1.75;background:color-mix(in srgb,var(--k-mode) 7%,var(--surface));border:1px solid var(--rule);border-radius:6px;padding:12px 16px;margin:16px 0;max-width:80ch}
+.takeaway b.l{display:block;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:2px}
+.takeaway ol{margin:4px 0;padding-left:22px}
+.takeaway li{margin:4px 0}
+/* pair: one rule we wrote (left) against what the pstack source actually does (right). .src-line names the file. */
+.pairs{display:grid;gap:14px;margin:16px 0}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--rule2);border-radius:8px;overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.65;background:var(--surface)}
+.pair>div{padding:10px 14px;min-width:0}
+.pair .ours{background:color-mix(in srgb,var(--bad) 6%,var(--surface));border-right:1px solid var(--rule)}
+.pair .theirs{background:color-mix(in srgb,var(--ok) 6%,var(--surface))}
+.pair h4{margin:0 0 4px;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.pair q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0;overflow-wrap:anywhere;font-variant-ligatures:none}
+.pair .src-line{font-size:12.5px;color:var(--muted);margin-top:4px}
+.pair .cost{grid-column:1/-1;border-top:1px solid var(--rule);background:var(--sunk);font-size:13.5px;color:var(--ink2)}
+.pair.neutral .ours,.pair.neutral .theirs{background:var(--surface)}
+.pair.neutral .cost{background:color-mix(in srgb,var(--ok) 7%,var(--surface));color:var(--ink)}
+@media (max-width:700px){.pair{grid-template-columns:minmax(0,1fr)}.pair .ours{border-right:0;border-bottom:1px solid var(--rule)}}
+/* why-card: why one kind of component exists and when a new one is made. Rows: .q the question it answers,
+   .make when the source says to make one, .not when the source says not to, .ex an instance in the source. */
+.why-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(470px,100%),1fr));gap:16px;margin:16px 0}
+.why-card{border:1.4px solid var(--c);border-radius:8px;background:var(--surface);overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.65;min-width:0}
+.why-card>h3{margin:0;padding:9px 12px;font-size:15.5px;background:color-mix(in srgb,var(--c) 13%,var(--surface));border-bottom:1px solid var(--rule)}
+.why-card>h3 small{font-weight:400;color:var(--ink2);font-size:13px;margin-left:8px}
+.why-card dl{margin:0;display:grid;grid-template-columns:5.2em minmax(0,1fr)}
+.why-card dt,.why-card dd{padding:7px 12px;border-top:1px dashed var(--rule);margin:0;min-width:0}
+.why-card dl>dt:first-child,.why-card dl>dt:first-child+dd{border-top:0}
+.why-card dt{color:var(--muted);font-weight:600;font-size:12.5px;padding-right:0}
+.why-card dd q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0 0;overflow-wrap:anywhere;font-variant-ligatures:none}
+.inf{color:var(--warn);font-size:12px;font-weight:600;margin-left:4px}
+/* quiz */
+.quiz{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:var(--f-head);font-size:14.5px;max-width:80ch}
+.quiz .q{font-weight:600;margin:0 0 8px}
+.quiz .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:6px}
+.quiz button{font:inherit;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--rule2);border-radius:5px;padding:7px 10px;cursor:pointer}
+.quiz button:hover{border-color:var(--link)}
+.quiz button.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--bg))}
+.quiz button.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--bg))}
+.quiz .why{margin-top:8px;color:var(--ink2)}
+.ask{margin:40px 0 0;padding:12px 14px;border:1px dashed var(--rule2);border-radius:6px;font-family:var(--f-head);font-size:14.5px;color:var(--ink2);max-width:80ch}
+footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+/* course index: one card per lesson or reference page */
+.toc{display:grid;gap:12px;margin:16px 0;max-width:80ch}
+.toc a{display:block;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;text-decoration:none;color:var(--ink);font-family:var(--f-head)}
+.toc a:hover{border-color:var(--link)}
+.toc .no{font-size:12.5px;color:var(--muted);letter-spacing:.04em}
+.toc .tt{display:block;font-weight:700;font-size:16px}
+.toc .ds{display:block;color:var(--ink2);font-size:14px;margin-top:2px}
+.toc .soon{opacity:.6;pointer-events:none;border-style:dashed}
+@media (max-width:640px){body{font-size:15.5px} h2{margin-top:44px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.legend.textkey{border-top:1px solid var(--rule);border-radius:6px;margin:14px 0 4px;background:var(--sunk)}
+</style><!--/CSS-->
+</head>
+<body>
+<div class="page">
+<nav class="crumbs"><a href="../index.html">MMW 重建课</a><a href="0002-when-a-component-is-made.html">← 第 2 课</a><span>第 3 课</span><a href="../reference/pstack-anatomy.html">参考页</a></nav>
+<div class="col">
+<div class="eyebrow">第 3 课 · MMW v2 的每个部分解决什么问题</div>
+<h1>v2 为一件事而建：你不读代码，也能信任一张关掉的票</h1>
+<p class="lede">根 <code>AGENTS.md</code> 的第一句：「MMW is the user's toolbox of skills shared across hosts, repositories and machines, together with the landing pipeline behind them (spec → ticket → a worker dispatched for the night → closed ticket) and a local task board.」它的中心是那条流水线；流水线要做到的事，<code class="c k-skill">implement</code> 技能写得最直接：<q class="k-skill" data-src="implement · Claim, read in, write the code">The checks exist so the user can trust a closed ticket without reading its code.</q>这一课先看一个需求在 v2 里怎么走，再看每个部分各自解决这件事里的哪一个问题、依赖什么假设，最后看 v2 和 pstack 在结构上的差别。</p>
+</div>
+<div class="brief">
+<div><b>这一课回答</b><ol><li>一个需求在 v2 里从头到尾怎么走</li><li>v2 的每个部分解决什么问题，依赖什么假设</li><li>v2 把一个任务的顺序放在哪，和 pstack 差在哪</li></ol></div>
+<div><b>依据</b>MMW v2 现役版本，<code>dev</code> 分支提交 <code>0bff6b1</code>：技能原文、<code>docs/adr/</code> 的 31 份设计决定、<code>docs/contexts/night/how-it-works.md</code>。原文没有直接写、由本课归纳的，标了 <span class="inf">归纳</span>。</div>
+<div><b>主要来源，建议先读</b><a href="https://github.com/chancheuklap/multi-model-workflow/blob/0bff6b1a0dddf35de861ae86f99baeb45b724537/docs/contexts/night/how-it-works.md"><code>docs/contexts/night/how-it-works.md</code></a>：夜里的机器怎么运转，<code class="c k-script">start</code> 和 <code class="c k-script">advance</code> 做什么、事件、叫醒、判活。</div>
+</div>
+
+<div class="legend textkey" data-title="文中颜色" data-legend="mode playbook principle skill reference script agent config other" data-label-skill="技能" data-label-config="配置、用户级提示词（shared.md 等）" data-label-other="其他来源：提交说明、迁移文档"></div>
+<h2>1　一个需求在 v2 里怎么走</h2>
+<figure>
+<div class="svgwrap"><!--FIG:l3-lifecycle--><svg viewBox="0 0 1000 746" role="img" aria-label="一个需求在 MMW v2 里的路径：白天在你面前访谈、写 spec、切票；夜里 orchestrator 开出票，每张票由 worker 实现、跑判据、另一个会话审、再跑判据后写下 ticket.passed，relay 读到事件叫醒 orchestrator 合并并开下一批，最后给 finding 定去向、重跑判据、写总结和复盘；早上你读总结、验收，finish 合回。"><defs><marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><rect class="zone" x="10" y="10" width="980" height="206" rx="6"/><text x="22" y="29" class="h">白天 · 你在场：把想法变成夜里能无人执行的票</text><path class="ar" d="M138.0,59.0 L186.0,59.0" marker-end="url(#m4)"/><path class="ar" d="M304.0,80.0 L304.0,100.0" marker-end="url(#m4)"/><path class="ar" d="M304.0,142.0 L304.0,162.0" marker-end="url(#m4)"/><path class="ar" d="M422.0,183.0 L462.0,183.0" marker-end="url(#m4)"/><path class="ar" d="M560.0,80.0 L560.0,112.0 L424.0,112.0" marker-end="url(#m4)"/><path class="ar" d="M858.0,80.0 L858.0,100.0" marker-end="url(#m4)"/><path class="ar" d="M858.0,142.0 L858.0,152.0 L724.0,152.0 L724.0,130.0 L424.0,130.0" marker-end="url(#m4)"/><rect class="zone" x="10" y="228" width="980" height="422" rx="6"/><text x="22" y="247" class="h">夜里 · 你不在：一批票由 agent 做完、合并</text><path class="ar" d="M190.0,318.0 L190.0,338.0" marker-end="url(#m4)"/><path class="ar" d="M356.0,359.0 L558.0,359.0" marker-end="url(#m4)"/><path class="ar" d="M767.0,380.0 L767.0,398.0" marker-end="url(#m4)"/><path class="ar" d="M767.0,440.0 L767.0,458.0" marker-end="url(#m4)"/><path class="ar" d="M767.0,500.0 L767.0,518.0" marker-end="url(#m4)"/><path class="att" d="M468.0,476.0 L468.0,370.0 L558.0,370.0"/><path class="ar" d="M767.0,560.0 L767.0,608.0 L712.0,608.0" marker-end="url(#m4)"/><path class="ar" d="M380.0,609.0 L368.0,609.0 L368.0,421.0 L358.0,421.0" marker-end="url(#m4)"/><path class="ar" d="M190.0,442.0 L190.0,460.0" marker-end="url(#m4)"/><path class="ar" d="M190.0,502.0 L190.0,520.0" marker-end="url(#m4)"/><rect class="zone" x="10" y="662" width="980" height="74" rx="6"/><text x="22" y="681" class="h">早上 · 你在场</text><path class="ar" d="M282.6,701.0 L312.6,701.0" marker-end="url(#m4)"/><path class="ar" d="M387.6,701.0 L417.6,701.0" marker-end="url(#m4)"/><rect class="pill" x="26.0" y="42" width="112.0" height="34" rx="17"/><text x="82.0" y="63.5" text-anchor="middle">你有一个想法</text><g class="k-skill"><rect class="box" x="186" y="38" width="236" height="42" rx="4"/><text x="198" y="63.5" class="">grilling：访谈，把决定问清</text></g><g class="k-skill"><rect class="box" x="186" y="100" width="236" height="42" rx="4"/><text x="198" y="125.5" class="">to-spec：写 spec，发到 GitHub</text></g><g class="k-skill"><rect class="box" x="186" y="162" width="236" height="42" rx="4"/><text x="198" y="179.5" class="">to-tickets：切成票</text><text x="198" y="195.5" class="s">每条判据带 CHECK 命令和 EXPECT</text></g><g class="k-script"><rect class="box" x="462" y="162" width="240" height="42" rx="4"/><text x="474" y="179.5" class="">verify-ticket.py --lint</text><text x="474" y="195.5" class="s">发布前检查整批票</text></g><g class="k-skill"><rect class="box" x="450" y="38" width="262" height="42" rx="4"/><text x="462" y="55.5" class="">wayfinder：一次会话装不下时</text><text x="462" y="71.5" class="s">代替访谈：一张决策票一张票地解决</text></g><g class="k-skill"><rect class="box" x="740" y="38" width="236" height="42" rx="4"/><text x="752" y="55.5" class="">design-pages：有界面时</text><text x="752" y="71.5" class="s">把 Claude Design 定稿的设计拉进仓库</text></g><g class="k-skill"><rect class="box" x="740" y="100" width="236" height="42" rx="4"/><text x="752" y="117.5" class="">write-screen-contract</text><text x="752" y="133.5" class="s">写 screen-contract.yaml</text></g><text x="26" y="267" text-anchor="start" class="s">orchestrator：开夜的那个会话，照 dispatch 的 references/night.md 做</text><text x="560" y="267" text-anchor="start" class="s">每张票：一个 worker、一个 reviewer，同一个工作树</text><g class="k-script"><rect class="box" x="26" y="276" width="330" height="42" rx="4"/><text x="38" y="293.5" class="">dispatch.sh check / open</text><text x="38" y="309.5" class="s">开夜：检查本机、推送分支、登记给 relay</text></g><g class="k-script"><rect class="box" x="26" y="338" width="330" height="42" rx="4"/><text x="38" y="355.5" class="">dispatch.sh advance</text><text x="38" y="371.5" class="s">开出所有能做的票，每张起一个 worker</text></g><text x="440" y="351" text-anchor="start" class="lbl">start</text><g class="k-skill"><rect class="box" x="560" y="338" width="414" height="42" rx="4"/><text x="572" y="355.5" class="">implement：认领、读票、写代码</text><text x="572" y="371.5" class="s">测试照 tdd 技能写，写在票的 ## Seam 上</text></g><g class="k-script"><rect class="box" x="560" y="398" width="414" height="42" rx="4"/><text x="572" y="415.5" class="">合进最新 base，verify-ticket.py 跑全部判据</text><text x="572" y="431.5" class="s">CHECK 退出码为 0 且输出对上 EXPECT 才算过</text></g><g class="k-skill"><rect class="box" x="560" y="458" width="414" height="42" rx="4"/><text x="572" y="475.5" class="">code-review：另起一个 reviewer 会话审</text><text x="572" y="491.5" class="s">四个轴：Standards、Spec、Tests、UI</text></g><g class="k-script"><rect class="box" x="560" y="518" width="414" height="42" rx="4"/><text x="572" y="535.5" class="">修 finding，对最终提交再跑一次全部判据</text><text x="572" y="551.5" class="s">--closeout 通过，票上写下事件 ticket.passed</text></g><g class="k-skill"><rect class="box" x="400" y="476" width="136" height="42" rx="4"/><text x="412" y="493.5" class="">advisor</text><text x="412" y="509.5" class="s">卡住时的第二意见</text></g><g class="k-script"><rect class="box" x="380" y="586" width="330" height="46" rx="4"/><text x="392" y="605.5" class="">relay：读票上的事件，叫醒等它的会话</text><text x="392" y="621.5" class="s">watchdog、turn-guard 看会话是否还活着</text></g><text x="722" y="600" text-anchor="start" class="lbl">ticket.passed</text><text x="362" y="602" text-anchor="end" class="lbl">叫醒 orchestrator</text><g class="k-script"><rect class="box" x="26" y="400" width="330" height="42" rx="4"/><text x="38" y="417.5" class="">被叫醒后再 advance</text><text x="38" y="433.5" class="s">合并、跑仓库检查、推送；开出下一批</text></g><g class="k-script"><rect class="box" x="26" y="460" width="330" height="42" rx="4"/><text x="38" y="477.5" class="">closing pass，然后 reverify</text><text x="38" y="493.5" class="s">给每条 finding 定去向；在合并后的 base 上重跑判据</text></g><g class="k-script"><rect class="box" x="26" y="520" width="330" height="42" rx="4"/><text x="38" y="537.5" class="">summary，然后 retro</text><text x="38" y="553.5" class="s">写 NIGHT SUMMARY；复盘写 NIGHT RETRO</text></g><rect class="pill" x="26.0" y="684" width="256.6" height="34" rx="17"/><text x="154.3" y="705.5" text-anchor="middle">读 NIGHT SUMMARY 与 NIGHT RETRO</text><rect class="pill" x="314.6" y="684" width="73.0" height="34" rx="17"/><text x="351.1" y="705.5" text-anchor="middle">你验收</text><g class="k-script"><rect class="box" x="417.56000000000006" y="680" width="360" height="42" rx="4"/><text x="429.56000000000006" y="697.5" class="">dispatch.sh finish</text><text x="429.56000000000006" y="713.5" class="s">把 base branch 合回 project branch，清理</text></g></svg><!--/FIG:l3-lifecycle--></div>
+<div class="legend" data-legend="skill script end arrow attach zone" data-label-skill="技能"></div>
+<figcaption><b>图 1</b>　一个需求的路径，分白天、夜里、早上三段。白天和早上你在场，夜里不在。夜里左列是 orchestrator 做的事，右列是每张票的 worker 和 reviewer 做的事。</figcaption>
+</figure>
+<div class="takeaway"><b class="l">从图 1 能看出的三件事</b><ol>
+<li><b>白天和夜里的分界决定了一切。</b>夜里没有人可问，所以需要你决定的事，都在白天当面问完，写进票里。<code class="c k-skill">to-tickets</code> 的第 4 步用五个问题给每条规则找去处：能让机器比对的，写成 <code>CHECK:</code> 命令和 <code>EXPECT:</code>；要判断的，交给另一个会话的 code review；要看一个人反应的，单独开一张给人的票；机器本可判定、只是够不着的，先造够得着它的工具；是选择而不是检查的，<q class="k-skill" data-src="to-tickets · 4. Write each acceptance criterion">The user is here now, so ask them</q>。</li>
+<li><b>一张票关掉，要经过三道互不相信的检查。</b>脚本跑判据，另一个会话审代码，审完改完再跑一次全部判据。<code class="c k-script">--closeout</code> 只认最新那一次运行（ADR <code>0026</code>）。</li>
+<li><b>orchestrator 只在被叫醒时动作。</b>它起完 worker 就结束回合；叫醒它的是票上的事件，经 relay 送到。</li>
+</ol></div>
+
+<h2>2　每个部分解决什么问题</h2>
+<figure>
+<div class="svgwrap"><!--FIG:l3-inventory--><svg viewBox="0 0 1000 648" role="img" aria-label="MMW v2 的全部组成，按各自解决的问题分成八组：白天写票、界面、一张票、编排、合并、早上、工具箱本身、不属于流水线的单件事。"><defs><marker id="m5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><rect class="zone" x="10" y="10" width="485" height="136" rx="6"/><text x="22" y="29" class="h">1 白天：把想法变成夜里能无人执行的票</text><rect class="zone" x="505" y="10" width="485" height="136" rx="6"/><text x="517" y="29" class="h">2 界面：定稿的设计原样落进产品</text><rect class="zone" x="10" y="156" width="485" height="136" rx="6"/><text x="22" y="175" class="h">3 一张票：你不读代码，也能信它关得对</text><rect class="zone" x="505" y="156" width="485" height="136" rx="6"/><text x="517" y="175" class="h">4 编排：没人看着，不停也不乱</text><rect class="zone" x="10" y="302" width="485" height="104" rx="6"/><text x="22" y="321" class="h">5 合并：并行的票合在一起不坏</text><rect class="zone" x="505" y="302" width="485" height="104" rx="6"/><text x="517" y="321" class="h">6 早上：几分钟看懂这一夜，再收尾</text><rect class="zone" x="10" y="416" width="485" height="200" rx="6"/><text x="22" y="435" class="h">7 工具箱本身：一套技能在五个宿主上都能用</text><rect class="zone" x="505" y="416" width="485" height="200" rx="6"/><text x="517" y="435" class="h">8 不属于流水线的单件事</text><g class="k-skill"><rect class="box" x="24" y="42" width="87.0" height="24" rx="4"/><text x="33" y="58.5" class="m">grilling ✎</text></g><g class="k-skill"><rect class="box" x="119.0" y="42" width="87.0" height="24" rx="4"/><text x="128.0" y="58.5" class="m">grill-me ✎</text></g><g class="k-skill"><rect class="box" x="214.0" y="42" width="135.3" height="24" rx="4"/><text x="223.0" y="58.5" class="m">grill-with-docs ✎</text></g><g class="k-skill"><rect class="box" x="357.30000000000007" y="42" width="93.9" height="24" rx="4"/><text x="366.30000000000007" y="58.5" class="m">wayfinder ✎</text></g><g class="k-skill"><rect class="box" x="24" y="74" width="80.1" height="24" rx="4"/><text x="33" y="90.5" class="m">to-spec ✎</text></g><g class="k-skill"><rect class="box" x="112.1" y="74" width="100.8" height="24" rx="4"/><text x="121.1" y="90.5" class="m">to-tickets ✎</text></g><g class="k-skill"><rect class="box" x="220.9" y="74" width="73.2" height="24" rx="4"/><text x="229.9" y="90.5" class="m">triage ✎</text></g><g class="k-skill"><rect class="box" x="302.1" y="74" width="93.9" height="24" rx="4"/><text x="311.1" y="90.5" class="m">prototype ✎</text></g><g class="k-skill"><rect class="box" x="24" y="106" width="142.2" height="24" rx="4"/><text x="33" y="122.5" class="m">to-questionnaire ✎</text></g><g class="k-skill"><rect class="box" x="174.20000000000005" y="106" width="73.2" height="24" rx="4"/><text x="183.20000000000005" y="122.5" class="m">research</text></g><g class="k-script"><rect class="box" x="255.40000000000003" y="106" width="176.7" height="24" rx="4"/><text x="264.40000000000003" y="122.5" class="m">verify-ticket.py --lint</text></g><g class="k-skill"><rect class="box" x="519" y="42" width="100.8" height="24" rx="4"/><text x="528" y="58.5" class="m">design-pages</text></g><g class="k-skill"><rect class="box" x="627.8" y="42" width="162.9" height="24" rx="4"/><text x="636.8" y="58.5" class="m">write-screen-contract</text></g><g class="k-skill"><rect class="box" x="798.7" y="42" width="107.7" height="24" rx="4"/><text x="807.7" y="58.5" class="m">ui-acceptance</text></g><g class="k-skill"><rect class="box" x="24" y="188" width="93.9" height="24" rx="4"/><text x="33" y="204.5" class="m">implement ✎</text></g><g class="k-skill"><rect class="box" x="125.9" y="188" width="52.5" height="24" rx="4"/><text x="134.9" y="204.5" class="m">tdd ✎</text></g><g class="k-skill"><rect class="box" x="186.4" y="188" width="121.5" height="24" rx="4"/><text x="195.4" y="204.5" class="m">diagnosing-bugs</text></g><g class="k-skill"><rect class="box" x="315.90000000000003" y="188" width="107.7" height="24" rx="4"/><text x="324.90000000000003" y="204.5" class="m">code-review ✎</text></g><g class="k-skill"><rect class="box" x="24" y="220" width="107.7" height="24" rx="4"/><text x="33" y="236.5" class="m">verify-ticket</text></g><g class="k-skill"><rect class="box" x="139.70000000000002" y="220" width="66.3" height="24" rx="4"/><text x="148.70000000000002" y="236.5" class="m">advisor</text></g><g class="k-script"><rect class="box" x="214.0" y="220" width="100.8" height="24" rx="4"/><text x="223.0" y="236.5" class="m">gate-check ✎</text></g><g class="k-other"><rect class="box" x="322.8" y="220" width="100.8" height="24" rx="4"/><text x="331.8" y="236.5" class="m">Nowledge Mem</text></g><g class="k-skill"><rect class="box" x="519" y="188" width="73.2" height="24" rx="4"/><text x="528" y="204.5" class="m">dispatch</text></g><g class="k-script"><rect class="box" x="600.2" y="188" width="93.9" height="24" rx="4"/><text x="609.2" y="204.5" class="m">dispatch.sh</text></g><g class="k-script"><rect class="box" x="702.1" y="188" width="73.2" height="24" rx="4"/><text x="711.1" y="204.5" class="m">relay.py</text></g><g class="k-script"><rect class="box" x="783.3" y="188" width="93.9" height="24" rx="4"/><text x="792.3" y="204.5" class="m">watchdog.py</text></g><g class="k-script"><rect class="box" x="519" y="220" width="107.7" height="24" rx="4"/><text x="528" y="236.5" class="m">turn-guard.py</text></g><g class="k-script"><rect class="box" x="634.7" y="220" width="107.7" height="24" rx="4"/><text x="643.7" y="236.5" class="m">tool-guard.py</text></g><g class="k-script"><rect class="box" x="750.4000000000001" y="220" width="80.1" height="24" rx="4"/><text x="759.4000000000001" y="236.5" class="m">status.py</text></g><g class="k-script"><rect class="box" x="838.5" y="220" width="121.5" height="24" rx="4"/><text x="847.5" y="236.5" class="m">runners/orca.sh</text></g><g class="k-script"><rect class="box" x="519" y="252" width="128.4" height="24" rx="4"/><text x="528" y="268.5" class="m">runners/paseo.sh</text></g><g class="k-script"><rect class="box" x="655.4000000000001" y="252" width="128.4" height="24" rx="4"/><text x="664.4000000000001" y="268.5" class="m">runners/herdr.sh</text></g><g class="k-config"><rect class="box" x="791.8000000000001" y="252" width="142.2" height="24" rx="4"/><text x="800.8000000000001" y="268.5" class="m">~/.mmw/models.json</text></g><g class="k-script"><rect class="box" x="24" y="334" width="128.4" height="24" rx="4"/><text x="33" y="350.5" class="m">dispatch.sh land</text></g><g class="k-script"><rect class="box" x="160.40000000000003" y="334" width="156.0" height="24" rx="4"/><text x="169.40000000000003" y="350.5" class="m">dispatch.sh reverify</text></g><g class="k-script"><rect class="box" x="324.4000000000001" y="334" width="135.3" height="24" rx="4"/><text x="333.4000000000001" y="350.5" class="m">dispatch.sh route</text></g><g class="k-skill"><rect class="box" x="24" y="366" width="204.3" height="24" rx="4"/><text x="33" y="382.5" class="m">resolving-merge-conflicts ✎</text></g><g class="k-script"><rect class="box" x="519" y="334" width="149.1" height="24" rx="4"/><text x="528" y="350.5" class="m">dispatch.sh summary</text></g><g class="k-skill"><rect class="box" x="676.1" y="334" width="52.5" height="24" rx="4"/><text x="685.1" y="350.5" class="m">retro</text></g><g class="k-other"><rect class="box" x="736.6" y="334" width="107.7" height="24" rx="4"/><text x="745.6" y="350.5" class="m">mmw-v2/board/</text></g><g class="k-script"><rect class="box" x="519" y="366" width="142.2" height="24" rx="4"/><text x="528" y="382.5" class="m">dispatch.sh finish</text></g><g class="k-config"><rect class="box" x="24" y="448" width="87.0" height="24" rx="4"/><text x="33" y="464.5" class="m">install.sh</text></g><g class="k-config"><rect class="box" x="119.0" y="448" width="87.0" height="24" rx="4"/><text x="128.0" y="464.5" class="m">skills.txt</text></g><g class="k-config"><rect class="box" x="214.0" y="448" width="128.4" height="24" rx="4"/><text x="223.0" y="464.5" class="m">prompt/shared.md</text></g><g class="k-config"><rect class="box" x="350.40000000000003" y="448" width="128.4" height="24" rx="4"/><text x="359.40000000000003" y="464.5" class="m">prompt/render.py</text></g><g class="k-other"><rect class="box" x="24" y="480" width="100.8" height="24" rx="4"/><text x="33" y="496.5" class="m">merge-notes/</text></g><g class="k-other"><rect class="box" x="132.8" y="480" width="80.1" height="24" rx="4"/><text x="141.8" y="496.5" class="m">docs/adr/</text></g><g class="k-other"><rect class="box" x="220.9" y="480" width="114.6" height="24" rx="4"/><text x="229.9" y="496.5" class="m">docs/contexts/</text></g><g class="k-skill"><rect class="box" x="519" y="448" width="197.4" height="24" rx="4"/><text x="528" y="464.5" class="m">setup-matt-pocock-skills ✎</text></g><g class="k-skill"><rect class="box" x="724.4000000000001" y="448" width="128.4" height="24" rx="4"/><text x="733.4000000000001" y="464.5" class="m">manage-agents-md</text></g><g class="k-skill"><rect class="box" x="860.8000000000002" y="448" width="107.7" height="24" rx="4"/><text x="869.8000000000002" y="464.5" class="m">code-checkers</text></g><g class="k-skill"><rect class="box" x="519" y="480" width="93.9" height="24" rx="4"/><text x="528" y="496.5" class="m">exe-release</text></g><g class="k-skill"><rect class="box" x="620.9" y="480" width="156.0" height="24" rx="4"/><text x="629.9" y="496.5" class="m">writing-for-agents ✎</text></g><g class="k-skill"><rect class="box" x="784.9000000000001" y="480" width="135.3" height="24" rx="4"/><text x="793.9000000000001" y="496.5" class="m">codebase-design ✎</text></g><g class="k-skill"><rect class="box" x="519" y="512" width="135.3" height="24" rx="4"/><text x="528" y="528.5" class="m">domain-modeling ✎</text></g><g class="k-skill"><rect class="box" x="662.3000000000001" y="512" width="231.9" height="24" rx="4"/><text x="671.3000000000001" y="528.5" class="m">improve-codebase-architecture ✎</text></g><g class="k-skill"><rect class="box" x="519" y="544" width="80.1" height="24" rx="4"/><text x="528" y="560.5" class="m">handoff ✎</text></g><g class="k-skill"><rect class="box" x="607.1" y="544" width="66.3" height="24" rx="4"/><text x="616.1" y="560.5" class="m">teach ✎</text></g><g class="k-skill"><rect class="box" x="681.4" y="544" width="93.9" height="24" rx="4"/><text x="690.4" y="560.5" class="m">wait-what ✎</text></g><g class="k-skill"><rect class="box" x="783.3" y="544" width="73.2" height="24" rx="4"/><text x="792.3" y="560.5" class="m">wizard ✎</text></g><g class="k-skill"><rect class="box" x="519" y="576" width="128.4" height="24" rx="4"/><text x="528" y="592.5" class="m">diagram-design ✎</text></g><text x="10" y="638" text-anchor="start" class="s">✎ = 来自上游（mattpocock/skills、diagram-design、unlazy），本仓库改过，改动和理由写在 mmw-v2/merge-notes/ 的同名文件里</text></svg><!--/FIG:l3-inventory--></div>
+<div class="legend" data-legend="skill script config other" data-label-skill="技能" data-label-script="脚本" data-label-config="安装与配置" data-label-other="文档、任务板、外部服务"></div>
+<figcaption><b>图 2</b>　v2 的全部组成，按各自解决的问题分成八组。分组是本课的，v2 原文没有这样分；每个名字照 <code class="c k-config">mmw-v2/skills.txt</code> 和文件名写。</figcaption>
+</figure>
+<p>下面八张卡片和图 2 的八组一一对应。每张四行：这一组解决的问题；v2 的做法；做法依赖的假设，假设不成立时这一组就不起作用；出处。</p>
+<div class="why-cards">
+
+<div class="why-card k-skill"><h3>1 白天写票<small>把想法变成夜里能无人执行的票</small></h3><dl>
+<dt>问题</dt><dd>夜里的 worker 遇到没说清的地方，没人可问：要么停下，要么自己猜。</dd>
+<dt>做法</dt><dd>白天当面把决定问完（<code class="c k-skill">grilling</code>；一次会话装不下的大工作用 <code class="c k-skill">wayfinder</code>，拆成一张张决策票逐个解决），写成 spec（<code class="c k-skill">to-spec</code>），再切成票（<code class="c k-skill">to-tickets</code>）。每张票有固定的几节：<code>## Parent</code>、<code>## What to build</code>、<code>## Read first</code>、<code class="c k-skill">## Seam</code>、<code>## Owns</code>、<code>## Acceptance criteria</code>。夜里第一次 <code class="c k-script">advance</code> 之前，<code class="c k-script">verify-ticket.py &lt;spec&gt; --lint</code> 检查整批票。</dd>
+<dt>假设</dt><dd>需要你决定的事，白天都能问到；判据能写成一条机器能跑的命令。做不到的，<code class="c k-skill">to-tickets</code> 的五个问题把它分到判据以外的去处。</dd>
+<dt>出处</dt><dd><code class="c k-skill">to-tickets</code> 的 <code class="c k-skill">### 4. Write each acceptance criterion</code>；<code class="c k-skill">wayfinder</code>、<code class="c k-skill">to-spec</code> 的 description。</dd>
+</dl></div>
+
+<div class="why-card k-skill"><h3>2 界面<small>定稿的设计原样落进产品</small></h3><dl>
+<dt>问题</dt><dd>界面做得对不对，agent 看一眼截图说「看起来对」不可信；设计在仓库和设计工具两边各改一份，就不知道哪份算数。</dd>
+<dt>做法</dt><dd>设计只在 Claude Design 里定稿，仓库里的设计包只由 <code class="c k-skill">design-pages</code> 的 pull 写入（ADR <code>0029</code>）。<code class="c k-skill">write-screen-contract</code> 把每个控件该发什么请求写进 <code>screen-contract.yaml</code>。界面是否和设计一致，在组件级离线比对 accessibility tree 和像素；控件发不发请求，在 API client 边界断言，并配一道「跳过点击必须变红」的 negative control（ADR <code>0011</code>）。</dd>
+<dt>假设</dt><dd>展示组件能拿同一份场景数据单独渲染；设计稿在 Claude Design 里已经签字。</dd>
+<dt>出处</dt><dd>ADR <code>0011</code>、<code>0028</code>、<code>0029</code>；<code class="c k-skill">ui-acceptance</code> 的 SKILL.md。</dd>
+</dl></div>
+
+<div class="why-card k-skill"><h3>3 一张票<small>你不读代码，也能信它关得对</small></h3><dl>
+<dt>问题</dt><dd>写代码的 agent 自己说「做完了」不可信，而你早上不读代码。</dd>
+<dt>做法</dt><dd>worker 按 <code class="c k-skill">implement</code> 的 <code class="c k-skill">## Closing steps</code> 八步收尾：合进最新 base，跑全部判据；把自作主张的决定贴到票上；起 reviewer，按 <code class="c k-skill">code-review</code> 的四个轴审；修 finding 之后再跑一次全部判据；<code class="c k-script">--closeout</code> 关票。<q class="k-skill" data-src="implement · ## Closing steps">A criterion passes only when its <code>CHECK</code> exits 0 and its output matches <code>EXPECT</code>.</q>手动关票由 <code class="c k-script">tool-guard.py</code> 拦住：<q class="k-script" data-src="tool-guard.py · 开头注释">`gh issue close` skips all of that and leaves a closed ticket nobody can read in the morning.</q></dd>
+<dt>假设</dt><dd>判据本身写对了。判据已经是绿的、它要检查的东西却坏着，这种情况 closing pass 的第 2 步专门把它开成新票，并要求一道 negative control。</dd>
+<dt>出处</dt><dd><code class="c k-skill">implement</code> 的 <code class="c k-skill">## Closing steps</code>；ADR <code>0026</code>；<code class="c k-reference">dispatch/references/night.md</code> 的 <code class="c k-reference">## 4. The closing pass</code>。</dd>
+</dl></div>
+
+<div class="why-card k-script"><h3>4 编排<small>没人看着，不停也不乱</small></h3><dl>
+<dt>问题</dt><dd>夜里几个 agent 并行，你不在：谁开下一张票，谁发现某个 worker 已经死了，一道检查没跑却看起来像通过了怎么办。</dd>
+<dt>做法</dt><dd>票的状态写在票上：每条协议评论末尾有一个 <code>&lt;!-- mmw {...} --&gt;</code> 事件块，状态是从头重放这些事件算出来的，叫 fold（ADR <code>0019</code>）。agent 之间不轮询：「一个 agent 起了另一个 agent 之后就结束回合」，由事件叫醒（<code>0010</code>）；夜里没有定时器（<code>0017</code>）；<code class="c k-script">relay.py</code> 读票上的事件，叫醒等它的会话。判活分三层，都不是 agent，不花 token：<code class="c k-script">turn-guard.py</code>、<code class="c k-script">watchdog.py</code>、只由 watchdog 写的 <code>worker.lost</code>（<code>0021</code>）。脚本只做工具，判断归 orchestrator（<code>0009</code>）。每道闸口都要回答「它跑了一遍却什么都没做，有人会发现吗？」（<code>0008</code>）</dd>
+<dt>假设</dt><dd>GitHub 一直可用，因为事件存在票上；runner（orca、paseo、herdr）能起会话、能回答会话还在不在。<span class="inf">归纳</span></dd>
+<dt>出处</dt><dd>ADR <code>0008</code>、<code>0009</code>、<code>0010</code>、<code>0017</code>、<code>0019</code>、<code>0021</code>、<code>0022</code>。</dd>
+</dl></div>
+
+<div class="why-card k-script"><h3>5 合并<small>并行的票合在一起不坏</small></h3><dl>
+<dt>问题</dt><dd>几张票同时改一个仓库，各自都绿，合在一起可能冲突，或者互相弄坏。</dd>
+<dt>做法</dt><dd>每张票的 <code>## Owns</code> 写明它改哪些文件，能并行的两张票不改同一个文件。落地以 GitHub 上的 <code>origin/&lt;base branch&gt;</code> 为准：先合，再跑仓库检查，再 fast-forward 推送；合不进去就是 <code>ticket.bounced</code>，第一次退回 worker 队列，第二次交给早上的 <span class="c k-skill">triage</span>（ADR <code>0023</code>、<code>0027</code>）。整批做完后，<code class="c k-script">reverify</code> 在合并后的 base 上把每张已落地票的判据重跑一遍。review 发现的、不属于这张票的问题，closing pass 按四步定去向，默认 orchestrator 自己改，不开新票（<code>0012</code>）。</dd>
+<dt>假设</dt><dd>切票时 <code>## Owns</code> 切对了。切漏了，worker 开一张 <code>contract</code> 子票：<q class="k-skill" data-src="implement · Claim, read in, write the code">one file has one writer at a time and the cut missed an edge</q></dd>
+<dt>出处</dt><dd>ADR <code>0012</code>、<code>0023</code>、<code>0027</code>；<code class="c k-skill">implement</code> 写代码的规则。</dd>
+</dl></div>
+
+<div class="why-card k-other"><h3>6 早上<small>几分钟看懂这一夜，再收尾</small></h3><dl>
+<dt>问题</dt><dd>你醒来，要很快知道这一夜做成了什么、哪里要你看、要你做什么。</dd>
+<dt>做法</dt><dd><code class="c k-script">summary</code> 贴出 <code>NIGHT SUMMARY</code>，同一个会话紧接着用 <code class="c k-skill">retro</code> 复盘，贴出 <code>NIGHT RETRO</code>。你验收之后，orchestrator 跑 <code class="c k-script">finish</code>，把 base branch 合回 project branch 并清理（ADR <code>0025</code>）。合进默认分支是你的发布决定，不归 MMW。任务板 <code>mmw-v2/board/</code> 在本机网页上显示这一批票的状态。</dd>
+<dt>假设</dt><dd>你会读总结并做验收；没有验收，<code class="c k-script">finish</code> 不跑。</dd>
+<dt>出处</dt><dd><code class="c k-reference">dispatch/references/night.md</code> 的 <code>## 5</code>、<code>## 6</code>；ADR <code>0025</code>。</dd>
+</dl></div>
+
+<div class="why-card k-config"><h3>7 工具箱本身<small>一套技能在五个宿主上都能用</small></h3><dl>
+<dt>问题</dt><dd>同一套技能要在 Claude Code、Codex、Cursor、Grok、Pi 五个宿主、多个仓库、多台机器上都能用，而且改一处处处生效。</dd>
+<dt>做法</dt><dd>不打包成插件，由 <code class="c k-script">install.sh</code> 散装到中性目录（ADR <code>0003</code>、<code>0006</code>）；<code class="c k-config">skills.txt</code> 一处决定装哪些技能。不交付自定义 subagent，用宿主自带的通用 subagent（<code>0015</code>）。用户级提示词的源在仓库里：<code class="c k-config">prompt/shared.md</code> 就是你现在的 <code class="c k-config">~/.claude/CLAUDE.md</code>，<code class="c k-script">render.py</code> 为其他宿主生成 AGENTS.md（<code>0007</code>）。改了上游技能的，理由写进 <code>merge-notes/</code>。</dd>
+<dt>假设</dt><dd>各宿主读同一种 SKILL.md 格式，都提供通用 subagent 和 hook。<span class="inf">归纳</span></dd>
+<dt>出处</dt><dd><code class="c k-script">mmw-v2/install.sh</code> 开头的注释；ADR <code>0003</code>、<code>0006</code>、<code>0007</code>、<code>0015</code>。</dd>
+</dl></div>
+
+<div class="why-card k-skill"><h3>8 单件事<small>不属于流水线</small></h3><dl>
+<dt>问题</dt><dd>各自不同：给仓库配 linter（<code class="c k-skill">code-checkers</code>）、按固定格式写 AGENTS.md（<code class="c k-skill">manage-agents-md</code>）、打安装包（<code class="c k-skill">exe-release</code>）、讲课（<code class="c k-skill">teach</code>）、写交接文档（<code class="c k-skill">handoff</code>）……</dd>
+<dt>做法</dt><dd>每个技能做一件事，靠 description 被调用，不在流水线的顺序里。</dd>
+<dt>假设</dt><dd>这件事的说明能放进一份 SKILL.md 和它的 references。</dd>
+<dt>出处</dt><dd>各技能的 description。</dd>
+</dl></div>
+
+</div>
+<div class="takeaway"><b class="l">从这一节能看出的</b><ol>
+<li><b>第 3、4、5 组占了 v2 大部分的机制，它们都在回答同一个问题：你不在场时，凭什么相信结果。</b>回答的方式都是把要信任的东西做成程序能核验的：判据是命令，状态是事件，叫醒是脚本发的，关票只有一条路。<span class="inf">归纳</span></li>
+</ol></div>
+
+<h2>3　v2 把一个任务的顺序放在哪</h2>
+<figure>
+<div class="svgwrap"><!--FIG:l3-routing--><svg viewBox="0 0 1000 400" role="img" aria-label="pstack 和 MMW v2 把一个任务的顺序放在不同地方：pstack 由一直在上下文里的 mode 路由到 playbook，playbook 的步骤点名技能；v2 没有 mode 和 playbook，宿主按技能的 description 打开技能，技能里的 Find your moment 表按角色指向技能正文的编号步骤或一份 reference。"><defs><marker id="m6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><rect class="zone" x="10" y="10" width="485" height="380" rx="6"/><text x="22" y="29" class="h">pstack：任务的顺序写在 playbook 里</text><path class="ar" d="M252.0,94.0 L252.0,116.0" marker-end="url(#m6)"/><path class="ar" d="M252.0,168.0 L252.0,190.0" marker-end="url(#m6)"/><path class="ar" d="M252.0,242.0 L252.0,264.0" marker-end="url(#m6)"/><rect class="zone" x="505" y="10" width="485" height="380" rx="6"/><text x="517" y="29" class="h">MMW v2：没有 mode 和 playbook</text><path class="ar" d="M747.0,168.0 L747.0,190.0" marker-end="url(#m6)"/><path class="ar" d="M640.0,242.0 L640.0,264.0" marker-end="url(#m6)"/><path class="ar" d="M860.0,242.0 L860.0,264.0" marker-end="url(#m6)"/><g class="k-mode"><rect class="box" x="26" y="42" width="453" height="52" rx="4"/><text x="38" y="64.5" class="m">poteto-mode/SKILL.md</text><text x="38" y="80.5" class="s">一直在上下文里；## Playbooks 一行路由一份</text></g><g class="k-playbook"><rect class="box" x="26" y="116" width="453" height="52" rx="4"/><text x="38" y="138.5" class="m">playbooks/feature.md</text><text x="38" y="154.5" class="s">编号步骤，抄进 todolist 逐步做</text></g><g class="k-skill"><rect class="box" x="26" y="190" width="453" height="52" rx="4"/><text x="38" y="212.5" class="">步骤点名的技能，例 how、architect</text><text x="38" y="228.5" class="s">技能只管一件事，不知道是哪份 playbook 在用它</text></g><g class="k-reference"><rect class="box" x="26" y="264" width="453" height="52" rx="4"/><text x="38" y="286.5" class="">技能的 references/</text><text x="38" y="302.5" class="s">某一步、某个子代理才用的材料</text></g><text x="26" y="344" text-anchor="start" class="s">49 个技能设了 disable-model-invocation: true，</text><text x="26" y="362" text-anchor="start" class="s">由你用 /名字 调用，或由 playbook 的步骤点名</text><g class="k-config"><rect class="box" x="521" y="42" width="453" height="52" rx="4"/><text x="533" y="64.5" class="m">prompt/shared.md → ~/.claude/CLAUDE.md</text><text x="533" y="80.5" class="s">一直在上下文里；讲谁做决定、怎么汇报，不路由</text></g><g class="k-skill"><rect class="box" x="521" y="116" width="453" height="52" rx="4"/><text x="533" y="138.5" class="">dispatch/SKILL.md 的 description</text><text x="533" y="154.5" class="s">宿主据它决定要不要打开这个技能</text></g><g class="k-skill"><rect class="box" x="521" y="190" width="453" height="52" rx="4"/><text x="533" y="212.5" class="">## Find your moment：按你此刻是谁选一行</text><text x="533" y="228.5" class="s">Moment 1 worker … Moment 3 orchestrator …</text></g><g class="k-skill"><rect class="box" x="521" y="264" width="220" height="52" rx="4"/><text x="533" y="286.5" class="">implement 的</text><text x="533" y="302.5" class="s">## Closing steps，8 步</text></g><g class="k-reference"><rect class="box" x="754" y="264" width="220" height="52" rx="4"/><text x="766" y="286.5" class="m">references/night.md</text><text x="766" y="302.5" class="s">## 1 到 ## 6 编号各节</text></g><text x="521" y="344" text-anchor="start" class="s">顺序写在技能正文或它的 reference 里；</text><text x="521" y="362" text-anchor="start" class="s">implement 的每步以「Done when」结尾：做到什么才算完</text></svg><!--/FIG:l3-routing--></div>
+<div class="legend" data-legend="mode playbook skill reference config arrow" data-label-skill="技能" data-label-config="用户级提示词"></div>
+<figcaption><b>图 3</b>　同样是「一个任务按什么顺序做」，pstack 写在 playbook 里，v2 写在技能正文或它的 reference 里。右边以 <code class="c k-skill">dispatch</code> 为例；<code class="c k-skill">verify-ticket</code>、<code class="c k-skill">design-pages</code>、<code class="c k-skill">ui-acceptance</code>、<code class="c k-skill">code-review</code> 也各有一张 <code class="c k-skill">## Find your moment</code> 表。</figcaption>
+</figure>
+<div class="takeaway"><b class="l">从图 3 能看出的</b><ol>
+<li><b>v2 没有 mode，也没有 playbook，但有和它们形状相同的内容。</b><code class="c k-skill">implement</code> 的 <code class="c k-skill">## Closing steps</code> 和 <code class="c k-reference">references/night.md</code> 是编号步骤、一种任务一份、写明交回什么，形状和 pstack 的 playbook 一样。<span class="inf">归纳</span></li>
+<li><b>v2 一直在上下文里的那一层，内容和 pstack 不同。</b><code class="c k-config">prompt/shared.md</code> 讲谁做决定、怎么汇报；pstack 的 mode 讲用什么、走哪份 playbook。<span class="inf">归纳</span></li>
+<li><b>迁移时要问的，是第 2 课那几个问题，不是「这段该搬到哪一层」。</b>例如 <code class="c k-skill">implement</code> 的八步收尾有几处在用、谁在哪一刻需要它、哪些已经由脚本强制。</li>
+</ol></div>
+
+<h2>4　自测</h2>
+<div class="quiz" data-answer="1">
+<p class="q">1．夜里一张票的 worker 写完代码、跑过判据，觉得全绿了。它能直接关票吗？</p>
+<div class="opts"><button>能，判据都绿了</button><button>不能，还要审和重跑</button><button>能，但要先推送</button><button>不能，要等你验收</button></div>
+<div class="why" hidden>还要起 reviewer、修 finding，再对最终提交跑一次全部判据，然后经 <code class="c k-script">--closeout</code> 关票；手动 <code>gh issue close</code> 被 <code class="c k-script">tool-guard.py</code> 拦住。你的验收在整夜结束之后，针对的是整批，不是单张票。</div>
+</div>
+<div class="quiz" data-answer="2">
+<p class="q">2．夜里一个 worker 的会话突然没了。是什么让这件事被发现？</p>
+<div class="opts"><button>orchestrator 定时检查</button><button>reviewer 会报告它</button><button>不是 agent 的看门进程</button><button>你早上在任务板看到</button></div>
+<div class="why" hidden>判活分三层，都不是 agent（ADR <code>0021</code>）：<code class="c k-script">turn-guard.py</code> 保证看门进程活着，<code class="c k-script">watchdog.py</code> 发现一张被占着的票长时间没有新事件就去问 runner，会话没了就写 <code>worker.lost</code>，叫醒 orchestrator。夜里没有定时器（ADR <code>0017</code>）。</div>
+</div>
+<div class="quiz" data-answer="0">
+<p class="q">3．切票时有一条规则：「错误提示要告诉调用方下一步做什么」。它应该写成什么？</p>
+<div class="opts"><button>写进 spec 交给审查</button><button>写成 CHECK 和 EXPECT</button><button>单开一张给人的票</button><button>夜里由 worker 决定</button></div>
+<div class="why" hidden>这是一个判断，不是比对。<code class="c k-skill">to-tickets</code> 第 4 步第 2 问举的例子正是它：「whether an error message tells the caller what to do next」，由另一个会话的 code review 判断，规则写进 spec 的 <code>## Implementation Decisions</code>，不写成判据。</div>
+</div>
+
+<p class="ask">哪张卡片的说法和原文对不上，或者标了「归纳」的结论你不同意，直接说。</p>
+<footer class="next"><a href="0002-when-a-component-is-made.html">← 第 2 课</a><a href="../index.html">课程首页</a><a href="0004-communication-rules.html">第 4 课 →</a></footer>
+</div>
+<!--JS--><script>
+/* Quiz widget: <div class="quiz" data-answer="2"> with buttons in .opts and a hidden .why.
+   A click marks the chosen option right or wrong, marks the right one, and shows the explanation. */
+document.querySelectorAll('.quiz').forEach(function (quiz) {
+  var answer = Number(quiz.dataset.answer);
+  var buttons = quiz.querySelectorAll('.opts button');
+  var why = quiz.querySelector('.why');
+  buttons.forEach(function (btn, i) {
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      buttons.forEach(function (b) { b.classList.remove('right', 'wrong'); });
+      buttons[answer].classList.add('right');
+      if (i !== answer) btn.classList.add('wrong');
+      if (why) why.hidden = false;
+    });
+  });
+});
+
+/* Legend: <div class="legend" data-legend="mode playbook arrow …"> becomes one row of swatches;
+   data-label-<key>="…" replaces one key's meaning where a figure uses the mark for something narrower.
+   Each key has one drawing and one meaning for the whole course; the swatches use the same
+   classes as the figures, so a swatch looks exactly like the mark it explains. */
+(function () {
+  var box = function (k) { return '<g class="k-' + k + '"><rect class="box" x="1" y="2" width="30" height="12" rx="2"/></g>'; };
+  var line = function (cls) {
+    return '<line class="ar ' + cls + '" x1="1" y1="8" x2="25" y2="8"/><polygon class="head" points="25,4 31,8 25,12"/>';
+  };
+  var KEYS = {
+    mode: [box('mode'), 'mode 技能'],
+    playbook: [box('playbook'), 'playbook'],
+    principle: [box('principle'), 'principle（原则技能）'],
+    skill: [box('skill'), '其他技能'],
+    reference: [box('reference'), 'references/ 里的文件'],
+    script: [box('script'), 'scripts/ 里的程序'],
+    agent: [box('agent'), 'subagent（子代理定义）'],
+    config: [box('config'), 'rule（配置）'],
+    other: [box('other'), '不是给 agent 读的，或不在 pstack 里'],
+    decision: ['<polygon class="dia" points="16,1 31,8 16,15 1,8"/>', '菱形：一个判断，出口旁写条件'],
+    end: ['<rect class="pill" x="1" y="2" width="30" height="12" rx="6"/>', '圆角条：开始或结束'],
+    arrow: [line(''), '实线箭头：执行、读取或写出，旁边写明是什么'],
+    attach: ['<path class="att" d="M1,8 L31,8"/>', '细灰虚线：这一步会用到它'],
+    human: [line('human'), '点线箭头：你做的'],
+    zone: ['<rect class="zone" x="1" y="1" width="30" height="14" rx="3"/>', '灰底区域：一组，标题写明是什么']
+  };
+  document.querySelectorAll('.legend[data-legend]').forEach(function (el) {
+    var wanted = el.dataset.legend.split(/\s+/);
+    el.innerHTML = '<b>' + (el.dataset.title || '图例') + '</b>' +Object.keys(KEYS).filter(function (k) { return wanted.indexOf(k) >= 0; }).map(function (k) {
+      var d = KEYS[k], label = el.getAttribute('data-label-' + k) || d[1];
+      return '<span class="it"><svg viewBox="0 0 32 16" aria-hidden="true">' + d[0] + '</svg>' + label + '</span>';
+    }).join('');
+  });
+})();
+</script><!--/JS-->
+</body>
+</html>

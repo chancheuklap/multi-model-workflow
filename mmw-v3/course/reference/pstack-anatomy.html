@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>pstack 组件解剖</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;600;700&family=Noto+Serif+SC:wght@400;600&display=swap">
+<!--CSS--><style>
+/* MMW 重建课 · shared stylesheet. Layout: one reading column (68ch); figures and document cards may widen to 1080px.
+   Each section is a picture first, then the few words the picture cannot say. */
+:root{
+  --bg:#f8f9f6; --surface:#ffffff; --sunk:#eef0eb; --ink:#1f2328; --ink2:#3d434b; --muted:#646b73; --rule:#d8dcd5; --rule2:#b4bab1;
+  --link:#1d5c8a; --ok:#2e7a46; --bad:#b3362c; --warn:#9a6a00;
+  /* one colour per kind of thing an agent reads or runs in pstack, plus everything else */
+  --k-mode:#2563a8; --k-playbook:#c2571a; --k-principle:#a8326e; --k-skill:#2e7d4f; --k-reference:#a67614; --k-script:#5b44b0; --k-agent:#6b7a1f; --k-config:#7a4b28; --k-other:#6b7280;
+  --f-body:"Noto Serif SC","Source Han Serif SC","Songti SC",serif;
+  --f-head:"Noto Sans SC","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171a; --surface:#1b1f23; --sunk:#22272c; --ink:#e4e7ea; --ink2:#c4c9ce; --muted:#99a1a9; --rule:#30363c; --rule2:#4a525a;
+  --link:#7db4e0; --ok:#6cc08a; --bad:#ef7d72; --warn:#e0b04a;
+  --k-mode:#6fa3e6; --k-playbook:#f08a4e; --k-principle:#e278ac; --k-skill:#62bd86; --k-reference:#dcae4a; --k-script:#a493f0; --k-agent:#b6c65a; --k-config:#c8946a; --k-other:#9aa1aa;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#14171a; --surface:#1b1f23; --sunk:#22272c; --ink:#e4e7ea; --ink2:#c4c9ce; --muted:#99a1a9; --rule:#30363c; --rule2:#4a525a;
+  --link:#7db4e0; --ok:#6cc08a; --bad:#ef7d72; --warn:#e0b04a;
+  --k-mode:#6fa3e6; --k-playbook:#f08a4e; --k-principle:#e278ac; --k-skill:#62bd86; --k-reference:#dcae4a; --k-script:#a493f0; --k-agent:#b6c65a; --k-config:#c8946a; --k-other:#9aa1aa;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.8}
+.page{max-width:1080px;margin:0 auto;padding-inline:clamp(16px,4vw,40px);padding-block:32px 80px}
+.col{max-width:68ch}
+h1,h2,h3,h4{font-family:var(--f-head);line-height:1.35;text-wrap:balance;color:var(--ink)}
+h1{font-size:clamp(28px,4vw,38px);margin:4px 0 10px;font-weight:700}
+h2{font-size:22px;margin:56px 0 10px;font-weight:700;padding-top:18px;border-top:1px solid var(--rule)}
+h3{font-size:17px;margin:30px 0 6px;font-weight:700}
+p{margin:10px 0}
+a{color:var(--link);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+code,.mono{font-family:var(--f-mono);font-size:.84em;font-variant-ligatures:none;overflow-wrap:anywhere}
+p code,li code,td code{background:var(--sunk);padding:1px 4px;border-radius:3px}
+/* A component mention: tinted with its kind's colour, the same colour as in the figures. */
+code.c,span.c{background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);border-radius:3px;padding:1px 5px;color:var(--ink);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+span.c{font-family:var(--f-head);font-size:.94em;white-space:nowrap}
+/* A quote's source, given as <q class="k-KIND" data-src="…">, shown before the quote in its kind's colour. */
+q[data-src]::before{content:attr(data-src);display:inline-block;margin:0 6px 2px 0;padding:0 6px;border-radius:3px;font-family:var(--f-head);font-size:11.5px;font-weight:600;font-style:normal;letter-spacing:.01em;color:var(--surface);background:var(--c);vertical-align:1px}
+q[data-src]{quotes:none}
+q[data-src]::after{content:none}
+:where(p,li,.why)>q[data-src]{background:color-mix(in srgb,var(--c) 8%,transparent);border-radius:3px;padding:1px 4px 1px 0}
+.eyebrow{font-family:var(--f-head);font-size:13px;letter-spacing:.06em;color:var(--muted)}
+.lede{font-size:17.5px;color:var(--ink2)}
+nav.crumbs{font-family:var(--f-head);font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px}
+ul.tight{margin:8px 0;padding-left:22px} ul.tight li{margin:3px 0}
+/* goal / source box at the top of a lesson */
+.brief{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px;margin:18px 0 6px}
+.brief>div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;min-width:0;font-family:var(--f-head);font-size:14.5px;line-height:1.7}
+.brief b{font-size:12.5px;letter-spacing:.04em;color:var(--muted);display:block;margin-bottom:2px;font-weight:600}
+.brief ol,.brief ul{margin:2px 0;padding-left:20px}
+/* figures */
+figure{margin:22px 0 8px;min-width:0}
+figure .svgwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--surface);border:1px solid var(--rule);border-radius:6px 6px 0 0;padding:10px}
+figure svg{display:block;width:100%;height:auto;min-width:720px}
+figcaption{font-family:var(--f-head);font-size:14px;line-height:1.65;color:var(--ink2);margin-top:8px;max-width:80ch}
+figcaption b{color:var(--ink)}
+/* legend: built by course.js from data-legend, attached to the bottom of its figure's frame */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-family:var(--f-head);font-size:12.5px;line-height:1.5;color:var(--ink2);margin:0;padding:8px 12px;background:var(--surface);border:1px solid var(--rule);border-top:1px dashed var(--rule2);border-radius:0 0 6px 6px}
+.legend .it{display:inline-flex;align-items:center;gap:7px;min-width:0}
+.legend svg{display:inline-block;flex:none;width:32px;height:16px;min-width:0}
+.legend b{font-weight:600;color:var(--muted);margin-right:-6px}
+.k-mode{--c:var(--k-mode)} .k-playbook{--c:var(--k-playbook)} .k-principle{--c:var(--k-principle)} .k-skill{--c:var(--k-skill)} .k-reference{--c:var(--k-reference)} .k-script{--c:var(--k-script)} .k-agent{--c:var(--k-agent)} .k-config{--c:var(--k-config)} .k-other{--c:var(--k-other)}
+/* svg vocabulary (assets/kit.py writes these classes) */
+svg text{font-family:var(--f-head);fill:var(--ink);font-size:13px}
+svg text.s{font-size:11.5px;fill:var(--muted)}
+svg text.m{font-family:var(--f-mono);font-size:12px;fill:var(--ink);font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0}
+svg text.h{font-weight:700;font-size:14px}
+svg text.lbl{font-size:11.5px;fill:var(--ink2);paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+svg rect.box{fill:color-mix(in srgb,var(--c) 13%,var(--surface));stroke:var(--c);stroke-width:1.4}
+svg rect.zone{fill:var(--sunk);stroke:var(--rule2);stroke-width:1}
+svg rect.zone.open{fill:none;stroke-dasharray:6 4}
+svg .ar{fill:none;stroke:var(--ink2);stroke-width:1.4}
+svg .ar.human{stroke-dasharray:1.5 4;stroke-linecap:round;stroke-width:1.8}
+svg .head{fill:var(--ink2)}
+svg polygon.dia{fill:var(--surface);stroke:var(--ink2);stroke-width:1.4}
+svg rect.pill{fill:var(--sunk);stroke:var(--ink2);stroke-width:1.4}
+svg path.att{fill:none;stroke:var(--rule2);stroke-width:1.2;stroke-dasharray:3 3}
+svg line.rule{stroke:var(--rule);stroke-width:1}
+/* a file or skill name coloured by its kind, anywhere in running text */
+.chip{display:inline-block;border:1.2px solid var(--c);background:color-mix(in srgb,var(--c) 13%,var(--surface));border-radius:4px;padding:0 6px;font-family:var(--f-mono);font-size:12.5px;line-height:1.6;overflow-wrap:anywhere;color:var(--ink);text-decoration:none}
+a.chip:hover{border-width:2px;padding:0 5px}
+/* doc: a picture of one document. .doc-h names the file; each .sec is one part of it, top to bottom:
+   on the left the part's marker exactly as the file writes it (.mk), on the right what that part says (.say).
+   .sec.opt is a part only some files of this kind have. */
+.docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(470px,100%),1fr));gap:18px;margin:16px 0}
+.doc{border:1.4px solid var(--c);border-radius:8px;background:var(--surface);overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.6;min-width:0}
+.doc-h{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;padding:9px 12px;background:color-mix(in srgb,var(--c) 13%,var(--surface));border-bottom:1px solid var(--rule)}
+.doc-h .t{font-weight:700;font-size:15px}
+.doc-h .n{color:var(--ink2);font-size:12.5px}
+.doc-h .where{flex-basis:100%;color:var(--ink2);font-size:13px}
+.sec{display:grid;grid-template-columns:minmax(0,13.5em) minmax(0,1fr);gap:4px 14px;padding:8px 12px;border-top:1px dashed var(--rule)}
+.doc-h+.sec{border-top:0}
+.sec .mk{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;font-variant-ligatures:none}
+.sec .mk small{display:block;font-family:var(--f-head);color:var(--muted);font-size:12px;margin-top:2px}
+.sec.opt .mk::after{content:"有的文件有";display:inline-block;margin-left:6px;font-family:var(--f-head);font-size:11px;color:var(--muted);border:1px dashed var(--rule2);border-radius:99px;padding:0 6px;vertical-align:1px}
+.sec .say p{margin:0 0 4px}
+.sec .say .when{display:block;color:var(--ink2);font-size:13px}
+.sec .say .when b{color:var(--muted);font-weight:600;font-size:12px;margin-right:4px}
+.sec q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin-top:5px;overflow-wrap:anywhere;font-variant-ligatures:none}
+.doc .foot{padding:8px 12px;border-top:1px solid var(--rule);background:var(--sunk);font-size:13px;color:var(--ink2)}
+@media (max-width:640px){.sec{grid-template-columns:minmax(0,1fr)}}
+/* source box: which file and where to look, right under a picture */
+.src{font-family:var(--f-head);font-size:14px;line-height:1.7;background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--link);border-radius:6px;padding:10px 14px;margin:14px 0;min-width:0;max-width:80ch}
+.src>b{display:block;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:2px}
+.src ul{margin:4px 0 0;padding-left:20px}
+.takeaway{font-family:var(--f-head);font-size:15px;line-height:1.75;background:color-mix(in srgb,var(--k-mode) 7%,var(--surface));border:1px solid var(--rule);border-radius:6px;padding:12px 16px;margin:16px 0;max-width:80ch}
+.takeaway b.l{display:block;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:2px}
+.takeaway ol{margin:4px 0;padding-left:22px}
+.takeaway li{margin:4px 0}
+/* pair: one rule we wrote (left) against what the pstack source actually does (right). .src-line names the file. */
+.pairs{display:grid;gap:14px;margin:16px 0}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--rule2);border-radius:8px;overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.65;background:var(--surface)}
+.pair>div{padding:10px 14px;min-width:0}
+.pair .ours{background:color-mix(in srgb,var(--bad) 6%,var(--surface));border-right:1px solid var(--rule)}
+.pair .theirs{background:color-mix(in srgb,var(--ok) 6%,var(--surface))}
+.pair h4{margin:0 0 4px;font-size:12.5px;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.pair q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0;overflow-wrap:anywhere;font-variant-ligatures:none}
+.pair .src-line{font-size:12.5px;color:var(--muted);margin-top:4px}
+.pair .cost{grid-column:1/-1;border-top:1px solid var(--rule);background:var(--sunk);font-size:13.5px;color:var(--ink2)}
+.pair.neutral .ours,.pair.neutral .theirs{background:var(--surface)}
+.pair.neutral .cost{background:color-mix(in srgb,var(--ok) 7%,var(--surface));color:var(--ink)}
+@media (max-width:700px){.pair{grid-template-columns:minmax(0,1fr)}.pair .ours{border-right:0;border-bottom:1px solid var(--rule)}}
+/* why-card: why one kind of component exists and when a new one is made. Rows: .q the question it answers,
+   .make when the source says to make one, .not when the source says not to, .ex an instance in the source. */
+.why-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(470px,100%),1fr));gap:16px;margin:16px 0}
+.why-card{border:1.4px solid var(--c);border-radius:8px;background:var(--surface);overflow:hidden;font-family:var(--f-head);font-size:14px;line-height:1.65;min-width:0}
+.why-card>h3{margin:0;padding:9px 12px;font-size:15.5px;background:color-mix(in srgb,var(--c) 13%,var(--surface));border-bottom:1px solid var(--rule)}
+.why-card>h3 small{font-weight:400;color:var(--ink2);font-size:13px;margin-left:8px}
+.why-card dl{margin:0;display:grid;grid-template-columns:5.2em minmax(0,1fr)}
+.why-card dt,.why-card dd{padding:7px 12px;border-top:1px dashed var(--rule);margin:0;min-width:0}
+.why-card dl>dt:first-child,.why-card dl>dt:first-child+dd{border-top:0}
+.why-card dt{color:var(--muted);font-weight:600;font-size:12.5px;padding-right:0}
+.why-card dd q{display:block;quotes:none;font-family:var(--f-mono);font-size:12px;line-height:1.55;color:var(--ink2);background:var(--sunk);border-radius:4px;padding:4px 8px;margin:4px 0 0;overflow-wrap:anywhere;font-variant-ligatures:none}
+.inf{color:var(--warn);font-size:12px;font-weight:600;margin-left:4px}
+/* quiz */
+.quiz{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:var(--f-head);font-size:14.5px;max-width:80ch}
+.quiz .q{font-weight:600;margin:0 0 8px}
+.quiz .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:6px}
+.quiz button{font:inherit;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--rule2);border-radius:5px;padding:7px 10px;cursor:pointer}
+.quiz button:hover{border-color:var(--link)}
+.quiz button.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--bg))}
+.quiz button.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--bg))}
+.quiz .why{margin-top:8px;color:var(--ink2)}
+.ask{margin:40px 0 0;padding:12px 14px;border:1px dashed var(--rule2);border-radius:6px;font-family:var(--f-head);font-size:14.5px;color:var(--ink2);max-width:80ch}
+footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+/* course index: one card per lesson or reference page */
+.toc{display:grid;gap:12px;margin:16px 0;max-width:80ch}
+.toc a{display:block;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;text-decoration:none;color:var(--ink);font-family:var(--f-head)}
+.toc a:hover{border-color:var(--link)}
+.toc .no{font-size:12.5px;color:var(--muted);letter-spacing:.04em}
+.toc .tt{display:block;font-weight:700;font-size:16px}
+.toc .ds{display:block;color:var(--ink2);font-size:14px;margin-top:2px}
+.toc .soon{opacity:.6;pointer-events:none;border-style:dashed}
+@media (max-width:640px){body{font-size:15.5px} h2{margin-top:44px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.legend.textkey{border-top:1px solid var(--rule);border-radius:6px;margin:14px 0 4px;background:var(--sunk)}
+</style><!--/CSS-->
+<style>
+.tw{overflow-x:auto;margin:14px 0 18px;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-family:var(--f-head);font-size:14px;line-height:1.6}
+th,td{text-align:left;vertical-align:top;padding:8px 11px;border-bottom:1px solid var(--rule)}
+th{background:var(--sunk);font-weight:600;color:var(--ink2);font-size:13px}
+tr:last-child td{border-bottom:0}
+td.k{border-left:4px solid var(--c);white-space:nowrap;font-weight:600}
+td small{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="page">
+<nav class="crumbs"><a href="../index.html">MMW 重建课</a><span>参考页</span><a href="../lessons/0001-pstack-components.html">第 1 课</a></nav>
+<div class="col">
+<div class="eyebrow">参考页 · 依据 cursor/plugins <code>e43c7ee</code>，pstack 0.15.9</div>
+<h1>pstack 组件解剖</h1>
+<p class="lede">八种组件各在哪、长什么样、谁在什么时候读它。第 1 课的压缩版，用来查。</p>
+</div>
+
+<h2>八种组件</h2>
+<div class="tw"><table>
+<thead><tr><th>组件</th><th>在哪、几个</th><th>文件形状</th><th>什么时候被读</th><th>怎么被用到</th></tr></thead>
+<tbody>
+<tr><td class="k k-mode">mode skill</td><td><code class="c k-mode">skills/poteto-mode/SKILL.md</code><br><small>1 个，2,971 词</small></td><td>frontmatter；7 节：<span class="c k-mode">Non-negotiables</span>、Principles、<span class="c k-mode">Autonomy</span>、<span class="c k-mode">Subagents</span>、<span class="c k-mode">Writing the reply</span>、Comments、Playbooks</td><td>任务开头读全文，之后每轮都在</td><td>你输入 <code class="c k-mode">/poteto-mode</code>，或把它当 Custom Mode；子代理 <span class="c k-agent">poteto-agent</span> 开工前读它</td></tr>
+<tr><td class="k k-playbook">playbook</td><td><code class="c k-playbook">poteto-mode/playbooks/*.md</code><br><small>23 份，127–2,636 词</small></td><td>无 frontmatter；<code>###</code> 标题、<code class="c k-playbook">**You own …**</code>、编号步骤、<code class="c k-playbook">**Reply:**</code></td><td>任务匹配上它时，只读这一份</td><td>mode 的 <code class="c k-mode">## Playbooks</code> 路由行，或另一份 playbook 的一步（例 Run <b><span class="c k-playbook">Opening a PR</span></b>）</td></tr>
+<tr><td class="k k-principle">principle</td><td><code class="c k-principle">skills/principle-*/SKILL.md</code><br><small>24 个，126–773 词</small></td><td>description 以 Apply 开头写条件；<code>#</code> 标题、规则、<code class="c k-principle">**Why:**</code>、<code class="c k-principle">**Pattern:**</code> 等</td><td>开头只读 mode 索引里的一行；条件出现、要应用时读全文</td><td>mode 的 <code class="c k-mode">## Principles</code> 索引；playbook 或技能的某一步点名</td></tr>
+<tr><td class="k k-skill">skill</td><td><code class="c k-skill">skills/&lt;名&gt;/SKILL.md</code><br><small>25 个，40–1,636 词</small></td><td>frontmatter；<code>#</code> 标题、用途、选模型一段、<code class="c k-skill">## Start</code>、阶段或步骤、交回什么</td><td>被点名时</td><td>你输入 <code>/名字</code>；mode 的触发行或 playbook 的步骤点名。49/50 个技能设了 <code>disable-model-invocation: true</code></td></tr>
+<tr><td class="k k-reference">references/</td><td>挂在某个技能下<br><small>9 个技能，共 31 份</small></td><td>给子代理的提示词模板（带占位符），或查表用的判断表、评分标准</td><td>点名它的那一步执行时</td><td>技能或 playbook 的一步写 <code class="c k-reference">references/&lt;文件&gt;</code></td></tr>
+<tr><td class="k k-script">scripts/</td><td><code class="c k-script">poteto-mode/scripts/</code> 4 组；<code class="c k-script">show-me-your-work/scripts/log.sh</code></td><td>普通程序，开头注释写做什么、不做什么；大的带测试</td><td>点名它的那一步执行时</td><td>步骤给出命令，agent 运行</td></tr>
+<tr><td class="k k-agent">subagent</td><td><code class="c k-agent">agents/*.md</code><br><small>2 份</small></td><td>frontmatter：name、description、is_background；正文是子代理的提示词</td><td>开子代理时</td><td>Task 调用的 <code>subagent_type</code>；mode 的 <code class="c k-mode">## Subagents</code> 规定用 <span class="c k-agent">poteto-agent</span></td></tr>
+<tr><td class="k k-config">rule</td><td><code class="c k-config">~/.cursor/rules/pstack-models.mdc</code><br><small>1 份，插件外</small></td><td><code>alwaysApply: true</code>；<code># budget:</code>；一行一个角色和模型</td><td>每个会话都带着；开子代理时查角色行</td><td>由 <code class="c k-skill">setup-pstack</code> 写出；各技能的选模型一段读它，缺行用默认值</td></tr>
+</tbody></table></div>
+<p>不给 agent 读的：<code>.cursor-plugin/plugin.json</code>（插件清单）、<code>README.md</code>、<code>docs/guide/</code>（给人读的 10 章指南）、<code>automations/benny/</code>（休眠的自动化包，复制到目标仓库后才用，里面的 <code>SKILL.md</code> 不登记为技能）。</p>
+
+<h2>poteto-mode/SKILL.md 七节</h2>
+<div class="tw"><table>
+<thead><tr><th>节</th><th>词数</th><th>何时用</th><th>写什么</th><th>每行的格式</th></tr></thead>
+<tbody>
+<tr><td><code class="c k-mode">## Non-negotiables</code></td><td>691</td><td>任务中任何时刻，情境出现就用</td><td>开头一段：怎样在回复里点名原则。18 行触发</td><td>情境 → 用什么（技能、playbook、原则或 reference）</td></tr>
+<tr><td><code class="c k-mode">## Principles</code></td><td>694</td><td>开头读索引；条件出现读全文</td><td>两句用法；5 组 24 行</td><td>**名字**（**技能名**）。条件。一句规则</td></tr>
+<tr><td><code class="c k-mode">## Autonomy</code></td><td>106</td><td>要不要先问你</td><td>Just do it、Always pause、Session overrides、No is an acceptable answer</td><td>粗体开头的段落</td></tr>
+<tr><td><code class="c k-mode">## Subagents</code></td><td>392</td><td>开子代理之前</td><td>用哪种 subagent_type；Task 默认设置；对子代理的产出负责；默认开新的</td><td>粗体开头的段落</td></tr>
+<tr><td><code class="c k-mode">## Writing the reply</code></td><td>243</td><td>写回复时</td><td>所有回复共用的写法；playbook 的 Reply 只写独有内容</td><td>一条一个要点</td></tr>
+<tr><td><code class="c k-mode">## Comments</code></td><td>67</td><td>写代码注释时</td><td>只留代码表达不了的 why</td><td>一段</td></tr>
+<tr><td><code class="c k-mode">## Playbooks</code></td><td>699</td><td>任务开头选路</td><td>用法（抄步骤、<code>skip:</code>）；两条路由例外；23 行路由</td><td>**名字.** 什么任务（与易混者的区别）。文件路径</td></tr>
+</tbody></table></div>
+
+<h2>原文里对不上、或没写清的地方</h2>
+<ul class="tight">
+<li><code class="c k-mode">## Playbooks</code> 写 <span class="c k-playbook">Opening a PR</span>「Invoked at the end of every other playbook」，但 22 份 playbook 里只有 6 份把「Run <b><span class="c k-playbook">Opening a PR</span></b>」写成最后一步：<span class="c k-playbook">Authoring a skill</span>、<span class="c k-playbook">Bug fix</span>、<span class="c k-playbook">Feature</span>、<span class="c k-playbook">Hillclimb</span>、<span class="c k-playbook">Perf issue</span>、<span class="c k-playbook">Visual parity</span>。调查、诊断、编排类以交回结果或停下结束。</li>
+<li>mode 的 frontmatter 有 <code>mode: true</code> 和 <code>reminder</code>，<a href="https://cursor.com/docs/context/skills">Cursor 技能文档</a>的字段表里没有这两个字段。</li>
+</ul>
+
+<h2>原文链接</h2>
+<ul class="tight">
+<li><a href="https://github.com/cursor/plugins/tree/e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a/pstack">pstack 目录</a>；同一版在仓库的 <code>mmw-v3/upstream-pstack/</code></li>
+<li><a href="https://github.com/cursor/plugins/blob/e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a/pstack/docs/guide/README.md">pstack guide</a></li>
+<li><a href="https://cursor.com/docs/context/skills">Cursor：Agent Skills</a>、<a href="https://cursor.com/docs/context/subagents">Cursor：Subagents</a>、<a href="https://cursor.com/docs/plugins">Cursor：Plugins</a></li>
+</ul>
+<footer class="next"><a href="../lessons/0001-pstack-components.html">← 第 1 课</a><a href="../index.html">课程首页</a></footer>
+</div>
+<!--JS--><script>
+/* Quiz widget: <div class="quiz" data-answer="2"> with buttons in .opts and a hidden .why.
+   A click marks the chosen option right or wrong, marks the right one, and shows the explanation. */
+document.querySelectorAll('.quiz').forEach(function (quiz) {
+  var answer = Number(quiz.dataset.answer);
+  var buttons = quiz.querySelectorAll('.opts button');
+  var why = quiz.querySelector('.why');
+  buttons.forEach(function (btn, i) {
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      buttons.forEach(function (b) { b.classList.remove('right', 'wrong'); });
+      buttons[answer].classList.add('right');
+      if (i !== answer) btn.classList.add('wrong');
+      if (why) why.hidden = false;
+    });
+  });
+});
+
+/* Legend: <div class="legend" data-legend="mode playbook arrow …"> becomes one row of swatches;
+   data-label-<key>="…" replaces one key's meaning where a figure uses the mark for something narrower.
+   Each key has one drawing and one meaning for the whole course; the swatches use the same
+   classes as the figures, so a swatch looks exactly like the mark it explains. */
+(function () {
+  var box = function (k) { return '<g class="k-' + k + '"><rect class="box" x="1" y="2" width="30" height="12" rx="2"/></g>'; };
+  var line = function (cls) {
+    return '<line class="ar ' + cls + '" x1="1" y1="8" x2="25" y2="8"/><polygon class="head" points="25,4 31,8 25,12"/>';
+  };
+  var KEYS = {
+    mode: [box('mode'), 'mode 技能'],
+    playbook: [box('playbook'), 'playbook'],
+    principle: [box('principle'), 'principle（原则技能）'],
+    skill: [box('skill'), '其他技能'],
+    reference: [box('reference'), 'references/ 里的文件'],
+    script: [box('script'), 'scripts/ 里的程序'],
+    agent: [box('agent'), 'subagent（子代理定义）'],
+    config: [box('config'), 'rule（配置）'],
+    other: [box('other'), '不是给 agent 读的，或不在 pstack 里'],
+    decision: ['<polygon class="dia" points="16,1 31,8 16,15 1,8"/>', '菱形：一个判断，出口旁写条件'],
+    end: ['<rect class="pill" x="1" y="2" width="30" height="12" rx="6"/>', '圆角条：开始或结束'],
+    arrow: [line(''), '实线箭头：执行、读取或写出，旁边写明是什么'],
+    attach: ['<path class="att" d="M1,8 L31,8"/>', '细灰虚线：这一步会用到它'],
+    human: [line('human'), '点线箭头：你做的'],
+    zone: ['<rect class="zone" x="1" y="1" width="30" height="14" rx="3"/>', '灰底区域：一组，标题写明是什么']
+  };
+  document.querySelectorAll('.legend[data-legend]').forEach(function (el) {
+    var wanted = el.dataset.legend.split(/\s+/);
+    el.innerHTML = '<b>' + (el.dataset.title || '图例') + '</b>' +Object.keys(KEYS).filter(function (k) { return wanted.indexOf(k) >= 0; }).map(function (k) {
+      var d = KEYS[k], label = el.getAttribute('data-label-' + k) || d[1];
+      return '<span class="it"><svg viewBox="0 0 32 16" aria-hidden="true">' + d[0] + '</svg>' + label + '</span>';
+    }).join('');
+  });
+})();
+</script><!--/JS-->
+</body>
+</html>
