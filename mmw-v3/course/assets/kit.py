@@ -100,3 +100,36 @@ class Fig:
                 f'<defs><marker id="{self.mid}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs>'
                 + ''.join(self.back) + ''.join(self.front) + '</svg>')
 
+
+def flow(fig_id, heading, steps, left_head, exit_head):
+    """One session's steps down the left, what each names in the middle, where it stops on the right."""
+    f = Fig(fig_id, 1000)
+    txt(f, 10, 20, heading, "h")
+    y = 66
+    rows = []
+    for title, lines, uses, exit_, gap_before in steps:
+        y += gap_before
+        h = 30 + len(lines) * 17
+        rows.append((y, h, title, lines, uses, exit_))
+        y += max(h, len(uses) * 30) + 18
+    bottom = y + 4
+    f.zone(4, 34, 384, bottom - 34, left_head)
+    f.zone(394, 34, 336, bottom - 34, "用到的")
+    f.zone(736, 34, 260, bottom - 34, exit_head)
+    for y, h, title, lines, uses, exit_ in rows:
+        tbox(f, "playbook", 16, y, 360, title, lines)
+        uy = y
+        for kind, u in uses:
+            f.e(f'<g class="k-{kind}"><rect class="box" x="406" y="{uy}" width="312" height="24" rx="4"/></g>', False)
+            txt(f, 416, uy + 16, u, room=296)
+            uy += 30
+        if uses:
+            f.ar([(376, y + 14), (404, y + 14)])
+        if exit_:
+            et, el = exit_
+            tbox(f, "other", 748, y, 236, et, el + [""] * (len(lines) - len(el)), dashed=True)
+            # Below a single chip the arrow runs along the step's foot; past a stack of chips
+            # it runs through the 6px gap under the first one.
+            ey = y + h - 10 if len(uses) < 2 else y + 27
+            f.ar([(376, ey), (746, ey)])
+    return f, rows, bottom

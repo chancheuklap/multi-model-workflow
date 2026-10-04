@@ -1,39 +1,5 @@
 """Figures of lesson 0011: Run a night's eleven steps; how one finding is routed; the authority order for a contract child."""
-from kit import Fig, txt as _t, tbox as _box
-
-
-def _flow(fig_id, heading, steps, aria, exit_head):
-    """One session's steps down the left, what each names in the middle, where it stops on the right."""
-    f = Fig(fig_id, 1000)
-    _t(f, 10, 20, heading, "h")
-    y = 66
-    rows = []
-    for title, lines, uses, exit_, gap_before in steps:
-        y += gap_before
-        h = 30 + len(lines) * 17
-        rows.append((y, h, title, lines, uses, exit_))
-        y += max(h, len(uses) * 30) + 18
-    bottom = y + 4
-    f.zone(4, 34, 384, bottom - 34, "Run a night 的步骤")
-    f.zone(394, 34, 336, bottom - 34, "用到的")
-    f.zone(736, 34, 260, bottom - 34, exit_head)
-    for y, h, title, lines, uses, exit_ in rows:
-        _box(f, "playbook", 16, y, 360, title, lines)
-        uy = y
-        for kind, u in uses:
-            f.e(f'<g class="k-{kind}"><rect class="box" x="406" y="{uy}" width="312" height="24" rx="4"/></g>', False)
-            _t(f, 416, uy + 16, u, room=296)
-            uy += 30
-        if uses:
-            f.ar([(376, y + 14), (404, y + 14)])
-        if exit_:
-            et, el = exit_
-            _box(f, "other", 748, y, 236, et, el + [""] * (len(lines) - len(el)), dashed=True)
-            # Below a single chip the arrow runs along the step's foot; past a stack of chips
-            # it runs through the 6px gap under the first one.
-            ey = y + h - 10 if len(uses) < 2 else y + 27
-            f.ar([(376, ey), (746, ey)])
-    return f, rows, bottom
+from kit import Fig, flow, txt as _t, tbox as _box
 
 
 def night():
@@ -64,8 +30,8 @@ def night():
         ("11 暂停这一夜（从第 1、5 步来）", ["毛病在流水线上时；工作区、分支、", "已推的提交都留着"],
          [("script", "dispatch.sh suspend")], ("交回你", ["stderr 留下的每一行"]), 26),
     ]
-    f, rows, bottom = _flow("m111", "Run a night：一个会话，从开夜守到 finish，中间每次叫醒都回到它", steps, ARIA_NIGHT,
-                            "停下：结束回合，或交回你")
+    f, rows, bottom = flow("m111", "Run a night：一个会话，从开夜守到 finish，中间每次叫醒都回到它", steps,
+                           "Run a night 的步骤", "停下：结束回合，或交回你")
     # Phase labels in the gaps before step 6 and step 11.
     y6 = rows[5][0]
     y11 = rows[10][0]
