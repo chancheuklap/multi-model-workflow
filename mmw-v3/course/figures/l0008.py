@@ -1,153 +1,177 @@
-"""Figures of lesson 0008: the role table and what checks it, and one batch of briefs from start to close."""
-import html
-from kit import Fig, tw
-
-SIZES = {"s": 11.5, "m": 12.0, "h": 14.0}
+"""Figures of lesson 0008: Run a night's eleven steps; how one finding is routed; the authority order for a
+contract child; Revise a spec."""
+from kit import Fig, flow, txt as _t, tbox as _box
 
 
-def _fits(text, cls, room):
-    """Refuse a line wider than the room it is drawn in; monospace fallbacks run wider."""
-    need = tw(text, SIZES[cls], cls == "m") * (1.12 if cls == "m" else 1.0)
-    if need > room:
-        raise ValueError(f"{text!r} needs {need:.0f}px and has {room}px")
-
-
-def _t(f, x, y, t, cls="s", anchor="start", room=None):
-    if room is not None:
-        _fits(t, cls, room)
-    a = f' text-anchor="{anchor}"' if anchor != "start" else ""
-    f.e(f'<text x="{x}" y="{y:.1f}" class="{cls}"{a}>{html.escape(t)}</text>')
-
-
-def _box(f, kind, x, y, w, title, lines, mono_title=True, dashed=False):
-    """A box with a title and lines below it; returns its height."""
-    h = 30 + len(lines) * 17
-    dash = ' style="stroke-dasharray:6 3"' if dashed else ""
-    f.e(f'<g class="k-{kind}"><rect class="box" x="{x}" y="{y}" width="{w}" height="{h}" rx="4"{dash}/></g>', False)
-    _t(f, x + 12, y + 20, title, "m" if mono_title else "h", room=w - 20)
-    for i, line in enumerate(lines):
-        _t(f, x + 12, y + 39 + i * 17, line, room=w - 20)
-    return h
-
-
-def table():
-    f = Fig("m81", 1000)
-    _t(f, 10, 20, "一张角色表，两种角色，一条检查管住两头", "h")
-
-    # the table itself
-    th = _box(f, "config", 330, 40, 340, "dispatch/roles.json", [
-        "session，command start：",
-        "  junior-worker、senior-worker、reviewer",
-        "session，command brief：",
-        "  advisor、researcher、explainer、synthesizer",
-        "subagent：",
-        "  code-review axis、grilling fact-finder",
-        "每行写：做什么、交回什么、谁用它",
-    ])
-
-    # adding a session role
-    f.zone(4, 34, 314, 300, "加一个独立会话角色：三处")
-    y = 66
-    for title, lines in (
-        ("roles.json 一行", ["kind session，command brief，", "lead 或 brief 模板，sent_by"]),
-        ("hosts.json 的 defaults 一行", ["新机器上它用的宿主、模型、effort"]),
-        ("它开工读的文字", ["lead 文件，或调用方填的模板"]),
-    ):
-        y += _box(f, "config" if "json" in title else "reference", 16, y, 290, title, lines,
-                  mono_title=False) + 10
-    _t(f, 16, y + 14, "自动跟上的：", "h")
-    _t(f, 16, y + 34, "models.py 从表里读角色名，install 给缺的", room=296)
-    _t(f, 16, y + 51, "角色补上默认行；dispatch.sh brief 读 lead", room=296)
-    f.ar([(306, 82), (326, 82)])
-
-    # adding a subagent
-    f.zone(682, 34, 314, 300, "加一个子代理角色：两处")
-    y = 66
-    y += _box(f, "config", 694, y, 290, "roles.json 一行", ["kind subagent，sent_by，", "prompt：提示词文件"], mono_title=False) + 10
-    y += _box(f, "reference", 694, y, 290, "提示词文件", ["放在派它的技能的 references/"], mono_title=False) + 10
-    _t(f, 694, y + 14, "子代理跟会话同一个模型。", room=290)
-    _t(f, 694, y + 31, "要换模型的，做成独立会话。", room=290)
-    f.ar([(690, 82), (674, 82)])
-
-    # the check
-    cy = 350
-    checks = [
-        "1  每个独立会话角色在 hosts.json 有默认行；defaults 里没有表外的角色",
-        "2  表里点名的 lead、brief 模板、prompt 文件都在；lead 技能在",
-        "3  sent_by 的技能在，且真的用它：写了 dispatch.sh brief <角色>，或点名了 prompt 文件",
-        "4  任何 SKILL.md 和 playbook 写的 dispatch.sh brief <角色>，表里都是 brief 角色",
-        "5  派子代理的 SKILL.md（send、spawn、dispatch 后接 subagent 或 sub-agent）是某个子代理行的 sent_by",
+def night():
+    steps = [
+        ("1 找到你在哪一步", ["读 status 和 spec 自己的事件，走第一行", "成立的那一步；暂停过的一夜，你说修好", "了就回第 2 步；没有一行成立就结束回合"],
+         [("script", "dispatch.sh status"), ("principle", "principle-progress-is-what-the-record-says")], None, 0),
+        ("2 检查、开夜、检查整批票", ["check 修到 0；open 让这个会话成为", "orchestrator；第一次 advance 之前", "lint 整批票"],
+         [("script", "dispatch.sh check、open"), ("script", "verify-ticket.py <spec> --lint"),
+          ("reference", "verify-ticket 的 linting.md")], None, 0),
+        ("3 advance", ["合进通过的票，给前沿上的票开 worker"],
+         [("script", "dispatch.sh advance")], ("结束回合", ["等叫醒"]), 0),
+        ("4 让每个 worker 守在自己的票上", ["你改它依据的东西，用 resume 告诉它，", "不碰它的工作区和分支"],
+         [("script", "dispatch.sh resume")], None, 0),
+        ("5 每次被叫醒", ["On waking，status，按表处理每一行，", "然后 advance 一次"],
+         [("skill", "dispatch 的 On waking"), ("other", "Settling a contract child"),
+          ("script", "dispatch.sh retract")], ("结束回合", ["前沿空、没有活着的 agent", "时转第 6 步"]), 0),
+        ("6 处理每条还开着的 finding", ["findings 一行一条，第一列是票号；先查", "Step 0，再按四步分流；自己修的守三条", "提交规矩，推之前跑仓库检查"],
+         [("script", "dispatch.sh findings、route"), ("other", "Routing a finding"),
+          ("reference", "verify-ticket 的 ticket-format.md")], ("写了票", ["advance 后结束回合，", "前沿再空时回到这一步"]), 26),
+        ("7 关掉这份 spec 的 Memory 记录", ["每条判 retain、deprecate、supersede", "或 propose，都带理由和证据"],
+         [("script", "dispatch.sh memory-list")], None, 0),
+        ("8 收夜", ["同一个克隆里 reverify、再 summary；", "summary 拒绝时照它说的回第 5、6、7 步", "或重跑 reverify"],
+         [("script", "dispatch.sh reverify、summary")], ("还有票是红的", ["告诉你哪张、为什么，", "停下"]), 0),
+        ("9 跑 retro", ["只认证据；贴 NIGHT RETRO，", "记下 spec.retroed"],
+         [("skill", "retro")], ("交回你", ["两份报告在 spec 上，", "等你验收"]), 0),
+        ("10 你验收之后 finish", ["合进项目分支；合进默认分支是你的", "发布决定"],
+         [("script", "dispatch.sh finish")], ("还有票开着", ["这些票归你处理，", "处理完再 finish"]), 0),
+        ("11 暂停这一夜（从第 1、5 步来）", ["毛病在流水线上时；工作区、分支、", "已推的提交都留着"],
+         [("script", "dispatch.sh suspend")], ("交回你", ["stderr 留下的每一行"]), 26),
     ]
-    f.zone(4, cy, 992, 34 + len(checks) * 22 + 8, "check-interfaces.py 第 6 条，每次跑都查")
-    for i, line in enumerate(checks):
-        _t(f, 16, cy + 46 + i * 22, line, room=970)
-    f.ar([(500, 40 + th), (500, cy)])
-    H = cy + 34 + len(checks) * 22 + 16
-    return f.svg(H, "一张角色表 dispatch/roles.json，两种角色。独立会话角色里，junior-worker、senior-worker、reviewer 由 dispatch.sh start 开，advisor、researcher、explainer、synthesizer 由 dispatch.sh brief 开；子代理角色有 code-review axis 和 grilling fact-finder。加一个独立会话角色要改三处：roles.json 一行，hosts.json 的 defaults 一行，它开工读的文字。models.py 从表里读角色名，install 给缺的角色补默认行，dispatch.sh brief 从表里读开工的文字。加一个子代理角色要改两处：roles.json 一行，提示词文件放进派它的技能的 references。check-interfaces.py 第 6 条每次都查五件事：会话角色都有默认行；表里点名的文件都在；sent_by 的技能真的用它；技能写的 dispatch.sh brief 角色都在表里；派子代理的技能都在表里。")
+    f, rows, bottom = flow("m81", "Run a night：一个会话，从开夜守到 finish，中间每次叫醒都回到它", steps,
+                           "Run a night 的步骤", "停下：结束回合，或交回你")
+    # Phase labels in the gaps before step 6 and step 11.
+    y6 = rows[5][0]
+    y11 = rows[10][0]
+    _t(f, 16, y6 - 10, "收尾：前沿空了，没有活着的 agent", "s", room=360)
+    _t(f, 16, y11 - 10, "不在顺序里：流水线本身坏了", "s", room=360)
+    # The loop from step 5 back to step 3.
+    y3, h3 = rows[2][0], rows[2][1]
+    y5, h5 = rows[4][0], rows[4][1]
+    f.ar([(16, y5 + h5 / 2), (8, y5 + h5 / 2), (8, y3 + h3 / 2), (14, y3 + h3 / 2)])
+    return f.svg(bottom + 8, ARIA_NIGHT)
 
 
-LANES = [("上级会话", "playbook"), ("dispatch.sh", "script"), ("briefs/<批>/", "config"),
-         ("中继 relay.py", "script"), ("子会话", "agent")]
-LANE_W = 196
-LANE_X = [4 + i * (LANE_W + 3) for i in range(5)]
-LANE_H = 690
+ARIA_NIGHT = ("Run a night 的十一步，左列是步骤，中列是每一步用到的脚本、技能、原则和参考，右列是会话停下的地方。"
+              "1 找到你在哪一步：读 dispatch.sh status 和 spec 自己的事件，走第一行成立的那一步，用 principle-progress-is-what-the-record-says；暂停过的一夜，你说修好了就回第 2 步重新开夜；开夜后会话换过、前沿上还有票而没有活着的 agent，就回第 3 步；没有一行成立就结束回合，等叫醒或等你开口。"
+              "2 检查、开夜、检查整批票：check 修到 0，open 让这个会话成为 orchestrator，第一次 advance 之前用 verify-ticket.py lint 整批票，照 linting.md。"
+              "3 advance：合进通过的票，给前沿上的票开 worker，然后结束回合等叫醒。"
+              "4 让每个 worker 守在自己的票上：你改它依据的东西，用 resume 告诉它，不碰它的工作区和分支。"
+              "5 每次被叫醒：做 dispatch 的 On waking，读 status，按表处理每一行，contract 子票照 Settling a contract child，丢了会话的 worker 用 retract，然后 advance 一次；前沿空、没有活着的 agent 时转第 6 步，否则结束回合；第 5 步回到第 3 步是一个循环。"
+              "收尾从第 6 步开始。6 处理每条还开着的 finding：dispatch.sh findings 一行一条，第一列是 route 要的票号；先查 Step 0，再按四步分流，自己修的守三条提交规矩，推之前跑仓库检查，写成票的照 ticket-format.md，都用 route 关掉；写了票就 advance 后结束回合，前沿再空时回到这一步。"
+              "7 关掉这份 spec 的 Memory 记录：dispatch.sh memory-list，每条判 retain、deprecate、supersede 或 propose，都带理由和证据。"
+              "8 收夜：在同一个克隆里 reverify 每张落地的票，再 summary 贴 NIGHT SUMMARY 并关掉这一夜的 watch；summary 拒绝时照它说的回到第 5、6、7 步，或重跑 reverify；还有票是红的就告诉你哪张、为什么，停下。"
+              "9 跑 retro 技能：只认证据，贴 NIGHT RETRO，记下 spec.retroed；交回你，等你验收。"
+              "10 你验收之后跑 dispatch.sh finish，合进项目分支；还有票开着时 finish 拒绝，这些票归你处理，处理完再 finish；合进默认分支是你的发布决定。"
+              "11 不在顺序里：流水线本身坏了时，从第 1 或第 5 步来，dispatch.sh suspend 暂停这一夜，工作区、分支、已推的提交都留着，stderr 留下的每一行交回你。")
 
 
-def _step(f, lane, y, title, lines, kind=None, mono=True):
-    x = LANE_X[lane] + 6
-    return _box(f, kind or LANES[lane][1], x, y, LANE_W - 12, title, lines, mono_title=mono)
-
-
-def life():
+def route():
     f = Fig("m82", 1000)
-    _t(f, 10, 20, "一批 brief 从开到关：两个 researcher", "h")
-    top = 34
-    for (name, kind), x in zip(LANES, LANE_X):
-        f.e(f'<rect class="zone" x="{x}" y="{top}" width="{LANE_W}" height="{LANE_H}" rx="6"/>', False)
-        f.e(f'<g class="k-{kind}"><text x="{x + 12}" y="{top + 20}" class="h">{html.escape(name)}</text></g>', False)
-
-    y = top + 34
-    _step(f, 0, y, "brief researcher", ["a.md b.md"])
-    _step(f, 1, y, "认出上级", ["own_session：读不出", "会话号就拒绝，", "什么也不开"], mono=False)
-    _step(f, 2, y, "batch.json", ["角色、份数、", "上级的 runner 和会话号"])
-    _step(f, 3, y, "看守 briefs:<批>", ["上级就是这个看守", "的 orchestrator"])
-    f.ar([(LANE_X[1] - 3, y + 30), (LANE_X[1] + 4, y + 30)])
-    f.ar([(LANE_X[2] - 3, y + 30), (LANE_X[2] + 4, y + 30)])
-    f.ar([(LANE_X[3] - 3, y + 30), (LANE_X[3] + 4, y + 30)])
-
-    y += 104
-    _step(f, 1, y, "每份 brief 开一个", ["开工的话三段：", "lead（表里写的）", "brief 文件全文", "交回说明"], mono=False)
-    _step(f, 2, y, "1/started.json", ["子会话的 runner、", "会话号、模型"])
-    _step(f, 4, y, "researcher × 2", ["各在自己的宿主上", "读、查、写答案"], mono=False)
-    f.ar([(LANE_X[2] - 3, y + 30), (LANE_X[2] + 4, y + 30)])
-    f.ar([(LANE_X[1] + LANE_W - 6, y + 90), (LANE_X[4] + 4, y + 90)])
-    _t(f, LANE_X[0] + 10, y + 30, "然后结束回合", "h", room=180)
-    _t(f, LANE_X[0] + 10, y + 50, "不轮询，不挂着等", room=180)
-    _t(f, LANE_X[1] + 10, y + 120, "开第二份失败：已开的", room=180)
-    _t(f, LANE_X[1] + 10, y + 137, "停掉，整批删掉，", room=180)
-    _t(f, LANE_X[1] + 10, y + 154, "看守关掉", room=180)
-
-    y += 120 + 58
-    _step(f, 4, y, "report <批>/1 x.md", ["只认 started.json", "记的那个会话"])
-    _step(f, 2, y, "1/result.md", ["复制过来的答案，", "然后写 reported.json"])
-    f.ar([(LANE_X[4] - 3, y + 30), (LANE_X[2] + LANE_W - 2, y + 30)])
-
-    y += 104
-    _step(f, 3, y, "每 30 秒看一次", ["两份都 reported", "或 lost：排一行", "brief <批> done，", "写 woken.json"], mono=False)
-    _step(f, 0, y, "醒来", ["runner 的 send", "把这一行送进来"], mono=False)
-    f.ar([(LANE_X[3] - 3, y + 30), (LANE_X[0] + LANE_W - 2, y + 30)])
-
-    y += 120
-    _step(f, 0, y, "brief show <批>", ["每份的状态和", "答案文件路径"])
-    _step(f, 1, y, "ack brief <批>", ["中继不再送"])
-    f.ar([(LANE_X[1] - 3, y + 30), (LANE_X[1] + 4, y + 30)])
-    y += 82
-    _step(f, 0, y, "brief close <批>", ["用完再关"])
-    _step(f, 1, y, "停掉子会话", ["关掉看守"], mono=False)
-    _step(f, 2, y, "整个目录删掉", ["什么也不留"], mono=False)
-    f.ar([(LANE_X[1] - 3, y + 30), (LANE_X[1] + 4, y + 30)])
-    f.ar([(LANE_X[2] - 3, y + 30), (LANE_X[2] + 4, y + 30)])
-    return f.svg(top + LANE_H + 8, "一批 brief 从开到关，以两个 researcher 为例。上级会话跑 dispatch.sh brief researcher a.md b.md。dispatch.sh 先认出上级的会话号，读不出就拒绝，什么也不开；然后在本机状态目录建 briefs/批/batch.json，记下角色、份数和上级；中继开一个看守 briefs:批，上级是它的 orchestrator。dispatch.sh 每份 brief 开一个会话，开工的话三段：表里写的 lead、brief 文件全文、交回说明，并写 1/started.json；上级随后结束回合，不轮询。开第二份失败时，已开的会话停掉，整批删掉，看守关掉。子会话做完跑 dispatch.sh report 批/1 x.md，只认 started.json 记的那个会话，答案复制成 result.md，再写 reported.json。中继每 30 秒看一次，两份都 reported 或 lost 时排一行 brief 批 done，写 woken.json，经 runner 的 send 叫醒上级。上级跑 brief show 看每份的状态和答案文件，ack brief 批，用完后 brief close 批：停掉子会话，关掉看守，删掉整个目录。")
+    _t(f, 10, 20, "一条 finding 怎样分流：自上而下，第一个答「是」的就是它的去处", "h")
+    qx, qw = 16, 430
+    ox, ow = 560, 424
+    rows = [
+        ("Step 0　它说的情况，在当前 HEAD 上成立过吗？", ["先于分类；只看 finding 正文写的条件"],
+         "从没成立过：route stale invalid", ["成立过、已被别处修好：", "route stale fixed-elsewhere"], "否则", "other"),
+        ("1　落在另一张还开着的票的 ## Owns 里？", ["不看大小，看并发：你一修，那张票", "合进来时就冲突"],
+         "写成票，Blocked by 那张", ["principle-separate-before-serializing-", "shared-state"], "是", "principle"),
+        ("2　是判据本身的缺口吗？", ["CHECK: 绿着，它说的东西却坏着", "或根本没走到"],
+         "写成票，senior-worker", ["要一个能变红的反向对照", "principle-a-check-must-be-able-to-fail"], "是", "principle"),
+        ("3　修它要动两个以上、设计上互相牵连的文件？", ["改一个的方式决定另一个怎么改；", "同一个名字在几处文字里出现不算"],
+         "写成票，senior-worker", ["跨文件的形状要有人看"], "是", "other"),
+        ("4　都不是", ["默认是自己修，不是开票"],
+         "自己修，然后 route fixed", ["一个原因一个提交；只碰原因要求的", "和证明它的测试；提交信息引用测试", "输出的那一行；超出三条就是一张票；", "推之前跑仓库检查，在推出的那个检出", "目录里跑 route fixed"], "是", "other"),
+    ]
+    y = 56
+    prev_bottom = None
+    ticket_rows = []
+    for i, (q, ql, ot, ol, yes, okind) in enumerate(rows):
+        hq = _box(f, "playbook", qx, y, qw, q, ql)
+        ho = _box(f, okind, ox, y, ow, ot, ol)
+        f.ar([(qx + qw, y + 20), (ox - 2, y + 20)])
+        label = "没成立，或已修好" if i == 0 else ("" if i == len(rows) - 1 else "是")
+        if label:
+            _t(f, (qx + qw + ox) / 2, y + 14, label, "s", anchor="middle")
+        if prev_bottom is not None:
+            f.ar([(qx + 60, prev_bottom), (qx + 60, y - 2)])
+            _t(f, qx + 70, prev_bottom + 15, "仍成立" if i == 1 else "否", "s")
+        if ot.startswith("写成票"):
+            ticket_rows.append(y + 20)
+        prev_bottom = y + hq
+        y += max(hq, ho) + 26
+    # Every ticket the rows above write is written and linted the same way.
+    hb = _box(f, "reference", ox, y, ow, "写成的票", ["照 verify-ticket 的 ticket-format.md 写，", "每条判据由一条命令判定；下次 advance", "之前 lint；route became-ticket"])
+    rail = ox + ow + 9
+    for ty in ticket_rows:
+        f.ar([(ox + ow, ty), (rail, ty)], head=False)
+    f.ar([(rail, ticket_rows[0]), (rail, y + 20), (ox + ow + 2, y + 20)])
+    y += hb + 12
+    return f.svg(y, ARIA_ROUTE)
 
 
-FIGS = {"l8-table": table, "l8-life": life}
+ARIA_ROUTE = ("一条 finding 的分流，自上而下，第一个答是的就是它的去处。"
+              "Step 0 先于分类：它正文说的情况在当前 HEAD 上从没成立过，route stale invalid；成立过但已被这一批后面的票或收尾的修复解决了，route stale fixed-elsewhere。"
+              "1 落在另一张还开着的票的 ## Owns 里：写成票，Blocked by 那张，因为你一修，那张票合进来时就冲突，用 principle-separate-before-serializing-shared-state。"
+              "2 是判据本身的缺口，CHECK 绿着而它说的东西坏着或根本没走到：写成票，senior-worker，要一个能变红的反向对照，用 principle-a-check-must-be-able-to-fail。"
+              "3 修它要动两个以上、设计上互相牵连的文件：写成票，senior-worker；同一个名字在几处文字里出现不算牵连。"
+              "4 都不是：自己修，守三条提交规矩，一个原因一个提交，只碰原因要求的和证明它的测试，提交信息引用测试输出的那一行，超出三条就是一张票；推之前跑仓库检查；然后在推出修复的那个检出目录里 route fixed，它把那里的 HEAD 记作这次修复。"
+              "写成的票照 verify-ticket 的 ticket-format.md 写，每条判据由一条命令判定，下次 advance 之前 lint，route became-ticket。")
+
+
+def authority():
+    f = Fig("m83", 1000)
+    _t(f, 10, 20, "contract 子票：照这个顺序找一条写下来的权威", "h")
+    ladder = [("决定票和 ADR", "config"), ("spec", "config"), ("设计包，或 screen contract（各管自己那一块）", "config"),
+              ("领域文档（CONTEXT.md）", "config"), ("票的正文", "config")]
+    x, w = 16, 400
+    y = 56
+    tops = []
+    for i, (name, kind) in enumerate(ladder):
+        h = _box(f, kind, x, y, w, f"{i + 1}　{name}", [])
+        tops.append((y, h))
+        if i:
+            f.ar([(x + w / 2, y - 14), (x + w / 2, y - 2)])
+        y += h + 16
+    _t(f, x + w + 8, tops[0][0] + 20, "高", "s")
+    _t(f, x + w + 8, tops[-1][0] + 20, "低", "s")
+    ladder_bottom = y - 16
+    ox, ow = 470, 514
+    y1 = 56
+    h1 = _box(f, "playbook", ox, y1, ow, "能引用一条：自己改", [
+        "spec 的一节，跑 Revise a spec；票的正文和判据，", "直接在 tracker 上改；仓库里的 baseline，一个推到", "origin/<base branch> 的提交",
+        "同一句错话派生出的每张还没落地的票都改；子票上", "评论写明依据、改了什么、提交、查过哪些票；", "route fixed；resume worker，带上改动和提交"])
+    y2 = y1 + h1 + 20
+    h2 = _box(f, "other", ox, y2, ow, "没有一条能定，或会推翻你定过的事", [
+        "还没开工的、同一个决定派生的票移到 needs-triage；", "子票上写选项、建议和移走的票号，留给你；正在做的", "票停在这个问题上，不改它要交付的东西",
+        "点名 Claude Design 页面的子票也走这里：设计包只能", "从 Claude Design 重新拉，这一夜做不到"], dashed=True)
+    mid = ladder_bottom / 2 + 28
+    f.ar([(x + w + 26, mid), (ox - 2, y1 + h1 / 2)])
+    f.ar([(x + w + 26, mid), (ox - 2, y2 + h2 / 2)])
+    bottom = max(ladder_bottom, y2 + h2) + 10
+    return f.svg(bottom, ARIA_AUTH)
+
+
+ARIA_AUTH = ("contract 子票的权威顺序，从高到低：1 决定票和 ADR；2 spec；3 设计包或 screen contract，各管自己那一块；4 领域文档 CONTEXT.md；5 票的正文。"
+             "能引用其中一条写下来的权威时自己改：spec 的一节跑 Revise a spec，票的正文和判据直接在 tracker 上改，仓库里的 baseline 用一个推到 origin/<base branch> 的提交；同一句错话派生出的每张还没落地的票都改；子票上评论写明依据、改了什么、提交、查过哪些票；route fixed；resume worker，带上改动和提交。"
+             "没有一条能定，或改动会推翻你定过的事、扩大 spec 时，把还没开工的、同一个决定派生的票移到 needs-triage，子票上写选项、建议和移走的票号，留给你；正在做的票停在这个问题上，不改它要交付的东西。点名 Claude Design 页面的子票也走这条：设计包只能从 Claude Design 重新拉，这一夜做不到。")
+
+
+def revise():
+    steps = [
+        ("1 读 spec 和从它切出的票", ["读全 issue 正文和评论，列出子票；", "说出要改的那一节和从它切出的每张票"],
+         [("other", "gh api …/issues/<spec>/sub_issues")], None, 0),
+        ("2 改写那一节", ["改成像一开始就这样写的，", "写回 issue 正文"],
+         [("principle", "principle-files-describe-the-present"), ("other", "gh issue edit --body-file")], None, 0),
+        ("3 说改了什么、为什么", ["spec 上贴一条评论：改了什么、为什么、", "从哪张 issue、子票或决定来"], [], None, 0),
+        ("4 让票对齐", ["没落地的票照新文字改，再 lint；前提", "没了的判据拿掉，编号不复用；落地的", "票跟一张更正票"],
+         [("script", "verify-ticket.py <n> --lint"), ("reference", "verify-ticket 的 linting.md"),
+          ("reference", "verify-ticket 的 ticket-format.md")],
+         ("交回", ["改了哪一节、为什么，", "每张票怎样处理"]), 0),
+    ]
+    f, rows, bottom = flow("m84", "Revise a spec：原地改一份已发布的 spec，理由留在 spec 上", steps,
+                           "Revise a spec 的步骤", "停下")
+    return f.svg(bottom + 8, ARIA_REVISE)
+
+
+ARIA_REVISE = ("Revise a spec 的四步，左列步骤，中列用到的组件，右列停下的地方。"
+               "1 读 spec 和从它切出的票：读全 issue 正文和评论，用 gh api 列出子票，说出要改的那一节和从它切出的每张票。"
+               "2 改写那一节：改成像一开始就这样写的，照 principle-files-describe-the-present，用 gh issue edit --body-file 写回。"
+               "3 在 spec 上贴一条评论，说改了什么、为什么、从哪张 issue、子票或决定来。"
+               "4 让票对齐：没落地的票照新文字改，再用 verify-ticket.py --lint 查，照 linting.md 读；前提没了的判据拿掉，编号不复用；落地的票跟一张照 ticket-format.md 写的更正票。然后交回：改了哪一节、为什么，每张票怎样处理。")
+
+
+FIGS = {"l8-night": night, "l8-route": route, "l8-authority": authority, "l8-revise": revise}

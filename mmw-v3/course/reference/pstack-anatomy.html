@@ -47,6 +47,10 @@ code,.mono{font-family:var(--f-mono);font-size:.84em;font-variant-ligatures:none
 p code,li code,td code{background:var(--sunk);padding:1px 4px;border-radius:3px}
 /* A quoted block of text an agent receives: wrapped, so it never widens the page. */
 pre{max-width:68ch;margin:14px 0;padding:12px 14px;background:var(--sunk);border:1px solid var(--rule);border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+/* A repository file shown as it reads now (build.py's SRC include), folded under its path. */
+details.file{margin:14px 0;max-width:80ch}
+details.file>summary{cursor:pointer;font-family:var(--f-head);font-size:14px;color:var(--link)}
+pre.file{max-width:100%;max-height:32em;overflow:auto;font-size:12.5px;margin-top:8px}
 /* A component mention: tinted with its kind's colour, the same colour as in the figures. */
 code.c,span.c{background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);border-radius:3px;padding:1px 5px;color:var(--ink);-webkit-box-decoration-break:clone;box-decoration-break:clone}
 span.c{font-family:var(--f-head);font-size:.94em;white-space:nowrap}
