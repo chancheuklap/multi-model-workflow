@@ -8,7 +8,7 @@ Only the mode skill, `mmw-mode`, sets `disable-model-invocation: true`. The pers
 
 Every other skill is **model-invoked**: the mode or another skill reaches it by name, and the person can still type it, since model-invocation always _includes_ user reach. Its `description` decides whether the agent also starts it on its own. A skill the agent should start on its own carries its trigger branches (the pointer-writing rules in `SKILL.md` apply in full). The description is the skill's top-level context pointer, loaded at all times: permanent context load in exchange for discoverability. A model-invoked skill whose content is all reference is the one home for reference several skills need: they name it, and it holds the reference once.
 
-A skill the agent should not start on its own keeps a description of what it does, with no trigger phrases, and ends it with one of two sentences: `Run only when the user asks for it by name; do not invoke it on your own.` when the person decides when it starts, or `Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.` when the mode or another skill names it at the moment it applies. A skill is in this group when its upstream kept it user-invoked for a reason that still holds.
+A skill the agent should not start on its own has one sentence as its whole description, the same for every such skill: `Run only when the user, mmw-mode or another skill names it; do not invoke it on your own.` Whoever names it already knows what it does. A skill is in this group when its upstream kept it user-invoked for a reason that still holds.
 
 ## Splitting by invocation
 

@@ -21,8 +21,16 @@ Shape heuristics follow the shipped templates:
   SKILL.md prescribes for arrow labels and zone eyebrows. The width cap covers
   the long mono plates shipped in example-sequence-oauth.html (128px) and the
   wider plates CJK labels need at the same glyph count.
+* A plate up to 16 tall is also a label mask when the first `<text>` after it
+  carries Han, Kana or Hangul: style-guide.md grows a CJK arrow label, eyebrow
+  or legend plate to 16px. A 16-tall rect followed by Latin text stays a
+  container header bar or row stripe and is never reported.
 * A mask fully contained in a node is a badge chip (`EXT`, `EDGE`, `ORIG`) and
   is legal.
+
+Each top-level `<svg>` is its own coordinate space, so a page carrying several
+diagrams (a report with a before and an after per card) compares a mask only
+with the nodes of its own `<svg>`.
 
 Usage:
     python3 scripts/verify-geometry.py --all
@@ -54,15 +62,23 @@ MASK_MIN_W = 20.0
 MASK_MAX_W = 200.0
 MASK_MIN_H = 8.0
 MASK_MAX_H = 14.0
+CJK_MASK_MAX_H = 16.0
 EPSILON = 0.5
+
+SVG_OPEN_RE = re.compile(r"<svg\b", re.IGNORECASE)
+SVG_CLOSE_RE = re.compile(r"</svg\s*>", re.IGNORECASE)
+NEXT_TEXT_RE = re.compile(r"<text\b[^>]*>(?P<body>.*?)</text>", re.IGNORECASE | re.DOTALL)
+NEXT_SHAPE_RE = re.compile(r"<rect\b|</svg\s*>", re.IGNORECASE)
+CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]")
 
 
 class Rect:
-    __slots__ = ("x", "y", "w", "h", "line", "offset")
+    __slots__ = ("x", "y", "w", "h", "line", "offset", "svg", "cjk_label")
 
-    def __init__(self, x, y, w, h, line, offset) -> None:
+    def __init__(self, x, y, w, h, line, offset, svg, cjk_label) -> None:
         self.x, self.y, self.w, self.h = x, y, w, h
-        self.line, self.offset = line, offset
+        self.line, self.offset, self.svg = line, offset, svg
+        self.cjk_label = cjk_label
 
     @property
     def right(self) -> float:
@@ -76,7 +92,46 @@ class Rect:
         return f"({self.x:g},{self.y:g} {self.w:g}x{self.h:g})"
 
 
+def svg_spans(source: str) -> list[tuple[int, int]]:
+    """Offsets of each top-level `<svg>` element, nested ones folded in."""
+    events = [(m.start(), 1) for m in SVG_OPEN_RE.finditer(source)]
+    events += [(m.end(), -1) for m in SVG_CLOSE_RE.finditer(source)]
+    spans: list[tuple[int, int]] = []
+    depth, start = 0, 0
+    for offset, step in sorted(events):
+        if step == 1:
+            if depth == 0:
+                start = offset
+            depth += 1
+        elif depth:
+            depth -= 1
+            if depth == 0:
+                spans.append((start, offset))
+    return spans
+
+
+def svg_index(spans: list[tuple[int, int]], offset: int) -> int:
+    for index, (start, end) in enumerate(spans):
+        if start <= offset < end:
+            return index
+    return -1
+
+
+def labels_cjk(source: str, end: int) -> bool:
+    """Whether the first `<text>` after `end`, before the next rect, is CJK."""
+    stop = NEXT_SHAPE_RE.search(source, end)
+    text = NEXT_TEXT_RE.search(source, end, stop.start() if stop else len(source))
+    return bool(text and CJK_RE.search(re.sub(r"<[^>]+>", "", text.group("body"))))
+
+
+def is_mask(rect: Rect) -> bool:
+    if not MASK_MIN_W <= rect.w <= MASK_MAX_W or rect.h < MASK_MIN_H:
+        return False
+    return rect.h <= MASK_MAX_H or (rect.h <= CJK_MASK_MAX_H and rect.cjk_label)
+
+
 def parse_rects(source: str) -> list[Rect]:
+    spans = svg_spans(source)
     rects: list[Rect] = []
     for match in RECT_RE.finditer(source):
         rects.append(
@@ -87,6 +142,8 @@ def parse_rects(source: str) -> list[Rect]:
                 float(match.group("h")),
                 source.count("\n", 0, match.start()) + 1,
                 match.start(),
+                svg_index(spans, match.start()),
+                labels_cjk(source, match.end()),
             )
         )
     return rects
@@ -112,15 +169,13 @@ def check(path: Path) -> list[str]:
     source = path.read_text(encoding="utf-8")
     rects = parse_rects(source)
     nodes = [r for r in rects if r.w >= NODE_MIN_W and r.h >= NODE_MIN_H]
-    masks = [
-        r
-        for r in rects
-        if MASK_MIN_W <= r.w <= MASK_MAX_W and MASK_MIN_H <= r.h <= MASK_MAX_H
-    ]
+    masks = [r for r in rects if is_mask(r)]
 
     findings: list[str] = []
     for mask in masks:
         for node in nodes:
+            if node.svg != mask.svg:
+                continue  # another diagram on the same page, another coordinate space
             if node.offset <= mask.offset:
                 continue  # painted before the label; the label stays on top
             dx, dy = overlap(mask, node)

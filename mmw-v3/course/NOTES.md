@@ -8,14 +8,6 @@
 - 一次只讲一件事，讲完给自测。
 - 组件在任何地方出现都要按种类上色，正文、标题、对照栏都一样；每段引文前标出来源（哪个组件、哪一节）。`assets/tag.py` 在构建时自动给组件名上色；引文写成 `<q class="k-种类" data-src="来源">`。
 
-## 主人的设计决定
-- 2026-10-04：只有 mode 技能设 `disable-model-invocation: true`。其余技能都允许模型调用；不想让 agent 自主调用的，`description` 不写具体触发说法，必要时写明不要单独主动调用。因此不做「隐藏技能能否被读到」的宿主实测。
-- 2026-10-04：全局层（`~/.claude/CLAUDE.md`，由 `shared.md` 生成）保留，只放读者是谁、哪些决定只归主人。中文回复也不用长破折号，冒号不当句中连接。
-- 2026-10-04：合并沟通规则时，v2 和 pstack 的同类组件要逐对读原文比较再定去留，不能默认取 pstack 的。去留结果在第 4 课图 3。
-- 2026-10-04：子代理规则用 MMW 自己的一套，pstack 的 Subagents、brief 模板、guard-the-context-window 不照搬；第 5 课先列全 v2 的子代理规则，再逐条比较。
-- 2026-10-04：`teach` 这个名字归 v2 的课程技能；pstack 讲清一段代码的 `teach` 改名，新名字待定。
-- 2026-10-04：搬进 v3 的技能一律复制，不用软链接，再按 v3 的规定改（只有 mode 设 `disable-model-invocation`，不留 `agents/openai.yaml`，指向 v2 或 pstack 专有东西的地方改掉）。
-
 ## 工作笔记
 - 画图用 `assets/kit.py`（沿用前两次迁移课程的画图工具），图写在 `figures/*.py`，`python3 assets/build.py` 把样式、脚本和图填进每一页。
 - 原文对不上的地方记在参考页 `reference/pstack-anatomy.html` 末节。

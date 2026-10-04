@@ -1,5 +1,6 @@
 """Figures of lesson 0004: the moments when agents communicate, what pstack and MMW v2 each say about them, which of two like skills is kept, and the merged design drawn inside the skeleton of mmw-mode/SKILL.md."""
 import html
+import re
 from kit import Fig, tw
 
 
@@ -53,7 +54,7 @@ ROWS = [
      [("playbook", "Pause safely"), ("playbook", "Session pickup")],
      [("skill", "handoff")]),
     ("⑨ 写进文件的文字",
-     [("skill", "technical-writing"), ("skill", "unslop"), ("mode", "Comments"), ("other", "create-skill（Cursor 内置）")],
+     [("skill", "technical-writing"), ("skill", "unslop"), ("mode", "Comments"), ("playbook", "Authoring a skill"), ("other", "create-skill（Cursor 内置）")],
      [("config", "shared.md 规则 7、8、10、13"), ("skill", "writing-for-agents")]),
     ("⑩ 请它重说",
      [("skill", "bro")],
@@ -99,20 +100,19 @@ def coverage():
 CHOICES = [
     ("⑩", [("skill", "bro")], [("skill", "wait-what")], "v2",
      "留 wait-what：同样换简单说法，还要先补背景、用 CONTEXT.md 的词，加 visual 能画一页图"),
-    ("⑨⑤", [("other", "create-skill（Cursor 内置）")], [("skill", "writing-for-agents")], "v2",
-     "留 writing-for-agents：pstack 写给 agent 的文字时靠 create-skill，这里没有它"),
+    ("⑨⑤", [("playbook", "Authoring a skill"), ("other", "create-skill（Cursor 内置）")],
+     [("skill", "writing-for-agents"), ("reference", "SKILL-SET-RULES.md"), ("reference", "REVIEWING-A-SKILL-SET.md")], "both",
+     "writing-for-agents 占 create-skill 的位置；两份规则书里写和审的步骤各成一份 playbook，共用的规则成为 mode 的 reference"),
     ("⑨", [("skill", "technical-writing")], [], "pstack",
      "留 technical-writing：v2 没有同类，用于写给人读的文档"),
     ("①⑨", [("skill", "unslop")], [("config", "shared.md 规则 7")], "pstack",
      "留 unslop：规则 7 是它 30 多条里的一条"),
-    ("⑧", [("playbook", "Pause safely"), ("playbook", "Session pickup")], [("skill", "handoff")], "both",
-     "三个都留：Pause safely 第 4 步写交接说明时照 handoff 写"),
-    ("⑪", [("playbook", "Prototype")], [("skill", "grilling"), ("skill", "to-questionnaire")], "both",
-     "都留：pstack 没有访谈技能；访谈中跑得出来的事实仍去 Prototype"),
+    ("⑧", [("playbook", "Pause safely")], [("skill", "handoff")], "both",
+     "两个都留：Pause safely 第 4 步写交接说明时照 handoff 写"),
+    ("⑪", [], [("skill", "grilling"), ("skill", "to-questionnaire")], "v2",
+     "留 v2 的：pstack 没有访谈技能"),
     ("⑫", [("skill", "teach（讲清一段代码）")], [("skill", "teach（课程）")], "both",
      "两个都留，做的事不同；teach 这个名字归 v2 的课程技能，pstack 那个改名"),
-    ("④", [("skill", "show-me-your-work")], [("script", "dispatch.sh summary"), ("skill", "retro")], "both",
-     "都留：一个是过程中的决定记录，一个是夜里结束时的总结和复盘"),
     ("⑤", [("playbook", "Orchestrate：The brief")], [("skill", "to-tickets 的票")], "open",
      "下一课定：夜里的任务说明是票；白天派子代理怎么写说明，和 MMW 自己的子代理规则一起比较"),
     ("⑥", [("playbook", "Orchestrate：REPORT")], [("skill", "implement 的收尾评论")], "open",
@@ -125,14 +125,14 @@ CHOICES = [
 
 
 def _wrap(text, width, size=11.5):
-    """Split a note into lines no wider than width, breaking between characters."""
+    """Split a note into lines no wider than width: between CJK characters or Latin words, never before a closing mark."""
     lines, cur = [], ""
-    for ch in text:
-        if tw(cur + ch, size) > width:
-            lines.append(cur)
-            cur = ch.lstrip()
+    for tok in re.findall(r"[A-Za-z0-9_.#/*:-]+|.", text):
+        if tw(cur + tok, size) > width and cur.strip() and tok not in "，。；：、）」":
+            lines.append(cur.rstrip())
+            cur = tok.lstrip()
         else:
-            cur += ch
+            cur += tok
     return lines + [cur] if cur else lines
 
 
@@ -154,13 +154,15 @@ def choices():
         f.e(f'<text x="10" y="{y + 22}" class="h">{n}</text>')
         for k, t, cx, row in a + b:
             f.chip(k, cx, y + 6 + row * 30, t, mono=False)
+        if not ps:
+            f.note(60, y + 22, "（没有同类）")
         if not v2:
             f.note(300, y + 22, "（没有同类）")
         f.chip(tint[who], 540, y + 6, word[who], mono=False)
         for i, line in enumerate(lines):
             f.note(540, y + 48 + i * 16, line)
         y += h
-    return f.svg(y + 6, "同类技能逐对比较后的去留：bro 与 wait-what 留 wait-what；create-skill 与 writing-for-agents 留 writing-for-agents；technical-writing 与 unslop 留 pstack 的；Pause safely、Session pickup 与 handoff 都留；访谈留 grilling 一组；两个 teach 都留；show-me-your-work 与 NIGHT SUMMARY 都留；任务说明和报告下一课和 MMW 自己的子代理规则一起比较；夜里没人可问用 v2 的机制；interrogate 与 advisor 待比较。")
+    return f.svg(y + 6, "同类组件逐对比较后的去留：bro 与 wait-what 留 wait-what；写给 agent 的文字照 pstack 的分法放 v2 的内容，writing-for-agents 占 create-skill 的位置，规则书拆成两份 playbook 和一份 mode 的 reference；technical-writing 与 unslop 留 pstack 的；Pause safely 与 handoff 都留；访谈留 grilling 一组；两个 teach 都留；任务说明和报告下一课和 MMW 自己的子代理规则一起比较；夜里没人可问用 v2 的机制；interrogate 与 advisor 待比较。")
 
 
 # ---- where every rule goes: each unit of shared.md, and each communication rule only pstack has ----
@@ -182,57 +184,37 @@ SHARED = [
      "并进 Frame impact 和 Terse is not an excuse；「警告、数字、前提最后才删」留"),
     ("规则 6：标准词汇，新术语第一次解释一句", [("mode", "## Writing the reply")], "pstack 没有，写成一行"),
     ("规则 7：不要修辞腔", [("skill", "unslop")], "unslop 规则 32 是同一条，全局层删掉"),
-    ("规则 8：引用要锚定，名字照抄原文", [("principle", "引用要锚定（暂名）")], "pstack 没有，成为原则，回复和文档都用"),
+    ("规则 8：引用要锚定，名字照抄原文", [("principle", "anchor-every-reference")], "pstack 没有，成为原则，回复和文档都用"),
     ("规则 9：什么时候用列表和表格", [("mode", "## Writing the reply")], "pstack 没有，写成一行"),
-    ("规则 10：先想清楚谁在哪里读", [("principle", "为读者所在的地方写（暂名）"), ("skill", "writing-for-agents")],
+    ("规则 10：先想清楚谁在哪里读", [("principle", "write-for-where-it-is-read"), ("skill", "writing-for-agents")],
      "成为原则；写给 agent 的那部分由 writing-for-agents 展开"),
     ("规则 11：失败了自己重做，只交给你只有你能做的", [("mode", "## Autonomy"), ("principle", "never-block-on-the-human")],
      "并进 Just do it"),
-    ("规则 12：读够了再下结论，改之前先读", [("principle", "读够了再下结论（暂名）")], "pstack 没有，成为原则"),
-    ("规则 13：文件只写现状，不写历史", [("principle", "文件只写现状（暂名）"), ("mode", "## Comments")],
+    ("规则 12：读够了再下结论，改之前先读", [("principle", "read-before-you-conclude")], "pstack 没有，成为原则"),
+    ("规则 13：文件只写现状，不写历史", [("principle", "files-describe-the-present"), ("mode", "## Comments")],
      "成为原则；代码注释那部分进 Comments"),
-    ("规则 14：先找现成的，再决定自己写", [("principle", "先找现成的（暂名）"), ("mode", "## Non-negotiables")],
+    ("规则 14：先找现成的，再决定自己写", [("principle", "start-from-what-exists"), ("mode", "## Non-negotiables")],
      "pstack 没有，成为原则；加一条触发：提出设计或写不小的代码之前"),
-    ("规则 15：不默认跑全量测试", [("principle", "只跑相关的测试（暂名）")], "pstack 没有，成为原则"),
+    ("规则 15：不默认跑全量测试", [("principle", "run-the-smallest-test-set")], "pstack 没有，成为原则"),
     ("结尾：这份文件起作用时是什么样", [("mode", "## Writing the reply")],
      "改成回复的完成判据：你读完不用问「所以呢」，要么决定，要么放下"),
     ("hosts/codex.md：别打断正在干活的子代理", [("other", "下一课")], "属于 MMW 自己的子代理规则，下一课一起搬"),
 ]
 
-PSTACK_ONLY = [
-    ("mode", "Writing the reply：起草时就写干净，一句一个意思", [("mode", "## Writing the reply")], "照搬"),
+PSTACK_MERGED = [
     ("mode", "Writing the reply：不用长破折号，冒号不当句中连接", [("mode", "## Writing the reply")], "照搬，中文也一样（你已定）"),
-    ("mode", "Writing the reply：不编造链接、引用和对话记录", [("mode", "## Writing the reply")], "照搬"),
-    ("mode", "每份 playbook 的 Reply 只写独有内容，附 PR 链接", [("playbook", "每份 playbook 的 Reply")],
-     "照搬分工；PR 链接改成票和提交的链接"),
     ("mode", "Autonomy：Just do it，更新票、团队消息、跑评测都直接做", [("mode", "## Autonomy")],
-     "改写：内部的票和评测直接做；发给客户、公开出去的归你"),
+     "并进规则 1、11：内部的票和评测直接做；发给客户、公开出去的归你"),
     ("mode", "Autonomy：Always pause，force-push、部署、删数据、客户消息", [("mode", "## Autonomy")],
      "和 shared.md 规则 1 的清单合成一份"),
-    ("mode", "Non-negotiables：问之前先分类，跑得出来的去 Prototype", [("mode", "## Non-negotiables")], "照搬"),
-    ("mode", "Non-negotiables 开头：回复里点名改变了决定的原则，只点读过全文的", [("mode", "## Non-negotiables")], "照搬"),
-    ("mode", "全权委托时：自己定，报告默认值和你可以改成什么", [("mode", "## Non-negotiables")],
-     "照搬；和 implement 的 Decisions I made on my own 是同一做法"),
-    ("mode", "不让你回一个暗号，你用自己的话回答", [("mode", "## Non-negotiables")], "照搬"),
-    ("mode", "Subagents：用会先读 mode 的子代理", [("other", "下一课")],
-     "不照搬；下一课和 MMW 自己的子代理规则逐条比较"),
-    ("mode", "Subagents：后台运行、给文件指针不贴全文、按角色选模型", [("other", "下一课")],
-     "不照搬；下一课和 MMW 自己的子代理规则逐条比较"),
-    ("mode", "Subagents：对子代理的产出负责，自己核对、自己写总结", [("other", "下一课")], "不照搬；下一课和 MMW 自己的子代理规则逐条比较"),
-    ("mode", "Subagents：第二意见是同一提示词换一个模型", [("other", "下一课")], "不照搬；下一课和 MMW 自己的子代理规则逐条比较"),
-    ("mode", "Subagents：默认开新的子代理，带上合并后的全部要求", [("other", "下一课")],
-     "不照搬；下一课和 MMW 自己的子代理规则逐条比较"),
-    ("mode", "Comments：只留代码说不出的 why", [("mode", "## Comments")], "照搬"),
-    ("playbook", "Investigation：前提错了就反驳", [("mode", "## Autonomy")], "并进 No is an acceptable answer"),
-    ("playbook", "Orchestrate：到你 / 不到你两张清单", [("playbook", "夜里的 playbook")], "照搬；到你的那些先写成子票，工作绕开它继续"),
-    ("playbook", "Autonomous run：死路要报出来，不放宽完成条件", [("playbook", "夜里的 playbook")], "照搬；夜里的完成条件是票上的 CHECK: 行"),
-    ("playbook", "Orchestrate：brief 的九个字段", [("other", "下一课")], "不照搬；下一课和 MMW 自己的子代理规则逐条比较"),
+    ("mode", "Non-negotiables：问之前先分类，跑得出来的事实不拿来问", [("mode", "## Non-negotiables")],
+     "和 grilling「事实自己查，决定才问」、规则 1 合成一行；跑得出来的先跑"),
+    ("mode", "Comments：只留代码说不出的 why", [("mode", "## Comments")], "并进规则 13 的代码注释部分"),
+    ("playbook", "Investigation：前提错了就反驳", [("mode", "## Autonomy")], "并进规则 3，写进 No is an acceptable answer"),
+    ("playbook", "Orchestrate：到你 / 不到你两张清单", [("playbook", "夜里的 playbook")],
+     "并进 v2 夜里的机制：到你的那些先写成子票，工作绕开它继续"),
     ("playbook", "Pause safely：写一份离开上下文也能接上的交接说明", [("playbook", "Pause safely"), ("skill", "handoff")],
-     "照搬，第 4 步照 handoff 写"),
-    ("playbook", "Session pickup：旧记录是权威，不从头重做", [("playbook", "Session pickup")], "照搬"),
-    ("skill", "show-me-your-work：一行一个决定，证据是指针", [("skill", "show-me-your-work")], "照搬"),
-    ("principle", "explain-the-number：报一个测得的数之前先查清它受什么限制", [("principle", "explain-the-number")], "照搬；规则 4 管证据形式，它管数字本身"),
-    ("principle", "guard-the-context-window：大块输出交给子代理，主线只留摘要", [("other", "下一课")], "不照搬；下一课和 MMW 自己的子代理规则逐条比较"),
+     "并进 v2 的 handoff：第 4 步照 handoff 写"),
 ]
 
 
@@ -268,12 +250,12 @@ def _mapping(rows, head):
 
 def shared_map():
     f, y = _mapping([("config", s, d, h) for s, d, h in SHARED], ("m11", "shared.md 的每一段"))
-    return f.svg(y + 4, "shared.md 的每一段和 hosts/codex.md 去哪、怎么采用：读者和只归主人的决定留在全局层；规则 1、2、3、11 进 Autonomy；规则 4、5、6、9 和结尾进 Writing the reply；规则 7 交给 unslop；规则 8、10、12、13、14、15 成为六条新原则；脚本起的会话那段移进夜里的 playbook；codex.md 那句属于子代理规则，下一课处理。")
+    return f.svg(y + 4, "shared.md 的每一段和 hosts/codex.md 去哪、怎么采用：读者和只归主人的决定留在全局层；规则 1、2、3、11 进 Autonomy；规则 4、5、6、9 和结尾进 Writing the reply；规则 7 交给 unslop；规则 8、10、12、13、14、15 各成一条新原则；脚本起的会话那段移进夜里的 playbook；codex.md 那句属于子代理规则，下一课处理。")
 
 
 def pstack_map():
-    f, y = _mapping(PSTACK_ONLY, ("m12", "pstack 独有的沟通规则"))
-    return f.svg(y + 4, "pstack 有、v2 没有的沟通规则去哪、怎么采用：Writing the reply 的句子规则、不编造链接照搬；Autonomy 的直接做改写为内部事直接做、对外的归主人；Always pause 与 shared.md 的清单合并；问之前先分类、全权委托时报告默认值、不让回暗号照搬；Comments 照搬；Orchestrate 的两张清单进夜里的 playbook；Pause safely、Session pickup、show-me-your-work 照搬；Subagents 一节、brief 模板、guard-the-context-window 不照搬，下一课和 MMW 自己的子代理规则逐条比较。")
+    f, y = _mapping(PSTACK_MERGED, ("m12", "pstack 的沟通规则，和 MMW 合并的"))
+    return f.svg(y + 4, "pstack 的沟通规则里和 MMW 合并的八条去哪、怎么采用：标点规则进 Writing the reply；Just do it 与 Always pause 并进 shared.md 规则 1、11 的清单；问之前先分类和 grilling、规则 1 合成一行触发；Comments 并进规则 13；Investigation 的反驳并进规则 3；Orchestrate 的两张清单并进夜里的机制；Pause safely 第 4 步照 handoff 写。")
 
 
 # ---- the merged design, drawn inside the skeleton of mmw-mode/SKILL.md ----
@@ -338,17 +320,20 @@ def design():
     rows = [
         ("要写任何文字", "skill", "unslop", "①⑨"),
         ("写给人读的文档", "skill", "technical-writing", "⑨"),
-        ("写给 agent 读的文字", "skill", "writing-for-agents", "⑤⑨　技能、提示词、票、任务说明"),
-        ("想问你一个问题", "playbook", "Prototype", "跑得出来的先跑；是你的决定才问 ②"),
-        ("你会离开，或任务很长", "skill", "show-me-your-work", "④"),
-        ("要提出设计或写不小的代码", "principle", "先找现成的（暂名）", "shared.md 规则 14"),
+        ("写给 agent 读的文字", "skill", "writing-for-agents", "⑤⑨　提示词、任务说明"),
+        ("想问你一个问题", "mode", "先分类再问", "跑得出来的先跑；是你的决定才问 ②"),
+        ("要提出设计或写不小的代码", "principle", "start-from-what-exists", "shared.md 规则 14"),
     ]
     h = _branch(f, y + 10, ["出现了", "哪种情况？"], rows) + 20
     _band_head(f, y, "## Non-negotiables", ["任务中任何时刻，", "情况一出现就用"], h)
     y += h
 
     # Principles
-    h = 136
+    names = ["never-block-on-the-human ②", "prove-it-works ①④",
+             "anchor-every-reference ①⑨", "write-for-where-it-is-read ⑤⑨", "read-before-you-conclude ①",
+             "files-describe-the-present ⑨", "start-from-what-exists", "run-the-smallest-test-set ①"]
+    laid, nrows = _lay([("principle", n) for n in names], X0 + 384, 976 - X0 - 384)
+    h = max(136, 34 + nrows * 30 + 14)
     _band_head(f, y, "## Principles", ["载入时读索引；", "条件出现时读全文"], h)
     f.box("mode", X0, y + 34, 150, 52, "索引行一直在", ["条件 + 一句规则"], mono=False)
     f.ar([(X0 + 150, y + 60), (X0 + 172, y + 60)])
@@ -356,11 +341,7 @@ def design():
     f.ar([(X0 + 262, y + 90), (X0 + 262, y + 112)])
     _text(f, X0 + 270, y + 106, "否：只留着索引行", "s")
     f.ar([(X0 + 352, y + 60), (X0 + 380, y + 60)], "是", X0 + 356, y + 52)
-    _text(f, X0 + 384, y + 24, "读这条原则的 SKILL.md 全文，例：", "s")
-    names = ["never-block-on-the-human ②", "prove-it-works ①④", "引用要锚定（暂名）①⑨",
-             "为读者所在的地方写（暂名）⑤⑨", "读够了再下结论（暂名）①", "文件只写现状（暂名）⑨",
-             "先找现成的（暂名）", "只跑相关的测试（暂名）①"]
-    laid, _ = _lay([("principle", n) for n in names], X0 + 384, 976 - X0 - 384)
+    _text(f, X0 + 384, y + 24, "读这条原则的 SKILL.md 全文：", "s")
     for k, t, cx, row in laid:
         f.chip(k, cx, y + 34 + row * 30, t, mono=False)
     y += h
@@ -386,9 +367,7 @@ def design():
     # Writing the reply
     h = 74
     _band_head(f, y, "## Writing the reply", ["写每一条回复时"], h)
-    f.box("mode", X0, y + 14, 440, 46, "读者是谁、证据三标签、句子规则、锚定引用 ①④", ["不用长破折号，冒号不当句中连接，中文英文都一样"], mono=False)
-    f.ar([(X0 + 440, y + 37), (X0 + 464, y + 37)])
-    f.box("playbook", X0 + 464, y + 14, 300, 46, "加上这份 playbook 的 **Reply:**", ["只写这种任务独有的内容"], mono=False)
+    f.box("mode", X0, y + 14, 440, 46, "读者是谁、证据三标签、锚定引用 ①④", ["不用长破折号，冒号不当句中连接，中文英文都一样"], mono=False)
     y += h
 
     # Comments
@@ -400,13 +379,21 @@ def design():
     # Playbooks
     rows = [
         ("要暂停，或上下文快满", "playbook", "Pause safely", "⑧　第 4 步照 handoff 写交接说明"),
-        ("接手别人做了一半的工作", "playbook", "Session pickup", "⑧"),
+        ("写或改技能、playbook、原则、mode", "playbook", "Authoring or modifying a skill", "⑨"),
+        ("审一套技能", "playbook", "Review the skill set", "⑨"),
         ("夜里做一张票", "playbook", "夜里的 playbook", "⑤⑥⑦　票就是任务说明"),
-        ("一个决定要靠试出来", "playbook", "Prototype", "⑪"),
         ("没有一份合适", "skill", "figure-it-out", "为这一次设计流程"),
     ]
-    h = _branch(f, y + 10, ["匹配哪一行", "路由？"], rows) + 20
+    h = _branch(f, y + 10, ["匹配哪一行", "路由？"], rows) + 56
     _band_head(f, y, "## Playbooks", ["任务开始时选路"], h)
+    yy = y + 10 + len(rows) * 36 + 18
+    _text(f, X0 + 200, yy + 4.5, "这两份都要读的规则")
+    f.ar([(COMP_X - 22, yy), (COMP_X - 3, yy)])
+    rx = f.chip("reference", COMP_X, yy - 12, "references/skill-set-rules.md", mono=False)
+    for i, label in [(1, "Authoring or modifying a skill"), (2, "Review the skill set")]:
+        ya = y + 10 + i * 36 + 18
+        xr = COMP_X + tw(label, 11.5, False) + 24 + 30
+        f.e(f'<path class="att" d="M{xr:.1f},{ya} H954 V{yy} H{rx + 4:.1f}"/>', False)
     y += h
 
     f.frame("mode", 10, top, 980, y - top + 6, "mmw-mode/SKILL.md", [])
@@ -415,7 +402,7 @@ def design():
     # outside the mode
     y += 24
     rows = [
-        ("你说没听懂", "other", "你输入 /wait-what", "skill", "wait-what", "⑩　加 visual：画一页图"),
+        ("你说没听懂", "other", "你输入 /wait-what", "skill", "wait-what", "⑩　加 visual：diagram-design 画一页图"),
         ("要把一个计划问清楚", "other", "你输入 /grill-me", "skill", "grilling", "⑪　卡在别人知道的事：to-questionnaire"),
         ("要学一个主题", "other", "你输入 /teach", "skill", "teach", "⑫"),
         ("夜里 worker 想弹出提问", "script", "tool-guard.py 拦下", "skill", "verify-ticket 的子票", "⑦　decision 或 contract"),
@@ -431,7 +418,7 @@ def design():
         f.ar([(COMP_X - 22, yy), (COMP_X - 3, yy)])
         f.chip(kk, COMP_X, yy - 12, comp, note, mono=False)
     y += zh
-    return f.svg(y + 8, "合并后的设计，画在 mmw-mode/SKILL.md 的骨架里：会话开始时宿主载入全局层，你输入 /mmw-mode 或 dispatch.sh 起的 agent 才载入 mode；Non-negotiables 在任何时刻按情况调用 unslop、technical-writing、writing-for-agents、Prototype、show-me-your-work；Principles 载入时读索引，条件出现读原则全文；Autonomy 按归谁定分四种做法；Subagents 的内容下一课从 MMW 自己的子代理规则来；Writing the reply 与 Comments 在写的时候用；Playbooks 在任务开始时按路由选 Pause safely、Session pickup、夜里的 playbook、Prototype 或 figure-it-out。mode 之外：你直接调用 wait-what、grilling、teach；tool-guard.py 和 verify-ticket.py 在夜里强制两条规则。")
+    return f.svg(y + 8, "合并后的设计，画在 mmw-mode/SKILL.md 的骨架里：会话开始时宿主载入全局层，你输入 /mmw-mode 或 dispatch.sh 起的 agent 才载入 mode；Non-negotiables 在任何时刻按情况调用 unslop、technical-writing、writing-for-agents，想问你之前先分类；Principles 载入时读索引，条件出现读原则全文；Autonomy 按归谁定分四种做法；Subagents 的内容下一课从 MMW 自己的子代理规则来；Writing the reply 与 Comments 在写的时候用；Playbooks 在任务开始时按路由选 Pause safely、Authoring or modifying a skill、Review the skill set、夜里的 playbook 或 figure-it-out，两份写技能和审技能的 playbook 共用 references/skill-set-rules.md。mode 之外：你直接调用 wait-what（visual 交给 diagram-design 画）、grilling、teach；tool-guard.py 和 verify-ticket.py 在夜里强制两条规则。")
 
 
 FIGS = {"l4-moments": moments, "l4-coverage": coverage, "l4-choices": choices,

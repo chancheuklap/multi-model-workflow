@@ -1,6 +1,6 @@
 ---
 name: technical-writing
-description: "Layered technical-writing standard: Diátaxis structure, Google developer style sentences, STE instruction rules, Global English syntax. Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
+description: "Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
 ---
 
 # Technical writing

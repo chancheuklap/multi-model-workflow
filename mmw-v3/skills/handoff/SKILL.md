@@ -1,12 +1,12 @@
 ---
 name: handoff
-description: "Compact the current conversation into a handoff document for another agent to pick up. Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
+description: "Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
 argument-hint: "What will the next session be used for?"
 ---
 
 Write a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS - not the current workspace.
 
-Capture the intent, what you were doing, progress and what is verified, the current state, the next steps, the key files, and the gotchas. If a show-me-your-work trail exists, point at it instead of repeating it.
+Capture the intent, what you were doing, progress and what is verified, the current state, the next steps, the key files, and the gotchas.
 
 Include a "suggested skills" section in the document, naming which skills the next agent should reach for.
 

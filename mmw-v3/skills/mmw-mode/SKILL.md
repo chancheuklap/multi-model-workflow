@@ -6,10 +6,10 @@ disable-model-invocation: true
 
 <!--
 Authoring guide for this file. Each section below carries its own guide in a comment like
-this one; replace a section's comment with the section's content when that section is
-written. The same guide, kept after the sections are written, is in README.md beside this
-file. The method every component follows is in ../README.md. The model to imitate, in
-content as well as shape, is mmw-v3/upstream-pstack/skills/poteto-mode/SKILL.md.
+this one. A section's content is written below its comment, and every comment stays until
+the whole migration to v3 is complete. The same guide is in README.md beside this file.
+The method every component follows is in ../README.md. The model to imitate, in content
+as well as shape, is mmw-v3/upstream-pstack/skills/poteto-mode/SKILL.md.
 
 Sections are divided by the moment they are used, not by topic: choosing a route at the
 start of a task, a situation arising mid-task, deciding whether to ask the owner, spawning
@@ -71,6 +71,28 @@ one (principle-prove-it-works, principle-never-block-on-the-human), start from t
 text and merge MMW's specifics into it.
 -->
 
+Read the leaf skill in full for any principle you apply. Each entry names when it applies.
+
+**Core**
+
+- **Start from What Exists** (**principle-start-from-what-exists**). Before proposing an approach or writing non-trivial code. Search for what already exists and read it, then use it, extend it, or build only after the search came back empty.
+
+**Verification**
+
+- **Prove It Works** (**principle-prove-it-works**). After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
+- **Read Before You Conclude** (**principle-read-before-you-conclude**). Saying what a file says, or changing it. Read enough to be sure, and read a file whole before you edit it.
+- **Run the Smallest Test Set** (**principle-run-the-smallest-test-set**). Choosing which tests to run. Run the smallest set that proves the change; a full suite needs a named reason.
+
+**Delegation**
+
+- **Never Block on the Human** (**principle-never-block-on-the-human**). Tempted to ask "should I do X?" on reversible work, or a step failed or was interrupted. Proceed, present the result, finish what failed yourself, and let the human course-correct.
+
+**Writing**
+
+- **Write for Where It Is Read** (**principle-write-for-where-it-is-read**). Before writing anything someone else reads or runs. Name who picks it up, what they are doing then, and what they can and cannot see.
+- **Anchor Every Reference** (**principle-anchor-every-reference**). Mentioning a file, a section, a rule, or an event in a reply or a document. Name it by its path and its heading, identifier, or rule number, copied verbatim.
+- **Files Describe the Present** (**principle-files-describe-the-present**). Writing or editing any file. Say what is true of its subject now; what changed goes in the commit message and the reply.
+
 ## Autonomy
 
 <!--
@@ -111,8 +133,6 @@ Content: the rules every reply shares, one point per bullet, each stated as an a
 who reads the reply and what they can and cannot see; evidence or its label in the same
 sentence; reasons and consequences rather than files and functions; plain standard
 vocabulary; anchored references with names copied verbatim; when lists and tables help.
-Close with the division of labour: each playbook's **Reply:** line names only what is
-unique to that playbook.
 
 Sources in MMW v2: the reader facts at the top of mmw-v2/prompt/shared.md (condensed to
 what changes a decision), its rules 4, 5, 6 and 9, and its closing section "What this
@@ -152,3 +172,6 @@ Sources in MMW v2: the `## Find your moment` tables of the dispatch, verify-tick
 design-pages, ui-acceptance and code-review skills, and the numbered procedures they point
 to (implement's `## Closing steps`, dispatch's references/night.md).
 -->
+
+- **Authoring or modifying a skill.** Writing or editing a skill, a playbook, a principle, a reference or this mode. `playbooks/authoring-or-modifying-a-skill.md`.
+- **Review the skill set.** Reviewing the text of the whole skill set, or of some of its skills, by walking the tasks agents do with it ("review the skills", "audit the skill set"). Distinct from `playbooks/authoring-or-modifying-a-skill.md`, which changes the text. `playbooks/review-the-skill-set.md`.

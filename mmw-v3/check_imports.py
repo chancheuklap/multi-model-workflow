@@ -5,16 +5,18 @@ Run from anywhere inside the repository: python3 mmw-v3/check_imports.py
 
 1. Every file under mmw-v3/skills/ has one row, except the files v3 wrote
    itself (mmw-v3/skills/README.md and everything under mmw-mode/), and every
-   row's `local` exists.
+   row's `local` exists. A row whose `local` ends in `/` covers every file
+   below it that has no row of its own; links are not followed.
 2. Every row's `source` can be read at its `commit`. MMW's own text is read
    with `git show <commit>:<source>`; an upstream repository's text is read
    from the squash commit whose `git-subtree-split:` line names that commit.
 3. A row with no mechanical edit and no judgement entry is byte-identical to
-   its source.
+   its source, and so is every file a directory row covers.
 
 Exit 0 prints `IMPORTS OK <n> rows`. Exit 1 prints one finding per line.
 """
 import csv
+import os
 import pathlib
 import subprocess
 import sys
@@ -42,8 +44,8 @@ def squash_commit(split):
     return out[0] if out else None
 
 
-def read_source(row):
-    source = row["source"].split("#")[0]
+def read_source(row, below=""):
+    source = row["source"].split("#")[0] + below
     if row["upstream"] == OWN:
         rev = row["commit"]
     else:
@@ -62,13 +64,30 @@ def main():
         rows = list(csv.DictReader(fh, delimiter="\t"))
     findings = []
     locals_ = [r["local"] for r in rows]
-    for path in sorted(p for p in SKILLS.rglob("*") if p.is_file()):
-        rel = path.relative_to(ROOT).as_posix()
-        if rel.startswith(V3_WRITTEN) or rel == V3_WRITTEN[0]:
-            continue
-        if locals_.count(rel) != 1:
-            findings.append(f"UNREGISTERED {rel}: {locals_.count(rel)} rows")
+    dirs = [r for r in rows if r["local"].endswith("/")]
+    covered = {}
+    for top, _, names in os.walk(SKILLS):
+        for name in sorted(names):
+            rel = (pathlib.Path(top) / name).relative_to(ROOT).as_posix()
+            if rel.startswith(V3_WRITTEN) or rel == V3_WRITTEN[0] or locals_.count(rel) == 1:
+                continue
+            owners = [r for r in dirs if rel.startswith(r["local"])]
+            if len(owners) == 1 and locals_.count(rel) == 0:
+                covered.setdefault(owners[0]["local"], []).append(rel)
+            else:
+                findings.append(f"UNREGISTERED {rel}: {locals_.count(rel)} rows, {len(owners)} directory rows")
+    for row in dirs:
+        if row["mechanical"] or row["judgement"]:
+            findings.append(f"DIRECTORY-EDIT {row['local']}: a directory row lists no edit; give each edited file its own row")
+        for rel in covered.get(row["local"], []):
+            body = read_source(row, rel[len(row["local"]):])
+            if body is None or (ROOT / rel).read_bytes() != body:
+                findings.append(f"UNREGISTERED-EDIT {rel}: differs from {row['source']} and has no row of its own")
     for row in rows:
+        if row in dirs:
+            if not (ROOT / row["local"]).is_dir():
+                findings.append(f"MISSING-LOCAL {row['local']}")
+            continue
         local = ROOT / row["local"].split("#")[0]
         if not local.is_file():
             findings.append(f"MISSING-LOCAL {row['local']}")

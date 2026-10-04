@@ -1,6 +1,6 @@
 ---
 name: wait-what
-description: "Stop. That last message did not land: re-pitch it. Run only when the user asks for it by name; do not invoke it on your own."
+description: "Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
 argument-hint: "[visual; omit to re-pitch in words]"
 ---
 

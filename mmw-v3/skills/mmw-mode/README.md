@@ -60,7 +60,7 @@ This index is how a rule loads at the moment it applies: one line is always in c
 ### `## Writing the reply`
 
 - **Used:** while writing every reply.
-- **Content:** the rules every reply shares, one point per bullet, each stated as an action: who reads the reply and what they can and cannot see; evidence or its label in the same sentence; reasons and consequences rather than files and functions; plain standard vocabulary; anchored references with names copied verbatim; when lists and tables help. Close with the division of labour: each playbook's `**Reply:**` line names only what is unique to that playbook.
+- **Content:** the rules every reply shares, one point per bullet, each stated as an action: who reads the reply and what they can and cannot see; evidence or its label in the same sentence; reasons and consequences rather than files and functions; plain standard vocabulary; anchored references with names copied verbatim; when lists and tables help.
 - **Sources in MMW v2:** the reader facts at the top of `mmw-v2/prompt/shared.md` (condensed to what changes a decision), its rules 4, 5, 6 and 9, and its closing section "What this file looks like when it is working", which becomes the reply's finish criterion. Where every unit of shared.md goes is in mmw-v3/course lesson 4, figure 4.
 
 ### `## Comments`

@@ -1,6 +1,6 @@
 ---
 name: teach
-description: "Teach the user a new skill or concept, within this workspace. Run only when the user asks for it by name; do not invoke it on your own."
+description: "Run only when the user, mmw-mode or another skill names it; do not invoke it on your own."
 argument-hint: "What would you like to learn about?"
 ---
 
