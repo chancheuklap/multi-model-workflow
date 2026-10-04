@@ -326,17 +326,29 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <div class="tablewrap"><table class="roles" style="min-width:760px">
 <thead><tr><th>实验</th><th>结果</th></tr></thead>
 <tbody>
-<tr><th>5 个结果落在同一个 30 秒里，都给同一个上级</th><td>Paseo：一轮连发 5 条。Herdr：发 1 条，后几条答「正忙」，下一轮再送。Orca：发 2 条，第二条打进去，等回合结束再读。上级 <code>ack</code> 到最新一行后，剩下的不再送，队列清空</td></tr>
+<tr><th>5 个结果落在同一个 30 秒里，都给同一个上级（假 runner）</th><td>Paseo：一轮连发 5 条。Herdr：发 1 条，后几条答「正忙」，下一轮再送。Orca 的假 runner 我按适配器注释模拟，结果是发 2 条，和下面的实测不一样，以实测为准。上级 <code>ack</code> 到最新一行后，剩下的不再送，队列清空</td></tr>
 <tr><th>20 个进程同时往一个加锁的文件各写 25 行</th><td>500 行，一行不少，没有重复</td></tr>
 <tr><th>300 个结果，每个都 <code>ack</code></th><td><code>queue.jsonl</code> 0 字节；<code>seen.json</code> 47 KB，每张票约 160 字节，只增不减</td></tr>
 <tr><th>你机器上的真实状态目录，9 月 11 日到 10 月 2 日（只读）</th><td><code>queue.jsonl</code> 0 字节，其间发过 368 次唤醒；<code>seen.json</code> 48 KB，159 张票；<code>relay.log</code> 203 KB；用完没删的 <code>merge-*.lock</code> 8 个</td></tr>
 </tbody></table></div>
+<p><b>在真的 Orca 上测。</b>你的会话和我都跑在 Orca 里，这是最要紧的 runner。在这台机器的 Orca 1.4.219 上，用 MMW 自己的 <code class="c k-script">runners/orca.sh</code> 开了一个一次性的 Claude Code 会话当上级，用同一个适配器的 <code>send</code> 给它送唤醒，测完关掉。我指定的 haiku 在这台机器上被环境变量指到 Sonnet 5.5，三轮共花约 2.2 美元（Claude Code 状态栏的数字）。适配器文件里写的 Orca 行为是在 1.4.199 上测的。</p>
+<div class="tablewrap"><table class="roles" style="min-width:760px">
+<thead><tr><th>情形</th><th>适配器的回答</th><th>上级会话实际怎样</th></tr></thead>
+<tbody>
+<tr><th>上级空着</th><td>0，约 2 秒返回</td><td>马上开一个回合读到它</td></tr>
+<tr><th>上级正在跑一条 45 秒的命令，送 1 条</th><td>4（字收下了，没看到新回合开始），这一次 <code>send</code> 卡了约 38 秒才返回：适配器带 <code>--wait-submit 30</code> 等它被提交</td><td>命令没被打断，跑完了。这条消息跟着命令结果一起进了同一个回合，它当场读到了</td></tr>
+<tr><th>回合结束后又到 2 条</th><td>一条 4、一条 0（Orca 有时看不出回合开没开）</td><td>每条各开一个新回合，一条不丢，顺序不乱</td></tr>
+<tr><th>会话关掉之后再送</th><td>2（没有这个会话）</td><td>中继照规矩丢掉这一行</td></tr>
+<tr><th>我自己这个会话的 <code class="c k-script">orca.sh self</code></th><td>0，打出 <code>term_c2df7e7b…</code></td><td>你在 Orca 里开的会话读得出会话号，能当上级</td></tr>
+</tbody></table></div>
+<p>结论：在 Orca 上，唤醒不会打断上级手上的命令，也不会丢。代价有两样：一是每条唤醒在回合之外到达，就单独开一个回合；二是送给正在忙的会话时，中继要卡约 30 秒才能处理下一行。这两样都支持「一批只叫醒一次」：一批一个回合，中继也只卡一次。</p>
 <p><b>发现一处问题，和我先前说的相反。</b>我说过「上级正在回合里时，<code>send</code> 答正忙，留到下一轮」。Herdr 是这样，Paseo 不是。<code class="c k-script">runners/paseo.sh</code> 的 <code>send</code> 只查会话在不在，就用 <code>paseo send --no-wait</code> 送出、答 0，中继接着送下一条。ADR 0010 实测过，这样送进去的消息会打断收信方正在跑的命令。所以在 Paseo 上，几个结果落在同一个 30 秒里，上级会被连着打断几次。<span class="inf">归纳</span>这是 ADR 0010 在 v2 时的实测，没在你装的 Paseo 0.7.2 上复测。</p>
 <p>设计因此改了一处：一批 brief 全交了才排一行唤醒，就是图 3 的 <code>brief &lt;批&gt; done</code>，所以一批只叫醒一次，用哪个 runner 都一样。夜里现有的唤醒也有这个问题：两张票在同一个 30 秒里结束，orchestrator 在 Paseo 上会连收两条。修法很小，中继给一个会话送出一条后，这一轮不再给它送。这是现有代码，不在这次的范围，等你定。</p>
 <p>会一直变大的记录只有三样，都和 brief 无关：<code>seen.json</code>、几份日志、用完的 <code>merge-*.lock</code>。按这三周的速度，一年几 MB，不影响运行。我建议第 8 课给日志设上限，清掉旧锁和已关票的条目。</p>
 <div class="takeaway"><b class="l">还没验证的</b><ol>
 <li>brief 机制本身：读 <code>briefs/</code>、一批交齐才唤醒、<code>brief close</code> 删目录、判活和回合守卫的那两条。写出来以后，用同样的假 runner 在临时目录里跑。</li>
 <li>Paseo 0.7.2 上，消息送进一个正在跑的会话，是打断还是排队。</li>
+<li>Orca 上的上级换成 Codex、Grok、Cursor 或 Pi 时，忙着的时候收到消息会怎样。实测只用了 Claude Code。</li>
 <li>Paseo 自带的通知会不会在 <code class="c k-script">dispatch.sh</code> 开的子会话上生效，和中继的唤醒重复。</li>
 </ol></div>
 
@@ -364,7 +376,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <div class="quiz" data-answer="0">
 <p class="q">5．<span class="c k-playbook">Investigation</span> 派了 3 个 researcher，它们在同一个 30 秒里都交了。会话会被叫醒几次？</p>
 <div class="opts"><button>一次</button><button>三次</button><button>零次</button><button>看用哪个 runner</button></div>
-<div class="why" hidden>一批全交了才排一行唤醒。要是每份结果各排一行，在 Paseo 上中继会一轮连发三条，后两条打断会话正在跑的回合（第 9 节）。</div>
+<div class="why" hidden>一批全交了才排一行唤醒。要是每份结果各排一行，在 Paseo 上中继会一轮连发三条，后两条打断会话正在跑的回合；在 Orca 上不会打断，但会多开两个回合，中继每条还要卡约 30 秒（第 9 节）。</div>
 </div>
 
 <h2>下一课</h2>
