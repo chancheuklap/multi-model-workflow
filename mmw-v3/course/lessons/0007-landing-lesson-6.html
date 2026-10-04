@@ -183,10 +183,10 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <div class="col">
 <div class="eyebrow">第 7 课 · 落地第 6 课</div>
 <h1>第 6 课定下的改动，已经落进 v3</h1>
-<p class="lede">第 6 课第 10 节列了八项要改的，你又定了删掉 <code class="c k-skill">grill-me</code>。这一课逐项记下改成了什么、为什么那样改、怎样证明的，以及还没做完的。改动都在 <code>mmw-rebuild</code> 分支上。正在用的安装没有碰：<code class="c k-script">install.sh</code> 没跑，<code>~/.mmw</code> 没动，测试都在临时目录里跑。</p>
+<p class="lede">第 6 课第 10 节列了八项要改的，你又定了删掉 <code class="c k-skill">grill-me</code>。这一课逐项记下改成了什么、为什么那样改、怎样证明的，以及还没做完的。改动都在 <code>mmw-rebuild</code> 分支上。正在用的安装没有碰：<code class="c k-script">install.sh</code> 没跑，<code>~/.mmw</code> 没动，测试都在临时目录里跑。第 6 到 9 节是落地时暴露出来的问题和它的设计：v3 没有登记角色的地方，独立会话也没有把结果交回上级的路。这两块第 8 课实现。</p>
 </div>
 <div class="brief">
-<div><b>这一课回答</b><ol><li>八项各改成了什么</li><li><span class="c k-playbook">Investigation</span>、<code class="c k-skill">how</code>、<code class="c k-skill">why</code> 怎样接进来，照抄时改了哪几处</li><li>派出的 agent 现在怎样拿到自己那一份</li><li>新加的检查拦什么</li><li>怎样证明的，还差什么</li></ol></div>
+<div><b>这一课回答</b><ol><li>八项各改成了什么</li><li><span class="c k-playbook">Investigation</span>、<code class="c k-skill">how</code>、<code class="c k-skill">why</code> 怎样接进来，照抄时改了哪几处</li><li>派出的 agent 现在怎样拿到自己那一份</li><li>新加的检查拦什么</li><li>怎样证明的，还差什么</li><li>v3 的 agent 系统为什么缺一条加角色的路，怎样补</li><li>explainer、synthesizer、researcher、<span class="c k-skill">advisor</span> 各做什么</li><li>独立会话怎样把结果交回上级，验证了哪些</li></ol></div>
 <div><b>依据</b>本分支上与这一课同时提交的改动；出处登记 <code>mmw-v3/imports.tsv</code> 的 J181 到 J208，另改了 J90 和 J180；对照的 pstack 是 <code>e43c7ee</code>，MMW v2 是 <code>9df1ab67d</code>。本课自己的判断标了 <span class="inf">归纳</span>。</div>
 <div><b>主要来源，建议先读</b>pstack 的 <a href="https://github.com/cursor/plugins/blob/e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a/pstack/skills/poteto-mode/playbooks/investigation.md"><code class="c k-playbook">playbooks/investigation.md</code></a>（145 词），再读它点名的 <a href="https://github.com/cursor/plugins/blob/e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a/pstack/skills/how/SKILL.md"><code>how/SKILL.md</code></a>，看一个技能怎样把提示词模板交给自己开的子代理。</div>
 </div>
@@ -227,6 +227,7 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <tr><th>No PR, no babysit；转 <span class="c k-playbook">Bug fix</span> 或 <span class="c k-playbook">Feature</span></th><td>不提交、不开票；要改代码时交回你，转 <span class="c k-playbook">Bug fix</span>、<span class="c k-playbook">Make a small change</span> 或 <span class="c k-playbook">Write a spec</span></td><td>MMW 没有 PR；改代码的三条路是第 6 课定的</td></tr>
 <tr><th>Reply：the investigation output</th><td>加一句：照 <code class="c k-mode">## Writing the reply</code> 写给你，讲它做什么、为什么、对产品意味着什么，不带你走读代码</td><td><code class="c k-skill">how</code> 的说明写给「senior engineer」，你不读代码</td></tr>
 </tbody></table></div>
+<p>表里前两行是现在落地的样子：<code class="c k-skill">how</code> 和 <code class="c k-skill">why</code> 派的是会话内的子代理。这一部分第 6 到 8 节重新设计了，改成独立会话，第 8 课照新设计改。</p>
 
 <h2>3　派出的 agent 怎样拿到自己那一份</h2>
 <p>第 6 课图 5 定的做法：派出的 agent 不在技能里按角色选路，派它的一方直接把它那一份放在开工的那段话里。现在三种都这样做了：</p>
@@ -262,7 +263,84 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <li>mode 的 <code class="c k-mode">## Writing the reply</code> 最后一句要求回复带 PR 链接，MMW 没有 PR。不在这次的范围里，等你定要不要改。</li>
 </ol></div>
 
-<h2>6　自测</h2>
+<h2>6　回头看：v3 的 agent 系统缺一张角色表</h2>
+<p>搬 <code class="c k-skill">how</code> 和 <code class="c k-skill">why</code> 时，四种子代理（explorer、explainer、investigator、synthesizer）跟着进来，没有检查拦住，从别处也看不出 v3 多了四个角色。反过来，第 5 课加 researcher 这一个独立会话角色，除了技能本身还改了 7 个文件：<code class="c k-script">dispatch.sh</code>、<code>hosts.json</code>、<code class="c k-script">models.py</code>、<code>editing-models.md</code> 和三个测试文件，这些步骤哪里都没写下来。一边太容易，一边太难，原因是同一个：v3 没有一张登记角色的表。</p>
+<p>pstack 有。<code class="c k-skill">setup-pstack</code> 写出的 <code class="c k-config">pstack-models.mdc</code> 一个角色一行，17 行里就有 <code>how explorer</code>、<code>how explainer</code>、<code>why investigators</code>、<code>why synthesizer</code>，技能派子代理时点名这一行。v3 第 5 课决定 6 规定会话内的子代理不点模型，模型那一行没了，登记角色的地方也跟着没了。不点模型本身没有错，原因在这张表里：</p>
+<div class="tablewrap"><table class="roles" style="min-width:760px">
+<thead><tr><th>宿主</th><th>会话内的子代理能不能指定模型</th><th>依据</th></tr></thead>
+<tbody>
+<tr><th>Cursor</th><td>能，按模型名</td><td>pstack 的 <code>how/SKILL.md</code> 每次派子代理都传 <code>model</code></td></tr>
+<tr><th>Claude Code</th><td>只能选系列（sonnet、opus、haiku），不能定 effort</td><td>Agent 工具的 <code>model</code> 参数只收这几个值</td></tr>
+<tr><th>Codex</th><td>参数有，但 GPT‑5.6 Sol 默认把 <code>model</code> 和 <code>reasoning_effort</code> 从工具里藏掉，子代理一律跟父会话同一个模型</td><td><a href="https://developers.openai.com/codex/subagents">Codex Subagents 文档</a>，<a href="https://github.com/openai/codex/issues/31814">issue #31814</a>，<a href="https://github.com/openai/codex/issues/27061">issue #27061</a></td></tr>
+<tr><th>Grok、Pi</th><td>没查</td><td></td></tr>
+<tr><th>独立会话，五个宿主都算</th><td>能：<code class="c k-script">dispatch.sh</code> 用命令行参数指定模型和 effort</td><td><code>dispatch/hosts.json</code> 每个宿主的 <code>argv</code></td></tr>
+</tbody></table></div>
+<p>所以一个角色要用自己的模型，只能做成独立会话。下面的三个问题就从这里来：</p>
+<figure>
+<div class="svgwrap"><!--FIG:l7-roles--><svg viewBox="0 0 1000 422" role="img" aria-label="要开一个 agent 干活之前依次问三个问题。一，会话自己在这个回合里能不能做，能就不开。二，要不要自己的模型或在回合之外独立跑，要就做成独立会话，由 dispatch.sh 开，models.json 有它一行。三，其余情况，要几份同时做或要一个干净的上下文，做成子代理，跟会话同一个模型。独立会话有 worker、reviewer、advisor、researcher，以及第 8 课新加的 explainer 和 synthesizer。子代理有 code-review 的轴。要换模型的角色都不做成子代理，因为 Codex 默认藏起子代理的模型参数，Claude Code 只能选系列，独立会话用命令行参数指定模型，五个宿主都管用。"><defs><marker id="m72" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><rect class="zone" x="4" y="200" width="492" height="214" rx="6"/><text x="16" y="219" class="h">独立会话：dispatch.sh 开，交回走中继</text><rect class="zone" x="504" y="200" width="492" height="214" rx="6"/><text x="516" y="219" class="h">子代理：技能在会话里派，当场交回</text><text x="10" y="20.0" class="h">要开一个 agent 干活之前，依次问三个问题</text><circle cx="22" cy="53" r="11" fill="var(--ink2)"/><text x="22" y="57.5" text-anchor="middle" style="fill:var(--surface);font-size:12px;font-weight:700">1</text><text x="42" y="58.0" class="h">会话自己在这个回合里能不能做？</text><text x="470" y="58.0" class="s">能：不开 agent，会话自己做</text><circle cx="22" cy="103" r="11" fill="var(--ink2)"/><text x="22" y="107.5" text-anchor="middle" style="fill:var(--surface);font-size:12px;font-weight:700">2</text><text x="42" y="108.0" class="h">要不要自己的模型，或者在这个回合之外独立跑？</text><text x="470" y="108.0" class="s">要：独立会话（session），dispatch.sh 开，models.json 有它一行</text><circle cx="22" cy="153" r="11" fill="var(--ink2)"/><text x="22" y="157.5" text-anchor="middle" style="fill:var(--surface);font-size:12px;font-weight:700">3</text><text x="42" y="158.0" class="h">其余：要几份同时做，或要一个没被会话思路影响过的上下文</text><text x="470" y="158.0" class="s">子代理（subagent），宿主的通用子代理，跟会话同一个模型</text><g class="k-agent"><rect class="box" x="16" y="232" width="63.5" height="24" rx="4"/><text x="25" y="248.5" class="m">worker</text></g><text x="150" y="248.5" class="s">写代码，关票</text><g class="k-agent"><rect class="box" x="16" y="261" width="78.7" height="24" rx="4"/><text x="25" y="277.5" class="m">reviewer</text></g><text x="150" y="277.5" class="s">审一张票</text><g class="k-agent"><rect class="box" x="16" y="290" width="71.1" height="24" rx="4"/><text x="25" y="306.5" class="m">advisor</text></g><text x="150" y="306.5" class="s">对一个决定给第二意见</text><g class="k-agent"><rect class="box" x="16" y="319" width="93.9" height="24" rx="4"/><text x="25" y="335.5" class="m">researcher</text></g><text x="150" y="335.5" class="s">读来源，交回带出处的发现</text><g class="k-agent"><rect class="box" x="16" y="348" width="86.3" height="24" rx="4" style="stroke-dasharray:6 3"/><text x="25" y="364.5" class="m">explainer</text></g><text x="150" y="364.5" class="s">把发现写成「怎么工作」的说明</text><g class="k-agent"><rect class="box" x="16" y="377" width="101.5" height="24" rx="4" style="stroke-dasharray:6 3"/><text x="25" y="393.5" class="m">synthesizer</text></g><text x="150" y="393.5" class="s">把发现分成查到、推断、不知道</text><g class="k-agent"><rect class="box" x="516" y="232" width="134.4" height="24" rx="4"/><text x="525" y="248.5" class="m">code-review 的轴</text></g><text x="690" y="248.5" class="s">四条轴同时审一段 diff</text><text x="516" y="292.0" class="s">要换模型的角色都不在这一边：Codex 默认把子代理的</text><text x="516" y="309.0" class="s">模型参数藏起来，Claude Code 只能选系列；独立会话</text><text x="516" y="326.0" class="s">用命令行参数指定模型，五个宿主都管用。</text><text x="516" y="360.0" class="s">虚线的两个是第 8 课新加的，researcher 改成也替</text><text x="516" y="377.0" class="s">how、why 去查。每个角色在 dispatch/roles.json 有一行。</text></svg><!--/FIG:l7-roles--></div>
+<div class="legend" data-legend="agent zone"></div>
+<figcaption><b>图 2</b>　先问会话自己能不能做；要自己的模型就做成独立会话；其余做成子代理。</figcaption>
+</figure>
+<p>第 8 课按这个实现：</p>
+<ol>
+<li><b>一张角色表 <code>dispatch/roles.json</code>，</b>放在仓库里，一个角色一行，写名字、种类（<code>session</code> 或 <code>subagent</code>）、开工读什么、交回什么。模型不写在这里，照旧在每台机器的 <code class="c k-config">~/.mmw/models.json</code>。</li>
+<li><b>加一个独立会话角色，三步：</b>表里一行；<code>hosts.json</code> 的 <code>defaults</code> 里一行默认模型；它读的那份文字。<code class="c k-script">dispatch.sh</code> 的 <code>advise</code> 和 <code class="c k-skill">research</code> 并成一个命令 <code class="c k-script">dispatch.sh brief &lt;角色&gt; &lt;brief 文件&gt;</code>，从表里读开工读哪份。今天的 <code>advise</code> 和 <code class="c k-skill">research</code> 已经只是同一个函数 <code>brief_one</code> 外面包的两行。<code class="c k-script">models.py</code> 里写死的 <code>ALLOWED_AGENTS</code> 改成从表里读。</li>
+<li><b>加一个子代理角色，两步：</b>表里一行；提示词放进派它的技能的 <code class="c k-reference">references/</code>。</li>
+<li><b><code class="c k-script">check-interfaces.py</code> 再加一条：</b><code class="c k-script">dispatch.sh</code> 开的每个角色、每个技能派的每个子代理，在表里都有一行；表里每一行也都有人用。</li>
+</ol>
+
+<h2>7　how 和 why 用到的四个角色</h2>
+<p>你要 explainer、synthesizer、researcher、<span class="c k-skill">advisor</span> 四个都留。按图 2，四个都是独立会话。pstack 给 explainer 和 synthesizer 配的是最强的模型（<code>claude-opus-5-5-max</code>），给 explorer 和 investigator 配的是快而便宜的（<code>grok-4.7-xhigh-fast</code>）；要换模型，就只能是独立会话。explorer 和 investigator 合进 researcher：两者都是读来源、交回带出处的发现，差别只在查哪里，写进 brief 就行。</p>
+<div class="tablewrap"><table class="roles" style="min-width:900px">
+<thead><tr><th>角色</th><th>做什么</th><th>开工读什么</th><th>brief 写什么</th><th>交回什么</th><th>默认模型（提议）</th></tr></thead>
+<tbody>
+<tr><th>researcher</th><td>读一处来源，交回带出处的发现</td><td><code>research/SKILL.md</code></td><td>问题；查哪里：代码的一个侧面，或一类证据来源连同它的 <code class="c k-reference">why/references/sources/*.md</code>，或外面的资料；结果写到哪</td><td>一份结果文件</td><td>grok 4.7，high。今天是 claude <code>opus[1m]</code>，high</td></tr>
+<tr><th>explainer</th><td>把几份发现合成「怎么工作」的说明；简单问题自己边查边讲</td><td><code class="c k-reference">how/references/explainer-prompt.md</code></td><td>问题，各份发现的路径</td><td>五节：Overview、Key Concepts、How It Works、Where Things Live、Gotchas</td><td>claude <code>opus[1m]</code>，xhigh</td></tr>
+<tr><th>synthesizer</th><td>把发现分成查到的、推断的、不知道的，抽查引用</td><td><code class="c k-reference">why/references/synthesizer-prompt.md</code> 和 <code>epistemics.md</code></td><td>问题、代码锚点、各份发现，包括查空的</td><td>八节的答案；为改代码而问时，加 Preserve / Change / Avoid / Risk</td><td>claude <code>opus[1m]</code>，xhigh</td></tr>
+<tr><th><span class="c k-skill">advisor</span></th><td>对一个决定给第二意见</td><td><code class="c k-reference">advisor/references/advising.md</code></td><td>五部分</td><td>答案</td><td>claude <code>fable[1m]</code>，medium，今天的</td></tr>
+</tbody></table></div>
+<p>默认模型是我的提议，照 pstack 的分法：查的用快的，合的用强的。你随时可以用 <code class="c k-script">models.py config set</code> 改。researcher 换成 grok，白天 <span class="c k-playbook">Chart a map</span> 派的 researcher 也跟着换。</p>
+<p><b>和 mode 的 <code class="c k-mode">## Subagents</code> 的冲突这样解。</b><code class="c k-skill">how</code> 原文要会话「不大改 explainer 的文字」，<code class="c k-mode">## Subagents</code> 要会话「对照代码核实，写自己的总结」。两条都留得下：会话对照代码核实 explainer 和 synthesizer 交回的东西，再照 <code class="c k-mode">## Writing the reply</code> 重写给你；synthesizer 标的把握程度原样保留，不把推断写成查到。</p>
+<p><b>代价。</b>一个复杂的问题要开 2 到 8 个会话：<code class="c k-skill">how</code> 是 2 到 4 个 researcher 加 1 个 explainer，<code class="c k-skill">why</code> 是 1 到 7 个 researcher（每类有来源的证据一个）加 1 个 synthesizer。每个会话都有开起来的开销，结果最晚 30 秒才回到会话。简单的 <code class="c k-skill">how</code> 问题只开 1 个 explainer。<span class="inf">归纳</span>开一个会话要多久，我没量。</p>
+
+<h2>8　独立会话怎样把结果交回上级</h2>
+<p>现成的路是 ADR 0020（<code>docs/adr/0020-wakes-come-from-the-board.md</code>）。reviewer 把报告写在票上；中继 <code class="c k-script">relay.py</code> 每 30 秒读一次票，读到 <code>reviewer.reported</code>，就经 worker 所在 runner 的 <code>send</code> 把这一行送进 worker 的会话；worker 读完跑 <code>ack</code>。它能跨宿主，因为子会话只要能跑一条命令，上级只要在 Paseo、Orca 或 Herdr 的会话里。<span class="c k-skill">advisor</span> 和 researcher 没有票，所以没有回程。补法是给不带票的子会话一份本机记录，其余照搬：</p>
+<figure>
+<div class="svgwrap"><!--FIG:l7-brief--><svg viewBox="0 0 1000 358" role="img" aria-label="一个复杂的 how 问题怎样跑。Investigation 会话用 dispatch.sh brief 开 3 个 researcher，同一批，然后结束回合。每个 researcher 在自己的宿主和模型上读代码的一个侧面，做完跑 dispatch.sh report，结果写进本机状态目录 briefs/批/brief/result.md，加锁写。中继每 30 秒读一次，一批全交了或有人判为 lost，才排一行 brief 批 done，经 runner 的 send 送进会话。会话第一次醒来，读 3 份结果，ack，开 explainer，附上 3 份结果的路径，结束回合。explainer 写成五节的说明并 report，中继再叫醒一次。会话第二次醒来，对照代码核实，照 Writing the reply 写给你，brief close 删掉这一批的目录。子会话死了没交，看门进程记 lost；活着却没交就结束回合，回合守卫拦一次；上级不在 runner 里，dispatch.sh brief 拒绝开。"><defs><marker id="m73" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker></defs><g class="k-playbook"><rect class="box" x="10" y="40" width="186" height="81" rx="4"/></g><g class="k-agent"><rect class="box" x="210" y="40" width="186" height="81" rx="4"/></g><g class="k-config"><rect class="box" x="410" y="40" width="176" height="81" rx="4"/></g><g class="k-script"><rect class="box" x="600" y="40" width="186" height="81" rx="4"/></g><g class="k-script"><rect class="box" x="800" y="40" width="186" height="81" rx="4"/></g><path class="ar" d="M196.0,79.0 L206.0,79.0" marker-end="url(#m73)"/><path class="ar" d="M396.0,79.0 L406.0,79.0" marker-end="url(#m73)"/><path class="ar" d="M586.0,79.0 L596.0,79.0" marker-end="url(#m73)"/><path class="ar" d="M786.0,79.0 L796.0,79.0" marker-end="url(#m73)"/><g class="k-playbook"><rect class="box" x="10" y="150" width="380" height="64" rx="4"/></g><g class="k-agent"><rect class="box" x="420" y="150" width="260" height="64" rx="4"/></g><g class="k-playbook"><rect class="box" x="710" y="150" width="280" height="64" rx="4"/></g><path class="ar" d="M893.0,121.0 L893.0,134.0 L200.0,134.0 L200.0,146.0" marker-end="url(#m73)"/><path class="ar" d="M390.0,183.0 L416.0,183.0" marker-end="url(#m73)"/><path class="ar" d="M680.0,183.0 L706.0,183.0" marker-end="url(#m73)"/><rect class="zone" x="4" y="250" width="992" height="100" rx="6"/><text x="16" y="269" class="h">子会话出事时</text><text x="10" y="20.0" class="h">一个复杂的 how 问题：会话被叫醒两次，每次一条</text><text x="22" y="60.0" class="h">Investigation 会话</text><text x="22" y="79.0" class="s">dispatch.sh brief</text><text x="22" y="96.0" class="s">researcher × 3，同一批</text><text x="22" y="113.0" class="s">然后结束回合</text><text x="222" y="60.0" class="h">3 个 researcher 会话</text><text x="222" y="79.0" class="s">各用自己的宿主和模型</text><text x="222" y="96.0" class="s">读代码的一个侧面</text><text x="222" y="113.0" class="s">做完跑 report</text><text x="422" y="60.0" class="h">本机状态目录</text><text x="422" y="79.0" class="s">briefs/&lt;批&gt;/&lt;brief&gt;/</text><text x="422" y="96.0" class="s">result.md 和 reported</text><text x="422" y="113.0" class="s">加锁写</text><text x="612" y="60.0" class="h">中继，每 30 秒</text><text x="612" y="79.0" class="s">一批全交了或有人 lost</text><text x="612" y="96.0" class="s">才排一行唤醒：</text><text x="612" y="113.0" class="s">brief &lt;批&gt; done</text><text x="812" y="60.0" class="h">runner 的 send</text><text x="812" y="79.0" class="s">把这一行送进会话</text><text x="812" y="96.0" class="s">Paseo、Orca、Herdr</text><text x="812" y="113.0" class="s">都有</text><text x="22" y="170.0" class="h">会话醒来（第 1 次）</text><text x="22" y="189.0" class="s">读 3 份结果，ack；</text><text x="22" y="206.0" class="s">dispatch.sh brief explainer，附 3 份结果的路径；结束回合</text><text x="432" y="170.0" class="h">explainer 会话</text><text x="432" y="189.0" class="s">核对发现，写成五节的说明</text><text x="432" y="206.0" class="s">report，中继再叫醒一次</text><text x="722" y="170.0" class="h">会话醒来（第 2 次）</text><text x="722" y="189.0" class="s">对照代码核实，照 Writing the reply 写给你；</text><text x="722" y="206.0" class="s">brief close：删掉这一批的目录</text><text x="16" y="288.0" class="s">死了，没交：看门进程 watchdog.py 问 runner，答 stopped 就记 lost；一批里有 lost 也算交齐，会话醒来看到是谁</text><text x="16" y="310.0" class="s">活着，结束回合却没交：回合守卫 turn-guard.py 拦一次，告诉它跑 report（claude、codex、grok 能拦，cursor、pi 补发一条）</text><text x="16" y="332.0" class="s">上级不在 runner 里（读不出会话号）：dispatch.sh brief 拒绝开，因为结果落下了也没人被叫醒</text></svg><!--/FIG:l7-brief--></div>
+<div class="legend" data-legend="playbook agent config script arrow zone" data-label-config="本机状态目录" data-label-agent="独立会话"></div>
+<figcaption><b>图 3</b>　一批结果全交了才叫醒一次。结果写进本机状态目录，不写进仓库；这一批用完就删。</figcaption>
+</figure>
+<p>要改四个文件：<code class="c k-script">dispatch.sh</code> 加 <code>brief</code>、<code>report</code>、<code>brief close</code>；<code class="c k-script">relay.py</code> 每轮多读状态目录下的 <code>briefs/</code>；<code class="c k-script">watchdog.py</code> 对 brief 子会话判活；<code class="c k-script">turn-guard.py</code> 多拦一种会话。查过、不用的四条路：</p>
+<div class="tablewrap"><table class="roles" style="min-width:760px">
+<thead><tr><th>做法</th><th>为什么不用</th></tr></thead>
+<tbody>
+<tr><th>Paseo 自带的「子会话做完通知父会话」</th><td>只有 Paseo 有；一次只通知一次；<a href="https://github.com/getpaseo/paseo/issues/5784">issue #5784</a> 报告这个通知会打断父会话的回合。MMW 在 ADR 0010 用过它，ADR 0020 废掉了</td></tr>
+<tr><th>上级挂着一条命令等，比如 <code>paseo wait</code></th><td>宿主的 shell 命令都有时限，超时就拿不到退出码；ADR 0010 不许轮询另一个 agent；<code>paseo wait</code> 也只有 Paseo 有</td></tr>
+<tr><th>子会话做完自己 <code>send</code> 给上级</th><td>写结果和报信是两个动作，进程死在中间，消息就丢了；v2 的 <code>notify_parent</code> 因此被 ADR 0020 删掉</td></tr>
+<tr><th>Orca 自带的编排队列</th><td>只有 Orca 有，换 runner 就要重做（ADR 0020）</td></tr>
+</tbody></table></div>
+<p><b>记录不留下来。</b>一批的目录在会话跑 <code>brief close</code> 时删掉；会话不在了一小时，中继照它现有的规矩关掉看守，那时也删。brief 不写进 <code>seen.json</code>，留下的只有日志里几行。</p>
+
+<h2>9　验证了什么，发现了什么</h2>
+<p>brief 机制还没写。这里验证的是它照搬的那一部分：中继的排队、发送、<code>ack</code>，以及状态目录的锁。用的是 v3 的 <code class="c k-script">relay.py</code> 和 <code class="c k-script">statedir.py</code> 原样，放在临时目录里；runner 换成假的，照三个适配器开头写明的方式回答。</p>
+<div class="tablewrap"><table class="roles" style="min-width:760px">
+<thead><tr><th>实验</th><th>结果</th></tr></thead>
+<tbody>
+<tr><th>5 个结果落在同一个 30 秒里，都给同一个上级</th><td>Paseo：一轮连发 5 条。Herdr：发 1 条，后几条答「正忙」，下一轮再送。Orca：发 2 条，第二条打进去，等回合结束再读。上级 <code>ack</code> 到最新一行后，剩下的不再送，队列清空</td></tr>
+<tr><th>20 个进程同时往一个加锁的文件各写 25 行</th><td>500 行，一行不少，没有重复</td></tr>
+<tr><th>300 个结果，每个都 <code>ack</code></th><td><code>queue.jsonl</code> 0 字节；<code>seen.json</code> 47 KB，每张票约 160 字节，只增不减</td></tr>
+<tr><th>你机器上的真实状态目录，9 月 11 日到 10 月 2 日（只读）</th><td><code>queue.jsonl</code> 0 字节，其间发过 368 次唤醒；<code>seen.json</code> 48 KB，159 张票；<code>relay.log</code> 203 KB；用完没删的 <code>merge-*.lock</code> 8 个</td></tr>
+</tbody></table></div>
+<p><b>发现一处问题，和我先前说的相反。</b>我说过「上级正在回合里时，<code>send</code> 答正忙，留到下一轮」。Herdr 是这样，Paseo 不是。<code class="c k-script">runners/paseo.sh</code> 的 <code>send</code> 只查会话在不在，就用 <code>paseo send --no-wait</code> 送出、答 0，中继接着送下一条。ADR 0010 实测过，这样送进去的消息会打断收信方正在跑的命令。所以在 Paseo 上，几个结果落在同一个 30 秒里，上级会被连着打断几次。<span class="inf">归纳</span>这是 ADR 0010 在 v2 时的实测，没在你装的 Paseo 0.7.2 上复测。</p>
+<p>设计因此改了一处：一批 brief 全交了才排一行唤醒，就是图 3 的 <code>brief &lt;批&gt; done</code>，所以一批只叫醒一次，用哪个 runner 都一样。夜里现有的唤醒也有这个问题：两张票在同一个 30 秒里结束，orchestrator 在 Paseo 上会连收两条。修法很小，中继给一个会话送出一条后，这一轮不再给它送。这是现有代码，不在这次的范围，等你定。</p>
+<p>会一直变大的记录只有三样，都和 brief 无关：<code>seen.json</code>、几份日志、用完的 <code>merge-*.lock</code>。按这三周的速度，一年几 MB，不影响运行。我建议第 8 课给日志设上限，清掉旧锁和已关票的条目。</p>
+<div class="takeaway"><b class="l">还没验证的</b><ol>
+<li>brief 机制本身：读 <code>briefs/</code>、一批交齐才唤醒、<code>brief close</code> 删目录、判活和回合守卫的那两条。写出来以后，用同样的假 runner 在临时目录里跑。</li>
+<li>Paseo 0.7.2 上，消息送进一个正在跑的会话，是打断还是排队。</li>
+<li>Paseo 自带的通知会不会在 <code class="c k-script">dispatch.sh</code> 开的子会话上生效，和中继的唤醒重复。</li>
+</ol></div>
+
+<h2>10　自测</h2>
 <div class="quiz" data-answer="0">
 <p class="q">1．<span class="c k-skill">advisor</span> 会话开工时，它读到的第一段话来自哪？</p>
 <div class="opts"><button>advising.md 全文</button><button>advisor 的 SKILL.md</button><button>调用方写的 brief</button><button>mode 的 Subagents</button></div>
@@ -278,10 +356,20 @@ footer.next{margin-top:36px;font-family:var(--f-head);font-size:14.5px;display:f
 <div class="opts"><button>宿主拒绝加载它</button><button>check-interfaces 报错</button><button>check_imports 报错</button><button>什么也不会发生</button></div>
 <div class="why" hidden>第 5 条拦的就是这个：下一步写在 playbook 的步骤里，不写在技能里。<code class="c k-skill">grilling</code> 在 <code>imports.tsv</code> 里登记过改动，<code class="c k-script">check_imports.py</code> 不再拿它逐字节比原文，所以不会报。</div>
 </div>
+<div class="quiz" data-answer="2">
+<p class="q">4．你想让 synthesizer 用最强的模型，而会话跑在便宜的模型上。它该做成哪一种？</p>
+<div class="opts"><button>会话自己来做</button><button>技能派的子代理</button><button>dispatch 开的会话</button><button>哪种都一样好</button></div>
+<div class="why" hidden>要自己的模型，只能做成独立会话（图 2 第 2 问）。子代理在 Codex 上默认拿不到模型参数，在 Claude Code 上只能选系列；独立会话用命令行参数指定，五个宿主都管用。</div>
+</div>
+<div class="quiz" data-answer="0">
+<p class="q">5．<span class="c k-playbook">Investigation</span> 派了 3 个 researcher，它们在同一个 30 秒里都交了。会话会被叫醒几次？</p>
+<div class="opts"><button>一次</button><button>三次</button><button>零次</button><button>看用哪个 runner</button></div>
+<div class="why" hidden>一批全交了才排一行唤醒。要是每份结果各排一行，在 Paseo 上中继会一轮连发三条，后两条打断会话正在跑的回合（第 9 节）。</div>
+</div>
 
 <h2>下一课</h2>
-<p>照第 6 课第 11 节的顺序，第 8 课写 <span class="c k-playbook">Work a ticket</span>、<span class="c k-playbook">Review a ticket</span> 和 <span class="c k-playbook">Make a small change</span>：填 worker 和 reviewer 的空壳，写轻的路径。第 2 节表里的「要改代码时转 <span class="c k-playbook">Make a small change</span>」，到那时才有地方可去。</p>
-<p class="ask">哪一项改得和你在第 6 课定的不一样，或者第 5 节「还没做完的」里有你现在就要定的，直接说。</p>
+<p>我建议第 8 课先实现第 6 到 8 节：角色表、brief 回程、<code class="c k-skill">how</code> 和 <code class="c k-skill">why</code> 改用四个角色，以及日志上限，都在临时目录里测。然后照第 6 课第 11 节的顺序写 <span class="c k-playbook">Work a ticket</span>、<span class="c k-playbook">Review a ticket</span> 和 <span class="c k-playbook">Make a small change</span>。先做角色表，是因为 reviewer 派它的轴也要登记进去。</p>
+<p class="ask">第 7 节的默认模型、第 9 节夜里那处唤醒要不要顺手修，或者哪一节看不懂，直接说。</p>
 <footer class="next"><a href="0006-reshaping-v2-skills.html">← 第 6 课</a><a href="../index.html">课程首页</a></footer>
 </div>
 <!--JS--><script>
