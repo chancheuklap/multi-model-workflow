@@ -155,6 +155,9 @@ table.roles code{white-space:nowrap}
 table.roles th,table.roles td{padding:7px 10px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}
 table.roles thead th{border-top:0;color:var(--muted);font-size:12.5px;font-weight:600;background:var(--sunk)}
 table.roles tbody th{font-weight:600;white-space:nowrap}
+/* a table whose row labels are long (step titles, file paths) lets them wrap; its code may wrap too */
+table.roles.wrap tbody th{white-space:normal;min-width:10em}
+table.roles.wrap code{white-space:normal;overflow-wrap:anywhere}
 /* quiz */
 .quiz{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:var(--f-head);font-size:14.5px;max-width:80ch}
 .quiz .q{font-weight:600;margin:0 0 8px}
@@ -314,9 +317,9 @@ Then end your turn. The file is copied out when you report, so where you write i
 </div>
 
 <h2>下一课</h2>
-<p>我建议第 9 课照第 6 课第 11 节的顺序写 <span class="c k-playbook">Work a ticket</span>、<span class="c k-playbook">Review a ticket</span> 和 <span class="c k-playbook">Make a small change</span>。</p>
-<p class="ask">第 7 课第 9 节夜里那处唤醒（Paseo 一轮连发几条）要不要修，mode 的 <code class="c k-mode">## Writing the reply</code> 里要 PR 链接的那一句要不要改，仍等你定。哪一节看不懂，直接说。</p>
-<footer class="next"><a href="0007-landing-lesson-6.html">← 第 7 课</a><a href="../index.html">课程首页</a></footer>
+<p><a href="0009-work-review-small-change.html">第 9 课</a>照第 6 课第 11 节的顺序写 <span class="c k-playbook">Work a ticket</span>、<span class="c k-playbook">Review a ticket</span> 和 <span class="c k-playbook">Make a small change</span>。</p>
+<p class="ask">第 7 课第 9 节夜里那处唤醒（Paseo 一轮连发几条）要不要修，仍等你定。哪一节看不懂，直接说。</p>
+<footer class="next"><a href="0007-landing-lesson-6.html">← 第 7 课</a><a href="../index.html">课程首页</a><a href="0009-work-review-small-change.html">第 9 课 →</a></footer>
 </div>
 <!--JS--><script>
 /* Quiz widget: <div class="quiz" data-answer="2"> with buttons in .opts and a hidden .why.

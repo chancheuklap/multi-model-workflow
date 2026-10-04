@@ -145,6 +145,9 @@ table.roles code{white-space:nowrap}
 table.roles th,table.roles td{padding:7px 10px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}
 table.roles thead th{border-top:0;color:var(--muted);font-size:12.5px;font-weight:600;background:var(--sunk)}
 table.roles tbody th{font-weight:600;white-space:nowrap}
+/* a table whose row labels are long (step titles, file paths) lets them wrap; its code may wrap too */
+table.roles.wrap tbody th{white-space:normal;min-width:10em}
+table.roles.wrap code{white-space:normal;overflow-wrap:anywhere}
 /* quiz */
 .quiz{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;margin:14px 0;font-family:var(--f-head);font-size:14.5px;max-width:80ch}
 .quiz .q{font-weight:600;margin:0 0 8px}
