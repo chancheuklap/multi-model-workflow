@@ -5,9 +5,9 @@ description: Run only when the user, mmw-mode or another skill names it; do not 
 
 # Code review
 
-A worker wrote this diff and the tests that prove it, and watched them pass. This review is the first reading by anyone who did not write it: what it reports, the worker fixes before the ticket closes; what it misses ships.
+Whoever wrote this diff also wrote the tests that prove it, and watched them pass. This review is the first reading by anyone who did not write it: what it reports is fixed before the change is finished; what it misses ships.
 
-You are given a ticket, a base commit and the axes to run. Send one subagent per axis, all at once, as mmw-mode's `## Subagents` says. Each subagent's prompt is its axis's file in full, with the ticket number written in for `<ticket>` and the base commit for `<base-commit>`:
+You are given a request, a base commit and the axes to run. The request is a ticket, or a file holding the owner's request word for word. Send one subagent per axis, all at once, as mmw-mode's `## Subagents` says. Each subagent's prompt is its axis's file in full, with `ticket #<n>` or `the request in <path>` written in for `<request>`, and the base commit for `<base-commit>`:
 
 | Axis | File |
 | --- | --- |

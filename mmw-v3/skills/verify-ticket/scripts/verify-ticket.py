@@ -1443,7 +1443,8 @@ def run_review(number: int, path: Path) -> int:
 
 def run_touched(number: int) -> int:
     """Post `worker.touched` on each open sibling whose `## Owns` covers a file this
-    ticket changed outside its own, naming the files and why they were changed."""
+    ticket changed outside its own, naming the files and why they were changed. A ticket
+    outside any spec has no siblings: it posts nothing and exits 0."""
     comments = fetch_comments(number)
     review = (events.newest(comments, "reviewer.reported") or {}).get("body")
     if review is None:
@@ -1460,7 +1461,10 @@ def run_touched(number: int) -> int:
     except ParentUnreadable as exc:
         return refuse(f"#{number}: the tracker could not say which spec it sits under ({exc})")
     if spec is None:
-        return refuse(f"#{number} has no parent link and no spec in `## Parent`")
+        # A ticket outside any spec has no batch, so no other ticket owns these files.
+        sys.stderr.write(f"#{number} sits under no spec, so no other ticket owns "
+                         f"{', '.join(files)}; nothing to tell\n")
+        return 0
     try:
         siblings = open_children_owns(spec)
     except SubIssuesUnreadable as exc:
@@ -1991,7 +1995,7 @@ def refusals(number: int, ticket: dict, me: str, branch: str,
 
     The sixth, the tree, is the one whose answer depends on who holds the ticket, because
     a worker comes through this run every time it enters the ticket — the turn it is
-    prompted back into after a review included (the `implement` skill's claim and resume). On that turn
+    prompted back into after a review included (Work a ticket's claim and `RESUME:`). On that turn
     the uncommitted tracked changes are its own work from an earlier turn, so the tree
     refuses only while the claim is not this account's: read as an upstream fault they
     end a live worker's hold, and the ticket then says `live: false` of a session that

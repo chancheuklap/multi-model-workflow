@@ -72,7 +72,7 @@ REFUSAL = (
 )
 
 # The same length rule. Nobody is at the screen; the two ways out are the ones the
-# `implement` skill already gives.
+# Work a ticket playbook already gives.
 NO_QUESTION = (
     "Nobody is at the screen. Take the likeliest option and note it under `Decisions I "
     "made on my own`; if the answer changes what the ticket delivers, write `ABANDON: "

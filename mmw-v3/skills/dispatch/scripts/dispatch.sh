@@ -2588,7 +2588,7 @@ integrate_conflict_report() {
     echo "  conflicted files:"
     git -C "$root" diff --name-only --diff-filter=U | sed 's/^/    /'
     echo
-    echo "  Resolve this merge with the resolving-merge-conflicts skill, run the"
+    echo "  Resolve this merge as Work a ticket's step Integrate and run every criterion says, run the"
     echo "  repository checks affected by the merged tickets, commit the merge,"
     echo "  then run dispatch.sh integrate $number again."
   } >&2

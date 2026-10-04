@@ -1,0 +1,83 @@
+# The format of a ticket
+
+What one ticket holds, section by section, and how each acceptance criterion is written. `verify-ticket.py` runs what is written here: `--preflight` claims the ticket, `<n>` runs every criterion, `<n> --lint` checks one ticket and the graph of the batch it sits under ([linting.md](linting.md)).
+
+## The body
+
+```
+## Parent
+
+A reference to the parent issue on the tracker, followed by the numbered Implementation Decisions sections this ticket implements (for example, "#12, Implementation Decisions sections 5 and 7"). The first issue here is read as the ticket's spec. A ticket outside any spec writes "None".
+
+## What to build
+
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. Write it as numbered points, one thing per point, each point complete with the test that decides it and the reason it is there. A person scans it for the one point they came for, an agent works from it with none of your context, and neither gets through one long paragraph.
+
+## Read first
+
+The source material behind the sections named under **Parent**: decision tickets, ADRs, research files, prototype directories, domain docs, the sections of `CODING_STANDARDS.md` and `TESTING.md` the spec relies on, copied from what those sections cite, one per line, each with a word on what it settles. The implementer reads these and nothing else from the spec's Sources. Whatever here records a settled conclusion (the chosen artifact of a prototype, a design package pulled into the repository, the decision an ADR states in the paragraph under its title, the resolution of a decision ticket) is a **baseline**: a contract, not a reference, marked as one on its line. Write "None" if the sections cite nothing.
+
+## Seam
+
+Where this ticket is verified: the test layer and directory from the spec's Testing Decisions, and the precedent to copy. Then, from the same section's **How a test arrives at a state**, what puts the system into the states the criteria below name; when this ticket is the one that builds that, say so here as well as under **Owns**.
+
+## Owns
+
+The repository-relative paths this ticket may write, one per line, the test directory or test file from **Seam** included. Mark what this ticket creates with "(new)". A file this ticket must edit to put what it creates in service (the registry, router, stylesheet, parent template or index that has to name it) belongs here as well, though another ticket created it: this section says where this ticket may write, not where its own code lives. No absolute path, no `..`, no bare `**`. Match the granularity to the split: a directory glob where this ticket owns the directory alone, file paths where several tickets divide one directory. Two tickets that can run at the same time must not overlap here; where they cannot be pulled apart because both must edit one file, add a **Blocked by** edge instead. Everything outside these paths is read-only for this ticket. A change a ticket needs in a tool skill outside the repository is not an entry here: the toolbox is improved in use, and the change is made there at once.
+
+A ticket that deletes or renames a file, a script, a contract field, or a criterion word takes every place `grep` finds that name into its own **Owns**. Find those places by grepping the name, not by listing from memory. When a hit is only a stale reference another ticket already owns, leave it off this ticket and open a ticket **Blocked by** that other ticket.
+
+- src/import/**
+- tests/import/**
+- src/import/ui/** (new)
+
+## Acceptance criteria
+
+- [ ] AC1: <what must be true, in the spec's exact values>
+  CHECK: <the command that decides it>
+  EXPECT: <the line only a passing run prints>
+  EVIDENCE: pending
+- [ ] AC2: <the next thing that must be true>
+  CHECK: <the command that decides it>
+  EXPECT: <the line only a passing run prints>
+  EVIDENCE: pending
+  TIMEOUT: 1800
+
+`TIMEOUT:` is optional: seconds this `CHECK:` may run, written when the precedent takes longer than ten minutes (a full build, a suite that starts a browser), and read by the worker's own run and final run alike. It raises the limit and never lowers it.
+```
+
+Avoid implementation file paths or code snippets: they go stale fast; paths to source material stay, and so do the two kinds of path a ticket cannot do without: the test directory or test file under **Seam**, and the paths under **Owns**, which say where this ticket may write, not where its code lives. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
+
+A ticket outside any spec has no Testing Decisions to copy from: its **Seam** and each `CHECK:` take their layer, directory and precedent from the repository's `TESTING.md` and the nearest test of the same kind.
+
+## Each acceptance criterion
+
+Three rules bind how each one is worded:
+
+1. Observable external behaviour, from the spec's seam or a user-visible UI. Not internals.
+2. Exact values (numbers, copy, state names, field names) copied from the spec or the chosen prototype artifact. No "appropriate", "correct", or "as expected".
+3. One behaviour per criterion, independently true or false. Split compounds.
+
+**A criterion is decided by a command, or it is not a criterion.** Everything under `## Acceptance criteria` is run by machine and re-run by the worker's final run, and that is what makes "it passed" a fact rather than the opinion of whoever wrote the code.
+
+Every criterion is four lines, and carries a number you assign as you write it and never renumber.
+
+```
+- [ ] AC1: POST /projects with a name that already exists returns 409 and error name-duplicate
+  CHECK: pnpm vitest run tests/api/projects.create.test.ts -t "duplicate name returns 409"
+  EXPECT: /Tests\s+1 passed/
+  EVIDENCE: pending
+```
+
+Derive `CHECK:` and `EXPECT:`; do not invent either:
+
+- `CHECK:` comes from Testing Decisions: its layer, that layer's directory, and the precedent it names. Open the precedent, copy its framework and its single-file invocation, then aim that at the file and case this ticket adds.
+- `EXPECT:` is a **success-only marker**: the line the precedent prints only when it passed. Run the precedent once and copy that line. `ok`, `passed` or `done` on their own also appear in failing output; take the whole counted line.
+
+`CHECK:` takes the object it checks from one of two places: this ticket itself (the number comes from `$MMW_TICKET`, or from the branch name `issue-<n>`), or something this ticket names by number. When the objects only exist at run time, walk the tracker's native relationships out from an anchor the ticket names: `gh api repos/{owner}/{repo}/issues/<n>/sub_issues`. A `CHECK:` must not search for its own object; searching and taking the first hit (`gh issue list --search … | head -1` and its kind) checks whatever the search happens to return, and often cannot fail at all.
+
+`CHECK:` brings the state it needs and puts back the shared state it changed. Criteria run one at a time in ledger order, each in its own shell with cwd fixed at the repository root, so `cd` cannot reach another one, but the branch, the ticket and the working tree are shared, and `--reverify` runs every criterion a second time: switch a branch and switch it back; reopen a ticket the next criterion needs open; stop a server you started.
+
+## Labels
+
+A ticket carries `mmw:ticket`. A ticket an agent works also carries `ready-for-agent` and one worker label. `junior-worker` is the default, and a ticket goes to `senior-worker` when getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), because none of those fail on the day they are written. A ticket whose **Seam** already names a precedent to copy stays on `junior-worker`.

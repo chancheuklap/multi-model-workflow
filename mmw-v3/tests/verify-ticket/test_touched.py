@@ -376,16 +376,19 @@ FOREIGN_PARENT = (
 )
 
 
-class TestRefusesAForeignOrUnreadableSpec(unittest.TestCase):
-    def test_a_cross_repo_parent_ref_is_refused_not_fetched(self):
+class TestNoSpecOrAnUnreadableOne(unittest.TestCase):
+    def test_a_cross_repo_parent_ref_is_not_fetched_and_tells_no_one(self):
+        """A ticket outside any spec has no siblings: `--touched` exits 0 so the worker's
+        step passes, posts nothing, and never fetches the foreign reference."""
         code, err, posted, _, recorded = run_touched(
             (SELF_RUN, DECISIONS, REVIEW),
             {80: SIBLING_COVERS},
             parent=None,
             body=FOREIGN_PARENT,
         )
-        self.assertEqual(code, 2)
-        self.assertIn("no spec", err)
+        self.assertEqual(code, 0, err)
+        self.assertIn("sits under no spec", err)
+        self.assertIn("src/helper.py", err)
         self.assertEqual(posted, [])
         self.assertIsNone(sub_issues_target(recorded))
 
