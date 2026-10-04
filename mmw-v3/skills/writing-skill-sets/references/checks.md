@@ -1,6 +1,6 @@
 # Checks for any passage
 
-Every section here applies to any text an agent reads, written or reviewed. A passage of one of the kinds in the second table of this skill's `SKILL.md` is also held to that kind's file. A check here is also a rule for writing: apply it to the passage in hand.
+Every section here applies to any text an agent reads, written or reviewed. A passage of one of the kinds in the table of this skill's `SKILL.md` is also held to that kind's file. A check here is also a rule for writing: apply it to the passage in hand.
 
 ## Load and disclosure
 

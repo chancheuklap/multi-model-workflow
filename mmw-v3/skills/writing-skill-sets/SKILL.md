@@ -1,6 +1,6 @@
 ---
 name: writing-skill-sets
-description: "Writes, places, checks and reviews the text of a skill set: skills that hand work to each other, with their playbooks, principles, references and scripts. Use when writing or editing text an agent reads in such a set, or when reviewing a set by walking the tasks agents do with it."
+description: "Where a passage of a skill set's text goes, the checks it is held to, and how a task is walked through it; a skill set is skills that hand work to each other, with their playbooks, principles, references and scripts. Use when writing, editing or reviewing text an agent reads in such a set."
 ---
 
 # Writing skill sets
@@ -13,7 +13,7 @@ Text inside an upstream subtree also follows that subtree's own `AGENTS.md`.
 
 Every check in this skill serves these seven facts about how an agent uses a set.
 
-1. **A skill hands over understanding, not only steps.** Steps cover the cases their writer foresaw, and the agent meets others. So beside its steps a skill says what the work is for, who depends on what it produces and what a wrong or shallow result costs them, and, next to a rule, the reason for it: a model given the reason carries it into cases no rule names. Upstream's `wayfinder` does this in its opening and in `## Plan, don't do`. Such text is paid for as fact 4 says, by a judgement the agent could not make without it, and it has two tests. A sentence beside a rule passes when you can name a case the steps do not cover and what the agent does differently there with it. An opening passage passes when an agent holding only the skill could not otherwise say what the work is for, who acts on what it produces, and what a shallow result costs them. A sentence that only declares importance, retells the pipeline around the task, or tells this agent what another skill's agent does, fails both and is a no-op. One that passes is not cut for length; cutting it takes what `references/writing.md` `## Editing` asks.
+1. **A skill hands over understanding, not only steps.** Steps cover the cases their writer foresaw, and the agent meets others. So beside its steps a skill says what the work is for, who depends on what it produces and what a wrong or shallow result costs them, and, next to a rule, the reason for it: a model given the reason carries it into cases no rule names. Upstream's `wayfinder` does this in its opening and in `## Plan, don't do`. Such text is paid for as fact 4 says, by a judgement the agent could not make without it, and it has two tests. A sentence beside a rule passes when you can name a case the steps do not cover and what the agent does differently there with it. An opening passage passes when an agent holding only the skill could not otherwise say what the work is for, who acts on what it produces, and what a shallow result costs them. A sentence that only declares importance, retells the pipeline around the task, or tells this agent what another skill's agent does, fails both and is a no-op. One that passes is not cut for length; cutting it takes what `references/editing.md` asks.
 2. **Scripts carry what is deterministic; text carries judgement.** A script runs the fixed procedure, checks what can be checked exactly, and says on refusal what happened and what to do next. The text tells the agent when to run it and how to decide what no script can decide: what counts as done, which of two readings applies, what the user meant. Text that narrates what a script does spends the agent's attention on work the agent does not do.
 3. **Attention is the budget.** Every sentence an agent reads competes with the sentence it needs. Material read at a moment that does not use it, a rule stated twice, and a case the agent would handle by default all thin the attention left for the judgement the text exists to guide.
 4. **Direct, then trust.** A skill states the goal, the constraints, the judgement calls and the completion criterion, and leaves the ordinary moves to the model. Text that scripts every move makes the flow **rigid** (the agent follows the list when the situation differs from it) and **brittle** (each enumerated case must be kept in step with the scripts, and the case nobody listed has no guidance at all). Upstream's `implement` is five lines: it names the skills it hands to (`tdd`, `code-review`) and trusts the agent with the rest. MMW's automation needs more than that, and each addition is paid for by a judgement the agent could not make without it.
@@ -23,17 +23,11 @@ Every check in this skill serves these seven facts about how an agent uses a set
 
 ## Where to go
 
-| You are | Open |
-| --- | --- |
-| writing or editing text an agent reads in the set | `references/writing.md` |
-| reviewing the set, or some of its skills | `references/reviewing.md` |
-
-Those two files send you to the rest at the moment you need it:
-
 | Moment | Open |
 | --- | --- |
 | deciding where a passage goes | `references/components.md` |
 | writing or checking any passage | `references/checks.md` |
+| adding to or changing text that already exists: a fix, a new passage, a rename, a move, a deletion | `references/editing.md` |
 | the passage is about a script, or is a script | `references/checks-scripts.md` |
 | the passage is a skill's `description` | `references/checks-descriptions.md` |
 | the passage is a start prompt, a subagent's brief, or the template either is written from | `references/checks-prompts.md` |

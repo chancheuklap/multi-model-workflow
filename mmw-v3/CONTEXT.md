@@ -74,11 +74,11 @@ _Home_: `mmw-v3/skills/writing-skill-sets/references/walkthrough.md` `## Walk ea
 
 **finding**:
 A defect a review establishes with its evidence and fixes; either a finding about **load** or a **failure finding**. There are no severity levels.
-_Home_: `mmw-v3/skills/writing-skill-sets/references/reviewing.md`, opening paragraphs
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md`, opening paragraphs
 
 **failure finding**:
 A finding where the agent ends wrong or stuck, named with how it occurs in real use.
-_Home_: `mmw-v3/skills/writing-skill-sets/references/reviewing.md`, opening paragraphs
+_Home_: `mmw-v3/skills/mmw-mode/playbooks/review-the-skill-set.md`, opening paragraphs
 
 **moment**:
 A point in a task that needs one coherent set of material and that a run may reach without the others.

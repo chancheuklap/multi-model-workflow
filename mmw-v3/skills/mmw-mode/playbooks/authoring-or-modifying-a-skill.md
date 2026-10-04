@@ -1,0 +1,18 @@
+### Authoring or modifying a skill
+
+**You own the change. Write it, walk it, deliver it.**
+
+This playbook puts text an agent reads into the component that answers its question, writes it, and proves it on a real run. Every agent that loads that text acts on it in cases its writer did not foresee, with no one to ask: a rule written in a second place drifts from the first, and a rule without its reason fails in the case nobody listed. The temptation is to answer each slip with one more sentence; every sentence costs attention on every run that loads the file, so **Write it** deletes before it adds.
+
+1. **Place it.** Read the `writing-skill-sets` skill's `SKILL.md`. Decide by the file its table opens for deciding where a passage goes which component each passage belongs to, and so which file it goes in. A meaning that already lives in that file is an edit to the sentence there, not a new passage; a meaning the text already states as asked needs no change, and **Deliver** says so.
+   Done when every passage you will write has one component and one file, chosen by the question it answers, or the text already states the change as asked.
+2. **Write it.** Write it as the `writing-for-agents` skill says, and hold every passage you add or change to the files the `writing-skill-sets` skill's table opens for writing or checking any passage, for that passage's kind of text, and for adding to or changing text that already exists. When in doubt, delete.
+   Done when the text is in the file **Place it** chose, and every passage you added or changed meets those checks.
+3. **Validate it.** Run the `writing-skill-sets` skill's `scripts/check_skill_text.py`, and rerun it after each fix; a `NOT CHECKED` line it prints names a file it could not reach, and goes into the Reply. A check a script could make and that script does not, you add to it: a check made by eye cannot be rerun by the reader who has to trust it.
+   Done when every check of this step passes on the final text, apart from `NOT CHECKED` lines for skills outside the set, and each check a script made has its command and result ready for the Reply.
+4. **Walk a real task.** Find the tasks the change touches, and have a fresh agent walk each once on your changed text, as the file the `writing-skill-sets` skill's table opens for walking a task says in `## List the tasks` and `## A fresh agent's walk`; start it as the mode's `## Subagents` says. Its record of the walk is the task's load. Go back to **Place it** only where the agent ended wrong, stopped short of the completion criterion, or guessed at a sentence your change wrote, and fix it there, through **Validate it**; the fix is not walked again. Every other guess goes into the Reply as a finding for a later change, unfixed: each fresh agent finds a new guess somewhere, and fixing each one adds a sentence that raises the next.
+   Done when every task the change touches has been walked once, each place where the agent ended wrong, stopped short or guessed at a sentence your change wrote is fixed, and every other guess is in the Reply; or the Reply lists the walk as not done.
+5. **Deliver.** Commit the change and tell the user. When the change edits a skill's `description`, tell the user it takes effect in a new session. When **Place it** found the text already states the change as asked, commit nothing and tell the user nothing changed.
+   Done when the change is committed and the user has heard so, or the user has heard that nothing changed.
+
+**Reply:** what you wrote and the component each part went to; what you deleted; each validation check with its command and result; the walk, with where the agent guessed or stopped and its load, or that it is not done; what remains of the delivery.
