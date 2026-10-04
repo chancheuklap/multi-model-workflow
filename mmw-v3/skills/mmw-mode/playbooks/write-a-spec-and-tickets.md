@@ -10,7 +10,7 @@ This playbook turns what the user has in mind into a batch a night can build wit
 - The spec is published and has no tickets → **Cut the tickets**.
 - A map's `## Specs` section, or a first spec's `## Further Notes`, lists a spec with no link yet → **Write the spec**.
 - The spec's tickets are published and `--lint` reports no `ERROR` → **Hand over**.
-- A cleared map → **Write the spec**.
+- A map with no open child ticket and an empty **Not yet specified** → **Write the spec**.
 - The user's message brings a decision already settled, and no spec exists → **Decide who checks**.
 - The user brings back a filled questionnaire → **Interview**.
 - Anything else → **Interview**.

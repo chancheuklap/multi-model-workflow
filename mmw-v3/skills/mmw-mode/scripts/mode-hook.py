@@ -35,7 +35,7 @@ def main():
         payload = json.load(sys.stdin)
         cwd = Path(payload.get("cwd") or os.getcwd()).resolve()
         root = next((p for p in (cwd, *cwd.parents) if (p / ".git").exists()), cwd)
-        if not (root / ".mmw").is_dir() and not (root / "docs/agents/issue-tracker.md").is_file():
+        if not (root / ".mmw").is_dir():
             return
         context = ("New task here? Playbook match or rigor needed → apply the mmw-mode skill. "
                    "Casual turn or user opts out → don't.")

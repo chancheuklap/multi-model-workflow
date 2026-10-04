@@ -69,18 +69,23 @@ class ModeHookTests(unittest.TestCase):
         return hook
 
     def test_prompt_submit_in_an_mmw_repository_injects_the_mode_line(self):
-        for marker in (".mmw", "tracker"):
-            if marker == "tracker":
-                (self.repo / ".mmw").rmdir()
-                tracker = self.repo / "docs/agents/issue-tracker.md"
-                tracker.parent.mkdir(parents=True)
-                tracker.touch()
+        for host in ("claude", "codex"):
+            with self.subTest(host=host):
+                self.assertEqual(
+                    "New task here? Playbook match or rigor needed → apply the mmw-mode skill. "
+                    "Casual turn or user opts out → don't.",
+                    self.context(self.call("prompt-submit", host), "prompt-submit"))
+
+    def test_an_issue_tracker_file_without_mmw_prints_nothing(self):
+        # setup-matt-pocock-skills writes this file in repositories that do not use MMW.
+        (self.repo / ".mmw").rmdir()
+        tracker = self.repo / "docs/agents/issue-tracker.md"
+        tracker.parent.mkdir(parents=True)
+        tracker.touch()
+        for event in EVENTS:
             for host in ("claude", "codex"):
-                with self.subTest(marker=marker, host=host):
-                    self.assertEqual(
-                        "New task here? Playbook match or rigor needed → apply the mmw-mode skill. "
-                        "Casual turn or user opts out → don't.",
-                        self.context(self.call("prompt-submit", host), "prompt-submit"))
+                with self.subTest(event=event, host=host):
+                    self.silent(self.call(event, host))
 
     def test_session_start_injects_the_prompt_submit_line_and_runs_nothing_else(self):
         # A dispatch.sh beside the hook would leave a mark if the hook ran it.

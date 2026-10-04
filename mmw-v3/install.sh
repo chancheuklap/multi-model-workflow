@@ -965,7 +965,7 @@ fi
 
 # ---------------- Paseo 侧配置 ----------------
 #
-# 源在仓库（hosts.json 里两条 provider 的字面量），host 侧只放生成物：CLI 软链、
+# 源在本脚本（下面 GROK_PROVIDER、CURSOR_PROVIDER 两条 provider 的字面量），host 侧只放生成物：CLI 软链、
 # ~/.paseo/config.json 里的 provider、worktrees.root。models.json 在 ~/.mmw/：第一次
 # install 从 hosts.json 的 defaults 写入，或从遗留 Markdown 导入，之后不覆盖。不写 Agent profile。笔记含
 # `from models.md` 的生成 profile 安装时摘掉、--check 报残留；手写的不动。
